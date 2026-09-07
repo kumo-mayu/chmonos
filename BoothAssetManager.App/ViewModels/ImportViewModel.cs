@@ -5,8 +5,12 @@ using BoothAssetManager.Core.Scanning;
 
 namespace BoothAssetManager.App.ViewModels;
 
-public sealed class UnpackedFolderRow
+public sealed class UnpackedFolderRow : ViewModelBase
 {
+    private bool _isSelected;
+
+    public required UnpackedFolder Folder { get; init; }
+
     public required string Name { get; init; }
 
     public required string ArchiveName { get; init; }
@@ -14,6 +18,13 @@ public sealed class UnpackedFolderRow
     public required string SizeText { get; init; }
 
     public int FileCount { get; init; }
+
+    /// <summary>削除対象に選ばれているか。既定はオフ（消す方を明示的に選ばせる）。</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetField(ref _isSelected, value);
+    }
 }
 
 /// <summary>
@@ -32,6 +43,7 @@ public sealed class ImportViewModel : ViewModelBase
     private int _total;
     private ImportSummary? _summary;
     private string? _errorText;
+    private bool _isThrottled;
 
     public ImportViewModel(AppServiceContainer services, MainViewModel main)
     {
@@ -47,6 +59,8 @@ public sealed class ImportViewModel : ViewModelBase
         RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => !IsRunning && parameter is string);
         StartCommand = new RelayCommand(() => _ = RunAsync(), () => !IsRunning && Folders.Count > 0);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
+        SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
+        RemoveUnpackedCommand = new RelayCommand(() => _ = RemoveUnpackedAsync(), () => !IsRunning && HasUnpackedSelection);
     }
 
     public ObservableCollection<string> Folders { get; } = [];
@@ -60,6 +74,10 @@ public sealed class ImportViewModel : ViewModelBase
     public RelayCommand StartCommand { get; }
 
     public RelayCommand CancelCommand { get; }
+
+    public RelayCommand SelectAllUnpackedCommand { get; }
+
+    public RelayCommand RemoveUnpackedCommand { get; }
 
     public bool IsRunning
     {
@@ -145,7 +163,39 @@ public sealed class ImportViewModel : ViewModelBase
 
     public bool HasError => !string.IsNullOrEmpty(ErrorText);
 
+    /// <summary>
+    /// BOOTHから429を受けて取得間隔を広げている状態か。
+    /// 黙って遅くなると原因が分からないので、遅い理由を画面に出す。
+    /// </summary>
+    public bool IsThrottled
+    {
+        get => _isThrottled;
+        private set
+        {
+            if (SetField(ref _isThrottled, value))
+            {
+                OnPropertyChanged(nameof(ThrottleText));
+            }
+        }
+    }
+
+    public string ThrottleText =>
+        $"BOOTHから待つよう指示があったため、取得間隔を {_services.Client.CurrentIntervalMs / 1000.0:0.#} 秒に広げています。";
+
     public bool HasUnpackedFolders => UnpackedFolders.Count > 0;
+
+    public int SelectedUnpackedCount => UnpackedFolders.Count(row => row.IsSelected);
+
+    public bool HasUnpackedSelection => SelectedUnpackedCount > 0;
+
+    public string UnpackedSelectionText => SelectedUnpackedCount == 0
+        ? "削除するフォルダを選んでください。"
+        : $"{SelectedUnpackedCount} フォルダ / {FormatSize(UnpackedFolders.Where(row => row.IsSelected).Sum(row => row.Folder.TotalBytes))} を削除します。";
+
+    /// <summary>削除の結果。何を消して何を消さなかったかを残す。</summary>
+    public ObservableCollection<string> RemovalResults { get; } = [];
+
+    public bool HasRemovalResults => RemovalResults.Count > 0;
 
     /// <summary>ドロップされたパスを受け取る。ファイルが落とされたらその親フォルダを対象にする。</summary>
     public void AddDroppedPaths(IEnumerable<string> paths)
@@ -189,8 +239,118 @@ public sealed class ImportViewModel : ViewModelBase
 
     private void Cancel() => _cancellation?.Cancel();
 
+    private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(UnpackedFolderRow.IsSelected))
+        {
+            RaiseSelectionChanged();
+        }
+    }
+
+    private void RaiseSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedUnpackedCount));
+        OnPropertyChanged(nameof(HasUnpackedSelection));
+        OnPropertyChanged(nameof(UnpackedSelectionText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    private void SelectAllUnpacked()
+    {
+        // 全部入っているなら全解除。押すたびに切り替える
+        var selectAll = UnpackedFolders.Any(row => !row.IsSelected);
+        foreach (var row in UnpackedFolders)
+        {
+            row.IsSelected = selectAll;
+        }
+    }
+
+    /// <summary>
+    /// 選択された展開先フォルダを削除する。取り返しがつかない操作なので、必ず確認を挟む。
+    /// 実際に消すのはごみ箱送りで、展開元のzipが残っていることはCore側で再確認している。
+    /// </summary>
+    private async Task RemoveUnpackedAsync()
+    {
+        var targets = UnpackedFolders.Where(row => row.IsSelected).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var names = string.Join("\n", targets.Take(10).Select(row => $"・{row.Name}（{row.SizeText}）"));
+        if (targets.Count > 10)
+        {
+            names += $"\n…ほか {targets.Count - 10} フォルダ";
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"次の {targets.Count} フォルダをごみ箱へ移動します。\n\n{names}\n\n"
+            + "いずれも展開元のアーカイブが手元に残っているものです。削除しますか？",
+            "展開先フォルダの削除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsRunning = true;
+        RemovalResults.Clear();
+
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(
+                new UiCommand.RemoveUnpackedFolders(targets.Select(row => row.Folder).ToList()));
+
+            if (result is CommandResult.UnpackedFoldersRemoved removed)
+            {
+                var freed = removed.Results.Where(entry => entry.Removed).Sum(entry => entry.FreedBytes);
+                var removedCount = removed.Results.Count(entry => entry.Removed);
+                RemovalResults.Add($"{removedCount} フォルダを削除しました（{FormatSize(freed)} 空きました）。");
+
+                foreach (var entry in removed.Results.Where(entry => !entry.Removed))
+                {
+                    RemovalResults.Add($"削除しませんでした: {Path.GetFileName(entry.Path)} — {entry.Reason}");
+                }
+
+                // 消えたものだけ一覧から外す。残ったものは理由と一緒に見えたままにする
+                foreach (var row in targets.Where(row =>
+                    removed.Results.Any(entry => entry.Removed && entry.Path == row.Folder.Path)))
+                {
+                    row.PropertyChanged -= OnUnpackedRowChanged;
+                    UnpackedFolders.Remove(row);
+                }
+            }
+            else if (result is CommandResult.Failed failed)
+            {
+                RemovalResults.Add(failed.Message);
+            }
+        }
+        finally
+        {
+            IsRunning = false;
+            OnPropertyChanged(nameof(HasUnpackedFolders));
+            OnPropertyChanged(nameof(HasRemovalResults));
+            RaiseSelectionChanged();
+        }
+    }
+
+    /// <summary>
+    /// 対象フォルダを設定に残す。ファイルが欠落したときの再スキャン範囲も兼ねるので、
+    /// 起動のたびに選び直させない。
+    /// </summary>
+    private async Task SaveFoldersAsync()
+    {
+        var current = _services.Store.Settings.Load();
+        await _services.Store.Settings.SaveAsync(current with { ImportFolders = Folders.ToList() });
+    }
+
     private async Task RunAsync()
     {
+        await SaveFoldersAsync();
+
         IsRunning = true;
         Summary = null;
         ErrorText = null;
@@ -212,6 +372,13 @@ public sealed class ImportViewModel : ViewModelBase
             Current = report.Current;
             Total = report.Total;
             DetailText = report.Detail ?? string.Empty;
+
+            // 減速は取得の合間に起きるので、進捗が届くたびに見る
+            IsThrottled = _services.Client.IsThrottled;
+            if (IsThrottled)
+            {
+                OnPropertyChanged(nameof(ThrottleText));
+            }
         }));
 
         try
@@ -226,16 +393,20 @@ public sealed class ImportViewModel : ViewModelBase
                 Summary = imported.Summary;
                 foreach (var folder in imported.Summary.UnpackedFolders.OrderByDescending(entry => entry.TotalBytes))
                 {
-                    UnpackedFolders.Add(new UnpackedFolderRow
+                    var row = new UnpackedFolderRow
                     {
+                        Folder = folder,
                         Name = Path.GetFileName(folder.Path),
                         ArchiveName = Path.GetFileName(folder.ArchivePath),
                         FileCount = folder.FileCount,
                         SizeText = FormatSize(folder.TotalBytes),
-                    });
+                    };
+                    row.PropertyChanged += OnUnpackedRowChanged;
+                    UnpackedFolders.Add(row);
                 }
 
                 OnPropertyChanged(nameof(HasUnpackedFolders));
+                RaiseSelectionChanged();
                 PhaseText = "完了";
                 DetailText = string.Empty;
                 await _main.ReloadLibraryAsync();

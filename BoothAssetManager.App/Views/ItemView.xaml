@@ -304,8 +304,8 @@
                                                             <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
                                                                 <Grid>
                                                                     <TextBlock Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
-                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,110,0" />
-                                                                    <Button Content="エクスプローラで開く" FontSize="11" Height="26" Width="105"
+                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,132,0" />
+                                                                    <Button Content="エクスプローラで開く" FontSize="11" Height="26" Width="124"
                                                                             HorizontalAlignment="Right"
                                                                             Command="{Binding DataContext.OpenInExplorerCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"

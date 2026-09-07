@@ -12,11 +12,13 @@ public sealed class CommandHandler
 {
     private readonly IImportPipeline _import;
     private readonly IItemService _items;
+    private readonly UnpackedFolderRemover? _unpackedRemover;
 
-    public CommandHandler(IImportPipeline import, IItemService items)
+    public CommandHandler(IImportPipeline import, IItemService items, UnpackedFolderRemover? unpackedRemover = null)
     {
         _import = import;
         _items = items;
+        _unpackedRemover = unpackedRemover;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -50,6 +52,15 @@ public sealed class CommandHandler
             case UiCommand.ExcludeFile exclude:
                 await _items.ExcludeAsync(exclude.Hash, exclude.Paths, exclude.Reason, cancellationToken);
                 return new CommandResult.Done();
+
+            case UiCommand.RemoveUnpackedFolders remove:
+                if (_unpackedRemover is null)
+                {
+                    return new CommandResult.Failed("削除の実行手段が設定されていません。");
+                }
+
+                return new CommandResult.UnpackedFoldersRemoved(
+                    await _unpackedRemover.RemoveAsync(remove.Folders, cancellationToken));
 
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");

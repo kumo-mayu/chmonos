@@ -14,13 +14,43 @@ namespace BoothAssetManager.App.Services;
 /// 取り込み時と同じ ImageSharp で復号してから <see cref="BitmapSource"/> へ変換する。
 /// 環境によって画像が出たり出なかったりする状態を避けるための判断。
 ///
-/// 復号結果はパス単位でキャッシュする。カードにマウスを乗せたときに
-/// 同じ画像を何度も復号し直さないようにするため。
+/// 復号結果はパス単位でキャッシュするが、上限を設けて古いものから捨てる。
+/// 保持しているのは圧縮前の生ピクセル（Bgra32）で、長辺384pxなら1枚あたり最大576KB、
+/// ディスク上の実測平均15KBに対して30倍以上になる。
+/// 上限が無いと、ライブラリが数百件になった時点でメモリを食い潰す。
 /// </summary>
 public sealed class ThumbnailLoader
 {
-    private readonly Dictionary<string, BitmapSource?> _byPath = new(StringComparer.OrdinalIgnoreCase);
+    private sealed class Entry
+    {
+        public required BitmapSource? Image { get; init; }
+
+        public required long Bytes { get; init; }
+
+        /// <summary>最後に読まれた順番。小さいものから捨てる。</summary>
+        public long LastUsedAt { get; set; }
+    }
+
+    /// <summary>上限を超えたら、ここまで減らしてから戻る。毎回1枚ずつ捨てて並べ直さないため。</summary>
+    private const double EvictionTargetRatio = 0.8;
+
+    private readonly Dictionary<string, Entry> _byPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IReadOnlyList<string>> _filesByDirectory = new(StringComparer.OrdinalIgnoreCase);
+    private readonly long _budgetBytes;
+    private long _usedBytes;
+    private long _clock;
+
+    /// <param name="budgetMegabytes">復号済み画像を保持する上限。</param>
+    public ThumbnailLoader(int budgetMegabytes = 192)
+    {
+        _budgetBytes = Math.Max(16, budgetMegabytes) * 1024L * 1024L;
+    }
+
+    /// <summary>キャッシュが保持している復号済み画像の枚数。</summary>
+    public int CachedImageCount => _byPath.Count;
+
+    /// <summary>キャッシュが使っているメモリ量。</summary>
+    public long CachedBytes => _usedBytes;
 
     /// <summary>そのitemが持つ画像ファイルのパス一覧（表示順）。</summary>
     public IReadOnlyList<string> ListFiles(string imageDirectory)
@@ -51,11 +81,23 @@ public sealed class ThumbnailLoader
     {
         if (_byPath.TryGetValue(path, out var cached))
         {
-            return cached;
+            cached.LastUsedAt = ++_clock;
+            return cached.Image;
         }
 
         var image = Decode(path);
-        _byPath[path] = image;
+        var entry = new Entry
+        {
+            Image = image,
+            // 復号に失敗したものは「読めない」という結果自体に意味があるので残すが、容量には数えない
+            Bytes = image is null ? 0 : (long)image.PixelWidth * image.PixelHeight * 4,
+            LastUsedAt = ++_clock,
+        };
+
+        _byPath[path] = entry;
+        _usedBytes += entry.Bytes;
+        EvictIfNeeded();
+
         return image;
     }
 
@@ -64,6 +106,26 @@ public sealed class ThumbnailLoader
     {
         var files = ListFiles(imageDirectory);
         return files.Count == 0 ? null : Load(files[0]);
+    }
+
+    private void EvictIfNeeded()
+    {
+        if (_usedBytes <= _budgetBytes)
+        {
+            return;
+        }
+
+        var target = (long)(_budgetBytes * EvictionTargetRatio);
+        foreach (var pair in _byPath.OrderBy(pair => pair.Value.LastUsedAt).ToList())
+        {
+            if (_usedBytes <= target)
+            {
+                break;
+            }
+
+            _byPath.Remove(pair.Key);
+            _usedBytes -= pair.Value.Bytes;
+        }
     }
 
     private static BitmapSource? Decode(string path)

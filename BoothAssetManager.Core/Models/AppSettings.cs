@@ -7,8 +7,11 @@ public enum ThumbnailSize
     Large,
 }
 
-/// <summary>設定（<c>settings.json</c>）。既定値はそのまま初回起動時の設定になる。</summary>
-public sealed class AppSettings
+/// <summary>
+/// 設定（<c>settings.json</c>）。既定値はそのまま初回起動時の設定になる。
+/// recordにしているのは、1項目だけ変えて保存し直す（<c>with</c>）用途があるため。
+/// </summary>
+public sealed record AppSettings
 {
     // --- 表示 ---
 
@@ -81,6 +84,12 @@ public sealed class AppSettings
 
     /// <summary>保存する画像の長辺（px）。</summary>
     public int ImageMaxEdgePixels { get; init; } = 384;
+
+    /// <summary>
+    /// 復号済みサムネイルを保持する上限（MB）。超えたら最後に見てから古いものから捨てる。
+    /// 保持しているのは圧縮前の生ピクセルで、ディスク上の30倍以上になる点に注意。
+    /// </summary>
+    public int ThumbnailCacheBudgetMb { get; init; } = 192;
 
     /// <summary>WebPの品質（0-100）。</summary>
     public int ImageQuality { get; init; } = 80;

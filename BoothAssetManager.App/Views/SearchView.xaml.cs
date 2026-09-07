@@ -12,6 +12,18 @@ public partial class SearchView : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// 表示幅が変わったら列数を決め直す。
+    /// 仮想化のために結果を行に切っているので、折り返し位置はこちらで計算する必要がある。
+    /// </summary>
+    private void OnResultsSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is SearchViewModel search)
+        {
+            search.SetViewportWidth(e.NewSize.Width);
+        }
+    }
+
     /// <summary>サムネイル上の横位置に応じて、そのitemのギャラリー画像を切り替える。</summary>
     private void OnThumbnailMouseMove(object sender, MouseEventArgs e)
     {

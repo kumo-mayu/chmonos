@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Commands;
@@ -36,7 +37,33 @@ public sealed class AppServiceContainer : IDisposable
         Import = new ImportPipeline(Store, Client, Images, Settings);
         Items = new ItemService(Store, Client, Images, Settings);
         Resolver = new FallbackResolver(Client);
-        Commands = new CommandHandler(Import, Items);
+        Commands = new CommandHandler(Import, Items, new UnpackedFolderRemover(DeleteToRecycleBin));
+    }
+
+    /// <summary>
+    /// フォルダをごみ箱へ送る。完全削除にしないのは、判定を誤ったときに取り返しがつくようにするため。
+    /// ごみ箱を使えない場所（ネットワークドライブなど）では完全削除にフォールバックする。
+    /// </summary>
+    private static Task DeleteToRecycleBin(string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
+                path,
+                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin,
+                Microsoft.VisualBasic.FileIO.UICancelOption.ThrowException);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not IOException and not UnauthorizedAccessException)
+        {
+            Directory.Delete(path, recursive: true);
+        }
+
+        return Task.CompletedTask;
     }
 
     public AppPaths Paths { get; }

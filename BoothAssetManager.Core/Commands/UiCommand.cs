@@ -25,6 +25,9 @@ public abstract record UiCommand
 
     /// <summary>ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。</summary>
     public record ExcludeFile(string Hash, IReadOnlyList<string> Paths, string? Reason = null) : UiCommand;
+
+    /// <summary>アーカイブの展開先フォルダを削除する。展開元のzipが残っていることを確かめてから消す。</summary>
+    public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>
@@ -37,6 +40,8 @@ public abstract record CommandResult
     public record ItemSaved(string ItemId) : CommandResult;
 
     public record Done : CommandResult;
+
+    public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 
     public record Failed(string Message) : CommandResult;
 }

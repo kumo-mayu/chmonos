@@ -37,7 +37,7 @@ public sealed class ItemCardViewModel : ViewModelBase
     private readonly ThumbnailLoader _thumbnails;
     private readonly string _imageDirectory;
     private IReadOnlyList<string>? _imageFiles;
-    private BitmapSource? _thumbnail;
+    private string? _activePath;
     private int _activeIndex;
     private int _stepCount;
 
@@ -46,7 +46,6 @@ public sealed class ItemCardViewModel : ViewModelBase
         Item = item;
         _thumbnails = thumbnails;
         _imageDirectory = imageDirectory;
-        _thumbnail = thumbnails.LoadFirst(imageDirectory);
     }
 
     public ItemRecord Item { get; }
@@ -67,11 +66,16 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool HasAppTag => AppTagText.Length > 0;
 
-    public BitmapSource? Thumbnail
-    {
-        get => _thumbnail;
-        private set => SetField(ref _thumbnail, value);
-    }
+    /// <summary>
+    /// 表示中の画像。値を持たず、読むたびにキャッシュへ問い合わせる。
+    ///
+    /// カード自身が復号結果を抱えると、画面外へスクロールしても解放されず、
+    /// キャッシュ側で上限を設けた意味が無くなるため。
+    /// 実際に読むのは仮想化で実体化されたカードだけになる。
+    /// </summary>
+    public BitmapSource? Thumbnail => _activePath is null
+        ? _thumbnails.LoadFirst(_imageDirectory)
+        : _thumbnails.Load(_activePath);
 
     /// <summary>今どの画像を見ているかの目印。画像が2枚以上あるときだけ出す。</summary>
     public ObservableCollection<ThumbnailSegment> Segments { get; } = [];
@@ -166,8 +170,8 @@ public sealed class ItemCardViewModel : ViewModelBase
             return;
         }
 
-        var image = _thumbnails.Load(_imageFiles[imageIndex]);
-        if (image is null)
+        var path = _imageFiles[imageIndex];
+        if (_thumbnails.Load(path) is null)
         {
             return;
         }
@@ -175,8 +179,9 @@ public sealed class ItemCardViewModel : ViewModelBase
         Segments[_activeIndex].IsActive = false;
         _activeIndex = step;
         Segments[_activeIndex].IsActive = true;
-        Thumbnail = image;
+        _activePath = path;
         CurrentImageNumber = imageIndex + 1;
+        OnPropertyChanged(nameof(Thumbnail));
         OnPropertyChanged(nameof(CounterText));
     }
 }

@@ -84,24 +84,53 @@
                 </StackPanel>
             </Border>
 
-            <Grid>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,4,18,18">
-                    <ItemsControl ItemsSource="{Binding Results}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
+            <Grid SizeChanged="OnResultsSizeChanged">
+                <!--
+                    行を仮想化の単位にする。WPFには仮想化するWrapPanelが無いので、
+                    列数をViewModel側で決めて結果を行に切り、その行をListBoxに並べている。
+                    画面外の行のカードは実体化されないので、サムネイルの復号も走らない。
+                -->
+                <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+                         Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
+                         VirtualizingPanel.ScrollUnit="Pixel">
+                    <ListBox.ItemContainerStyle>
+                        <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <ItemsControl ItemsSource="{Binding Cards}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource Card}" Width="228" Margin="0,0,14,14"
-                                        Cursor="Hand" MouseLeftButtonUp="OnCardClick">
-                                    <StackPanel>
+                                <!-- 高さを揃えて、行の下端が不揃いにならないようにする -->
+                                <Border Style="{StaticResource Card}" Width="228" Height="336" Margin="0,0,14,14"
+                                        Cursor="Hand" MouseLeftButtonUp="OnCardClick" ClipToBounds="True">
+                                    <DockPanel>
                                         <!--
                                             マウスの横位置でギャラリー画像を切り替える（BOOTHのサイトと同じ操作感）。
                                             正方形の画像が多いので、枠は正方形寄りにして Uniform で全体を見せる（切り取らない）。
                                         -->
-                                        <Grid Height="200" Background="#e9edf4" Cursor="Hand"
+                                        <Grid DockPanel.Dock="Top" Height="200" Background="#e9edf4" Cursor="Hand"
                                               MouseMove="OnThumbnailMouseMove" MouseLeave="OnThumbnailMouseLeave">
                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 
@@ -145,10 +174,17 @@
                                                 <TextBlock Text="所持" FontSize="10" Foreground="{StaticResource Good}" />
                                             </Border>
                                         </Grid>
-                                        <StackPanel Margin="11,10,11,11">
+                                        <!-- 容量は必ず下端に置く。カードの高さを固定しているので位置が揃う -->
+                                        <Border DockPanel.Dock="Bottom" BorderBrush="#f0f1f4" BorderThickness="0,1,0,0"
+                                                Margin="11,0,11,11" Padding="0,6,0,0">
+                                            <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
+                                        </Border>
+
+                                        <StackPanel Margin="11,10,11,0">
                                             <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
                                                        TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                                       TextTrimming="CharacterEllipsis" />
                                             <WrapPanel Margin="0,8,0,0">
                                                 <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                         BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
@@ -158,19 +194,20 @@
                                                 <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                         BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
                                                         Visibility="{Binding HasAppTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="{Binding AppTagText}" FontSize="10" Foreground="#28507f" />
+                                                    <!-- appTagが長くても2行に折り返さないよう、幅で切る -->
+                                                    <TextBlock Text="{Binding AppTagText}" FontSize="10" Foreground="#28507f"
+                                                               MaxWidth="150" TextTrimming="CharacterEllipsis" />
                                                 </Border>
                                             </WrapPanel>
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="0,6,0,0">
-                                                <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
-                                            </Border>
                                         </StackPanel>
-                                    </StackPanel>
+                                    </DockPanel>
                                 </Border>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
 
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                             Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

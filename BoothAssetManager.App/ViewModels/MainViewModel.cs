@@ -16,7 +16,7 @@ public sealed class MainViewModel : ViewModelBase
     public MainViewModel(AppServiceContainer services)
     {
         _services = services;
-        Thumbnails = new ThumbnailLoader();
+        Thumbnails = new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
 
         // 検索画面は使い捨てにせず1つだけ持ち回る。
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
