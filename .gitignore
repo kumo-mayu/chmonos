@@ -8,7 +8,11 @@ publish/
 # Purchased BOOTH assets and anything derived from them - never commit third-party copyrighted content
 *.zip
 *.rar
+*.crdownload
 _くうた_Shounen_少年_blendshape_iixiona.png
+
+# Downloaded test files (purchased assets and their PDFs) - local verification only
+DLforTest/
 
 # Research/scratch work - contains scraped data, personal file paths, and downloaded sample images
 research/

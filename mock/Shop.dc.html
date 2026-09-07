@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Zen Kaku Gothic New', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif; color: #1c1f26; background: #f2f3f5; }
+    a { color: #3767a6; text-decoration: none; }
+    a:hover { color: #28507f; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1080px; background: #f2f3f5; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 52px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; gap: 14px; padding: 0 20px;">
+    <div style="display: flex; align-items: center; gap: 7px; font-size: 13px; color: #454b57;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6"></path><path d="M11 6l-6 6 6 6"></path></svg>
+      ショップ一覧に戻る
+    </div>
+    <div style="margin-left: auto;">
+      <div style="height: 32px; padding: 0 13px; border-radius: 6px; border: 1px solid #cdd0d8; background: #fff; font-size: 13px; display: flex; align-items: center; gap: 7px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"></path><path d="M19 5l-8 8"></path><path d="M18 14v5H5V6h5"></path></svg>
+        BOOTHのショップページを開く
+      </div>
+    </div>
+  </div>
+
+  <!-- shop header -->
+  <div style="flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e4e9; padding: 22px 24px; display: flex; align-items: center; gap: 20px;">
+    <div style="width: 76px; height: 76px; border-radius: 12px; background: #dfe5ee; flex-shrink: 0;"></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="font-size: 21px; font-weight: 700;">AtelierNico</div>
+      <div style="font-size: 12px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">ateliernico.booth.pm</div>
+    </div>
+
+    <div style="margin-left: auto; display: flex; gap: 32px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 11px; letter-spacing: .06em; color: #6a7180; font-weight: 700;">所持</div>
+        <div style="font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace;">12</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 11px; letter-spacing: .06em; color: #6a7180; font-weight: 700;">購入総額</div>
+        <div style="font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace;">¥28,400</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 11px; letter-spacing: .06em; color: #6a7180; font-weight: 700;">最終購入</div>
+        <div style="font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace;">08-16</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 14px 24px 0; display: flex; align-items: center; gap: 12px;">
+    <div style="font-size: 13px; font-weight: 700;">所持している商品</div>
+    <div style="font-size: 11px; color: #9aa1ae;">このショップの全商品ではなく、ローカルに情報がある商品のみを表示</div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+      <div style="height: 30px; border: 1px solid #cdd0d8; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12px;">
+        <span style="color: #6a7180;">並び替え</span>
+        入手日
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; padding: 14px 24px 24px; overflow: hidden;">
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px;">
+
+      <sc-for list="{{items}}" as="item" hint-placeholder-count="10">
+        <div style="border: 1px solid #e2e4e9; border-radius: 8px; background: #fff; overflow: hidden;">
+          <div style="height: 132px; background: {{item.c1}}; display: flex; align-items: center; justify-content: center; position: relative;">
+            <svg width="140" height="132" viewBox="0 0 140 132" fill="none">
+              <circle cx="{{item.cx}}" cy="58" r="31" fill="{{item.c2}}"></circle>
+              <rect x="38" y="88" width="64" height="10" rx="5" fill="{{item.c3}}"></rect>
+            </svg>
+            <sc-if value="{{item.owned}}" hint-placeholder-val="{{ true }}">
+              <div style="position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 10px; background: #e7f2ec; color: #2f7d5a; border: 1px solid #c9e2d5;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+                所持
+              </div>
+            </sc-if>
+          </div>
+          <div style="padding: 10px 11px 11px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 12.5px; font-weight: 500; line-height: 1.45;">{{item.name}}</div>
+            <div style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">{{item.date}}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 4px; border-top: 1px solid #f0f1f4;">
+              <span style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">{{item.size}}</span>
+              <div style="display: flex; gap: 4px;">
+                <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+                </div>
+                <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"></path><path d="M19 5l-8 8"></path><path d="M18 14v5H5V6h5"></path></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      items: [
+        { name: 'Frill Knit Set / フリルニットセット', date: '2026-04-02', size: '412 MB', owned: true, c1: '#e9edf4', c2: '#b9c6dc', c3: '#93a4c0', cx: 60 },
+        { name: 'Summer Sailor 夏制服セット', date: '2026-06-11', size: '1.1 GB', owned: true, c1: '#e7f0ec', c2: '#b6d2c5', c3: '#93b8a6', cx: 70 },
+        { name: 'Long Cardigan (3色)', date: '2026-05-20', size: '287 MB', owned: true, c1: '#f3eee7', c2: '#dbc9b2', c3: '#c4ad90', cx: 64 },
+        { name: 'Pleated Skirt Basic', date: '2026-03-08', size: '96 MB', owned: true, c1: '#eeeaf4', c2: '#cabfdd', c3: '#ac9dc6', cx: 74 },
+        { name: 'Knit Vest & Blouse', date: '2026-02-14', size: '198 MB', owned: true, c1: '#f2e9ee', c2: '#dcbcce', c3: '#c69cb4', cx: 58 },
+        { name: 'Ribbon Tie Pack', date: '2026-01-30', size: '18 MB', owned: true, c1: '#eaebee', c2: '#c0c3cb', c3: '#a1a5b0', cx: 68 },
+        { name: 'Winter Coat セット', date: '2025-12-22', size: '520 MB', owned: true, c1: '#e9edf4', c2: '#aebfd8', c3: '#8fa2c0', cx: 76 },
+        { name: 'Frill Socks 2種', date: '2025-11-19', size: '12 MB', owned: true, c1: '#eef0f2', c2: '#c8ced4', c3: '#aab2ba', cx: 62 },
+        { name: 'Puff Sleeve Dress', date: '2025-10-05', size: '243 MB', owned: true, c1: '#f0ece7', c2: '#d8c6b4', c3: '#bfa88f', cx: 66 },
+        { name: 'School Bag & Charm', date: '2025-09-27', size: '54 MB', owned: true, c1: '#e7f0ec', c2: '#bcd6ca', c3: '#9bbdac', cx: 72 }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

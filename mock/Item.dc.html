@@ -1,0 +1,356 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Zen Kaku Gothic New', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif; color: #1c1f26; background: #f2f3f5; }
+    a { color: #3767a6; text-decoration: none; }
+    a:hover { color: #28507f; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1500px; background: #f2f3f5; display: flex; flex-direction: column; overflow: hidden;">
+
+  <!-- top bar -->
+  <div style="height: 52px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; gap: 14px; padding: 0 20px; position: relative; z-index: 3;">
+    <div style="display: flex; align-items: center; gap: 7px; font-size: 13px; color: #454b57;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6"></path><path d="M11 6l-6 6 6 6"></path></svg>
+      検索に戻る
+    </div>
+    <div style="width: 1px; height: 20px; background: #e2e4e9;"></div>
+    <div style="font-size: 12px; color: #9aa1ae;">3Dモデル / 衣装</div>
+    <div style="margin-left: auto; display: flex; gap: 8px;">
+      <div style="height: 32px; padding: 0 13px; border-radius: 6px; border: 1px solid #cdd0d8; background: #fff; font-size: 13px; display: flex; align-items: center; gap: 7px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16z"></path><path d="M14 6l4 4"></path></svg>
+        この商品を編集
+      </div>
+      <div style="height: 32px; padding: 0 13px; border-radius: 6px; border: 1px solid #cdd0d8; background: #fff; font-size: 13px; display: flex; align-items: center; gap: 7px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"></path><path d="M19 5l-8 8"></path><path d="M18 14v5H5V6h5"></path></svg>
+        BOOTHで開く
+      </div>
+      <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #3767a6; background: #eaf0f9; display: flex; align-items: center; justify-content: center;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="#28507f" stroke="none"><circle cx="5.5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="18.5" cy="12" r="1.6"></circle></svg>
+      </div>
+    </div>
+
+    <!-- opened menu -->
+    <div style="position: absolute; top: 46px; right: 20px; width: 250px; background: #fff; border: 1px solid #cdd0d8; border-radius: 8px; box-shadow: 0 8px 20px rgba(28,31,38,.12); padding: 5px; display: flex; flex-direction: column; gap: 1px;">
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 5px; font-size: 12.5px; color: #454b57;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"></path><path d="M5 19L19 5"></path></svg>
+        非表示にする
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 5px; font-size: 12.5px; color: #454b57;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h10"></path><path d="M15 8l4 4-4 4"></path><path d="M11 5H5v14h6"></path></svg>
+        管理から外す
+      </div>
+      <div style="height: 1px; background: #f0f1f4; margin: 3px 0;"></div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 5px; font-size: 12.5px; color: #9a3232;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path></svg>
+        保存ファイルごと削除
+      </div>
+      <div style="font-size: 10.5px; color: #9aa1ae; line-height: 1.6; padding: 5px 10px 7px;">非表示にしたものは設定から元に戻せます。</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; gap: 20px; padding: 20px; overflow: hidden;">
+
+    <!-- ===== left: gallery + description ===== -->
+    <div style="width: 660px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px;">
+
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; overflow: hidden;">
+        <div style="height: 420px; background: #e9edf4; display: flex; align-items: center; justify-content: center;">
+          <svg width="420" height="360" viewBox="0 0 420 360" fill="none">
+            <circle cx="210" cy="150" r="92" fill="#b9c6dc"></circle>
+            <rect x="120" y="258" width="180" height="26" rx="13" fill="#93a4c0"></rect>
+            <rect x="152" y="298" width="116" height="14" rx="7" fill="#a9b6ce"></rect>
+          </svg>
+        </div>
+        <div style="display: flex; gap: 8px; padding: 10px;">
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #dfe5ee; border: 2px solid #3767a6;"></div>
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #e7ecf3;"></div>
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #eceef2;"></div>
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #e9ece9;"></div>
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #f0ece7;"></div>
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #ecebf1;"></div>
+          <div style="width: 68px; height: 54px; border-radius: 5px; background: #eef0f2; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">+3</div>
+        </div>
+        <div style="padding: 0 10px 10px; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 10.5px; color: #9aa1ae; flex-shrink: 0;">BOOTHから削除された画像 2枚</div>
+          <div style="display: flex; gap: 6px;">
+            <div style="width: 46px; height: 36px; border-radius: 4px; background: #eceef1; opacity: .55;"></div>
+            <div style="width: 46px; height: 36px; border-radius: 4px; background: #e9ebee; opacity: .55;"></div>
+          </div>
+          <div style="font-size: 10.5px; color: #9aa1ae;">（手元には残っています）</div>
+        </div>
+      </div>
+
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-size: 13px; font-weight: 700;">商品説明</div>
+          <div style="font-size: 11px; color: #9aa1ae;">HTMLのまま保持 / 2026-09-05 取得</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 14px; font-weight: 700; border-left: 3px solid #3767a6; padding-left: 9px;">前提条件</div>
+          <div style="font-size: 12.5px; line-height: 1.85; color: #454b57;">セラフィム / マヌカ の素体に対応しています。Unity 2022.3.22f1 および lilToon 1.8.0 以降が必要です。改変にはBlender等のDCCツールを推奨します。</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 14px; font-weight: 700; border-left: 3px solid #3767a6; padding-left: 9px;">セット内容</div>
+          <div style="font-size: 12.5px; line-height: 1.85; color: #454b57;">FBX / Unitypackage（セラフィム用・マヌカ用）／ PSDテクスチャ一式 ／ 説明書PDF ／ 利用規約PDF</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 14px; font-weight: 700; border-left: 3px solid #3767a6; padding-left: 9px;">アップデート履歴</div>
+          <div style="font-size: 12.5px; line-height: 1.9; color: #454b57;">
+            <div style="display: flex; gap: 12px;"><span style="font-family: 'JetBrains Mono', Consolas, monospace; color: #6a7180; flex-shrink: 0;">2026-08-14</span><span>v1.2 マヌカ対応を追加。ウェイト調整。</span></div>
+            <div style="display: flex; gap: 12px;"><span style="font-family: 'JetBrains Mono', Consolas, monospace; color: #6a7180; flex-shrink: 0;">2026-05-02</span><span>v1.1 テクスチャの解像度を4Kに変更。</span></div>
+            <div style="display: flex; gap: 12px;"><span style="font-family: 'JetBrains Mono', Consolas, monospace; color: #6a7180; flex-shrink: 0;">2026-03-28</span><span>v1.0 公開。</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== right: info ===== -->
+    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 14px;">
+
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+
+        <!-- tags moved to the TOP (BOOTHでは下部) -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">タグ</div>
+            <div style="font-size: 10px; color: #9aa1ae;">検索対象のため上部に配置（設定で下部へ変更可）</div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #e2e4e9; background: #fff; color: #454b57;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #9aa1ae;"></span>VRChat</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #e2e4e9; background: #fff; color: #454b57;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #9aa1ae;"></span>3Dモデル</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #e2e4e9; background: #fff; color: #454b57;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #9aa1ae;"></span>衣装</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #c6d6ec; background: #eaf0f9; color: #28507f;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #3767a6;"></span>かわいい系</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #c6d6ec; background: #eaf0f9; color: #28507f;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #3767a6;"></span>夏物</span>
+          </div>
+        </div>
+
+        <div style="height: 1px; background: #f0f1f4;"></div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 20px; font-weight: 700; line-height: 1.45;">Frill Knit Set / フリルニットセット</div>
+          <div style="display: flex; align-items: center; gap: 9px;">
+            <div style="width: 26px; height: 26px; border-radius: 999px; background: #dfe5ee;"></div>
+            <a href="#" style="font-size: 13px; font-weight: 500;">AtelierNico</a>
+            <span style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">所持 12 件</span>
+          </div>
+          <div style="display: flex; gap: 14px; font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">
+            <span>ID 5813187</span>
+            <span>公開 2026-03-28</span>
+            <span>♡ 4,182</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- variations -->
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; overflow: hidden;">
+        <div style="padding: 13px 18px; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-size: 13px; font-weight: 700;">バリエーション</div>
+          <div style="font-size: 11px; color: #6a7180;">購入済 2 / 3</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid #f0f1f4;">
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+            <div style="font-size: 13px; font-weight: 500;">セラフィム用</div>
+            <div style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">¥2,500 で購入 (2026-04-02)</div>
+          </div>
+          <div style="height: 30px; padding: 0 12px; border-radius: 6px; background: #e7f2ec; border: 1px solid #c9e2d5; color: #2f7d5a; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+            エクスプローラで開く
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid #f0f1f4;">
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+            <div style="font-size: 13px; font-weight: 500;">マヌカ用</div>
+            <div style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">¥2,500 で購入 (2026-08-16)</div>
+          </div>
+          <div style="height: 30px; padding: 0 12px; border-radius: 6px; background: #e7f2ec; border: 1px solid #c9e2d5; color: #2f7d5a; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+            エクスプローラで開く
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid #f0f1f4;">
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+            <div style="font-size: 13px; color: #6a7180;">しなの用</div>
+            <div style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">¥2,500 / 未購入</div>
+          </div>
+          <div style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #cdd0d8; color: #454b57; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"></path><path d="M19 5l-8 8"></path><path d="M18 14v5H5V6h5"></path></svg>
+            BOOTHで見る
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 11px 18px; background: #fafafb;">
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12.5px; color: #9aa1ae;">旧・PC/Quest セット版</span>
+              <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 4px; font-size: 10px; background: #fff; color: #9aa1ae; border: 1px solid #e2e4e9;">BOOTHに現存しない</span>
+            </div>
+            <div style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">¥3,000 で購入 (2025-11-04) ・ 購入記録として保持</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- attribute profile: horizontal bars, single hue -->
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <div style="font-size: 13px; font-weight: 700;">属性</div>
+          <div style="font-size: 11px; color: #9aa1ae;">あなたが付けた印象 (0-100%)</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 74px; flex-shrink: 0; font-size: 12px; color: #454b57; text-align: right;">かわいい</div>
+            <div style="flex-grow: 1; height: 8px; background: #f0f1f4; border-radius: 4px; overflow: hidden;"><div style="width: 82%; height: 100%; background: #3767a6; border-radius: 4px;"></div></div>
+            <div style="width: 38px; flex-shrink: 0; font-size: 11px; color: #454b57; font-family: 'JetBrains Mono', Consolas, monospace; text-align: right;">82</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 74px; flex-shrink: 0; font-size: 12px; color: #454b57; text-align: right;">かっこいい</div>
+            <div style="flex-grow: 1; height: 8px; background: #f0f1f4; border-radius: 4px; overflow: hidden;"><div style="width: 15%; height: 100%; background: #3767a6; border-radius: 4px;"></div></div>
+            <div style="width: 38px; flex-shrink: 0; font-size: 11px; color: #454b57; font-family: 'JetBrains Mono', Consolas, monospace; text-align: right;">15</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 74px; flex-shrink: 0; font-size: 12px; color: #454b57; text-align: right;">上品</div>
+            <div style="flex-grow: 1; height: 8px; background: #f0f1f4; border-radius: 4px; overflow: hidden;"><div style="width: 55%; height: 100%; background: #3767a6; border-radius: 4px;"></div></div>
+            <div style="width: 38px; flex-shrink: 0; font-size: 11px; color: #454b57; font-family: 'JetBrains Mono', Consolas, monospace; text-align: right;">55</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 74px; flex-shrink: 0; font-size: 12px; color: #454b57; text-align: right;">露出</div>
+            <div style="flex-grow: 1; height: 8px; background: #f0f1f4; border-radius: 4px; overflow: hidden;"><div style="width: 20%; height: 100%; background: #3767a6; border-radius: 4px;"></div></div>
+            <div style="width: 38px; flex-shrink: 0; font-size: 11px; color: #454b57; font-family: 'JetBrains Mono', Consolas, monospace; text-align: right;">20</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 74px; flex-shrink: 0; font-size: 12px; color: #454b57; text-align: right;">日常寄り</div>
+            <div style="flex-grow: 1; height: 8px; background: #f0f1f4; border-radius: 4px; overflow: hidden;"><div style="width: 70%; height: 100%; background: #3767a6; border-radius: 4px;"></div></div>
+            <div style="width: 38px; flex-shrink: 0; font-size: 11px; color: #454b57; font-family: 'JetBrains Mono', Consolas, monospace; text-align: right;">70</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- appTag / memo / avatars -->
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">appTag</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span style="display: inline-flex; align-items: center; height: 25px; padding: 0 10px; border-radius: 6px; font-size: 12px; border: 1px solid #c6d6ec; background: #eaf0f9; color: #28507f; font-weight: 500;">衣装</span>
+            <span style="display: inline-flex; align-items: center; height: 25px; padding: 0 10px; border-radius: 6px; font-size: 12px; border: 1px solid #e2e4e9; background: #fafafb; color: #454b57;">トップス</span>
+            <span style="display: inline-flex; align-items: center; height: 25px; padding: 0 10px; border-radius: 6px; font-size: 12px; border: 1px solid #e2e4e9; background: #fafafb; color: #454b57;">ニット</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">対応アバター</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #c9e2d5; background: #e7f2ec; color: #2f7d5a;">セラフィム<span style="font-size: 10px; opacity: .75;">所有</span></span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #c9e2d5; background: #e7f2ec; color: #2f7d5a;">マヌカ<span style="font-size: 10px; opacity: .75;">所有</span></span>
+            <span style="display: inline-flex; align-items: center; height: 25px; padding: 0 10px; border-radius: 999px; font-size: 12px; border: 1px solid #e2e4e9; background: #fff; color: #6a7180;">しなの</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">メモ</div>
+          <div style="font-size: 12.5px; line-height: 1.75; color: #454b57; background: #fafafb; border: 1px solid #f0f1f4; border-radius: 6px; padding: 10px 12px;">袖のフリルがマヌカだと少し貫通する。シェイプキー「Sleeve_Fix」で調整済み。夏のイベント用に使った。</div>
+        </div>
+      </div>
+
+      <!-- local files -->
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; overflow: hidden;">
+        <div style="padding: 13px 18px; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 700;">ローカルファイル</div>
+          <div style="margin-left: auto; font-size: 11px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">2 件 / 412 MB</div>
+        </div>
+
+        <div style="padding: 12px 18px 10px; border-bottom: 1px solid #f0f1f4; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12.5px; font-weight: 500;">FrillKnitSet_v1.2_Seraphim.zip</span>
+            <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 4px; font-size: 10px; background: #eaf0f9; color: #28507f; border: 1px solid #c6d6ec;">セラフィム用</span>
+            <span style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">268 MB</span>
+            <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 4px; font-size: 10px; background: #fafafb; color: #6a7180; border: 1px solid #e2e4e9;">2箇所に同じ実体</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; padding-left: 10px; border-left: 2px solid #f0f1f4;">
+            <div style="flex-grow: 1; font-size: 11px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">D:\storage\VRChat_clothes\</div>
+            <div style="display: flex; gap: 5px; flex-shrink: 0;">
+              <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+              </div>
+              <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b98c8c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; padding-left: 10px; border-left: 2px solid #f0f1f4;">
+            <div style="flex-grow: 1; font-size: 11px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">E:\backup\VRChat\</div>
+            <div style="display: flex; gap: 5px; flex-shrink: 0;">
+              <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+              </div>
+              <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b98c8c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 12px 18px 10px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12.5px; font-weight: 500;">FrillKnitSet_v1.2_Manuka.zip</span>
+            <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 4px; font-size: 10px; background: #eaf0f9; color: #28507f; border: 1px solid #c6d6ec;">マヌカ用</span>
+            <span style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">144 MB</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding-left: 10px; border-left: 2px solid #f0f1f4;">
+            <div style="flex-grow: 1; font-size: 11px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">D:\storage\VRChat_clothes\</div>
+            <div style="display: flex; gap: 5px; flex-shrink: 0;">
+              <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+              </div>
+              <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b98c8c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 9px 18px 11px; border-top: 1px solid #f0f1f4; font-size: 10.5px; color: #9aa1ae; line-height: 1.7;">同じ中身のファイルは1件として数え、容量も1回だけ計上します（実際にドライブを食っている量は統計で確認できます）。削除は保存場所ごとに選べます。商品の記録は残るので、後から再ダウンロードして紐付け直せます。</div>
+      </div>
+
+      <!-- update info -->
+      <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="font-size: 10px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">最終取得</div>
+          <div style="font-size: 12px; font-family: 'JetBrains Mono', Consolas, monospace;">2026-09-05</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="font-size: 10px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">次回更新予定</div>
+          <div style="font-size: 12px; font-family: 'JetBrains Mono', Consolas, monospace;">2026-09-14</div>
+        </div>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 9px;">
+          <span style="font-size: 12px; color: #454b57;">更新通知</span>
+          <div style="width: 38px; height: 21px; border-radius: 999px; background: #3767a6; position: relative;">
+            <div style="position: absolute; top: 2px; right: 2px; width: 17px; height: 17px; border-radius: 999px; background: #fff;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

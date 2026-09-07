@@ -1,0 +1,200 @@
+namespace BoothAssetManager.Core.Scanning;
+
+/// <summary>フォルダ走査で見つかった1ファイル。</summary>
+public sealed class ScannedFile
+{
+    public required string Path { get; init; }
+
+    public required long SizeBytes { get; init; }
+
+    public required DateTimeOffset ModifiedAtUtc { get; init; }
+
+    /// <summary>小文字の拡張子（ドット付き）。</summary>
+    public required string Extension { get; init; }
+
+    /// <summary>BoothID解決の対象になるアーカイブか。zip以外はユーザに問い合わせる扱いになる。</summary>
+    public bool IsArchive => Extension is ".zip";
+}
+
+/// <summary>
+/// 取り込み対象フォルダの走査。ここではファイルを列挙するだけで、ハッシュもZIPの中身も見ない。
+/// 重い処理を後段に分けているのは、3フェーズの進捗を正しく出すため。
+/// </summary>
+public sealed class FolderScanner
+{
+    /// <summary>
+    /// 取り込み対象の拡張子。zip以外もリストに含めるのは、ユーザに紐付けを問い合わせるため。
+    /// </summary>
+    public static readonly IReadOnlySet<string> TargetExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ".zip", ".rar",
+        ".psd", ".ai", ".lip", ".pdf",
+        ".mp3", ".m4a", ".wav", ".aif", ".aiff", ".flac",
+        ".epub",
+        ".vroid", ".vroidcustomitem", ".vrm", ".vrma",
+        ".xwear", ".xavatar", ".xroid",
+        ".jpg", ".jpeg", ".gif", ".png",
+        ".mp4", ".mov", ".avi",
+    };
+
+    private static readonly EnumerationOptions RecursiveOptions = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.System | FileAttributes.ReparsePoint,
+    };
+
+    /// <summary>
+    /// 指定フォルダ以下を再帰的に走査する。アクセスできないフォルダは飛ばして続行する
+    /// （1つの権限エラーで全体を止めないため）。
+    /// アーカイブの展開先とみなしたフォルダの中身は、取り込み対象から外して別に返す。
+    /// </summary>
+    public ScanResult Scan(string rootFolder, CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(rootFolder))
+        {
+            return new ScanResult();
+        }
+
+        var unpacked = FindUnpackedFolders(rootFolder, cancellationToken);
+        var files = new List<ScannedFile>();
+        var skipped = 0;
+
+        foreach (var path in Directory.EnumerateFiles(rootFolder, "*", RecursiveOptions))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var extension = Path.GetExtension(path);
+            if (string.IsNullOrEmpty(extension) || !TargetExtensions.Contains(extension))
+            {
+                continue;
+            }
+
+            if (IsInsideUnpackedFolder(path, unpacked))
+            {
+                skipped++;
+                continue;
+            }
+
+            try
+            {
+                var info = new FileInfo(path);
+                files.Add(new ScannedFile
+                {
+                    Path = path,
+                    SizeBytes = info.Length,
+                    ModifiedAtUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+                    Extension = extension.ToLowerInvariant(),
+                });
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 走査中に消えた・触れないファイルは黙って飛ばす
+            }
+        }
+
+        return new ScanResult
+        {
+            Files = files,
+            UnpackedFolders = unpacked,
+            SkippedInsideUnpackedFolders = skipped,
+        };
+    }
+
+    private static List<UnpackedFolder> FindUnpackedFolders(string rootFolder, CancellationToken cancellationToken)
+    {
+        var found = new List<UnpackedFolder>();
+
+        foreach (var directory in Directory.EnumerateDirectories(rootFolder, "*", RecursiveOptions))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var parent = Path.GetDirectoryName(directory);
+            if (parent is null)
+            {
+                continue;
+            }
+
+            string[] siblings;
+            try
+            {
+                siblings = Directory.GetFiles(parent);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            var archive = UnpackedFolderDetector.FindMatchingArchive(
+                Path.GetFileName(directory),
+                siblings.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!));
+
+            if (archive is null)
+            {
+                continue;
+            }
+
+            var (count, bytes) = MeasureFolder(directory);
+            found.Add(new UnpackedFolder
+            {
+                Path = directory,
+                ArchivePath = Path.Combine(parent, archive),
+                FileCount = count,
+                TotalBytes = bytes,
+            });
+        }
+
+        return found;
+    }
+
+    private static (int Count, long Bytes) MeasureFolder(string directory)
+    {
+        var count = 0;
+        long bytes = 0;
+
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(directory, "*", RecursiveOptions))
+            {
+                try
+                {
+                    bytes += new FileInfo(path).Length;
+                    count++;
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // 個別のファイルが読めなくても集計は続ける
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // フォルダごと読めない場合はそこまでの集計で返す
+        }
+
+        return (count, bytes);
+    }
+
+    private static bool IsInsideUnpackedFolder(string path, List<UnpackedFolder> unpacked)
+    {
+        foreach (var folder in unpacked)
+        {
+            if (path.StartsWith(folder.Path + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+public sealed class ScanResult
+{
+    public IReadOnlyList<ScannedFile> Files { get; init; } = [];
+
+    /// <summary>アーカイブの展開先とみなしたフォルダ。削除機能の対象候補にもなる。</summary>
+    public IReadOnlyList<UnpackedFolder> UnpackedFolders { get; init; } = [];
+
+    public int SkippedInsideUnpackedFolders { get; init; }
+}

@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Zen Kaku Gothic New', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif; color: #1c1f26; background: #f2f3f5; }
+    a { color: #3767a6; text-decoration: none; }
+    a:hover { color: #28507f; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 940px; display: flex; background: #f2f3f5; overflow: hidden;">
+
+  <div style="width: 208px; flex-shrink: 0; background: #22262e; color: #cfd4dd; display: flex; flex-direction: column; padding: 16px 0;">
+    <div style="padding: 0 18px 14px; display: flex; flex-direction: column; gap: 2px;">
+      <div style="font-size: 13px; font-weight: 700; color: #fff;">BOOTH Asset Manager</div>
+      <div style="font-size: 11px; color: #767f8e;">1,284 items / 312 shops</div>
+    </div>
+    <div style="display: flex; flex-direction: column; padding: 0 10px;">
+      <div style="font-size: 10px; color: #5d6675; padding: 8px 12px 4px; letter-spacing: .08em;">ライブラリ</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>検索</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11H4z"></path><path d="M4 9l1.5-5h13L20 9"></path></svg>ショップ</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-5"></path></svg>統計</div>
+
+      <div style="font-size: 10px; color: #5d6675; padding: 12px 12px 4px; letter-spacing: .08em;">作業</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; background: #313745; color: #fff; font-size: 12.5px; font-weight: 500;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M8 11l4 4 4-4"></path><path d="M5 19h14"></path></svg>取り込み</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.6 9.6a2.5 2.5 0 114 2c-.8.6-1.6 1-1.6 2"></path><path d="M12 17.2v.1"></path></svg>未確定<span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #9a6b1f; color: #fff; border-radius: 999px; padding: 1px 7px;">34</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15v-4a6 6 0 10-12 0v4l-2 3h16z"></path><path d="M10 21h4"></path></svg>要確認<span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #3767a6; color: #fff; border-radius: 999px; padding: 1px 7px;">6</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16z"></path></svg>編集<span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #9a6b1f; color: #fff; border-radius: 999px; padding: 1px 7px;">7</span></div>
+
+      <div style="font-size: 10px; color: #5d6675; padding: 12px 12px 4px; letter-spacing: .08em;">管理</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1-3.6 3.7-5.4 7-5.4S18 16.4 19 20"></path></svg>アバター</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12V5h7l8 8-7 7-8-8z"></path><circle cx="8.5" cy="8.5" r="1.3"></circle></svg>タグの管理</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"></path></svg>属性の管理</div>
+    </div>
+    <div style="margin-top: auto; padding: 0 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>設定</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+
+    <div style="height: 60px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; gap: 14px; padding: 0 24px;">
+      <div style="font-size: 16px; font-weight: 700;">取り込み</div>
+      <div style="font-size: 12px; color: #9aa1ae;">フォルダをまとめて走査して、zipからBoothIDを特定します</div>
+    </div>
+
+    <div style="flex-shrink: 0; background: #f7faff; border-bottom: 1px solid #dbe4f0; display: flex; align-items: center; gap: 12px; padding: 11px 24px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3767a6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 12a8 8 0 108-8"></path><path d="M4 5v4h4"></path></svg>
+      <div style="font-size: 12.5px; color: #28507f;">前回の取り込みが途中で終わっています（9月5日・BOOTH取得の 142 / 284 件目まで）。続きから再開しました。</div>
+      <div style="margin-left: auto; height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #c6d6ec; background: #fff; font-size: 12px; color: #28507f; display: flex; align-items: center;">最初からやり直す</div>
+    </div>
+
+    <div style="flex-grow: 1; padding: 20px 24px; display: flex; gap: 20px; overflow: hidden;">
+
+      <!-- left: entry + progress -->
+      <div style="width: 620px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;">
+
+        <div style="border: 2px dashed #b9c6dc; border-radius: 10px; background: #f7faff; padding: 28px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#7d95b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>
+          <div style="font-size: 14px; font-weight: 500;">zip・フォルダをここにドロップ</div>
+          <div style="font-size: 12px; color: #6a7180;">既に取り込み済みのファイルは自動でスキップされます</div>
+          <div style="display: flex; gap: 9px; margin-top: 4px;">
+            <div style="height: 34px; padding: 0 16px; border-radius: 6px; background: #3767a6; color: #fff; font-size: 13px; font-weight: 500; display: flex; align-items: center;">フォルダを選択</div>
+            <div style="height: 34px; padding: 0 16px; border-radius: 6px; border: 1px solid #cdd0d8; background: #fff; font-size: 13px; display: flex; align-items: center; gap: 7px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"></path><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"></path></svg>
+              BOOTHのURLから登録
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 13px; font-weight: 700;">実行中</div>
+            <div style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">D:\storage\VRChat_clothes</div>
+            <div style="margin-left: auto; height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #cdd0d8; font-size: 12px; display: flex; align-items: center; gap: 6px; color: #454b57;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6v12M15 6v12"></path></svg>
+              一時停止
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 13px;">
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 20px; height: 20px; border-radius: 999px; background: #e7f2ec; border: 1px solid #c9e2d5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2f7d5a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+              </div>
+              <div style="width: 168px; flex-shrink: 0; font-size: 12.5px;">1. ファイルを走査</div>
+              <div style="flex-grow: 1; height: 6px; background: #e7f2ec; border-radius: 3px;"></div>
+              <div style="width: 92px; flex-shrink: 0; text-align: right; font-size: 11.5px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">318 件</div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 20px; height: 20px; border-radius: 999px; background: #e7f2ec; border: 1px solid #c9e2d5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2f7d5a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+              </div>
+              <div style="width: 168px; flex-shrink: 0; font-size: 12.5px;">2. BoothIDを解決</div>
+              <div style="flex-grow: 1; height: 6px; background: #e7f2ec; border-radius: 3px;"></div>
+              <div style="width: 92px; flex-shrink: 0; text-align: right; font-size: 11.5px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">284 / 34</div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 20px; height: 20px; border-radius: 999px; border: 2px solid #3767a6; border-right-color: #dbe4f0; flex-shrink: 0;"></div>
+              <div style="width: 168px; flex-shrink: 0; font-size: 12.5px; font-weight: 500;">3. BOOTHから取得</div>
+              <div style="flex-grow: 1; height: 6px; background: #edeff3; border-radius: 3px; overflow: hidden;">
+                <div style="width: 50%; height: 100%; background: #3767a6; border-radius: 3px;"></div>
+              </div>
+              <div style="width: 92px; flex-shrink: 0; text-align: right; font-size: 11.5px; color: #28507f; font-family: 'JetBrains Mono', Consolas, monospace;">142 / 284</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; background: #fafafb; border: 1px solid #f0f1f4; border-radius: 6px; padding: 9px 12px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ae" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+            <span style="font-size: 11.5px; color: #6a7180;">サーバに負荷をかけないよう1件ずつ間隔を空けて取得しています。残り約 4 分</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+          <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 10.5px; color: #6a7180; letter-spacing: .06em; font-weight: 700;">新規追加</div>
+            <div style="font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace;">132</div>
+          </div>
+          <div style="background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 10.5px; color: #6a7180; letter-spacing: .06em; font-weight: 700;">重複スキップ</div>
+            <div style="font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace; color: #6a7180;">12</div>
+          </div>
+          <div style="background: #fff; border: 1px solid #eddcbb; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 10.5px; color: #8a5f1a; letter-spacing: .06em; font-weight: 700;">未確定</div>
+            <div style="font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace; color: #8a5f1a;">34</div>
+          </div>
+          <div style="background: #fff; border: 1px solid #eecccc; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 10.5px; color: #9a3232; letter-spacing: .06em; font-weight: 700;">取得失敗</div>
+            <div style="font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', Consolas, monospace; color: #9a3232;">2</div>
+            <div style="font-size: 10px; color: #9aa1ae; line-height: 1.5;">404: 1 / 一時エラー: 1<br>一時エラーは次回に再試行</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- right: live log -->
+      <div style="flex-grow: 1; background: #fff; border: 1px solid #e2e4e9; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="padding: 13px 18px; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 700;">処理中のファイル</div>
+          <div style="margin-left: auto; font-size: 11px; color: #9aa1ae;">新しい順</div>
+        </div>
+
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid #f0f1f4;">
+            <span style="width: 7px; height: 7px; border-radius: 999px; background: {{r.dot}}; flex-shrink: 0;"></span>
+            <div style="width: 268px; flex-shrink: 0; font-size: 12px; font-family: 'JetBrains Mono', Consolas, monospace; color: #454b57; overflow: hidden;">{{r.file}}</div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c2c7d0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M5 12h13"></path><path d="M13 6l6 6-6 6"></path></svg>
+            <div style="flex-grow: 1; font-size: 12.5px; color: {{r.color}};">{{r.result}}</div>
+          </div>
+        </sc-for>
+
+        <div style="margin-top: auto; border-top: 1px solid #e2e4e9; padding: 14px 18px; display: flex; gap: 9px;">
+          <div style="flex-grow: 1; height: 34px; border-radius: 6px; border: 1px solid #eddcbb; background: #fbf1de; color: #8a5f1a; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 7px;">
+            未確定の 34 件を解決する
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M13 6l6 6-6 6"></path></svg>
+          </div>
+          <div style="flex-grow: 1; height: 34px; border-radius: 6px; background: #3767a6; color: #fff; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 7px;">
+            132 件の編集へ進む
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M13 6l6 6-6 6"></path></svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":940}}'>
+class Component extends DCLogic {
+  renderVals() {
+    function ok(file, result) { return { file: file, result: result, dot: '#2f7d5a', color: '#1c1f26' }; }
+    function warn(file, result) { return { file: file, result: result, dot: '#c9a26b', color: '#8a5f1a' }; }
+    function skip(file, result) { return { file: file, result: result, dot: '#c2c7d0', color: '#9aa1ae' }; }
+    function err(file, result) { return { file: file, result: result, dot: '#b06060', color: '#9a3232' }; }
+    return {
+      rows: [
+        ok('CyberVisor_v2.1.zip', 'Cyber Visor v2.1 / STUDIO KOMOREBI'),
+        ok('FrillKnitSet_v1.2_Manuka.zip', 'Frill Knit Set / AtelierNico'),
+        warn('material_pack_04.zip', 'ID候補が3件 — 未確定'),
+        ok('OverkneeBoots.zip', 'Overknee Boots (3色) / kotori shop'),
+        skip('FrillKnitSet_v1.2_Seraphim.zip', '取り込み済み — スキップ'),
+        ok('SummerSailor.zip', 'Summer Sailor 夏制服セット / AtelierNico'),
+        err('old_backup_2024.zip', '商品ページが見つからない (404)'),
+        ok('RibbonHair.zip', 'Ribbon Hair Accessory / kotori shop'),
+        warn('tex_4k.zip', '手がかりなし — 未確定'),
+        ok('UtilityBelt.zip', 'Utility Belt & Pouch / HARDLINE'),
+        ok('LooseSocks.zip', 'Loose Socks Pack / mochi works'),
+        skip('CasualHoodie.zip', '取り込み済み — スキップ')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Zen Kaku Gothic New', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif; color: #1c1f26; background: #f2f3f5; }
+    a { color: #3767a6; text-decoration: none; }
+    a:hover { color: #28507f; }
+    input[type="range"] { accent-color: #3767a6; }
+    .rs { position: relative; height: 22px; }
+    .rs-track { position: absolute; left: 0; right: 0; top: 9px; height: 4px; border-radius: 2px; background: #edeff3; }
+    .rs-fill { position: absolute; top: 9px; height: 4px; border-radius: 2px; background: #3767a6; }
+    .rs input[type="range"] { position: absolute; left: 0; top: 4px; width: 100%; height: 14px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; pointer-events: none; }
+    .rs input[type="range"]::-webkit-slider-runnable-track { background: transparent; height: 14px; border: none; }
+    .rs input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid #3767a6; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; background: #f2f3f5; overflow: hidden;">
+
+  <!-- ===== nav rail ===== -->
+  <div style="width: 208px; flex-shrink: 0; background: #22262e; color: #cfd4dd; display: flex; flex-direction: column; padding: 16px 0;">
+    <div style="padding: 0 18px 14px; display: flex; flex-direction: column; gap: 2px;">
+      <div style="font-size: 13px; font-weight: 700; color: #fff; letter-spacing: .01em;">BOOTH Asset Manager</div>
+      <div style="font-size: 11px; color: #767f8e;">1,284 items / 312 shops</div>
+    </div>
+    <div style="display: flex; flex-direction: column; padding: 0 10px;">
+      <div style="font-size: 10px; color: #5d6675; padding: 8px 12px 4px; letter-spacing: .08em;">ライブラリ</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; background: #313745; color: #fff; font-size: 12.5px; font-weight: 500;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>検索</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11H4z"></path><path d="M4 9l1.5-5h13L20 9"></path></svg>ショップ</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-5"></path></svg>統計</div>
+
+      <div style="font-size: 10px; color: #5d6675; padding: 12px 12px 4px; letter-spacing: .08em;">作業</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M8 11l4 4 4-4"></path><path d="M5 19h14"></path></svg>取り込み</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.6 9.6a2.5 2.5 0 114 2c-.8.6-1.6 1-1.6 2"></path><path d="M12 17.2v.1"></path></svg>未確定<span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #9a6b1f; color: #fff; border-radius: 999px; padding: 1px 7px;">34</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15v-4a6 6 0 10-12 0v4l-2 3h16z"></path><path d="M10 21h4"></path></svg>要確認<span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #3767a6; color: #fff; border-radius: 999px; padding: 1px 7px;">6</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16z"></path></svg>編集<span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #9a6b1f; color: #fff; border-radius: 999px; padding: 1px 7px;">7</span></div>
+
+      <div style="font-size: 10px; color: #5d6675; padding: 12px 12px 4px; letter-spacing: .08em;">管理</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1-3.6 3.7-5.4 7-5.4S18 16.4 19 20"></path></svg>アバター</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12V5h7l8 8-7 7-8-8z"></path><circle cx="8.5" cy="8.5" r="1.3"></circle></svg>タグの管理</div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"></path></svg>属性の管理</div>
+    </div>
+    <div style="margin-top: auto; padding: 0 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>設定</div>
+    </div>
+  </div>
+
+  <!-- ===== filter panel ===== -->
+  <div style="width: 286px; flex-shrink: 0; background: #fff; border-right: 1px solid #e2e4e9; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="height: 52px; flex-shrink: 0; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
+      <div style="font-size: 13px; font-weight: 700;">絞り込み</div>
+      <div style="font-size: 12px; color: #3767a6;">条件をクリア</div>
+    </div>
+
+    <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">カテゴリ</div>
+        <div style="height: 32px; border: 1px solid #cdd0d8; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; font-size: 13px;">
+          3Dモデル
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">タグ</div>
+          <div style="font-size: 10px; color: #9aa1ae;">BOOTH由来とappTagを同じ欄で指定</div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <sc-for list="{{tags}}" as="t" hint-placeholder-count="6">
+            <div onClick="{{t.toggle}}" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; cursor: pointer; border: {{t.border}}; background: {{t.bg}}; color: {{t.fg}};">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: {{t.dot}};"></span>
+              {{t.name}}
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 30px; border: 1px dashed #cdd0d8; border-radius: 6px; padding: 0 10px; font-size: 12px; color: #9aa1ae;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+          タグを追加（補完あり）
+        </div>
+        <div style="display: flex; gap: 12px; font-size: 10px; color: #9aa1ae;">
+          <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #9aa1ae;"></span>BOOTH</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 6px; height: 6px; border-radius: 999px; background: #3767a6;"></span>appTag</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">属性</div>
+          <div style="font-size: 10px; color: #9aa1ae;">追加したものだけが条件になります</div>
+        </div>
+
+        <sc-for list="{{attrs}}" as="a" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 1px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+              <span>{{a.name}}</span>
+              <span style="margin-left: auto; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; color: {{a.labelColor}};">{{a.label}}</span>
+              <span onClick="{{a.remove}}" style="width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9aa1ae" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </span>
+            </div>
+            <div class="rs">
+              <div class="rs-track"></div>
+              <div class="rs-fill" style="left: {{a.left}}; width: {{a.width}};"></div>
+              <input type="range" min="0" max="100" step="5" value="{{a.min}}" onChange="{{a.setMin}}">
+              <input type="range" min="0" max="100" step="5" value="{{a.max}}" onChange="{{a.setMax}}">
+            </div>
+          </div>
+        </sc-for>
+
+        <div style="display: flex; align-items: center; gap: 6px; height: 30px; border: 1px dashed #cdd0d8; border-radius: 6px; padding: 0 10px; font-size: 12px; color: #9aa1ae;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+          属性を条件に追加
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-left: auto;"><path d="M6 9l6 6 6-6"></path></svg>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">対応アバター</div>
+        <div style="border: 1px solid #e2e4e9; border-radius: 6px; overflow: hidden;">
+          <div style="padding: 6px 10px; background: #fafafb; font-size: 10px; color: #6a7180; border-bottom: 1px solid #e2e4e9;">素体</div>
+          <sc-for list="{{baseAvatars}}" as="v" hint-placeholder-count="2">
+            <div onClick="{{v.toggle}}" style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer;">
+              <span style="width: 14px; height: 14px; border-radius: 3px; border: {{v.boxBorder}}; background: {{v.boxBg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{v.on}}" hint-placeholder-val="{{ true }}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+                </sc-if>
+              </span>
+              {{v.name}}
+              <span style="margin-left: auto; font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">{{v.count}}</span>
+            </div>
+          </sc-for>
+          <div style="padding: 6px 10px; background: #fafafb; font-size: 10px; color: #6a7180; border-bottom: 1px solid #e2e4e9; border-top: 1px solid #e2e4e9;">あなたの所有アバター</div>
+          <sc-for list="{{ownedAvatars}}" as="v" hint-placeholder-count="2">
+            <div onClick="{{v.toggle}}" style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer;">
+              <span style="width: 14px; height: 14px; border-radius: 3px; border: {{v.boxBorder}}; background: {{v.boxBg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{v.on}}" hint-placeholder-val="{{ true }}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+                </sc-if>
+              </span>
+              {{v.name}}
+              <span style="margin-left: auto; font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">{{v.count}}</span>
+            </div>
+          </sc-for>
+          <div style="padding: 6px 10px; background: #fafafb; font-size: 10px; color: #6a7180; border-top: 1px solid #e2e4e9; border-bottom: 1px solid #e2e4e9;">その他</div>
+          <sc-for list="{{otherAvatars}}" as="v" hint-placeholder-count="2">
+            <div onClick="{{v.toggle}}" style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer;">
+              <span style="width: 14px; height: 14px; border-radius: 3px; border: {{v.boxBorder}}; background: {{v.boxBg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{v.on}}" hint-placeholder-val="{{ true }}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+                </sc-if>
+              </span>
+              {{v.name}}
+              <span style="margin-left: auto; font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">{{v.count}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div onClick="{{toggleViaBase}}" style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #454b57; cursor: pointer;">
+          <span style="width: 14px; height: 14px; border-radius: 3px; border: {{viaBaseBorder}}; background: {{viaBaseBg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <sc-if value="{{viaBase}}" hint-placeholder-val="{{ true }}">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+            </sc-if>
+          </span>
+          同じ素体のアバター向けも含める
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">公開日</div>
+          <div style="height: 30px; border: 1px solid #cdd0d8; border-radius: 6px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">指定なし</div>
+        </div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">入手日</div>
+          <div style="height: 30px; border: 1px solid #3767a6; border-radius: 6px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: #28507f; font-family: 'JetBrains Mono', Consolas, monospace;">2026-01 〜</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== results ===== -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+
+    <div style="height: 52px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e4e9; display: flex; align-items: center; gap: 12px; padding: 0 18px;">
+      <div style="flex-grow: 1; height: 34px; border: 1px solid #cdd0d8; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #fff;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span style="font-size: 13px; font-family: 'JetBrains Mono', Consolas, monospace; color: #28507f;">memo:</span>
+        <span style="font-size: 13px;">夏用　フリル</span>
+        <span style="width: 1px; height: 15px; background: #1c1f26; margin-left: 1px;"></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="height: 32px; border: 1px solid #cdd0d8; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12px;">
+          <span style="color: #6a7180;">並び替え</span>
+          属性: かわいい
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </div>
+        <div style="width: 32px; height: 32px; border: 1px solid #cdd0d8; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1c1f26" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M6 13l6 6 6-6"></path></svg>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding: 8px 18px 0; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #6a7180;">
+      <span><span style="color: #1c1f26; font-weight: 700;">{{resultCount}}</span> 件</span>
+      <span style="color: #cdd0d8;">|</span>
+      <span style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px;">name: / des: / h2: / memo: / file: で対象を指定</span>
+    </div>
+
+    <div style="flex-grow: 1; overflow: hidden; padding: 12px 18px 18px;">
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+        <sc-for list="{{items}}" as="item" hint-placeholder-count="8">
+          <div style="border: {{item.ring}}; border-radius: 8px; background: #fff; overflow: hidden; position: relative;">
+
+            <div onClick="{{item.toggle}}" style="position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; border-radius: 4px; border: {{item.boxBorder}}; background: {{item.boxBg}}; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2;">
+              <sc-if value="{{item.picked}}" hint-placeholder-val="{{ true }}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+              </sc-if>
+            </div>
+
+            <div style="height: 128px; background: {{item.c1}}; position: relative; display: flex; align-items: center; justify-content: center;">
+              <svg width="150" height="128" viewBox="0 0 150 128" fill="none">
+                <circle cx="{{item.cx}}" cy="58" r="30" fill="{{item.c2}}"></circle>
+                <rect x="42" y="86" width="66" height="10" rx="5" fill="{{item.c3}}"></rect>
+              </svg>
+              <sc-if value="{{item.owned}}" hint-placeholder-val="{{ true }}">
+                <div style="position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 10px; background: #e7f2ec; color: #2f7d5a; border: 1px solid #c9e2d5;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+                  所持
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="padding: 10px 11px 11px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-size: 12.5px; font-weight: 500; line-height: 1.45;">{{item.name}}</div>
+              <div style="font-size: 11px; color: #6a7180;">{{item.shop}}</div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                <sc-if value="{{item.unedited}}" hint-placeholder-val="{{ true }}">
+                  <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10px; background: #fbf1de; color: #8a5f1a; border: 1px solid #eddcbb;">未編集</span>
+                </sc-if>
+                <sc-if value="{{item.missing}}" hint-placeholder-val="{{ true }}">
+                  <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10px; background: #fbeaea; color: #9a3232; border: 1px solid #eecccc;">ファイル欠落</span>
+                </sc-if>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10px; background: #eaf0f9; color: #28507f; border: 1px solid #c6d6ec;">{{item.appTag}}</span>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 4px; border-top: 1px solid #f0f1f4;">
+                <span style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">{{item.meta}}</span>
+                <div style="display: flex; gap: 4px;">
+                  <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5l2 2h9v10H4z"></path></svg>
+                  </div>
+                  <div style="width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e4e9; display: flex; align-items: center; justify-content: center;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6a7180" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"></path><path d="M19 5l-8 8"></path><path d="M18 14v5H5V6h5"></path></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{hasPicked}}" hint-placeholder-val="{{ true }}">
+      <div style="height: 56px; flex-shrink: 0; background: #22262e; display: flex; align-items: center; gap: 14px; padding: 0 18px; color: #fff;">
+        <span style="font-size: 13px;"><span style="font-weight: 700;">{{pickedCount}}</span> 件を選択中</span>
+        <div onClick="{{clearPick}}" style="font-size: 12px; color: #a9b1bf; cursor: pointer;">選択を解除</div>
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+          <div style="height: 32px; padding: 0 14px; border-radius: 6px; border: 1px solid #4a5261; color: #e6e9ee; font-size: 13px; display: flex; align-items: center; gap: 7px;">
+            一括操作
+            <span style="font-size: 11px; color: #a9b1bf;">タグ / 属性 / 非表示</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"></path></svg>
+          </div>
+          <div style="height: 32px; padding: 0 16px; border-radius: 6px; background: #3767a6; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 7px;">
+            編集へ送る
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M13 6l6 6-6 6"></path></svg>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      picked: { 2: true, 5: true },
+      tagOn: { VRChat: true, 'かわいい系': true },
+      attrFilters: [
+        { name: 'かわいい', min: 40, max: 100 },
+        { name: '露出', min: 0, max: 30 },
+        { name: '上品', min: 0, max: 100 }
+      ],
+      avatars: { 'セラフィム': true },
+      viaBase: true
+    };
+  }
+
+  renderVals() {
+    var self = this;
+
+    var rawTags = [
+      { name: 'VRChat', src: 'booth' },
+      { name: '3Dモデル', src: 'booth' },
+      { name: '衣装', src: 'booth' },
+      { name: 'かわいい系', src: 'app' },
+      { name: '夏物', src: 'app' },
+      { name: '要調整', src: 'app' }
+    ];
+    var tags = rawTags.map(function (t) {
+      var on = !!self.state.tagOn[t.name];
+      var appish = t.src === 'app';
+      return {
+        name: t.name,
+        dot: appish ? '#3767a6' : '#9aa1ae',
+        border: on ? '1px solid #3767a6' : '1px solid #e2e4e9',
+        bg: on ? '#eaf0f9' : '#fff',
+        fg: on ? '#28507f' : '#454b57',
+        toggle: function () {
+          var next = Object.assign({}, self.state.tagOn);
+          if (next[t.name]) { delete next[t.name]; } else { next[t.name] = true; }
+          self.setState({ tagOn: next });
+        }
+      };
+    });
+
+    var attrs = this.state.attrFilters.map(function (f, i) {
+      var isAll = f.min === 0 && f.max === 100;
+      function replace(min, max) {
+        var next = self.state.attrFilters.slice();
+        next[i] = { name: f.name, min: min, max: max };
+        self.setState({ attrFilters: next });
+      }
+      return {
+        name: f.name,
+        min: f.min,
+        max: f.max,
+        left: f.min + '%',
+        width: (f.max - f.min) + '%',
+        label: isAll ? 'すべて' : f.min + ' – ' + f.max + '%',
+        labelColor: isAll ? '#9aa1ae' : '#28507f',
+        setMin: function (e) { replace(Math.min(Number(e.target.value), f.max), f.max); },
+        setMax: function (e) { replace(f.min, Math.max(Number(e.target.value), f.min)); },
+        remove: function () {
+          var next = self.state.attrFilters.slice();
+          next.splice(i, 1);
+          self.setState({ attrFilters: next });
+        }
+      };
+    });
+
+    function avatarRow(name, count) {
+      var on = !!self.state.avatars[name];
+      return {
+        name: name,
+        count: count,
+        on: on,
+        boxBorder: on ? '1px solid #3767a6' : '1px solid #cdd0d8',
+        boxBg: on ? '#3767a6' : '#fff',
+        toggle: function () {
+          var next = Object.assign({}, self.state.avatars);
+          if (next[name]) { delete next[name]; } else { next[name] = true; }
+          self.setState({ avatars: next });
+        }
+      };
+    }
+
+    var rawItems = [
+      { id: 1, name: 'Frill Knit Set / フリルニットセット', shop: 'AtelierNico', owned: true, unedited: false, missing: false, appTag: '衣装 / トップス', meta: '412 MB', c1: '#e9edf4', c2: '#b9c6dc', c3: '#93a4c0', cx: 60 },
+      { id: 2, name: 'Cyber Visor v2.1', shop: 'STUDIO KOMOREBI', owned: true, unedited: true, missing: false, appTag: '小物 / 頭部', meta: '86 MB', c1: '#eceaf2', c2: '#c3bcd6', c3: '#a79dc2', cx: 75 },
+      { id: 3, name: 'Summer Sailor 夏制服セット', shop: 'AtelierNico', owned: true, unedited: false, missing: false, appTag: '衣装 / セット', meta: '1.1 GB', c1: '#e7f0ec', c2: '#b6d2c5', c3: '#93b8a6', cx: 68 },
+      { id: 4, name: 'Loose Socks Pack', shop: 'mochi works', owned: true, unedited: false, missing: true, appTag: '衣装 / 足元', meta: '24 MB', c1: '#f3eee7', c2: '#dbc9b2', c3: '#c4ad90', cx: 55 },
+      { id: 5, name: 'Ribbon Hair Accessory', shop: 'kotori shop', owned: true, unedited: true, missing: false, appTag: '小物 / 髪飾り', meta: '38 MB', c1: '#f2e9ee', c2: '#dcbcce', c3: '#c69cb4', cx: 82 },
+      { id: 6, name: 'Utility Belt & Pouch', shop: 'HARDLINE', owned: true, unedited: false, missing: false, appTag: '小物 / 腰', meta: '112 MB', c1: '#eaebee', c2: '#c0c3cb', c3: '#a1a5b0', cx: 63 },
+      { id: 7, name: 'Overknee Boots (3色)', shop: 'kotori shop', owned: true, unedited: false, missing: false, appTag: '衣装 / 足元', meta: '208 MB', c1: '#eeeaf4', c2: '#cabfdd', c3: '#ac9dc6', cx: 71 },
+      { id: 8, name: 'Casual Hoodie セット', shop: 'mochi works', owned: false, unedited: false, missing: false, appTag: '衣装 / トップス', meta: '未取得', c1: '#eef0f2', c2: '#c8ced4', c3: '#aab2ba', cx: 58 }
+    ];
+
+    var items = rawItems.map(function (it) {
+      var picked = !!self.state.picked[it.id];
+      return Object.assign({}, it, {
+        picked: picked,
+        ring: picked ? '2px solid #3767a6' : '1px solid #e2e4e9',
+        boxBorder: picked ? '1px solid #3767a6' : '1px solid #cdd0d8',
+        boxBg: picked ? '#3767a6' : 'rgba(255,255,255,.88)',
+        toggle: function () {
+          var next = Object.assign({}, self.state.picked);
+          if (next[it.id]) { delete next[it.id]; } else { next[it.id] = true; }
+          self.setState({ picked: next });
+        }
+      });
+    });
+
+    var pickedCount = Object.keys(this.state.picked).length;
+
+    return {
+      tags: tags,
+      attrs: attrs,
+      baseAvatars: [avatarRow('素体X ベース', 63), avatarRow('ラビットイヤーズ ベース', 14)],
+      ownedAvatars: [avatarRow('セラフィム', 41), avatarRow('マヌカ', 27)],
+      otherAvatars: [avatarRow('ラビットイヤーズ', 12), avatarRow('しなの', 8)],
+      viaBase: this.state.viaBase,
+      viaBaseBorder: this.state.viaBase ? '1px solid #3767a6' : '1px solid #cdd0d8',
+      viaBaseBg: this.state.viaBase ? '#3767a6' : '#fff',
+      toggleViaBase: function () { self.setState({ viaBase: !self.state.viaBase }); },
+      items: items,
+      resultCount: 42,
+      pickedCount: pickedCount,
+      hasPicked: pickedCount > 0,
+      clearPick: function () { self.setState({ picked: {} }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

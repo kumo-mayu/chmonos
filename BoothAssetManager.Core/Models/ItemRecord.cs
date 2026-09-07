@@ -1,0 +1,30 @@
+using System.Text.Json.Serialization;
+
+namespace BoothAssetManager.Core.Models;
+
+/// <summary>
+/// 1つのBOOTH商品に対応するローカル記録。<c>items/{id}.json</c> として1商品につき1ファイルで保存する。
+/// BOOTH由来の <see cref="Booth"/> と、ユーザ入力の <see cref="Local"/> を分けているのは、
+/// 再取得時に <see cref="Booth"/> を丸ごと差し替えるだけで済ませ、ユーザの入力を壊さないため。
+/// </summary>
+public sealed record ItemRecord
+{
+    /// <summary>BOOTH商品ID。ファイル名と一致する正のキー。</summary>
+    public required string Id { get; init; }
+
+    public required BoothBlock Booth { get; init; }
+
+    public required LocalBlock Local { get; init; }
+
+    /// <summary>ファイルを1つ以上持っているか。全画面で「所持している」の定義に使う。</summary>
+    [JsonIgnore]
+    public bool IsDownloaded => Local.LocalFiles.Count > 0;
+
+    /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>
+    [JsonIgnore]
+    public long LogicalSizeBytes => Local.LocalFiles.Sum(file => file.SizeBytes);
+
+    /// <summary>実占有量。重複コピーを含めて実際にドライブを食っている量（統計の表示用）。</summary>
+    [JsonIgnore]
+    public long ActualDiskBytes => Local.LocalFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count));
+}

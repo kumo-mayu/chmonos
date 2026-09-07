@@ -1,0 +1,373 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Zen Kaku Gothic New', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif; color: #1c1f26; background: #f2f3f5; }
+    a { color: #3767a6; text-decoration: none; }
+    a:hover { color: #28507f; }
+    input[type="range"] { accent-color: #3767a6; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; background: #f2f3f5; display: flex; flex-direction: column; overflow: hidden;">
+
+  <!-- step bar -->
+  <div style="height: 56px; flex-shrink: 0; background: #22262e; color: #fff; display: flex; align-items: center; gap: 16px; padding: 0 20px;">
+    <div style="font-size: 14px; font-weight: 700;">取り込んだデータを完成させる</div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: 8px;">
+      <span style="font-size: 13px; font-family: 'JetBrains Mono', Consolas, monospace;">3 / 7 件</span>
+      <div style="width: 220px; height: 5px; border-radius: 3px; background: #3a4150; overflow: hidden;">
+        <div style="width: 43%; height: 100%; background: #3767a6;"></div>
+      </div>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 8px;">
+      <div style="height: 32px; padding: 0 13px; border-radius: 6px; border: 1px solid #4a5261; color: #e6e9ee; font-size: 13px; display: flex; align-items: center;">あとで</div>
+      <div style="height: 32px; padding: 0 16px; border-radius: 6px; background: #3767a6; color: #fff; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 7px;">
+        保存して次へ
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M13 6l6 6-6 6"></path></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- resume banner -->
+  <div style="flex-shrink: 0; background: #f7faff; border-bottom: 1px solid #dbe4f0; display: flex; align-items: center; gap: 12px; padding: 11px 20px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3767a6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 12a8 8 0 108-8"></path><path d="M4 5v4h4"></path></svg>
+    <div style="font-size: 12.5px; color: #28507f;">前回の続きから再開しました（9月5日に中断・7件中3件目）。入力済みの内容はそのまま残っています。</div>
+    <div style="margin-left: auto; display: flex; gap: 8px;">
+      <div style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #c6d6ec; background: #fff; font-size: 12px; color: #28507f; display: flex; align-items: center;">最初からやり直す</div>
+      <div style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #c6d6ec; background: #fff; font-size: 12px; color: #28507f; display: flex; align-items: center;">閉じる</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; overflow: hidden;">
+
+    <!-- ===== left: item view ===== -->
+    <div style="width: 620px; flex-shrink: 0; border-right: 1px solid #e2e4e9; background: #fff; padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+
+      <div style="height: 300px; border-radius: 8px; background: #eceaf2; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="330" height="260" viewBox="0 0 330 260" fill="none">
+          <circle cx="165" cy="106" r="68" fill="#c3bcd6"></circle>
+          <rect x="96" y="188" width="138" height="20" rx="10" fill="#a79dc2"></rect>
+        </svg>
+      </div>
+
+      <div style="display: flex; gap: 7px; flex-shrink: 0;">
+        <div style="width: 60px; height: 48px; border-radius: 5px; background: #ded9e8; border: 2px solid #3767a6;"></div>
+        <div style="width: 60px; height: 48px; border-radius: 5px; background: #e7e4ee;"></div>
+        <div style="width: 60px; height: 48px; border-radius: 5px; background: #ecebf1;"></div>
+        <div style="width: 60px; height: 48px; border-radius: 5px; background: #eef0f2;"></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 18px; font-weight: 700; line-height: 1.45;">Cyber Visor v2.1</div>
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <div style="width: 22px; height: 22px; border-radius: 999px; background: #ded9e8;"></div>
+          <span style="font-size: 12.5px; color: #454b57;">STUDIO KOMOREBI</span>
+          <span style="font-size: 11px; color: #9aa1ae; font-family: 'JetBrains Mono', Consolas, monospace;">ID 6106863</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+          <span style="display: inline-flex; align-items: center; gap: 5px; height: 23px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; border: 1px solid #e2e4e9; color: #454b57;"><span style="width: 5px; height: 5px; border-radius: 999px; background: #9aa1ae;"></span>VRChat</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; height: 23px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; border: 1px solid #e2e4e9; color: #454b57;"><span style="width: 5px; height: 5px; border-radius: 999px; background: #9aa1ae;"></span>小物</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; height: 23px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; border: 1px solid #e2e4e9; color: #454b57;"><span style="width: 5px; height: 5px; border-radius: 999px; background: #9aa1ae;"></span>サイバー</span>
+        </div>
+      </div>
+
+      <div style="background: #fafafb; border: 1px solid #f0f1f4; border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">商品説明（抜粋）</div>
+        <div style="font-size: 12px; line-height: 1.8; color: #454b57;">セラフィム / ラビットイヤーズ 対応のバイザー小物です。PhysBone設定済み。Quest対応版を同梱しています。</div>
+      </div>
+
+      <div style="background: #fafafb; border: 1px solid #f0f1f4; border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px;">
+        <div style="font-size: 11px; letter-spacing: .08em; color: #6a7180; font-weight: 700;">アーカイブ内容 (contents)</div>
+        <div style="font-size: 11.5px; line-height: 1.85; color: #6a7180; font-family: 'JetBrains Mono', Consolas, monospace;">CyberVisor_v2.1.unitypackage<br>CyberVisor_Quest.unitypackage<br>README.txt / 利用規約.pdf</div>
+      </div>
+    </div>
+
+    <!-- ===== right: form ===== -->
+    <div style="flex-grow: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; overflow: hidden;">
+
+      <!-- appTag -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 9px;">
+          <div style="font-size: 13px; font-weight: 700;">appTag</div>
+          <div style="font-size: 11px; color: #9aa1ae;">トップレベルは複数選択可。サブはトップごとに選ぶ</div>
+          <div style="margin-left: auto; font-size: 11px; color: #9a3232;">必須</div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 7px;">
+          <sc-for list="{{tops}}" as="t" hint-placeholder-count="6">
+            <div onClick="{{t.toggle}}" style="display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px; border-radius: 6px; font-size: 13px; cursor: pointer; border: {{t.border}}; background: {{t.bg}}; color: {{t.fg}}; font-weight: {{t.weight}};">
+              {{t.name}}
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-for list="{{selectedTops}}" as="top" hint-placeholder-count="1">
+          <div style="border: 1px solid #e2e4e9; border-radius: 8px; background: #fff; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 700; color: #28507f;">{{top.name}}</span>
+              <span style="font-size: 11px; color: #9aa1ae;">のサブレベル</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <sc-for list="{{top.subs}}" as="s" hint-placeholder-count="5">
+                <div onClick="{{s.toggle}}" style="display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 999px; font-size: 12px; cursor: pointer; border: {{s.border}}; background: {{s.bg}}; color: {{s.fg}};">
+                  {{s.name}}
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- 属性 -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 9px;">
+          <div style="font-size: 13px; font-weight: 700;">属性</div>
+          <div style="font-size: 11px; color: #9aa1ae;">0-100% の連続値。検索と並び替えの両方に使う</div>
+          <div style="margin-left: auto; font-size: 11px; color: #9aa1ae;">任意</div>
+        </div>
+
+        <div style="border: 1px solid #e2e4e9; border-radius: 8px; background: #fff; padding: 14px 16px; display: flex; flex-direction: column; gap: 11px;">
+          <sc-for list="{{attrs}}" as="a" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 76px; flex-shrink: 0; font-size: 12.5px; text-align: right;">{{a.name}}</div>
+              <input type="range" min="0" max="100" step="1" value="{{a.value}}" onChange="{{a.set}}" style="flex-grow: 1; height: 4px;">
+              <div style="width: 44px; flex-shrink: 0; font-size: 12px; text-align: right; font-family: 'JetBrains Mono', Consolas, monospace; color: {{a.color}};">{{a.label}}</div>
+            </div>
+          </sc-for>
+          <div style="display: flex; align-items: center; gap: 6px; height: 30px; border: 1px dashed #cdd0d8; border-radius: 6px; padding: 0 11px; font-size: 12px; color: #9aa1ae; margin-top: 2px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+            属性を追加
+          </div>
+        </div>
+      </div>
+
+      <!-- 対応アバター -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 9px;">
+          <div style="font-size: 13px; font-weight: 700;">対応アバター</div>
+          <div style="font-size: 11px; color: #9aa1ae;">自動取得の結果を確認・修正</div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 7px;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 6px 0 11px; border-radius: 999px; font-size: 12.5px; border: 1px solid #c9e2d5; background: #e7f2ec; color: #2f7d5a;">
+            セラフィム
+            <span style="font-size: 10px; opacity: .8;">h2リンク</span>
+            <span style="width: 19px; height: 19px; border-radius: 999px; background: #cfe6da; display: flex; align-items: center; justify-content: center;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#2f7d5a" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+            </span>
+          </div>
+          <div style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 6px 0 11px; border-radius: 999px; font-size: 12.5px; border: 1px solid #eddcbb; background: #fbf1de; color: #8a5f1a;">
+            ラビットイヤーズ
+            <span style="font-size: 10px; opacity: .8;">variation 由来 / 要確認</span>
+            <span style="width: 19px; height: 19px; border-radius: 999px; background: #f0e2c6; display: flex; align-items: center; justify-content: center;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8a5f1a" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+            </span>
+          </div>
+          <div style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; border: 1px dashed #cdd0d8; color: #9aa1ae;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+            追加
+          </div>
+        </div>
+      </div>
+
+      <!-- 購入した variation -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 9px;">
+          <div style="font-size: 13px; font-weight: 700;">購入した variation と価格</div>
+          <div style="font-size: 11px; color: #9aa1ae;">価格は現在価格が初期値。実際の購入額に直せる</div>
+        </div>
+
+        <div style="border: 1px solid #e2e4e9; border-radius: 8px; background: #fff; overflow: hidden;">
+          <sc-for list="{{variations}}" as="v" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #f0f1f4;">
+              <div onClick="{{v.toggle}}" style="width: 18px; height: 18px; border-radius: 4px; border: {{v.boxBorder}}; background: {{v.boxBg}}; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                <sc-if value="{{v.on}}" hint-placeholder-val="{{ true }}">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+                </sc-if>
+              </div>
+              <div style="flex-grow: 1; font-size: 12.5px; color: {{v.nameColor}};">{{v.name}}</div>
+              <div style="display: flex; border: 1px solid {{v.segBorder}}; border-radius: 6px; overflow: hidden; flex-shrink: 0;">
+                <div onClick="{{v.setPaid}}" style="height: 28px; padding: 0 10px; font-size: 11.5px; display: flex; align-items: center; cursor: pointer; background: {{v.paidBg}}; color: {{v.paidFg}};">金額</div>
+                <div onClick="{{v.setFree}}" style="height: 28px; padding: 0 10px; font-size: 11.5px; display: flex; align-items: center; cursor: pointer; border-left: 1px solid {{v.segBorder}}; background: {{v.freeBg}}; color: {{v.freeFg}};">無料</div>
+                <div onClick="{{v.setGift}}" style="height: 28px; padding: 0 10px; font-size: 11.5px; display: flex; align-items: center; cursor: pointer; border-left: 1px solid {{v.segBorder}}; background: {{v.giftBg}}; color: {{v.giftFg}};">ギフト</div>
+              </div>
+              <div style="width: 96px; flex-shrink: 0; height: 30px; border: {{v.priceBorder}}; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; font-size: 12.5px; font-family: 'JetBrains Mono', Consolas, monospace; color: {{v.priceColor}}; background: {{v.priceBg}};">{{v.price}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- メモ + その他 -->
+      <div style="display: flex; gap: 16px;">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 13px; font-weight: 700;">メモ</div>
+          <div style="height: 74px; border: 1px solid #cdd0d8; border-radius: 6px; background: #fff; padding: 9px 12px; font-size: 12.5px; color: #9aa1ae; line-height: 1.7;">Quest版の方が軽い。改変時はマテリアル差し替え必要…</div>
+        </div>
+        <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 13px; font-weight: 700;">その他</div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px; height: 32px; border: 1px solid #cdd0d8; border-radius: 6px; background: #fff; padding: 0 10px;">
+              <span style="font-size: 11px; color: #6a7180; flex-shrink: 0;">入手日</span>
+              <span style="font-size: 12px; font-family: 'JetBrains Mono', Consolas, monospace; margin-left: auto; color: #9aa1ae;">2026-07-19</span>
+            </div>
+            <div style="font-size: 10.5px; color: #9aa1ae; line-height: 1.6; padding: 0 2px;">未入力のときはファイルの日付を使います（再ダウンロードするとずれることがあります）</div>
+            <div style="display: flex; align-items: center; gap: 8px; height: 32px; border: 1px solid #e2e4e9; border-radius: 6px; background: #fafafb; padding: 0 10px;">
+              <span style="font-size: 11px; color: #6a7180; flex-shrink: 0;">ファイル</span>
+              <span style="font-size: 11px; font-family: 'JetBrains Mono', Consolas, monospace; margin-left: auto; color: #454b57;">1 件 (86 MB)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tops: { '小物': true },
+      subs: { '小物/頭部': true },
+      attrs: { 'かわいい': 24, 'かっこいい': 88, '上品': 40, '露出': 5 },
+      ordered: { 'PC版': true },
+      priceMode: { 'PC版': 'paid' }
+    };
+  }
+
+  renderVals() {
+    var self = this;
+    var master = {
+      '衣装': ['トップス', 'ボトムス', 'セット', '足元', 'ニット'],
+      '小物': ['頭部', '手', '腰', '背中', 'ギミック'],
+      'アバター': ['素体', 'オリジナル', '改変用'],
+      'テクスチャ': ['4K', 'PSD', '差分'],
+      'ツール': ['Unity', 'Blender', 'シェーダー'],
+      'ワールド': ['ギミック', '背景']
+    };
+
+    var topNames = Object.keys(master);
+
+    var tops = topNames.map(function (n) {
+      var on = !!self.state.tops[n];
+      return {
+        name: n,
+        border: on ? '1px solid #3767a6' : '1px solid #cdd0d8',
+        bg: on ? '#3767a6' : '#fff',
+        fg: on ? '#ffffff' : '#454b57',
+        weight: on ? '700' : '400',
+        toggle: function () {
+          var nextTops = Object.assign({}, self.state.tops);
+          var nextSubs = Object.assign({}, self.state.subs);
+          if (nextTops[n]) {
+            delete nextTops[n];
+            Object.keys(nextSubs).forEach(function (k) {
+              if (k.indexOf(n + '/') === 0) { delete nextSubs[k]; }
+            });
+          } else {
+            nextTops[n] = true;
+          }
+          self.setState({ tops: nextTops, subs: nextSubs });
+        }
+      };
+    });
+
+    var selectedTops = topNames.filter(function (n) { return self.state.tops[n]; }).map(function (n) {
+      return {
+        name: n,
+        subs: master[n].map(function (s) {
+          var key = n + '/' + s;
+          var on = !!self.state.subs[key];
+          return {
+            name: s,
+            border: on ? '1px solid #3767a6' : '1px solid #e2e4e9',
+            bg: on ? '#eaf0f9' : '#fff',
+            fg: on ? '#28507f' : '#454b57',
+            toggle: function () {
+              var next = Object.assign({}, self.state.subs);
+              if (next[key]) { delete next[key]; } else { next[key] = true; }
+              self.setState({ subs: next });
+            }
+          };
+        })
+      };
+    });
+
+    var attrs = Object.keys(this.state.attrs).map(function (n) {
+      var v = self.state.attrs[n];
+      return {
+        name: n,
+        value: v,
+        label: v + '%',
+        color: v >= 50 ? '#28507f' : '#9aa1ae',
+        set: function (e) {
+          var next = Object.assign({}, self.state.attrs);
+          next[n] = Number(e.target.value);
+          self.setState({ attrs: next });
+        }
+      };
+    });
+
+    var rawVariations = [
+      { name: 'PC版', price: '¥1,800' },
+      { name: 'Quest版', price: '¥1,800' },
+      { name: 'PC + Quest セット', price: '¥3,000' }
+    ];
+
+    function setMode(name, mode) {
+      return function () {
+        var next = Object.assign({}, self.state.priceMode);
+        next[name] = mode;
+        self.setState({ priceMode: next });
+      };
+    }
+
+    var variations = rawVariations.map(function (v) {
+      var on = !!self.state.ordered[v.name];
+      var mode = self.state.priceMode[v.name] || 'paid';
+      var seg = function (m) { return mode === m && on; };
+      var priceText = mode === 'free' ? '¥0' : (mode === 'gift' ? 'ギフト' : v.price);
+      return {
+        name: v.name,
+        price: on ? priceText : '—',
+        on: on,
+        nameColor: on ? '#1c1f26' : '#9aa1ae',
+        boxBorder: on ? '1px solid #3767a6' : '1px solid #cdd0d8',
+        boxBg: on ? '#3767a6' : '#fff',
+        segBorder: on ? '#cdd0d8' : '#f0f1f4',
+        paidBg: seg('paid') ? '#3767a6' : '#fff',
+        paidFg: seg('paid') ? '#fff' : (on ? '#454b57' : '#c2c7d0'),
+        freeBg: seg('free') ? '#3767a6' : '#fff',
+        freeFg: seg('free') ? '#fff' : (on ? '#454b57' : '#c2c7d0'),
+        giftBg: seg('gift') ? '#3767a6' : '#fff',
+        giftFg: seg('gift') ? '#fff' : (on ? '#454b57' : '#c2c7d0'),
+        priceBorder: on && mode === 'paid' ? '1px solid #cdd0d8' : '1px solid #f0f1f4',
+        priceBg: on && mode === 'paid' ? '#fff' : '#fafafb',
+        priceColor: on ? (mode === 'paid' ? '#1c1f26' : '#6a7180') : '#c2c7d0',
+        setPaid: setMode(v.name, 'paid'),
+        setFree: setMode(v.name, 'free'),
+        setGift: setMode(v.name, 'gift'),
+        toggle: function () {
+          var next = Object.assign({}, self.state.ordered);
+          if (next[v.name]) { delete next[v.name]; } else { next[v.name] = true; }
+          self.setState({ ordered: next });
+        }
+      };
+    });
+
+    return { tops: tops, selectedTops: selectedTops, attrs: attrs, variations: variations };
+  }
+}
+</script>
+</body>
+</html>

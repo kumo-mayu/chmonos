@@ -1,0 +1,102 @@
+<Application x:Class="BoothAssetManager.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <!-- モックで決めた配色をそのまま持ち込む -->
+        <SolidColorBrush x:Key="Bg" Color="#f2f3f5" />
+        <SolidColorBrush x:Key="Surface" Color="#ffffff" />
+        <SolidColorBrush x:Key="SurfaceAlt" Color="#fafafb" />
+        <SolidColorBrush x:Key="Border" Color="#e2e4e9" />
+        <SolidColorBrush x:Key="BorderStrong" Color="#cdd0d8" />
+        <SolidColorBrush x:Key="Text" Color="#1c1f26" />
+        <SolidColorBrush x:Key="TextMuted" Color="#6a7180" />
+        <SolidColorBrush x:Key="TextFaint" Color="#9aa1ae" />
+        <SolidColorBrush x:Key="Accent" Color="#3767a6" />
+        <SolidColorBrush x:Key="AccentSoft" Color="#eaf0f9" />
+        <SolidColorBrush x:Key="AccentBorder" Color="#c6d6ec" />
+        <SolidColorBrush x:Key="Rail" Color="#22262e" />
+        <SolidColorBrush x:Key="RailActive" Color="#313745" />
+        <SolidColorBrush x:Key="RailText" Color="#cfd4dd" />
+        <SolidColorBrush x:Key="RailLabel" Color="#5d6675" />
+        <SolidColorBrush x:Key="Good" Color="#2f7d5a" />
+        <SolidColorBrush x:Key="GoodSoft" Color="#e7f2ec" />
+        <SolidColorBrush x:Key="GoodBorder" Color="#c9e2d5" />
+        <SolidColorBrush x:Key="Warn" Color="#8a5f1a" />
+        <SolidColorBrush x:Key="WarnSoft" Color="#fbf1de" />
+        <SolidColorBrush x:Key="WarnBorder" Color="#eddcbb" />
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        </Style>
+
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <Style x:Key="Mono" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+        </Style>
+
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <!-- 角丸・枠線つきのカード -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Background" Value="{StaticResource Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderStrong}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{StaticResource Accent}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </Application.Resources>
+</Application>

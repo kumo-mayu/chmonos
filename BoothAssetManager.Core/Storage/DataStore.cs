@@ -1,0 +1,62 @@
+using BoothAssetManager.Core.Models;
+
+namespace BoothAssetManager.Core.Storage;
+
+/// <summary>1つのJSONファイル全体を1つの値として読み書きする小さな入れ物。</summary>
+public sealed class JsonFileStore<T> where T : class, new()
+{
+    private readonly string _path;
+
+    public JsonFileStore(string path)
+    {
+        _path = path;
+    }
+
+    public string Path => _path;
+
+    /// <summary>ファイルが無ければ既定値を返す（初回起動をそのまま通す）。</summary>
+    public T Load() => JsonStore.Read<T>(_path) ?? new T();
+
+    public Task SaveAsync(T value, CancellationToken cancellationToken = default)
+        => JsonStore.WriteAsync(_path, value, cancellationToken);
+}
+
+/// <summary>
+/// 保存されるもの一式への入り口。どのファイルが何を持つかをここだけ見れば分かるようにする。
+/// </summary>
+public sealed class DataStore
+{
+    public DataStore(AppPaths paths)
+    {
+        Paths = paths;
+        Items = new ItemRepository(paths);
+        AppTags = new JsonFileStore<AppTagMaster>(paths.AppTagsFile);
+        Attributes = new JsonFileStore<AttributeMaster>(paths.AttributesFile);
+        Avatars = new JsonFileStore<AvatarRegistry>(paths.AvatarRegistryFile);
+        Settings = new JsonFileStore<AppSettings>(paths.SettingsFile);
+        Unresolved = new JsonFileStore<List<UnresolvedFile>>(paths.UnresolvedFile);
+        Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);
+        Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
+        ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
+    }
+
+    public AppPaths Paths { get; }
+
+    public ItemRepository Items { get; }
+
+    public JsonFileStore<AppTagMaster> AppTags { get; }
+
+    public JsonFileStore<AttributeMaster> Attributes { get; }
+
+    public JsonFileStore<AvatarRegistry> Avatars { get; }
+
+    public JsonFileStore<AppSettings> Settings { get; }
+
+    public JsonFileStore<List<UnresolvedFile>> Unresolved { get; }
+
+    public JsonFileStore<List<ExcludedEntry>> Excluded { get; }
+
+    public JsonFileStore<List<NotificationRecord>> Notifications { get; }
+
+    public JsonFileStore<List<ScanCacheEntry>> ScanCache { get; }
+}
