@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
 using BoothAssetManager.App.Services;
+using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
 
@@ -114,13 +115,34 @@ public sealed class OrderedVariationInput : ViewModelBase
     /// <summary>BOOTH側に現存しない購入記録か。</summary>
     public bool IsGone { get; init; }
 
+    /// <summary>
+    /// 保存済みの値を流し込み終えたか。
+    /// これが立つまで価格の自動入力はしない。読み込んだだけで
+    /// 「未入力」だった過去の記録に勝手な金額が入るのを避けるため。
+    /// </summary>
+    public bool IsInitialized { get; set; }
+
     public bool IsPurchased
     {
         get => _isPurchased;
-        set => SetField(ref _isPurchased, value);
+        set
+        {
+            if (!SetField(ref _isPurchased, value))
+            {
+                return;
+            }
+
+            // ユーザが印を付けた時点で、BOOTHの現在価格を初期値として入れておく。
+            // 空欄のままだと「未入力」で保存され、統計の支出に乗らない。
+            // セール等で実際の支払額が違うことはあるので、値は書き換えられるようにしておく。
+            if (IsInitialized && value && _price.Length == 0 && ListPrice is { } listPrice)
+            {
+                Price = listPrice.ToString();
+            }
+        }
     }
 
-    /// <summary>購入価格。空欄は未入力、0は無料配布。</summary>
+    /// <summary>購入価格。空欄は未入力（支出に数えない）、0は無料配布。</summary>
     public string Price
     {
         get => _price;
@@ -172,6 +194,32 @@ public sealed class EditViewModel : ViewModelBase
         AddTopTagCommand = new RelayCommand(() => _ = AddTopTagAsync(), () => NewTopTag.Trim().Length > 0);
         AddAttributeCommand = new RelayCommand(() => _ = AddAttributeAsync(), () => NewAttribute.Trim().Length > 0);
         AddSubTagCommand = new RelayCommand(parameter => _ = AddSubTagAsync(parameter), parameter => parameter is AppTagChoice);
+        OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem);
+    }
+
+    public RelayCommand OpenBoothCommand { get; }
+
+    /// <summary>編集しながら実物のページを見たいことがあるので、ここからも飛べるようにする。</summary>
+    private void OpenBooth()
+    {
+        if (_item is null)
+        {
+            return;
+        }
+
+        var url = _item.Booth.Url ?? BoothClient.ItemPageUrl(_item.Id);
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // 開けなくても編集は続けられる
+        }
     }
 
     public RelayCommand SaveAndNextCommand { get; }
@@ -455,6 +503,12 @@ public sealed class EditViewModel : ViewModelBase
                 Price = entry.Price?.ToString() ?? string.Empty,
                 IsGifted = entry.IsGifted,
             });
+        }
+
+        // ここから先の変更はユーザ操作。価格の自動入力を許可する
+        foreach (var input in Variations)
+        {
+            input.IsInitialized = true;
         }
     }
 

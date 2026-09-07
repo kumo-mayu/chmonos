@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BoothAssetManager.Core.Models;
 
 /// <summary>
@@ -17,5 +19,10 @@ public sealed record EditSession
 
     public DateTimeOffset? StartedAt { get; init; }
 
+    /// <summary>
+    /// 位置から導かれる値なので、ファイルには書かない。
+    /// 手で開いたときに、書き換えても効かない項目が並んでいると迷わせるため。
+    /// </summary>
+    [JsonIgnore]
     public bool IsFinished => Index >= ItemIds.Count;
 }

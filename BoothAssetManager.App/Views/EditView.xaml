@@ -22,6 +22,8 @@
                                  Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
                     <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
                     <Button Content="この件は飛ばす" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
                     <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAndNextCommand}" />
@@ -140,12 +142,16 @@
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+                                                <!-- 幅は内容任せ。固定すると文字が切れる -->
                                                 <Grid Margin="0,4,0,0">
-                                                    <TextBox Text="{Binding PendingSub, UpdateSourceTrigger=PropertyChanged}"
-                                                             Height="26" FontSize="12" VerticalContentAlignment="Center"
-                                                             Padding="7,0" Margin="0,0,66,0" />
-                                                    <Button Content="サブを追加" FontSize="11" Height="26" Width="62"
-                                                            HorizontalAlignment="Right"
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Grid.Column="0" Text="{Binding PendingSub, UpdateSourceTrigger=PropertyChanged}"
+                                                             Height="27" FontSize="12" VerticalContentAlignment="Center"
+                                                             Padding="7,0" Margin="0,0,6,0" />
+                                                    <Button Grid.Column="1" Content="サブを追加" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.AddSubTagCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
@@ -159,10 +165,13 @@
 
                         <!-- 編集の途中で分類を増やせるようにする。画面を往復させない -->
                         <Grid Margin="0,4,0,0">
-                            <TextBox Text="{Binding NewTopTag, UpdateSourceTrigger=PropertyChanged}"
-                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,96,0" />
-                            <Button Content="トップを追加" Width="92" HorizontalAlignment="Right"
-                                    Command="{Binding AddTopTagCommand}" />
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding NewTopTag, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
+                            <Button Grid.Column="1" Content="トップを追加" Command="{Binding AddTopTagCommand}" />
                         </Grid>
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
@@ -194,17 +203,20 @@
                         </ItemsControl>
 
                         <Grid Margin="0,4,0,0">
-                            <TextBox Text="{Binding NewAttribute, UpdateSourceTrigger=PropertyChanged}"
-                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,96,0" />
-                            <Button Content="属性を追加" Width="92" HorizontalAlignment="Right"
-                                    Command="{Binding AddAttributeCommand}" />
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding NewAttribute, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
+                            <Button Grid.Column="1" Content="属性を追加" Command="{Binding AddAttributeCommand}" />
                         </Grid>
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
                         <!-- 購入記録 -->
                         <TextBlock Text="購入したバリエーション" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="価格は空欄なら未入力、0は無料配布として扱います。"
+                        <TextBlock Text="購入に印を付けるとBOOTHの現在価格が入ります。実際の支払額が違うときは書き換えてください。空欄は未入力（支出に数えない）、0は無料配布です。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
                         <ItemsControl ItemsSource="{Binding Variations}">

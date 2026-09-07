@@ -112,8 +112,15 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
                             </Trigger>
+                            <!--
+                                無効の表現は薄さだけに頼らない。0.45まで落とすと何のボタンか読めなくなる。
+                                文字と枠の色を弱めたうえで、透過は控えめにする。
+                            -->
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Opacity" Value="0.75" />
+                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Border}" />
                                 <Setter Property="Cursor" Value="Arrow" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -126,6 +133,20 @@
             <Setter Property="Background" Value="{StaticResource Accent}" />
             <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
             <Setter Property="Foreground" Value="White" />
+            <!-- 白文字を色地に載せると細い字画が沈むので、少し太らせる -->
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!--
+            狭い場所に置く小さいボタン。
+            既定のボタンは Padding 14,0 を ContentPresenter の Margin にしているので、
+            幅を固定すると左右28px分だけ文字の使える幅が減って途中で切れる。
+            こちらは余白を詰め、幅は内容任せ（固定しない）で使う。
+        -->
+        <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="FontSize" Value="11.5" />
         </Style>
     </Application.Resources>
 </Application>

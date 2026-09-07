@@ -19,7 +19,7 @@
                     <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="この商品を編集" IsEnabled="False" Margin="0,0,8,0" />
+                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0" />
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" />
                 </StackPanel>
             </Grid>
@@ -303,10 +303,13 @@
                                                         <DataTemplate>
                                                             <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
                                                                 <Grid>
-                                                                    <TextBlock Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
-                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,132,0" />
-                                                                    <Button Content="エクスプローラで開く" FontSize="11" Height="26" Width="124"
-                                                                            HorizontalAlignment="Right"
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Grid.Column="0" Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
+                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                                                    <Button Grid.Column="1" Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                                                             Command="{Binding DataContext.OpenInExplorerCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding}" />

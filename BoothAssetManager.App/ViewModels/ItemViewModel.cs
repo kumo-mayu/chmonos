@@ -82,6 +82,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
         BackCommand = new RelayCommand(() => main.ShowSearch());
         OpenBoothCommand = new RelayCommand(OpenBooth);
+        // 一度appTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
+        EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
 
@@ -95,6 +97,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand BackCommand { get; }
 
     public RelayCommand OpenBoothCommand { get; }
+
+    public RelayCommand EditCommand { get; }
 
     public RelayCommand OpenInExplorerCommand { get; }
 
