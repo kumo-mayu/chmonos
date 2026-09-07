@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Media.Imaging;
+using BoothAssetManager.App.Controls;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
+using BoothZipInspector;
 
 namespace BoothAssetManager.App.ViewModels;
 
@@ -55,7 +57,7 @@ public sealed class LocalFileRow
 /// 商品ページ。BOOTHの商品ページを参考にしつつ、ローカルの情報から組み立てる。
 /// 閲覧専用にしているのは決定事項（編集はEdit画面へ一本化し、保存経路を1つに保つ）。
 /// </summary>
-public sealed class ItemViewModel : ViewModelBase
+public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -298,6 +300,34 @@ public sealed class ItemViewModel : ViewModelBase
             {
                 SelectedIndex = index;
             }
+        }
+    }
+
+    /// <summary>
+    /// 本文中のBOOTH商品リンクのうち、ライブラリに持っているものはアプリ内で開く。
+    /// 対応アバターなど、説明文から辿った先が手元にある商品であることは多い。
+    /// </summary>
+    public bool CanNavigate(Uri uri)
+    {
+        var itemId = BoothUrlExtractor.TryExtractItemId(uri.AbsoluteUri);
+        return itemId is not null && _services.Store.Items.Exists(itemId);
+    }
+
+    public void Navigate(Uri uri)
+    {
+        var itemId = BoothUrlExtractor.TryExtractItemId(uri.AbsoluteUri);
+        if (itemId is not null)
+        {
+            _ = OpenLinkedItemAsync(itemId);
+        }
+    }
+
+    private async Task OpenLinkedItemAsync(string itemId)
+    {
+        var record = await _services.Store.Items.LoadAsync(itemId);
+        if (record is not null)
+        {
+            _main.ShowItem(record);
         }
     }
 

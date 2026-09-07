@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Navigation;
 
 namespace BoothAssetManager.App.Controls;
@@ -15,6 +16,18 @@ namespace BoothAssetManager.App.Controls;
 /// そしてBOOTHの説明文には対応アバターのURLが並ぶ文化があり、そこを踏めるようにしたいこと。
 /// RichTextBoxの Document は依存関係プロパティではないのでバインドできず、ここで橋渡しする。
 /// </summary>
+/// <summary>
+/// 本文中のリンクをアプリ内で開けるかどうかを判断し、開く役。
+/// ライブラリに持っているBOOTH商品へのリンクは、ブラウザではなくアプリ内の商品ページへ送る。
+/// </summary>
+public interface IInAppLinkNavigator
+{
+    /// <summary>アプリ内に行き先があるか。false ならブラウザで開く。</summary>
+    bool CanNavigate(Uri uri);
+
+    void Navigate(Uri uri);
+}
+
 public static class SelectableText
 {
     /// <summary>URLとして拾う範囲。日本語の括弧や引用符は本文側の記号なので含めない。</summary>
@@ -32,11 +45,32 @@ public static class SelectableText
             typeof(SelectableText),
             new PropertyMetadata(null, OnTextChanged));
 
+    /// <summary>アプリ内で開ける行き先の判断役。設定されていなければ全てブラウザで開く。</summary>
+    public static readonly DependencyProperty NavigatorProperty =
+        DependencyProperty.RegisterAttached(
+            "Navigator",
+            typeof(IInAppLinkNavigator),
+            typeof(SelectableText),
+            new PropertyMetadata(null, OnNavigatorChanged));
+
     public static void SetText(DependencyObject element, string? value) => element.SetValue(TextProperty, value);
 
     public static string? GetText(DependencyObject element) => (string?)element.GetValue(TextProperty);
 
+    public static void SetNavigator(DependencyObject element, IInAppLinkNavigator? value)
+        => element.SetValue(NavigatorProperty, value);
+
+    public static IInAppLinkNavigator? GetNavigator(DependencyObject element)
+        => (IInAppLinkNavigator?)element.GetValue(NavigatorProperty);
+
     private static void OnTextChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
+        => Refresh(element);
+
+    // 本文とNavigatorのどちらが先に設定されるかはXAMLの書き順次第なので、どちらでも組み直す。
+    private static void OnNavigatorChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
+        => Refresh(element);
+
+    private static void Refresh(DependencyObject element)
     {
         if (element is not RichTextBox box)
         {
@@ -50,7 +84,7 @@ public static class SelectableText
         box.PreviewMouseWheel -= ForwardMouseWheel;
         box.PreviewMouseWheel += ForwardMouseWheel;
 
-        box.Document = Build(args.NewValue as string);
+        box.Document = Build(GetText(box), GetNavigator(box));
     }
 
     private static void ForwardMouseWheel(object sender, MouseWheelEventArgs args)
@@ -68,7 +102,7 @@ public static class SelectableText
         });
     }
 
-    private static FlowDocument Build(string? text)
+    private static FlowDocument Build(string? text, IInAppLinkNavigator? navigator)
     {
         var document = new FlowDocument
         {
@@ -92,13 +126,13 @@ public static class SelectableText
                 paragraph.Inlines.Add(new LineBreak());
             }
 
-            AppendLine(paragraph, lines[index]);
+            AppendLine(paragraph, lines[index], navigator);
         }
 
         return document;
     }
 
-    private static void AppendLine(Paragraph paragraph, string line)
+    private static void AppendLine(Paragraph paragraph, string line, IInAppLinkNavigator? navigator)
     {
         var position = 0;
 
@@ -115,9 +149,7 @@ public static class SelectableText
                 paragraph.Inlines.Add(new Run(line[position..match.Index]));
             }
 
-            var link = new Hyperlink(new Run(url)) { NavigateUri = uri };
-            link.RequestNavigate += OnRequestNavigate;
-            paragraph.Inlines.Add(link);
+            paragraph.Inlines.Add(CreateLink(url, uri, navigator));
 
             // 末尾から外した記号は本文として続ける
             position = match.Index + url.Length;
@@ -129,7 +161,35 @@ public static class SelectableText
         }
     }
 
-    private static void OnRequestNavigate(object sender, RequestNavigateEventArgs args)
+    private static Hyperlink CreateLink(string url, Uri uri, IInAppLinkNavigator? navigator)
+    {
+        var link = new Hyperlink(new Run(url)) { NavigateUri = uri };
+
+        // ライブラリに持っている商品へのリンクは、色を「所持」と揃えて外部リンクと区別する。
+        // 踏む前に、外に出るのか手元のページへ移るのかが分かるようにするため。
+        if (navigator?.CanNavigate(uri) == true)
+        {
+            link.ToolTip = "ライブラリ内の商品ページを開きます";
+            if (Application.Current?.TryFindResource("Good") is Brush brush)
+            {
+                link.Foreground = brush;
+            }
+
+            link.RequestNavigate += (_, args) =>
+            {
+                args.Handled = true;
+                navigator.Navigate(args.Uri);
+            };
+
+            return link;
+        }
+
+        link.ToolTip = url;
+        link.RequestNavigate += OpenInBrowser;
+        return link;
+    }
+
+    private static void OpenInBrowser(object sender, RequestNavigateEventArgs args)
     {
         args.Handled = true;
 

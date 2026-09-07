@@ -88,6 +88,7 @@
                             -->
                             <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,0,0,14"
                                          controls:SelectableText.Text="{Binding Description}"
+                                         controls:SelectableText.Navigator="{Binding}"
                                          Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <ItemsControl ItemsSource="{Binding Sections}">
@@ -98,7 +99,9 @@
                                                 <TextBlock Text="{Binding Heading}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap" />
                                             </Border>
                                             <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
-                                                         controls:SelectableText.Text="{Binding Text}" />
+                                                         controls:SelectableText.Text="{Binding Text}"
+                                                         controls:SelectableText.Navigator="{Binding DataContext,
+                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -240,7 +243,9 @@
                             <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
                                     CornerRadius="6" Padding="12,10"
                                     Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.Text="{Binding Memo}" />
+                                <RichTextBox Style="{StaticResource SelectableBody}"
+                                             controls:SelectableText.Text="{Binding Memo}"
+                                             controls:SelectableText.Navigator="{Binding}" />
                             </Border>
                         </StackPanel>
                     </Border>
