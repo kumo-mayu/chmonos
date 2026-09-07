@@ -46,10 +46,38 @@ public class BoothClientTests
     private static HttpResponseMessage Ok(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body) };
 
+    /// <summary>429応答。<paramref name="retryAfter"/> が null ならヘッダを付けない。</summary>
+    private static HttpResponseMessage TooManyRequests(TimeSpan? retryAfter = null)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+        if (retryAfter is { } wait)
+        {
+            response.Headers.Add("Retry-After", ((int)wait.TotalSeconds).ToString());
+        }
+
+        return response;
+    }
+
     private static BoothClient CreateClient(HttpMessageHandler handler) =>
         new(new HttpClient(handler),
             new AppSettings { FetchIntervalMs = 0 },
             delay: (_, _) => Task.CompletedTask);
+
+    /// <summary>
+    /// 自動減速を見るためのクライアント。間隔は0にできない（倍にしても0のままなので）。
+    /// 実際には待たせず、<paramref name="waits"/> に指示された待ち時間だけ記録する。
+    /// </summary>
+    private static BoothClient CreateThrottleClient(
+        HttpMessageHandler handler,
+        List<TimeSpan> waits,
+        AppSettings? settings = null)
+        => new(new HttpClient(handler),
+            settings ?? new AppSettings { FetchIntervalMs = 1000, FetchIntervalMaxMs = 8000 },
+            delay: (duration, _) =>
+            {
+                waits.Add(duration);
+                return Task.CompletedTask;
+            });
 
     [Fact]
     public async Task ReturnsBodyOnSuccess()
@@ -114,6 +142,117 @@ public class BoothClientTests
 
         Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
         Assert.Equal(3, handler.RequestCount);
+    }
+
+    /// <summary>429は「出し過ぎ」の申告なので、以降のリクエスト間隔そのものを倍にする。</summary>
+    [Fact]
+    public async Task SlowsDownAfterRateLimit()
+    {
+        var waits = new List<TimeSpan>();
+        var client = CreateThrottleClient(new QueuedHandler(TooManyRequests(), Ok("ok")), waits);
+
+        var result = await client.GetItemJsonAsync("123");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2000, client.CurrentIntervalMs);
+        Assert.True(client.IsThrottled);
+    }
+
+    /// <summary>減速は上限で頭打ちにする。際限なく広がると実質フリーズするため。</summary>
+    [Fact]
+    public async Task CapsSlowdownAtConfiguredMaximum()
+    {
+        var waits = new List<TimeSpan>();
+        var settings = new AppSettings { FetchIntervalMs = 1000, FetchIntervalMaxMs = 3000 };
+        var client = CreateThrottleClient(
+            new QueuedHandler(TooManyRequests(), TooManyRequests(), TooManyRequests()),
+            waits,
+            settings);
+
+        var result = await client.GetItemJsonAsync("123");
+
+        Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
+        Assert.True(result.IsRateLimited);
+        Assert.Equal(3000, client.CurrentIntervalMs);
+    }
+
+    /// <summary>Retry-Afterがこちらの既定より長ければ、素直にそちらに従う。</summary>
+    [Fact]
+    public async Task HonorsRetryAfterWhenLongerThanDefaultDelay()
+    {
+        var waits = new List<TimeSpan>();
+        var client = CreateThrottleClient(
+            new QueuedHandler(TooManyRequests(TimeSpan.FromSeconds(30)), Ok("ok")),
+            waits);
+
+        var result = await client.GetItemJsonAsync("123");
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(TimeSpan.FromSeconds(30), waits);
+    }
+
+    /// <summary>Retry-Afterが短くても、こちらの再試行間隔より前倒しはしない。</summary>
+    [Fact]
+    public async Task KeepsOwnDelayWhenRetryAfterIsShorter()
+    {
+        var waits = new List<TimeSpan>();
+        var client = CreateThrottleClient(
+            new QueuedHandler(TooManyRequests(TimeSpan.FromSeconds(1)), Ok("ok")),
+            waits);
+
+        await client.GetItemJsonAsync("123");
+
+        Assert.Contains(TimeSpan.FromSeconds(2), waits);
+        Assert.DoesNotContain(TimeSpan.FromSeconds(1), waits);
+    }
+
+    /// <summary>
+    /// 指示された待ち時間が長すぎるときは、粘らずに1回で諦める。
+    /// 待ち続けても取り込み全体が止まるだけなので、次回の実行に回した方がよい。
+    /// </summary>
+    [Fact]
+    public async Task GivesUpWithoutWaitingWhenRetryAfterIsTooLong()
+    {
+        var waits = new List<TimeSpan>();
+        var handler = new QueuedHandler(TooManyRequests(TimeSpan.FromMinutes(30)), Ok("ok"));
+        var client = CreateThrottleClient(handler, waits);
+
+        var result = await client.GetItemJsonAsync("123");
+
+        Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
+        Assert.True(result.IsRateLimited);
+        Assert.Equal(1, handler.RequestCount);
+        Assert.DoesNotContain(TimeSpan.FromMinutes(30), waits);
+    }
+
+    /// <summary>503もRetry-Afterを付けてくることがあるので従う。ただし減速はしない（こちらの責任ではない）。</summary>
+    [Fact]
+    public async Task HonorsRetryAfterOnServerErrorWithoutSlowingDown()
+    {
+        var waits = new List<TimeSpan>();
+        var unavailable = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        unavailable.Headers.Add("Retry-After", "20");
+        var client = CreateThrottleClient(new QueuedHandler(unavailable, Ok("ok")), waits);
+
+        var result = await client.GetItemJsonAsync("123");
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(TimeSpan.FromSeconds(20), waits);
+        Assert.False(client.IsThrottled);
+    }
+
+    /// <summary>ふつうの5xxでは減速しない。BOOTH側の不調にこちらが付き合う理由はない。</summary>
+    [Fact]
+    public async Task DoesNotSlowDownOnOrdinaryServerErrors()
+    {
+        var waits = new List<TimeSpan>();
+        var client = CreateThrottleClient(
+            new QueuedHandler(new HttpResponseMessage(HttpStatusCode.InternalServerError), Ok("ok")),
+            waits);
+
+        await client.GetItemJsonAsync("123");
+
+        Assert.False(client.IsThrottled);
     }
 
     [Theory]

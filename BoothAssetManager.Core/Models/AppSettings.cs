@@ -51,6 +51,18 @@ public sealed class AppSettings
     /// <summary>BOOTHへのリクエスト間隔（ミリ秒）。直列で必ず間隔を空ける。</summary>
     public int FetchIntervalMs { get; init; } = 1500;
 
+    /// <summary>
+    /// 429を受けたときに自動で広げる間隔の上限（ミリ秒）。
+    /// 「速すぎる」と言われたら次から遅くするのが筋なので、受けるたびに間隔を倍にして、ここで頭打ちにする。
+    /// </summary>
+    public int FetchIntervalMaxMs { get; init; } = 30000;
+
+    /// <summary>
+    /// Retry-Afterで指示された待ち時間に付き合う上限（秒）。
+    /// これを超える指示は「今は相手にする気が無い」ということなので、待たずに諦めて次回の実行に回す。
+    /// </summary>
+    public int MaxRetryAfterWaitSeconds { get; init; } = 60;
+
     // --- 画像 ---
 
     /// <summary>保存する画像の長辺（px）。</summary>

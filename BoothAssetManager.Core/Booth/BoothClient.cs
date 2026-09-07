@@ -22,14 +22,29 @@ public sealed class BoothFetchResult<T>
 
     public string? Error { get; init; }
 
+    /// <summary>429だったか。状態としては一時エラーだが、こちらの出し過ぎなので扱いを変える。</summary>
+    public bool IsRateLimited { get; init; }
+
+    /// <summary>Retry-Afterで指示された待ち時間。ヘッダが無ければnull。</summary>
+    public TimeSpan? RetryAfter { get; init; }
+
     public bool IsSuccess => Status == BoothFetchStatus.Success;
 
     public static BoothFetchResult<T> Success(T value) => new() { Status = BoothFetchStatus.Success, Value = value };
 
     public static BoothFetchResult<T> NotFound() => new() { Status = BoothFetchStatus.NotFound };
 
-    public static BoothFetchResult<T> Temporary(string error)
-        => new() { Status = BoothFetchStatus.TemporaryFailure, Error = error };
+    public static BoothFetchResult<T> Temporary(string error, TimeSpan? retryAfter = null)
+        => new() { Status = BoothFetchStatus.TemporaryFailure, Error = error, RetryAfter = retryAfter };
+
+    public static BoothFetchResult<T> RateLimited(string error, TimeSpan? retryAfter)
+        => new()
+        {
+            Status = BoothFetchStatus.TemporaryFailure,
+            Error = error,
+            IsRateLimited = true,
+            RetryAfter = retryAfter,
+        };
 }
 
 public interface IBoothClient
@@ -42,6 +57,12 @@ public interface IBoothClient
 
     /// <summary>BOOTH内検索。手掛かりが無いファイルの候補を出すために使う。</summary>
     Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default);
+
+    /// <summary>現在のリクエスト間隔（ミリ秒）。429を受けると設定値より広がる。</summary>
+    int CurrentIntervalMs { get; }
+
+    /// <summary>429を受けて自動減速している最中か。</summary>
+    bool IsThrottled { get; }
 }
 
 /// <summary>
@@ -51,6 +72,11 @@ public interface IBoothClient
 /// 失敗の扱いは2種類に分ける。404だけが非公開判定のカウント対象で、
 /// タイムアウトや5xxは一時エラーとして再試行し、カウントには数えない。
 /// BOOTH側の一時的な障害で商品が「非公開」と誤判定されるのを防ぐため。
+///
+/// 429は「こちらが出し過ぎ」という相手からの申告なので、固定の再試行間隔ではなく
+/// Retry-Afterに従い、さらに以降のリクエスト間隔自体を倍にする（自動減速）。
+/// 減速はプロセスが生きている間ずっと維持し、自動では戻さない。
+/// 戻す条件を機械的に決めると、結局また叩きに行って同じことを繰り返すため。
 /// </summary>
 public sealed class BoothClient : IBoothClient
 {
@@ -64,6 +90,7 @@ public sealed class BoothClient : IBoothClient
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private DateTimeOffset _lastRequestAt = DateTimeOffset.MinValue;
+    private int _currentIntervalMs;
 
     /// <param name="delay">待機処理。テストでは実際に待たせないよう差し替える。</param>
     public BoothClient(
@@ -74,12 +101,17 @@ public sealed class BoothClient : IBoothClient
         _httpClient = httpClient;
         _settings = settings ?? new AppSettings();
         _delay = delay ?? ((duration, token) => Task.Delay(duration, token));
+        _currentIntervalMs = _settings.FetchIntervalMs;
 
         if (!_httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(UserAgent))
         {
             _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         }
     }
+
+    public int CurrentIntervalMs => _currentIntervalMs;
+
+    public bool IsThrottled => _currentIntervalMs > _settings.FetchIntervalMs;
 
     public static string ItemJsonUrl(string itemId) => $"https://booth.pm/ja/items/{itemId}.json";
 
@@ -107,13 +139,20 @@ public sealed class BoothClient : IBoothClient
         Func<HttpResponseMessage, Task<T>> readBody,
         CancellationToken cancellationToken)
     {
-        string lastError = "不明なエラー";
+        BoothFetchResult<T>? previous = null;
 
         for (var attempt = 0; attempt <= RetryDelays.Length; attempt++)
         {
             if (attempt > 0)
             {
-                await _delay(RetryDelays[attempt - 1], cancellationToken);
+                // 相手がRetry-Afterで待ち時間を指示してきたら、こちらの既定より長い限りそちらに従う。
+                var wait = RetryDelays[attempt - 1];
+                if (previous?.RetryAfter is { } instructed && instructed > wait)
+                {
+                    wait = instructed;
+                }
+
+                await _delay(wait, cancellationToken);
             }
 
             var result = await SendOnceAsync(url, readBody, cancellationToken);
@@ -122,10 +161,16 @@ public sealed class BoothClient : IBoothClient
                 return result;
             }
 
-            lastError = result.Error ?? lastError;
+            // 指示された待ち時間が長すぎる場合は、粘らずに諦めて次回の実行に回す。
+            if (result.RetryAfter > MaxRetryAfterWait)
+            {
+                return result;
+            }
+
+            previous = result;
         }
 
-        return BoothFetchResult<T>.Temporary(lastError);
+        return previous ?? BoothFetchResult<T>.Temporary("不明なエラー");
     }
 
     private async Task<BoothFetchResult<T>> SendOnceAsync<T>(
@@ -146,9 +191,21 @@ public sealed class BoothClient : IBoothClient
                 return BoothFetchResult<T>.NotFound();
             }
 
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                var retryAfter = ReadRetryAfter(response);
+                SlowDown();
+                return BoothFetchResult<T>.RateLimited(
+                    retryAfter is { } wait
+                        ? $"HTTP 429（{wait.TotalSeconds:0}秒待つよう指示されました。以降の間隔を{_currentIntervalMs}msに広げます）"
+                        : $"HTTP 429（以降の間隔を{_currentIntervalMs}msに広げます）",
+                    retryAfter);
+            }
+
             if (!response.IsSuccessStatusCode)
             {
-                return BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}");
+                // 503などもRetry-Afterを付けてくることがあるので、あれば従う。
+                return BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}", ReadRetryAfter(response));
             }
 
             return BoothFetchResult<T>.Success(await readBody(response));
@@ -169,7 +226,7 @@ public sealed class BoothClient : IBoothClient
         }
     }
 
-    /// <summary>前回のリクエストから設定の間隔が空くまで待つ。</summary>
+    /// <summary>前回のリクエストから現在の間隔が空くまで待つ。</summary>
     private async Task WaitForIntervalAsync(CancellationToken cancellationToken)
     {
         if (_lastRequestAt == DateTimeOffset.MinValue)
@@ -178,10 +235,42 @@ public sealed class BoothClient : IBoothClient
         }
 
         var elapsed = DateTimeOffset.UtcNow - _lastRequestAt;
-        var interval = TimeSpan.FromMilliseconds(_settings.FetchIntervalMs);
+        var interval = TimeSpan.FromMilliseconds(_currentIntervalMs);
         if (elapsed < interval)
         {
             await _delay(interval - elapsed, cancellationToken);
         }
+    }
+
+    private TimeSpan MaxRetryAfterWait => TimeSpan.FromSeconds(_settings.MaxRetryAfterWaitSeconds);
+
+    /// <summary>429を受けるたびに間隔を倍にする。上限に達したらそこで止める。呼び出しは必ずゲート内。</summary>
+    private void SlowDown()
+    {
+        var doubled = Math.Min((long)_currentIntervalMs * 2, _settings.FetchIntervalMaxMs);
+        _currentIntervalMs = (int)Math.Max(doubled, _settings.FetchIntervalMs);
+    }
+
+    /// <summary>Retry-Afterを読む。秒数形式とHTTP日付形式の両方が来る。</summary>
+    private static TimeSpan? ReadRetryAfter(HttpResponseMessage response)
+    {
+        var header = response.Headers.RetryAfter;
+        if (header is null)
+        {
+            return null;
+        }
+
+        if (header.Delta is { } delta)
+        {
+            return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;
+        }
+
+        if (header.Date is { } date)
+        {
+            var wait = date - DateTimeOffset.UtcNow;
+            return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
+        }
+
+        return null;
     }
 }
