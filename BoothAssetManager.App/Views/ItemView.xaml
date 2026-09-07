@@ -36,8 +36,7 @@
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <StackPanel>
-                            <!-- マウスの横位置で切り替える（設定 GallerySwitchOnHover で無効にできる） -->
-                            <Grid Height="420" Background="#e9edf4" MouseMove="OnGalleryMouseMove">
+                            <Grid Height="420" Background="#e9edf4">
                                 <Image Source="{Binding SelectedImage}" Stretch="Uniform" />
                                 <Border Background="#99000000" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
@@ -53,11 +52,29 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
+                                        <!--
+                                            乗せて少し止めると切り替わる（設定 GallerySwitchOnHover / GalleryHoverDelayMs）。
+                                            クリックなら待たずに即座に切り替わる。
+                                        -->
                                         <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
                                                 Background="#eef0f2" Cursor="Hand"
+                                                MouseEnter="OnThumbnailMouseEnter"
+                                                MouseLeave="OnThumbnailMouseLeave"
                                                 Command="{Binding DataContext.SelectImageCommand,
                                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+                                                    <Setter Property="Opacity" Value="0.72" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                            <Setter Property="Opacity" Value="1" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
                                             <Grid>
                                                 <Image Source="{Binding Image}" Stretch="Uniform" />
                                                 <!-- BOOTH側から消えた画像は控えめに示す -->

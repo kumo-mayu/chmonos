@@ -26,10 +26,18 @@ public sealed class AppSettings
     public ThumbnailSize ThumbnailSize { get; init; } = ThumbnailSize.Medium;
 
     /// <summary>
-    /// 商品ページのギャラリーをマウスの横位置で切り替えるか。
-    /// オフのときはサムネイルのクリックだけで切り替える。検索結果のカードは常にホバー切り替え。
+    /// 商品ページのギャラリーを、サムネイル一覧に乗せるだけで切り替えるか。
+    /// オフのときはクリックだけで切り替える。検索結果のカードは常にホバー切り替え。
     /// </summary>
     public bool GallerySwitchOnHover { get; init; } = true;
+
+    /// <summary>
+    /// サムネイルに乗ってから切り替わるまでの滞留時間（ミリ秒）。
+    /// 一覧が複数行になると、下の行へ向かう途中の行を通過するだけで画像が変わってしまう。
+    /// 止まったときだけ切り替えることで、移動方向にも枚数にも左右されなくなる。
+    /// 0にすると即時切り替えになる。
+    /// </summary>
+    public int GalleryHoverDelayMs { get; init; } = 150;
 
     // --- 取り込み ---
 

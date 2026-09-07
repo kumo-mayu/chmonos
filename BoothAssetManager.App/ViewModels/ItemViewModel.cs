@@ -11,14 +11,23 @@ using BoothZipInspector;
 
 namespace BoothAssetManager.App.ViewModels;
 
-public sealed class GalleryImage
+public sealed class GalleryImage : ViewModelBase
 {
+    private bool _isSelected;
+
     public required string Path { get; init; }
 
     public required BitmapSource? Image { get; init; }
 
     /// <summary>BOOTH側の一覧から消えた画像。手元には残しておく。</summary>
     public bool IsOrphaned { get; init; }
+
+    /// <summary>今メインに出ている画像か。一覧のどれを見ているか分かるようにする。</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        internal set => SetField(ref _isSelected, value);
+    }
 }
 
 public sealed class VariationRow
@@ -168,11 +177,17 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         get => _selectedIndex;
         private set
         {
-            if (SetField(ref _selectedIndex, value))
+            if (value < 0 || value >= Images.Count || value == _selectedIndex)
             {
-                OnPropertyChanged(nameof(SelectedImage));
-                OnPropertyChanged(nameof(GalleryCounter));
+                return;
             }
+
+            Images[_selectedIndex].IsSelected = false;
+            SetField(ref _selectedIndex, value);
+            Images[_selectedIndex].IsSelected = true;
+
+            OnPropertyChanged(nameof(SelectedImage));
+            OnPropertyChanged(nameof(GalleryCounter));
         }
     }
 
@@ -180,33 +195,24 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public string GalleryCounter => Images.Count == 0 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
 
-    /// <summary>ギャラリーをマウスの横位置で切り替えるか。設定で変えられる。</summary>
+    /// <summary>サムネイル一覧にマウスを乗せるだけで切り替えるか。設定で変えられる。</summary>
     public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
 
+    /// <summary>乗ってから切り替わるまでの滞留時間（ミリ秒）。通過しただけでは切り替えないための間。</summary>
+    public int HoverDelayMs => Math.Max(0, _services.Settings.GalleryHoverDelayMs);
+
     /// <summary>
-    /// メイン画像上のマウス位置（0.0〜1.0）に対応する画像へ切り替える。
-    ///
-    /// 検索結果のカードと違い、離れても戻さない。
-    /// こちらはサムネイル列で明示的に選ぶ操作もあり、勝手に戻ると選び直しになるため。
+    /// サムネイル一覧のホバーでメイン画像を切り替える。
+    /// マウスが一覧から離れても戻さない。最後に見た画像がそのまま残る方が、
+    /// 大きい画像をじっくり見るときに扱いやすいため。
     /// </summary>
-    /// <param name="widthPixels">メイン画像の幅。1枚あたりの幅が狭くなりすぎないよう段数を決めるのに使う。</param>
-    public void ShowImageAt(double ratio, double widthPixels)
+    public void HoverImage(GalleryImage image)
     {
-        if (!SwitchOnHover || Images.Count <= 1 || widthPixels <= 0)
+        if (SwitchOnHover)
         {
-            return;
+            SelectImage(image);
         }
-
-        // 幅を等分すると1枚あたりが狭すぎる場合は段数を絞り、そこから等間隔で拾う
-        var steps = Math.Clamp((int)(widthPixels / MinimumStepWidth), 1, Images.Count);
-        var step = (int)(Math.Clamp(ratio, 0, 0.9999) * steps);
-        var index = steps == Images.Count ? step : (int)((long)step * Images.Count / steps);
-
-        SelectedIndex = Math.Clamp(index, 0, Images.Count - 1);
     }
-
-    /// <summary>1段あたりの最低幅。狭すぎると狙って止められず、ちらつくだけになる。</summary>
-    private const double MinimumStepWidth = 28;
 
     private void BuildGallery()
     {
@@ -229,6 +235,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         foreach (var path in onDisk.Where(path => !expected.Contains(path, StringComparer.OrdinalIgnoreCase)))
         {
             Images.Add(new GalleryImage { Path = path, Image = _thumbnails.Load(path), IsOrphaned = true });
+        }
+
+        if (Images.Count > 0)
+        {
+            Images[0].IsSelected = true;
         }
 
         OnPropertyChanged(nameof(SelectedImage));
