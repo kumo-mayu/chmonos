@@ -1,0 +1,18 @@
+# Build artifacts
+bin/
+obj/
+.vs/
+publish/
+*.user
+
+# Purchased BOOTH assets and anything derived from them - never commit third-party copyrighted content
+*.zip
+*.rar
+_くうた_Shounen_少年_blendshape_iixiona.png
+
+# Research/scratch work - contains scraped data, personal file paths, and downloaded sample images
+research/
+docs/id-resolution-design.md
+
+# Claude Code local settings
+.claude/
