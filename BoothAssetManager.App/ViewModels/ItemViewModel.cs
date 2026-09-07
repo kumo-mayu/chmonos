@@ -178,6 +178,34 @@ public sealed class ItemViewModel : ViewModelBase
 
     public string GalleryCounter => Images.Count == 0 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
 
+    /// <summary>ギャラリーをマウスの横位置で切り替えるか。設定で変えられる。</summary>
+    public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
+
+    /// <summary>
+    /// メイン画像上のマウス位置（0.0〜1.0）に対応する画像へ切り替える。
+    ///
+    /// 検索結果のカードと違い、離れても戻さない。
+    /// こちらはサムネイル列で明示的に選ぶ操作もあり、勝手に戻ると選び直しになるため。
+    /// </summary>
+    /// <param name="widthPixels">メイン画像の幅。1枚あたりの幅が狭くなりすぎないよう段数を決めるのに使う。</param>
+    public void ShowImageAt(double ratio, double widthPixels)
+    {
+        if (!SwitchOnHover || Images.Count <= 1 || widthPixels <= 0)
+        {
+            return;
+        }
+
+        // 幅を等分すると1枚あたりが狭すぎる場合は段数を絞り、そこから等間隔で拾う
+        var steps = Math.Clamp((int)(widthPixels / MinimumStepWidth), 1, Images.Count);
+        var step = (int)(Math.Clamp(ratio, 0, 0.9999) * steps);
+        var index = steps == Images.Count ? step : (int)((long)step * Images.Count / steps);
+
+        SelectedIndex = Math.Clamp(index, 0, Images.Count - 1);
+    }
+
+    /// <summary>1段あたりの最低幅。狭すぎると狙って止められず、ちらつくだけになる。</summary>
+    private const double MinimumStepWidth = 28;
+
     private void BuildGallery()
     {
         var directory = _services.Paths.ItemImagesDir(Item.Id);

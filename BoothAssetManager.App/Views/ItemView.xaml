@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -35,7 +36,8 @@
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <StackPanel>
-                            <Grid Height="420" Background="#e9edf4">
+                            <!-- マウスの横位置で切り替える（設定 GallerySwitchOnHover で無効にできる） -->
+                            <Grid Height="420" Background="#e9edf4" MouseMove="OnGalleryMouseMove">
                                 <Image Source="{Binding SelectedImage}" Stretch="Uniform" />
                                 <Border Background="#99000000" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
@@ -80,9 +82,13 @@
                         <StackPanel>
                             <TextBlock Text="商品説明" FontWeight="Bold" Margin="0,0,0,12" />
 
-                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" LineHeight="21"
-                                       Foreground="#454b57" FontSize="12.5" Margin="0,0,0,14"
-                                       Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!--
+                                説明文とh2は選択可能にし、含まれるURLはリンクにする。
+                                対応アバターのURLがh2に並ぶことがあり、そこから直接飛べると早い。
+                            -->
+                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,0,0,14"
+                                         controls:SelectableText.Text="{Binding Description}"
+                                         Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <ItemsControl ItemsSource="{Binding Sections}">
                                 <ItemsControl.ItemTemplate>
@@ -91,8 +97,8 @@
                                             <Border BorderBrush="{StaticResource Accent}" BorderThickness="3,0,0,0" Padding="9,0">
                                                 <TextBlock Text="{Binding Heading}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap" />
                                             </Border>
-                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" LineHeight="21"
-                                                       Foreground="#454b57" FontSize="12.5" Margin="0,7,0,0" />
+                                            <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
+                                                         controls:SelectableText.Text="{Binding Text}" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -124,6 +130,7 @@
                             <Border Height="1" Background="#f0f1f4" Margin="0,10,0,14" />
 
                             <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
+                            <!-- ショップ画面ができたら、ここからアプリ内のショップページへ遷移させる（外部BOOTHには飛ばさない） -->
                             <TextBlock Text="{Binding ShopName}" FontSize="13" Foreground="{StaticResource Accent}" Margin="0,8,0,0" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <TextBlock Text="{Binding IdText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
@@ -233,7 +240,7 @@
                             <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
                                     CornerRadius="6" Padding="12,10"
                                     Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <TextBlock Text="{Binding Memo}" TextWrapping="Wrap" FontSize="12.5" Foreground="#454b57" />
+                                <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.Text="{Binding Memo}" />
                             </Border>
                         </StackPanel>
                     </Border>

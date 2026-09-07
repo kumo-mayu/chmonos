@@ -25,6 +25,12 @@ public sealed class AppSettings
 
     public ThumbnailSize ThumbnailSize { get; init; } = ThumbnailSize.Medium;
 
+    /// <summary>
+    /// 商品ページのギャラリーをマウスの横位置で切り替えるか。
+    /// オフのときはサムネイルのクリックだけで切り替える。検索結果のカードは常にホバー切り替え。
+    /// </summary>
+    public bool GallerySwitchOnHover { get; init; } = true;
+
     // --- 取り込み ---
 
     /// <summary>取り込み元フォルダの履歴。ファイルが欠落した時の再スキャン範囲も兼ねる。</summary>

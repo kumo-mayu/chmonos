@@ -51,6 +51,35 @@
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
 
+        <!--
+            選択できる本文。見た目はTextBlockに寄せ、枠も背景も出さない。
+            スクロールを内側で持たせない（Disabled）ことで、中身の高さに合わせて伸び、
+            ページ全体のスクロールもそのまま効く。
+        -->
+        <Style x:Key="SelectableBody" TargetType="RichTextBox">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="IsDocumentEnabled" Value="True" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="-2,0,0,0" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#454b57" />
+            <Setter Property="Cursor" Value="IBeam" />
+            <!-- 本文なのでTabの行き先にはしない（選択とリンクはマウスで足りる） -->
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+
+        <Style TargetType="Hyperlink">
+            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+            <Setter Property="TextDecorations" Value="Underline" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
         <!-- 角丸・枠線つきのカード -->
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Surface}" />
