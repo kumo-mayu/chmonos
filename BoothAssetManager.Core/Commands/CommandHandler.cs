@@ -12,12 +12,18 @@ public sealed class CommandHandler
 {
     private readonly IImportPipeline _import;
     private readonly IItemService _items;
+    private readonly IEditService? _edit;
     private readonly UnpackedFolderRemover? _unpackedRemover;
 
-    public CommandHandler(IImportPipeline import, IItemService items, UnpackedFolderRemover? unpackedRemover = null)
+    public CommandHandler(
+        IImportPipeline import,
+        IItemService items,
+        IEditService? edit = null,
+        UnpackedFolderRemover? unpackedRemover = null)
     {
         _import = import;
         _items = items;
+        _edit = edit;
         _unpackedRemover = unpackedRemover;
     }
 
@@ -61,6 +67,34 @@ public sealed class CommandHandler
 
                 return new CommandResult.UnpackedFoldersRemoved(
                     await _unpackedRemover.RemoveAsync(remove.Folders, cancellationToken));
+
+            case UiCommand.SaveItemLocal save:
+                if (_edit is null)
+                {
+                    return new CommandResult.Failed("編集の保存手段が設定されていません。");
+                }
+
+                return await _edit.SaveLocalAsync(save.ItemId, save.Local, cancellationToken)
+                    ? new CommandResult.ItemSaved(save.ItemId)
+                    : new CommandResult.Failed("対象のitemがローカルにありません。");
+
+            case UiCommand.AddAppTag addTag:
+                if (_edit is null)
+                {
+                    return new CommandResult.Failed("編集の保存手段が設定されていません。");
+                }
+
+                return new CommandResult.AppTagsChanged(
+                    await _edit.AddAppTagAsync(addTag.Top, addTag.Sub, cancellationToken));
+
+            case UiCommand.AddAttribute addAttribute:
+                if (_edit is null)
+                {
+                    return new CommandResult.Failed("編集の保存手段が設定されていません。");
+                }
+
+                return new CommandResult.AttributesChanged(
+                    await _edit.AddAttributeAsync(addAttribute.Name, cancellationToken));
 
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");

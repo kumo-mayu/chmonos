@@ -18,6 +18,9 @@
         <DataTemplate DataType="{x:Type vm:ItemViewModel}">
             <views:ItemView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:EditViewModel}">
+            <views:EditView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -120,9 +123,10 @@
                     <Button Style="{StaticResource NavButton}" IsEnabled="False">
                         <TextBlock Text="要確認" Foreground="{StaticResource RailText}" />
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}">
                         <Grid Width="164">
-                            <TextBlock Text="編集" Foreground="{StaticResource RailText}" HorizontalAlignment="Left" />
+                            <TextBlock Text="編集" HorizontalAlignment="Left"
+                                       Foreground="{Binding IsEditActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                             <Border Style="{StaticResource NavBadge}" Background="#9a6b1f" HorizontalAlignment="Right">
                                 <TextBlock Text="{Binding NeedsEditCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
                             </Border>

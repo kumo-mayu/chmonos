@@ -1,0 +1,269 @@
+<UserControl x:Class="BoothAssetManager.App.Views.EditView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:EditViewModel}">
+    <DockPanel Background="{StaticResource Bg}">
+
+        <!-- 上部バー：何件目かと、進み方の操作 -->
+        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="編集" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <TextBlock Text="{Binding StepText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                    <ProgressBar Width="160" Height="5" Margin="12,0,0,0" Minimum="0" Maximum="100"
+                                 Value="{Binding StepProgress, Mode=OneWay}"
+                                 Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
+                    <Button Content="この件は飛ばす" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                    <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAndNextCommand}" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Button Content="終える" Command="{Binding FinishCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- キューを終えたとき -->
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{Binding IsFinished, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="編集するものがありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
+            <TextBlock Text="appTagが未設定のitemが対象です。" Style="{StaticResource Caption}"
+                       HorizontalAlignment="Center" Margin="0,6,0,0" />
+            <Button Content="検索へ戻る" Command="{Binding FinishCommand}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+        </StackPanel>
+
+        <Grid Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="480" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左：何を編集しているかが分かるだけの控えめな表示 -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="20">
+                <StackPanel>
+                    <Border Style="{StaticResource Card}" ClipToBounds="True">
+                        <StackPanel>
+                            <Grid Height="300" Background="#e9edf4">
+                                <Image Source="{Binding MainImage}" Stretch="Uniform" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Images}" Margin="10">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="58" Height="46" Margin="0,0,6,6" Background="#eef0f2"
+                                                BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="4"
+                                                ClipToBounds="True">
+                                            <Image Source="{Binding Image}" Stretch="Uniform" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding ShopName}" FontSize="13" Foreground="{StaticResource Accent}" Margin="0,6,0,0" />
+
+                            <TextBlock Text="BOOTHのタグ" Style="{StaticResource SectionLabel}" Margin="0,16,0,8" />
+                            <ItemsControl ItemsSource="{Binding BoothTags}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
+                                                Padding="10,3" Margin="0,0,6,6" Background="White">
+                                            <TextBlock Text="{Binding}" FontSize="12" Foreground="#454b57" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="商品説明" FontWeight="Bold" Margin="0,0,0,10" />
+                            <RichTextBox Style="{StaticResource SelectableBody}" MaxHeight="360"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         controls:SelectableText.Text="{Binding DescriptionPreview}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 右：入力 -->
+            <Border Grid.Column="1" Background="{StaticResource Surface}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="1,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
+                    <StackPanel>
+
+                        <!-- appTag -->
+                        <TextBlock Text="appTag" FontWeight="Bold" FontSize="13" />
+                        <TextBlock Text="トップを選ぶとサブが出ます。トップを外すとサブも一緒に外れます。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+
+                        <ItemsControl ItemsSource="{Binding AppTags}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+                                            Padding="11,9" Margin="0,0,0,7">
+                                        <StackPanel>
+                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      FontSize="13" Foreground="{StaticResource Text}" />
+
+                                            <!-- サブはトップを選んでいる間だけ出す -->
+                                            <StackPanel Margin="20,8,0,0"
+                                                        Visibility="{Binding IsSelected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl ItemsSource="{Binding Subs}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                      FontSize="12" Margin="0,0,12,5"
+                                                                      Foreground="{StaticResource TextMuted}" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Grid Margin="0,4,0,0">
+                                                    <TextBox Text="{Binding PendingSub, UpdateSourceTrigger=PropertyChanged}"
+                                                             Height="26" FontSize="12" VerticalContentAlignment="Center"
+                                                             Padding="7,0" Margin="0,0,66,0" />
+                                                    <Button Content="サブを追加" FontSize="11" Height="26" Width="62"
+                                                            HorizontalAlignment="Right"
+                                                            Command="{Binding DataContext.AddSubTagCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 編集の途中で分類を増やせるようにする。画面を往復させない -->
+                        <Grid Margin="0,4,0,0">
+                            <TextBox Text="{Binding NewTopTag, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,96,0" />
+                            <Button Content="トップを追加" Width="92" HorizontalAlignment="Right"
+                                    Command="{Binding AddTopTagCommand}" />
+                        </Grid>
+
+                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+
+                        <!-- 属性 -->
+                        <TextBlock Text="属性" FontWeight="Bold" FontSize="13" />
+                        <TextBlock Text="つまみを動かすと評価済みになります。触っていないものは「未評価」として保存され、0%とは区別されます。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+
+                        <ItemsControl ItemsSource="{Binding Attributes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="104" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="52" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" Content="{Binding Name}" FontSize="12"
+                                                  IsChecked="{Binding IsRated, Mode=TwoWay}" VerticalAlignment="Center"
+                                                  Foreground="{StaticResource Text}" />
+                                        <Slider Grid.Column="1" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                                                Value="{Binding Value, Mode=TwoWay}" TickFrequency="5" IsSnapToTickEnabled="True" />
+                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource Mono}"
+                                                   FontSize="11" TextAlignment="Right" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Grid Margin="0,4,0,0">
+                            <TextBox Text="{Binding NewAttribute, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,96,0" />
+                            <Button Content="属性を追加" Width="92" HorizontalAlignment="Right"
+                                    Command="{Binding AddAttributeCommand}" />
+                        </Grid>
+
+                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+
+                        <!-- 購入記録 -->
+                        <TextBlock Text="購入したバリエーション" FontWeight="Bold" FontSize="13" />
+                        <TextBlock Text="価格は空欄なら未入力、0は無料配布として扱います。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+
+                        <ItemsControl ItemsSource="{Binding Variations}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,8">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" MaxWidth="250" />
+                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="6,0,0,0"
+                                                        Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{StaticResource TextFaint}" />
+                                                </Border>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="22,6,0,0"
+                                                        Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+                                                <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
+                                                         Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                         VerticalContentAlignment="Center" />
+                                                <TextBlock Text="{Binding ListPriceText, StringFormat=現在 {0}}" Style="{StaticResource Caption}"
+                                                           VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                <CheckBox Content="ギフト" IsChecked="{Binding IsGifted, Mode=TwoWay}"
+                                                          FontSize="12" Margin="14,0,0,0" VerticalAlignment="Center"
+                                                          Foreground="{StaticResource TextMuted}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+
+                        <!-- メモ・入手日・その他 -->
+                        <TextBlock Text="メモ" FontWeight="Bold" FontSize="13" Margin="0,0,0,8" />
+                        <TextBox Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                                 TextWrapping="Wrap" MinHeight="72" Padding="9,7" VerticalScrollBarVisibility="Auto" />
+
+                        <TextBlock Text="入手日" FontWeight="Bold" FontSize="13" Margin="0,18,0,8" />
+                        <Grid>
+                            <TextBox Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
+                                     VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,150,0" />
+                            <TextBlock Text="yyyy-MM-dd / 空欄はファイルの日付" Style="{StaticResource Caption}"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <CheckBox Content="更新を通知する" IsChecked="{Binding NotifyOnUpdate, Mode=TwoWay}"
+                                  Margin="0,18,0,0" Foreground="{StaticResource Text}" />
+                        <CheckBox Content="非表示にする（統計には含めます）" IsChecked="{Binding IsHidden, Mode=TwoWay}"
+                                  Margin="0,9,0,0" Foreground="{StaticResource Text}" />
+
+                        <TextBlock Text="{Binding StatusText}" Foreground="#9a3232" TextWrapping="Wrap" Margin="0,14,0,20" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>

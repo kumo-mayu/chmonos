@@ -38,6 +38,7 @@ public sealed class DataStore
         Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
+        EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
     }
 
     public AppPaths Paths { get; }
@@ -59,4 +60,7 @@ public sealed class DataStore
     public JsonFileStore<List<NotificationRecord>> Notifications { get; }
 
     public JsonFileStore<List<ScanCacheEntry>> ScanCache { get; }
+
+    /// <summary>編集キューの位置。中断して次回続きから再開するために持つ。</summary>
+    public JsonFileStore<EditSession> EditSession { get; }
 }

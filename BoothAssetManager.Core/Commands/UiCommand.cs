@@ -28,6 +28,15 @@ public abstract record UiCommand
 
     /// <summary>アーカイブの展開先フォルダを削除する。展開元のzipが残っていることを確かめてから消す。</summary>
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
+
+    /// <summary>編集画面の入力を保存する。<c>local</c> ブロックだけを差し替える。</summary>
+    public record SaveItemLocal(string ItemId, Models.LocalBlock Local) : UiCommand;
+
+    /// <summary>appTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
+    public record AddAppTag(string Top, string? Sub = null) : UiCommand;
+
+    /// <summary>属性をマスタへ追加する。</summary>
+    public record AddAttribute(string Name) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>
@@ -42,6 +51,10 @@ public abstract record CommandResult
     public record Done : CommandResult;
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
+
+    public record AppTagsChanged(Models.AppTagMaster Master) : CommandResult;
+
+    public record AttributesChanged(Models.AttributeMaster Master) : CommandResult;
 
     public record Failed(string Message) : CommandResult;
 }

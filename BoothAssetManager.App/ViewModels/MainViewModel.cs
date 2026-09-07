@@ -38,6 +38,7 @@ public sealed class MainViewModel : ViewModelBase
 
         ShowSearchCommand = new RelayCommand(ShowSearch);
         ShowImportCommand = new RelayCommand(ShowImport);
+        ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
 
         ShowSearch();
         RefreshCounts();
@@ -53,6 +54,8 @@ public sealed class MainViewModel : ViewModelBase
 
     public RelayCommand ShowImportCommand { get; }
 
+    public RelayCommand ShowEditCommand { get; }
+
     public object? CurrentViewModel
     {
         get => _currentViewModel;
@@ -62,6 +65,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsImportActive));
+                OnPropertyChanged(nameof(IsEditActive));
             }
         }
     }
@@ -69,6 +73,27 @@ public sealed class MainViewModel : ViewModelBase
     public bool IsSearchActive => CurrentViewModel is SearchViewModel;
 
     public bool IsImportActive => CurrentViewModel is ImportViewModel;
+
+    public bool IsEditActive => CurrentViewModel is EditViewModel;
+
+    /// <summary>
+    /// 編集画面を開く。前回の続きが残っていればそこから、無ければappTag未設定のitemを積む。
+    /// 検索から複数選んで入る経路は <paramref name="itemIds"/> で指定する。
+    /// </summary>
+    public async Task ShowEditAsync(IReadOnlyList<string>? itemIds = null)
+    {
+        var edit = new EditViewModel(_services, this, Thumbnails);
+        CurrentViewModel = edit;
+
+        if (itemIds is null)
+        {
+            await edit.ResumeAsync();
+        }
+        else
+        {
+            await edit.StartAsync(itemIds);
+        }
+    }
 
     /// <summary>
     /// 商品ページを開く。検索画面のインスタンスは保持したままなので、
