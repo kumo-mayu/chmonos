@@ -143,7 +143,8 @@ public sealed class SearchViewModel : ViewModelBase
     /// </summary>
     public ObservableCollection<CardRow> Rows { get; } = [];
 
-    public ObservableCollection<string> Categories { get; } = [];
+    /// <summary>カテゴリの選択肢。件数を出すために文字列ではなく型で持つ。</summary>
+    public ObservableCollection<CategoryOption> Categories { get; } = [];
 
     /// <summary>appTagでの絞り込み。マスタのトップをそのまま並べる。</summary>
     public ObservableCollection<AppTagFilter> TagFilters { get; } = [];
@@ -408,14 +409,14 @@ public sealed class SearchViewModel : ViewModelBase
                 OnCardSelectionChanged();
 
                 Categories.Clear();
-                Categories.Add(AllCategories);
+                Categories.Add(new CategoryOption { Name = AllCategories, IsAll = true });
                 foreach (var category in _allItems
                     .Select(item => item.Booth.Category?.Name)
                     .Where(name => !string.IsNullOrEmpty(name))
                     .Distinct(StringComparer.CurrentCulture)
                     .OrderBy(name => name, StringComparer.CurrentCulture))
                 {
-                    Categories.Add(category!);
+                    Categories.Add(new CategoryOption { Name = category! });
                 }
 
                 BuildFacets();
@@ -671,10 +672,11 @@ public sealed class SearchViewModel : ViewModelBase
 
     private void ApplyFilters()
     {
-        _matches = SortItems(_allItems.Where(Matches))
+        _matches = SortItems(_allItems.Where(item => Matches(item)))
             .Select(item => _cards[item.Id])
             .ToList();
 
+        RefreshFacetCounts();
         RebuildRows();
 
         OnPropertyChanged(nameof(ResultSummary));
@@ -744,20 +746,37 @@ public sealed class SearchViewModel : ViewModelBase
         }
     }
 
-    private bool Matches(ItemRecord item)
+    /// <summary>
+    /// 絞り込みの軸。ファセットの件数を数えるとき、自分の軸だけを外して数えるために使う。
+    /// 外さないと、appTagで「衣装」を選んだ瞬間に同じ欄の他のappTagが全部0件になる。
+    /// </summary>
+    private enum FilterAxis
     {
-        if (_ownedOnly && !item.IsDownloaded)
-        {
-            return false;
-        }
+        Owned,
+        Avatar,
+        Category,
+        AppTag,
+        Attribute,
+    }
 
-        if (_missingOnly && !item.Local.LocalFiles.Any(file => file.Paths.Count == 0))
+    /// <param name="except">この軸だけ適用しない。ファセットの件数を数えるときに指定する。</param>
+    private bool Matches(ItemRecord item, FilterAxis? except = null)
+    {
+        if (except != FilterAxis.Owned)
         {
-            return false;
+            if (_ownedOnly && !item.IsDownloaded)
+            {
+                return false;
+            }
+
+            if (_missingOnly && !item.Local.LocalFiles.Any(file => file.Paths.Count == 0))
+            {
+                return false;
+            }
         }
 
         // 対応アバターでの絞り込み。素体経由は推定なので、含めるかを選べるようにする
-        if (_avatarFilterId is not null)
+        if (except != FilterAxis.Avatar && _avatarFilterId is not null)
         {
             var match = (_compatibility ??= Core.Services.AvatarCompatibilityIndex.Build(
                 _services.Store.Avatars.Load())).MatchFor(item.Local, _avatarFilterId);
@@ -772,7 +791,8 @@ public sealed class SearchViewModel : ViewModelBase
             }
         }
 
-        if (!string.IsNullOrEmpty(_selectedCategory)
+        if (except != FilterAxis.Category
+            && !string.IsNullOrEmpty(_selectedCategory)
             && _selectedCategory != AllCategories
             && !string.Equals(item.Booth.Category?.Name, _selectedCategory, StringComparison.CurrentCulture))
         {
@@ -780,20 +800,68 @@ public sealed class SearchViewModel : ViewModelBase
         }
 
         // 選ばれたトップのいずれかに当てはまればよい（別のトップ同士はORで扱う）
-        var selectedTags = TagFilters.Where(filter => filter.IsSelected).ToList();
-        if (selectedTags.Count > 0 && !selectedTags.Any(filter => filter.Matches(item)))
+        if (except != FilterAxis.AppTag)
         {
-            return false;
+            var selectedTags = TagFilters.Where(filter => filter.IsSelected).ToList();
+            if (selectedTags.Count > 0 && !selectedTags.Any(filter => filter.Matches(item)))
+            {
+                return false;
+            }
         }
 
         // 属性は軸ごとにANDで積む。片側でも動かした軸では未評価が落ちる
-        if (AttributeFilters.Any(filter => !filter.Matches(item)))
+        if (except != FilterAxis.Attribute && AttributeFilters.Any(filter => !filter.Matches(item)))
         {
             return false;
         }
 
         return MatchesQuery(item);
     }
+
+    /// <summary>
+    /// 選択肢の横に出す件数を数え直す。
+    ///
+    /// 数えるのは「今の他の条件を適用した後」の件数。全体の件数だと、押してから0件と分かる。
+    /// ただし自分の軸は自分を除いて数える（<see cref="FilterAxis"/> の説明を参照）。
+    /// 0件の選択肢は消さずに薄く出す。消えると「さっきあった項目が無い」と探すことになる。
+    /// </summary>
+    private void RefreshFacetCounts()
+    {
+        var forCategory = _allItems.Where(item => Matches(item, FilterAxis.Category)).ToList();
+        foreach (var option in Categories)
+        {
+            option.Count = option.IsAll
+                ? forCategory.Count
+                : forCategory.Count(item =>
+                    string.Equals(item.Booth.Category?.Name, option.Name, StringComparison.CurrentCulture));
+        }
+
+        var forTags = _allItems.Where(item => Matches(item, FilterAxis.AppTag)).ToList();
+        foreach (var filter in TagFilters)
+        {
+            filter.Count = forTags.Count(item => item.Local.AppTags.Any(entry =>
+                string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)));
+
+            foreach (var sub in filter.Subs)
+            {
+                sub.Count = forTags.Count(item => item.Local.AppTags.Any(entry =>
+                    string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)
+                    && entry.Subs.Contains(sub.Name, StringComparer.CurrentCultureIgnoreCase)));
+            }
+        }
+
+        var forOwned = _allItems.Where(item => Matches(item, FilterAxis.Owned)).ToList();
+        OwnedCount = forOwned.Count(item => item.IsDownloaded);
+        MissingCount = forOwned.Count(item => item.Local.LocalFiles.Any(file => file.Paths.Count == 0));
+        OnPropertyChanged(nameof(OwnedCount));
+        OnPropertyChanged(nameof(MissingCount));
+    }
+
+    /// <summary>「ファイルを持っているものだけ」を押したときの件数。</summary>
+    public int OwnedCount { get; private set; }
+
+    /// <summary>「ファイルが見つからない」を押したときの件数。</summary>
+    public int MissingCount { get; private set; }
 
     private bool MatchesQuery(ItemRecord item)
         => !_haystacks.TryGetValue(item.Id, out var haystack)

@@ -13,8 +13,27 @@ namespace BoothAssetManager.App.ViewModels;
 public sealed class AppTagFilter : ViewModelBase
 {
     private bool _isSelected;
+    private int _count;
 
     public required string Name { get; init; }
+
+    /// <summary>
+    /// この選択肢を押したときの件数。今の他の条件を適用した後、appTagの条件だけ外して数える。
+    /// 0件でも消さずに薄く出す（消えると「さっきあった項目が無い」と探すことになる）。
+    /// </summary>
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (SetField(ref _count, value))
+            {
+                OnPropertyChanged(nameof(IsEmpty));
+            }
+        }
+    }
+
+    public bool IsEmpty => _count == 0;
 
     public ObservableCollection<AppTagSubFilter> Subs { get; } = [];
 
@@ -94,8 +113,23 @@ public sealed class AppTagFilter : ViewModelBase
 public sealed class AppTagSubFilter : ViewModelBase
 {
     private bool _isSelected;
+    private int _count;
 
     public required string Name { get; init; }
+
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (SetField(ref _count, value))
+            {
+                OnPropertyChanged(nameof(IsEmpty));
+            }
+        }
+    }
+
+    public bool IsEmpty => _count == 0;
 
     public event Action? Changed;
 
@@ -199,4 +233,32 @@ public sealed class SortOption
 
     /// <summary><see cref="SortKind.Attribute"/> のときの属性名。</summary>
     public string? AttributeName { get; init; }
+}
+
+/// <summary>
+/// カテゴリの選択肢1つ。件数を出すために文字列から型に変えた。
+/// 選んでいる値は名前で持つので、絞り込み側の扱いは文字列のまま変わらない。
+/// </summary>
+public sealed class CategoryOption : ViewModelBase
+{
+    private int _count;
+
+    public required string Name { get; init; }
+
+    /// <summary>「すべて」の行。件数は絞り込みを解いたときの総数になる。</summary>
+    public bool IsAll { get; init; }
+
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (SetField(ref _count, value))
+            {
+                OnPropertyChanged(nameof(Label));
+            }
+        }
+    }
+
+    public string Label => $"{Name}（{Count}）";
 }

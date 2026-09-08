@@ -31,12 +31,18 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16,14">
                         <TextBlock Text="カテゴリ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
-                        <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                        <ComboBox ItemsSource="{Binding Categories}" DisplayMemberPath="Label"
+                                  SelectedValuePath="Name" SelectedValue="{Binding SelectedCategory}"
                                   Height="32" FontSize="13" />
 
                         <TextBlock Text="所持" Style="{StaticResource SectionLabel}" Margin="0,18,0,8" />
-                        <CheckBox Content="ファイルを持っているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
-                                  FontSize="12.5" Foreground="{StaticResource Text}" />
+                        <DockPanel LastChildFill="False">
+                            <CheckBox DockPanel.Dock="Left" Content="ファイルを持っているものだけ"
+                                      IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
+                                      FontSize="12.5" Foreground="{StaticResource Text}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding OwnedCount}" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
 
                         <!-- appTag：別のトップ同士はORで扱う -->
                         <TextBlock Text="appTag" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
@@ -47,8 +53,27 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,0,0,4">
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                  FontSize="12.5" Foreground="{StaticResource Text}" />
+                                        <!--
+                                            件数は「押したら何件になるか」。0件でも消さずに薄く出す
+                                            （消えると「さっきあった項目が無い」と探すことになる）。
+                                        -->
+                                        <DockPanel LastChildFill="False">
+                                            <DockPanel.Style>
+                                                <Style TargetType="DockPanel">
+                                                    <Setter Property="Opacity" Value="1" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                                            <Setter Property="Opacity" Value="0.45" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </DockPanel.Style>
+                                            <CheckBox DockPanel.Dock="Left" Content="{Binding Name}"
+                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      FontSize="12.5" Foreground="{StaticResource Text}" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Count}"
+                                                       Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                        </DockPanel>
                                         <!-- サブはトップを選んでいる間だけ出す -->
                                         <ItemsControl ItemsSource="{Binding Subs}" Margin="20,5,0,4"
                                                       Visibility="{Binding IsSelected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -57,9 +82,22 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                              FontSize="11.5" Margin="0,0,10,4"
-                                                              Foreground="{StaticResource TextMuted}" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,10,4">
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Setter Property="Opacity" Value="1" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                                                        <Setter Property="Opacity" Value="0.45" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
+                                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  FontSize="11.5" Foreground="{StaticResource TextMuted}" />
+                                                        <TextBlock Text="{Binding Count}" Style="{StaticResource Caption}"
+                                                                   FontSize="10.5" Margin="4,0,0,0" VerticalAlignment="Center" />
+                                                    </StackPanel>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
