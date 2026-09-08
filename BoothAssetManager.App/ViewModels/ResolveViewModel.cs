@@ -741,6 +741,8 @@ public sealed class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(RegisterTargetFolder));
         OnPropertyChanged(nameof(RegisterTargetName));
+        OnPropertyChanged(nameof(SearchTargetPath));
+        OnPropertyChanged(nameof(SearchTargetText));
         OnPropertyChanged(nameof(RegisterFolderText));
         OnPropertyChanged(nameof(CanRegisterFolder));
         OnPropertyChanged(nameof(SelectedPaths));
@@ -754,9 +756,28 @@ public sealed class ResolveViewModel : ViewModelBase
     }
 
     /// <summary>ファイル名からBOOTH内を検索して候補を出す。通信するので明示的に押させる。</summary>
+    /// <summary>
+    /// 検索の手掛かりにするパス。
+    ///
+    /// 展開物の中身は、ファイル名（cloth.psd など）で引いても商品には辿り着かない。
+    /// その場合は展開元とみなしたフォルダの名前で引く。
+    /// バナーからも候補カードからも同じ対象になるようにここへ集約する。
+    /// </summary>
+    public string? SearchTargetPath => Selected is null || Selected.File.Paths.Count == 0
+        ? null
+        : Selected.IsArchiveContent && RegisterTargetFolder is { } folder
+            ? folder
+            : Selected.File.Paths[0];
+
+    public string SearchTargetText => SearchTargetPath is null
+        ? string.Empty
+        : Selected?.IsArchiveContent == true
+            ? $"フォルダ名「{Path.GetFileName(SearchTargetPath)}」で探します（ファイル名では商品に辿り着かないため）"
+            : $"ファイル名「{Path.GetFileName(SearchTargetPath)}」で探します";
+
     private async Task ProposeAsync()
     {
-        if (Selected is null || Selected.File.Paths.Count == 0)
+        if (SearchTargetPath is not { } searchTarget)
         {
             return;
         }
@@ -779,7 +800,7 @@ public sealed class ResolveViewModel : ViewModelBase
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(Selected.File.Paths[0], progress));
+                new UiCommand.ProposeCandidates(searchTarget, progress));
 
             if (result is CommandResult.CandidatesProposed proposed)
             {
@@ -1022,13 +1043,14 @@ public sealed class ResolveViewModel : ViewModelBase
     /// <summary>自分で探したいときのために、ファイル名でBOOTH検索を開く。</summary>
     private void OpenBoothSearch()
     {
-        if (Selected is null || Selected.File.Paths.Count == 0)
+        if (SearchTargetPath is not { } target)
         {
             return;
         }
 
-        var query = FileNameQuery.ToSearchQuery(Selected.File.Paths[0]);
-        var url = Core.Booth.BoothClient.SearchUrl(query.Length > 0 ? query : Selected.FileName);
+        // 自動検索と同じ対象で引く。片方だけファイル名、片方だけフォルダ名では読めない
+        var query = FileNameQuery.ToSearchQuery(target);
+        var url = Core.Booth.BoothClient.SearchUrl(query.Length > 0 ? query : Path.GetFileName(target));
 
         try
         {

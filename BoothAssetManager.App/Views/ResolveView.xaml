@@ -239,6 +239,9 @@
                                 </StackPanel>
                             </Grid>
 
+                            <TextBlock Text="{Binding SearchTargetText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,0,0,10" />
+
                             <!--
                                 自動検索は1件ずつ間隔を空けて取りに行くので十数秒かかる。
                                 何をどこまでやっているかを出さないと、止まったように見える。

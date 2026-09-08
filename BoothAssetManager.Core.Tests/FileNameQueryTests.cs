@@ -97,3 +97,30 @@ public class FileNameQueryTests
         Assert.Empty(FileNameQuery.SignificantNumbers(fileName));
     }
 }
+
+/// <summary>
+/// フォルダ名からの検索語。展開物の中身はファイル名では商品に辿り着かないので、
+/// 展開元とみなしたフォルダの名前で引く。
+/// </summary>
+public class FolderNameQueryTests
+{
+    [Theory]
+    [InlineData(@"D:\dl\rurune_v1.1.3", "rurune")]
+    [InlineData(@"D:\dl\rurune_v1.1.3\rurune", "rurune")]
+    [InlineData(@"D:\dl\Kipfel_1.2.0", "Kipfel")]
+    [InlineData(@"D:\dl\hotogiya_Kuuta_ver1.03", "hotogiya Kuuta")]
+    public void BuildsAQueryFromAFolderName(string folder, string expected)
+    {
+        Assert.Equal(expected, FileNameQuery.ToSearchQuery(folder));
+    }
+
+    /// <summary>
+    /// 展開物の中身をファイル名で引いても意味が無いことの確認。
+    /// この結果になるからこそ、検索対象をフォルダへ切り替えている。
+    /// </summary>
+    [Fact]
+    public void AContentFileNameDoesNotIdentifyTheProduct()
+    {
+        Assert.Equal("cloth", FileNameQuery.ToSearchQuery(@"D:\dl\rurune_v1.1.3\rurune\texture\cloth.psd"));
+    }
+}
