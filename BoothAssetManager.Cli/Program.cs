@@ -26,6 +26,7 @@ public static class Program
                 "sample" => await RunSampleAsync(args),
                 "scan" => await RunScanAsync(args),
                 "resolve" => await RunResolveAsync(args),
+                "avatars" => await RunAvatarsAsync(args),
                 _ => UnknownCommand(args[0]),
             };
         }
@@ -41,12 +42,64 @@ public static class Program
         Console.WriteLine("使い方:");
         Console.WriteLine("  scan <フォルダ> [<フォルダ> ...]        取り込みを実行する（BOOTHへ通信します）");
         Console.WriteLine("  resolve <ファイル> [...]                未確定ファイルの候補を出す（BOOTHへ通信します）");
+        Console.WriteLine("  avatars [--offline]                     対応アバターを検出する（BOOTHへ通信します）");
         Console.WriteLine("  h2 <商品ページのHTMLファイル>            説明文のセクション抽出を確認する");
         Console.WriteLine("  sample <商品JSON> [商品ページHTML]      保存されるJSONの形を確認する");
         Console.WriteLine();
         Console.WriteLine("保存先: " + Core.Storage.AppPaths.Default.Root);
     }
 
+
+    /// <summary>
+    /// 対応アバターの検出を実データで確かめる。
+    /// --offline を付けるとBOOTHへ問い合わせず、手元の材料だけで走る。
+    /// </summary>
+    private static async Task<int> RunAvatarsAsync(string[] args)
+    {
+        var offline = args.Contains("--offline", StringComparer.OrdinalIgnoreCase);
+
+        var paths = Core.Storage.AppPaths.Default;
+        var store = new Core.Storage.DataStore(paths);
+        var settings = store.Settings.Load();
+
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        Core.Booth.IBoothClient? client = offline ? null : new BoothClient(httpClient, settings);
+        var service = new Core.Services.AvatarService(store, settings, client);
+
+        var progress = new SynchronousProgress<Core.Services.AvatarDetectProgress>(report =>
+        {
+            if (report.Done % 25 == 0 || report.Done == report.Total)
+            {
+                Console.WriteLine($"  {report.Phase}: {report.Done}/{report.Total}");
+            }
+        });
+
+        var result = await service.DetectAsync(progress);
+
+        Console.WriteLine();
+        Console.WriteLine($"走査した商品      : {result.ItemsScanned}");
+        Console.WriteLine($"書き換えた商品    : {result.ItemsUpdated}");
+        Console.WriteLine($"アバター          : {result.AvatarsFound}");
+        Console.WriteLine($"アバターでなかった: {result.NonAvatars}");
+        Console.WriteLine($"共通素体グループ  : {result.BaseGroupsFound}");
+        Console.WriteLine($"BOOTHへの問い合わせ: {result.Requests}");
+        Console.WriteLine($"保留（通信失敗）  : {result.Unresolved}");
+        Console.WriteLine();
+
+        foreach (var avatar in await service.LoadAsync())
+        {
+            var owned = avatar.IsOwned ? "所有" : "　　";
+            Console.WriteLine($"  {owned} {avatar.Entry.DisplayName} "
+                + $"(直接 {avatar.DirectCount} / 素体経由 {avatar.ViaBaseCount})");
+        }
+
+        foreach (var group in await service.LoadBasesAsync())
+        {
+            Console.WriteLine($"  素体 {group.Group.Name}: アバター {group.MemberCount} / 名指し商品 {group.ItemCount}");
+        }
+
+        return 0;
+    }
     private static int UnknownCommand(string command)
     {
         Console.Error.WriteLine($"不明なコマンド: {command}");

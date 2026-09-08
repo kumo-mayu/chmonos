@@ -12,16 +12,27 @@ public sealed record AppTagAssignment
     public IReadOnlyList<string> Subs { get; init; } = [];
 }
 
-/// <summary>対応アバターの検出元。UIでの見せ方（確定か推定か）を分けるために持つ。</summary>
+/// <summary>
+/// 対応アバターをどこから拾ったか。UIでの見せ方（確定か推定か）と、
+/// 再検出で置き換えてよいかの判断に使う。
+///
+/// 実測での確からしさが違うので、既定の confirmed もここで変える。
+/// </summary>
 public enum AvatarLinkSource
 {
-    /// <summary>説明文中のBOOTH商品リンクから確定したもの。</summary>
-    H2Link,
+    /// <summary>説明文の「対応アバター」節から。出品者の明示的な宣言なので最も強い。</summary>
+    SupportSection,
 
-    /// <summary>variation名とavatar-registryの照合による推定。</summary>
+    /// <summary>BOOTHのタグとの照合。</summary>
+    Tag,
+
+    /// <summary>variation名との照合。</summary>
     Variation,
 
-    /// <summary>ユーザが手で指定したもの。</summary>
+    /// <summary>説明文中のその他の見出しの下にあったリンク。実測の適合率が低いので要確認へ回す。</summary>
+    H2Link,
+
+    /// <summary>ユーザが手で指定した／手で消したもの。再検出で置き換えない。</summary>
     Manual,
 }
 
@@ -39,6 +50,41 @@ public sealed record AvatarLink
 
     /// <summary>ユーザが確認済みか。未確認の推定は「要確認」に出す。</summary>
     public bool Confirmed { get; init; }
+
+    /// <summary>
+    /// ユーザがこの対応を消したという記録。
+    /// 消しただけだと次の検出で復活するので、Manual として残して検出から除く。
+    /// </summary>
+    public bool Rejected { get; init; }
+}
+
+/// <summary>
+/// 共通素体への対応宣言。素体は配布されているとは限らずBOOTH商品IDが無いので、
+/// アバター（ID参照）とは別の配列に、名前で持つ。
+/// </summary>
+public sealed record AvatarBaseLink
+{
+    public required string BaseName { get; init; }
+
+    public AvatarLinkSource Source { get; init; }
+
+    public bool Confirmed { get; init; }
+
+    public bool Rejected { get; init; }
+}
+
+/// <summary>
+/// ユーザが実際にそのアバターへ着せた記録。出品者の宣言とは別に持つ。
+///
+/// 混ぜると、再取得で宣言を作り直すたびにユーザの記録が消えるか、逆に宣言が汚れる。
+/// 「出品者はくうた対応と言っているが、自分はマヌカに着せている」を矛盾なく持つため。
+/// </summary>
+public sealed record AvatarUsage
+{
+    public required string AvatarItemId { get; init; }
+
+    /// <summary>調整した点など。非対応衣装を着せたときに何をしたかが要るので置く。</summary>
+    public string? Note { get; init; }
 }
 
 /// <summary>

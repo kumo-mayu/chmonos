@@ -1,0 +1,269 @@
+<UserControl x:Class="BoothAssetManager.App.Views.AvatarsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AvatarsViewModel}">
+    <UserControl.Resources>
+
+        <!-- 一覧の1行。選ぶと右に詳細が出る -->
+        <DataTemplate x:Key="AvatarRow" DataType="{x:Type vm:AvatarRowViewModel}">
+            <Grid Margin="0,0,0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" Margin="0,0,10,0"
+                        Background="{StaticResource AccentSoft}">
+                    <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="#4a5160"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                               Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2" Text="{Binding CountText}" Style="{StaticResource Mono}"
+                           FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel Background="{StaticResource Bg}">
+
+        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+            <Grid Margin="24,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="アバターの管理" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock Text="対応アバターの名前と、共通素体の関係を管理します"
+                               Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               MaxWidth="520" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"
+                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <Button Content="{Binding DetectButtonText}" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding DetectCommand}"
+                            ToolTip="保存済みの説明文・タグ・バリエーション名から対応アバターを読み取ります。まだ種類の分からない商品だけBOOTHに問い合わせます。" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid>
+            <TextBlock Text="読み込んでいます…" Foreground="{StaticResource TextMuted}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+            <!-- まだ1体も無いとき。数字ではなく次にやることを出す -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520"
+                        Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="対応アバターがまだ見つかっていません" Foreground="{StaticResource TextMuted}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center"
+                           Text="「対応アバターを検出する」を押すと、取り込んである商品の説明文・タグ・バリエーション名から読み取ります。ほとんどは手元のファイルだけで済み、まだ種類の分からない商品だけBOOTHに問い合わせます。" />
+            </StackPanel>
+
+            <Grid Visibility="{Binding IsLoading, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="360" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 左：アバターの一覧。所有しているものを先に出す -->
+                <Border Grid.Column="0" Background="{StaticResource Surface}"
+                        BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+                    <DockPanel>
+                        <TextBox DockPanel.Dock="Top" Margin="14,14,14,10" Padding="8,6"
+                                 Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="アバター名か商品IDで絞り込みます。" />
+
+                        <!--
+                            一覧は1つのListBoxにまとめ、所有／未所有はグループ見出しで分ける。
+                            ListBoxを2つ縦に積んでScrollViewerへ入れると高さが無限になり、描画が壊れる。
+                        -->
+                        <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                 ItemTemplate="{StaticResource AvatarRow}"
+                                 BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
+                                 HorizontalContentAlignment="Stretch"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}"
+                                                       Margin="0,10,0,6" />
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ListBox.GroupStyle>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <!-- 右：選んだアバターの詳細と、共通素体の管理 -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
+                    <StackPanel>
+
+                        <Border Style="{StaticResource Card}" Padding="22,18"
+                                Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding SelectedName}" FontSize="19" FontWeight="Bold" TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding SelectedIdText}" Style="{StaticResource Mono}"
+                                                       FontSize="11.5" Foreground="{StaticResource TextFaint}" />
+                                            <TextBlock Text="{Binding SelectedCategoryText}" Style="{StaticResource Caption}"
+                                                       Margin="14,0,0,0" />
+                                            <TextBlock Text="{Binding SelectedCheckedText}" Style="{StaticResource Caption}"
+                                                       Margin="14,0,0,0" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                        <Button Content="この商品を検索で見る" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                                                Command="{Binding ShowItemsCommand}"
+                                                ToolTip="このアバターに対応している商品を、素体経由も含めて検索で開きます。" />
+                                        <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}"
+                                                Command="{Binding OpenBoothCommand}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Height="1" Background="{StaticResource Border}" Margin="0,16,0,14" />
+
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding SelectedCountText}" Style="{StaticResource Mono}" FontSize="12" />
+                                    <TextBlock Text="{Binding SelectedOwnedText}" Style="{StaticResource Caption}" Margin="18,0,0,0" />
+                                </StackPanel>
+
+                                <!-- どの経路で見つかったか。判定の根拠なので隠さない -->
+                                <TextBlock Text="{Binding SelectedSeenAsText}" Style="{StaticResource Caption}" Margin="0,8,0,0"
+                                           TextWrapping="Wrap" />
+
+                                <!-- 共通素体 -->
+                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <ComboBox Width="240" IsEditable="True" ItemsSource="{Binding BaseNames}"
+                                              Text="{Binding BaseInput, UpdateSourceTrigger=PropertyChanged}"
+                                              ToolTip="既にあるグループから選ぶか、新しい名前を入れてください。" />
+                                    <Button Content="設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            Command="{Binding SetBaseCommand}" />
+                                    <Button Content="外す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                            Command="{Binding ClearBaseCommand}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#28507f"
+                                           Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                <!-- 呼ばれ方の履歴 -->
+                                <TextBlock Text="呼ばれ方の履歴" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
+                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="タグやバリエーション名との照合に使う表記です。括弧内は最後の検出で見かけた商品数。" />
+                                <ItemsControl ItemsSource="{Binding Aliases}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                    BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
+                                                    <Button Content="×" Margin="7,0,0,0" Padding="2,0" FontSize="11"
+                                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                            Foreground="{StaticResource TextMuted}"
+                                                            Command="{Binding DataContext.RemoveAliasCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip="この表記を消します。誤って覚えた名前を落とすときに使います。" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBox Width="200" Padding="7,5"
+                                             Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="検出が拾えなかった表記を足せます。" />
+                                    <Button Content="表記を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            Command="{Binding AddAliasCommand}" />
+                                </StackPanel>
+
+                                <!-- 例外の指定 -->
+                                <TextBlock Text="扱いの指定" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="{Binding OwnedButtonText}" Style="{StaticResource SmallButton}"
+                                            Command="{Binding ToggleOwnedCommand}"
+                                            ToolTip="本体を取り込んでいないアバターや、BOOTH外で入手したものを所有として扱えます。" />
+                                    <Button Content="アバターとして扱う" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="true" />
+                                    <Button Content="扱わない" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="false" />
+                                    <Button Content="自動判定に戻す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto" />
+                                    <Button Content="BOOTHに確認し直す" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
+                                            Command="{Binding RecheckCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 共通素体の管理。アバター一覧とは別の欄にする -->
+                        <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0"
+                                Visibility="{Binding HasBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="共通素体" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に出ます" />
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding Bases}" Margin="0,14,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:AvatarBaseRowViewModel}">
+                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="1"
+                                                    CornerRadius="6" Padding="14,11" Margin="0,0,0,8">
+                                                <Grid>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" />
+                                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" />
+                                                            <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
+                                                            <TextBlock Text="{Binding ItemIdText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}"
+                                                                  Command="{Binding ToggleInferCommand}"
+                                                                  VerticalAlignment="Center" Margin="0,0,14,0"
+                                                                  Foreground="{StaticResource Text}"
+                                                                  ToolTip="頭部などの部位規格は外してください。一致しても衣装は合いません。" />
+                                                        <Button Content="名前を変える" Style="{StaticResource SmallButton}"
+                                                                Command="{Binding RenameCommand}" />
+                                                        <Button Content="消す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                                Command="{Binding DeleteCommand}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</UserControl>

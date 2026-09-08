@@ -186,14 +186,8 @@ public sealed class StatsService : IStatsService
         var categories = new Dictionary<string, (long Bytes, int Count)>(StringComparer.CurrentCulture);
         var avatars = new Dictionary<string, int>(StringComparer.Ordinal);
 
-        // 素体への巻き上げに使う。「この素体を使っているアバター」を素体IDから引けるようにする
-        var derivedFromBase = registry.Entries
-            .Where(entry => !string.IsNullOrWhiteSpace(entry.BaseItemId))
-            .GroupBy(entry => entry.BaseItemId!, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(entry => entry.ItemId).ToList(),
-                StringComparer.Ordinal);
+        // 素体経由の展開は相性の索引に任せる（検索・商品ページと同じ規則で数えるため）
+        var compatibility = AvatarCompatibilityIndex.Build(registry);
 
         foreach (var item in owned)
         {
@@ -246,7 +240,7 @@ public sealed class StatsService : IStatsService
             var bucket = categories.TryGetValue(category, out var size) ? size : (Bytes: 0L, Count: 0);
             categories[category] = (bucket.Bytes + itemPhysical, bucket.Count + 1);
 
-            CountAvatars(item, derivedFromBase, avatars, ref withoutAvatar);
+            CountAvatars(item, compatibility, avatars, ref withoutAvatar);
         }
 
         var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
@@ -359,32 +353,20 @@ public sealed class StatsService : IStatsService
     /// </summary>
     private static void CountAvatars(
         ItemRecord item,
-        IReadOnlyDictionary<string, List<string>> derivedFromBase,
+        AvatarCompatibilityIndex compatibility,
         Dictionary<string, int> counts,
         ref int withoutAvatar)
     {
-        if (item.Local.Avatars.Count == 0)
+        var reached = compatibility.Resolve(item.Local);
+
+        if (reached.Count == 0)
         {
             withoutAvatar++;
             return;
         }
 
-        var reached = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var link in item.Local.Avatars)
-        {
-            reached.Add(link.AvatarItemId);
-
-            if (derivedFromBase.TryGetValue(link.AvatarItemId, out var derived))
-            {
-                foreach (var id in derived)
-                {
-                    reached.Add(id);
-                }
-            }
-        }
-
-        foreach (var id in reached)
+        // 直接対応も素体経由も同じ1件として数える（見出しに「素体経由を含む」と断る）
+        foreach (var id in reached.Keys)
         {
             counts[id] = counts.TryGetValue(id, out var current) ? current + 1 : 1;
         }

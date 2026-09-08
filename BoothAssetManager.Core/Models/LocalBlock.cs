@@ -17,8 +17,20 @@ public sealed record LocalBlock
 
     public string? Memo { get; init; }
 
-    /// <summary>対応アバター。正はavatar-registry側で、ここは参照と表示用のキャッシュ。</summary>
+    /// <summary>
+    /// 出品者が宣言した対応アバター。正はavatar-registry側で、ここは参照と表示用のキャッシュ。
+    /// 再検出では Manual 以外を作り直す。
+    /// </summary>
     public IReadOnlyList<AvatarLink> Avatars { get; init; } = [];
+
+    /// <summary>共通素体への対応宣言。素体は商品IDを持たないことがあるので名前で参照する。</summary>
+    public IReadOnlyList<AvatarBaseLink> AvatarBases { get; init; } = [];
+
+    /// <summary>ユーザ自身が実際に着せた記録。検出は絶対に触らない。</summary>
+    public IReadOnlyList<AvatarUsage> UsedOn { get; init; } = [];
+
+    /// <summary>最後に対応アバターを検出した日時。</summary>
+    public DateTimeOffset? AvatarsDetectedAt { get; init; }
 
     /// <summary>購入記録。BOOTH側からvariationが消えても残す。</summary>
     public IReadOnlyList<OrderedVariation> OrderedVariations { get; init; } = [];

@@ -220,13 +220,15 @@ public class StatsServiceTests
     [Fact]
     public void RollsBaseAvatarUpToDerivedAvatars()
     {
+        // 素体は「名前のグループ」で、商品として配布されている場合だけIDを持つ
         var registry = new AvatarRegistry
         {
             Entries =
             [
-                new AvatarRegistryEntry { ItemId = "base", DisplayName = "素体X", IsBase = true },
-                new AvatarRegistryEntry { ItemId = "derived", DisplayName = "セラフィム", BaseItemId = "base" },
+                new AvatarRegistryEntry { ItemId = "base", DisplayName = "素体X", BaseName = "素体X" },
+                new AvatarRegistryEntry { ItemId = "derived", DisplayName = "セラフィム", BaseName = "素体X" },
             ],
+            BaseGroups = [new AvatarBaseGroup { Name = "素体X", ItemId = "base" }],
         };
 
         var local = Owned() with

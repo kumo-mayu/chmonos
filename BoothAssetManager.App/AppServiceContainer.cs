@@ -43,6 +43,7 @@ public sealed class AppServiceContainer : IDisposable
         Attributes = new AttributeService(Store);
         Shops = new ShopService(Store, Settings, Client);
         Stats = new StatsService(Store);
+        Avatars = new AvatarService(Store, Settings, Client);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags, Attributes);
     }
@@ -100,6 +101,8 @@ public sealed class AppServiceContainer : IDisposable
     public ShopService Shops { get; }
 
     public StatsService Stats { get; }
+
+    public AvatarService Avatars { get; }
 
     public CommandHandler Commands { get; }
 

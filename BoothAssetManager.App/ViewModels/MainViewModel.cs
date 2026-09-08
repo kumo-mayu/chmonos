@@ -44,6 +44,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowInboxCommand = new RelayCommand(ShowInbox);
         ShowShopsCommand = new RelayCommand(ShowShops);
         ShowStatsCommand = new RelayCommand(ShowStats);
+        ShowAvatarsCommand = new RelayCommand(ShowAvatars);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
 
@@ -107,6 +108,13 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public void ShowStats() => CurrentViewModel = new StatsViewModel(_services, this);
 
+    public RelayCommand ShowAvatarsCommand { get; }
+
+    public bool IsAvatarsActive => CurrentViewModel is AvatarsViewModel;
+
+    /// <summary>アバターの管理。検出や編集で中身が変わるので、開き直した時点で読み直す。</summary>
+    public void ShowAvatars() => CurrentViewModel = new AvatarsViewModel(_services, this);
+
     public RelayCommand ShowTagManageCommand { get; }
 
     public bool IsTagManageActive => CurrentViewModel is TagManageViewModel;
@@ -166,6 +174,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsInboxActive));
                 OnPropertyChanged(nameof(IsShopsActive));
                 OnPropertyChanged(nameof(IsStatsActive));
+                OnPropertyChanged(nameof(IsAvatarsActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
                 OnPropertyChanged(nameof(IsAttributeManageActive));
             }

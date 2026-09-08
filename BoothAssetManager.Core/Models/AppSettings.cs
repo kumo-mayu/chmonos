@@ -114,4 +114,22 @@ public sealed record AppSettings
 
     /// <summary>WebPの品質（0-100）。</summary>
     public int ImageQuality { get; init; } = 80;
+
+    /// <summary>
+    /// 「対応アバター」を宣言している見出し。ここに載る節のリンクだけを対応表明として読む。
+    /// 見出しは出品者の自由記述なので、揺れが出たらユーザが足せるようにする。
+    /// </summary>
+    public IReadOnlyList<string> AvatarSupportHeadings { get; init; } =
+        ["対応アバター", "対応モデル", "対応リスト", "対応表", "対応一覧", "Supported", "Compatible"];
+
+    /// <summary>
+    /// 読まない見出し。クレジット節のリンクは宣伝画像に使ったモデルへの謝辞で、
+    /// 実測では34件中0件しかアバターではなかった。
+    /// </summary>
+    public IReadOnlyList<string> AvatarIgnoredHeadings { get; init; } =
+        ["クレジット", "credit", "thanks", "さんくす", "使用素材", "利用規約", "規約",
+         "注意", "更新", "履歴", "導入", "マニュアル", "同梱", "内容物"];
+
+    /// <summary>対応アバターを検出し直すまでの日数。</summary>
+    public int AvatarDetectRecheckDays { get; init; } = 90;
 }

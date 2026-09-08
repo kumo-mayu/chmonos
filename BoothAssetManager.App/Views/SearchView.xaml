@@ -135,7 +135,7 @@
                         </TextBlock>
 
                         <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAlt}" Padding="11,9" Margin="0,4,0,10">
-                            <TextBlock Text="対応アバターでの絞り込みは未実装です（アバターの検出がまだ動いていません）。"
+                            <TextBlock Text="対応アバターでの絞り込みは、アバターの管理から「この商品を検索で見る」で入ります。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" />
                         </Border>
                     </StackPanel>

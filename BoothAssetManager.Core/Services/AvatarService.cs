@@ -1,0 +1,675 @@
+using BoothAssetManager.Core.Booth;
+using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Storage;
+
+namespace BoothAssetManager.Core.Services;
+
+/// <summary>検出の進み具合。数百件を回すので途中経過を出す。</summary>
+public sealed record AvatarDetectProgress
+{
+    public required string Phase { get; init; }
+
+    public required int Done { get; init; }
+
+    public required int Total { get; init; }
+
+    public string? Current { get; init; }
+}
+
+/// <summary>検出の結果。何が起きたかを画面にそのまま出せる形にする。</summary>
+public sealed record AvatarDetectResult
+{
+    public required int ItemsScanned { get; init; }
+
+    public required int ItemsUpdated { get; init; }
+
+    /// <summary>新しく分かったアバター。</summary>
+    public required int AvatarsFound { get; init; }
+
+    /// <summary>調べた結果アバターではなかったもの（次回から問い合わせない）。</summary>
+    public required int NonAvatars { get; init; }
+
+    public required int BaseGroupsFound { get; init; }
+
+    /// <summary>BOOTHへ問い合わせた回数。</summary>
+    public required int Requests { get; init; }
+
+    /// <summary>問い合わせに失敗して判断を保留したID。次回もう一度試す。</summary>
+    public required int Unresolved { get; init; }
+}
+
+/// <summary>アバター1体の一覧表示用。</summary>
+public sealed record AvatarSummary
+{
+    public required AvatarRegistryEntry Entry { get; init; }
+
+    public required bool IsAvatar { get; init; }
+
+    public required bool IsOwned { get; init; }
+
+    /// <summary>直接対応している所持商品数。</summary>
+    public required int DirectCount { get; init; }
+
+    /// <summary>素体経由で着られる所持商品数。</summary>
+    public required int ViaBaseCount { get; init; }
+}
+
+/// <summary>素体グループ1件の一覧表示用。</summary>
+public sealed record AvatarBaseSummary
+{
+    public required AvatarBaseGroup Group { get; init; }
+
+    public required int MemberCount { get; init; }
+
+    public required int OwnedMemberCount { get; init; }
+
+    /// <summary>この素体を名指ししている所持商品数。</summary>
+    public required int ItemCount { get; init; }
+}
+
+public interface IAvatarService
+{
+    Task<AvatarDetectResult> DetectAsync(
+        IProgress<AvatarDetectProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AvatarSummary>> LoadAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AvatarBaseSummary>> LoadBasesAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// 対応アバターの検出と、登録簿の編集。
+///
+/// 検出の材料は実データの計測で決めた（詳細は 設計詳細_grill結果3_アバター.md）：
+/// ・「対応アバター」節のID … 45%の商品にあり、単独で最も多く取れる
+/// ・タグ／variation名 … 節が無い商品を補う。組み合わせると宣言の78%に届く
+/// ・クレジット・使用素材などの節は読まない（34件中0件しかアバターではなかった）
+///
+/// 保存済みの h2.html を読むので、取り込み済みの商品は通信ゼロで走る。
+/// BOOTHへ問い合わせるのは、まだcategoryを知らない商品IDだけ。
+/// </summary>
+public sealed partial class AvatarService : IAvatarService
+{
+    private readonly DataStore _store;
+    private readonly AppSettings _settings;
+    private readonly IBoothClient? _client;
+
+    /// <summary>「対応アバター」節から挙がったときだけ受け入れるcategory。素体はここに入ることが多い。</summary>
+    private static readonly string[] SupportOnlyCategories = ["3Dモデル（その他）"];
+
+    private const string AvatarCategory = "3Dキャラクター";
+
+    public AvatarService(DataStore store, AppSettings? settings = null, IBoothClient? client = null)
+    {
+        _store = store;
+        _settings = settings ?? new AppSettings();
+        _client = client;
+    }
+
+    /// <summary>
+    /// この登録簿の項目をアバターとして扱うか。
+    ///
+    /// 判定結果は保存せず毎回ここで決める。規則を直したときに、保存済みのJSONだけで
+    /// 全件を計算し直せるようにするため（categoryとseenAsという「事実」だけを持っている）。
+    /// </summary>
+    public static bool IsAvatar(AvatarRegistryEntry entry)
+    {
+        if (entry.AvatarOverride is { } forced)
+        {
+            return forced;
+        }
+
+        if (string.Equals(entry.Category, AvatarCategory, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // categoryが弱くても、出品者が「対応アバター」節に挙げているなら受け入れる。
+        // +Head のように素体が 3Dモデル（その他）で出ている例があるため
+        var fromSupport = entry.SeenAs.TryGetValue(nameof(AvatarLinkSource.SupportSection), out var count) && count > 0;
+        return fromSupport && SupportOnlyCategories.Contains(entry.Category);
+    }
+
+    public async Task<IReadOnlyList<AvatarSummary>> LoadAsync(CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var registry = _store.Avatars.Load();
+        var index = AvatarCompatibilityIndex.Build(registry);
+
+        var owned = loaded.Items
+            .Where(item => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+            .ToList();
+
+        var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+
+        var direct = new Dictionary<string, int>(StringComparer.Ordinal);
+        var viaBase = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var item in owned)
+        {
+            foreach (var (avatarId, match) in index.Resolve(item.Local))
+            {
+                var bucket = match == AvatarMatch.Direct ? direct : viaBase;
+                bucket[avatarId] = bucket.TryGetValue(avatarId, out var current) ? current + 1 : 1;
+            }
+        }
+
+        return registry.Entries
+            .Select(entry => new AvatarSummary
+            {
+                Entry = entry,
+                IsAvatar = IsAvatar(entry),
+                IsOwned = entry.IsOwnedManually || ownedIds.Contains(entry.ItemId),
+                DirectCount = direct.TryGetValue(entry.ItemId, out var d) ? d : 0,
+                ViaBaseCount = viaBase.TryGetValue(entry.ItemId, out var v) ? v : 0,
+            })
+            .Where(summary => summary.IsAvatar)
+            .OrderByDescending(summary => summary.IsOwned)
+            .ThenByDescending(summary => summary.DirectCount + summary.ViaBaseCount)
+            .ThenBy(summary => summary.Entry.DisplayName ?? summary.Entry.ItemId, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<AvatarBaseSummary>> LoadBasesAsync(CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var registry = _store.Avatars.Load();
+
+        var owned = loaded.Items
+            .Where(item => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+            .ToList();
+
+        var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+
+        var declared = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var link in owned.SelectMany(item => item.Local.AvatarBases).Where(link => !link.Rejected))
+        {
+            declared[link.BaseName] = declared.TryGetValue(link.BaseName, out var current) ? current + 1 : 1;
+        }
+
+        return registry.BaseGroups
+            .Select(group =>
+            {
+                var members = registry.Entries
+                    .Where(entry => string.Equals(entry.BaseName, group.Name, StringComparison.CurrentCultureIgnoreCase))
+                    .ToList();
+
+                return new AvatarBaseSummary
+                {
+                    Group = group,
+                    MemberCount = members.Count,
+                    OwnedMemberCount = members.Count(entry => entry.IsOwnedManually || ownedIds.Contains(entry.ItemId)),
+                    ItemCount = declared.TryGetValue(group.Name, out var count) ? count : 0,
+                };
+            })
+            .OrderByDescending(summary => summary.MemberCount)
+            .ThenBy(summary => summary.Group.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 全itemを走査して対応アバターを検出する。
+    ///
+    /// 3段階。①手元のHTML・タグ・variationから候補を集める ②未知のIDのcategoryをBOOTHへ問い合わせる
+    /// ③規則を当てて item と登録簿を書き戻す。
+    /// ②だけが通信を伴い、一度調べたIDは記録するので二度目からは走らない。
+    /// </summary>
+    public async Task<AvatarDetectResult> DetectAsync(
+        IProgress<AvatarDetectProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var registry = _store.Avatars.Load();
+
+        var entries = registry.Entries.ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
+        var groups = registry.BaseGroups
+            .ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
+
+        // 索引に載せるのはアバターと判定できたものだけ。
+        // 依存ツールやテクスチャの名前が混ざると、そちらに引っ掛かって別名が汚れる
+        var index = AvatarNameIndex.Build(registry, IsAvatar);
+
+        // ── ① 手元の材料から候補を集める ──
+        var candidates = new Dictionary<string, ItemScan>(StringComparer.Ordinal);
+        var seenAs = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+        var nameHints = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+        var aliasCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+        var baseAliasCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.CurrentCultureIgnoreCase);
+
+        var done = 0;
+        foreach (var item in loaded.Items)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new AvatarDetectProgress
+            {
+                Phase = "説明文とタグを読む",
+                Done = ++done,
+                Total = loaded.Items.Count,
+                Current = item.Booth.Name,
+            });
+
+            var scan = ScanItem(item, index);
+            candidates[item.Id] = scan;
+
+            foreach (var hit in scan.Description.Support)
+            {
+                Bump(seenAs, hit.ItemId, nameof(AvatarLinkSource.SupportSection));
+                if (hit.NameHint is { } hint)
+                {
+                    Bump(nameHints, hit.ItemId, hint);
+                }
+            }
+
+            foreach (var id in scan.Description.Other)
+            {
+                Bump(seenAs, id, nameof(AvatarLinkSource.H2Link));
+            }
+
+            foreach (var id in scan.FromTags)
+            {
+                Bump(seenAs, id, nameof(AvatarLinkSource.Tag));
+            }
+
+            foreach (var id in scan.FromVariations)
+            {
+                Bump(seenAs, id, nameof(AvatarLinkSource.Variation));
+            }
+
+            // 別名の出現回数は毎回数え直す（加算しない）
+            foreach (var tag in item.Booth.Tags)
+            {
+                var stripped = AvatarText.StripSupportSuffix(tag);
+                foreach (var id in index.FindAvatars(stripped))
+                {
+                    Bump(aliasCounts, id, tag);
+                }
+            }
+
+            foreach (var name in scan.BaseNames)
+            {
+                Bump(baseAliasCounts, name, name);
+            }
+        }
+
+        // ── ② 未知のIDだけBOOTHへ問い合わせる ──
+        var unknown = seenAs.Keys
+            .Where(id => !entries.ContainsKey(id))
+            .ToList();
+
+        var requests = 0;
+        var unresolved = 0;
+        done = 0;
+
+        foreach (var id in unknown)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new AvatarDetectProgress
+            {
+                Phase = "候補の種類を確かめる",
+                Done = ++done,
+                Total = unknown.Count,
+                Current = id,
+            });
+
+            if (_client is null)
+            {
+                unresolved++;
+                continue;
+            }
+
+            requests++;
+            var fetched = await _client.GetItemJsonAsync(id, cancellationToken);
+
+            if (fetched.Status == BoothFetchStatus.NotFound)
+            {
+                // 販売終了。categoryを観測できないだけで、アバターではないとは限らない
+                entries[id] = new AvatarRegistryEntry
+                {
+                    ItemId = id,
+                    Category = null,
+                    CheckedAt = DateTimeOffset.Now,
+                };
+                continue;
+            }
+
+            if (!fetched.IsSuccess || fetched.Value is null)
+            {
+                // 通信の失敗で何も決めない。次回また試す
+                unresolved++;
+                continue;
+            }
+
+            var booth = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
+            entries[id] = new AvatarRegistryEntry
+            {
+                ItemId = id,
+                DisplayName = booth.Name,
+                Category = booth.Category?.Name,
+                CheckedAt = DateTimeOffset.Now,
+                // 別名はアバターにだけ持たせる。依存ツールの名前で照合しても意味が無い
+                Aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
+                    ? BuildAliasesFromBooth(booth)
+                    : [],
+            };
+        }
+
+        // ── ③ 規則を当てて書き戻す ──
+        foreach (var (id, sources) in seenAs)
+        {
+            if (entries.TryGetValue(id, out var entry))
+            {
+                entries[id] = entry with { SeenAs = sources };
+            }
+        }
+
+        foreach (var (id, hints) in nameHints)
+        {
+            if (!entries.TryGetValue(id, out var entry))
+            {
+                continue;
+            }
+
+            entries[id] = entry with { Aliases = MergeAliases(entry.Aliases, hints, nameof(AvatarLinkSource.SupportSection)) };
+        }
+
+        foreach (var (id, counted) in aliasCounts)
+        {
+            if (!entries.TryGetValue(id, out var entry) || !IsAvatar(entry))
+            {
+                continue;
+            }
+
+            entries[id] = entry with { Aliases = MergeAliases(entry.Aliases, counted, nameof(AvatarLinkSource.Tag)) };
+        }
+
+        foreach (var (name, counted) in baseAliasCounts)
+        {
+            if (groups.ContainsKey(name))
+            {
+                continue;
+            }
+
+            groups[name] = new AvatarBaseGroup
+            {
+                Name = name,
+                Aliases = counted.Select(pair => new AvatarAlias
+                {
+                    Text = pair.Key,
+                    Count = pair.Value,
+                    Source = nameof(AvatarLinkSource.Tag),
+                }).ToList(),
+            };
+        }
+
+        var updated = 0;
+        done = 0;
+
+        foreach (var item in loaded.Items)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new AvatarDetectProgress
+            {
+                Phase = "対応アバターを書き込む",
+                Done = ++done,
+                Total = loaded.Items.Count,
+            });
+
+            var scan = candidates[item.Id];
+            var links = BuildLinks(scan, entries);
+            var bases = BuildBaseLinks(scan);
+
+            var merged = MergeLinks(item.Local.Avatars, links);
+            var mergedBases = MergeBaseLinks(item.Local.AvatarBases, bases);
+
+            if (SameLinks(item.Local.Avatars, merged) && SameBaseLinks(item.Local.AvatarBases, mergedBases))
+            {
+                continue;
+            }
+
+            await _store.Items.SaveAsync(item with
+            {
+                Local = item.Local with
+                {
+                    Avatars = merged,
+                    AvatarBases = mergedBases,
+                    AvatarsDetectedAt = DateTimeOffset.Now,
+                },
+            }, cancellationToken);
+
+            updated++;
+        }
+
+        var finalRegistry = new AvatarRegistry
+        {
+            Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
+            BaseGroups = groups.Values.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
+        };
+
+        await _store.Avatars.SaveAsync(finalRegistry, cancellationToken);
+
+        return new AvatarDetectResult
+        {
+            ItemsScanned = loaded.Items.Count,
+            ItemsUpdated = updated,
+            AvatarsFound = finalRegistry.Entries.Count(IsAvatar),
+            NonAvatars = finalRegistry.Entries.Count(entry => entry.Category is not null && !IsAvatar(entry)),
+            BaseGroupsFound = finalRegistry.BaseGroups.Count,
+            Requests = requests,
+            Unresolved = unresolved,
+        };
+    }
+
+    private sealed record ItemScan
+    {
+        public required DescriptionScan Description { get; init; }
+
+        public required IReadOnlyCollection<string> FromTags { get; init; }
+
+        public required IReadOnlyCollection<string> FromVariations { get; init; }
+
+        public required IReadOnlyList<string> BaseNames { get; init; }
+    }
+
+    private ItemScan ScanItem(ItemRecord item, AvatarNameIndex index)
+    {
+        var html = ReadHtml(item.Id);
+
+        var description = AvatarDetector.ScanDescription(
+            html, item.Id, _settings.AvatarSupportHeadings, _settings.AvatarIgnoredHeadings);
+
+        // 購入したvariationがあればそれを先に見る。買った版がそのままアバター名になっている
+        var variationNames = item.Local.OrderedVariations
+            .Select(variation => variation.NameSnapshot)
+            .Concat(item.Booth.Variations.Select(variation => variation.Name))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .ToList();
+
+        var (fromTags, fromVariations) = AvatarDetector.ScanNames(index, item.Booth.Tags, variationNames);
+
+        return new ItemScan
+        {
+            Description = description,
+            FromTags = fromTags,
+            FromVariations = fromVariations,
+            BaseNames = AvatarDetector.ScanBaseTags(item.Booth.Tags),
+        };
+    }
+
+    private string? ReadHtml(string itemId)
+    {
+        try
+        {
+            var path = _store.Paths.ItemHtmlFile(itemId);
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 候補に規則を当てて対応アバターの宣言にする。
+    /// 「対応アバター」節から来たものだけ確定にし、その他の見出しのリンクは要確認へ回す。
+    /// </summary>
+    private static List<AvatarLink> BuildLinks(
+        ItemScan scan,
+        IReadOnlyDictionary<string, AvatarRegistryEntry> entries)
+    {
+        var links = new Dictionary<string, AvatarLink>(StringComparer.Ordinal);
+
+        void Add(string id, AvatarLinkSource source, bool confirmed)
+        {
+            if (!entries.TryGetValue(id, out var entry) || !IsAvatar(entry) || links.ContainsKey(id))
+            {
+                return;
+            }
+
+            links[id] = new AvatarLink
+            {
+                AvatarItemId = id,
+                Name = entry.DisplayName,
+                Source = source,
+                Confirmed = confirmed,
+            };
+        }
+
+        foreach (var hit in scan.Description.Support)
+        {
+            Add(hit.ItemId, AvatarLinkSource.SupportSection, confirmed: true);
+        }
+
+        foreach (var id in scan.FromTags)
+        {
+            Add(id, AvatarLinkSource.Tag, confirmed: true);
+        }
+
+        foreach (var id in scan.FromVariations)
+        {
+            Add(id, AvatarLinkSource.Variation, confirmed: true);
+        }
+
+        foreach (var id in scan.Description.Other)
+        {
+            Add(id, AvatarLinkSource.H2Link, confirmed: false);
+        }
+
+        return links.Values.ToList();
+    }
+
+    private static List<AvatarBaseLink> BuildBaseLinks(ItemScan scan)
+        => scan.BaseNames
+            .Select(name => new AvatarBaseLink
+            {
+                BaseName = name,
+                Source = AvatarLinkSource.Tag,
+                Confirmed = true,
+            })
+            .ToList();
+
+    /// <summary>
+    /// 再検出のマージ。<c>Manual</c> は残し、それ以外を作り直す。
+    ///
+    /// これが無いと、ユーザが手で足した対応が再検出で消え、
+    /// 手で消した誤検出（Rejected）が復活する。
+    /// </summary>
+    private static List<AvatarLink> MergeLinks(
+        IReadOnlyList<AvatarLink> existing,
+        IReadOnlyList<AvatarLink> detected)
+    {
+        var manual = existing.Where(link => link.Source == AvatarLinkSource.Manual).ToList();
+        var manualIds = manual.Select(link => link.AvatarItemId).ToHashSet(StringComparer.Ordinal);
+
+        return manual
+            .Concat(detected.Where(link => !manualIds.Contains(link.AvatarItemId)))
+            .ToList();
+    }
+
+    private static List<AvatarBaseLink> MergeBaseLinks(
+        IReadOnlyList<AvatarBaseLink> existing,
+        IReadOnlyList<AvatarBaseLink> detected)
+    {
+        var manual = existing.Where(link => link.Source == AvatarLinkSource.Manual).ToList();
+        var manualNames = manual.Select(link => link.BaseName)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+
+        return manual
+            .Concat(detected.Where(link => !manualNames.Contains(link.BaseName)))
+            .ToList();
+    }
+
+    private static bool SameLinks(IReadOnlyList<AvatarLink> a, IReadOnlyList<AvatarLink> b)
+        => a.Count == b.Count && a.OrderBy(x => x.AvatarItemId, StringComparer.Ordinal)
+            .SequenceEqual(b.OrderBy(x => x.AvatarItemId, StringComparer.Ordinal));
+
+    private static bool SameBaseLinks(IReadOnlyList<AvatarBaseLink> a, IReadOnlyList<AvatarBaseLink> b)
+        => a.Count == b.Count && a.OrderBy(x => x.BaseName, StringComparer.Ordinal)
+            .SequenceEqual(b.OrderBy(x => x.BaseName, StringComparer.Ordinal));
+
+    /// <summary>
+    /// 商品JSONから別名を作る。正式名と、そこに含まれるタグを採る。
+    ///
+    /// タグをそのまま全部入れると「VRChat」「オリジナル」のような汎用語が混ざるので、
+    /// 商品名に現れているものだけに絞る（実測でこの条件が効いた）。
+    /// </summary>
+    private static List<AvatarAlias> BuildAliasesFromBooth(BoothBlock booth)
+    {
+        var aliases = new List<AvatarAlias>();
+        var normalizedName = AvatarText.Normalize(booth.Name);
+
+        foreach (var tag in booth.Tags.Distinct(StringComparer.CurrentCultureIgnoreCase))
+        {
+            var normalized = AvatarText.Normalize(tag);
+            if (normalized.Length >= 2
+                && !AvatarText.IsGenericName(tag)
+                && normalizedName.Contains(normalized, StringComparison.Ordinal))
+            {
+                aliases.Add(new AvatarAlias { Text = tag, Count = 0, Source = nameof(AvatarLinkSource.Tag) });
+            }
+        }
+
+        return aliases;
+    }
+
+    private static IReadOnlyList<AvatarAlias> MergeAliases(
+        IReadOnlyList<AvatarAlias> existing,
+        IReadOnlyDictionary<string, int> counted,
+        string source)
+    {
+        var byText = existing.ToDictionary(alias => alias.Text, StringComparer.CurrentCultureIgnoreCase);
+
+        foreach (var (text, count) in counted)
+        {
+            if (AvatarText.IsGenericName(text))
+            {
+                continue;
+            }
+
+            if (byText.TryGetValue(text, out var alias))
+            {
+                byText[text] = alias with { Count = count };
+            }
+            else
+            {
+                byText[text] = new AvatarAlias { Text = text, Count = count, Source = source };
+            }
+        }
+
+        return byText.Values.OrderByDescending(alias => alias.Count).ToList();
+    }
+
+    private static void Bump<TKey>(Dictionary<TKey, Dictionary<string, int>> into, TKey key, string inner)
+        where TKey : notnull
+    {
+        if (!into.TryGetValue(key, out var counts))
+        {
+            counts = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
+            into[key] = counts;
+        }
+
+        counts[inner] = counts.TryGetValue(inner, out var current) ? current + 1 : 1;
+    }
+}
+

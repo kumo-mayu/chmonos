@@ -78,35 +78,101 @@ public sealed record ShopBannerRecord
 public sealed class AvatarRegistry
 {
     public IReadOnlyList<AvatarRegistryEntry> Entries { get; init; } = [];
+
+    /// <summary>共通素体のグループ。名前をキーにする（BOOTH商品とは限らないため）。</summary>
+    public IReadOnlyList<AvatarBaseGroup> BaseGroups { get; init; } = [];
 }
 
-public sealed class AvatarRegistryEntry
+/// <summary>
+/// 調べたBOOTH商品1件。アバターも、アバターでなかったものも同じ場所に置く。
+///
+/// ここに保存するのは「BOOTHから観測した事実」と「人が明示的に決めたこと」だけで、
+/// 判定結果（アバターとして扱うか）は保存しない。判定規則を直したときに
+/// 全件を取り直さずに済ませるため。
+/// </summary>
+public sealed record AvatarRegistryEntry
 {
     /// <summary>BOOTH商品ID。アバターは実在の商品なので、これを自然キーにする。</summary>
     public required string ItemId { get; init; }
 
     public string? DisplayName { get; init; }
 
-    /// <summary>categoryが3Dキャラクターだと確認できたか。false は「確認したが該当しない」を意味する。</summary>
-    public bool IsAvatar { get; init; }
+    /// <summary>
+    /// BOOTHのcategory名をそのまま。判定に使うのは規則側で、ここは観測した事実。
+    /// 販売終了などで引けなかった場合は null（「categoryが無い」ではなく「今は観測できない」）。
+    /// </summary>
+    public string? Category { get; init; }
 
-    /// <summary>確認した日時。設定されていれば再確認は不要（該当しない場合も含めたキャッシュ）。</summary>
+    /// <summary>
+    /// どの文脈で候補に挙がったか（source名 → 回数）。
+    ///
+    /// 「対応アバター」節から挙がったかどうかで受け入れるcategoryが変わるので、
+    /// itemを全件走査せずに判定できるようここに写しておく。
+    /// 全件検出のたびに数え直す値で、照合の判断そのものには使わない。
+    /// </summary>
+    public IReadOnlyDictionary<string, int> SeenAs { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>
+    /// アバターとして扱うかの上書き。null は「上書きしていないので規則に従う」。
+    /// 規則で拾えない例外（販売終了で判定材料が無いものなど）のためだけに使う。
+    /// </summary>
+    public bool? AvatarOverride { get; init; }
+
+    /// <summary>所属する共通素体グループの名前。持たない／未設定なら null。</summary>
+    public string? BaseName { get; init; }
+
+    /// <summary>
+    /// 手で「所有している」と指定したか。
+    /// 所持itemからの計算と和を取る（本体を取り込んでいないアバターや、BOOTH外で入手したもの用）。
+    /// </summary>
+    public bool IsOwnedManually { get; init; }
+
+    public string? Memo { get; init; }
+
+    /// <summary>最後にBOOTHへ問い合わせた日時。</summary>
     public DateTimeOffset? CheckedAt { get; init; }
 
-    /// <summary>このアバターが使っている共通素体への参照。素体を持たない/未設定なら null。</summary>
-    public string? BaseItemId { get; init; }
-
-    /// <summary>これ自体が素体として扱われるか。</summary>
-    public bool IsBase { get; init; }
-
-    /// <summary>実際に呼ばれていた表記の履歴。variation名との照合に使う。</summary>
+    /// <summary>実際に呼ばれていた表記の履歴。タグやvariation名との照合に使う。</summary>
     public IReadOnlyList<AvatarAlias> Aliases { get; init; } = [];
 }
 
-public sealed class AvatarAlias
+/// <summary>
+/// 共通素体のグループ。
+///
+/// 名前をキーにするのは、配布されていない共通素体が実在するため
+/// （同じ作者のScale違いなど。実測では素体本体が商品として無いグループが複数あった）。
+/// 配布されている場合だけ <see cref="ItemId"/> を併せ持つ。
+/// </summary>
+public sealed record AvatarBaseGroup
+{
+    public required string Name { get; init; }
+
+    /// <summary>素体そのものがBOOTH商品として配布されている場合のID。無ければ null。</summary>
+    public string? ItemId { get; init; }
+
+    /// <summary>
+    /// このグループの一致から衣装の互換を推し量ってよいか。
+    ///
+    /// 既定は true。false にするのは頭部などの部位規格で、
+    /// 一致しても衣装が合うとは限らないもの（+Head など）。
+    /// </summary>
+    public bool InferClothing { get; init; } = true;
+
+    public string? Memo { get; init; }
+
+    public IReadOnlyList<AvatarAlias> Aliases { get; init; } = [];
+}
+
+public sealed record AvatarAlias
 {
     public required string Text { get; init; }
 
-    /// <summary>この表記を見かけた回数。</summary>
+    /// <summary>
+    /// 最後の全件検出時点で、この表記を含んでいたitem数。加算ではなく数え直す。
+    /// 根拠の表示用で、照合の判断には使わない。
+    /// </summary>
     public int Count { get; init; }
+
+    /// <summary>どこから覚えた表記か。誤った別名を消すときの判断材料。</summary>
+    public string? Source { get; init; }
 }

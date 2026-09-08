@@ -35,6 +35,10 @@ public sealed class SearchViewModel : ViewModelBase
     private string? _selectedCategory;
     private bool _ownedOnly;
     private bool _missingOnly;
+    private string? _avatarFilterId;
+    private string? _avatarFilterName;
+    private bool _includeViaBase = true;
+    private Core.Services.AvatarCompatibilityIndex? _compatibility;
     private bool _isLoading;
     private int _columns = 1;
     private SortOption _sort = DefaultSort;
@@ -486,6 +490,20 @@ public sealed class SearchViewModel : ViewModelBase
         AddAttributeFilter(name);
     }
 
+    /// <summary>
+    /// このアバターに対応している商品だけを出す。アバター管理からの導線。
+    /// 既定では素体経由も含める（「対応が確認できていないもの」を既定で隠さない方針に合わせる）。
+    /// </summary>
+    public void ShowOnlyAvatar(string avatarItemId, string displayName, bool includeViaBase = true)
+    {
+        ClearFilters();
+        _avatarFilterId = avatarItemId;
+        _avatarFilterName = displayName;
+        _includeViaBase = includeViaBase;
+        _compatibility = null;
+        ApplyFilters();
+    }
+
     /// <summary>このカテゴリだけで絞り込む。統計の容量内訳から中身を見に来る導線。</summary>
     public void ShowOnlyCategory(string category)
     {
@@ -512,6 +530,8 @@ public sealed class SearchViewModel : ViewModelBase
         _selectedCategory = AllCategories;
         _ownedOnly = false;
         _missingOnly = false;
+        _avatarFilterId = null;
+        _avatarFilterName = null;
 
         foreach (var tag in TagFilters)
         {
@@ -576,6 +596,11 @@ public sealed class SearchViewModel : ViewModelBase
                 parts.Add("ファイルが見つからない");
             }
 
+            if (_avatarFilterName is not null)
+            {
+                parts.Add(_includeViaBase ? $"{_avatarFilterName}（素体経由を含む）" : _avatarFilterName);
+            }
+
             if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
             {
                 parts.Add(_selectedCategory);
@@ -610,6 +635,22 @@ public sealed class SearchViewModel : ViewModelBase
         if (_missingOnly && !item.Local.LocalFiles.Any(file => file.Paths.Count == 0))
         {
             return false;
+        }
+
+        // 対応アバターでの絞り込み。素体経由は推定なので、含めるかを選べるようにする
+        if (_avatarFilterId is not null)
+        {
+            var match = (_compatibility ??= Core.Services.AvatarCompatibilityIndex.Build(
+                _services.Store.Avatars.Load())).MatchFor(item.Local, _avatarFilterId);
+
+            var accepted = _includeViaBase
+                ? match is Core.Services.AvatarMatch.Direct or Core.Services.AvatarMatch.ViaBase
+                : match == Core.Services.AvatarMatch.Direct;
+
+            if (!accepted)
+            {
+                return false;
+            }
         }
 
         if (!string.IsNullOrEmpty(_selectedCategory)
