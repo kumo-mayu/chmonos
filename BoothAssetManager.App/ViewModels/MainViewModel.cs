@@ -12,6 +12,7 @@ public sealed class MainViewModel : ViewModelBase
     private object? _currentViewModel;
     private int _unresolvedCount;
     private int _needsEditCount;
+    private int _unreadCount;
 
     public MainViewModel(AppServiceContainer services)
     {
@@ -40,6 +41,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowImportCommand = new RelayCommand(ShowImport);
         ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
         ShowResolveCommand = new RelayCommand(ShowResolve);
+        ShowInboxCommand = new RelayCommand(ShowInbox);
 
         ShowSearch();
         RefreshCounts();
@@ -61,6 +63,30 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool IsResolveActive => CurrentViewModel is ResolveViewModel;
 
+    public RelayCommand ShowInboxCommand { get; }
+
+    public bool IsInboxActive => CurrentViewModel is InboxViewModel;
+
+    /// <summary>要確認の未読件数。「新しく起きたこと」なので、0のときはバッジ自体を出さない。</summary>
+    public int UnreadCount
+    {
+        get => _unreadCount;
+        private set
+        {
+            if (SetField(ref _unreadCount, value))
+            {
+                OnPropertyChanged(nameof(HasUnread));
+            }
+        }
+    }
+
+    public bool HasUnread => UnreadCount > 0;
+
+    public void ShowInbox() => CurrentViewModel = new InboxViewModel(_services, this);
+
+    /// <summary>件数だけを数え直す。画面側から既読にしたときなどに呼ぶ。</summary>
+    public void RefreshBadges() => RefreshCounts();
+
     /// <summary>
     /// 未確定画面を開く。毎回作り直すのは、取り込みや除外で中身が変わるため。
     /// 開き直した時点の unresolved.json をそのまま読む。
@@ -78,6 +104,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsImportActive));
                 OnPropertyChanged(nameof(IsEditActive));
                 OnPropertyChanged(nameof(IsResolveActive));
+                OnPropertyChanged(nameof(IsInboxActive));
             }
         }
     }
@@ -146,5 +173,6 @@ public sealed class MainViewModel : ViewModelBase
     {
         UnresolvedCount = _services.Store.Unresolved.Load().Count;
         NeedsEditCount = Search.NeedsEditCount;
+        UnreadCount = _services.Notifications.Load().Count(record => !record.IsRead);
     }
 }

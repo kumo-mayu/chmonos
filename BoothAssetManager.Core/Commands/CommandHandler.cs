@@ -15,19 +15,22 @@ public sealed class CommandHandler
     private readonly IEditService? _edit;
     private readonly UnpackedFolderRemover? _unpackedRemover;
     private readonly Resolution.FallbackResolver? _resolver;
+    private readonly INotificationService? _notifications;
 
     public CommandHandler(
         IImportPipeline import,
         IItemService items,
         IEditService? edit = null,
         UnpackedFolderRemover? unpackedRemover = null,
-        Resolution.FallbackResolver? resolver = null)
+        Resolution.FallbackResolver? resolver = null,
+        INotificationService? notifications = null)
     {
         _import = import;
         _items = items;
         _edit = edit;
         _unpackedRemover = unpackedRemover;
         _resolver = resolver;
+        _notifications = notifications;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -114,6 +117,24 @@ public sealed class CommandHandler
                 return await _items.UnregisterFolderAsync(unregister.ItemId, unregister.FolderPath, cancellationToken)
                     ? new CommandResult.ItemSaved(unregister.ItemId)
                     : new CommandResult.Failed("登録が見つかりませんでした。");
+
+            case UiCommand.SetNotificationRead setRead:
+                if (_notifications is null)
+                {
+                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                }
+
+                await _notifications.SetReadAsync(setRead.Id, setRead.IsRead, cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.MarkAllNotificationsRead:
+                if (_notifications is null)
+                {
+                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                }
+
+                await _notifications.MarkAllReadAsync(cancellationToken);
+                return new CommandResult.Done();
 
             case UiCommand.ProposeCandidates propose:
                 if (_resolver is null)

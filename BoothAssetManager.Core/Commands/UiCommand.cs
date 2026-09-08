@@ -54,6 +54,12 @@ public abstract record UiCommand
 
     /// <summary>フォルダの紐付けを解除する。zipを後から手に入れたときに使う。ファイルには触らない。</summary>
     public record UnregisterFolder(string ItemId, string FolderPath) : UiCommand;
+
+    /// <summary>要確認の既読・未読を切り替える。消さずに既読にするのは「見た」と「無かった」を分けるため。</summary>
+    public record SetNotificationRead(string Id, bool IsRead) : UiCommand;
+
+    /// <summary>要確認をまとめて既読にする。</summary>
+    public record MarkAllNotificationsRead : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

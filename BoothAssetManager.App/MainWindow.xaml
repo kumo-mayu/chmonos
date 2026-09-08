@@ -24,6 +24,9 @@
         <DataTemplate DataType="{x:Type vm:ResolveViewModel}">
             <views:ResolveView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InboxViewModel}">
+            <views:InboxView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -124,8 +127,15 @@
                             </Border>
                         </Grid>
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
-                        <TextBlock Text="要確認" Foreground="{StaticResource RailText}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}">
+                        <Grid Width="164">
+                            <TextBlock Text="要確認" HorizontalAlignment="Left"
+                                       Foreground="{Binding IsInboxActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
+                            <Border Style="{StaticResource NavBadge}" Background="#8a3f6b" HorizontalAlignment="Right"
+                                    Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding UnreadCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
+                            </Border>
+                        </Grid>
                     </Button>
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}">
                         <Grid Width="164">
