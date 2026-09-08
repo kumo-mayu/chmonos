@@ -14,9 +14,17 @@
                 <Button Content="← ショップ一覧に戻る" Style="{StaticResource SmallButton}"
                         HorizontalAlignment="Left" VerticalAlignment="Center"
                         Command="{Binding BackCommand}" />
-                <Button Content="BOOTHのショップページを開く" Style="{StaticResource SmallButton}"
-                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                        Command="{Binding OpenBoothCommand}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Margin="0,0,10,0" MaxWidth="360" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 外部で更新を知ったときに、次の確認時期を待たずに取り直せるようにする -->
+                    <Button Content="画像を取り直す" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                            Command="{Binding RefreshImagesCommand}"
+                            ToolTip="このショップのアイコンとバナーを、普段と同じ手順で取り直します。" />
+                    <Button Content="BOOTHのショップページを開く" Style="{StaticResource SmallButton}"
+                            Command="{Binding OpenBoothCommand}" />
+                </StackPanel>
             </Grid>
         </Border>
 

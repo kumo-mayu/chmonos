@@ -101,6 +101,19 @@ public sealed class ThumbnailLoader
         return image;
     }
 
+    /// <summary>
+    /// 同じ場所のファイルを取り直したときに呼ぶ。
+    /// 名前がURLで決まる画像は差し替えで別名になるが、ショップのバナーのように
+    /// 場所が固定のものは、覚えている絵を捨てないと古いままになる。
+    /// </summary>
+    public void Forget(string path)
+    {
+        if (_byPath.Remove(path, out var entry))
+        {
+            _usedBytes -= entry.Bytes;
+        }
+    }
+
     /// <summary>フォルダ内の最初の1枚。一覧表示の初期状態に使う。</summary>
     public BitmapSource? LoadFirst(string imageDirectory)
     {

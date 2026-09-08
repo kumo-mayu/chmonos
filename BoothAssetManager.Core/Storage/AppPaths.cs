@@ -88,6 +88,27 @@ public sealed class AppPaths
                 ? $"{Sanitize(subdomain)}.webp"
                 : $"{Sanitize(subdomain)}_{ShortHash(thumbnailUrl)}.webp");
 
+    /// <summary>
+    /// 手元にあるショップのアイコンを探す。
+    ///
+    /// 名前にURLのハッシュが入るので、差し替えがあると複数残る。
+    /// 出すのは一番新しく取ったもの（古いものは商品画像と同じく消さずに残す）。
+    /// 読む側がURLを知らなくて済むので、取得元が増えても表示は変わらない。
+    /// </summary>
+    public string? FindShopIcon(string subdomain)
+    {
+        if (!Directory.Exists(ShopIconsDir))
+        {
+            return null;
+        }
+
+        return Directory
+            .EnumerateFiles(ShopIconsDir, $"{Sanitize(subdomain)}_*.webp")
+            .Where(path => !path.EndsWith("_banner.webp", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+    }
+
     /// <summary>元URLから短いハッシュを作る。同じURLなら常に同じ名前になる。</summary>
     private static string ShortHash(string value)
     {

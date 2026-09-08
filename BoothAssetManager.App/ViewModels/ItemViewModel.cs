@@ -95,6 +95,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
+    private readonly (string Label, Action Go)? _back;
     private int _selectedIndex;
 
     /// <param name="back">
@@ -113,8 +114,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         _main = main;
         _thumbnails = thumbnails;
 
+        _back = back;
         BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← 検索に戻る";
         BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowSearch)());
+
+        RefreshCommand = new RelayCommand(() => _ = RefreshAsync(), () => !IsRefreshing);
 
         // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）
         OpenShopCommand = new RelayCommand(
@@ -142,6 +146,82 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public string BackText { get; }
 
     public RelayCommand OpenShopCommand { get; }
+
+    /// <summary>
+    /// この商品を今すぐ取り直す。
+    ///
+    /// 普段は次回取得予定を待つが、外部で更新を知ったときに待てないことがある。
+    /// 走るのは普段と同じ処理（商品JSON → 説明文 → 画像 → ショップのアイコン）で、
+    /// 違うのは予定日を待たずに始める点だけ。
+    /// </summary>
+    public RelayCommand RefreshCommand { get; }
+
+    private bool _isRefreshing;
+    private string _refreshStatus = string.Empty;
+
+    public bool IsRefreshing
+    {
+        get => _isRefreshing;
+        private set
+        {
+            if (SetField(ref _isRefreshing, value))
+            {
+                OnPropertyChanged(nameof(RefreshButtonText));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string RefreshButtonText => IsRefreshing ? "取得中…" : "今すぐ取り直す";
+
+    public string RefreshStatus
+    {
+        get => _refreshStatus;
+        private set
+        {
+            if (SetField(ref _refreshStatus, value))
+            {
+                OnPropertyChanged(nameof(HasRefreshStatus));
+            }
+        }
+    }
+
+    public bool HasRefreshStatus => RefreshStatus.Length > 0;
+
+    private async Task RefreshAsync()
+    {
+        IsRefreshing = true;
+        RefreshStatus = string.Empty;
+
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new UiCommand.RefreshItem(Item.Id));
+
+            if (result is CommandResult.Failed failure)
+            {
+                RunOnUiThread(() => RefreshStatus = failure.Message);
+                return;
+            }
+
+            // 取り直した中身で開き直す。画像の枚数が変わることもあるので、画面ごと作り直す
+            var updated = await _services.Store.Items.LoadAsync(Item.Id);
+            RunOnUiThread(() =>
+            {
+                if (updated is not null)
+                {
+                    _main.ShowItem(updated, _back);
+                }
+            });
+        }
+        catch (Exception exception) when (exception is IOException or System.Net.Http.HttpRequestException)
+        {
+            RunOnUiThread(() => RefreshStatus = "取得できませんでした。時間をおいて試してください。");
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
 
     public RelayCommand OpenBoothCommand { get; }
 

@@ -542,6 +542,75 @@ public class ShopServiceTests : IDisposable
             Assert.Single(await Create(recheckDays: 30).LoadAsync()).BannerState);
     }
 
+    /// <summary>
+    /// 「取り直す」でも、URLが同じなら落とし直さない。
+    /// BOOTHのバナーは名前が乱数なので、差し替えれば必ずURLが変わる。
+    /// 押されるたびに同じ絵を取り直すのは、最大4MBの無駄になる。
+    /// </summary>
+    [Fact]
+    public async Task DoesNotRedownloadTheBannerWhenTheUrlIsUnchanged()
+    {
+        const string Url = "https://s6.booth.pm/a/b.png";
+        var client = new FakeBoothClient(PageWithBanner(Url))
+        {
+            Image = await File.ReadAllBytesAsync(WritePng()),
+        };
+
+        var service = Create(client: client);
+        var images = new ImagePipeline(client, _store.Paths);
+
+        await service.EnsureBannerAsync("shop", images);
+        var savedAt = File.GetLastWriteTimeUtc(_store.Paths.ShopBannerFile("shop"));
+
+        var result = await service.RefreshImagesAsync("shop", images);
+
+        Assert.False(result.BannerUpdated);
+        Assert.False(result.Failed);
+        Assert.Equal(savedAt, File.GetLastWriteTimeUtc(_store.Paths.ShopBannerFile("shop")));
+    }
+
+    /// <summary>差し替えられていれば取り直す。</summary>
+    [Fact]
+    public async Task RedownloadsTheBannerWhenTheUrlChanged()
+    {
+        var client = new FakeBoothClient(PageWithBanner("https://s6.booth.pm/a/old.png"))
+        {
+            Image = await File.ReadAllBytesAsync(WritePng()),
+        };
+
+        var service = Create(client: client);
+        var images = new ImagePipeline(client, _store.Paths);
+
+        await service.EnsureBannerAsync("shop", images);
+
+        client.SetPage(PageWithBanner("https://s6.booth.pm/a/new.png"));
+        var result = await service.RefreshImagesAsync("shop", images);
+
+        Assert.True(result.BannerUpdated);
+        Assert.Equal("https://s6.booth.pm/a/new.png", Assert.Single(_store.ShopBanners.Load()).SourceUrl);
+    }
+
+    /// <summary>
+    /// アイコンもショップページから取り直す。
+    /// 商品JSON側のURLはitemを取り直すまで古いままなので、ここではページの値を使う。
+    /// </summary>
+    [Fact]
+    public async Task PicksUpANewIconFromTheShopPage()
+    {
+        const string Icon = "https://booth.pximg.net/c/128x128/users/1/icon_image/new.jpg";
+        var client = new FakeBoothClient(new string('x', 5000) + $"<img src=\"{Icon}\">" + new string('y', 5000))
+        {
+            Image = await File.ReadAllBytesAsync(WritePng()),
+        };
+
+        var result = await Create(client: client)
+            .RefreshImagesAsync("shop", new ImagePipeline(client, _store.Paths));
+
+        Assert.True(result.IconUpdated);
+        Assert.NotNull(result.IconPath);
+        Assert.True(result.BannerAbsent);
+    }
+
     /// <summary>取得手段が無いとき（テストや将来の切り離し）に落ちない。</summary>
     [Fact]
     public async Task DoesNothingWithoutAClient()

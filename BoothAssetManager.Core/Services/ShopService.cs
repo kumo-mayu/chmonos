@@ -77,6 +77,24 @@ public sealed record ShopItem
     public bool AcquiredIsFallback { get; init; }
 }
 
+/// <summary>ショップの画像を取り直した結果。何が変わったかを画面に伝える。</summary>
+public sealed record ShopImageRefresh
+{
+    public bool IconUpdated { get; init; }
+
+    public bool BannerUpdated { get; init; }
+
+    /// <summary>BOOTHにバナーが無かった。</summary>
+    public bool BannerAbsent { get; init; }
+
+    /// <summary>ページを読めなかった。何も判断していない。</summary>
+    public bool Failed { get; init; }
+
+    public string? IconPath { get; init; }
+
+    public string? BannerPath { get; init; }
+}
+
 public interface IShopService
 {
     Task<IReadOnlyList<ShopSummary>> LoadAsync(CancellationToken cancellationToken = default);
@@ -84,6 +102,11 @@ public interface IShopService
     Task<IReadOnlyList<ShopItem>> LoadItemsAsync(string subdomain, CancellationToken cancellationToken = default);
 
     Task<string?> EnsureBannerAsync(
+        string subdomain,
+        ImagePipeline images,
+        CancellationToken cancellationToken = default);
+
+    Task<ShopImageRefresh> RefreshImagesAsync(
         string subdomain,
         ImagePipeline images,
         CancellationToken cancellationToken = default);
@@ -200,7 +223,7 @@ public sealed class ShopService : IShopService
             Name = shop.Name,
             Url = shop.Url,
             ThumbnailUrl = shop.ThumbnailUrl,
-            IconPath = Existing(_store.Paths.ShopIconFile(shop.Subdomain, shop.ThumbnailUrl)),
+            IconPath = _store.Paths.FindShopIcon(shop.Subdomain),
             BannerPath = Existing(_store.Paths.ShopBannerFile(shop.Subdomain)),
             BannerState = BannerStateOf(shop.Subdomain, bannerRecords),
             KnownCount = counted.Count,
@@ -318,6 +341,96 @@ public sealed class ShopService : IShopService
     }
 
     /// <summary>
+    /// このショップの画像を今すぐ取り直す。
+    ///
+    /// 待つのをやめて確かめたいときのための入口（外部で更新を知ったときなど）。
+    /// 使う手順は普段と同じで、違うのは「まだ期限じゃない」を無視する点だけ。
+    ///
+    /// ショップページにはバナーとアイコンの両方が載っているので、1回の取得で
+    /// 両方を見る。アイコンのURLは普段は商品JSONから来るが、そちらはitemを
+    /// 取り直すまで古いままなので、ここではページ側の値を使う。
+    /// </summary>
+    public async Task<ShopImageRefresh> RefreshImagesAsync(
+        string subdomain,
+        ImagePipeline images,
+        CancellationToken cancellationToken = default)
+    {
+        if (_client is null)
+        {
+            return new ShopImageRefresh { Failed = true };
+        }
+
+        // バナーとアイコンの両方が見つかったら、そこで受信をやめる
+        var result = await _client.GetTextUntilAsync(
+            $"https://{subdomain}.booth.pm/items",
+            html => BannerPattern.IsMatch(html) && IconPattern.IsMatch(html),
+            cancellationToken: cancellationToken);
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return new ShopImageRefresh { Failed = true };
+        }
+
+        var html = result.Value;
+        var iconBefore = _store.Paths.FindShopIcon(subdomain);
+        var bannerPath = _store.Paths.ShopBannerFile(subdomain);
+
+        var records = _store.ShopBanners.Load();
+        var known = records.FirstOrDefault(record =>
+            string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+
+        var iconMatch = IconPattern.Match(html);
+        if (iconMatch.Success)
+        {
+            // このパターンはURL全体に一致する
+            await images.SyncShopIconAsync(
+                subdomain,
+                System.Net.WebUtility.HtmlDecode(iconMatch.Value),
+                cancellationToken);
+        }
+
+        var bannerMatch = BannerPattern.Match(html);
+        var bannerUrl = bannerMatch.Success
+            ? System.Net.WebUtility.HtmlDecode(bannerMatch.Groups[1].Value)
+            : null;
+
+        // URLが同じなら中身も同じ（BOOTHのバナーは名前が乱数なので、差し替えれば必ずURLが変わる）。
+        // 押されたからといって同じ絵をもう一度落とすのは、最大4MBの無駄になる
+        var bannerChanged = bannerUrl is not null
+            && (!File.Exists(bannerPath) || !string.Equals(known?.SourceUrl, bannerUrl, StringComparison.Ordinal));
+
+        var bannerSaved = bannerChanged
+            && await images.SyncShopBannerAsync(subdomain, bannerUrl!, cancellationToken);
+
+        records.RemoveAll(record => string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+        records.Add(new ShopBannerRecord
+        {
+            Subdomain = subdomain,
+            HasBanner = bannerUrl is not null,
+            SourceUrl = bannerUrl,
+            CheckedAt = DateTimeOffset.Now,
+        });
+
+        await _store.ShopBanners.SaveAsync(records, cancellationToken);
+
+        var iconAfter = _store.Paths.FindShopIcon(subdomain);
+
+        return new ShopImageRefresh
+        {
+            IconUpdated = iconAfter is not null && !string.Equals(iconAfter, iconBefore, StringComparison.OrdinalIgnoreCase),
+            BannerUpdated = bannerSaved,
+            BannerAbsent = bannerUrl is null,
+            IconPath = iconAfter,
+            BannerPath = Existing(bannerPath),
+        };
+    }
+
+    /// <summary>ショップのアイコン。ページ上は128x128で出ている。</summary>
+    private static readonly System.Text.RegularExpressions.Regex IconPattern = new(
+        "https://booth\\.pximg\\.net/c/[0-9x]+/users/[0-9]+/icon_image/[^\"'\\s]+",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
     /// ショップページからバナーのURLを拾う。
     ///
     /// ショップのルート（<c>https://{sub}.booth.pm/</c>）はCloudflareに弾かれるが、
@@ -395,7 +508,7 @@ public sealed class ShopService : IShopService
 
             if (onFetched is not null)
             {
-                await onFetched(shop.Subdomain, _store.Paths.ShopIconFile(shop.Subdomain, shop.ThumbnailUrl));
+                await onFetched(shop.Subdomain, _store.Paths.FindShopIcon(shop.Subdomain) ?? string.Empty);
             }
         }
 

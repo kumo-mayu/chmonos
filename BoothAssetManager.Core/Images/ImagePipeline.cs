@@ -81,13 +81,17 @@ public sealed class ImagePipeline
             return false;
         }
 
-        var path = _paths.ShopIconFile(subdomain, thumbnailUrl);
+        // 取得するURLで名前を決める。商品JSON（48x48）とショップページ（128x128）の
+        // どちらから来ても、同じアイコンなら同じ名前になる
+        var source = LargerIconUrl(thumbnailUrl);
+        var path = _paths.ShopIconFile(subdomain, source);
+
         if (File.Exists(path))
         {
             return true;
         }
 
-        var result = await _client.GetBinaryAsync(LargerIconUrl(thumbnailUrl), cancellationToken);
+        var result = await _client.GetBinaryAsync(source, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return false;

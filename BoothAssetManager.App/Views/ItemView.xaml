@@ -19,6 +19,12 @@
                     <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Margin="0,0,10,0" MaxWidth="320" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 外部で更新を知ったときに、次回取得予定を待たずに取り直せるようにする -->
+                    <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,0,8,0"
+                            ToolTip="商品情報・説明文・画像・ショップのアイコンを、普段と同じ手順で取り直します。" />
                     <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0" />
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" />
                 </StackPanel>

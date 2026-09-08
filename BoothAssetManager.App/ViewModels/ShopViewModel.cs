@@ -35,11 +35,14 @@ public sealed class ShopViewModel : ViewModelBase
 
         BackCommand = new RelayCommand(main.ShowShops);
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
+        RefreshImagesCommand = new RelayCommand(() => _ = RefreshImagesAsync(), () => !IsRefreshingImages);
 
         // 有無が分からない店だけ、開いた瞬間から場所を空けて待つ。
         // 確かめ直す時期が来た店も「分からない」に含まれる（結果が変わり得るため）
         _reservedBannerArea = shop.BannerState == ShopBannerState.Unknown;
         _isBannerPending = _reservedBannerArea;
+
+        _icon = shop.IconPath is null ? null : thumbnails.Load(shop.IconPath);
 
         _ = ReloadAsync();
     }
@@ -52,15 +55,129 @@ public sealed class ShopViewModel : ViewModelBase
 
     public RelayCommand OpenBoothCommand { get; }
 
+    /// <summary>
+    /// このショップの画像を今すぐ取り直す。
+    /// 外部で更新を知ったときに、次の確認時期を待たずに済むように。
+    /// </summary>
+    public RelayCommand RefreshImagesCommand { get; }
+
+    private bool _isRefreshingImages;
+    private string _refreshStatus = string.Empty;
+
+    public bool IsRefreshingImages
+    {
+        get => _isRefreshingImages;
+        private set
+        {
+            if (SetField(ref _isRefreshingImages, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string RefreshStatus
+    {
+        get => _refreshStatus;
+        private set
+        {
+            if (SetField(ref _refreshStatus, value))
+            {
+                OnPropertyChanged(nameof(HasRefreshStatus));
+            }
+        }
+    }
+
+    public bool HasRefreshStatus => RefreshStatus.Length > 0;
+
+    private async Task RefreshImagesAsync()
+    {
+        IsRefreshingImages = true;
+        RefreshStatus = "ショップの画像を取り直しています…";
+
+        try
+        {
+            var result = await _services.Shops.RefreshImagesAsync(Shop.Subdomain, _services.Images);
+
+            RunOnUiThread(() =>
+            {
+                if (result.BannerPath is not null)
+                {
+                    // バナーの置き場は固定なので、覚えている絵を捨てないと古いまま出る
+                    _thumbnails.Forget(result.BannerPath);
+                    Banner = _thumbnails.Load(result.BannerPath);
+                }
+
+                if (result.IconPath is not null)
+                {
+                    _thumbnails.Forget(result.IconPath);
+                    Icon = _thumbnails.Load(result.IconPath);
+                }
+
+                IsBannerPending = false;
+                RefreshStatus = Describe(result);
+            });
+        }
+        catch (Exception exception) when (exception is IOException or HttpRequestException)
+        {
+            RunOnUiThread(() => RefreshStatus = "取得できませんでした。時間をおいて試してください。");
+        }
+        finally
+        {
+            IsRefreshingImages = false;
+        }
+    }
+
+    /// <summary>何が変わったかをそのまま書く。「更新しました」とだけ出すと確かめようがない。</summary>
+    private static string Describe(ShopImageRefresh result)
+    {
+        if (result.Failed)
+        {
+            return "ショップページを読めませんでした。時間をおいて試してください。";
+        }
+
+        var changed = new List<string>();
+        if (result.IconUpdated)
+        {
+            changed.Add("アイコン");
+        }
+
+        if (result.BannerUpdated)
+        {
+            changed.Add("バナー");
+        }
+
+        if (changed.Count > 0)
+        {
+            return $"{string.Join("と", changed)}を取り直しました。";
+        }
+
+        return result.BannerAbsent
+            ? "変わっていませんでした（このショップはバナーを設定していません）。"
+            : "変わっていませんでした。";
+    }
+
     public string Name => Shop.Name;
 
     public string DomainText => $"{Shop.Subdomain}.booth.pm";
 
     public string Initial => Shop.Name.Length == 0 ? "?" : Shop.Name[..1];
 
+    private System.Windows.Media.Imaging.BitmapSource? _icon;
+
     /// <summary>落としてあるアイコン。まだ無ければ頭文字のタイルで代える。</summary>
     public System.Windows.Media.Imaging.BitmapSource? Icon
-        => Shop.IconPath is null ? null : _thumbnails.Load(Shop.IconPath);
+    {
+        get => _icon;
+        private set
+        {
+            if (SetField(ref _icon, value))
+            {
+                OnPropertyChanged(nameof(HasIcon));
+                OnPropertyChanged(nameof(ShowInitial));
+            }
+        }
+    }
 
     public bool HasIcon => Icon is not null;
 
