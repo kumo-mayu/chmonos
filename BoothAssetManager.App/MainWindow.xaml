@@ -146,15 +146,24 @@
                             <!--
                                 畳んだときは名前を消し、件数は数字ごと落として点だけ残す。
                                 アイコンだけになっても「ここに残作業がある」ことは見えるようにする。
+
+                                点はアイコンの角へ重ねる。畳んだ幅では内容領域がアイコン16pxちょうどで、
+                                バッジを別の列に置くと幅が残らず消えてしまうため。
+                                レール色の縁を巻いて、線画に重なっても輪郭が潰れないようにする。
                             -->
                             <DataTrigger Binding="{Binding DataContext.IsNavCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                 <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
-                                <Setter TargetName="Badge" Property="Width" Value="7" />
-                                <Setter TargetName="Badge" Property="Height" Value="7" />
-                                <Setter TargetName="Badge" Property="Padding" Value="0" />
-                                <Setter TargetName="Badge" Property="Margin" Value="0,-10,-4,0" />
-                                <Setter TargetName="Badge" Property="VerticalAlignment" Value="Top" />
                                 <Setter TargetName="BadgeText" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="Badge" Property="Grid.Column" Value="0" />
+                                <Setter TargetName="Badge" Property="Width" Value="10" />
+                                <Setter TargetName="Badge" Property="Height" Value="10" />
+                                <Setter TargetName="Badge" Property="Padding" Value="0" />
+                                <!-- 行の高さ34に対しアイコンは中央の16px。その上端より少し上に置く -->
+                                <Setter TargetName="Badge" Property="Margin" Value="0,6,-5,0" />
+                                <Setter TargetName="Badge" Property="HorizontalAlignment" Value="Right" />
+                                <Setter TargetName="Badge" Property="VerticalAlignment" Value="Top" />
+                                <Setter TargetName="Badge" Property="BorderThickness" Value="2" />
+                                <Setter TargetName="Badge" Property="BorderBrush" Value="{StaticResource Rail}" />
                                 <Setter Property="ToolTip"
                                         Value="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource Self}}" />
                             </DataTrigger>
