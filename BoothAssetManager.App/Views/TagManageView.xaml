@@ -107,7 +107,7 @@
             <!-- 右：選んだトップレベルの中身 -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
                 <!-- Leftにすると、状況表示の文の長さでカードの幅が動いてしまう -->
-                <StackPanel MaxWidth="900" HorizontalAlignment="Stretch">
+                <StackPanel MaxWidth="900" HorizontalAlignment="Left">
 
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
