@@ -50,6 +50,23 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public ItemRecord Item { get; }
 
+    private bool _isSelected;
+
+    /// <summary>まとめて編集へ送るための選択。カードは持ち回すので状態も残る。</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetField(ref _isSelected, value))
+            {
+                SelectionChanged?.Invoke();
+            }
+        }
+    }
+
+    public event Action? SelectionChanged;
+
     public required string Name { get; init; }
 
     public string ShopName { get; init; } = string.Empty;

@@ -131,8 +131,39 @@
                 <StackPanel Grid.Column="1">
                     <Border Style="{StaticResource Card}" Padding="20,18">
                         <StackPanel>
-                            <!-- タグは上部に置く（BOOTHでは下部。設定で切替予定） -->
-                            <TextBlock Text="タグ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
+                            <!--
+                                自分で付けたappTagを先頭に置き、BOOTHのタグをすぐ下に続ける。
+                                同じ「タグ」なのに離れていると見比べられない。
+                            -->
+                            <TextBlock Text="appTag" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding AppTags}"
+                                          Visibility="{Binding HasAppTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                BorderThickness="1" CornerRadius="6" Padding="10,3" Margin="0,0,6,6">
+                                            <TextBlock Text="{Binding Top}" FontSize="12" Foreground="#28507f" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="未設定（編集画面で付けます）">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasAppTags}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Text="BOOTHのタグ" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
                             <ItemsControl ItemsSource="{Binding Tags}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -224,38 +255,11 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- appTag / メモ -->
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                    <!-- メモ -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16"
+                            Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel>
-                            <TextBlock Text="appTag" Style="{StaticResource SectionLabel}" />
-                            <ItemsControl ItemsSource="{Binding AppTags}" Margin="0,8,0,0"
-                                          Visibility="{Binding HasAppTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                BorderThickness="1" CornerRadius="6" Padding="10,3" Margin="0,0,6,6">
-                                            <TextBlock Text="{Binding Top}" FontSize="12" Foreground="#28507f" />
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="未設定（編集画面で付けます）" Margin="0,8,0,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasAppTags}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,16,0,8"
+                            <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"
                                        Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
                                     CornerRadius="6" Padding="12,10"

@@ -47,6 +47,9 @@ public sealed class SearchViewModel : ViewModelBase
         _thumbnails = thumbnails;
         ClearFiltersCommand = new RelayCommand(ClearFilters);
         AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
+        SelectAllCommand = new RelayCommand(SelectAllMatches);
+        ClearSelectionCommand = new RelayCommand(ClearSelection);
+        SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
         _ = ReloadAsync();
     }
 
@@ -108,6 +111,70 @@ public sealed class SearchViewModel : ViewModelBase
     }
 
     public RelayCommand ClearFiltersCommand { get; }
+
+    public RelayCommand SelectAllCommand { get; }
+
+    public RelayCommand ClearSelectionCommand { get; }
+
+    public RelayCommand SendSelectionToEditCommand { get; }
+
+    /// <summary>選択中の件数。0より大きいときだけ操作バーを出す。</summary>
+    public int SelectedCount => _cards.Values.Count(card => card.IsSelected);
+
+    public bool HasSelection => SelectedCount > 0;
+
+    public string SelectionText => $"{SelectedCount} 件を選択中";
+
+    private void OnCardSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(SelectionText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>今の絞り込み結果を全部選ぶ。画面に出ていないものは選ばない。</summary>
+    private void SelectAllMatches()
+    {
+        foreach (var card in _matches)
+        {
+            card.IsSelected = true;
+        }
+    }
+
+    private void ClearSelection()
+    {
+        foreach (var card in _cards.Values.Where(card => card.IsSelected))
+        {
+            card.IsSelected = false;
+        }
+    }
+
+    /// <summary>
+    /// 選んだitemを編集画面のキューに積んで送る。
+    /// 絞り込んでから選ぶ流れになるので、並び順はそのまま渡す。
+    /// </summary>
+    private void SendSelectionToEdit()
+    {
+        var ids = _matches
+            .Where(card => card.IsSelected)
+            .Select(card => card.Item.Id)
+            .ToList();
+
+        // 絞り込みを変えた後でも、選択したものは全て送る
+        foreach (var card in _cards.Values.Where(card => card.IsSelected && !ids.Contains(card.Item.Id)))
+        {
+            ids.Add(card.Item.Id);
+        }
+
+        if (ids.Count == 0 || _main is null)
+        {
+            return;
+        }
+
+        ClearSelection();
+        _ = _main.ShowEditAsync(ids);
+    }
 
     /// <summary>name / shop / メモ / 説明文 を横断して探す。</summary>
     public string QueryText
@@ -200,8 +267,12 @@ public sealed class SearchViewModel : ViewModelBase
                 _cards.Clear();
                 foreach (var item in _allItems)
                 {
-                    _cards[item.Id] = ToCard(item);
+                    var card = ToCard(item);
+                    card.SelectionChanged += OnCardSelectionChanged;
+                    _cards[item.Id] = card;
                 }
+
+                OnCardSelectionChanged();
 
                 Categories.Clear();
                 Categories.Add(AllCategories);
@@ -409,7 +480,7 @@ public sealed class SearchViewModel : ViewModelBase
                 parts.Add(subs.Count == 0 ? tag.Name : $"{tag.Name}（{string.Join("・", subs)}）");
             }
 
-            foreach (var attribute in AttributeFilters.Where(filter => filter.ExcludesUnrated))
+            foreach (var attribute in AttributeFilters)
             {
                 parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
             }

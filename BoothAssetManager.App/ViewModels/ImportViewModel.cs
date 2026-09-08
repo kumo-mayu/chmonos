@@ -197,15 +197,20 @@ public sealed class ImportViewModel : ViewModelBase
 
     public bool HasRemovalResults => RemovalResults.Count > 0;
 
-    /// <summary>ドロップされたパスを受け取る。ファイルが落とされたらその親フォルダを対象にする。</summary>
+    /// <summary>
+    /// ドロップされたパスを受け取る。
+    ///
+    /// ファイルはそのファイルだけを対象にする。親フォルダへ広げると、
+    /// ダウンロードフォルダの1件を落としただけでフォルダ全体が対象になってしまう。
+    /// </summary>
     public void AddDroppedPaths(IEnumerable<string> paths)
     {
         foreach (var path in paths)
         {
-            var folder = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(folder) && !Folders.Contains(folder, StringComparer.OrdinalIgnoreCase))
+            if ((Directory.Exists(path) || File.Exists(path))
+                && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
             {
-                Folders.Add(folder);
+                Folders.Add(path);
             }
         }
 

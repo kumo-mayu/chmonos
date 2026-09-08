@@ -12,7 +12,7 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0">
                 <TextBlock Text="取り込み" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
-                <TextBlock Text="フォルダをまとめて走査して、zipからBoothIDを特定します"
+                <TextBlock Text="フォルダやファイルを走査して、zipからBoothIDを特定します"
                            Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
             </StackPanel>
         </Border>
@@ -23,8 +23,8 @@
                 <!-- 取り込み元 -->
                 <Border BorderBrush="#b9c6dc" BorderThickness="2" CornerRadius="10" Background="#f7faff" Padding="24,22">
                     <StackPanel HorizontalAlignment="Center">
-                        <TextBlock Text="フォルダをここにドロップ" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
-                        <TextBlock Text="既に取り込み済みのファイルは自動でスキップされます"
+                        <TextBlock Text="フォルダかファイルをここにドロップ" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
+                        <TextBlock Text="ファイルを落とした場合は、そのファイルだけが対象になります（親フォルダには広げません）"
                                    Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                             <Button Content="フォルダを選択" Style="{StaticResource PrimaryButton}"
@@ -37,7 +37,7 @@
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>
                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
-                            <TextBlock Text="対象フォルダ" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="取り込み対象" FontWeight="Bold" FontSize="13" />
                         </Border>
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>

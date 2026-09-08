@@ -51,6 +51,15 @@ public sealed class FolderScanner
     /// </summary>
     public ScanResult Scan(string rootFolder, CancellationToken cancellationToken = default)
     {
+        // ファイルが直接指定されたら、そのファイルだけを対象にする。
+        // 親フォルダへ広げると、ダウンロードフォルダの1件を落としただけで
+        // フォルダ全体が取り込み対象になってしまう。
+        if (File.Exists(rootFolder))
+        {
+            var single = Describe(rootFolder);
+            return new ScanResult { Files = single is null ? [] : [single] };
+        }
+
         if (!Directory.Exists(rootFolder))
         {
             return new ScanResult();
@@ -76,20 +85,10 @@ public sealed class FolderScanner
                 continue;
             }
 
-            try
+            var scanned = Describe(path);
+            if (scanned is not null)
             {
-                var info = new FileInfo(path);
-                files.Add(new ScannedFile
-                {
-                    Path = path,
-                    SizeBytes = info.Length,
-                    ModifiedAtUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                    Extension = extension.ToLowerInvariant(),
-                });
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // 走査中に消えた・触れないファイルは黙って飛ばす
+                files.Add(scanned);
             }
         }
 
@@ -99,6 +98,33 @@ public sealed class FolderScanner
             UnpackedFolders = unpacked,
             SkippedInsideUnpackedFolders = skipped,
         };
+    }
+
+    /// <summary>1ファイルを見て取り込み対象なら情報を返す。対象外・読めない場合は null。</summary>
+    private static ScannedFile? Describe(string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (string.IsNullOrEmpty(extension) || !TargetExtensions.Contains(extension))
+        {
+            return null;
+        }
+
+        try
+        {
+            var info = new FileInfo(path);
+            return new ScannedFile
+            {
+                Path = path,
+                SizeBytes = info.Length,
+                ModifiedAtUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+                Extension = extension.ToLowerInvariant(),
+            };
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 走査中に消えた・触れないファイルは黙って飛ばす
+            return null;
+        }
     }
 
     private static List<UnpackedFolder> FindUnpackedFolders(string rootFolder, CancellationToken cancellationToken)

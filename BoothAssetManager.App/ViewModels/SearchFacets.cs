@@ -125,9 +125,11 @@ public sealed class AppTagSubFilter : ViewModelBase
 /// <summary>
 /// 属性での絞り込み1つ分。上下限のレンジで指定する。
 ///
-/// 0-100のまま（＝手を付けていない）なら未評価も通す。
-/// 片側でも動かした時点で「この軸で選んでいる」ことになるので、未評価は落とす。
-/// 未評価は「値が小さい」ではなく「値が無い」ため、0扱いにはしない。
+/// 軸を条件に加えること自体が「この属性で選ぶ」という意思表示なので、
+/// 未評価のitemは最初から外す。0-100のままでも通さない。
+/// 未評価は「値が小さい」ではなく「値が無い」ため、レンジのどこにも当てはまらない。
+/// （以前は軸が常時並んでいたので0-100を「指定なし」と読む必要があったが、
+/// 使う軸だけを選んで積む形にしたことでその含みは不要になった。）
 /// </summary>
 public sealed class AttributeFilter : ViewModelBase
 {
@@ -149,7 +151,6 @@ public sealed class AttributeFilter : ViewModelBase
             if (SetField(ref _min, Math.Clamp(value, 0, _max)))
             {
                 OnPropertyChanged(nameof(RangeText));
-                OnPropertyChanged(nameof(ExcludesUnrated));
                 Changed?.Invoke();
             }
         }
@@ -163,26 +164,16 @@ public sealed class AttributeFilter : ViewModelBase
             if (SetField(ref _max, Math.Clamp(value, _min, 100)))
             {
                 OnPropertyChanged(nameof(RangeText));
-                OnPropertyChanged(nameof(ExcludesUnrated));
                 Changed?.Invoke();
             }
         }
     }
 
-    /// <summary>片側でも動かしていれば、この軸で選んでいる状態。</summary>
-    public bool ExcludesUnrated => Min > 0 || Max < 100;
+    public string RangeText => $"{Min}〜{Max}%";
 
-    public string RangeText => ExcludesUnrated ? $"{Min}〜{Max}%" : "指定なし（未評価も通す）";
-
+    /// <summary>評価が入っていて、かつレンジに収まるものだけを通す。</summary>
     public bool Matches(ItemRecord item)
-    {
-        if (!item.Local.Attributes.TryGetValue(Name, out var value))
-        {
-            return !ExcludesUnrated;
-        }
-
-        return value >= Min && value <= Max;
-    }
+        => item.Local.Attributes.TryGetValue(Name, out var value) && value >= Min && value <= Max;
 }
 
 public enum SortKind
