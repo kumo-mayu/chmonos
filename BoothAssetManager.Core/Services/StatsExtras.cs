@@ -32,13 +32,11 @@ public static class StatsExtras
         {
             PriceChanges = PriceChanges(owned),
             PriceBuckets = Buckets(owned.Select(SpentOf).Where(price => price > 0), PriceEdges, "¥"),
-            FreeItemCount = owned.Count(item =>
-                item.Local.OrderedVariations.Any(v => !v.IsGifted && v.Price == 0)
-                && SpentOf(item) == 0),
-            GiftedItemCount = owned.Count(item => item.Local.OrderedVariations.Any(v => v.IsGifted)),
-            GiftedValueYen = owned.Sum(item => (long)item.Local.OrderedVariations
-                .Where(v => v.IsGifted)
-                .Sum(v => v.Price ?? 0)),
+            FreeItemCount = owned.Count(item => Purchases.FreeCountOf(item) > 0 && SpentOf(item) == 0),
+            GiftedItemCount = owned.Count(Purchases.WasReceived),
+            GiftedValueYen = owned.Sum(item => (long)item.Local.Purchases
+                .Where(purchase => purchase.Kind == PurchaseKind.Received)
+                .Sum(purchase => purchase.Price ?? 0)),
             CategorySpend = SpendBy(owned, CategoryOf),
             AppTagSpend = SpendByMany(owned, item => item.Local.AppTags.Select(tag => tag.Top)),
             CategoryCounts = CountBy(owned, CategoryOf),
@@ -76,8 +74,7 @@ public static class StatsExtras
     private static string CategoryOf(ItemRecord item)
         => string.IsNullOrWhiteSpace(item.Booth.Category?.Name) ? "分類なし" : item.Booth.Category!.Name;
 
-    private static int SpentOf(ItemRecord item)
-        => item.Local.OrderedVariations.Where(v => !v.IsGifted).Sum(v => v.Price ?? 0);
+    private static int SpentOf(ItemRecord item) => Purchases.SelfSpendOf(item);
 
     private static long PhysicalSizeOf(ItemRecord item)
         => item.Local.LocalFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
@@ -98,9 +95,9 @@ public static class StatsExtras
             var now = 0;
             var matched = false;
 
-            foreach (var record in item.Local.OrderedVariations)
+            foreach (var record in item.Local.Purchases)
             {
-                if (record.IsGifted || record.Price is not { } price
+                if (record.Kind != PurchaseKind.ForSelf || record.Price is not { } price
                     || !current.TryGetValue(record.VariationId, out var nowPrice))
                 {
                     continue;

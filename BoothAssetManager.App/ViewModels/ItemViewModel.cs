@@ -599,33 +599,54 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     private void BuildVariations()
     {
-        var ordered = Item.Local.OrderedVariations.ToDictionary(record => record.VariationId);
+        // 同じ版を複数回買っていることがあるので、版ごとにまとめて回数も出す
+        var ordered = Item.Local.Purchases
+            .GroupBy(record => record.VariationId)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         foreach (var variation in Item.Booth.Variations)
         {
-            var purchased = ordered.TryGetValue(variation.Id, out var record);
+            var purchased = ordered.TryGetValue(variation.Id, out var group);
             Variations.Add(new VariationRow
             {
                 Name = variation.Name ?? "（バリエーションなし）",
-                PriceText = purchased && record!.Price is not null
-                    ? $"¥{record.Price:N0} で購入"
-                    : $"¥{variation.Price:N0}",
+                PriceText = purchased ? PurchaseText(group!) : $"¥{variation.Price:N0}",
                 IsPurchased = purchased,
             });
         }
 
         // BOOTH側から消えた購入記録も、支出の記録として残っているので出す
         var currentIds = Item.Booth.Variations.Select(variation => variation.Id).ToHashSet();
-        foreach (var record in Item.Local.OrderedVariations.Where(record => !currentIds.Contains(record.VariationId)))
+        foreach (var group in ordered.Where(pair => !currentIds.Contains(pair.Key)))
         {
             Variations.Add(new VariationRow
             {
-                Name = record.NameSnapshot ?? $"variation {record.VariationId}",
-                PriceText = record.Price is null ? "価格未入力" : $"¥{record.Price:N0} で購入",
+                Name = group.Value[0].NameSnapshot ?? $"variation {group.Key}",
+                PriceText = PurchaseText(group.Value),
                 IsPurchased = true,
                 IsGone = true,
             });
         }
+    }
+
+    /// <summary>
+    /// 1つの版についての購入記録をまとめて1行にする。
+    /// 同じ版を複数回買っていれば回数を出す（贈答・買い直しで起こる）。
+    /// </summary>
+    private static string PurchaseText(IReadOnlyList<Purchase> group)
+    {
+        var head = group[0];
+        var kind = head.Kind switch
+        {
+            PurchaseKind.Received => "貰った",
+            PurchaseKind.Given => "贈った",
+            _ => "購入",
+        };
+
+        var price = head.Price is null ? "価格未入力" : $"¥{head.Price:N0}";
+        var text = head.Price is null ? $"{price}（{kind}）" : $"{price} で{kind}";
+
+        return group.Count > 1 ? $"{text} ほか {group.Count - 1} 件" : text;
     }
 
     private void BuildLocalFiles()

@@ -120,7 +120,7 @@ public sealed class ItemService : IItemService
                     IsDelisted = false,
                     LastFetchedAt = DateTimeOffset.Now,
                     NextFetchDueAt = NextDue(itemId),
-                    OrderedVariations = MarkMissingVariations(existing.Local.OrderedVariations, booth.Variations),
+                    Purchases = MarkMissingVariations(existing.Local.Purchases, booth.Variations),
                 },
             },
             cancellationToken);
@@ -443,8 +443,8 @@ public sealed class ItemService : IItemService
     /// BOOTH側から消えたvariationの購入記録に印を付ける。記録自体は消さない
     /// （実際に払っているので、統計の支出には残す必要がある）。
     /// </summary>
-    public static IReadOnlyList<OrderedVariation> MarkMissingVariations(
-        IReadOnlyList<OrderedVariation> ordered,
+    public static IReadOnlyList<Purchase> MarkMissingVariations(
+        IReadOnlyList<Purchase> ordered,
         IReadOnlyList<BoothVariation> current)
     {
         if (ordered.Count == 0)

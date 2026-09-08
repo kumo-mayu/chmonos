@@ -527,13 +527,11 @@ public sealed class ShopService : IShopService
         => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
 
     /// <summary>
-    /// 支出。ギフトは自分の支出ではないので除き、未入力は0として扱う。
+    /// 支出。貰い物は自分の支出ではないので除き、未入力は0として扱う。
     /// BOOTH側から消えたvariationも、払った事実は変わらないので含める。
+    /// 贈答ぶんは自分用と混ぜず、統計で別に出す（ここは所持しているものの集計なので現れない）。
     /// </summary>
-    private static int Spent(ItemRecord item)
-        => item.Local.OrderedVariations
-            .Where(variation => !variation.IsGifted)
-            .Sum(variation => variation.Price ?? 0);
+    private static int Spent(ItemRecord item) => Purchases.SelfSpendOf(item);
 
     /// <summary>同じ中身のファイルは1回だけ数える。複数箇所に置いていても容量は1つ分。</summary>
     private static long SizeOf(ItemRecord item)

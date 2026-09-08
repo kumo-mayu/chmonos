@@ -32,8 +32,22 @@ public sealed record LocalBlock
     /// <summary>最後に対応アバターを検出した日時。</summary>
     public DateTimeOffset? AvatarsDetectedAt { get; init; }
 
-    /// <summary>購入記録。BOOTH側からvariationが消えても残す。</summary>
-    public IReadOnlyList<OrderedVariation> OrderedVariations { get; init; } = [];
+    /// <summary>
+    /// 購入記録。買った1回が1レコード。BOOTH側からvariationが消えても残す。
+    /// 同じvariationが複数行あってよい（同じものを何度も買う・複数人に贈る）。
+    /// </summary>
+    public IReadOnlyList<Purchase> Purchases { get; init; } = [];
+
+    /// <summary>
+    /// 旧形式の購入記録。読み込みのためだけに置いてある。
+    ///
+    /// 読み込み時に <see cref="Purchases"/> へ移し、ここは null にする。
+    /// null のときは書き出されないので、一度保存すれば古い形は消える。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("orderedVariations")]
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<OrderedVariation>? LegacyOrderedVariations { get; init; }
 
     public IReadOnlyList<LocalFileRecord> LocalFiles { get; init; } = [];
 

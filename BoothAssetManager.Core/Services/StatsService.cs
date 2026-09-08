@@ -151,6 +151,19 @@ public sealed record StatsSnapshot
     /// <summary>ギフトで貰ったvariationの数。支出には入れない。</summary>
     public required int GiftedCount { get; init; }
 
+    /// <summary>
+    /// 人に贈った回数と、そのために払った額。
+    ///
+    /// 集計対象は「ファイルを持つitem」と決めてあるが、贈った商品は手元にファイルが来ないので
+    /// そこから外れる。よってここだけは全itemから数える。<see cref="SpentYen"/> と混ぜると
+    /// 集計対象の定義が壊れるので、画面でも別のタイルに出す。
+    ///
+    /// 同じ商品を3人に贈れば3回・3回ぶんの額になる。
+    /// </summary>
+    public required int GivenCount { get; init; }
+
+    public required long GivenSpentYen { get; init; }
+
     /// <summary>0円のvariationの数。支出には入るが0なので、別に数えて内訳が読めるようにする。</summary>
     public required int FreeCount { get; init; }
 
@@ -341,16 +354,14 @@ public sealed class StatsService : IStatsService
 
         foreach (var item in owned)
         {
-            var itemSpent = (long)item.Local.OrderedVariations
-                .Where(variation => !variation.IsGifted)
-                .Sum(variation => variation.Price ?? 0);
+            var itemSpent = (long)Purchases.SelfSpendOf(item);
 
             spent += itemSpent;
-            gifted += item.Local.OrderedVariations.Count(variation => variation.IsGifted);
-            free += item.Local.OrderedVariations.Count(variation => !variation.IsGifted && variation.Price == 0);
+            gifted += Purchases.ReceivedCountOf(item);
+            free += Purchases.FreeCountOf(item);
 
             // 「払ったはずだが記録が無い」を数える。金額の欠けを黙って0で埋めない
-            if (!item.Local.OrderedVariations.Any(variation => !variation.IsGifted && variation.Price is > 0))
+            if (!Purchases.HasPricedSelfPurchase(item))
             {
                 unpriced++;
             }
@@ -401,6 +412,8 @@ public sealed class StatsService : IStatsService
             KnownCount = items.Count,
             SpentYen = spent,
             GiftedCount = gifted,
+            GivenCount = items.Sum(Purchases.GivenCountOf),
+            GivenSpentYen = items.Sum(item => (long)Purchases.GivenSpendOf(item)),
             FreeCount = free,
             UnpricedItemCount = unpriced,
             LogicalBytes = logical,

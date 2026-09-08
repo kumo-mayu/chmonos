@@ -557,8 +557,8 @@ public sealed partial class AvatarService : IAvatarService
             html, item.Id, _settings.AvatarSupportHeadings, _settings.AvatarIgnoredHeadings);
 
         // 購入したvariationがあればそれを先に見る。買った版がそのままアバター名になっている
-        var variationNames = item.Local.OrderedVariations
-            .Select(variation => variation.NameSnapshot)
+        var variationNames = item.Local.Purchases
+            .Select(purchase => purchase.NameSnapshot)
             .Concat(item.Booth.Variations.Select(variation => variation.Name))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Select(name => name!)

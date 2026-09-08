@@ -355,9 +355,9 @@ public static class Program
                         Contents = ["example/README.txt", "example/example.unitypackage"],
                     },
                 ],
-                OrderedVariations =
+                Purchases =
                 [
-                    new Core.Models.OrderedVariation
+                    new Core.Models.Purchase
                     {
                         VariationId = 12826082,
                         NameSnapshot = null,

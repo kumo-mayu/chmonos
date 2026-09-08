@@ -193,6 +193,12 @@ public sealed class StatsViewModel : ViewModelBase
 
     public string SpentText => $"¥{_snapshot?.SpentYen ?? 0:N0}";
 
+    /// <summary>
+    /// 贈答があるときだけ「（自分用）」と断る。
+    /// 贈答が無い人に毎回この括弧を見せても、何と区別しているのか分からない。
+    /// </summary>
+    public string SpentLabel => HasGiven ? "累計支出（自分用）" : "累計支出";
+
     public string SpentSubText
     {
         get
@@ -204,9 +210,10 @@ public sealed class StatsViewModel : ViewModelBase
 
             var parts = new List<string>();
 
+            // 「ギフト」だけだと貰ったのか贈ったのか読めない。貰い物は自分が払っていない側
             if (_snapshot.GiftedCount > 0)
             {
-                parts.Add($"ギフト {_snapshot.GiftedCount} 件");
+                parts.Add($"貰った {_snapshot.GiftedCount} 件");
             }
 
             if (_snapshot.FreeCount > 0)
@@ -217,6 +224,22 @@ public sealed class StatsViewModel : ViewModelBase
             return parts.Count == 0 ? string.Empty : $"{string.Join(" / ", parts)}は別枠";
         }
     }
+
+    /// <summary>
+    /// 贈答に使った額。
+    ///
+    /// 累計支出と分けるのは、統計の集計対象を「ファイルを持つitem」と決めてあるため。
+    /// 贈った商品は手元にファイルが来ないので、そこから外れる。混ぜると集計対象の定義が壊れる。
+    /// </summary>
+    public string GivenText => $"¥{_snapshot?.GivenSpentYen ?? 0:N0}";
+
+    /// <summary>件数ではなく回数。同じ商品を3人に贈れば3回。</summary>
+    public string GivenSubText => $"贈った {_snapshot?.GivenCount ?? 0} 回";
+
+    public bool HasGiven => _snapshot is { GivenCount: > 0 };
+
+    /// <summary>贈答が無ければタイルは4枚。無い枠を空けておく意味がない。</summary>
+    public int TileColumns => HasGiven ? 5 : 4;
 
     /// <summary>金額に入っていない分。総額を額面どおり受け取られないように必ず出す。</summary>
     public string UnpricedNote => _snapshot is null || _snapshot.UnpricedItemCount == 0
@@ -289,6 +312,8 @@ public sealed class StatsViewModel : ViewModelBase
             foreach (var name in new[]
             {
                 nameof(OwnedText), nameof(OwnedSubText), nameof(SpentText), nameof(SpentSubText),
+                nameof(SpentLabel), nameof(GivenText), nameof(GivenSubText), nameof(HasGiven),
+                nameof(TileColumns),
                 nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(SizeText), nameof(SizeSubText),
                 nameof(ShopCountText), nameof(HasData), nameof(IsEmpty),
             })

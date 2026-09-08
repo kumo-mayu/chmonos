@@ -148,9 +148,7 @@ public class ShopServiceTests : IDisposable
         => new()
         {
             LocalFiles = [new LocalFileRecord { Hash = Guid.NewGuid().ToString("N"), Paths = ["x"], SizeBytes = size }],
-            OrderedVariations = price is null
-                ? []
-                : [new OrderedVariation { VariationId = 1, Price = price }],
+            Purchases = price is null ? [] : [new Purchase { VariationId = 1, Price = price }],
             AcquiredAt = acquiredAt is null ? null : DateOnly.Parse(acquiredAt),
         };
 
@@ -180,7 +178,7 @@ public class ShopServiceTests : IDisposable
         await SaveItemAsync("1", Shop("a", "A"), Owned(price: 1000));
         await SaveItemAsync("2", Shop("a", "A"), new LocalBlock
         {
-            OrderedVariations = [new OrderedVariation { VariationId = 1, Price = 5000 }],
+            Purchases = [new Purchase { VariationId = 1, Price = 5000 }],
         });
 
         var shop = Assert.Single(await Create().LoadAsync());
@@ -232,12 +230,12 @@ public class ShopServiceTests : IDisposable
         await SaveItemAsync("1", Shop("a", "A"), new LocalBlock
         {
             LocalFiles = [new LocalFileRecord { Hash = "h1", Paths = ["x"], SizeBytes = 1 }],
-            OrderedVariations =
+            Purchases =
             [
-                new OrderedVariation { VariationId = 1, Price = 1200 },
-                new OrderedVariation { VariationId = 2, Price = 800, IsGifted = true },
-                new OrderedVariation { VariationId = 3, Price = null },
-                new OrderedVariation { VariationId = 4, Price = 300, ExistsOnBooth = false },
+                new Purchase { VariationId = 1, Price = 1200 },
+                new Purchase { VariationId = 2, Price = 800, Kind = PurchaseKind.Received },
+                new Purchase { VariationId = 3, Price = null },
+                new Purchase { VariationId = 4, Price = 300, ExistsOnBooth = false },
             ],
         });
 

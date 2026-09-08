@@ -14,7 +14,7 @@ public sealed class OrderedVariationInput : ViewModelBase
 {
     private bool _isPurchased;
     private string _price = string.Empty;
-    private bool _isGifted;
+    private PurchaseKind _kind = PurchaseKind.ForSelf;
 
     public required long VariationId { get; init; }
 
@@ -62,11 +62,41 @@ public sealed class OrderedVariationInput : ViewModelBase
         set => SetField(ref _price, value);
     }
 
-    public bool IsGifted
+    /// <summary>
+    /// この購入が誰のためのものだったか。
+    /// 貰い物は支出に数えず、贈答は支出には入るが所持には入らない。
+    /// </summary>
+    public PurchaseKind Kind
     {
-        get => _isGifted;
-        set => SetField(ref _isGifted, value);
+        get => _kind;
+        set
+        {
+            if (SetField(ref _kind, value))
+            {
+                OnPropertyChanged(nameof(KindLabel));
+            }
+        }
     }
+
+    public string KindLabel => Kind switch
+    {
+        PurchaseKind.Received => "貰った",
+        PurchaseKind.Given => "贈った",
+        _ => "自分用",
+    };
+
+    /// <summary>
+    /// 同じ版にこれ以外の購入記録が何件あるか。
+    ///
+    /// 買った1回が1レコードなので、同じ版を2回買った記録も持てる。
+    /// この画面は1版につき1行しか出せないので、残りは触らずに持ち回す。
+    /// 黙って消すと、贈答や買い直しの記録が編集するたびに減っていく。
+    /// </summary>
+    public IReadOnlyList<Purchase> Extras { get; set; } = [];
+
+    public bool HasExtras => Extras.Count > 0;
+
+    public string ExtrasText => $"この版にはほかに {Extras.Count} 件の記録があります（ここでは最初の1件だけ編集できます）";
 }
 
 /// <summary>
@@ -534,11 +564,18 @@ public sealed class EditViewModel : ViewModelBase
     private void BuildVariations(ItemRecord record)
     {
         Variations.Clear();
-        var ordered = record.Local.OrderedVariations.ToDictionary(entry => entry.VariationId);
+
+        // 同じ版を複数回買った記録がありうるので、版ごとにまとめる。
+        // 画面は1版1行なので、2件目以降は触らずに持ち回す（下の Extras）
+        var ordered = record.Local.Purchases
+            .GroupBy(purchase => purchase.VariationId)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         foreach (var variation in record.Booth.Variations)
         {
-            var purchased = ordered.TryGetValue(variation.Id, out var existing);
+            var purchased = ordered.TryGetValue(variation.Id, out var group);
+            var first = group?.FirstOrDefault();
+
             Variations.Add(new OrderedVariationInput
             {
                 VariationId = variation.Id,
@@ -546,24 +583,27 @@ public sealed class EditViewModel : ViewModelBase
                 ListPrice = variation.Price,
                 ListPriceText = $"¥{variation.Price:N0}",
                 IsPurchased = purchased,
-                Price = existing?.Price?.ToString() ?? string.Empty,
-                IsGifted = existing?.IsGifted ?? false,
+                Price = first?.Price?.ToString() ?? string.Empty,
+                Kind = first?.Kind ?? PurchaseKind.ForSelf,
+                Extras = group?.Skip(1).ToList() ?? [],
             });
         }
 
         // BOOTH側から消えた購入記録も、支出の記録として残っているので出す
         var currentIds = record.Booth.Variations.Select(variation => variation.Id).ToHashSet();
-        foreach (var entry in record.Local.OrderedVariations.Where(entry => !currentIds.Contains(entry.VariationId)))
+        foreach (var group in ordered.Where(pair => !currentIds.Contains(pair.Key)))
         {
+            var first = group.Value[0];
             Variations.Add(new OrderedVariationInput
             {
-                VariationId = entry.VariationId,
-                Name = entry.NameSnapshot ?? $"variation {entry.VariationId}",
+                VariationId = group.Key,
+                Name = first.NameSnapshot ?? $"variation {group.Key}",
                 ListPriceText = "-",
                 IsGone = true,
                 IsPurchased = true,
-                Price = entry.Price?.ToString() ?? string.Empty,
-                IsGifted = entry.IsGifted,
+                Price = first.Price?.ToString() ?? string.Empty,
+                Kind = first.Kind,
+                Extras = group.Value.Skip(1).ToList(),
             });
         }
 
@@ -601,16 +641,20 @@ public sealed class EditViewModel : ViewModelBase
 
         var attributes = Attributes.ToDictionary(row => row.Name, row => row.Value);
 
+        // 編集できるのは版ごとの1件目だけ。2件目以降はそのまま書き戻す
         var ordered = Variations
             .Where(variation => variation.IsPurchased)
-            .Select(variation => new OrderedVariation
+            .SelectMany(variation => new[]
             {
-                VariationId = variation.VariationId,
-                NameSnapshot = variation.Name,
-                Price = int.TryParse(variation.Price.Trim(), out var price) ? price : null,
-                IsGifted = variation.IsGifted,
-                ExistsOnBooth = !variation.IsGone,
-            })
+                new Purchase
+                {
+                    VariationId = variation.VariationId,
+                    NameSnapshot = variation.Name,
+                    Price = int.TryParse(variation.Price.Trim(), out var price) ? price : null,
+                    Kind = variation.Kind,
+                    ExistsOnBooth = !variation.IsGone,
+                },
+            }.Concat(variation.Extras))
             .ToList();
 
         return record.Local with
@@ -618,7 +662,7 @@ public sealed class EditViewModel : ViewModelBase
             AppTags = appTags,
             Attributes = attributes,
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
-            OrderedVariations = ordered,
+            Purchases = ordered,
             AcquiredAt = DateOnly.TryParse(AcquiredAt.Trim(), out var date) ? date : null,
             NotifyOnUpdate = NotifyOnUpdate,
             IsHidden = IsHidden,

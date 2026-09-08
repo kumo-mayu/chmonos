@@ -88,7 +88,8 @@ public sealed record AvatarUsage
 }
 
 /// <summary>
-/// 購入したvariationの記録。BOOTH側から消えても名前を引けるよう、購入時点の名前を写し取って自立させる。
+/// 購入したvariationの記録（旧形式）。読み込みのためだけに残している。
+/// <see cref="Purchase"/> へ移し替えたら二度と書かない。
 /// </summary>
 public sealed record OrderedVariation
 {
@@ -104,6 +105,74 @@ public sealed record OrderedVariation
 
     /// <summary>BOOTH側の現在のvariation一覧に存在するか。消えても記録は残し、統計の支出には含める。</summary>
     public bool ExistsOnBooth { get; init; } = true;
+}
+
+/// <summary>
+/// その購入が誰のためのものだったか。
+///
+/// JSONには日本語で書く。この値は「自分用か、贈ったか、貰ったか」という
+/// 人が判断して入れるものなので、手で開いたときにそのまま読めて直せる方がよい
+/// （JSONは人が読める形を保つ、という方針の一部）。
+/// </summary>
+public enum PurchaseKind
+{
+    /// <summary>自分用。既定。</summary>
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("自分用")]
+    ForSelf,
+
+    /// <summary>人から貰った。手元にファイルが来るが、自分は払っていない。</summary>
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("貰った")]
+    Received,
+
+    /// <summary>人に贈った。払ったがファイルは手元に来ない。</summary>
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("贈った")]
+    Given,
+}
+
+/// <summary>
+/// 買った1回ぶんの記録。
+///
+/// 旧形式は variationId をキーにしていたので、同じ商品を2回買った記録が持てなかった。
+/// 3人に同じものを贈れば3行になり、支出も3回ぶんになる。
+/// キーにしていると3回目が1回目を上書きして支出が1/3になる。
+/// この制約は贈答に限らず、増刷や買い直しでも踏む。
+///
+/// BOOTH側から消えても名前を引けるよう、購入時点の名前を写し取って自立させる。
+/// </summary>
+public sealed record Purchase
+{
+    public required long VariationId { get; init; }
+
+    /// <summary>購入時点のvariation名。BOOTH側に現存しない場合はこちらを表示に使う。</summary>
+    public string? NameSnapshot { get; init; }
+
+    /// <summary>購入価格。null は未入力、0 は無料配布。</summary>
+    public int? Price { get; init; }
+
+    public PurchaseKind Kind { get; init; } = PurchaseKind.ForSelf;
+
+    /// <summary>誰に贈ったか、などの覚え書き。</summary>
+    public string? Note { get; init; }
+
+    /// <summary>BOOTH側の現在のvariation一覧に存在するか。消えても記録は残し、統計の支出には含める。</summary>
+    public bool ExistsOnBooth { get; init; } = true;
+
+    /// <summary>
+    /// 自分の財布から出たか。贈答は出ているが、貰い物は出ていない。
+    /// 計算で出るものなので保存しない（書くと、手で直せる値だと誤解される）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsOwnSpending => Kind is PurchaseKind.ForSelf or PurchaseKind.Given;
+
+    /// <summary>旧形式から読み替える。kind が無い記録は自分用、isGifted は「貰った」。</summary>
+    public static Purchase FromLegacy(OrderedVariation legacy) => new()
+    {
+        VariationId = legacy.VariationId,
+        NameSnapshot = legacy.NameSnapshot,
+        Price = legacy.Price,
+        Kind = legacy.IsGifted ? PurchaseKind.Received : PurchaseKind.ForSelf,
+        ExistsOnBooth = legacy.ExistsOnBooth,
+    };
 }
 
 /// <summary>

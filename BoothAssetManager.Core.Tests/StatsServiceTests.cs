@@ -48,9 +48,14 @@ public class StatsServiceTests
                     SizeBytes = size,
                 },
             ],
-            OrderedVariations = price is null
+            Purchases = price is null
                 ? []
-                : [new OrderedVariation { VariationId = 1, Price = price, IsGifted = gifted }],
+                : [new Purchase
+                {
+                    VariationId = 1,
+                    Price = price,
+                    Kind = gifted ? PurchaseKind.Received : PurchaseKind.ForSelf,
+                }],
             AcquiredAt = acquiredAt is null ? null : DateOnly.Parse(acquiredAt),
         };
 

@@ -17,8 +17,37 @@ public sealed class ItemRepository
 
     public bool Exists(string itemId) => File.Exists(_paths.ItemFile(itemId));
 
-    public Task<ItemRecord?> LoadAsync(string itemId, CancellationToken cancellationToken = default)
-        => JsonStore.ReadAsync<ItemRecord>(_paths.ItemFile(itemId), cancellationToken);
+    public async Task<ItemRecord?> LoadAsync(string itemId, CancellationToken cancellationToken = default)
+        => Migrate(await JsonStore.ReadAsync<ItemRecord>(_paths.ItemFile(itemId), cancellationToken));
+
+    /// <summary>
+    /// 古い形で書かれた記録を今の形に読み替える。
+    ///
+    /// ここで済ませておくと、読んだ先はどこも新しい形だけを見ればよくなる。
+    /// ファイルは次に保存したときに自然に書き換わるので、一括変換は走らせない
+    /// （全件を一度に書き換えると、途中で失敗したときにどこまで進んだか分からなくなる）。
+    /// </summary>
+    private static ItemRecord? Migrate(ItemRecord? item)
+    {
+        if (item?.Local.LegacyOrderedVariations is not { Count: > 0 } legacy)
+        {
+            return item;
+        }
+
+        // 新しい形が既にあるなら、そちらが正。古い方は捨てるだけ
+        var purchases = item.Local.Purchases.Count > 0
+            ? item.Local.Purchases
+            : legacy.Select(Purchase.FromLegacy).ToList();
+
+        return item with
+        {
+            Local = item.Local with
+            {
+                Purchases = purchases,
+                LegacyOrderedVariations = null,
+            },
+        };
+    }
 
     public Task SaveAsync(ItemRecord item, CancellationToken cancellationToken = default)
         => JsonStore.WriteAsync(_paths.ItemFile(item.Id), item, cancellationToken);

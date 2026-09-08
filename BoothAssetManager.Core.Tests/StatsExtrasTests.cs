@@ -39,9 +39,14 @@ public class StatsExtrasTests
             {
                 IsHidden = hidden,
                 LocalFiles = [new LocalFileRecord { Hash = id, Paths = ["x"], SizeBytes = size }],
-                OrderedVariations = price is null
+                Purchases = price is null
                     ? []
-                    : [new OrderedVariation { VariationId = 1, Price = price, IsGifted = gifted }],
+                    : [new Purchase
+                    {
+                        VariationId = 1,
+                        Price = price,
+                        Kind = gifted ? PurchaseKind.Received : PurchaseKind.ForSelf,
+                    }],
                 AppTags = (appTags ?? []).Select(top => new AppTagAssignment { Top = top }).ToList(),
                 Attributes = attributes ?? new Dictionary<string, int>(),
                 AcquiredAt = acquiredAt is null ? null : DateOnly.Parse(acquiredAt),
@@ -76,6 +81,57 @@ public class StatsExtrasTests
         var change = Assert.Single(snapshot.PriceChanges);
         Assert.Equal("1", change.ItemId);
         Assert.Equal(500, change.DiffYen);
+    }
+
+    /// <summary>
+    /// 贈った商品はファイルが手元に来ないので所持には入らない。
+    /// 集計対象を「ファイルを持つitem」と決めてあるので、贈答だけは全itemから数える。
+    /// </summary>
+    [Fact]
+    public void CountsGivenGiftsAcrossAllItemsNotJustOwned()
+    {
+        var given = new ItemRecord
+        {
+            Id = "gift",
+            Booth = new BoothBlock { Name = "贈った商品", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock
+            {
+                Purchases =
+                [
+                    new Purchase { VariationId = 1, Price = 1500, Kind = PurchaseKind.Given, Note = "誕生日" },
+                    new Purchase { VariationId = 1, Price = 1500, Kind = PurchaseKind.Given },
+                ],
+            },
+        };
+
+        var snapshot = StatsService.Build([Item("1", price: 1000), given], new AvatarRegistry(), 0);
+
+        // 自分用の支出には贈答を混ぜない
+        Assert.Equal(1000, snapshot.SpentYen);
+        Assert.Equal(2, snapshot.GivenCount);
+        Assert.Equal(3000, snapshot.GivenSpentYen);
+    }
+
+    /// <summary>同じ版を3人に贈れば3回ぶんの額になる（旧形式では1回ぶんに潰れていた）。</summary>
+    [Fact]
+    public void CountsEveryGiftOccasionSeparately()
+    {
+        var given = new ItemRecord
+        {
+            Id = "gift",
+            Booth = new BoothBlock { Name = "贈った商品", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock
+            {
+                Purchases = Enumerable.Range(0, 3)
+                    .Select(_ => new Purchase { VariationId = 7, Price = 800, Kind = PurchaseKind.Given })
+                    .ToList(),
+            },
+        };
+
+        var snapshot = StatsService.Build([given], new AvatarRegistry(), 0);
+
+        Assert.Equal(3, snapshot.GivenCount);
+        Assert.Equal(2400, snapshot.GivenSpentYen);
     }
 
     [Fact]
