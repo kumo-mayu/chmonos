@@ -36,6 +36,7 @@ public sealed class SearchViewModel : ViewModelBase
     private bool _ownedOnly;
     private bool _isLoading;
     private int _columns = 1;
+    private SortOption _sort = DefaultSort;
 
     private MainViewModel? _main;
 
@@ -59,6 +60,42 @@ public sealed class SearchViewModel : ViewModelBase
     public ObservableCollection<CardRow> Rows { get; } = [];
 
     public ObservableCollection<string> Categories { get; } = [];
+
+    /// <summary>appTagでの絞り込み。マスタのトップをそのまま並べる。</summary>
+    public ObservableCollection<AppTagFilter> TagFilters { get; } = [];
+
+    /// <summary>属性でのレンジ絞り込み。マスタに登録されている属性を並べる。</summary>
+    public ObservableCollection<AttributeFilter> AttributeFilters { get; } = [];
+
+    /// <summary>表示順の候補。属性が増えるとその軸も増える。</summary>
+    public ObservableCollection<SortOption> SortOptions { get; } = [];
+
+    public bool HasTagFilters => TagFilters.Count > 0;
+
+    public bool HasAttributeFilters => AttributeFilters.Count > 0;
+
+    public static SortOption DefaultSort => new()
+    {
+        Label = "入手日が新しい順",
+        Kind = SortKind.AcquiredAt,
+        Descending = true,
+    };
+
+    /// <summary>
+    /// 表示順。絞り込みとは別に持つ。
+    /// 「どれを見せるか」と「どの順で見せるか」は別の判断なので、指定する場所も分けている。
+    /// </summary>
+    public SortOption Sort
+    {
+        get => _sort;
+        set
+        {
+            if (value is not null && SetField(ref _sort, value))
+            {
+                ApplyFilters();
+            }
+        }
+    }
 
     public RelayCommand ClearFiltersCommand { get; }
 
@@ -167,6 +204,8 @@ public sealed class SearchViewModel : ViewModelBase
                     Categories.Add(category!);
                 }
 
+                BuildFacets();
+
                 _selectedCategory ??= AllCategories;
                 OnPropertyChanged(nameof(SelectedCategory));
                 ApplyFilters();
@@ -183,11 +222,105 @@ public sealed class SearchViewModel : ViewModelBase
 
     public const string AllCategories = "すべて";
 
+    /// <summary>
+    /// マスタから絞り込みの軸と表示順の候補を組み直す。
+    /// 選択状態は名前で引き継ぐ（編集画面でタグを足して戻ってきても条件が消えないように）。
+    /// </summary>
+    private void BuildFacets()
+    {
+        var selectedTops = TagFilters
+            .Where(filter => filter.IsSelected)
+            .ToDictionary(
+                filter => filter.Name,
+                filter => filter.SelectedSubs.ToList(),
+                StringComparer.CurrentCultureIgnoreCase);
+
+        var ranges = AttributeFilters.ToDictionary(
+            filter => filter.Name,
+            filter => (filter.Min, filter.Max),
+            StringComparer.CurrentCultureIgnoreCase);
+
+        TagFilters.Clear();
+        foreach (var top in _services.Store.AppTags.Load().Tops)
+        {
+            var filter = new AppTagFilter { Name = top.Name };
+            foreach (var sub in top.Subs)
+            {
+                filter.Subs.Add(new AppTagSubFilter { Name = sub.Name });
+            }
+
+            filter.Attach();
+            filter.Changed += ApplyFilters;
+
+            if (selectedTops.TryGetValue(top.Name, out var subs))
+            {
+                filter.IsSelected = true;
+                foreach (var sub in filter.Subs.Where(sub => subs.Contains(sub.Name, StringComparer.CurrentCultureIgnoreCase)))
+                {
+                    sub.SetSilently(true);
+                }
+            }
+
+            TagFilters.Add(filter);
+        }
+
+        AttributeFilters.Clear();
+        SortOptions.Clear();
+        SortOptions.Add(DefaultSort);
+        SortOptions.Add(new SortOption { Label = "入手日が古い順", Kind = SortKind.AcquiredAt });
+        SortOptions.Add(new SortOption { Label = "名前順", Kind = SortKind.Name });
+        SortOptions.Add(new SortOption { Label = "容量が大きい順", Kind = SortKind.Size, Descending = true });
+        SortOptions.Add(new SortOption { Label = "スキ数が多い順", Kind = SortKind.WishList, Descending = true });
+
+        foreach (var definition in _services.Store.Attributes.Load().Attributes)
+        {
+            var filter = new AttributeFilter { Name = definition.Name };
+            if (ranges.TryGetValue(definition.Name, out var range))
+            {
+                filter.Min = range.Min;
+                filter.Max = range.Max;
+            }
+
+            filter.Changed += ApplyFilters;
+            AttributeFilters.Add(filter);
+
+            SortOptions.Add(new SortOption
+            {
+                Label = $"{definition.Name} が高い順",
+                Kind = SortKind.Attribute,
+                AttributeName = definition.Name,
+                Descending = true,
+            });
+        }
+
+        // 組み直しで参照が変わるので、同じ意味の選択肢に繋ぎ直す
+        _sort = SortOptions.FirstOrDefault(option =>
+            option.Kind == _sort.Kind
+            && option.Descending == _sort.Descending
+            && option.AttributeName == _sort.AttributeName) ?? SortOptions[0];
+
+        OnPropertyChanged(nameof(Sort));
+        OnPropertyChanged(nameof(HasTagFilters));
+        OnPropertyChanged(nameof(HasAttributeFilters));
+    }
+
     private void ClearFilters()
     {
         _queryText = string.Empty;
         _selectedCategory = AllCategories;
         _ownedOnly = false;
+
+        foreach (var tag in TagFilters)
+        {
+            tag.Reset();
+        }
+
+        foreach (var attribute in AttributeFilters)
+        {
+            attribute.Min = 0;
+            attribute.Max = 100;
+        }
+
         OnPropertyChanged(nameof(QueryText));
         OnPropertyChanged(nameof(SelectedCategory));
         OnPropertyChanged(nameof(OwnedOnly));
@@ -196,8 +329,7 @@ public sealed class SearchViewModel : ViewModelBase
 
     private void ApplyFilters()
     {
-        _matches = _allItems
-            .Where(Matches)
+        _matches = SortItems(_allItems.Where(Matches))
             .Select(item => _cards[item.Id])
             .ToList();
 
@@ -205,7 +337,47 @@ public sealed class SearchViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(ResultSummary));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(FilterSummary));
+        OnPropertyChanged(nameof(HasActiveFilters));
     }
+
+    /// <summary>
+    /// 今どの条件で絞っているかを1行で示す。
+    /// 「なぜこの結果になったか」が結果の隣で読めるようにするため。
+    /// </summary>
+    public string FilterSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+
+            var tags = TagFilters.Where(filter => filter.IsSelected).ToList();
+            foreach (var tag in tags)
+            {
+                var subs = tag.SelectedSubs.ToList();
+                parts.Add(subs.Count == 0 ? tag.Name : $"{tag.Name}（{string.Join("・", subs)}）");
+            }
+
+            foreach (var attribute in AttributeFilters.Where(filter => filter.ExcludesUnrated))
+            {
+                parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
+            }
+
+            if (_ownedOnly)
+            {
+                parts.Add("所持のみ");
+            }
+
+            if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
+            {
+                parts.Add(_selectedCategory);
+            }
+
+            return parts.Count == 0 ? string.Empty : string.Join(" / ", parts);
+        }
+    }
+
+    public bool HasActiveFilters => FilterSummary.Length > 0;
 
     /// <summary>絞り込み結果を、現在の列数で行に切り直す。</summary>
     private void RebuildRows()
@@ -234,7 +406,63 @@ public sealed class SearchViewModel : ViewModelBase
             return false;
         }
 
+        // 選ばれたトップのいずれかに当てはまればよい（別のトップ同士はORで扱う）
+        var selectedTags = TagFilters.Where(filter => filter.IsSelected).ToList();
+        if (selectedTags.Count > 0 && !selectedTags.Any(filter => filter.Matches(item)))
+        {
+            return false;
+        }
+
+        // 属性は軸ごとにANDで積む。片側でも動かした軸では未評価が落ちる
+        if (AttributeFilters.Any(filter => !filter.Matches(item)))
+        {
+            return false;
+        }
+
         return MatchesText(item, _queryText);
+    }
+
+    /// <summary>
+    /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。
+    /// 未評価は「値が小さい」のではなく「値が無い」ので、0として混ぜると誤読させる。
+    /// </summary>
+    private IEnumerable<ItemRecord> SortItems(IEnumerable<ItemRecord> items)
+    {
+        var sort = _sort;
+
+        if (sort.Kind == SortKind.Attribute && sort.AttributeName is { } attributeName)
+        {
+            var rated = items
+                .Where(item => item.Local.Attributes.ContainsKey(attributeName))
+                .ToList();
+            var unrated = items
+                .Where(item => !item.Local.Attributes.ContainsKey(attributeName))
+                .OrderBy(item => item.Booth.Name, StringComparer.CurrentCulture);
+
+            var ordered = sort.Descending
+                ? rated.OrderByDescending(item => item.Local.Attributes[attributeName])
+                : rated.OrderBy(item => item.Local.Attributes[attributeName]);
+
+            return ordered.Concat(unrated);
+        }
+
+        return sort.Kind switch
+        {
+            SortKind.Name => sort.Descending
+                ? items.OrderByDescending(item => item.Booth.Name, StringComparer.CurrentCulture)
+                : items.OrderBy(item => item.Booth.Name, StringComparer.CurrentCulture),
+            SortKind.Size => sort.Descending
+                ? items.OrderByDescending(item => item.LogicalSizeBytes)
+                : items.OrderBy(item => item.LogicalSizeBytes),
+            SortKind.WishList => sort.Descending
+                ? items.OrderByDescending(item => item.Booth.WishListsCount)
+                : items.OrderBy(item => item.Booth.WishListsCount),
+            _ => sort.Descending
+                ? items.OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
+                    .ThenBy(item => item.Booth.Name, StringComparer.CurrentCulture)
+                : items.OrderBy(item => item.Local.AcquiredAt ?? DateOnly.MaxValue)
+                    .ThenBy(item => item.Booth.Name, StringComparer.CurrentCulture),
+        };
     }
 
     /// <summary>

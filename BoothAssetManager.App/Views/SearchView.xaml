@@ -27,22 +27,100 @@
                     </Grid>
                 </Border>
 
-                <StackPanel Margin="16,14" DockPanel.Dock="Top">
-                    <TextBlock Text="カテゴリ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
-                    <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
-                              Height="32" FontSize="13" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,14">
+                        <TextBlock Text="カテゴリ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
+                        <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                  Height="32" FontSize="13" />
 
-                    <TextBlock Text="所持" Style="{StaticResource SectionLabel}" Margin="0,18,0,8" />
-                    <CheckBox Content="ファイルを持っているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
-                              FontSize="12.5" Foreground="{StaticResource Text}" />
+                        <TextBlock Text="所持" Style="{StaticResource SectionLabel}" Margin="0,18,0,8" />
+                        <CheckBox Content="ファイルを持っているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
+                                  FontSize="12.5" Foreground="{StaticResource Text}" />
 
-                    <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAlt}" Margin="0,20,0,0" Padding="11,9">
-                        <StackPanel>
-                            <TextBlock Text="タグ・属性・対応アバターでの絞り込みは未実装です。" Style="{StaticResource Caption}" TextWrapping="Wrap" />
-                            <TextBlock Text="まずは取り込みと一覧表示を通しています。" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+                        <!-- appTag：別のトップ同士はORで扱う -->
+                        <TextBlock Text="appTag" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
+                        <TextBlock Text="複数選ぶと「どれかに当てはまるもの」を出します。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Visibility="{Binding HasTagFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <ItemsControl ItemsSource="{Binding TagFilters}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,4">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  FontSize="12.5" Foreground="{StaticResource Text}" />
+                                        <!-- サブはトップを選んでいる間だけ出す -->
+                                        <ItemsControl ItemsSource="{Binding Subs}" Margin="20,5,0,4"
+                                                      Visibility="{Binding IsSelected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                              FontSize="11.5" Margin="0,0,10,4"
+                                                              Foreground="{StaticResource TextMuted}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="appTagがまだ登録されていません。編集画面から追加できます。" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasTagFilters}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <!-- 属性：上下限のレンジ。触っていない軸は未評価も通す -->
+                        <TextBlock Text="属性" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
+                        <TextBlock Text="動かした軸では未評価が外れます。触らなければ未評価も通ります。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Visibility="{Binding HasAttributeFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <ItemsControl ItemsSource="{Binding AttributeFilters}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Name}" FontSize="12" />
+                                            <TextBlock Text="{Binding RangeText}" Style="{StaticResource Caption}"
+                                                       HorizontalAlignment="Right" />
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding Min, Mode=TwoWay}"
+                                                TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,3,0,0" />
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding Max, Mode=TwoWay}"
+                                                TickFrequency="5" IsSnapToTickEnabled="True" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="属性がまだ登録されていません。編集画面から追加できます。"
+                                   TextWrapping="Wrap" Margin="0,0,0,20">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasAttributeFilters}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <Border Style="{StaticResource Card}" Background="{StaticResource SurfaceAlt}" Padding="11,9" Margin="0,4,0,10">
+                            <TextBlock Text="対応アバターでの絞り込みは未実装です（アバターの検出がまだ動いていません）。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
@@ -76,12 +154,25 @@
                 </Grid>
             </Border>
 
-            <Border DockPanel.Dock="Top" Height="34" Background="{StaticResource Bg}">
-                <StackPanel Orientation="Horizontal" Margin="18,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding ResultSummary}" FontWeight="Bold" FontSize="12" />
-                    <TextBlock Text="読み込み中…" Style="{StaticResource Caption}" Margin="12,0,0,0"
-                               Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                </StackPanel>
+            <Border DockPanel.Dock="Top" Height="38" Background="{StaticResource Bg}">
+                <Grid Margin="18,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,240,0">
+                        <TextBlock Text="{Binding ResultSummary}" FontWeight="Bold" FontSize="12" />
+                        <TextBlock Text="読み込み中…" Style="{StaticResource Caption}" Margin="12,0,0,0"
+                                   Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <!-- なぜこの結果になったかを結果の隣で読めるようにする -->
+                        <TextBlock Text="{Binding FilterSummary}" Style="{StaticResource Caption}" Margin="12,0,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding HasActiveFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </StackPanel>
+
+                    <!-- 表示順は絞り込みと別の場所に置く -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                        <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
+                                  DisplayMemberPath="Label" Width="180" Height="28" FontSize="12" />
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <Grid SizeChanged="OnResultsSizeChanged">
