@@ -106,7 +106,8 @@
 
             <!-- 右：選んだトップレベルの中身 -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
-                <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                <!-- Leftにすると、状況表示の文の長さでカードの幅が動いてしまう -->
+                <StackPanel MaxWidth="900" HorizontalAlignment="Stretch">
 
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -264,6 +265,9 @@
                                                             <Button Content="検索で開く" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,6,0" Command="{Binding ShowItemsCommand}"
                                                                     Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <!-- 滅多に使わないので入力欄は常設せず、ここから開く -->
+                                                            <Button Content="移す" Style="{StaticResource SmallButton}"
+                                                                    Margin="0,0,6,0" Command="{Binding MoveCommand}" />
                                                             <Button Content="削除" Style="{StaticResource SmallButton}"
                                                                     Foreground="#9a3232"
                                                                     Command="{Binding DeleteCommand}" />
@@ -272,11 +276,6 @@
                                                                              Placeholder="名前を変更 / 統合"
                                                                              Source="{Binding OtherNames}"
                                                                              CommitCommand="{Binding RenameCommand}" />
-                                                        <!-- 消して付け直すとitemの割当てが失われるので、移動を用意する -->
-                                                        <controls:SuggestBox Width="240" Margin="0,5,0,0" AllowNew="False"
-                                                                             Placeholder="別のトップへ移す"
-                                                                             Source="{Binding MoveTargets}"
-                                                                             CommitCommand="{Binding MoveCommand}" />
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>

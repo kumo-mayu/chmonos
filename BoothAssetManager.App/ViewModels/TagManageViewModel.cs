@@ -415,7 +415,7 @@ public sealed class TagManageViewModel : ViewModelBase
             row.ShowItemsCommand = new RelayCommand(
                 () => _main.ShowItemsWithTag(row.Top, row.Name),
                 () => row.IsUsed);
-            row.MoveCommand = new RelayCommand(parameter => _ = MoveSubToTopAsync(row, parameter as string));
+            row.MoveCommand = new RelayCommand(() => _ = MoveSubToTopAsync(row), () => _allTops.Count > 1);
             row.MoveTargets = _allTops
                 .Where(entry => !string.Equals(entry.Name, top.Name, StringComparison.CurrentCultureIgnoreCase))
                 .Select(entry => entry.Name)
@@ -696,37 +696,42 @@ public sealed class TagManageViewModel : ViewModelBase
 
     /// <summary>
     /// サブレベルを別のトップへ移す。削除して付け直すとitemの割当てが失われるので、
-    /// 専用の操作にしてある。移動先のトップがitemに新しく付くので、その件数も出す。
+    /// 専用の操作にしてある。
+    ///
+    /// 滅多に使わない操作なので入力欄は常設せず、ここでダイアログを開いて
+    /// 移動先と「サブが無くなった元のトップをどうするか」をまとめて決めてもらう。
     /// </summary>
-    private async Task MoveSubToTopAsync(TagSubRow row, string? target)
+    private async Task MoveSubToTopAsync(TagSubRow row)
     {
-        var to = target?.Trim();
-        if (string.IsNullOrEmpty(to) || string.Equals(to, row.Top, StringComparison.CurrentCultureIgnoreCase))
+        var dialog = new Views.MoveSubDialog(
+            new MoveSubDialogViewModel(_services.AppTags, row.Top, row.Name, row.MoveTargets));
+
+        if (dialog.ShowDialog() != true
+            || dialog.DataContext is not MoveSubDialogViewModel { Target: { } to })
         {
             return;
         }
 
-        var message = $"「{row.Name}」を「{row.Top}」から「{to}」の下へ移します。\n\n"
-            + (row.ItemCount == 0
-                ? "どのitemにも付いていないので、item側の書き換えはありません。"
-                : $"{row.ItemCount} 件のitemを書き換えます。"
-                    + $"サブは「{to}」の下へ移り、そのitemには「{to}」も付きます。\n"
-                    + $"「{row.Top}」は他の割当てとして残ることがあるので、そのままにします。");
-
-        if (!Confirm(message, "サブレベルを移す"))
-        {
-            return;
-        }
+        var drop = ((MoveSubDialogViewModel)dialog.DataContext).DropEmptySourceTop;
 
         var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.MoveAppTagSub(row.Top, row.Name, to));
+            new UiCommand.MoveAppTagSub(row.Top, row.Name, to, drop));
 
         if (result is CommandResult.AppTagsRewritten rewritten)
         {
-            StatusText = rewritten.Result.ItemsGainedTop > 0
-                ? $"「{to}」の下へ移しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え、"
-                    + $"うち {rewritten.Result.ItemsGainedTop} 件に「{to}」が新しく付きました）。"
-                : $"「{to}」の下へ移しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+            var parts = new List<string> { $"{rewritten.Result.ItemsUpdated} 件のitemを書き換え" };
+
+            if (rewritten.Result.ItemsGainedTop > 0)
+            {
+                parts.Add($"うち {rewritten.Result.ItemsGainedTop} 件に「{to}」が新しく付きました");
+            }
+
+            if (rewritten.Result.ItemsSourceTopRemoved > 0)
+            {
+                parts.Add($"{rewritten.Result.ItemsSourceTopRemoved} 件から「{row.Top}」を外しました");
+            }
+
+            StatusText = $"「{to}」の下へ移しました（{string.Join("、", parts)}）。";
         }
 
         await ReloadAsync();

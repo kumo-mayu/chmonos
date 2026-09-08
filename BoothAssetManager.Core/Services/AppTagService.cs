@@ -51,8 +51,27 @@ public sealed record AppTagEditResult
     /// <summary>移動先のトップが新しく付いたitem数。絞り込みの結果が変わるので出す。</summary>
     public int ItemsGainedTop { get; init; }
 
+    /// <summary>サブが無くなった元のトップを外したitem数。</summary>
+    public int ItemsSourceTopRemoved { get; init; }
+
     /// <summary>既存の名前へ寄せた（統合した）かどうか。</summary>
     public bool WasMerged { get; init; }
+}
+
+/// <summary>
+/// 移動したら何が起きるかの下見。押す前に見えていないと、
+/// 「空になったトップをどうするか」をユーザが決めようがない。
+/// </summary>
+public sealed record MoveSubPreview
+{
+    /// <summary>このサブが付いているitem数。</summary>
+    public required int ItemCount { get; init; }
+
+    /// <summary>移動後、元のトップがサブなしで残るitem数。ここが判断の対象。</summary>
+    public required int ItemsLeavingEmptyTop { get; init; }
+
+    /// <summary>移動先のトップが新しく付くitem数。</summary>
+    public required int ItemsGainingTop { get; init; }
 }
 
 public interface IAppTagService
@@ -73,7 +92,14 @@ public interface IAppTagService
 
     Task<AppTagMaster> ReorderAsync(string? top, IReadOnlyList<string> names, CancellationToken cancellationToken = default);
 
-    Task<AppTagEditResult> MoveSubAsync(string fromTop, string sub, string toTop, CancellationToken cancellationToken = default);
+    Task<MoveSubPreview> PreviewMoveSubAsync(string fromTop, string sub, string toTop, CancellationToken cancellationToken = default);
+
+    Task<AppTagEditResult> MoveSubAsync(
+        string fromTop,
+        string sub,
+        string toTop,
+        bool dropEmptySourceTop,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -346,10 +372,58 @@ public sealed class AppTagService : IAppTagService
     /// 付けたうえでサブを移す（移動先が既に付いていれば、そこへ足すだけ）。
     /// 元のトップは、他のサブや単独の割当てとして残ることがあるのでそのままにする。
     /// </summary>
+    /// <summary>
+    /// 移したら何が起きるかを先に数える。特に「元のトップがサブなしで残る」件数は、
+    /// それをどうするかをユーザに決めてもらうために要る。
+    /// </summary>
+    public async Task<MoveSubPreview> PreviewMoveSubAsync(
+        string fromTop,
+        string sub,
+        string toTop,
+        CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+
+        var count = 0;
+        var emptied = 0;
+        var gaining = 0;
+
+        foreach (var local in loaded.Items.Select(item => item.Local))
+        {
+            var source = local.AppTags.FirstOrDefault(
+                assignment => Same(assignment.Top, fromTop) && assignment.Subs.Any(entry => Same(entry, sub)));
+
+            if (source is null)
+            {
+                continue;
+            }
+
+            count++;
+
+            if (!local.AppTags.Any(assignment => Same(assignment.Top, toTop)))
+            {
+                gaining++;
+            }
+
+            if (source.Subs.Count == 1)
+            {
+                emptied++;
+            }
+        }
+
+        return new MoveSubPreview
+        {
+            ItemCount = count,
+            ItemsLeavingEmptyTop = emptied,
+            ItemsGainingTop = gaining,
+        };
+    }
+
     public async Task<AppTagEditResult> MoveSubAsync(
         string fromTop,
         string sub,
         string toTop,
+        bool dropEmptySourceTop,
         CancellationToken cancellationToken = default)
     {
         var master = _store.AppTags.Load();
@@ -393,13 +467,32 @@ public sealed class AppTagService : IAppTagService
         await _store.AppTags.SaveAsync(updated, cancellationToken);
 
         var gained = 0;
+        var sourceRemoved = 0;
         var rewritten = await RewriteItemsAsync(
             local =>
             {
-                var moved = MoveSubIn(local, fromTop, moving.Name, toTop, out var addedTop);
-                if (moved is not null && addedTop)
+                var moved = MoveSubIn(
+                    local,
+                    fromTop,
+                    moving.Name,
+                    toTop,
+                    dropEmptySourceTop,
+                    out var addedTop,
+                    out var removedSource);
+
+                if (moved is null)
+                {
+                    return null;
+                }
+
+                if (addedTop)
                 {
                     gained++;
+                }
+
+                if (removedSource)
+                {
+                    sourceRemoved++;
                 }
 
                 return moved;
@@ -410,7 +503,9 @@ public sealed class AppTagService : IAppTagService
         {
             Master = updated,
             ItemsUpdated = rewritten.Updated,
+            ItemsLeftUntagged = rewritten.LeftUntagged,
             ItemsGainedTop = gained,
+            ItemsSourceTopRemoved = sourceRemoved,
         };
     }
 
@@ -647,15 +742,21 @@ public sealed class AppTagService : IAppTagService
     /// <summary>
     /// 元のトップからサブを外し、移動先のトップへ付け替える。
     /// 移動先が付いていなければ足す（<paramref name="addedTop"/> で知らせる）。
+    ///
+    /// サブが無くなった元のトップをどうするかは、他の理由で付いている可能性があるので
+    /// アプリでは決められない。<paramref name="dropEmptySourceTop"/> でユーザの判断を受ける。
     /// </summary>
     private static LocalBlock? MoveSubIn(
         LocalBlock local,
         string fromTop,
         string sub,
         string toTop,
-        out bool addedTop)
+        bool dropEmptySourceTop,
+        out bool addedTop,
+        out bool removedSourceTop)
     {
         addedTop = false;
+        removedSourceTop = false;
 
         var source = local.AppTags.FirstOrDefault(
             assignment => Same(assignment.Top, fromTop) && assignment.Subs.Any(entry => Same(entry, sub)));
@@ -670,6 +771,12 @@ public sealed class AppTagService : IAppTagService
                 ? assignment with { Subs = assignment.Subs.Where(entry => !Same(entry, sub)).ToList() }
                 : assignment)
             .ToList();
+
+        if (dropEmptySourceTop && source.Subs.Count == 1)
+        {
+            removedSourceTop = true;
+            result.RemoveAll(assignment => Same(assignment.Top, fromTop) && assignment.Subs.Count == 0);
+        }
 
         var target = result.FindIndex(assignment => Same(assignment.Top, toTop));
         if (target < 0)

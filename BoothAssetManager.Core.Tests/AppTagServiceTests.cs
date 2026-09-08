@@ -130,7 +130,7 @@ public class AppTagServiceTests : IDisposable
 
         await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
 
-        var result = await _service.MoveSubAsync("衣装", "制服", "小物");
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: false);
 
         Assert.Equal(1, result.ItemsUpdated);
         Assert.Equal(1, result.ItemsGainedTop);
@@ -156,7 +156,7 @@ public class AppTagServiceTests : IDisposable
             new AppTagAssignment { Top = "衣装", Subs = ["制服"] },
             new AppTagAssignment { Top = "小物", Subs = ["指輪"] });
 
-        var result = await _service.MoveSubAsync("衣装", "制服", "小物");
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: false);
 
         Assert.Equal(1, result.ItemsUpdated);
         Assert.Equal(0, result.ItemsGainedTop);
@@ -171,7 +171,7 @@ public class AppTagServiceTests : IDisposable
             new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服", Memo = "学校のもの" }] },
             new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "制服", Memo = "職業のもの" }] });
 
-        var result = await _service.MoveSubAsync("衣装", "制服", "小物");
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: false);
 
         Assert.Empty(result.Master.Tops[0].Subs);
         var sub = Assert.Single(result.Master.Tops[1].Subs);
@@ -179,13 +179,89 @@ public class AppTagServiceTests : IDisposable
         Assert.Contains("「衣装／制服」から統合：学校のもの", sub.Memo);
     }
 
+    /// <summary>
+    /// サブが無くなった元のトップは、既定では残す。そのトップがこのサブのためだけに
+    /// 付いていたとは限らない（サブなしの単独指定もあり得る）ので、消す方は選ばせる。
+    /// </summary>
+    [Fact]
+    public async Task DropsTheEmptiedSourceTopOnlyWhenAsked()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] },
+            new AppTagTop { Name = "小物" });
+
+        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: true);
+
+        Assert.Equal(1, result.ItemsSourceTopRemoved);
+        Assert.Equal("小物", Assert.Single(await AppTagsOfAsync("1")).Top);
+
+        // マスタ側のトップは消さない。他のitemが単独で使っていることがある
+        Assert.Contains(result.Master.Tops, top => top.Name == "衣装");
+    }
+
+    /// <summary>他にサブが残るitemでは、元のトップを外さない。</summary>
+    [Fact]
+    public async Task KeepsTheSourceTopWhenOtherSubsRemain()
+    {
+        await SaveMasterAsync(
+            new AppTagTop
+            {
+                Name = "衣装",
+                Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+            },
+            new AppTagTop { Name = "小物" });
+
+        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
+
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: true);
+
+        Assert.Equal(0, result.ItemsSourceTopRemoved);
+        Assert.Equal(["私服"], (await AppTagsOfAsync("1")).Single(entry => entry.Top == "衣装").Subs);
+    }
+
+    /// <summary>押す前に影響が見えていないと、空になるトップの扱いを決めようがない。</summary>
+    [Fact]
+    public async Task PreviewsWhatTheMoveWillDo()
+    {
+        await SaveMasterAsync(
+            new AppTagTop
+            {
+                Name = "衣装",
+                Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+            },
+            new AppTagTop { Name = "小物" });
+
+        // 制服だけ → 移すと「衣装」が空になる
+        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+
+        // 私服も持つ → 「衣装」は残る
+        await SaveItemAsync("2", new AppTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
+
+        // 「小物」を既に持つ → トップは増えない
+        await SaveItemAsync(
+            "3",
+            new AppTagAssignment { Top = "衣装", Subs = ["制服"] },
+            new AppTagAssignment { Top = "小物" });
+
+        // 制服を持たない → 対象外
+        await SaveItemAsync("4", new AppTagAssignment { Top = "衣装", Subs = ["私服"] });
+
+        var preview = await _service.PreviewMoveSubAsync("衣装", "制服", "小物");
+
+        Assert.Equal(3, preview.ItemCount);
+        Assert.Equal(2, preview.ItemsLeavingEmptyTop);
+        Assert.Equal(2, preview.ItemsGainingTop);
+    }
+
     [Fact]
     public async Task IgnoresAMoveWhenTheSubOrTopIsGone()
     {
         await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
 
-        Assert.Equal(0, (await _service.MoveSubAsync("衣装", "制服", "無いトップ")).ItemsUpdated);
-        Assert.Equal(0, (await _service.MoveSubAsync("衣装", "無いサブ", "衣装")).ItemsUpdated);
+        Assert.Equal(0, (await _service.MoveSubAsync("衣装", "制服", "無いトップ", dropEmptySourceTop: false)).ItemsUpdated);
+        Assert.Equal(0, (await _service.MoveSubAsync("衣装", "無いサブ", "衣装", dropEmptySourceTop: false)).ItemsUpdated);
         Assert.Equal(["制服"], Assert.Single(_store.AppTags.Load().Tops).Subs.Select(sub => sub.Name));
     }
 

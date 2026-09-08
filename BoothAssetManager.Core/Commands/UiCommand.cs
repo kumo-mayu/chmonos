@@ -60,7 +60,11 @@ public abstract record UiCommand
     /// サブレベルを別のトップへ移す。削除して付け直すとitemの割当てが失われるので、
     /// 移動を専用の操作として持つ。
     /// </summary>
-    public record MoveAppTagSub(string FromTop, string Sub, string ToTop) : UiCommand;
+    /// <param name="DropEmptySourceTop">
+    /// サブが無くなった元のトップをitemから外すか。他の理由で付いている可能性があるので、
+    /// アプリでは決めずにユーザに聞く。
+    /// </param>
+    public record MoveAppTagSub(string FromTop, string Sub, string ToTop, bool DropEmptySourceTop) : UiCommand;
 
     /// <summary>確定する前にIDの中身を見る。既に持っていればBOOTHへは行かない。</summary>
     public record PreviewItem(string ItemId) : UiCommand;

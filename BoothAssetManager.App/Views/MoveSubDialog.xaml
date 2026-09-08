@@ -1,0 +1,52 @@
+<Window x:Class="BoothAssetManager.App.Views.MoveSubDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+        xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MoveSubDialogViewModel}"
+        Title="サブレベルを移す"
+        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Surface}">
+    <StackPanel Margin="22,20">
+
+        <TextBlock Text="サブレベルを移す" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" Margin="0,7,0,0" />
+
+        <TextBlock Text="移動先" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
+        <controls:SuggestBox Source="{Binding Targets}" CommitCommand="{Binding PickTargetCommand}"
+                             AllowNew="False" Placeholder="トップレベルを選ぶ" />
+
+        <TextBlock Text="{Binding TargetText}" Style="{StaticResource Mono}" FontSize="11.5" Margin="0,8,0,0" />
+
+        <TextBlock Text="{Binding ImpactText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                   Margin="0,10,0,0"
+                   Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+        <!-- 空になったトップの扱いは、アプリでは決められないので聞く -->
+        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,14,0,0"
+                Visibility="{Binding AsksAboutEmptySourceTop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <StackPanel>
+                <TextBlock Text="{Binding EmptySourceTopText}" FontSize="12.5" TextWrapping="Wrap" />
+                <TextBlock Text="サブなしでトップだけ付いている状態にも意味があるので、どちらにするか選んでください。"
+                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,9" />
+
+                <RadioButton Content="{Binding KeepSourceTopText}" IsChecked="{Binding KeepEmptySourceTop, Mode=TwoWay}"
+                             Foreground="{StaticResource Text}" />
+                <RadioButton Content="{Binding DropSourceTopText}" IsChecked="{Binding DropEmptySourceTop, Mode=TwoWay}"
+                             Foreground="{StaticResource Text}" Margin="0,6,0,0" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
+            <Button Content="移す" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+                    IsEnabled="{Binding HasTarget}" Click="OnMove" />
+        </StackPanel>
+    </StackPanel>
+</Window>
