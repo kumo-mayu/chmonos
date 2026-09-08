@@ -136,6 +136,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             parameter => parameter is string);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         AddUsedOnCommand = new RelayCommand(parameter => _ = AddUsedOnAsync(parameter as string));
+        AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string));
 
         BuildGallery();
         BuildVariations();
@@ -229,6 +230,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     /// <summary>着せているアバターを足す。候補から選ぶ（登録簿に無い名前は受け取らない）。</summary>
     public RelayCommand AddUsedOnCommand { get; }
+
+    /// <summary>対応アバターを手で足す。検出が拾えなかったときの補い。</summary>
+    public RelayCommand AddAvatarCommand { get; }
+
+    /// <summary>「対応アバターを足す」の候補。既に宣言されているものは出さない。</summary>
+    public IReadOnlyList<string> SupportSuggestions { get; private set; } = [];
 
     public RelayCommand OpenBoothCommand { get; }
 
@@ -490,6 +497,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 Name = NameOf(link.AvatarItemId, link.Name),
                 SourceText = SourceLabel(link.Source),
                 IsUnconfirmed = !link.Confirmed,
+                RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId)),
             })
             .ToList();
 
@@ -510,6 +518,16 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 RemoveCommand = new RelayCommand(() => _ = RemoveUsedOnAsync(id)),
             });
         }
+
+        // 対応アバターの候補。既に宣言されているものは出さない
+        var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
+        SupportSuggestions = registry.Entries
+            .Where(entry => AvatarService.IsAvatar(entry) && !declared.Contains(entry.ItemId))
+            .Select(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId)
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToList();
+
+        OnPropertyChanged(nameof(SupportSuggestions));
 
         var already = UsedOn.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
 
@@ -545,6 +563,69 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// 「このアバターに着せている」を足す。名前から登録簿を引いてIDに直す。
     /// 検出は UsedOn を触らないので、ここで足したものが消えることはない。
     /// </summary>
+    /// <summary>
+    /// この対応は違う、と消す。
+    ///
+    /// 消しただけだと次の検出で復活するので、Manual に付け替えたうえで Rejected を立てる。
+    /// 再検出のマージは Manual の宣言だけを残して他を作り直すので、
+    /// Source を変えないと行ごと作り直されて Rejected が消える。
+    ///
+    /// 検出の適合率は実測で89%。1割は誤りが出るので、消せないと噛み合わない。
+    /// </summary>
+    private async Task RejectAvatarAsync(string avatarItemId)
+    {
+        var links = Item.Local.Avatars
+            .Select(link => link.AvatarItemId == avatarItemId
+                ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
+                : link)
+            .ToList();
+
+        await SaveLocalAsync(Item.Local with { Avatars = links });
+    }
+
+    /// <summary>
+    /// 対応アバターを手で足す。出品者が書き漏らしている場合や、検出が拾えなかった場合に使う。
+    /// 足したものは Manual なので、次の検出でも消えない。
+    /// </summary>
+    private async Task AddAvatarAsync(string? name)
+    {
+        if (FindAvatarByName(name) is not { } match)
+        {
+            return;
+        }
+
+        var existing = Item.Local.Avatars.FirstOrDefault(link => link.AvatarItemId == match.ItemId);
+
+        // 一度消したものを足し直す場合は、Rejected を下ろすだけ
+        var links = existing is null
+            ? [.. Item.Local.Avatars, new AvatarLink
+            {
+                AvatarItemId = match.ItemId,
+                Name = match.DisplayName ?? match.BoothName,
+                Source = AvatarLinkSource.Manual,
+                Confirmed = true,
+            }]
+            : Item.Local.Avatars
+                .Select(link => link.AvatarItemId == match.ItemId
+                    ? link with { Source = AvatarLinkSource.Manual, Rejected = false, Confirmed = true }
+                    : link)
+                .ToList();
+
+        await SaveLocalAsync(Item.Local with { Avatars = links });
+    }
+
+    private AvatarRegistryEntry? FindAvatarByName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        return _services.Store.Avatars.Load().Entries.FirstOrDefault(entry =>
+            string.Equals(entry.DisplayName, name, StringComparison.CurrentCultureIgnoreCase)
+            || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
+    }
+
     private async Task AddUsedOnAsync(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -807,6 +888,9 @@ public sealed class AvatarRow
     public required string SourceText { get; init; }
 
     public bool IsUnconfirmed { get; init; }
+
+    /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
+    public RelayCommand? RejectCommand { get; init; }
 }
 
 /// <summary>自分が着せている記録1件。</summary>
