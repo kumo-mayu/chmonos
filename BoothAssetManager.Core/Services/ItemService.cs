@@ -36,6 +36,8 @@ public interface IItemService
 
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
+    Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
+
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
     Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
@@ -134,6 +136,118 @@ public sealed class ItemService : IItemService
     /// <summary>
     /// 未確定ファイルに商品IDを与えて確定させる。確定したファイルはitemへ移し、未確定一覧から取り除く。
     /// </summary>
+    /// <summary>
+    /// フォルダを商品に紐付ける。zipが手元に無く、展開したものだけが残っている場合に使う。
+    ///
+    /// 紐付けたフォルダの配下は、以降のスキャンで見に行かなくなる。
+    /// その場で未確定からも取り除く。次のスキャンまで残しても、
+    /// 既に行き先の決まったファイルを作業として見せることになるだけなので。
+    /// 商品がまだ手元に無ければBOOTHから取得する（ファイル確定と同じ扱い）。
+    /// </summary>
+    public async Task<bool> RegisterFolderAsync(
+        string itemId,
+        string folderPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(folderPath))
+        {
+            return false;
+        }
+
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? await FetchNewItemAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            return false;
+        }
+
+        var (count, bytes) = RegisteredFolderSet.Measure(folderPath);
+        var normalized = Path.TrimEndingDirectorySeparator(folderPath);
+
+        var folders = item.Local.LocalFolders
+            .Where(folder => !string.Equals(
+                Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        folders.Add(new LocalFolderRecord
+        {
+            Path = normalized,
+            FileCount = count,
+            TotalBytes = bytes,
+            RegisteredAt = DateTimeOffset.Now,
+            LastSeenAt = DateTimeOffset.Now,
+        });
+
+        await _store.Items.SaveAsync(
+            item with { Local = item.Local with { LocalFolders = folders } },
+            cancellationToken);
+
+        await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// まだ手元に無い商品をBOOTHから取ってきて保存する。説明HTMLと画像もここで揃える。
+    /// ファイル確定とフォルダ登録の両方から使う（どちらも「新しい商品が増える」点は同じ）。
+    /// </summary>
+    private async Task<ItemRecord?> FetchNewItemAsync(string itemId, CancellationToken cancellationToken)
+    {
+        var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
+        if (!jsonResult.IsSuccess || jsonResult.Value is null)
+        {
+            return null;
+        }
+
+        var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
+        var extraction = htmlResult.IsSuccess && htmlResult.Value is not null
+            ? H2SectionExtractor.Extract(htmlResult.Value)
+            : new H2ExtractionResult();
+
+        var item = new ItemRecord
+        {
+            Id = itemId,
+            Booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, extraction.Sections),
+            Local = new LocalBlock
+            {
+                NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
+                LastFetchedAt = DateTimeOffset.Now,
+                NextFetchDueAt = NextDue(itemId),
+            },
+        };
+
+        await _store.Items.SaveAsync(item, cancellationToken);
+
+        if (extraction.DescriptionHtml is not null)
+        {
+            await _store.Items.SaveDescriptionHtmlAsync(itemId, extraction.DescriptionHtml, cancellationToken);
+        }
+
+        await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
+        return item;
+    }
+
+    /// <summary>登録したフォルダの配下にあった未確定を取り除く。行き先が決まったため。</summary>
+    private async Task RemoveUnresolvedUnderAsync(string folderPath, CancellationToken cancellationToken)
+    {
+        var unresolved = _store.Unresolved.Load();
+        var registered = new RegisteredFolderSet([folderPath]);
+
+        var inside = unresolved
+            .Where(file => file.Paths.Any(registered.Contains))
+            .ToList();
+
+        if (inside.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var file in inside)
+        {
+            unresolved.Remove(file);
+        }
+
+        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+    }
+
     /// <summary>
     /// 既にどこかのitemが持っているファイルを、未確定の一覧から取り除く。
     ///
@@ -234,38 +348,15 @@ public sealed class ItemService : IItemService
         }
         else
         {
-            var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
-            if (!jsonResult.IsSuccess || jsonResult.Value is null)
+            var created = await FetchNewItemAsync(itemId, cancellationToken);
+            if (created is null)
             {
                 return false;
             }
 
-            var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
-            var extraction = htmlResult.IsSuccess && htmlResult.Value is not null
-                ? H2SectionExtractor.Extract(htmlResult.Value)
-                : new H2ExtractionResult();
-
-            var item = new ItemRecord
-            {
-                Id = itemId,
-                Booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, extraction.Sections),
-                Local = new LocalBlock
-                {
-                    LocalFiles = [record],
-                    NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
-                    LastFetchedAt = DateTimeOffset.Now,
-                    NextFetchDueAt = NextDue(itemId),
-                },
-            };
-
-            await _store.Items.SaveAsync(item, cancellationToken);
-
-            if (extraction.DescriptionHtml is not null)
-            {
-                await _store.Items.SaveDescriptionHtmlAsync(itemId, extraction.DescriptionHtml, cancellationToken);
-            }
-
-            await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
+            await _store.Items.SaveAsync(
+                created with { Local = created.Local with { LocalFiles = [record] } },
+                cancellationToken);
         }
 
         unresolved.Remove(target);

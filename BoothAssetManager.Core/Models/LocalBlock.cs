@@ -25,6 +25,12 @@ public sealed record LocalBlock
 
     public IReadOnlyList<LocalFileRecord> LocalFiles { get; init; } = [];
 
+    /// <summary>
+    /// フォルダとして所有しているもの。zipが残っていない展開済みの配布物に使う。
+    /// 配下のファイルはスキャン対象から外れる。
+    /// </summary>
+    public IReadOnlyList<LocalFolderRecord> LocalFolders { get; init; } = [];
+
     /// <summary>入手日。未入力ならファイルの日付にフォールバックする（統計の時系列にも使う）。</summary>
     public DateOnly? AcquiredAt { get; init; }
 

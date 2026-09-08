@@ -281,6 +281,46 @@
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
+                            <!-- フォルダとして所有しているもの。zipが残っていない展開済みの配布物 -->
+                            <ItemsControl ItemsSource="{Binding LocalFolders}"
+                                          Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0">
+                                                            <TextBlock Text="フォルダ" FontSize="10" Foreground="#28507f" />
+                                                        </Border>
+                                                        <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
+                                                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11"
+                                                               Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding Path}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
                             <ItemsControl ItemsSource="{Binding LocalFiles}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>

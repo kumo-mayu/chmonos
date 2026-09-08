@@ -98,7 +98,11 @@ public sealed class ImportPipeline : IImportPipeline
         var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
 
-        var scan = ScanFolders(folders, exclusions, progress, cancellationToken);
+        // 既に商品へ紐付けたフォルダの中は見に行かない。
+        // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
+        var registered = await LoadRegisteredFoldersAsync(cancellationToken);
+
+        var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
         var resolution = await ResolveAsync(scan.Files, scanCache, exclusions, progress, cancellationToken);
         await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
         await _store.Unresolved.SaveAsync(resolution.Unresolved, cancellationToken);
@@ -122,9 +126,60 @@ public sealed class ImportPipeline : IImportPipeline
         };
     }
 
+    /// <summary>
+    /// 登録済みフォルダを集め、ついでに実際の中身を数え直して保存する。
+    /// 数えるのは列挙だけでハッシュは計算しないので、ここは速い。
+    /// </summary>
+    private async Task<RegisteredFolderSet> LoadRegisteredFoldersAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var paths = new List<string>();
+
+        foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
+        {
+            var refreshed = new List<LocalFolderRecord>();
+            var changed = false;
+
+            foreach (var folder in item.Local.LocalFolders)
+            {
+                if (!Directory.Exists(folder.Path))
+                {
+                    // 見つからないものは登録として残すが、スキャンの除外には使わない
+                    refreshed.Add(folder);
+                    continue;
+                }
+
+                paths.Add(folder.Path);
+
+                var (count, bytes) = RegisteredFolderSet.Measure(folder.Path);
+                if (count != folder.FileCount || bytes != folder.TotalBytes || folder.LastSeenAt is null)
+                {
+                    changed = true;
+                }
+
+                refreshed.Add(folder with
+                {
+                    FileCount = count,
+                    TotalBytes = bytes,
+                    LastSeenAt = DateTimeOffset.Now,
+                });
+            }
+
+            if (changed)
+            {
+                await _store.Items.SaveAsync(
+                    item with { Local = item.Local with { LocalFolders = refreshed } },
+                    cancellationToken);
+            }
+        }
+
+        return new RegisteredFolderSet(paths);
+    }
+
     private ScanOutcome ScanFolders(
         IReadOnlyList<string> folders,
         ExclusionFilter exclusions,
+        RegisteredFolderSet registered,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -142,6 +197,12 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 // 除外済みのパスはここで弾く。ハッシュ計算にすら進ませない。
                 if (exclusions.IsExcludedByPath(file.Path))
+                {
+                    continue;
+                }
+
+                // 既に商品へ紐付けたフォルダの中身も同じく飛ばす
+                if (registered.Contains(file.Path))
                 {
                     continue;
                 }

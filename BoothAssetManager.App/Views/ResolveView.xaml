@@ -150,18 +150,41 @@
                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                             BorderThickness="1" CornerRadius="8" Padding="16,13" Margin="0,0,0,14"
                             Visibility="{Binding HasArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <Grid>
-                            <StackPanel Margin="0,0,150,0">
-                                <TextBlock Text="{Binding ArchiveContentText}" FontWeight="Bold" FontSize="12.5"
-                                           Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding ArchiveContentReason}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,5,0,0" />
-                                <TextBlock Text="単体の商品ではないので、管理から外すことが多い場所です。選んでから中身を確認できます。"
-                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <StackPanel>
+                            <TextBlock Text="{Binding ArchiveContentText}" FontWeight="Bold" FontSize="12.5"
+                                       Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding ArchiveContentReason}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,0" />
+
+                            <!--
+                                外すだけだと、zipが残っていない商品はライブラリから消えてしまう。
+                                まずzipを落とし直す道を勧め、それが無理な場合の受け皿を並べて出す。
+                            -->
+                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,10,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="おすすめ：BOOTHからzipを落とし直す" FontWeight="Bold" FontSize="12" />
+                                    <TextBlock Text="zipがあれば普通に取り込めて、展開先も自動で対象から外れます。まず「自動検索」でどの商品か調べ、BOOTHで開いて再ダウンロードしてください。"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                        <Button Content="自動検索でこの商品を調べる" Style="{StaticResource SmallButton}"
+                                                Command="{Binding ProposeCommand}" />
+                                        <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                                Command="{Binding OpenBoothCommand}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="落とし直せない場合（非公開になった商品など）は、下のどちらかを選んでください。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,7" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="{Binding RegisterFolderText}" Command="{Binding RegisterFolderCommand}" />
+                                <Button Content="まとめて選択して外す" Margin="8,0,0,0"
+                                        Command="{Binding SelectArchiveContentCommand}" />
                             </StackPanel>
-                            <Button Content="まとめて選択する" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Command="{Binding SelectArchiveContentCommand}" />
-                        </Grid>
+                            <TextBlock Text="フォルダとして登録すると、中身がスキャン対象から外れたうえで所有の記録になります（先に商品IDを確認してください）。管理から外すと、その商品はライブラリに残りません。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                        </StackPanel>
                     </Border>
 
                     <!-- 手掛かり -->

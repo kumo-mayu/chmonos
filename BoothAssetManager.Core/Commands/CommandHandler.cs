@@ -105,6 +105,11 @@ public sealed class CommandHandler
                     ? new CommandResult.Failed($"商品ID {preview.ItemId} を取得できませんでした。")
                     : new CommandResult.PreviewLoaded(loaded);
 
+            case UiCommand.RegisterFolder register:
+                return await _items.RegisterFolderAsync(register.ItemId, register.FolderPath, cancellationToken)
+                    ? new CommandResult.ItemSaved(register.ItemId)
+                    : new CommandResult.Failed("フォルダを紐付けられませんでした。フォルダが存在するか、商品IDが正しいかを確認してください。");
+
             case UiCommand.ProposeCandidates propose:
                 if (_resolver is null)
                 {

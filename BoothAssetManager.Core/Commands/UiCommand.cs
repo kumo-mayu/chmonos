@@ -48,6 +48,9 @@ public abstract record UiCommand
     /// 待ち時間が長く、黙って待たせるわけにいかないため。
     /// </summary>
     public record ProposeCandidates(string FilePath, IProgress<Resolution.ResolveProgress>? Progress = null) : UiCommand;
+
+    /// <summary>フォルダを商品に紐付ける。zipが手元に無く展開したものだけが残っている場合に使う。</summary>
+    public record RegisterFolder(string ItemId, string FolderPath) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

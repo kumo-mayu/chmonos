@@ -43,6 +43,19 @@ public sealed class VariationRow
     public bool IsGone { get; init; }
 }
 
+/// <summary>フォルダとして所有している1件。中身は個別に記録していない。</summary>
+public sealed class LocalFolderRow
+{
+    public required string Path { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string SummaryText { get; init; }
+
+    /// <summary>登録した場所に今もあるか。無ければ指し直しが要る。</summary>
+    public bool IsMissing { get; init; }
+}
+
 public sealed class LocalFileRow
 {
     public required string FileName { get; init; }
@@ -91,6 +104,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         BuildGallery();
         BuildVariations();
         BuildLocalFiles();
+        BuildLocalFolders();
     }
 
     public ItemRecord Item { get; }
@@ -156,6 +170,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public IReadOnlyList<AttributeBar> Attributes { get; private set; } = [];
 
     public bool HasAttributes => Attributes.Count > 0;
+
+    /// <summary>フォルダとして所有しているもの。zipが残っていない展開済みの配布物。</summary>
+    public IReadOnlyList<LocalFolderRow> LocalFolders { get; private set; } = [];
+
+    public bool HasLocalFolders => LocalFolders.Count > 0;
 
     public string FileSummary => Item.IsDownloaded
         ? $"{Item.Local.LocalFiles.Count} 件 / {FormatSize(Item.LogicalSizeBytes)}"
@@ -323,6 +342,19 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 VariationLabel = variation,
             });
         }
+    }
+
+    private void BuildLocalFolders()
+    {
+        LocalFolders = Item.Local.LocalFolders
+            .Select(folder => new LocalFolderRow
+            {
+                Path = folder.Path,
+                Name = System.IO.Path.GetFileName(folder.Path),
+                SummaryText = $"{folder.FileCount} ファイル / {FormatSize(folder.TotalBytes)}",
+                IsMissing = !Directory.Exists(folder.Path),
+            })
+            .ToList();
     }
 
     private void SelectImage(object? parameter)
