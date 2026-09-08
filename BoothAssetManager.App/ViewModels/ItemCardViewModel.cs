@@ -172,7 +172,10 @@ public sealed class ItemCardViewModel : ViewModelBase
             return;
         }
 
-        _imageFiles = _thumbnails.ListFiles(_imageDirectory);
+        // 保存名はURLのハッシュなので、名前順に読むと1枚目が乱数で決まる。
+        // BOOTHの並びを正にして、サムネイルが商品ページと一致するようにする
+        _imageFiles = BoothAssetManager.Core.Images.ItemImageOrder.Paths(
+            _imageDirectory, Item.Booth.Images, _thumbnails.ListFiles(_imageDirectory));
         ImageCount = _imageFiles.Count;
 
         var maxSteps = Math.Max(1, (int)(widthPixels / MinimumSegmentWidth));

@@ -19,6 +19,9 @@ public sealed class AvatarRowViewModel : ViewModelBase
 
     public bool IsOwned => Summary.IsOwned;
 
+    /// <summary>手で「アバターとして扱わない」にしたもの。一覧には残すが、そうと分かるようにする。</summary>
+    public bool IsExcluded => Summary.Entry.AvatarOverride == false;
+
     public string BaseText => Summary.Entry.BaseName ?? string.Empty;
 
     public bool HasBase => !string.IsNullOrWhiteSpace(Summary.Entry.BaseName);
@@ -373,15 +376,17 @@ public sealed class AvatarsViewModel : ViewModelBase
                 || row.ItemId.Contains(_query, StringComparison.Ordinal))
             .ToList();
 
-        var ownedCount = matched.Count(row => row.IsOwned);
+        var ownedCount = matched.Count(row => row.IsOwned && !row.IsExcluded);
 
         // 未所有も必ず出す。手持ちの衣装の対応先が未所有アバターなのは普通で、
         // 隠すと一覧がほぼ空になる（実データでも主力の対応先が未所有だった）
         foreach (var row in matched)
         {
-            row.GroupName = row.IsOwned
-                ? $"所有しているアバター（{ownedCount}）"
-                : $"対応表記で見かけたアバター（{matched.Count - ownedCount}）";
+            row.GroupName = row.IsExcluded
+                ? "アバターとして扱わないもの"
+                : row.IsOwned
+                    ? $"所有しているアバター（{ownedCount}）"
+                    : $"対応表記で見かけたアバター（{matched.Count - ownedCount}）";
         }
 
         Rows.Clear();

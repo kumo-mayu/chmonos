@@ -71,6 +71,12 @@ public sealed class CandidateRow
     public required string Source { get; init; }
 
     public bool IsStrong { get; init; }
+
+    /// <summary>
+    /// この候補の商品ページをブラウザで開く。
+    /// 候補を出している以上、それが目当てのものか確かめる手段が要る。
+    /// </summary>
+    public RelayCommand? OpenBoothCommand { get; set; }
 }
 
 /// <summary>
@@ -101,9 +107,13 @@ public sealed class ResolveViewModel : ViewModelBase
         FilesView = System.Windows.Data.CollectionViewSource.GetDefaultView(Files);
         FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(UnresolvedRow.DirectoryText)));
 
-        ProposeCommand = new RelayCommand(() => _ = ProposeAsync(), () => HasSelection && !IsBusy);
+        // 走っている最中に止めるのは「書き込む操作」だけにする。
+        // 候補を出す・候補を確認する・ブラウザで開くは読み取りだけなので、
+        // 確定を待っている間も次のファイルを調べられる
+        // （確定処理は開始時に対象を控えるので、途中でプレビューが変わっても安全）
+        ProposeCommand = new RelayCommand(() => _ = ProposeAsync(), () => HasSelection);
         PreviewCommand = new RelayCommand(() => _ = PreviewAsync(ItemIdInput), () => CanPreview);
-        UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow && !IsBusy);
+        UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow);
         AssignCommand = new RelayCommand(() => _ = AssignAsync(), () => HasPreview && HasSelection && !IsBusy);
         ExcludeCommand = new RelayCommand(() => _ = ExcludeAsync(), () => HasSelection && !IsBusy);
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
@@ -379,7 +389,7 @@ public sealed class ResolveViewModel : ViewModelBase
         }
     }
 
-    public bool CanPreview => !IsBusy && ItemIdInput.Trim().Length > 0;
+    public bool CanPreview => ItemIdInput.Trim().Length > 0;
 
     public ItemPreview? Preview
     {
@@ -734,12 +744,12 @@ public sealed class ResolveViewModel : ViewModelBase
         Candidates.Clear();
         foreach (var id in Selected?.File.CandidateItemIds ?? [])
         {
-            Candidates.Add(new CandidateRow
+            Candidates.Add(WithBooth(new CandidateRow
             {
                 ItemId = id,
                 Title = $"商品ID {id}",
                 Source = "取り込み時の手掛かり",
-            });
+            }));
         }
 
         OnPropertyChanged(nameof(HasSelection));
@@ -890,7 +900,7 @@ public sealed class ResolveViewModel : ViewModelBase
         ? $"{SearchPhase}　{SearchCurrent + 1} / {SearchTotal}"
         : SearchPhase;
 
-    private static CandidateRow ToRow(ResolutionCandidate candidate) => new()
+    private static CandidateRow ToRow(ResolutionCandidate candidate) => WithBooth(new CandidateRow
     {
         ItemId = candidate.ItemId,
         Title = candidate.Name ?? $"商品ID {candidate.ItemId}",
@@ -898,7 +908,30 @@ public sealed class ResolveViewModel : ViewModelBase
             .Where(part => !string.IsNullOrEmpty(part))),
         Source = candidate.IsStrong ? $"検索・確度が高い（{candidate.Score}）" : $"検索（{candidate.Score}）",
         IsStrong = candidate.IsStrong,
-    };
+    });
+
+    /// <summary>候補にBOOTHを開くコマンドを付ける。候補を出す以上、確かめる手段が要る。</summary>
+    private static CandidateRow WithBooth(CandidateRow row)
+    {
+        row.OpenBoothCommand = new RelayCommand(() => OpenInBrowser(Core.Booth.BoothClient.ItemPageUrl(row.ItemId)));
+        return row;
+    }
+
+    private static void OpenInBrowser(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // 開けなくても作業は続けられる
+        }
+    }
 
     private async Task UseCandidateAsync(object? parameter)
     {

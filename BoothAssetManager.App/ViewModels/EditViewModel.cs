@@ -104,6 +104,7 @@ public sealed class EditViewModel : ViewModelBase
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
+        SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
 
         SaveAndNextCommand = new RelayCommand(() => _ = SaveAndAdvanceAsync(), () => HasItem && !IsSaving);
         SkipCommand = new RelayCommand(() => _ = AdvanceAsync(), () => HasItem && !IsSaving);
@@ -169,7 +170,37 @@ public sealed class EditViewModel : ViewModelBase
             ? _item.Booth.Category.Name
             : $"{_item.Booth.Category.ParentName} / {_item.Booth.Category.Name}";
 
-    public BitmapSource? MainImage => Images.Count == 0 ? null : Images[0].Image;
+    private int _selectedImageIndex;
+
+    /// <summary>今メインに出している画像。属性を付けるには複数枚見たいので切り替えられる。</summary>
+    public BitmapSource? MainImage => Images.Count == 0
+        ? null
+        : Images[Math.Clamp(_selectedImageIndex, 0, Images.Count - 1)].Image;
+
+    public RelayCommand SelectImageCommand { get; }
+
+    private void SelectImage(object? parameter)
+    {
+        if (parameter is not GalleryImage image)
+        {
+            return;
+        }
+
+        var index = Images.IndexOf(image);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _selectedImageIndex = index;
+
+        foreach (var entry in Images)
+        {
+            entry.IsSelected = ReferenceEquals(entry, image);
+        }
+
+        OnPropertyChanged(nameof(MainImage));
+    }
 
     public string DescriptionPreview => _item?.Booth.Description ?? string.Empty;
 
@@ -546,9 +577,18 @@ public sealed class EditViewModel : ViewModelBase
     private void BuildImages(ItemRecord record)
     {
         Images.Clear();
-        foreach (var path in _thumbnails.ListFiles(_services.Paths.ItemImagesDir(record.Id)))
+        _selectedImageIndex = 0;
+        var directory = _services.Paths.ItemImagesDir(record.Id);
+
+        foreach (var entry in Core.Images.ItemImageOrder.Arrange(
+            directory, record.Booth.Images, _thumbnails.ListFiles(directory)))
         {
-            Images.Add(new GalleryImage { Path = path, Image = _thumbnails.Load(path) });
+            Images.Add(new GalleryImage
+            {
+                Path = entry.Path,
+                Image = _thumbnails.Load(entry.Path),
+                IsOrphaned = entry.IsOrphaned,
+            });
         }
     }
 

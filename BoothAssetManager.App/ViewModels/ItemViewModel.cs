@@ -436,22 +436,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var directory = _services.Paths.ItemImagesDir(Item.Id);
         var onDisk = _thumbnails.ListFiles(directory);
 
-        // BOOTHの並び順を正として、その順に手元のファイルを並べる
-        var expected = new List<string>();
-        foreach (var image in Item.Booth.Images)
+        // 並べ替えは共有の規則に任せる（カードと編集画面でも同じ順になる）
+        foreach (var entry in ItemImageOrder.Arrange(directory, Item.Booth.Images, onDisk))
         {
-            var path = Path.Combine(directory, ImagePipeline.FileNameFor(image.OriginalUrl));
-            if (onDisk.Contains(path, StringComparer.OrdinalIgnoreCase))
+            Images.Add(new GalleryImage
             {
-                expected.Add(path);
-                Images.Add(new GalleryImage { Path = path, Image = _thumbnails.Load(path) });
-            }
-        }
-
-        // BOOTH側から消えた画像は、並びの後ろに控えめに続ける（消さずに残す方針）
-        foreach (var path in onDisk.Where(path => !expected.Contains(path, StringComparer.OrdinalIgnoreCase)))
-        {
-            Images.Add(new GalleryImage { Path = path, Image = _thumbnails.Load(path), IsOrphaned = true });
+                Path = entry.Path,
+                Image = _thumbnails.Load(entry.Path),
+                IsOrphaned = entry.IsOrphaned,
+            });
         }
 
         if (Images.Count > 0)

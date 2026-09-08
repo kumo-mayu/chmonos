@@ -253,6 +253,16 @@ public class AvatarNameShorteningTests
     public void SkipsMarketingBrackets(string name, string expected)
         => Assert.Equal(expected, AvatarText.ShortenName(name));
 
+    /// <summary>
+    /// 「」『』で括られた語が名前そのもの。ここを先に見ないと、
+    /// 短いだけのタグ（「サメ」）を名前にしてしまう。
+    /// </summary>
+    [Theory]
+    [InlineData("サメっ子オリジナル3Dモデル「rurune」-ルルネ-", "rurune")]
+    [InlineData("オリジナル3Dモデル『Bird/鳥』", "Bird/鳥")]
+    public void PrefersQuotedNames(string name, string expected)
+        => Assert.Equal(expected, AvatarText.ShortenName(name, ["サメ", "3D"]));
+
     [Fact]
     public void KeepsPlainNamesAsIs()
         => Assert.Equal("ミルフィ Milfy / オリジナル3Dモデル",

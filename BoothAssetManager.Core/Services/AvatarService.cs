@@ -36,6 +36,9 @@ public sealed record AvatarDetectResult
 
     /// <summary>問い合わせに失敗して判断を保留したID。次回もう一度試す。</summary>
     public required int Unresolved { get; init; }
+
+    /// <summary>この回で登録簿に新しく入った件数。商品が変わらなくても、次の回で効いてくる。</summary>
+    public int RegistryAdded { get; init; }
 }
 
 /// <summary>アバター1体の一覧表示用。</summary>
@@ -164,7 +167,9 @@ public sealed partial class AvatarService : IAvatarService
                 DirectCount = direct.TryGetValue(entry.ItemId, out var d) ? d : 0,
                 ViaBaseCount = viaBase.TryGetValue(entry.ItemId, out var v) ? v : 0,
             })
-            .Where(summary => summary.IsAvatar)
+            // 「アバターとして扱わない」にしたものも残す。一覧から消すと選べなくなり、
+            // 隣にある「自動判定に戻す」を押す手段が無くなる（JSONを手で直すしかなくなる）
+            .Where(summary => summary.IsAvatar || summary.Entry.AvatarOverride == false)
             .OrderByDescending(summary => summary.IsOwned)
             .ThenByDescending(summary => summary.DirectCount + summary.ViaBaseCount)
             .ThenBy(summary => summary.Entry.DisplayName ?? summary.Entry.ItemId, StringComparer.CurrentCulture)
@@ -239,7 +244,8 @@ public sealed partial class AvatarService : IAvatarService
             // 何回で落ち着いたかではなく、合計で何件書き換えたかを返す
             result = current with { Requests = requests, ItemsUpdated = updated };
 
-            if (current.ItemsUpdated == 0)
+            // 商品が変わらなくても、登録簿が増えていれば次の回で拾えるものが増える
+            if (current.ItemsUpdated == 0 && current.RegistryAdded == 0)
             {
                 break;
             }
@@ -256,6 +262,7 @@ public sealed partial class AvatarService : IAvatarService
         var registry = _store.Avatars.Load();
 
         var entries = registry.Entries.ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
+        var entriesBefore = entries.Count;
         // 名前が定着している共通素体を最初だけ足す。既にある名前には触らない。
         // 素体の関係はBOOTHのデータからは取れないので、空から始めると何も出ない
         var seeded = registry.BaseGroups.ToList();
@@ -263,9 +270,39 @@ public sealed partial class AvatarService : IAvatarService
 
         var groups = seeded.ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
 
-        // 索引に載せるのはアバターと判定できたものだけ。
-        // 依存ツールやテクスチャの名前が混ざると、そちらに引っ掛かって別名が汚れる
-        var index = AvatarNameIndex.Build(registry, IsAvatar);
+        // ── ⓪ ライブラリの中のアバターを先に登録する ──
+        //
+        // 他の商品から参照されたIDだけを候補にすると、対応衣装を持っていない
+        // アバターが永久に登録されない。自分のアバターが1体も出ない状態になる。
+        // categoryは手元のitemに入っているので、ここは通信ゼロで済む。
+        // 先に入れておくと、その別名（＝自分のアバターの呼び名）が最初から
+        // 照合に使えるので、衣装側の検出精度も上がる。
+        foreach (var item in loaded.Items)
+        {
+            if (!string.Equals(item.Booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
+                || entries.ContainsKey(item.Id))
+            {
+                continue;
+            }
+
+            entries[item.Id] = new AvatarRegistryEntry
+            {
+                ItemId = item.Id,
+                BoothName = item.Booth.Name,
+                DisplayName = AvatarText.ShortenName(
+                    item.Booth.Name,
+                    BuildAliasesFromTags(item.Booth).Select(alias => alias.Text)),
+                Category = item.Booth.Category?.Name,
+                CheckedAt = item.Booth.FetchedAt,
+                Aliases = BuildAliasesFromTags(item.Booth),
+            };
+        }
+
+        // 索引はライブラリのアバターを入れた後に組む。先に組むと、
+        // 自分のアバターの別名が1回目の照合に効かない
+        var index = AvatarNameIndex.Build(
+            new AvatarRegistry { Entries = entries.Values.ToList(), BaseGroups = seeded },
+            IsAvatar);
 
         // ── ① 手元の材料から候補を集める ──
         var candidates = new Dictionary<string, ItemScan>(StringComparer.Ordinal);
@@ -379,7 +416,7 @@ public sealed partial class AvatarService : IAvatarService
 
             var booth = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
             var aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
-                ? BuildAliasesFromBooth(booth)
+                ? BuildAliasesFromTags(booth)
                 : [];
 
             entries[id] = new AvatarRegistryEntry
@@ -497,6 +534,7 @@ public sealed partial class AvatarService : IAvatarService
             BaseGroupsFound = finalRegistry.BaseGroups.Count,
             Requests = requests,
             Unresolved = unresolved,
+            RegistryAdded = entries.Count - entriesBefore,
         };
     }
 
@@ -654,7 +692,7 @@ public sealed partial class AvatarService : IAvatarService
     /// タグをそのまま全部入れると「VRChat」「オリジナル」のような汎用語が混ざるので、
     /// 商品名に現れているものだけに絞る（実測でこの条件が効いた）。
     /// </summary>
-    private static List<AvatarAlias> BuildAliasesFromBooth(BoothBlock booth)
+    private static List<AvatarAlias> BuildAliasesFromTags(BoothBlock booth)
     {
         var aliases = new List<AvatarAlias>();
         var normalizedName = AvatarText.Normalize(booth.Name);

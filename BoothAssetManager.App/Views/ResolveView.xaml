@@ -272,17 +272,21 @@
                                         <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
                                                 Padding="12,10" Margin="0,0,0,7">
                                             <Grid>
-                                                <StackPanel Margin="0,0,110,0">
+                                                <StackPanel Margin="0,0,200,0">
                                                     <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
                                                     <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
                                                                TextWrapping="Wrap" Margin="0,3,0,0" />
                                                     <TextBlock Text="{Binding Source}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                                 </StackPanel>
-                                                <Button Content="これで確認" Style="{StaticResource SmallButton}"
-                                                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                        Command="{Binding DataContext.UseCandidateCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <!-- 候補を出す以上、それが目当てのものか確かめる手段が要る -->
+                                                    <Button Content="BOOTHで見る" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                            Command="{Binding OpenBoothCommand}" />
+                                                    <Button Content="これで確認" Style="{StaticResource SmallButton}"
+                                                            Command="{Binding DataContext.UseCandidateCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

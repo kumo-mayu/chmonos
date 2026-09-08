@@ -213,6 +213,15 @@ public static class AvatarText
     {
         var name = (boothName ?? string.Empty).Trim();
 
+        // 「」『』で括られていれば、それが名前そのものであることが多い。
+        // ここを先に見ないと、短いだけのタグを名前にしてしまう
+        // （「サメっ子オリジナル3Dモデル「rurune」-ルルネ-」がタグの「サメ」になった）
+        var quoted = Regex.Match(name, @"[「『]([^「」『』]{2,24})[」』]");
+        if (quoted.Success && !IsBracketNoise(quoted.Groups[1].Value))
+        {
+            return quoted.Groups[1].Value.Trim();
+        }
+
         var candidate = aliases?
             .Where(alias => !string.IsNullOrWhiteSpace(alias)
                 && alias.Length >= 2

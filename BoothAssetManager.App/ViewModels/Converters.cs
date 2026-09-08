@@ -89,3 +89,15 @@ public sealed class EmptyToVisibleConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>扱わないことにした行を薄くする。消さずに残すが、同じ顔では出さない。</summary>
+public sealed class ExcludedOpacityConverter : IValueConverter
+{
+    public static readonly ExcludedOpacityConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is true ? 0.45 : 1.0;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

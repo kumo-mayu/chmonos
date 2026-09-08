@@ -75,11 +75,26 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="58" Height="46" Margin="0,0,6,6" Background="#eef0f2"
-                                                BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="4"
-                                                ClipToBounds="True">
-                                            <Image Source="{Binding Image}" Stretch="Uniform" />
-                                        </Border>
+                                        <!-- 押すとメインが切り替わる。属性を付けるには複数枚見たい -->
+                                        <Button Command="{Binding DataContext.SelectImageCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                                            <Border Width="58" Height="46" Margin="0,0,6,6" Background="#eef0f2"
+                                                    BorderThickness="2" CornerRadius="4" ClipToBounds="True">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Image Source="{Binding Image}" Stretch="Uniform" />
+                                            </Border>
+                                        </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
