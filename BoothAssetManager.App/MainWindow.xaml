@@ -45,6 +45,9 @@
         <DataTemplate DataType="{x:Type vm:AvatarsViewModel}">
             <views:AvatarsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -182,8 +185,10 @@
                     </Button>
                 </StackPanel>
 
-                <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" IsEnabled="False" Margin="10,0,10,14">
-                    <TextBlock Text="設定" Foreground="{StaticResource RailText}" />
+                <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" Margin="10,0,10,14"
+                        Command="{Binding ShowSettingsCommand}">
+                    <TextBlock Text="設定" HorizontalAlignment="Left"
+                               Foreground="{Binding IsSettingsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                 </Button>
             </DockPanel>
         </Border>

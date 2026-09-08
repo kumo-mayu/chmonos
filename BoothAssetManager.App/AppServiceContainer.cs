@@ -44,6 +44,7 @@ public sealed class AppServiceContainer : IDisposable
         Shops = new ShopService(Store, Settings, Client);
         Stats = new StatsService(Store);
         Avatars = new AvatarService(Store, Settings, Client);
+        SettingsStore = new SettingsService(Store);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags, Attributes);
     }
@@ -78,7 +79,11 @@ public sealed class AppServiceContainer : IDisposable
 
     public DataStore Store { get; }
 
-    public AppSettings Settings { get; }
+    /// <summary>
+    /// 現在の設定。設定画面から差し替わる。
+    /// 起動時にサービスへ渡した値（通信間隔・画像の解像度など）は次の起動から効く。
+    /// </summary>
+    public AppSettings Settings { get; private set; }
 
     public IBoothClient Client { get; }
 
@@ -103,6 +108,11 @@ public sealed class AppServiceContainer : IDisposable
     public StatsService Stats { get; }
 
     public AvatarService Avatars { get; }
+
+    public SettingsService SettingsStore { get; }
+
+    /// <summary>設定画面が保存した内容に差し替える。以後に作る画面はこちらを読む。</summary>
+    public void ReplaceSettings(AppSettings settings) => Settings = settings;
 
     public CommandHandler Commands { get; }
 

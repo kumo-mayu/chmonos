@@ -45,6 +45,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowShopsCommand = new RelayCommand(ShowShops);
         ShowStatsCommand = new RelayCommand(ShowStats);
         ShowAvatarsCommand = new RelayCommand(ShowAvatars);
+        ShowSettingsCommand = new RelayCommand(ShowSettings);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
 
@@ -115,6 +116,13 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>アバターの管理。検出や編集で中身が変わるので、開き直した時点で読み直す。</summary>
     public void ShowAvatars() => CurrentViewModel = new AvatarsViewModel(_services, this);
 
+    public RelayCommand ShowSettingsCommand { get; }
+
+    public bool IsSettingsActive => CurrentViewModel is SettingsViewModel;
+
+    /// <summary>設定。保存先の使用量を数え直すので、開くたびに作る。</summary>
+    public void ShowSettings() => CurrentViewModel = new SettingsViewModel(_services, this);
+
     public RelayCommand ShowTagManageCommand { get; }
 
     public bool IsTagManageActive => CurrentViewModel is TagManageViewModel;
@@ -175,6 +183,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsShopsActive));
                 OnPropertyChanged(nameof(IsStatsActive));
                 OnPropertyChanged(nameof(IsAvatarsActive));
+                OnPropertyChanged(nameof(IsSettingsActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
                 OnPropertyChanged(nameof(IsAttributeManageActive));
             }
