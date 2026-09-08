@@ -160,29 +160,35 @@
                                 外すだけだと、zipが残っていない商品はライブラリから消えてしまう。
                                 まずzipを落とし直す道を勧め、それが無理な場合の受け皿を並べて出す。
                             -->
-                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
-                                    BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,10,0,0">
+                            <!--
+                                zipを取り込む形が一番きれい（配布単位と一致し、移動にも強く、
+                                展開先は自動で対象外になる）。まずこれを勧める。
+                            -->
+                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Accent}"
+                                    BorderThickness="2" CornerRadius="8" Padding="15,13" Margin="0,11,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="おすすめ：BOOTHからzipを落とし直す" FontWeight="Bold" FontSize="12" />
-                                    <TextBlock Text="zipがあれば普通に取り込めて、展開先も自動で対象から外れます。まず「自動検索」でどの商品か調べ、BOOTHで開いて再ダウンロードしてください。"
-                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                                        <Button Content="自動検索でこの商品を調べる" Style="{StaticResource SmallButton}"
+                                    <TextBlock Text="まずはこちら：BOOTHからzipを落とし直す" FontWeight="Bold" FontSize="13"
+                                               Foreground="{StaticResource Accent}" />
+                                    <TextBlock Text="zipで持っておくのが一番きれいです。配布された単位と一致し、フォルダを移動しても追跡でき、展開先は自動で対象から外れます。まず「自動検索」でどの商品か調べ、BOOTHで開いて再ダウンロードしてください。"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,11,0,0">
+                                        <Button Content="自動検索でこの商品を調べる" Style="{StaticResource PrimaryButton}"
                                                 Command="{Binding ProposeCommand}" />
-                                        <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                        <Button Content="ブラウザで検索" Margin="8,0,0,0"
                                                 Command="{Binding OpenBoothCommand}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Text="落とし直せない場合（非公開になった商品など）は、下のどちらかを選んでください。"
-                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,7" />
+                            <TextBlock Text="どうしても落とし直せない場合（非公開になった商品など）だけ、下を使ってください。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,7" />
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="{Binding RegisterFolderText}" Command="{Binding RegisterFolderCommand}" />
-                                <Button Content="まとめて選択して外す" Margin="8,0,0,0"
+                                <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}"
+                                        Command="{Binding RegisterFolderCommand}" />
+                                <Button Content="まとめて選択して外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                         Command="{Binding SelectArchiveContentCommand}" />
                             </StackPanel>
-                            <TextBlock Text="フォルダとして登録すると、中身がスキャン対象から外れたうえで所有の記録になります（先に商品IDを確認してください）。管理から外すと、その商品はライブラリに残りません。"
+                            <TextBlock Text="フォルダ登録は場所で覚えるので、フォルダを移動するとリンクが切れます（先に商品IDを確認してください）。管理から外すと、その商品はライブラリに残りません。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                         </StackPanel>
                     </Border>

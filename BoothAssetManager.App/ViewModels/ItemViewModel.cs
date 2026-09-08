@@ -8,6 +8,7 @@ using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Scanning;
 using BoothAssetManager.Core.Services;
 using BoothZipInspector;
 
@@ -55,6 +56,14 @@ public sealed class LocalFolderRow
 
     /// <summary>登録した場所に今もあるか。無ければ指し直しが要る。</summary>
     public bool IsMissing { get; init; }
+
+    /// <summary>
+    /// 対応するzipが手元に入ったか。入っていればフォルダ登録は役目を終えている。
+    /// 放っておくと容量が二重に数えられるので、その場で気付けるようにする。
+    /// </summary>
+    public bool HasArchive { get; init; }
+
+    public string ArchiveNoticeText { get; init; } = string.Empty;
 }
 
 public sealed class LocalFileRow
@@ -386,12 +395,24 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private void BuildLocalFolders()
     {
         LocalFolders = Item.Local.LocalFolders
-            .Select(folder => new LocalFolderRow
+            .Select(folder =>
             {
-                Path = folder.Path,
-                Name = System.IO.Path.GetFileName(folder.Path),
-                SummaryText = $"{folder.FileCount} ファイル / {FormatSize(folder.TotalBytes)}",
-                IsMissing = !Directory.Exists(folder.Path),
+                // zipが手に入っていればフォルダ登録は役目を終えている。
+                // 気付かずに置いておくと容量が二重に数えられる。
+                var archive = RegisteredFolderSet.FindArchiveFor(folder.Path);
+
+                return new LocalFolderRow
+                {
+                    Path = folder.Path,
+                    Name = System.IO.Path.GetFileName(folder.Path),
+                    SummaryText = $"{folder.FileCount} ファイル / {FormatSize(folder.TotalBytes)}",
+                    IsMissing = !Directory.Exists(folder.Path),
+                    HasArchive = archive is not null,
+                    ArchiveNoticeText = archive is null
+                        ? string.Empty
+                        : $"{System.IO.Path.GetFileName(archive)} が見つかりました。"
+                            + "そちらを取り込めば展開先は自動で対象から外れるので、この登録は解除してください。",
+                };
             })
             .ToList();
     }

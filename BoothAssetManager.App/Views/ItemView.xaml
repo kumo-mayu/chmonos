@@ -309,6 +309,13 @@
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11"
                                                                Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                                                    <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
+                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,7,0,0"
+                                                            Visibility="{Binding HasArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding ArchiveNoticeText}" FontSize="11.5"
+                                                                   Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+                                                    </Border>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"

@@ -140,6 +140,8 @@ public sealed class ImportPipeline : IImportPipeline
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var paths = new List<string>();
+        var notifications = _store.Notifications.Load();
+        var notificationCountBefore = notifications.Count;
 
         var owned = loaded.Items
             .SelectMany(item => item.Local.LocalFiles)
@@ -161,6 +163,13 @@ public sealed class ImportPipeline : IImportPipeline
                 }
 
                 paths.Add(folder.Path);
+
+                // zipが手に入っていれば、フォルダ登録は役目を終えている。
+                // 黙っていると容量が二重に乗ったままなので知らせる。
+                if (RegisteredFolderSet.FindArchiveFor(folder.Path) is { } archive)
+                {
+                    NoteArchiveFound(notifications, item, folder.Path, archive);
+                }
 
                 var (count, bytes) = RegisteredFolderSet.Measure(folder.Path);
                 if (count != folder.FileCount || bytes != folder.TotalBytes || folder.LastSeenAt is null)
@@ -184,7 +193,42 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
+        if (notifications.Count != notificationCountBefore)
+        {
+            await _store.Notifications.SaveAsync(notifications, cancellationToken);
+        }
+
         return (new RegisteredFolderSet(paths), owned);
+    }
+
+    /// <summary>
+    /// 「登録したフォルダのzipが手に入った」を要確認へ書く。
+    /// 同じフォルダで何度も出さないよう、未読の同種があれば足さない。
+    /// </summary>
+    private static void NoteArchiveFound(
+        List<NotificationRecord> notifications,
+        ItemRecord item,
+        string folderPath,
+        string archivePath)
+    {
+        var id = $"archive-found:{folderPath}";
+        if (notifications.Any(entry => entry.Id == id && !entry.IsRead))
+        {
+            return;
+        }
+
+        notifications.Add(new NotificationRecord
+        {
+            Id = id,
+            Kind = NotificationKind.ArchiveFoundForFolder,
+            ItemId = item.Id,
+            Title = $"{item.Booth.Name ?? item.Id}：zipが手元に入りました",
+            Detail = $"フォルダ登録は不要になりました。{Path.GetFileName(archivePath)} を取り込めば、"
+                + $"展開先（{Path.GetFileName(folderPath)}）は自動で対象から外れます。"
+                + "商品ページからフォルダの登録を解除してください（このままだと容量が二重に数えられます）。",
+            CreatedAt = DateTimeOffset.Now,
+            IsStrong = true,
+        });
     }
 
     private ScanOutcome ScanFolders(

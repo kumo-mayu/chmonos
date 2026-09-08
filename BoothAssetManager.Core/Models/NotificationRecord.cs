@@ -20,6 +20,9 @@ public enum NotificationKind
 
     /// <summary>説明文のセクションが取れない商品が急増した（BOOTH側の構造変化の疑い）。</summary>
     PageStructureChanged,
+
+    /// <summary>フォルダとして登録した商品のzipが手元に入った。登録を解除できる。</summary>
+    ArchiveFoundForFolder,
 }
 
 /// <summary>

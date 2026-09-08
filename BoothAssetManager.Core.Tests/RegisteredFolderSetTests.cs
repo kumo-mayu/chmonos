@@ -81,3 +81,60 @@ public class RegisteredFolderSetTests
         Assert.Equal(0, bytes);
     }
 }
+
+/// <summary>
+/// フォルダ登録はzipが手元に無い場合の受け皿なので、zipが現れたら役目を終える。
+/// 気付かずに置いておくと容量が二重に数えられる。
+/// </summary>
+public class ArchiveForFolderTests : IDisposable
+{
+    private readonly string _root;
+
+    public ArchiveForFolderTests()
+    {
+        _root = Path.Combine(Path.GetTempPath(), "bam-archfor-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_root);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    [Fact]
+    public void FindsTheArchiveThatAppearedBesideTheFolder()
+    {
+        var folder = Path.Combine(_root, "rurune_v1.1.3");
+        Directory.CreateDirectory(folder);
+        var archive = Path.Combine(_root, "rurune_v1.1.3.zip");
+        File.WriteAllBytes(archive, new byte[8]);
+
+        Assert.Equal(archive, RegisteredFolderSet.FindArchiveFor(folder));
+    }
+
+    [Fact]
+    public void FindsNothingWhileTheArchiveIsAbsent()
+    {
+        var folder = Path.Combine(_root, "rurune_v1.1.3");
+        Directory.CreateDirectory(folder);
+
+        Assert.Null(RegisteredFolderSet.FindArchiveFor(folder));
+    }
+
+    /// <summary>名前が違うアーカイブは対応とみなさない。</summary>
+    [Fact]
+    public void IgnoresAnUnrelatedArchive()
+    {
+        var folder = Path.Combine(_root, "rurune_v1.1.3");
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(_root, "Kipfel_1.2.0.zip"), new byte[8]);
+
+        Assert.Null(RegisteredFolderSet.FindArchiveFor(folder));
+    }
+}
