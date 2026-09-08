@@ -120,7 +120,18 @@ public sealed class SearchViewModel : ViewModelBase
         var filter = new ExtraFilter { Kind = kind, IsOn = save };
         filter.Changed += ApplyFilters;
         filter.RemoveCommand = new RelayCommand(() => RemoveExtraFilter(filter));
+
+        if (kind == ExtraFilterKind.Folder)
+        {
+            filter.Descended += () => RebuildFolderRows(filter);
+        }
+
         ExtraFilters.Add(filter);
+
+        if (kind == ExtraFilterKind.Folder)
+        {
+            RebuildFolderRows(filter);
+        }
 
         RefreshAvailableExtraFilters();
 
@@ -150,6 +161,115 @@ public sealed class SearchViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasExtraFilters));
     }
+
+    /// <summary>
+    /// 今いる階層の行を作り直す。
+    ///
+    /// 木は保存せず毎回ここで組む。1,300件でもパスの文字列を辿るだけなので軽い。
+    /// </summary>
+    private void RebuildFolderRows(ExtraFilter filter)
+    {
+        filter.Rows.Clear();
+        filter.Crumbs.Clear();
+
+        // パンくず。現在地であって条件ではないので、押すと移動するだけ
+        filter.Crumbs.Add(new FolderCrumb
+        {
+            Label = "すべて",
+            Path = null,
+            IsLast = filter.CurrentPath is null,
+            GoCommand = new RelayCommand(() => filter.CurrentPath = null),
+        });
+
+        if (filter.CurrentPath is { } current)
+        {
+            var walked = string.Empty;
+            var segments = current.Split(System.IO.Path.DirectorySeparatorChar);
+
+            for (var i = 0; i < segments.Length; i++)
+            {
+                walked = i == 0 ? segments[0] : walked + System.IO.Path.DirectorySeparatorChar + segments[i];
+                var target = walked;
+
+                filter.Crumbs.Add(new FolderCrumb
+                {
+                    Label = segments[i],
+                    Path = target,
+                    IsLast = i == segments.Length - 1,
+                    GoCommand = new RelayCommand(() => filter.CurrentPath = target),
+                });
+            }
+        }
+
+        foreach (var node in Core.Services.FolderTree.Children(_allItems, filter.CurrentPath))
+        {
+            var path = node.Path;
+
+            var row = new FolderRow
+            {
+                Path = path,
+                Name = node.Name,
+                Count = node.ItemCount,
+                CanDescend = node.CanDescend,
+
+                // 記録にはあるが今その場所が無い。外付けを外したときなど。
+                // 消さずに残す：「どこに置いたっけ」を一番知りたいのがこの状況
+                IsOffline = !Directory.Exists(path),
+                CanAddToImport = !_services.Settings.ImportFolders.Contains(path, StringComparer.OrdinalIgnoreCase),
+                IsSelected = filter.Selected.Contains(path, StringComparer.OrdinalIgnoreCase),
+            };
+
+            row.DescendCommand = new RelayCommand(() => filter.CurrentPath = path);
+            row.OpenCommand = new RelayCommand(() => Shell.Reveal(path));
+            row.AddToImportCommand = new RelayCommand(() => _ = AddImportFolderAsync(path));
+            row.Changed += () =>
+            {
+                if (row.IsSelected)
+                {
+                    filter.Add(path);
+                }
+                else
+                {
+                    filter.Remove(path);
+                }
+            };
+
+            filter.Rows.Add(row);
+        }
+    }
+
+    /// <summary>
+    /// 取り込み元に足す。足すだけで、その場では読み込まない。
+    /// そのフォルダの商品は既に登録済み（だから木に出ている）なので、
+    /// 今すぐ読んでも新しく見つかるものはほぼ無い。
+    /// 目的は今後の再スキャンと欠落検出の範囲に入れること。
+    /// </summary>
+    private async Task AddImportFolderAsync(string path)
+    {
+        var settings = _services.Settings;
+        if (settings.ImportFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var next = settings with { ImportFolders = [.. settings.ImportFolders, path] };
+        _services.ReplaceSettings(next);
+        await _services.SettingsStore.SaveAsync(next);
+
+        ImportFolderNotice = $"「{path}」を取り込み元に足しました。次の取り込みから、このフォルダも見ます。";
+        OnPropertyChanged(nameof(ImportFolderNotice));
+        OnPropertyChanged(nameof(HasImportFolderNotice));
+
+        foreach (var filter in ExtraFilters.Where(f => f.Kind == ExtraFilterKind.Folder))
+        {
+            RebuildFolderRows(filter);
+        }
+    }
+
+    /// <summary>取り込み元に足した結果。押しても何も起きなかったように見えないよう出す。</summary>
+    public string ImportFolderNotice { get; private set; } = string.Empty;
+
+    public bool HasImportFolderNotice => ImportFolderNotice.Length > 0;
 
     /// <summary>積んでいる種類だけを設定へ書く。値は書かない。</summary>
     private void SaveExtraFilterKinds()
@@ -776,6 +896,11 @@ public sealed class SearchViewModel : ViewModelBase
 
         RefreshFacetCounts();
         RebuildRows();
+
+        foreach (var filter in ExtraFilters.Where(f => f.Kind == ExtraFilterKind.Folder && f.Rows.Count == 0))
+        {
+            RebuildFolderRows(filter);
+        }
 
         OnPropertyChanged(nameof(ResultSummary));
         OnPropertyChanged(nameof(IsEmpty));

@@ -91,9 +91,13 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </DockPanel.Style>
-                                            <CheckBox DockPanel.Dock="Left" Content="{Binding Name}"
+                                            <!-- 名前は TextBlock で入れる（Content 直渡しだとアンダースコアが食われる） -->
+                                            <CheckBox DockPanel.Dock="Left"
                                                       IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                      FontSize="12.5" Foreground="{StaticResource Text}" />
+                                                      AutomationProperties.Name="{Binding Name}">
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5"
+                                                           Foreground="{StaticResource Text}" />
+                                            </CheckBox>
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding Count}"
                                                        Style="{StaticResource Caption}" VerticalAlignment="Center" />
                                         </DockPanel>
@@ -116,8 +120,11 @@
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </StackPanel.Style>
-                                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                  FontSize="11.5" Foreground="{StaticResource TextMuted}" />
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  AutomationProperties.Name="{Binding Name}">
+                                                            <TextBlock Text="{Binding Name}" FontSize="11.5"
+                                                                       Foreground="{StaticResource TextMuted}" />
+                                                        </CheckBox>
                                                         <TextBlock Text="{Binding Count}" Style="{StaticResource Caption}"
                                                                    FontSize="10.5" Margin="4,0,0,0" VerticalAlignment="Center" />
                                                     </StackPanel>
@@ -205,9 +212,18 @@
                             積んだ種類は次の起動にも残るが、値は残らない
                             （値まで戻すと「なぜか商品が少ない」状態で始まってしまう）。
                         -->
+                        <!-- 押しても何も起きなかったように見えないよう、結果を出す -->
+                        <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,10,0,0"
+                                Visibility="{Binding HasImportFolderNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding ImportFolderNotice}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Good}" />
+                        </Border>
+
                         <TextBlock Text="条件を追加" Style="{StaticResource SectionLabel}" Margin="0,14,0,6" />
                         <controls:SuggestBox Source="{Binding AvailableExtraFilters}" AllowNew="False"
                                              CommitCommand="{Binding AddExtraFilterCommand}"
+                                             AutomationProperties.Name="条件を追加"
                                              Placeholder="条件を追加（公開日・価格・R-18 など）" />
 
                         <ItemsControl ItemsSource="{Binding ExtraFilters}" Margin="0,8,0,0">
@@ -254,6 +270,82 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
+
+                                            <!--
+                                                フォルダは1階層ずつ降りる。インデント付きの木にしないのは、
+                                                286pxで長い名前にインデントを足すと横スクロールが避けられないため。
+                                                チェックで選び、シェブロンで降りる（選択と移動は別の操作）。
+                                            -->
+                                            <StackPanel Margin="0,7,0,0"
+                                                        Visibility="{Binding IsDrill, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl ItemsSource="{Binding Crumbs}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:FolderCrumb}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Button Content="{Binding Label}" Command="{Binding GoCommand}"
+                                                                        Background="Transparent" BorderThickness="0" Padding="0"
+                                                                        Height="18" FontSize="11" Cursor="Hand"
+                                                                        Foreground="{StaticResource Accent}" />
+                                                                <TextBlock Text=" ＞ " FontSize="10" VerticalAlignment="Center"
+                                                                           Foreground="{StaticResource TextFaint}"
+                                                                           Visibility="{Binding IsLast, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <ItemsControl ItemsSource="{Binding Rows}" Margin="0,5,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:FolderRow}">
+                                                            <DockPanel LastChildFill="False" Margin="0,0,0,2">
+                                                                <DockPanel.Style>
+                                                                    <Style TargetType="DockPanel">
+                                                                        <Setter Property="Opacity" Value="1" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                                                                <Setter Property="Opacity" Value="0.45" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </DockPanel.Style>
+                                                                <!--
+                                                                    名前は TextBlock で入れる。Content に直接文字列を渡すと
+                                                                    WPFがアンダースコアをアクセスキーの印として食べてしまい、
+                                                                    VRChat_model が VRChatmodel と表示される。
+                                                                    フォルダ名にアンダースコアは普通に入っている。
+                                                                -->
+                                                                <CheckBox DockPanel.Dock="Left"
+                                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                          FontSize="12" Foreground="{StaticResource Text}"
+                                                                          ToolTip="{Binding Path}"
+                                                                          AutomationProperties.Name="{Binding Name}">
+                                                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                                                               Foreground="{StaticResource Text}" />
+                                                                    <CheckBox.ContextMenu>
+                                                                        <ContextMenu>
+                                                                            <MenuItem Header="エクスプローラで開く" Command="{Binding OpenCommand}" />
+                                                                            <MenuItem Header="取り込み元に足す" Command="{Binding AddToImportCommand}"
+                                                                                      Visibility="{Binding CanAddToImport, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                        </ContextMenu>
+                                                                    </CheckBox.ContextMenu>
+                                                                </CheckBox>
+                                                                <!-- 降りられないフォルダにはシェブロンを出さない -->
+                                                                <Button DockPanel.Dock="Right" Content="＞" Command="{Binding DescendCommand}"
+                                                                        Background="Transparent" BorderThickness="0" Padding="4,0"
+                                                                        Height="20" FontSize="11" Cursor="Hand"
+                                                                        Foreground="{StaticResource TextMuted}"
+                                                                        Visibility="{Binding CanDescend, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}"
+                                                                           Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                                                           Margin="6,0,0,0" />
+                                                            </DockPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
 
                                             <TextBlock Text="{Binding Hint}" Style="{StaticResource Caption}"
                                                        TextWrapping="Wrap" Margin="0,6,0,0" />

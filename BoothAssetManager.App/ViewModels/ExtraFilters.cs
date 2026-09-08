@@ -89,6 +89,51 @@ public sealed class ExtraFilter : ViewModelBase
 
     public bool IsSuggest => Shape == ExtraFilterShape.Suggest;
 
+    public bool IsDrill => Shape == ExtraFilterShape.Drill;
+
+    private string? _currentPath;
+
+    /// <summary>
+    /// 今どこを見ているか。null は根。
+    /// これは現在地であって条件ではない（条件は <see cref="Selected"/>）。
+    /// セッション内だけ覚え、閉じたら忘れる。
+    /// </summary>
+    public string? CurrentPath
+    {
+        get => _currentPath;
+        set
+        {
+            if (SetField(ref _currentPath, value))
+            {
+                Descended?.Invoke();
+            }
+        }
+    }
+
+    /// <summary>降りた・上がったので、出す行を作り直してほしい。</summary>
+    public event Action? Descended;
+
+    /// <summary>今いる階層の行。検索側が作って入れる。</summary>
+    public System.Collections.ObjectModel.ObservableCollection<FolderRow> Rows { get; } = [];
+
+    /// <summary>現在地を示すパンくず。押すとその階層へ戻る。</summary>
+    public System.Collections.ObjectModel.ObservableCollection<FolderCrumb> Crumbs { get; } = [];
+
+    /// <summary>
+    /// 同じ名前のフォルダを2つ以上選んでいるか。
+    /// そのときだけチップに親を1段足して区別できるようにする。
+    /// </summary>
+    public bool HasAmbiguousSelection => Selected
+        .Select(LastSegmentOf)
+        .GroupBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+        .Any(group => group.Count() > 1);
+
+    internal static string LastSegmentOf(string path)
+    {
+        var index = path.LastIndexOf(System.IO.Path.DirectorySeparatorChar);
+        return index < 0 ? path : path[(index + 1)..];
+    }
+
     public event Action? Changed;
 
     /// <summary>この条件を外す。</summary>
@@ -169,6 +214,11 @@ public sealed class ExtraFilter : ViewModelBase
                 && Selected.Contains(link.BaseName, StringComparer.CurrentCultureIgnoreCase)),
         ExtraFilterKind.UsedOn => Selected.Count == 0
             || item.Local.UsedOn.Any(usage => Selected.Contains(usage.AvatarItemId, StringComparer.Ordinal)),
+
+        // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
+        // 複数選んだ場合はOR（appTagと揃える）
+        ExtraFilterKind.Folder => Selected.Count == 0
+            || Selected.Any(folder => FolderTree.IsUnder(item, folder)),
         _ => true,
     };
 
@@ -213,4 +263,65 @@ public sealed class ExtraFilter : ViewModelBase
 
         return !DateOnly.TryParse(Max.Trim(), out var max) || DateOnly.FromDateTime(date.Date) <= max;
     }
+}
+
+/// <summary>
+/// ドリルダウンの1行。
+/// チェックで選び、シェブロンで降りる。1行に当たり判定が2つ乗るので、
+/// XAML側でシェブロンを行の右端に離してある。
+/// </summary>
+public sealed class FolderRow : ViewModelBase
+{
+    private bool _isSelected;
+
+    public required string Path { get; init; }
+
+    public required string Name { get; init; }
+
+    public required int Count { get; init; }
+
+    /// <summary>降りられるか。商品が1件のフォルダにはシェブロンを出さない。</summary>
+    public required bool CanDescend { get; init; }
+
+    /// <summary>記録上のフォルダが今つながっていない。外付けを外したときなど。</summary>
+    public required bool IsOffline { get; init; }
+
+    public string CountText => IsOffline ? $"{Count}・今つながっていません" : Count.ToString();
+
+    public bool IsEmpty => Count == 0;
+
+    public RelayCommand? DescendCommand { get; set; }
+
+    public RelayCommand? OpenCommand { get; set; }
+
+    public RelayCommand? AddToImportCommand { get; set; }
+
+    public bool CanAddToImport { get; init; }
+
+    public event Action? Changed;
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetField(ref _isSelected, value))
+            {
+                Changed?.Invoke();
+            }
+        }
+    }
+}
+
+/// <summary>パンくずの1つ。現在地を示すだけで、条件ではない。</summary>
+public sealed class FolderCrumb
+{
+    public required string Label { get; init; }
+
+    /// <summary>null は根。</summary>
+    public string? Path { get; init; }
+
+    public RelayCommand? GoCommand { get; set; }
+
+    public bool IsLast { get; init; }
 }
