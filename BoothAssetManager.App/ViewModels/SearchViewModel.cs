@@ -55,6 +55,9 @@ public sealed class SearchViewModel : ViewModelBase
     private SortOption _sort = DefaultSort;
     private List<string> _attributeNames = [];
 
+    /// <summary>要確認に未読の更新通知が残っている商品。「更新の有無」の条件で使う。</summary>
+    private HashSet<string> _unreadItemIds = [];
+
     private MainViewModel? _main;
 
     public SearchViewModel(AppServiceContainer services, ThumbnailLoader thumbnails)
@@ -71,7 +74,90 @@ public sealed class SearchViewModel : ViewModelBase
         EditItemCommand = new RelayCommand(parameter => _ = EditItemAsync(parameter as ItemCardViewModel));
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
         HideItemCommand = new RelayCommand(parameter => _ = HideItemAsync(parameter as ItemCardViewModel));
+        AddExtraFilterCommand = new RelayCommand(parameter => AddExtraFilter(parameter as string));
+
+        // 前回積んでいた条件の種類だけを戻す。値は戻さない
+        foreach (var name in services.Settings.SearchExtraFilters)
+        {
+            if (Enum.TryParse<ExtraFilterKind>(name, out var kind))
+            {
+                AddExtraFilter(kind, save: false);
+            }
+        }
+
         _ = ReloadAsync();
+    }
+
+    /// <summary>積んだ条件。常設に置かないものはここへ足していく。</summary>
+    public ObservableCollection<ExtraFilter> ExtraFilters { get; } = [];
+
+    /// <summary>まだ積んでいない条件の名前。「条件を追加」の候補に出す。</summary>
+    public ObservableCollection<string> AvailableExtraFilters { get; } = [];
+
+    public RelayCommand AddExtraFilterCommand { get; }
+
+    public bool HasExtraFilters => ExtraFilters.Count > 0;
+
+    private void AddExtraFilter(string? label)
+    {
+        var entry = ExtraFilterCatalog.All.FirstOrDefault(candidate => candidate.Label == label);
+        if (entry is not null)
+        {
+            AddExtraFilter(entry.Kind);
+        }
+    }
+
+    private void AddExtraFilter(ExtraFilterKind kind, bool save = true)
+    {
+        if (ExtraFilters.Any(filter => filter.Kind == kind))
+        {
+            return;
+        }
+
+        // 自分で足したときは「この軸で選ぶ」という意思表示なので入りにする。
+        // 起動時の復元は意思表示ではないので切りにする。
+        // 入りのまま戻すと、起動した瞬間に0件になり、原因が積んだ条件の中にあると気付けない。
+        var filter = new ExtraFilter { Kind = kind, IsOn = save };
+        filter.Changed += ApplyFilters;
+        filter.RemoveCommand = new RelayCommand(() => RemoveExtraFilter(filter));
+        ExtraFilters.Add(filter);
+
+        RefreshAvailableExtraFilters();
+
+        if (save)
+        {
+            SaveExtraFilterKinds();
+            ApplyFilters();
+        }
+    }
+
+    private void RemoveExtraFilter(ExtraFilter filter)
+    {
+        filter.Changed -= ApplyFilters;
+        ExtraFilters.Remove(filter);
+        RefreshAvailableExtraFilters();
+        SaveExtraFilterKinds();
+        ApplyFilters();
+    }
+
+    private void RefreshAvailableExtraFilters()
+    {
+        AvailableExtraFilters.Clear();
+        foreach (var entry in ExtraFilterCatalog.All.Where(entry => ExtraFilters.All(f => f.Kind != entry.Kind)))
+        {
+            AvailableExtraFilters.Add(entry.Label);
+        }
+
+        OnPropertyChanged(nameof(HasExtraFilters));
+    }
+
+    /// <summary>積んでいる種類だけを設定へ書く。値は書かない。</summary>
+    private void SaveExtraFilterKinds()
+    {
+        var kinds = ExtraFilters.Select(filter => filter.Kind.ToString()).ToList();
+        var next = _services.Settings with { SearchExtraFilters = kinds };
+        _services.ReplaceSettings(next);
+        _ = _services.SettingsStore.SaveAsync(next);
     }
 
     /// <summary>画面遷移のために親を後から渡す（生成順の都合でコンストラクタでは受け取れない）。</summary>
@@ -396,6 +482,12 @@ public sealed class SearchViewModel : ViewModelBase
                 Core.Services.SearchText.Build,
                 StringComparer.Ordinal);
 
+            // 「更新の有無」は要確認の未読と同じものを指す。既読にすれば条件から外れる
+            _unreadItemIds = _services.Notifications.Load()
+                .Where(record => !record.IsRead && record.ItemId is not null)
+                .Select(record => record.ItemId!)
+                .ToHashSet(StringComparer.Ordinal);
+
             RunOnUiThread(() =>
             {
                 // カードは絞り込みのたびには作り直さず、itemごとに1つを使い回す。
@@ -713,6 +805,11 @@ public sealed class SearchViewModel : ViewModelBase
                 parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
             }
 
+            foreach (var extra in ExtraFilters.Where(filter => filter.IsActive))
+            {
+                parts.Add(extra.SummaryText);
+            }
+
             if (_ownedOnly)
             {
                 parts.Add("所持のみ");
@@ -776,6 +873,7 @@ public sealed class SearchViewModel : ViewModelBase
         Category,
         AppTag,
         Attribute,
+        Extra,
     }
 
     /// <param name="except">この軸だけ適用しない。ファセットの件数を数えるときに指定する。</param>
@@ -843,6 +941,13 @@ public sealed class SearchViewModel : ViewModelBase
 
         // 属性は軸ごとにANDで積む。片側でも動かした軸では未評価が落ちる
         if (except != FilterAxis.Attribute && AttributeFilters.Any(filter => !filter.Matches(item)))
+        {
+            return false;
+        }
+
+        // 積んだ条件は軸ごとにANDで積む。積むこと自体が「この軸で選ぶ」という意思表示
+        if (except != FilterAxis.Extra
+            && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds)))
         {
             return false;
         }

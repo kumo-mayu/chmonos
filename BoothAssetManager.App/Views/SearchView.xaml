@@ -199,6 +199,69 @@
                             <TextBlock Text="対応アバターでの絞り込みは、アバターの管理から「この商品を検索で見る」で入ります。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" />
                         </Border>
+
+                        <!--
+                            たまにしか使わない条件は常設にせず、ここから積む。
+                            積んだ種類は次の起動にも残るが、値は残らない
+                            （値まで戻すと「なぜか商品が少ない」状態で始まってしまう）。
+                        -->
+                        <TextBlock Text="条件を追加" Style="{StaticResource SectionLabel}" Margin="0,14,0,6" />
+                        <controls:SuggestBox Source="{Binding AvailableExtraFilters}" AllowNew="False"
+                                             CommitCommand="{Binding AddExtraFilterCommand}"
+                                             Placeholder="条件を追加（公開日・価格・R-18 など）" />
+
+                        <ItemsControl ItemsSource="{Binding ExtraFilters}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ExtraFilter}">
+                                    <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+                                            Padding="10,8" Margin="0,0,0,7">
+                                        <StackPanel>
+                                            <DockPanel LastChildFill="False">
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding Label}" FontSize="12"
+                                                           VerticalAlignment="Center" ToolTip="{Binding Hint}" />
+                                                <Button DockPanel.Dock="Right" Content="外す" Style="{StaticResource SmallButton}"
+                                                        Command="{Binding RemoveCommand}" />
+                                            </DockPanel>
+
+                                            <!-- 範囲：下限だけ・上限だけでもよい -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0"
+                                                        Visibility="{Binding IsRange, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBox Text="{Binding Min, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                                         Width="92" Height="26" FontSize="12" Padding="7,0"
+                                                         VerticalContentAlignment="Center" />
+                                                <TextBlock Text="〜" VerticalAlignment="Center" Margin="6,0"
+                                                           Style="{StaticResource Caption}" />
+                                                <TextBox Text="{Binding Max, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                                         Width="92" Height="26" FontSize="12" Padding="7,0"
+                                                         VerticalContentAlignment="Center" />
+                                            </StackPanel>
+
+                                            <CheckBox Content="この条件で絞る" IsChecked="{Binding IsOn, Mode=TwoWay}"
+                                                      FontSize="12" Margin="0,7,0,0" Foreground="{StaticResource Text}"
+                                                      Visibility="{Binding IsCheck, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                            <ItemsControl ItemsSource="{Binding Selected}" Margin="0,7,0,0"
+                                                          Visibility="{Binding IsSuggest, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                                BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
+                                                            <TextBlock Text="{Binding}" FontSize="11" Foreground="#28507f" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <TextBlock Text="{Binding Hint}" Style="{StaticResource Caption}"
+                                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>

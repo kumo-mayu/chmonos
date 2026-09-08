@@ -143,6 +143,15 @@ public sealed record AppSettings
     public bool NavCollapsed { get; init; }
 
     /// <summary>
+    /// 検索の絞り込みに積んでいる条件の種類。
+    ///
+    /// 種類だけを覚えて値は覚えない。値まで戻すと「なぜか商品が少ない」状態で始まり、
+    /// 原因が畳まれた条件の中にあると気付けない。
+    /// 起動したときにまず全件が見えている方が安全。
+    /// </summary>
+    public IReadOnlyList<string> SearchExtraFilters { get; init; } = [];
+
+    /// <summary>
     /// 終了時のウィンドウの位置と大きさ。未保存（初回）は null。
     /// 復元時に、今あるモニタのどれとも重ならなければ捨てて中央に開く。
     /// </summary>
