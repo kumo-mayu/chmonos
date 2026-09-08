@@ -63,30 +63,73 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左：未確定の一覧 -->
+            <!-- 左：未確定の一覧（フォルダごとにまとめる） -->
             <Border Grid.Column="0" Background="{StaticResource Surface}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
-                <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding Selected, Mode=TwoWay}"
-                         BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="4,7">
-                                <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding DirectoryText}" Style="{StaticResource Caption}"
-                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
-                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                            BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0">
-                                        <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
-                                    </Border>
-                                </StackPanel>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="全て選択" Style="{StaticResource SmallButton}" Command="{Binding SelectAllCommand}" />
+                            <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                    Command="{Binding ClearChecksCommand}" />
+                        </StackPanel>
+                    </Border>
+
+                    <ListBox ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                             BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                BorderThickness="0,0,0,1" Padding="10,7">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
+                                                               Style="{StaticResource Mono}" FontSize="11"
+                                                               VerticalAlignment="Center" />
+                                                    <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
+                                                    <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
+                                                            Height="23" FontSize="10.5" Margin="8,0,0,0"
+                                                            Command="{Binding DataContext.SelectFolderCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding Name}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              VerticalAlignment="Top" Margin="0,2,8,0" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
+                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0">
+                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
 
             <!-- 右：手掛かりと決定 -->
@@ -223,6 +266,26 @@
                                         Command="{Binding AssignCommand}" />
                                 <Button Content="管理から外す" Margin="9,0,0,0" Command="{Binding ExcludeCommand}" />
                             </StackPanel>
+
+                            <!--
+                                選択中だけ出る一括操作。
+                                展開先の中身が10件以上並ぶことがあり、1件ずつでは捌けない。
+                            -->
+                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,14,0,0"
+                                    Visibility="{Binding HasChecked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="#28507f" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" />
+                                        <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
+                                                Command="{Binding ExcludeCheckedCommand}" />
+                                    </StackPanel>
+                                    <TextBlock Text="まとめて確定するには、先に上で商品IDを確認してください。"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                               Visibility="{Binding HasPreview, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>

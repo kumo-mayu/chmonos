@@ -8,9 +8,26 @@ using BoothAssetManager.Core.Services;
 namespace BoothAssetManager.App.ViewModels;
 
 /// <summary>未確定ファイル1件。一覧に並べる分の情報だけを持つ。</summary>
-public sealed class UnresolvedRow
+public sealed class UnresolvedRow : ViewModelBase
 {
+    private bool _isSelected;
+
     public required UnresolvedFile File { get; init; }
+
+    /// <summary>一括操作の対象。一覧の選択（＝今見ているもの）とは別に持つ。</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetField(ref _isSelected, value))
+            {
+                SelectionChanged?.Invoke();
+            }
+        }
+    }
+
+    public event Action? SelectionChanged;
 
     public required string FileName { get; init; }
 
@@ -71,6 +88,9 @@ public sealed class ResolveViewModel : ViewModelBase
         _services = services;
         _main = main;
 
+        FilesView = System.Windows.Data.CollectionViewSource.GetDefaultView(Files);
+        FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(UnresolvedRow.DirectoryText)));
+
         ProposeCommand = new RelayCommand(() => _ = ProposeAsync(), () => HasSelection && !IsBusy);
         PreviewCommand = new RelayCommand(() => _ = PreviewAsync(ItemIdInput), () => CanPreview);
         UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow && !IsBusy);
@@ -79,10 +99,206 @@ public sealed class ResolveViewModel : ViewModelBase
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
-        Reload();
+        SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
+        SelectAllCommand = new RelayCommand(SelectAll);
+        ClearChecksCommand = new RelayCommand(ClearChecks);
+        ExcludeCheckedCommand = new RelayCommand(() => _ = ExcludeCheckedAsync(), () => HasChecked && !IsBusy);
+        AssignCheckedCommand = new RelayCommand(() => _ = AssignCheckedAsync(), () => HasChecked && HasPreview && !IsBusy);
+
+        _ = ReloadAsync();
+    }
+
+    public RelayCommand SelectFolderCommand { get; }
+
+    public RelayCommand SelectAllCommand { get; }
+
+    public RelayCommand ClearChecksCommand { get; }
+
+    public RelayCommand ExcludeCheckedCommand { get; }
+
+    public RelayCommand AssignCheckedCommand { get; }
+
+    public int CheckedCount => Files.Count(row => row.IsSelected);
+
+    public bool HasChecked => CheckedCount > 0;
+
+    public string CheckedText => $"{CheckedCount} 件を選択中";
+
+    public string AssignCheckedText => $"選択した {CheckedCount} 件をこのIDで確定";
+
+    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理から外す";
+
+    private void OnCheckedChanged()
+    {
+        OnPropertyChanged(nameof(CheckedCount));
+        OnPropertyChanged(nameof(HasChecked));
+        OnPropertyChanged(nameof(CheckedText));
+        OnPropertyChanged(nameof(AssignCheckedText));
+        OnPropertyChanged(nameof(ExcludeCheckedText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 同じフォルダのものをまとめて選ぶ。
+    /// 1つのアーカイブを展開した中身が並んでいることが多く、
+    /// それらは1件ずつ判断する必要がないため。
+    /// </summary>
+    private void SelectFolder(object? parameter)
+    {
+        if (parameter is not string directory)
+        {
+            return;
+        }
+
+        foreach (var row in Files.Where(row =>
+            string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase)))
+        {
+            row.IsSelected = true;
+        }
+    }
+
+    private void SelectAll()
+    {
+        foreach (var row in Files)
+        {
+            row.IsSelected = true;
+        }
+    }
+
+    private void ClearChecks()
+    {
+        foreach (var row in Files.Where(row => row.IsSelected))
+        {
+            row.IsSelected = false;
+        }
+    }
+
+    private async Task ExcludeCheckedAsync()
+    {
+        var targets = Files.Where(row => row.IsSelected).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var sample = string.Join("\n", targets.Take(8).Select(row => $"・{row.FileName}"));
+        if (targets.Count > 8)
+        {
+            sample += $"\n…ほか {targets.Count - 8} 件";
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"{targets.Count} 件を管理から外します。\n\n{sample}\n\n"
+            + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
+            "まとめて管理から外す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            foreach (var row in targets)
+            {
+                await _services.Commands.ExecuteAsync(
+                    new UiCommand.ExcludeFile(row.File.Hash, row.File.Paths, "未確定画面からまとめて除外"));
+            }
+
+            RemoveRows(targets);
+            StatusText = $"{targets.Count} 件を管理から外しました。";
+        }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasStatus));
+        }
+    }
+
+    /// <summary>
+    /// 選んだ複数のファイルを同じ商品IDへ確定する。
+    /// 1商品に複数のファイル（本体zipと差分、psdなど）が付くことは普通にある。
+    /// 2件目以降はローカルのitemへ追加されるだけで、BOOTHへは行かない。
+    /// </summary>
+    private async Task AssignCheckedAsync()
+    {
+        var targets = Files.Where(row => row.IsSelected).ToList();
+        if (targets.Count == 0 || Preview is null)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"{targets.Count} 件を「{Preview.Name}」（ID {Preview.Id}）のファイルとして確定します。\n\n"
+            + "同じ商品のファイルであることを確認してください。",
+            "まとめて確定",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var settled = new List<UnresolvedRow>();
+            foreach (var row in targets)
+            {
+                var result = await _services.Commands.ExecuteAsync(
+                    new UiCommand.AssignItemId(row.File.Hash, Preview.Id));
+
+                if (result is not CommandResult.Failed)
+                {
+                    settled.Add(row);
+                }
+            }
+
+            if (!_settledItemIds.Contains(Preview.Id))
+            {
+                _settledItemIds.Add(Preview.Id);
+            }
+
+            RemoveRows(settled);
+            StatusText = settled.Count == targets.Count
+                ? $"{settled.Count} 件を確定しました。"
+                : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗）。";
+        }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasStatus));
+        }
+    }
+
+    private void RemoveRows(IReadOnlyList<UnresolvedRow> rows)
+    {
+        foreach (var row in rows)
+        {
+            row.SelectionChanged -= OnCheckedChanged;
+            Files.Remove(row);
+        }
+
+        OnPropertyChanged(nameof(RemainingCount));
+        OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(SettledCount));
+        OnPropertyChanged(nameof(HasSettled));
+        OnPropertyChanged(nameof(SettledText));
+        OnCheckedChanged();
+
+        Selected = Files.FirstOrDefault();
     }
 
     public ObservableCollection<UnresolvedRow> Files { get; } = [];
+
+    /// <summary>フォルダごとに束ねた表示用のビュー。一覧の見出しがそのまま操作の単位になる。</summary>
+    public System.ComponentModel.ICollectionView FilesView { get; }
 
     public ObservableCollection<CandidateRow> Candidates { get; } = [];
 
@@ -208,21 +424,67 @@ public sealed class ResolveViewModel : ViewModelBase
 
     public bool HasZone => !string.IsNullOrEmpty(ZoneText);
 
+    /// <summary>
+    /// 開くたびに、既にitem側が持っているファイルを未確定から均してから読み直す。
+    /// 確定の途中で落ちると両方に残るため。
+    /// </summary>
+    public async Task ReloadAsync()
+    {
+        var healed = 0;
+        string? failure = null;
+
+        try
+        {
+            healed = await _services.Items.ReconcileUnresolvedAsync();
+        }
+        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+        {
+            // 均せなくても一覧は出す。黙って空にする方がずっと悪い
+            failure = $"未確定の突き合わせに失敗しました: {exception.Message}";
+        }
+
+        // 読み込みはUIスレッド以外で終わることがあるので、必ず戻してから触る
+        RunOnUiThread(() =>
+        {
+            Reload();
+
+            if (failure is not null)
+            {
+                StatusText = failure;
+            }
+            else if (healed > 0)
+            {
+                StatusText = $"既に確定済みだった {healed} 件を一覧から外しました。";
+            }
+
+            OnPropertyChanged(nameof(HasStatus));
+        });
+    }
+
     public void Reload()
     {
         var unresolved = _services.Store.Unresolved.Load();
 
         Files.Clear();
-        foreach (var file in unresolved.OrderByDescending(entry => entry.SizeBytes))
+
+        // フォルダごとにまとめて並べる。1つのアーカイブを展開した中身が
+        // 固まって見えるので、まとめて外す判断がしやすい
+        foreach (var file in unresolved
+            .OrderBy(entry => entry.Paths.Count > 0 ? Path.GetDirectoryName(entry.Paths[0]) : string.Empty,
+                StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(entry => entry.SizeBytes))
         {
             var path = file.Paths.Count > 0 ? file.Paths[0] : string.Empty;
-            Files.Add(new UnresolvedRow
+            var row = new UnresolvedRow
             {
                 File = file,
                 FileName = path.Length > 0 ? Path.GetFileName(path) : file.Hash[..12],
                 DirectoryText = path.Length > 0 ? Path.GetDirectoryName(path) ?? string.Empty : string.Empty,
                 SizeText = FormatSize(file.SizeBytes),
-            });
+            };
+
+            row.SelectionChanged += OnCheckedChanged;
+            Files.Add(row);
         }
 
         Selected = Files.FirstOrDefault();

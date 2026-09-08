@@ -23,6 +23,8 @@ public class CommandHandlerTests
 
     private sealed class FakeItemService : IItemService
     {
+        public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
+
         public Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
             => Task.FromResult<ItemPreview?>(new ItemPreview { Id = itemId, Name = "テスト商品" });
 

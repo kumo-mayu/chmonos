@@ -34,6 +34,8 @@ public interface IItemService
 
     Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default);
 
+    Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
+
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
     Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
@@ -132,6 +134,43 @@ public sealed class ItemService : IItemService
     /// <summary>
     /// 未確定ファイルに商品IDを与えて確定させる。確定したファイルはitemへ移し、未確定一覧から取り除く。
     /// </summary>
+    /// <summary>
+    /// 既にどこかのitemが持っているファイルを、未確定の一覧から取り除く。
+    ///
+    /// 確定は「itemを保存」→「未確定から削除」の2段階で、その間に落ちると
+    /// 両方に存在する状態が残る。順序を逆にはできない（先に消してitemの保存に
+    /// 失敗すると、ファイルの記録ごと失う方が明らかに悪い）。
+    /// 重複は害が小さく後から均せるので、開くたびにここで均す。
+    /// </summary>
+    public async Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default)
+    {
+        var unresolved = _store.Unresolved.Load();
+        if (unresolved.Count == 0)
+        {
+            return 0;
+        }
+
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var owned = loaded.Items
+            .SelectMany(item => item.Local.LocalFiles)
+            .Select(file => file.Hash)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var stale = unresolved.Where(file => owned.Contains(file.Hash)).ToList();
+        if (stale.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var file in stale)
+        {
+            unresolved.Remove(file);
+        }
+
+        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+        return stale.Count;
+    }
+
     /// <summary>
     /// 確定する前に、そのIDが何なのかを見る。
     /// 既に持っているitemならローカルから読み、BOOTHへは行かない。
