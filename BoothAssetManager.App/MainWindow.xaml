@@ -27,6 +27,9 @@
         <DataTemplate DataType="{x:Type vm:InboxViewModel}">
             <views:InboxView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TagManageViewModel}">
+            <views:TagManageView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -151,8 +154,9 @@
                     <Button Style="{StaticResource NavButton}" IsEnabled="False">
                         <TextBlock Text="アバター" Foreground="{StaticResource RailText}" />
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
-                        <TextBlock Text="タグの管理" Foreground="{StaticResource RailText}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowTagManageCommand}">
+                        <TextBlock Text="タグの管理" HorizontalAlignment="Left"
+                                   Foreground="{Binding IsTagManageActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
                     <Button Style="{StaticResource NavButton}" IsEnabled="False">
                         <TextBlock Text="属性の管理" Foreground="{StaticResource RailText}" />

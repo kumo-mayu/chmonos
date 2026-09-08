@@ -42,6 +42,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
         ShowResolveCommand = new RelayCommand(ShowResolve);
         ShowInboxCommand = new RelayCommand(ShowInbox);
+        ShowTagManageCommand = new RelayCommand(ShowTagManage);
 
         ShowSearch();
         RefreshCounts();
@@ -66,6 +67,13 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand ShowInboxCommand { get; }
 
     public bool IsInboxActive => CurrentViewModel is InboxViewModel;
+
+    public RelayCommand ShowTagManageCommand { get; }
+
+    public bool IsTagManageActive => CurrentViewModel is TagManageViewModel;
+
+    /// <summary>タグの管理を開く。マスタは画面の外からも書き換わるので、毎回読み直す。</summary>
+    public void ShowTagManage() => CurrentViewModel = new TagManageViewModel(_services, this);
 
     /// <summary>要確認の未読件数。「新しく起きたこと」なので、0のときはバッジ自体を出さない。</summary>
     public int UnreadCount
@@ -105,6 +113,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsEditActive));
                 OnPropertyChanged(nameof(IsResolveActive));
                 OnPropertyChanged(nameof(IsInboxActive));
+                OnPropertyChanged(nameof(IsTagManageActive));
             }
         }
     }

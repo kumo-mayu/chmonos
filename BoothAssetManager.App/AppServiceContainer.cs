@@ -39,7 +39,9 @@ public sealed class AppServiceContainer : IDisposable
         Resolver = new FallbackResolver(Client);
         Edit = new EditService(Store);
         Notifications = new NotificationService(Store, Settings);
-        Commands = new CommandHandler(Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications);
+        AppTags = new AppTagService(Store);
+        Commands = new CommandHandler(
+            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags);
     }
 
     /// <summary>
@@ -87,6 +89,8 @@ public sealed class AppServiceContainer : IDisposable
     public EditService Edit { get; }
 
     public NotificationService Notifications { get; }
+
+    public AppTagService AppTags { get; }
 
     public CommandHandler Commands { get; }
 

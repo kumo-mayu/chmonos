@@ -47,6 +47,8 @@ public partial class SuggestBox : UserControl
         DependencyProperty.Register(nameof(CommitCommand), typeof(ICommand), typeof(SuggestBox),
             new PropertyMetadata(null));
 
+    private bool _isCommitting;
+
     public SuggestBox()
     {
         InitializeComponent();
@@ -85,6 +87,12 @@ public partial class SuggestBox : UserControl
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
         Watermark.Visibility = Input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_isCommitting)
+        {
+            return;
+        }
+
         Refresh();
     }
 
@@ -207,15 +215,27 @@ public partial class SuggestBox : UserControl
             return;
         }
 
-        DropDown.IsOpen = false;
-        Input.Clear();
-        Watermark.Visibility = Visibility.Visible;
+        // 入力を消すとTextChangedが走って候補が開き直してしまう。
+        // 選び終えた直後に一覧が出るのは邪魔だし、この後の処理で候補自体が
+        // 変わることもあるので、その場に古い一覧が残ってしまう。
+        _isCommitting = true;
+        try
+        {
+            DropDown.IsOpen = false;
+            Input.Clear();
+            Watermark.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _isCommitting = false;
+        }
 
         if (CommitCommand?.CanExecute(value) == true)
         {
             CommitCommand.Execute(value);
         }
 
+        // 続けて足せるようにフォーカスは残す（候補は次に入力したときに出す）
         Input.Focus();
     }
 }

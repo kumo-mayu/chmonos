@@ -16,6 +16,7 @@ public sealed class CommandHandler
     private readonly UnpackedFolderRemover? _unpackedRemover;
     private readonly Resolution.FallbackResolver? _resolver;
     private readonly INotificationService? _notifications;
+    private readonly IAppTagService? _appTags;
 
     public CommandHandler(
         IImportPipeline import,
@@ -23,7 +24,8 @@ public sealed class CommandHandler
         IEditService? edit = null,
         UnpackedFolderRemover? unpackedRemover = null,
         Resolution.FallbackResolver? resolver = null,
-        INotificationService? notifications = null)
+        INotificationService? notifications = null,
+        IAppTagService? appTags = null)
     {
         _import = import;
         _items = items;
@@ -31,6 +33,7 @@ public sealed class CommandHandler
         _unpackedRemover = unpackedRemover;
         _resolver = resolver;
         _notifications = notifications;
+        _appTags = appTags;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -101,6 +104,35 @@ public sealed class CommandHandler
 
                 return new CommandResult.AttributesChanged(
                     await _edit.AddAttributeAsync(addAttribute.Name, cancellationToken));
+
+            case UiCommand.RenameAppTag rename:
+                if (_appTags is null)
+                {
+                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AppTagsRewritten(rename.Sub is null
+                    ? await _appTags.RenameTopAsync(rename.Top, rename.NewName, cancellationToken)
+                    : await _appTags.RenameSubAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken));
+
+            case UiCommand.DeleteAppTag delete:
+                if (_appTags is null)
+                {
+                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AppTagsRewritten(delete.Sub is null
+                    ? await _appTags.DeleteTopAsync(delete.Top, cancellationToken)
+                    : await _appTags.DeleteSubAsync(delete.Top, delete.Sub, cancellationToken));
+
+            case UiCommand.SetAppTagMemo memo:
+                if (_appTags is null)
+                {
+                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AppTagsChanged(
+                    await _appTags.SetMemoAsync(memo.Top, memo.Sub, memo.Memo, cancellationToken));
 
             case UiCommand.PreviewItem preview:
                 var loaded = await _items.PreviewAsync(preview.ItemId, cancellationToken);

@@ -38,6 +38,18 @@ public abstract record UiCommand
     /// <summary>属性をマスタへ追加する。</summary>
     public record AddAttribute(string Name) : UiCommand;
 
+    /// <summary>
+    /// appTagを改名する。<paramref name="Sub"/> を省くとトップの改名。
+    /// item側は名前で参照しているので全itemの書き換えを伴い、既存の名前を指すと統合になる。
+    /// </summary>
+    public record RenameAppTag(string Top, string? Sub, string NewName) : UiCommand;
+
+    /// <summary>appTagをマスタから消し、付けていたitemからも外す。<paramref name="Sub"/> を省くとトップ。</summary>
+    public record DeleteAppTag(string Top, string? Sub = null) : UiCommand;
+
+    /// <summary>appTagのメモを書き換える。item側には影響しない。</summary>
+    public record SetAppTagMemo(string Top, string? Sub, string? Memo) : UiCommand;
+
     /// <summary>確定する前にIDの中身を見る。既に持っていればBOOTHへは行かない。</summary>
     public record PreviewItem(string ItemId) : UiCommand;
 
@@ -76,6 +88,9 @@ public abstract record CommandResult
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 
     public record AppTagsChanged(Models.AppTagMaster Master) : CommandResult;
+
+    /// <summary>改名・削除の結果。書き換えたitem数を持つのは、何が起きたかを画面に出すため。</summary>
+    public record AppTagsRewritten(Services.AppTagEditResult Result) : CommandResult;
 
     public record AttributesChanged(Models.AttributeMaster Master) : CommandResult;
 
