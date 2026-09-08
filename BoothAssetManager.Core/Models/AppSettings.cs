@@ -132,4 +132,38 @@ public sealed record AppSettings
 
     /// <summary>対応アバターを検出し直すまでの日数。</summary>
     public int AvatarDetectRecheckDays { get; init; } = 90;
+
+    // --- 画面が覚えている状態 ---
+    //
+    // 以下は設定画面には出さない。ユーザが決める設定ではなく、
+    // 前回の続きから始めるためにアプリが覚えているだけの値なので、
+    // 設定の一覧に混ぜると「触るところ」に見えてしまう。
+
+    /// <summary>ナビを畳んでいるか。</summary>
+    public bool NavCollapsed { get; init; }
+
+    /// <summary>
+    /// 終了時のウィンドウの位置と大きさ。未保存（初回）は null。
+    /// 復元時に、今あるモニタのどれとも重ならなければ捨てて中央に開く。
+    /// </summary>
+    public WindowPlacement? Window { get; init; }
+}
+
+/// <summary>ウィンドウの位置・大きさ・最大化。</summary>
+public sealed record WindowPlacement
+{
+    public double Left { get; init; }
+
+    public double Top { get; init; }
+
+    public double Width { get; init; }
+
+    public double Height { get; init; }
+
+    /// <summary>
+    /// 最大化していたか。
+    /// 位置と大きさは「最大化を解除したときの姿」を保存する。
+    /// 最大化中の値を書くと、解除したときに画面いっぱいのまま戻らなくなる。
+    /// </summary>
+    public bool IsMaximized { get; init; }
 }

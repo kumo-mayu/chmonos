@@ -218,6 +218,18 @@
                                             Command="{Binding AddAliasCommand}" />
                                 </StackPanel>
 
+                                <!-- 検出では拾えない事情を残す場所 -->
+                                <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Width="420" Height="56" Padding="7,5"
+                                             TextWrapping="Wrap" AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                             Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="素体は同じだが体型が違う、といった検出では分からないことを残せます。" />
+                                    <Button Content="メモを保存" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            VerticalAlignment="Top" Command="{Binding SaveMemoCommand}" />
+                                </StackPanel>
+
                                 <!-- 例外の指定 -->
                                 <TextBlock Text="扱いの指定" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
                                 <StackPanel Orientation="Horizontal">
@@ -258,6 +270,17 @@
                                                             <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" />
                                                             <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
                                                             <TextBlock Text="{Binding ItemIdText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
+                                                        </StackPanel>
+                                                        <!--
+                                                            配布されている素体は商品に結べる。
+                                                            結ぶと素体のページへ行けるようになり、所有の判定にも使える。
+                                                        -->
+                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                            <TextBox Width="230" Padding="7,4" VerticalAlignment="Center"
+                                                                     Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                                                     ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
+                                                            <Button Content="配布商品を結ぶ" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                    VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
                                                         </StackPanel>
                                                     </StackPanel>
 

@@ -49,8 +49,43 @@
             <views:SettingsView />
         </DataTemplate>
 
-        <!-- ナビの1項目 -->
+        <!-- NavButton のテンプレートから引くので、必ずその前に置く（StaticResourceは前方参照できない） -->
+        <Style x:Key="NavBadge" TargetType="Border">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="7,1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            ナビのアイコン。モックのSVGを24×24の座標系のまま持ち込み、Viewboxで16pxへ縮める。
+            線の太さも一緒に縮むので、どのアイコンも同じ太さで揃う。
+        -->
+        <PathGeometry x:Key="IconSearch" Figures="M4,11 A7,7 0 1 1 18,11 A7,7 0 1 1 4,11 M20,20 L16.5,16.5" />
+        <PathGeometry x:Key="IconShops" Figures="M4,9 H20 V20 H4 Z M4,9 L5.5,4 H18.5 L20,9" />
+        <PathGeometry x:Key="IconStats" Figures="M5,19 V11 M12,19 V5 M19,19 V14" />
+        <PathGeometry x:Key="IconImport" Figures="M12,4 V15 M8,11 L12,15 L16,11 M5,19 H19" />
+        <PathGeometry x:Key="IconResolve" Figures="M3,12 A9,9 0 1 1 21,12 A9,9 0 1 1 3,12 M9.6,9.6 A2.5,2.5 0 1 1 13.6,11.6 C12.8,12.2 12,12.6 12,13.6 M12,17.2 V17.3" />
+        <PathGeometry x:Key="IconInbox" Figures="M18,15 V11 A6,6 0 1 0 6,11 V15 L4,18 H20 Z M10,21 H14" />
+        <PathGeometry x:Key="IconEdit" Figures="M4,20 H8 L18,10 L14,6 L4,16 Z" />
+        <PathGeometry x:Key="IconAvatars" Figures="M8.6,8 A3.4,3.4 0 1 1 15.4,8 A3.4,3.4 0 1 1 8.6,8 M5,20 C6,16.4 8.7,14.6 12,14.6 S18,16.4 19,20" />
+        <PathGeometry x:Key="IconTags" Figures="M4,12 V5 H11 L19,13 L12,20 L4,12 Z M7.2,8.5 A1.3,1.3 0 1 1 9.8,8.5 A1.3,1.3 0 1 1 7.2,8.5" />
+        <PathGeometry x:Key="IconAttributes" Figures="M5,7 H19 M5,12 H19 M5,17 H19" />
+        <PathGeometry x:Key="IconSettings" Figures="M8.8,12 A3.2,3.2 0 1 1 15.2,12 A3.2,3.2 0 1 1 8.8,12 M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4" />
+        <PathGeometry x:Key="IconCollapse" Figures="M14,7 L9,12 L14,17" />
+        <PathGeometry x:Key="IconExpand" Figures="M10,7 L15,12 L10,17" />
+
+        <!--
+            ナビの1項目。11項目とも「アイコン・名前・件数」で同じ形なので、
+            並べ方はここだけに書き、項目ごとの違いは views:Nav の添付プロパティで渡す。
+            畳んだときに名前を消す、という変更も1箇所で済む。
+        -->
         <Style x:Key="NavButton" TargetType="Button">
+            <!--
+                名前はテンプレートの中のTextBlockに入るので、ボタン自体には文字が無い。
+                読み上げと自動化には名前が見えなくなるので、ここで明示する。
+            -->
+            <Setter Property="AutomationProperties.Name"
+                    Value="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource Self}}" />
             <Setter Property="Height" Value="34" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="Foreground" Value="{StaticResource RailText}" />
@@ -61,20 +96,44 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="Transparent" CornerRadius="6" Padding="12,0">
-                            <Border.Resources>
+                        <Border x:Name="Root" Background="Transparent" CornerRadius="6" Padding="10,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Viewbox Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Data="{Binding Path=(views:Nav.Icon), RelativeSource={RelativeSource TemplatedParent}}"
+                                              Fill="{x:Null}" StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                              Stroke="{Binding Path=(views:Nav.IsActive), RelativeSource={RelativeSource TemplatedParent},
+                                                               Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
+                                    </Canvas>
+                                </Viewbox>
+
+                                <TextBlock x:Name="Label" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource TemplatedParent}}"
+                                           Foreground="{Binding Path=(views:Nav.IsActive), RelativeSource={RelativeSource TemplatedParent},
+                                                                Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
+
                                 <!--
-                                    アプリ全体の TextBlock スタイルが濃い文字色を指定しているため、
-                                    暗いレールの上ではそのままだと文字が読めなくなる。
-                                    ここで明示的に上書きする。
+                                    0件のときは出さない。残っている作業を示すものなので、
+                                    0が並ぶと数字そのものが目に入ってしまう。
                                 -->
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{StaticResource RailText}" />
-                                    <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
-                                    <Setter Property="FontSize" Value="12.5" />
-                                </Style>
-                            </Border.Resources>
-                            <ContentPresenter VerticalAlignment="Center" />
+                                <Border x:Name="Badge" Grid.Column="2" Style="{StaticResource NavBadge}" Margin="6,0,0,0"
+                                        Background="{Binding Path=(views:Nav.BadgeBrush), RelativeSource={RelativeSource TemplatedParent}}"
+                                        Visibility="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent},
+                                                             Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
+                                    <TextBlock x:Name="BadgeText"
+                                               Text="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent}}"
+                                               Foreground="White" FontSize="11" FontWeight="Bold"
+                                               FontFamily="Yu Gothic UI, Meiryo, Segoe UI" />
+                                </Border>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -84,6 +143,21 @@
                                 <Setter Property="Opacity" Value="0.35" />
                                 <Setter Property="Cursor" Value="Arrow" />
                             </Trigger>
+                            <!--
+                                畳んだときは名前を消し、件数は数字ごと落として点だけ残す。
+                                アイコンだけになっても「ここに残作業がある」ことは見えるようにする。
+                            -->
+                            <DataTrigger Binding="{Binding DataContext.IsNavCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="Badge" Property="Width" Value="7" />
+                                <Setter TargetName="Badge" Property="Height" Value="7" />
+                                <Setter TargetName="Badge" Property="Padding" Value="0" />
+                                <Setter TargetName="Badge" Property="Margin" Value="0,-10,-4,0" />
+                                <Setter TargetName="Badge" Property="VerticalAlignment" Value="Top" />
+                                <Setter TargetName="BadgeText" Property="Visibility" Value="Collapsed" />
+                                <Setter Property="ToolTip"
+                                        Value="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource Self}}" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -95,17 +169,11 @@
             <Setter Property="FontSize" Value="10" />
             <Setter Property="Margin" Value="22,12,0,4" />
         </Style>
-
-        <Style x:Key="NavBadge" TargetType="Border">
-            <Setter Property="CornerRadius" Value="9" />
-            <Setter Property="Padding" Value="7,1" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="208" />
+            <ColumnDefinition Width="{Binding NavWidth}" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -113,83 +181,75 @@
         <Border Grid.Column="0" Background="{StaticResource Rail}">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Top" Margin="0,16,0,0">
-                    <StackPanel Margin="18,0,18,14">
+                    <!-- 畳んだ幅ではタイトルが入らないので、そのときは畳むボタンだけを残す -->
+                    <StackPanel Margin="18,0,18,14"
+                                Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                         <TextBlock Text="BOOTH Asset Manager" Foreground="White" FontWeight="Bold" FontSize="13" />
                         <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
                     </StackPanel>
-
-                    <TextBlock Text="ライブラリ" Style="{StaticResource NavGroupLabel}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowSearchCommand}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="検索" Foreground="{Binding IsSearchActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                        </Grid>
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowShopsCommand}">
-                        <TextBlock Text="ショップ" HorizontalAlignment="Left"
-                                   Foreground="{Binding IsShopsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowStatsCommand}">
-                        <TextBlock Text="統計" HorizontalAlignment="Left"
-                                   Foreground="{Binding IsStatsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
+                    <Button Command="{Binding ToggleNavCommand}" Margin="10,0,10,2">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
+                                <Setter Property="views:Nav.Icon" Value="{StaticResource IconCollapse}" />
+                                <Setter Property="views:Nav.Label" Value="ナビを畳む" />
+                                <Style.Triggers>
+                                    <!-- 畳んでいるときは、押すと戻る側の意味になる -->
+                                    <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
+                                        <Setter Property="views:Nav.Icon" Value="{StaticResource IconExpand}" />
+                                        <Setter Property="views:Nav.Label" Value="ナビを開く" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
                     </Button>
 
-                    <TextBlock Text="作業" Style="{StaticResource NavGroupLabel}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowImportCommand}">
-                        <TextBlock Text="取り込み" Foreground="{Binding IsImportActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}">
-                        <Grid Width="164">
-                            <TextBlock Text="未確定" HorizontalAlignment="Left"
-                                       Foreground="{Binding IsResolveActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                            <Border Style="{StaticResource NavBadge}" Background="#9a6b1f" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding UnresolvedCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
-                            </Border>
-                        </Grid>
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}">
-                        <Grid Width="164">
-                            <TextBlock Text="要確認" HorizontalAlignment="Left"
-                                       Foreground="{Binding IsInboxActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                            <Border Style="{StaticResource NavBadge}" Background="#8a3f6b" HorizontalAlignment="Right"
-                                    Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <TextBlock Text="{Binding UnreadCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
-                            </Border>
-                        </Grid>
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}">
-                        <Grid Width="164">
-                            <TextBlock Text="編集" HorizontalAlignment="Left"
-                                       Foreground="{Binding IsEditActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                            <Border Style="{StaticResource NavBadge}" Background="#9a6b1f" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding NeedsEditCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
-                            </Border>
-                        </Grid>
-                    </Button>
+                    <TextBlock Text="ライブラリ" Style="{StaticResource NavGroupLabel}"
+                               Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowSearchCommand}"
+                            views:Nav.Label="検索" views:Nav.Icon="{StaticResource IconSearch}"
+                            views:Nav.IsActive="{Binding IsSearchActive}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowShopsCommand}"
+                            views:Nav.Label="ショップ" views:Nav.Icon="{StaticResource IconShops}"
+                            views:Nav.IsActive="{Binding IsShopsActive}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowStatsCommand}"
+                            views:Nav.Label="統計" views:Nav.Icon="{StaticResource IconStats}"
+                            views:Nav.IsActive="{Binding IsStatsActive}" />
 
-                    <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}">
-                        <TextBlock Text="アバター" HorizontalAlignment="Left"
-                                   Foreground="{Binding IsAvatarsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowTagManageCommand}">
-                        <TextBlock Text="タグの管理" HorizontalAlignment="Left"
-                                   Foreground="{Binding IsTagManageActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                    </Button>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAttributeManageCommand}">
-                        <TextBlock Text="属性の管理" HorizontalAlignment="Left"
-                                   Foreground="{Binding IsAttributeManageActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                    </Button>
+                    <TextBlock Text="作業" Style="{StaticResource NavGroupLabel}"
+                               Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowImportCommand}"
+                            views:Nav.Label="取り込み" views:Nav.Icon="{StaticResource IconImport}"
+                            views:Nav.IsActive="{Binding IsImportActive}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}"
+                            views:Nav.Label="未確定" views:Nav.Icon="{StaticResource IconResolve}"
+                            views:Nav.IsActive="{Binding IsResolveActive}"
+                            views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="#9a6b1f" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}"
+                            views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
+                            views:Nav.IsActive="{Binding IsInboxActive}"
+                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="#8a3f6b" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
+                            views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
+                            views:Nav.IsActive="{Binding IsEditActive}"
+                            views:Nav.Badge="{Binding NeedsEditCount}" views:Nav.BadgeBrush="#9a6b1f" />
+
+                    <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}"
+                               Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}"
+                            views:Nav.Label="アバター" views:Nav.Icon="{StaticResource IconAvatars}"
+                            views:Nav.IsActive="{Binding IsAvatarsActive}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowTagManageCommand}"
+                            views:Nav.Label="タグの管理" views:Nav.Icon="{StaticResource IconTags}"
+                            views:Nav.IsActive="{Binding IsTagManageActive}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAttributeManageCommand}"
+                            views:Nav.Label="属性の管理" views:Nav.Icon="{StaticResource IconAttributes}"
+                            views:Nav.IsActive="{Binding IsAttributeManageActive}" />
                 </StackPanel>
 
                 <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" Margin="10,0,10,14"
-                        Command="{Binding ShowSettingsCommand}">
-                    <TextBlock Text="設定" HorizontalAlignment="Left"
-                               Foreground="{Binding IsSettingsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
-                </Button>
+                        Command="{Binding ShowSettingsCommand}"
+                        views:Nav.Label="設定" views:Nav.Icon="{StaticResource IconSettings}"
+                        views:Nav.IsActive="{Binding IsSettingsActive}" />
             </DockPanel>
         </Border>
 

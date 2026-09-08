@@ -77,6 +77,23 @@ public partial class SearchView : UserControl
         }
     }
 
+    /// <summary>
+    /// 中クリックでBOOTHを開く近道。
+    /// 知っている人だけが使うので、カードに出口を増やさずに済む（右クリックにも同じ項目がある）。
+    /// </summary>
+    private void OnCardMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle
+            || sender is not FrameworkElement { DataContext: ItemCardViewModel card }
+            || DataContext is not SearchViewModel search)
+        {
+            return;
+        }
+
+        search.OpenBooth(card);
+        e.Handled = true;
+    }
+
     private void OnThumbnailMouseLeave(object sender, MouseEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: ItemCardViewModel card })

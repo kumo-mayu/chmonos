@@ -55,6 +55,11 @@ public sealed class SearchViewModel : ViewModelBase
         SelectAllCommand = new RelayCommand(SelectAllMatches);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
+        OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter as ItemCardViewModel));
+        OpenShopCommand = new RelayCommand(parameter => OpenShop(parameter as ItemCardViewModel));
+        EditItemCommand = new RelayCommand(parameter => _ = EditItemAsync(parameter as ItemCardViewModel));
+        RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
+        HideItemCommand = new RelayCommand(parameter => _ = HideItemAsync(parameter as ItemCardViewModel));
         _ = ReloadAsync();
     }
 
@@ -62,6 +67,66 @@ public sealed class SearchViewModel : ViewModelBase
     public void AttachMain(MainViewModel main) => _main = main;
 
     public void OpenItem(ItemCardViewModel card) => _main?.ShowItem(card.Item);
+
+    /// <summary>
+    /// カードの右クリックから使う操作。
+    /// UI要素をカードに増やさずに済ませたいので、出口はここへ集める。
+    /// </summary>
+    public RelayCommand OpenBoothCommand { get; }
+
+    public RelayCommand OpenShopCommand { get; }
+
+    public RelayCommand EditItemCommand { get; }
+
+    public RelayCommand RevealCommand { get; }
+
+    public RelayCommand HideItemCommand { get; }
+
+    /// <summary>商品ページをブラウザで開く。中クリックからも呼ぶ。</summary>
+    public void OpenBooth(ItemCardViewModel? card)
+    {
+        if (card is not null)
+        {
+            Shell.OpenUrl(card.Item.Booth.Url ?? Core.Booth.BoothClient.ItemPageUrl(card.Item.Id));
+        }
+    }
+
+    /// <summary>ショップはアプリ内の画面へ送る（外のBOOTHではなく、手持ちが見える方）。</summary>
+    private void OpenShop(ItemCardViewModel? card)
+    {
+        var subdomain = card?.Item.Booth.Shop?.Subdomain;
+        if (!string.IsNullOrWhiteSpace(subdomain) && _main is not null)
+        {
+            _ = _main.ShowShopAsync(subdomain, ("検索に戻る", () => _main.ShowSearch()));
+        }
+    }
+
+    private async Task EditItemAsync(ItemCardViewModel? card)
+    {
+        if (card is not null && _main is not null)
+        {
+            await _main.ShowEditAsync([card.Item.Id]);
+        }
+    }
+
+    /// <summary>手元のファイルをエクスプローラで開く。最初の1件を的にする。</summary>
+    private void Reveal(ItemCardViewModel? card)
+        => Shell.Reveal(card?.Item.Local.LocalFiles.SelectMany(file => file.Paths).FirstOrDefault());
+
+    /// <summary>
+    /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。
+    /// </summary>
+    private async Task HideItemAsync(ItemCardViewModel? card)
+    {
+        if (card is null)
+        {
+            return;
+        }
+
+        var record = card.Item;
+        await _services.Store.Items.SaveAsync(record with { Local = record.Local with { IsHidden = true } });
+        await ReloadAsync();
+    }
 
     /// <summary>
     /// 結果を行単位で持つ。行を仮想化の単位にすることで、画面に出ている行のカードだけが実体化する。

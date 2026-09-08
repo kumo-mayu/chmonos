@@ -1,4 +1,5 @@
 using BoothAssetManager.App.Services;
+using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.App.ViewModels;
 
@@ -13,6 +14,7 @@ public sealed class MainViewModel : ViewModelBase
     private int _unresolvedCount;
     private int _needsEditCount;
     private int _unreadCount;
+    private bool _isNavCollapsed;
 
     public MainViewModel(AppServiceContainer services)
     {
@@ -48,9 +50,51 @@ public sealed class MainViewModel : ViewModelBase
         ShowSettingsCommand = new RelayCommand(ShowSettings);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
+        ToggleNavCommand = new RelayCommand(ToggleNav);
+
+        _isNavCollapsed = services.Settings.NavCollapsed;
 
         ShowSearch();
         RefreshCounts();
+    }
+
+    /// <summary>
+    /// ナビを畳んでアイコンだけにするか。
+    /// 完全に消さないのは、どこにいるかと残作業の件数が見えなくなるため。
+    /// </summary>
+    public bool IsNavCollapsed
+    {
+        get => _isNavCollapsed;
+        private set
+        {
+            if (SetField(ref _isNavCollapsed, value))
+            {
+                OnPropertyChanged(nameof(NavWidth));
+            }
+        }
+    }
+
+    /// <summary>畳んだときの幅は、アイコン16pxに左右の余白を足した値。</summary>
+    public double NavWidth => IsNavCollapsed ? 56 : 208;
+
+    public RelayCommand ToggleNavCommand { get; }
+
+    private void ToggleNav()
+    {
+        IsNavCollapsed = !IsNavCollapsed;
+        _ = SaveUiStateAsync(settings => settings with { NavCollapsed = IsNavCollapsed });
+    }
+
+    /// <summary>
+    /// 画面が覚えている状態（ナビの畳み方・ウィンドウの位置）を書き戻す。
+    /// 設定画面が別に読み書きしているので、こちらの変更も同じ経路を通して
+    /// 開いているAppSettingsを取り替えておく。
+    /// </summary>
+    public async Task SaveUiStateAsync(Func<AppSettings, AppSettings> update)
+    {
+        var next = update(_services.Settings);
+        _services.ReplaceSettings(next);
+        await _services.SettingsStore.SaveAsync(next);
     }
 
     public ThumbnailLoader Thumbnails { get; }

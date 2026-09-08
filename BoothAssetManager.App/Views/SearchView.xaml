@@ -254,8 +254,30 @@
                                 <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <!-- 高さを揃えて、行の下端が不揃いにならないようにする -->
+                                <!--
+                                    Tag に検索画面を入れておく。ContextMenu は視覚ツリーの外に出るので、
+                                    PlacementTarget 経由でないと画面側のコマンドに届かない。
+                                -->
                                 <Border Style="{StaticResource Card}" Width="228" Height="336" Margin="0,0,14,14"
-                                        Cursor="Hand" MouseLeftButtonUp="OnCardClick" ClipToBounds="True">
+                                        Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
+                                        ClipToBounds="True"
+                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}"
+                                                      Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            <MenuItem Header="ショップを開く" CommandParameter="{Binding}"
+                                                      Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            <MenuItem Header="編集に入る" CommandParameter="{Binding}"
+                                                      Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            <Separator />
+                                            <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding}"
+                                                      Command="{Binding PlacementTarget.Tag.RevealCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            <!-- 設定画面から戻せるので、確認は挟まない -->
+                                            <MenuItem Header="非表示にする" CommandParameter="{Binding}"
+                                                      Command="{Binding PlacementTarget.Tag.HideItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
                                     <DockPanel>
                                         <!--
                                             マウスの横位置でギャラリー画像を切り替える（BOOTHのサイトと同じ操作感）。
@@ -349,17 +371,36 @@
                                                 </Border.Style>
                                             </Border>
 
-                                            <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,1"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8"
-                                                    Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="所持" FontSize="10" Foreground="{StaticResource Good}" />
-                                            </Border>
                                         </Grid>
-                                        <!-- 容量は必ず下端に置く。カードの高さを固定しているので位置が揃う -->
+                                        <!--
+                                            下段は必ず下端に置く。カードの高さを固定しているので位置が揃う。
+                                            状態はここに集める。サムネイルに重ねると写真によっては読めない。
+                                        -->
                                         <Border DockPanel.Dock="Bottom" BorderBrush="#f0f1f4" BorderThickness="0,1,0,0"
                                                 Margin="11,0,11,11" Padding="0,6,0,0">
-                                            <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
+                                            <Grid>
+                                                <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
+                                                           VerticalAlignment="Center" />
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            ToolTip="記録にあるファイルが、今その場所にありません"
+                                                            Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
+                                                    </Border>
+                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            ToolTip="まだ分類していません"
+                                                            Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="未編集" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                    </Border>
+                                                    <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="所持" FontSize="10" Foreground="{StaticResource Good}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </Grid>
                                         </Border>
 
                                         <StackPanel Margin="11,10,11,0">
@@ -368,11 +409,6 @@
                                             <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                                        TextTrimming="CharacterEllipsis" />
                                             <WrapPanel Margin="0,8,0,0">
-                                                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                                        BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
-                                                        Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="未編集" FontSize="10" Foreground="{StaticResource Warn}" />
-                                                </Border>
                                                 <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                         BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
                                                         Visibility="{Binding HasAppTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

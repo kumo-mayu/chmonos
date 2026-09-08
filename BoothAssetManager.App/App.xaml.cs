@@ -27,8 +27,38 @@ public partial class App : Application
             return;
         }
 
-        var mainWindow = new MainWindow { DataContext = new MainViewModel(_services) };
+        var main = new MainViewModel(_services);
+        var mainWindow = new MainWindow { DataContext = main };
+
+        mainWindow.RestorePlacement(_services.Settings.Window);
+
+        // 閉じる直前に採る。Closed だと既に位置を失っている
+        mainWindow.Closing += (_, _) => SavePlacement(main, mainWindow);
+
         mainWindow.Show();
+    }
+
+    /// <summary>
+    /// 終了時の姿を覚える。
+    ///
+    /// 投げっぱなしにするとプロセスが先に終わって毎回書けないので、ここは待つ。
+    /// UIスレッドから直接待つと保存側の継続がUIスレッドを待って詰まるため、
+    /// Task.Run で切り離してから待つ。小さなJSON1枚なので数msで終わる。
+    /// </summary>
+    private static void SavePlacement(MainViewModel main, MainWindow window)
+    {
+        var placement = window.CurrentPlacement();
+
+        try
+        {
+            Task.Run(() => main.SaveUiStateAsync(settings => settings with { Window = placement }))
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception)
+        {
+            // 位置を覚えられなくても終了は妨げない
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

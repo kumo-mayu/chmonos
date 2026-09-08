@@ -318,6 +318,10 @@ public sealed class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(SettledText));
         OnCheckedChanged();
 
+        // 片付けた直後にナビの件数も減らす。次に画面を開き直すまで古い数字が残ると、
+        // 作業が進んでいないように見える
+        _main.RefreshBadges();
+
         Selected = Files.FirstOrDefault();
     }
 
@@ -1056,6 +1060,8 @@ public sealed class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(SettledCount));
         OnPropertyChanged(nameof(HasSettled));
         OnPropertyChanged(nameof(SettledText));
+
+        _main.RefreshBadges();
 
         Selected = Files.Count == 0
             ? null

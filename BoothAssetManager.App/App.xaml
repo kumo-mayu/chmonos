@@ -24,6 +24,10 @@
         <SolidColorBrush x:Key="Warn" Color="#8a5f1a" />
         <SolidColorBrush x:Key="WarnSoft" Color="#fbf1de" />
         <SolidColorBrush x:Key="WarnBorder" Color="#eddcbb" />
+        <!-- 「見つからない」のような、注意ではなく異常を示す色。Good/Warn と同じ彩度に揃える -->
+        <SolidColorBrush x:Key="Bad" Color="#a33c3c" />
+        <SolidColorBrush x:Key="BadSoft" Color="#fbeaea" />
+        <SolidColorBrush x:Key="BadBorder" Color="#eec9c9" />
 
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Text}" />

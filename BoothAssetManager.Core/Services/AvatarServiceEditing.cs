@@ -142,6 +142,21 @@ public sealed partial class AvatarService
         return await RewriteBaseNameInItemsAsync(oldName, trimmed, cancellationToken);
     }
 
+    /// <summary>
+    /// この素体を名指ししている商品の数。消す前の確認に出す。
+    ///
+    /// <see cref="AvatarBaseSummary.ItemCount"/> は所持している商品しか数えていないのに対し、
+    /// 削除は全商品の宣言を書き換えるので、確認に出す数はこちらで数え直す。
+    /// 消すのは戻せない操作なので、押す前に規模が見えている必要がある。
+    /// </summary>
+    public async Task<int> CountItemsUsingBaseAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+
+        return loaded.Items.Count(item => item.Local.AvatarBases.Any(link =>
+            string.Equals(link.BaseName, name, StringComparison.CurrentCultureIgnoreCase)));
+    }
+
     /// <summary>素体グループを消す。所属していたアバターは所属無しに戻る。</summary>
     /// <returns>書き換えたitem数。</returns>
     public async Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default)

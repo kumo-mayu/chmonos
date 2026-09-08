@@ -55,11 +55,25 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public string ItemIdText => HasItemId ? $"配布あり（{Summary.Group.ItemId}）" : "素体単体の配布なし";
 
+    private string _itemIdInput = string.Empty;
+
+    /// <summary>
+    /// 配布されている素体の商品ID。BOOTHの商品URLを貼っても読む。
+    /// 結んでおくと、その素体のページへ行けるようになり、所有の判定にも使える。
+    /// </summary>
+    public string ItemIdInput
+    {
+        get => _itemIdInput;
+        set => SetField(ref _itemIdInput, value);
+    }
+
     public RelayCommand? ToggleInferCommand { get; set; }
 
     public RelayCommand? RenameCommand { get; set; }
 
     public RelayCommand? DeleteCommand { get; set; }
+
+    public RelayCommand? SetItemIdCommand { get; set; }
 }
 
 /// <summary>
@@ -93,6 +107,7 @@ public sealed class AvatarsViewModel : ViewModelBase
         SetBaseCommand = new RelayCommand(() => _ = SetBaseAsync());
         ClearBaseCommand = new RelayCommand(() => _ = ClearBaseAsync());
         AddAliasCommand = new RelayCommand(() => _ = AddAliasAsync());
+        SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync());
         RenameCommand = new RelayCommand(() => _ = RenameAsync());
         RemoveAliasCommand = new RelayCommand(parameter => _ = RemoveAliasAsync(parameter as string));
         ToggleOwnedCommand = new RelayCommand(() => _ = ToggleOwnedAsync());
@@ -125,6 +140,8 @@ public sealed class AvatarsViewModel : ViewModelBase
     public RelayCommand ClearBaseCommand { get; }
 
     public RelayCommand AddAliasCommand { get; }
+
+    public RelayCommand SaveMemoCommand { get; }
 
     public RelayCommand RenameCommand { get; }
 
@@ -217,6 +234,18 @@ public sealed class AvatarsViewModel : ViewModelBase
         set => SetField(ref _nameInput, value);
     }
 
+    private string _memoInput = string.Empty;
+
+    /// <summary>
+    /// このアバターについての覚え書き。
+    /// 「素体は同じだが肩幅が違う」のような、検出では拾えない事情を残す場所。
+    /// </summary>
+    public string MemoInput
+    {
+        get => _memoInput;
+        set => SetField(ref _memoInput, value);
+    }
+
     public AvatarRowViewModel? Selected
     {
         get => _selected;
@@ -227,6 +256,7 @@ public sealed class AvatarsViewModel : ViewModelBase
                 BaseInput = value?.Summary.Entry.BaseName ?? string.Empty;
                 AliasInput = string.Empty;
                 NameInput = value?.Name ?? string.Empty;
+                MemoInput = value?.Summary.Entry.Memo ?? string.Empty;
 
                 foreach (var name in new[]
                 {
@@ -351,13 +381,16 @@ public sealed class AvatarsViewModel : ViewModelBase
             foreach (var summary in bases)
             {
                 var name = summary.Group.Name;
-                Bases.Add(new AvatarBaseRowViewModel
+                var baseRow = new AvatarBaseRowViewModel
                 {
                     Summary = summary,
+                    ItemIdInput = summary.Group.ItemId ?? string.Empty,
                     ToggleInferCommand = new RelayCommand(() => _ = ToggleInferAsync(name, !summary.Group.InferClothing)),
                     RenameCommand = new RelayCommand(() => RenameBase(name)),
-                    DeleteCommand = new RelayCommand(() => DeleteBase(name)),
-                });
+                    DeleteCommand = new RelayCommand(() => _ = ConfirmDeleteBaseAsync(name)),
+                };
+                baseRow.SetItemIdCommand = new RelayCommand(() => _ = SetBaseItemIdAsync(name, baseRow.ItemIdInput));
+                Bases.Add(baseRow);
                 BaseNames.Add(name);
             }
 
@@ -470,6 +503,34 @@ public sealed class AvatarsViewModel : ViewModelBase
         await LoadAsync();
     }
 
+    /// <summary>
+    /// 素体に配布商品を結ぶ。空にすると外れる。
+    /// 数字でもBOOTHの商品URLでも受ける（ブラウザから来るのは普通URLの方）。
+    /// </summary>
+    private async Task SetBaseItemIdAsync(string name, string input)
+    {
+        var trimmed = input.Trim();
+
+        if (trimmed.Length == 0)
+        {
+            await _services.Avatars.SetBaseItemIdAsync(name, null);
+            Status = $"「{name}」の配布商品との結び付きを外しました。";
+            await LoadAsync();
+            return;
+        }
+
+        var itemId = Core.Services.BoothItemId.Parse(trimmed);
+        if (itemId is null)
+        {
+            Status = "商品IDが読み取れませんでした。数字か、BOOTHの商品ページのURLを入れてください。";
+            return;
+        }
+
+        await _services.Avatars.SetBaseItemIdAsync(name, itemId);
+        Status = $"「{name}」を商品 {itemId} に結び付けました。";
+        await LoadAsync();
+    }
+
     private async Task ToggleInferAsync(string name, bool infer)
     {
         await _services.Avatars.SetInferClothingAsync(name, infer);
@@ -501,21 +562,29 @@ public sealed class AvatarsViewModel : ViewModelBase
         await LoadAsync();
     }
 
-    private void DeleteBase(string name)
+    /// <summary>
+    /// 素体グループを消す。アバターまわりで唯一、取り消せない操作なので、
+    /// 押す前に何件書き換わるかを数えて出す。
+    /// </summary>
+    private async Task ConfirmDeleteBaseAsync(string name)
     {
+        var members = Bases.FirstOrDefault(row => row.Name == name)?.Summary.MemberCount ?? 0;
+        var items = await Task.Run(() => _services.Avatars.CountItemsUsingBaseAsync(name));
+
         var answer = System.Windows.MessageBox.Show(
-            $"共通素体「{name}」を消します。\n所属していたアバターは所属無しに戻り、素体経由の対応も出なくなります。",
+            $"共通素体「{name}」を消します。\n\n"
+            + $"アバター {members} 体が所属無しに戻り、商品 {items} 件から素体の宣言が消えます。\n"
+            + "素体経由で出ていた対応も出なくなります。\n\n"
+            + "この操作は元に戻せません。同じ名前で作り直しても、所属と宣言は戻りません。",
             "共通素体を消す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Warning,
             System.Windows.MessageBoxResult.Cancel);
 
-        if (answer != System.Windows.MessageBoxResult.OK)
+        if (answer == System.Windows.MessageBoxResult.OK)
         {
-            return;
+            await DeleteBaseAsync(name);
         }
-
-        _ = DeleteBaseAsync(name);
     }
 
     private async Task DeleteBaseAsync(string name)
@@ -533,6 +602,18 @@ public sealed class AvatarsViewModel : ViewModelBase
         }
 
         await _services.Avatars.SetDisplayNameAsync(Selected.ItemId, NameInput);
+        await LoadAsync();
+    }
+
+    private async Task SaveMemoAsync()
+    {
+        if (Selected is null)
+        {
+            return;
+        }
+
+        await _services.Avatars.SetMemoAsync(Selected.ItemId, MemoInput);
+        Status = MemoInput.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
         await LoadAsync();
     }
 

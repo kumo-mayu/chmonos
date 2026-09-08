@@ -101,3 +101,18 @@ public sealed class ExcludedOpacityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// 0件なら出さない。ナビのバッジは「残っている作業」を示すものなので、
+/// 0が並ぶと、片付いたことではなく数字そのものが目に入ってしまう。
+/// </summary>
+public sealed class ZeroToCollapsedConverter : IValueConverter
+{
+    public static readonly ZeroToCollapsedConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is int count && count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
