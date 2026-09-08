@@ -30,6 +30,9 @@
             </Grid>
         </Border>
 
+        <!-- 片付いた表示と一覧は重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->
+        <Grid>
+
         <!-- 全部片付いたとき -->
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             <StackPanel.Style>
@@ -365,6 +368,8 @@
                     </Border>
                 </StackPanel>
             </ScrollViewer>
+        </Grid>
+
         </Grid>
     </DockPanel>
 </UserControl>
