@@ -491,6 +491,32 @@ public class ShopServiceTests : IDisposable
         return path;
     }
 
+    /// <summary>
+    /// バナーの有無が分かっているかを画面へ伝える。
+    /// 分からない間だけ場所を空けて待ち、分かっている店では最初から正しい高さで開く。
+    /// </summary>
+    [Fact]
+    public async Task ReportsWhetherTheBannerStateIsKnown()
+    {
+        await SaveItemAsync("1", Shop("unknown", "まだ調べていない"), Owned());
+        await SaveItemAsync("2", Shop("absent", "置いていない"), Owned());
+        await SaveItemAsync("3", Shop("present", "持っている"), Owned());
+
+        await _store.ShopBanners.SaveAsync(
+        [
+            new ShopBannerRecord { Subdomain = "absent", HasBanner = false, CheckedAt = DateTimeOffset.Now },
+        ]);
+
+        Directory.CreateDirectory(_store.Paths.ShopIconsDir);
+        await File.WriteAllBytesAsync(_store.Paths.ShopBannerFile("present"), [1, 2, 3]);
+
+        var shops = (await Create().LoadAsync()).ToDictionary(shop => shop.Subdomain);
+
+        Assert.Equal(ShopBannerState.Unknown, shops["unknown"].BannerState);
+        Assert.Equal(ShopBannerState.Absent, shops["absent"].BannerState);
+        Assert.Equal(ShopBannerState.Present, shops["present"].BannerState);
+    }
+
     /// <summary>取得手段が無いとき（テストや将来の切り離し）に落ちない。</summary>
     [Fact]
     public async Task DoesNothingWithoutAClient()

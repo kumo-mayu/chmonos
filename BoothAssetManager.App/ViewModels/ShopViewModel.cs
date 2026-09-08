@@ -36,6 +36,9 @@ public sealed class ShopViewModel : ViewModelBase
         BackCommand = new RelayCommand(main.ShowShops);
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
 
+        // 有無が分からない店だけ、開いた瞬間から場所を空けて待つ
+        _isBannerPending = shop.BannerState == ShopBannerState.Unknown;
+
         _ = ReloadAsync();
     }
 
@@ -62,6 +65,7 @@ public sealed class ShopViewModel : ViewModelBase
     public bool ShowInitial => Icon is null;
 
     private System.Windows.Media.Imaging.BitmapSource? _banner;
+    private bool _isBannerPending;
 
     /// <summary>
     /// ショップのバナー。URLがHTMLにしか無いので、この画面を開いたときに取りに行く。
@@ -75,11 +79,34 @@ public sealed class ShopViewModel : ViewModelBase
             if (SetField(ref _banner, value))
             {
                 OnPropertyChanged(nameof(HasBanner));
+                OnPropertyChanged(nameof(ShowBannerArea));
             }
         }
     }
 
     public bool HasBanner => Banner is not null;
+
+    /// <summary>
+    /// バナーの有無がまだ分からず、取りに行っている最中か。
+    ///
+    /// この間だけ同じ高さの場所を空けて待つ。空けておかないと、
+    /// 後からバナーが差し込まれて中身が下へずれる。
+    /// 2回目からは有無が分かっているので、最初から正しい高さで開く。
+    /// </summary>
+    public bool IsBannerPending
+    {
+        get => _isBannerPending;
+        private set
+        {
+            if (SetField(ref _isBannerPending, value))
+            {
+                OnPropertyChanged(nameof(ShowBannerArea));
+            }
+        }
+    }
+
+    /// <summary>バナーそのものか、その場所取りを出すか。</summary>
+    public bool ShowBannerArea => HasBanner || IsBannerPending;
 
     public string OwnedText => $"{Shop.OwnedCount}";
 
@@ -164,17 +191,33 @@ public sealed class ShopViewModel : ViewModelBase
             return;
         }
 
+        // 「置いていない」と分かっている店は、次に確かめる時期が来るまで場所を空けない。
+        // 期限が来て見に行った結果バナーが出てきたときだけ、そこで初めて現れる
+        if (Shop.BannerState == ShopBannerState.Absent)
+        {
+            IsBannerPending = false;
+        }
+
         try
         {
             var path = await _services.Shops.EnsureBannerAsync(Shop.Subdomain, _services.Images);
-            if (path is not null)
+
+            RunOnUiThread(() =>
             {
-                RunOnUiThread(() => Banner = _thumbnails.Load(path));
-            }
+                if (path is not null)
+                {
+                    Banner = _thumbnails.Load(path);
+                }
+
+                // 結果が出たので場所取りは畳む。バナーがあった場合は
+                // 同じ高さの絵に入れ替わるだけで、位置は動かない
+                IsBannerPending = false;
+            });
         }
         catch (Exception exception) when (exception is IOException or HttpRequestException)
         {
             // バナーは飾りなので、取れなくても画面は成立する
+            RunOnUiThread(() => IsBannerPending = false);
         }
     }
 

@@ -4,6 +4,22 @@ using BoothAssetManager.Core.Storage;
 
 namespace BoothAssetManager.Core.Services;
 
+/// <summary>
+/// バナーについて分かっていること。
+/// 画面が「場所を空けて待つ」か「最初から出さない」かを決めるために要る。
+/// </summary>
+public enum ShopBannerState
+{
+    /// <summary>まだ調べていない。取りに行くまで有無が分からない。</summary>
+    Unknown,
+
+    /// <summary>手元にある。</summary>
+    Present,
+
+    /// <summary>調べた結果、置いていなかった。</summary>
+    Absent,
+}
+
 /// <summary>ショップ1件の集計。</summary>
 public sealed record ShopSummary
 {
@@ -21,6 +37,12 @@ public sealed record ShopSummary
 
     /// <summary>ローカルに落としたバナー。まだ無ければ null。</summary>
     public string? BannerPath { get; init; }
+
+    /// <summary>
+    /// バナーの有無が分かっているか。分かっていない間だけ画面で場所を空けて待ち、
+    /// 分かっている店では最初から正しい高さで開く（後から差し込まれて下にずれない）。
+    /// </summary>
+    public ShopBannerState BannerState { get; init; }
 
     /// <summary>ローカルに情報を持っている商品数（所持していないものも含む）。</summary>
     public required int KnownCount { get; init; }
@@ -107,10 +129,12 @@ public sealed class ShopService : IShopService
             .Select(record => record.ItemId!)
             .ToHashSet(StringComparer.Ordinal);
 
+        var bannerRecords = _store.ShopBanners.Load();
+
         return loaded.Items
             .Where(item => item.Booth.Shop is not null)
             .GroupBy(item => item.Booth.Shop!.Subdomain, StringComparer.OrdinalIgnoreCase)
-            .Select(group => Summarize(group, updatedIds))
+            .Select(group => Summarize(group, updatedIds, bannerRecords))
             .OrderByDescending(shop => shop.OwnedCount)
             .ThenBy(shop => shop.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -148,7 +172,10 @@ public sealed class ShopService : IShopService
             .ToList();
     }
 
-    private ShopSummary Summarize(IGrouping<string, ItemRecord> group, IReadOnlySet<string> updatedIds)
+    private ShopSummary Summarize(
+        IGrouping<string, ItemRecord> group,
+        IReadOnlySet<string> updatedIds,
+        IReadOnlyList<ShopBannerRecord> bannerRecords)
     {
         // 名前は最後に取得したものを採る。改名されたら新しい方に寄せたい
         var shop = group
@@ -175,6 +202,7 @@ public sealed class ShopService : IShopService
             ThumbnailUrl = shop.ThumbnailUrl,
             IconPath = Existing(_store.Paths.ShopIconFile(shop.Subdomain)),
             BannerPath = Existing(_store.Paths.ShopBannerFile(shop.Subdomain)),
+            BannerState = BannerStateOf(shop.Subdomain, bannerRecords),
             KnownCount = counted.Count,
             OwnedCount = owned.Count,
             SpentYen = owned.Sum(item => (long)Spent(item)),
@@ -185,6 +213,23 @@ public sealed class ShopService : IShopService
     }
 
     private static string? Existing(string path) => File.Exists(path) ? path : null;
+
+    /// <summary>
+    /// バナーの有無が分かっているか。
+    /// 手元にあれば Present、調べて無かったなら Absent、まだ調べていなければ Unknown。
+    /// </summary>
+    private ShopBannerState BannerStateOf(string subdomain, IReadOnlyList<ShopBannerRecord> records)
+    {
+        if (File.Exists(_store.Paths.ShopBannerFile(subdomain)))
+        {
+            return ShopBannerState.Present;
+        }
+
+        var known = records.FirstOrDefault(record =>
+            string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+
+        return known is null ? ShopBannerState.Unknown : ShopBannerState.Absent;
+    }
 
     /// <summary>
     /// そのショップのバナーを用意する。既にあれば何もしない。

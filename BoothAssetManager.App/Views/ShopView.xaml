@@ -28,9 +28,22 @@
         -->
         <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
-                Visibility="{Binding HasBanner, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <Image Source="{Binding Banner}" Stretch="Uniform"
-                   MaxWidth="960" MaxHeight="320" HorizontalAlignment="Center" />
+                Visibility="{Binding ShowBannerArea, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Grid Height="320">
+                <!--
+                    有無が分からない間は、同じ高さの場所を空けて待つ。
+                    空けておかないと、後からバナーが差し込まれて中身が下へずれる。
+                -->
+                <Border Background="{StaticResource SurfaceAlt}" Width="960"
+                        Visibility="{Binding IsBannerPending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="バナーを確認しています…" Style="{StaticResource Caption}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <Image Source="{Binding Banner}" Stretch="Uniform"
+                       MaxWidth="960" MaxHeight="320" HorizontalAlignment="Center"
+                       Visibility="{Binding HasBanner, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </Grid>
         </Border>
 
         <!-- ショップの見出しと集計 -->
