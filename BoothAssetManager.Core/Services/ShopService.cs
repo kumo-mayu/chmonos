@@ -216,7 +216,10 @@ public sealed class ShopService : IShopService
 
     /// <summary>
     /// バナーの有無が分かっているか。
-    /// 手元にあれば Present、調べて無かったなら Absent、まだ調べていなければ Unknown。
+    ///
+    /// 手元にあれば Present。調べて無かった記録があり、まだ確かめ直す時期でなければ Absent。
+    /// 記録が無いか、確かめ直す時期が来ているなら Unknown
+    /// （見に行った結果バナーが現れることがあるので、答えが変わり得る間は「分からない」扱いにする）。
     /// </summary>
     private ShopBannerState BannerStateOf(string subdomain, IReadOnlyList<ShopBannerRecord> records)
     {
@@ -228,7 +231,15 @@ public sealed class ShopService : IShopService
         var known = records.FirstOrDefault(record =>
             string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
 
-        return known is null ? ShopBannerState.Unknown : ShopBannerState.Absent;
+        if (known is null)
+        {
+            return ShopBannerState.Unknown;
+        }
+
+        var recheckAfter = TimeSpan.FromDays(Math.Max(1, _settings.ShopBannerRecheckDays));
+        return DateTimeOffset.Now - known.CheckedAt < recheckAfter
+            ? ShopBannerState.Absent
+            : ShopBannerState.Unknown;
     }
 
     /// <summary>

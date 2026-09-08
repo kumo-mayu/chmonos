@@ -36,8 +36,10 @@ public sealed class ShopViewModel : ViewModelBase
         BackCommand = new RelayCommand(main.ShowShops);
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
 
-        // 有無が分からない店だけ、開いた瞬間から場所を空けて待つ
-        _isBannerPending = shop.BannerState == ShopBannerState.Unknown;
+        // 有無が分からない店だけ、開いた瞬間から場所を空けて待つ。
+        // 確かめ直す時期が来た店も「分からない」に含まれる（結果が変わり得るため）
+        _reservedBannerArea = shop.BannerState == ShopBannerState.Unknown;
+        _isBannerPending = _reservedBannerArea;
 
         _ = ReloadAsync();
     }
@@ -67,6 +69,9 @@ public sealed class ShopViewModel : ViewModelBase
     private System.Windows.Media.Imaging.BitmapSource? _banner;
     private bool _isBannerPending;
 
+    /// <summary>この画面を開いた時点で場所を空けたか。開いた後は変えない（ずれるので）。</summary>
+    private readonly bool _reservedBannerArea;
+
     /// <summary>
     /// ショップのバナー。URLがHTMLにしか無いので、この画面を開いたときに取りに行く。
     /// 置いていないショップもあるので、無ければ帯ごと出さない。
@@ -88,10 +93,7 @@ public sealed class ShopViewModel : ViewModelBase
 
     /// <summary>
     /// バナーの有無がまだ分からず、取りに行っている最中か。
-    ///
-    /// この間だけ同じ高さの場所を空けて待つ。空けておかないと、
-    /// 後からバナーが差し込まれて中身が下へずれる。
-    /// 2回目からは有無が分かっているので、最初から正しい高さで開く。
+    /// 出す文言を切り替えるためだけに使う（場所を空けるかどうかは <see cref="ShowBannerArea"/>）。
     /// </summary>
     public bool IsBannerPending
     {
@@ -100,13 +102,24 @@ public sealed class ShopViewModel : ViewModelBase
         {
             if (SetField(ref _isBannerPending, value))
             {
-                OnPropertyChanged(nameof(ShowBannerArea));
+                OnPropertyChanged(nameof(BannerPlaceholderText));
             }
         }
     }
 
-    /// <summary>バナーそのものか、その場所取りを出すか。</summary>
-    public bool ShowBannerArea => HasBanner || IsBannerPending;
+    /// <summary>
+    /// バナーの場所を空けるか。
+    ///
+    /// 開いた時点で有無が分からなければ空け、その後の結果では畳まない。
+    /// 「無かった」と分かった時点で畳むと、結局そこで下へずれてしまう。
+    /// 次に開くときは「無し」と分かっているので、最初から空けずに開く。
+    /// </summary>
+    public bool ShowBannerArea => HasBanner || _reservedBannerArea;
+
+    /// <summary>場所を空けている間に出す文言。何を待っているのか、何が無かったのかを書く。</summary>
+    public string BannerPlaceholderText => IsBannerPending
+        ? "バナーを確認しています…"
+        : "このショップはバナーを設定していません";
 
     public string OwnedText => $"{Shop.OwnedCount}";
 
@@ -209,8 +222,8 @@ public sealed class ShopViewModel : ViewModelBase
                     Banner = _thumbnails.Load(path);
                 }
 
-                // 結果が出たので場所取りは畳む。バナーがあった場合は
-                // 同じ高さの絵に入れ替わるだけで、位置は動かない
+                // 結果が出たので待ちの表示はやめる。無かった場合も場所は畳まない
+                // （ここで畳むと、結局そこで下へずれる）。次に開くときは空けずに開く
                 IsBannerPending = false;
             });
         }

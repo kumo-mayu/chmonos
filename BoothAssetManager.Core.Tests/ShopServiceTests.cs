@@ -517,6 +517,31 @@ public class ShopServiceTests : IDisposable
         Assert.Equal(ShopBannerState.Present, shops["present"].BannerState);
     }
 
+    /// <summary>
+    /// 確かめ直す時期が来た店は「分からない」に戻す。
+    /// これを Absent のままにすると、場所を空けずに開いた後でバナーが見つかり、
+    /// 結局そこで中身が下へずれる。
+    /// </summary>
+    [Fact]
+    public async Task TreatsAShopDueForRecheckAsUnknown()
+    {
+        await SaveItemAsync("1", Shop("stale", "しばらく確かめていない"), Owned());
+
+        await _store.ShopBanners.SaveAsync(
+        [
+            new ShopBannerRecord
+            {
+                Subdomain = "stale",
+                HasBanner = false,
+                CheckedAt = DateTimeOffset.Now.AddDays(-40),
+            },
+        ]);
+
+        Assert.Equal(
+            ShopBannerState.Unknown,
+            Assert.Single(await Create(recheckDays: 30).LoadAsync()).BannerState);
+    }
+
     /// <summary>取得手段が無いとき（テストや将来の切り離し）に落ちない。</summary>
     [Fact]
     public async Task DoesNothingWithoutAClient()

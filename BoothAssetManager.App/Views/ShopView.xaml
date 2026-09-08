@@ -35,8 +35,8 @@
                     空けておかないと、後からバナーが差し込まれて中身が下へずれる。
                 -->
                 <Border Background="{StaticResource SurfaceAlt}" Width="960"
-                        Visibility="{Binding IsBannerPending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="バナーを確認しています…" Style="{StaticResource Caption}"
+                        Visibility="{Binding HasBanner, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="{Binding BannerPlaceholderText}" Style="{StaticResource Caption}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
 
