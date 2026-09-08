@@ -503,6 +503,13 @@ public sealed class ImportPipeline : IImportPipeline
             }
 
             var imageResult = await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
+
+            // ショップのアイコンもここで落とす。URLはこの商品JSONにしか入っていない
+            if (item.Booth.Shop is { } shop)
+            {
+                await _images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
+            }
+
             imagesDownloaded += imageResult.Downloaded;
             added++;
         }

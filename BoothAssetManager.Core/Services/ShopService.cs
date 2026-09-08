@@ -1,3 +1,4 @@
+using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Storage;
 
@@ -14,6 +15,9 @@ public sealed record ShopSummary
     public string? Url { get; init; }
 
     public string? ThumbnailUrl { get; init; }
+
+    /// <summary>ローカルに落としたアイコン。まだ無ければ null（頭文字のタイルで代える）。</summary>
+    public string? IconPath { get; init; }
 
     /// <summary>ローカルに情報を持っている商品数（所持していないものも含む）。</summary>
     public required int KnownCount { get; init; }
@@ -53,6 +57,11 @@ public interface IShopService
     Task<IReadOnlyList<ShopSummary>> LoadAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ShopItem>> LoadItemsAsync(string subdomain, CancellationToken cancellationToken = default);
+
+    Task<int> SyncMissingIconsAsync(
+        ImagePipeline images,
+        Func<string, string, Task>? onFetched = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -154,6 +163,7 @@ public sealed class ShopService : IShopService
             Name = shop.Name,
             Url = shop.Url,
             ThumbnailUrl = shop.ThumbnailUrl,
+            IconPath = IconPathOf(shop.Subdomain),
             KnownCount = counted.Count,
             OwnedCount = owned.Count,
             SpentYen = owned.Sum(item => (long)Spent(item)),
@@ -161,6 +171,47 @@ public sealed class ShopService : IShopService
             LastAcquiredIsFallback = latest.IsFallback,
             UpdatedCount = counted.Count(item => updatedIds.Contains(item.Id)),
         };
+    }
+
+    private string? IconPathOf(string subdomain)
+    {
+        var path = _store.Paths.ShopIconFile(subdomain);
+        return File.Exists(path) ? path : null;
+    }
+
+    /// <summary>
+    /// まだ持っていないショップのアイコンを順に落とす。
+    ///
+    /// URLは商品JSONにしか入っておらず、既に取り込み済みのitemでは
+    /// アイコンだけが抜けている。1件ごとに知らせるのは、全部揃うまで
+    /// 画面を待たせずに、届いたものから差し替えたいため。
+    /// </summary>
+    public async Task<int> SyncMissingIconsAsync(
+        ImagePipeline images,
+        Func<string, string, Task>? onFetched = null,
+        CancellationToken cancellationToken = default)
+    {
+        var shops = await LoadAsync(cancellationToken);
+        var fetched = 0;
+
+        foreach (var shop in shops.Where(entry => entry.IconPath is null && entry.ThumbnailUrl is not null))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!await images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken))
+            {
+                continue;
+            }
+
+            fetched++;
+
+            if (onFetched is not null)
+            {
+                await onFetched(shop.Subdomain, _store.Paths.ShopIconFile(shop.Subdomain));
+            }
+        }
+
+        return fetched;
     }
 
     /// <summary>

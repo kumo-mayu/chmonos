@@ -25,10 +25,16 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,20">
                 <StackPanel Orientation="Horizontal">
-                    <Border Width="72" Height="72" CornerRadius="12" Background="{StaticResource AccentSoft}">
-                        <TextBlock Text="{Binding Initial}" FontSize="30" FontWeight="Bold"
-                                   Foreground="#4a5160"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="72" Height="72" CornerRadius="12" ClipToBounds="True"
+                            Background="{StaticResource AccentSoft}">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" FontSize="30" FontWeight="Bold"
+                                       Foreground="#4a5160"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding ShowInitial, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                                   Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </Grid>
                     </Border>
                     <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" FontSize="21" FontWeight="Bold" TextWrapping="Wrap" />

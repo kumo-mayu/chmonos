@@ -16,7 +16,27 @@ public sealed class ShopSortOption
 /// <summary>ショップ一覧の1枚。</summary>
 public sealed class ShopCardViewModel : ViewModelBase
 {
+    private System.Windows.Media.Imaging.BitmapSource? _icon;
+
     public required ShopSummary Shop { get; init; }
+
+    /// <summary>落としてあるアイコン。まだ無ければ頭文字のタイルで代える。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon
+    {
+        get => _icon;
+        set
+        {
+            if (SetField(ref _icon, value))
+            {
+                OnPropertyChanged(nameof(HasIcon));
+                OnPropertyChanged(nameof(ShowInitial));
+            }
+        }
+    }
+
+    public bool HasIcon => Icon is not null;
+
+    public bool ShowInitial => Icon is null;
 
     public string Name => Shop.Name;
 
@@ -100,16 +120,20 @@ public sealed class ShopsViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
+    private readonly Services.ThumbnailLoader _thumbnails;
+    private readonly CancellationTokenSource _iconFetch = new();
 
     private List<ShopCardViewModel> _all = [];
+    private string _iconStatus = string.Empty;
     private string _filterText = string.Empty;
     private ShopSortOption _sort;
     private bool _isLoading;
 
-    public ShopsViewModel(AppServiceContainer services, MainViewModel main)
+    public ShopsViewModel(AppServiceContainer services, MainViewModel main, Services.ThumbnailLoader thumbnails)
     {
         _services = services;
         _main = main;
+        _thumbnails = thumbnails;
 
         SortOptions =
         [
@@ -185,7 +209,12 @@ public sealed class ShopsViewModel : ViewModelBase
             {
                 _all = shops.Select(shop =>
                 {
-                    var card = new ShopCardViewModel { Shop = shop };
+                    var card = new ShopCardViewModel
+                    {
+                        Shop = shop,
+                        Icon = shop.IconPath is null ? null : _thumbnails.Load(shop.IconPath),
+                    };
+
                     card.OpenCommand = new RelayCommand(() => _main.ShowShop(shop));
                     return card;
                 }).ToList();
@@ -199,7 +228,81 @@ public sealed class ShopsViewModel : ViewModelBase
             IsLoading = false;
             RunOnUiThread(() => OnPropertyChanged(nameof(IsEmpty)));
         }
+
+        await FetchMissingIconsAsync();
     }
+
+    /// <summary>
+    /// まだ持っていないアイコンを裏で順に落とす。
+    ///
+    /// URLは商品JSONにしか入っていないので、取り込み済みのitemではアイコンだけが抜けている。
+    /// 全部揃うまで画面を止めず、届いたものからその場で差し替える。
+    /// BOOTHへは1件ずつ間隔を空けて行くので、店数が多いと時間がかかる。
+    /// </summary>
+    private async Task FetchMissingIconsAsync()
+    {
+        var missing = _all.Count(card => card.Icon is null && card.Shop.ThumbnailUrl is not null);
+        if (missing == 0)
+        {
+            return;
+        }
+
+        IconStatus = $"ショップのアイコンを取得しています（残り {missing} 件）…";
+
+        try
+        {
+            var done = 0;
+
+            await _services.Shops.SyncMissingIconsAsync(
+                _services.Images,
+                (subdomain, path) =>
+                {
+                    done++;
+                    RunOnUiThread(() =>
+                    {
+                        var card = _all.FirstOrDefault(entry =>
+                            string.Equals(entry.Shop.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+
+                        if (card is not null)
+                        {
+                            card.Icon = _thumbnails.Load(path);
+                        }
+
+                        IconStatus = done >= missing
+                            ? string.Empty
+                            : $"ショップのアイコンを取得しています（残り {missing - done} 件）…";
+                    });
+
+                    return Task.CompletedTask;
+                },
+                _iconFetch.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // 画面を離れたら取りに行くのをやめる
+        }
+        finally
+        {
+            RunOnUiThread(() => IconStatus = string.Empty);
+        }
+    }
+
+    /// <summary>画面を離れるときに呼ぶ。取得を続ける意味がないので止める。</summary>
+    public void StopFetching() => _iconFetch.Cancel();
+
+    public string IconStatus
+    {
+        get => _iconStatus;
+        private set
+        {
+            if (SetField(ref _iconStatus, value))
+            {
+                OnPropertyChanged(nameof(HasIconStatus));
+            }
+        }
+    }
+
+    public bool HasIconStatus => IconStatus.Length > 0;
 
     private void Rebuild()
     {

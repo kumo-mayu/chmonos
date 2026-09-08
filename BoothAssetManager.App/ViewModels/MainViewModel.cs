@@ -78,7 +78,7 @@ public sealed class MainViewModel : ViewModelBase
     /// ショップ一覧。検索と違って持ち回さないのは、集計が取り込みや編集で変わるため。
     /// 開き直した時点で数え直す。
     /// </summary>
-    public void ShowShops() => CurrentViewModel = new ShopsViewModel(_services, this);
+    public void ShowShops() => CurrentViewModel = new ShopsViewModel(_services, this, Thumbnails);
 
     public void ShowShop(Core.Services.ShopSummary shop)
         => CurrentViewModel = new ShopViewModel(shop, _services, this, Thumbnails);
@@ -140,6 +140,12 @@ public sealed class MainViewModel : ViewModelBase
         get => _currentViewModel;
         private set
         {
+            // ショップ一覧を離れたら、裏で走らせているアイコン取得を止める
+            if (_currentViewModel is ShopsViewModel leaving && !ReferenceEquals(leaving, value))
+            {
+                leaving.StopFetching();
+            }
+
             if (SetField(ref _currentViewModel, value))
             {
                 OnPropertyChanged(nameof(IsSearchActive));

@@ -132,6 +132,11 @@ public sealed class ItemService : IItemService
 
         await _images.SyncAsync(itemId, booth.Images, cancellationToken);
 
+        if (booth.Shop is { } shop)
+        {
+            await _images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
+        }
+
         return RefreshOutcome.Updated;
     }
 
@@ -259,6 +264,12 @@ public sealed class ItemService : IItemService
         }
 
         await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
+
+        if (item.Booth.Shop is { } shop)
+        {
+            await _images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
+        }
+
         return item;
     }
 

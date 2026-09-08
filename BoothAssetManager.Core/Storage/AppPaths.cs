@@ -66,6 +66,20 @@ public sealed class AppPaths
 
     public string ItemImagesDir(string itemId) => Path.Combine(ImagesDir, itemId);
 
+    /// <summary>
+    /// ショップのアイコン置き場。商品IDと衝突しないよう、専用の名前にしてある
+    /// （<c>images/</c> 直下は商品IDのフォルダが並ぶ場所なので）。
+    /// </summary>
+    public string ShopIconsDir => Path.Combine(ImagesDir, "_shops");
+
+    public string ShopIconFile(string subdomain)
+        => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}.webp");
+
+    /// <summary>サブドメインはURLの一部なので概ね安全だが、念のためファイル名に使えない字を落とす。</summary>
+    private static string Sanitize(string name)
+        => string.Concat(name.Select(character =>
+            Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
+
     public void EnsureCreated()
     {
         Directory.CreateDirectory(Root);

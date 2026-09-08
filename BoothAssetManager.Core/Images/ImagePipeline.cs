@@ -51,6 +51,74 @@ public sealed class ImagePipeline
     public string FilePathFor(string itemId, string originalUrl)
         => Path.Combine(_paths.ItemImagesDir(itemId), FileNameFor(originalUrl));
 
+    /// <summary>
+    /// BOOTHが配っているアイコンの大きさ。
+    ///
+    /// CDNは決まったサイズしか返さない（実測で 48 / 128 / 150 と原寸のみが200、
+    /// 他は403）。原寸はショップごとに240〜600pxとばらつき、150KB級のものもあるので、
+    /// 一定の大きさで揃う150を採る。表示は42pxと72pxなので、これで足りる。
+    /// </summary>
+    private const string IconSizeSegment = "/c/150x150/";
+
+    /// <summary>
+    /// ショップのアイコンを落とす。既にあれば何もしない。
+    ///
+    /// 商品JSONに入っているのは48x48のURLだけなので、サイズの部分を差し替えて取る。
+    /// 差し替えられない形のURLだったときは、素直に元のURLを使う。
+    /// </summary>
+    /// <returns>手元にアイコンがあるか（元から持っていた場合も true）。</returns>
+    public async Task<bool> SyncShopIconAsync(
+        string subdomain,
+        string? thumbnailUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var path = _paths.ShopIconFile(subdomain);
+        if (File.Exists(path))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(thumbnailUrl))
+        {
+            return false;
+        }
+
+        var result = await _client.GetBinaryAsync(LargerIconUrl(thumbnailUrl), cancellationToken);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_paths.ShopIconsDir);
+            await SaveAsWebpAsync(result.Value, path, cancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>48x48のURLから150x150のURLを作る。形が違えばそのまま返す。</summary>
+    public static string LargerIconUrl(string thumbnailUrl)
+    {
+        var start = thumbnailUrl.IndexOf("/c/", StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return thumbnailUrl;
+        }
+
+        var end = thumbnailUrl.IndexOf('/', start + 3);
+        if (end < 0)
+        {
+            return thumbnailUrl;
+        }
+
+        return thumbnailUrl[..start] + IconSizeSegment + thumbnailUrl[(end + 1)..];
+    }
+
     public async Task<ImageSyncResult> SyncAsync(
         string itemId,
         IReadOnlyList<BoothImage> images,

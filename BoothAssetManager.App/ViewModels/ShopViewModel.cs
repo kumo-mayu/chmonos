@@ -51,6 +51,14 @@ public sealed class ShopViewModel : ViewModelBase
 
     public string Initial => Shop.Name.Length == 0 ? "?" : Shop.Name[..1];
 
+    /// <summary>落としてあるアイコン。まだ無ければ頭文字のタイルで代える。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon
+        => Shop.IconPath is null ? null : _thumbnails.Load(Shop.IconPath);
+
+    public bool HasIcon => Icon is not null;
+
+    public bool ShowInitial => Icon is null;
+
     public string OwnedText => $"{Shop.OwnedCount}";
 
     public string SpentText => $"¥{Shop.SpentYen:N0}";
