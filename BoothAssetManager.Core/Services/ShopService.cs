@@ -200,7 +200,7 @@ public sealed class ShopService : IShopService
             Name = shop.Name,
             Url = shop.Url,
             ThumbnailUrl = shop.ThumbnailUrl,
-            IconPath = Existing(_store.Paths.ShopIconFile(shop.Subdomain)),
+            IconPath = Existing(_store.Paths.ShopIconFile(shop.Subdomain, shop.ThumbnailUrl)),
             BannerPath = Existing(_store.Paths.ShopBannerFile(shop.Subdomain)),
             BannerState = BannerStateOf(shop.Subdomain, bannerRecords),
             KnownCount = counted.Count,
@@ -395,7 +395,7 @@ public sealed class ShopService : IShopService
 
             if (onFetched is not null)
             {
-                await onFetched(shop.Subdomain, _store.Paths.ShopIconFile(shop.Subdomain));
+                await onFetched(shop.Subdomain, _store.Paths.ShopIconFile(shop.Subdomain, shop.ThumbnailUrl));
             }
         }
 

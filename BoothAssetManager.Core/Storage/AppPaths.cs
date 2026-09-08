@@ -74,8 +74,26 @@ public sealed class AppPaths
     /// </summary>
     public string ShopIconsDir => Path.Combine(ImagesDir, "_shops");
 
-    public string ShopIconFile(string subdomain)
-        => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}.webp");
+    /// <summary>
+    /// ショップのアイコン。名前に元URLのハッシュを含める。
+    ///
+    /// ショップがアイコンを差し替えると商品JSONのURLが変わるので、
+    /// 名前も変わって別ファイルになり、次のitem取得で自動的に落とし直される。
+    /// 商品画像と同じ考え方（あちらは差し込みで番号がずれるのを避けるため）。
+    /// </summary>
+    public string ShopIconFile(string subdomain, string? thumbnailUrl)
+        => Path.Combine(
+            ShopIconsDir,
+            thumbnailUrl is null
+                ? $"{Sanitize(subdomain)}.webp"
+                : $"{Sanitize(subdomain)}_{ShortHash(thumbnailUrl)}.webp");
+
+    /// <summary>元URLから短いハッシュを作る。同じURLなら常に同じ名前になる。</summary>
+    private static string ShortHash(string value)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(hash)[..8].ToLowerInvariant();
+    }
 
     public string ShopBannerFile(string subdomain)
         => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}_banner.webp");

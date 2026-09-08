@@ -1,3 +1,4 @@
+using BoothAssetManager.Core.Storage;
 using BoothAssetManager.Core.Images;
 using Xunit;
 
@@ -27,6 +28,26 @@ public class ImagePipelineTests
 
         Assert.Equal(Plain, ImagePipeline.LargerIconUrl(Plain));
         Assert.Equal("https://example.com/icon.png", ImagePipeline.LargerIconUrl("https://example.com/icon.png"));
+    }
+
+    /// <summary>
+    /// アイコンの保存名は元URLで決まる。
+    /// ショップが差し替えるとURLが変わるので、別ファイルになって落とし直される
+    /// （時間で確かめ直さなくても、次のitem取得で自動的に追いつく）。
+    /// </summary>
+    [Fact]
+    public void NamesTheIconAfterItsSourceUrl()
+    {
+        var paths = new AppPaths(Path.Combine(Path.GetTempPath(), "bam-icon-name"));
+
+        var before = paths.ShopIconFile("shop", "https://booth.pximg.net/c/48x48/users/1/icon_image/aaa.jpg");
+        var after = paths.ShopIconFile("shop", "https://booth.pximg.net/c/48x48/users/1/icon_image/bbb.jpg");
+
+        Assert.NotEqual(before, after);
+        Assert.StartsWith("shop_", Path.GetFileName(before));
+
+        // 同じURLなら何度呼んでも同じ名前
+        Assert.Equal(before, paths.ShopIconFile("shop", "https://booth.pximg.net/c/48x48/users/1/icon_image/aaa.jpg"));
     }
 
     /// <summary>既に別のサイズが入っていても150へ寄せる。</summary>

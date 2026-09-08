@@ -61,10 +61,14 @@ public sealed class ImagePipeline
     private const string IconSizeSegment = "/c/150x150/";
 
     /// <summary>
-    /// ショップのアイコンを落とす。既にあれば何もしない。
+    /// ショップのアイコンを落とす。同じURLのものが既にあれば何もしない。
     ///
     /// 商品JSONに入っているのは48x48のURLだけなので、サイズの部分を差し替えて取る。
     /// 差し替えられない形のURLだったときは、素直に元のURLを使う。
+    ///
+    /// 保存名に元URLのハッシュが入るので、ショップがアイコンを差し替えたときは
+    /// 別ファイルになり、次のitem取得で自動的に落とし直される。
+    /// 時間で確かめ直す必要は無い（URLは商品JSONと一緒に毎回届くため）。
     /// </summary>
     /// <returns>手元にアイコンがあるか（元から持っていた場合も true）。</returns>
     public async Task<bool> SyncShopIconAsync(
@@ -72,15 +76,15 @@ public sealed class ImagePipeline
         string? thumbnailUrl,
         CancellationToken cancellationToken = default)
     {
-        var path = _paths.ShopIconFile(subdomain);
-        if (File.Exists(path))
-        {
-            return true;
-        }
-
         if (string.IsNullOrEmpty(thumbnailUrl))
         {
             return false;
+        }
+
+        var path = _paths.ShopIconFile(subdomain, thumbnailUrl);
+        if (File.Exists(path))
+        {
+            return true;
         }
 
         var result = await _client.GetBinaryAsync(LargerIconUrl(thumbnailUrl), cancellationToken);
