@@ -352,8 +352,70 @@ public sealed class ImportViewModel : ViewModelBase
         await _services.Store.Settings.SaveAsync(current with { ImportFolders = Folders.ToList() });
     }
 
+    /// <summary>
+    /// 指定されたファイルのうち、アーカイブの展開先の中にあるものを元のzipへ差し替える。
+    ///
+    /// 展開先が残っていると、そのファイルが配布物そのものなのか展開したものなのかを
+    /// ファイル単体からは区別できない。zipが手元にあるならそちらの方が配布単位と一致するが、
+    /// 意図してその1ファイルを指したのかもしれないので、どちらを使うかは尋ねる。
+    /// 1件ずつ聞くと数が多いときに煩わしいので、その取り込み全体の方針として1回だけ聞く。
+    /// </summary>
+    private List<string> ResolveUnpackedTargets()
+    {
+        var targets = Folders.ToList();
+        var origins = UnpackedFileResolver.FindOrigins(targets);
+        if (origins.Count == 0)
+        {
+            return targets;
+        }
+
+        var sample = string.Join("\n", origins.Take(5)
+            .Select(origin => $"・{Path.GetFileName(origin.FilePath)} → {Path.GetFileName(origin.ArchivePath)}"));
+        if (origins.Count > 5)
+        {
+            sample += $"\n…ほか {origins.Count - 5} 件";
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"指定されたファイルのうち {origins.Count} 件が、zipを展開したフォルダの中にあります。\n\n{sample}\n\n"
+            + "元のzipの方を取り込みますか？\n"
+            + "「はい」でzipに差し替え、「いいえ」で指定されたファイルをそのまま取り込みます。",
+            "展開先のファイル",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Yes);
+
+        if (answer != System.Windows.MessageBoxResult.Yes)
+        {
+            return targets;
+        }
+
+        foreach (var origin in origins)
+        {
+            var index = targets.FindIndex(path => string.Equals(path, origin.FilePath, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                continue;
+            }
+
+            // 同じzipが複数のファイルから指された場合は1つにまとめる
+            if (targets.Contains(origin.ArchivePath, StringComparer.OrdinalIgnoreCase))
+            {
+                targets.RemoveAt(index);
+            }
+            else
+            {
+                targets[index] = origin.ArchivePath;
+            }
+        }
+
+        return targets;
+    }
+
     private async Task RunAsync()
     {
+        var targets = ResolveUnpackedTargets();
+
         await SaveFoldersAsync();
 
         IsRunning = true;
@@ -389,7 +451,7 @@ public sealed class ImportViewModel : ViewModelBase
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ScanFolders(Folders.ToList()),
+                new UiCommand.ScanFolders(targets),
                 progress,
                 _cancellation.Token);
 

@@ -336,6 +336,10 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,14">
                         <StackPanel Orientation="Horizontal">
                             <StackPanel Margin="0,0,24,0">
+                                <TextBlock Text="入手日" Style="{StaticResource SectionLabel}" />
+                                <TextBlock Text="{Binding AcquiredText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,24,0">
                                 <TextBlock Text="最終取得" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="{Binding LastFetchedText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
                             </StackPanel>

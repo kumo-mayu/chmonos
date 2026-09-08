@@ -263,7 +263,7 @@
                         <Grid>
                             <TextBox Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
                                      VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,150,0" />
-                            <TextBlock Text="yyyy-MM-dd / 空欄はファイルの日付" Style="{StaticResource Caption}"
+                            <TextBlock Text="{Binding AcquiredHintText}" Style="{StaticResource Caption}"
                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
                         </Grid>
 

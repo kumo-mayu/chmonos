@@ -40,7 +40,13 @@ public partial class SearchView : UserControl
         card.ShowImageAt(e.GetPosition(element).X / element.ActualWidth, element.ActualWidth);
     }
 
-    /// <summary>カードをクリックしたら商品ページへ移る。検索画面の状態はそのまま残る。</summary>
+    /// <summary>
+    /// カードのクリック。
+    ///
+    /// 何も選んでいないときは商品ページへ移る（普段の主操作）。
+    /// 1件でも選んでいるときは選択の切り替えにする。選んでいる最中に
+    /// 少しずれただけで別画面へ飛ばされると、操作が途切れてしまうため。
+    /// </summary>
     private void OnCardClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: ItemCardViewModel card })
@@ -48,9 +54,26 @@ public partial class SearchView : UserControl
             return;
         }
 
+        if (card.IsSelectionMode)
+        {
+            card.IsSelected = !card.IsSelected;
+            return;
+        }
+
         if (DataContext is SearchViewModel search)
         {
             search.OpenItem(card);
+        }
+    }
+
+    /// <summary>選択中でも商品ページへ移れる出口。</summary>
+    private void OnOpenItemClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card }
+            && DataContext is SearchViewModel search)
+        {
+            search.OpenItem(card);
+            e.Handled = true;
         }
     }
 

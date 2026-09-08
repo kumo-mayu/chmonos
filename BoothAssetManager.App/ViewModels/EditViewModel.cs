@@ -5,6 +5,7 @@ using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
 
@@ -220,7 +221,32 @@ public sealed class EditViewModel : ViewModelBase
     public string AcquiredAt
     {
         get => _acquiredAt;
-        set => SetField(ref _acquiredAt, value);
+        set
+        {
+            if (SetField(ref _acquiredAt, value))
+            {
+                OnPropertyChanged(nameof(AcquiredHintText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 空欄のときに実際に使われる日付。何が採用されるのかを伏せない。
+    /// </summary>
+    public string AcquiredHintText
+    {
+        get
+        {
+            if (_acquiredAt.Trim().Length > 0 || _item is null)
+            {
+                return "yyyy-MM-dd";
+            }
+
+            var acquired = AcquiredDateResolver.Resolve(_item);
+            return acquired.Value is { } date
+                ? $"空欄のまま → {date:yyyy-MM-dd}（ファイルの日付）"
+                : "yyyy-MM-dd（ファイルが無いため空欄のまま）";
+        }
     }
 
     public bool NotifyOnUpdate
@@ -323,6 +349,7 @@ public sealed class EditViewModel : ViewModelBase
 
         Memo = record.Local.Memo ?? string.Empty;
         AcquiredAt = record.Local.AcquiredAt?.ToString("yyyy-MM-dd") ?? string.Empty;
+        OnPropertyChanged(nameof(AcquiredHintText));
         NotifyOnUpdate = record.Local.NotifyOnUpdate;
         IsHidden = record.Local.IsHidden;
 

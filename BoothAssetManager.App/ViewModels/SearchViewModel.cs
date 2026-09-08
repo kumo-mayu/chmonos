@@ -130,6 +130,15 @@ public sealed class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectionText));
+
+        // 1件でも選ぶと「選ぶ操作」が主になる。カード全体が選択の的になり、
+        // 中を見るのは専用のボタンへ移る（カードごとに知らせる必要がある）
+        var selecting = HasSelection;
+        foreach (var card in _cards.Values)
+        {
+            card.IsSelectionMode = selecting;
+        }
+
         RelayCommand.RaiseCanExecuteChanged();
     }
 

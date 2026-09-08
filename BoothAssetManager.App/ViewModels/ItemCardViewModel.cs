@@ -51,6 +51,7 @@ public sealed class ItemCardViewModel : ViewModelBase
     public ItemRecord Item { get; }
 
     private bool _isSelected;
+    private bool _isSelectionMode;
 
     /// <summary>まとめて編集へ送るための選択。カードは持ち回すので状態も残る。</summary>
     public bool IsSelected
@@ -63,6 +64,17 @@ public sealed class ItemCardViewModel : ViewModelBase
                 SelectionChanged?.Invoke();
             }
         }
+    }
+
+    /// <summary>
+    /// 1件以上選ばれている状態か。
+    /// このときカード全体が選択の的になり、商品ページへは専用のボタンから移る。
+    /// 選ぶ操作の最中に、少しずれただけで別画面へ飛ばされるのを防ぐため。
+    /// </summary>
+    public bool IsSelectionMode
+    {
+        get => _isSelectionMode;
+        set => SetField(ref _isSelectionMode, value);
     }
 
     public event Action? SelectionChanged;

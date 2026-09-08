@@ -7,6 +7,7 @@ using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
 using BoothZipInspector;
 
 namespace BoothAssetManager.App.ViewModels;
@@ -159,6 +160,24 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public string FileSummary => Item.IsDownloaded
         ? $"{Item.Local.LocalFiles.Count} 件 / {FormatSize(Item.LogicalSizeBytes)}"
         : "ファイルなし";
+
+    /// <summary>
+    /// 入手日。手入力が無ければファイルの日付で代え、代えたことを明記する。
+    /// 補った値を手入力と同じ顔で出すと、記録として信用できなくなる。
+    /// </summary>
+    public string AcquiredText
+    {
+        get
+        {
+            var acquired = AcquiredDateResolver.Resolve(Item);
+            if (acquired.Value is not { } date)
+            {
+                return "-";
+            }
+
+            return acquired.IsFallback ? $"{date:yyyy-MM-dd}（ファイルの日付）" : date.ToString("yyyy-MM-dd");
+        }
+    }
 
     public string LastFetchedText => Item.Local.LastFetchedAt is null
         ? "-"
