@@ -44,6 +44,29 @@
                                        VerticalAlignment="Center" />
                         </DockPanel>
 
+                        <!--
+                            ギフトは所持とは別の軸。貰ったものは手元にあり、贈ったものは手元に無いので、
+                            同じ札に入れると読み違える。記録が1件も無ければ行ごと出さない。
+                        -->
+                        <StackPanel Margin="0,8,0,0"
+                                    Visibility="{Binding HasGiftRecords, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="ギフト" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
+                            <DockPanel LastChildFill="False">
+                                <CheckBox DockPanel.Dock="Left" Content="贈った" IsChecked="{Binding GivenOnly, Mode=TwoWay}"
+                                          FontSize="12.5" Foreground="{StaticResource Text}"
+                                          ToolTip="人に贈った商品。払っていますが、ファイルは手元に来ません。" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding GivenCount}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                            <DockPanel LastChildFill="False" Margin="0,3,0,0">
+                                <CheckBox DockPanel.Dock="Left" Content="貰った" IsChecked="{Binding ReceivedOnly, Mode=TwoWay}"
+                                          FontSize="12.5" Foreground="{StaticResource Text}"
+                                          ToolTip="人から貰った商品。手元にありますが、自分は払っていません。" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding ReceivedCount}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </StackPanel>
+
                         <!-- appTag：別のトップ同士はORで扱う -->
                         <TextBlock Text="appTag" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
                         <TextBlock Text="複数選ぶと「どれかに当てはまるもの」を出します。"

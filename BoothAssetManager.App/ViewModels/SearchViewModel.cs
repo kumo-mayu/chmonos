@@ -44,6 +44,8 @@ public sealed class SearchViewModel : ViewModelBase
     private string? _selectedCategory;
     private bool _ownedOnly;
     private bool _missingOnly;
+    private bool _givenOnly;
+    private bool _receivedOnly;
     private string? _avatarFilterId;
     private string? _avatarFilterName;
     private bool _includeViaBase = true;
@@ -650,6 +652,8 @@ public sealed class SearchViewModel : ViewModelBase
         _selectedCategory = AllCategories;
         _ownedOnly = false;
         _missingOnly = false;
+        _givenOnly = false;
+        _receivedOnly = false;
         _avatarFilterId = null;
         _avatarFilterName = null;
 
@@ -667,6 +671,8 @@ public sealed class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(QueryText));
         OnPropertyChanged(nameof(SelectedCategory));
         OnPropertyChanged(nameof(OwnedOnly));
+        OnPropertyChanged(nameof(GivenOnly));
+        OnPropertyChanged(nameof(ReceivedOnly));
         ApplyFilters();
     }
 
@@ -715,6 +721,19 @@ public sealed class SearchViewModel : ViewModelBase
             if (_missingOnly)
             {
                 parts.Add("ファイルが見つからない");
+            }
+
+            if (_givenOnly && _receivedOnly)
+            {
+                parts.Add("贈った・貰った");
+            }
+            else if (_givenOnly)
+            {
+                parts.Add("贈った");
+            }
+            else if (_receivedOnly)
+            {
+                parts.Add("貰った");
             }
 
             if (_avatarFilterName is not null)
@@ -772,6 +791,19 @@ public sealed class SearchViewModel : ViewModelBase
             if (_missingOnly && !item.Local.LocalFiles.Any(file => file.Paths.Count == 0))
             {
                 return false;
+            }
+
+            // 贈った・貰ったは所持とは別の軸。貰ったものは手元にあり、贈ったものは手元に無いので、
+            // 同じ札に入れると読み違える。両方選んだ場合は「どちらかに当てはまるもの」
+            if (_givenOnly || _receivedOnly)
+            {
+                var matched = (_givenOnly && Core.Services.Purchases.WasGiven(item))
+                    || (_receivedOnly && Core.Services.Purchases.WasReceived(item));
+
+                if (!matched)
+                {
+                    return false;
+                }
             }
         }
 
@@ -853,8 +885,17 @@ public sealed class SearchViewModel : ViewModelBase
         var forOwned = _allItems.Where(item => Matches(item, FilterAxis.Owned)).ToList();
         OwnedCount = forOwned.Count(item => item.IsDownloaded);
         MissingCount = forOwned.Count(item => item.Local.LocalFiles.Any(file => file.Paths.Count == 0));
-        OnPropertyChanged(nameof(OwnedCount));
-        OnPropertyChanged(nameof(MissingCount));
+        GivenCount = forOwned.Count(Core.Services.Purchases.WasGiven);
+        ReceivedCount = forOwned.Count(Core.Services.Purchases.WasReceived);
+
+        foreach (var name in new[]
+        {
+            nameof(OwnedCount), nameof(MissingCount), nameof(GivenCount), nameof(ReceivedCount),
+            nameof(HasGiftRecords),
+        })
+        {
+            OnPropertyChanged(name);
+        }
     }
 
     /// <summary>「ファイルを持っているものだけ」を押したときの件数。</summary>
@@ -862,6 +903,43 @@ public sealed class SearchViewModel : ViewModelBase
 
     /// <summary>「ファイルが見つからない」を押したときの件数。</summary>
     public int MissingCount { get; private set; }
+
+    /// <summary>
+    /// 贈った・貰った商品の数。回数ではなく商品数（1つの商品を3人に贈っても1件）。
+    /// 統計側は「贈った回数」「贈答に使った額」と書き分ける。
+    /// </summary>
+    public int GivenCount { get; private set; }
+
+    public int ReceivedCount { get; private set; }
+
+    /// <summary>贈答の記録が1件も無ければ、この行ごと出さない。</summary>
+    public bool HasGiftRecords => GivenCount > 0 || ReceivedCount > 0;
+
+    /// <summary>贈った商品だけに絞る。</summary>
+    public bool GivenOnly
+    {
+        get => _givenOnly;
+        set
+        {
+            if (SetField(ref _givenOnly, value))
+            {
+                ApplyFilters();
+            }
+        }
+    }
+
+    /// <summary>貰った商品だけに絞る。</summary>
+    public bool ReceivedOnly
+    {
+        get => _receivedOnly;
+        set
+        {
+            if (SetField(ref _receivedOnly, value))
+            {
+                ApplyFilters();
+            }
+        }
+    }
 
     private bool MatchesQuery(ItemRecord item)
         => !_haystacks.TryGetValue(item.Id, out var haystack)
