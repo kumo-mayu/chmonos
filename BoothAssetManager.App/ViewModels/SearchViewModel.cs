@@ -29,9 +29,18 @@ public sealed class SearchViewModel : ViewModelBase
     private readonly AppServiceContainer _services;
     private readonly ThumbnailLoader _thumbnails;
     private readonly Dictionary<string, ItemCardViewModel> _cards = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 商品ごとの検索対象文字列。正規化が高くつくので読み込み時に1度だけ作る。
+    /// 入力1文字ごとに作り直すと、全商品ぶんの説明文を毎回畳むことになる。
+    /// </summary>
+    private Dictionary<string, Core.Services.SearchHaystack> _haystacks = new(StringComparer.Ordinal);
     private List<ItemRecord> _allItems = [];
     private List<ItemCardViewModel> _matches = [];
     private string _queryText = string.Empty;
+    private Core.Services.SearchNode _queryNode = new Core.Services.SearchNode.All();
+    private bool _searchBody;
+    private bool _searchPaths;
     private string? _selectedCategory;
     private bool _ownedOnly;
     private bool _missingOnly;
@@ -255,13 +264,51 @@ public sealed class SearchViewModel : ViewModelBase
         _ = _main.ShowEditAsync(ids);
     }
 
-    /// <summary>name / shop / メモ / 説明文 を横断して探す。</summary>
+    /// <summary>
+    /// 文字列で探す。スペースでAND、<c>-語</c>で除外、<c>"..."</c>でフレーズ、
+    /// <c>OR</c> と <c>( )</c> が使える。
+    ///
+    /// 既定の対象は 商品名／ショップ名／サブドメイン／メモ／BOOTHタグ。
+    /// 本文とパスは当たりすぎて「なぜこれが出たのか」が分からなくなるので、
+    /// トグルで明示的に広げたときだけ見る。
+    /// </summary>
     public string QueryText
     {
         get => _queryText;
         set
         {
             if (SetField(ref _queryText, value))
+            {
+                // 式の解釈は入力ごとに1回。商品ごとにやると件数ぶん無駄に走る
+                _queryNode = Core.Services.SearchQuery.Parse(_queryText);
+                ApplyFilters();
+            }
+        }
+    }
+
+    /// <summary>説明文とh2セクションも探すか。</summary>
+    public bool SearchBody
+    {
+        get => _searchBody;
+        set
+        {
+            if (SetField(ref _searchBody, value))
+            {
+                ApplyFilters();
+            }
+        }
+    }
+
+    /// <summary>
+    /// ファイルのパスも探すか。
+    /// 自分でリネームしたファイルは商品名と一致しないので、パスしか手掛かりが無い場合がある。
+    /// </summary>
+    public bool SearchPaths
+    {
+        get => _searchPaths;
+        set
+        {
+            if (SetField(ref _searchPaths, value))
             {
                 ApplyFilters();
             }
@@ -338,6 +385,13 @@ public sealed class SearchViewModel : ViewModelBase
                 .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
                 .ThenBy(item => item.Booth.Name, StringComparer.CurrentCulture)
                 .ToList();
+
+            // 検索対象の文字列はここで作る。正規化は全商品の説明文を畳むので、
+            // UIスレッドに乗せると読み込みのたびに画面が固まる
+            _haystacks = _allItems.ToDictionary(
+                item => item.Id,
+                Core.Services.SearchText.Build,
+                StringComparer.Ordinal);
 
             RunOnUiThread(() =>
             {
@@ -738,8 +792,12 @@ public sealed class SearchViewModel : ViewModelBase
             return false;
         }
 
-        return MatchesText(item, _queryText);
+        return MatchesQuery(item);
     }
+
+    private bool MatchesQuery(ItemRecord item)
+        => !_haystacks.TryGetValue(item.Id, out var haystack)
+            || Core.Services.SearchQuery.Matches(_queryNode, haystack, _searchBody, _searchPaths);
 
     /// <summary>
     /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。
@@ -784,44 +842,6 @@ public sealed class SearchViewModel : ViewModelBase
         };
     }
 
-    /// <summary>
-    /// 自由記述の横断検索。name / ショップ名 / メモ / 説明文（セクション本文）を対象にする。
-    /// 説明文はプレーンテキストを持っているので、ここで表示用HTMLを読む必要はない。
-    /// </summary>
-    public static bool MatchesText(ItemRecord item, string? query)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return true;
-        }
-
-        var trimmed = query.Trim();
-
-        if (Contains(item.Booth.Name, trimmed)
-            || Contains(item.Booth.Shop?.Name, trimmed)
-            || Contains(item.Booth.Shop?.Subdomain, trimmed)
-            || Contains(item.Local.Memo, trimmed)
-            || Contains(item.Booth.Description, trimmed))
-        {
-            return true;
-        }
-
-        if (item.Booth.Tags.Any(tag => Contains(tag, trimmed)))
-        {
-            return true;
-        }
-
-        if (item.Local.LocalFiles.Any(file => file.Paths.Any(path => Contains(Path.GetFileName(path), trimmed))))
-        {
-            return true;
-        }
-
-        return item.Booth.H2Sections.Any(section =>
-            Contains(section.Heading, trimmed) || Contains(section.Text, trimmed));
-    }
-
-    private static bool Contains(string? value, string query)
-        => value is not null && value.Contains(query, StringComparison.CurrentCultureIgnoreCase);
 
     private ItemCardViewModel ToCard(ItemRecord item)
     {

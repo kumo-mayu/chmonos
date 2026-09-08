@@ -145,16 +145,16 @@
 
         <!-- 結果 -->
         <DockPanel Grid.Column="1">
-            <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
+            <Border DockPanel.Dock="Top" Height="78" Background="{StaticResource Surface}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
-                <Grid Margin="18,0">
+                <StackPanel Margin="18,9,18,0">
                     <Border BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6"
-                            Height="34" HorizontalAlignment="Stretch" Margin="0,0,0,0" Background="White">
+                            Height="34" HorizontalAlignment="Stretch" Background="White">
                         <Grid>
                             <TextBox Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0"
                                      FontSize="13" Background="Transparent" />
-                            <TextBlock Text="商品名・ショップ・メモ・説明文から探す" IsHitTestVisible="False"
+                            <TextBlock Text="商品名・ショップ・メモ・タグから探す" IsHitTestVisible="False"
                                        Foreground="{StaticResource TextFaint}" FontSize="13"
                                        VerticalAlignment="Center" Margin="12,0,0,0">
                                 <TextBlock.Style>
@@ -170,7 +170,40 @@
                             </TextBlock>
                         </Grid>
                     </Border>
-                </Grid>
+
+                    <!--
+                        書き方の見本と、探す範囲を広げるトグル。
+                        2つのトグルはどちらも「既定より広げる」という同じ性質なので1行に並べる。
+                    -->
+                    <Grid Margin="2,5,2,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Mono}" FontSize="11" Text="衣装 -無料 &quot;夏セット&quot;" />
+                            <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="衣装 (夏 OR 冬)" />
+                            <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" Foreground="{StaticResource TextFaint}"
+                                       Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり">
+                                <TextBlock.ToolTip>
+                                    <TextBlock>
+                                        スペースで区切ると、どちらも含むものを探します。<LineBreak />
+                                        -無料 のように書くと、その語を含むものを除きます。<LineBreak />
+                                        &quot;夏セット&quot; と囲むと、その並びのまま含むものだけを探します。<LineBreak />
+                                        <LineBreak />
+                                        括弧が無いと 衣装 夏 OR 冬 は「衣装かつ夏」または「冬」と読まれます。<LineBreak />
+                                        衣装 (夏 OR 冬) と書けば「衣装かつ、夏か冬」になります。
+                                    </TextBlock>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <CheckBox Content="本文も探す" IsChecked="{Binding SearchBody, Mode=TwoWay}" FontSize="11"
+                                      VerticalAlignment="Center"
+                                      ToolTip="説明文とセクションの本文も対象にします。当たる件数が増えます。" />
+                            <CheckBox Content="ファイルのパスも探す" IsChecked="{Binding SearchPaths, Mode=TwoWay}" FontSize="11"
+                                      VerticalAlignment="Center" Margin="14,0,0,0"
+                                      ToolTip="自分でリネームしたファイルは商品名と一致しないので、そのときに使います。" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
             </Border>
 
             <Border DockPanel.Dock="Top" Height="38" Background="{StaticResource Bg}">
