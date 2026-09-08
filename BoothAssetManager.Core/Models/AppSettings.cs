@@ -42,6 +42,14 @@ public sealed record AppSettings
     /// </summary>
     public int GalleryHoverDelayMs { get; init; } = 150;
 
+    // --- 編集 ---
+
+    /// <summary>編集キューを終えたあと、自動で検索画面へ戻るか。</summary>
+    public bool ReturnToSearchWhenEditDone { get; init; } = true;
+
+    /// <summary>自動で戻るまでの秒数。終わったことを読む間を置く。</summary>
+    public int ReturnToSearchDelaySeconds { get; init; } = 3;
+
     // --- 取り込み ---
 
     /// <summary>取り込み元フォルダの履歴。ファイルが欠落した時の再スキャン範囲も兼ねる。</summary>

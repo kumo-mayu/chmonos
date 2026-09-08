@@ -1,100 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.App.ViewModels;
-
-/// <summary>appTagのトップ1つと、その配下のサブ。トップを外すとサブも一緒に外れる。</summary>
-public sealed class AppTagChoice : ViewModelBase
-{
-    private bool _isSelected;
-    private string _pendingSub = string.Empty;
-
-    public required string Name { get; init; }
-
-    public ObservableCollection<AppTagSubChoice> Subs { get; } = [];
-
-    /// <summary>このトップの下に足すサブの入力欄。編集の途中で分類を増やせるようにする。</summary>
-    public string PendingSub
-    {
-        get => _pendingSub;
-        set => SetField(ref _pendingSub, value);
-    }
-
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set
-        {
-            if (SetField(ref _isSelected, value) && !value)
-            {
-                // トップを外したらサブも落とす。従属関係をUI側でも守る
-                foreach (var sub in Subs)
-                {
-                    sub.IsSelected = false;
-                }
-            }
-        }
-    }
-
-    public bool HasSubs => Subs.Count > 0;
-}
-
-public sealed class AppTagSubChoice : ViewModelBase
-{
-    private bool _isSelected;
-
-    public required string Name { get; init; }
-
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set => SetField(ref _isSelected, value);
-    }
-}
-
-/// <summary>
-/// 属性1つ。未評価（値なし）と0は別物なので、有効フラグと値を分けて持つ。
-/// </summary>
-public sealed class AttributeChoice : ViewModelBase
-{
-    private bool _isRated;
-    private int _value = 50;
-
-    public required string Name { get; init; }
-
-    /// <summary>評価しているか。オフなら item 側にキーを書かない（＝未評価）。</summary>
-    public bool IsRated
-    {
-        get => _isRated;
-        set
-        {
-            if (SetField(ref _isRated, value))
-            {
-                OnPropertyChanged(nameof(ValueText));
-            }
-        }
-    }
-
-    public int Value
-    {
-        get => _value;
-        set
-        {
-            if (SetField(ref _value, value))
-            {
-                // つまみを動かしたら評価したものとして扱う。チェックを別に押させない
-                IsRated = true;
-                OnPropertyChanged(nameof(ValueText));
-            }
-        }
-    }
-
-    public string ValueText => IsRated ? $"{Value}%" : "未評価";
-}
 
 /// <summary>購入記録の入力行。</summary>
 public sealed class OrderedVariationInput : ViewModelBase
@@ -162,22 +74,27 @@ public sealed class OrderedVariationInput : ViewModelBase
 /// 複数件を順に処理する形にしているのは、この作業が
 /// 「1件ずつ判断して次へ送る」という性質のものだから（設計メモの通り）。
 /// 位置は1件進むごとに edit-session.json へ書くので、途中で閉じても続きから再開できる。
+///
+/// appTagも属性も、マスタを全部並べるのではなく候補付きの入力欄から積む。
+/// 並べる方式は分類が増えるほど画面が縦に伸び、使えなくなるため。
 /// </summary>
 public sealed class EditViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
+    private readonly DispatcherTimer _returnTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
+    private AppTagMaster _tagMaster = new();
+    private AttributeMaster _attributeMaster = new();
     private List<string> _queue = [];
     private int _index;
+    private int _remainingSeconds;
     private ItemRecord? _item;
     private string _memo = string.Empty;
     private string _acquiredAt = string.Empty;
     private bool _notifyOnUpdate = true;
     private bool _isHidden;
-    private string _newTopTag = string.Empty;
-    private string _newAttribute = string.Empty;
     private string _statusText = string.Empty;
     private bool _isSaving;
 
@@ -191,35 +108,12 @@ public sealed class EditViewModel : ViewModelBase
         SkipCommand = new RelayCommand(() => _ = AdvanceAsync(), () => HasItem && !IsSaving);
         BackCommand = new RelayCommand(GoBack, () => _index > 0);
         FinishCommand = new RelayCommand(() => _ = FinishAsync());
-        AddTopTagCommand = new RelayCommand(() => _ = AddTopTagAsync(), () => NewTopTag.Trim().Length > 0);
-        AddAttributeCommand = new RelayCommand(() => _ = AddAttributeAsync(), () => NewAttribute.Trim().Length > 0);
-        AddSubTagCommand = new RelayCommand(parameter => _ = AddSubTagAsync(parameter), parameter => parameter is AppTagChoice);
         OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem);
-    }
+        AddTagCommand = new RelayCommand(parameter => _ = AddTagAsync(parameter as string));
+        AddAttributeCommand = new RelayCommand(parameter => _ = AddAttributeAsync(parameter as string));
+        StayCommand = new RelayCommand(StopReturnTimer);
 
-    public RelayCommand OpenBoothCommand { get; }
-
-    /// <summary>編集しながら実物のページを見たいことがあるので、ここからも飛べるようにする。</summary>
-    private void OpenBooth()
-    {
-        if (_item is null)
-        {
-            return;
-        }
-
-        var url = _item.Booth.Url ?? BoothClient.ItemPageUrl(_item.Id);
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // 開けなくても編集は続けられる
-        }
+        _returnTimer.Tick += OnReturnTick;
     }
 
     public RelayCommand SaveAndNextCommand { get; }
@@ -230,19 +124,29 @@ public sealed class EditViewModel : ViewModelBase
 
     public RelayCommand FinishCommand { get; }
 
-    public RelayCommand AddTopTagCommand { get; }
+    public RelayCommand OpenBoothCommand { get; }
 
-    public RelayCommand AddSubTagCommand { get; }
+    public RelayCommand AddTagCommand { get; }
 
     public RelayCommand AddAttributeCommand { get; }
 
-    public ObservableCollection<AppTagChoice> AppTags { get; } = [];
+    public RelayCommand StayCommand { get; }
 
-    public ObservableCollection<AttributeChoice> Attributes { get; } = [];
+    /// <summary>付けたappTag。マスタ全部ではなく、選んだものだけが並ぶ。</summary>
+    public ObservableCollection<AppTagRow> Tags { get; } = [];
+
+    /// <summary>評価した属性。評価していないものは行自体が無い。</summary>
+    public ObservableCollection<AttributeRow> Attributes { get; } = [];
 
     public ObservableCollection<OrderedVariationInput> Variations { get; } = [];
 
     public ObservableCollection<GalleryImage> Images { get; } = [];
+
+    /// <summary>appTagトップの候補。既に付けたものは出さない。</summary>
+    public ObservableCollection<string> TagSuggestions { get; } = [];
+
+    /// <summary>属性の候補。既に評価したものは出さない。</summary>
+    public ObservableCollection<string> AttributeSuggestions { get; } = [];
 
     public ItemRecord? Item => _item;
 
@@ -269,6 +173,24 @@ public sealed class EditViewModel : ViewModelBase
     public string DescriptionPreview => _item?.Booth.Description ?? string.Empty;
 
     public IReadOnlyList<string> BoothTags => _item?.Booth.Tags ?? [];
+
+    /// <summary>自動で検索へ戻るまでのカウントダウン。0なら出さない。</summary>
+    public int RemainingSeconds
+    {
+        get => _remainingSeconds;
+        private set
+        {
+            if (SetField(ref _remainingSeconds, value))
+            {
+                OnPropertyChanged(nameof(ReturnNoticeText));
+                OnPropertyChanged(nameof(IsReturning));
+            }
+        }
+    }
+
+    public bool IsReturning => RemainingSeconds > 0;
+
+    public string ReturnNoticeText => $"{RemainingSeconds} 秒後に検索へ戻ります。";
 
     public string StatusText
     {
@@ -313,39 +235,13 @@ public sealed class EditViewModel : ViewModelBase
         set => SetField(ref _isHidden, value);
     }
 
-    public string NewTopTag
-    {
-        get => _newTopTag;
-        set
-        {
-            if (SetField(ref _newTopTag, value))
-            {
-                RelayCommand.RaiseCanExecuteChanged();
-            }
-        }
-    }
-
-    public string NewAttribute
-    {
-        get => _newAttribute;
-        set
-        {
-            if (SetField(ref _newAttribute, value))
-            {
-                RelayCommand.RaiseCanExecuteChanged();
-            }
-        }
-    }
-
     /// <summary>
     /// キューを積んで最初の1件を開く。
     /// <paramref name="itemIds"/> が空なら、appTag未設定のitemを対象にする（ナビのバッジと同じ定義）。
     /// </summary>
     public async Task StartAsync(IReadOnlyList<string>? itemIds = null)
     {
-        var queue = itemIds?.ToList() ?? await BuildDefaultQueueAsync();
-
-        _queue = queue;
+        _queue = itemIds?.ToList() ?? await BuildDefaultQueueAsync();
         _index = 0;
         await _services.Edit.StartSessionAsync(_queue);
         await LoadCurrentAsync();
@@ -388,7 +284,8 @@ public sealed class EditViewModel : ViewModelBase
             if (record is not null)
             {
                 _item = record;
-                LoadMasters();
+                _tagMaster = _services.Store.AppTags.Load();
+                _attributeMaster = _services.Store.Attributes.Load();
                 FillFromItem(record);
                 RaiseItemChanged();
                 return;
@@ -399,65 +296,29 @@ public sealed class EditViewModel : ViewModelBase
 
         _item = null;
         RaiseItemChanged();
-    }
-
-    private void LoadMasters()
-    {
-        var tagMaster = _services.Store.AppTags.Load();
-        AppTags.Clear();
-        foreach (var top in tagMaster.Tops)
-        {
-            var choice = new AppTagChoice { Name = top.Name };
-            foreach (var sub in top.Subs)
-            {
-                choice.Subs.Add(new AppTagSubChoice { Name = sub.Name });
-            }
-
-            AppTags.Add(choice);
-        }
-
-        var attributeMaster = _services.Store.Attributes.Load();
-        Attributes.Clear();
-        foreach (var definition in attributeMaster.Attributes)
-        {
-            Attributes.Add(new AttributeChoice { Name = definition.Name });
-        }
+        StartReturnTimer();
     }
 
     private void FillFromItem(ItemRecord record)
     {
+        Tags.Clear();
         foreach (var assignment in record.Local.AppTags)
         {
-            var top = AppTags.FirstOrDefault(choice =>
-                string.Equals(choice.Name, assignment.Top, StringComparison.CurrentCultureIgnoreCase));
-            if (top is null)
+            var row = CreateTagRow(assignment.Top);
+            foreach (var sub in assignment.Subs)
             {
-                continue;
+                row.Subs.Add(sub);
             }
 
-            top.IsSelected = true;
-            foreach (var subName in assignment.Subs)
-            {
-                var sub = top.Subs.FirstOrDefault(choice =>
-                    string.Equals(choice.Name, subName, StringComparison.CurrentCultureIgnoreCase));
-                if (sub is not null)
-                {
-                    sub.IsSelected = true;
-                }
-            }
+            row.Raise();
+            RefreshSubCandidates(row);
+            Tags.Add(row);
         }
 
-        foreach (var attribute in Attributes)
+        Attributes.Clear();
+        foreach (var pair in record.Local.Attributes.OrderByDescending(pair => pair.Value))
         {
-            if (record.Local.Attributes.TryGetValue(attribute.Name, out var value))
-            {
-                attribute.Value = value;
-                attribute.IsRated = true;
-            }
-            else
-            {
-                attribute.IsRated = false;
-            }
+            Attributes.Add(CreateAttributeRow(pair.Key, pair.Value));
         }
 
         Memo = record.Local.Memo ?? string.Empty;
@@ -467,6 +328,149 @@ public sealed class EditViewModel : ViewModelBase
 
         BuildVariations(record);
         BuildImages(record);
+        RefreshSuggestions();
+    }
+
+    private AppTagRow CreateTagRow(string top)
+    {
+        var row = new AppTagRow { Top = top };
+
+        row.RemoveCommand = new RelayCommand(() =>
+        {
+            Tags.Remove(row);
+            RefreshSuggestions();
+        });
+
+        row.AddSubCommand = new RelayCommand(parameter => _ = AddSubAsync(row, parameter as string));
+
+        row.RemoveSubCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is string sub)
+            {
+                row.Subs.Remove(sub);
+                row.Raise();
+                RefreshSubCandidates(row);
+            }
+        });
+
+        return row;
+    }
+
+    private AttributeRow CreateAttributeRow(string name, int value)
+    {
+        var row = new AttributeRow { Name = name, Value = value };
+        row.RemoveCommand = new RelayCommand(() =>
+        {
+            Attributes.Remove(row);
+            RefreshSuggestions();
+        });
+
+        return row;
+    }
+
+    /// <summary>まだ使っていない候補だけを出す。既に付けたものを候補に残すと選び間違える。</summary>
+    private void RefreshSuggestions()
+    {
+        TagSuggestions.Clear();
+        foreach (var top in _tagMaster.Tops
+            .Select(top => top.Name)
+            .Where(name => !Tags.Any(row => string.Equals(row.Top, name, StringComparison.CurrentCultureIgnoreCase))))
+        {
+            TagSuggestions.Add(top);
+        }
+
+        AttributeSuggestions.Clear();
+        foreach (var name in _attributeMaster.Attributes
+            .Select(definition => definition.Name)
+            .Where(name => !Attributes.Any(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase))))
+        {
+            AttributeSuggestions.Add(name);
+        }
+    }
+
+    private void RefreshSubCandidates(AppTagRow row)
+    {
+        var master = _tagMaster.Tops.FirstOrDefault(top =>
+            string.Equals(top.Name, row.Top, StringComparison.CurrentCultureIgnoreCase));
+
+        row.SubCandidates.Clear();
+        foreach (var sub in (master?.Subs ?? [])
+            .Select(sub => sub.Name)
+            .Where(name => !row.Subs.Contains(name, StringComparer.CurrentCultureIgnoreCase)))
+        {
+            row.SubCandidates.Add(sub);
+        }
+    }
+
+    private async Task AddTagAsync(string? name)
+    {
+        var top = name?.Trim();
+        if (string.IsNullOrEmpty(top)
+            || Tags.Any(row => string.Equals(row.Top, top, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return;
+        }
+
+        // 候補に無い語はマスタへの新規追加を兼ねる
+        if (!_tagMaster.Tops.Any(entry => string.Equals(entry.Name, top, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            if (await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(top)) is CommandResult.AppTagsChanged changed)
+            {
+                _tagMaster = changed.Master;
+            }
+        }
+
+        var row = CreateTagRow(top);
+        RefreshSubCandidates(row);
+        Tags.Add(row);
+        RefreshSuggestions();
+    }
+
+    private async Task AddSubAsync(AppTagRow row, string? name)
+    {
+        var sub = name?.Trim();
+        if (string.IsNullOrEmpty(sub) || row.Subs.Contains(sub, StringComparer.CurrentCultureIgnoreCase))
+        {
+            return;
+        }
+
+        var master = _tagMaster.Tops.FirstOrDefault(top =>
+            string.Equals(top.Name, row.Top, StringComparison.CurrentCultureIgnoreCase));
+
+        if (master is null
+            || !master.Subs.Any(entry => string.Equals(entry.Name, sub, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            if (await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(row.Top, sub)) is CommandResult.AppTagsChanged changed)
+            {
+                _tagMaster = changed.Master;
+            }
+        }
+
+        row.Subs.Add(sub);
+        row.Raise();
+        RefreshSubCandidates(row);
+    }
+
+    private async Task AddAttributeAsync(string? name)
+    {
+        var attribute = name?.Trim();
+        if (string.IsNullOrEmpty(attribute)
+            || Attributes.Any(row => string.Equals(row.Name, attribute, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return;
+        }
+
+        if (!_attributeMaster.Attributes.Any(entry =>
+            string.Equals(entry.Name, attribute, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            if (await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(attribute)) is CommandResult.AttributesChanged changed)
+            {
+                _attributeMaster = changed.Master;
+            }
+        }
+
+        Attributes.Add(CreateAttributeRow(attribute, 50));
+        RefreshSuggestions();
     }
 
     private void BuildVariations(ItemRecord record)
@@ -524,18 +528,11 @@ public sealed class EditViewModel : ViewModelBase
     /// <summary>入力を <c>local</c> ブロックに組み直す。触っていない項目は元の値のまま残す。</summary>
     private LocalBlock BuildLocal(ItemRecord record)
     {
-        var appTags = AppTags
-            .Where(top => top.IsSelected)
-            .Select(top => new AppTagAssignment
-            {
-                Top = top.Name,
-                Subs = top.Subs.Where(sub => sub.IsSelected).Select(sub => sub.Name).ToList(),
-            })
+        var appTags = Tags
+            .Select(row => new AppTagAssignment { Top = row.Top, Subs = row.Subs.ToList() })
             .ToList();
 
-        var attributes = Attributes
-            .Where(attribute => attribute.IsRated)
-            .ToDictionary(attribute => attribute.Name, attribute => attribute.Value);
+        var attributes = Attributes.ToDictionary(row => row.Name, row => row.Value);
 
         var ordered = Variations
             .Where(variation => variation.IsPurchased)
@@ -603,93 +600,79 @@ public sealed class EditViewModel : ViewModelBase
             return;
         }
 
+        StopReturnTimer();
         _index--;
         _ = _services.Edit.AdvanceSessionAsync(_index);
         _ = LoadCurrentAsync();
     }
 
+    /// <summary>
+    /// キューを終えたら、少し置いてから検索へ戻す。
+    /// 終わったことを読む間は要るので即座には動かさない。設定で切れる。
+    /// </summary>
+    private void StartReturnTimer()
+    {
+        if (!_services.Settings.ReturnToSearchWhenEditDone)
+        {
+            return;
+        }
+
+        RemainingSeconds = Math.Max(1, _services.Settings.ReturnToSearchDelaySeconds);
+        _returnTimer.Start();
+    }
+
+    private void StopReturnTimer()
+    {
+        _returnTimer.Stop();
+        RemainingSeconds = 0;
+    }
+
+    private void OnReturnTick(object? sender, EventArgs e)
+    {
+        RemainingSeconds--;
+        if (RemainingSeconds > 0)
+        {
+            return;
+        }
+
+        StopReturnTimer();
+
+        // 待っている間に他の画面へ移っていたら、そこから引きはがさない
+        if (ReferenceEquals(_main.CurrentViewModel, this))
+        {
+            _ = FinishAsync();
+        }
+    }
+
     /// <summary>編集を終える。キューを捨てて検索へ戻る。</summary>
     private async Task FinishAsync()
     {
+        StopReturnTimer();
         await _services.Edit.ClearSessionAsync();
         await _main.ReloadLibraryAsync();
         _main.ShowSearch();
     }
 
-    private async Task AddTopTagAsync()
+    /// <summary>編集しながら実物のページを見たいことがあるので、ここからも飛べるようにする。</summary>
+    private void OpenBooth()
     {
-        var name = NewTopTag.Trim();
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(name));
-        NewTopTag = string.Empty;
-        ReloadTagsKeepingSelection();
-
-        // 作ったものは、そのまま付けたいことがほとんど
-        var added = AppTags.FirstOrDefault(choice =>
-            string.Equals(choice.Name, name, StringComparison.CurrentCultureIgnoreCase));
-        if (added is not null)
-        {
-            added.IsSelected = true;
-        }
-    }
-
-    private async Task AddSubTagAsync(object? parameter)
-    {
-        if (parameter is not AppTagChoice top || string.IsNullOrWhiteSpace(top.PendingSub))
+        if (_item is null)
         {
             return;
         }
 
-        var subName = top.PendingSub.Trim();
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(top.Name, subName));
-        top.PendingSub = string.Empty;
-        ReloadTagsKeepingSelection();
-
-        var reloaded = AppTags.FirstOrDefault(choice =>
-            string.Equals(choice.Name, top.Name, StringComparison.CurrentCultureIgnoreCase));
-        var sub = reloaded?.Subs.FirstOrDefault(choice =>
-            string.Equals(choice.Name, subName, StringComparison.CurrentCultureIgnoreCase));
-        if (sub is not null)
+        var url = _item.Booth.Url ?? BoothClient.ItemPageUrl(_item.Id);
+        try
         {
-            sub.IsSelected = true;
-        }
-    }
-
-    private async Task AddAttributeAsync()
-    {
-        var name = NewAttribute.Trim();
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(name));
-        NewAttribute = string.Empty;
-
-        if (!Attributes.Any(choice => string.Equals(choice.Name, name, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            Attributes.Add(new AttributeChoice { Name = name });
-        }
-    }
-
-    /// <summary>マスタを読み直しつつ、今画面で選んでいる状態は保つ。</summary>
-    private void ReloadTagsKeepingSelection()
-    {
-        var selected = AppTags
-            .Where(top => top.IsSelected)
-            .ToDictionary(
-                top => top.Name,
-                top => top.Subs.Where(sub => sub.IsSelected).Select(sub => sub.Name).ToList(),
-                StringComparer.CurrentCultureIgnoreCase);
-
-        LoadMasters();
-
-        foreach (var top in AppTags)
-        {
-            if (!selected.TryGetValue(top.Name, out var subs))
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                continue;
-            }
-
-            top.IsSelected = true;
-            foreach (var sub in top.Subs.Where(sub => subs.Contains(sub.Name, StringComparer.CurrentCultureIgnoreCase)))
-            {
-                sub.IsSelected = true;
-            }
+                FileName = url,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // 開けなくても編集は続けられる
         }
     }
 

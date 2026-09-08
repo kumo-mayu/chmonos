@@ -37,6 +37,7 @@ public sealed class SearchViewModel : ViewModelBase
     private bool _isLoading;
     private int _columns = 1;
     private SortOption _sort = DefaultSort;
+    private List<string> _attributeNames = [];
 
     private MainViewModel? _main;
 
@@ -45,6 +46,7 @@ public sealed class SearchViewModel : ViewModelBase
         _services = services;
         _thumbnails = thumbnails;
         ClearFiltersCommand = new RelayCommand(ClearFilters);
+        AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
         _ = ReloadAsync();
     }
 
@@ -64,8 +66,16 @@ public sealed class SearchViewModel : ViewModelBase
     /// <summary>appTagでの絞り込み。マスタのトップをそのまま並べる。</summary>
     public ObservableCollection<AppTagFilter> TagFilters { get; } = [];
 
-    /// <summary>属性でのレンジ絞り込み。マスタに登録されている属性を並べる。</summary>
+    /// <summary>
+    /// 属性でのレンジ絞り込み。使う軸だけを候補から選んで積む。
+    /// マスタ全部を常に並べると、評価していない属性の欄まで居座って画面が伸びる。
+    /// </summary>
     public ObservableCollection<AttributeFilter> AttributeFilters { get; } = [];
+
+    /// <summary>まだ条件に入れていない属性。候補として出す。</summary>
+    public ObservableCollection<string> AttributeSuggestions { get; } = [];
+
+    public RelayCommand AddAttributeFilterCommand { get; }
 
     /// <summary>表示順の候補。属性が増えるとその軸も増える。</summary>
     public ObservableCollection<SortOption> SortOptions { get; } = [];
@@ -235,10 +245,9 @@ public sealed class SearchViewModel : ViewModelBase
                 filter => filter.SelectedSubs.ToList(),
                 StringComparer.CurrentCultureIgnoreCase);
 
-        var ranges = AttributeFilters.ToDictionary(
-            filter => filter.Name,
-            filter => (filter.Min, filter.Max),
-            StringComparer.CurrentCultureIgnoreCase);
+        _attributeNames = _services.Store.Attributes.Load().Attributes
+            .Select(definition => definition.Name)
+            .ToList();
 
         TagFilters.Clear();
         foreach (var top in _services.Store.AppTags.Load().Tops)
@@ -264,7 +273,15 @@ public sealed class SearchViewModel : ViewModelBase
             TagFilters.Add(filter);
         }
 
-        AttributeFilters.Clear();
+        // 条件に入れている軸は保つ。マスタが増えても勝手に条件は増やさない
+        foreach (var filter in AttributeFilters.ToList())
+        {
+            if (!_attributeNames.Contains(filter.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                AttributeFilters.Remove(filter);
+            }
+        }
+
         SortOptions.Clear();
         SortOptions.Add(DefaultSort);
         SortOptions.Add(new SortOption { Label = "入手日が古い順", Kind = SortKind.AcquiredAt });
@@ -272,26 +289,18 @@ public sealed class SearchViewModel : ViewModelBase
         SortOptions.Add(new SortOption { Label = "容量が大きい順", Kind = SortKind.Size, Descending = true });
         SortOptions.Add(new SortOption { Label = "スキ数が多い順", Kind = SortKind.WishList, Descending = true });
 
-        foreach (var definition in _services.Store.Attributes.Load().Attributes)
+        foreach (var name in _attributeNames)
         {
-            var filter = new AttributeFilter { Name = definition.Name };
-            if (ranges.TryGetValue(definition.Name, out var range))
-            {
-                filter.Min = range.Min;
-                filter.Max = range.Max;
-            }
-
-            filter.Changed += ApplyFilters;
-            AttributeFilters.Add(filter);
-
             SortOptions.Add(new SortOption
             {
-                Label = $"{definition.Name} が高い順",
+                Label = $"{name} が高い順",
                 Kind = SortKind.Attribute,
-                AttributeName = definition.Name,
+                AttributeName = name,
                 Descending = true,
             });
         }
+
+        RefreshAttributeSuggestions();
 
         // 組み直しで参照が変わるので、同じ意味の選択肢に繋ぎ直す
         _sort = SortOptions.FirstOrDefault(option =>
@@ -302,6 +311,48 @@ public sealed class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(Sort));
         OnPropertyChanged(nameof(HasTagFilters));
         OnPropertyChanged(nameof(HasAttributeFilters));
+    }
+
+    /// <summary>まだ条件に入れていない属性だけを候補に出す。</summary>
+    private void RefreshAttributeSuggestions()
+    {
+        AttributeSuggestions.Clear();
+        foreach (var name in _attributeNames.Where(name =>
+            !AttributeFilters.Any(filter => string.Equals(filter.Name, name, StringComparison.CurrentCultureIgnoreCase))))
+        {
+            AttributeSuggestions.Add(name);
+        }
+
+        OnPropertyChanged(nameof(HasAttributeSuggestions));
+        OnPropertyChanged(nameof(HasAttributeFilters));
+    }
+
+    public bool HasAttributeSuggestions => AttributeSuggestions.Count > 0;
+
+    /// <summary>属性を条件に追加する。追加直後は0-100で、全件を通す（未評価も含む）。</summary>
+    private void AddAttributeFilter(string? name)
+    {
+        var attribute = _attributeNames.FirstOrDefault(entry =>
+            string.Equals(entry, name?.Trim(), StringComparison.CurrentCultureIgnoreCase));
+
+        if (attribute is null
+            || AttributeFilters.Any(filter => string.Equals(filter.Name, attribute, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return;
+        }
+
+        var filter = new AttributeFilter { Name = attribute };
+        filter.Changed += ApplyFilters;
+        filter.RemoveCommand = new RelayCommand(() =>
+        {
+            AttributeFilters.Remove(filter);
+            RefreshAttributeSuggestions();
+            ApplyFilters();
+        });
+
+        AttributeFilters.Add(filter);
+        RefreshAttributeSuggestions();
+        ApplyFilters();
     }
 
     private void ClearFilters()

@@ -39,7 +39,17 @@
             <TextBlock Text="編集するものがありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
             <TextBlock Text="appTagが未設定のitemが対象です。" Style="{StaticResource Caption}"
                        HorizontalAlignment="Center" Margin="0,6,0,0" />
-            <Button Content="検索へ戻る" Command="{Binding FinishCommand}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+
+            <!-- 自動で戻る。設定 ReturnToSearchWhenEditDone / ReturnToSearchDelaySeconds -->
+            <TextBlock Text="{Binding ReturnNoticeText}" Style="{StaticResource Caption}"
+                       HorizontalAlignment="Center" Margin="0,12,0,0"
+                       Visibility="{Binding IsReturning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
+                <Button Content="検索へ戻る" Command="{Binding FinishCommand}" />
+                <Button Content="ここに留まる" Margin="8,0,0,0" Command="{Binding StayCommand}"
+                        Visibility="{Binding IsReturning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </StackPanel>
         </StackPanel>
 
         <Grid Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -113,104 +123,94 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
                     <StackPanel>
 
-                        <!-- appTag -->
+                        <!-- appTag：候補から選んで積む。マスタ全部は並べない -->
                         <TextBlock Text="appTag" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="トップを選ぶとサブが出ます。トップを外すとサブも一緒に外れます。"
-                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+                        <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しい分類として追加されます。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
-                        <ItemsControl ItemsSource="{Binding AppTags}">
+                        <controls:SuggestBox Source="{Binding TagSuggestions}" CommitCommand="{Binding AddTagCommand}"
+                                             Placeholder="appTagを追加（例：衣装）" />
+
+                        <ItemsControl ItemsSource="{Binding Tags}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
                                             Padding="11,9" Margin="0,0,0,7">
                                         <StackPanel>
-                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                      FontSize="13" Foreground="{StaticResource Text}" />
+                                            <Grid>
+                                                <TextBlock Text="{Binding Top}" FontSize="13" FontWeight="Medium"
+                                                           VerticalAlignment="Center" />
+                                                <Button Content="外す" Style="{StaticResource SmallButton}"
+                                                        HorizontalAlignment="Right" Command="{Binding RemoveCommand}" />
+                                            </Grid>
 
-                                            <!-- サブはトップを選んでいる間だけ出す -->
-                                            <StackPanel Margin="20,8,0,0"
-                                                        Visibility="{Binding IsSelected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <ItemsControl ItemsSource="{Binding Subs}">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                      FontSize="12" Margin="0,0,12,5"
-                                                                      Foreground="{StaticResource TextMuted}" />
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                                <!-- 幅は内容任せ。固定すると文字が切れる -->
-                                                <Grid Margin="0,4,0,0">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBox Grid.Column="0" Text="{Binding PendingSub, UpdateSourceTrigger=PropertyChanged}"
-                                                             Height="27" FontSize="12" VerticalContentAlignment="Center"
-                                                             Padding="7,0" Margin="0,0,6,0" />
-                                                    <Button Grid.Column="1" Content="サブを追加" Style="{StaticResource SmallButton}"
-                                                            Command="{Binding DataContext.AddSubTagCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}" />
-                                                </Grid>
-                                            </StackPanel>
+                                            <!-- 付けたサブだけを並べる -->
+                                            <ItemsControl ItemsSource="{Binding Subs}" Margin="0,8,0,0"
+                                                          Visibility="{Binding HasSubs, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,5,5">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding}" FontSize="11.5" Foreground="#28507f" />
+                                                                <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
+                                                                           Foreground="#7d8fa8" VerticalAlignment="Center">
+                                                                    <TextBlock.InputBindings>
+                                                                        <MouseBinding MouseAction="LeftClick"
+                                                                                      Command="{Binding DataContext.RemoveSubCommand,
+                                                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                                      CommandParameter="{Binding}" />
+                                                                    </TextBlock.InputBindings>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <controls:SuggestBox Source="{Binding SubCandidates}" CommitCommand="{Binding AddSubCommand}"
+                                                                 Placeholder="サブを追加" Margin="0,6,0,0" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- 編集の途中で分類を増やせるようにする。画面を往復させない -->
-                        <Grid Margin="0,4,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding NewTopTag, UpdateSourceTrigger=PropertyChanged}"
-                                     Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
-                            <Button Grid.Column="1" Content="トップを追加" Command="{Binding AddTopTagCommand}" />
-                        </Grid>
-
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
-                        <!-- 属性 -->
+                        <!-- 属性：評価したものだけを積む。未評価は行が無いことで表す -->
                         <TextBlock Text="属性" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="つまみを動かすと評価済みになります。触っていないものは「未評価」として保存され、0%とは区別されます。"
-                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+                        <TextBlock Text="追加した属性だけが評価済みになります。追加していないものは「未評価」で、0%とは区別されます。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
-                        <ItemsControl ItemsSource="{Binding Attributes}">
+                        <controls:SuggestBox Source="{Binding AttributeSuggestions}" CommitCommand="{Binding AddAttributeCommand}"
+                                             Placeholder="属性を追加（例：かっこいい）" />
+
+                        <ItemsControl ItemsSource="{Binding Attributes}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,0,0,8">
+                                    <Grid Margin="0,0,0,9">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="104" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="52" />
+                                            <ColumnDefinition Width="46" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <CheckBox Grid.Column="0" Content="{Binding Name}" FontSize="12"
-                                                  IsChecked="{Binding IsRated, Mode=TwoWay}" VerticalAlignment="Center"
-                                                  Foreground="{StaticResource Text}" />
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <Slider Grid.Column="1" Minimum="0" Maximum="100" VerticalAlignment="Center"
                                                 Value="{Binding Value, Mode=TwoWay}" TickFrequency="5" IsSnapToTickEnabled="True" />
                                         <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource Mono}"
                                                    FontSize="11" TextAlignment="Right" VerticalAlignment="Center" />
+                                        <Button Grid.Column="3" Content="外す" Style="{StaticResource SmallButton}"
+                                                Margin="7,0,0,0" Command="{Binding RemoveCommand}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-
-                        <Grid Margin="0,4,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding NewAttribute, UpdateSourceTrigger=PropertyChanged}"
-                                     Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
-                            <Button Grid.Column="1" Content="属性を追加" Command="{Binding AddAttributeCommand}" />
-                        </Grid>
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 

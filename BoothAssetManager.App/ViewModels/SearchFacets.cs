@@ -138,6 +138,9 @@ public sealed class AttributeFilter : ViewModelBase
 
     public event Action? Changed;
 
+    /// <summary>この軸を条件から外す。</summary>
+    public RelayCommand? RemoveCommand { get; set; }
+
     public int Min
     {
         get => _min;
