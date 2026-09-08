@@ -134,6 +134,15 @@ public sealed class CommandHandler
                 return new CommandResult.AppTagsChanged(
                     await _appTags.SetMemoAsync(memo.Top, memo.Sub, memo.Memo, cancellationToken));
 
+            case UiCommand.ReorderAppTags reorder:
+                if (_appTags is null)
+                {
+                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AppTagsChanged(
+                    await _appTags.ReorderAsync(reorder.Top, reorder.Names, cancellationToken));
+
             case UiCommand.PreviewItem preview:
                 var loaded = await _items.PreviewAsync(preview.ItemId, cancellationToken);
                 return loaded is null

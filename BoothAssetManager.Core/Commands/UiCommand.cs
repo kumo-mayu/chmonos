@@ -50,6 +50,12 @@ public abstract record UiCommand
     /// <summary>appTagのメモを書き換える。item側には影響しない。</summary>
     public record SetAppTagMemo(string Top, string? Sub, string? Memo) : UiCommand;
 
+    /// <summary>
+    /// appTagを並べ替える。<paramref name="Top"/> を省くとトップレベル、指定するとその配下のサブ。
+    /// マスタの並びは検索の絞り込みや編集の候補にそのまま出るので、追加順に縛られないようにする。
+    /// </summary>
+    public record ReorderAppTags(IReadOnlyList<string> Names, string? Top = null) : UiCommand;
+
     /// <summary>確定する前にIDの中身を見る。既に持っていればBOOTHへは行かない。</summary>
     public record PreviewItem(string ItemId) : UiCommand;
 

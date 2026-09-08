@@ -227,6 +227,70 @@ public class AppTagServiceTests : IDisposable
         Assert.Equal("衣装", Assert.Single(await AppTagsOfAsync("1")).Top);
     }
 
+    /// <summary>
+    /// 並びは検索の絞り込みにも編集の候補にも出るので、追加順に縛られないようにする。
+    /// itemは名前で参照しているので、並べ替えでitemに触る必要はない。
+    /// </summary>
+    [Fact]
+    public async Task ReordersTopLevelsWithoutTouchingItems()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "衣装" },
+            new AppTagTop { Name = "小物" },
+            new AppTagTop { Name = "ギミック" });
+
+        await SaveItemAsync("1", new AppTagAssignment { Top = "小物" });
+
+        var master = await _service.ReorderAsync(null, ["ギミック", "衣装", "小物"]);
+
+        Assert.Equal(["ギミック", "衣装", "小物"], master.Tops.Select(top => top.Name));
+        Assert.Equal("小物", Assert.Single(await AppTagsOfAsync("1")).Top);
+    }
+
+    [Fact]
+    public async Task ReordersSubLevelsWithinOneTop()
+    {
+        await SaveMasterAsync(
+            new AppTagTop
+            {
+                Name = "衣装",
+                Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+            },
+            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "指輪" }] });
+
+        var master = await _service.ReorderAsync("衣装", ["私服", "制服"]);
+
+        Assert.Equal(["私服", "制服"], master.Tops[0].Subs.Select(sub => sub.Name));
+        Assert.Equal(["指輪"], master.Tops[1].Subs.Select(sub => sub.Name));
+    }
+
+    /// <summary>
+    /// 絞り込み中は見えている分しか動かせないので、指定に無かったものは末尾に残す。
+    /// 黙って消えるより、末尾に寄る方がまだ気付ける。
+    /// </summary>
+    [Fact]
+    public async Task KeepsNamesThatTheNewOrderDidNotMention()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "衣装" },
+            new AppTagTop { Name = "小物" },
+            new AppTagTop { Name = "ギミック" });
+
+        var master = await _service.ReorderAsync(null, ["ギミック"]);
+
+        Assert.Equal(["ギミック", "衣装", "小物"], master.Tops.Select(top => top.Name));
+    }
+
+    [Fact]
+    public async Task IgnoresAReorderForATopThatIsGone()
+    {
+        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
+
+        var master = await _service.ReorderAsync("無いトップ", ["制服"]);
+
+        Assert.Equal(["制服"], Assert.Single(master.Tops).Subs.Select(sub => sub.Name));
+    }
+
     [Fact]
     public async Task IgnoresARenameThatChangesNothing()
     {

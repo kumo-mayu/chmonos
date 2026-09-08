@@ -6,8 +6,36 @@ using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
 
+/// <summary>
+/// 並べ替え中に、どこへ落ちるかを示す線。行の上か下かだけを持つ。
+/// Adornerを使わないのは、行のテンプレートに1本足すだけで済むため。
+/// </summary>
+public abstract class ReorderableRow : ViewModelBase
+{
+    private bool _dropBefore;
+    private bool _dropAfter;
+
+    public bool DropBefore
+    {
+        get => _dropBefore;
+        set => SetField(ref _dropBefore, value);
+    }
+
+    public bool DropAfter
+    {
+        get => _dropAfter;
+        set => SetField(ref _dropAfter, value);
+    }
+
+    public void ClearDropIndicator()
+    {
+        DropBefore = false;
+        DropAfter = false;
+    }
+}
+
 /// <summary>トップレベル1件。件数を出すのは、消す前に影響が見えるようにするため。</summary>
-public sealed class TagTopRow : ViewModelBase
+public sealed class TagTopRow : ReorderableRow
 {
     private bool _isSelected;
 
@@ -31,7 +59,7 @@ public sealed class TagTopRow : ViewModelBase
 }
 
 /// <summary>サブレベル1件。</summary>
-public sealed class TagSubRow : ViewModelBase
+public sealed class TagSubRow : ReorderableRow
 {
     public required string Name { get; init; }
 
@@ -541,6 +569,65 @@ public sealed class TagManageViewModel : ViewModelBase
 
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
+    }
+
+    /// <summary>
+    /// トップレベルを並べ替える。並びは検索の絞り込みにも編集の候補にもそのまま出るので、
+    /// 「よく使う順」に置けること自体が機能になる。itemは名前で参照しているので触らない。
+    ///
+    /// 絞り込み中は見えている分しか動かせないため、隠れている行の位置は保つ。
+    /// </summary>
+    public async Task MoveTopAsync(TagTopRow moved, TagTopRow target, bool after)
+    {
+        var order = _allTops.Select(row => row.Name).ToList();
+        if (!Reorder(order, moved.Name, target.Name, after))
+        {
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAppTags(order));
+        await ReloadAsync();
+    }
+
+    public async Task MoveSubAsync(TagSubRow moved, TagSubRow target, bool after)
+    {
+        var order = Subs.Select(row => row.Name).ToList();
+        if (!Reorder(order, moved.Name, target.Name, after))
+        {
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAppTags(order, moved.Top));
+        await ReloadAsync();
+    }
+
+    /// <summary>抜いてから差し込む。落とす先の index は抜いた後で数え直す。</summary>
+    private static bool Reorder(List<string> order, string moved, string target, bool after)
+    {
+        var from = order.IndexOf(moved);
+        if (from < 0 || moved == target)
+        {
+            return false;
+        }
+
+        order.RemoveAt(from);
+
+        var at = order.IndexOf(target);
+        if (at < 0)
+        {
+            order.Insert(from, moved);
+            return false;
+        }
+
+        var to = after ? at + 1 : at;
+        if (to == from)
+        {
+            order.Insert(from, moved);
+            return false;
+        }
+
+        order.Insert(to, moved);
+        return true;
     }
 
     private async Task SaveMemoAsync()

@@ -47,10 +47,17 @@
                                              Placeholder="トップレベルを追加（例：衣装）" />
                     </StackPanel>
 
+                    <!-- 並びは検索の絞り込みにも編集の候補にも出るので、ドラッグで変えられる -->
                     <ListBox ItemsSource="{Binding Tops}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                              BorderThickness="0" Background="Transparent"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             HorizontalContentAlignment="Stretch">
+                             HorizontalContentAlignment="Stretch"
+                             AllowDrop="True"
+                             PreviewMouseLeftButtonDown="OnRowsPreviewMouseLeftButtonDown"
+                             MouseMove="OnRowsMouseMove"
+                             DragOver="OnRowsDragOver"
+                             DragLeave="OnRowsDragLeave"
+                             Drop="OnRowsDrop">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Padding" Value="0" />
@@ -59,7 +66,14 @@
                                         <ControlTemplate TargetType="ListBoxItem">
                                             <Border x:Name="Root" Background="Transparent"
                                                     BorderBrush="#f0f1f4" BorderThickness="0,0,0,1">
-                                                <ContentPresenter />
+                                                <Grid>
+                                                    <ContentPresenter />
+                                                    <!-- ドラッグ中に、どこへ落ちるかを示す線 -->
+                                                    <Border Height="2" VerticalAlignment="Top" Background="{StaticResource Accent}"
+                                                            Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                                                            Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                </Grid>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -193,15 +207,31 @@
                                                          Placeholder="サブレベルを追加" HorizontalAlignment="Left" Width="360" />
                                 </StackPanel>
 
-                                <ItemsControl ItemsSource="{Binding Subs}">
+                                <ItemsControl ItemsSource="{Binding Subs}"
+                                              AllowDrop="True"
+                                              PreviewMouseLeftButtonDown="OnRowsPreviewMouseLeftButtonDown"
+                                              MouseMove="OnRowsMouseMove"
+                                              DragOver="OnRowsDragOver"
+                                              DragLeave="OnRowsDragLeave"
+                                              Drop="OnRowsDrop">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Padding="20,13">
+                                            <!-- Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる -->
+                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Padding="20,13"
+                                                    Background="Transparent">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
+
+                                                    <!-- ドラッグ中の落ち先。行の枠まで届くよう、Paddingの分だけ外へ出す -->
+                                                    <Border Height="2" VerticalAlignment="Top" Margin="-20,-13,-20,0"
+                                                            Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
+                                                            Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <Border Height="2" VerticalAlignment="Bottom" Margin="-20,0,-20,-13"
+                                                            Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
+                                                            Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                                     <StackPanel Grid.Column="0" Margin="0,0,14,0" VerticalAlignment="Center">
                                                         <StackPanel Orientation="Horizontal">

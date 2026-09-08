@@ -10,10 +10,28 @@ public sealed class AppPaths
         Root = root;
     }
 
-    /// <summary>既定の保存先（<c>%LOCALAPPDATA%\BoothAssetManager</c>）。</summary>
-    public static AppPaths Default { get; } = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "BoothAssetManager"));
+    /// <summary>保存先を差し替える環境変数。</summary>
+    public const string RootVariable = "BOOTH_ASSET_MANAGER_HOME";
+
+    /// <summary>
+    /// 既定の保存先（<c>%LOCALAPPDATA%\BoothAssetManager</c>）。
+    ///
+    /// <see cref="RootVariable"/> が設定されていればそちらを使う。
+    /// 本物のライブラリに触らずに動作を確かめたいときと、
+    /// データを別のドライブに置きたいときのための逃げ道。
+    /// </summary>
+    public static AppPaths Default { get; } = new(ResolveDefaultRoot());
+
+    private static string ResolveDefaultRoot()
+    {
+        var configured = Environment.GetEnvironmentVariable(RootVariable);
+
+        return string.IsNullOrWhiteSpace(configured)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BoothAssetManager")
+            : Path.GetFullPath(configured.Trim());
+    }
 
     public string Root { get; }
 

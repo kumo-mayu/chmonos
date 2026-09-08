@@ -56,6 +56,8 @@ public interface IAppTagService
     Task<AppTagEditResult> DeleteSubAsync(string top, string name, CancellationToken cancellationToken = default);
 
     Task<AppTagMaster> SetMemoAsync(string top, string? sub, string? memo, CancellationToken cancellationToken = default);
+
+    Task<AppTagMaster> ReorderAsync(string? top, IReadOnlyList<string> names, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -302,6 +304,64 @@ public sealed class AppTagService : IAppTagService
         var updated = new AppTagMaster { Tops = tops };
         await _store.AppTags.SaveAsync(updated, cancellationToken);
         return updated;
+    }
+
+    /// <summary>
+    /// 並べ替える。<paramref name="top"/> が null ならトップレベル、指定すればその配下のサブ。
+    ///
+    /// マスタの並びは「よく使う順」「意味の近い順」といった、名前からは出てこない
+    /// 判断を持てる唯一の場所なので、追加順のままにしない。
+    /// item側は名前で参照しているので、並べ替えでitemに触る必要はない。
+    /// </summary>
+    public async Task<AppTagMaster> ReorderAsync(
+        string? top,
+        IReadOnlyList<string> names,
+        CancellationToken cancellationToken = default)
+    {
+        var master = _store.AppTags.Load();
+
+        if (top is null)
+        {
+            var updated = new AppTagMaster { Tops = Sort(master.Tops, names, entry => entry.Name) };
+            await _store.AppTags.SaveAsync(updated, cancellationToken);
+            return updated;
+        }
+
+        var tops = master.Tops.ToList();
+        var index = tops.FindIndex(entry => Same(entry.Name, top));
+        if (index < 0)
+        {
+            return master;
+        }
+
+        tops[index] = Replace(tops[index], tops[index].Name, Sort(tops[index].Subs, names, sub => sub.Name));
+
+        var result = new AppTagMaster { Tops = tops };
+        await _store.AppTags.SaveAsync(result, cancellationToken);
+        return result;
+    }
+
+    /// <summary>
+    /// 指定された名前の順に並べ、指定に無かったものは末尾へ残す。
+    /// 画面が古い一覧を送ってきても、黙って消えないようにするため。
+    /// </summary>
+    private static List<T> Sort<T>(IReadOnlyList<T> source, IReadOnlyList<string> names, Func<T, string> nameOf)
+    {
+        var remaining = source.ToList();
+        var sorted = new List<T>(remaining.Count);
+
+        foreach (var name in names)
+        {
+            var index = remaining.FindIndex(entry => Same(nameOf(entry), name));
+            if (index >= 0)
+            {
+                sorted.Add(remaining[index]);
+                remaining.RemoveAt(index);
+            }
+        }
+
+        sorted.AddRange(remaining);
+        return sorted;
     }
 
     private static AppTagUsage Count(IReadOnlyList<ItemRecord> items, string top)
