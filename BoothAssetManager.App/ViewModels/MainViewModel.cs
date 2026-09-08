@@ -42,6 +42,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
         ShowResolveCommand = new RelayCommand(ShowResolve);
         ShowInboxCommand = new RelayCommand(ShowInbox);
+        ShowShopsCommand = new RelayCommand(ShowShops);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
 
@@ -68,6 +69,32 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand ShowInboxCommand { get; }
 
     public bool IsInboxActive => CurrentViewModel is InboxViewModel;
+
+    public RelayCommand ShowShopsCommand { get; }
+
+    public bool IsShopsActive => CurrentViewModel is ShopsViewModel or ShopViewModel;
+
+    /// <summary>
+    /// ショップ一覧。検索と違って持ち回さないのは、集計が取り込みや編集で変わるため。
+    /// 開き直した時点で数え直す。
+    /// </summary>
+    public void ShowShops() => CurrentViewModel = new ShopsViewModel(_services, this);
+
+    public void ShowShop(Core.Services.ShopSummary shop)
+        => CurrentViewModel = new ShopViewModel(shop, _services, this, Thumbnails);
+
+    /// <summary>サブドメインからショップ画面を開く。商品ページの作者名からの経路。</summary>
+    public async Task ShowShopAsync(string subdomain)
+    {
+        var shops = await _services.Shops.LoadAsync();
+        var shop = shops.FirstOrDefault(entry =>
+            string.Equals(entry.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+
+        if (shop is not null)
+        {
+            ShowShop(shop);
+        }
+    }
 
     public RelayCommand ShowTagManageCommand { get; }
 
@@ -120,6 +147,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsEditActive));
                 OnPropertyChanged(nameof(IsResolveActive));
                 OnPropertyChanged(nameof(IsInboxActive));
+                OnPropertyChanged(nameof(IsShopsActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
                 OnPropertyChanged(nameof(IsAttributeManageActive));
             }
@@ -155,8 +183,8 @@ public sealed class MainViewModel : ViewModelBase
     /// 商品ページを開く。検索画面のインスタンスは保持したままなので、
     /// 戻ったときに絞り込み条件もスクロール位置もそのまま残る。
     /// </summary>
-    public void ShowItem(Core.Models.ItemRecord item)
-        => CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails);
+    public void ShowItem(Core.Models.ItemRecord item, (string Label, Action Go)? back = null)
+        => CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails, back);
 
     /// <summary>未確定ファイルの総件数。「残っている作業量」を示す。</summary>
     public int UnresolvedCount

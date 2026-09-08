@@ -97,14 +97,29 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private readonly ThumbnailLoader _thumbnails;
     private int _selectedIndex;
 
-    public ItemViewModel(ItemRecord item, AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails)
+    /// <param name="back">
+    /// 戻り先。ショップから来たならショップへ戻したいので、呼び出し側から受け取る。
+    /// 指定が無ければ検索（ほとんどの経路がそちらなので、既定にしておく）。
+    /// </param>
+    public ItemViewModel(
+        ItemRecord item,
+        AppServiceContainer services,
+        MainViewModel main,
+        ThumbnailLoader thumbnails,
+        (string Label, Action Go)? back = null)
     {
         Item = item;
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
 
-        BackCommand = new RelayCommand(() => main.ShowSearch());
+        BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← 検索に戻る";
+        BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowSearch)());
+
+        // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）
+        OpenShopCommand = new RelayCommand(
+            () => _ = main.ShowShopAsync(item.Booth.Shop!.Subdomain),
+            () => item.Booth.Shop is not null);
         OpenBoothCommand = new RelayCommand(OpenBooth);
         // 一度appTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
@@ -123,6 +138,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public ItemRecord Item { get; }
 
     public RelayCommand BackCommand { get; }
+
+    public string BackText { get; }
+
+    public RelayCommand OpenShopCommand { get; }
 
     public RelayCommand OpenBoothCommand { get; }
 

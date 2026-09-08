@@ -33,6 +33,12 @@
         <DataTemplate DataType="{x:Type vm:AttributeManageViewModel}">
             <views:AttributeManageView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ShopsViewModel}">
+            <views:ShopsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ShopViewModel}">
+            <views:ShopView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -113,8 +119,9 @@
                             <TextBlock Text="検索" Foreground="{Binding IsSearchActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                         </Grid>
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
-                        <TextBlock Text="ショップ" Foreground="{StaticResource RailText}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowShopsCommand}">
+                        <TextBlock Text="ショップ" HorizontalAlignment="Left"
+                                   Foreground="{Binding IsShopsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
                     <Button Style="{StaticResource NavButton}" IsEnabled="False">
                         <TextBlock Text="統計" Foreground="{StaticResource RailText}" />

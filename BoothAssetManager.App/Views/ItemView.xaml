@@ -14,7 +14,7 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="← 検索に戻る" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent" />
+                    <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -181,8 +181,14 @@
                             <Border Height="1" Background="#f0f1f4" Margin="0,10,0,14" />
 
                             <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
-                            <!-- ショップ画面ができたら、ここからアプリ内のショップページへ遷移させる（外部BOOTHには飛ばさない） -->
-                            <TextBlock Text="{Binding ShopName}" FontSize="13" Foreground="{StaticResource Accent}" Margin="0,8,0,0" />
+                            <!-- 作者名からはアプリ内のショップ画面へ。外部BOOTHには飛ばさない -->
+                            <TextBlock Margin="0,8,0,0">
+                                <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}"
+                                           Foreground="{StaticResource Accent}"
+                                           ToolTip="このショップの商品を見る">
+                                    <TextBlock Text="{Binding ShopName}" FontSize="13" />
+                                </Hyperlink>
+                            </TextBlock>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <TextBlock Text="{Binding IdText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
                                 <TextBlock Text="{Binding PublishedText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
