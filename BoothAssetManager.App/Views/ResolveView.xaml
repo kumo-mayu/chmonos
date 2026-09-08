@@ -123,6 +123,12 @@
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0">
                                                 <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
                                             </Border>
+                                            <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
+                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource BorderStrong}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="5,0,0,0"
+                                                    Visibility="{Binding IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="展開物の中身" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                            </Border>
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>
@@ -136,6 +142,27 @@
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20"
                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+
+                    <!--
+                        展開物の中身と判断できたものは、先にまとめて片付けられるようにする。
+                        勝手には外さず、根拠を見せて選択肢として出す。
+                    -->
+                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                            BorderThickness="1" CornerRadius="8" Padding="16,13" Margin="0,0,0,14"
+                            Visibility="{Binding HasArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Grid>
+                            <StackPanel Margin="0,0,150,0">
+                                <TextBlock Text="{Binding ArchiveContentText}" FontWeight="Bold" FontSize="12.5"
+                                           Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding ArchiveContentReason}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,5,0,0" />
+                                <TextBlock Text="単体の商品ではないので、管理から外すことが多い場所です。選んでから中身を確認できます。"
+                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <Button Content="まとめて選択する" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Command="{Binding SelectArchiveContentCommand}" />
+                        </Grid>
+                    </Border>
 
                     <!-- 手掛かり -->
                     <Border Style="{StaticResource Card}" Padding="18,16">

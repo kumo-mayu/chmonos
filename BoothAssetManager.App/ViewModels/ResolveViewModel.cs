@@ -3,6 +3,7 @@ using System.IO;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Resolution;
+using BoothAssetManager.Core.Scanning;
 using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
@@ -34,6 +35,15 @@ public sealed class UnresolvedRow : ViewModelBase
     public required string SizeText { get; init; }
 
     public required string DirectoryText { get; init; }
+
+    /// <summary>配布物を展開した中身とみなせるか。多くの場合そのまま管理から外したい。</summary>
+    public bool IsArchiveContent { get; init; }
+
+    /// <summary>そう判断した理由。押し付けにならないよう根拠を見せる。</summary>
+    public string? ContentReason { get; init; }
+
+    /// <summary>展開物の根とみなしたフォルダ。まとめて扱う単位。</summary>
+    public string? ProductFolder { get; init; }
 
     /// <summary>取り込み時に拾えた候補の数。0件（手掛かりなし）と複数件（曖昧）がある。</summary>
     public int CandidateCount => File.CandidateItemIds.Count;
@@ -101,6 +111,7 @@ public sealed class ResolveViewModel : ViewModelBase
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
         SelectAllCommand = new RelayCommand(SelectAll);
+        SelectArchiveContentCommand = new RelayCommand(SelectArchiveContent, () => HasArchiveContent);
         ClearChecksCommand = new RelayCommand(ClearChecks);
         ExcludeCheckedCommand = new RelayCommand(() => _ = ExcludeCheckedAsync(), () => HasChecked && !IsBusy);
         AssignCheckedCommand = new RelayCommand(() => _ = AssignCheckedAsync(), () => HasChecked && HasPreview && !IsBusy);
@@ -111,6 +122,8 @@ public sealed class ResolveViewModel : ViewModelBase
     public RelayCommand SelectFolderCommand { get; }
 
     public RelayCommand SelectAllCommand { get; }
+
+    public RelayCommand SelectArchiveContentCommand { get; }
 
     public RelayCommand ClearChecksCommand { get; }
 
@@ -461,9 +474,72 @@ public sealed class ResolveViewModel : ViewModelBase
         });
     }
 
+    private readonly Dictionary<string, ArchiveContentJudgement> _judgements =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>判定はフォルダ単位で同じになるので、フォルダをキーに覚えておく。</summary>
+    private ArchiveContentJudgement JudgeCached(string path)
+    {
+        var directory = Path.GetDirectoryName(path) ?? string.Empty;
+        if (_judgements.TryGetValue(directory, out var cached))
+        {
+            return cached;
+        }
+
+        var judgement = ArchiveContentDetector.Judge(path);
+        _judgements[directory] = judgement;
+        return judgement;
+    }
+
+    /// <summary>展開物とみなせるものの件数。0なら案内も出さない。</summary>
+    public int ArchiveContentCount => Files.Count(row => row.IsArchiveContent);
+
+    public bool HasArchiveContent => ArchiveContentCount > 0;
+
+    public string ArchiveContentText
+    {
+        get
+        {
+            var rows = Files.Where(row => row.IsArchiveContent).ToList();
+            if (rows.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var folders = rows
+                .Select(row => Path.GetFileName(row.ProductFolder ?? string.Empty))
+                .Where(name => name.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var where = folders.Count switch
+            {
+                0 => string.Empty,
+                1 => $"（{folders[0]} の中）",
+                _ => $"（{string.Join("・", folders.Take(3))}{(folders.Count > 3 ? " ほか" : string.Empty)} の中）",
+            };
+
+            return $"配布物を展開した中身とみなせるものが {rows.Count} 件あります{where}。";
+        }
+    }
+
+    /// <summary>1件でも理由を見せる。まとめて外す前に何を根拠にしたかが分かるように。</summary>
+    public string ArchiveContentReason =>
+        Files.FirstOrDefault(row => row.IsArchiveContent)?.ContentReason ?? string.Empty;
+
+    /// <summary>展開物とみなしたものだけを選ぶ。外すかどうかは見てから決めてもらう。</summary>
+    private void SelectArchiveContent()
+    {
+        foreach (var row in Files.Where(row => row.IsArchiveContent))
+        {
+            row.IsSelected = true;
+        }
+    }
+
     public void Reload()
     {
         var unresolved = _services.Store.Unresolved.Load();
+        _judgements.Clear();
 
         Files.Clear();
 
@@ -475,12 +551,20 @@ public sealed class ResolveViewModel : ViewModelBase
             .ThenByDescending(entry => entry.SizeBytes))
         {
             var path = file.Paths.Count > 0 ? file.Paths[0] : string.Empty;
+
+            // 展開物の中身かどうかを見ておく。フォルダ単位で同じ結果になるので、
+            // 1件ごとにディスクを叩き直さないようキャッシュする
+            var judgement = path.Length > 0 ? JudgeCached(path) : ArchiveContentJudgement.NotContent;
+
             var row = new UnresolvedRow
             {
                 File = file,
                 FileName = path.Length > 0 ? Path.GetFileName(path) : file.Hash[..12],
                 DirectoryText = path.Length > 0 ? Path.GetDirectoryName(path) ?? string.Empty : string.Empty,
                 SizeText = FormatSize(file.SizeBytes),
+                IsArchiveContent = judgement.IsContent,
+                ContentReason = judgement.Reason,
+                ProductFolder = judgement.ProductFolder,
             };
 
             row.SelectionChanged += OnCheckedChanged;
@@ -490,6 +574,10 @@ public sealed class ResolveViewModel : ViewModelBase
         Selected = Files.FirstOrDefault();
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(ArchiveContentCount));
+        OnPropertyChanged(nameof(HasArchiveContent));
+        OnPropertyChanged(nameof(ArchiveContentText));
+        OnPropertyChanged(nameof(ArchiveContentReason));
     }
 
     private void OnSelectionChanged()
