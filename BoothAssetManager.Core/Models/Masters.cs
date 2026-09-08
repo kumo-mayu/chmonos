@@ -43,6 +43,26 @@ public sealed class AttributeDefinition
 }
 
 /// <summary>
+/// ショップのバナーを調べた記録（<c>shop-banners.json</c>）。
+///
+/// バナーのURLはショップページのHTMLにしか無く、ファイル名は乱数（UUID v4）なので
+/// 商品の情報からは導けない。取りに行った事実を残しておかないと、バナーを持たない
+/// ショップを開くたびに100KB超のHTMLを読み直すことになる。
+/// </summary>
+public sealed record ShopBannerRecord
+{
+    public required string Subdomain { get; init; }
+
+    /// <summary>そもそもバナーを置いているショップか。false なら取りに行かない。</summary>
+    public required bool HasBanner { get; init; }
+
+    /// <summary>取得元。差し替えられたかを次回に見分けるために残す。</summary>
+    public string? SourceUrl { get; init; }
+
+    public required DateTimeOffset CheckedAt { get; init; }
+}
+
+/// <summary>
 /// アバターの登録簿（<c>avatar-registry.json</c>）。対応アバターの名寄せと共通素体の関係を持つ。
 /// ネットワーク取得を伴って少しずつ育つ知識なので、毎回作り直さず永続化する。
 /// </summary>

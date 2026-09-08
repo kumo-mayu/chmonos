@@ -20,6 +20,19 @@
             </Grid>
         </Border>
 
+        <!--
+            バナー。置いていないショップもあるので、無ければ帯ごと出さない。
+            切り取らずに全体を出す（作者が作った絵なので、勝手に一部だけ見せない）。
+            大きさはBOOTHの見せ方（960x320）に合わせ、縦横比が違うバナーは
+            その枠に収まるところまで縮める。
+        -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding HasBanner, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Image Source="{Binding Banner}" Stretch="Uniform"
+                   MaxWidth="960" MaxHeight="320" HorizontalAlignment="Center" />
+        </Border>
+
         <!-- ショップの見出しと集計 -->
         <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">

@@ -1,3 +1,5 @@
+using BoothAssetManager.Core.Booth;
+using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Services;
 using BoothAssetManager.Core.Storage;
@@ -29,7 +31,73 @@ public class ShopServiceTests : IDisposable
         }
     }
 
-    private ShopService Create(bool showAdult = true) => new(_store, new AppSettings { ShowAdult = showAdult });
+    private ShopService Create(bool showAdult = true, IBoothClient? client = null)
+        => new(_store, new AppSettings { ShowAdult = showAdult }, client);
+
+    /// <summary>ショップページのHTMLを返すだけの偽物。受信量も数える。</summary>
+    private sealed class FakeBoothClient : IBoothClient
+    {
+        private readonly string _html;
+
+        public FakeBoothClient(string html) => _html = html;
+
+        public int Requests { get; private set; }
+
+        /// <summary>打ち切りが効いているか見るため、実際に渡した文字数を記録する。</summary>
+        public int DeliveredChars { get; private set; }
+
+        public Task<BoothFetchResult<string>> GetTextUntilAsync(
+            string url,
+            Func<string, bool> found,
+            int maxBytes = 262144,
+            CancellationToken cancellationToken = default)
+        {
+            Requests++;
+
+            // 実物と同じく、少しずつ足しながら見つかった時点で止める
+            var text = new System.Text.StringBuilder();
+            foreach (var chunk in Chunks(_html, 4096))
+            {
+                text.Append(chunk);
+                if (found(text.ToString()))
+                {
+                    break;
+                }
+            }
+
+            DeliveredChars = text.Length;
+            return Task.FromResult(BoothFetchResult<string>.Success(text.ToString()));
+        }
+
+        private static IEnumerable<string> Chunks(string value, int size)
+        {
+            for (var i = 0; i < value.Length; i += size)
+            {
+                yield return value.Substring(i, Math.Min(size, value.Length - i));
+            }
+        }
+
+        public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<BoothFetchResult<string>> GetItemHtmlAsync(string itemId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<BoothFetchResult<byte[]>> GetBinaryAsync(string url, CancellationToken cancellationToken = default)
+            => Task.FromResult(BoothFetchResult<byte[]>.Temporary("画像は取りに行かない"));
+
+        public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public int CurrentIntervalMs => 0;
+
+        public bool IsThrottled => false;
+    }
+
+    private static string PageWithBanner(string url)
+        => new string('x', 20000)
+            + $"<img class=\"header-image\" alt=\"shop\" src=\"{url}\">"
+            + new string('y', 80000);
 
     private static BoothShop Shop(string subdomain, string name) => new()
     {
@@ -238,6 +306,58 @@ public class ShopServiceTests : IDisposable
         Assert.Equal(2, items.Count);
         Assert.True(items[0].IsOwned);
         Assert.False(items[1].IsOwned);
+    }
+
+    /// <summary>
+    /// バナーはHTMLの先頭付近にあるので、見つかった時点で受信をやめる。
+    /// 100KB超のページを毎回最後まで読む理由が無い。
+    /// </summary>
+    [Fact]
+    public async Task StopsReadingOnceTheBannerIsFound()
+    {
+        const string Url = "https://s6.booth.pm/aaa/bbb.png";
+        var client = new FakeBoothClient(PageWithBanner(Url));
+
+        // 画像の取得は失敗させてあるので、記録だけを見る
+        await Create(client: client).EnsureBannerAsync("shop", new ImagePipeline(client, _store.Paths));
+
+        Assert.Equal(1, client.Requests);
+
+        // 全体10万字超のうち、バナーの位置（2万字）付近で止まっている
+        Assert.InRange(client.DeliveredChars, 20000, 30000);
+
+        var record = Assert.Single(_store.ShopBanners.Load());
+        Assert.Equal(Url, record.SourceUrl);
+    }
+
+    /// <summary>
+    /// バナーを置いていないショップは、無いと分かった時点で記録する。
+    /// 確かめるには最後まで読むしかないので、二度は探しに行かない。
+    /// </summary>
+    [Fact]
+    public async Task RemembersThatAShopHasNoBanner()
+    {
+        var client = new FakeBoothClient(new string('x', 60000));
+        var service = Create(client: client);
+        var images = new ImagePipeline(client, _store.Paths);
+
+        Assert.Null(await service.EnsureBannerAsync("shop", images));
+        Assert.Equal(1, client.Requests);
+
+        var record = Assert.Single(_store.ShopBanners.Load());
+        Assert.False(record.HasBanner);
+        Assert.Null(record.SourceUrl);
+
+        // 2回目は取りに行かない
+        Assert.Null(await service.EnsureBannerAsync("shop", images));
+        Assert.Equal(1, client.Requests);
+    }
+
+    /// <summary>取得手段が無いとき（テストや将来の切り離し）に落ちない。</summary>
+    [Fact]
+    public async Task DoesNothingWithoutAClient()
+    {
+        Assert.Null(await Create().EnsureBannerAsync("shop", new ImagePipeline(new FakeBoothClient(""), _store.Paths)));
     }
 
     /// <summary>同じ中身のファイルは1回だけ数える。複数箇所に置いていても容量は1つ分。</summary>

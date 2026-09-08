@@ -101,6 +101,40 @@ public sealed class ImagePipeline
         }
     }
 
+    /// <summary>
+    /// ショップのバナーを落とす。
+    ///
+    /// バナーは原寸のPNGで、実測で4KB〜4MBとばらつく。そのまま置くと重いので、
+    /// 商品画像より大きめの長辺に落としてWebPにする（BOOTHは960px幅で出している）。
+    /// </summary>
+    public async Task<bool> SyncShopBannerAsync(
+        string subdomain,
+        string sourceUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _client.GetBinaryAsync(sourceUrl, cancellationToken);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_paths.ShopIconsDir);
+            await SaveAsWebpAsync(
+                result.Value,
+                _paths.ShopBannerFile(subdomain),
+                cancellationToken,
+                _settings.ShopBannerMaxEdgePixels);
+
+            return true;
+        }
+        catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>48x48のURLから150x150のURLを作る。形が違えばそのまま返す。</summary>
     public static string LargerIconUrl(string thumbnailUrl)
     {
@@ -191,11 +225,15 @@ public sealed class ImagePipeline
             .ToList();
     }
 
-    private async Task SaveAsWebpAsync(byte[] bytes, string path, CancellationToken cancellationToken)
+    private async Task SaveAsWebpAsync(
+        byte[] bytes,
+        string path,
+        CancellationToken cancellationToken,
+        int? maxEdgeOverride = null)
     {
         using var image = Image.Load(bytes);
 
-        var maxEdge = _settings.ImageMaxEdgePixels;
+        var maxEdge = maxEdgeOverride ?? _settings.ImageMaxEdgePixels;
         if (image.Width > maxEdge || image.Height > maxEdge)
         {
             // 拡大はしない。元が小さい画像はそのままの大きさで保存する。

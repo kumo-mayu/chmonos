@@ -1,3 +1,4 @@
+using System.Text;
 using System.Net;
 using BoothAssetManager.Core.Models;
 
@@ -57,6 +58,13 @@ public interface IBoothClient
 
     /// <summary>BOOTH内検索。手掛かりが無いファイルの候補を出すために使う。</summary>
     Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default);
+
+    /// <summary>探しているものが見つかった時点で受信をやめる取得。</summary>
+    Task<BoothFetchResult<string>> GetTextUntilAsync(
+        string url,
+        Func<string, bool> found,
+        int maxBytes = 262144,
+        CancellationToken cancellationToken = default);
 
     /// <summary>現在のリクエスト間隔（ミリ秒）。429を受けると設定値より広がる。</summary>
     int CurrentIntervalMs { get; }
@@ -131,6 +139,60 @@ public sealed class BoothClient : IBoothClient
     public Task<BoothFetchResult<byte[]>> GetBinaryAsync(string url, CancellationToken cancellationToken = default)
         => SendWithRetryAsync(url, response => response.Content.ReadAsByteArrayAsync(cancellationToken), cancellationToken);
 
+    /// <summary>
+    /// 探しているものが見つかった時点で受信をやめる取得。
+    ///
+    /// ショップのバナーはHTMLの先頭付近にしか無いのに、ページ全体は100KB超ある。
+    /// 最後まで受け取る理由が無いので、見つかったら切る。
+    /// <paramref name="found"/> が一度も真にならなければ、上限まで読んだものを返す。
+    /// </summary>
+    public Task<BoothFetchResult<string>> GetTextUntilAsync(
+        string url,
+        Func<string, bool> found,
+        int maxBytes = 262144,
+        CancellationToken cancellationToken = default)
+        => SendWithRetryAsync(
+            url,
+            response => ReadUntilAsync(response, found, maxBytes, cancellationToken),
+            cancellationToken);
+
+    private static async Task<string> ReadUntilAsync(
+        HttpResponseMessage response,
+        Func<string, bool> found,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+
+        var decoder = Encoding.UTF8.GetDecoder();
+        var buffer = new byte[16 * 1024];
+        var characters = new char[buffer.Length];
+        var text = new StringBuilder();
+        var read = 0;
+
+        while (read < maxBytes)
+        {
+            var count = await stream.ReadAsync(buffer, cancellationToken);
+            if (count == 0)
+            {
+                break;
+            }
+
+            read += count;
+
+            // 文字の途中で切れることがあるので、状態を持つデコーダで継ぎ足していく
+            var written = decoder.GetChars(buffer, 0, count, characters, 0);
+            text.Append(characters, 0, written);
+
+            if (found(text.ToString()))
+            {
+                break;
+            }
+        }
+
+        return text.ToString();
+    }
+
     private Task<BoothFetchResult<string>> GetStringAsync(string url, CancellationToken cancellationToken)
         => SendWithRetryAsync(url, response => response.Content.ReadAsStringAsync(cancellationToken), cancellationToken);
 
@@ -183,7 +245,12 @@ public sealed class BoothClient : IBoothClient
         {
             await WaitForIntervalAsync(cancellationToken);
 
-            using var response = await _httpClient.GetAsync(url, cancellationToken);
+            // ヘッダだけ先に受け取る。本文を途中で打ち切る呼び出し（ショップのバナー探し）が
+            // 実際に通信を止められるようにするため。全部読む呼び出しの動きは変わらない。
+            using var response = await _httpClient.GetAsync(
+                url,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
             _lastRequestAt = DateTimeOffset.UtcNow;
 
             if (response.StatusCode == HttpStatusCode.NotFound)

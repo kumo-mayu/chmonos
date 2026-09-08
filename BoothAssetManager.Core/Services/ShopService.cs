@@ -19,6 +19,9 @@ public sealed record ShopSummary
     /// <summary>ローカルに落としたアイコン。まだ無ければ null（頭文字のタイルで代える）。</summary>
     public string? IconPath { get; init; }
 
+    /// <summary>ローカルに落としたバナー。まだ無ければ null。</summary>
+    public string? BannerPath { get; init; }
+
     /// <summary>ローカルに情報を持っている商品数（所持していないものも含む）。</summary>
     public required int KnownCount { get; init; }
 
@@ -58,6 +61,11 @@ public interface IShopService
 
     Task<IReadOnlyList<ShopItem>> LoadItemsAsync(string subdomain, CancellationToken cancellationToken = default);
 
+    Task<string?> EnsureBannerAsync(
+        string subdomain,
+        ImagePipeline images,
+        CancellationToken cancellationToken = default);
+
     Task<int> SyncMissingIconsAsync(
         ImagePipeline images,
         Func<string, string, Task>? onFetched = null,
@@ -79,11 +87,13 @@ public sealed class ShopService : IShopService
 {
     private readonly DataStore _store;
     private readonly AppSettings _settings;
+    private readonly Booth.IBoothClient? _client;
 
-    public ShopService(DataStore store, AppSettings? settings = null)
+    public ShopService(DataStore store, AppSettings? settings = null, Booth.IBoothClient? client = null)
     {
         _store = store;
         _settings = settings ?? new AppSettings();
+        _client = client;
     }
 
     public async Task<IReadOnlyList<ShopSummary>> LoadAsync(CancellationToken cancellationToken = default)
@@ -163,7 +173,8 @@ public sealed class ShopService : IShopService
             Name = shop.Name,
             Url = shop.Url,
             ThumbnailUrl = shop.ThumbnailUrl,
-            IconPath = IconPathOf(shop.Subdomain),
+            IconPath = Existing(_store.Paths.ShopIconFile(shop.Subdomain)),
+            BannerPath = Existing(_store.Paths.ShopBannerFile(shop.Subdomain)),
             KnownCount = counted.Count,
             OwnedCount = owned.Count,
             SpentYen = owned.Sum(item => (long)Spent(item)),
@@ -173,11 +184,90 @@ public sealed class ShopService : IShopService
         };
     }
 
-    private string? IconPathOf(string subdomain)
+    private static string? Existing(string path) => File.Exists(path) ? path : null;
+
+    /// <summary>
+    /// そのショップのバナーを用意する。既にあれば何もしない。
+    ///
+    /// バナーのURLはショップページのHTMLにしか無く、ファイル名は乱数（UUID v4）なので
+    /// 商品の情報からは導けない。ページは100KB超あるが、目当ての要素は先頭付近にあるので
+    /// 見つかった時点で受信を打ち切る。
+    ///
+    /// バナーを置いていないショップもある（実測で10店中2店）。それを確かめるには
+    /// 最後まで読むしかないので、結果を記録して二度は探しに行かない。
+    /// </summary>
+    /// <returns>用意できたバナーのパス。バナーが無い／取れなかったときは null。</returns>
+    public async Task<string?> EnsureBannerAsync(
+        string subdomain,
+        ImagePipeline images,
+        CancellationToken cancellationToken = default)
     {
-        var path = _store.Paths.ShopIconFile(subdomain);
-        return File.Exists(path) ? path : null;
+        var path = _store.Paths.ShopBannerFile(subdomain);
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        var records = _store.ShopBanners.Load();
+        var known = records.FirstOrDefault(record =>
+            string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+
+        // 「無い」と分かっているショップは、毎回100KB超を読み直さない
+        if (known is { HasBanner: false })
+        {
+            return null;
+        }
+
+        var sourceUrl = await FindBannerUrlAsync(subdomain, cancellationToken);
+        var saved = sourceUrl is not null
+            && await images.SyncShopBannerAsync(subdomain, sourceUrl, cancellationToken);
+
+        records.RemoveAll(record => string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+        records.Add(new ShopBannerRecord
+        {
+            Subdomain = subdomain,
+            HasBanner = saved,
+            SourceUrl = sourceUrl,
+            CheckedAt = DateTimeOffset.Now,
+        });
+
+        await _store.ShopBanners.SaveAsync(records, cancellationToken);
+
+        return saved ? path : null;
     }
+
+    /// <summary>
+    /// ショップページからバナーのURLを拾う。
+    ///
+    /// ショップのルート（<c>https://{sub}.booth.pm/</c>）はCloudflareに弾かれるが、
+    /// <c>/items</c> は普通に返る。
+    /// </summary>
+    private async Task<string?> FindBannerUrlAsync(string subdomain, CancellationToken cancellationToken)
+    {
+        if (_client is null)
+        {
+            return null;
+        }
+
+        var result = await _client.GetTextUntilAsync(
+            $"https://{subdomain}.booth.pm/items",
+            html => BannerPattern.IsMatch(html),
+            cancellationToken: cancellationToken);
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return null;
+        }
+
+        var match = BannerPattern.Match(result.Value);
+        return match.Success ? System.Net.WebUtility.HtmlDecode(match.Groups[1].Value) : null;
+    }
+
+    /// <summary>ショップのヘッダ画像。classが先、srcが後という並びで出てくる。</summary>
+    private static readonly System.Text.RegularExpressions.Regex BannerPattern = new(
+        "<img[^>]*class=\"[^\"]*header-image[^\"]*\"[^>]*src=\"([^\"]+)\"",
+        System.Text.RegularExpressions.RegexOptions.Compiled
+            | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     /// <summary>
     /// まだ持っていないショップのアイコンを順に落とす。

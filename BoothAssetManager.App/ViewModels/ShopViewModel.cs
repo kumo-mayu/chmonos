@@ -1,3 +1,5 @@
+using System.IO;
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using BoothAssetManager.App.Services;
@@ -59,6 +61,26 @@ public sealed class ShopViewModel : ViewModelBase
 
     public bool ShowInitial => Icon is null;
 
+    private System.Windows.Media.Imaging.BitmapSource? _banner;
+
+    /// <summary>
+    /// ショップのバナー。URLがHTMLにしか無いので、この画面を開いたときに取りに行く。
+    /// 置いていないショップもあるので、無ければ帯ごと出さない。
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource? Banner
+    {
+        get => _banner;
+        private set
+        {
+            if (SetField(ref _banner, value))
+            {
+                OnPropertyChanged(nameof(HasBanner));
+            }
+        }
+    }
+
+    public bool HasBanner => Banner is not null;
+
     public string OwnedText => $"{Shop.OwnedCount}";
 
     public string SpentText => $"¥{Shop.SpentYen:N0}";
@@ -119,7 +141,41 @@ public sealed class ShopViewModel : ViewModelBase
 
             Rebuild();
             OnPropertyChanged(nameof(SizeText));
+
+            if (Shop.BannerPath is not null)
+            {
+                Banner = _thumbnails.Load(Shop.BannerPath);
+            }
         });
+
+        await EnsureBannerAsync();
+    }
+
+    /// <summary>
+    /// バナーを用意する。既に持っていれば何もしない。
+    ///
+    /// URLはショップページのHTMLにしか無く、ファイル名は乱数なので導けない。
+    /// 一覧で全店ぶんを先読みすると通信が重くなるので、開いた店だけ取りに行く。
+    /// </summary>
+    private async Task EnsureBannerAsync()
+    {
+        if (Shop.BannerPath is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            var path = await _services.Shops.EnsureBannerAsync(Shop.Subdomain, _services.Images);
+            if (path is not null)
+            {
+                RunOnUiThread(() => Banner = _thumbnails.Load(path));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or HttpRequestException)
+        {
+            // バナーは飾りなので、取れなくても画面は成立する
+        }
     }
 
     private void Rebuild()

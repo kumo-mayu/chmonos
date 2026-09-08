@@ -51,6 +51,8 @@ public sealed class AppPaths
 
     public string NotificationsFile => Path.Combine(Root, "notifications.json");
 
+    public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
+
     public string EditSessionFile => Path.Combine(Root, "edit-session.json");
 
     public string ScanCacheFile => Path.Combine(Root, "scan-cache.json");
@@ -74,6 +76,9 @@ public sealed class AppPaths
 
     public string ShopIconFile(string subdomain)
         => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}.webp");
+
+    public string ShopBannerFile(string subdomain)
+        => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}_banner.webp");
 
     /// <summary>サブドメインはURLの一部なので概ね安全だが、念のためファイル名に使えない字を落とす。</summary>
     private static string Sanitize(string name)

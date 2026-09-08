@@ -37,6 +37,7 @@ public sealed class DataStore
         Unresolved = new JsonFileStore<List<UnresolvedFile>>(paths.UnresolvedFile);
         Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
+        ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
     }
@@ -58,6 +59,9 @@ public sealed class DataStore
     public JsonFileStore<List<ExcludedEntry>> Excluded { get; }
 
     public JsonFileStore<List<NotificationRecord>> Notifications { get; }
+
+    /// <summary>ショップのバナーを調べた記録。無いショップを何度も探しに行かないため。</summary>
+    public JsonFileStore<List<ShopBannerRecord>> ShopBanners { get; }
 
     public JsonFileStore<List<ScanCacheEntry>> ScanCache { get; }
 

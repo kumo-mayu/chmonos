@@ -41,7 +41,7 @@ public sealed class AppServiceContainer : IDisposable
         Notifications = new NotificationService(Store, Settings);
         AppTags = new AppTagService(Store);
         Attributes = new AttributeService(Store);
-        Shops = new ShopService(Store, Settings);
+        Shops = new ShopService(Store, Settings, Client);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags, Attributes);
     }

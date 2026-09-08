@@ -94,6 +94,12 @@ public sealed record AppSettings
     public int ImageMaxEdgePixels { get; init; } = 384;
 
     /// <summary>
+    /// ショップのバナーの長辺。BOOTHは960px幅で出しているので、それを上回る値にしてある。
+    /// 原寸（4KB〜4MB）をそのまま置くと重いため、必ずここまで落とす。
+    /// </summary>
+    public int ShopBannerMaxEdgePixels { get; init; } = 1200;
+
+    /// <summary>
     /// 復号済みサムネイルを保持する上限（MB）。超えたら最後に見てから古いものから捨てる。
     /// 保持しているのは圧縮前の生ピクセルで、ディスク上の30倍以上になる点に注意。
     /// </summary>
