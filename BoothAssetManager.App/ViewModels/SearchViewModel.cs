@@ -34,6 +34,7 @@ public sealed class SearchViewModel : ViewModelBase
     private string _queryText = string.Empty;
     private string? _selectedCategory;
     private bool _ownedOnly;
+    private bool _missingOnly;
     private bool _isLoading;
     private int _columns = 1;
     private SortOption _sort = DefaultSort;
@@ -485,11 +486,32 @@ public sealed class SearchViewModel : ViewModelBase
         AddAttributeFilter(name);
     }
 
+    /// <summary>このカテゴリだけで絞り込む。統計の容量内訳から中身を見に来る導線。</summary>
+    public void ShowOnlyCategory(string category)
+    {
+        ClearFilters();
+        _selectedCategory = category;
+        OnPropertyChanged(nameof(SelectedCategory));
+        ApplyFilters();
+    }
+
+    /// <summary>
+    /// 記録はあるのに置き場所が分からなくなったitemだけを出す。統計の積み残しからの導線。
+    /// 消したのか移動しただけなのかはユーザにしか分からないので、判断できる形で並べる。
+    /// </summary>
+    public void ShowOnlyMissing()
+    {
+        ClearFilters();
+        _missingOnly = true;
+        ApplyFilters();
+    }
+
     private void ClearFilters()
     {
         _queryText = string.Empty;
         _selectedCategory = AllCategories;
         _ownedOnly = false;
+        _missingOnly = false;
 
         foreach (var tag in TagFilters)
         {
@@ -549,6 +571,11 @@ public sealed class SearchViewModel : ViewModelBase
                 parts.Add("所持のみ");
             }
 
+            if (_missingOnly)
+            {
+                parts.Add("ファイルが見つからない");
+            }
+
             if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
             {
                 parts.Add(_selectedCategory);
@@ -576,6 +603,11 @@ public sealed class SearchViewModel : ViewModelBase
     private bool Matches(ItemRecord item)
     {
         if (_ownedOnly && !item.IsDownloaded)
+        {
+            return false;
+        }
+
+        if (_missingOnly && !item.Local.LocalFiles.Any(file => file.Paths.Count == 0))
         {
             return false;
         }

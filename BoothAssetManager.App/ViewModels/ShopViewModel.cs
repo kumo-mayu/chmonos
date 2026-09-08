@@ -26,14 +26,16 @@ public sealed class ShopViewModel : ViewModelBase
         ShopSummary shop,
         AppServiceContainer services,
         MainViewModel main,
-        ThumbnailLoader thumbnails)
+        ThumbnailLoader thumbnails,
+        (string Label, Action Go)? back = null)
     {
         Shop = shop;
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
 
-        BackCommand = new RelayCommand(main.ShowShops);
+        BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← ショップ一覧に戻る";
+        BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowShops)());
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
         RefreshImagesCommand = new RelayCommand(() => _ = RefreshImagesAsync(), () => !IsRefreshingImages);
 
@@ -52,6 +54,9 @@ public sealed class ShopViewModel : ViewModelBase
     public ObservableCollection<ItemCardViewModel> Items { get; } = [];
 
     public RelayCommand BackCommand { get; }
+
+    /// <summary>どこから来たかで戻り先を変える。来た道と違う場所へ戻されると迷子になる。</summary>
+    public string BackText { get; }
 
     public RelayCommand OpenBoothCommand { get; }
 

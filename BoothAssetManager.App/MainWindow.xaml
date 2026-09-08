@@ -39,6 +39,9 @@
         <DataTemplate DataType="{x:Type vm:ShopViewModel}">
             <views:ShopView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:StatsViewModel}">
+            <views:StatsView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -123,8 +126,9 @@
                         <TextBlock Text="ショップ" HorizontalAlignment="Left"
                                    Foreground="{Binding IsShopsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
-                        <TextBlock Text="統計" Foreground="{StaticResource RailText}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowStatsCommand}">
+                        <TextBlock Text="統計" HorizontalAlignment="Left"
+                                   Foreground="{Binding IsStatsActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
 
                     <TextBlock Text="作業" Style="{StaticResource NavGroupLabel}" />

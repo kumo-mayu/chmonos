@@ -120,9 +120,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
         RefreshCommand = new RelayCommand(() => _ = RefreshAsync(), () => !IsRefreshing);
 
-        // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）
+        // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）。
+        // 戻り先はこの商品ページにする。ショップ一覧へ返すと、来た道と違う場所に出てしまう
         OpenShopCommand = new RelayCommand(
-            () => _ = main.ShowShopAsync(item.Booth.Shop!.Subdomain),
+            () => _ = main.ShowShopAsync(
+                item.Booth.Shop!.Subdomain,
+                (item.Booth.Name ?? "商品", () => main.ShowItem(item, back))),
             () => item.Booth.Shop is not null);
         OpenBoothCommand = new RelayCommand(OpenBooth);
         // 一度appTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る

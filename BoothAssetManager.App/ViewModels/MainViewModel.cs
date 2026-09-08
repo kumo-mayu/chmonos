@@ -43,6 +43,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowResolveCommand = new RelayCommand(ShowResolve);
         ShowInboxCommand = new RelayCommand(ShowInbox);
         ShowShopsCommand = new RelayCommand(ShowShops);
+        ShowStatsCommand = new RelayCommand(ShowStats);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
 
@@ -80,11 +81,11 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public void ShowShops() => CurrentViewModel = new ShopsViewModel(_services, this, Thumbnails);
 
-    public void ShowShop(Core.Services.ShopSummary shop)
-        => CurrentViewModel = new ShopViewModel(shop, _services, this, Thumbnails);
+    public void ShowShop(Core.Services.ShopSummary shop, (string Label, Action Go)? back = null)
+        => CurrentViewModel = new ShopViewModel(shop, _services, this, Thumbnails, back);
 
     /// <summary>サブドメインからショップ画面を開く。商品ページの作者名からの経路。</summary>
-    public async Task ShowShopAsync(string subdomain)
+    public async Task ShowShopAsync(string subdomain, (string Label, Action Go)? back = null)
     {
         var shops = await _services.Shops.LoadAsync();
         var shop = shops.FirstOrDefault(entry =>
@@ -92,9 +93,19 @@ public sealed class MainViewModel : ViewModelBase
 
         if (shop is not null)
         {
-            ShowShop(shop);
+            ShowShop(shop, back);
         }
     }
+
+    public RelayCommand ShowStatsCommand { get; }
+
+    public bool IsStatsActive => CurrentViewModel is StatsViewModel;
+
+    /// <summary>
+    /// 統計。集計は取り込み・編集のたびに変わるので、開き直した時点で数え直す
+    /// （ショップ一覧と同じ扱い）。
+    /// </summary>
+    public void ShowStats() => CurrentViewModel = new StatsViewModel(_services, this);
 
     public RelayCommand ShowTagManageCommand { get; }
 
@@ -154,6 +165,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsResolveActive));
                 OnPropertyChanged(nameof(IsInboxActive));
                 OnPropertyChanged(nameof(IsShopsActive));
+                OnPropertyChanged(nameof(IsStatsActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
                 OnPropertyChanged(nameof(IsAttributeManageActive));
             }

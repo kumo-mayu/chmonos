@@ -62,3 +62,18 @@ public sealed class InverseBoolConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => value is not true;
 }
+
+/// <summary>
+/// 空文字なら畳む。補足の1行は、内容が無いときに枠だけ残ると
+/// 「何かあるはずなのに空」に見えるので、行ごと消す。
+/// </summary>
+public sealed class EmptyToCollapsedConverter : IValueConverter
+{
+    public static readonly EmptyToCollapsedConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => string.IsNullOrEmpty(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

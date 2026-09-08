@@ -11,7 +11,7 @@
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
-                <Button Content="← ショップ一覧に戻る" Style="{StaticResource SmallButton}"
+                <Button Content="{Binding BackText}" Style="{StaticResource SmallButton}"
                         HorizontalAlignment="Left" VerticalAlignment="Center"
                         Command="{Binding BackCommand}" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

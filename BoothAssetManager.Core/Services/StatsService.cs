@@ -1,0 +1,478 @@
+using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Storage;
+
+namespace BoothAssetManager.Core.Services;
+
+/// <summary>時系列の1区切り（月または年）。金額が0の区切りも詰めずに残す。</summary>
+public sealed record StatsPeriod
+{
+    /// <summary>並べ替え用のキー。月なら <c>2026-04</c>、年なら <c>2026</c>。</summary>
+    public required string Key { get; init; }
+
+    /// <summary>軸に出す短い表記。</summary>
+    public required string Label { get; init; }
+
+    public required long SpentYen { get; init; }
+
+    public required int ItemCount { get; init; }
+}
+
+/// <summary>支出で並べる棒1本（ショップ）。</summary>
+public sealed record StatsSpendBar
+{
+    public required string Key { get; init; }
+
+    public required string Label { get; init; }
+
+    public required long SpentYen { get; init; }
+
+    public required int ItemCount { get; init; }
+}
+
+/// <summary>容量で並べる棒1本（カテゴリ）。</summary>
+public sealed record StatsSizeBar
+{
+    public required string Key { get; init; }
+
+    public required string Label { get; init; }
+
+    public required long Bytes { get; init; }
+
+    public required int ItemCount { get; init; }
+}
+
+/// <summary>件数で並べる棒1本（アバター）。</summary>
+public sealed record StatsCountBar
+{
+    public required string Key { get; init; }
+
+    public required string Label { get; init; }
+
+    public required int ItemCount { get; init; }
+
+    /// <summary>「対応アバター未設定」のような、集計の外側を示す行。控えめに出す。</summary>
+    public bool IsResidual { get; init; }
+}
+
+/// <summary>
+/// 積み残し。ここだけは「所持しているもの」ではなく「手を付ける必要があるもの」を数えるので、
+/// 上のタイル群とは対象範囲が違う（ファイルを持たないitemも編集の対象になる）。
+/// </summary>
+public sealed record StatsBacklog
+{
+    public required int UnresolvedCount { get; init; }
+
+    public required int NeedsAppTagCount { get; init; }
+
+    public required int MissingFileCount { get; init; }
+}
+
+/// <summary>統計画面に出すもの一式。1回の走査で全部作る。</summary>
+public sealed record StatsSnapshot
+{
+    /// <summary>ファイルかフォルダを持っているitem数。統計の集計対象そのもの。</summary>
+    public required int OwnedCount { get; init; }
+
+    /// <summary>ローカルに情報だけあるものも含めた総数。</summary>
+    public required int KnownCount { get; init; }
+
+    public required long SpentYen { get; init; }
+
+    /// <summary>ギフトで貰ったvariationの数。支出には入れない。</summary>
+    public required int GiftedCount { get; init; }
+
+    /// <summary>0円のvariationの数。支出には入るが0なので、別に数えて内訳が読めるようにする。</summary>
+    public required int FreeCount { get; init; }
+
+    /// <summary>
+    /// 有償の購入記録が1件も無いitem数。
+    /// 金額に入っていない分があることを隠さないために持つ。
+    /// </summary>
+    public required int UnpricedItemCount { get; init; }
+
+    /// <summary>同じ中身を1回だけ数えた容量。「持っているアセットの大きさ」。</summary>
+    public required long LogicalBytes { get; init; }
+
+    /// <summary>重複コピーを含む、実際にドライブを占有している量。</summary>
+    public required long PhysicalBytes { get; init; }
+
+    /// <summary>うち重複コピーの分。<see cref="PhysicalBytes"/> と <see cref="LogicalBytes"/> の差。</summary>
+    public long DuplicateBytes => PhysicalBytes - LogicalBytes;
+
+    public required int ShopCount { get; init; }
+
+    /// <summary>月別。買っていない月も0として残す（間が空いたことも情報のため）。</summary>
+    public required IReadOnlyList<StatsPeriod> Months { get; init; }
+
+    public required IReadOnlyList<StatsPeriod> Years { get; init; }
+
+    /// <summary>入手日が分からず、月別に入れられなかった分。</summary>
+    public required long UndatedSpentYen { get; init; }
+
+    public required int UndatedCount { get; init; }
+
+    /// <summary>入手日をファイルの日付で代えたitem数。推定がどれだけ混ざっているかを示す。</summary>
+    public required int FallbackDatedCount { get; init; }
+
+    public required IReadOnlyList<StatsSpendBar> Shops { get; init; }
+
+    public required IReadOnlyList<StatsSizeBar> Categories { get; init; }
+
+    public required IReadOnlyList<StatsCountBar> Avatars { get; init; }
+
+    /// <summary>アバターの紐付けが1件も無いか。無ければ画面は誘導だけを出す。</summary>
+    public required bool HasAnyAvatarLink { get; init; }
+
+    public required StatsBacklog Backlog { get; init; }
+}
+
+public interface IStatsService
+{
+    Task<StatsSnapshot> LoadAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// ライブラリ全体の集計。
+///
+/// 数え方は決定事項に従う：
+/// ・集計対象はファイル（またはフォルダ）を持つitemだけ。持っていないものは資産ではない
+/// ・非表示のitemも含める。非表示は見せ方の操作であって「持っていないことにする」ではない
+/// ・R-18も金額・容量に含める。表示設定で総額が変わると資産の把握に使えなくなる
+/// ・支出はギフトを除いた購入価格の合計。BOOTHから消えたvariationも含める
+/// ・時系列の軸は入手日。手入力が無ければファイルの日付で代え、代えた件数を持ち回る
+///
+/// 積み残しだけは対象範囲が違う（<see cref="StatsBacklog"/> のコメント参照）。
+/// </summary>
+public sealed class StatsService : IStatsService
+{
+    private readonly DataStore _store;
+
+    public StatsService(DataStore store)
+    {
+        _store = store;
+    }
+
+    public async Task<StatsSnapshot> LoadAsync(CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var registry = _store.Avatars.Load();
+        var unresolved = _store.Unresolved.Load().Count;
+
+        return Build(loaded.Items, registry, unresolved);
+    }
+
+    /// <summary>実際の集計。ファイル読み込みから切り離してあるのでテストから直に呼べる。</summary>
+    public static StatsSnapshot Build(
+        IReadOnlyList<ItemRecord> items,
+        AvatarRegistry registry,
+        int unresolvedCount)
+    {
+        var owned = items.Where(IsOwned).ToList();
+
+        var spent = 0L;
+        var gifted = 0;
+        var free = 0;
+        var unpriced = 0;
+        var logical = 0L;
+        var physical = 0L;
+        var undatedSpent = 0L;
+        var undated = 0;
+        var fallbackDated = 0;
+        var withoutAvatar = 0;
+
+        var months = new Dictionary<string, (long Spent, int Count)>(StringComparer.Ordinal);
+        var years = new Dictionary<string, (long Spent, int Count)>(StringComparer.Ordinal);
+        var shops = new Dictionary<string, (string Name, long Spent, int Count)>(StringComparer.OrdinalIgnoreCase);
+        var categories = new Dictionary<string, (long Bytes, int Count)>(StringComparer.CurrentCulture);
+        var avatars = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        // 素体への巻き上げに使う。「この素体を使っているアバター」を素体IDから引けるようにする
+        var derivedFromBase = registry.Entries
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.BaseItemId))
+            .GroupBy(entry => entry.BaseItemId!, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(entry => entry.ItemId).ToList(),
+                StringComparer.Ordinal);
+
+        foreach (var item in owned)
+        {
+            var itemSpent = (long)item.Local.OrderedVariations
+                .Where(variation => !variation.IsGifted)
+                .Sum(variation => variation.Price ?? 0);
+
+            spent += itemSpent;
+            gifted += item.Local.OrderedVariations.Count(variation => variation.IsGifted);
+            free += item.Local.OrderedVariations.Count(variation => !variation.IsGifted && variation.Price == 0);
+
+            // 「払ったはずだが記録が無い」を数える。金額の欠けを黙って0で埋めない
+            if (!item.Local.OrderedVariations.Any(variation => !variation.IsGifted && variation.Price is > 0))
+            {
+                unpriced++;
+            }
+
+            var itemPhysical = PhysicalSizeOf(item);
+            logical += LogicalSizeOf(item);
+            physical += itemPhysical;
+
+            var acquired = AcquiredDateResolver.Resolve(item);
+            if (acquired.Value is { } date)
+            {
+                if (acquired.IsFallback)
+                {
+                    fallbackDated++;
+                }
+
+                Add(months, $"{date.Year:D4}-{date.Month:D2}", itemSpent);
+                Add(years, $"{date.Year:D4}", itemSpent);
+            }
+            else
+            {
+                undatedSpent += itemSpent;
+                undated++;
+            }
+
+            if (item.Booth.Shop is { } shop)
+            {
+                var current = shops.TryGetValue(shop.Subdomain, out var existing)
+                    ? existing
+                    : (Name: shop.Name, Spent: 0L, Count: 0);
+                shops[shop.Subdomain] = (shop.Name, current.Spent + itemSpent, current.Count + 1);
+            }
+
+            var category = string.IsNullOrWhiteSpace(item.Booth.Category?.Name)
+                ? "分類なし"
+                : item.Booth.Category!.Name;
+            var bucket = categories.TryGetValue(category, out var size) ? size : (Bytes: 0L, Count: 0);
+            categories[category] = (bucket.Bytes + itemPhysical, bucket.Count + 1);
+
+            CountAvatars(item, derivedFromBase, avatars, ref withoutAvatar);
+        }
+
+        var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
+
+        return new StatsSnapshot
+        {
+            OwnedCount = owned.Count,
+            KnownCount = items.Count,
+            SpentYen = spent,
+            GiftedCount = gifted,
+            FreeCount = free,
+            UnpricedItemCount = unpriced,
+            LogicalBytes = logical,
+            PhysicalBytes = physical,
+            ShopCount = shops.Count,
+            Months = FillMonths(months),
+            Years = FillYears(years),
+            UndatedSpentYen = undatedSpent,
+            UndatedCount = undated,
+            FallbackDatedCount = fallbackDated,
+            Shops = shops
+                .OrderByDescending(pair => pair.Value.Spent)
+                .ThenByDescending(pair => pair.Value.Count)
+                .Select(pair => new StatsSpendBar
+                {
+                    Key = pair.Key,
+                    Label = pair.Value.Name,
+                    SpentYen = pair.Value.Spent,
+                    ItemCount = pair.Value.Count,
+                })
+                .ToList(),
+            Categories = categories
+                .OrderByDescending(pair => pair.Value.Bytes)
+                .Select(pair => new StatsSizeBar
+                {
+                    Key = pair.Key,
+                    Label = pair.Key,
+                    Bytes = pair.Value.Bytes,
+                    ItemCount = pair.Value.Count,
+                })
+                .ToList(),
+            Avatars = avatarBars,
+            HasAnyAvatarLink = avatars.Count > 0,
+            Backlog = new StatsBacklog
+            {
+                UnresolvedCount = unresolvedCount,
+                NeedsAppTagCount = items.Count(item => item.Local.AppTags.Count == 0),
+                MissingFileCount = items.Count(item =>
+                    item.Local.LocalFiles.Any(file => file.Paths.Count == 0)),
+            },
+        };
+    }
+
+    /// <summary>
+    /// アバターの棒を作る。表示名は登録簿を正とし、無ければitem側のキャッシュ、
+    /// それも無ければ商品IDをそのまま出す（消えた名前を勝手に埋めない）。
+    /// </summary>
+    private static List<StatsCountBar> BuildAvatarBars(
+        IReadOnlyList<ItemRecord> owned,
+        AvatarRegistry registry,
+        Dictionary<string, int> counts,
+        int withoutAvatar)
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var entry in registry.Entries.Where(entry => !string.IsNullOrWhiteSpace(entry.DisplayName)))
+        {
+            names[entry.ItemId] = entry.DisplayName!;
+        }
+
+        foreach (var link in owned.SelectMany(item => item.Local.Avatars))
+        {
+            if (!names.ContainsKey(link.AvatarItemId) && !string.IsNullOrWhiteSpace(link.Name))
+            {
+                names[link.AvatarItemId] = link.Name!;
+            }
+        }
+
+        var bars = counts
+            .OrderByDescending(pair => pair.Value)
+            .Select(pair => new StatsCountBar
+            {
+                Key = pair.Key,
+                Label = names.TryGetValue(pair.Key, out var name) ? name : pair.Key,
+                ItemCount = pair.Value,
+            })
+            .ToList();
+
+        // 紐付けが1件も無いうちは「未設定」だけの棒を出しても読めないので、何かある時だけ添える
+        if (withoutAvatar > 0 && bars.Count > 0)
+        {
+            bars.Add(new StatsCountBar
+            {
+                Key = string.Empty,
+                Label = "対応アバター未設定",
+                ItemCount = withoutAvatar,
+                IsResidual = true,
+            });
+        }
+
+        return bars;
+    }
+
+    /// <summary>
+    /// このitemが対応しているアバターを数える。
+    ///
+    /// 同じアバターに複数の紐付けがあっても1件として数える（推定と手入力が重なることがある）。
+    /// 素体に対応していれば、その素体を使っているアバターにも数える
+    /// （素体向けの衣装は、その素体を使うアバターでも着られるため）。
+    /// </summary>
+    private static void CountAvatars(
+        ItemRecord item,
+        IReadOnlyDictionary<string, List<string>> derivedFromBase,
+        Dictionary<string, int> counts,
+        ref int withoutAvatar)
+    {
+        if (item.Local.Avatars.Count == 0)
+        {
+            withoutAvatar++;
+            return;
+        }
+
+        var reached = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var link in item.Local.Avatars)
+        {
+            reached.Add(link.AvatarItemId);
+
+            if (derivedFromBase.TryGetValue(link.AvatarItemId, out var derived))
+            {
+                foreach (var id in derived)
+                {
+                    reached.Add(id);
+                }
+            }
+        }
+
+        foreach (var id in reached)
+        {
+            counts[id] = counts.TryGetValue(id, out var current) ? current + 1 : 1;
+        }
+    }
+
+    private static void Add(Dictionary<string, (long Spent, int Count)> buckets, string key, long spent)
+    {
+        var current = buckets.TryGetValue(key, out var existing) ? existing : (Spent: 0L, Count: 0);
+        buckets[key] = (current.Spent + spent, current.Count + 1);
+    }
+
+    /// <summary>
+    /// 最初の月から最後の月までを、買っていない月も含めて並べる。
+    /// 買った月だけを詰めると、間が空いたことが見えなくなり時間軸として読めなくなる。
+    /// </summary>
+    private static IReadOnlyList<StatsPeriod> FillMonths(Dictionary<string, (long Spent, int Count)> buckets)
+    {
+        if (buckets.Count == 0)
+        {
+            return [];
+        }
+
+        var keys = buckets.Keys.OrderBy(key => key, StringComparer.Ordinal).ToList();
+        var start = ParseMonth(keys[0]);
+        var end = ParseMonth(keys[^1]);
+
+        var result = new List<StatsPeriod>();
+        for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+        {
+            var key = $"{cursor.Year:D4}-{cursor.Month:D2}";
+            var value = buckets.TryGetValue(key, out var bucket) ? bucket : (Spent: 0L, Count: 0);
+
+            result.Add(new StatsPeriod
+            {
+                Key = key,
+                Label = $"{cursor.Month:D2}",
+                SpentYen = value.Spent,
+                ItemCount = value.Count,
+            });
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<StatsPeriod> FillYears(Dictionary<string, (long Spent, int Count)> buckets)
+    {
+        if (buckets.Count == 0)
+        {
+            return [];
+        }
+
+        var years = buckets.Keys.Select(int.Parse).ToList();
+
+        var result = new List<StatsPeriod>();
+        for (var year = years.Min(); year <= years.Max(); year++)
+        {
+            var value = buckets.TryGetValue($"{year:D4}", out var bucket) ? bucket : (Spent: 0L, Count: 0);
+
+            result.Add(new StatsPeriod
+            {
+                Key = $"{year:D4}",
+                Label = $"{year}",
+                SpentYen = value.Spent,
+                ItemCount = value.Count,
+            });
+        }
+
+        return result;
+    }
+
+    private static DateOnly ParseMonth(string key)
+        => new(int.Parse(key[..4]), int.Parse(key[5..]), 1);
+
+    private static bool IsOwned(ItemRecord item)
+        => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
+
+    /// <summary>同じ中身を1回だけ数えた大きさ。商品ページに出している容量と同じ求め方。</summary>
+    private static long LogicalSizeOf(ItemRecord item)
+        => item.Local.LocalFiles
+            .DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase)
+            .Sum(file => file.SizeBytes)
+            + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
+
+    /// <summary>
+    /// ドライブが実際に食われている量。同じ中身を2箇所に置いていれば2回分数える。
+    /// 「どれだけ空けられるか」を知りたい時に要るのはこちら。
+    /// </summary>
+    private static long PhysicalSizeOf(ItemRecord item)
+        => item.Local.LocalFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
+            + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
+}
