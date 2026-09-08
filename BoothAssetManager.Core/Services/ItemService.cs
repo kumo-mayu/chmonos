@@ -6,9 +6,33 @@ using BoothAssetManager.Core.Storage;
 
 namespace BoothAssetManager.Core.Services;
 
+/// <summary>
+/// 確定前の下見。名前とショップが分かれば「これで合っているか」は判断できる。
+/// 画像までは取りに行かない（確定しないかもしれないものに取得の間隔を使わない）。
+/// </summary>
+public sealed class ItemPreview
+{
+    public required string Id { get; init; }
+
+    public required string Name { get; init; }
+
+    public string? ShopName { get; init; }
+
+    public string? CategoryText { get; init; }
+
+    public int? Price { get; init; }
+
+    public DateTimeOffset? PublishedAt { get; init; }
+
+    /// <summary>既にライブラリにあるitemか。あればBOOTHへは取りに行っていない。</summary>
+    public bool IsAlreadyOwned { get; init; }
+}
+
 public interface IItemService
 {
     Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default);
+
+    Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default);
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
@@ -108,6 +132,42 @@ public sealed class ItemService : IItemService
     /// <summary>
     /// 未確定ファイルに商品IDを与えて確定させる。確定したファイルはitemへ移し、未確定一覧から取り除く。
     /// </summary>
+    /// <summary>
+    /// 確定する前に、そのIDが何なのかを見る。
+    /// 既に持っているitemならローカルから読み、BOOTHへは行かない。
+    /// </summary>
+    public async Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is not null)
+        {
+            return ToPreview(itemId, existing.Booth, isAlreadyOwned: true);
+        }
+
+        var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
+        if (!jsonResult.IsSuccess || jsonResult.Value is null)
+        {
+            return null;
+        }
+
+        return ToPreview(itemId, BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, []), isAlreadyOwned: false);
+    }
+
+    private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned) => new()
+    {
+        Id = itemId,
+        Name = booth.Name ?? itemId,
+        ShopName = booth.Shop?.Name,
+        CategoryText = booth.Category is null
+            ? null
+            : booth.Category.ParentName is null
+                ? booth.Category.Name
+                : $"{booth.Category.ParentName} / {booth.Category.Name}",
+        Price = booth.Variations.Count > 0 ? booth.Variations.Min(variation => variation.Price) : null,
+        PublishedAt = booth.PublishedAt,
+        IsAlreadyOwned = isAlreadyOwned,
+    };
+
     public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
     {
         var unresolved = _store.Unresolved.Load();

@@ -37,6 +37,12 @@ public abstract record UiCommand
 
     /// <summary>属性をマスタへ追加する。</summary>
     public record AddAttribute(string Name) : UiCommand;
+
+    /// <summary>確定する前にIDの中身を見る。既に持っていればBOOTHへは行かない。</summary>
+    public record PreviewItem(string ItemId) : UiCommand;
+
+    /// <summary>手掛かりの無いファイルについて、BOOTH内検索から候補を出す。</summary>
+    public record ProposeCandidates(string FilePath) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>
@@ -55,6 +61,10 @@ public abstract record CommandResult
     public record AppTagsChanged(Models.AppTagMaster Master) : CommandResult;
 
     public record AttributesChanged(Models.AttributeMaster Master) : CommandResult;
+
+    public record PreviewLoaded(Services.ItemPreview Preview) : CommandResult;
+
+    public record CandidatesProposed(IReadOnlyList<Resolution.ResolutionCandidate> Candidates) : CommandResult;
 
     public record Failed(string Message) : CommandResult;
 }

@@ -39,6 +39,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowSearchCommand = new RelayCommand(ShowSearch);
         ShowImportCommand = new RelayCommand(ShowImport);
         ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
+        ShowResolveCommand = new RelayCommand(ShowResolve);
 
         ShowSearch();
         RefreshCounts();
@@ -56,6 +57,16 @@ public sealed class MainViewModel : ViewModelBase
 
     public RelayCommand ShowEditCommand { get; }
 
+    public RelayCommand ShowResolveCommand { get; }
+
+    public bool IsResolveActive => CurrentViewModel is ResolveViewModel;
+
+    /// <summary>
+    /// 未確定画面を開く。毎回作り直すのは、取り込みや除外で中身が変わるため。
+    /// 開き直した時点の unresolved.json をそのまま読む。
+    /// </summary>
+    public void ShowResolve() => CurrentViewModel = new ResolveViewModel(_services, this);
+
     public object? CurrentViewModel
     {
         get => _currentViewModel;
@@ -66,6 +77,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsImportActive));
                 OnPropertyChanged(nameof(IsEditActive));
+                OnPropertyChanged(nameof(IsResolveActive));
             }
         }
     }

@@ -23,6 +23,9 @@ public class CommandHandlerTests
 
     private sealed class FakeItemService : IItemService
     {
+        public Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
+            => Task.FromResult<ItemPreview?>(new ItemPreview { Id = itemId, Name = "テスト商品" });
+
         public RefreshOutcome Outcome { get; set; } = RefreshOutcome.Updated;
 
         public bool AssignSucceeds { get; set; } = true;

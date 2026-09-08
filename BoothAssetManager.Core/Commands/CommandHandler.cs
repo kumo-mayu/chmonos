@@ -14,17 +14,20 @@ public sealed class CommandHandler
     private readonly IItemService _items;
     private readonly IEditService? _edit;
     private readonly UnpackedFolderRemover? _unpackedRemover;
+    private readonly Resolution.FallbackResolver? _resolver;
 
     public CommandHandler(
         IImportPipeline import,
         IItemService items,
         IEditService? edit = null,
-        UnpackedFolderRemover? unpackedRemover = null)
+        UnpackedFolderRemover? unpackedRemover = null,
+        Resolution.FallbackResolver? resolver = null)
     {
         _import = import;
         _items = items;
         _edit = edit;
         _unpackedRemover = unpackedRemover;
+        _resolver = resolver;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -95,6 +98,21 @@ public sealed class CommandHandler
 
                 return new CommandResult.AttributesChanged(
                     await _edit.AddAttributeAsync(addAttribute.Name, cancellationToken));
+
+            case UiCommand.PreviewItem preview:
+                var loaded = await _items.PreviewAsync(preview.ItemId, cancellationToken);
+                return loaded is null
+                    ? new CommandResult.Failed($"商品ID {preview.ItemId} を取得できませんでした。")
+                    : new CommandResult.PreviewLoaded(loaded);
+
+            case UiCommand.ProposeCandidates propose:
+                if (_resolver is null)
+                {
+                    return new CommandResult.Failed("候補の検索手段が設定されていません。");
+                }
+
+                return new CommandResult.CandidatesProposed(
+                    await _resolver.ProposeAsync(propose.FilePath, cancellationToken));
 
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");

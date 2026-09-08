@@ -21,6 +21,9 @@
         <DataTemplate DataType="{x:Type vm:EditViewModel}">
             <views:EditView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ResolveViewModel}">
+            <views:ResolveView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -112,9 +115,10 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowImportCommand}">
                         <TextBlock Text="取り込み" Foreground="{Binding IsImportActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}">
                         <Grid Width="164">
-                            <TextBlock Text="未確定" Foreground="{StaticResource RailText}" HorizontalAlignment="Left" />
+                            <TextBlock Text="未確定" HorizontalAlignment="Left"
+                                       Foreground="{Binding IsResolveActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                             <Border Style="{StaticResource NavBadge}" Background="#9a6b1f" HorizontalAlignment="Right">
                                 <TextBlock Text="{Binding UnresolvedCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
                             </Border>
