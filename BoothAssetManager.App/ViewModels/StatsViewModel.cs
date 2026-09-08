@@ -146,6 +146,32 @@ public sealed class StatsViewModel : ViewModelBase
 
     public ObservableCollection<BacklogRowViewModel> Backlog { get; } = [];
 
+    // ── 選んで足した項目 ──
+
+    public ObservableCollection<StatsRowViewModel> PriceBuckets { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> WishBuckets { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> CategorySpend { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> AppTagSpend { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> CategoryCounts { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> AppTagCounts { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> ShopsByCount { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> HeavyItems { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> Wearables { get; } = [];
+
+    public ObservableCollection<PriceChangeRowViewModel> PriceChanges { get; } = [];
+
+    public ObservableCollection<AttributeDistributionRowViewModel> AttributeDistributions { get; } = [];
+
+    public ObservableCollection<StatsRowViewModel> AttributeCorrelations { get; } = [];
+
     // ---- 見出しのタイル ----
 
     public string OwnedText => $"{_snapshot?.OwnedCount ?? 0:N0}";
@@ -372,10 +398,144 @@ public sealed class StatsViewModel : ViewModelBase
         }
 
         RebuildBacklog();
+        RebuildExtras();
 
         OnPropertyChanged(nameof(HasAvatars));
         OnPropertyChanged(nameof(HasBacklog));
     }
+
+    /// <summary>選んで足した項目を組み立てる。</summary>
+    private void RebuildExtras()
+    {
+        if (_snapshot is null)
+        {
+            return;
+        }
+
+        Fill(PriceBuckets, _snapshot.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
+        Fill(WishBuckets, _snapshot.WishBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
+        Fill(CategorySpend, _snapshot.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        Fill(AppTagSpend, _snapshot.AppTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        Fill(CategoryCounts, _snapshot.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        Fill(AppTagCounts, _snapshot.AppTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        Fill(ShopsByCount, _snapshot.ShopsByCount.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, FormatSize(b.Bytes))));
+
+        // 素体経由は推定なので、直接対応と分けたまま出す
+        Fill(Wearables, _snapshot.Wearables.Select(w =>
+            (w.Name, (long)w.Total, w.ViaBaseCount > 0 ? $"{w.DirectCount} + 素体経由 {w.ViaBaseCount}" : $"{w.DirectCount}")));
+
+        PriceChanges.Clear();
+        foreach (var change in _snapshot.PriceChanges.Take(10))
+        {
+            var id = change.ItemId;
+            PriceChanges.Add(new PriceChangeRowViewModel
+            {
+                Name = change.Name,
+                PaidText = $"¥{change.PaidYen:N0}",
+                CurrentText = $"¥{change.CurrentYen:N0}",
+                DiffText = $"{(change.DiffYen > 0 ? "+" : string.Empty)}¥{change.DiffYen:N0}",
+                IsUp = change.DiffYen > 0,
+                OpenCommand = new RelayCommand(() => ShowItem(id)),
+            });
+        }
+
+        AttributeDistributions.Clear();
+        foreach (var distribution in _snapshot.AttributeDistributions)
+        {
+            var peak = distribution.Buckets.Count == 0 ? 0 : distribution.Buckets.Max();
+            AttributeDistributions.Add(new AttributeDistributionRowViewModel
+            {
+                Name = distribution.Name,
+                SummaryText = $"{distribution.Rated} 件を評価済み・平均 {distribution.Average:0.#}%",
+                Counts = distribution.Buckets,
+                BarHeights = distribution.Buckets
+                    .Select(count => peak == 0 ? 0 : count / (double)peak * AttributeDistributionRowViewModel.ChartHeight)
+                    .ToList(),
+            });
+        }
+
+        Fill(AttributeCorrelations, _snapshot.AttributeCorrelations.Select(c =>
+            ($"{c.A} × {c.B}", (long)Math.Abs(Math.Round(c.R * 100)), $"{c.R:+0.00;-0.00;0.00}（{c.Count} 件）")));
+
+        foreach (var name in new[]
+        {
+            nameof(HasPriceChanges), nameof(HasAttributeDistributions), nameof(HasCorrelations),
+            nameof(HasWearables), nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
+            nameof(RepeatText), nameof(EndOfSaleText), nameof(UnsortedText), nameof(HiddenText),
+            nameof(AppTagSpendNote),
+        })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    /// <summary>棒の長さは最大値を1とした比で持つ。</summary>
+    private static void Fill(
+        ObservableCollection<StatsRowViewModel> into,
+        IEnumerable<(string Label, long Value, string Text)> rows)
+    {
+        var list = rows.ToList();
+        var peak = list.Count == 0 ? 0 : list.Max(row => row.Value);
+
+        into.Clear();
+        foreach (var row in list)
+        {
+            into.Add(new StatsRowViewModel
+            {
+                Label = row.Label,
+                ValueText = row.Text,
+                Ratio = peak == 0 ? 0 : row.Value / (double)peak,
+            });
+        }
+    }
+
+    private void ShowItem(string itemId)
+    {
+        var item = _services.Store.Items.LoadAsync(itemId).GetAwaiter().GetResult();
+        if (item is not null)
+        {
+            _main.ShowItem(item, ("統計", _main.ShowStats));
+        }
+    }
+
+    public bool HasPriceChanges => PriceChanges.Count > 0;
+
+    public bool HasAttributeDistributions => AttributeDistributions.Count > 0;
+
+    public bool HasCorrelations => AttributeCorrelations.Count > 0;
+
+    public bool HasWearables => Wearables.Count > 0;
+
+    /// <summary>相関が出ない理由をその場に書く。空欄のまま置かない。</summary>
+    public string CorrelationNote => _snapshot is null || HasCorrelations
+        ? string.Empty
+        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件そろった軸の組はまだありません。少ないと数字が暴れるので出していません。";
+
+    public string GiftText => _snapshot is null
+        ? string.Empty
+        : $"{_snapshot.GiftedItemCount} 件（定価にして ¥{_snapshot.GiftedValueYen:N0}）";
+
+    public string FreeText => _snapshot is null
+        ? string.Empty
+        : $"{_snapshot.FreeItemCount} 件" + (_snapshot.OwnedCount == 0
+            ? string.Empty
+            : $"（所持の {_snapshot.FreeItemCount * 100.0 / _snapshot.OwnedCount:0.#}%）");
+
+    public string RepeatText => _snapshot is null
+        ? string.Empty
+        : $"1点だけ {_snapshot.ShopsBoughtOnce} 店 / 2点以上 {_snapshot.ShopsBoughtMany} 店";
+
+    public string EndOfSaleText => _snapshot is null
+        ? string.Empty
+        : $"販売終了 {_snapshot.EndOfSaleCount} 件（¥{_snapshot.EndOfSaleSpentYen:N0}）／売り切れ {_snapshot.SoldOutCount} 件";
+
+    public string UnsortedText => _snapshot is null ? string.Empty : $"{_snapshot.UnsortedOwnedCount} 件";
+
+    public string HiddenText => _snapshot is null ? string.Empty : $"{_snapshot.HiddenCount} 件";
+
+    /// <summary>appTagは複数選べるので合計が支出と一致しない。そう書いておく。</summary>
+    public string AppTagSpendNote => "appTagは1つの商品に複数付くので、合計は累計支出と一致しません。";
 
     /// <summary>
     /// 積み残し。0件のものは行ごと出さない。
@@ -477,4 +637,37 @@ public sealed class StatsViewModel : ViewModelBase
 
         return $"{value:0.#} {units[unit]}";
     }
+}
+
+/// <summary>買った時と今で価格が変わった商品1行。</summary>
+public sealed class PriceChangeRowViewModel
+{
+    public required string Name { get; init; }
+
+    public required string PaidText { get; init; }
+
+    public required string CurrentText { get; init; }
+
+    public required string DiffText { get; init; }
+
+    /// <summary>値上がりしたか。色分けにだけ使う。</summary>
+    public required bool IsUp { get; init; }
+
+    public RelayCommand? OpenCommand { get; init; }
+}
+
+/// <summary>属性1軸の分布1行。0-19 / 20-39 / … の5区切り。</summary>
+public sealed class AttributeDistributionRowViewModel
+{
+    public required string Name { get; init; }
+
+    public required string SummaryText { get; init; }
+
+    /// <summary>区切りごとの高さ（描画領域に対する実寸）。</summary>
+    public required IReadOnlyList<double> BarHeights { get; init; }
+
+    public required IReadOnlyList<int> Counts { get; init; }
+
+    /// <summary>グラフの高さ。区切りが5つなので低めで足りる。</summary>
+    public const double ChartHeight = 56;
 }

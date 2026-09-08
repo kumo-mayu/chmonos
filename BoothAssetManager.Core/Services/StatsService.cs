@@ -67,6 +67,76 @@ public sealed record StatsBacklog
     public required int MissingFileCount { get; init; }
 }
 
+/// <summary>件数で並べる汎用の区切り（価格帯・スキ数・属性の分布）。</summary>
+public sealed record StatsBucket
+{
+    public required string Label { get; init; }
+
+    public required int Count { get; init; }
+}
+
+/// <summary>買った時と今で価格が変わった商品1件。</summary>
+public sealed record StatsPriceChange
+{
+    public required string ItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required int PaidYen { get; init; }
+
+    public required int CurrentYen { get; init; }
+
+    public int DiffYen => CurrentYen - PaidYen;
+}
+
+/// <summary>容量の大きい商品1件。</summary>
+public sealed record StatsHeavyItem
+{
+    public required string ItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required long Bytes { get; init; }
+}
+
+/// <summary>月ごとのカテゴリ構成。買うものの移り変わりを見る。</summary>
+public sealed record StatsMonthlyCategory
+{
+    public required string Label { get; init; }
+
+    public required IReadOnlyDictionary<string, int> Counts { get; init; }
+
+    public required int Total { get; init; }
+}
+
+/// <summary>属性1軸の分布。</summary>
+public sealed record StatsAttributeDistribution
+{
+    public required string Name { get; init; }
+
+    /// <summary>評価済みのitem数。未評価は0ではなく「値が無い」として除く。</summary>
+    public required int Rated { get; init; }
+
+    public required double Average { get; init; }
+
+    /// <summary>0-19 / 20-39 / 40-59 / 60-79 / 80-100 の5区切り。</summary>
+    public required IReadOnlyList<int> Buckets { get; init; }
+}
+
+/// <summary>属性2軸の相関。</summary>
+public sealed record StatsAttributeCorrelation
+{
+    public required string A { get; init; }
+
+    public required string B { get; init; }
+
+    /// <summary>両方を評価済みのitem数。</summary>
+    public required int Count { get; init; }
+
+    /// <summary>ピアソンの相関係数（-1〜1）。</summary>
+    public required double R { get; init; }
+}
+
 /// <summary>統計画面に出すもの一式。1回の走査で全部作る。</summary>
 public sealed record StatsSnapshot
 {
@@ -124,6 +194,86 @@ public sealed record StatsSnapshot
     public required bool HasAnyAvatarLink { get; init; }
 
     public required StatsBacklog Backlog { get; init; }
+
+    // ── ここから下は「選んで出す」もの。どれも同じ走査で作る ──
+
+    /// <summary>買った時より高くなった／安くなった商品。BOOTHに現存するvariationだけを比べる。</summary>
+    public IReadOnlyList<StatsPriceChange> PriceChanges { get; init; } = [];
+
+    /// <summary>価格帯ごとの点数。</summary>
+    public IReadOnlyList<StatsBucket> PriceBuckets { get; init; } = [];
+
+    /// <summary>0円で手に入れたitem数（ギフトは別に数える）。</summary>
+    public int FreeItemCount { get; init; }
+
+    /// <summary>ギフトで貰ったitem数と、その定価の合計（自分は払っていない）。</summary>
+    public int GiftedItemCount { get; init; }
+
+    public long GiftedValueYen { get; init; }
+
+    public IReadOnlyList<StatsSpendBar> CategorySpend { get; init; } = [];
+
+    public IReadOnlyList<StatsSpendBar> AppTagSpend { get; init; } = [];
+
+    /// <summary>月ごとのカテゴリ構成。買うものの移り変わり。</summary>
+    public IReadOnlyList<StatsMonthlyCategory> MonthlyCategories { get; init; } = [];
+
+    /// <summary>上の積み上げに使うカテゴリの並び（多い順）。</summary>
+    public IReadOnlyList<string> CategoryOrder { get; init; } = [];
+
+    public IReadOnlyList<StatsHeavyItem> HeavyItems { get; init; } = [];
+
+    /// <summary>1点だけ買ったショップ数と、2点以上買ったショップ数。</summary>
+    public int ShopsBoughtOnce { get; init; }
+
+    public int ShopsBoughtMany { get; init; }
+
+    /// <summary>点数の多いショップ（支出順とは顔ぶれが変わる）。</summary>
+    public IReadOnlyList<StatsSpendBar> ShopsByCount { get; init; } = [];
+
+    /// <summary>カテゴリ・appTagの点数構成。</summary>
+    public IReadOnlyList<StatsCountBar> CategoryCounts { get; init; } = [];
+
+    public IReadOnlyList<StatsCountBar> AppTagCounts { get; init; } = [];
+
+    public IReadOnlyList<StatsAttributeDistribution> AttributeDistributions { get; init; } = [];
+
+    public IReadOnlyList<StatsAttributeCorrelation> AttributeCorrelations { get; init; } = [];
+
+    /// <summary>相関を出すのに必要な最低件数。これに満たない組は出さない。</summary>
+    public int CorrelationMinimum { get; init; }
+
+    /// <summary>所有アバターごとに着られる所持商品の数。直接対応と素体経由を分ける。</summary>
+    public IReadOnlyList<StatsAvatarWearable> Wearables { get; init; } = [];
+
+    /// <summary>所持しているのにappTagを付けていないitem数。いわゆる積み。</summary>
+    public int UnsortedOwnedCount { get; init; }
+
+    public int HiddenCount { get; init; }
+
+    /// <summary>販売終了・売り切れの点数と、それに払った額。手元にしか無いもの。</summary>
+    public int EndOfSaleCount { get; init; }
+
+    public int SoldOutCount { get; init; }
+
+    public long EndOfSaleSpentYen { get; init; }
+
+    /// <summary>スキ数の分布。人気商品を買うか、ニッチを掘るか。</summary>
+    public IReadOnlyList<StatsBucket> WishBuckets { get; init; } = [];
+}
+
+/// <summary>所有アバター1体について、着られる所持商品の数。</summary>
+public sealed record StatsAvatarWearable
+{
+    public required string AvatarItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required int DirectCount { get; init; }
+
+    public required int ViaBaseCount { get; init; }
+
+    public int Total => DirectCount + ViaBaseCount;
 }
 
 public interface IStatsService
@@ -245,7 +395,7 @@ public sealed class StatsService : IStatsService
 
         var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
 
-        return new StatsSnapshot
+        var snapshot = new StatsSnapshot
         {
             OwnedCount = owned.Count,
             KnownCount = items.Count,
@@ -292,6 +442,9 @@ public sealed class StatsService : IStatsService
                     item.Local.LocalFiles.Any(file => file.Paths.Count == 0)),
             },
         };
+
+        // 選んで出す項目は同じ走査結果から組み立てる
+        return StatsExtras.Enrich(snapshot, items, owned, registry);
     }
 
     /// <summary>
