@@ -37,6 +37,9 @@ public sealed class ImportSummary
 
     public int FilesExcluded { get; init; }
 
+    /// <summary>既にitemが持っていたので未確定へ流さなかった件数。手作業で紐付けたファイルがここに入る。</summary>
+    public int FilesAlreadyOwned { get; init; }
+
     /// <summary>アーカイブの展開先とみなして取り込まなかったファイル数。</summary>
     public int FilesSkippedAsUnpacked { get; init; }
 
@@ -100,10 +103,10 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 既に商品へ紐付けたフォルダの中は見に行かない。
         // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
-        var registered = await LoadRegisteredFoldersAsync(cancellationToken);
+        var (registered, owned) = await LoadOwnedAsync(cancellationToken);
 
         var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
-        var resolution = await ResolveAsync(scan.Files, scanCache, exclusions, progress, cancellationToken);
+        var resolution = await ResolveAsync(scan.Files, scanCache, exclusions, owned, progress, cancellationToken);
         await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
         await _store.Unresolved.SaveAsync(resolution.Unresolved, cancellationToken);
 
@@ -117,6 +120,7 @@ public sealed class ImportPipeline : IImportPipeline
             FilesHashed = resolution.Hashed,
             FilesReusedFromCache = resolution.ReusedFromCache,
             FilesExcluded = resolution.Excluded,
+            FilesAlreadyOwned = resolution.AlreadyOwned,
             UnresolvedFiles = resolution.Unresolved.Count,
             ItemsAdded = fetchResult.Added,
             ItemsAlreadyKnown = fetchResult.AlreadyKnown,
@@ -127,13 +131,20 @@ public sealed class ImportPipeline : IImportPipeline
     }
 
     /// <summary>
-    /// 登録済みフォルダを集め、ついでに実際の中身を数え直して保存する。
-    /// 数えるのは列挙だけでハッシュは計算しないので、ここは速い。
+    /// 既に管理下にあるものを集める。登録済みフォルダと、itemが持っているファイルのハッシュ。
+    /// ついでに登録済みフォルダの中身を数え直して保存する
+    /// （数えるのは列挙だけでハッシュは計算しないので速い）。
     /// </summary>
-    private async Task<RegisteredFolderSet> LoadRegisteredFoldersAsync(CancellationToken cancellationToken)
+    private async Task<(RegisteredFolderSet Registered, IReadOnlySet<string> OwnedHashes)> LoadOwnedAsync(
+        CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var paths = new List<string>();
+
+        var owned = loaded.Items
+            .SelectMany(item => item.Local.LocalFiles)
+            .Select(file => file.Hash)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
@@ -173,7 +184,7 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
-        return new RegisteredFolderSet(paths);
+        return (new RegisteredFolderSet(paths), owned);
     }
 
     private ScanOutcome ScanFolders(
@@ -238,6 +249,7 @@ public sealed class ImportPipeline : IImportPipeline
         List<ScannedFile> scanned,
         ScanCacheIndex scanCache,
         ExclusionFilter exclusions,
+        IReadOnlySet<string> owned,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -246,6 +258,7 @@ public sealed class ImportPipeline : IImportPipeline
         var hashed = 0;
         var reused = 0;
         var excluded = 0;
+        var alreadyOwned = 0;
         var processed = 0;
 
         foreach (var file in scanned)
@@ -315,6 +328,13 @@ public sealed class ImportPipeline : IImportPipeline
 
                 list.Add(record);
             }
+            else if (owned.Contains(hash))
+            {
+                // 未確定画面で手作業で紐付けたファイル。手掛かりからは決まらないので、
+                // 毎回ここへ落ちてくる。既にitemが持っていると分かっているものを
+                // 作業として出し直すのは嘘なので、黙って飛ばす。
+                alreadyOwned++;
+            }
             else
             {
                 unresolved.Add(new UnresolvedFile
@@ -339,6 +359,7 @@ public sealed class ImportPipeline : IImportPipeline
             Hashed = hashed,
             ReusedFromCache = reused,
             Excluded = excluded,
+            AlreadyOwned = alreadyOwned,
         };
     }
 
@@ -477,6 +498,9 @@ public sealed class ImportPipeline : IImportPipeline
         public int ReusedFromCache { get; init; }
 
         public int Excluded { get; init; }
+
+        /// <summary>既にitemが持っていたので未確定へ流さなかった件数。</summary>
+        public int AlreadyOwned { get; init; }
     }
 
     private sealed class FetchResult

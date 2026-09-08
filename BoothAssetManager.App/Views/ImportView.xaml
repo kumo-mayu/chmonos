@@ -101,7 +101,7 @@
                         Visibility="{Binding HasSummary, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <StackPanel>
                         <TextBlock Text="結果" FontWeight="Bold" FontSize="13" Margin="0,0,0,12" />
-                        <UniformGrid Columns="4" Rows="2">
+                        <UniformGrid Columns="4" Rows="3">
                             <StackPanel Margin="0,0,12,10">
                                 <TextBlock Text="走査したファイル" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.FilesScanned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
@@ -134,6 +134,11 @@
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="取得した画像" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.ImagesDownloaded}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <!-- 手作業で紐付けたファイル。手掛かりからは決まらないので毎回ここへ落ちてくる -->
+                                <TextBlock Text="管理済みで再掲せず" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Summary.FilesAlreadyOwned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
                             </StackPanel>
                         </UniformGrid>
                     </StackPanel>
