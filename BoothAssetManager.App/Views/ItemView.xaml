@@ -310,11 +310,17 @@
                                                     <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11"
                                                                Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
-                                                <Button Grid.Column="1" Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
-                                                        VerticalAlignment="Center"
-                                                        Command="{Binding DataContext.OpenInExplorerCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding Path}" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
+                                                            Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding Path}" />
+                                                    <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
+                                                    <Button Content="登録を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                                            Command="{Binding DataContext.UnregisterFolderCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding Path}" />
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

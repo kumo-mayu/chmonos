@@ -51,6 +51,9 @@ public abstract record UiCommand
 
     /// <summary>フォルダを商品に紐付ける。zipが手元に無く展開したものだけが残っている場合に使う。</summary>
     public record RegisterFolder(string ItemId, string FolderPath) : UiCommand;
+
+    /// <summary>フォルダの紐付けを解除する。zipを後から手に入れたときに使う。ファイルには触らない。</summary>
+    public record UnregisterFolder(string ItemId, string FolderPath) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

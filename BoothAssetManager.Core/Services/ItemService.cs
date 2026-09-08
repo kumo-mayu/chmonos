@@ -38,6 +38,8 @@ public interface IItemService
 
     Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
+    Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
+
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
     Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
@@ -182,6 +184,41 @@ public sealed class ItemService : IItemService
             cancellationToken);
 
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// フォルダの紐付けを解除する。ファイルには触らない。
+    ///
+    /// zipを後から手に入れたときに要る。zipを取り込むと展開先は自動で対象から外れるが、
+    /// フォルダ登録は残るので、容量が二重に乗ったままになる。
+    /// </summary>
+    public async Task<bool> UnregisterFolderAsync(
+        string itemId,
+        string folderPath,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            return false;
+        }
+
+        var normalized = Path.TrimEndingDirectorySeparator(folderPath);
+        var remaining = item.Local.LocalFolders
+            .Where(folder => !string.Equals(
+                Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (remaining.Count == item.Local.LocalFolders.Count)
+        {
+            return false;
+        }
+
+        await _store.Items.SaveAsync(
+            item with { Local = item.Local with { LocalFolders = remaining } },
+            cancellationToken);
+
         return true;
     }
 

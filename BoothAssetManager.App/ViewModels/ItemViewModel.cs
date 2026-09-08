@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using BoothAssetManager.App.Controls;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Booth;
+using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Services;
@@ -99,6 +100,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 一度appTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
+        UnregisterFolderCommand = new RelayCommand(
+            parameter => _ = UnregisterFolderAsync(parameter as string),
+            parameter => parameter is string);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
 
         BuildGallery();
@@ -116,6 +120,41 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand EditCommand { get; }
 
     public RelayCommand OpenInExplorerCommand { get; }
+
+    public RelayCommand UnregisterFolderCommand { get; }
+
+    /// <summary>
+    /// フォルダの紐付けを解除する。ファイルには触らない。
+    /// zipを後から手に入れると、展開先は自動で対象外になるが登録は残り、容量が二重に乗る。
+    /// </summary>
+    private async Task UnregisterFolderAsync(string? folderPath)
+    {
+        if (folderPath is null)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"次のフォルダの紐付けを解除します。\n\n{folderPath}\n\n"
+            + "ファイルは消しません。以降このフォルダの中もスキャン対象に戻ります。",
+            "フォルダの登録を解除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(new UiCommand.UnregisterFolder(Item.Id, folderPath));
+
+        var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
+        if (reloaded is not null)
+        {
+            _main.ShowItem(reloaded);
+        }
+    }
 
     public RelayCommand SelectImageCommand { get; }
 

@@ -667,6 +667,10 @@ public sealed class ResolveViewModel : ViewModelBase
                 _settledItemIds.Add(Preview.Id);
             }
 
+            // itemの中身が変わったので、持ち回っているライブラリも読み直す。
+            // これをしないと商品ページに登録したフォルダが出てこない
+            await _main.ReloadLibraryAsync();
+
             await ReloadAsync();
             StatusText = $"「{RegisterTargetName}」を登録しました。配下の未確定は一覧から外れます。";
             OnPropertyChanged(nameof(HasStatus));
