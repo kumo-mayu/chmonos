@@ -483,6 +483,7 @@ public sealed class TagManageViewModel : ViewModelBase
         await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(trimmed));
         StatusText = $"「{trimmed}」を追加しました。";
         await ReloadAsync();
+        _main.RefreshMasters();
         Selected = _allTops.FirstOrDefault(row =>
             string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
     }
@@ -498,6 +499,7 @@ public sealed class TagManageViewModel : ViewModelBase
         await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(Selected.Name, trimmed));
         StatusText = $"「{Selected.Name}」に「{trimmed}」を追加しました。";
         await ReloadAsync();
+        _main.RefreshMasters();
     }
 
     /// <summary>
@@ -651,6 +653,9 @@ public sealed class TagManageViewModel : ViewModelBase
 
         await _services.Commands.ExecuteAsync(new UiCommand.ReorderAppTags(order));
         await ReloadAsync();
+
+        // 並びは検索の絞り込みにもそのまま出るので、そちらも作り直す
+        _main.RefreshMasters();
     }
 
     public async Task MoveSubAsync(TagSubRow moved, TagSubRow target, bool after)
@@ -663,6 +668,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
         await _services.Commands.ExecuteAsync(new UiCommand.ReorderAppTags(order, moved.Top));
         await ReloadAsync();
+        _main.RefreshMasters();
     }
 
     /// <summary>抜いてから差し込む。落とす先の index は抜いた後で数え直す。</summary>

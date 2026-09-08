@@ -66,6 +66,24 @@ public abstract record UiCommand
     /// </param>
     public record MoveAppTagSub(string FromTop, string Sub, string ToTop, bool DropEmptySourceTop) : UiCommand;
 
+    /// <summary>
+    /// 属性を改名する。既存の名前を指すと統合になり、両方に値が入っているitemでは
+    /// <paramref name="Keep"/> の側の値を残す。
+    /// </summary>
+    public record RenameAttribute(
+        string OldName,
+        string NewName,
+        Services.AttributeMergeValue Keep = Services.AttributeMergeValue.KeepTarget) : UiCommand;
+
+    /// <summary>属性をマスタから消し、付けていたitemからも評価を外す。</summary>
+    public record DeleteAttribute(string Name) : UiCommand;
+
+    /// <summary>属性のメモを書き換える。item側には影響しない。</summary>
+    public record SetAttributeMemo(string Name, string? Memo) : UiCommand;
+
+    /// <summary>属性を並べ替える。並びは検索の候補にも編集の候補にもそのまま出る。</summary>
+    public record ReorderAttributes(IReadOnlyList<string> Names) : UiCommand;
+
     /// <summary>確定する前にIDの中身を見る。既に持っていればBOOTHへは行かない。</summary>
     public record PreviewItem(string ItemId) : UiCommand;
 
@@ -109,6 +127,9 @@ public abstract record CommandResult
     public record AppTagsRewritten(Services.AppTagEditResult Result) : CommandResult;
 
     public record AttributesChanged(Models.AttributeMaster Master) : CommandResult;
+
+    /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
+    public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;
 
     public record PreviewLoaded(Services.ItemPreview Preview) : CommandResult;
 

@@ -17,6 +17,7 @@ public sealed class CommandHandler
     private readonly Resolution.FallbackResolver? _resolver;
     private readonly INotificationService? _notifications;
     private readonly IAppTagService? _appTags;
+    private readonly IAttributeService? _attributes;
 
     public CommandHandler(
         IImportPipeline import,
@@ -25,7 +26,8 @@ public sealed class CommandHandler
         UnpackedFolderRemover? unpackedRemover = null,
         Resolution.FallbackResolver? resolver = null,
         INotificationService? notifications = null,
-        IAppTagService? appTags = null)
+        IAppTagService? appTags = null,
+        IAttributeService? attributes = null)
     {
         _import = import;
         _items = items;
@@ -34,6 +36,7 @@ public sealed class CommandHandler
         _resolver = resolver;
         _notifications = notifications;
         _appTags = appTags;
+        _attributes = attributes;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -151,6 +154,42 @@ public sealed class CommandHandler
 
                 return new CommandResult.AppTagsRewritten(await _appTags.MoveSubAsync(
                     move.FromTop, move.Sub, move.ToTop, move.DropEmptySourceTop, cancellationToken));
+
+            case UiCommand.RenameAttribute renameAttribute:
+                if (_attributes is null)
+                {
+                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AttributesRewritten(await _attributes.RenameAsync(
+                    renameAttribute.OldName, renameAttribute.NewName, renameAttribute.Keep, cancellationToken));
+
+            case UiCommand.DeleteAttribute deleteAttribute:
+                if (_attributes is null)
+                {
+                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AttributesRewritten(
+                    await _attributes.DeleteAsync(deleteAttribute.Name, cancellationToken));
+
+            case UiCommand.SetAttributeMemo attributeMemo:
+                if (_attributes is null)
+                {
+                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AttributesChanged(
+                    await _attributes.SetMemoAsync(attributeMemo.Name, attributeMemo.Memo, cancellationToken));
+
+            case UiCommand.ReorderAttributes reorderAttributes:
+                if (_attributes is null)
+                {
+                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AttributesChanged(
+                    await _attributes.ReorderAsync(reorderAttributes.Names, cancellationToken));
 
             case UiCommand.PreviewItem preview:
                 var loaded = await _items.PreviewAsync(preview.ItemId, cancellationToken);

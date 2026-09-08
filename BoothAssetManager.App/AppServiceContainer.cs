@@ -40,8 +40,9 @@ public sealed class AppServiceContainer : IDisposable
         Edit = new EditService(Store);
         Notifications = new NotificationService(Store, Settings);
         AppTags = new AppTagService(Store);
+        Attributes = new AttributeService(Store);
         Commands = new CommandHandler(
-            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags);
+            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags, Attributes);
     }
 
     /// <summary>
@@ -91,6 +92,8 @@ public sealed class AppServiceContainer : IDisposable
     public NotificationService Notifications { get; }
 
     public AppTagService AppTags { get; }
+
+    public AttributeService Attributes { get; }
 
     public CommandHandler Commands { get; }
 

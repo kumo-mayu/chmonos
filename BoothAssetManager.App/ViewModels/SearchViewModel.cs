@@ -436,6 +436,18 @@ public sealed class SearchViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// マスタだけが変わったときに、絞り込みの選択肢を作り直す。
+    ///
+    /// 並べ替えや追加はitemに触らないので、全件の読み直しまでは要らない。
+    /// これを呼ばないと、タグの管理で並べ替えても検索画面が古い並びのままになる。
+    /// </summary>
+    public void RefreshFacets()
+    {
+        BuildFacets();
+        ApplyFilters();
+    }
+
+    /// <summary>
     /// このappTagだけで絞り込んだ状態にする。タグの管理から「この分類が付いているitem」を
     /// 見に来る導線。件数だけ見せられても、消していいか統合していいかは判断できない。
     /// </summary>
@@ -461,6 +473,16 @@ public sealed class SearchViewModel : ViewModelBase
         }
 
         ApplyFilters();
+    }
+
+    /// <summary>
+    /// この属性で評価済みのitemだけを出す。軸を 0〜100 で足すと、
+    /// 「評価が入っているもの」がそのまま残る（未評価は軸を足した時点で外れる）。
+    /// </summary>
+    public void ShowOnlyAttribute(string name)
+    {
+        ClearFilters();
+        AddAttributeFilter(name);
     }
 
     private void ClearFilters()

@@ -30,6 +30,9 @@
         <DataTemplate DataType="{x:Type vm:TagManageViewModel}">
             <views:TagManageView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AttributeManageViewModel}">
+            <views:AttributeManageView />
+        </DataTemplate>
 
         <!-- ナビの1項目 -->
         <Style x:Key="NavButton" TargetType="Button">
@@ -158,8 +161,9 @@
                         <TextBlock Text="タグの管理" HorizontalAlignment="Left"
                                    Foreground="{Binding IsTagManageActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
-                    <Button Style="{StaticResource NavButton}" IsEnabled="False">
-                        <TextBlock Text="属性の管理" Foreground="{StaticResource RailText}" />
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAttributeManageCommand}">
+                        <TextBlock Text="属性の管理" HorizontalAlignment="Left"
+                                   Foreground="{Binding IsAttributeManageActive, Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
                     </Button>
                 </StackPanel>
 

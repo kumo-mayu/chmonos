@@ -1,0 +1,205 @@
+<UserControl x:Class="BoothAssetManager.App.Views.AttributeManageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AttributeManageViewModel}">
+    <DockPanel Background="{StaticResource Bg}">
+
+        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="属性の管理" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                    <TextBlock Text="値はitem側が 0〜100 で持ちます。ここで扱うのは名前とメモと並びだけです。"
+                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="attributes.json" Style="{StaticResource Mono}" Foreground="{StaticResource TextFaint}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左：属性の一覧。件数を並べるのは、消す前に影響が見えるように -->
+            <Border Grid.Column="0" Background="{StaticResource Surface}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="16,14">
+                        <TextBlock Text="属性を検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
+                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
+
+                        <controls:SuggestBox CommitCommand="{Binding AddCommand}" Margin="0,12,0,0"
+                                             Placeholder="属性を追加（例：かっこいい）" />
+                    </StackPanel>
+
+                    <!-- 並びは検索の候補にも編集の候補にも出るので、ドラッグで変えられる -->
+                    <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                             BorderThickness="0" Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             HorizontalContentAlignment="Stretch"
+                             AllowDrop="True"
+                             PreviewMouseLeftButtonDown="OnRowsPreviewMouseLeftButtonDown"
+                             MouseMove="OnRowsMouseMove"
+                             DragOver="OnRowsDragOver"
+                             DragLeave="OnRowsDragLeave"
+                             Drop="OnRowsDrop">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Root" Background="Transparent"
+                                                    BorderBrush="#f0f1f4" BorderThickness="0,0,0,1">
+                                                <Grid>
+                                                    <ContentPresenter />
+                                                    <Border Height="2" VerticalAlignment="Top" Background="{StaticResource Accent}"
+                                                            Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                                                            Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentSoft}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="16,13">
+                                    <StackPanel Margin="0,0,50,0">
+                                        <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding AverageText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}" FontSize="11.5"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- 右：選んだ属性の中身 -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
+                <StackPanel MaxWidth="900" HorizontalAlignment="Stretch">
+
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
+                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                    <!-- マスタに無い名前をitemが参照したまま。要確認は知らせるだけで、直せるのはここ -->
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,16"
+                            Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                            Visibility="{Binding HasOrphans, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <StackPanel Margin="18,15">
+                            <TextBlock Text="マスタに無い属性" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
+                            <TextBlock Text="itemがまだ評価を持っています。このままでは絞り込みに出てきません。名前が正しければマスタに足し、変わったなら既存へ寄せ、もう使わないなら消してください。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+
+                            <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource WarnBorder}"
+                                                BorderThickness="1" CornerRadius="6" Padding="14,11" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="1">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                        <Button Content="マスタに追加" Style="{StaticResource SmallButton}"
+                                                                Command="{Binding AddToMasterCommand}" />
+                                                        <Button Content="評価を消す" Style="{StaticResource SmallButton}"
+                                                                Margin="6,0,0,0" Foreground="#9a3232"
+                                                                Command="{Binding RemoveCommand}" />
+                                                    </StackPanel>
+                                                    <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
+                                                                         Placeholder="既存の属性へ寄せる"
+                                                                         Source="{Binding DataContext.AllNames,
+                                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                         CommitCommand="{Binding MergeCommand}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <StackPanel Margin="20,18">
+                            <Grid>
+                                <StackPanel Margin="0,0,120,0">
+                                    <TextBlock Text="属性" Style="{StaticResource SectionLabel}" />
+                                    <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
+                                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"
+                                                   VerticalAlignment="Center" />
+                                        <Button Content="検索で開く" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                Command="{Binding ShowItemsCommand}"
+                                                Visibility="{Binding SelectedIsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Content="この属性を削除" Style="{StaticResource SmallButton}"
+                                        Foreground="#9a3232" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Command="{Binding DeleteCommand}" />
+                            </Grid>
+
+                            <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
+
+                            <TextBlock Text="名前を変更 / 統合" Style="{StaticResource SectionLabel}" />
+                            <TextBlock Text="{Binding RenameImpactText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,7" />
+                            <controls:SuggestBox Source="{Binding OtherNames}" CommitCommand="{Binding RenameCommand}"
+                                                 Placeholder="新しい名前（既存を選ぶと統合）" HorizontalAlignment="Left" Width="360" />
+
+                            <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
+
+                            <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
+                            <TextBlock Text="どのくらいで何%にするかの基準。主観的な尺度なので、書いておかないとぶれます。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
+                            <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Padding="10,8"
+                                     VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource BorderStrong}" />
+                            <Button Content="メモを保存" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
+                                    Margin="0,8,0,0" Command="{Binding SaveMemoCommand}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</UserControl>

@@ -43,6 +43,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowResolveCommand = new RelayCommand(ShowResolve);
         ShowInboxCommand = new RelayCommand(ShowInbox);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
+        ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
 
         ShowSearch();
         RefreshCounts();
@@ -74,6 +75,12 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>タグの管理を開く。マスタは画面の外からも書き換わるので、毎回読み直す。</summary>
     public void ShowTagManage() => CurrentViewModel = new TagManageViewModel(_services, this);
+
+    public RelayCommand ShowAttributeManageCommand { get; }
+
+    public bool IsAttributeManageActive => CurrentViewModel is AttributeManageViewModel;
+
+    public void ShowAttributeManage() => CurrentViewModel = new AttributeManageViewModel(_services, this);
 
     /// <summary>要確認の未読件数。「新しく起きたこと」なので、0のときはバッジ自体を出さない。</summary>
     public int UnreadCount
@@ -114,6 +121,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsResolveActive));
                 OnPropertyChanged(nameof(IsInboxActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
+                OnPropertyChanged(nameof(IsAttributeManageActive));
             }
         }
     }
@@ -175,7 +183,20 @@ public sealed class MainViewModel : ViewModelBase
         ShowSearch();
     }
 
+    /// <summary>この属性を評価しているitemを検索画面で見せる。</summary>
+    public void ShowItemsWithAttribute(string name)
+    {
+        Search.ShowOnlyAttribute(name);
+        ShowSearch();
+    }
+
     public void ShowImport() => CurrentViewModel = Import;
+
+    /// <summary>
+    /// マスタ（分類・属性）だけが変わったときに呼ぶ。itemには触っていないので、
+    /// 全件の読み直しはせず、絞り込みの選択肢だけを作り直す。
+    /// </summary>
+    public void RefreshMasters() => Search.RefreshFacets();
 
     /// <summary>取り込み後など、ライブラリが変わったときに呼ぶ。</summary>
     public async Task ReloadLibraryAsync()

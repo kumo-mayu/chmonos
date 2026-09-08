@@ -1,0 +1,44 @@
+<Window x:Class="BoothAssetManager.App.Views.MergeAttributeDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MergeAttributeDialogViewModel}"
+        Title="属性を統合する"
+        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Surface}">
+    <StackPanel Margin="22,20">
+
+        <TextBlock Text="属性を統合する" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" Margin="0,7,0,0" />
+        <TextBlock Text="{Binding ImpactText}" Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" Margin="0,6,0,0" />
+
+        <!-- 平均を取ると本人が付けていない数字ができてしまうので、必ず選ばせる -->
+        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,14,0,0"
+                Visibility="{Binding AsksAboutValues, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <StackPanel>
+                <TextBlock Text="{Binding ConflictText}" FontSize="12.5" TextWrapping="Wrap" />
+                <TextBlock Text="残せるのはどちらか一方です。平均は取りません（付けていない数字ができてしまうため）。"
+                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,9" />
+
+                <RadioButton Content="{Binding KeepTargetText}" IsChecked="{Binding KeepTarget, Mode=TwoWay}"
+                             Foreground="{StaticResource Text}" />
+                <RadioButton Content="{Binding UseSourceText}" IsChecked="{Binding UseSource, Mode=TwoWay}"
+                             Foreground="{StaticResource Text}" Margin="0,6,0,0" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Text="この操作は元に戻せません。" Style="{StaticResource Caption}" Margin="0,14,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
+            <Button Content="統合する" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="OnMerge" />
+        </StackPanel>
+    </StackPanel>
+</Window>

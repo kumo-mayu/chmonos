@@ -5,40 +5,25 @@ using BoothAssetManager.App.ViewModels;
 
 namespace BoothAssetManager.App.Views;
 
-/// <summary>
-/// タグの管理。並べ替えのドラッグだけを持ち、実処理は <see cref="RowReorder"/> に寄せている。
-/// </summary>
-public partial class TagManageView : UserControl
+public partial class AttributeManageView : UserControl
 {
     private readonly RowReorder _reorder;
 
-    public TagManageView()
+    public AttributeManageView()
     {
         InitializeComponent();
 
-        _reorder = new RowReorder(this, Rows);
+        _reorder = new RowReorder(this, () => Model?.Rows ?? Enumerable.Empty<ReorderableRow>());
         _reorder.Dropped += (moved, target, after) =>
         {
-            if (Model is null)
+            if (Model is not null && moved is AttributeMasterRow from && target is AttributeMasterRow to)
             {
-                return;
-            }
-
-            if (moved is TagTopRow movedTop && target is TagTopRow targetTop)
-            {
-                _ = Model.MoveTopAsync(movedTop, targetTop, after);
-            }
-            else if (moved is TagSubRow movedSub && target is TagSubRow targetSub)
-            {
-                _ = Model.MoveSubAsync(movedSub, targetSub, after);
+                _ = Model.MoveAsync(from, to, after);
             }
         };
     }
 
-    private TagManageViewModel? Model => DataContext as TagManageViewModel;
-
-    private IEnumerable<ReorderableRow> Rows()
-        => Model is null ? [] : Model.Tops.Cast<ReorderableRow>().Concat(Model.Subs);
+    private AttributeManageViewModel? Model => DataContext as AttributeManageViewModel;
 
     private void OnRowsPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         => _reorder.OnPreviewMouseLeftButtonDown(sender, e);
