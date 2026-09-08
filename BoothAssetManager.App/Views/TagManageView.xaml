@@ -132,7 +132,17 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" TextWrapping="Wrap" />
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <!-- トップかサブかで直し方が変わるので、種別を出す -->
+                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding KindText}" FontSize="10"
+                                                                       Foreground="{StaticResource TextMuted}" />
+                                                        </Border>
+                                                        <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="Medium"
+                                                                   TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                    </StackPanel>
                                                     <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                                 </StackPanel>
 
@@ -145,9 +155,8 @@
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
-                                                                         Placeholder="既存の分類へ寄せる"
-                                                                         Source="{Binding DataContext.AllTopNames,
-                                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                         Placeholder="{Binding MergePlaceholder}"
+                                                                         Source="{Binding MergeCandidates}"
                                                                          CommitCommand="{Binding MergeCommand}" />
                                                 </StackPanel>
                                             </Grid>
@@ -263,6 +272,11 @@
                                                                              Placeholder="名前を変更 / 統合"
                                                                              Source="{Binding OtherNames}"
                                                                              CommitCommand="{Binding RenameCommand}" />
+                                                        <!-- 消して付け直すとitemの割当てが失われるので、移動を用意する -->
+                                                        <controls:SuggestBox Width="240" Margin="0,5,0,0" AllowNew="False"
+                                                                             Placeholder="別のトップへ移す"
+                                                                             Source="{Binding MoveTargets}"
+                                                                             CommitCommand="{Binding MoveCommand}" />
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>

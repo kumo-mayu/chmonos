@@ -158,6 +158,29 @@ public class NotificationServiceTests : IDisposable
         Assert.Contains("メカ", record.Detail);
     }
 
+    /// <summary>サブ名のずれも知らせる。トップだけ見ていると、この食い違いに気付けない。</summary>
+    [Fact]
+    public async Task DetectsItemsReferencingMissingSubLevels()
+    {
+        await _store.AppTags.SaveAsync(new AppTagMaster
+        {
+            Tops = [new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] }],
+        });
+
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "1",
+            Booth = new BoothBlock { Name = "item", FetchedAt = DateTimeOffset.Now },
+            Local = new LocalBlock
+            {
+                AppTags = [new AppTagAssignment { Top = "衣装", Subs = ["制服", "消えたサブ"] }],
+            },
+        });
+
+        Assert.Equal(1, await Create().DetectOrphanReferencesAsync());
+        Assert.Contains("衣装／消えたサブ", Assert.Single(_store.Notifications.Load()).Detail);
+    }
+
     [Fact]
     public async Task DetectsNothingWhenEveryReferenceResolves()
     {

@@ -19,12 +19,23 @@ public sealed record AppTagUsage
 
 /// <summary>
 /// マスタに無いのにitemが参照している名前。要確認にも出るが、直せるのはここだけ。
+///
+/// <see cref="Sub"/> が null ならトップレベル、入っていればその配下のサブ。
+/// サブも拾うのは、集計はitem側の全サブを数えているのに画面はマスタにある分しか
+/// 出さないため、ずれたサブ名がどこにも表示されないまま絞り込みから消えるため。
 /// </summary>
 public sealed record OrphanAppTag
 {
     public required string Top { get; init; }
 
+    public string? Sub { get; init; }
+
     public required int ItemCount { get; init; }
+
+    /// <summary>直す対象の名前。トップならトップ名、サブならサブ名。</summary>
+    public string Name => Sub ?? Top;
+
+    public bool IsSub => Sub is not null;
 }
 
 /// <summary>改名・削除の結果。書き換えたitem数を返すのは、実際に何が起きたかを見せるため。</summary>
@@ -36,6 +47,9 @@ public sealed record AppTagEditResult
 
     /// <summary>この操作でappTagが空になったitem数。編集の対象に戻るので黙って進めない。</summary>
     public int ItemsLeftUntagged { get; init; }
+
+    /// <summary>移動先のトップが新しく付いたitem数。絞り込みの結果が変わるので出す。</summary>
+    public int ItemsGainedTop { get; init; }
 
     /// <summary>既存の名前へ寄せた（統合した）かどうか。</summary>
     public bool WasMerged { get; init; }
@@ -58,6 +72,8 @@ public interface IAppTagService
     Task<AppTagMaster> SetMemoAsync(string top, string? sub, string? memo, CancellationToken cancellationToken = default);
 
     Task<AppTagMaster> ReorderAsync(string? top, IReadOnlyList<string> names, CancellationToken cancellationToken = default);
+
+    Task<AppTagEditResult> MoveSubAsync(string fromTop, string sub, string toTop, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -92,20 +108,63 @@ public sealed class AppTagService : IAppTagService
     /// </summary>
     public async Task<IReadOnlyList<OrphanAppTag>> LoadOrphansAsync(CancellationToken cancellationToken = default)
     {
-        var known = _store.AppTags.Load().Tops
-            .Select(top => top.Name)
-            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
-
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return FindOrphans(_store.AppTags.Load(), loaded.Items);
+    }
 
-        return loaded.Items
-            .SelectMany(item => item.Local.AppTags.Select(assignment => assignment.Top))
-            .Where(name => !known.Contains(name))
-            .GroupBy(name => name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(group => new OrphanAppTag { Top = group.Key, ItemCount = group.Count() })
-            .OrderByDescending(orphan => orphan.ItemCount)
+    /// <summary>
+    /// マスタに無い参照を数える。トップが無いときは、その配下のサブまでは見ない
+    /// （トップを直せばサブも一緒に付いてくるので、二重に出しても直す手が増えるだけ）。
+    /// </summary>
+    public static IReadOnlyList<OrphanAppTag> FindOrphans(AppTagMaster master, IReadOnlyList<ItemRecord> items)
+    {
+        var subsByTop = master.Tops.ToDictionary(
+            top => top.Name,
+            top => top.Subs.Select(sub => sub.Name).ToHashSet(StringComparer.CurrentCultureIgnoreCase),
+            StringComparer.CurrentCultureIgnoreCase);
+
+        var found = new List<(string Top, string? Sub)>();
+
+        foreach (var assignment in items.SelectMany(item => item.Local.AppTags))
+        {
+            if (!subsByTop.TryGetValue(assignment.Top, out var known))
+            {
+                found.Add((assignment.Top, null));
+                continue;
+            }
+
+            foreach (var sub in assignment.Subs.Where(sub => !known.Contains(sub)))
+            {
+                found.Add((assignment.Top, sub));
+            }
+        }
+
+        return found
+            // 表記揺れは1件にまとめる。別々に出すと、直す手が無駄に増える
+            .GroupBy(
+                entry => entry,
+                (key, group) => new OrphanAppTag { Top = key.Top, Sub = key.Sub, ItemCount = group.Count() },
+                OrphanKeyComparer.Instance)
+            .OrderBy(orphan => orphan.IsSub)
+            .ThenByDescending(orphan => orphan.ItemCount)
             .ThenBy(orphan => orphan.Top, StringComparer.CurrentCulture)
+            .ThenBy(orphan => orphan.Sub, StringComparer.CurrentCulture)
             .ToList();
+    }
+
+    private sealed class OrphanKeyComparer : IEqualityComparer<(string Top, string? Sub)>
+    {
+        public static readonly OrphanKeyComparer Instance = new();
+
+        public bool Equals((string Top, string? Sub) left, (string Top, string? Sub) right)
+            => Same(left.Top, right.Top)
+                && (left.Sub is null
+                    ? right.Sub is null
+                    : right.Sub is not null && Same(left.Sub, right.Sub));
+
+        public int GetHashCode((string Top, string? Sub) key) => HashCode.Combine(
+            StringComparer.CurrentCultureIgnoreCase.GetHashCode(key.Top),
+            key.Sub is null ? 0 : StringComparer.CurrentCultureIgnoreCase.GetHashCode(key.Sub));
     }
 
     /// <summary>
@@ -277,6 +336,82 @@ public sealed class AppTagService : IAppTagService
             cancellationToken);
 
         return new AppTagEditResult { Master = updated, ItemsUpdated = rewritten.Updated };
+    }
+
+    /// <summary>
+    /// サブレベルを別のトップへ移す。
+    ///
+    /// 削除して付け直すとitemの割当てが失われるので、専用の操作にする。
+    /// item側は「このitemは○○だ」というサブの判断を保つため、移動先のトップを
+    /// 付けたうえでサブを移す（移動先が既に付いていれば、そこへ足すだけ）。
+    /// 元のトップは、他のサブや単独の割当てとして残ることがあるのでそのままにする。
+    /// </summary>
+    public async Task<AppTagEditResult> MoveSubAsync(
+        string fromTop,
+        string sub,
+        string toTop,
+        CancellationToken cancellationToken = default)
+    {
+        var master = _store.AppTags.Load();
+        var tops = master.Tops.ToList();
+
+        var from = tops.FindIndex(entry => Same(entry.Name, fromTop));
+        var to = tops.FindIndex(entry => Same(entry.Name, toTop));
+
+        if (from < 0 || to < 0 || from == to)
+        {
+            return new AppTagEditResult { Master = master, ItemsUpdated = 0 };
+        }
+
+        var moving = tops[from].Subs.FirstOrDefault(entry => Same(entry.Name, sub));
+        if (moving is null)
+        {
+            return new AppTagEditResult { Master = master, ItemsUpdated = 0 };
+        }
+
+        tops[from] = Replace(tops[from], tops[from].Name, tops[from].Subs.Where(entry => !Same(entry.Name, sub)).ToList());
+
+        var targetSubs = tops[to].Subs.ToList();
+        var existing = targetSubs.FindIndex(entry => Same(entry.Name, moving.Name));
+        if (existing >= 0)
+        {
+            // 移動先に同じ名前があれば、そこへ寄せる（メモは書き足す）
+            targetSubs[existing] = new AppTagSub
+            {
+                Name = targetSubs[existing].Name,
+                Memo = MergeMemo(targetSubs[existing].Memo, $"{fromTop}／{moving.Name}", moving.Memo),
+            };
+        }
+        else
+        {
+            targetSubs.Add(moving);
+        }
+
+        tops[to] = Replace(tops[to], tops[to].Name, targetSubs);
+
+        var updated = new AppTagMaster { Tops = tops };
+        await _store.AppTags.SaveAsync(updated, cancellationToken);
+
+        var gained = 0;
+        var rewritten = await RewriteItemsAsync(
+            local =>
+            {
+                var moved = MoveSubIn(local, fromTop, moving.Name, toTop, out var addedTop);
+                if (moved is not null && addedTop)
+                {
+                    gained++;
+                }
+
+                return moved;
+            },
+            cancellationToken);
+
+        return new AppTagEditResult
+        {
+            Master = updated,
+            ItemsUpdated = rewritten.Updated,
+            ItemsGainedTop = gained,
+        };
     }
 
     /// <summary>メモだけを書き換える。item側は名前しか参照していないので影響しない。</summary>
@@ -507,6 +642,47 @@ public sealed class AppTagService : IAppTagService
             : target.Contains(source, StringComparison.CurrentCulture)
                 ? target
                 : $"{target}{Environment.NewLine}{Environment.NewLine}{added}";
+    }
+
+    /// <summary>
+    /// 元のトップからサブを外し、移動先のトップへ付け替える。
+    /// 移動先が付いていなければ足す（<paramref name="addedTop"/> で知らせる）。
+    /// </summary>
+    private static LocalBlock? MoveSubIn(
+        LocalBlock local,
+        string fromTop,
+        string sub,
+        string toTop,
+        out bool addedTop)
+    {
+        addedTop = false;
+
+        var source = local.AppTags.FirstOrDefault(
+            assignment => Same(assignment.Top, fromTop) && assignment.Subs.Any(entry => Same(entry, sub)));
+
+        if (source is null)
+        {
+            return null;
+        }
+
+        var result = local.AppTags
+            .Select(assignment => Same(assignment.Top, fromTop)
+                ? assignment with { Subs = assignment.Subs.Where(entry => !Same(entry, sub)).ToList() }
+                : assignment)
+            .ToList();
+
+        var target = result.FindIndex(assignment => Same(assignment.Top, toTop));
+        if (target < 0)
+        {
+            addedTop = true;
+            result.Add(new AppTagAssignment { Top = toTop, Subs = [sub] });
+        }
+        else if (!result[target].Subs.Any(entry => Same(entry, sub)))
+        {
+            result[target] = result[target] with { Subs = [.. result[target].Subs, sub] };
+        }
+
+        return local with { AppTags = result };
     }
 
     private static AppTagTop Replace(AppTagTop top, string name, IReadOnlyList<AppTagSub> subs)

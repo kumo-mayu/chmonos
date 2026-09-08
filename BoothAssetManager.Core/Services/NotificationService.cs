@@ -78,7 +78,7 @@ public sealed class NotificationService : INotificationService
     /// </summary>
     public async Task<int> DetectOrphanReferencesAsync(CancellationToken cancellationToken = default)
     {
-        var tags = _store.AppTags.Load().Tops.Select(top => top.Name).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        var master = _store.AppTags.Load();
         var attributes = _store.Attributes.Load().Attributes
             .Select(definition => definition.Name)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
@@ -89,10 +89,10 @@ public sealed class NotificationService : INotificationService
 
         foreach (var item in loaded.Items)
         {
-            var missingTags = item.Local.AppTags
-                .Select(assignment => assignment.Top)
-                .Where(name => !tags.Contains(name))
-                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            // トップだけでなくサブも見る。サブ名がずれると、画面はマスタにある分しか
+            // 出さないので、どこにも表示されないまま絞り込みから消える
+            var missingTags = AppTagService.FindOrphans(master, [item])
+                .Select(orphan => orphan.IsSub ? $"{orphan.Top}／{orphan.Sub}" : orphan.Top)
                 .ToList();
 
             var missingAttributes = item.Local.Attributes.Keys

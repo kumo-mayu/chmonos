@@ -80,9 +80,14 @@ public sealed class TagSubRow : ReorderableRow
     /// <summary>寄せ先の候補。自分自身は外す（自分に改名しても何も起きない）。</summary>
     public IReadOnlyList<string> OtherNames { get; set; } = [];
 
+    /// <summary>移動先のトップ候補。自分が属するトップは外す。</summary>
+    public IReadOnlyList<string> MoveTargets { get; set; } = [];
+
     public RelayCommand? ShowItemsCommand { get; set; }
 
     public RelayCommand? RenameCommand { get; set; }
+
+    public RelayCommand? MoveCommand { get; set; }
 
     public RelayCommand? DeleteCommand { get; set; }
 }
@@ -90,11 +95,30 @@ public sealed class TagSubRow : ReorderableRow
 /// <summary>マスタに無いのにitemが参照している名前。要確認は知らせるだけで、直せるのはここ。</summary>
 public sealed class OrphanTagRow : ViewModelBase
 {
-    public required string Name { get; init; }
+    public required string Top { get; init; }
+
+    /// <summary>null ならトップレベル、入っていればその配下のサブ。</summary>
+    public string? Sub { get; init; }
 
     public required int ItemCount { get; init; }
 
+    public bool IsSub => Sub is not null;
+
+    public string Name => Sub ?? Top;
+
+    /// <summary>サブは、どのトップの配下なのかが分からないと直しようがない。</summary>
+    public string DisplayName => IsSub ? $"{Top}／{Sub}" : Top;
+
+    public string KindText => IsSub ? "サブレベル" : "トップレベル";
+
     public string ItemCountText => $"{ItemCount} 件のitemが参照";
+
+    public string MergePlaceholder => IsSub
+        ? $"「{Top}」の既存サブへ寄せる"
+        : "既存の分類へ寄せる";
+
+    /// <summary>寄せ先の候補。トップならトップ一覧、サブなら同じトップの既存サブ。</summary>
+    public IReadOnlyList<string> MergeCandidates { get; set; } = [];
 
     public RelayCommand? AddToMasterCommand { get; set; }
 
@@ -391,6 +415,11 @@ public sealed class TagManageViewModel : ViewModelBase
             row.ShowItemsCommand = new RelayCommand(
                 () => _main.ShowItemsWithTag(row.Top, row.Name),
                 () => row.IsUsed);
+            row.MoveCommand = new RelayCommand(parameter => _ = MoveSubToTopAsync(row, parameter as string));
+            row.MoveTargets = _allTops
+                .Where(entry => !string.Equals(entry.Name, top.Name, StringComparison.CurrentCultureIgnoreCase))
+                .Select(entry => entry.Name)
+                .ToList();
             Subs.Add(row);
             SubNames.Add(row.Name);
         }
@@ -403,6 +432,13 @@ public sealed class TagManageViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasSubs));
     }
+
+    /// <summary>マスタに載っているサブレベル名。寄せ先の候補に使う。</summary>
+    private IReadOnlyList<string> SubNamesOf(string top)
+        => _services.Store.AppTags.Load().Tops
+            .FirstOrDefault(entry => string.Equals(entry.Name, top, StringComparison.CurrentCultureIgnoreCase))
+            ?.Subs.Select(sub => sub.Name).ToList()
+            ?? [];
 
     private void RebuildOtherNames()
     {
@@ -417,7 +453,17 @@ public sealed class TagManageViewModel : ViewModelBase
 
     private OrphanTagRow CreateOrphanRow(OrphanAppTag orphan)
     {
-        var row = new OrphanTagRow { Name = orphan.Top, ItemCount = orphan.ItemCount };
+        var row = new OrphanTagRow
+        {
+            Top = orphan.Top,
+            Sub = orphan.Sub,
+            ItemCount = orphan.ItemCount,
+
+            // サブの寄せ先は同じトップの中だけ。別のトップのサブへは寄せられない
+            MergeCandidates = orphan.Sub is null
+                ? _allTops.Select(top => top.Name).ToList()
+                : SubNamesOf(orphan.Top),
+        };
 
         row.AddToMasterCommand = new RelayCommand(() => _ = AddOrphanToMasterAsync(row));
         row.MergeCommand = new RelayCommand(parameter => _ = MergeOrphanAsync(row, parameter as string));
@@ -648,6 +694,45 @@ public sealed class TagManageViewModel : ViewModelBase
         return true;
     }
 
+    /// <summary>
+    /// サブレベルを別のトップへ移す。削除して付け直すとitemの割当てが失われるので、
+    /// 専用の操作にしてある。移動先のトップがitemに新しく付くので、その件数も出す。
+    /// </summary>
+    private async Task MoveSubToTopAsync(TagSubRow row, string? target)
+    {
+        var to = target?.Trim();
+        if (string.IsNullOrEmpty(to) || string.Equals(to, row.Top, StringComparison.CurrentCultureIgnoreCase))
+        {
+            return;
+        }
+
+        var message = $"「{row.Name}」を「{row.Top}」から「{to}」の下へ移します。\n\n"
+            + (row.ItemCount == 0
+                ? "どのitemにも付いていないので、item側の書き換えはありません。"
+                : $"{row.ItemCount} 件のitemを書き換えます。"
+                    + $"サブは「{to}」の下へ移り、そのitemには「{to}」も付きます。\n"
+                    + $"「{row.Top}」は他の割当てとして残ることがあるので、そのままにします。");
+
+        if (!Confirm(message, "サブレベルを移す"))
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.MoveAppTagSub(row.Top, row.Name, to));
+
+        if (result is CommandResult.AppTagsRewritten rewritten)
+        {
+            StatusText = rewritten.Result.ItemsGainedTop > 0
+                ? $"「{to}」の下へ移しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え、"
+                    + $"うち {rewritten.Result.ItemsGainedTop} 件に「{to}」が新しく付きました）。"
+                : $"「{to}」の下へ移しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+        }
+
+        await ReloadAsync();
+        await _main.ReloadLibraryAsync();
+    }
+
     private async Task SaveMemoAsync()
     {
         if (Selected is null)
@@ -663,8 +748,11 @@ public sealed class TagManageViewModel : ViewModelBase
     /// <summary>参照だけ残っている名前を、そのままマスタへ作る。名前が正しかった場合の直し方。</summary>
     private async Task AddOrphanToMasterAsync(OrphanTagRow row)
     {
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(row.Name));
-        StatusText = $"「{row.Name}」をマスタに追加しました。{row.ItemCount} 件のitemが絞り込みに出るようになります。";
+        await _services.Commands.ExecuteAsync(row.IsSub
+            ? new UiCommand.AddAppTag(row.Top, row.Sub)
+            : new UiCommand.AddAppTag(row.Top));
+
+        StatusText = $"「{row.DisplayName}」をマスタに追加しました。{row.ItemCount} 件のitemが絞り込みに出るようになります。";
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }
@@ -679,13 +767,16 @@ public sealed class TagManageViewModel : ViewModelBase
         }
 
         if (!Confirm(
-            $"「{row.Name}」を「{name}」に寄せます。\n\n{row.ItemCount} 件のitemを書き換えます。",
+            $"「{row.DisplayName}」を「{name}」に寄せます。\n\n{row.ItemCount} 件のitemを書き換えます。",
             "分類を寄せる"))
         {
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAppTag(row.Name, null, name));
+        var result = await _services.Commands.ExecuteAsync(row.IsSub
+            ? new UiCommand.RenameAppTag(row.Top, row.Sub, name)
+            : new UiCommand.RenameAppTag(row.Top, null, name));
+
         if (result is CommandResult.AppTagsRewritten rewritten)
         {
             StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
@@ -698,20 +789,26 @@ public sealed class TagManageViewModel : ViewModelBase
     /// <summary>もう使わない名前だった場合の直し方。itemから外す。</summary>
     private async Task RemoveOrphanAsync(OrphanTagRow row)
     {
+        var notice = row.IsSub
+            ? $"「{row.Top}」自体は付いたままです。"
+            : string.Empty;
+
         if (!Confirm(
-            $"「{row.Name}」を {row.ItemCount} 件のitemから外します。\n\nこの操作は元に戻せません。",
+            $"「{row.DisplayName}」を {row.ItemCount} 件のitemから外します。\n\n{notice}この操作は元に戻せません。",
             "参照を外す"))
         {
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAppTag(row.Name));
+        var result = await _services.Commands.ExecuteAsync(row.IsSub
+            ? new UiCommand.DeleteAppTag(row.Top, row.Sub)
+            : new UiCommand.DeleteAppTag(row.Top));
         if (result is CommandResult.AppTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.ItemsLeftUntagged > 0
-                ? $"「{row.Name}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから外し、"
+                ? $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから外し、"
                     + $"うち {rewritten.Result.ItemsLeftUntagged} 件はappTagが空になったので編集の対象に戻ります）。"
-                : $"「{row.Name}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから外しました）。";
+                : $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから外しました）。";
         }
 
         await ReloadAsync();

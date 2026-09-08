@@ -56,6 +56,12 @@ public abstract record UiCommand
     /// </summary>
     public record ReorderAppTags(IReadOnlyList<string> Names, string? Top = null) : UiCommand;
 
+    /// <summary>
+    /// サブレベルを別のトップへ移す。削除して付け直すとitemの割当てが失われるので、
+    /// 移動を専用の操作として持つ。
+    /// </summary>
+    public record MoveAppTagSub(string FromTop, string Sub, string ToTop) : UiCommand;
+
     /// <summary>確定する前にIDの中身を見る。既に持っていればBOOTHへは行かない。</summary>
     public record PreviewItem(string ItemId) : UiCommand;
 

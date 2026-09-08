@@ -73,6 +73,122 @@ public class AppTagServiceTests : IDisposable
         Assert.Equal(2, orphan.ItemCount);
     }
 
+    /// <summary>
+    /// サブも拾う。集計はitem側の全サブを数えているのに画面はマスタにある分しか
+    /// 出さないので、ずれたサブ名はどこにも表示されないまま絞り込みから消える。
+    /// </summary>
+    [Fact]
+    public async Task FindsSubLevelsThatOnlyItemsStillReference()
+    {
+        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
+        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服", "消えたサブ"] });
+
+        var orphan = Assert.Single(await _service.LoadOrphansAsync());
+
+        Assert.Equal("衣装", orphan.Top);
+        Assert.Equal("消えたサブ", orphan.Sub);
+        Assert.True(orphan.IsSub);
+        Assert.Equal(1, orphan.ItemCount);
+    }
+
+    /// <summary>
+    /// トップが無いときは配下のサブまでは出さない。トップを直せばサブも付いてくるので、
+    /// 二重に並べても直す手が増えるだけ。
+    /// </summary>
+    [Fact]
+    public async Task DoesNotListSubsUnderAMissingTop()
+    {
+        await SaveMasterAsync(new AppTagTop { Name = "衣装" });
+        await SaveItemAsync("1", new AppTagAssignment { Top = "消えたタグ", Subs = ["制服", "私服"] });
+
+        var orphan = Assert.Single(await _service.LoadOrphansAsync());
+
+        Assert.Equal("消えたタグ", orphan.Top);
+        Assert.Null(orphan.Sub);
+    }
+
+    /// <summary>サブは同じトップの中だけで数える。別のトップの同名サブとは混ぜない。</summary>
+    [Fact]
+    public async Task CountsOrphanSubsPerTop()
+    {
+        await SaveMasterAsync(new AppTagTop { Name = "衣装" }, new AppTagTop { Name = "小物" });
+        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["無いサブ"] });
+        await SaveItemAsync("2", new AppTagAssignment { Top = "小物", Subs = ["無いサブ"] });
+
+        var orphans = await _service.LoadOrphansAsync();
+
+        Assert.Equal(2, orphans.Count);
+        Assert.All(orphans, orphan => Assert.Equal(1, orphan.ItemCount));
+    }
+
+    [Fact]
+    public async Task MovesASubLevelToAnotherTop()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服", Memo = "学校のもの" }] },
+            new AppTagTop { Name = "小物" });
+
+        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物");
+
+        Assert.Equal(1, result.ItemsUpdated);
+        Assert.Equal(1, result.ItemsGainedTop);
+        Assert.Empty(result.Master.Tops[0].Subs);
+        Assert.Equal("学校のもの", Assert.Single(result.Master.Tops[1].Subs).Memo);
+
+        // itemは「これは制服だ」という判断を保つ。そのために移動先のトップも付ける
+        var appTags = await AppTagsOfAsync("1");
+        Assert.Empty(appTags.Single(entry => entry.Top == "衣装").Subs);
+        Assert.Equal(["制服"], appTags.Single(entry => entry.Top == "小物").Subs);
+    }
+
+    /// <summary>移動先のトップが既に付いていれば、そこへ足すだけ。</summary>
+    [Fact]
+    public async Task AddsToTheExistingTopWhenTheItemAlreadyHasIt()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] },
+            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "指輪" }] });
+
+        await SaveItemAsync(
+            "1",
+            new AppTagAssignment { Top = "衣装", Subs = ["制服"] },
+            new AppTagAssignment { Top = "小物", Subs = ["指輪"] });
+
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物");
+
+        Assert.Equal(1, result.ItemsUpdated);
+        Assert.Equal(0, result.ItemsGainedTop);
+        Assert.Equal(["指輪", "制服"], (await AppTagsOfAsync("1")).Single(entry => entry.Top == "小物").Subs);
+    }
+
+    /// <summary>移動先に同じ名前があれば統合になる。メモは出所付きで書き足す。</summary>
+    [Fact]
+    public async Task MergesWhenTheTargetTopAlreadyHasThatSub()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服", Memo = "学校のもの" }] },
+            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "制服", Memo = "職業のもの" }] });
+
+        var result = await _service.MoveSubAsync("衣装", "制服", "小物");
+
+        Assert.Empty(result.Master.Tops[0].Subs);
+        var sub = Assert.Single(result.Master.Tops[1].Subs);
+        Assert.Contains("職業のもの", sub.Memo);
+        Assert.Contains("「衣装／制服」から統合：学校のもの", sub.Memo);
+    }
+
+    [Fact]
+    public async Task IgnoresAMoveWhenTheSubOrTopIsGone()
+    {
+        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
+
+        Assert.Equal(0, (await _service.MoveSubAsync("衣装", "制服", "無いトップ")).ItemsUpdated);
+        Assert.Equal(0, (await _service.MoveSubAsync("衣装", "無いサブ", "衣装")).ItemsUpdated);
+        Assert.Equal(["制服"], Assert.Single(_store.AppTags.Load().Tops).Subs.Select(sub => sub.Name));
+    }
+
     [Fact]
     public async Task RenamesTheTagInTheMasterAndInEveryItem()
     {
