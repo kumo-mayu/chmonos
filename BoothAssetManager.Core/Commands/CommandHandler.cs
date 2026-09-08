@@ -112,7 +112,7 @@ public sealed class CommandHandler
                 }
 
                 return new CommandResult.CandidatesProposed(
-                    await _resolver.ProposeAsync(propose.FilePath, cancellationToken));
+                    await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress));
 
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");

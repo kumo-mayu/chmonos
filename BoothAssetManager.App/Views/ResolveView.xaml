@@ -182,12 +182,27 @@
                             <Grid Margin="0,0,0,10">
                                 <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="BOOTHで検索して探す" Style="{StaticResource SmallButton}"
+                                    <Button Content="自動検索" Style="{StaticResource SmallButton}"
                                             Command="{Binding ProposeCommand}" />
-                                    <Button Content="ブラウザで探す" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                    <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                             Command="{Binding OpenBoothCommand}" />
                                 </StackPanel>
                             </Grid>
+
+                            <!--
+                                自動検索は1件ずつ間隔を空けて取りに行くので十数秒かかる。
+                                何をどこまでやっているかを出さないと、止まったように見える。
+                            -->
+                            <StackPanel Margin="0,0,0,12"
+                                        Visibility="{Binding IsSearching, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding SearchProgressText}" Style="{StaticResource Caption}" />
+                                <!-- 件数が分かる段階だけ実際の進み具合を出し、それ以外は動いていることだけ示す -->
+                                <ProgressBar Height="5" Margin="0,6,0,0" Minimum="0"
+                                             Maximum="{Binding SearchTotal, Mode=OneWay}"
+                                             Value="{Binding SearchCurrent, Mode=OneWay}"
+                                             IsIndeterminate="{Binding HasSearchTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                                             Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                            </StackPanel>
 
                             <ItemsControl ItemsSource="{Binding Candidates}">
                                 <ItemsControl.ItemTemplate>
@@ -231,7 +246,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="確定の前に必ず中身を確認します。画像までは取りに行きません（名前とショップで判断できるため）。"
+                            <TextBlock Text="商品IDを入れて「このIDで確認」を押すと、そのIDが何の商品かを取得して下に出します。確かめてから確定してください。画像までは取りに行きません（名前とショップで判断できるため）。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
                             <Grid>
@@ -241,7 +256,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
                                          Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
-                                <Button Grid.Column="1" Content="確認する" Command="{Binding PreviewCommand}" />
+                                <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}" />
                             </Grid>
 
                             <!-- プレビュー -->
@@ -249,6 +264,7 @@
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,12,0,0"
                                     Visibility="{Binding HasPreview, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
+                                    <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
                                     <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding PreviewDetail}" Style="{StaticResource Caption}"
                                                TextWrapping="Wrap" Margin="0,5,0,0" />

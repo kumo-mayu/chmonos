@@ -42,7 +42,12 @@ public abstract record UiCommand
     public record PreviewItem(string ItemId) : UiCommand;
 
     /// <summary>手掛かりの無いファイルについて、BOOTH内検索から候補を出す。</summary>
-    public record ProposeCandidates(string FilePath) : UiCommand;
+    /// <summary>
+    /// 手掛かりの無いファイルについて、BOOTH内検索から候補を出す。
+    /// このコマンドだけ進捗の受け口を持つ。取得を1件ずつ間隔を空けて行うため
+    /// 待ち時間が長く、黙って待たせるわけにいかないため。
+    /// </summary>
+    public record ProposeCandidates(string FilePath, IProgress<Resolution.ResolveProgress>? Progress = null) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

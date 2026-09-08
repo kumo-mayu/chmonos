@@ -3,6 +3,15 @@ using BoothAssetManager.Core.Booth;
 
 namespace BoothAssetManager.Core.Resolution;
 
+/// <summary>
+/// 自動検索の進み具合。<see cref="Total"/> が0なら件数の分からない段階（準備中）。
+/// 1件ずつ間隔を空けて取りに行くので、黙って待たせると止まったように見える。
+/// </summary>
+public sealed record ResolveProgress(string Phase, int Current, int Total)
+{
+    public bool HasTotal => Total > 0;
+}
+
 public sealed class ResolutionCandidate
 {
     public required string ItemId { get; init; }
@@ -89,13 +98,17 @@ public sealed class FallbackResolver
 
     public async Task<IReadOnlyList<ResolutionCandidate>> ProposeAsync(
         string filePath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<ResolveProgress>? progress = null)
     {
         var query = FileNameQuery.ToSearchQuery(filePath);
         if (query.Length == 0)
         {
             return [];
         }
+
+        // 大きいzipだとここだけで数秒かかるので、何をしているかは伝える
+        progress?.Report(new ResolveProgress("アーカイブの中を調べています", 0, 0));
 
         var hints = Path.GetExtension(filePath).Equals(".zip", StringComparison.OrdinalIgnoreCase)
             ? UnityPackageInspector.Inspect(filePath)
@@ -107,6 +120,8 @@ public sealed class FallbackResolver
             .Select(clue => clue.ItemId!)
             .Distinct(StringComparer.Ordinal)
             .ToList();
+
+        progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
         var searchResult = await _client.SearchAsync(query, cancellationToken);
         var searchIds = searchResult.IsSuccess && searchResult.Value is not null
@@ -125,6 +140,10 @@ public sealed class FallbackResolver
             cancellationToken.ThrowIfCancellationRequested();
 
             var itemId = orderedIds[rank];
+
+            // 1件ずつ間隔を空けて取るので、ここが一番待たされる。件数を出す
+            progress?.Report(new ResolveProgress("候補を1件ずつ確認しています", rank, orderedIds.Count));
+
             var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
             if (!jsonResult.IsSuccess || jsonResult.Value is null)
             {

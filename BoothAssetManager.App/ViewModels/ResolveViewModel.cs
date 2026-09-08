@@ -529,11 +529,24 @@ public sealed class ResolveViewModel : ViewModelBase
         }
 
         IsBusy = true;
-        StatusText = "BOOTHを検索しています…";
+        StatusText = string.Empty;
+        SearchCurrent = 0;
+        SearchTotal = 0;
+        SearchPhase = "準備しています";
+
+        // 1件ずつ間隔を空けて取りに行くので十数秒かかることがある。
+        // 何をどこまでやっているかを出さないと、止まったように見える。
+        var progress = new Progress<ResolveProgress>(report => RunOnUiThread(() =>
+        {
+            SearchPhase = report.Phase;
+            SearchCurrent = report.Current;
+            SearchTotal = report.Total;
+        }));
+
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(Selected.File.Paths[0]));
+                new UiCommand.ProposeCandidates(Selected.File.Paths[0], progress));
 
             if (result is CommandResult.CandidatesProposed proposed)
             {
@@ -542,6 +555,7 @@ public sealed class ResolveViewModel : ViewModelBase
                     Candidates.Add(ToRow(candidate));
                 }
 
+                SearchPhase = string.Empty;
                 StatusText = proposed.Candidates.Count == 0
                     ? "候補は見つかりませんでした。商品IDを直接入れるか、管理から外してください。"
                     : $"候補を {proposed.Candidates.Count} 件見つけました。";
@@ -554,9 +568,69 @@ public sealed class ResolveViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+            IsSearching = false;
             OnPropertyChanged(nameof(HasStatus));
         }
     }
+
+    // --- 自動検索の進み具合 ---
+
+    private string _searchPhase = string.Empty;
+    private int _searchCurrent;
+    private int _searchTotal;
+    private bool _isSearching;
+
+    /// <summary>今どの段階かの文言。</summary>
+    public string SearchPhase
+    {
+        get => _searchPhase;
+        private set
+        {
+            if (SetField(ref _searchPhase, value))
+            {
+                IsSearching = value.Length > 0;
+                OnPropertyChanged(nameof(SearchProgressText));
+            }
+        }
+    }
+
+    public int SearchCurrent
+    {
+        get => _searchCurrent;
+        private set
+        {
+            if (SetField(ref _searchCurrent, value))
+            {
+                OnPropertyChanged(nameof(SearchProgressText));
+            }
+        }
+    }
+
+    /// <summary>0なら件数の分からない段階。バーは伸び縮みだけさせる。</summary>
+    public int SearchTotal
+    {
+        get => _searchTotal;
+        private set
+        {
+            if (SetField(ref _searchTotal, value))
+            {
+                OnPropertyChanged(nameof(HasSearchTotal));
+                OnPropertyChanged(nameof(SearchProgressText));
+            }
+        }
+    }
+
+    public bool HasSearchTotal => SearchTotal > 0;
+
+    public bool IsSearching
+    {
+        get => _isSearching;
+        private set => SetField(ref _isSearching, value);
+    }
+
+    public string SearchProgressText => SearchTotal > 0
+        ? $"{SearchPhase}　{SearchCurrent + 1} / {SearchTotal}"
+        : SearchPhase;
 
     private static CandidateRow ToRow(ResolutionCandidate candidate) => new()
     {
