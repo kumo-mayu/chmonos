@@ -228,6 +228,82 @@ public class AppTagServiceTests : IDisposable
     }
 
     /// <summary>
+    /// メモは「何をここに入れるか」の基準なので、統合で片方が黙って消えると
+    /// 判断の根拠だけが失われる。どちらから来た文か分かる形で書き足す。
+    /// </summary>
+    [Fact]
+    public async Task CarriesTheSourceMemoIntoTheMergedTag()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "小物", Memo = "身に着ける小さいもの" },
+            new AppTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
+
+        var result = await _service.RenameTopAsync("アクセサリ", "小物");
+
+        var memo = Assert.Single(result.Master.Tops).Memo;
+        Assert.Contains("身に着ける小さいもの", memo);
+        Assert.Contains("「アクセサリ」から統合：指輪やピアス", memo);
+    }
+
+    [Fact]
+    public async Task UsesTheSourceMemoWhenTheTargetHadNone()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "小物" },
+            new AppTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
+
+        var result = await _service.RenameTopAsync("アクセサリ", "小物");
+
+        Assert.Equal("「アクセサリ」から統合：指輪やピアス", Assert.Single(result.Master.Tops).Memo);
+    }
+
+    [Fact]
+    public async Task LeavesTheMemoAloneWhenTheSourceHadNone()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "小物", Memo = "身に着ける小さいもの" },
+            new AppTagTop { Name = "アクセサリ" });
+
+        var result = await _service.RenameTopAsync("アクセサリ", "小物");
+
+        Assert.Equal("身に着ける小さいもの", Assert.Single(result.Master.Tops).Memo);
+    }
+
+    /// <summary>同じ文を何度も書き足さない。統合を繰り返すと読めなくなる。</summary>
+    [Fact]
+    public async Task DoesNotAppendAMemoThatIsAlreadyThere()
+    {
+        await SaveMasterAsync(
+            new AppTagTop { Name = "小物", Memo = "「アクセサリ」から統合：指輪やピアス" },
+            new AppTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
+
+        var result = await _service.RenameTopAsync("アクセサリ", "小物");
+
+        Assert.Equal("「アクセサリ」から統合：指輪やピアス", Assert.Single(result.Master.Tops).Memo);
+    }
+
+    [Fact]
+    public async Task CarriesTheSourceMemoWhenSubLevelsAreMerged()
+    {
+        await SaveMasterAsync(new AppTagTop
+        {
+            Name = "衣装",
+            Subs =
+            [
+                new AppTagSub { Name = "学生服", Memo = "学校のもの" },
+                new AppTagSub { Name = "制服", Memo = "職業のものも含む" },
+            ],
+        });
+
+        var result = await _service.RenameSubAsync("衣装", "制服", "学生服");
+
+        var sub = Assert.Single(Assert.Single(result.Master.Tops).Subs);
+        Assert.Equal("学生服", sub.Name);
+        Assert.Contains("学校のもの", sub.Memo);
+        Assert.Contains("「制服」から統合：職業のものも含む", sub.Memo);
+    }
+
+    /// <summary>
     /// 並びは検索の絞り込みにも編集の候補にも出るので、追加順に縛られないようにする。
     /// itemは名前で参照しているので、並べ替えでitemに触る必要はない。
     /// </summary>

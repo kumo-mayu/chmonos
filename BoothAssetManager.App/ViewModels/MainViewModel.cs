@@ -168,6 +168,13 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ShowSearch() => CurrentViewModel = Search;
 
+    /// <summary>このappTagが付いているitemを検索画面で見せる。件数から中身へ辿るための入口。</summary>
+    public void ShowItemsWithTag(string top, string? sub = null)
+    {
+        Search.ShowOnly(top, sub);
+        ShowSearch();
+    }
+
     public void ShowImport() => CurrentViewModel = Import;
 
     /// <summary>取り込み後など、ライブラリが変わったときに呼ぶ。</summary>

@@ -168,7 +168,14 @@
                                         <TextBlock Text="トップレベル" Style="{StaticResource SectionLabel}" />
                                         <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
                                                    TextWrapping="Wrap" Margin="0,6,0,0" />
-                                        <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}" Margin="0,5,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                            <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"
+                                                       VerticalAlignment="Center" />
+                                            <!-- 件数だけでは消していいか統合していいか判断できないので、中身へ行けるようにする -->
+                                            <Button Content="検索で開く" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                    Command="{Binding ShowItemsCommand}"
+                                                    Visibility="{Binding SelectedIsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </StackPanel>
                                     </StackPanel>
                                     <Button Content="この分類を削除" Style="{StaticResource SmallButton}"
                                             Foreground="#9a3232" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -244,9 +251,14 @@
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="1">
-                                                        <Button Content="削除" Style="{StaticResource SmallButton}"
-                                                                Foreground="#9a3232" HorizontalAlignment="Right"
-                                                                Command="{Binding DeleteCommand}" />
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                            <Button Content="検索で開く" Style="{StaticResource SmallButton}"
+                                                                    Margin="0,0,6,0" Command="{Binding ShowItemsCommand}"
+                                                                    Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <Button Content="削除" Style="{StaticResource SmallButton}"
+                                                                    Foreground="#9a3232"
+                                                                    Command="{Binding DeleteCommand}" />
+                                                        </StackPanel>
                                                         <controls:SuggestBox Width="240" Margin="0,7,0,0"
                                                                              Placeholder="名前を変更 / 統合"
                                                                              Source="{Binding OtherNames}"

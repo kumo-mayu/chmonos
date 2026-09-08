@@ -435,6 +435,34 @@ public sealed class SearchViewModel : ViewModelBase
         ApplyFilters();
     }
 
+    /// <summary>
+    /// このappTagだけで絞り込んだ状態にする。タグの管理から「この分類が付いているitem」を
+    /// 見に来る導線。件数だけ見せられても、消していいか統合していいかは判断できない。
+    /// </summary>
+    public void ShowOnly(string top, string? sub = null)
+    {
+        ClearFilters();
+
+        var filter = TagFilters.FirstOrDefault(entry =>
+            string.Equals(entry.Name, top, StringComparison.CurrentCultureIgnoreCase));
+
+        if (filter is null)
+        {
+            return;
+        }
+
+        filter.IsSelected = true;
+
+        if (sub is not null)
+        {
+            filter.Subs
+                .FirstOrDefault(entry => string.Equals(entry.Name, sub, StringComparison.CurrentCultureIgnoreCase))
+                ?.SetSilently(true);
+        }
+
+        ApplyFilters();
+    }
+
     private void ClearFilters()
     {
         _queryText = string.Empty;

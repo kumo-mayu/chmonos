@@ -140,7 +140,13 @@ public sealed class AppTagService : IAppTagService
                 subs.Add(sub);
             }
 
-            tops[into] = Replace(tops[into], tops[into].Name, subs);
+            tops[into] = new AppTagTop
+            {
+                Name = tops[into].Name,
+                Memo = MergeMemo(tops[into].Memo, tops[from].Name, tops[from].Memo),
+                Subs = subs,
+            };
+
             tops.RemoveAt(from);
         }
         else if (from >= 0)
@@ -191,6 +197,12 @@ public sealed class AppTagService : IAppTagService
 
             if (merged && from >= 0)
             {
+                subs[into] = new AppTagSub
+                {
+                    Name = subs[into].Name,
+                    Memo = MergeMemo(subs[into].Memo, subs[from].Name, subs[from].Memo),
+                };
+
                 subs.RemoveAt(from);
             }
             else if (from >= 0)
@@ -470,6 +482,31 @@ public sealed class AppTagService : IAppTagService
         }
 
         return touched ? local with { AppTags = result } : null;
+    }
+
+    /// <summary>
+    /// 統合するとき、寄せ元のメモを寄せ先へ書き足す。
+    ///
+    /// メモは「何をここに入れるか」の基準なので、統合で片方が黙って消えると
+    /// 判断の根拠だけが失われる。どちらから来た文なのかが後で分かるよう、
+    /// 元の名前を添えて残す（同じ文なら重ねない）。
+    /// </summary>
+    private static string? MergeMemo(string? into, string fromName, string? from)
+    {
+        var source = from?.Trim();
+        if (string.IsNullOrEmpty(source))
+        {
+            return into;
+        }
+
+        var target = into?.Trim();
+        var added = $"「{fromName}」から統合：{source}";
+
+        return string.IsNullOrEmpty(target)
+            ? added
+            : target.Contains(source, StringComparison.CurrentCulture)
+                ? target
+                : $"{target}{Environment.NewLine}{Environment.NewLine}{added}";
     }
 
     private static AppTagTop Replace(AppTagTop top, string name, IReadOnlyList<AppTagSub> subs)

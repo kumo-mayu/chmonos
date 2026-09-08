@@ -75,8 +75,12 @@ public sealed class TagSubRow : ReorderableRow
 
     public string ItemCountText => ItemCount == 0 ? "未使用" : $"{ItemCount}";
 
+    public bool IsUsed => ItemCount > 0;
+
     /// <summary>寄せ先の候補。自分自身は外す（自分に改名しても何も起きない）。</summary>
     public IReadOnlyList<string> OtherNames { get; set; } = [];
+
+    public RelayCommand? ShowItemsCommand { get; set; }
 
     public RelayCommand? RenameCommand { get; set; }
 
@@ -130,6 +134,9 @@ public sealed class TagManageViewModel : ViewModelBase
         DeleteTopCommand = new RelayCommand(() => _ = DeleteTopAsync(), () => Selected is not null);
         SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => Selected is not null && MemoChanged);
         RefreshCommand = new RelayCommand(() => _ = ReloadAsync());
+        ShowItemsCommand = new RelayCommand(
+            () => _main.ShowItemsWithTag(Selected!.Name),
+            () => Selected is { ItemCount: > 0 });
 
         _ = ReloadAsync();
     }
@@ -164,6 +171,11 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public RelayCommand RefreshCommand { get; }
 
+    /// <summary>この分類が付いているitemを検索で見せる。消す・統合するの判断は中身を見ないとできない。</summary>
+    public RelayCommand ShowItemsCommand { get; }
+
+    public bool SelectedIsUsed => Selected is { ItemCount: > 0 };
+
     public TagTopRow? Selected
     {
         get => _selected;
@@ -192,6 +204,7 @@ public sealed class TagManageViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasSelection));
             OnPropertyChanged(nameof(SelectedName));
             OnPropertyChanged(nameof(SelectedUsageText));
+            OnPropertyChanged(nameof(SelectedIsUsed));
             OnPropertyChanged(nameof(RenameImpactText));
             RebuildSubs();
             RebuildOtherNames();
@@ -375,6 +388,9 @@ public sealed class TagManageViewModel : ViewModelBase
 
             row.RenameCommand = new RelayCommand(parameter => _ = RenameSubAsync(row, parameter as string));
             row.DeleteCommand = new RelayCommand(() => _ = DeleteSubAsync(row));
+            row.ShowItemsCommand = new RelayCommand(
+                () => _main.ShowItemsWithTag(row.Top, row.Name),
+                () => row.IsUsed);
             Subs.Add(row);
             SubNames.Add(row.Name);
         }
@@ -457,6 +473,7 @@ public sealed class TagManageViewModel : ViewModelBase
         var message = merging
             ? $"「{Selected.Name}」を「{target}」に統合します。\n\n"
                 + $"{Selected.ItemCount} 件のitemを書き換えます。サブレベルは「{target}」側へまとめます。\n"
+                + MemoNotice(Selected.Memo, target)
                 + "この操作は元に戻せません。"
             : $"「{Selected.Name}」を「{target}」に変更します。\n\n"
                 + $"{Selected.ItemCount} 件のitemを書き換えます。";
@@ -530,7 +547,8 @@ public sealed class TagManageViewModel : ViewModelBase
         var merging = Subs.Any(entry => string.Equals(entry.Name, target, StringComparison.CurrentCultureIgnoreCase));
         var message = merging
             ? $"「{row.Top}」の「{row.Name}」を「{target}」に統合します。\n\n"
-                + $"{row.ItemCount} 件のitemを書き換えます。"
+                + $"{row.ItemCount} 件のitemを書き換えます。\n"
+                + MemoNotice(row.Memo, target)
             : $"「{row.Top}」の「{row.Name}」を「{target}」に変更します。\n\n"
                 + $"{row.ItemCount} 件のitemを書き換えます。";
 
@@ -699,6 +717,15 @@ public sealed class TagManageViewModel : ViewModelBase
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }
+
+    /// <summary>
+    /// 統合でメモがどうなるかを一行で伝える。黙って寄せ先に書き足すと、
+    /// 後から読んだときに出所が分からないメモが増えることになる。
+    /// </summary>
+    private static string MemoNotice(string? memo, string target)
+        => string.IsNullOrWhiteSpace(memo)
+            ? string.Empty
+            : $"メモは「{target}」側に「「元の名前」から統合：…」として書き足します。\n";
 
     /// <summary>既定はキャンセル。Enterを押しただけで消えないようにする。</summary>
     private static bool Confirm(string message, string caption)

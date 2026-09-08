@@ -48,6 +48,7 @@ public partial class SuggestBox : UserControl
             new PropertyMetadata(null));
 
     private bool _isCommitting;
+    private bool _skipNextFocusOpen;
 
     public SuggestBox()
     {
@@ -103,7 +104,17 @@ public partial class SuggestBox : UserControl
     /// Popup（StaysOpen=False）が閉じてしまうので、1回後回しにする。
     /// </summary>
     private void OnInputFocused(object sender, KeyboardFocusChangedEventArgs e)
-        => Dispatcher.BeginInvoke(new Action(Refresh), System.Windows.Threading.DispatcherPriority.Input);
+    {
+        // 確定のあと確認ダイアログを挟むと、閉じた拍子にここへ戻ってきて
+        // 候補が開く。ユーザが入力欄を触ったわけではないので、その1回は開かない。
+        if (_skipNextFocusOpen)
+        {
+            _skipNextFocusOpen = false;
+            return;
+        }
+
+        Dispatcher.BeginInvoke(new Action(Refresh), System.Windows.Threading.DispatcherPriority.Input);
+    }
 
     private void OnInputLostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
@@ -230,6 +241,10 @@ public partial class SuggestBox : UserControl
             _isCommitting = false;
         }
 
+        // 確認ダイアログはこの中で開く。閉じた拍子にフォーカスが戻ってくるので、
+        // 実行する前から「その戻りでは開かない」と決めておく必要がある。
+        _skipNextFocusOpen = true;
+
         if (CommitCommand?.CanExecute(value) == true)
         {
             CommitCommand.Execute(value);
@@ -237,5 +252,11 @@ public partial class SuggestBox : UserControl
 
         // 続けて足せるようにフォーカスは残す（候補は次に入力したときに出す）
         Input.Focus();
+
+        // ダイアログが出ずフォーカスも動かなかったときは、印が余る。
+        // 溜まった入力を処理し切ったところで片付ける。
+        Dispatcher.BeginInvoke(
+            new Action(() => _skipNextFocusOpen = false),
+            System.Windows.Threading.DispatcherPriority.Input);
     }
 }
