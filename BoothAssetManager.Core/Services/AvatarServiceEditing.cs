@@ -233,7 +233,9 @@ public sealed partial class AvatarService
             itemId,
             entry => entry with
             {
-                DisplayName = entry.DisplayName ?? booth.Name,
+                BoothName = booth.Name,
+                // 表示名はユーザが変えている可能性があるので、空のときだけ埋める
+                DisplayName = entry.DisplayName ?? AvatarText.ShortenName(booth.Name),
                 Category = booth.Category?.Name,
                 CheckedAt = DateTimeOffset.Now,
             },

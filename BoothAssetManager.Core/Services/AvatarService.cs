@@ -215,9 +215,42 @@ public sealed partial class AvatarService : IAvatarService
     /// ③規則を当てて item と登録簿を書き戻す。
     /// ②だけが通信を伴い、一度調べたIDは記録するので二度目からは走らない。
     /// </summary>
+    /// <summary>
+    /// 落ち着くまで検出を繰り返す。
+    ///
+    /// 1回目で覚えた別名によって2回目に拾えるものが増えるので、
+    /// 1回で止めると「もう一度押すと結果が変わる」状態になる。
+    /// 2回目以降はBOOTHへの問い合わせがほぼ無く、手元の照合だけなので安い。
+    /// </summary>
     public async Task<AvatarDetectResult> DetectAsync(
         IProgress<AvatarDetectProgress>? progress = null,
         CancellationToken cancellationToken = default)
+    {
+        AvatarDetectResult? result = null;
+        var requests = 0;
+        var updated = 0;
+
+        for (var pass = 0; pass < 4; pass++)
+        {
+            var current = await DetectOnceAsync(progress, cancellationToken);
+            requests += current.Requests;
+            updated += current.ItemsUpdated;
+
+            // 何回で落ち着いたかではなく、合計で何件書き換えたかを返す
+            result = current with { Requests = requests, ItemsUpdated = updated };
+
+            if (current.ItemsUpdated == 0)
+            {
+                break;
+            }
+        }
+
+        return result!;
+    }
+
+    private async Task<AvatarDetectResult> DetectOnceAsync(
+        IProgress<AvatarDetectProgress>? progress,
+        CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = _store.Avatars.Load();
@@ -341,16 +374,19 @@ public sealed partial class AvatarService : IAvatarService
             }
 
             var booth = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
+            var aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
+                ? BuildAliasesFromBooth(booth)
+                : [];
+
             entries[id] = new AvatarRegistryEntry
             {
                 ItemId = id,
-                DisplayName = booth.Name,
+                BoothName = booth.Name,
+                DisplayName = AvatarText.ShortenName(booth.Name, aliases.Select(alias => alias.Text)),
                 Category = booth.Category?.Name,
                 CheckedAt = DateTimeOffset.Now,
                 // 別名はアバターにだけ持たせる。依存ツールの名前で照合しても意味が無い
-                Aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
-                    ? BuildAliasesFromBooth(booth)
-                    : [],
+                Aliases = aliases,
             };
         }
 

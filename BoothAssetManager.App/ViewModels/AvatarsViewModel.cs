@@ -28,7 +28,11 @@ public sealed class AvatarRowViewModel : ViewModelBase
         ? $"{Summary.DirectCount} + 素体経由 {Summary.ViaBaseCount}"
         : $"{Summary.DirectCount}";
 
-    public string Initial => Name.Length == 0 ? "?" : Name[..1];
+    /// <summary>飾り記号を飛ばした頭文字。そのままだと「【」ばかり並ぶ</summary>
+    public string Initial => AvatarText.InitialOf(Name);
+
+    /// <summary>BOOTHの正式名。短い表示名だけでは分からないときのために持ち回る</summary>
+    public string BoothName => Summary.Entry.BoothName ?? string.Empty;
 }
 
 /// <summary>素体グループの1行。</summary>
@@ -74,6 +78,7 @@ public sealed class AvatarsViewModel : ViewModelBase
     private string _query = string.Empty;
     private string _baseInput = string.Empty;
     private string _aliasInput = string.Empty;
+    private string _nameInput = string.Empty;
     private List<AvatarRowViewModel> _all = [];
 
     public AvatarsViewModel(AppServiceContainer services, MainViewModel main)
@@ -85,6 +90,7 @@ public sealed class AvatarsViewModel : ViewModelBase
         SetBaseCommand = new RelayCommand(() => _ = SetBaseAsync());
         ClearBaseCommand = new RelayCommand(() => _ = ClearBaseAsync());
         AddAliasCommand = new RelayCommand(() => _ = AddAliasAsync());
+        RenameCommand = new RelayCommand(() => _ = RenameAsync());
         RemoveAliasCommand = new RelayCommand(parameter => _ = RemoveAliasAsync(parameter as string));
         ToggleOwnedCommand = new RelayCommand(() => _ = ToggleOwnedAsync());
         RecheckCommand = new RelayCommand(() => _ = RecheckAsync());
@@ -116,6 +122,8 @@ public sealed class AvatarsViewModel : ViewModelBase
     public RelayCommand ClearBaseCommand { get; }
 
     public RelayCommand AddAliasCommand { get; }
+
+    public RelayCommand RenameCommand { get; }
 
     public RelayCommand RemoveAliasCommand { get; }
 
@@ -199,6 +207,13 @@ public sealed class AvatarsViewModel : ViewModelBase
         set => SetField(ref _aliasInput, value);
     }
 
+    /// <summary>表示名の編集欄。BOOTHの正式名は別に残す。</summary>
+    public string NameInput
+    {
+        get => _nameInput;
+        set => SetField(ref _nameInput, value);
+    }
+
     public AvatarRowViewModel? Selected
     {
         get => _selected;
@@ -208,6 +223,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             {
                 BaseInput = value?.Summary.Entry.BaseName ?? string.Empty;
                 AliasInput = string.Empty;
+                NameInput = value?.Name ?? string.Empty;
 
                 foreach (var name in new[]
                 {
@@ -215,6 +231,7 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(SelectedCategoryText), nameof(SelectedCountText), nameof(Aliases),
                     nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText),
                     nameof(SelectedCheckedText), nameof(SelectedBaseNote), nameof(HasSelectedBaseNote),
+                    nameof(SelectedBoothName), nameof(HasSelectedBoothName),
                 })
                 {
                     OnPropertyChanged(name);
@@ -228,6 +245,11 @@ public sealed class AvatarsViewModel : ViewModelBase
     public string SelectedName => Selected?.Name ?? string.Empty;
 
     public string SelectedIdText => Selected is null ? string.Empty : $"ID {Selected.ItemId}";
+
+    /// <summary>BOOTHの正式名。表示名を短くしている分、元の名前も読めるようにする。</summary>
+    public string SelectedBoothName => Selected?.BoothName ?? string.Empty;
+
+    public bool HasSelectedBoothName => SelectedBoothName.Length > 0 && SelectedBoothName != SelectedName;
 
     /// <summary>BOOTHのcategoryはそのまま出す。判定の根拠が読めるようにするため。</summary>
     public string SelectedCategoryText => Selected?.Summary.Entry.Category ?? "（販売終了などで確認できていません）";
@@ -495,6 +517,17 @@ public sealed class AvatarsViewModel : ViewModelBase
     {
         var updated = await _services.Avatars.DeleteBaseAsync(name);
         Status = $"「{name}」を消しました（商品 {updated} 件を書き換え）。";
+        await LoadAsync();
+    }
+
+    private async Task RenameAsync()
+    {
+        if (Selected is null || NameInput.Trim().Length == 0)
+        {
+            return;
+        }
+
+        await _services.Avatars.SetDisplayNameAsync(Selected.ItemId, NameInput);
         await LoadAsync();
     }
 

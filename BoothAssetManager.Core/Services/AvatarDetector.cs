@@ -202,6 +202,90 @@ public static class AvatarText
     /// <summary>別名として使うには一般的すぎるか。</summary>
     public static bool IsGenericName(string? text) => GenericNames.Contains(Normalize(text));
 
+    /// <summary>
+    /// 表示に使う短い名前を決める。
+    ///
+    /// BOOTHの正式名は「【くうた-Kuuta-】オリジナル3Dモデル #Kuuta3D」のように
+    /// 飾りと定型句が多く、一覧や絞り込みの表示に使うと読めない。
+    /// 商品名の中に現れるタグ（＝別名）のうち最も短いものが、たいてい呼び名そのものになる。
+    /// </summary>
+    public static string ShortenName(string? boothName, IEnumerable<string>? aliases = null)
+    {
+        var name = (boothName ?? string.Empty).Trim();
+
+        var candidate = aliases?
+            .Where(alias => !string.IsNullOrWhiteSpace(alias)
+                && alias.Length >= 2
+                && !IsGenericName(alias)
+                && Normalize(name).Contains(Normalize(alias), StringComparison.Ordinal))
+            .OrderBy(alias => alias.Length)
+            .ThenBy(alias => alias, StringComparer.CurrentCulture)
+            .FirstOrDefault();
+
+        if (candidate is not null)
+        {
+            return candidate;
+        }
+
+        // 別名が無ければ、先頭の【…】の中身を採る。名前がそこに入っていることが多い。
+        // ただし「【無料】」のような宣伝語のこともあるので、その場合は外して次を見る
+        for (var i = 0; i < 4; i++)
+        {
+            var bracketed = Regex.Match(name, @"^\s*[【「『\[（(]([^】」』\]）)]{1,24})[】」』\]）)]\s*");
+            if (!bracketed.Success)
+            {
+                break;
+            }
+
+            var inside = bracketed.Groups[1].Value.Trim();
+
+            if (!IsBracketNoise(inside) && inside.Length >= 2)
+            {
+                return inside;
+            }
+
+            name = name[bracketed.Length..].Trim();
+        }
+
+        return name;
+    }
+
+    /// <summary>
+    /// 商品名の頭の【…】に入りがちな、名前ではない語。
+    /// 「【無料】lilToon」を「無料」と呼んでしまわないために要る。
+    /// </summary>
+    private static readonly HashSet<string> BracketNoiseWords = new(StringComparer.Ordinal)
+    {
+        "無料", "有料", "期間限定", "限定", "新作", "セール", "値下げ", "再販", "予約",
+        "販売中", "更新", "new", "free", "sale", "ma対応", "pb対応", "quest対応",
+        "vrchat想定", "vrc想定", "vrchat", "vrc", "vrchat向け", "3d", "3dモデル",
+    };
+
+    private static bool IsBracketNoise(string inside)
+    {
+        var normalized = Normalize(inside);
+        return normalized.Length == 0
+            || BracketNoiseWords.Contains(normalized)
+            || IsGenericName(inside);
+    }
+
+    /// <summary>
+    /// 一覧のタイルに出す頭文字。飾り記号を飛ばして最初の文字を採る
+    /// （そのままだと「【」ばかり並ぶ）。
+    /// </summary>
+    public static string InitialOf(string? text)
+    {
+        foreach (var ch in (text ?? string.Empty).Normalize(NormalizationForm.FormKC))
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                return ch.ToString();
+            }
+        }
+
+        return "?";
+    }
+
     private static readonly Regex BasePattern = new(
         @"^(?<name>.{1,16}?)(共通素体|素体)(対応版|対応)?$",
         RegexOptions.Compiled);

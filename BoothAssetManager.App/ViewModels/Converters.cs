@@ -77,3 +77,15 @@ public sealed class EmptyToCollapsedConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>空文字のときだけ見せる。入力欄の内側に出す案内文に使う。</summary>
+public sealed class EmptyToVisibleConverter : IValueConverter
+{
+    public static readonly EmptyToVisibleConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => string.IsNullOrEmpty(value as string) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

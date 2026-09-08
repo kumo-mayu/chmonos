@@ -216,3 +216,55 @@ public class AvatarDetectorTests
         Assert.Empty(index.FindAvatars("あいうえお"));
     }
 }
+
+public class AvatarNameShorteningTests
+{
+    /// <summary>
+    /// 表示名はBOOTHの正式名そのままだと読めない。
+    /// 商品名の中に現れるタグ（＝別名）のうち最も短いものが呼び名になる。
+    /// </summary>
+    [Fact]
+    public void PrefersTheShortestAliasFoundInTheName()
+    {
+        var name = "【くうた-Kuuta-】オリジナル3Dモデル #Kuuta3D";
+
+        Assert.Equal("くうた", AvatarText.ShortenName(name, ["kuuta3d", "くうた", "くうた対応"]));
+    }
+
+    /// <summary>商品名に現れない別名は採らない（他の商品から覚えた表記が混ざるため）。</summary>
+    [Fact]
+    public void IgnoresAliasesNotInTheName()
+    {
+        Assert.Equal("マヌカ", AvatarText.ShortenName("【マヌカ】オリジナル3Dモデル", ["まめひなた", "マヌカ"]));
+    }
+
+    /// <summary>別名が無ければ先頭の【…】を採る。</summary>
+    [Fact]
+    public void FallsBackToTheLeadingBracket()
+    {
+        Assert.Equal("ミルフィ Milfy", AvatarText.ShortenName("【ミルフィ Milfy】オリジナル3Dモデル"));
+    }
+
+    /// <summary>「【無料】lilToon」を「無料」と呼んでしまわない。</summary>
+    [Theory]
+    [InlineData("【無料】lilToon", "lilToon")]
+    [InlineData("【期間限定】【セール】あるアバター", "あるアバター")]
+    [InlineData("【VRChat想定】【マヌカ】衣装", "マヌカ")]
+    public void SkipsMarketingBrackets(string name, string expected)
+        => Assert.Equal(expected, AvatarText.ShortenName(name));
+
+    [Fact]
+    public void KeepsPlainNamesAsIs()
+        => Assert.Equal("ミルフィ Milfy / オリジナル3Dモデル",
+            AvatarText.ShortenName("ミルフィ Milfy / オリジナル3Dモデル"));
+
+    /// <summary>頭文字は飾り記号を飛ばす。そのままだと「【」ばかり並ぶ。</summary>
+    [Theory]
+    [InlineData("【くうた】", "く")]
+    [InlineData("✿マヌカ✿", "マ")]
+    [InlineData("Kipfel", "K")]
+    [InlineData("", "?")]
+    [InlineData("★☆♪", "?")]
+    public void TakesTheFirstRealCharacterAsInitial(string input, string expected)
+        => Assert.Equal(expected, AvatarText.InitialOf(input));
+}
