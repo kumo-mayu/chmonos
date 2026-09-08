@@ -203,37 +203,62 @@ public sealed class ShopService : IShopService
         CancellationToken cancellationToken = default)
     {
         var path = _store.Paths.ShopBannerFile(subdomain);
-        if (File.Exists(path))
-        {
-            return path;
-        }
+        var local = Existing(path);
 
         var records = _store.ShopBanners.Load();
         var known = records.FirstOrDefault(record =>
             string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
 
-        // 「無い」と分かっているショップは、毎回100KB超を読み直さない
-        if (known is { HasBanner: false })
+        // 確かめてから日が浅いうちは見に行かない。ページ1枚ぶんの通信が要るため
+        var recheckAfter = TimeSpan.FromDays(Math.Max(1, _settings.ShopBannerRecheckDays));
+        if (known is not null && DateTimeOffset.Now - known.CheckedAt < recheckAfter)
         {
-            return null;
+            return local;
         }
 
-        var sourceUrl = await FindBannerUrlAsync(subdomain, cancellationToken);
-        var saved = sourceUrl is not null
-            && await images.SyncShopBannerAsync(subdomain, sourceUrl, cancellationToken);
+        var lookup = await FindBannerUrlAsync(subdomain, cancellationToken);
+
+        // 通信に失敗しただけのときは何も決めない。ここで「バナー無し」と記録すると、
+        // たまたま繋がらなかった一回のせいで、次に確かめるまで出なくなってしまう
+        if (lookup.Status == BannerLookupStatus.Failed)
+        {
+            return local;
+        }
+
+        var sourceUrl = lookup.Url;
+        var hasBanner = lookup.Status == BannerLookupStatus.Found;
+
+        // 同じURLのものを既に持っていれば、落とし直さずに日付だけ更新する
+        var alreadyHave = hasBanner
+            && local is not null
+            && string.Equals(known?.SourceUrl, sourceUrl, StringComparison.Ordinal);
+
+        if (hasBanner && !alreadyHave)
+        {
+            if (await images.SyncShopBannerAsync(subdomain, sourceUrl!, cancellationToken))
+            {
+                local = path;
+            }
+            else
+            {
+                // 画像だけ取れなかった。次に開いたときにやり直せるよう、記録は残さない
+                return local;
+            }
+        }
 
         records.RemoveAll(record => string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
         records.Add(new ShopBannerRecord
         {
             Subdomain = subdomain,
-            HasBanner = saved,
-            SourceUrl = sourceUrl,
+            HasBanner = hasBanner,
+            SourceUrl = sourceUrl ?? known?.SourceUrl,
             CheckedAt = DateTimeOffset.Now,
         });
 
         await _store.ShopBanners.SaveAsync(records, cancellationToken);
 
-        return saved ? path : null;
+        // BOOTH側から消えていても、手元にあるものは消さずに出す（商品画像と同じ扱い）
+        return local;
     }
 
     /// <summary>
@@ -242,11 +267,11 @@ public sealed class ShopService : IShopService
     /// ショップのルート（<c>https://{sub}.booth.pm/</c>）はCloudflareに弾かれるが、
     /// <c>/items</c> は普通に返る。
     /// </summary>
-    private async Task<string?> FindBannerUrlAsync(string subdomain, CancellationToken cancellationToken)
+    private async Task<BannerLookup> FindBannerUrlAsync(string subdomain, CancellationToken cancellationToken)
     {
         if (_client is null)
         {
-            return null;
+            return new BannerLookup(BannerLookupStatus.Failed, null);
         }
 
         var result = await _client.GetTextUntilAsync(
@@ -256,12 +281,29 @@ public sealed class ShopService : IShopService
 
         if (!result.IsSuccess || result.Value is null)
         {
-            return null;
+            return new BannerLookup(BannerLookupStatus.Failed, null);
         }
 
         var match = BannerPattern.Match(result.Value);
-        return match.Success ? System.Net.WebUtility.HtmlDecode(match.Groups[1].Value) : null;
+
+        // ページは読めた。バナーが見当たらなければ「置いていない」と判断してよい
+        return match.Success
+            ? new BannerLookup(BannerLookupStatus.Found, System.Net.WebUtility.HtmlDecode(match.Groups[1].Value))
+            : new BannerLookup(BannerLookupStatus.NotPresent, null);
     }
+
+    /// <summary>
+    /// バナー探しの結果。「置いていない」と「見に行けなかった」を分ける。
+    /// 一緒くたにすると、繋がらなかっただけのショップを「バナー無し」と覚えてしまう。
+    /// </summary>
+    private enum BannerLookupStatus
+    {
+        Found,
+        NotPresent,
+        Failed,
+    }
+
+    private readonly record struct BannerLookup(BannerLookupStatus Status, string? Url);
 
     /// <summary>ショップのヘッダ画像。classが先、srcが後という並びで出てくる。</summary>
     private static readonly System.Text.RegularExpressions.Regex BannerPattern = new(

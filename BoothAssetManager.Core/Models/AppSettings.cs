@@ -100,6 +100,13 @@ public sealed record AppSettings
     public int ShopBannerMaxEdgePixels { get; init; } = 1200;
 
     /// <summary>
+    /// ショップのバナーを確かめ直すまでの日数。
+    /// 後から付けたショップもあれば、差し替えられることもあるので、一度の結果で決めつけない。
+    /// 毎回見に行くとページ1枚ぶんの通信が要るため、間隔を空ける。
+    /// </summary>
+    public int ShopBannerRecheckDays { get; init; } = 30;
+
+    /// <summary>
     /// 復号済みサムネイルを保持する上限（MB）。超えたら最後に見てから古いものから捨てる。
     /// 保持しているのは圧縮前の生ピクセルで、ディスク上の30倍以上になる点に注意。
     /// </summary>

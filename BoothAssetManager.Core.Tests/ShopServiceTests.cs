@@ -1,3 +1,4 @@
+using SixLabors.ImageSharp;
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
@@ -31,20 +32,31 @@ public class ShopServiceTests : IDisposable
         }
     }
 
-    private ShopService Create(bool showAdult = true, IBoothClient? client = null)
-        => new(_store, new AppSettings { ShowAdult = showAdult }, client);
+    private ShopService Create(bool showAdult = true, IBoothClient? client = null, int recheckDays = 30)
+        => new(
+            _store,
+            new AppSettings { ShowAdult = showAdult, ShopBannerRecheckDays = recheckDays },
+            client);
 
     /// <summary>ショップページのHTMLを返すだけの偽物。受信量も数える。</summary>
     private sealed class FakeBoothClient : IBoothClient
     {
-        private readonly string _html;
+        private string _html;
 
         public FakeBoothClient(string html) => _html = html;
 
         public int Requests { get; private set; }
 
+        /// <summary>取得そのものを失敗させる。通信できなかった場合の扱いを見るため。</summary>
+        public bool Fails { get; set; }
+
+        /// <summary>画像の取得も成功させるか。既定は失敗（記録だけを見たいとき用）。</summary>
+        public byte[]? Image { get; set; }
+
         /// <summary>打ち切りが効いているか見るため、実際に渡した文字数を記録する。</summary>
         public int DeliveredChars { get; private set; }
+
+        public void SetPage(string html) => _html = html;
 
         public Task<BoothFetchResult<string>> GetTextUntilAsync(
             string url,
@@ -53,6 +65,11 @@ public class ShopServiceTests : IDisposable
             CancellationToken cancellationToken = default)
         {
             Requests++;
+
+            if (Fails)
+            {
+                return Task.FromResult(BoothFetchResult<string>.Temporary("繋がらなかった"));
+            }
 
             // 実物と同じく、少しずつ足しながら見つかった時点で止める
             var text = new System.Text.StringBuilder();
@@ -84,7 +101,9 @@ public class ShopServiceTests : IDisposable
             => throw new NotSupportedException();
 
         public Task<BoothFetchResult<byte[]>> GetBinaryAsync(string url, CancellationToken cancellationToken = default)
-            => Task.FromResult(BoothFetchResult<byte[]>.Temporary("画像は取りに行かない"));
+            => Task.FromResult(Image is null
+                ? BoothFetchResult<byte[]>.Temporary("画像は取りに行かない")
+                : BoothFetchResult<byte[]>.Success(Image));
 
         public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -316,9 +335,11 @@ public class ShopServiceTests : IDisposable
     public async Task StopsReadingOnceTheBannerIsFound()
     {
         const string Url = "https://s6.booth.pm/aaa/bbb.png";
-        var client = new FakeBoothClient(PageWithBanner(Url));
+        var client = new FakeBoothClient(PageWithBanner(Url))
+        {
+            Image = await File.ReadAllBytesAsync(WritePng()),
+        };
 
-        // 画像の取得は失敗させてあるので、記録だけを見る
         await Create(client: client).EnsureBannerAsync("shop", new ImagePipeline(client, _store.Paths));
 
         Assert.Equal(1, client.Requests);
@@ -331,8 +352,8 @@ public class ShopServiceTests : IDisposable
     }
 
     /// <summary>
-    /// バナーを置いていないショップは、無いと分かった時点で記録する。
-    /// 確かめるには最後まで読むしかないので、二度は探しに行かない。
+    /// バナーを置いていないショップは記録して、しばらくは探しに行かない。
+    /// 確かめるにはページを最後まで読むしかないので、毎回は見に行けない。
     /// </summary>
     [Fact]
     public async Task RemembersThatAShopHasNoBanner()
@@ -348,9 +369,126 @@ public class ShopServiceTests : IDisposable
         Assert.False(record.HasBanner);
         Assert.Null(record.SourceUrl);
 
-        // 2回目は取りに行かない
+        // 期間内は取りに行かない
         Assert.Null(await service.EnsureBannerAsync("shop", images));
         Assert.Equal(1, client.Requests);
+    }
+
+    /// <summary>
+    /// 期間が過ぎたら見に行き直す。後からバナーを付けるショップもあるので、
+    /// 一度「無い」と分かっただけで永久に決めつけない。
+    /// </summary>
+    [Fact]
+    public async Task LooksAgainAfterTheRecheckPeriod()
+    {
+        var client = new FakeBoothClient(new string('x', 60000));
+        var images = new ImagePipeline(client, _store.Paths);
+
+        Assert.Null(await Create(client: client).EnsureBannerAsync("shop", images));
+        Assert.Equal(1, client.Requests);
+
+        // 確かめた日を過去にずらす（期間が過ぎた状態にする）
+        var stale = _store.ShopBanners.Load()
+            .Select(record => record with { CheckedAt = DateTimeOffset.Now.AddDays(-40) })
+            .ToList();
+
+        await _store.ShopBanners.SaveAsync(stale);
+
+        await Create(client: client, recheckDays: 30).EnsureBannerAsync("shop", images);
+        Assert.Equal(2, client.Requests);
+    }
+
+    /// <summary>
+    /// 繋がらなかっただけのときは何も決めない。
+    /// ここで「バナー無し」と覚えると、一度の不調で次に確かめるまで出なくなる。
+    /// </summary>
+    [Fact]
+    public async Task DoesNotRecordAnythingWhenTheFetchFailed()
+    {
+        var client = new FakeBoothClient(PageWithBanner("https://s6.booth.pm/a/b.png")) { Fails = true };
+        var service = Create(client: client);
+        var images = new ImagePipeline(client, _store.Paths);
+
+        Assert.Null(await service.EnsureBannerAsync("shop", images));
+        Assert.Empty(_store.ShopBanners.Load());
+
+        // 次に開いたときはもう一度試す
+        Assert.Null(await service.EnsureBannerAsync("shop", images));
+        Assert.Equal(2, client.Requests);
+    }
+
+    /// <summary>画像だけ取れなかったときも記録しない。次に開いたときにやり直せるように。</summary>
+    [Fact]
+    public async Task DoesNotRecordWhenOnlyTheImageFailed()
+    {
+        var client = new FakeBoothClient(PageWithBanner("https://s6.booth.pm/a/b.png"));
+        var service = Create(client: client);
+
+        Assert.Null(await service.EnsureBannerAsync("shop", new ImagePipeline(client, _store.Paths)));
+        Assert.Empty(_store.ShopBanners.Load());
+    }
+
+    /// <summary>
+    /// BOOTH側からバナーが消えても、手元のものは残して出し続ける。
+    /// 消えた画像は取り直せないので、商品画像と同じくアーカイブとして扱う。
+    /// </summary>
+    [Fact]
+    public async Task KeepsTheLocalBannerAfterItDisappearsFromBooth()
+    {
+        var client = new FakeBoothClient(PageWithBanner("https://s6.booth.pm/a/b.png"))
+        {
+            Image = await File.ReadAllBytesAsync(WritePng()),
+        };
+
+        var images = new ImagePipeline(client, _store.Paths);
+
+        var path = await Create(client: client).EnsureBannerAsync("shop", images);
+        Assert.NotNull(path);
+        Assert.True(File.Exists(path));
+
+        // BOOTH側からバナーが消え、期間も過ぎた状態にする
+        client.SetPage(new string('x', 60000));
+        await _store.ShopBanners.SaveAsync(_store.ShopBanners.Load()
+            .Select(record => record with { CheckedAt = DateTimeOffset.Now.AddDays(-40) })
+            .ToList());
+
+        var again = await Create(client: client).EnsureBannerAsync("shop", images);
+
+        Assert.Equal(path, again);
+        Assert.False(Assert.Single(_store.ShopBanners.Load()).HasBanner);
+    }
+
+    /// <summary>同じURLのままなら落とし直さない。日付だけ新しくする。</summary>
+    [Fact]
+    public async Task DoesNotDownloadAgainWhenTheUrlIsUnchanged()
+    {
+        var client = new FakeBoothClient(PageWithBanner("https://s6.booth.pm/a/b.png"))
+        {
+            Image = await File.ReadAllBytesAsync(WritePng()),
+        };
+
+        var images = new ImagePipeline(client, _store.Paths);
+        await Create(client: client).EnsureBannerAsync("shop", images);
+
+        var savedAt = File.GetLastWriteTimeUtc(_store.Paths.ShopBannerFile("shop"));
+
+        await _store.ShopBanners.SaveAsync(_store.ShopBanners.Load()
+            .Select(record => record with { CheckedAt = DateTimeOffset.Now.AddDays(-40) })
+            .ToList());
+
+        await Create(client: client).EnsureBannerAsync("shop", images);
+
+        Assert.Equal(savedAt, File.GetLastWriteTimeUtc(_store.Paths.ShopBannerFile("shop")));
+        Assert.True(Assert.Single(_store.ShopBanners.Load()).CheckedAt > DateTimeOffset.Now.AddDays(-1));
+    }
+
+    /// <summary>変換できる最小のPNGを1枚置く。</summary>
+    private string WritePng()
+    {
+        var path = Path.Combine(_root, "banner-source.png");
+        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(1500, 500);
+        image.SaveAsPng(path);
+        return path;
     }
 
     /// <summary>取得手段が無いとき（テストや将来の切り離し）に落ちない。</summary>

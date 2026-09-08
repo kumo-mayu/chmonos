@@ -53,12 +53,21 @@ public sealed record ShopBannerRecord
 {
     public required string Subdomain { get; init; }
 
-    /// <summary>そもそもバナーを置いているショップか。false なら取りに行かない。</summary>
+    /// <summary>
+    /// 最後に見たとき、BOOTHにバナーが置いてあったか。
+    /// false でも手元のファイルは消さない（BOOTH側から消えた画像は取り直せないため、
+    /// 商品画像と同じくアーカイブとして残す）。
+    /// </summary>
     public required bool HasBanner { get; init; }
 
     /// <summary>取得元。差し替えられたかを次回に見分けるために残す。</summary>
     public string? SourceUrl { get; init; }
 
+    /// <summary>
+    /// 最後に確かめた日時。一定期間が過ぎたら見に行き直す。
+    /// 後から付けたショップもあれば、たまたまその時だけ出ていなかったこともあるので、
+    /// 一度の結果で永久に決めつけない。通信に失敗したときはここを更新しない。
+    /// </summary>
     public required DateTimeOffset CheckedAt { get; init; }
 }
 
