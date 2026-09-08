@@ -180,3 +180,52 @@ public class AvatarServiceRuleTests
         Assert.False(AvatarService.IsAvatar(Entry("3Dキャラクター", avatarOverride: false)));
     }
 }
+
+public class AvatarBaseSeedTests
+{
+    /// <summary>初期辞書は空の登録簿に足される。</summary>
+    [Fact]
+    public void AddsSeedGroupsToAnEmptyRegistry()
+    {
+        var groups = new List<AvatarBaseGroup>();
+
+        var added = AvatarBaseSeed.Merge(groups);
+
+        Assert.Equal(AvatarBaseSeed.Groups.Count, added);
+        Assert.Contains(groups, group => group.Name == "まめふれんず");
+    }
+
+    /// <summary>
+    /// 既にある名前には触らない。ユーザが inferClothing を切り替えていても保つ。
+    /// </summary>
+    [Fact]
+    public void KeepsWhatTheUserAlreadyHas()
+    {
+        var groups = new List<AvatarBaseGroup>
+        {
+            new() { Name = "+Head", InferClothing = true, Memo = "自分で直した" },
+        };
+
+        AvatarBaseSeed.Merge(groups);
+
+        var head = groups.Single(group => group.Name == "+Head");
+        Assert.True(head.InferClothing);
+        Assert.Equal("自分で直した", head.Memo);
+    }
+
+    /// <summary>+Head は頭部の規格なので、衣装の互換は広げない。</summary>
+    [Fact]
+    public void PartStandardsDoNotSpreadClothing()
+    {
+        var head = AvatarBaseSeed.Groups.Single(group => group.Name == "+Head");
+
+        Assert.False(head.InferClothing);
+    }
+
+    /// <summary>ほかは既定どおり衣装を広げる。</summary>
+    [Fact]
+    public void BodyBasesSpreadClothing()
+        => Assert.All(
+            AvatarBaseSeed.Groups.Where(group => group.Name != "+Head"),
+            group => Assert.True(group.InferClothing));
+}

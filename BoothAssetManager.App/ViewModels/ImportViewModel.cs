@@ -2,6 +2,7 @@ using System.IO;
 using System.Collections.ObjectModel;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Scanning;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
 
@@ -474,6 +475,9 @@ public sealed class ImportViewModel : ViewModelBase
 
                 OnPropertyChanged(nameof(HasUnpackedFolders));
                 RaiseSelectionChanged();
+
+                await DetectAvatarsAsync(_cancellation.Token);
+
                 PhaseText = "完了";
                 DetailText = string.Empty;
                 await _main.ReloadLibraryAsync();
@@ -496,6 +500,57 @@ public sealed class ImportViewModel : ViewModelBase
             IsRunning = false;
         }
     }
+
+    /// <summary>
+    /// 取り込みの続きとして対応アバターを検出する。
+    ///
+    /// 取り込んだ直後は説明文もタグも手元にあるので、ほとんどが通信なしで済む。
+    /// BOOTHへ問い合わせるのは、まだ種類の分からない商品IDだけ。
+    /// 失敗しても取り込み自体は成功しているので、ここでは止めずに知らせるだけにする。
+    /// </summary>
+    private async Task DetectAvatarsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var progress = new Progress<AvatarDetectProgress>(report =>
+            {
+                PhaseText = "4. 対応アバターを検出";
+                DetailText = $"{report.Phase}　{report.Done} / {report.Total}";
+            });
+
+            var result = await _services.Avatars.DetectAsync(progress, cancellationToken);
+
+            AvatarSummaryText = result.ItemsUpdated == 0
+                ? "対応アバターは見つかりませんでした。"
+                : $"対応アバターを {result.ItemsUpdated} 件の商品に書きました（アバター {result.AvatarsFound} 体）。";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            // 取り込みは終わっている。検出はアバター画面からやり直せる
+            AvatarSummaryText = $"対応アバターの検出は途中で止まりました：{exception.Message}";
+        }
+    }
+
+    private string _avatarSummaryText = string.Empty;
+
+    /// <summary>取り込みの後に走らせた検出の結果。</summary>
+    public string AvatarSummaryText
+    {
+        get => _avatarSummaryText;
+        private set
+        {
+            if (SetField(ref _avatarSummaryText, value))
+            {
+                OnPropertyChanged(nameof(HasAvatarSummary));
+            }
+        }
+    }
+
+    public bool HasAvatarSummary => AvatarSummaryText.Length > 0;
 
     private static string FormatSize(long bytes)
     {

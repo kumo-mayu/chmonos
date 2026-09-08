@@ -256,8 +256,12 @@ public sealed partial class AvatarService : IAvatarService
         var registry = _store.Avatars.Load();
 
         var entries = registry.Entries.ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
-        var groups = registry.BaseGroups
-            .ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
+        // 名前が定着している共通素体を最初だけ足す。既にある名前には触らない。
+        // 素体の関係はBOOTHのデータからは取れないので、空から始めると何も出ない
+        var seeded = registry.BaseGroups.ToList();
+        AvatarBaseSeed.Merge(seeded);
+
+        var groups = seeded.ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
 
         // 索引に載せるのはアバターと判定できたものだけ。
         // 依存ツールやテクスチャの名前が混ざると、そちらに引っ掛かって別名が汚れる

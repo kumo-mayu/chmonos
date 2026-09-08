@@ -239,6 +239,94 @@
                         </StackPanel>
                     </Border>
 
+                    <!--
+                        対応アバター。出品者の宣言（上）と、自分が着せている記録（下）を分ける。
+                        混ぜると「誰が言っていることなのか」が分からなくなる。
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="対応アバター" FontWeight="Bold" />
+                            <TextBlock Text="{Binding AvatarSectionNote}" Style="{StaticResource Caption}"
+                                       Margin="0,5,0,0" TextWrapping="Wrap" />
+
+                            <ItemsControl ItemsSource="{Binding Avatars}" Margin="0,10,0,0"
+                                          Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:AvatarRow}">
+                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                                                <!-- 推定は確定と同じ顔で出さない -->
+                                                <TextBlock Text="{Binding SourceText}" FontSize="10" Margin="7,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource TextFaint}" />
+                                                <TextBlock Text="要確認" FontSize="10" Margin="6,0,0,0"
+                                                           VerticalAlignment="Center" Foreground="{StaticResource Warn}"
+                                                           Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <ItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0"
+                                          Visibility="{Binding HasAvatarBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
+                                                <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
+                                                           VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Height="1" Background="#f0f1f4" Margin="0,12,0,12" />
+
+                            <TextBlock Text="着せているアバター" FontWeight="Bold" FontSize="12.5" />
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
+                                       Text="自分が実際に着せている記録です。出品者が対応と書いていないアバターでも入れられます（検出で消えることはありません）。" />
+
+                            <ItemsControl ItemsSource="{Binding UsedOn}" Margin="0,10,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:AvatarUsageRow}">
+                                        <Grid Margin="0,0,0,6">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,60,0">
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           Visibility="{Binding HasNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                            <Button Content="外す" Style="{StaticResource SmallButton}"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <controls:SuggestBox Source="{Binding AvatarSuggestions}"
+                                                 CommitCommand="{Binding AddUsedOnCommand}"
+                                                 AllowNew="False" Margin="0,8,0,0"
+                                                 Placeholder="着せているアバターを足す" />
+                        </StackPanel>
+                    </Border>
+
                     <!-- 属性 -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16"
                             Visibility="{Binding HasAttributes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

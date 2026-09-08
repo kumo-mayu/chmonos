@@ -101,6 +101,15 @@
                         Visibility="{Binding HasSummary, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <StackPanel>
                         <TextBlock Text="結果" FontWeight="Bold" FontSize="13" Margin="0,0,0,12" />
+
+                        <!-- 取り込みの続きに走らせた対応アバターの検出。何をしたか分かるように出す -->
+                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,0,0,14"
+                                Visibility="{Binding HasAvatarSummary, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding AvatarSummaryText}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="#28507f" />
+                        </Border>
+
                         <UniformGrid Columns="4" Rows="3">
                             <StackPanel Margin="0,0,12,10">
                                 <TextBlock Text="走査したファイル" Style="{StaticResource Caption}" />

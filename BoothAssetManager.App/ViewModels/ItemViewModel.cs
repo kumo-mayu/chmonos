@@ -135,6 +135,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             parameter => _ = UnregisterFolderAsync(parameter as string),
             parameter => parameter is string);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
+        AddUsedOnCommand = new RelayCommand(parameter => _ = AddUsedOnAsync(parameter as string));
 
         BuildGallery();
         BuildVariations();
@@ -142,7 +143,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         BuildLocalFolders();
     }
 
-    public ItemRecord Item { get; }
+    public ItemRecord Item { get; private set; }
 
     public RelayCommand BackCommand { get; }
 
@@ -225,6 +226,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             IsRefreshing = false;
         }
     }
+
+    /// <summary>着せているアバターを足す。候補から選ぶ（登録簿に無い名前は受け取らない）。</summary>
+    public RelayCommand AddUsedOnCommand { get; }
 
     public RelayCommand OpenBoothCommand { get; }
 
@@ -313,9 +317,30 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public bool HasMemo => !string.IsNullOrWhiteSpace(Item.Local.Memo);
 
-    public IReadOnlyList<AvatarLink> Avatars => Item.Local.Avatars;
+    /// <summary>出品者が宣言している対応アバター。こちらは編集しない。</summary>
+    public IReadOnlyList<AvatarRow> Avatars { get; private set; } = [];
 
-    public bool HasAvatars => Item.Local.Avatars.Count > 0;
+    public bool HasAvatars => Avatars.Count > 0;
+
+    /// <summary>この商品が名指ししている共通素体。</summary>
+    public IReadOnlyList<string> AvatarBases { get; private set; } = [];
+
+    public bool HasAvatarBases => AvatarBases.Count > 0;
+
+    /// <summary>
+    /// 自分が実際に着せているアバター。出品者の宣言とは別に持つ。
+    /// 非対応衣装を着せることがあるので、宣言に無いアバターも入れられる。
+    /// </summary>
+    public ObservableCollection<AvatarUsageRow> UsedOn { get; } = [];
+
+    public bool HasUsedOn => UsedOn.Count > 0;
+
+    /// <summary>入力の候補。所有しているアバターを先に出す。</summary>
+    public IReadOnlyList<string> AvatarSuggestions { get; private set; } = [];
+
+    public string AvatarSectionNote => HasAvatars || HasAvatarBases
+        ? "出品者が対応と書いているアバターです。"
+        : "出品者の対応表明は見つかっていません。アバターの管理から検出できます。";
 
     public IReadOnlyList<AttributeBar> Attributes { get; private set; } = [];
 
@@ -443,6 +468,140 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             .OrderByDescending(pair => pair.Value)
             .Select(pair => new AttributeBar { Name = pair.Key, Value = pair.Value })
             .ToList();
+
+        BuildAvatars();
+    }
+
+    /// <summary>
+    /// 対応アバターまわりを組み立てる。
+    ///
+    /// 出品者の宣言（Avatars / AvatarBases）と、自分が着せている記録（UsedOn）を分けて出す。
+    /// 混ぜると「誰が言っていることなのか」が分からなくなる。
+    /// </summary>
+    private void BuildAvatars()
+    {
+        var registry = _services.Store.Avatars.Load();
+        var names = registry.Entries.ToDictionary(
+            entry => entry.ItemId,
+            entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId,
+            StringComparer.Ordinal);
+
+        string NameOf(string id, string? cached)
+            => names.TryGetValue(id, out var name) ? name : cached ?? id;
+
+        Avatars = Item.Local.Avatars
+            .Where(link => !link.Rejected)
+            .Select(link => new AvatarRow
+            {
+                ItemId = link.AvatarItemId,
+                Name = NameOf(link.AvatarItemId, link.Name),
+                SourceText = SourceLabel(link.Source),
+                IsUnconfirmed = !link.Confirmed,
+            })
+            .ToList();
+
+        AvatarBases = Item.Local.AvatarBases
+            .Where(link => !link.Rejected)
+            .Select(link => link.BaseName)
+            .ToList();
+
+        UsedOn.Clear();
+        foreach (var usage in Item.Local.UsedOn)
+        {
+            var id = usage.AvatarItemId;
+            UsedOn.Add(new AvatarUsageRow
+            {
+                ItemId = id,
+                Name = NameOf(id, null),
+                Note = usage.Note ?? string.Empty,
+                RemoveCommand = new RelayCommand(() => _ = RemoveUsedOnAsync(id)),
+            });
+        }
+
+        var already = UsedOn.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
+
+        // 候補は手元にあるアバターを先に。実際に着せる相手は自分の持ち物であることが多い
+        AvatarSuggestions = registry.Entries
+            .Where(entry => AvatarService.IsAvatar(entry) && !already.Contains(entry.ItemId))
+            .OrderByDescending(entry => entry.IsOwnedManually || _services.Store.Items.Exists(entry.ItemId))
+            .ThenBy(entry => entry.DisplayName ?? entry.ItemId, StringComparer.CurrentCulture)
+            .Select(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId)
+            .ToList();
+
+        foreach (var name in new[]
+        {
+            nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
+            nameof(HasUsedOn), nameof(AvatarSuggestions), nameof(AvatarSectionNote),
+        })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    private static string SourceLabel(AvatarLinkSource source) => source switch
+    {
+        AvatarLinkSource.SupportSection => "対応アバター節",
+        AvatarLinkSource.Tag => "タグ",
+        AvatarLinkSource.Variation => "バリエーション名",
+        AvatarLinkSource.H2Link => "説明文のリンク",
+        AvatarLinkSource.Manual => "手入力",
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// 「このアバターに着せている」を足す。名前から登録簿を引いてIDに直す。
+    /// 検出は UsedOn を触らないので、ここで足したものが消えることはない。
+    /// </summary>
+    private async Task AddUsedOnAsync(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        var registry = _services.Store.Avatars.Load();
+        var match = registry.Entries.FirstOrDefault(entry =>
+            string.Equals(entry.DisplayName, name, StringComparison.CurrentCultureIgnoreCase)
+            || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
+
+        if (match is null)
+        {
+            return;
+        }
+
+        if (Item.Local.UsedOn.Any(usage => usage.AvatarItemId == match.ItemId))
+        {
+            return;
+        }
+
+        var local = Item.Local with
+        {
+            UsedOn = [.. Item.Local.UsedOn, new AvatarUsage { AvatarItemId = match.ItemId }],
+        };
+
+        await SaveLocalAsync(local);
+    }
+
+    private async Task RemoveUsedOnAsync(string avatarItemId)
+    {
+        var local = Item.Local with
+        {
+            UsedOn = Item.Local.UsedOn.Where(usage => usage.AvatarItemId != avatarItemId).ToList(),
+        };
+
+        await SaveLocalAsync(local);
+    }
+
+    private async Task SaveLocalAsync(LocalBlock local)
+    {
+        await _services.Edit.SaveLocalAsync(Item.Id, local);
+
+        var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
+        if (reloaded is not null)
+        {
+            Item = reloaded;
+            BuildAvatars();
+        }
     }
 
     private void BuildVariations()
@@ -621,4 +780,31 @@ public sealed class AttributeBar
     public required int Value { get; init; }
 
     public double BarWidth => Value * 2.4;
+}
+
+/// <summary>商品ページに出す対応アバター1件（出品者の宣言）。</summary>
+public sealed class AvatarRow
+{
+    public required string ItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    /// <summary>どこから拾ったか。推定を確定と同じ顔で出さないために添える。</summary>
+    public required string SourceText { get; init; }
+
+    public bool IsUnconfirmed { get; init; }
+}
+
+/// <summary>自分が着せている記録1件。</summary>
+public sealed class AvatarUsageRow
+{
+    public required string ItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public string Note { get; init; } = string.Empty;
+
+    public bool HasNote => Note.Length > 0;
+
+    public RelayCommand? RemoveCommand { get; init; }
 }
