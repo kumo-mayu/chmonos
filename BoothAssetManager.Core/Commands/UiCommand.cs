@@ -126,6 +126,16 @@ public abstract record UiCommand
     /// <summary>フォルダの紐付けを解除する。zipを後から手に入れたときに使う。ファイルには触らない。</summary>
     public record UnregisterFolder(string ItemId, string FolderPath) : UiCommand;
 
+    /// <summary>
+    /// ファイルをこの商品から外して未確定へ戻す。間違った紐付けの直し方。
+    /// IDは書き換えない（他所から名前で参照されているため）。
+    /// </summary>
+    /// <param name="DeleteItemWhenEmpty">
+    /// 外した結果、手元に何も無くなるときに商品ごと消すか。
+    /// 情報だけ残す状態は贈った商品と同じで、それ自体は普通の状態なので既定では消さない。
+    /// </param>
+    public record DetachFile(string ItemId, string Hash, bool DeleteItemWhenEmpty = false) : UiCommand;
+
     /// <summary>要確認の既読・未読を切り替える。消さずに既読にするのは「見た」と「無かった」を分けるため。</summary>
     public record SetNotificationRead(string Id, bool IsRead) : UiCommand;
 
@@ -141,6 +151,9 @@ public abstract record CommandResult
     public record Imported(ImportSummary Summary) : CommandResult;
 
     public record ItemSaved(string ItemId) : CommandResult;
+
+    /// <summary>ファイルを外した結果。商品が空になったか、消したかまで返す。</summary>
+    public record FileDetached(string ItemId, Services.DetachOutcome Outcome) : CommandResult;
 
     /// <summary>指名された商品の画像を取り終えた。落とせた枚数を持つ。</summary>
     public record ImagesFetched(string ItemId, int Downloaded) : CommandResult;

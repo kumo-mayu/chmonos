@@ -31,6 +31,8 @@ public class CommandHandlerTests
     {
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
+        public Task<DetachOutcome> DetachFileAsync(string itemId, string hash, bool deleteItemWhenEmpty, CancellationToken cancellationToken = default) => Task.FromResult(DetachOutcome.Detached);
+
         public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(0);

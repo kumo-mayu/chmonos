@@ -171,6 +171,7 @@ public sealed class ImportPipeline : IImportPipeline
 
         var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
+        var detached = DetachedIndex.From(_store.Detached.Load());
 
         var totals = new ImportTotals();
 
@@ -184,7 +185,8 @@ public sealed class ImportPipeline : IImportPipeline
             var (registered, owned) = await LoadOwnedAsync(cancellationToken);
 
             var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
-            var resolution = await ResolveAsync(scan.Files, scanCache, exclusions, owned, progress, cancellationToken);
+            var resolution = await ResolveAsync(
+                scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
             await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
 
             // 未確定は積み上げる。前の周回で残ったものを消してはいけない
@@ -467,6 +469,7 @@ public sealed class ImportPipeline : IImportPipeline
         List<ScannedFile> scanned,
         ScanCacheIndex scanCache,
         ExclusionFilter exclusions,
+        DetachedIndex detached,
         IReadOnlySet<string> owned,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
@@ -526,7 +529,13 @@ public sealed class ImportPipeline : IImportPipeline
 
             var clues = InspectFile(file, out var contents);
             var zone = ZoneIdentifierReader.Read(file.Path);
-            var candidates = IdResolver.Resolve(zone, clues);
+
+            // 商品ページで外したものは候補から落とす。
+            // 外す操作が要るのは手掛かりが間違っている場合なので、
+            // ここで落とさないと次の取り込みで同じ商品へ戻ってしまう。
+            var candidates = IdResolver.Resolve(zone, clues)
+                .Where(candidate => !detached.IsDetached(hash, candidate.ItemId))
+                .ToList();
 
             if (candidates.Count == 1)
             {

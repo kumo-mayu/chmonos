@@ -68,6 +68,9 @@ public sealed class LocalFolderRow
 
 public sealed class LocalFileRow
 {
+    /// <summary>このファイルの同一性。商品から外すときに指す。</summary>
+    public required string Hash { get; init; }
+
     public required string FileName { get; init; }
 
     public required string SizeText { get; init; }
@@ -134,6 +137,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         UnregisterFolderCommand = new RelayCommand(
             parameter => _ = UnregisterFolderAsync(parameter as string),
             parameter => parameter is string);
+        DetachFileCommand = new RelayCommand(
+            parameter => _ = DetachFileAsync(parameter as LocalFileRow),
+            parameter => parameter is LocalFileRow);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
         AddUsedOnCommand = new RelayCommand(parameter => _ = AddUsedOnAsync(parameter as string));
@@ -285,6 +291,74 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         }
 
         await _services.Commands.ExecuteAsync(new UiCommand.UnregisterFolder(Item.Id, folderPath));
+
+        var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
+        if (reloaded is not null)
+        {
+            _main.ShowItem(reloaded);
+        }
+    }
+
+    public RelayCommand DetachFileCommand { get; }
+
+    /// <summary>
+    /// ファイルをこの商品から外して未確定へ戻す。間違って紐付いたものを直す唯一の道。
+    ///
+    /// **IDを書き換える形にはしない。**商品IDはファイル名にもフォルダ名にもなっていて、
+    /// 対応アバターの宣言など他所からも参照されている。書き換えると参照が迷子になる。
+    /// 「このファイルの行き先が違う」が本当にやりたいことなので、ファイルの側を動かす。
+    /// </summary>
+    private async Task DetachFileAsync(LocalFileRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"{row.FileName} をこの商品から外します。\n\n"
+            + "ファイルは消しません。未確定に戻るので、そこで正しい商品を選び直せます。\n"
+            + "次の取り込みでこの商品に戻ることもありません。",
+            "この商品から外す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        // 手元に何も無くなるときだけ、商品を残すか聞く。
+        // まだ他が残っていれば所持のままなので、聞くことが無い
+        var deleteWhenEmpty = false;
+        if (LocalFiles.Count == 1 && LocalFolders.Count == 0)
+        {
+            var keep = System.Windows.MessageBox.Show(
+                "これが最後のファイルなので、この商品は手元に何も無い状態になります。\n\n"
+                + "「はい」で商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。\n"
+                + "「いいえ」でこの商品を消します。メモや分類も一緒に消えます。",
+                "商品を残しますか",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Yes);
+
+            deleteWhenEmpty = keep == System.Windows.MessageBoxResult.No;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.DetachFile(Item.Id, row.Hash, deleteWhenEmpty));
+
+        if (result is CommandResult.FileDetached { Outcome: Core.Services.DetachOutcome.ItemDeleted })
+        {
+            // 開いていた商品が消えたので、戻る先は検索。一覧からも消えている必要がある
+            await _main.ReloadLibraryAsync();
+            _main.ShowSearch();
+            return;
+        }
+
+        // 未確定が1件増えるので、ナビの件数を数え直す
+        _main.RefreshBadges();
 
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)
@@ -887,6 +961,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
             LocalFiles.Add(new LocalFileRow
             {
+                Hash = file.Hash,
                 FileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0]) : "(見つかりません)",
                 SizeText = FormatSize(file.SizeBytes),
                 Paths = file.Paths,

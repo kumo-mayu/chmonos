@@ -53,6 +53,12 @@ public interface IItemService
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
+    Task<DetachOutcome> DetachFileAsync(
+        string itemId,
+        string hash,
+        bool deleteItemWhenEmpty,
+        CancellationToken cancellationToken = default);
+
     Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
 }
 
@@ -540,7 +546,113 @@ public sealed class ItemService : IItemService
 
         unresolved.Remove(target);
         await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+
+        // 前に「この商品のものではない」と外していたなら、その記録は捨てる。
+        // ユーザが改めて選び直したのだから、こちらが覚えていて弾き続ける方がおかしい
+        var detached = _store.Detached.Load();
+        if (detached.RemoveAll(entry =>
+                string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)
+                && entry.ItemId == itemId) > 0)
+        {
+            await _store.Detached.SaveAsync(detached, cancellationToken);
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// ファイルをこの商品から外し、未確定へ戻す。
+    ///
+    /// **IDは書き換えない。**商品IDはファイル名にもフォルダ名にもなっていて、
+    /// 他の商品からも名前で参照されているので、書き換えると参照が全部迷子になる。
+    /// やりたいことは「このファイルの行き先が違う」なので、ファイルの側を動かす。
+    ///
+    /// 外した記録（<c>detached.json</c>）を残すのは、手掛かりから商品IDが決まる
+    /// ファイルだと**次の取り込みで同じ商品へ戻ってしまう**ため。
+    /// 外す操作が要るのはまさに手掛かりが間違っている場合なので、記録が無いと直せない。
+    /// </summary>
+    public async Task<DetachOutcome> DetachFileAsync(
+        string itemId,
+        string hash,
+        bool deleteItemWhenEmpty,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            return DetachOutcome.Missing;
+        }
+
+        var target = item.Local.LocalFiles.FirstOrDefault(
+            file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            return DetachOutcome.Missing;
+        }
+
+        var remaining = item.Local.LocalFiles.Where(file => file != target).ToList();
+
+        var detached = _store.Detached.Load();
+        if (!detached.Any(entry =>
+                string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase) && entry.ItemId == itemId))
+        {
+            detached.Add(new DetachedFile
+            {
+                Hash = target.Hash,
+                ItemId = itemId,
+                Paths = target.Paths,
+                DetachedAt = DateTimeOffset.Now,
+            });
+            await _store.Detached.SaveAsync(detached, cancellationToken);
+        }
+
+        // 実体が残っているものだけ未確定へ戻す。
+        // 既に消えているファイルを並べても、紐付け直す相手がいない
+        var alive = target.Paths.Where(File.Exists).ToList();
+        if (alive.Count > 0)
+        {
+            var unresolved = _store.Unresolved.Load();
+            if (!unresolved.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+            {
+                var modified = DateTimeOffset.Now;
+                try
+                {
+                    modified = new DateTimeOffset(File.GetLastWriteTimeUtc(alive[0]), TimeSpan.Zero);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // 日時が読めなくても未確定には出したいので、今の時刻で通す
+                }
+
+                unresolved.Add(new UnresolvedFile
+                {
+                    Hash = target.Hash,
+                    Paths = alive,
+                    SizeBytes = target.SizeBytes,
+                    ModifiedAtUtc = modified,
+                    FirstSeenAt = DateTimeOffset.Now,
+                    Contents = target.Contents,
+                });
+                await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+            }
+        }
+
+        // 手元に何も無くなったか。フォルダ登録も所持のうちなので一緒に見る
+        var becameEmpty = remaining.Count == 0 && item.Local.LocalFolders.Count == 0;
+
+        if (becameEmpty && deleteItemWhenEmpty)
+        {
+            _store.Items.Delete(itemId);
+            return DetachOutcome.ItemDeleted;
+        }
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { LocalFiles = remaining },
+            LocalOwners.Import,
+            cancellationToken: cancellationToken);
+
+        return becameEmpty ? DetachOutcome.ItemNowEmpty : DetachOutcome.Detached;
     }
 
     /// <summary>ファイルを管理対象から外す。未確定一覧からも取り除く。</summary>
@@ -603,5 +715,21 @@ public enum RefreshOutcome
     NotFound,
     Delisted,
     TemporaryFailure,
+    Missing,
+}
+
+/// <summary>ファイルを商品から外した結果。</summary>
+public enum DetachOutcome
+{
+    /// <summary>外した。商品にはまだ他のファイルかフォルダが残っている。</summary>
+    Detached,
+
+    /// <summary>外した結果、手元に何も無い商品になった。情報だけは残してある。</summary>
+    ItemNowEmpty,
+
+    /// <summary>外した結果、手元に何も無くなったので商品ごと消した。</summary>
+    ItemDeleted,
+
+    /// <summary>商品かファイルが見つからなかった。</summary>
     Missing,
 }

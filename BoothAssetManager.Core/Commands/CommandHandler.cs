@@ -231,6 +231,15 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(unregister.ItemId)
                     : new CommandResult.Failed("登録が見つかりませんでした。");
 
+            case UiCommand.DetachFile detach:
+            {
+                var detachOutcome = await _items.DetachFileAsync(
+                    detach.ItemId, detach.Hash, detach.DeleteItemWhenEmpty, cancellationToken);
+                return detachOutcome == Services.DetachOutcome.Missing
+                    ? new CommandResult.Failed("そのファイルはこの商品に紐付いていませんでした。")
+                    : new CommandResult.FileDetached(detach.ItemId, detachOutcome);
+            }
+
             case UiCommand.SetNotificationRead setRead:
                 if (_notifications is null)
                 {

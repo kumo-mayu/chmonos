@@ -74,6 +74,10 @@ public class DueRefreshTests : IDisposable
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
 
+        public Task<DetachOutcome> DetachFileAsync(
+            string itemId, string hash, bool deleteItemWhenEmpty, CancellationToken cancellationToken = default)
+            => Task.FromResult(DetachOutcome.Detached);
+
         public Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }

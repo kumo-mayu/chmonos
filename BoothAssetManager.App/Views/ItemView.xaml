@@ -501,7 +501,12 @@
                                     <DataTemplate>
                                         <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,12">
                                             <StackPanel>
-                                                <StackPanel Orientation="Horizontal">
+                                              <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal">
                                                     <TextBlock Text="{Binding FileName}" FontSize="12.5" />
                                                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
@@ -515,6 +520,18 @@
                                                         <TextBlock Text="{Binding DuplicateNote}" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                     </Border>
                                                 </StackPanel>
+
+                                                <!--
+                                                    間違って紐付いたファイルを直す入口。1商品に複数ファイルがあり得るので、
+                                                    商品単位ではなくファイル単位に置く（zipだけが誤りのことがある）
+                                                -->
+                                                <Button Grid.Column="1" Content="この商品から外す" Style="{StaticResource SmallButton}"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip="このファイルを未確定に戻します。ファイルは消しません。"
+                                                        Command="{Binding DataContext.DetachFileCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                              </Grid>
 
                                                 <!-- 保存場所ごとに開ける（削除も場所ごとに選べるようにする予定） -->
                                                 <ItemsControl ItemsSource="{Binding Paths}" Margin="10,7,0,0">

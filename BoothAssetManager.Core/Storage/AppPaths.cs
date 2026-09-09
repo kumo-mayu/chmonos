@@ -38,6 +38,9 @@ public sealed class AppPaths
 
     public string ExcludedFile => Path.Combine(Root, "excluded.json");
 
+    /// <summary>「この商品のものではない」と外した記録。取り込みで戻らないようにするために要る。</summary>
+    public string DetachedFile => Path.Combine(Root, "detached.json");
+
     public string NotificationsFile => Path.Combine(Root, "notifications.json");
 
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
