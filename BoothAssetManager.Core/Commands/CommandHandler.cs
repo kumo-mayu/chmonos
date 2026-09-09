@@ -60,6 +60,11 @@ public sealed class CommandHandler
                     fetchImages.ItemId,
                     await _items.FetchImagesAsync(fetchImages.ItemId, cancellationToken));
 
+            case UiCommand.RegisterItem register:
+                return await _items.RegisterItemAsync(register.ItemId, cancellationToken)
+                    ? new CommandResult.ItemSaved(register.ItemId)
+                    : new CommandResult.Failed($"商品 {register.ItemId} をBOOTHから取得できませんでした。");
+
             case UiCommand.AssignItemId assign:
                 return await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken)
                     ? new CommandResult.ItemSaved(assign.ItemId)

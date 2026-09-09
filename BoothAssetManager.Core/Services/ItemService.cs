@@ -42,6 +42,9 @@ public interface IItemService
     /// <summary>この商品の未取得の画像を、行列の先頭で取る。</summary>
     Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default);
 
+    /// <summary>ファイルを持たない商品として登録する。既にあれば何もしない。</summary>
+    Task<bool> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default);
+
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
     Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
@@ -219,6 +222,24 @@ public sealed class ItemService : IItemService
 
         var result = await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
         return result.Downloaded;
+    }
+
+    /// <summary>
+    /// ファイルを持たない商品として登録する。
+    ///
+    /// 「情報だけあって所持していない」itemは既に成立している状態なので、
+    /// 新しい状態を作らない。贈った商品や、気になっている未購入品がここに入る
+    /// ——どちらもファイルが手元に来ないので、取り込みからは入れない。
+    /// </summary>
+    /// <returns>登録できたか。既に持っている商品なら true（何もしない）。</returns>
+    public async Task<bool> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        if (await _store.Items.LoadAsync(itemId, cancellationToken) is not null)
+        {
+            return true;
+        }
+
+        return await FetchNewItemAsync(itemId, cancellationToken) is not null;
     }
 
     /// <summary>

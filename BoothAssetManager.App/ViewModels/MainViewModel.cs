@@ -392,6 +392,86 @@ public sealed class MainViewModel : ViewModelBase
     public void ShowImport() => CurrentViewModel = Import;
 
     /// <summary>
+    /// ウィンドウに落とされた／貼り付けられたものを振り分ける。
+    ///
+    /// 受け口をウィンドウ1つにしているのは、**落ちてくるものが2種類しか無い**から。
+    /// 画面ごとに受けると、同じものを落としたのに画面によって結果が変わる。
+    ///
+    /// **勝手に処理を始めない。**ファイルは取り込みの対象に積むだけで、実行は押してから。
+    /// 持っていない商品のURLは、外部への通信を伴うので必ず尋ねる。
+    /// </summary>
+    public async Task HandleDropAsync(IReadOnlyList<string>? paths, string? text)
+    {
+        // 判断は Core 側の規則に任せる。画面を立ち上げずに確かめられるようにするため
+        var decision = Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
+
+        switch (decision.Action)
+        {
+            case Core.Services.DropAction.Import:
+                ShowImport();
+                Import.AddDroppedPaths(paths!);
+                return;
+
+            case Core.Services.DropAction.OpenItem:
+                if (await _services.Store.Items.LoadAsync(decision.ItemId!) is { } owned)
+                {
+                    ShowItem(owned);
+                }
+
+                return;
+
+            case Core.Services.DropAction.OfferToRegister:
+                await OfferToRegisterAsync(decision.ItemId!);
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>
+    /// 手元に無い商品のURLを受けたとき。
+    ///
+    /// この経路が、**贈答品や気になっている未購入品を登録する道**にもなる。
+    /// ファイルが手元に来ないものは取り込みからは入らないので、ここが唯一の入口。
+    /// </summary>
+    private async Task OfferToRegisterAsync(string itemId)
+    {
+        var answer = System.Windows.MessageBox.Show(
+            $"商品 {itemId} はライブラリにありません。\n\n"
+                + "BOOTHから情報を取得して、ファイルを持たない商品として登録しますか？\n"
+                + "（贈った商品や、気になっている商品をここから登録できます）",
+            "BOOTHのURLを受け取りました",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (answer != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RegisterItem(itemId));
+
+        if (result is Core.Commands.CommandResult.Failed failure)
+        {
+            System.Windows.MessageBox.Show(
+                failure.Message,
+                "登録できませんでした",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+
+            return;
+        }
+
+        await ReloadLibraryAsync();
+
+        if (await _services.Store.Items.LoadAsync(itemId) is { } added)
+        {
+            ShowItem(added);
+        }
+    }
+
+    /// <summary>
     /// マスタ（分類・属性）だけが変わったときに呼ぶ。itemには触っていないので、
     /// 全件の読み直しはせず、絞り込みの選択肢だけを作り直す。
     /// </summary>

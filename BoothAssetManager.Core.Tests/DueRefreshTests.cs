@@ -51,6 +51,9 @@ public class DueRefreshTests : IDisposable
             return Task.FromResult(RefreshOutcome.Updated);
         }
 
+        public Task<bool> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("⑦は画像を落とさないはず");
 

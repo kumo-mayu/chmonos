@@ -6,7 +6,9 @@
         Title="BOOTH Asset Manager"
         Height="900" Width="1440"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}">
+        Background="{StaticResource Bg}"
+        AllowDrop="True" Drop="OnWindowDrop" DragOver="OnWindowDragOver"
+        PreviewKeyDown="OnWindowKeyDown">
 
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:SearchViewModel}">

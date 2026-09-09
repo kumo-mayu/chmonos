@@ -36,6 +36,12 @@ public abstract record UiCommand
     /// <summary>この商品の未取得の画像を、行列の先頭で取る。</summary>
     public record FetchItemImages(string ItemId) : UiCommand;
 
+    /// <summary>
+    /// ファイルを持たない商品として登録する。
+    /// 贈った商品や、気になっている未購入品の入口。取り込みからは入らない。
+    /// </summary>
+    public record RegisterItem(string ItemId) : UiCommand;
+
     /// <summary>ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。</summary>
     public record ExcludeFile(string Hash, IReadOnlyList<string> Paths, string? Reason = null) : UiCommand;
 

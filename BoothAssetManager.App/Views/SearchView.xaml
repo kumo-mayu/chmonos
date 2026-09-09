@@ -560,6 +560,9 @@
                                                       Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                             <MenuItem Header="ショップを開く" CommandParameter="{Binding}"
                                                       Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            <!-- 人に商品を教えるときに要る。落とす／貼るの逆向き -->
+                                            <MenuItem Header="リンクをコピー" CommandParameter="{Binding}"
+                                                      Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                             <MenuItem Header="編集に入る" CommandParameter="{Binding}"
                                                       Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                             <Separator />

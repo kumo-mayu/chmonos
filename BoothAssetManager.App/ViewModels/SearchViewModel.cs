@@ -78,6 +78,7 @@ public sealed class SearchViewModel : ViewModelBase
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
         OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter as ItemCardViewModel));
         OpenShopCommand = new RelayCommand(parameter => OpenShop(parameter as ItemCardViewModel));
+        CopyLinkCommand = new RelayCommand(parameter => CopyLink(parameter as ItemCardViewModel));
         EditItemCommand = new RelayCommand(parameter => _ = EditItemAsync(parameter as ItemCardViewModel));
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
         HideItemCommand = new RelayCommand(parameter => _ = HideItemAsync(parameter as ItemCardViewModel));
@@ -300,6 +301,9 @@ public sealed class SearchViewModel : ViewModelBase
 
     public RelayCommand OpenShopCommand { get; }
 
+    /// <summary>商品ページのURLをコピーする。人に教えるときに要る。</summary>
+    public RelayCommand CopyLinkCommand { get; }
+
     public RelayCommand EditItemCommand { get; }
 
     public RelayCommand RevealCommand { get; }
@@ -312,6 +316,31 @@ public sealed class SearchViewModel : ViewModelBase
         if (card is not null)
         {
             Shell.OpenUrl(card.Item.Booth.Url ?? Core.Booth.BoothClient.ItemPageUrl(card.Item.Id));
+        }
+    }
+
+    /// <summary>
+    /// 商品ページのURLをクリップボードへ。
+    ///
+    /// 人に商品を教えるときに要る。**落とす／貼るの逆向き**で、
+    /// このアプリ同士なら受け取った側がそのまま貼って登録できる。
+    /// </summary>
+    private static void CopyLink(ItemCardViewModel? card)
+    {
+        if (card is null)
+        {
+            return;
+        }
+
+        var url = card.Item.Booth.Url ?? Core.Booth.BoothClient.ItemPageUrl(card.Item.Id);
+
+        try
+        {
+            System.Windows.Clipboard.SetText(url);
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
         }
     }
 
