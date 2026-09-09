@@ -114,6 +114,19 @@ public sealed class AppServiceContainer : IDisposable
     /// <summary>設定画面が保存した内容に差し替える。以後に作る画面はこちらを読む。</summary>
     public void ReplaceSettings(AppSettings settings) => Settings = settings;
 
+    /// <summary>
+    /// 多重起動のロックを放す。引越しのときだけ使う。
+    ///
+    /// ロックファイルは保存先の中にあり、握ったままだと元のフォルダを畳みきれない。
+    /// 放してから再起動までの短い間だけ二重起動を許すことになるが、
+    /// その間ユーザは引越しの確認ダイアログの中にいる。
+    /// </summary>
+    public void ReleaseInstanceLock()
+    {
+        _instanceLock?.Dispose();
+        _instanceLock = null;
+    }
+
     public CommandHandler Commands { get; }
 
     /// <summary>ロックを取れたか。取れていなければ既に別のインスタンスが起動している。</summary>

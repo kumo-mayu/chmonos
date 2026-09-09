@@ -14,24 +14,13 @@ public sealed class AppPaths
     public const string RootVariable = "BOOTH_ASSET_MANAGER_HOME";
 
     /// <summary>
-    /// 既定の保存先（<c>%LOCALAPPDATA%\BoothAssetManager</c>）。
+    /// 今回の保存先。優先順位は 環境変数 &gt; 設定した場所 &gt; 既定
+    /// （<see cref="StoreLocation.Resolve"/>）。
     ///
-    /// <see cref="RootVariable"/> が設定されていればそちらを使う。
-    /// 本物のライブラリに触らずに動作を確かめたいときと、
-    /// データを別のドライブに置きたいときのための逃げ道。
+    /// 起動中は変わらない。全サービスが起動時にこれを受け取るので、
+    /// 途中で差し替えるには全部を作り直す必要がある。設定からの変更は再起動で効かせる。
     /// </summary>
-    public static AppPaths Default { get; } = new(ResolveDefaultRoot());
-
-    private static string ResolveDefaultRoot()
-    {
-        var configured = Environment.GetEnvironmentVariable(RootVariable);
-
-        return string.IsNullOrWhiteSpace(configured)
-            ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "BoothAssetManager")
-            : Path.GetFullPath(configured.Trim());
-    }
+    public static AppPaths Default { get; } = new(StoreLocation.Resolve().Path);
 
     public string Root { get; }
 

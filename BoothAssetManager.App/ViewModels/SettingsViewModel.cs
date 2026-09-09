@@ -1,3 +1,4 @@
+using BoothAssetManager.Core.Storage;
 using System.Collections.ObjectModel;
 using System.IO;
 using BoothAssetManager.Core.Models;
@@ -64,6 +65,8 @@ public sealed class SettingsViewModel : ViewModelBase
 
         AddFolderCommand = new RelayCommand(AddFolder);
         OpenRootCommand = new RelayCommand(OpenRoot);
+        ChangeRootCommand = new RelayCommand(ChangeRoot, () => CanChangeRoot);
+        RestartCommand = new RelayCommand(Restart);
 
         var settings = services.Settings;
         _suppressSave = true;
@@ -90,6 +93,11 @@ public sealed class SettingsViewModel : ViewModelBase
     public RelayCommand AddFolderCommand { get; }
 
     public RelayCommand OpenRootCommand { get; }
+
+    /// <summary>保存先を選び直す。Cドライブ以外に置きたいときの入口。</summary>
+    public RelayCommand ChangeRootCommand { get; }
+
+    public RelayCommand RestartCommand { get; }
 
     public ObservableCollection<ImportFolderRow> Folders { get; } = [];
 
@@ -434,6 +442,161 @@ public sealed class SettingsViewModel : ViewModelBase
         await _services.SettingsStore.RestoreExcludedAsync(hash);
         Status = "除外を解除しました。次の取り込みでまた未確定として出てきます。";
         await LoadAsync();
+    }
+
+    /// <summary>
+    /// 保存先を選び直す。
+    ///
+    /// 実行中に差し替えるには全サービスと全画面を作り直す必要があるので、再起動で効かせる。
+    /// 引越しをするかは必ず聞く。「見る場所を変える」と「物を移す」は別の操作で、
+    /// 数GBの移動を黙って始めてよいものではない。
+    /// </summary>
+    /// <summary>
+    /// 環境変数で保存先を差し替えている間は、設定から変えても意味がない
+    /// （次の起動でも環境変数が勝つ）。押せる顔をして効かないより、押せなくして理由を出す。
+    /// </summary>
+    public bool CanChangeRoot => Core.Storage.StoreLocation.Resolve().Source
+        != Core.Storage.StoreRootSource.Environment;
+
+    public string RootLockedNote => CanChangeRoot
+        ? string.Empty
+        : $"環境変数 {Core.Storage.AppPaths.RootVariable} で保存先が指定されているため、ここからは変えられません。";
+
+    private void ChangeRoot()
+    {
+        if (!CanChangeRoot)
+        {
+            return;
+        }
+
+        var picked = PickFolder();
+        if (picked is null || string.Equals(picked, _services.Paths.Root, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var source = _services.Paths.Root;
+
+        // 選んだ先に既にライブラリがあるなら、それを使う。混ぜるとどちらが本物か分からなくなる
+        if (StoreLocation.LooksLikeStore(picked))
+        {
+            var useThere = System.Windows.MessageBox.Show(
+                $"選んだ場所には既にライブラリがあります。\n\n{picked}\n\n"
+                + "そちらを使うように切り替えます。今のデータは元の場所に残ります（混ぜません）。\n\n"
+                + $"元の場所：{source}",
+                "保存先を切り替える",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Cancel);
+
+            if (useThere != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
+
+            StoreLocation.Save(picked);
+            PendingRoot = picked;
+            RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
+            RaiseRootChanged();
+            return;
+        }
+
+        if (!StoreLocation.IsEmpty(picked))
+        {
+            System.Windows.MessageBox.Show(
+                $"選んだ場所には別のファイルが入っています。\n\n{picked}\n\n"
+                + "取り違えると中身が混ざるので、空のフォルダか、このアプリのデータが入っている場所を選んでください。",
+                "この場所は使えません",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var (files, bytes) = Core.Storage.StoreMover.Measure(source);
+
+        var move = System.Windows.MessageBox.Show(
+            $"保存先を変えます。\n\n変更前：{source}\n変更後：{picked}\n\n"
+            + $"今のデータ（{files:N0} ファイル / {FormatSize(bytes)}）を新しい場所へ引っ越しますか？\n\n"
+            + "［はい］コピーしてから元を消します。途中で失敗した場合は元のままにします。\n"
+            + "［いいえ］場所だけ変えます。新しい場所は空なので、次の起動では何も無い状態から始まります。",
+            "データを引っ越しますか",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Yes);
+
+        if (move == System.Windows.MessageBoxResult.Cancel)
+        {
+            return;
+        }
+
+        if (move == System.Windows.MessageBoxResult.Yes)
+        {
+            // 実行中のロックを持ったままだと、元のフォルダを畳みきれない
+            _services.ReleaseInstanceLock();
+
+            var result = Core.Storage.StoreMover.Move(source, picked);
+
+            if (!result.Succeeded)
+            {
+                System.Windows.MessageBox.Show(
+                    $"引越しできませんでした。\n\n{result.Error}\n\n"
+                    + "保存先は元のままです。データは失われていません。",
+                    "引越しに失敗しました",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
+
+            RootNotice = result.SourceRemoved
+                ? $"{result.Copied:N0} ファイルを「{picked}」へ移しました。再起動すると新しい場所を使います。"
+                : $"{result.Copied:N0} ファイルを「{picked}」へ移しました。元の場所に消せなかったファイルが残っています。";
+        }
+        else
+        {
+            RootNotice = $"次の起動から「{picked}」を使います。データは移していないので、"
+                + $"「{source}」の中身は元の場所に残ります。";
+        }
+
+        StoreLocation.Save(picked);
+        PendingRoot = picked;
+        RaiseRootChanged();
+    }
+
+    /// <summary>再起動して初めて効くので、そこまで案内する。</summary>
+    public string? PendingRoot { get; private set; }
+
+    public bool HasPendingRoot => PendingRoot is not null;
+
+    public string RootNotice { get; private set; } = string.Empty;
+
+    private void RaiseRootChanged()
+    {
+        OnPropertyChanged(nameof(PendingRoot));
+        OnPropertyChanged(nameof(HasPendingRoot));
+        OnPropertyChanged(nameof(RootNotice));
+    }
+
+    private static string? PickFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "データの保存先を選ぶ",
+            Multiselect = false,
+        };
+
+        return dialog.ShowDialog() == true ? dialog.FolderName : null;
+    }
+
+    private void Restart()
+    {
+        var exe = Environment.ProcessPath;
+        if (exe is null)
+        {
+            return;
+        }
+
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+        System.Windows.Application.Current.Shutdown();
     }
 
     private void OpenRoot()

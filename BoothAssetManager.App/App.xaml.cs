@@ -1,5 +1,7 @@
+using System.IO;
 using System.Windows;
 using BoothAssetManager.App.ViewModels;
+using BoothAssetManager.Core.Storage;
 
 namespace BoothAssetManager.App;
 
@@ -17,6 +19,12 @@ public partial class App : Application
                 "BOOTH Asset Manager", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
+
+        if (!EnsureStoreReachable())
+        {
+            Shutdown();
+            return;
+        }
 
         _services = new AppServiceContainer();
 
@@ -36,6 +44,44 @@ public partial class App : Application
         mainWindow.Closing += (_, _) => SavePlacement(main, mainWindow);
 
         mainWindow.Show();
+    }
+
+    /// <summary>
+    /// 保存先に手が届くかを、何かを作る前に確かめる。
+    ///
+    /// <see cref="AppPaths.EnsureCreated"/> は無ければ作ってしまうので、その前に見る。
+    /// 外付けを外したまま起動して黙って既定の場所で始まると、
+    /// ライブラリが2つに分かれ、後からどちらが本物か分からなくなる。
+    ///
+    /// 既定の場所しか指していないなら、無くて当たり前なので何も聞かない（初回起動がこれ）。
+    /// </summary>
+    private static bool EnsureStoreReachable()
+    {
+        var root = StoreLocation.Resolve();
+
+        if (root.Source == StoreRootSource.Default || Directory.Exists(root.Path))
+        {
+            return true;
+        }
+
+        var answer = MessageBox.Show(
+            $"データの保存先が見つかりません。\n\n{root.Path}\n\n"
+            + "外付けドライブを外している場合は、つないでからもう一度開いてください。\n\n"
+            + "［はい］既定の場所（%LOCALAPPDATA%）で開きます。保存先の設定はそちらに変わります。\n"
+            + "［いいえ］何もせずに終了します。つなぎ直してから開き直せます。",
+            "保存先が見つかりません",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (answer != MessageBoxResult.Yes)
+        {
+            return false;
+        }
+
+        // 既定へ戻したことを覚える。黙って既定で開くと、次もまた同じ問いが出る
+        StoreLocation.Clear();
+        return true;
     }
 
     /// <summary>
