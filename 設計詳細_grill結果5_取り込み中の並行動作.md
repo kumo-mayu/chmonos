@@ -13,6 +13,16 @@
 
 ## 1. 優先順位は1本の梯子
 
+> **2026-09-09 実装済み**（⑦と「指名された画像」を除く）。
+> 段は `ImportPhase` と `ImportPipeline.FetchAsync`、順位は `BoothPriority` と
+> `PriorityGate`（`SemaphoreSlim` を置き換えたもの）。
+>
+> **優先度は引数ではなく `BoothClient.Prioritize(…)` の範囲で決まる。**
+> 引数にすると `ItemService` → `ImagePipeline` → `BoothClient` の全段に通す必要があり、
+> 1箇所渡し忘れても黙って既定に落ちる。`AsyncLocal` なら範囲の内側で始めた取得は
+> 何段先でも同じ優先度になる。`CommandHandler` が入口で `User` を張るので、
+> **画面から押した操作は全部が自動的に最上位**になる。
+
 ```
 人が押した通信 ＞ 指名された画像 ＞ ①② ＞ ③ ＞ ④ ＞ ⑤ ＞ ⑥ ＞ ⑦
 ```

@@ -44,6 +44,11 @@ public sealed class CommandHandler
         IProgress<ImportProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // 人が押した操作は、取り込みより先に通す。押した人は画面の前で結果を待っている。
+        // 取り込み自体（ScanFolders）は中で段ごとの優先度に切り替わるので、ここでは
+        // まとめて上げてよい——内側の指定が勝つ。
+        using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.User);
+
         switch (command)
         {
             case UiCommand.ScanFolders scan:

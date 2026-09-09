@@ -102,7 +102,7 @@ public sealed class BoothClient : IBoothClient
     private readonly HttpClient _httpClient;
     private readonly AppSettings _settings;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly PriorityGate _gate = new();
     private DateTimeOffset _lastRequestAt = DateTimeOffset.MinValue;
     private int _currentIntervalMs;
 
@@ -122,6 +122,41 @@ public sealed class BoothClient : IBoothClient
             _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         }
     }
+
+    /// <summary>
+    /// 今どの優先度で取りに行っているか。
+    ///
+    /// 引数で持ち回さないのは、優先度が**呼び出しの1本ごと**ではなく
+    /// 「今この作業をしている」という文脈に付くものだから。
+    /// 引数にすると <c>ItemService</c> → <c>ImagePipeline</c> → <c>BoothClient</c> の
+    /// 全段に通す必要があり、1箇所渡し忘れても黙って既定に落ちる。
+    /// <see cref="AsyncLocal{T}"/> なら <see cref="Prioritize"/> の内側で始めた取得は
+    /// 何段先でも同じ優先度になる。
+    /// </summary>
+    private static readonly AsyncLocal<BoothPriority?> Ambient = new();
+
+    /// <summary>
+    /// この範囲で始める取得の優先順位を決める。
+    ///
+    /// <code>using var _ = client.Prioritize(BoothPriority.User);</code>
+    /// </summary>
+    public static IDisposable Prioritize(BoothPriority priority)
+    {
+        var previous = Ambient.Value;
+        Ambient.Value = priority;
+        return new PriorityScope(previous);
+    }
+
+    private sealed class PriorityScope(BoothPriority? previous) : IDisposable
+    {
+        public void Dispose() => Ambient.Value = previous;
+    }
+
+    /// <summary>範囲が指定されていなければ、取り込みの本体と同じ扱いにする。</summary>
+    private static BoothPriority CurrentPriority => Ambient.Value ?? BoothPriority.Metadata;
+
+    /// <summary>順番待ちの本数。溜まり具合を見るためのもので、判断には使わない。</summary>
+    public int WaitingRequestCount => _gate.WaitingCount;
 
     public int CurrentIntervalMs => _currentIntervalMs;
 
@@ -261,7 +296,7 @@ public sealed class BoothClient : IBoothClient
     {
         var target = DescribeTarget(url);
 
-        await _gate.WaitAsync(cancellationToken);
+        await _gate.EnterAsync(CurrentPriority, cancellationToken);
         try
         {
             await WaitForIntervalAsync(target, cancellationToken);

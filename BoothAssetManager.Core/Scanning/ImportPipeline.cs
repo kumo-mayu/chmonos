@@ -593,6 +593,11 @@ public sealed class ImportPipeline : IImportPipeline
         }
 
         // ── ① 商品JSON（全商品）。ここが終われば検索も統計も成立する ──
+        //
+        // 段ごとに優先度を切り替える。人が押した操作はこれより上なので、
+        // 取り込みの最中でも「このIDで確認」は待たされない
+        using var metadataPriority = BoothClient.Prioritize(BoothPriority.Metadata);
+
         var fetched = new List<ItemRecord>();
         var shopIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var done = 0;
@@ -681,6 +686,8 @@ public sealed class ImportPipeline : IImportPipeline
         var withImages = fetched.Where(item => item.Booth.Images.Count > 0).ToList();
         done = 0;
 
+        using var thumbnailPriority = BoothClient.Prioritize(BoothPriority.Thumbnail);
+
         foreach (var item in withImages)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -699,6 +706,8 @@ public sealed class ImportPipeline : IImportPipeline
         // 商品ごとにまとめて取るのは、その商品を開いたときに揃っている確率を上げるため。
         done = 0;
 
+        using var galleryPriority = BoothClient.Prioritize(BoothPriority.Gallery);
+
         foreach (var item in withImages)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -712,6 +721,8 @@ public sealed class ImportPipeline : IImportPipeline
         //
         // 使うのはショップ画面と商品ページの作者名の横だけで、無くても名前で用は足りる。
         done = 0;
+
+        using var iconPriority = BoothClient.Prioritize(BoothPriority.ShopIcon);
 
         foreach (var (subdomain, thumbnailUrl) in shopIcons)
         {
