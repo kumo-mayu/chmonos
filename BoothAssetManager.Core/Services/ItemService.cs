@@ -85,18 +85,17 @@ public sealed class ItemService : IItemService
         if (jsonResult.Status == BoothFetchStatus.NotFound)
         {
             var count = existing.Local.ConsecutiveNotFoundCount + 1;
-            await _store.Items.SaveAsync(
-                existing with
+            await _store.Items.SaveLocalAsync(
+                itemId,
+                existing.Local with
                 {
-                    Local = existing.Local with
-                    {
-                        ConsecutiveNotFoundCount = count,
-                        IsDelisted = count >= _settings.NotFoundThreshold,
-                        LastFetchedAt = DateTimeOffset.Now,
-                        NextFetchDueAt = NextDue(itemId),
-                    },
+                    ConsecutiveNotFoundCount = count,
+                    IsDelisted = count >= _settings.NotFoundThreshold,
+                    LastFetchedAt = DateTimeOffset.Now,
+                    NextFetchDueAt = NextDue(itemId),
                 },
-                cancellationToken);
+                LocalOwners.Fetch,
+                cancellationToken: cancellationToken);
 
             return count >= _settings.NotFoundThreshold ? RefreshOutcome.Delisted : RefreshOutcome.NotFound;
         }
@@ -114,20 +113,23 @@ public sealed class ItemService : IItemService
 
         var booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, extraction.Sections);
 
-        // booth ブロックだけを差し替える。local はここで触らないので、ユーザ入力が消えることはない。
-        await _store.Items.SaveAsync(
-            existing with
+        // booth を差し替え、local は取得の記録だけを書く。
+        //
+        // ここに来るまでにBOOTHへ2回問い合わせている（3秒以上）。その間にユーザが
+        // 同じ商品を編集していることがあるので、上の existing.Local を丸ごと書き戻すと
+        // その入力が消える。**読み直しは保存側で行われる。**
+        // Purchases の ExistsOnBooth も、新しいvariation一覧からそこで入れ直される。
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            existing.Local with
             {
-                Booth = booth,
-                Local = existing.Local with
-                {
-                    ConsecutiveNotFoundCount = 0,
-                    IsDelisted = false,
-                    LastFetchedAt = DateTimeOffset.Now,
-                    NextFetchDueAt = NextDue(itemId),
-                    Purchases = MarkMissingVariations(existing.Local.Purchases, booth.Variations),
-                },
+                ConsecutiveNotFoundCount = 0,
+                IsDelisted = false,
+                LastFetchedAt = DateTimeOffset.Now,
+                NextFetchDueAt = NextDue(itemId),
             },
+            LocalOwners.Fetch,
+            booth,
             cancellationToken);
 
         if (extraction.DescriptionHtml is not null)
@@ -189,9 +191,11 @@ public sealed class ItemService : IItemService
             LastSeenAt = DateTimeOffset.Now,
         });
 
-        await _store.Items.SaveAsync(
-            item with { Local = item.Local with { LocalFolders = folders } },
-            cancellationToken);
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { LocalFolders = folders },
+            LocalOwners.Import,
+            cancellationToken: cancellationToken);
 
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
         return true;
@@ -225,9 +229,11 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        await _store.Items.SaveAsync(
-            item with { Local = item.Local with { LocalFolders = remaining } },
-            cancellationToken);
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { LocalFolders = remaining },
+            LocalOwners.Import,
+            cancellationToken: cancellationToken);
 
         return true;
     }
@@ -414,21 +420,27 @@ public sealed class ItemService : IItemService
         if (existing is not null)
         {
             var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, [record]);
-            await _store.Items.SaveAsync(
-                existing with { Local = existing.Local with { LocalFiles = merged } },
-                cancellationToken);
+            await _store.Items.SaveLocalAsync(
+                itemId,
+                existing.Local with { LocalFiles = merged },
+                LocalOwners.Import,
+                cancellationToken: cancellationToken);
         }
         else
         {
+            // 取得に数秒かかるので、その間に人が触っていることがある。
+            // 作った直後でも、書くのは取り込みが持つ項目だけにする
             var created = await FetchNewItemAsync(itemId, cancellationToken);
             if (created is null)
             {
                 return false;
             }
 
-            await _store.Items.SaveAsync(
-                created with { Local = created.Local with { LocalFiles = [record] } },
-                cancellationToken);
+            await _store.Items.SaveLocalAsync(
+                itemId,
+                created.Local with { LocalFiles = [record] },
+                LocalOwners.Import,
+                cancellationToken: cancellationToken);
         }
 
         unresolved.Remove(target);
@@ -461,26 +473,6 @@ public sealed class ItemService : IItemService
         {
             await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
         }
-    }
-
-    /// <summary>
-    /// BOOTH側から消えたvariationの購入記録に印を付ける。記録自体は消さない
-    /// （実際に払っているので、統計の支出には残す必要がある）。
-    /// </summary>
-    public static IReadOnlyList<Purchase> MarkMissingVariations(
-        IReadOnlyList<Purchase> ordered,
-        IReadOnlyList<BoothVariation> current)
-    {
-        if (ordered.Count == 0)
-        {
-            return ordered;
-        }
-
-        var currentIds = current.Select(variation => variation.Id).ToHashSet();
-
-        return ordered
-            .Select(record => record with { ExistsOnBooth = currentIds.Contains(record.VariationId) })
-            .ToList();
     }
 
     private DateTimeOffset NextDue(string itemId)

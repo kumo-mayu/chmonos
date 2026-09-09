@@ -520,17 +520,23 @@ public sealed partial class AvatarService : IAvatarService
                 continue;
             }
 
-            await _store.Items.SaveAsync(item with
-            {
-                Local = item.Local with
+            // 全件を先に読んでから順に書くので、書く頃には手元の写しが古い。
+            // 検出が持つ3項目だけを名指しして、その間のユーザ入力を潰さない
+            var written = await _store.Items.SaveLocalAsync(
+                item.Id,
+                item.Local with
                 {
                     Avatars = merged,
                     AvatarBases = mergedBases,
                     AvatarsDetectedAt = DateTimeOffset.Now,
                 },
-            }, cancellationToken);
+                LocalOwners.Detection,
+                cancellationToken: cancellationToken);
 
-            updated++;
+            if (written)
+            {
+                updated++;
+            }
         }
 
         var finalRegistry = new AvatarRegistry

@@ -580,7 +580,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 : link)
             .ToList();
 
-        await SaveLocalAsync(Item.Local with { Avatars = links });
+        await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
     }
 
     /// <summary>
@@ -611,7 +611,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                     : link)
                 .ToList();
 
-        await SaveLocalAsync(Item.Local with { Avatars = links });
+        await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
     }
 
     private AvatarRegistryEntry? FindAvatarByName(string? name)
@@ -653,7 +653,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             UsedOn = [.. Item.Local.UsedOn, new AvatarUsage { AvatarItemId = match.ItemId }],
         };
 
-        await SaveLocalAsync(local);
+        await SaveLocalAsync(local, LocalOwners.Usage);
     }
 
     private async Task RemoveUsedOnAsync(string avatarItemId)
@@ -663,12 +663,17 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             UsedOn = Item.Local.UsedOn.Where(usage => usage.AvatarItemId != avatarItemId).ToList(),
         };
 
-        await SaveLocalAsync(local);
+        await SaveLocalAsync(local, LocalOwners.Usage);
     }
 
-    private async Task SaveLocalAsync(LocalBlock local)
+    /// <summary>
+    /// この画面が決めた項目だけを書く。<paramref name="owns"/> に無い項目は、
+    /// 保存の直前に読み直したものが残る。開いている間に検出や取り込みが書いたものを、
+    /// 古い写しで潰さないため。
+    /// </summary>
+    private async Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns)
     {
-        await _services.Edit.SaveLocalAsync(Item.Id, local);
+        await _services.Edit.SaveLocalAsync(Item.Id, local, owns);
 
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)

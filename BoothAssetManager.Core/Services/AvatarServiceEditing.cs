@@ -323,7 +323,13 @@ public sealed partial class AvatarService
                     .DistinctBy(link => link.BaseName, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
 
-            await _store.Items.SaveAsync(item with { Local = item.Local with { AvatarBases = bases } }, cancellationToken);
+            // 全件を先に読んでから順に書く。書く頃には写しが古いので、素体の対応だけを名指しする
+            await _store.Items.SaveLocalAsync(
+                item.Id,
+                item.Local with { AvatarBases = bases },
+                LocalOwners.AvatarBases,
+                cancellationToken: cancellationToken);
+
             updated++;
         }
 

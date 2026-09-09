@@ -632,7 +632,12 @@ public sealed class EditViewModel : ViewModelBase
         }
     }
 
-    /// <summary>入力を <c>local</c> ブロックに組み直す。触っていない項目は元の値のまま残す。</summary>
+    /// <summary>
+    /// 入力を <c>local</c> の形に組み直す。
+    ///
+    /// この画面が持つのは <see cref="LocalOwners.EditScreen"/> の項目だけで、
+    /// それ以外はここで何を入れても保存時に捨てられる（読み直したものが残る）。
+    /// </summary>
     private LocalBlock BuildLocal(ItemRecord record)
     {
         var userTags = Tags
@@ -680,7 +685,7 @@ public sealed class EditViewModel : ViewModelBase
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.SaveItemLocal(_item.Id, BuildLocal(_item)));
+                new UiCommand.SaveItemLocal(_item.Id, BuildLocal(_item), LocalOwners.EditScreen));
 
             if (result is CommandResult.Failed failed)
             {

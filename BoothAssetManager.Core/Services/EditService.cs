@@ -5,7 +5,11 @@ namespace BoothAssetManager.Core.Services;
 
 public interface IEditService
 {
-    Task<bool> SaveLocalAsync(string itemId, LocalBlock local, CancellationToken cancellationToken = default);
+    Task<bool> SaveLocalAsync(
+        string itemId,
+        LocalBlock local,
+        IReadOnlyCollection<LocalField> owns,
+        CancellationToken cancellationToken = default);
 
     Task<EditSession> StartSessionAsync(IReadOnlyList<string> itemIds, CancellationToken cancellationToken = default);
 
@@ -35,20 +39,18 @@ public sealed class EditService : IEditService
     }
 
     /// <summary>
-    /// <c>local</c> ブロックだけを差し替える。<c>booth</c> は読み込んだものをそのまま戻す。
+    /// <c>local</c> のうち、この画面が決めた項目だけを書く。<c>booth</c> は触らない。
+    ///
+    /// 丸ごと差し替えないのは、画面が開いた時点の写しを抱えているため。
+    /// 開いている間に取り込みや検出が書いた項目まで、古い写しで潰してしまう。
     /// itemが消えていれば false（キューを積んだ後に消えることがある）。
     /// </summary>
-    public async Task<bool> SaveLocalAsync(string itemId, LocalBlock local, CancellationToken cancellationToken = default)
-    {
-        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (existing is null)
-        {
-            return false;
-        }
-
-        await _store.Items.SaveAsync(existing with { Local = local }, cancellationToken);
-        return true;
-    }
+    public Task<bool> SaveLocalAsync(
+        string itemId,
+        LocalBlock local,
+        IReadOnlyCollection<LocalField> owns,
+        CancellationToken cancellationToken = default)
+        => _store.Items.SaveLocalAsync(itemId, local, owns, cancellationToken: cancellationToken);
 
     public async Task<EditSession> StartSessionAsync(
         IReadOnlyList<string> itemIds,

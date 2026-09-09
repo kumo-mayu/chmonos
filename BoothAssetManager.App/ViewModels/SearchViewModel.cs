@@ -340,8 +340,13 @@ public sealed class SearchViewModel : ViewModelBase
             return;
         }
 
-        var record = card.Item;
-        await _services.Store.Items.SaveAsync(record with { Local = record.Local with { IsHidden = true } });
+        // カードが抱えているのは前回の読み込み時の写しなので、非表示だけを名指しして書く。
+        // 丸ごと書き戻すと、その間に取り込みや検出が入れた項目まで古い値に戻る
+        await _services.Edit.SaveLocalAsync(
+            card.Item.Id,
+            card.Item.Local with { IsHidden = true },
+            LocalOwners.Visibility);
+
         await ReloadAsync();
     }
 

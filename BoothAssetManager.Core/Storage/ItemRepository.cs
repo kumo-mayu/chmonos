@@ -52,6 +52,47 @@ public sealed class ItemRepository
     public Task SaveAsync(ItemRecord item, CancellationToken cancellationToken = default)
         => JsonStore.WriteAsync(_paths.ItemFile(item.Id), item, cancellationToken);
 
+    /// <summary>
+    /// <c>local</c> のうち、<paramref name="owns"/> で名指しした項目だけを書く。
+    ///
+    /// 保存の直前に読み直すので、**名指ししなかった項目は今の値がそのまま残る。**
+    /// 画面は開いた時点の写しを抱えているため、丸ごと書き戻すと
+    /// 開いている間に取り込み・検出・再取得が書いた項目まで古い値で潰してしまう。
+    ///
+    /// itemが消えていれば **何も書かずに false**。
+    /// 取り込み中でも削除を塞がないと決めたので、書く直前に確かめる必要がある。
+    ///
+    /// <paramref name="booth"/> を渡すと <c>booth</c> ブロックも入れ替える（再取得のため）。
+    /// 取得には数秒かかるので、その間に人が入力していることがある。
+    /// **読み直しはここで行うので、呼ぶ側は取得の前に読んだ写しをそのまま渡してよい。**
+    /// </summary>
+    public async Task<bool> SaveLocalAsync(
+        string itemId,
+        LocalBlock local,
+        IReadOnlyCollection<LocalField> owns,
+        BoothBlock? booth = null,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await LoadAsync(itemId, cancellationToken);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        var merged = LocalFields.Merge(existing.Local, local, owns);
+
+        // ExistsOnBooth は導ける値なので、どの経路から保存しても同じ式で入れ直す。
+        // booth を入れ替えるときは、当然そちらの新しい一覧が正
+        var variations = (booth ?? existing.Booth).Variations;
+        merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, variations) };
+
+        await SaveAsync(
+            existing with { Booth = booth ?? existing.Booth, Local = merged },
+            cancellationToken);
+
+        return true;
+    }
+
     public IReadOnlyList<string> EnumerateItemIds()
     {
         if (!Directory.Exists(_paths.ItemsDir))

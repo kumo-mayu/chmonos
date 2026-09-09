@@ -643,7 +643,13 @@ public sealed class UserTagService : IUserTagService
                 continue;
             }
 
-            await _store.Items.SaveAsync(item with { Local = local }, cancellationToken);
+            // 全件を先に読んでから順に書く。書く頃には写しが古いので、userTagだけを名指しする
+            await _store.Items.SaveLocalAsync(
+                item.Id,
+                local,
+                LocalOwners.UserTags,
+                cancellationToken: cancellationToken);
+
             updated++;
 
             if (item.Local.UserTags.Count > 0 && local.UserTags.Count == 0)

@@ -308,7 +308,13 @@ public sealed class AttributeService : IAttributeService
                 continue;
             }
 
-            await _store.Items.SaveAsync(item with { Local = item.Local with { Attributes = attributes } }, cancellationToken);
+            // 全件を先に読んでから順に書く。書く頃には写しが古いので、属性だけを名指しする
+            await _store.Items.SaveLocalAsync(
+                item.Id,
+                item.Local with { Attributes = attributes },
+                LocalOwners.Attributes,
+                cancellationToken: cancellationToken);
+
             updated++;
         }
 

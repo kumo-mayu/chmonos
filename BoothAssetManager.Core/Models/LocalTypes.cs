@@ -173,6 +173,33 @@ public sealed record Purchase
         Kind = legacy.IsGifted ? PurchaseKind.Received : PurchaseKind.ForSelf,
         ExistsOnBooth = legacy.ExistsOnBooth,
     };
+
+    /// <summary>
+    /// <see cref="ExistsOnBooth"/> を今のバリエーション一覧から計算し直す。
+    ///
+    /// この項目は**人が決める値ではない**のに、編集画面と再取得の両方が書く経路にある。
+    /// 片方が開いた時点の写しを持ち回ると、もう片方が入れた値を古い写しで上書きしてしまう。
+    /// **保存する側が毎回ここを通して導けば、2人が書いても食い違いようがない。**
+    ///
+    /// 消えたバリエーションの記録自体は消さない。実際に払っているので支出には残す。
+    /// </summary>
+    public static IReadOnlyList<Purchase> Reconcile(
+        IReadOnlyList<Purchase> purchases,
+        IReadOnlyList<BoothVariation> variations)
+    {
+        if (purchases.Count == 0)
+        {
+            return purchases;
+        }
+
+        var present = variations.Select(variation => variation.Id).ToHashSet();
+
+        return purchases
+            .Select(purchase => purchase.ExistsOnBooth == present.Contains(purchase.VariationId)
+                ? purchase
+                : purchase with { ExistsOnBooth = present.Contains(purchase.VariationId) })
+            .ToList();
+    }
 }
 
 /// <summary>

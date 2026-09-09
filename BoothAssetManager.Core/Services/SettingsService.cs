@@ -145,9 +145,11 @@ public sealed class SettingsService : ISettingsService
             return;
         }
 
-        await _store.Items.SaveAsync(
-            item with { Local = item.Local with { IsHidden = false } },
-            cancellationToken);
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { IsHidden = false },
+            LocalOwners.Visibility,
+            cancellationToken: cancellationToken);
     }
 
     public IReadOnlyList<ExcludedFile> LoadExcluded()

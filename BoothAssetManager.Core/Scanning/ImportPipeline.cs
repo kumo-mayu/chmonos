@@ -187,9 +187,13 @@ public sealed class ImportPipeline : IImportPipeline
 
             if (changed)
             {
-                await _store.Items.SaveAsync(
-                    item with { Local = item.Local with { LocalFolders = refreshed } },
-                    cancellationToken);
+                // 全件を先に読んでから、フォルダを1つずつ測って回る。測るのに時間がかかるので、
+                // 書く頃には写しが古い。取り込みが持つ項目だけを名指しする
+                await _store.Items.SaveLocalAsync(
+                    item.Id,
+                    item.Local with { LocalFolders = refreshed },
+                    LocalOwners.Import,
+                    cancellationToken: cancellationToken);
             }
         }
 
@@ -457,9 +461,11 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 // 取得済みのitemは触らない。中断して再実行した時に、ここが「続きから」を成立させる。
                 var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, discovered);
-                await _store.Items.SaveAsync(
-                    existing with { Local = existing.Local with { LocalFiles = merged } },
-                    cancellationToken);
+                await _store.Items.SaveLocalAsync(
+                    itemId,
+                    existing.Local with { LocalFiles = merged },
+                    LocalOwners.Import,
+                    cancellationToken: cancellationToken);
                 alreadyKnown++;
                 continue;
             }

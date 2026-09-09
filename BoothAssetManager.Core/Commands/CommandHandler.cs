@@ -86,7 +86,7 @@ public sealed class CommandHandler
                     return new CommandResult.Failed("編集の保存手段が設定されていません。");
                 }
 
-                return await _edit.SaveLocalAsync(save.ItemId, save.Local, cancellationToken)
+                return await _edit.SaveLocalAsync(save.ItemId, save.Local, save.Owns, cancellationToken)
                     ? new CommandResult.ItemSaved(save.ItemId)
                     : new CommandResult.Failed("対象のitemがローカルにありません。");
 

@@ -29,8 +29,14 @@ public abstract record UiCommand
     /// <summary>アーカイブの展開先フォルダを削除する。展開元のzipが残っていることを確かめてから消す。</summary>
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
 
-    /// <summary>編集画面の入力を保存する。<c>local</c> ブロックだけを差し替える。</summary>
-    public record SaveItemLocal(string ItemId, Models.LocalBlock Local) : UiCommand;
+    /// <summary>
+    /// 画面の入力を保存する。<c>local</c> のうち <paramref name="Owns"/> で名指しした項目だけを書く。
+    /// 名指ししなかった項目は、保存の直前に読み直したものが残る。
+    /// </summary>
+    public record SaveItemLocal(
+        string ItemId,
+        Models.LocalBlock Local,
+        IReadOnlyCollection<Models.LocalField> Owns) : UiCommand;
 
     /// <summary>userTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
     public record AddUserTag(string Top, string? Sub = null) : UiCommand;
