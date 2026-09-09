@@ -1,0 +1,7 @@
+.packages/
+**/bin/
+**/obj/
+pdf-probe*-results.json
+local-probe-results.json
+public-catalog.json
+catalog-evidence.json

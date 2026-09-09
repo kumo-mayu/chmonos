@@ -14,9 +14,20 @@ _くうた_Shounen_少年_blendshape_iixiona.png
 # Downloaded test files (purchased assets and their PDFs) - local verification only
 DLforTest/
 
-# Research/scratch work - contains scraped data, personal file paths, and downloaded sample images
-research/
-docs/id-resolution-design.md
+# Research/scratch work.
+#
+# The write-ups and the probe sources are kept - they are our own analysis and code.
+# What those probes HARVESTED is not: scraped BOOTH catalog JSON, text extracted from
+# purchased PDFs, and downloaded product images are all third-party content.
+# The scripts that produce them are here, so anyone can regenerate the data locally.
+research/*
+!research/.gitignore
+!research/*.md
+!research/*.ps1
+!research/PdfProbe
+research/PdfProbe/*
+!research/PdfProbe/*.cs
+!research/PdfProbe/*.csproj
 
 # Claude Code local settings
 .claude/
