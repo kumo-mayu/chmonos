@@ -114,6 +114,13 @@
                             <TextBlock Text="取得しています…" Style="{StaticResource Caption}" Margin="12,0,12,12"
                                        Visibility="{Binding IsFetchingImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                            <!--
+                                取れなかった枚数は出す。ギャラリーの枚数がBOOTHと合わない理由が、
+                                それ以外に説明できないため。商品を取り直せば印は消え、この行も消える。
+                            -->
+                            <TextBlock Text="{Binding UnavailableImageText}" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding HasUnavailableImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
                             <TextBlock Text="{Binding ImageFetchNotice}" Style="{StaticResource Caption}" Margin="12,0,12,12"
                                        Visibility="{Binding HasImageFetchNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>

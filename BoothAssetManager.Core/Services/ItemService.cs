@@ -140,6 +140,13 @@ public sealed class ItemService : IItemService
             await _store.Items.SaveDescriptionHtmlAsync(itemId, extraction.DescriptionHtml, cancellationToken);
         }
 
+        // 取り直せたので、404だった印を全部落とす。
+        //
+        // **ここが印を外す唯一のきっかけ。**取り直した瞬間に新しい画像URLの一覧が
+        // 手に入るので、日数で外す仕組みを別に持たなくてよい。
+        // 作者がたまたま商品ページを非公開にしていただけ、という場合はこれで復活する。
+        _images.ClearMissingMarkers(itemId);
+
         await _images.SyncAsync(itemId, booth.Images, cancellationToken);
 
         if (booth.Shop is { } shop)

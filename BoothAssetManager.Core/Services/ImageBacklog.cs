@@ -36,8 +36,10 @@ public sealed class ImageBacklog
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
+        // 404だった画像は「決着済み」として数に入れる。数に入れないと、
+        // 二度と取れないものを毎回の起動で対象に挙げ続けることになる
         return loaded.Items
-            .Where(item => item.Booth.Images.Count > CountOnDisk(item.Id))
+            .Where(item => item.Booth.Images.Count > CountOnDisk(item.Id) + _images.CountMissingMarkers(item.Id))
             .Select(item => item.Id)
             .ToList();
     }

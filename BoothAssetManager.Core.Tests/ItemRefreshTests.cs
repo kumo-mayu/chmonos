@@ -40,6 +40,9 @@ public class ItemRefreshTests : IDisposable
     /// <summary>HTMLを取りに来た瞬間に走らせる。取得の最中に人が編集した、という状況を作る。</summary>
     private Func<Task>? _whileFetchingHtml;
 
+    /// <summary>商品JSONを404にする。非公開になった状況を作る。</summary>
+    private bool _itemJsonNotFound;
+
     public ItemRefreshTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "bam-refresh-" + Guid.NewGuid().ToString("N"));
@@ -75,7 +78,9 @@ public class ItemRefreshTests : IDisposable
 
             if (url.EndsWith(".json", StringComparison.Ordinal))
             {
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ItemJson) };
+                return owner._itemJsonNotFound
+                    ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                    : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ItemJson) };
             }
 
             if (url.Contains("/items/", StringComparison.Ordinal))
@@ -165,6 +170,45 @@ public class ItemRefreshTests : IDisposable
         Assert.Equal(2, reloaded!.Local.Purchases.Count);
         Assert.True(reloaded.Local.Purchases[0].ExistsOnBooth);
         Assert.False(reloaded.Local.Purchases[1].ExistsOnBooth);
+    }
+
+    /// <summary>
+    /// 取り直しに成功したら、404だった印を全部落とす。
+    ///
+    /// **ここが印を外す唯一のきっかけ。**作者がたまたま商品ページを非公開にして
+    /// いただけ、という場合はこれで復活する。日数で外す仕組みは要らない。
+    /// </summary>
+    [Fact]
+    public async Task ClearsTheMissingImageMarkersWhenTheItemComesBack()
+    {
+        await SaveItemAsync(new LocalBlock());
+
+        // 画像が404だったことにして印を置く
+        var directory = Path.Combine(_root, "images", ItemId);
+        Directory.CreateDirectory(directory);
+        File.WriteAllBytes(Path.Combine(directory, "deadbeef.missing"), []);
+        File.WriteAllBytes(Path.Combine(directory, "cafef00d.missing"), []);
+
+        Assert.Equal(RefreshOutcome.Updated, await _service.RefreshAsync(ItemId));
+
+        Assert.Empty(Directory.EnumerateFiles(directory, "*.missing"));
+    }
+
+    /// <summary>取り直しに失敗（404）したら印はそのまま。商品が生きている証拠が無い。</summary>
+    [Fact]
+    public async Task KeepsTheMarkersWhenTheItemItselfIsGone()
+    {
+        await SaveItemAsync(new LocalBlock());
+
+        var directory = Path.Combine(_root, "images", ItemId);
+        Directory.CreateDirectory(directory);
+        File.WriteAllBytes(Path.Combine(directory, "deadbeef.missing"), []);
+
+        _itemJsonNotFound = true;
+
+        await _service.RefreshAsync(ItemId);
+
+        Assert.Single(Directory.EnumerateFiles(directory, "*.missing"));
     }
 
     /// <summary>取得の最中に商品を消されたら、書かずに終わる。消したものが戻ってきてはいけない。</summary>

@@ -209,6 +209,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 return;
             }
 
+            // 取り直しでは画像が増える（印が外れて取れるようになったものも含む）。
+            // 画像フォルダの一覧は覚えているので、捨てないと増えたぶんが出てこない
+            _thumbnails.ForgetDirectory(_services.Paths.ItemImagesDir(Item.Id));
+
             // 取り直した中身で開き直す。画像の枚数が変わることもあるので、画面ごと作り直す
             var updated = await _services.Store.Items.LoadAsync(Item.Id);
             RunOnUiThread(() =>
@@ -475,7 +479,31 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     }
 
     private int _missingImageCount;
+    private int _unavailableImageCount;
     private bool _isFetchingImages;
+
+    /// <summary>
+    /// 404で取れなかった枚数。
+    ///
+    /// 出すのは、**ギャラリーの枚数がBOOTHと合わない理由が、それ以外に説明できない**から。
+    /// 商品を取り直せば印は消えるので、この行も自然に消える。
+    /// </summary>
+    public int UnavailableImageCount
+    {
+        get => _unavailableImageCount;
+        private set
+        {
+            if (SetField(ref _unavailableImageCount, value))
+            {
+                OnPropertyChanged(nameof(HasUnavailableImages));
+                OnPropertyChanged(nameof(UnavailableImageText));
+            }
+        }
+    }
+
+    public bool HasUnavailableImages => UnavailableImageCount > 0;
+
+    public string UnavailableImageText => $"{UnavailableImageCount} 枚は取得できませんでした（商品を取り直すともう一度試します）";
 
     /// <summary>
     /// この商品の画像を行列の先頭で取る。
@@ -539,9 +567,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var directory = _services.Paths.ItemImagesDir(Item.Id);
         var onDisk = _thumbnails.ListFiles(directory);
 
-        // BOOTHが持っている枚数と手元の差が「まだ取っていない画像」。
-        // フラグを持たないのは、実態とフラグがずれたときにどちらが正しいか分からなくなるため
-        MissingImageCount = Math.Max(0, Item.Booth.Images.Count - onDisk.Count);
+        // BOOTHが持っている枚数と、手元にあるもの＋取れないと分かったものの差。
+        // フラグを持たないのは、実態とフラグがずれたときにどちらが正しいか分からなくなるため。
+        //
+        // 404だったものを引かないと、押しても何も起きないボタンを出し続けることになる。
+        // **押しても何も起きないボタンは、壊れていると読まれる。**
+        UnavailableImageCount = _services.Images.CountMissingMarkers(Item.Id);
+        MissingImageCount = Math.Max(0, Item.Booth.Images.Count - onDisk.Count - UnavailableImageCount);
 
         // 並べ替えは共有の規則に任せる（カードと編集画面でも同じ順になる）
         foreach (var entry in ItemImageOrder.Arrange(directory, Item.Booth.Images, onDisk))
