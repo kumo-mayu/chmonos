@@ -111,6 +111,11 @@ public class ShopServiceTests : IDisposable
         public int CurrentIntervalMs => 0;
 
         public bool IsThrottled => false;
+
+        /// <summary>このフェイクは待たないので、知らせることが無い。</summary>
+#pragma warning disable CS0067
+        public event Action<BoothActivity>? ActivityChanged;
+#pragma warning restore CS0067
     }
 
     private static string PageWithBanner(string url)

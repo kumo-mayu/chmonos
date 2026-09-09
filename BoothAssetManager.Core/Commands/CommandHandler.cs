@@ -192,9 +192,9 @@ public sealed class CommandHandler
                     await _attributes.ReorderAsync(reorderAttributes.Names, cancellationToken));
 
             case UiCommand.PreviewItem preview:
-                var loaded = await _items.PreviewAsync(preview.ItemId, cancellationToken);
+                var (loaded, error) = await _items.PreviewWithReasonAsync(preview.ItemId, cancellationToken);
                 return loaded is null
-                    ? new CommandResult.Failed($"商品ID {preview.ItemId} を取得できませんでした。")
+                    ? new CommandResult.Failed(error ?? $"商品ID {preview.ItemId} を取得できませんでした。")
                     : new CommandResult.PreviewLoaded(loaded);
 
             case UiCommand.RegisterFolder register:

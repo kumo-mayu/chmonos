@@ -262,6 +262,34 @@
             </DockPanel>
         </Border>
 
-        <ContentControl Grid.Column="1" Content="{Binding CurrentViewModel}" />
+        <DockPanel Grid.Column="1">
+            <!--
+                通信の常設表示。取得は直列なので、どの瞬間も起きていることは1つだけ。
+                背景で画像を取りに行くこともあるので、黙って通信しないよう常に見える場所に置く。
+                何もしていないときは畳む（高さを取らない）。
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAlt}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding BoothActivity.IsActive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Grid Height="26">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- 長さの分かっている待ちはバーで、通信そのものは点滅で -->
+                        <ProgressBar Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                                     Minimum="0" Maximum="1"
+                                     Value="{Binding BoothActivity.Progress, Mode=OneWay}"
+                                     IsIndeterminate="{Binding BoothActivity.HasProgress,
+                                                       Converter={x:Static vm:InverseBoolConverter.Instance}}" />
+                        <TextBlock Text="{Binding BoothActivity.Text}" Style="{StaticResource Caption}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Text="混み合っています" Style="{StaticResource Caption}" HorizontalAlignment="Right"
+                               VerticalAlignment="Center" Foreground="{StaticResource Warn}"
+                               ToolTip="BOOTHから待つよう指示があったので、以降の間隔を広げています。"
+                               Visibility="{Binding BoothActivity.IsThrottled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </Grid>
+            </Border>
+
+            <ContentControl Content="{Binding CurrentViewModel}" />
+        </DockPanel>
     </Grid>
 </Window>

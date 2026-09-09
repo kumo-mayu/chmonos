@@ -32,6 +32,12 @@ public class CommandHandlerTests
         public Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
             => Task.FromResult<ItemPreview?>(new ItemPreview { Id = itemId, Name = "テスト商品" });
 
+        public Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(
+            string itemId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<(ItemPreview?, string?)>(
+                (new ItemPreview { Id = itemId, Name = "テスト商品" }, null));
+
         public RefreshOutcome Outcome { get; set; } = RefreshOutcome.Updated;
 
         public bool AssignSucceeds { get; set; } = true;

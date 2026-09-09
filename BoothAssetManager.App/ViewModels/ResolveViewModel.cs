@@ -112,7 +112,8 @@ public sealed class ResolveViewModel : ViewModelBase
         // 確定を待っている間も次のファイルを調べられる
         // （確定処理は開始時に対象を控えるので、途中でプレビューが変わっても安全）
         ProposeCommand = new RelayCommand(() => _ = ProposeAsync(), () => HasSelection);
-        PreviewCommand = new RelayCommand(() => _ = PreviewAsync(ItemIdInput), () => CanPreview);
+        // 取得中は押せないようにする。他のボタンには入っていて、ここだけ抜けていた
+        PreviewCommand = new RelayCommand(() => _ = PreviewAsync(ItemIdInput), () => CanPreview && !IsBusy);
         UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow);
         AssignCommand = new RelayCommand(() => _ = AssignAsync(), () => HasPreview && HasSelection && !IsBusy);
         ExcludeCommand = new RelayCommand(() => _ = ExcludeAsync(), () => HasSelection && !IsBusy);
@@ -967,10 +968,21 @@ public sealed class ResolveViewModel : ViewModelBase
     /// <summary>確定する前に中身を見る。設計メモの「候補を入れた時点で1件取得して確認」。</summary>
     private async Task PreviewAsync(string itemId)
     {
-        var trimmed = itemId.Trim();
-        if (trimmed.Length == 0)
+        // 数字でもBOOTHの商品URLでも受ける。ブラウザから来るのは普通URLの方
+        var trimmed = Core.Services.BoothItemId.Parse(itemId);
+        if (trimmed is null)
         {
+            StatusText = itemId.Trim().Length == 0
+                ? string.Empty
+                : "商品IDが読み取れませんでした。数字か、BOOTHの商品ページのURLを入れてください。";
+            OnPropertyChanged(nameof(HasStatus));
             return;
+        }
+
+        // URLを貼られた場合は、読み取ったIDに置き換えて何を見ているか分かるようにする
+        if (trimmed != itemId.Trim())
+        {
+            ItemIdInput = trimmed;
         }
 
         IsBusy = true;

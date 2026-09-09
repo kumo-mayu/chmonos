@@ -34,6 +34,11 @@ public interface IItemService
 
     Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default);
 
+    /// <summary>取得できなかった理由まで返す版。画面はこちらを使う。</summary>
+    Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(
+        string itemId,
+        CancellationToken cancellationToken = default);
+
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
     Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
@@ -338,20 +343,39 @@ public sealed class ItemService : IItemService
     /// 既に持っているitemならローカルから読み、BOOTHへは行かない。
     /// </summary>
     public async Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
+        => (await PreviewWithReasonAsync(itemId, cancellationToken)).Preview;
+
+    /// <summary>
+    /// 失敗の理由まで返す。
+    ///
+    /// 前は null を返すだけで、存在しないIDも通信の失敗もタイムアウトも
+    /// 呼び出し側からは区別できなかった。最大100秒待たされた末に
+    /// 「取得できませんでした」の1行だけ、という状態だったので理由を渡す。
+    /// </summary>
+    public async Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(
+        string itemId,
+        CancellationToken cancellationToken = default)
     {
         var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
         if (existing is not null)
         {
-            return ToPreview(itemId, existing.Booth, isAlreadyOwned: true);
+            return (ToPreview(itemId, existing.Booth, isAlreadyOwned: true), null);
         }
 
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
-        if (!jsonResult.IsSuccess || jsonResult.Value is null)
+
+        if (jsonResult.Status == BoothFetchStatus.NotFound)
         {
-            return null;
+            return (null, $"商品ID {itemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。");
         }
 
-        return ToPreview(itemId, BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, []), isAlreadyOwned: false);
+        if (!jsonResult.IsSuccess || jsonResult.Value is null)
+        {
+            var detail = string.IsNullOrWhiteSpace(jsonResult.Error) ? string.Empty : $"（{jsonResult.Error}）";
+            return (null, $"BOOTHに問い合わせできませんでした{detail}。通信を確かめて、もう一度お試しください。");
+        }
+
+        return (ToPreview(itemId, BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, []), isAlreadyOwned: false), null);
     }
 
     private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned) => new()

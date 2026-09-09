@@ -79,6 +79,27 @@ public class BoothClientTests
                 return Task.CompletedTask;
             });
 
+    /// <summary>
+    /// 再試行までの待ちを、ユーザに知らせた内容から読む。
+    ///
+    /// 待ちは残り時間を刻んで知らせるので、内部の待ち呼び出し1回ぶんを見ても長さが分からない。
+    /// 「何秒待つと伝えたか」で確かめる方が、意図にも合っている。
+    /// </summary>
+    private static List<TimeSpan> RetryWaitsOf(BoothClient client)
+    {
+        var waits = new List<TimeSpan>();
+
+        client.ActivityChanged += activity =>
+        {
+            if (activity.Kind == BoothActivityKind.Retrying && activity.Total is { } total && !waits.Contains(total))
+            {
+                waits.Add(total);
+            }
+        };
+
+        return waits;
+    }
+
     [Fact]
     public async Task ReturnsBodyOnSuccess()
     {
@@ -184,11 +205,12 @@ public class BoothClientTests
         var client = CreateThrottleClient(
             new QueuedHandler(TooManyRequests(TimeSpan.FromSeconds(30)), Ok("ok")),
             waits);
+        var retries = RetryWaitsOf(client);
 
         var result = await client.GetItemJsonAsync("123");
 
         Assert.True(result.IsSuccess);
-        Assert.Contains(TimeSpan.FromSeconds(30), waits);
+        Assert.Contains(TimeSpan.FromSeconds(30), retries);
     }
 
     /// <summary>Retry-Afterが短くても、こちらの再試行間隔より前倒しはしない。</summary>
@@ -199,11 +221,12 @@ public class BoothClientTests
         var client = CreateThrottleClient(
             new QueuedHandler(TooManyRequests(TimeSpan.FromSeconds(1)), Ok("ok")),
             waits);
+        var retries = RetryWaitsOf(client);
 
         await client.GetItemJsonAsync("123");
 
-        Assert.Contains(TimeSpan.FromSeconds(2), waits);
-        Assert.DoesNotContain(TimeSpan.FromSeconds(1), waits);
+        Assert.Contains(TimeSpan.FromSeconds(2), retries);
+        Assert.DoesNotContain(TimeSpan.FromSeconds(1), retries);
     }
 
     /// <summary>
@@ -233,11 +256,12 @@ public class BoothClientTests
         var unavailable = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
         unavailable.Headers.Add("Retry-After", "20");
         var client = CreateThrottleClient(new QueuedHandler(unavailable, Ok("ok")), waits);
+        var retries = RetryWaitsOf(client);
 
         var result = await client.GetItemJsonAsync("123");
 
         Assert.True(result.IsSuccess);
-        Assert.Contains(TimeSpan.FromSeconds(20), waits);
+        Assert.Contains(TimeSpan.FromSeconds(20), retries);
         Assert.False(client.IsThrottled);
     }
 

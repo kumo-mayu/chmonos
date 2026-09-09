@@ -23,6 +23,9 @@ public sealed class MainViewModel : ViewModelBase
 
         // 検索画面は使い捨てにせず1つだけ持ち回る。
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
+        // 通信の様子はアプリに1つ。常設の行も取り込み画面も、ここを見る
+        BoothActivity = new BoothActivityViewModel(services.Client, System.Windows.Threading.Dispatcher.CurrentDispatcher);
+
         Search = new SearchViewModel(services, Thumbnails);
         Search.AttachMain(this);
         Import = new ImportViewModel(services, this);
@@ -127,6 +130,9 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public ThumbnailLoader Thumbnails { get; }
+
+    /// <summary>今BOOTHに対して何をしているか。全画面で同じものを見る。</summary>
+    public BoothActivityViewModel BoothActivity { get; }
 
     public SearchViewModel Search { get; }
 

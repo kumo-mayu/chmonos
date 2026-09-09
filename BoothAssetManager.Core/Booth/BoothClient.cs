@@ -71,6 +71,12 @@ public interface IBoothClient
 
     /// <summary>429を受けて自動減速している最中か。</summary>
     bool IsThrottled { get; }
+
+    /// <summary>
+    /// 今なにをしているかが変わったときに知らせる。
+    /// 取得は直列なので、どの瞬間も起きていることは1つだけ。
+    /// </summary>
+    event Action<BoothActivity>? ActivityChanged;
 }
 
 /// <summary>
@@ -214,7 +220,20 @@ public sealed class BoothClient : IBoothClient
                     wait = instructed;
                 }
 
-                await _delay(wait, cancellationToken);
+                var attemptNumber = attempt;
+                await CountDownAsync(
+                    wait,
+                    remaining => new BoothActivity
+                    {
+                        Kind = BoothActivityKind.Retrying,
+                        Target = DescribeTarget(url),
+                        Total = wait,
+                        Remaining = remaining,
+                        Attempt = attemptNumber,
+                        MaxAttempts = RetryDelays.Length,
+                        IsThrottled = IsThrottled,
+                    },
+                    cancellationToken);
             }
 
             var result = await SendOnceAsync(url, readBody, cancellationToken);
@@ -240,10 +259,19 @@ public sealed class BoothClient : IBoothClient
         Func<HttpResponseMessage, Task<T>> readBody,
         CancellationToken cancellationToken)
     {
+        var target = DescribeTarget(url);
+
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await WaitForIntervalAsync(cancellationToken);
+            await WaitForIntervalAsync(target, cancellationToken);
+
+            Report(new BoothActivity
+            {
+                Kind = BoothActivityKind.Sending,
+                Target = target,
+                IsThrottled = IsThrottled,
+            });
 
             // ヘッダだけ先に受け取る。本文を途中で打ち切る呼び出し（ショップのバナー探し）が
             // 実際に通信を止められるようにするため。全部読む呼び出しの動きは変わらない。
@@ -290,11 +318,44 @@ public sealed class BoothClient : IBoothClient
         finally
         {
             _gate.Release();
+
+            // 直列なので、ゲートを出た時点で「何もしていない」に戻せる。
+            // 次の1本がすぐ入るならそちらが上書きする
+            Report(BoothActivity.Idle);
         }
     }
 
+    /// <summary>
+    /// URLを人に見せる短い名前にする。生のURLを出しても読めないし、横にも収まらない。
+    /// </summary>
+    private static string DescribeTarget(string url)
+    {
+        if (url.Contains("/items/", StringComparison.Ordinal))
+        {
+            var tail = url[(url.LastIndexOf("/items/", StringComparison.Ordinal) + 7)..];
+            var id = new string(tail.TakeWhile(char.IsAsciiDigit).ToArray());
+
+            if (id.Length > 0)
+            {
+                return url.EndsWith(".json", StringComparison.Ordinal) ? $"商品 {id}" : $"商品 {id} のページ";
+            }
+        }
+
+        if (url.Contains("/search/", StringComparison.Ordinal))
+        {
+            return "検索";
+        }
+
+        return url.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+            || url.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+            || url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
+            || url.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)
+                ? "画像"
+                : "ページ";
+    }
+
     /// <summary>前回のリクエストから現在の間隔が空くまで待つ。</summary>
-    private async Task WaitForIntervalAsync(CancellationToken cancellationToken)
+    private async Task WaitForIntervalAsync(string? target, CancellationToken cancellationToken)
     {
         if (_lastRequestAt == DateTimeOffset.MinValue)
         {
@@ -303,11 +364,52 @@ public sealed class BoothClient : IBoothClient
 
         var elapsed = DateTimeOffset.UtcNow - _lastRequestAt;
         var interval = TimeSpan.FromMilliseconds(_currentIntervalMs);
-        if (elapsed < interval)
+        if (elapsed >= interval)
         {
-            await _delay(interval - elapsed, cancellationToken);
+            return;
+        }
+
+        await CountDownAsync(
+            interval - elapsed,
+            remaining => new BoothActivity
+            {
+                Kind = BoothActivityKind.Waiting,
+                Target = target,
+                Total = interval - elapsed,
+                Remaining = remaining,
+                IsThrottled = IsThrottled,
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// 待ちながら残り時間を知らせる。
+    ///
+    /// 一気に待つと「止まって見える」時間になる。長さは分かっているので、
+    /// 刻んで残りを出せば、待っていることと、あとどれだけかが伝わる。
+    /// 刻みは0.2秒。これ以上細かくしても読めないし、粗いと数字が飛ぶ。
+    /// </summary>
+    private async Task CountDownAsync(
+        TimeSpan total,
+        Func<TimeSpan, BoothActivity> describe,
+        CancellationToken cancellationToken)
+    {
+        var tick = TimeSpan.FromMilliseconds(200);
+        var remaining = total;
+
+        while (remaining > TimeSpan.Zero)
+        {
+            Report(describe(remaining));
+
+            var step = remaining < tick ? remaining : tick;
+            await _delay(step, cancellationToken);
+            remaining -= step;
         }
     }
+
+    private void Report(BoothActivity activity) => ActivityChanged?.Invoke(activity);
+
+    public event Action<BoothActivity>? ActivityChanged;
 
     private TimeSpan MaxRetryAfterWait => TimeSpan.FromSeconds(_settings.MaxRetryAfterWaitSeconds);
 
