@@ -54,8 +54,37 @@ public sealed class MainViewModel : ViewModelBase
 
         _isNavCollapsed = services.Settings.NavCollapsed;
 
-        ShowSearch();
         RefreshCounts();
+        ShowStartScreen();
+    }
+
+    /// <summary>
+    /// 起動したときにどの画面を出すか。
+    ///
+    /// 商品が1件もないうちは検索画面に意味がない。空の一覧の横で
+    /// 「まだ登録されていません」が3つ並ぶだけで、次に何をすればよいかも出てこない。
+    /// 何もない人には入口を1つに絞る。
+    ///
+    /// 取り込みは走ったが1件も確定しなかった場合は、作業は未確定側に溜まっているので
+    /// そちらへ送る（また取り込み画面に出しても、同じことをもう一度やらせるだけ）。
+    ///
+    /// 件数はファイルの数え上げだけで分かるので、検索の読み込みを待たない。
+    /// </summary>
+    private void ShowStartScreen()
+    {
+        if (_services.Store.Items.EnumerateItemIds().Count > 0)
+        {
+            ShowSearch();
+            return;
+        }
+
+        if (UnresolvedCount > 0)
+        {
+            ShowResolve();
+            return;
+        }
+
+        ShowImport();
     }
 
     /// <summary>
