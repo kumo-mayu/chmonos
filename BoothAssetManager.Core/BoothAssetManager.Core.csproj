@@ -10,6 +10,15 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
+  <!--
+    同梱の辞書。無改変のまま出力へ配る（加工した辞書を配らないので継承条項に触れない）。
+    索引は初回に手元で組んで保存先へ置く。
+  -->
+  <ItemGroup>
+    <None Include="..\assets\JMdict_e.gz" Link="assets\JMdict_e.gz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\assets\README.md" Link="assets\README.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

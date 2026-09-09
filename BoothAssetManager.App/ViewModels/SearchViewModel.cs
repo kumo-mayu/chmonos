@@ -725,6 +725,10 @@ public sealed class SearchViewModel : ViewModelBase
             {
                 // 式の解釈は入力ごとに1回。商品ごとにやると件数ぶん無駄に走る
                 _queryNode = Core.Services.SearchQuery.Parse(_queryText);
+
+                // 打ち直したら、前の語で広げた式は捨てる。
+                // 残すと次の検索が前の語の別表記で当たってしまう
+                ClearWidening();
                 ApplyFilters();
             }
         }
@@ -1160,6 +1164,14 @@ public sealed class SearchViewModel : ViewModelBase
             .Select(item => _cards[item.Id])
             .ToList();
 
+        // 0件のときだけ表記をまたいで探し直す。
+        // **当たっている検索は広げない**——結果が増えると「なぜこれが出たか」が読めなくなる。
+        // 広げるのは0件のときだけなので、悪くなりようが無い（0件が0件のままか、増えるか）
+        if (_matches.Count == 0)
+        {
+            TryWiden();
+        }
+
         RefreshFacetCounts();
         RebuildRows();
 
@@ -1174,6 +1186,111 @@ public sealed class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(ActiveFilterCount));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(EmptyHint));
+    }
+
+    /// <summary>広げて探したときに使った別表記。0件でなければ空。</summary>
+    private Core.Services.SearchNode? _widenedNode;
+
+    private readonly Dictionary<string, List<Core.Search.BridgeCandidate>> _widenedTerms = [];
+
+    /// <summary>
+    /// 打った語の別表記でもう一度探す。
+    ///
+    /// 索引を組むのに数秒かかることがあるので、**別のスレッドで**動かして
+    /// 出来たら結果を差し替える。打っている手は止めない。
+    /// </summary>
+    private void TryWiden()
+    {
+        var node = _queryNode;
+        if (node is Core.Services.SearchNode.All || !_services.Bridge.IsAvailable)
+        {
+            ClearWidening();
+            return;
+        }
+
+        var token = ++_widenToken;
+
+        _ = Task.Run(() =>
+        {
+            var used = new Dictionary<string, List<Core.Search.BridgeCandidate>>(StringComparer.Ordinal);
+            var widened = _services.Bridge.Widen(node, used);
+            if (used.Count == 0)
+            {
+                return;
+            }
+
+            RunOnUiThread(() =>
+            {
+                // 待っている間に打ち直されていたら捨てる
+                if (token != _widenToken || _matches.Count > 0)
+                {
+                    return;
+                }
+
+                _widenedNode = widened;
+                _widenedTerms.Clear();
+                foreach (var (term, candidates) in used)
+                {
+                    _widenedTerms[term] = candidates;
+                }
+
+                _matches = SortItems(_allItems.Where(item => Matches(item)))
+                    .Select(item => _cards[item.Id])
+                    .ToList();
+
+                if (_matches.Count == 0)
+                {
+                    // 広げても出なかった。広げた印は出さない（何も変わっていないので）
+                    ClearWidening();
+                }
+
+                // 広げた結果でも件数の内訳は合っていてほしい
+                RefreshFacetCounts();
+                RebuildRows();
+                OnPropertyChanged(nameof(ResultSummary));
+                OnPropertyChanged(nameof(IsEmpty));
+                OnPropertyChanged(nameof(WidenedText));
+                OnPropertyChanged(nameof(HasWidened));
+                OnPropertyChanged(nameof(EmptyHint));
+            });
+        });
+    }
+
+    private int _widenToken;
+
+    private void ClearWidening()
+    {
+        if (_widenedNode is null && _widenedTerms.Count == 0)
+        {
+            return;
+        }
+
+        _widenedNode = null;
+        _widenedTerms.Clear();
+        OnPropertyChanged(nameof(WidenedText));
+        OnPropertyChanged(nameof(HasWidened));
+    }
+
+    public bool HasWidened => _widenedTerms.Count > 0;
+
+    /// <summary>
+    /// 何で当たったかを1行で出す。
+    /// **辞書は引いた結果を説明できる**のが埋め込みとの分かれ目なので、説明を捨てない。
+    /// </summary>
+    public string WidenedText
+    {
+        get
+        {
+            if (_widenedTerms.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var parts = _widenedTerms.Select(entry =>
+                $"「{entry.Key}」を {string.Join("・", entry.Value.Take(4).Select(c => c.Text))}");
+
+            return string.Join(" / ", parts) + " としても探しました。";
+        }
     }
 
     /// <summary>
@@ -1481,7 +1598,7 @@ public sealed class SearchViewModel : ViewModelBase
 
     private bool MatchesQuery(ItemRecord item)
         => !_haystacks.TryGetValue(item.Id, out var haystack)
-            || Core.Services.SearchQuery.Matches(_queryNode, haystack, _searchBody, _searchPaths);
+            || Core.Services.SearchQuery.Matches(_widenedNode ?? _queryNode, haystack, _searchBody, _searchPaths);
 
     /// <summary>
     /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。

@@ -560,6 +560,18 @@
                         <TextBlock Text="{Binding FilterSummary}" Style="{StaticResource Caption}" Margin="12,0,0,0"
                                    TextTrimming="CharacterEllipsis"
                                    Visibility="{Binding HasActiveFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                        <!--
+                            表記をまたいで探したときは、何で当たったかを必ず出す。
+                            辞書は引いた結果を説明できるのが取り柄なので、説明を捨てない。
+                        -->
+                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="12,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding HasWidened, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding WidenedText}" FontSize="11" Foreground="#28507f"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="420" />
+                        </Border>
                     </StackPanel>
 
                     <!-- 表示順は絞り込みと別の場所に置く -->

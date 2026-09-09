@@ -41,6 +41,12 @@ public sealed class AppPaths
     /// <summary>「この商品のものではない」と外した記録。取り込みで戻らないようにするために要る。</summary>
     public string DetachedFile => Path.Combine(Root, "detached.json");
 
+    /// <summary>
+    /// 検索の橋渡しに使う索引。同梱の辞書から手元で組んだもので、消しても作り直せる。
+    /// 保存先に置くのは、辞書を差し替えたときに一緒に作り直せる場所だから。
+    /// </summary>
+    public string SearchBridgeCacheFile => Path.Combine(Root, "search-bridge.cache");
+
     public string NotificationsFile => Path.Combine(Root, "notifications.json");
 
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");

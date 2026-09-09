@@ -6,6 +6,7 @@ using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Resolution;
 using BoothAssetManager.Core.Scanning;
+using BoothAssetManager.Core.Search;
 using BoothAssetManager.Core.Services;
 using BoothAssetManager.Core.Storage;
 
@@ -41,6 +42,11 @@ public sealed class AppServiceContainer : IDisposable
         Items = new ItemService(Store, Client, Images, Settings);
         Backlog = new ImageBacklog(Store, Images);
         Watch = new FolderWatch(Store);
+
+        // 辞書は実行ファイルの隣に配られる。索引は最初に必要になったときだけ組む
+        Bridge = new SearchBridge(new JapaneseDictionary(
+            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
+            Paths.SearchBridgeCacheFile));
         Due = new DueRefresh(Store, Items);
         Resolver = new FallbackResolver(Client);
         Edit = new EditService(Store);
@@ -101,6 +107,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>監視対象フォルダに新しいファイルが無いかを見る。起動時に走らせてよい唯一の走査。</summary>
     public FolderWatch Watch { get; }
+
+    /// <summary>打った語から同じものの別表記を作る。通信はしない（同梱の辞書だけ）。</summary>
+    public SearchBridge Bridge { get; }
 
     /// <summary>⑦ 期限の来た商品を取り直す。梯子のいちばん下。</summary>
     public DueRefresh Due { get; }
