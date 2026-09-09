@@ -65,6 +65,16 @@ public sealed record AppSettings
 
     public bool NotifyOnUpdateByDefault { get; init; } = true;
 
+    /// <summary>
+    /// 使っていない間もBOOTHから取り続けるか。
+    ///
+    /// 前の取り込みで取り切れなかった画像を、次の起動で取り直す（梯子の⑤の再開）。
+    /// 従量制の回線や、しばらく静かにしておきたい場面があるので切れるようにする。
+    /// 通信の様子は常設の1行に出るので、**勝手に何かしていると見えるものには
+    /// 止める手段が要る**。
+    /// </summary>
+    public bool ResumeFetchInBackground { get; init; } = true;
+
     /// <summary>非公開と判断するまでの404の連続回数。一時エラーはここに数えない。</summary>
     public int NotFoundThreshold { get; init; } = 3;
 

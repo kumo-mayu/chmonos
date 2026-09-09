@@ -39,6 +39,9 @@ public interface IItemService
         string itemId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>この商品の未取得の画像を、行列の先頭で取る。</summary>
+    Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default);
+
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
     Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
@@ -145,6 +148,32 @@ public sealed class ItemService : IItemService
         }
 
         return RefreshOutcome.Updated;
+    }
+
+    /// <summary>
+    /// この商品の未取得の画像を、行列の先頭で取る。
+    ///
+    /// 自動で「見えたものを優先」にはしない。間隔が1,500msなので取れるのは1分あたり40枚で、
+    /// 勢いよくスクロールされると順番待ちが「もう見ていないもの」で埋まる。
+    /// **押した意思の方が、見えたという事実より確か。**
+    ///
+    /// 優先度は <see cref="BoothPriority.PinnedImage"/>。人が押した操作より下なのは、
+    /// 押した直後に別のボタンを押されたとき、そちらを待たせないため。
+    /// 逆に取り込みの段より上なので、**指名した商品は最後まで通ってから梯子に戻る**。
+    /// </summary>
+    /// <returns>この呼び出しで落とせた枚数。</returns>
+    public async Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (item is null || item.Booth.Images.Count == 0)
+        {
+            return 0;
+        }
+
+        using var priority = BoothClient.Prioritize(BoothPriority.PinnedImage);
+
+        var result = await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
+        return result.Downloaded;
     }
 
     /// <summary>

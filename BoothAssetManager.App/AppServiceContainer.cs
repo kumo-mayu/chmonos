@@ -34,8 +34,12 @@ public sealed class AppServiceContainer : IDisposable
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         Client = new BoothClient(_httpClient, Settings);
         Images = new ImagePipeline(Client, Paths, Settings);
-        Import = new ImportPipeline(Store, Client, Images, Settings);
+
+        // 検出は梯子の③なので、取り込みより先に組み立てる
+        Avatars = new AvatarService(Store, Settings, Client);
+        Import = new ImportPipeline(Store, Client, Images, Settings, Avatars);
         Items = new ItemService(Store, Client, Images, Settings);
+        Backlog = new ImageBacklog(Store, Images);
         Resolver = new FallbackResolver(Client);
         Edit = new EditService(Store);
         Notifications = new NotificationService(Store, Settings);
@@ -43,7 +47,6 @@ public sealed class AppServiceContainer : IDisposable
         Attributes = new AttributeService(Store);
         Shops = new ShopService(Store, Settings, Client);
         Stats = new StatsService(Store);
-        Avatars = new AvatarService(Store, Settings, Client);
         SettingsStore = new SettingsService(Store);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes);
@@ -90,6 +93,9 @@ public sealed class AppServiceContainer : IDisposable
     public ImagePipeline Images { get; }
 
     public ImportPipeline Import { get; }
+
+    /// <summary>前の取り込みで残った画像を、次の起動で取り直す（梯子の⑤の再開）。</summary>
+    public ImageBacklog Backlog { get; }
 
     public ItemService Items { get; }
 

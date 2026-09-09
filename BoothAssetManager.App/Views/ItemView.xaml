@@ -97,6 +97,25 @@
 
                             <TextBlock Text="{Binding OrphanedImageText}" Style="{StaticResource Caption}" Margin="12,0,12,12"
                                        Visibility="{Binding HasOrphanedImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!--
+                                まだ取っていない画像があるときだけ出す。自動で「見えたものを優先」に
+                                しないのは、勢いよくスクロールされると順番待ちが「もう見ていないもの」で
+                                埋まるため。押した意思の方が、見えたという事実より確か。
+                            -->
+                            <StackPanel Orientation="Horizontal" Margin="12,0,12,12"
+                                        Visibility="{Binding HasMissingImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding MissingImageText}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Content="この商品の画像取得を優先" FontSize="12"
+                                        Command="{Binding FetchImagesCommand}" />
+                            </StackPanel>
+
+                            <TextBlock Text="取得しています…" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding IsFetchingImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <TextBlock Text="{Binding ImageFetchNotice}" Style="{StaticResource Caption}" Margin="12,0,12,12"
+                                       Visibility="{Binding HasImageFetchNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </Border>
 

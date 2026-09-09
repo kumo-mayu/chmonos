@@ -3,6 +3,7 @@ using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Scanning;
+using BoothAssetManager.Core.Services;
 using BoothAssetManager.Core.Storage;
 using Xunit;
 
@@ -163,7 +164,7 @@ public class ImportLadderTests : IDisposable
             return url.Contains("/one.jpg", StringComparison.Ordinal) ? "image1" : "image2";
         }
 
-        return "html";
+        return url.StartsWith("detect:", StringComparison.Ordinal) ? "detect" : "html";
     }
 
     /// <summary>
@@ -235,5 +236,88 @@ public class ImportLadderTests : IDisposable
         await _pipeline.RunAsync([CreateSource("222", "333")]);
 
         Assert.Equal(1, _requests.Count(url => Kind(url) == "icon"));
+    }
+
+    /// <summary>
+    /// ③ 検出は②の後、④の前。
+    ///
+    /// 対応アバターを選ぶのは人の作業で、その候補が出揃っていることの方が、
+    /// 絵が見えていることより先に要る。
+    /// </summary>
+    [Fact]
+    public async Task RunsAvatarDetectionAfterTheMetadataAndBeforeAnyImage()
+    {
+        var settings = new AppSettings { FetchIntervalMs = 0 };
+        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings);
+        var detector = new RecordingAvatarService(_requests);
+
+        var pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, _paths, settings), settings, detector);
+
+        await pipeline.RunAsync([CreateSource("111")]);
+
+        var kinds = _requests.Select(Kind).ToList();
+
+        Assert.Equal(["json", "html", "detect", "image1", "image2", "icon"], kinds);
+    }
+
+    /// <summary>検出が転んでも取り込みは成立する。アバター画面からやり直せる。</summary>
+    [Fact]
+    public async Task FinishesTheImportEvenWhenDetectionThrows()
+    {
+        var settings = new AppSettings { FetchIntervalMs = 0 };
+        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings);
+
+        var pipeline = new ImportPipeline(
+            _store,
+            client,
+            new ImagePipeline(client, _paths, settings),
+            settings,
+            new RecordingAvatarService(_requests) { Fail = "登録簿が読めませんでした" });
+
+        var summary = await pipeline.RunAsync([CreateSource("111")]);
+
+        Assert.Equal(1, summary.ItemsAdded);
+        Assert.Equal("登録簿が読めませんでした", summary.AvatarDetectError);
+
+        // 画像まで進んでいる
+        Assert.Contains("image1", _requests.Select(Kind));
+    }
+
+    /// <summary>検出の呼ばれた位置だけを記録する。中身は別のテストで見ている。</summary>
+    private sealed class RecordingAvatarService(List<string> requests) : IAvatarService
+    {
+        public string? Fail { get; init; }
+
+        public Task<AvatarDetectResult> DetectAsync(
+            IProgress<AvatarDetectProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            lock (requests)
+            {
+                requests.Add("detect://ran");
+            }
+
+            if (Fail is { } message)
+            {
+                throw new InvalidOperationException(message);
+            }
+
+            return Task.FromResult(new AvatarDetectResult
+            {
+                ItemsScanned = 1,
+                ItemsUpdated = 1,
+                AvatarsFound = 1,
+                NonAvatars = 0,
+                BaseGroupsFound = 0,
+                Requests = 0,
+                Unresolved = 0,
+            });
+        }
+
+        public Task<IReadOnlyList<AvatarSummary>> LoadAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AvatarSummary>>([]);
+
+        public Task<IReadOnlyList<AvatarBaseSummary>> LoadBasesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AvatarBaseSummary>>([]);
     }
 }

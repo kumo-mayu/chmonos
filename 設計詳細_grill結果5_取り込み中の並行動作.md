@@ -13,9 +13,11 @@
 
 ## 1. 優先順位は1本の梯子
 
-> **2026-09-09 実装済み**（⑦と「指名された画像」を除く）。
+> **2026-09-09 実装済み**（⑦を除く）。
 > 段は `ImportPhase` と `ImportPipeline.FetchAsync`、順位は `BoothPriority` と
 > `PriorityGate`（`SemaphoreSlim` を置き換えたもの）。
+> 「この商品の画像取得を優先」は `ItemService.FetchImagesAsync`、
+> 起動時の⑤再開は `ImageBacklog`（設定「使っていない間も取得を続ける」で切れる）。
 >
 > **優先度は引数ではなく `BoothClient.Prioritize(…)` の範囲で決まる。**
 > 引数にすると `ItemService` → `ImagePipeline` → `BoothClient` の全段に通す必要があり、

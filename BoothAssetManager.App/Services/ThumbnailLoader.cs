@@ -76,6 +76,13 @@ public sealed class ThumbnailLoader
         return files;
     }
 
+    /// <summary>
+    /// このitemの画像フォルダを数え直させる。
+    /// 「この商品の画像取得を優先」で枚数が増えたときに呼ぶ。
+    /// 覚えたままだと、落としたばかりの画像が一覧に出てこない。
+    /// </summary>
+    public void ForgetDirectory(string imageDirectory) => _filesByDirectory.Remove(imageDirectory);
+
     /// <summary>1枚を読む。読めなければ null。</summary>
     public BitmapSource? Load(string path)
     {

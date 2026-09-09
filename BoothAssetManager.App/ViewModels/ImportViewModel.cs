@@ -504,9 +504,10 @@ public sealed class ImportViewModel : ViewModelBase
                 ImportPhase.Resolving => "2. 商品IDを解決",
                 ImportPhase.FetchingJson => "3. 商品の情報を取得",
                 ImportPhase.FetchingHtml => "4. 商品ページを取得",
-                ImportPhase.FetchingThumbnails => "5. サムネイルを取得（取得できたものから編集できます）",
-                ImportPhase.FetchingGallery => "6. ギャラリーを取得",
-                _ => "7. ショップのアイコンを取得",
+                ImportPhase.Detecting => "5. 対応アバターを検出",
+                ImportPhase.FetchingThumbnails => "6. サムネイルを取得（取得できたものから編集できます）",
+                ImportPhase.FetchingGallery => "7. ギャラリーを取得",
+                _ => "8. ショップのアイコンを取得",
             };
             Current = report.Current;
             Total = report.Total;
@@ -547,7 +548,7 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasUnpackedFolders));
                 RaiseSelectionChanged();
 
-                await DetectAvatarsAsync(_cancellation.Token);
+                AvatarSummaryText = DescribeDetection(imported.Summary);
 
                 PhaseText = "完了";
                 DetailText = string.Empty;
@@ -574,37 +575,19 @@ public sealed class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 取り込みの続きとして対応アバターを検出する。
-    ///
-    /// 取り込んだ直後は説明文もタグも手元にあるので、ほとんどが通信なしで済む。
-    /// BOOTHへ問い合わせるのは、まだ種類の分からない商品IDだけ。
-    /// 失敗しても取り込み自体は成功しているので、ここでは止めずに知らせるだけにする。
+    /// 検出（③）の結果を1行にする。検出そのものは取り込みの1段として
+    /// パイプラインの中で走るので、ここでは受け取ったまとめを読むだけ。
     /// </summary>
-    private async Task DetectAvatarsAsync(CancellationToken cancellationToken)
+    private static string DescribeDetection(ImportSummary summary)
     {
-        try
+        if (summary.AvatarDetectError is { } error)
         {
-            var progress = new Progress<AvatarDetectProgress>(report =>
-            {
-                PhaseText = "4. 対応アバターを検出";
-                DetailText = $"{report.Phase}　{report.Done} / {report.Total}";
-            });
+            return $"対応アバターの検出は途中で止まりました：{error}";
+        }
 
-            var result = await _services.Avatars.DetectAsync(progress, cancellationToken);
-
-            AvatarSummaryText = result.ItemsUpdated == 0
-                ? "対応アバターは見つかりませんでした。"
-                : $"対応アバターを {result.ItemsUpdated} 件の商品に書きました（アバター {result.AvatarsFound} 体）。";
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            // 取り込みは終わっている。検出はアバター画面からやり直せる
-            AvatarSummaryText = $"対応アバターの検出は途中で止まりました：{exception.Message}";
-        }
+        return summary.AvatarItemsUpdated == 0
+            ? "対応アバターは見つかりませんでした。"
+            : $"対応アバターを {summary.AvatarItemsUpdated} 件の商品に書きました（アバター {summary.AvatarsFound} 体）。";
     }
 
     private string _avatarSummaryText = string.Empty;

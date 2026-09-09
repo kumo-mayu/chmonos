@@ -33,6 +33,9 @@ public abstract record UiCommand
     /// <summary>1件のitemをBOOTHから取り直す。</summary>
     public record RefreshItem(string ItemId) : UiCommand;
 
+    /// <summary>この商品の未取得の画像を、行列の先頭で取る。</summary>
+    public record FetchItemImages(string ItemId) : UiCommand;
+
     /// <summary>ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。</summary>
     public record ExcludeFile(string Hash, IReadOnlyList<string> Paths, string? Reason = null) : UiCommand;
 
@@ -132,6 +135,9 @@ public abstract record CommandResult
     public record Imported(ImportSummary Summary) : CommandResult;
 
     public record ItemSaved(string ItemId) : CommandResult;
+
+    /// <summary>指名された商品の画像を取り終えた。落とせた枚数を持つ。</summary>
+    public record ImagesFetched(string ItemId, int Downloaded) : CommandResult;
 
     public record Done : CommandResult;
 

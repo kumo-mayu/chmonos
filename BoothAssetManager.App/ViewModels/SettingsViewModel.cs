@@ -78,6 +78,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;
+        _resumeFetchInBackground = settings.ResumeFetchInBackground;
         _refreshIntervalDays = settings.RefreshIntervalDays;
         _notificationRetentionCount = settings.NotificationRetentionCount;
         _fetchIntervalMs = settings.FetchIntervalMs;
@@ -198,6 +199,18 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     // ---- 更新 ----
+
+    private bool _resumeFetchInBackground;
+
+    /// <summary>
+    /// 使っていない間もBOOTHから取り続けるか。前の取り込みで残った画像を次の起動で取り直す。
+    /// 通信の様子は常設の1行に出るので、勝手に何かしていると見えるものには止める手段が要る。
+    /// </summary>
+    public bool ResumeFetchInBackground
+    {
+        get => _resumeFetchInBackground;
+        set { if (SetField(ref _resumeFetchInBackground, value)) { Save(); } }
+    }
 
     private bool _notifyOnUpdateByDefault;
     public bool NotifyOnUpdateByDefault
@@ -358,6 +371,7 @@ public sealed class SettingsViewModel : ViewModelBase
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,
+            ResumeFetchInBackground = ResumeFetchInBackground,
             RefreshIntervalDays = RefreshIntervalDays,
             NotificationRetentionCount = NotificationRetentionCount,
             ShopBannerRecheckDays = ShopBannerRecheckDays,

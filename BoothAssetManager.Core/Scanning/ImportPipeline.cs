@@ -28,6 +28,14 @@ public enum ImportPhase
     /// <summary>② 商品ページHTML（全商品）。対応アバターの節と説明文。</summary>
     FetchingHtml,
 
+    /// <summary>
+    /// ③ 対応アバターの検出。
+    ///
+    /// ①②の後に置けるのは、判定の材料（category）が商品JSONに入っているから。
+    /// 取り込んだ直後は説明文もタグも手元にあるので、ほとんどが通信なしで済む。
+    /// </summary>
+    Detecting,
+
     /// <summary>④ 1枚目の画像（全商品）。1枚あれば一覧のカードは完成する。</summary>
     FetchingThumbnails,
 
@@ -80,6 +88,15 @@ public sealed class ImportSummary
     public int TemporaryFailures { get; init; }
 
     public int ImagesDownloaded { get; init; }
+
+    /// <summary>③ 検出が対応アバターを書き込んだ商品数。</summary>
+    public int AvatarItemsUpdated { get; init; }
+
+    /// <summary>③ 検出で分かったアバターの数。</summary>
+    public int AvatarsFound { get; init; }
+
+    /// <summary>③ 検出が途中で止まった理由。止まっても取り込み自体は成立している。</summary>
+    public string? AvatarDetectError { get; init; }
 }
 
 public interface IImportPipeline
@@ -112,12 +129,21 @@ public sealed class ImportPipeline : IImportPipeline
     private readonly AppSettings _settings;
     private readonly FolderScanner _scanner = new();
 
-    public ImportPipeline(DataStore store, IBoothClient client, ImagePipeline images, AppSettings? settings = null)
+    /// <summary>③ 対応アバターの検出。渡されなければその段を飛ばす。</summary>
+    private readonly Services.IAvatarService? _avatars;
+
+    public ImportPipeline(
+        DataStore store,
+        IBoothClient client,
+        ImagePipeline images,
+        AppSettings? settings = null,
+        Services.IAvatarService? avatars = null)
     {
         _store = store;
         _client = client;
         _images = images;
         _settings = settings ?? new AppSettings();
+        _avatars = avatars;
     }
 
     public Task<ImportSummary> RunAsync(
@@ -173,6 +199,25 @@ public sealed class ImportPipeline : IImportPipeline
         return totals.ToSummary();
     }
 
+    /// <summary>
+    /// 検出の進み具合を、取り込みの進み具合として流し直す。
+    ///
+    /// 検出は取り込みの1段なので、画面には1本の進捗として見えていてほしい。
+    /// 画面が2種類の進捗を混ぜて出すより、ここで形を揃える方が食い違いようがない。
+    /// </summary>
+    private sealed class DetectProgressAdapter(IProgress<ImportProgress>? inner)
+        : IProgress<Services.AvatarDetectProgress>
+    {
+        public void Report(Services.AvatarDetectProgress value)
+            => inner?.Report(new ImportProgress
+            {
+                Phase = ImportPhase.Detecting,
+                Current = value.Done,
+                Total = value.Total,
+                Detail = value.Current ?? value.Phase,
+            });
+    }
+
     private static void Report(
         IProgress<ImportProgress>? progress,
         ImportPhase phase,
@@ -204,6 +249,9 @@ public sealed class ImportPipeline : IImportPipeline
         private int _notFound;
         private int _temporaryFailures;
         private int _imagesDownloaded;
+        private int _avatarItemsUpdated;
+        private int _avatarsFound;
+        private string? _avatarDetectError;
 
         public void Add(ScanOutcome scan, ResolutionResult resolution, FetchResult fetch)
         {
@@ -221,6 +269,11 @@ public sealed class ImportPipeline : IImportPipeline
             _notFound += fetch.NotFound;
             _temporaryFailures += fetch.TemporaryFailures;
             _imagesDownloaded += fetch.ImagesDownloaded;
+
+            // 検出は周回ごとに走るので足し合わせる。理由は最後のものを残す
+            _avatarItemsUpdated += fetch.AvatarItemsUpdated;
+            _avatarsFound += fetch.AvatarsFound;
+            _avatarDetectError = fetch.AvatarDetectError ?? _avatarDetectError;
         }
 
         public ImportSummary ToSummary() => new()
@@ -238,6 +291,9 @@ public sealed class ImportPipeline : IImportPipeline
             NotFound = _notFound,
             TemporaryFailures = _temporaryFailures,
             ImagesDownloaded = _imagesDownloaded,
+            AvatarItemsUpdated = _avatarItemsUpdated,
+            AvatarsFound = _avatarsFound,
+            AvatarDetectError = _avatarDetectError,
         };
     }
 
@@ -567,6 +623,9 @@ public sealed class ImportPipeline : IImportPipeline
         var notFound = 0;
         var temporaryFailures = 0;
         var imagesDownloaded = 0;
+        var avatarItemsUpdated = 0;
+        var avatarsFound = 0;
+        string? avatarDetectError = null;
 
         // 手元にある商品は通信が要らない。ファイルを足すだけなので、段に入る前に片付ける
         var pending = new List<(string ItemId, List<LocalFileRecord> Files)>();
@@ -679,6 +738,29 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
+        // ── ③ 対応アバターの検出 ──
+        //
+        // 画像より先に置く。対応アバターを選ぶのは人の作業で、その候補が出揃っている
+        // ことの方が、絵が見えていることより先に要る。
+        // 通信が要るのは「対応表明で名前が出たが、手元に持っていないアバター」だけなので、
+        // ここを④の前に置いても待ちはほとんど伸びない。
+        if (_avatars is not null && fetched.Count > 0)
+        {
+            using var detectPriority = BoothClient.Prioritize(BoothPriority.Detection);
+
+            try
+            {
+                var detected = await _avatars.DetectAsync(new DetectProgressAdapter(progress), cancellationToken);
+                avatarItemsUpdated = detected.ItemsUpdated;
+                avatarsFound = detected.AvatarsFound;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // 取り込みは成立している。検出はアバター画面からやり直せるので、止めずに知らせるだけ
+                avatarDetectError = exception.Message;
+            }
+        }
+
         // ── ④ 1枚目の画像（全商品）──
         //
         // 一覧のカードは1枚目しか使っていない（静止時に1枚だけ読み、
@@ -739,6 +821,9 @@ public sealed class ImportPipeline : IImportPipeline
             NotFound = notFound,
             TemporaryFailures = temporaryFailures,
             ImagesDownloaded = imagesDownloaded,
+            AvatarItemsUpdated = avatarItemsUpdated,
+            AvatarsFound = avatarsFound,
+            AvatarDetectError = avatarDetectError,
         };
     }
 
@@ -783,5 +868,11 @@ public sealed class ImportPipeline : IImportPipeline
         public int TemporaryFailures { get; init; }
 
         public int ImagesDownloaded { get; init; }
+
+        public int AvatarItemsUpdated { get; init; }
+
+        public int AvatarsFound { get; init; }
+
+        public string? AvatarDetectError { get; init; }
     }
 }

@@ -127,6 +127,15 @@
                         <CheckBox Content="取り込んだ商品の更新を既定で知らせる" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding NotifyOnUpdateByDefault, Mode=TwoWay}" />
 
+                        <!--
+                            通信の様子は常設の1行に出るので、勝手に何かしていると見えるものには
+                            止める手段が要る。従量制の回線や、静かにしておきたい場面がある。
+                        -->
+                        <CheckBox Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ResumeFetchInBackground, Mode=TwoWay}">
+                            <TextBlock Text="使っていない間も取得を続ける（前回取り切れなかった画像）" />
+                        </CheckBox>
+
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
                             <TextBlock Text="商品情報を取り直す間隔" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"

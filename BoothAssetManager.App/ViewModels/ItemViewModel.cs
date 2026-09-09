@@ -135,6 +135,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             parameter => _ = UnregisterFolderAsync(parameter as string),
             parameter => parameter is string);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
+        FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
         AddUsedOnCommand = new RelayCommand(parameter => _ = AddUsedOnAsync(parameter as string));
         AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string));
 
@@ -279,6 +280,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     }
 
     public RelayCommand SelectImageCommand { get; }
+
+    /// <summary>この商品の画像を行列の先頭で取る。未取得があるときだけ押せる。</summary>
+    public RelayCommand FetchImagesCommand { get; }
 
     public ObservableCollection<GalleryImage> Images { get; } = [];
 
@@ -438,10 +442,106 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         }
     }
 
+    /// <summary>まだ落としていない画像の枚数。0なら優先ボタンを出さない。</summary>
+    public int MissingImageCount
+    {
+        get => _missingImageCount;
+        private set
+        {
+            if (SetField(ref _missingImageCount, value))
+            {
+                OnPropertyChanged(nameof(HasMissingImages));
+                OnPropertyChanged(nameof(MissingImageText));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasMissingImages => MissingImageCount > 0 && !IsFetchingImages;
+
+    public string MissingImageText => $"未取得の画像が {MissingImageCount} 枚あります";
+
+    public bool IsFetchingImages
+    {
+        get => _isFetchingImages;
+        private set
+        {
+            if (SetField(ref _isFetchingImages, value))
+            {
+                OnPropertyChanged(nameof(HasMissingImages));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private int _missingImageCount;
+    private bool _isFetchingImages;
+
+    /// <summary>
+    /// この商品の画像を行列の先頭で取る。
+    ///
+    /// 自動で「見えたものを優先」にしないのは、間隔が1,500msで1分あたり40枚しか
+    /// 取れないため。勢いよくスクロールされると順番待ちが「もう見ていないもの」で埋まる。
+    /// **押した意思の方が、見えたという事実より確か。**
+    /// </summary>
+    private async Task FetchImagesAsync()
+    {
+        IsFetchingImages = true;
+
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new UiCommand.FetchItemImages(Item.Id));
+
+            RunOnUiThread(() =>
+            {
+                if (result is CommandResult.ImagesFetched fetched)
+                {
+                    // 落とせた枚数ではなく、実際にディスクにある枚数で数え直す。
+                    // 取れなかったものが残っていれば、その事実がそのまま出る
+                    _thumbnails.ForgetDirectory(_services.Paths.ItemImagesDir(Item.Id));
+                    Images.Clear();
+                    BuildGallery();
+
+                    ImageFetchNotice = fetched.Downloaded == 0
+                        ? "取得できた画像はありませんでした。"
+                        : $"{fetched.Downloaded} 枚を取得しました。";
+                }
+                else if (result is CommandResult.Failed failure)
+                {
+                    ImageFetchNotice = failure.Message;
+                }
+            });
+        }
+        finally
+        {
+            RunOnUiThread(() => IsFetchingImages = false);
+        }
+    }
+
+    private string? _imageFetchNotice;
+
+    public string? ImageFetchNotice
+    {
+        get => _imageFetchNotice;
+        private set
+        {
+            if (SetField(ref _imageFetchNotice, value))
+            {
+                OnPropertyChanged(nameof(HasImageFetchNotice));
+            }
+        }
+    }
+
+    public bool HasImageFetchNotice => !string.IsNullOrEmpty(ImageFetchNotice);
+
     private void BuildGallery()
     {
         var directory = _services.Paths.ItemImagesDir(Item.Id);
         var onDisk = _thumbnails.ListFiles(directory);
+
+        // BOOTHが持っている枚数と手元の差が「まだ取っていない画像」。
+        // フラグを持たないのは、実態とフラグがずれたときにどちらが正しいか分からなくなるため
+        MissingImageCount = Math.Max(0, Item.Booth.Images.Count - onDisk.Count);
 
         // 並べ替えは共有の規則に任せる（カードと編集画面でも同じ順になる）
         foreach (var entry in ItemImageOrder.Arrange(directory, Item.Booth.Images, onDisk))

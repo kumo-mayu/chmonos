@@ -93,6 +93,10 @@ public partial class App : Application
     /// </summary>
     private static void SavePlacement(MainViewModel main, MainWindow window)
     {
+        // 背景で走っている取得を先に止める。終わるのは待たない
+        // （1件ずつ保存しているので、どこで止めても壊れない）
+        main.StopBackgroundWork();
+
         var placement = window.CurrentPlacement();
 
         try

@@ -59,7 +59,45 @@ public sealed class MainViewModel : ViewModelBase
 
         RefreshCounts();
         ShowStartScreen();
+        StartBacklogResume();
     }
+
+    private CancellationTokenSource? _backlog;
+
+    /// <summary>
+    /// 前の取り込みで取り切れなかった画像を、背景で取り直す（梯子の⑤の再開）。
+    ///
+    /// 対象は手元のJSONだけで決まる（<c>Booth.Images</c> の件数とディスクの差）ので、
+    /// フォルダの走査は起きない。**起動時に黙ってドライブを舐めに行くのとは質が違う。**
+    /// 取り込みが始まれば①②が優先順位で自然に割り込むので、ここで待たせる必要はない。
+    ///
+    /// 失敗しても黙って終える。ユーザが頼んだ作業ではないので、
+    /// 邪魔をしてまで知らせる価値がない（画像は次の起動でまた試す）。
+    /// </summary>
+    private void StartBacklogResume()
+    {
+        if (!_services.Settings.ResumeFetchInBackground)
+        {
+            return;
+        }
+
+        _backlog = new CancellationTokenSource();
+        var token = _backlog.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _services.Backlog.ResumeAsync(cancellationToken: token);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    /// <summary>閉じるときに背景の取得を止める。</summary>
+    public void StopBackgroundWork() => _backlog?.Cancel();
 
     /// <summary>
     /// 起動したときにどの画面を出すか。

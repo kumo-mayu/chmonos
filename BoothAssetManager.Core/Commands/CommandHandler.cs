@@ -55,6 +55,11 @@ public sealed class CommandHandler
                 return new CommandResult.Imported(
                     await _import.RunAsync(scan.Work, progress, cancellationToken));
 
+            case UiCommand.FetchItemImages fetchImages:
+                return new CommandResult.ImagesFetched(
+                    fetchImages.ItemId,
+                    await _items.FetchImagesAsync(fetchImages.ItemId, cancellationToken));
+
             case UiCommand.AssignItemId assign:
                 return await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken)
                     ? new CommandResult.ItemSaved(assign.ItemId)

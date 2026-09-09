@@ -33,6 +33,8 @@ public class CommandHandlerTests
 
         public Task<bool> RegisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
+        public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+
         public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
 
         public Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
