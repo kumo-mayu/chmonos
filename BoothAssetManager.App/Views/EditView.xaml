@@ -274,10 +274,40 @@
                                                     <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
                                                 </ComboBox>
                                             </StackPanel>
-                                            <!-- 1版に複数回の購入がある場合、この画面では1件目しか触れないので断る -->
-                                            <TextBlock Text="{Binding ExtrasText}" Style="{StaticResource Caption}"
-                                                       Margin="22,4,0,0" TextWrapping="Wrap"
-                                                       Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <!--
+                                                同じ版を2回買った記録。「自分用に1つ、ギフトに1つ」がこれ。
+                                                買った1回が1レコードなので、行を増やす形で足す。
+                                            -->
+                                            <ItemsControl ItemsSource="{Binding Extras}" Margin="22,4,0,0"
+                                                          Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                            <TextBlock Text="＋" Style="{StaticResource Caption}"
+                                                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                            <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+                                                            <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
+                                                                     Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                     VerticalContentAlignment="Center" />
+                                                            <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
+                                                                      Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
+                                                                      VerticalContentAlignment="Center">
+                                                                <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
+                                                                <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
+                                                                <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
+                                                            </ComboBox>
+                                                            <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
+                                                            <Button Content="この記録を消す" Style="{StaticResource SmallButton}"
+                                                                    Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <Button Content="この版をもう1回買った" Style="{StaticResource SmallButton}"
+                                                    HorizontalAlignment="Left" Margin="22,6,0,0"
+                                                    Command="{Binding AddPurchaseCommand}"
+                                                    Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

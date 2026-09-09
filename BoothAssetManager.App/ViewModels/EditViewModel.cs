@@ -52,6 +52,8 @@ public sealed class OrderedVariationInput : ViewModelBase
             {
                 Price = listPrice.ToString();
             }
+
+            NotePurchasedChanged();
         }
     }
 
@@ -86,17 +88,67 @@ public sealed class OrderedVariationInput : ViewModelBase
     };
 
     /// <summary>
-    /// 同じ版にこれ以外の購入記録が何件あるか。
+    /// 同じ版の2件目以降の購入記録。
     ///
-    /// 買った1回が1レコードなので、同じ版を2回買った記録も持てる。
-    /// この画面は1版につき1行しか出せないので、残りは触らずに持ち回す。
-    /// 黙って消すと、贈答や買い直しの記録が編集するたびに減っていく。
+    /// **買った1回が1レコード**なので、同じ版を2回買った記録も持てる。
+    /// 「自分用に1つ、ギフトに1つ」がこれにあたり、
+    /// <see cref="PurchaseKind"/> を3種に割ったのはこの用途のため。
     /// </summary>
-    public IReadOnlyList<Purchase> Extras { get; set; } = [];
+    public System.Collections.ObjectModel.ObservableCollection<ExtraPurchaseInput> Extras { get; } = [];
 
     public bool HasExtras => Extras.Count > 0;
 
-    public string ExtrasText => $"この版にはほかに {Extras.Count} 件の記録があります（ここでは最初の1件だけ編集できます）";
+    /// <summary>この版をもう1回買った記録を足す。</summary>
+    public RelayCommand? AddPurchaseCommand { get; set; }
+
+    /// <summary>足せるのは購入に印を付けた版だけ。1件目が無いのに2件目は作れない。</summary>
+    public bool CanAddPurchase => IsPurchased;
+
+    internal void NotePurchasedChanged()
+    {
+        OnPropertyChanged(nameof(CanAddPurchase));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    internal void NoteExtrasChanged() => OnPropertyChanged(nameof(HasExtras));
+}
+
+/// <summary>
+/// 同じ版の2件目以降の購入記録1件。
+///
+/// 1件目（版の行そのもの）と同じ項目を持つが、印を外す代わりに行ごと消す。
+/// 「買った回数」を減らす操作なので、外すより消す方が意味に合う。
+/// </summary>
+public sealed class ExtraPurchaseInput : ViewModelBase
+{
+    private string _price = string.Empty;
+    private PurchaseKind _kind = PurchaseKind.Given;
+
+    /// <summary>BOOTH側に現存しない版の記録か。1件目から引き継ぐ。</summary>
+    public bool IsGone { get; init; }
+
+    public string? NameSnapshot { get; init; }
+
+    public string? Note { get; init; }
+
+    public string Price
+    {
+        get => _price;
+        set => SetField(ref _price, value);
+    }
+
+    /// <summary>
+    /// 既定を「贈った」にしている。2件目を作る理由のほとんどが贈答だから
+    /// （自分用を2つ買う場面はまれ）。違えばその場で変えられる。
+    /// </summary>
+    public PurchaseKind Kind
+    {
+        get => _kind;
+        set => SetField(ref _kind, value);
+    }
+
+    /// <summary>この記録を消す。</summary>
+    public RelayCommand? RemoveCommand { get; set; }
 }
 
 /// <summary>
@@ -566,7 +618,7 @@ public sealed class EditViewModel : ViewModelBase
         Variations.Clear();
 
         // 同じ版を複数回買った記録がありうるので、版ごとにまとめる。
-        // 画面は1版1行なので、2件目以降は触らずに持ち回す（下の Extras）
+        // 1件目は版の行そのもの、2件目以降は行の下にぶら下げる
         var ordered = record.Local.Purchases
             .GroupBy(purchase => purchase.VariationId)
             .ToDictionary(group => group.Key, group => group.ToList());
@@ -576,7 +628,7 @@ public sealed class EditViewModel : ViewModelBase
             var purchased = ordered.TryGetValue(variation.Id, out var group);
             var first = group?.FirstOrDefault();
 
-            Variations.Add(new OrderedVariationInput
+            var row = new OrderedVariationInput
             {
                 VariationId = variation.Id,
                 Name = variation.Name ?? "（バリエーションなし）",
@@ -585,8 +637,10 @@ public sealed class EditViewModel : ViewModelBase
                 IsPurchased = purchased,
                 Price = first?.Price?.ToString() ?? string.Empty,
                 Kind = first?.Kind ?? PurchaseKind.ForSelf,
-                Extras = group?.Skip(1).ToList() ?? [],
-            });
+            };
+
+            AttachExtras(row, group?.Skip(1));
+            Variations.Add(row);
         }
 
         // BOOTH側から消えた購入記録も、支出の記録として残っているので出す
@@ -594,7 +648,7 @@ public sealed class EditViewModel : ViewModelBase
         foreach (var group in ordered.Where(pair => !currentIds.Contains(pair.Key)))
         {
             var first = group.Value[0];
-            Variations.Add(new OrderedVariationInput
+            var row = new OrderedVariationInput
             {
                 VariationId = group.Key,
                 Name = first.NameSnapshot ?? $"variation {group.Key}",
@@ -603,8 +657,10 @@ public sealed class EditViewModel : ViewModelBase
                 IsPurchased = true,
                 Price = first.Price?.ToString() ?? string.Empty,
                 Kind = first.Kind,
-                Extras = group.Value.Skip(1).ToList(),
-            });
+            };
+
+            AttachExtras(row, group.Value.Skip(1));
+            Variations.Add(row);
         }
 
         // ここから先の変更はユーザ操作。価格の自動入力を許可する
@@ -612,6 +668,51 @@ public sealed class EditViewModel : ViewModelBase
         {
             input.IsInitialized = true;
         }
+    }
+
+    /// <summary>
+    /// 2件目以降の購入記録を行にぶら下げ、足す／消すを配線する。
+    /// 版の行と同じ形にしておくと、1件目と2件目で操作が変わらない。
+    /// </summary>
+    private void AttachExtras(OrderedVariationInput row, IEnumerable<Purchase>? existing)
+    {
+        foreach (var purchase in existing ?? [])
+        {
+            AddExtra(row, purchase.Price?.ToString(), purchase.Kind, purchase.NameSnapshot, purchase.Note);
+        }
+
+        row.AddPurchaseCommand = new RelayCommand(
+            // 版の名前は引き継ぐ。BOOTH側から消えたときに何の版だったか分からなくなる
+            () => AddExtra(row, row.Price, PurchaseKind.Given, row.Name, null),
+            () => row.CanAddPurchase);
+
+        row.NoteExtrasChanged();
+    }
+
+    private void AddExtra(
+        OrderedVariationInput row,
+        string? price,
+        PurchaseKind kind,
+        string? nameSnapshot,
+        string? note)
+    {
+        var extra = new ExtraPurchaseInput
+        {
+            IsGone = row.IsGone,
+            NameSnapshot = nameSnapshot,
+            Note = note,
+            Price = price ?? string.Empty,
+            Kind = kind,
+        };
+
+        extra.RemoveCommand = new RelayCommand(() =>
+        {
+            row.Extras.Remove(extra);
+            row.NoteExtrasChanged();
+        });
+
+        row.Extras.Add(extra);
+        row.NoteExtrasChanged();
     }
 
     private void BuildImages(ItemRecord record)
@@ -646,7 +747,8 @@ public sealed class EditViewModel : ViewModelBase
 
         var attributes = Attributes.ToDictionary(row => row.Name, row => row.Value);
 
-        // 編集できるのは版ごとの1件目だけ。2件目以降はそのまま書き戻す
+        // 買った1回が1レコード。版の行が1件目、その下にぶら下げたものが2件目以降。
+        // ExistsOnBooth は保存側で計算し直されるので、ここでの値は目安にすぎない
         var ordered = Variations
             .Where(variation => variation.IsPurchased)
             .SelectMany(variation => new[]
@@ -659,7 +761,15 @@ public sealed class EditViewModel : ViewModelBase
                     Kind = variation.Kind,
                     ExistsOnBooth = !variation.IsGone,
                 },
-            }.Concat(variation.Extras))
+            }.Concat(variation.Extras.Select(extra => new Purchase
+            {
+                VariationId = variation.VariationId,
+                NameSnapshot = extra.NameSnapshot ?? variation.Name,
+                Price = int.TryParse(extra.Price.Trim(), out var extraPrice) ? extraPrice : null,
+                Kind = extra.Kind,
+                Note = extra.Note,
+                ExistsOnBooth = !variation.IsGone,
+            })))
             .ToList();
 
         return record.Local with
