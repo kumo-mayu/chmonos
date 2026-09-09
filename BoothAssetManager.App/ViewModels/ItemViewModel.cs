@@ -178,7 +178,17 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         }
     }
 
-    public string RefreshButtonText => IsRefreshing ? "取得中…" : "今すぐ取り直す";
+    /// <summary>
+    /// 何を取り直すのかを名前に入れる。
+    ///
+    /// 「今すぐ取り直す」は動作しか言っておらず、**何の話か分からない**。
+    /// 隣が「この商品を編集」「BOOTHで開く」と対象を名乗っているので、ここだけ浮いていた。
+    ///
+    /// 「画像再取得」にしないのは狭すぎるため。実際に取り直すのは商品情報が主で、
+    /// 名前・価格・バリエーション・タグ・販売状況・説明文が入れ替わる。画像はその後に続く。
+    /// 「BOOTHから」と言うことで、**自分で入れたものは変わらない**ことも同時に伝わる。
+    /// </summary>
+    public string RefreshButtonText => IsRefreshing ? "取り直しています…" : "BOOTHから取り直す";
 
     public string RefreshStatus
     {
