@@ -164,6 +164,14 @@ public sealed record AppSettings
     public bool NavCollapsed { get; init; }
 
     /// <summary>
+    /// 検索の絞り込みパネルを畳んでいるか。
+    ///
+    /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。
+    /// 「なぜか商品が少ない」の原因が畳んだパネルの中にあると、探す場所が無くなる。
+    /// </summary>
+    public bool FilterPanelCollapsed { get; init; }
+
+    /// <summary>
     /// 検索の絞り込みに積んでいる条件の種類。
     ///
     /// 種類だけを覚えて値は覚えない。値まで戻すと「なぜか商品が少ない」状態で始まり、

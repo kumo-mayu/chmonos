@@ -2,6 +2,13 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
+        <!--
+            畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
+            どちらか一方の画面ではなくここに置く。24×24の座標系。
+        -->
+        <PathGeometry x:Key="IconCollapse" Figures="M14,7 L9,12 L14,17" />
+        <PathGeometry x:Key="IconExpand" Figures="M10,7 L15,12 L10,17" />
+
         <!-- モックで決めた配色をそのまま持ち込む -->
         <SolidColorBrush x:Key="Bg" Color="#f2f3f5" />
         <SolidColorBrush x:Key="Surface" Color="#ffffff" />

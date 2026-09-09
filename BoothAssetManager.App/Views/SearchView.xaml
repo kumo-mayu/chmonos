@@ -7,24 +7,86 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <!--
+            畳む・開くの小さなボタン。既定のボタンの見た目（枠と余白）だと
+            「絞り込み」の見出しより目立ってしまうので、山形だけを置く。
+        -->
+        <Style x:Key="PanelToggle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="Transparent" CornerRadius="5">
+                            <Viewbox Width="15" Height="15">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{TemplateBinding Content}" Fill="{x:Null}" StrokeThickness="2"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                          Stroke="{StaticResource TextMuted}" />
+                                </Canvas>
+                            </Viewbox>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Background="{StaticResource Bg}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="286" />
+            <ColumnDefinition Width="{Binding FilterPanelWidth}" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- 絞り込み -->
         <Border Grid.Column="0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
-            <DockPanel>
+          <Grid>
+            <!--
+                畳んだ姿。条件は外れていないので、効いている数を出しておく。
+                数が見えていないと「なぜか商品が少ない」の原因を探す場所が無くなる。
+            -->
+            <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Button DockPanel.Dock="Top" Style="{StaticResource PanelToggle}" Content="{StaticResource IconExpand}"
+                        Command="{Binding ToggleFilterPanelCommand}" Margin="0,14,0,0" ToolTip="絞り込みを開く"
+                        AutomationProperties.Name="絞り込みを開く" />
+                <Border DockPanel.Dock="Top" Background="{StaticResource Accent}" CornerRadius="8" Padding="5,1"
+                        Margin="0,8,0,0" HorizontalAlignment="Center" ToolTip="{Binding FilterSummary}"
+                        Visibility="{Binding ActiveFilterCount, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
+                    <TextBlock Text="{Binding ActiveFilterCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
+                </Border>
+                <TextBlock Text="絞り込み" Style="{StaticResource Caption}" Margin="0,14,0,0"
+                           HorizontalAlignment="Center" VerticalAlignment="Top">
+                    <TextBlock.LayoutTransform>
+                        <RotateTransform Angle="90" />
+                    </TextBlock.LayoutTransform>
+                </TextBlock>
+            </DockPanel>
+
+            <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <Border DockPanel.Dock="Top" Height="52" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
-                    <Grid Margin="16,0">
-                        <TextBlock Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
-                        <TextBlock Text="条件をクリア" Foreground="{StaticResource Accent}" FontSize="12"
-                                   VerticalAlignment="Center" HorizontalAlignment="Right" Cursor="Hand">
+                    <Grid Margin="16,0,9,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="条件をクリア" Foreground="{StaticResource Accent}" FontSize="12"
+                                   VerticalAlignment="Center" Margin="0,0,4,0" Cursor="Hand">
                             <TextBlock.InputBindings>
                                 <MouseBinding MouseAction="LeftClick" Command="{Binding ClearFiltersCommand}" />
                             </TextBlock.InputBindings>
                         </TextBlock>
+                        <Button Grid.Column="2" Style="{StaticResource PanelToggle}" Content="{StaticResource IconCollapse}"
+                                Command="{Binding ToggleFilterPanelCommand}" ToolTip="絞り込みを畳む"
+                                AutomationProperties.Name="絞り込みを畳む" />
                     </Grid>
                 </Border>
 
@@ -389,6 +451,7 @@
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
+          </Grid>
         </Border>
 
         <!-- 結果 -->

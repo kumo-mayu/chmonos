@@ -51,6 +51,7 @@ public sealed class SearchViewModel : ViewModelBase
     private bool _includeViaBase = true;
     private Core.Services.AvatarCompatibilityIndex? _compatibility;
     private bool _isLoading;
+    private bool _isFilterPanelCollapsed;
     private int _columns = 1;
     private SortOption _sort = DefaultSort;
     private List<string> _attributeNames = [];
@@ -83,6 +84,8 @@ public sealed class SearchViewModel : ViewModelBase
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
         HideItemCommand = new RelayCommand(parameter => _ = HideItemAsync(parameter as ItemCardViewModel));
         AddExtraFilterCommand = new RelayCommand(parameter => AddExtraFilter(parameter as string));
+        ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
+        _isFilterPanelCollapsed = services.Settings.FilterPanelCollapsed;
 
         // 前回積んでいた条件の種類だけを戻す。値は戻さない
         foreach (var name in services.Settings.SearchExtraFilters)
@@ -94,6 +97,37 @@ public sealed class SearchViewModel : ViewModelBase
         }
 
         _ = ReloadAsync();
+    }
+
+    /// <summary>
+    /// 絞り込みパネルを畳んでいるか。
+    ///
+    /// 畳んでも条件は外さない。**畳むのは見えなくすることで、外すことではない**ので、
+    /// 畳んだ姿に効いている条件の数を出して、結果が絞られていることが分かるようにする。
+    /// </summary>
+    public bool IsFilterPanelCollapsed
+    {
+        get => _isFilterPanelCollapsed;
+        private set
+        {
+            if (SetField(ref _isFilterPanelCollapsed, value))
+            {
+                OnPropertyChanged(nameof(FilterPanelWidth));
+            }
+        }
+    }
+
+    /// <summary>畳んだときの幅は、開くボタンと縦書きの見出しが通る分だけ。</summary>
+    public double FilterPanelWidth => IsFilterPanelCollapsed ? 34 : 286;
+
+    public RelayCommand ToggleFilterPanelCommand { get; }
+
+    private void ToggleFilterPanel()
+    {
+        IsFilterPanelCollapsed = !IsFilterPanelCollapsed;
+        var next = _services.Settings with { FilterPanelCollapsed = IsFilterPanelCollapsed };
+        _services.ReplaceSettings(next);
+        _ = _services.SettingsStore.SaveAsync(next);
     }
 
     /// <summary>積んだ条件。常設に置かないものはここへ足していく。</summary>
@@ -1020,6 +1054,7 @@ public sealed class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(ResultSummary));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(FilterSummary));
+        OnPropertyChanged(nameof(ActiveFilterCount));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(EmptyHint));
     }
@@ -1028,72 +1063,79 @@ public sealed class SearchViewModel : ViewModelBase
     /// 今どの条件で絞っているかを1行で示す。
     /// 「なぜこの結果になったか」が結果の隣で読めるようにするため。
     /// </summary>
-    public string FilterSummary
+    public string FilterSummary => string.Join(" / ", FilterParts());
+
+    /// <summary>
+    /// 効いている条件の数。畳んだパネルに出す。
+    /// 畳むと条件そのものが見えなくなるので、数だけでも残さないと
+    /// 「なぜか商品が少ない」の原因を探す場所が無くなる。
+    /// </summary>
+    public int ActiveFilterCount => FilterParts().Count;
+
+    /// <summary>効いている条件を1つずつ文にする。要約にも件数にも同じものを使う。</summary>
+    private List<string> FilterParts()
     {
-        get
+        var parts = new List<string>();
+
+        var tags = TagFilters.Where(filter => filter.IsSelected).ToList();
+        foreach (var tag in tags)
         {
-            var parts = new List<string>();
-
-            var tags = TagFilters.Where(filter => filter.IsSelected).ToList();
-            foreach (var tag in tags)
-            {
-                var subs = tag.SelectedSubs.ToList();
-                parts.Add(subs.Count == 0 ? tag.Name : $"{tag.Name}（{string.Join("・", subs)}）");
-            }
-
-            foreach (var attribute in AttributeFilters)
-            {
-                parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
-            }
-
-            foreach (var tag in BoothTagFilters)
-            {
-                parts.Add($"タグ：{tag.Name}");
-            }
-
-            foreach (var extra in ExtraFilters.Where(filter => filter.IsActive))
-            {
-                parts.Add(extra.SummaryText);
-            }
-
-            if (_ownedOnly)
-            {
-                parts.Add("所持のみ");
-            }
-
-            if (_missingOnly)
-            {
-                parts.Add("ファイルが見つからない");
-            }
-
-            if (_givenOnly && _receivedOnly)
-            {
-                parts.Add("贈った・貰った");
-            }
-            else if (_givenOnly)
-            {
-                parts.Add("贈った");
-            }
-            else if (_receivedOnly)
-            {
-                parts.Add("貰った");
-            }
-
-            if (_avatarFilterName is not null)
-            {
-                parts.Add(_includeViaBase ? $"{_avatarFilterName}（素体経由を含む）" : _avatarFilterName);
-            }
-
-            if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
-            {
-                parts.Add(_selectedCategory);
-            }
-
-            return parts.Count == 0 ? string.Empty : string.Join(" / ", parts);
+            var subs = tag.SelectedSubs.ToList();
+            parts.Add(subs.Count == 0 ? tag.Name : $"{tag.Name}（{string.Join("・", subs)}）");
         }
+
+        foreach (var attribute in AttributeFilters)
+        {
+            parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
+        }
+
+        foreach (var tag in BoothTagFilters)
+        {
+            parts.Add($"タグ：{tag.Name}");
+        }
+
+        foreach (var extra in ExtraFilters.Where(filter => filter.IsActive))
+        {
+            parts.Add(extra.SummaryText);
+        }
+
+        if (_ownedOnly)
+        {
+            parts.Add("所持のみ");
+        }
+
+        if (_missingOnly)
+        {
+            parts.Add("ファイルが見つからない");
+        }
+
+        if (_givenOnly && _receivedOnly)
+        {
+            parts.Add("贈った・貰った");
+        }
+        else if (_givenOnly)
+        {
+            parts.Add("贈った");
+        }
+        else if (_receivedOnly)
+        {
+            parts.Add("貰った");
+        }
+
+        if (_avatarFilterName is not null)
+        {
+            parts.Add(_includeViaBase ? $"{_avatarFilterName}（素体経由を含む）" : _avatarFilterName);
+        }
+
+        if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
+        {
+            parts.Add(_selectedCategory);
+        }
+
+        return parts;
     }
 
-    public bool HasActiveFilters => FilterSummary.Length > 0;
+    public bool HasActiveFilters => ActiveFilterCount > 0;
 
     /// <summary>
     /// 0件のときの案内。絞って0件なのか、そもそも空なのかで次にやることが違う。
