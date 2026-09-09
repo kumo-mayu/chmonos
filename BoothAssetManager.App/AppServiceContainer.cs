@@ -40,6 +40,7 @@ public sealed class AppServiceContainer : IDisposable
         Import = new ImportPipeline(Store, Client, Images, Settings, Avatars);
         Items = new ItemService(Store, Client, Images, Settings);
         Backlog = new ImageBacklog(Store, Images);
+        Watch = new FolderWatch(Store);
         Due = new DueRefresh(Store, Items);
         Resolver = new FallbackResolver(Client);
         Edit = new EditService(Store);
@@ -97,6 +98,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>前の取り込みで残った画像を、次の起動で取り直す（梯子の⑤の再開）。</summary>
     public ImageBacklog Backlog { get; }
+
+    /// <summary>監視対象フォルダに新しいファイルが無いかを見る。起動時に走らせてよい唯一の走査。</summary>
+    public FolderWatch Watch { get; }
 
     /// <summary>⑦ 期限の来た商品を取り直す。梯子のいちばん下。</summary>
     public DueRefresh Due { get; }

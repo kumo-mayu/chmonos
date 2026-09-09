@@ -55,6 +55,19 @@ public sealed record AppSettings
     /// <summary>取り込み元フォルダの履歴。ファイルが欠落した時の再スキャン範囲も兼ねる。</summary>
     public IReadOnlyList<string> ImportFolders { get; init; } = [];
 
+    /// <summary>
+    /// 監視対象フォルダ。起動時に、この中に新しいファイルが無いかを見る。
+    ///
+    /// <see cref="ImportFolders"/> とは意味が違うので別に持つ。
+    /// あちらは「ここから取り込んだことがある」という履歴で、欠落復旧の再スキャン範囲。
+    /// こちらは<b>ユーザが「ここを見ておいて」と指示した</b>もので、
+    /// 起動時に勝手に走査してよい唯一の範囲。
+    ///
+    /// 履歴を監視に流用しないのは、**一度取り込んだだけのフォルダを
+    /// 以後ずっと見に行くのは指示していない読み取り**だから。
+    /// </summary>
+    public IReadOnlyList<string> WatchedFolders { get; init; } = [];
+
     // --- 更新 ---
 
     /// <summary>商品情報の更新間隔（日）。</summary>

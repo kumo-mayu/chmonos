@@ -114,6 +114,14 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public ObservableCollection<ImportFolderRow> Folders { get; } = [];
 
+    /// <summary>
+    /// 監視対象フォルダ。取り込み元（履歴）とは意味が違うので別に並べる。
+    /// あちらは「ここから取り込んだことがある」、こちらは「ここを見ておいて」。
+    /// </summary>
+    public ObservableCollection<ImportFolderRow> Watched { get; } = [];
+
+    public bool HasWatched => Watched.Count > 0;
+
     public ObservableCollection<RestorableRow> Hidden { get; } = [];
 
     public ObservableCollection<RestorableRow> Excluded { get; } = [];
@@ -364,6 +372,20 @@ public sealed class SettingsViewModel : ViewModelBase
                 });
             }
 
+            Watched.Clear();
+            foreach (var path in _services.Settings.WatchedFolders)
+            {
+                var captured = path;
+                Watched.Add(new ImportFolderRow
+                {
+                    Path = path,
+                    Exists = Directory.Exists(path),
+                    RemoveCommand = new RelayCommand(() => _ = RemoveWatchedAsync(captured)),
+                });
+            }
+
+            OnPropertyChanged(nameof(HasWatched));
+
             Hidden.Clear();
             foreach (var item in hidden)
             {
@@ -406,6 +428,24 @@ public sealed class SettingsViewModel : ViewModelBase
     /// 変更のたびに保存する。設定画面に「保存」ボタンを置かないのは、
     /// 押し忘れたまま閉じて設定が消える方が困るため。
     /// </summary>
+    /// <summary>監視をやめる。取り込んだ記録には触らない。</summary>
+    private async Task RemoveWatchedAsync(string path)
+    {
+        var row = Watched.FirstOrDefault(entry =>
+            string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
+        if (row is null)
+        {
+            return;
+        }
+
+        Watched.Remove(row);
+        OnPropertyChanged(nameof(HasWatched));
+
+        var next = _services.Settings with { WatchedFolders = Watched.Select(entry => entry.Path).ToList() };
+        _services.ReplaceSettings(next);
+        await _services.Store.Settings.SaveAsync(next);
+    }
+
     private void Save()
     {
         if (_suppressSave)

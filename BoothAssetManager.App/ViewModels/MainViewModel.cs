@@ -61,6 +61,7 @@ public sealed class MainViewModel : ViewModelBase
         RefreshCounts();
         ShowStartScreen();
         StartBacklogResume();
+        StartWatchScan();
     }
 
     private CancellationTokenSource? _backlog;
@@ -107,7 +108,85 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>閉じるときに背景の取得を止める。</summary>
-    public void StopBackgroundWork() => _backlog?.Cancel();
+    public void StopBackgroundWork()
+    {
+        _backlog?.Cancel();
+        _watch?.Cancel();
+    }
+
+    private CancellationTokenSource? _watch;
+
+    /// <summary>
+    /// 監視対象フォルダに新しいファイルが無いかを、起動時に見る。
+    ///
+    /// **走査してよいのは、ユーザが「ここを見ておいて」と指示したフォルダだけ。**
+    /// 監視に入っていないフォルダは今まで通り、押されるまで見に行かない。
+    ///
+    /// 見つけても<b>取り込みは始めない</b>。走査は手元のディスクを読むだけだが、
+    /// 取り込みはBOOTHへの通信で1件あたり十数秒かかる。起動した瞬間に黙って始めると、
+    /// ユーザがこれからやろうとしていた操作と行列を取り合う。件数を出して押させる。
+    /// </summary>
+    private void StartWatchScan()
+    {
+        if (_services.Settings.WatchedFolders.Count == 0)
+        {
+            return;
+        }
+
+        _watch = new CancellationTokenSource();
+        var token = _watch.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var result = await _services.Watch.FindNewAsync(_services.Settings.WatchedFolders, token);
+                if (!result.HasNew)
+                {
+                    return;
+                }
+
+                RunOnUiThread(() =>
+                {
+                    WatchedNewFiles = result.NewFiles;
+                    OnPropertyChanged(nameof(WatchedNewCount));
+                    OnPropertyChanged(nameof(HasWatchedNew));
+                    OnPropertyChanged(nameof(WatchedNewText));
+                });
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // 見に行けなくても起動は妨げない。次の起動でまた見る
+            }
+        }, token);
+    }
+
+    /// <summary>監視対象で見つかった、まだ見ていないファイル。</summary>
+    public IReadOnlyList<string> WatchedNewFiles { get; private set; } = [];
+
+    public int WatchedNewCount => WatchedNewFiles.Count;
+
+    public bool HasWatchedNew => WatchedNewCount > 0;
+
+    public string WatchedNewText => $"監視対象に新しいファイルが {WatchedNewCount} 件あります。";
+
+    /// <summary>見つかったぶんを取り込み対象に積む。押されて初めて通信が始まる。</summary>
+    public void TakeWatchedNew()
+    {
+        if (!HasWatchedNew)
+        {
+            return;
+        }
+
+        var files = WatchedNewFiles;
+        WatchedNewFiles = [];
+        OnPropertyChanged(nameof(WatchedNewCount));
+        OnPropertyChanged(nameof(HasWatchedNew));
+        OnPropertyChanged(nameof(WatchedNewText));
+
+        Import.AddDroppedPaths(files);
+        ShowImport();
+    }
 
     /// <summary>
     /// 起動したときにどの画面を出すか。

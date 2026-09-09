@@ -61,6 +61,11 @@ public sealed class ImportViewModel : ViewModelBase
             Folders.Add(folder);
         }
 
+        foreach (var folder in services.Settings.WatchedFolders)
+        {
+            Watched.Add(folder);
+        }
+
         // 前回が途中で終わっていれば知らせる。中断は黙って起きるので、
         // 閉じた時に何件残っていたかをユーザは覚えていない
         var previous = services.Store.ImportState.Load();
@@ -77,6 +82,8 @@ public sealed class ImportViewModel : ViewModelBase
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
         RemoveUnpackedCommand = new RelayCommand(() => _ = RemoveUnpackedAsync(), () => !IsRunning && HasUnpackedSelection);
+        RemoveWatchedCommand = new RelayCommand(parameter => _ = RemoveWatchedAsync(parameter as string), parameter => parameter is string);
+        TakeWatchedNewCommand = new RelayCommand(() => _main.TakeWatchedNew());
     }
 
     public ObservableCollection<string> Folders { get; } = [];
@@ -269,16 +276,97 @@ public sealed class ImportViewModel : ViewModelBase
     /// </summary>
     public void AddDroppedPaths(IEnumerable<string> paths)
     {
+        var addedFolders = new List<string>();
+
         foreach (var path in paths)
         {
             if ((Directory.Exists(path) || File.Exists(path))
                 && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
             {
                 Folders.Add(path);
+
+                if (Directory.Exists(path) && !Watched.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    addedFolders.Add(path);
+                }
             }
         }
 
         RelayCommand.RaiseCanExecuteChanged();
+
+        if (addedFolders.Count > 0)
+        {
+            _ = OfferToWatchAsync(addedFolders);
+        }
+    }
+
+    /// <summary>
+    /// 足したフォルダを監視対象に入れるか聞く。
+    ///
+    /// 聞くのは<b>フォルダのときだけ</b>。ファイル1件を落としたのは
+    /// 「これを取り込んで」であって「ここを見ておいて」ではない。
+    ///
+    /// 複数まとめて聞くのは、5つ落として5回聞かれると読まずに押されるため。
+    /// </summary>
+    private async Task OfferToWatchAsync(IReadOnlyList<string> folders)
+    {
+        var names = string.Join("\n", folders.Select(folder => "・" + folder));
+
+        var answer = System.Windows.MessageBox.Show(
+            $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n"
+            + "入れておくと、次に開いたときに新しいファイルが増えていないかを見ます。\n"
+            + "見つかっても勝手には取り込まず、件数を出すだけです。",
+            "監視対象に入れますか",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.No);
+
+        if (answer != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        foreach (var folder in folders)
+        {
+            if (!Watched.Contains(folder, StringComparer.OrdinalIgnoreCase))
+            {
+                Watched.Add(folder);
+            }
+        }
+
+        OnPropertyChanged(nameof(HasWatched));
+        await SaveWatchedAsync();
+    }
+
+    /// <summary>起動時に見つかった新しいファイルを出すために見る。</summary>
+    public MainViewModel Main => _main;
+
+    /// <summary>監視対象。取り込み対象（今回積んだもの）とは別で、起動をまたいで残る。</summary>
+    public ObservableCollection<string> Watched { get; } = [];
+
+    public bool HasWatched => Watched.Count > 0;
+
+    public RelayCommand RemoveWatchedCommand { get; }
+
+    /// <summary>見つかったぶんを取り込み対象へ積む。ここを押して初めて通信が始まる。</summary>
+    public RelayCommand TakeWatchedNewCommand { get; }
+
+    private async Task RemoveWatchedAsync(string? folder)
+    {
+        if (folder is null || !Watched.Remove(folder))
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(HasWatched));
+        await SaveWatchedAsync();
+    }
+
+    private async Task SaveWatchedAsync()
+    {
+        var next = _services.Settings with { WatchedFolders = Watched.ToList() };
+        _services.ReplaceSettings(next);
+        await _services.Store.Settings.SaveAsync(next);
     }
 
     private void AddFolder()
