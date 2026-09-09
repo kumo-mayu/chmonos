@@ -46,6 +46,9 @@ public sealed class AppPaths
 
     public string ScanCacheFile => Path.Combine(Root, "scan-cache.json");
 
+    /// <summary>中断した取り込みの記録。最後まで終われば消える。</summary>
+    public string ImportStateFile => Path.Combine(Root, "import-state.json");
+
     public string SettingsFile => Path.Combine(Root, "settings.json");
 
     public string LockFile => Path.Combine(Root, "app.lock");

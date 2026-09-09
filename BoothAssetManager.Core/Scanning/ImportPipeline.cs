@@ -196,6 +196,9 @@ public sealed class ImportPipeline : IImportPipeline
             totals.Add(scan, resolution, fetchResult);
         }
 
+        // 最後まで来たので記録は要らない。残すと次の起動で「中断した」と嘘をつく
+        await _store.ImportState.SaveAsync(new ImportState(), cancellationToken);
+
         return totals.ToSummary();
     }
 
@@ -697,6 +700,13 @@ public sealed class ImportPipeline : IImportPipeline
             await _store.Items.SaveAsync(item, cancellationToken);
             fetched.Add(item);
             added++;
+
+            // どこまで進んだかを残す。閉じた時に何件残っていたかをユーザは覚えていない。
+            // ①の途中で閉じると「IDは分かったがまだ取得していない商品」の一覧は消えるので、
+            // 件数だけでも残しておかないと、中断したこと自体が黙って起きる
+            await _store.ImportState.SaveAsync(
+                new ImportState { Done = fetched.Count, Total = pending.Count, StoppedAt = DateTimeOffset.Now },
+                cancellationToken);
 
             // アイコンのURLは商品JSONにしか入っていないので、ここで控えて⑥で取りに行く
             if (item.Booth.Shop is { ThumbnailUrl.Length: > 0 } shop)

@@ -61,6 +61,14 @@ public sealed class ImportViewModel : ViewModelBase
             Folders.Add(folder);
         }
 
+        // 前回が途中で終わっていれば知らせる。中断は黙って起きるので、
+        // 閉じた時に何件残っていたかをユーザは覚えていない
+        var previous = services.Store.ImportState.Load();
+        if (previous.HasProgress)
+        {
+            _interruptedText = previous.Text + "。もう一度押すと続きから進みます。";
+        }
+
         // 実行中でも足せる。「1ファイルだけ後から見つかった」は普通に起きるので、
         // 終わるのを待たせない。押した先は同じ取り込みで、2本目は起こさない
         AddFolderCommand = new RelayCommand(AddFolder);
@@ -112,6 +120,28 @@ public sealed class ImportViewModel : ViewModelBase
     /// ことが、文言だけで分かるようにする。
     /// </summary>
     public string StartText => IsRunning ? "今の取り込みに積む" : "取り込みを開始";
+
+    private string? _interruptedText;
+
+    /// <summary>
+    /// 前回が途中で終わっていたことの記録。
+    ///
+    /// 出すのは、**中断が黙って起きる**から。閉じた時に何件残っていたかを
+    /// ユーザは覚えていないので、次に開いたときに思い出せる材料を置く。
+    /// </summary>
+    public string? InterruptedText
+    {
+        get => _interruptedText;
+        private set
+        {
+            if (SetField(ref _interruptedText, value))
+            {
+                OnPropertyChanged(nameof(HasInterrupted));
+            }
+        }
+    }
+
+    public bool HasInterrupted => !string.IsNullOrEmpty(InterruptedText);
 
     /// <summary>積んだ結果。押しても何も起きなかったときこそ要る。</summary>
     public string? StackNotice
@@ -486,6 +516,10 @@ public sealed class ImportViewModel : ViewModelBase
         await SaveFoldersAsync();
 
         StackNotice = null;
+
+        // 走らせ直したので、前回の中断はもう伝えることが無い
+        InterruptedText = null;
+
         IsRunning = true;
         Summary = null;
         ErrorText = null;

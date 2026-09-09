@@ -39,6 +39,7 @@ public sealed class DataStore
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
+        ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
     }
 
@@ -64,6 +65,9 @@ public sealed class DataStore
     public JsonFileStore<List<ShopBannerRecord>> ShopBanners { get; }
 
     public JsonFileStore<List<ScanCacheEntry>> ScanCache { get; }
+
+    /// <summary>中断した取り込みの記録。最後まで終われば消える。</summary>
+    public JsonFileStore<Scanning.ImportState> ImportState { get; }
 
     /// <summary>編集キューの位置。中断して次回続きから再開するために持つ。</summary>
     public JsonFileStore<EditSession> EditSession { get; }
