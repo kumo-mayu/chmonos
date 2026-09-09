@@ -37,100 +37,105 @@
                            Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
             </StackPanel>
 
-            <!-- 検索と同じ理由。読んでいる最中に一覧を動かさない -->
-            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                    Background="{StaticResource AccentSoft}" BorderThickness="0"
-                    Padding="20,9" Cursor="Hand" FontSize="12"
-                    Content="{Binding Main.PendingItemText}"
-                    Command="{Binding RefreshCommand}"
-                    Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            <!--
+                この Grid は空表示を一覧へ重ねるためのもの。1行を足すときは
+                DockPanel で包む（Grid の子のままだと一覧の上に重なって操作を塞ぐ）。
+            -->
+            <DockPanel>
+                <!-- 検索と同じ理由。読んでいる最中に一覧を動かさない -->
+                <Button DockPanel.Dock="Top" Margin="20,14,20,0" FontSize="12"
+                        Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        Content="{Binding Main.PendingItemText}"
+                        Command="{Binding RefreshCommand}"
+                        Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
-                <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-                    <!-- 種別ごとに束ねる。何が起きた話なのかで分けて読む -->
-                    <ItemsControl ItemsSource="{Binding Groups}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
-                                            <Grid>
-                                                <StackPanel Margin="0,0,90,0">
-                                                    <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13" />
-                                                    <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
-                                                               TextWrapping="Wrap" Margin="0,4,0,0" />
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11"
-                                                           HorizontalAlignment="Right" VerticalAlignment="Top" />
-                                            </Grid>
-                                        </Border>
-
-                                        <ItemsControl ItemsSource="{Binding Rows}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,13">
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-
-                                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <!-- 見落とすと困る側にだけ印を付ける -->
-                                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
-                                                                            Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="重要" FontSize="10" Foreground="{StaticResource Warn}" />
-                                                                    </Border>
-                                                                    <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                    <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+    
+                        <!-- 種別ごとに束ねる。何が起きた話なのかで分けて読む -->
+                        <ItemsControl ItemsSource="{Binding Groups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                                        <StackPanel>
+                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                                                <Grid>
+                                                    <StackPanel Margin="0,0,90,0">
+                                                        <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13" />
+                                                        <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
+                                                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Top" />
+                                                </Grid>
+                                            </Border>
+    
+                                            <ItemsControl ItemsSource="{Binding Rows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,13">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+    
+                                                                <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <!-- 見落とすと困る側にだけ印を付ける -->
+                                                                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
+                                                                                Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                            <TextBlock Text="重要" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                                        </Border>
+                                                                        <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                                                                    </StackPanel>
+                                                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                                               TextWrapping="Wrap" Margin="0,5,0,0" />
+    
+                                                                    <!-- 差分の要約。旧データは持たないので、取得時に書き出した分だけ -->
+                                                                    <ItemsControl ItemsSource="{Binding Diffs}" Margin="0,7,0,0"
+                                                                                  Visibility="{Binding HasDiffs, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                                                                        BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
+                                                                                    <StackPanel>
+                                                                                        <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium" />
+                                                                                        <TextBlock Text="{Binding After}" Style="{StaticResource Caption}"
+                                                                                                   TextWrapping="Wrap" Margin="0,3,0,0" />
+                                                                                    </StackPanel>
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+    
+                                                                    <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}"
+                                                                               FontSize="11" Margin="0,6,0,0" />
                                                                 </StackPanel>
-                                                                <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
-                                                                           TextWrapping="Wrap" Margin="0,5,0,0" />
-
-                                                                <!-- 差分の要約。旧データは持たないので、取得時に書き出した分だけ -->
-                                                                <ItemsControl ItemsSource="{Binding Diffs}" Margin="0,7,0,0"
-                                                                              Visibility="{Binding HasDiffs, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                    <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
-                                                                                    BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
-                                                                                <StackPanel>
-                                                                                    <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium" />
-                                                                                    <TextBlock Text="{Binding After}" Style="{StaticResource Caption}"
-                                                                                               TextWrapping="Wrap" Margin="0,3,0,0" />
-                                                                                </StackPanel>
-                                                                            </Border>
-                                                                        </DataTemplate>
-                                                                    </ItemsControl.ItemTemplate>
-                                                                </ItemsControl>
-
-                                                                <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}"
-                                                                           FontSize="11" Margin="0,6,0,0" />
-                                                            </StackPanel>
-
-                                                            <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                                                                <Button Content="商品を見る" Style="{StaticResource SmallButton}"
-                                                                        Command="{Binding OpenItemCommand}"
-                                                                        Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                <Button Content="{Binding ReadButtonText}" Style="{StaticResource SmallButton}"
-                                                                        Margin="0,6,0,0" Command="{Binding ToggleReadCommand}" />
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </ScrollViewer>
+    
+                                                                <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                                                    <Button Content="商品を見る" Style="{StaticResource SmallButton}"
+                                                                            Command="{Binding OpenItemCommand}"
+                                                                            Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    <Button Content="{Binding ReadButtonText}" Style="{StaticResource SmallButton}"
+                                                                            Margin="0,6,0,0" Command="{Binding ToggleReadCommand}" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Grid>
     </DockPanel>
 </UserControl>
