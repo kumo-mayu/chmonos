@@ -34,6 +34,13 @@ public sealed class ImageBacklog
     /// </summary>
     public async Task<IReadOnlyList<string>> FindPendingAsync(CancellationToken cancellationToken = default)
     {
+        // 画像を取らない設定なら、差はあっても対象ではない。
+        // 見ないと全商品が「未取得」に見えて、全件を無駄に回すことになる
+        if (!_images.SavesImages)
+        {
+            return [];
+        }
+
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
         // 404だった画像は「決着済み」として数に入れる。数に入れないと、

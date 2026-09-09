@@ -1,0 +1,55 @@
+<Window x:Class="BoothAssetManager.App.Views.FirstRunWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BOOTH Asset Manager" Height="440" Width="620"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{StaticResource Bg}">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource Rail}" Padding="26,20">
+            <StackPanel>
+                <TextBlock Text="BOOTH Asset Manager" Foreground="White" FontWeight="Bold" FontSize="16" />
+                <TextBlock Text="はじめに2つだけ決めさせてください。どちらも後から設定で変えられます。"
+                           Foreground="#a8b0be" FontSize="12" Margin="0,5,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="26,14">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" x:Name="Notice" Style="{StaticResource Caption}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="380" />
+                <Button DockPanel.Dock="Right" Content="はじめる" Click="OnStart" Padding="22,6" FontWeight="Bold" />
+            </DockPanel>
+        </Border>
+
+        <StackPanel Margin="26,20">
+            <!--
+                保存先を最初に聞くのは、取り込みを始めてから変えると引越しが要るため。
+                Cドライブ以外に置きたい人は多い。
+            -->
+            <TextBlock Text="データの保存先" Style="{StaticResource SectionLabel}" />
+            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,8"
+                       Text="商品の情報と画像を置く場所です。取り込みを始めてから変えると引越しが要るので、先に決めておきます。" />
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                    BorderThickness="1" CornerRadius="6" Padding="12,9">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="選び直す" Click="OnPickFolder" Margin="10,0,0,0" />
+                    <TextBlock x:Name="RootText" Style="{StaticResource Mono}" FontSize="11.5"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
+
+            <!--
+                取得の76%が画像。切れば取り込みが4分の1で終わる。
+                後から入れるのは足すだけで安いが、最初の体験が数十分変わる。
+            -->
+            <TextBlock Text="画像" Style="{StaticResource SectionLabel}" Margin="0,22,0,0" />
+            <CheckBox x:Name="SaveImagesCheck" IsChecked="True" Margin="0,8,0,0"
+                      Foreground="{StaticResource Text}">
+                <TextBlock Text="画像を取って保存する（おすすめ）" />
+            </CheckBox>
+            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="24,6,0,0"
+                       Text="BOOTHから取るものの4分の3が画像なので、切ると取り込みがかなり速く終わります。切っても検索・絞り込み・統計はこれまで通りで、一覧とギャラリーが文字だけになります。後から入れ直せます。" />
+        </StackPanel>
+    </DockPanel>
+</Window>

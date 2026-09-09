@@ -780,6 +780,23 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
+        // 画像を取らない設定なら、梯子はここで終わり（①②③だけ）。
+        // 検索・絞り込み・統計は商品JSONだけで成立するので、機能は何も失われない
+        if (!_images.SavesImages)
+        {
+            return new FetchResult
+            {
+                Added = added,
+                AlreadyKnown = alreadyKnown,
+                NotFound = notFound,
+                TemporaryFailures = temporaryFailures,
+                ImagesDownloaded = 0,
+                AvatarItemsUpdated = avatarItemsUpdated,
+                AvatarsFound = avatarsFound,
+                AvatarDetectError = avatarDetectError,
+            };
+        }
+
         // ── ④ 1枚目の画像（全商品）──
         //
         // 一覧のカードは1枚目しか使っていない（静止時に1枚だけ読み、

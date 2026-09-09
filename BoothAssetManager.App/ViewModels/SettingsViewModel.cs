@@ -90,6 +90,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;
         _resumeFetchInBackground = settings.ResumeFetchInBackground;
+        _saveImages = settings.SaveImages;
         _refreshIntervalDays = settings.RefreshIntervalDays;
         _notificationRetentionCount = settings.NotificationRetentionCount;
         _fetchIntervalMs = settings.FetchIntervalMs;
@@ -221,6 +222,46 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => _resumeFetchInBackground;
         set { if (SetField(ref _resumeFetchInBackground, value)) { Save(); } }
+    }
+
+    private bool _saveImages;
+
+    /// <summary>
+    /// 画像を取って置くか。切ると梯子の④⑤⑥が落ち、一覧とギャラリーが文字だけになる。
+    /// 検索・絞り込み・統計は商品JSONだけで成立するので、機能は何も失われない。
+    ///
+    /// 切り替えたら再起動を促す。取得の可否は起動時に組み立てたサービスへ渡っているので、
+    /// その場で切り替えるより「次からこうなる」と言い切る方が説明が短い。
+    /// </summary>
+    public bool SaveImages
+    {
+        get => _saveImages;
+        set
+        {
+            if (!SetField(ref _saveImages, value))
+            {
+                return;
+            }
+
+            Save();
+
+            if (_suppressSave)
+            {
+                return;
+            }
+
+            System.Windows.MessageBox.Show(
+                value
+                    ? "次に開いたときから画像を取り始めます。\n\n"
+                        + "今ある商品の画像も、使っていない間に少しずつ取りに行きます。"
+                    : "次に開いたときから画像を取りません。\n\n"
+                        + "取り込みは速くなり、一覧とギャラリーは文字だけになります。\n"
+                        + "検索・絞り込み・統計はこれまで通り使えます。\n"
+                        + "既にある画像は消しません。",
+                "再起動すると変わります",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+        }
     }
 
     private bool _notifyOnUpdateByDefault;
@@ -383,6 +424,7 @@ public sealed class SettingsViewModel : ViewModelBase
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,
             ResumeFetchInBackground = ResumeFetchInBackground,
+            SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,
             NotificationRetentionCount = NotificationRetentionCount,
             ShopBannerRecheckDays = ShopBannerRecheckDays,

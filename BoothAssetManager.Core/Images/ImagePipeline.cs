@@ -44,6 +44,15 @@ public sealed class ImagePipeline
         _settings = settings ?? new AppSettings();
     }
 
+    /// <summary>
+    /// 画像を取る設定になっているか。
+    ///
+    /// 呼び出し側でも梯子の④⑤⑥を飛ばすが、ここでも見る。
+    /// 入口が複数あるので、**通信が起きる場所そのもの**で止めておかないと
+    /// 足したときに漏れる。
+    /// </summary>
+    public bool SavesImages => _settings.SaveImages;
+
     /// <summary>元URLから保存名を導く。同じURLなら常に同じ名前になる。</summary>
     public static string FileNameFor(string originalUrl) => $"{ShortHash(originalUrl)}.webp";
 
@@ -90,6 +99,11 @@ public sealed class ImagePipeline
         string? thumbnailUrl,
         CancellationToken cancellationToken = default)
     {
+        if (!_settings.SaveImages)
+        {
+            return false;
+        }
+
         if (string.IsNullOrEmpty(thumbnailUrl))
         {
             return false;
@@ -134,6 +148,11 @@ public sealed class ImagePipeline
         string sourceUrl,
         CancellationToken cancellationToken = default)
     {
+        if (!_settings.SaveImages)
+        {
+            return false;
+        }
+
         var result = await _client.GetBinaryAsync(sourceUrl, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
@@ -188,6 +207,11 @@ public sealed class ImagePipeline
         BoothImage image,
         CancellationToken cancellationToken = default)
     {
+        if (!_settings.SaveImages)
+        {
+            return false;
+        }
+
         var directory = _paths.ItemImagesDir(itemId);
         Directory.CreateDirectory(directory);
 
@@ -306,6 +330,11 @@ public sealed class ImagePipeline
         IReadOnlyList<BoothImage> images,
         CancellationToken cancellationToken = default)
     {
+        if (!_settings.SaveImages)
+        {
+            return new ImageSyncResult();
+        }
+
         var directory = _paths.ItemImagesDir(itemId);
         Directory.CreateDirectory(directory);
 

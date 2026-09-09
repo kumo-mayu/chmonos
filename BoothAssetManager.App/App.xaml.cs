@@ -26,6 +26,25 @@ public partial class App : Application
             return;
         }
 
+        // 初回だけ、後から変えると高くつく2つを聞く。
+        // サービス一式より先に出すのは、ここで保存先が変わり得るため
+        if (Views.FirstRunWindow.IsNeeded())
+        {
+            // この窓が閉じた時点では本体がまだ無い。
+            // 既定（最後の窓が閉じたら終了）のままだと、そこでアプリごと終わってしまう
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            var started = Views.FirstRunWindow.Run();
+
+            ShutdownMode = ShutdownMode.OnLastWindowClose;
+
+            if (!started)
+            {
+                Shutdown();
+                return;
+            }
+        }
+
         _services = new AppServiceContainer();
 
         if (!_services.IsSingleInstance)
