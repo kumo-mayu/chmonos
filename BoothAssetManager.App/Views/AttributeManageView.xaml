@@ -16,7 +16,7 @@
                     <TextBlock Text="属性の管理" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="値はitem側が 0〜100 で持ちます。ここで扱うのは名前とメモと並びだけです。"
+                    <TextBlock Text="値は商品側が 0〜100 で持ちます。ここで扱うのは名前とメモと並びだけです。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
 
@@ -115,9 +115,12 @@
                             Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                             Visibility="{Binding HasOrphans, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="18,15">
-                            <TextBlock Text="マスタに無い属性" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
-                            <TextBlock Text="itemがまだ評価を持っています。このままでは絞り込みに出てきません。名前が正しければマスタに足し、変わったなら既存へ寄せ、もう使わないなら消してください。"
+                            <TextBlock Text="一覧に無い属性" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
+                            <!-- 分類側と同じ理由。通常の流れに手動追加の手順があるように読ませない -->
+                            <TextBlock Text="編集画面で付けた属性は、その場で一覧に入ります。ここに出ているのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既存へ寄せ、もう使わないなら消してください。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
 
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
                                 <ItemsControl.ItemTemplate>
@@ -137,7 +140,7 @@
 
                                                 <StackPanel Grid.Column="1">
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Content="マスタに追加" Style="{StaticResource SmallButton}"
+                                                        <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
                                                         <Button Content="評価を消す" Style="{StaticResource SmallButton}"
                                                                 Margin="6,0,0,0" Foreground="#9a3232"

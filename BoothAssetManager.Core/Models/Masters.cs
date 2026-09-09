@@ -1,24 +1,24 @@
 namespace BoothAssetManager.Core.Models;
 
 /// <summary>
-/// appTagのマスタ（<c>appTags.json</c>）。トップレベルとサブレベルの2階層に限定する。
+/// userTagのマスタ（<c>userTags.json</c>）。トップレベルとサブレベルの2階層に限定する。
 /// item側は名前で参照するので、ここでの改名は全itemの一括書き換えを伴う。
 /// </summary>
-public sealed class AppTagMaster
+public sealed class UserTagMaster
 {
-    public IReadOnlyList<AppTagTop> Tops { get; init; } = [];
+    public IReadOnlyList<UserTagTop> Tops { get; init; } = [];
 }
 
-public sealed class AppTagTop
+public sealed class UserTagTop
 {
     public required string Name { get; init; }
 
     public string? Memo { get; init; }
 
-    public IReadOnlyList<AppTagSub> Subs { get; init; } = [];
+    public IReadOnlyList<UserTagSub> Subs { get; init; } = [];
 }
 
-public sealed class AppTagSub
+public sealed class UserTagSub
 {
     public required string Name { get; init; }
 

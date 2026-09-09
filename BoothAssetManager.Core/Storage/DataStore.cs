@@ -30,7 +30,7 @@ public sealed class DataStore
     {
         Paths = paths;
         Items = new ItemRepository(paths);
-        AppTags = new JsonFileStore<AppTagMaster>(paths.AppTagsFile);
+        UserTags = new JsonFileStore<UserTagMaster>(paths.UserTagsFile);
         Attributes = new JsonFileStore<AttributeMaster>(paths.AttributesFile);
         Avatars = new JsonFileStore<AvatarRegistry>(paths.AvatarRegistryFile);
         Settings = new JsonFileStore<AppSettings>(paths.SettingsFile);
@@ -46,7 +46,7 @@ public sealed class DataStore
 
     public ItemRepository Items { get; }
 
-    public JsonFileStore<AppTagMaster> AppTags { get; }
+    public JsonFileStore<UserTagMaster> UserTags { get; }
 
     public JsonFileStore<AttributeMaster> Attributes { get; }
 

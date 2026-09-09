@@ -38,7 +38,7 @@ public sealed class OrphanAttributeRow : ViewModelBase
 
     public required int ItemCount { get; init; }
 
-    public string ItemCountText => $"{ItemCount} 件のitemが参照";
+    public string ItemCountText => $"{ItemCount} 件の商品が参照";
 
     public RelayCommand? AddToMasterCommand { get; set; }
 
@@ -148,12 +148,12 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public string SelectedUsageText => Selected is null
         ? string.Empty
         : Selected.ItemCount == 0
-            ? "まだどのitemも評価していません"
-            : $"{Selected.ItemCount} 件のitemで評価済み（{Selected.AverageText}）";
+            ? "まだどの商品も評価していません。編集画面で値を入れると、ここに件数が出ます。"
+            : $"{Selected.ItemCount} 件の商品で評価済み（{Selected.AverageText}）";
 
     public string RenameImpactText => Selected is null || Selected.ItemCount == 0
-        ? "既にある名前を選ぶと統合します。"
-        : $"既にある名前を選ぶと統合します。{Selected.ItemCount} 件のitemを書き換えます。";
+        ? "既にある属性を指定することで統合できます。"
+        : $"既にある属性を指定することで統合できます。{Selected.ItemCount} 件の商品を書き換えます。";
 
     public string FilterText
     {
@@ -349,7 +349,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
             keep = ((MergeAttributeDialogViewModel)dialog.DataContext).Keep;
         }
         else if (!Confirm(
-            $"「{Selected.Name}」を「{target}」に変更します。\n\n{Selected.ItemCount} 件のitemを書き換えます。",
+            $"「{Selected.Name}」を「{target}」に変更します。\n\n{Selected.ItemCount} 件の商品を書き換えます。",
             "名前を変更する"))
         {
             return;
@@ -361,8 +361,8 @@ public sealed class AttributeManageViewModel : ViewModelBase
         if (result is CommandResult.AttributesRewritten rewritten)
         {
             StatusText = rewritten.Result.WasMerged
-                ? $"「{target}」に統合しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。"
-                : $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+                ? $"「{target}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。"
+                : $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         var next = target;
@@ -376,7 +376,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
     /// <summary>
     /// 削除。マスタから消すだけだとitem側に参照が残るので、評価も一緒に外す。
-    /// 属性はappTagと違って「未設定」が既定なので、空になっても編集の対象には戻らない。
+    /// 属性はuserTagと違って「未設定」が既定なので、空になっても編集の対象には戻らない。
     /// </summary>
     private async Task DeleteAsync()
     {
@@ -386,9 +386,10 @@ public sealed class AttributeManageViewModel : ViewModelBase
         }
 
         var message = Selected.ItemCount == 0
-            ? $"「{Selected.Name}」を削除します。\n\nどのitemも評価していないので、影響はありません。"
+            ? $"「{Selected.Name}」を削除します。\n\nどの商品も評価していないので、影響はありません。"
             : $"「{Selected.Name}」を削除します。\n\n"
-                + $"{Selected.ItemCount} 件のitemから、この属性の評価が消えます。\n"
+                + $"{Selected.ItemCount} 件の商品から、この属性の評価が消えます。\n"
+                + $"\nこの操作は元に戻せません。同じ名前で作り直しても、{Selected.ItemCount} 件ぶんの評価は戻りません。\n"
                 + "入れ直すには、もう一度1件ずつ評価する必要があります。";
 
         if (!Confirm(message, "属性を削除する"))
@@ -399,7 +400,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(Selected.Name));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"削除しました（{rewritten.Result.ItemsUpdated} 件のitemから評価を外しました）。";
+            StatusText = $"削除しました（{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました）。";
         }
 
         Selected = null;
@@ -423,7 +424,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     private async Task AddOrphanToMasterAsync(OrphanAttributeRow row)
     {
         await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(row.Name));
-        StatusText = $"「{row.Name}」をマスタに追加しました。{row.ItemCount} 件のitemが絞り込みに出るようになります。";
+        StatusText = $"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに出るようになります。";
         await ReloadAsync();
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();
@@ -451,7 +452,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAttribute(row.Name, name, keep));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+            StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         await ReloadAsync();
@@ -462,7 +463,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     private async Task RemoveOrphanAsync(OrphanAttributeRow row)
     {
         if (!Confirm(
-            $"「{row.Name}」の評価を {row.ItemCount} 件のitemから消します。\n\nこの操作は元に戻せません。",
+            $"「{row.Name}」の評価を {row.ItemCount} 件の商品から消します。\n\nこの操作は元に戻せません。",
             "参照を外す"))
         {
             return;
@@ -471,7 +472,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(row.Name));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"「{row.Name}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから消しました）。";
+            StatusText = $"「{row.Name}」を外しました（{rewritten.Result.ItemsUpdated} 件の商品から消しました）。";
         }
 
         await ReloadAsync();

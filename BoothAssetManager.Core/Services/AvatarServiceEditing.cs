@@ -6,7 +6,7 @@ namespace BoothAssetManager.Core.Services;
 /// 登録簿の編集。画面からの操作をここに集める。
 ///
 /// 素体グループは名前で参照されているので、改名はitem側の宣言も一緒に書き換える
-/// （appTag・属性の改名と同じ扱い）。
+/// （userTag・属性の改名と同じ扱い）。
 /// </summary>
 public sealed partial class AvatarService
 {
@@ -294,7 +294,7 @@ public sealed partial class AvatarService
 
     /// <summary>
     /// 全itemの素体宣言を書き換える。名前で参照しているので改名・削除に追随が要る。
-    /// 1284件の小さなJSONなら実測で1秒もかからない（appTagの改名と同じ判断）。
+    /// 1284件の小さなJSONなら実測で1秒もかからない（userTagの改名と同じ判断）。
     /// </summary>
     private async Task<int> RewriteBaseNameInItemsAsync(
         string oldName,

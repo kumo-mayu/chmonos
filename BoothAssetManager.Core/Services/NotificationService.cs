@@ -71,14 +71,14 @@ public sealed class NotificationService : INotificationService
     }
 
     /// <summary>
-    /// マスタに無いappTag・属性を参照しているitemを探して知らせる。
+    /// マスタに無いuserTag・属性を参照しているitemを探して知らせる。
     ///
     /// マスタのJSONを手で書き換えることを許している以上、item側だけが古い名前を
     /// 指したままになり得る。そのままだと絞り込みに出てこないのに気付けない。
     /// </summary>
     public async Task<int> DetectOrphanReferencesAsync(CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
         var attributes = _store.Attributes.Load().Attributes
             .Select(definition => definition.Name)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
@@ -91,7 +91,7 @@ public sealed class NotificationService : INotificationService
         {
             // トップだけでなくサブも見る。サブ名がずれると、画面はマスタにある分しか
             // 出さないので、どこにも表示されないまま絞り込みから消える
-            var missingTags = AppTagService.FindOrphans(master, [item])
+            var missingTags = UserTagService.FindOrphans(master, [item])
                 .Select(orphan => orphan.IsSub ? $"{orphan.Top}／{orphan.Sub}" : orphan.Top)
                 .ToList();
 
@@ -108,7 +108,7 @@ public sealed class NotificationService : INotificationService
             var parts = new List<string>();
             if (missingTags.Count > 0)
             {
-                parts.Add($"appTag: {string.Join("・", missingTags)}");
+                parts.Add($"userTag: {string.Join("・", missingTags)}");
             }
 
             if (missingAttributes.Count > 0)

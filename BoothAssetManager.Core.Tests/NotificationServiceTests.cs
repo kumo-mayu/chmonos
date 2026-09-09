@@ -136,7 +136,7 @@ public class NotificationServiceTests : IDisposable
     [Fact]
     public async Task DetectsItemsReferencingMissingTagsAndAttributes()
     {
-        await _store.AppTags.SaveAsync(new AppTagMaster { Tops = [new AppTagTop { Name = "衣装" }] });
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [new UserTagTop { Name = "衣装" }] });
         await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "かわいい" }] });
 
         await _store.Items.SaveAsync(new ItemRecord
@@ -145,7 +145,7 @@ public class NotificationServiceTests : IDisposable
             Booth = new BoothBlock { Name = "参照が壊れたitem", FetchedAt = DateTimeOffset.Now },
             Local = new LocalBlock
             {
-                AppTags = [new AppTagAssignment { Top = "ギミック" }],
+                UserTags = [new UserTagAssignment { Top = "ギミック" }],
                 Attributes = new Dictionary<string, int> { ["メカ"] = 50 },
             },
         });
@@ -162,9 +162,9 @@ public class NotificationServiceTests : IDisposable
     [Fact]
     public async Task DetectsItemsReferencingMissingSubLevels()
     {
-        await _store.AppTags.SaveAsync(new AppTagMaster
+        await _store.UserTags.SaveAsync(new UserTagMaster
         {
-            Tops = [new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] }],
+            Tops = [new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] }],
         });
 
         await _store.Items.SaveAsync(new ItemRecord
@@ -173,7 +173,7 @@ public class NotificationServiceTests : IDisposable
             Booth = new BoothBlock { Name = "item", FetchedAt = DateTimeOffset.Now },
             Local = new LocalBlock
             {
-                AppTags = [new AppTagAssignment { Top = "衣装", Subs = ["制服", "消えたサブ"] }],
+                UserTags = [new UserTagAssignment { Top = "衣装", Subs = ["制服", "消えたサブ"] }],
             },
         });
 
@@ -184,12 +184,12 @@ public class NotificationServiceTests : IDisposable
     [Fact]
     public async Task DetectsNothingWhenEveryReferenceResolves()
     {
-        await _store.AppTags.SaveAsync(new AppTagMaster { Tops = [new AppTagTop { Name = "衣装" }] });
+        await _store.UserTags.SaveAsync(new UserTagMaster { Tops = [new UserTagTop { Name = "衣装" }] });
         await _store.Items.SaveAsync(new ItemRecord
         {
             Id = "1",
             Booth = new BoothBlock { Name = "健全なitem", FetchedAt = DateTimeOffset.Now },
-            Local = new LocalBlock { AppTags = [new AppTagAssignment { Top = "衣装" }] },
+            Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "衣装" }] },
         });
 
         Assert.Equal(0, await Create().DetectOrphanReferencesAsync());
@@ -203,7 +203,7 @@ public class NotificationServiceTests : IDisposable
         {
             Id = "1",
             Booth = new BoothBlock { Name = "item", FetchedAt = DateTimeOffset.Now },
-            Local = new LocalBlock { AppTags = [new AppTagAssignment { Top = "無いタグ" }] },
+            Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "無いタグ" }] },
         });
 
         var service = Create();
@@ -224,7 +224,7 @@ public class NotificationServiceTests : IDisposable
         {
             Id = "1",
             Booth = new BoothBlock { Name = "item", FetchedAt = DateTimeOffset.Now },
-            Local = new LocalBlock { AppTags = [new AppTagAssignment { Top = "無いタグ" }] },
+            Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "無いタグ" }] },
         });
 
         var service = Create();
@@ -245,7 +245,7 @@ public class NotificationServiceTests : IDisposable
         {
             Id = "1",
             Booth = new BoothBlock { Name = "item", FetchedAt = DateTimeOffset.Now },
-            Local = new LocalBlock { AppTags = [new AppTagAssignment { Top = "無いタグ" }] },
+            Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "無いタグ" }] },
         };
         await _store.Items.SaveAsync(item);
 
@@ -257,7 +257,7 @@ public class NotificationServiceTests : IDisposable
         {
             Id = item.Id,
             Booth = item.Booth,
-            Local = new LocalBlock { AppTags = [new AppTagAssignment { Top = "別の無いタグ" }] },
+            Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "別の無いタグ" }] },
         });
 
         Assert.Equal(1, await service.DetectOrphanReferencesAsync());

@@ -472,7 +472,8 @@ public sealed class AvatarsViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Status = $"検出できませんでした：{exception.Message}";
+            // 検出は途中まで進んでいることがあり、もう一度押せば続きから走る
+            Status = $"検出の途中で止まりました：{exception.Message}　もう一度押すと続きから試します。";
         }
         finally
         {
@@ -681,7 +682,10 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         Status = "BOOTHに問い合わせています…";
         var ok = await _services.Avatars.RecheckAsync(Selected.ItemId);
-        Status = ok ? "確認し直しました。" : "確認できませんでした（通信の失敗か、取得の設定がありません）。";
+        // 原因は特定できないので、見当だけ並べて判断はユーザに残す
+        Status = ok
+            ? "確認し直しました。"
+            : "BOOTHに確認できませんでした。通信が失敗したか、取得の設定が入っていないことがあります。";
         await LoadAsync();
     }
 

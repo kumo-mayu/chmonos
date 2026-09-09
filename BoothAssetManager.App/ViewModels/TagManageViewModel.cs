@@ -109,9 +109,9 @@ public sealed class OrphanTagRow : ViewModelBase
     /// <summary>サブは、どのトップの配下なのかが分からないと直しようがない。</summary>
     public string DisplayName => IsSub ? $"{Top}／{Sub}" : Top;
 
-    public string KindText => IsSub ? "サブレベル" : "トップレベル";
+    public string KindText => IsSub ? "小分類" : "大分類";
 
-    public string ItemCountText => $"{ItemCount} 件のitemが参照";
+    public string ItemCountText => $"{ItemCount} 件の商品が参照";
 
     public string MergePlaceholder => IsSub
         ? $"「{Top}」の既存サブへ寄せる"
@@ -128,7 +128,7 @@ public sealed class OrphanTagRow : ViewModelBase
 }
 
 /// <summary>
-/// タグの管理画面。appTagマスタ（トップ／サブの2階層）を編集する。
+/// タグの管理画面。userTagマスタ（トップ／サブの2階層）を編集する。
 ///
 /// item側は名前で参照しているので、改名も削除も全itemの書き換えを伴う。
 /// 戻せない操作なので、実行前に「何件が書き換わるか」を必ず数えて見せる。
@@ -243,13 +243,13 @@ public sealed class TagManageViewModel : ViewModelBase
     public string SelectedUsageText => Selected is null
         ? string.Empty
         : Selected.ItemCount == 0
-            ? "まだどのitemにも付いていません"
-            : $"{Selected.ItemCount} 件のitemに付いています";
+            ? "まだどの商品にも付いていません。編集画面で付けると、ここに件数が出ます。"
+            : $"{Selected.ItemCount} 件の商品に付いています";
 
     /// <summary>改名すると何件が書き換わるか。押す前に見えていないと判断できない。</summary>
     public string RenameImpactText => Selected is null || Selected.ItemCount == 0
         ? "既にある名前を選ぶと統合します。"
-        : $"既にある名前を選ぶと統合します。{Selected.ItemCount} 件のitemを書き換えます。";
+        : $"既にある名前を選ぶと統合します。{Selected.ItemCount} 件の商品を書き換えます。";
 
     public string FilterText
     {
@@ -282,7 +282,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public int TopCount => _allTops.Count;
 
-    public string HeaderText => $"トップレベル {TopCount} 件";
+    public string HeaderText => $"大分類 {TopCount} 件";
 
     public string StatusText
     {
@@ -315,9 +315,9 @@ public sealed class TagManageViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            var master = _services.Store.AppTags.Load();
-            var usage = await _services.AppTags.LoadUsageAsync();
-            var orphans = await _services.AppTags.LoadOrphansAsync();
+            var master = _services.Store.UserTags.Load();
+            var usage = await _services.UserTags.LoadUsageAsync();
+            var orphans = await _services.UserTags.LoadOrphansAsync();
 
             RunOnUiThread(() =>
             {
@@ -361,8 +361,8 @@ public sealed class TagManageViewModel : ViewModelBase
         }
     }
 
-    private IReadOnlyDictionary<string, AppTagUsage> _subCounts =
-        new Dictionary<string, AppTagUsage>(StringComparer.CurrentCultureIgnoreCase);
+    private IReadOnlyDictionary<string, UserTagUsage> _subCounts =
+        new Dictionary<string, UserTagUsage>(StringComparer.CurrentCultureIgnoreCase);
 
     private void RebuildTops()
     {
@@ -388,7 +388,7 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        var master = _services.Store.AppTags.Load();
+        var master = _services.Store.UserTags.Load();
         var top = master.Tops.FirstOrDefault(entry =>
             string.Equals(entry.Name, Selected.Name, StringComparison.CurrentCultureIgnoreCase));
 
@@ -435,7 +435,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
     /// <summary>マスタに載っているサブレベル名。寄せ先の候補に使う。</summary>
     private IReadOnlyList<string> SubNamesOf(string top)
-        => _services.Store.AppTags.Load().Tops
+        => _services.Store.UserTags.Load().Tops
             .FirstOrDefault(entry => string.Equals(entry.Name, top, StringComparison.CurrentCultureIgnoreCase))
             ?.Subs.Select(sub => sub.Name).ToList()
             ?? [];
@@ -451,7 +451,7 @@ public sealed class TagManageViewModel : ViewModelBase
         }
     }
 
-    private OrphanTagRow CreateOrphanRow(OrphanAppTag orphan)
+    private OrphanTagRow CreateOrphanRow(OrphanUserTag orphan)
     {
         var row = new OrphanTagRow
         {
@@ -480,7 +480,7 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(trimmed));
+        await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(trimmed));
         StatusText = $"「{trimmed}」を追加しました。";
         await ReloadAsync();
         _main.RefreshMasters();
@@ -496,7 +496,7 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(Selected.Name, trimmed));
+        await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(Selected.Name, trimmed));
         StatusText = $"「{Selected.Name}」に「{trimmed}」を追加しました。";
         await ReloadAsync();
         _main.RefreshMasters();
@@ -520,23 +520,23 @@ public sealed class TagManageViewModel : ViewModelBase
 
         var message = merging
             ? $"「{Selected.Name}」を「{target}」に統合します。\n\n"
-                + $"{Selected.ItemCount} 件のitemを書き換えます。サブレベルは「{target}」側へまとめます。\n"
+                + $"{Selected.ItemCount} 件の商品を書き換えます。小分類は「{target}」側へまとめます。\n"
                 + MemoNotice(Selected.Memo, target)
                 + "この操作は元に戻せません。"
             : $"「{Selected.Name}」を「{target}」に変更します。\n\n"
-                + $"{Selected.ItemCount} 件のitemを書き換えます。";
+                + $"{Selected.ItemCount} 件の商品を書き換えます。";
 
         if (!Confirm(message, merging ? "分類を統合する" : "名前を変更する"))
         {
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAppTag(Selected.Name, null, target));
-        if (result is CommandResult.AppTagsRewritten rewritten)
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameUserTag(Selected.Name, null, target));
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.WasMerged
-                ? $"「{target}」に統合しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。"
-                : $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+                ? $"「{target}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。"
+                : $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         var keep = target;
@@ -549,7 +549,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
     /// <summary>
     /// 削除。マスタから消すだけだとitem側に参照が残るので、付けていたitemからも外す。
-    /// appTagが空になるitemは編集の対象に戻るので、その件数も先に出す。
+    /// userTagが空になるitemは編集の対象に戻るので、その件数も先に出す。
     /// </summary>
     private async Task DeleteTopAsync()
     {
@@ -559,9 +559,10 @@ public sealed class TagManageViewModel : ViewModelBase
         }
 
         var message = Selected.ItemCount == 0
-            ? $"「{Selected.Name}」を削除します。\n\nどのitemにも付いていないので、影響はありません。"
+            ? $"「{Selected.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
             : $"「{Selected.Name}」を削除します。\n\n"
-                + $"{Selected.ItemCount} 件のitemからこの分類が外れます（サブレベルも一緒に外れます）。\n"
+                + $"{Selected.ItemCount} 件の商品からこの分類が外れます（小分類も一緒に外れます）。\n"
+                + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。\n"
                 + "この操作は元に戻せません。";
 
         if (!Confirm(message, "分類を削除する"))
@@ -569,13 +570,13 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAppTag(Selected.Name));
-        if (result is CommandResult.AppTagsRewritten rewritten)
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteUserTag(Selected.Name));
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.ItemsLeftUntagged > 0
-                ? $"削除しました（{rewritten.Result.ItemsUpdated} 件のitemから外し、"
-                    + $"うち {rewritten.Result.ItemsLeftUntagged} 件はappTagが空になったので編集の対象に戻ります）。"
-                : $"削除しました（{rewritten.Result.ItemsUpdated} 件のitemから外しました）。";
+                ? $"削除しました（{rewritten.Result.ItemsUpdated} 件の商品から外し、"
+                    + $"うち {rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になったので編集の対象に戻ります）。"
+                : $"削除しました（{rewritten.Result.ItemsUpdated} 件の商品から外しました）。";
         }
 
         Selected = null;
@@ -595,20 +596,20 @@ public sealed class TagManageViewModel : ViewModelBase
         var merging = Subs.Any(entry => string.Equals(entry.Name, target, StringComparison.CurrentCultureIgnoreCase));
         var message = merging
             ? $"「{row.Top}」の「{row.Name}」を「{target}」に統合します。\n\n"
-                + $"{row.ItemCount} 件のitemを書き換えます。\n"
+                + $"{row.ItemCount} 件の商品を書き換えます。\n"
                 + MemoNotice(row.Memo, target)
             : $"「{row.Top}」の「{row.Name}」を「{target}」に変更します。\n\n"
-                + $"{row.ItemCount} 件のitemを書き換えます。";
+                + $"{row.ItemCount} 件の商品を書き換えます。";
 
-        if (!Confirm(message, merging ? "サブレベルを統合する" : "サブレベルの名前を変更する"))
+        if (!Confirm(message, merging ? "小分類を統合する" : "小分類の名前を変更する"))
         {
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAppTag(row.Top, row.Name, target));
-        if (result is CommandResult.AppTagsRewritten rewritten)
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target));
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+            StatusText = $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         await ReloadAsync();
@@ -618,19 +619,20 @@ public sealed class TagManageViewModel : ViewModelBase
     private async Task DeleteSubAsync(TagSubRow row)
     {
         var message = row.ItemCount == 0
-            ? $"「{row.Top}」から「{row.Name}」を削除します。\n\nどのitemにも付いていないので、影響はありません。"
+            ? $"「{row.Top}」から「{row.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
             : $"「{row.Top}」から「{row.Name}」を削除します。\n\n"
-                + $"{row.ItemCount} 件のitemからこのサブレベルが外れます。「{row.Top}」自体は付いたままです。";
+                + $"{row.ItemCount} 件の商品からこの小分類が外れます。「{row.Top}」自体は付いたままです。\n"
+                + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。";
 
-        if (!Confirm(message, "サブレベルを削除する"))
+        if (!Confirm(message, "小分類を削除する"))
         {
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAppTag(row.Top, row.Name));
-        if (result is CommandResult.AppTagsRewritten rewritten)
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteUserTag(row.Top, row.Name));
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{row.Name}」を削除しました（{rewritten.Result.ItemsUpdated} 件のitemから外しました）。";
+            StatusText = $"「{row.Name}」を削除しました（{rewritten.Result.ItemsUpdated} 件の商品から外しました）。";
         }
 
         await ReloadAsync();
@@ -651,7 +653,7 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAppTags(order));
+        await _services.Commands.ExecuteAsync(new UiCommand.ReorderUserTags(order));
         await ReloadAsync();
 
         // 並びは検索の絞り込みにもそのまま出るので、そちらも作り直す
@@ -666,7 +668,7 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAppTags(order, moved.Top));
+        await _services.Commands.ExecuteAsync(new UiCommand.ReorderUserTags(order, moved.Top));
         await ReloadAsync();
         _main.RefreshMasters();
     }
@@ -710,7 +712,7 @@ public sealed class TagManageViewModel : ViewModelBase
     private async Task MoveSubToTopAsync(TagSubRow row)
     {
         var dialog = new Views.MoveSubDialog(
-            new MoveSubDialogViewModel(_services.AppTags, row.Top, row.Name, row.MoveTargets));
+            new MoveSubDialogViewModel(_services.UserTags, row.Top, row.Name, row.MoveTargets));
 
         if (dialog.ShowDialog() != true
             || dialog.DataContext is not MoveSubDialogViewModel { Target: { } to })
@@ -721,11 +723,11 @@ public sealed class TagManageViewModel : ViewModelBase
         var drop = ((MoveSubDialogViewModel)dialog.DataContext).DropEmptySourceTop;
 
         var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.MoveAppTagSub(row.Top, row.Name, to, drop));
+            new UiCommand.MoveUserTagSub(row.Top, row.Name, to, drop));
 
-        if (result is CommandResult.AppTagsRewritten rewritten)
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            var parts = new List<string> { $"{rewritten.Result.ItemsUpdated} 件のitemを書き換え" };
+            var parts = new List<string> { $"{rewritten.Result.ItemsUpdated} 件の商品を書き換え" };
 
             if (rewritten.Result.ItemsGainedTop > 0)
             {
@@ -751,7 +753,7 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.SetAppTagMemo(Selected.Name, null, MemoDraft));
+        await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(Selected.Name, null, MemoDraft));
         StatusText = "メモを保存しました。";
         await ReloadAsync();
     }
@@ -760,10 +762,10 @@ public sealed class TagManageViewModel : ViewModelBase
     private async Task AddOrphanToMasterAsync(OrphanTagRow row)
     {
         await _services.Commands.ExecuteAsync(row.IsSub
-            ? new UiCommand.AddAppTag(row.Top, row.Sub)
-            : new UiCommand.AddAppTag(row.Top));
+            ? new UiCommand.AddUserTag(row.Top, row.Sub)
+            : new UiCommand.AddUserTag(row.Top));
 
-        StatusText = $"「{row.DisplayName}」をマスタに追加しました。{row.ItemCount} 件のitemが絞り込みに出るようになります。";
+        StatusText = $"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに出るようになります。";
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }
@@ -778,19 +780,19 @@ public sealed class TagManageViewModel : ViewModelBase
         }
 
         if (!Confirm(
-            $"「{row.DisplayName}」を「{name}」に寄せます。\n\n{row.ItemCount} 件のitemを書き換えます。",
+            $"「{row.DisplayName}」を「{name}」に寄せます。\n\n{row.ItemCount} 件の商品を書き換えます。",
             "分類を寄せる"))
         {
             return;
         }
 
         var result = await _services.Commands.ExecuteAsync(row.IsSub
-            ? new UiCommand.RenameAppTag(row.Top, row.Sub, name)
-            : new UiCommand.RenameAppTag(row.Top, null, name));
+            ? new UiCommand.RenameUserTag(row.Top, row.Sub, name)
+            : new UiCommand.RenameUserTag(row.Top, null, name));
 
-        if (result is CommandResult.AppTagsRewritten rewritten)
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件のitemを書き換え）。";
+            StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         await ReloadAsync();
@@ -805,21 +807,21 @@ public sealed class TagManageViewModel : ViewModelBase
             : string.Empty;
 
         if (!Confirm(
-            $"「{row.DisplayName}」を {row.ItemCount} 件のitemから外します。\n\n{notice}この操作は元に戻せません。",
+            $"「{row.DisplayName}」を {row.ItemCount} 件の商品から外します。\n\n{notice}この操作は元に戻せません。",
             "参照を外す"))
         {
             return;
         }
 
         var result = await _services.Commands.ExecuteAsync(row.IsSub
-            ? new UiCommand.DeleteAppTag(row.Top, row.Sub)
-            : new UiCommand.DeleteAppTag(row.Top));
-        if (result is CommandResult.AppTagsRewritten rewritten)
+            ? new UiCommand.DeleteUserTag(row.Top, row.Sub)
+            : new UiCommand.DeleteUserTag(row.Top));
+        if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.ItemsLeftUntagged > 0
-                ? $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから外し、"
-                    + $"うち {rewritten.Result.ItemsLeftUntagged} 件はappTagが空になったので編集の対象に戻ります）。"
-                : $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件のitemから外しました）。";
+                ? $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件の商品から外し、"
+                    + $"うち {rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になったので編集の対象に戻ります）。"
+                : $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件の商品から外しました）。";
         }
 
         await ReloadAsync();

@@ -177,7 +177,7 @@ public sealed class InboxViewModel : ViewModelBase
 
             if (detected > 0)
             {
-                StatusText = $"マスタに無い分類を参照しているitemを {detected} 件見つけました。";
+                StatusText = $"一覧に無い分類を参照している商品を {detected} 件見つけました。";
             }
         });
     }
@@ -292,7 +292,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ItemUpdated => "商品ページが変わった",
         NotificationKind.AvatarNeedsCheck => "対応アバターの確認",
         NotificationKind.DuplicateFile => "同じ中身のファイル",
-        NotificationKind.OrphanTag => "マスタに無い分類",
+        NotificationKind.OrphanTag => "一覧に無い分類",
         NotificationKind.OrphanVariationLink => "消えたバリエーション",
         NotificationKind.PageStructureChanged => "BOOTHの構造変化",
         NotificationKind.ArchiveFoundForFolder => "zipが手元に入った",
@@ -304,7 +304,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ItemUpdated => "取得し直したときに内容が変わっていたものです。",
         NotificationKind.AvatarNeedsCheck => "推定した対応アバターの確認待ちです。",
         NotificationKind.DuplicateFile => "同じ中身が複数の場所にありました。容量は1回だけ数えています。",
-        NotificationKind.OrphanTag => "マスタから消えたか名前が変わった分類を、itemがまだ参照しています。",
+        NotificationKind.OrphanTag => "一覧から消えたか名前が変わった分類を、商品がまだ参照しています。",
         NotificationKind.OrphanVariationLink => "紐付けていたバリエーションがBOOTH側から消えました。",
         NotificationKind.PageStructureChanged => "説明文の読み取りが効かなくなっている可能性があります。",
         NotificationKind.ArchiveFoundForFolder => "フォルダ登録が役目を終えています。解除しないと容量が二重に数えられます。",

@@ -16,7 +16,7 @@ public sealed class CommandHandler
     private readonly UnpackedFolderRemover? _unpackedRemover;
     private readonly Resolution.FallbackResolver? _resolver;
     private readonly INotificationService? _notifications;
-    private readonly IAppTagService? _appTags;
+    private readonly IUserTagService? _userTags;
     private readonly IAttributeService? _attributes;
 
     public CommandHandler(
@@ -26,7 +26,7 @@ public sealed class CommandHandler
         UnpackedFolderRemover? unpackedRemover = null,
         Resolution.FallbackResolver? resolver = null,
         INotificationService? notifications = null,
-        IAppTagService? appTags = null,
+        IUserTagService? userTags = null,
         IAttributeService? attributes = null)
     {
         _import = import;
@@ -35,7 +35,7 @@ public sealed class CommandHandler
         _unpackedRemover = unpackedRemover;
         _resolver = resolver;
         _notifications = notifications;
-        _appTags = appTags;
+        _userTags = userTags;
         _attributes = attributes;
     }
 
@@ -90,14 +90,14 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(save.ItemId)
                     : new CommandResult.Failed("対象のitemがローカルにありません。");
 
-            case UiCommand.AddAppTag addTag:
+            case UiCommand.AddUserTag addTag:
                 if (_edit is null)
                 {
                     return new CommandResult.Failed("編集の保存手段が設定されていません。");
                 }
 
-                return new CommandResult.AppTagsChanged(
-                    await _edit.AddAppTagAsync(addTag.Top, addTag.Sub, cancellationToken));
+                return new CommandResult.UserTagsChanged(
+                    await _edit.AddUserTagAsync(addTag.Top, addTag.Sub, cancellationToken));
 
             case UiCommand.AddAttribute addAttribute:
                 if (_edit is null)
@@ -108,51 +108,51 @@ public sealed class CommandHandler
                 return new CommandResult.AttributesChanged(
                     await _edit.AddAttributeAsync(addAttribute.Name, cancellationToken));
 
-            case UiCommand.RenameAppTag rename:
-                if (_appTags is null)
+            case UiCommand.RenameUserTag rename:
+                if (_userTags is null)
                 {
                     return new CommandResult.Failed("分類の編集手段が設定されていません。");
                 }
 
-                return new CommandResult.AppTagsRewritten(rename.Sub is null
-                    ? await _appTags.RenameTopAsync(rename.Top, rename.NewName, cancellationToken)
-                    : await _appTags.RenameSubAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken));
+                return new CommandResult.UserTagsRewritten(rename.Sub is null
+                    ? await _userTags.RenameTopAsync(rename.Top, rename.NewName, cancellationToken)
+                    : await _userTags.RenameSubAsync(rename.Top, rename.Sub, rename.NewName, cancellationToken));
 
-            case UiCommand.DeleteAppTag delete:
-                if (_appTags is null)
+            case UiCommand.DeleteUserTag delete:
+                if (_userTags is null)
                 {
                     return new CommandResult.Failed("分類の編集手段が設定されていません。");
                 }
 
-                return new CommandResult.AppTagsRewritten(delete.Sub is null
-                    ? await _appTags.DeleteTopAsync(delete.Top, cancellationToken)
-                    : await _appTags.DeleteSubAsync(delete.Top, delete.Sub, cancellationToken));
+                return new CommandResult.UserTagsRewritten(delete.Sub is null
+                    ? await _userTags.DeleteTopAsync(delete.Top, cancellationToken)
+                    : await _userTags.DeleteSubAsync(delete.Top, delete.Sub, cancellationToken));
 
-            case UiCommand.SetAppTagMemo memo:
-                if (_appTags is null)
+            case UiCommand.SetUserTagMemo memo:
+                if (_userTags is null)
                 {
                     return new CommandResult.Failed("分類の編集手段が設定されていません。");
                 }
 
-                return new CommandResult.AppTagsChanged(
-                    await _appTags.SetMemoAsync(memo.Top, memo.Sub, memo.Memo, cancellationToken));
+                return new CommandResult.UserTagsChanged(
+                    await _userTags.SetMemoAsync(memo.Top, memo.Sub, memo.Memo, cancellationToken));
 
-            case UiCommand.ReorderAppTags reorder:
-                if (_appTags is null)
+            case UiCommand.ReorderUserTags reorder:
+                if (_userTags is null)
                 {
                     return new CommandResult.Failed("分類の編集手段が設定されていません。");
                 }
 
-                return new CommandResult.AppTagsChanged(
-                    await _appTags.ReorderAsync(reorder.Top, reorder.Names, cancellationToken));
+                return new CommandResult.UserTagsChanged(
+                    await _userTags.ReorderAsync(reorder.Top, reorder.Names, cancellationToken));
 
-            case UiCommand.MoveAppTagSub move:
-                if (_appTags is null)
+            case UiCommand.MoveUserTagSub move:
+                if (_userTags is null)
                 {
                     return new CommandResult.Failed("分類の編集手段が設定されていません。");
                 }
 
-                return new CommandResult.AppTagsRewritten(await _appTags.MoveSubAsync(
+                return new CommandResult.UserTagsRewritten(await _userTags.MoveSubAsync(
                     move.FromTop, move.Sub, move.ToTop, move.DropEmptySourceTop, cancellationToken));
 
             case UiCommand.RenameAttribute renameAttribute:

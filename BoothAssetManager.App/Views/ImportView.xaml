@@ -12,7 +12,7 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0">
                 <TextBlock Text="取り込み" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
-                <TextBlock Text="フォルダやファイルを走査して、zipからBoothIDを特定します"
+                <TextBlock Text="フォルダやファイルを走査して、zipから商品IDを特定します"
                            Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
             </StackPanel>
         </Border>

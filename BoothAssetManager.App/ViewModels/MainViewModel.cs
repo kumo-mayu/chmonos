@@ -241,7 +241,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool IsEditActive => CurrentViewModel is EditViewModel;
 
     /// <summary>
-    /// 編集画面を開く。前回の続きが残っていればそこから、無ければappTag未設定のitemを積む。
+    /// 編集画面を開く。前回の続きが残っていればそこから、無ければuserTag未設定のitemを積む。
     /// 検索から複数選んで入る経路は <paramref name="itemIds"/> で指定する。
     /// </summary>
     public async Task ShowEditAsync(IReadOnlyList<string>? itemIds = null)
@@ -273,7 +273,7 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _unresolvedCount, value);
     }
 
-    /// <summary>appTagが未設定のitem数。こちらも総数で示す。</summary>
+    /// <summary>userTagが未設定のitem数。こちらも総数で示す。</summary>
     public int NeedsEditCount
     {
         get => _needsEditCount;
@@ -284,7 +284,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ShowSearch() => CurrentViewModel = Search;
 
-    /// <summary>このappTagが付いているitemを検索画面で見せる。件数から中身へ辿るための入口。</summary>
+    /// <summary>このuserTagが付いているitemを検索画面で見せる。件数から中身へ辿るための入口。</summary>
     public void ShowItemsWithTag(string top, string? sub = null)
     {
         Search.ShowOnly(top, sub);

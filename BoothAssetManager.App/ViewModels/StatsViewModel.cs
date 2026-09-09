@@ -154,11 +154,11 @@ public sealed class StatsViewModel : ViewModelBase
 
     public ObservableCollection<StatsRowViewModel> CategorySpend { get; } = [];
 
-    public ObservableCollection<StatsRowViewModel> AppTagSpend { get; } = [];
+    public ObservableCollection<StatsRowViewModel> UserTagSpend { get; } = [];
 
     public ObservableCollection<StatsRowViewModel> CategoryCounts { get; } = [];
 
-    public ObservableCollection<StatsRowViewModel> AppTagCounts { get; } = [];
+    public ObservableCollection<StatsRowViewModel> UserTagCounts { get; } = [];
 
     public ObservableCollection<StatsRowViewModel> ShopsByCount { get; } = [];
 
@@ -418,7 +418,7 @@ public sealed class StatsViewModel : ViewModelBase
                 SubText = $"{bar.ItemCount} 件",
                 Ratio = categoryMax == 0 ? 0 : bar.Bytes / (double)categoryMax,
                 OpenCommand = new RelayCommand(() => ShowCategory(category)),
-                Tooltip = "この分類で検索し直します。",
+                Tooltip = "この分類の商品を検索画面で開きます。",
             });
         }
 
@@ -440,9 +440,9 @@ public sealed class StatsViewModel : ViewModelBase
         Fill(PriceBuckets, _snapshot.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(WishBuckets, _snapshot.WishBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(CategorySpend, _snapshot.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-        Fill(AppTagSpend, _snapshot.AppTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        Fill(UserTagSpend, _snapshot.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
         Fill(CategoryCounts, _snapshot.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(AppTagCounts, _snapshot.AppTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        Fill(UserTagCounts, _snapshot.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(ShopsByCount, _snapshot.ShopsByCount.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, FormatSize(b.Bytes))));
 
@@ -488,7 +488,7 @@ public sealed class StatsViewModel : ViewModelBase
             nameof(HasPriceChanges), nameof(HasAttributeDistributions), nameof(HasCorrelations),
             nameof(HasWearables), nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
             nameof(RepeatText), nameof(EndOfSaleText), nameof(UnsortedText), nameof(HiddenText),
-            nameof(AppTagSpendNote),
+            nameof(UserTagSpendNote),
         })
         {
             OnPropertyChanged(name);
@@ -535,7 +535,8 @@ public sealed class StatsViewModel : ViewModelBase
     /// <summary>相関が出ない理由をその場に書く。空欄のまま置かない。</summary>
     public string CorrelationNote => _snapshot is null || HasCorrelations
         ? string.Empty
-        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件そろった軸の組はまだありません。少ないと数字が暴れるので出していません。";
+        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件に満たない組は出していません。"
+            + "件数が少ないと相関の数字が暴れるためです。";
 
     public string GiftText => _snapshot is null
         ? string.Empty
@@ -559,8 +560,8 @@ public sealed class StatsViewModel : ViewModelBase
 
     public string HiddenText => _snapshot is null ? string.Empty : $"{_snapshot.HiddenCount} 件";
 
-    /// <summary>appTagは複数選べるので合計が支出と一致しない。そう書いておく。</summary>
-    public string AppTagSpendNote => "appTagは1つの商品に複数付くので、合計は累計支出と一致しません。";
+    /// <summary>userTagは複数選べるので合計が支出と一致しない。そう書いておく。</summary>
+    public string UserTagSpendNote => "ユーザータグは1つの商品に複数付くので、合計は累計支出と一致しません。";
 
     /// <summary>
     /// 積み残し。0件のものは行ごと出さない。
@@ -579,19 +580,19 @@ public sealed class StatsViewModel : ViewModelBase
         {
             Backlog.Add(new BacklogRowViewModel
             {
-                Label = "BoothID が未確定",
+                Label = "商品ID が未確定",
                 Count = _snapshot.Backlog.UnresolvedCount,
                 Severity = "Warn",
                 OpenCommand = new RelayCommand(_main.ShowResolve),
             });
         }
 
-        if (_snapshot.Backlog.NeedsAppTagCount > 0)
+        if (_snapshot.Backlog.NeedsUserTagCount > 0)
         {
             Backlog.Add(new BacklogRowViewModel
             {
-                Label = "appTag 未設定（要編集）",
-                Count = _snapshot.Backlog.NeedsAppTagCount,
+                Label = "ユーザータグ 未設定（要編集）",
+                Count = _snapshot.Backlog.NeedsUserTagCount,
                 Severity = "Plain",
                 OpenCommand = new RelayCommand(() => _ = _main.ShowEditAsync()),
             });

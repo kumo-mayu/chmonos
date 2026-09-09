@@ -5,19 +5,19 @@ using Xunit;
 
 namespace BoothAssetManager.Core.Tests;
 
-public class AppTagServiceTests : IDisposable
+public class UserTagServiceTests : IDisposable
 {
     private readonly string _root;
     private readonly DataStore _store;
-    private readonly AppTagService _service;
+    private readonly UserTagService _service;
 
-    public AppTagServiceTests()
+    public UserTagServiceTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "bam-apptag-" + Guid.NewGuid().ToString("N"));
         var paths = new AppPaths(_root);
         paths.EnsureCreated();
         _store = new DataStore(paths);
-        _service = new AppTagService(_store);
+        _service = new UserTagService(_store);
     }
 
     public void Dispose()
@@ -31,26 +31,26 @@ public class AppTagServiceTests : IDisposable
         }
     }
 
-    private Task SaveMasterAsync(params AppTagTop[] tops)
-        => _store.AppTags.SaveAsync(new AppTagMaster { Tops = tops });
+    private Task SaveMasterAsync(params UserTagTop[] tops)
+        => _store.UserTags.SaveAsync(new UserTagMaster { Tops = tops });
 
-    private Task SaveItemAsync(string id, params AppTagAssignment[] appTags)
+    private Task SaveItemAsync(string id, params UserTagAssignment[] userTags)
         => _store.Items.SaveAsync(new ItemRecord
         {
             Id = id,
             Booth = new BoothBlock { Name = "item " + id, FetchedAt = DateTimeOffset.Now },
-            Local = new LocalBlock { AppTags = appTags },
+            Local = new LocalBlock { UserTags = userTags },
         });
 
-    private async Task<IReadOnlyList<AppTagAssignment>> AppTagsOfAsync(string id)
-        => (await _store.Items.LoadAsync(id))!.Local.AppTags;
+    private async Task<IReadOnlyList<UserTagAssignment>> UserTagsOfAsync(string id)
+        => (await _store.Items.LoadAsync(id))!.Local.UserTags;
 
     [Fact]
     public async Task CountsHowManyItemsUseEachTag()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" }, new AppTagTop { Name = "小物" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
-        await SaveItemAsync("2", new AppTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" }, new UserTagTop { Name = "小物" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
 
         var usage = await _service.LoadUsageAsync();
 
@@ -63,9 +63,9 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task FindsNamesThatOnlyItemsStillReference()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "消えたタグ" });
-        await SaveItemAsync("2", new AppTagAssignment { Top = "消えたタグ" }, new AppTagAssignment { Top = "衣装" });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "消えたタグ" });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "消えたタグ" }, new UserTagAssignment { Top = "衣装" });
 
         var orphan = Assert.Single(await _service.LoadOrphansAsync());
 
@@ -80,8 +80,8 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task FindsSubLevelsThatOnlyItemsStillReference()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服", "消えたサブ"] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服", "消えたサブ"] });
 
         var orphan = Assert.Single(await _service.LoadOrphansAsync());
 
@@ -98,8 +98,8 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task DoesNotListSubsUnderAMissingTop()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "消えたタグ", Subs = ["制服", "私服"] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "消えたタグ", Subs = ["制服", "私服"] });
 
         var orphan = Assert.Single(await _service.LoadOrphansAsync());
 
@@ -111,9 +111,9 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task CountsOrphanSubsPerTop()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" }, new AppTagTop { Name = "小物" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["無いサブ"] });
-        await SaveItemAsync("2", new AppTagAssignment { Top = "小物", Subs = ["無いサブ"] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" }, new UserTagTop { Name = "小物" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["無いサブ"] });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "小物", Subs = ["無いサブ"] });
 
         var orphans = await _service.LoadOrphansAsync();
 
@@ -125,10 +125,10 @@ public class AppTagServiceTests : IDisposable
     public async Task MovesASubLevelToAnotherTop()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服", Memo = "学校のもの" }] },
-            new AppTagTop { Name = "小物" });
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服", Memo = "学校のもの" }] },
+            new UserTagTop { Name = "小物" });
 
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
 
         var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: false);
 
@@ -138,9 +138,9 @@ public class AppTagServiceTests : IDisposable
         Assert.Equal("学校のもの", Assert.Single(result.Master.Tops[1].Subs).Memo);
 
         // itemは「これは制服だ」という判断を保つ。そのために移動先のトップも付ける
-        var appTags = await AppTagsOfAsync("1");
-        Assert.Empty(appTags.Single(entry => entry.Top == "衣装").Subs);
-        Assert.Equal(["制服"], appTags.Single(entry => entry.Top == "小物").Subs);
+        var userTags = await UserTagsOfAsync("1");
+        Assert.Empty(userTags.Single(entry => entry.Top == "衣装").Subs);
+        Assert.Equal(["制服"], userTags.Single(entry => entry.Top == "小物").Subs);
     }
 
     /// <summary>移動先のトップが既に付いていれば、そこへ足すだけ。</summary>
@@ -148,19 +148,19 @@ public class AppTagServiceTests : IDisposable
     public async Task AddsToTheExistingTopWhenTheItemAlreadyHasIt()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] },
-            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "指輪" }] });
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] },
+            new UserTagTop { Name = "小物", Subs = [new UserTagSub { Name = "指輪" }] });
 
         await SaveItemAsync(
             "1",
-            new AppTagAssignment { Top = "衣装", Subs = ["制服"] },
-            new AppTagAssignment { Top = "小物", Subs = ["指輪"] });
+            new UserTagAssignment { Top = "衣装", Subs = ["制服"] },
+            new UserTagAssignment { Top = "小物", Subs = ["指輪"] });
 
         var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: false);
 
         Assert.Equal(1, result.ItemsUpdated);
         Assert.Equal(0, result.ItemsGainedTop);
-        Assert.Equal(["指輪", "制服"], (await AppTagsOfAsync("1")).Single(entry => entry.Top == "小物").Subs);
+        Assert.Equal(["指輪", "制服"], (await UserTagsOfAsync("1")).Single(entry => entry.Top == "小物").Subs);
     }
 
     /// <summary>移動先に同じ名前があれば統合になる。メモは出所付きで書き足す。</summary>
@@ -168,8 +168,8 @@ public class AppTagServiceTests : IDisposable
     public async Task MergesWhenTheTargetTopAlreadyHasThatSub()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服", Memo = "学校のもの" }] },
-            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "制服", Memo = "職業のもの" }] });
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服", Memo = "学校のもの" }] },
+            new UserTagTop { Name = "小物", Subs = [new UserTagSub { Name = "制服", Memo = "職業のもの" }] });
 
         var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: false);
 
@@ -187,15 +187,15 @@ public class AppTagServiceTests : IDisposable
     public async Task DropsTheEmptiedSourceTopOnlyWhenAsked()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] },
-            new AppTagTop { Name = "小物" });
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] },
+            new UserTagTop { Name = "小物" });
 
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
 
         var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: true);
 
         Assert.Equal(1, result.ItemsSourceTopRemoved);
-        Assert.Equal("小物", Assert.Single(await AppTagsOfAsync("1")).Top);
+        Assert.Equal("小物", Assert.Single(await UserTagsOfAsync("1")).Top);
 
         // マスタ側のトップは消さない。他のitemが単独で使っていることがある
         Assert.Contains(result.Master.Tops, top => top.Name == "衣装");
@@ -206,19 +206,19 @@ public class AppTagServiceTests : IDisposable
     public async Task KeepsTheSourceTopWhenOtherSubsRemain()
     {
         await SaveMasterAsync(
-            new AppTagTop
+            new UserTagTop
             {
                 Name = "衣装",
-                Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+                Subs = [new UserTagSub { Name = "制服" }, new UserTagSub { Name = "私服" }],
             },
-            new AppTagTop { Name = "小物" });
+            new UserTagTop { Name = "小物" });
 
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
 
         var result = await _service.MoveSubAsync("衣装", "制服", "小物", dropEmptySourceTop: true);
 
         Assert.Equal(0, result.ItemsSourceTopRemoved);
-        Assert.Equal(["私服"], (await AppTagsOfAsync("1")).Single(entry => entry.Top == "衣装").Subs);
+        Assert.Equal(["私服"], (await UserTagsOfAsync("1")).Single(entry => entry.Top == "衣装").Subs);
     }
 
     /// <summary>押す前に影響が見えていないと、空になるトップの扱いを決めようがない。</summary>
@@ -226,27 +226,27 @@ public class AppTagServiceTests : IDisposable
     public async Task PreviewsWhatTheMoveWillDo()
     {
         await SaveMasterAsync(
-            new AppTagTop
+            new UserTagTop
             {
                 Name = "衣装",
-                Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+                Subs = [new UserTagSub { Name = "制服" }, new UserTagSub { Name = "私服" }],
             },
-            new AppTagTop { Name = "小物" });
+            new UserTagTop { Name = "小物" });
 
         // 制服だけ → 移すと「衣装」が空になる
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
 
         // 私服も持つ → 「衣装」は残る
-        await SaveItemAsync("2", new AppTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
 
         // 「小物」を既に持つ → トップは増えない
         await SaveItemAsync(
             "3",
-            new AppTagAssignment { Top = "衣装", Subs = ["制服"] },
-            new AppTagAssignment { Top = "小物" });
+            new UserTagAssignment { Top = "衣装", Subs = ["制服"] },
+            new UserTagAssignment { Top = "小物" });
 
         // 制服を持たない → 対象外
-        await SaveItemAsync("4", new AppTagAssignment { Top = "衣装", Subs = ["私服"] });
+        await SaveItemAsync("4", new UserTagAssignment { Top = "衣装", Subs = ["私服"] });
 
         var preview = await _service.PreviewMoveSubAsync("衣装", "制服", "小物");
 
@@ -258,40 +258,40 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task IgnoresAMoveWhenTheSubOrTopIsGone()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] });
 
         Assert.Equal(0, (await _service.MoveSubAsync("衣装", "制服", "無いトップ", dropEmptySourceTop: false)).ItemsUpdated);
         Assert.Equal(0, (await _service.MoveSubAsync("衣装", "無いサブ", "衣装", dropEmptySourceTop: false)).ItemsUpdated);
-        Assert.Equal(["制服"], Assert.Single(_store.AppTags.Load().Tops).Subs.Select(sub => sub.Name));
+        Assert.Equal(["制服"], Assert.Single(_store.UserTags.Load().Tops).Subs.Select(sub => sub.Name));
     }
 
     [Fact]
     public async Task RenamesTheTagInTheMasterAndInEveryItem()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
 
         var result = await _service.RenameTopAsync("衣装", "アバター衣装");
 
         Assert.Equal(1, result.ItemsUpdated);
         Assert.False(result.WasMerged);
         Assert.Equal("アバター衣装", Assert.Single(result.Master.Tops).Name);
-        Assert.Equal("アバター衣装", Assert.Single(await AppTagsOfAsync("1")).Top);
+        Assert.Equal("アバター衣装", Assert.Single(await UserTagsOfAsync("1")).Top);
         // サブレベルはトップに従属するので、そのまま連れて行く
-        Assert.Equal("制服", Assert.Single(Assert.Single(await AppTagsOfAsync("1")).Subs));
+        Assert.Equal("制服", Assert.Single(Assert.Single(await UserTagsOfAsync("1")).Subs));
     }
 
     /// <summary>マスタに無い名前も改名できる。参照が壊れたitemを直す唯一の手段なので。</summary>
     [Fact]
     public async Task CanRenameANameThatOnlyItemsReference()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "消えたタグ" });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "消えたタグ" });
 
         var result = await _service.RenameTopAsync("消えたタグ", "衣装");
 
         Assert.Equal(1, result.ItemsUpdated);
-        Assert.Equal("衣装", Assert.Single(await AppTagsOfAsync("1")).Top);
+        Assert.Equal("衣装", Assert.Single(await UserTagsOfAsync("1")).Top);
         Assert.Empty(await _service.LoadOrphansAsync());
     }
 
@@ -300,13 +300,13 @@ public class AppTagServiceTests : IDisposable
     public async Task MergesWhenRenamedOntoAnExistingTag()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "指輪" }] },
-            new AppTagTop { Name = "アクセサリ", Subs = [new AppTagSub { Name = "ピアス" }] });
+            new UserTagTop { Name = "小物", Subs = [new UserTagSub { Name = "指輪" }] },
+            new UserTagTop { Name = "アクセサリ", Subs = [new UserTagSub { Name = "ピアス" }] });
 
         await SaveItemAsync(
             "1",
-            new AppTagAssignment { Top = "小物", Subs = ["指輪"] },
-            new AppTagAssignment { Top = "アクセサリ", Subs = ["ピアス"] });
+            new UserTagAssignment { Top = "小物", Subs = ["指輪"] },
+            new UserTagAssignment { Top = "アクセサリ", Subs = ["ピアス"] });
 
         var result = await _service.RenameTopAsync("アクセサリ", "小物");
 
@@ -314,7 +314,7 @@ public class AppTagServiceTests : IDisposable
         Assert.Equal("小物", Assert.Single(result.Master.Tops).Name);
         Assert.Equal(["指輪", "ピアス"], result.Master.Tops[0].Subs.Select(sub => sub.Name));
 
-        var assignment = Assert.Single(await AppTagsOfAsync("1"));
+        var assignment = Assert.Single(await UserTagsOfAsync("1"));
         Assert.Equal("小物", assignment.Top);
         Assert.Equal(["指輪", "ピアス"], assignment.Subs);
     }
@@ -322,25 +322,25 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task RemovesTheTagFromEveryItemWhenDeleted()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" }, new AppTagTop { Name = "小物" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装" }, new AppTagAssignment { Top = "小物" });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" }, new UserTagTop { Name = "小物" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装" }, new UserTagAssignment { Top = "小物" });
 
         var result = await _service.DeleteTopAsync("衣装");
 
         Assert.Equal(1, result.ItemsUpdated);
         Assert.Equal("小物", Assert.Single(result.Master.Tops).Name);
-        Assert.Equal("小物", Assert.Single(await AppTagsOfAsync("1")).Top);
+        Assert.Equal("小物", Assert.Single(await UserTagsOfAsync("1")).Top);
     }
 
     /// <summary>
-    /// appTagが空になったitem数を数える。編集の対象に戻るので、黙って進めてはいけない。
+    /// userTagが空になったitem数を数える。編集の対象に戻るので、黙って進めてはいけない。
     /// </summary>
     [Fact]
     public async Task ReportsHowManyItemsAreLeftWithNoTagAtAll()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" }, new AppTagTop { Name = "小物" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装" });
-        await SaveItemAsync("2", new AppTagAssignment { Top = "衣装" }, new AppTagAssignment { Top = "小物" });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" }, new UserTagTop { Name = "小物" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装" });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "衣装" }, new UserTagAssignment { Top = "小物" });
 
         var result = await _service.DeleteTopAsync("衣装");
 
@@ -352,71 +352,71 @@ public class AppTagServiceTests : IDisposable
     public async Task RenamesASubLevelWithoutTouchingOtherTops()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] },
-            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "制服" }] });
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] },
+            new UserTagTop { Name = "小物", Subs = [new UserTagSub { Name = "制服" }] });
 
         await SaveItemAsync(
             "1",
-            new AppTagAssignment { Top = "衣装", Subs = ["制服"] },
-            new AppTagAssignment { Top = "小物", Subs = ["制服"] });
+            new UserTagAssignment { Top = "衣装", Subs = ["制服"] },
+            new UserTagAssignment { Top = "小物", Subs = ["制服"] });
 
         await _service.RenameSubAsync("衣装", "制服", "学生服");
 
-        var appTags = await AppTagsOfAsync("1");
-        Assert.Equal(["学生服"], appTags.Single(entry => entry.Top == "衣装").Subs);
-        Assert.Equal(["制服"], appTags.Single(entry => entry.Top == "小物").Subs);
+        var userTags = await UserTagsOfAsync("1");
+        Assert.Equal(["学生服"], userTags.Single(entry => entry.Top == "衣装").Subs);
+        Assert.Equal(["制服"], userTags.Single(entry => entry.Top == "小物").Subs);
     }
 
     [Fact]
     public async Task DropsASubLevelFromItemsWhenDeleted()
     {
-        await SaveMasterAsync(new AppTagTop
+        await SaveMasterAsync(new UserTagTop
         {
             Name = "衣装",
-            Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+            Subs = [new UserTagSub { Name = "制服" }, new UserTagSub { Name = "私服" }],
         });
 
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服", "私服"] });
 
         var result = await _service.DeleteSubAsync("衣装", "制服");
 
         Assert.Equal(1, result.ItemsUpdated);
         Assert.Equal(["私服"], Assert.Single(result.Master.Tops).Subs.Select(sub => sub.Name));
         // トップは残す。サブを消しただけで分類そのものが外れては困る
-        Assert.Equal(["私服"], Assert.Single(await AppTagsOfAsync("1")).Subs);
+        Assert.Equal(["私服"], Assert.Single(await UserTagsOfAsync("1")).Subs);
     }
 
     /// <summary>統合したサブが重複しないこと。同じ名前が2つ並ぶと絞り込みが分裂する。</summary>
     [Fact]
     public async Task DoesNotLeaveDuplicateSubsAfterMerging()
     {
-        await SaveMasterAsync(new AppTagTop
+        await SaveMasterAsync(new UserTagTop
         {
             Name = "衣装",
-            Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "学生服" }],
+            Subs = [new UserTagSub { Name = "制服" }, new UserTagSub { Name = "学生服" }],
         });
 
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服", "学生服"] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服", "学生服"] });
 
         await _service.RenameSubAsync("衣装", "制服", "学生服");
 
-        Assert.Equal(["学生服"], Assert.Single(await AppTagsOfAsync("1")).Subs);
+        Assert.Equal(["学生服"], Assert.Single(await UserTagsOfAsync("1")).Subs);
         Assert.Equal(["学生服"], Assert.Single((await _service.LoadUsageAsync())).SubCounts.Keys);
     }
 
     [Fact]
     public async Task WritesTheMemoWithoutTouchingItems()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
 
         await _service.SetMemoAsync("衣装", null, "  アバターに着せるもの全般  ");
         await _service.SetMemoAsync("衣装", "制服", "学校のもの");
 
-        var top = Assert.Single(_store.AppTags.Load().Tops);
+        var top = Assert.Single(_store.UserTags.Load().Tops);
         Assert.Equal("アバターに着せるもの全般", top.Memo);
         Assert.Equal("学校のもの", Assert.Single(top.Subs).Memo);
-        Assert.Equal("衣装", Assert.Single(await AppTagsOfAsync("1")).Top);
+        Assert.Equal("衣装", Assert.Single(await UserTagsOfAsync("1")).Top);
     }
 
     /// <summary>
@@ -427,8 +427,8 @@ public class AppTagServiceTests : IDisposable
     public async Task CarriesTheSourceMemoIntoTheMergedTag()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "小物", Memo = "身に着ける小さいもの" },
-            new AppTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
+            new UserTagTop { Name = "小物", Memo = "身に着ける小さいもの" },
+            new UserTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
 
         var result = await _service.RenameTopAsync("アクセサリ", "小物");
 
@@ -441,8 +441,8 @@ public class AppTagServiceTests : IDisposable
     public async Task UsesTheSourceMemoWhenTheTargetHadNone()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "小物" },
-            new AppTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
+            new UserTagTop { Name = "小物" },
+            new UserTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
 
         var result = await _service.RenameTopAsync("アクセサリ", "小物");
 
@@ -453,8 +453,8 @@ public class AppTagServiceTests : IDisposable
     public async Task LeavesTheMemoAloneWhenTheSourceHadNone()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "小物", Memo = "身に着ける小さいもの" },
-            new AppTagTop { Name = "アクセサリ" });
+            new UserTagTop { Name = "小物", Memo = "身に着ける小さいもの" },
+            new UserTagTop { Name = "アクセサリ" });
 
         var result = await _service.RenameTopAsync("アクセサリ", "小物");
 
@@ -466,8 +466,8 @@ public class AppTagServiceTests : IDisposable
     public async Task DoesNotAppendAMemoThatIsAlreadyThere()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "小物", Memo = "「アクセサリ」から統合：指輪やピアス" },
-            new AppTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
+            new UserTagTop { Name = "小物", Memo = "「アクセサリ」から統合：指輪やピアス" },
+            new UserTagTop { Name = "アクセサリ", Memo = "指輪やピアス" });
 
         var result = await _service.RenameTopAsync("アクセサリ", "小物");
 
@@ -477,13 +477,13 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task CarriesTheSourceMemoWhenSubLevelsAreMerged()
     {
-        await SaveMasterAsync(new AppTagTop
+        await SaveMasterAsync(new UserTagTop
         {
             Name = "衣装",
             Subs =
             [
-                new AppTagSub { Name = "学生服", Memo = "学校のもの" },
-                new AppTagSub { Name = "制服", Memo = "職業のものも含む" },
+                new UserTagSub { Name = "学生服", Memo = "学校のもの" },
+                new UserTagSub { Name = "制服", Memo = "職業のものも含む" },
             ],
         });
 
@@ -503,28 +503,28 @@ public class AppTagServiceTests : IDisposable
     public async Task ReordersTopLevelsWithoutTouchingItems()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装" },
-            new AppTagTop { Name = "小物" },
-            new AppTagTop { Name = "ギミック" });
+            new UserTagTop { Name = "衣装" },
+            new UserTagTop { Name = "小物" },
+            new UserTagTop { Name = "ギミック" });
 
-        await SaveItemAsync("1", new AppTagAssignment { Top = "小物" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "小物" });
 
         var master = await _service.ReorderAsync(null, ["ギミック", "衣装", "小物"]);
 
         Assert.Equal(["ギミック", "衣装", "小物"], master.Tops.Select(top => top.Name));
-        Assert.Equal("小物", Assert.Single(await AppTagsOfAsync("1")).Top);
+        Assert.Equal("小物", Assert.Single(await UserTagsOfAsync("1")).Top);
     }
 
     [Fact]
     public async Task ReordersSubLevelsWithinOneTop()
     {
         await SaveMasterAsync(
-            new AppTagTop
+            new UserTagTop
             {
                 Name = "衣装",
-                Subs = [new AppTagSub { Name = "制服" }, new AppTagSub { Name = "私服" }],
+                Subs = [new UserTagSub { Name = "制服" }, new UserTagSub { Name = "私服" }],
             },
-            new AppTagTop { Name = "小物", Subs = [new AppTagSub { Name = "指輪" }] });
+            new UserTagTop { Name = "小物", Subs = [new UserTagSub { Name = "指輪" }] });
 
         var master = await _service.ReorderAsync("衣装", ["私服", "制服"]);
 
@@ -540,9 +540,9 @@ public class AppTagServiceTests : IDisposable
     public async Task KeepsNamesThatTheNewOrderDidNotMention()
     {
         await SaveMasterAsync(
-            new AppTagTop { Name = "衣装" },
-            new AppTagTop { Name = "小物" },
-            new AppTagTop { Name = "ギミック" });
+            new UserTagTop { Name = "衣装" },
+            new UserTagTop { Name = "小物" },
+            new UserTagTop { Name = "ギミック" });
 
         var master = await _service.ReorderAsync(null, ["ギミック"]);
 
@@ -552,7 +552,7 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task IgnoresAReorderForATopThatIsGone()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装", Subs = [new AppTagSub { Name = "制服" }] });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] });
 
         var master = await _service.ReorderAsync("無いトップ", ["制服"]);
 
@@ -562,11 +562,11 @@ public class AppTagServiceTests : IDisposable
     [Fact]
     public async Task IgnoresARenameThatChangesNothing()
     {
-        await SaveMasterAsync(new AppTagTop { Name = "衣装" });
-        await SaveItemAsync("1", new AppTagAssignment { Top = "衣装" });
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装" });
 
         Assert.Equal(0, (await _service.RenameTopAsync("衣装", "   ")).ItemsUpdated);
         Assert.Equal(0, (await _service.RenameTopAsync("衣装", "衣装")).ItemsUpdated);
-        Assert.Equal("衣装", Assert.Single(_store.AppTags.Load().Tops).Name);
+        Assert.Equal("衣装", Assert.Single(_store.UserTags.Load().Tops).Name);
     }
 }

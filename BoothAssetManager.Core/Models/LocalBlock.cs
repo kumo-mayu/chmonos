@@ -9,8 +9,8 @@ namespace BoothAssetManager.Core.Models;
 /// </summary>
 public sealed record LocalBlock
 {
-    /// <summary>appTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
-    public IReadOnlyList<AppTagAssignment> AppTags { get; init; } = [];
+    /// <summary>userTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
+    public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 
     /// <summary>属性名 → 0-100 の連続値。キーが無いものは「未評価」で、0とは区別する。</summary>
     public IReadOnlyDictionary<string, int> Attributes { get; init; } = new Dictionary<string, int>();

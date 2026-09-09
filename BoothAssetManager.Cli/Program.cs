@@ -341,7 +341,7 @@ public static class Program
             Booth = BoothItemMapper.Map(json, DateTimeOffset.Now, sections),
             Local = new Core.Models.LocalBlock
             {
-                AppTags = [new Core.Models.AppTagAssignment { Top = "小物", Subs = ["ギミック"] }],
+                UserTags = [new Core.Models.UserTagAssignment { Top = "小物", Subs = ["ギミック"] }],
                 Attributes = new Dictionary<string, int> { ["かっこいい"] = 70 },
                 Memo = "動作確認済み",
                 AcquiredAt = new DateOnly(2026, 8, 14),

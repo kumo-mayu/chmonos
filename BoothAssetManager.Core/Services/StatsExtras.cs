@@ -38,9 +38,9 @@ public static class StatsExtras
                 .Where(purchase => purchase.Kind == PurchaseKind.Received)
                 .Sum(purchase => purchase.Price ?? 0)),
             CategorySpend = SpendBy(owned, CategoryOf),
-            AppTagSpend = SpendByMany(owned, item => item.Local.AppTags.Select(tag => tag.Top)),
+            UserTagSpend = SpendByMany(owned, item => item.Local.UserTags.Select(tag => tag.Top)),
             CategoryCounts = CountBy(owned, CategoryOf),
-            AppTagCounts = CountByMany(owned, item => item.Local.AppTags.Select(tag => tag.Top)),
+            UserTagCounts = CountByMany(owned, item => item.Local.UserTags.Select(tag => tag.Top)),
             MonthlyCategories = MonthlyCategories(owned, out var order),
             CategoryOrder = order,
             HeavyItems = owned
@@ -61,7 +61,7 @@ public static class StatsExtras
             AttributeCorrelations = Correlations(owned),
             CorrelationMinimum = CorrelationMinimum,
             Wearables = Wearables(owned, registry, compatibility),
-            UnsortedOwnedCount = owned.Count(item => item.Local.AppTags.Count == 0),
+            UnsortedOwnedCount = owned.Count(item => item.Local.UserTags.Count == 0),
             HiddenCount = allItems.Count(item => item.Local.IsHidden),
             EndOfSaleCount = owned.Count(item => item.Booth.IsEndOfSale),
             SoldOutCount = owned.Count(item => item.Booth.IsSoldOut && !item.Booth.IsEndOfSale),
@@ -195,7 +195,7 @@ public static class StatsExtras
             .ToList();
 
     /// <summary>
-    /// 1つのitemが複数の分類に属する場合（appTagのトップは複数選べる）。
+    /// 1つのitemが複数の分類に属する場合（userTagのトップは複数選べる）。
     /// 金額は分類ごとに満額を数える。合計は支出と一致しないので、画面でその旨を書く。
     /// </summary>
     private static List<StatsSpendBar> SpendByMany(

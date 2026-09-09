@@ -91,9 +91,9 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool HasMissingFile { get; init; }
 
-    public string AppTagText { get; init; } = string.Empty;
+    public string UserTagText { get; init; } = string.Empty;
 
-    public bool HasAppTag => AppTagText.Length > 0;
+    public bool HasUserTag => UserTagText.Length > 0;
 
     /// <summary>
     /// 表示中の画像。値を持たず、読むたびにキャッシュへ問い合わせる。

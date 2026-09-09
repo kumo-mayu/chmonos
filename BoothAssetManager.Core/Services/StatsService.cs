@@ -62,7 +62,7 @@ public sealed record StatsBacklog
 {
     public required int UnresolvedCount { get; init; }
 
-    public required int NeedsAppTagCount { get; init; }
+    public required int NeedsUserTagCount { get; init; }
 
     public required int MissingFileCount { get; init; }
 }
@@ -226,7 +226,7 @@ public sealed record StatsSnapshot
 
     public IReadOnlyList<StatsSpendBar> CategorySpend { get; init; } = [];
 
-    public IReadOnlyList<StatsSpendBar> AppTagSpend { get; init; } = [];
+    public IReadOnlyList<StatsSpendBar> UserTagSpend { get; init; } = [];
 
     /// <summary>月ごとのカテゴリ構成。買うものの移り変わり。</summary>
     public IReadOnlyList<StatsMonthlyCategory> MonthlyCategories { get; init; } = [];
@@ -244,10 +244,10 @@ public sealed record StatsSnapshot
     /// <summary>点数の多いショップ（支出順とは顔ぶれが変わる）。</summary>
     public IReadOnlyList<StatsSpendBar> ShopsByCount { get; init; } = [];
 
-    /// <summary>カテゴリ・appTagの点数構成。</summary>
+    /// <summary>カテゴリ・userTagの点数構成。</summary>
     public IReadOnlyList<StatsCountBar> CategoryCounts { get; init; } = [];
 
-    public IReadOnlyList<StatsCountBar> AppTagCounts { get; init; } = [];
+    public IReadOnlyList<StatsCountBar> UserTagCounts { get; init; } = [];
 
     public IReadOnlyList<StatsAttributeDistribution> AttributeDistributions { get; init; } = [];
 
@@ -259,7 +259,7 @@ public sealed record StatsSnapshot
     /// <summary>所有アバターごとに着られる所持商品の数。直接対応と素体経由を分ける。</summary>
     public IReadOnlyList<StatsAvatarWearable> Wearables { get; init; } = [];
 
-    /// <summary>所持しているのにappTagを付けていないitem数。いわゆる積み。</summary>
+    /// <summary>所持しているのにuserTagを付けていないitem数。いわゆる積み。</summary>
     public int UnsortedOwnedCount { get; init; }
 
     public int HiddenCount { get; init; }
@@ -450,7 +450,7 @@ public sealed class StatsService : IStatsService
             Backlog = new StatsBacklog
             {
                 UnresolvedCount = unresolvedCount,
-                NeedsAppTagCount = items.Count(item => item.Local.AppTags.Count == 0),
+                NeedsUserTagCount = items.Count(item => item.Local.UserTags.Count == 0),
                 MissingFileCount = items.Count(item =>
                     item.Local.LocalFiles.Any(file => file.Paths.Count == 0)),
             },

@@ -15,7 +15,7 @@
                     <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="BoothIDが決まらなかったファイルです。IDを決めるか、管理から外します。"
+                    <TextBlock Text="商品IDが決まらなかったファイルです。IDを決めるか、管理から外します。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
 
@@ -330,20 +330,32 @@
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,12,0,0"
                                     Visibility="{Binding HasPreview, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
-                                    <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}"
+                                                   VerticalAlignment="Center" />
+                                        <!-- 状態はチップにする。文で出すと「だから登録できない」に読める -->
+                                        <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                                                BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="8,0,0,0"
+                                                Visibility="{Binding IsPreviewOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding PreviewOwnedNote}" FontSize="10"
+                                                       Foreground="{StaticResource Good}" />
+                                        </Border>
+                                    </StackPanel>
                                     <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding PreviewDetail}" Style="{StaticResource Caption}"
                                                TextWrapping="Wrap" Margin="0,5,0,0" />
-                                    <TextBlock Text="{Binding PreviewOwnedNote}" Style="{StaticResource Caption}"
-                                               Foreground="{StaticResource Good}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                               Visibility="{Binding IsPreviewOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
 
                             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <!-- 押したら何が起きるかを、ボタンのすぐ上に必ず出す -->
+                            <TextBlock Text="{Binding AssignOutcomeText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,14,0,0"
+                                       Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
                                 <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding AssignCommand}" />
                                 <Button Content="管理から外す" Margin="9,0,0,0" Command="{Binding ExcludeCommand}" />

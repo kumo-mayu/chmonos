@@ -11,7 +11,7 @@ public class StatsExtrasTests
         int? price = null,
         bool gifted = false,
         string? category = null,
-        string[]? appTags = null,
+        string[]? userTags = null,
         long size = 100,
         string? acquiredAt = null,
         bool endOfSale = false,
@@ -47,7 +47,7 @@ public class StatsExtrasTests
                         Price = price,
                         Kind = gifted ? PurchaseKind.Received : PurchaseKind.ForSelf,
                     }],
-                AppTags = (appTags ?? []).Select(top => new AppTagAssignment { Top = top }).ToList(),
+                UserTags = (userTags ?? []).Select(top => new UserTagAssignment { Top = top }).ToList(),
                 Attributes = attributes ?? new Dictionary<string, int>(),
                 AcquiredAt = acquiredAt is null ? null : DateOnly.Parse(acquiredAt),
             },
@@ -160,24 +160,24 @@ public class StatsExtrasTests
     }
 
     /// <summary>
-    /// appTagのトップは複数選べるので、1つのitemが複数の分類に満額で入る。
+    /// userTagのトップは複数選べるので、1つのitemが複数の分類に満額で入る。
     /// 合計は支出と一致しない（画面でその旨を書く）。
     /// </summary>
     [Fact]
-    public void SpendByAppTagCountsAnItemInEachTag()
+    public void SpendByUserTagCountsAnItemInEachTag()
     {
-        var snapshot = Build(Item("1", price: 1000, appTags: ["衣装", "ギミック"]));
+        var snapshot = Build(Item("1", price: 1000, userTags: ["衣装", "ギミック"]));
 
-        Assert.Equal(2, snapshot.AppTagSpend.Count);
-        Assert.All(snapshot.AppTagSpend, bar => Assert.Equal(1000, bar.SpentYen));
+        Assert.Equal(2, snapshot.UserTagSpend.Count);
+        Assert.All(snapshot.UserTagSpend, bar => Assert.Equal(1000, bar.SpentYen));
     }
 
     [Fact]
     public void CountsUntaggedAsResidual()
     {
-        var snapshot = Build(Item("1", appTags: ["衣装"]), Item("2"));
+        var snapshot = Build(Item("1", userTags: ["衣装"]), Item("2"));
 
-        var residual = Assert.Single(snapshot.AppTagCounts, bar => bar.IsResidual);
+        var residual = Assert.Single(snapshot.UserTagCounts, bar => bar.IsResidual);
         Assert.Equal(1, residual.ItemCount);
     }
 
@@ -268,7 +268,7 @@ public class StatsExtrasTests
     [Fact]
     public void CountsUnsortedOwnedItems()
     {
-        var snapshot = Build(Item("1", appTags: ["衣装"]), Item("2"), Item("3"));
+        var snapshot = Build(Item("1", userTags: ["衣装"]), Item("2"), Item("3"));
 
         Assert.Equal(2, snapshot.UnsortedOwnedCount);
     }

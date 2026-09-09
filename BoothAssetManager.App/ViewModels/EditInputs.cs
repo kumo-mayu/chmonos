@@ -3,12 +3,12 @@ using System.Collections.ObjectModel;
 namespace BoothAssetManager.App.ViewModels;
 
 /// <summary>
-/// 編集画面で付けたappTag 1件（トップ＋サブ）。
+/// 編集画面で付けたuserTag 1件（トップ＋サブ）。
 ///
 /// マスタ全部を並べて選ばせるのではなく、候補入力から選んだものだけをここに積む。
 /// 並べる方式だと、分類が増えるほど画面が縦に伸びて使えなくなるため。
 /// </summary>
-public sealed class AppTagRow : ViewModelBase
+public sealed class UserTagRow : ViewModelBase
 {
     public required string Top { get; init; }
 

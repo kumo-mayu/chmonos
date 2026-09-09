@@ -157,7 +157,7 @@
                                         <Grid>
                                             <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}"
                                                        FontSize="11" Foreground="{StaticResource TextMuted}" />
-                                            <TextBlock Text="{Binding AppTagText}" Style="{StaticResource Caption}"
+                                            <TextBlock Text="{Binding UserTagText}" Style="{StaticResource Caption}"
                                                        HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
                                                        MaxWidth="120" />
                                         </Grid>

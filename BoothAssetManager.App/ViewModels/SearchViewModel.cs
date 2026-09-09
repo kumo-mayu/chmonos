@@ -354,8 +354,8 @@ public sealed class SearchViewModel : ViewModelBase
     /// <summary>カテゴリの選択肢。件数を出すために文字列ではなく型で持つ。</summary>
     public ObservableCollection<CategoryOption> Categories { get; } = [];
 
-    /// <summary>appTagでの絞り込み。マスタのトップをそのまま並べる。</summary>
-    public ObservableCollection<AppTagFilter> TagFilters { get; } = [];
+    /// <summary>userTagでの絞り込み。マスタのトップをそのまま並べる。</summary>
+    public ObservableCollection<UserTagFilter> TagFilters { get; } = [];
 
     /// <summary>
     /// 属性でのレンジ絞り込み。使う軸だけを候補から選んで積む。
@@ -563,7 +563,7 @@ public sealed class SearchViewModel : ViewModelBase
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .Count();
 
-    public int NeedsEditCount => _allItems.Count(item => item.Local.AppTags.Count == 0);
+    public int NeedsEditCount => _allItems.Count(item => item.Local.UserTags.Count == 0);
 
     public string ResultSummary => $"{_matches.Count} 件";
 
@@ -669,12 +669,12 @@ public sealed class SearchViewModel : ViewModelBase
             .ToList();
 
         TagFilters.Clear();
-        foreach (var top in _services.Store.AppTags.Load().Tops)
+        foreach (var top in _services.Store.UserTags.Load().Tops)
         {
-            var filter = new AppTagFilter { Name = top.Name };
+            var filter = new UserTagFilter { Name = top.Name };
             foreach (var sub in top.Subs)
             {
-                filter.Subs.Add(new AppTagSubFilter { Name = sub.Name });
+                filter.Subs.Add(new UserTagSubFilter { Name = sub.Name });
             }
 
             filter.Attach();
@@ -787,7 +787,7 @@ public sealed class SearchViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// このappTagだけで絞り込んだ状態にする。タグの管理から「この分類が付いているitem」を
+    /// このuserTagだけで絞り込んだ状態にする。タグの管理から「この分類が付いているitem」を
     /// 見に来る導線。件数だけ見せられても、消していいか統合していいかは判断できない。
     /// </summary>
     public void ShowOnly(string top, string? sub = null)
@@ -906,6 +906,7 @@ public sealed class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(FilterSummary));
         OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(EmptyHint));
     }
 
     /// <summary>
@@ -974,6 +975,15 @@ public sealed class SearchViewModel : ViewModelBase
 
     public bool HasActiveFilters => FilterSummary.Length > 0;
 
+    /// <summary>
+    /// 0件のときの案内。絞って0件なのか、そもそも空なのかで次にやることが違う。
+    /// </summary>
+    public string EmptyHint => _allItems.Count == 0
+        ? "「取り込み」からフォルダを読み込んでください"
+        : HasActiveFilters || _queryText.Trim().Length > 0
+            ? "「条件をクリア」で全件に戻ります"
+            : "「取り込み」からフォルダを読み込んでください";
+
     /// <summary>絞り込み結果を、現在の列数で行に切り直す。</summary>
     private void RebuildRows()
     {
@@ -989,14 +999,14 @@ public sealed class SearchViewModel : ViewModelBase
 
     /// <summary>
     /// 絞り込みの軸。ファセットの件数を数えるとき、自分の軸だけを外して数えるために使う。
-    /// 外さないと、appTagで「衣装」を選んだ瞬間に同じ欄の他のappTagが全部0件になる。
+    /// 外さないと、userTagで「衣装」を選んだ瞬間に同じ欄の他のuserTagが全部0件になる。
     /// </summary>
     private enum FilterAxis
     {
         Owned,
         Avatar,
         Category,
-        AppTag,
+        UserTag,
         Attribute,
         Extra,
     }
@@ -1055,7 +1065,7 @@ public sealed class SearchViewModel : ViewModelBase
         }
 
         // 選ばれたトップのいずれかに当てはまればよい（別のトップ同士はORで扱う）
-        if (except != FilterAxis.AppTag)
+        if (except != FilterAxis.UserTag)
         {
             var selectedTags = TagFilters.Where(filter => filter.IsSelected).ToList();
             if (selectedTags.Count > 0 && !selectedTags.Any(filter => filter.Matches(item)))
@@ -1098,15 +1108,15 @@ public sealed class SearchViewModel : ViewModelBase
                     string.Equals(item.Booth.Category?.Name, option.Name, StringComparison.CurrentCulture));
         }
 
-        var forTags = _allItems.Where(item => Matches(item, FilterAxis.AppTag)).ToList();
+        var forTags = _allItems.Where(item => Matches(item, FilterAxis.UserTag)).ToList();
         foreach (var filter in TagFilters)
         {
-            filter.Count = forTags.Count(item => item.Local.AppTags.Any(entry =>
+            filter.Count = forTags.Count(item => item.Local.UserTags.Any(entry =>
                 string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)));
 
             foreach (var sub in filter.Subs)
             {
-                sub.Count = forTags.Count(item => item.Local.AppTags.Any(entry =>
+                sub.Count = forTags.Count(item => item.Local.UserTags.Any(entry =>
                     string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)
                     && entry.Subs.Contains(sub.Name, StringComparer.CurrentCultureIgnoreCase)));
             }
@@ -1229,9 +1239,9 @@ public sealed class SearchViewModel : ViewModelBase
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
             SizeText = item.IsDownloaded ? FormatSize(item.LogicalSizeBytes) : "未取得",
             IsOwned = item.IsDownloaded,
-            NeedsEdit = item.Local.AppTags.Count == 0,
+            NeedsEdit = item.Local.UserTags.Count == 0,
             HasMissingFile = missing,
-            AppTagText = string.Join(" / ", item.Local.AppTags.Select(tag => tag.Top)),
+            UserTagText = string.Join(" / ", item.Local.UserTags.Select(tag => tag.Top)),
         };
     }
 

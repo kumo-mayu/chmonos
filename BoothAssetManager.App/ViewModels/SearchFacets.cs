@@ -4,13 +4,13 @@ using BoothAssetManager.Core.Models;
 namespace BoothAssetManager.App.ViewModels;
 
 /// <summary>
-/// appTagでの絞り込み1つ分。トップを選ぶと候補に入り、サブを選ぶとその中で更に絞る。
+/// userTagでの絞り込み1つ分。トップを選ぶと候補に入り、サブを選ぶとその中で更に絞る。
 ///
 /// 別々のトップを複数選んだ場合はORで扱う（「衣装かギミック」）。
 /// 同じトップの中でサブを選んだ場合は、そのトップかつそのサブのいずれか、になる。
 /// ANDで積むと選ぶほど0件に近づき、探す道具として使えなくなるため。
 /// </summary>
-public sealed class AppTagFilter : ViewModelBase
+public sealed class UserTagFilter : ViewModelBase
 {
     private bool _isSelected;
     private int _count;
@@ -18,7 +18,7 @@ public sealed class AppTagFilter : ViewModelBase
     public required string Name { get; init; }
 
     /// <summary>
-    /// この選択肢を押したときの件数。今の他の条件を適用した後、appTagの条件だけ外して数える。
+    /// この選択肢を押したときの件数。今の他の条件を適用した後、userTagの条件だけ外して数える。
     /// 0件でも消さずに薄く出す（消えると「さっきあった項目が無い」と探すことになる）。
     /// </summary>
     public int Count
@@ -35,7 +35,7 @@ public sealed class AppTagFilter : ViewModelBase
 
     public bool IsEmpty => _count == 0;
 
-    public ObservableCollection<AppTagSubFilter> Subs { get; } = [];
+    public ObservableCollection<UserTagSubFilter> Subs { get; } = [];
 
     /// <summary>絞り込み条件が変わったことを検索側へ伝える。</summary>
     public event Action? Changed;
@@ -96,7 +96,7 @@ public sealed class AppTagFilter : ViewModelBase
     /// <summary>このitemが条件に合うか。</summary>
     public bool Matches(ItemRecord item)
     {
-        var assignment = item.Local.AppTags.FirstOrDefault(entry =>
+        var assignment = item.Local.UserTags.FirstOrDefault(entry =>
             string.Equals(entry.Top, Name, StringComparison.CurrentCultureIgnoreCase));
 
         if (assignment is null)
@@ -110,7 +110,7 @@ public sealed class AppTagFilter : ViewModelBase
     }
 }
 
-public sealed class AppTagSubFilter : ViewModelBase
+public sealed class UserTagSubFilter : ViewModelBase
 {
     private bool _isSelected;
     private int _count;

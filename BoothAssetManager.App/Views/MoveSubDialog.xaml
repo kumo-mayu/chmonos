@@ -7,19 +7,19 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MoveSubDialogViewModel}"
-        Title="サブレベルを移す"
+        Title="小分類を移す"
         Width="460" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{StaticResource Surface}">
     <StackPanel Margin="22,20">
 
-        <TextBlock Text="サブレベルを移す" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="小分類を移す" FontWeight="Bold" FontSize="14" />
         <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
                    TextWrapping="Wrap" Margin="0,7,0,0" />
 
         <TextBlock Text="移動先" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
         <controls:SuggestBox Source="{Binding Targets}" CommitCommand="{Binding PickTargetCommand}"
-                             AllowNew="False" Placeholder="トップレベルを選ぶ" />
+                             AllowNew="False" Placeholder="大分類を選ぶ" />
 
         <TextBlock Text="{Binding TargetText}" Style="{StaticResource Mono}" FontSize="11.5" Margin="0,8,0,0" />
 

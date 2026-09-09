@@ -16,12 +16,12 @@
                     <TextBlock Text="タグの管理" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="itemは名前で参照しているので、名前の変更と削除は全itemの書き換えを伴います。"
+                    <TextBlock Text="商品は名前で参照しているので、名前の変更と削除は全商品の書き換えを伴います。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="appTags.json" Style="{StaticResource Mono}" Foreground="{StaticResource TextFaint}"
+                    <TextBlock Text="userTags.json" Style="{StaticResource Mono}" Foreground="{StaticResource TextFaint}"
                                FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
                 </StackPanel>
@@ -44,7 +44,7 @@
                                  Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
 
                         <controls:SuggestBox CommitCommand="{Binding AddTopCommand}" Margin="0,12,0,0"
-                                             Placeholder="トップレベルを追加（例：衣装）" />
+                                             Placeholder="大分類を追加（例：衣装）" />
                     </StackPanel>
 
                     <!-- 並びは検索の絞り込みにも編集の候補にも出るので、ドラッグで変えられる -->
@@ -117,9 +117,16 @@
                             Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                             Visibility="{Binding HasOrphans, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="18,15">
-                            <TextBlock Text="マスタに無い分類" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
-                            <TextBlock Text="itemがまだ参照しています。このままでは絞り込みに出てきません。名前が正しければマスタに足し、変わったなら既存へ寄せ、もう使わないなら外してください。"
+                            <TextBlock Text="一覧に無い分類" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
+                            <!--
+                                編集画面で打った分類はその場で一覧に入る（EditViewModel）。
+                                ここに出るのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合だけ。
+                                通常の流れに手動追加の手順があるように読ませない。
+                            -->
+                            <TextBlock Text="編集画面で付けた分類は、その場で一覧に入ります。ここに出ているのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既存へ寄せ、もう使わないなら外してください。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
 
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
                                 <ItemsControl.ItemTemplate>
@@ -149,9 +156,9 @@
 
                                                 <StackPanel Grid.Column="1">
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Content="マスタに追加" Style="{StaticResource SmallButton}"
+                                                        <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button Content="itemから外す" Style="{StaticResource SmallButton}"
+                                                        <Button Content="商品から外す" Style="{StaticResource SmallButton}"
                                                                 Margin="6,0,0,0" Foreground="#9a3232"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
@@ -175,7 +182,7 @@
                             <StackPanel Margin="20,18">
                                 <Grid>
                                     <StackPanel Margin="0,0,120,0">
-                                        <TextBlock Text="トップレベル" Style="{StaticResource SectionLabel}" />
+                                        <TextBlock Text="大分類" Style="{StaticResource SectionLabel}" />
                                         <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
                                                    TextWrapping="Wrap" Margin="0,6,0,0" />
                                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
@@ -217,11 +224,11 @@
                         <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                             <StackPanel>
                                 <StackPanel Margin="20,16,20,14">
-                                    <TextBlock Text="サブレベル" FontWeight="Bold" FontSize="13" />
+                                    <TextBlock Text="小分類" FontWeight="Bold" FontSize="13" />
                                     <TextBlock Text="トップに従属します。トップを外すとサブも一緒に外れます。"
                                                Style="{StaticResource Caption}" Margin="0,4,0,0" />
                                     <controls:SuggestBox CommitCommand="{Binding AddSubCommand}" Margin="0,10,0,0"
-                                                         Placeholder="サブレベルを追加" HorizontalAlignment="Left" Width="360" />
+                                                         Placeholder="小分類を追加" HorizontalAlignment="Left" Width="360" />
                                 </StackPanel>
 
                                 <ItemsControl ItemsSource="{Binding Subs}"
@@ -283,7 +290,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <TextBlock Text="サブレベルはまだありません。" Style="{StaticResource Caption}" Margin="20,0,20,18"
+                                <TextBlock Text="小分類はまだありません。" Style="{StaticResource Caption}" Margin="20,0,20,18"
                                            Visibility="{Binding HasSubs, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>

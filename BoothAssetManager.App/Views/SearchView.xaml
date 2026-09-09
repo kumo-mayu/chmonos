@@ -67,8 +67,8 @@
                             </DockPanel>
                         </StackPanel>
 
-                        <!-- appTag：別のトップ同士はORで扱う -->
-                        <TextBlock Text="appTag" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
+                        <!-- userTag：別のトップ同士はORで扱う -->
+                        <TextBlock Text="ユーザータグ" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
                         <TextBlock Text="複数選ぶと「どれかに当てはまるもの」を出します。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
                                    Visibility="{Binding HasTagFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -135,7 +135,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="appTagがまだ登録されていません。編集画面から追加できます。" TextWrapping="Wrap">
+                        <TextBlock Text="ユーザータグがまだ登録されていません。編集画面から追加できます。" TextWrapping="Wrap">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                     <Setter Property="Visibility" Value="Visible" />
@@ -660,9 +660,9 @@
                                             <WrapPanel Margin="0,8,0,0">
                                                 <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                         BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
-                                                        Visibility="{Binding HasAppTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <!-- appTagが長くても2行に折り返さないよう、幅で切る -->
-                                                    <TextBlock Text="{Binding AppTagText}" FontSize="10" Foreground="#28507f"
+                                                        Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <!-- userTagが長くても2行に折り返さないよう、幅で切る -->
+                                                    <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="#28507f"
                                                                MaxWidth="150" TextTrimming="CharacterEllipsis" />
                                                 </Border>
                                             </WrapPanel>
@@ -679,8 +679,12 @@
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                             Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="該当するものがありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
-                    <TextBlock Text="「取り込み」からフォルダを読み込んでください" Style="{StaticResource Caption}"
-                               HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    <!--
+                        絞り込んで0件なのか、そもそも何も入っていないのかで、次にやることが違う。
+                        「取り込んでください」は、条件で絞った結果が0件のときには的外れになる。
+                    -->
+                    <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource Caption}"
+                               HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
         </DockPanel>

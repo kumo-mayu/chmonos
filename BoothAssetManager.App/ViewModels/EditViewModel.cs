@@ -106,7 +106,7 @@ public sealed class OrderedVariationInput : ViewModelBase
 /// 「1件ずつ判断して次へ送る」という性質のものだから（設計メモの通り）。
 /// 位置は1件進むごとに edit-session.json へ書くので、途中で閉じても続きから再開できる。
 ///
-/// appTagも属性も、マスタを全部並べるのではなく候補付きの入力欄から積む。
+/// userTagも属性も、マスタを全部並べるのではなく候補付きの入力欄から積む。
 /// 並べる方式は分類が増えるほど画面が縦に伸び、使えなくなるため。
 /// </summary>
 public sealed class EditViewModel : ViewModelBase
@@ -116,7 +116,7 @@ public sealed class EditViewModel : ViewModelBase
     private readonly ThumbnailLoader _thumbnails;
     private readonly DispatcherTimer _returnTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
-    private AppTagMaster _tagMaster = new();
+    private UserTagMaster _tagMaster = new();
     private AttributeMaster _attributeMaster = new();
     private List<string> _queue = [];
     private int _index;
@@ -164,8 +164,8 @@ public sealed class EditViewModel : ViewModelBase
 
     public RelayCommand StayCommand { get; }
 
-    /// <summary>付けたappTag。マスタ全部ではなく、選んだものだけが並ぶ。</summary>
-    public ObservableCollection<AppTagRow> Tags { get; } = [];
+    /// <summary>付けたuserTag。マスタ全部ではなく、選んだものだけが並ぶ。</summary>
+    public ObservableCollection<UserTagRow> Tags { get; } = [];
 
     /// <summary>評価した属性。評価していないものは行自体が無い。</summary>
     public ObservableCollection<AttributeRow> Attributes { get; } = [];
@@ -174,7 +174,7 @@ public sealed class EditViewModel : ViewModelBase
 
     public ObservableCollection<GalleryImage> Images { get; } = [];
 
-    /// <summary>appTagトップの候補。既に付けたものは出さない。</summary>
+    /// <summary>userTagトップの候補。既に付けたものは出さない。</summary>
     public ObservableCollection<string> TagSuggestions { get; } = [];
 
     /// <summary>属性の候補。既に評価したものは出さない。</summary>
@@ -324,7 +324,7 @@ public sealed class EditViewModel : ViewModelBase
 
     /// <summary>
     /// キューを積んで最初の1件を開く。
-    /// <paramref name="itemIds"/> が空なら、appTag未設定のitemを対象にする（ナビのバッジと同じ定義）。
+    /// <paramref name="itemIds"/> が空なら、userTag未設定のitemを対象にする（ナビのバッジと同じ定義）。
     /// </summary>
     public async Task StartAsync(IReadOnlyList<string>? itemIds = null)
     {
@@ -353,7 +353,7 @@ public sealed class EditViewModel : ViewModelBase
     {
         var loaded = await _services.Store.Items.LoadAllAsync();
         return loaded.Items
-            .Where(item => item.Local.AppTags.Count == 0)
+            .Where(item => item.Local.UserTags.Count == 0)
             .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
             .Select(item => item.Id)
             .ToList();
@@ -371,7 +371,7 @@ public sealed class EditViewModel : ViewModelBase
             if (record is not null)
             {
                 _item = record;
-                _tagMaster = _services.Store.AppTags.Load();
+                _tagMaster = _services.Store.UserTags.Load();
                 _attributeMaster = _services.Store.Attributes.Load();
                 FillFromItem(record);
                 RaiseItemChanged();
@@ -389,7 +389,7 @@ public sealed class EditViewModel : ViewModelBase
     private void FillFromItem(ItemRecord record)
     {
         Tags.Clear();
-        foreach (var assignment in record.Local.AppTags)
+        foreach (var assignment in record.Local.UserTags)
         {
             var row = CreateTagRow(assignment.Top);
             foreach (var sub in assignment.Subs)
@@ -419,9 +419,9 @@ public sealed class EditViewModel : ViewModelBase
         RefreshSuggestions();
     }
 
-    private AppTagRow CreateTagRow(string top)
+    private UserTagRow CreateTagRow(string top)
     {
-        var row = new AppTagRow { Top = top };
+        var row = new UserTagRow { Top = top };
 
         row.RemoveCommand = new RelayCommand(() =>
         {
@@ -476,7 +476,7 @@ public sealed class EditViewModel : ViewModelBase
         }
     }
 
-    private void RefreshSubCandidates(AppTagRow row)
+    private void RefreshSubCandidates(UserTagRow row)
     {
         var master = _tagMaster.Tops.FirstOrDefault(top =>
             string.Equals(top.Name, row.Top, StringComparison.CurrentCultureIgnoreCase));
@@ -502,7 +502,7 @@ public sealed class EditViewModel : ViewModelBase
         // 候補に無い語はマスタへの新規追加を兼ねる
         if (!_tagMaster.Tops.Any(entry => string.Equals(entry.Name, top, StringComparison.CurrentCultureIgnoreCase)))
         {
-            if (await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(top)) is CommandResult.AppTagsChanged changed)
+            if (await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(top)) is CommandResult.UserTagsChanged changed)
             {
                 _tagMaster = changed.Master;
             }
@@ -514,7 +514,7 @@ public sealed class EditViewModel : ViewModelBase
         RefreshSuggestions();
     }
 
-    private async Task AddSubAsync(AppTagRow row, string? name)
+    private async Task AddSubAsync(UserTagRow row, string? name)
     {
         var sub = name?.Trim();
         if (string.IsNullOrEmpty(sub) || row.Subs.Contains(sub, StringComparer.CurrentCultureIgnoreCase))
@@ -528,7 +528,7 @@ public sealed class EditViewModel : ViewModelBase
         if (master is null
             || !master.Subs.Any(entry => string.Equals(entry.Name, sub, StringComparison.CurrentCultureIgnoreCase)))
         {
-            if (await _services.Commands.ExecuteAsync(new UiCommand.AddAppTag(row.Top, sub)) is CommandResult.AppTagsChanged changed)
+            if (await _services.Commands.ExecuteAsync(new UiCommand.AddUserTag(row.Top, sub)) is CommandResult.UserTagsChanged changed)
             {
                 _tagMaster = changed.Master;
             }
@@ -635,8 +635,8 @@ public sealed class EditViewModel : ViewModelBase
     /// <summary>入力を <c>local</c> ブロックに組み直す。触っていない項目は元の値のまま残す。</summary>
     private LocalBlock BuildLocal(ItemRecord record)
     {
-        var appTags = Tags
-            .Select(row => new AppTagAssignment { Top = row.Top, Subs = row.Subs.ToList() })
+        var userTags = Tags
+            .Select(row => new UserTagAssignment { Top = row.Top, Subs = row.Subs.ToList() })
             .ToList();
 
         var attributes = Attributes.ToDictionary(row => row.Name, row => row.Value);
@@ -659,7 +659,7 @@ public sealed class EditViewModel : ViewModelBase
 
         return record.Local with
         {
-            AppTags = appTags,
+            UserTags = userTags,
             Attributes = attributes,
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
             Purchases = ordered,

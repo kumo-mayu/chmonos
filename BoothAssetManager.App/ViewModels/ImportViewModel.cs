@@ -434,7 +434,7 @@ public sealed class ImportViewModel : ViewModelBase
             PhaseText = report.Phase switch
             {
                 ImportPhase.Scanning => "1. ファイルを走査",
-                ImportPhase.Resolving => "2. BoothIDを解決",
+                ImportPhase.Resolving => "2. 商品IDを解決",
                 _ => "3. BOOTHから取得（1件ずつ間隔を空けています）",
             };
             Current = report.Current;

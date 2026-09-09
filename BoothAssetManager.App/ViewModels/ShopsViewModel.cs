@@ -196,7 +196,7 @@ public sealed class ShopsViewModel : ViewModelBase
 
     public string EmptyText => _all.Count == 0
         ? "ショップがありません"
-        : "該当するショップがありません";
+        : "該当するショップがありません。検索語を短くしてみてください。";
 
     public async Task ReloadAsync()
     {

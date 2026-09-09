@@ -216,7 +216,7 @@ public sealed class ExtraFilter : ViewModelBase
             || item.Local.UsedOn.Any(usage => Selected.Contains(usage.AvatarItemId, StringComparer.Ordinal)),
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
-        // 複数選んだ場合はOR（appTagと揃える）
+        // 複数選んだ場合はOR（userTagと揃える）
         ExtraFilterKind.Folder => Selected.Count == 0
             || Selected.Any(folder => FolderTree.IsUnder(item, folder)),
         _ => true,

@@ -32,29 +32,29 @@ public abstract record UiCommand
     /// <summary>編集画面の入力を保存する。<c>local</c> ブロックだけを差し替える。</summary>
     public record SaveItemLocal(string ItemId, Models.LocalBlock Local) : UiCommand;
 
-    /// <summary>appTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
-    public record AddAppTag(string Top, string? Sub = null) : UiCommand;
+    /// <summary>userTagをマスタへ追加する。<paramref name="Sub"/> を省くとトップだけを足す。</summary>
+    public record AddUserTag(string Top, string? Sub = null) : UiCommand;
 
     /// <summary>属性をマスタへ追加する。</summary>
     public record AddAttribute(string Name) : UiCommand;
 
     /// <summary>
-    /// appTagを改名する。<paramref name="Sub"/> を省くとトップの改名。
+    /// userTagを改名する。<paramref name="Sub"/> を省くとトップの改名。
     /// item側は名前で参照しているので全itemの書き換えを伴い、既存の名前を指すと統合になる。
     /// </summary>
-    public record RenameAppTag(string Top, string? Sub, string NewName) : UiCommand;
+    public record RenameUserTag(string Top, string? Sub, string NewName) : UiCommand;
 
-    /// <summary>appTagをマスタから消し、付けていたitemからも外す。<paramref name="Sub"/> を省くとトップ。</summary>
-    public record DeleteAppTag(string Top, string? Sub = null) : UiCommand;
+    /// <summary>userTagをマスタから消し、付けていたitemからも外す。<paramref name="Sub"/> を省くとトップ。</summary>
+    public record DeleteUserTag(string Top, string? Sub = null) : UiCommand;
 
-    /// <summary>appTagのメモを書き換える。item側には影響しない。</summary>
-    public record SetAppTagMemo(string Top, string? Sub, string? Memo) : UiCommand;
+    /// <summary>userTagのメモを書き換える。item側には影響しない。</summary>
+    public record SetUserTagMemo(string Top, string? Sub, string? Memo) : UiCommand;
 
     /// <summary>
-    /// appTagを並べ替える。<paramref name="Top"/> を省くとトップレベル、指定するとその配下のサブ。
+    /// userTagを並べ替える。<paramref name="Top"/> を省くとトップレベル、指定するとその配下のサブ。
     /// マスタの並びは検索の絞り込みや編集の候補にそのまま出るので、追加順に縛られないようにする。
     /// </summary>
-    public record ReorderAppTags(IReadOnlyList<string> Names, string? Top = null) : UiCommand;
+    public record ReorderUserTags(IReadOnlyList<string> Names, string? Top = null) : UiCommand;
 
     /// <summary>
     /// サブレベルを別のトップへ移す。削除して付け直すとitemの割当てが失われるので、
@@ -64,7 +64,7 @@ public abstract record UiCommand
     /// サブが無くなった元のトップをitemから外すか。他の理由で付いている可能性があるので、
     /// アプリでは決めずにユーザに聞く。
     /// </param>
-    public record MoveAppTagSub(string FromTop, string Sub, string ToTop, bool DropEmptySourceTop) : UiCommand;
+    public record MoveUserTagSub(string FromTop, string Sub, string ToTop, bool DropEmptySourceTop) : UiCommand;
 
     /// <summary>
     /// 属性を改名する。既存の名前を指すと統合になり、両方に値が入っているitemでは
@@ -121,10 +121,10 @@ public abstract record CommandResult
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 
-    public record AppTagsChanged(Models.AppTagMaster Master) : CommandResult;
+    public record UserTagsChanged(Models.UserTagMaster Master) : CommandResult;
 
     /// <summary>改名・削除の結果。書き換えたitem数を持つのは、何が起きたかを画面に出すため。</summary>
-    public record AppTagsRewritten(Services.AppTagEditResult Result) : CommandResult;
+    public record UserTagsRewritten(Services.UserTagEditResult Result) : CommandResult;
 
     public record AttributesChanged(Models.AttributeMaster Master) : CommandResult;
 

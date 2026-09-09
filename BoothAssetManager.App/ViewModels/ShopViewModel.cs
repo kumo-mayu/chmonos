@@ -297,8 +297,8 @@ public sealed class ShopViewModel : ViewModelBase
                 ShopName = AcquiredText(entry),
                 SizeText = entry.IsOwned ? FormatSize(entry.SizeBytes) : "未取得",
                 IsOwned = entry.IsOwned,
-                NeedsEdit = entry.Item.Local.AppTags.Count == 0,
-                AppTagText = string.Join(" / ", entry.Item.Local.AppTags.Select(tag => tag.Top)),
+                NeedsEdit = entry.Item.Local.UserTags.Count == 0,
+                UserTagText = string.Join(" / ", entry.Item.Local.UserTags.Select(tag => tag.Top)),
             }).ToList();
 
             Rebuild();

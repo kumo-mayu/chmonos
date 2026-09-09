@@ -20,7 +20,11 @@ public sealed class ImportFolderRow
 
     public required bool Exists { get; init; }
 
-    public string StatusText => Exists ? string.Empty : "見つかりません";
+    /// <summary>
+    /// 取り込み元として登録したフォルダが、今その場所に無い。
+    /// 外付けを外している場合もあるので、消せとは言わない。
+    /// </summary>
+    public string StatusText => Exists ? string.Empty : "今つながっていません";
 
     public RelayCommand? RemoveCommand { get; set; }
 }
@@ -369,7 +373,9 @@ public sealed class SettingsViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Status = $"保存できませんでした：{exception.Message}";
+            // 原因はこちらでは分からないので、断定も指示もしない。
+            // 見当だけ添えて、判断はユーザに残す
+            Status = $"保存できませんでした：{exception.Message}（保存先が読み取り専用になっていることがあります）";
         }
     }
 

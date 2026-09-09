@@ -6,7 +6,7 @@ namespace BoothAssetManager.Core.Services;
 /// <summary>
 /// マスタ1件の使用状況。件数を出すのは、消す前・改名する前に影響が見えるようにするため。
 /// </summary>
-public sealed record AppTagUsage
+public sealed record UserTagUsage
 {
     public required string Top { get; init; }
 
@@ -24,7 +24,7 @@ public sealed record AppTagUsage
 /// サブも拾うのは、集計はitem側の全サブを数えているのに画面はマスタにある分しか
 /// 出さないため、ずれたサブ名がどこにも表示されないまま絞り込みから消えるため。
 /// </summary>
-public sealed record OrphanAppTag
+public sealed record OrphanUserTag
 {
     public required string Top { get; init; }
 
@@ -39,13 +39,13 @@ public sealed record OrphanAppTag
 }
 
 /// <summary>改名・削除の結果。書き換えたitem数を返すのは、実際に何が起きたかを見せるため。</summary>
-public sealed record AppTagEditResult
+public sealed record UserTagEditResult
 {
-    public required AppTagMaster Master { get; init; }
+    public required UserTagMaster Master { get; init; }
 
     public required int ItemsUpdated { get; init; }
 
-    /// <summary>この操作でappTagが空になったitem数。編集の対象に戻るので黙って進めない。</summary>
+    /// <summary>この操作でuserTagが空になったitem数。編集の対象に戻るので黙って進めない。</summary>
     public int ItemsLeftUntagged { get; init; }
 
     /// <summary>移動先のトップが新しく付いたitem数。絞り込みの結果が変わるので出す。</summary>
@@ -74,27 +74,27 @@ public sealed record MoveSubPreview
     public required int ItemsGainingTop { get; init; }
 }
 
-public interface IAppTagService
+public interface IUserTagService
 {
-    Task<IReadOnlyList<AppTagUsage>> LoadUsageAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UserTagUsage>> LoadUsageAsync(CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<OrphanAppTag>> LoadOrphansAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OrphanUserTag>> LoadOrphansAsync(CancellationToken cancellationToken = default);
 
-    Task<AppTagEditResult> RenameTopAsync(string oldName, string newName, CancellationToken cancellationToken = default);
+    Task<UserTagEditResult> RenameTopAsync(string oldName, string newName, CancellationToken cancellationToken = default);
 
-    Task<AppTagEditResult> RenameSubAsync(string top, string oldName, string newName, CancellationToken cancellationToken = default);
+    Task<UserTagEditResult> RenameSubAsync(string top, string oldName, string newName, CancellationToken cancellationToken = default);
 
-    Task<AppTagEditResult> DeleteTopAsync(string name, CancellationToken cancellationToken = default);
+    Task<UserTagEditResult> DeleteTopAsync(string name, CancellationToken cancellationToken = default);
 
-    Task<AppTagEditResult> DeleteSubAsync(string top, string name, CancellationToken cancellationToken = default);
+    Task<UserTagEditResult> DeleteSubAsync(string top, string name, CancellationToken cancellationToken = default);
 
-    Task<AppTagMaster> SetMemoAsync(string top, string? sub, string? memo, CancellationToken cancellationToken = default);
+    Task<UserTagMaster> SetMemoAsync(string top, string? sub, string? memo, CancellationToken cancellationToken = default);
 
-    Task<AppTagMaster> ReorderAsync(string? top, IReadOnlyList<string> names, CancellationToken cancellationToken = default);
+    Task<UserTagMaster> ReorderAsync(string? top, IReadOnlyList<string> names, CancellationToken cancellationToken = default);
 
     Task<MoveSubPreview> PreviewMoveSubAsync(string fromTop, string sub, string toTop, CancellationToken cancellationToken = default);
 
-    Task<AppTagEditResult> MoveSubAsync(
+    Task<UserTagEditResult> MoveSubAsync(
         string fromTop,
         string sub,
         string toTop,
@@ -103,26 +103,26 @@ public interface IAppTagService
 }
 
 /// <summary>
-/// appTagマスタの改名・削除・メモ。
+/// userTagマスタの改名・削除・メモ。
 ///
 /// item側は名前で参照しているので、改名は全itemの一括書き換えを伴う
 /// （読みやすさを優先した設計の代償。実測では1000件でも一瞬なので許容する）。
 /// 同じ名前へ改名すると統合になる。統合も削除も戻せないので、
 /// 何件が書き換わるかを先に数えられるようにしてある。
 /// </summary>
-public sealed class AppTagService : IAppTagService
+public sealed class UserTagService : IUserTagService
 {
     private readonly DataStore _store;
 
-    public AppTagService(DataStore store)
+    public UserTagService(DataStore store)
     {
         _store = store;
     }
 
     /// <summary>マスタにある分だけを、マスタの並び順で返す。</summary>
-    public async Task<IReadOnlyList<AppTagUsage>> LoadUsageAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserTagUsage>> LoadUsageAsync(CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
         return master.Tops.Select(top => Count(loaded.Items, top.Name)).ToList();
@@ -132,17 +132,17 @@ public sealed class AppTagService : IAppTagService
     /// マスタから消えたか名前が変わった分類を、itemがまだ参照している状態を拾う。
     /// 要確認は知らせるだけなので、実際に直す場所としてここに出す。
     /// </summary>
-    public async Task<IReadOnlyList<OrphanAppTag>> LoadOrphansAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<OrphanUserTag>> LoadOrphansAsync(CancellationToken cancellationToken = default)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        return FindOrphans(_store.AppTags.Load(), loaded.Items);
+        return FindOrphans(_store.UserTags.Load(), loaded.Items);
     }
 
     /// <summary>
     /// マスタに無い参照を数える。トップが無いときは、その配下のサブまでは見ない
     /// （トップを直せばサブも一緒に付いてくるので、二重に出しても直す手が増えるだけ）。
     /// </summary>
-    public static IReadOnlyList<OrphanAppTag> FindOrphans(AppTagMaster master, IReadOnlyList<ItemRecord> items)
+    public static IReadOnlyList<OrphanUserTag> FindOrphans(UserTagMaster master, IReadOnlyList<ItemRecord> items)
     {
         var subsByTop = master.Tops.ToDictionary(
             top => top.Name,
@@ -151,7 +151,7 @@ public sealed class AppTagService : IAppTagService
 
         var found = new List<(string Top, string? Sub)>();
 
-        foreach (var assignment in items.SelectMany(item => item.Local.AppTags))
+        foreach (var assignment in items.SelectMany(item => item.Local.UserTags))
         {
             if (!subsByTop.TryGetValue(assignment.Top, out var known))
             {
@@ -169,7 +169,7 @@ public sealed class AppTagService : IAppTagService
             // 表記揺れは1件にまとめる。別々に出すと、直す手が無駄に増える
             .GroupBy(
                 entry => entry,
-                (key, group) => new OrphanAppTag { Top = key.Top, Sub = key.Sub, ItemCount = group.Count() },
+                (key, group) => new OrphanUserTag { Top = key.Top, Sub = key.Sub, ItemCount = group.Count() },
                 OrphanKeyComparer.Instance)
             .OrderBy(orphan => orphan.IsSub)
             .ThenByDescending(orphan => orphan.ItemCount)
@@ -198,17 +198,17 @@ public sealed class AppTagService : IAppTagService
     /// （両方付いていたitemでは1件にまとめ、サブレベルは足し合わせる）。
     /// マスタに無い名前も改名できる。参照が壊れたitemを直す唯一の手段なので。
     /// </summary>
-    public async Task<AppTagEditResult> RenameTopAsync(
+    public async Task<UserTagEditResult> RenameTopAsync(
         string oldName,
         string newName,
         CancellationToken cancellationToken = default)
     {
         var target = newName.Trim();
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
 
         if (target.Length == 0 || Same(oldName, target))
         {
-            return new AppTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
         }
 
         var tops = master.Tops.ToList();
@@ -225,7 +225,7 @@ public sealed class AppTagService : IAppTagService
                 subs.Add(sub);
             }
 
-            tops[into] = new AppTagTop
+            tops[into] = new UserTagTop
             {
                 Name = tops[into].Name,
                 Memo = MergeMemo(tops[into].Memo, tops[from].Name, tops[from].Memo),
@@ -239,14 +239,14 @@ public sealed class AppTagService : IAppTagService
             tops[from] = Replace(tops[from], target, tops[from].Subs);
         }
 
-        var updated = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var updated = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => RenameTopIn(item, oldName, target),
             cancellationToken);
 
-        return new AppTagEditResult
+        return new UserTagEditResult
         {
             Master = updated,
             ItemsUpdated = rewritten.Updated,
@@ -255,18 +255,18 @@ public sealed class AppTagService : IAppTagService
         };
     }
 
-    public async Task<AppTagEditResult> RenameSubAsync(
+    public async Task<UserTagEditResult> RenameSubAsync(
         string top,
         string oldName,
         string newName,
         CancellationToken cancellationToken = default)
     {
         var target = newName.Trim();
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
 
         if (target.Length == 0 || Same(oldName, target))
         {
-            return new AppTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
         }
 
         var tops = master.Tops.ToList();
@@ -282,7 +282,7 @@ public sealed class AppTagService : IAppTagService
 
             if (merged && from >= 0)
             {
-                subs[into] = new AppTagSub
+                subs[into] = new UserTagSub
                 {
                     Name = subs[into].Name,
                     Memo = MergeMemo(subs[into].Memo, subs[from].Name, subs[from].Memo),
@@ -292,20 +292,20 @@ public sealed class AppTagService : IAppTagService
             }
             else if (from >= 0)
             {
-                subs[from] = new AppTagSub { Name = target, Memo = subs[from].Memo };
+                subs[from] = new UserTagSub { Name = target, Memo = subs[from].Memo };
             }
 
             tops[index] = Replace(tops[index], tops[index].Name, subs);
         }
 
-        var updated = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var updated = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => RenameSubIn(item, top, oldName, target),
             cancellationToken);
 
-        return new AppTagEditResult
+        return new UserTagEditResult
         {
             Master = updated,
             ItemsUpdated = rewritten.Updated,
@@ -317,19 +317,19 @@ public sealed class AppTagService : IAppTagService
     /// トップレベルを消す。付けていたitemからも外す（サブレベルも一緒に外れる）。
     /// マスタから消すだけだと、item側が参照だけ残った壊れた状態になるため。
     /// </summary>
-    public async Task<AppTagEditResult> DeleteTopAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<UserTagEditResult> DeleteTopAsync(string name, CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
-        var updated = new AppTagMaster { Tops = master.Tops.Where(top => !Same(top.Name, name)).ToList() };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var master = _store.UserTags.Load();
+        var updated = new UserTagMaster { Tops = master.Tops.Where(top => !Same(top.Name, name)).ToList() };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
-            item => item.AppTags.Any(assignment => Same(assignment.Top, name))
-                ? item with { AppTags = item.AppTags.Where(assignment => !Same(assignment.Top, name)).ToList() }
+            item => item.UserTags.Any(assignment => Same(assignment.Top, name))
+                ? item with { UserTags = item.UserTags.Where(assignment => !Same(assignment.Top, name)).ToList() }
                 : null,
             cancellationToken);
 
-        return new AppTagEditResult
+        return new UserTagEditResult
         {
             Master = updated,
             ItemsUpdated = rewritten.Updated,
@@ -337,12 +337,12 @@ public sealed class AppTagService : IAppTagService
         };
     }
 
-    public async Task<AppTagEditResult> DeleteSubAsync(
+    public async Task<UserTagEditResult> DeleteSubAsync(
         string top,
         string name,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
         var tops = master.Tops.ToList();
         var index = tops.FindIndex(entry => Same(entry.Name, top));
 
@@ -354,14 +354,14 @@ public sealed class AppTagService : IAppTagService
                 tops[index].Subs.Where(sub => !Same(sub.Name, name)).ToList());
         }
 
-        var updated = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var updated = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => RenameSubIn(item, top, name, newName: null),
             cancellationToken);
 
-        return new AppTagEditResult { Master = updated, ItemsUpdated = rewritten.Updated };
+        return new UserTagEditResult { Master = updated, ItemsUpdated = rewritten.Updated };
     }
 
     /// <summary>
@@ -390,7 +390,7 @@ public sealed class AppTagService : IAppTagService
 
         foreach (var local in loaded.Items.Select(item => item.Local))
         {
-            var source = local.AppTags.FirstOrDefault(
+            var source = local.UserTags.FirstOrDefault(
                 assignment => Same(assignment.Top, fromTop) && assignment.Subs.Any(entry => Same(entry, sub)));
 
             if (source is null)
@@ -400,7 +400,7 @@ public sealed class AppTagService : IAppTagService
 
             count++;
 
-            if (!local.AppTags.Any(assignment => Same(assignment.Top, toTop)))
+            if (!local.UserTags.Any(assignment => Same(assignment.Top, toTop)))
             {
                 gaining++;
             }
@@ -419,14 +419,14 @@ public sealed class AppTagService : IAppTagService
         };
     }
 
-    public async Task<AppTagEditResult> MoveSubAsync(
+    public async Task<UserTagEditResult> MoveSubAsync(
         string fromTop,
         string sub,
         string toTop,
         bool dropEmptySourceTop,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
         var tops = master.Tops.ToList();
 
         var from = tops.FindIndex(entry => Same(entry.Name, fromTop));
@@ -434,13 +434,13 @@ public sealed class AppTagService : IAppTagService
 
         if (from < 0 || to < 0 || from == to)
         {
-            return new AppTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
         }
 
         var moving = tops[from].Subs.FirstOrDefault(entry => Same(entry.Name, sub));
         if (moving is null)
         {
-            return new AppTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
         }
 
         tops[from] = Replace(tops[from], tops[from].Name, tops[from].Subs.Where(entry => !Same(entry.Name, sub)).ToList());
@@ -450,7 +450,7 @@ public sealed class AppTagService : IAppTagService
         if (existing >= 0)
         {
             // 移動先に同じ名前があれば、そこへ寄せる（メモは書き足す）
-            targetSubs[existing] = new AppTagSub
+            targetSubs[existing] = new UserTagSub
             {
                 Name = targetSubs[existing].Name,
                 Memo = MergeMemo(targetSubs[existing].Memo, $"{fromTop}／{moving.Name}", moving.Memo),
@@ -463,8 +463,8 @@ public sealed class AppTagService : IAppTagService
 
         tops[to] = Replace(tops[to], tops[to].Name, targetSubs);
 
-        var updated = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var updated = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
 
         var gained = 0;
         var sourceRemoved = 0;
@@ -499,7 +499,7 @@ public sealed class AppTagService : IAppTagService
             },
             cancellationToken);
 
-        return new AppTagEditResult
+        return new UserTagEditResult
         {
             Master = updated,
             ItemsUpdated = rewritten.Updated,
@@ -510,13 +510,13 @@ public sealed class AppTagService : IAppTagService
     }
 
     /// <summary>メモだけを書き換える。item側は名前しか参照していないので影響しない。</summary>
-    public async Task<AppTagMaster> SetMemoAsync(
+    public async Task<UserTagMaster> SetMemoAsync(
         string top,
         string? sub,
         string? memo,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
         var tops = master.Tops.ToList();
         var index = tops.FindIndex(entry => Same(entry.Name, top));
         if (index < 0)
@@ -528,7 +528,7 @@ public sealed class AppTagService : IAppTagService
 
         if (sub is null)
         {
-            tops[index] = new AppTagTop { Name = tops[index].Name, Memo = trimmed, Subs = tops[index].Subs };
+            tops[index] = new UserTagTop { Name = tops[index].Name, Memo = trimmed, Subs = tops[index].Subs };
         }
         else
         {
@@ -539,12 +539,12 @@ public sealed class AppTagService : IAppTagService
                 return master;
             }
 
-            subs[subIndex] = new AppTagSub { Name = subs[subIndex].Name, Memo = trimmed };
+            subs[subIndex] = new UserTagSub { Name = subs[subIndex].Name, Memo = trimmed };
             tops[index] = Replace(tops[index], tops[index].Name, subs);
         }
 
-        var updated = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var updated = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
         return updated;
     }
 
@@ -555,17 +555,17 @@ public sealed class AppTagService : IAppTagService
     /// 判断を持てる唯一の場所なので、追加順のままにしない。
     /// item側は名前で参照しているので、並べ替えでitemに触る必要はない。
     /// </summary>
-    public async Task<AppTagMaster> ReorderAsync(
+    public async Task<UserTagMaster> ReorderAsync(
         string? top,
         IReadOnlyList<string> names,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
 
         if (top is null)
         {
-            var updated = new AppTagMaster { Tops = Sort(master.Tops, names, entry => entry.Name) };
-            await _store.AppTags.SaveAsync(updated, cancellationToken);
+            var updated = new UserTagMaster { Tops = Sort(master.Tops, names, entry => entry.Name) };
+            await _store.UserTags.SaveAsync(updated, cancellationToken);
             return updated;
         }
 
@@ -578,8 +578,8 @@ public sealed class AppTagService : IAppTagService
 
         tops[index] = Replace(tops[index], tops[index].Name, Sort(tops[index].Subs, names, sub => sub.Name));
 
-        var result = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(result, cancellationToken);
+        var result = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(result, cancellationToken);
         return result;
     }
 
@@ -606,12 +606,12 @@ public sealed class AppTagService : IAppTagService
         return sorted;
     }
 
-    private static AppTagUsage Count(IReadOnlyList<ItemRecord> items, string top)
+    private static UserTagUsage Count(IReadOnlyList<ItemRecord> items, string top)
     {
         var subCounts = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
         var itemCount = 0;
 
-        foreach (var assignment in items.SelectMany(item => item.Local.AppTags).Where(entry => Same(entry.Top, top)))
+        foreach (var assignment in items.SelectMany(item => item.Local.UserTags).Where(entry => Same(entry.Top, top)))
         {
             itemCount++;
             foreach (var sub in assignment.Subs)
@@ -620,7 +620,7 @@ public sealed class AppTagService : IAppTagService
             }
         }
 
-        return new AppTagUsage { Top = top, ItemCount = itemCount, SubCounts = subCounts };
+        return new UserTagUsage { Top = top, ItemCount = itemCount, SubCounts = subCounts };
     }
 
     /// <summary>
@@ -646,7 +646,7 @@ public sealed class AppTagService : IAppTagService
             await _store.Items.SaveAsync(item with { Local = local }, cancellationToken);
             updated++;
 
-            if (item.Local.AppTags.Count > 0 && local.AppTags.Count == 0)
+            if (item.Local.UserTags.Count > 0 && local.UserTags.Count == 0)
             {
                 leftUntagged++;
             }
@@ -658,38 +658,38 @@ public sealed class AppTagService : IAppTagService
     /// <summary>トップの改名。寄せ先が既に付いていればサブを足し合わせて1件にする。</summary>
     private static LocalBlock? RenameTopIn(LocalBlock local, string oldName, string newName)
     {
-        if (!local.AppTags.Any(assignment => Same(assignment.Top, oldName)))
+        if (!local.UserTags.Any(assignment => Same(assignment.Top, oldName)))
         {
             return null;
         }
 
-        var result = new List<AppTagAssignment>();
-        foreach (var assignment in local.AppTags)
+        var result = new List<UserTagAssignment>();
+        foreach (var assignment in local.UserTags)
         {
             var top = Same(assignment.Top, oldName) ? newName : assignment.Top;
             var existing = result.FindIndex(entry => Same(entry.Top, top));
 
             if (existing < 0)
             {
-                result.Add(new AppTagAssignment { Top = top, Subs = assignment.Subs });
+                result.Add(new UserTagAssignment { Top = top, Subs = assignment.Subs });
                 continue;
             }
 
             var subs = result[existing].Subs.ToList();
             subs.AddRange(assignment.Subs.Where(sub => !subs.Any(entry => Same(entry, sub))));
-            result[existing] = new AppTagAssignment { Top = result[existing].Top, Subs = subs };
+            result[existing] = new UserTagAssignment { Top = result[existing].Top, Subs = subs };
         }
 
-        return local with { AppTags = result };
+        return local with { UserTags = result };
     }
 
     /// <summary><paramref name="newName"/> が null なら削除。</summary>
     private static LocalBlock? RenameSubIn(LocalBlock local, string top, string oldName, string? newName)
     {
         var touched = false;
-        var result = new List<AppTagAssignment>();
+        var result = new List<UserTagAssignment>();
 
-        foreach (var assignment in local.AppTags)
+        foreach (var assignment in local.UserTags)
         {
             if (!Same(assignment.Top, top) || !assignment.Subs.Any(sub => Same(sub, oldName)))
             {
@@ -708,10 +708,10 @@ public sealed class AppTagService : IAppTagService
                 }
             }
 
-            result.Add(new AppTagAssignment { Top = assignment.Top, Subs = subs });
+            result.Add(new UserTagAssignment { Top = assignment.Top, Subs = subs });
         }
 
-        return touched ? local with { AppTags = result } : null;
+        return touched ? local with { UserTags = result } : null;
     }
 
     /// <summary>
@@ -758,7 +758,7 @@ public sealed class AppTagService : IAppTagService
         addedTop = false;
         removedSourceTop = false;
 
-        var source = local.AppTags.FirstOrDefault(
+        var source = local.UserTags.FirstOrDefault(
             assignment => Same(assignment.Top, fromTop) && assignment.Subs.Any(entry => Same(entry, sub)));
 
         if (source is null)
@@ -766,7 +766,7 @@ public sealed class AppTagService : IAppTagService
             return null;
         }
 
-        var result = local.AppTags
+        var result = local.UserTags
             .Select(assignment => Same(assignment.Top, fromTop)
                 ? assignment with { Subs = assignment.Subs.Where(entry => !Same(entry, sub)).ToList() }
                 : assignment)
@@ -782,17 +782,17 @@ public sealed class AppTagService : IAppTagService
         if (target < 0)
         {
             addedTop = true;
-            result.Add(new AppTagAssignment { Top = toTop, Subs = [sub] });
+            result.Add(new UserTagAssignment { Top = toTop, Subs = [sub] });
         }
         else if (!result[target].Subs.Any(entry => Same(entry, sub)))
         {
             result[target] = result[target] with { Subs = [.. result[target].Subs, sub] };
         }
 
-        return local with { AppTags = result };
+        return local with { UserTags = result };
     }
 
-    private static AppTagTop Replace(AppTagTop top, string name, IReadOnlyList<AppTagSub> subs)
+    private static UserTagTop Replace(UserTagTop top, string name, IReadOnlyList<UserTagSub> subs)
         => new() { Name = name, Memo = top.Memo, Subs = subs };
 
     private static bool Same(string left, string right)

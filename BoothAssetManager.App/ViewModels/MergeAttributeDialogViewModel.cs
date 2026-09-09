@@ -28,13 +28,13 @@ public sealed class MergeAttributeDialogViewModel : ViewModelBase
     public string HeadingText => $"「{From}」を「{To}」に統合します。";
 
     public string ImpactText => Preview.ItemCount == 0
-        ? "どのitemも評価していないので、item側の書き換えはありません。"
-        : $"{Preview.ItemCount} 件のitemを書き換えます。メモは「{To}」側へ書き足します。";
+        ? "どの商品も評価していないので、商品側の書き換えはありません。"
+        : $"{Preview.ItemCount} 件の商品を書き換えます。メモは「{To}」側へ書き足します。";
 
     /// <summary>値がぶつかるitemがあるときだけ、どちらを残すか聞く。</summary>
     public bool AsksAboutValues => Preview.Conflicts > 0;
 
-    public string ConflictText => $"{Preview.Conflicts} 件のitemには両方に別々の値が入っています。";
+    public string ConflictText => $"{Preview.Conflicts} 件の商品には両方に別々の値が入っています。";
 
     public string KeepTargetText => $"「{To}」に入っている値を残す";
 

@@ -13,7 +13,7 @@ public interface IEditService
 
     Task ClearSessionAsync(CancellationToken cancellationToken = default);
 
-    Task<AppTagMaster> AddAppTagAsync(string top, string? sub, CancellationToken cancellationToken = default);
+    Task<UserTagMaster> AddUserTagAsync(string top, string? sub, CancellationToken cancellationToken = default);
 
     Task<AttributeMaster> AddAttributeAsync(string name, CancellationToken cancellationToken = default);
 }
@@ -77,10 +77,10 @@ public sealed class EditService : IEditService
         => _store.EditSession.SaveAsync(new EditSession(), cancellationToken);
 
     /// <summary>
-    /// appTagをマスタへ足す。既にあれば足さない（同じ名前が2つ並ぶとitem側の参照が曖昧になる）。
+    /// userTagをマスタへ足す。既にあれば足さない（同じ名前が2つ並ぶとitem側の参照が曖昧になる）。
     /// <paramref name="sub"/> を指定するとトップ配下のサブとして足す。
     /// </summary>
-    public async Task<AppTagMaster> AddAppTagAsync(
+    public async Task<UserTagMaster> AddUserTagAsync(
         string top,
         string? sub,
         CancellationToken cancellationToken = default)
@@ -88,16 +88,16 @@ public sealed class EditService : IEditService
         var topName = top.Trim();
         if (topName.Length == 0)
         {
-            return _store.AppTags.Load();
+            return _store.UserTags.Load();
         }
 
-        var master = _store.AppTags.Load();
+        var master = _store.UserTags.Load();
         var tops = master.Tops.ToList();
 
         var index = tops.FindIndex(entry => string.Equals(entry.Name, topName, StringComparison.CurrentCultureIgnoreCase));
         if (index < 0)
         {
-            tops.Add(new AppTagTop { Name = topName });
+            tops.Add(new UserTagTop { Name = topName });
             index = tops.Count - 1;
         }
 
@@ -107,8 +107,8 @@ public sealed class EditService : IEditService
             var subs = tops[index].Subs.ToList();
             if (!subs.Any(entry => string.Equals(entry.Name, subName, StringComparison.CurrentCultureIgnoreCase)))
             {
-                subs.Add(new AppTagSub { Name = subName });
-                tops[index] = new AppTagTop
+                subs.Add(new UserTagSub { Name = subName });
+                tops[index] = new UserTagTop
                 {
                     Name = tops[index].Name,
                     Memo = tops[index].Memo,
@@ -117,8 +117,8 @@ public sealed class EditService : IEditService
             }
         }
 
-        var updated = new AppTagMaster { Tops = tops };
-        await _store.AppTags.SaveAsync(updated, cancellationToken);
+        var updated = new UserTagMaster { Tops = tops };
+        await _store.UserTags.SaveAsync(updated, cancellationToken);
         return updated;
     }
 

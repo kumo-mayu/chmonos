@@ -39,7 +39,7 @@ public sealed class AppPaths
 
     public string ImagesDir => Path.Combine(Root, "images");
 
-    public string AppTagsFile => Path.Combine(Root, "appTags.json");
+    public string UserTagsFile => Path.Combine(Root, "userTags.json");
 
     public string AttributesFile => Path.Combine(Root, "attributes.json");
 

@@ -41,7 +41,7 @@
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                     Visibility="{Binding IsFinished, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <TextBlock Text="編集するものがありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
-            <TextBlock Text="appTagが未設定のitemが対象です。" Style="{StaticResource Caption}"
+            <TextBlock Text="ユーザータグが未設定の商品が対象です。" Style="{StaticResource Caption}"
                        HorizontalAlignment="Center" Margin="0,6,0,0" />
 
             <!-- 自動で戻る。設定 ReturnToSearchWhenEditDone / ReturnToSearchDelaySeconds -->
@@ -142,13 +142,13 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
                     <StackPanel>
 
-                        <!-- appTag：候補から選んで積む。マスタ全部は並べない -->
-                        <TextBlock Text="appTag" FontWeight="Bold" FontSize="13" />
+                        <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
+                        <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" />
                         <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しい分類として追加されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
                         <controls:SuggestBox Source="{Binding TagSuggestions}" CommitCommand="{Binding AddTagCommand}"
-                                             Placeholder="appTagを追加（例：衣装）" />
+                                             Placeholder="ユーザータグを追加（例：衣装）" />
 
                         <ItemsControl ItemsSource="{Binding Tags}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>

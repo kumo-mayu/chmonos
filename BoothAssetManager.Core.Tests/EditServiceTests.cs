@@ -47,7 +47,7 @@ public class EditServiceTests : IDisposable
     [Fact]
     public async Task AddsTopLevelTag()
     {
-        var master = await _service.AddAppTagAsync("アバター", null);
+        var master = await _service.AddUserTagAsync("アバター", null);
 
         Assert.Single(master.Tops);
         Assert.Equal("アバター", master.Tops[0].Name);
@@ -57,8 +57,8 @@ public class EditServiceTests : IDisposable
     [Fact]
     public async Task DoesNotAddTheSameTopTwice()
     {
-        await _service.AddAppTagAsync("アバター", null);
-        var master = await _service.AddAppTagAsync("アバター", null);
+        await _service.AddUserTagAsync("アバター", null);
+        var master = await _service.AddUserTagAsync("アバター", null);
 
         Assert.Single(master.Tops);
     }
@@ -66,8 +66,8 @@ public class EditServiceTests : IDisposable
     [Fact]
     public async Task AddsSubUnderExistingTop()
     {
-        await _service.AddAppTagAsync("衣装", null);
-        var master = await _service.AddAppTagAsync("衣装", "トップス");
+        await _service.AddUserTagAsync("衣装", null);
+        var master = await _service.AddUserTagAsync("衣装", "トップス");
 
         Assert.Single(master.Tops);
         Assert.Single(master.Tops[0].Subs);
@@ -78,7 +78,7 @@ public class EditServiceTests : IDisposable
     [Fact]
     public async Task CreatesTopWhenAddingSubToUnknownTop()
     {
-        var master = await _service.AddAppTagAsync("ギミック", "音");
+        var master = await _service.AddUserTagAsync("ギミック", "音");
 
         Assert.Equal("ギミック", master.Tops[0].Name);
         Assert.Equal("音", master.Tops[0].Subs[0].Name);
@@ -87,8 +87,8 @@ public class EditServiceTests : IDisposable
     [Fact]
     public async Task DoesNotAddTheSameSubTwice()
     {
-        await _service.AddAppTagAsync("衣装", "トップス");
-        var master = await _service.AddAppTagAsync("衣装", "トップス");
+        await _service.AddUserTagAsync("衣装", "トップス");
+        var master = await _service.AddUserTagAsync("衣装", "トップス");
 
         Assert.Single(master.Tops[0].Subs);
     }
@@ -96,7 +96,7 @@ public class EditServiceTests : IDisposable
     [Fact]
     public async Task IgnoresBlankTagNames()
     {
-        var master = await _service.AddAppTagAsync("   ", null);
+        var master = await _service.AddUserTagAsync("   ", null);
 
         Assert.Empty(master.Tops);
     }
@@ -122,7 +122,7 @@ public class EditServiceTests : IDisposable
 
         var saved = await _service.SaveLocalAsync("123", new LocalBlock
         {
-            AppTags = [new AppTagAssignment { Top = "アバター", Subs = ["女性"] }],
+            UserTags = [new UserTagAssignment { Top = "アバター", Subs = ["女性"] }],
             Attributes = new Dictionary<string, int> { ["かわいい"] = 70 },
             Memo = "新しいメモ",
         });
@@ -131,7 +131,7 @@ public class EditServiceTests : IDisposable
 
         var reloaded = await _store.Items.LoadAsync("123");
         Assert.Equal("テスト商品", reloaded!.Booth.Name);
-        Assert.Equal("アバター", reloaded.Local.AppTags[0].Top);
+        Assert.Equal("アバター", reloaded.Local.UserTags[0].Top);
         Assert.Equal(70, reloaded.Local.Attributes["かわいい"]);
         Assert.Equal("新しいメモ", reloaded.Local.Memo);
     }

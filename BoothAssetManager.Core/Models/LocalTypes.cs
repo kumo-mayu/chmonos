@@ -1,11 +1,11 @@
 namespace BoothAssetManager.Core.Models;
 
 /// <summary>
-/// appTagの割当て。サブレベルはトップレベルに従属するので、トップを外すとサブも一緒に外れる。
+/// userTagの割当て。サブレベルはトップレベルに従属するので、トップを外すとサブも一緒に外れる。
 /// item側はIDではなく名前で参照する（JSONを直接開いて読めることを優先）。
 /// リネーム時はアプリが全itemを一括で書き換える。
 /// </summary>
-public sealed record AppTagAssignment
+public sealed record UserTagAssignment
 {
     public required string Top { get; init; }
 

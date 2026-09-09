@@ -278,11 +278,11 @@ public class StatsServiceTests
     [Fact]
     public void CountsBacklogAcrossAllItems()
     {
-        var tagged = Owned() with { AppTags = [new AppTagAssignment { Top = "衣装" }] };
+        var tagged = Owned() with { UserTags = [new UserTagAssignment { Top = "衣装" }] };
         var missing = new LocalBlock
         {
             LocalFiles = [new LocalFileRecord { Hash = "AAAA", Paths = [], SizeBytes = 10 }],
-            AppTags = [new AppTagAssignment { Top = "衣装" }],
+            UserTags = [new UserTagAssignment { Top = "衣装" }],
         };
 
         var snapshot = StatsService.Build(
@@ -291,7 +291,7 @@ public class StatsServiceTests
             unresolvedCount: 4);
 
         Assert.Equal(4, snapshot.Backlog.UnresolvedCount);
-        Assert.Equal(1, snapshot.Backlog.NeedsAppTagCount);
+        Assert.Equal(1, snapshot.Backlog.NeedsUserTagCount);
         Assert.Equal(1, snapshot.Backlog.MissingFileCount);
     }
 

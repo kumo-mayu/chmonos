@@ -128,7 +128,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 (item.Booth.Name ?? "商品", () => main.ShowItem(item, back))),
             () => item.Booth.Shop is not null);
         OpenBoothCommand = new RelayCommand(OpenBooth);
-        // 一度appTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
+        // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
         UnregisterFolderCommand = new RelayCommand(
@@ -308,9 +308,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public IReadOnlyList<string> Tags => Item.Booth.Tags;
 
-    public IReadOnlyList<AppTagAssignment> AppTags => Item.Local.AppTags;
+    public IReadOnlyList<UserTagAssignment> UserTags => Item.Local.UserTags;
 
-    public bool HasAppTags => Item.Local.AppTags.Count > 0;
+    public bool HasUserTags => Item.Local.UserTags.Count > 0;
 
     public IReadOnlyList<H2Section> Sections => Item.Booth.H2Sections;
 

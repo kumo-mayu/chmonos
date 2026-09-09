@@ -12,7 +12,7 @@ public enum NotificationKind
     /// <summary>同じ中身のファイルが複数箇所で見つかった。</summary>
     DuplicateFile,
 
-    /// <summary>マスタに存在しないappTag/属性を参照しているitemがある。</summary>
+    /// <summary>マスタに存在しないuserTag/属性を参照しているitemがある。</summary>
     OrphanTag,
 
     /// <summary>LocalFileが指すvariationがBOOTH側から消えた。</summary>

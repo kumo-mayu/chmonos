@@ -39,14 +39,14 @@ public sealed class AppServiceContainer : IDisposable
         Resolver = new FallbackResolver(Client);
         Edit = new EditService(Store);
         Notifications = new NotificationService(Store, Settings);
-        AppTags = new AppTagService(Store);
+        UserTags = new UserTagService(Store);
         Attributes = new AttributeService(Store);
         Shops = new ShopService(Store, Settings, Client);
         Stats = new StatsService(Store);
         Avatars = new AvatarService(Store, Settings, Client);
         SettingsStore = new SettingsService(Store);
         Commands = new CommandHandler(
-            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, AppTags, Attributes);
+            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes);
     }
 
     /// <summary>
@@ -99,7 +99,7 @@ public sealed class AppServiceContainer : IDisposable
 
     public NotificationService Notifications { get; }
 
-    public AppTagService AppTags { get; }
+    public UserTagService UserTags { get; }
 
     public AttributeService Attributes { get; }
 

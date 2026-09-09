@@ -407,6 +407,8 @@ public sealed class ResolveViewModel : ViewModelBase
                 OnPropertyChanged(nameof(PreviewDetail));
                 OnPropertyChanged(nameof(PreviewOwnedNote));
                 OnPropertyChanged(nameof(IsPreviewOwned));
+                OnPropertyChanged(nameof(AssignOutcomeText));
+                OnPropertyChanged(nameof(HasAssignOutcome));
                 OnPropertyChanged(nameof(CanRegisterFolder));
                 OnPropertyChanged(nameof(RegisterFolderText));
                 OnPropertyChanged(nameof(RegisterTargetFolder));
@@ -431,7 +433,23 @@ public sealed class ResolveViewModel : ViewModelBase
 
     public bool IsPreviewOwned => Preview?.IsAlreadyOwned == true;
 
-    public string PreviewOwnedNote => "既にライブラリにある商品です。このファイルはそこへ追加されます。";
+    /// <summary>
+    /// 商品の状態。文ではなくチップにして、商品の情報の一部として見せる。
+    /// 説明を読んでいる途中に文で出すと、状態の断り書き（＝だから何かができない）に読める。
+    /// </summary>
+    public string PreviewOwnedNote => "ライブラリにあり";
+
+    /// <summary>
+    /// 押したら何が起きるか。ボタンのすぐ上に、既にあるかどうかに関わらず必ず出す。
+    /// 「追加されるのかされないのか」を文から読み取らせないための行。
+    /// </summary>
+    public string AssignOutcomeText => Preview is null
+        ? string.Empty
+        : IsPreviewOwned
+            ? "確定すると：このファイルが、既にある商品に加わります"
+            : "確定すると：この商品を新しく登録して、このファイルを結び付けます";
+
+    public bool HasAssignOutcome => Preview is not null;
 
     public int RemainingCount => Files.Count;
 

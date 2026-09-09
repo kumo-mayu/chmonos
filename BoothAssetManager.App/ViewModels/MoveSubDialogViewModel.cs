@@ -13,15 +13,15 @@ namespace BoothAssetManager.App.ViewModels;
 /// </summary>
 public sealed class MoveSubDialogViewModel : ViewModelBase
 {
-    private readonly IAppTagService _appTags;
+    private readonly IUserTagService _userTags;
 
     private string? _target;
     private MoveSubPreview? _preview;
     private bool _dropEmptySourceTop;
 
-    public MoveSubDialogViewModel(IAppTagService appTags, string fromTop, string sub, IReadOnlyList<string> targets)
+    public MoveSubDialogViewModel(IUserTagService userTags, string fromTop, string sub, IReadOnlyList<string> targets)
     {
-        _appTags = appTags;
+        _userTags = userTags;
         FromTop = fromTop;
         Sub = sub;
         Targets = targets;
@@ -69,10 +69,10 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
             if (_preview.ItemCount == 0)
             {
-                return "どのitemにも付いていないので、item側の書き換えはありません。";
+                return "どの商品にも付いていないので、商品側の書き換えはありません。";
             }
 
-            var lines = new List<string> { $"{_preview.ItemCount} 件のitemを書き換えます。" };
+            var lines = new List<string> { $"{_preview.ItemCount} 件の商品を書き換えます。" };
 
             if (_preview.ItemsGainingTop > 0)
             {
@@ -88,11 +88,11 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
     public string EmptySourceTopText => _preview is null
         ? string.Empty
-        : $"{_preview.ItemsLeavingEmptyTop} 件のitemでは、「{FromTop}」にサブが残りません。";
+        : $"{_preview.ItemsLeavingEmptyTop} 件の商品では、「{FromTop}」にサブが残りません。";
 
     public string KeepSourceTopText => $"「{FromTop}」はそのまま残す";
 
-    public string DropSourceTopText => $"「{FromTop}」もitemから外す";
+    public string DropSourceTopText => $"「{FromTop}」も商品から外す";
 
     /// <summary>
     /// 既定は「残す」。トップが単独で付いていた可能性を消す方が、取り返しがつかない。
@@ -124,7 +124,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
             return;
         }
 
-        _preview = await _appTags.PreviewMoveSubAsync(FromTop, Sub, target);
+        _preview = await _userTags.PreviewMoveSubAsync(FromTop, Sub, target);
 
         RunOnUiThread(() =>
         {
