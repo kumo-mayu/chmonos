@@ -142,10 +142,8 @@ public class JapaneseDictionaryTests : IDisposable
         Assert.Contains("鳥", second.ByEnglish("bird"));
         reload.Stop();
 
-        var report = $"組み上げ {first.ElapsedMilliseconds}ms / キャッシュ読み {reload.ElapsedMilliseconds}ms "
-            + $"/ キャッシュ {new FileInfo(cache).Length / 1024 / 1024}MB";
-        _output.WriteLine(report);
-        File.WriteAllText(Path.Combine(Path.GetTempPath(), "bam-dict-timing.txt"), report);
+        _output.WriteLine($"組み上げ {first.ElapsedMilliseconds}ms / キャッシュ読み {reload.ElapsedMilliseconds}ms "
+            + $"/ キャッシュ {new FileInfo(cache).Length / 1024 / 1024}MB");
 
         Assert.True(reload.ElapsedMilliseconds < first.ElapsedMilliseconds);
     }
