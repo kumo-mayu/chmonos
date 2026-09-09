@@ -262,3 +262,31 @@ public sealed class CategoryOption : ViewModelBase
 
     public string Label => $"{Name}（{Count}）";
 }
+
+/// <summary>
+/// 積んだBOOTHタグ1つ。
+///
+/// 選択肢を並べずに入力欄から積む形にしているのは、**順位に意味が無い**ため。
+/// 実データでは15商品に対しタグが138種あり、うち80%が1商品にしか付いていない。
+/// 上位は `VRChat` `3Dモデル` のような汎用語が独占していて、
+/// 「よく使う順」に並べても絞り込みの役に立たない。
+/// </summary>
+public sealed class BoothTagFilter : ViewModelBase
+{
+    private int _count;
+
+    public required string Name { get; init; }
+
+    /// <summary>この条件を外す。</summary>
+    public RelayCommand? RemoveCommand { get; set; }
+
+    /// <summary>今の他の条件を適用した後、このタグが付いている件数。</summary>
+    public int Count
+    {
+        get => _count;
+        set => SetField(ref _count, value);
+    }
+
+    public bool Matches(ItemRecord item)
+        => item.Booth.Tags.Any(tag => string.Equals(tag, Name, StringComparison.CurrentCultureIgnoreCase));
+}

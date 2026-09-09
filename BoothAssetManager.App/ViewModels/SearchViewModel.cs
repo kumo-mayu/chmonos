@@ -55,6 +55,9 @@ public sealed class SearchViewModel : ViewModelBase
     private SortOption _sort = DefaultSort;
     private List<string> _attributeNames = [];
 
+    /// <summary>ライブラリにあるBOOTHタグの全種類。候補の元。</summary>
+    private List<string> _boothTagNames = [];
+
     /// <summary>要確認に未読の更新通知が残っている商品。「更新の有無」の条件で使う。</summary>
     private HashSet<string> _unreadItemIds = [];
 
@@ -69,6 +72,7 @@ public sealed class SearchViewModel : ViewModelBase
         _thumbnails = thumbnails;
         ClearFiltersCommand = new RelayCommand(ClearFilters);
         AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
+        AddBoothTagFilterCommand = new RelayCommand(parameter => AddBoothTagFilter(parameter as string));
         SelectAllCommand = new RelayCommand(SelectAllMatches);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
@@ -369,6 +373,55 @@ public sealed class SearchViewModel : ViewModelBase
     /// 属性でのレンジ絞り込み。使う軸だけを候補から選んで積む。
     /// マスタ全部を常に並べると、評価していない属性の欄まで居座って画面が伸びる。
     /// </summary>
+    /// <summary>積んだBOOTHタグ。軸ごとにANDで積む（属性と同じ扱い）。</summary>
+    public ObservableCollection<BoothTagFilter> BoothTagFilters { get; } = [];
+
+    /// <summary>まだ積んでいないBOOTHタグ。候補として出す。</summary>
+    public ObservableCollection<string> BoothTagSuggestions { get; } = [];
+
+    public RelayCommand AddBoothTagFilterCommand { get; }
+
+    public bool HasBoothTagFilters => BoothTagFilters.Count > 0;
+
+    public bool HasBoothTagSuggestions => BoothTagSuggestions.Count > 0;
+
+    private void AddBoothTagFilter(string? name)
+    {
+        var trimmed = name?.Trim();
+        if (string.IsNullOrEmpty(trimmed)
+            || BoothTagFilters.Any(filter => string.Equals(filter.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return;
+        }
+
+        var filter = new BoothTagFilter { Name = trimmed };
+        filter.RemoveCommand = new RelayCommand(() =>
+        {
+            BoothTagFilters.Remove(filter);
+            RefreshBoothTagSuggestions();
+            ApplyFilters();
+        });
+
+        BoothTagFilters.Add(filter);
+        RefreshBoothTagSuggestions();
+        ApplyFilters();
+    }
+
+    /// <summary>候補から、既に積んだものを除く。</summary>
+    private void RefreshBoothTagSuggestions()
+    {
+        BoothTagSuggestions.Clear();
+
+        foreach (var name in _boothTagNames.Where(name =>
+            !BoothTagFilters.Any(filter => string.Equals(filter.Name, name, StringComparison.CurrentCultureIgnoreCase))))
+        {
+            BoothTagSuggestions.Add(name);
+        }
+
+        OnPropertyChanged(nameof(HasBoothTagFilters));
+        OnPropertyChanged(nameof(HasBoothTagSuggestions));
+    }
+
     public ObservableCollection<AttributeFilter> AttributeFilters { get; } = [];
 
     /// <summary>まだ条件に入れていない属性。候補として出す。</summary>
@@ -676,6 +729,27 @@ public sealed class SearchViewModel : ViewModelBase
             .Select(definition => definition.Name)
             .ToList();
 
+        // BOOTHタグはマスタを持たない（商品に付いているものが全て）。
+        // 候補は名前順に出す。付いている数の順にしないのは、上位が汎用語で
+        // 埋まって絞り込みの役に立たないため（実データで138種の80%が1商品のみ）
+        _boothTagNames = _allItems
+            .SelectMany(item => item.Booth.Tags)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToList();
+
+        // ライブラリから消えたタグを積んだままにしない
+        foreach (var filter in BoothTagFilters.ToList())
+        {
+            if (!_boothTagNames.Contains(filter.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                BoothTagFilters.Remove(filter);
+            }
+        }
+
+        RefreshBoothTagSuggestions();
+
         TagFilters.Clear();
         foreach (var top in _services.Store.UserTags.Load().Tops)
         {
@@ -888,6 +962,10 @@ public sealed class SearchViewModel : ViewModelBase
             attribute.Max = 100;
         }
 
+        // 積んだタグは「条件をクリア」で外す。属性と違って幅を戻す概念が無いため
+        BoothTagFilters.Clear();
+        RefreshBoothTagSuggestions();
+
         OnPropertyChanged(nameof(QueryText));
         OnPropertyChanged(nameof(SelectedCategory));
         OnPropertyChanged(nameof(OwnedOnly));
@@ -937,6 +1015,11 @@ public sealed class SearchViewModel : ViewModelBase
             foreach (var attribute in AttributeFilters)
             {
                 parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
+            }
+
+            foreach (var tag in BoothTagFilters)
+            {
+                parts.Add($"タグ：{tag.Name}");
             }
 
             foreach (var extra in ExtraFilters.Where(filter => filter.IsActive))
@@ -1015,6 +1098,7 @@ public sealed class SearchViewModel : ViewModelBase
         Avatar,
         Category,
         UserTag,
+        BoothTag,
         Attribute,
         Extra,
     }
@@ -1088,6 +1172,12 @@ public sealed class SearchViewModel : ViewModelBase
             return false;
         }
 
+        // BOOTHタグも積んだものをANDで。積むこと自体が「このタグで絞る」という意思表示
+        if (except != FilterAxis.BoothTag && BoothTagFilters.Any(filter => !filter.Matches(item)))
+        {
+            return false;
+        }
+
         // 積んだ条件は軸ごとにANDで積む。積むこと自体が「この軸で選ぶ」という意思表示
         if (except != FilterAxis.Extra
             && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds)))
@@ -1128,6 +1218,14 @@ public sealed class SearchViewModel : ViewModelBase
                     string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)
                     && entry.Subs.Contains(sub.Name, StringComparer.CurrentCultureIgnoreCase)));
             }
+        }
+
+        // 積んだタグは自分の軸を除いて数える。含めて数えると、積んだ瞬間に
+        // 「今の結果と同じ件数」しか出ず、他のタグを足す判断ができない
+        var forBoothTags = _allItems.Where(item => Matches(item, FilterAxis.BoothTag)).ToList();
+        foreach (var filter in BoothTagFilters)
+        {
+            filter.Count = forBoothTags.Count(filter.Matches);
         }
 
         var forOwned = _allItems.Where(item => Matches(item, FilterAxis.Owned)).ToList();

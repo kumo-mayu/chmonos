@@ -149,6 +149,38 @@
                         </TextBlock>
 
                         <!--
+                            BOOTHタグ：候補を並べずに入力欄から積む。
+                            実データで15商品に対しタグは138種、うち80%が1商品にしか付いていない。
+                            上位は VRChat・3Dモデル のような汎用語が独占するので、
+                            「よく使う順」に並べても絞り込みの役に立たない。
+                        -->
+                        <TextBlock Text="BOOTHタグ" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
+                        <controls:SuggestBox Source="{Binding BoothTagSuggestions}" AllowNew="False"
+                                             CommitCommand="{Binding AddBoothTagFilterCommand}"
+                                             Placeholder="BOOTHタグで絞り込む"
+                                             Visibility="{Binding HasBoothTagSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <ItemsControl ItemsSource="{Binding BoothTagFilters}" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+                                            Padding="10,6" Margin="0,0,0,5">
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,50,0">
+                                                <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Count}" Style="{StaticResource Caption}"
+                                                           FontSize="10.5" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <Button Content="外す" Style="{StaticResource SmallButton}"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!--
                             属性：使う軸だけを候補から選んで積む。
                             マスタ全部を常に並べると、評価していない属性の欄まで居座って画面が伸びる。
                         -->
