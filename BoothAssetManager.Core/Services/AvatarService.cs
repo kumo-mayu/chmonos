@@ -386,6 +386,22 @@ public sealed partial class AvatarService : IAvatarService
                 Current = id,
             });
 
+            // 手元に持っている商品なら、カテゴリも名前も items/{ID}.json にある。
+            // 登録簿に無いというだけで問い合わせに行くと、持っているぶんだけ無駄に通信する
+            // （実データでは6体中4体がこれに当たっていた）
+            if (await _store.Items.LoadAsync(id, cancellationToken) is { } owned)
+            {
+                entries[id] = new AvatarRegistryEntry
+                {
+                    ItemId = id,
+                    BoothName = owned.Booth.Name,
+                    DisplayName = AvatarText.ShortenName(owned.Booth.Name),
+                    Category = owned.Booth.Category?.Name,
+                    CheckedAt = DateTimeOffset.Now,
+                };
+                continue;
+            }
+
             if (_client is null)
             {
                 unresolved++;

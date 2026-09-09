@@ -889,6 +889,14 @@ public sealed class AvatarRow
 
     public bool IsUnconfirmed { get; init; }
 
+    /// <summary>
+    /// どこから拾ったか、確認済みかをホバーで出す。
+    /// 常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
+    /// </summary>
+    public string SourceTooltip => IsUnconfirmed
+        ? $"{SourceText}から拾いました（未確認）"
+        : $"{SourceText}から拾いました";
+
     /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
     public RelayCommand? RejectCommand { get; init; }
 }

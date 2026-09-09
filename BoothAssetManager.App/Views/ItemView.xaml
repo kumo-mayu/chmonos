@@ -258,17 +258,23 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:AvatarRow}">
+                                        <!--
+                                            ここは閲覧が目的なので、全部が一度に見えることを優先する。
+                                            出所を常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
+                                            名前だけにして、出所はホバーへ回す。
+                                        -->
                                         <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
+                                                ToolTip="{Binding SourceTooltip}">
                                             <StackPanel Orientation="Horizontal">
+                                                <!--
+                                                    推定を確定と同じ顔で出さない、は守る。
+                                                    ただし語ではなく印にして、幅を取らない形にする
+                                                -->
+                                                <Ellipse Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                         Fill="{StaticResource Warn}"
+                                                         Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
-                                                <!-- 推定は確定と同じ顔で出さない -->
-                                                <TextBlock Text="{Binding SourceText}" FontSize="10" Margin="7,0,0,0"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{StaticResource TextFaint}" />
-                                                <TextBlock Text="要確認" FontSize="10" Margin="6,0,0,0"
-                                                           VerticalAlignment="Center" Foreground="{StaticResource Warn}"
-                                                           Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <!--
                                                     検出の適合率は実測で89%。1割は誤りが出るので消せる必要がある。
                                                     乗せたときだけ出して、普段は宣言そのものを読ませる。
