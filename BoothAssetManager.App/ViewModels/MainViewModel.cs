@@ -424,6 +424,10 @@ public sealed class MainViewModel : ViewModelBase
                 await OfferToRegisterAsync(decision.ItemId!);
                 return;
 
+            case Core.Services.DropAction.OpenShop:
+                await ShowShopAsync(decision.Shop!);
+                return;
+
             default:
                 return;
         }

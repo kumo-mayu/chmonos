@@ -14,9 +14,12 @@ public enum DropAction
 
     /// <summary>手元に無い商品。取得して登録するかを尋ねる。</summary>
     OfferToRegister,
+
+    /// <summary>ショップのURLだった。そのショップの画面を開く（手持ちが見える方）。</summary>
+    OpenShop,
 }
 
-public readonly record struct DropDecision(DropAction Action, string? ItemId);
+public readonly record struct DropDecision(DropAction Action, string? ItemId, string? Shop = null);
 
 /// <summary>
 /// ウィンドウに落とされた／貼られたものの行き先を決める。
@@ -42,13 +45,20 @@ public static class DropRouting
             return new DropDecision(DropAction.Import, null);
         }
 
-        if (BoothItemId.Parse(text) is not { } itemId)
+        if (BoothItemId.Parse(text) is { } itemId)
         {
-            return new DropDecision(DropAction.Ignore, null);
+            return isKnown(itemId)
+                ? new DropDecision(DropAction.OpenItem, itemId)
+                : new DropDecision(DropAction.OfferToRegister, itemId);
         }
 
-        return isKnown(itemId)
-            ? new DropDecision(DropAction.OpenItem, itemId)
-            : new DropDecision(DropAction.OfferToRegister, itemId);
+        // 商品が見つからなければショップを見る。ショップの画面があるので、
+        // 「そのショップの手持ち」へ送れる（外のBOOTHへ飛ばすより役に立つ）
+        if (BoothItemId.ParseShop(text) is { } shop)
+        {
+            return new DropDecision(DropAction.OpenShop, null, shop);
+        }
+
+        return new DropDecision(DropAction.Ignore, null);
     }
 }
