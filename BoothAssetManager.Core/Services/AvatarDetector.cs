@@ -50,7 +50,9 @@ public sealed class AvatarNameIndex
                 continue;
             }
 
-            foreach (var alias in entry.Aliases)
+            // 人が「この表記は違う」と消したものは照合に使わない。
+            // 行は残っている（消したという事実を次の検出まで持ち越すため）
+            foreach (var alias in entry.Aliases.Where(alias => !alias.Rejected))
             {
                 index.Add(index._avatars, alias.Text, entry.ItemId);
             }
@@ -62,7 +64,7 @@ public sealed class AvatarNameIndex
         {
             index.Add(index._bases, group.Name, group.Name);
 
-            foreach (var alias in group.Aliases)
+            foreach (var alias in group.Aliases.Where(alias => !alias.Rejected))
             {
                 index.Add(index._bases, alias.Text, group.Name);
             }

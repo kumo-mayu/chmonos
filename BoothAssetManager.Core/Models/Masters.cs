@@ -179,4 +179,13 @@ public sealed record AvatarAlias
 
     /// <summary>どこから覚えた表記か。誤った別名を消すときの判断材料。</summary>
     public string? Source { get; init; }
+
+    /// <summary>
+    /// 人が「この表記は違う」と消したもの。照合には使わない。
+    ///
+    /// **消したという事実を残すために、行ごと消さずに印を付ける。**
+    /// 自動で覚えた別名は毎回タグから作り直されるので、行を消しただけでは
+    /// 次の検出で復活してしまう。<see cref="AvatarLink.Rejected"/> と同じ形。
+    /// </summary>
+    public bool Rejected { get; init; }
 }

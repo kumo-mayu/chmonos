@@ -190,7 +190,15 @@ public sealed partial class AvatarService
         await UpdateEntryAsync(
             itemId,
             entry => entry.Aliases.Any(alias => string.Equals(alias.Text, trimmed, StringComparison.CurrentCultureIgnoreCase))
-                ? entry
+                // 一度消したものを足し直す場合は、印を下ろすだけ
+                ? entry with
+                {
+                    Aliases = entry.Aliases
+                        .Select(alias => string.Equals(alias.Text, trimmed, StringComparison.CurrentCultureIgnoreCase)
+                            ? alias with { Rejected = false }
+                            : alias)
+                        .ToList(),
+                }
                 : entry with
                 {
                     Aliases = [.. entry.Aliases, new AvatarAlias
@@ -203,17 +211,32 @@ public sealed partial class AvatarService
             cancellationToken);
     }
 
-    /// <summary>別名を消す。誤って覚えた表記を落とすため。</summary>
+    /// <summary>
+    /// 別名を消す。誤って覚えた表記を落とすため。
+    ///
+    /// **自動で覚えた別名は、行を消さずに「消した」印を付ける。**
+    /// タグから毎回作り直されるので、行ごと消すと次の検出で復活してしまう
+    /// （対応アバターの <c>Rejected</c> と同じ形）。
+    /// 手で足した別名は検出が作らないので、そのまま消してよい。
+    /// </summary>
     public async Task RemoveAliasAsync(string itemId, string text, CancellationToken cancellationToken = default)
         => await UpdateEntryAsync(
             itemId,
             entry => entry with
             {
                 Aliases = entry.Aliases
-                    .Where(alias => !string.Equals(alias.Text, text, StringComparison.CurrentCultureIgnoreCase))
+                    .Where(alias => !IsManualMatch(alias, text))
+                    .Select(alias => string.Equals(alias.Text, text, StringComparison.CurrentCultureIgnoreCase)
+                        ? alias with { Rejected = true }
+                        : alias)
                     .ToList(),
             },
             cancellationToken);
+
+    /// <summary>手で足したものを消す指示か。検出が作らないので、行ごと消してよい。</summary>
+    private static bool IsManualMatch(AvatarAlias alias, string text)
+        => string.Equals(alias.Text, text, StringComparison.CurrentCultureIgnoreCase)
+            && string.Equals(alias.Source, nameof(AvatarLinkSource.Manual), StringComparison.Ordinal);
 
     /// <summary>
     /// この項目をもう一度BOOTHに問い合わせる。

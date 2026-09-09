@@ -351,7 +351,13 @@ public sealed class AvatarsViewModel : ViewModelBase
 
     public bool HasSelectedBaseNote => SelectedBaseNote.Length > 0;
 
+    /// <summary>
+    /// 照合に使っている別名。**消したものは出さない。**
+    /// 行はデータに残っているが（消したという事実を次の検出まで持ち越すため）、
+    /// 一覧に出すと「消したのに残っている」と読まれる。
+    /// </summary>
     public IReadOnlyList<string> Aliases => Selected?.Summary.Entry.Aliases
+        .Where(alias => !alias.Rejected)
         .OrderByDescending(alias => alias.Count)
         .Select(alias => alias.Count > 0 ? $"{alias.Text}（{alias.Count}）" : alias.Text)
         .ToList() ?? [];

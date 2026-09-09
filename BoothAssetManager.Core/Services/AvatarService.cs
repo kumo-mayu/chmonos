@@ -733,7 +733,14 @@ public sealed partial class AvatarService : IAvatarService
         return aliases;
     }
 
-    private static IReadOnlyList<AvatarAlias> MergeAliases(
+    /// <summary>
+    /// 覚えている別名に、今回数え直したぶんを重ねる。
+    ///
+    /// 既にある表記は**数だけ**入れ替える。消した印はそのまま残す
+    /// （落とすと、消しても次の検出で毎回復活する）。
+    /// <see cref="IsAvatar"/> と同じく規則だけの関数なので公開している。
+    /// </summary>
+    public static IReadOnlyList<AvatarAlias> MergeAliases(
         IReadOnlyList<AvatarAlias> existing,
         IReadOnlyDictionary<string, int> counted,
         string source)
@@ -749,6 +756,8 @@ public sealed partial class AvatarService : IAvatarService
 
             if (byText.TryGetValue(text, out var alias))
             {
+                // 消された別名は数だけ数え直し、消されたままにしておく。
+                // ここで印を落とすと、次の検出で毎回復活する
                 byText[text] = alias with { Count = count };
             }
             else
