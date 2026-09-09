@@ -40,6 +40,9 @@ public class ItemRefreshTests : IDisposable
     /// <summary>HTMLを取りに来た瞬間に走らせる。取得の最中に人が編集した、という状況を作る。</summary>
     private Func<Task>? _whileFetchingHtml;
 
+    /// <summary>BOOTHへ行った先。何本出たかを見る。</summary>
+    private readonly List<string> _requests = [];
+
     /// <summary>商品JSONを404にする。非公開になった状況を作る。</summary>
     private bool _itemJsonNotFound;
 
@@ -75,6 +78,11 @@ public class ItemRefreshTests : IDisposable
             CancellationToken cancellationToken)
         {
             var url = request.RequestUri!.ToString();
+
+            lock (owner._requests)
+            {
+                owner._requests.Add(url);
+            }
 
             if (url.EndsWith(".json", StringComparison.Ordinal))
             {
@@ -194,6 +202,58 @@ public class ItemRefreshTests : IDisposable
         Assert.Empty(Directory.EnumerateFiles(directory, "*.missing"));
     }
 
+    /// <summary>
+    /// 404が続いた商品は間隔を広げる。**ただし30日で打ち止め。**
+    ///
+    /// 確かめる間隔が「復活している期間」より長いと原理的に取り逃す。
+    /// 季節ものは1ヶ月ほどしか公開されないので、そこが上限になる。
+    /// 止めないのは、止めた瞬間に「戻ったこと」を知る手段が無くなるため。
+    /// </summary>
+    [Fact]
+    public async Task SlowsDownButNeverStopsCheckingADelistedItem()
+    {
+        await SaveItemAsync(new LocalBlock());
+        _itemJsonNotFound = true;
+
+        // 1〜2回目は通常の間隔のまま（7日±3日）
+        await _service.RefreshAsync(ItemId);
+        var first = (await _store.Items.LoadAsync(ItemId))!.Local;
+        Assert.InRange((first.NextFetchDueAt!.Value - DateTimeOffset.Now).TotalDays, 3, 11);
+        Assert.False(first.IsDelisted);
+
+        await _service.RefreshAsync(ItemId);
+
+        // 3回目で販売終了と見なし、そこから30日±3日に広がる
+        Assert.Equal(RefreshOutcome.Delisted, await _service.RefreshAsync(ItemId));
+
+        var delisted = (await _store.Items.LoadAsync(ItemId))!.Local;
+        Assert.True(delisted.IsDelisted);
+        Assert.Equal(3, delisted.ConsecutiveNotFoundCount);
+        Assert.InRange((delisted.NextFetchDueAt!.Value - DateTimeOffset.Now).TotalDays, 26, 34);
+    }
+
+    /// <summary>戻ってきたら一度で通常の間隔に戻る。</summary>
+    [Fact]
+    public async Task GoesBackToTheNormalIntervalAsSoonAsTheItemReturns()
+    {
+        await SaveItemAsync(new LocalBlock());
+        _itemJsonNotFound = true;
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await _service.RefreshAsync(ItemId);
+        }
+
+        _itemJsonNotFound = false;
+        await _service.RefreshAsync(ItemId);
+
+        var revived = (await _store.Items.LoadAsync(ItemId))!.Local;
+
+        Assert.False(revived.IsDelisted);
+        Assert.Equal(0, revived.ConsecutiveNotFoundCount);
+        Assert.InRange((revived.NextFetchDueAt!.Value - DateTimeOffset.Now).TotalDays, 3, 11);
+    }
+
     /// <summary>取り直しに失敗（404）したら印はそのまま。商品が生きている証拠が無い。</summary>
     [Fact]
     public async Task KeepsTheMarkersWhenTheItemItselfIsGone()
@@ -209,6 +269,73 @@ public class ItemRefreshTests : IDisposable
         await _service.RefreshAsync(ItemId);
 
         Assert.Single(Directory.EnumerateFiles(directory, "*.missing"));
+    }
+
+    /// <summary>
+    /// 変わっていたら要確認へ書く。何が変わったかを並べるので、開かなくても判断できる。
+    /// </summary>
+    [Fact]
+    public async Task WritesAnInboxEntryListingWhatChanged()
+    {
+        await SaveItemAsync(new LocalBlock { NotifyOnUpdate = true });
+
+        await _service.RefreshAsync(ItemId);
+
+        var notifications = _store.Notifications.Load();
+        var entry = Assert.Single(notifications);
+
+        Assert.Equal(NotificationKind.ItemUpdated, entry.Kind);
+        Assert.Equal(ItemId, entry.ItemId);
+        Assert.Contains("商品名", entry.Detail);
+        Assert.Contains("取り直す前の名前", entry.Detail);
+        Assert.Contains("真・アバターペンシステム", entry.Detail);
+    }
+
+    /// <summary>「知らせる」を切ってある商品には出さない。</summary>
+    [Fact]
+    public async Task StaysQuietForAnItemTheUserMuted()
+    {
+        await SaveItemAsync(new LocalBlock { NotifyOnUpdate = false });
+
+        await _service.RefreshAsync(ItemId);
+
+        Assert.Empty(_store.Notifications.Load());
+    }
+
+    /// <summary>同じ商品の未読は溜めずに差し替える。溜めても読む手間が増えるだけ。</summary>
+    [Fact]
+    public async Task ReplacesTheUnreadEntryInsteadOfPilingThemUp()
+    {
+        await SaveItemAsync(new LocalBlock { NotifyOnUpdate = true });
+
+        await _service.RefreshAsync(ItemId);
+
+        // 名前を戻してもう一度走らせる（また「変わった」になる）
+        var saved = await _store.Items.LoadAsync(ItemId);
+        await _store.Items.SaveAsync(saved! with
+        {
+            Booth = saved.Booth with { Name = "また別の名前" },
+        });
+
+        await _service.RefreshAsync(ItemId);
+
+        Assert.Single(_store.Notifications.Load());
+    }
+
+    /// <summary>
+    /// **取り直しは画像を落とさない。**梯子の規則をここだけ破らないため。
+    /// 増えた画像は ImageBacklog が拾い、人が押したときは呼び出し側が取りに行く。
+    /// </summary>
+    [Fact]
+    public async Task LeavesTheImagesToTheLadder()
+    {
+        await SaveItemAsync(new LocalBlock());
+
+        await _service.RefreshAsync(ItemId);
+
+        // この商品JSONは images が空なので、そもそも取りに行く先が無い。
+        // 商品ページのHTMLと商品JSONの2本だけで終わっていることを見る
+        Assert.Equal(2, _requests.Count);
     }
 
     /// <summary>取得の最中に商品を消されたら、書かずに終わる。消したものが戻ってきてはいけない。</summary>

@@ -78,6 +78,17 @@ public sealed record AppSettings
     /// <summary>非公開と判断するまでの404の連続回数。一時エラーはここに数えない。</summary>
     public int NotFoundThreshold { get; init; } = 3;
 
+    /// <summary>
+    /// 販売終了と見なした商品を確かめ直す間隔（日）。
+    ///
+    /// 止めないのは、止めた瞬間に「戻ったこと」を知る手段が無くなるため。
+    /// 30日より延ばさないのは、**確かめる間隔が「復活している期間」より長いと
+    /// 原理的に取り逃す**から。季節ものは1ヶ月ほどしか公開されない。
+    /// 100件溜まっても年1,200リクエスト（ゲートを占めるのは年30分）で、
+    /// 延ばして浮くのは年に十数分でしかない。
+    /// </summary>
+    public int DelistedRecheckDays { get; init; } = 30;
+
     /// <summary>要確認の履歴を残す件数。超えたら古い既読から捨てる。</summary>
     public int NotificationRetentionCount { get; init; } = 200;
 

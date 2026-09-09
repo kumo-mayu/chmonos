@@ -65,14 +65,19 @@ public sealed class MainViewModel : ViewModelBase
     private CancellationTokenSource? _backlog;
 
     /// <summary>
-    /// 前の取り込みで取り切れなかった画像を、背景で取り直す（梯子の⑤の再開）。
+    /// 使っていない間に進める2つを背景で走らせる。
     ///
-    /// 対象は手元のJSONだけで決まる（<c>Booth.Images</c> の件数とディスクの差）ので、
-    /// フォルダの走査は起きない。**起動時に黙ってドライブを舐めに行くのとは質が違う。**
-    /// 取り込みが始まれば①②が優先順位で自然に割り込むので、ここで待たせる必要はない。
+    /// ⑤ 前の取り込みで取り切れなかった画像を取り直す。
+    ///    対象は手元のJSONだけで決まる（<c>Booth.Images</c> の件数とディスクの差）ので、
+    ///    フォルダの走査は起きない。**起動時に黙ってドライブを舐めに行くのとは質が違う。**
+    ///
+    /// ⑦ 期限の来た商品を取り直す。梯子のいちばん下で、急ぐ理由が無い唯一の段。
+    ///
+    /// **⑤を先にするのは、見た目の穴の方が先に目に入るから。**
+    /// どちらも取り込みが始まれば優先順位で自然に譲るので、待たせる必要はない。
     ///
     /// 失敗しても黙って終える。ユーザが頼んだ作業ではないので、
-    /// 邪魔をしてまで知らせる価値がない（画像は次の起動でまた試す）。
+    /// 邪魔をしてまで知らせる価値がない（どちらも次の起動でまた試す）。
     /// </summary>
     private void StartBacklogResume()
     {
@@ -89,6 +94,10 @@ public sealed class MainViewModel : ViewModelBase
             try
             {
                 await _services.Backlog.ResumeAsync(cancellationToken: token);
+                await _services.Due.RunAsync(cancellationToken: token);
+
+                // ⑦で商品ページが変わっていれば要確認が増える。件数を出し直す
+                RunOnUiThread(RefreshCounts);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

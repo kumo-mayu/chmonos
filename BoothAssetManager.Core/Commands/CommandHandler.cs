@@ -67,6 +67,15 @@ public sealed class CommandHandler
 
             case UiCommand.RefreshItem refresh:
                 var outcome = await _items.RefreshAsync(refresh.ItemId, cancellationToken);
+
+                // 取り直しは画像を落とさない（梯子の規則を破らないため）。
+                // ただし押したのは人で、その商品を見ているので、優先ボタンと
+                // 同じ経路でそのまま取りに行く。規則が1本で済む
+                if (outcome is RefreshOutcome.Updated)
+                {
+                    await _items.FetchImagesAsync(refresh.ItemId, cancellationToken);
+                }
+
                 return outcome switch
                 {
                     RefreshOutcome.Updated => new CommandResult.ItemSaved(refresh.ItemId),

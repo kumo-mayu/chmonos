@@ -95,7 +95,7 @@ public sealed class ItemService : IItemService
                     ConsecutiveNotFoundCount = count,
                     IsDelisted = count >= _settings.NotFoundThreshold,
                     LastFetchedAt = DateTimeOffset.Now,
-                    NextFetchDueAt = NextDue(itemId),
+                    NextFetchDueAt = NextDue(itemId, count),
                 },
                 LocalOwners.Fetch,
                 cancellationToken: cancellationToken);
@@ -147,14 +147,52 @@ public sealed class ItemService : IItemService
         // 作者がたまたま商品ページを非公開にしていただけ、という場合はこれで復活する。
         _images.ClearMissingMarkers(itemId);
 
-        await _images.SyncAsync(itemId, booth.Images, cancellationToken);
+        await NoteChangesAsync(existing, booth, cancellationToken);
 
-        if (booth.Shop is { } shop)
+        // **画像はここで落とさない。**梯子の規則をここだけ破らないため。
+        // 落とすと「①②が画像より先」の外側に画像の取得が生まれる。
+        // 増えた画像は ImageBacklog が拾い、人が押した取り直しでは
+        // 呼び出し側が優先ボタンと同じ経路で取りに行く。
+        return RefreshOutcome.Updated;
+    }
+
+    /// <summary>
+    /// 変わっていたら要確認へ書く。
+    ///
+    /// 「知らせる」を商品ごとに切れるようにしてあるので、切っている商品には出さない。
+    /// 何が変わったかを列挙するのは、**開かなくても判断できるようにする**ため。
+    /// </summary>
+    private async Task NoteChangesAsync(ItemRecord existing, BoothBlock booth, CancellationToken cancellationToken)
+    {
+        if (!existing.Local.NotifyOnUpdate)
         {
-            await _images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
+            return;
         }
 
-        return RefreshOutcome.Updated;
+        var diffs = BoothChanges.Describe(existing.Booth, booth);
+        if (diffs.Count == 0)
+        {
+            return;
+        }
+
+        var notifications = _store.Notifications.Load();
+
+        // 同じ商品の未読が既にあれば差し替える。溜めても読む手間が増えるだけ
+        var id = $"item-updated:{existing.Id}";
+        notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
+
+        notifications.Add(new NotificationRecord
+        {
+            Id = id,
+            Kind = NotificationKind.ItemUpdated,
+            ItemId = existing.Id,
+            Title = $"{booth.Name ?? existing.Id}：商品ページが変わりました",
+            Detail = BoothChanges.Summarize(diffs),
+            Diffs = diffs,
+            CreatedAt = DateTimeOffset.Now,
+        });
+
+        await _store.Notifications.SaveAsync(notifications, cancellationToken);
     }
 
     /// <summary>
@@ -511,14 +549,29 @@ public sealed class ItemService : IItemService
         }
     }
 
-    private DateTimeOffset NextDue(string itemId)
+    /// <summary>
+    /// 次にこの商品を確かめる日。
+    ///
+    /// 404が続いた商品は間隔を広げる。**ただし広げすぎない。**
+    /// 確かめる間隔が「復活している期間」より長いと、原理的に取り逃す。
+    /// 季節ものは1ヶ月ほどしか公開されないので、30日で打ち止めにする。
+    /// それ以上延ばしても、浮くのは100件あたり年に十数分でしかない。
+    ///
+    /// ジッタを入れるのは、取得が特定の日に集中しないようにするため。
+    /// 商品IDから決めるので、同じ商品は毎回同じ側にずれる。
+    /// </summary>
+    private DateTimeOffset NextDue(string itemId, int consecutiveNotFound = 0)
     {
+        var days = consecutiveNotFound >= _settings.NotFoundThreshold
+            ? _settings.DelistedRecheckDays
+            : _settings.RefreshIntervalDays;
+
         var jitterDays = _settings.RefreshJitterDays;
         var offset = jitterDays <= 0
             ? 0
             : Math.Abs(itemId.GetHashCode(StringComparison.Ordinal)) % ((jitterDays * 2) + 1) - jitterDays;
 
-        return DateTimeOffset.Now.AddDays(_settings.RefreshIntervalDays + offset);
+        return DateTimeOffset.Now.AddDays(days + offset);
     }
 
 }
