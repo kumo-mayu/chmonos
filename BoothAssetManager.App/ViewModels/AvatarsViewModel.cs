@@ -36,6 +36,19 @@ public sealed class AvatarRowViewModel : ViewModelBase
 
     /// <summary>BOOTHの正式名。短い表示名だけでは分からないときのために持ち回る</summary>
     public string BoothName => Summary.Entry.BoothName ?? string.Empty;
+
+    /// <summary>
+    /// この行を引ける語。表示名・商品ID・BOOTHの正式名・別名。
+    ///
+    /// 表示名だけで引けると思うと**引けない場面がある**。表示名は短くしてあるので、
+    /// BOOTHの正式名の一部で探すと当たらない。VRChatでは商品IDで探す習慣もある。
+    /// 別名（誤記や略称の受け皿）も入れておく。
+    /// </summary>
+    public bool Matches(string query)
+        => Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || ItemId.Contains(query, StringComparison.Ordinal)
+            || BoothName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || Summary.Entry.Aliases.Any(alias => alias.Text.Contains(query, StringComparison.CurrentCultureIgnoreCase));
 }
 
 /// <summary>素体グループの1行。</summary>
@@ -410,9 +423,7 @@ public sealed class AvatarsViewModel : ViewModelBase
         var selectedId = Selected?.ItemId;
 
         var matched = _all
-            .Where(row => _query.Length == 0
-                || row.Name.Contains(_query, StringComparison.CurrentCultureIgnoreCase)
-                || row.ItemId.Contains(_query, StringComparison.Ordinal))
+            .Where(row => _query.Length == 0 || row.Matches(_query))
             .ToList();
 
         var ownedCount = matched.Count(row => row.IsOwned && !row.IsExcluded);

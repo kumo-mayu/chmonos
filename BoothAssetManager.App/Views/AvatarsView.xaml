@@ -84,9 +84,9 @@
                     <DockPanel>
                         <Grid DockPanel.Dock="Top" Margin="14,14,14,10">
                             <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="アバター名か商品IDで絞り込みます。" />
+                                     ToolTip="アバター名・商品ID・BOOTHでの正式名・別名で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
-                            <TextBlock Text="アバター名で探す" Margin="11,0,0,0" IsHitTestVisible="False"
+                            <TextBlock Text="名前かIDで探す" Margin="11,0,0,0" IsHitTestVisible="False"
                                        VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                        Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                         </Grid>

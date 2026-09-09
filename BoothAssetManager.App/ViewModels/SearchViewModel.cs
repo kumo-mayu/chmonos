@@ -85,6 +85,8 @@ public sealed class SearchViewModel : ViewModelBase
         HideItemCommand = new RelayCommand(parameter => _ = HideItemAsync(parameter as ItemCardViewModel));
         AddExtraFilterCommand = new RelayCommand(parameter => AddExtraFilter(parameter as string));
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
+        SetAvatarFilterCommand = new RelayCommand(parameter => SetAvatarFilter(parameter as string));
+        ClearAvatarFilterCommand = new RelayCommand(ClearAvatarFilter);
         _isFilterPanelCollapsed = services.Settings.FilterPanelCollapsed;
 
         // 前回積んでいた条件の種類だけを戻す。値は戻さない
@@ -129,6 +131,92 @@ public sealed class SearchViewModel : ViewModelBase
         _services.ReplaceSettings(next);
         _ = _services.SettingsStore.SaveAsync(next);
     }
+
+    /// <summary>
+    /// 対応アバターの候補。「名前（商品ID）」で1行にしてある。
+    ///
+    /// **IDも同じ1行に入れているのは、VRChatでは商品IDで探す習慣があるから。**
+    /// 候補の絞り込みは部分一致なので、名前でもIDでも同じ欄から引ける。
+    /// 名前だけにすると、名前を思い出せずIDなら分かる場面で手が無くなる。
+    /// </summary>
+    public ObservableCollection<string> AvatarSuggestions { get; } = [];
+
+    public RelayCommand SetAvatarFilterCommand { get; }
+
+    public RelayCommand ClearAvatarFilterCommand { get; }
+
+    /// <summary>今アバターで絞っているか。絞っているときだけ、外す手段と素体経由の切り替えを出す。</summary>
+    public bool HasAvatarFilter => _avatarFilterId is not null;
+
+    public string AvatarFilterName => _avatarFilterName ?? string.Empty;
+
+    /// <summary>
+    /// 素体経由の対応も含めるか。
+    /// 既定で含めるのは「対応が確認できていないものを既定で隠さない」方針に合わせるため。
+    /// </summary>
+    public bool IncludeViaBase
+    {
+        get => _includeViaBase;
+        set
+        {
+            if (SetField(ref _includeViaBase, value))
+            {
+                ApplyFilters();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 候補の1行から商品IDを取り出して絞る。
+    /// 候補に無い語（打ち間違い）はそのままIDとして扱わない。
+    /// </summary>
+    private void SetAvatarFilter(string? entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry))
+        {
+            return;
+        }
+
+        var id = AvatarSuggestionText.IdOf(entry);
+        if (id is null)
+        {
+            return;
+        }
+
+        _avatarFilterId = id;
+        _avatarFilterName = AvatarSuggestionText.NameOf(entry);
+        _compatibility = null;
+        OnPropertyChanged(nameof(HasAvatarFilter));
+        OnPropertyChanged(nameof(AvatarFilterName));
+        ApplyFilters();
+    }
+
+    private void ClearAvatarFilter()
+    {
+        _avatarFilterId = null;
+        _avatarFilterName = null;
+        OnPropertyChanged(nameof(HasAvatarFilter));
+        OnPropertyChanged(nameof(AvatarFilterName));
+        ApplyFilters();
+    }
+
+    /// <summary>登録簿にあるアバターを候補に並べ直す。</summary>
+    private void RefreshAvatarSuggestions()
+    {
+        AvatarSuggestions.Clear();
+
+        var registry = _services.Store.Avatars.Load();
+        foreach (var entry in registry.Entries.Where(entry => entry.AvatarOverride != false)
+            .OrderBy(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId, StringComparer.CurrentCulture))
+        {
+            AvatarSuggestions.Add(AvatarSuggestionText.Format(
+                entry.DisplayName ?? entry.BoothName ?? entry.ItemId, entry.ItemId));
+        }
+
+        OnPropertyChanged(nameof(HasAvatarSuggestions));
+    }
+
+    public bool HasAvatarSuggestions => AvatarSuggestions.Count > 0;
 
     /// <summary>積んだ条件。常設に置かないものはここへ足していく。</summary>
     public ObservableCollection<ExtraFilter> ExtraFilters { get; } = [];
@@ -812,6 +900,7 @@ public sealed class SearchViewModel : ViewModelBase
         }
 
         RefreshBoothTagSuggestions();
+        RefreshAvatarSuggestions();
 
         TagFilters.Clear();
         foreach (var top in _services.Store.UserTags.Load().Tops)
@@ -980,6 +1069,9 @@ public sealed class SearchViewModel : ViewModelBase
         _avatarFilterName = displayName;
         _includeViaBase = includeViaBase;
         _compatibility = null;
+        OnPropertyChanged(nameof(HasAvatarFilter));
+        OnPropertyChanged(nameof(AvatarFilterName));
+        OnPropertyChanged(nameof(IncludeViaBase));
         ApplyFilters();
     }
 
@@ -1013,6 +1105,8 @@ public sealed class SearchViewModel : ViewModelBase
         _receivedOnly = false;
         _avatarFilterId = null;
         _avatarFilterName = null;
+        OnPropertyChanged(nameof(HasAvatarFilter));
+        OnPropertyChanged(nameof(AvatarFilterName));
 
         foreach (var tag in TagFilters)
         {
