@@ -318,9 +318,14 @@
                                         <Button DockPanel.Dock="Right" Content="外す" Style="{StaticResource SmallButton}"
                                                 Command="{Binding ClearAvatarFilterCommand}" />
                                     </DockPanel>
-                                    <!-- 素体経由は推定なので、含めるかを選べるようにする -->
+                                    <!--
+                                        素体経由は推定なので、含めるかを選べるようにする。
+                                        出すのは素体に属しているアバターのときだけ。
+                                        属していなければ経由する先が無く、どちらに倒しても結果が変わらない。
+                                    -->
                                     <CheckBox Content="素体経由の対応も含める" IsChecked="{Binding IncludeViaBase, Mode=TwoWay}"
-                                              FontSize="12" Margin="0,7,0,0" Foreground="{StaticResource Text}" />
+                                              FontSize="12" Margin="0,7,0,0" Foreground="{StaticResource Text}"
+                                              Visibility="{Binding AvatarFilterHasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>

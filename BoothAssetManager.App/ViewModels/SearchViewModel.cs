@@ -150,6 +150,17 @@ public sealed class SearchViewModel : ViewModelBase
 
     public string AvatarFilterName => _avatarFilterName ?? string.Empty;
 
+    private bool _avatarFilterHasBase;
+
+    /// <summary>
+    /// 今絞っているアバターが共通素体に属しているか。
+    ///
+    /// **属していないときに素体経由の切り替えを出さない。**
+    /// 素体が無ければ経由する先も無いので、どちらに倒しても結果が変わらない。
+    /// 効かない選択肢を並べると、結果が変わらないのを見て「壊れている」と読まれる。
+    /// </summary>
+    public bool AvatarFilterHasBase => _avatarFilterHasBase;
+
     /// <summary>
     /// 素体経由の対応も含めるか。
     /// 既定で含めるのは「対応が確認できていないものを既定で隠さない」方針に合わせるため。
@@ -185,9 +196,9 @@ public sealed class SearchViewModel : ViewModelBase
 
         _avatarFilterId = id;
         _avatarFilterName = AvatarSuggestionText.NameOf(entry);
+        _avatarFilterHasBase = HasBase(id);
         _compatibility = null;
-        OnPropertyChanged(nameof(HasAvatarFilter));
-        OnPropertyChanged(nameof(AvatarFilterName));
+        RaiseAvatarFilterChanged();
         ApplyFilters();
     }
 
@@ -195,9 +206,21 @@ public sealed class SearchViewModel : ViewModelBase
     {
         _avatarFilterId = null;
         _avatarFilterName = null;
+        _avatarFilterHasBase = false;
+        RaiseAvatarFilterChanged();
+        ApplyFilters();
+    }
+
+    /// <summary>このアバターが共通素体グループに属しているか。登録簿を引くだけで通信は要らない。</summary>
+    private bool HasBase(string avatarItemId)
+        => _services.Store.Avatars.Load().Entries
+            .Any(entry => entry.ItemId == avatarItemId && !string.IsNullOrWhiteSpace(entry.BaseName));
+
+    private void RaiseAvatarFilterChanged()
+    {
         OnPropertyChanged(nameof(HasAvatarFilter));
         OnPropertyChanged(nameof(AvatarFilterName));
-        ApplyFilters();
+        OnPropertyChanged(nameof(AvatarFilterHasBase));
     }
 
     /// <summary>登録簿にあるアバターを候補に並べ直す。</summary>
@@ -1068,9 +1091,9 @@ public sealed class SearchViewModel : ViewModelBase
         _avatarFilterId = avatarItemId;
         _avatarFilterName = displayName;
         _includeViaBase = includeViaBase;
+        _avatarFilterHasBase = HasBase(avatarItemId);
         _compatibility = null;
-        OnPropertyChanged(nameof(HasAvatarFilter));
-        OnPropertyChanged(nameof(AvatarFilterName));
+        RaiseAvatarFilterChanged();
         OnPropertyChanged(nameof(IncludeViaBase));
         ApplyFilters();
     }
@@ -1105,8 +1128,8 @@ public sealed class SearchViewModel : ViewModelBase
         _receivedOnly = false;
         _avatarFilterId = null;
         _avatarFilterName = null;
-        OnPropertyChanged(nameof(HasAvatarFilter));
-        OnPropertyChanged(nameof(AvatarFilterName));
+        _avatarFilterHasBase = false;
+        RaiseAvatarFilterChanged();
 
         foreach (var tag in TagFilters)
         {
@@ -1218,7 +1241,11 @@ public sealed class SearchViewModel : ViewModelBase
 
         if (_avatarFilterName is not null)
         {
-            parts.Add(_includeViaBase ? $"{_avatarFilterName}（素体経由を含む）" : _avatarFilterName);
+            // 素体を持たないアバターに「素体経由を含む」と書かない。
+            // 経由する先が無いので、書いてあると効いていないのに効いたように読める
+            parts.Add(_includeViaBase && _avatarFilterHasBase
+                ? $"{_avatarFilterName}（素体経由を含む）"
+                : _avatarFilterName);
         }
 
         if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
