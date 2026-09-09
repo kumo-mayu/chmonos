@@ -1,0 +1,36 @@
+BOOTH Asset Manager
+Copyright 2026 kumo_mayu
+
+This product includes software developed by kumo_mayu.
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+
+---- 同梱している第三者のデータ ----
+
+JMdict (assets/JMdict_e.gz)
+  Electronic Dictionary Research and Development Group
+  Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)
+  https://www.edrdg.org/edrdg/licence.html
+
+  無改変で同梱している。検索の索引は各自の手元で組み、配布物には含めない。
+  加工した辞書を配らないので、継承条項に触れる配布物は存在しない。
+  出典はアプリの設定画面にも出している（ライセンスの求めによる）。
+
+
+---- 使っているライブラリ ----
+
+AngleSharp — MIT License
+SixLabors.ImageSharp — Six Labors Split License 1.0
+  本プロジェクトはOSSライセンス（Apache-2.0）で公開しているため、
+  Apache License 2.0 の条件で利用している。
+
+
+---- BOOTHへの作法（フォークする方へのお願い） ----
+
+このツールはBOOTH（pixiv）への問い合わせを**必ず1本ずつ、1.5秒以上空けて**行う。
+並列化も間隔の短縮もしていない。これは性能上の妥協ではなく、
+相手のサービスに負担をかけないための決め事である。
+
+改造して配る場合も、この作法は残してほしい。
+実装は BoothClient のゲート1箇所に集めてあるので、外すのも残すのも容易にできる。
+外せば速くなるが、それは相手側の負担に付け替えているだけになる。
