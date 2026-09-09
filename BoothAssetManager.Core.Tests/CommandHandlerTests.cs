@@ -15,8 +15,14 @@ public class CommandHandlerTests
             IReadOnlyList<string> folders,
             IProgress<ImportProgress>? progress = null,
             CancellationToken cancellationToken = default)
+            => RunAsync(new ImportWorkSet(folders), progress, cancellationToken);
+
+        public Task<ImportSummary> RunAsync(
+            ImportWorkSet work,
+            IProgress<ImportProgress>? progress = null,
+            CancellationToken cancellationToken = default)
         {
-            ReceivedFolders = folders;
+            ReceivedFolders = work.TakePending();
             return Task.FromResult(new ImportSummary { FilesScanned = 3, ItemsAdded = 2 });
         }
     }

@@ -37,7 +37,12 @@ public sealed class ImportViewModel : ViewModelBase
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private CancellationTokenSource? _cancellation;
+
+    /// <summary>実行中の作業集合。走らせている最中に足せるので、ここを握っておく。</summary>
+    private ImportWorkSet? _work;
+
     private bool _isRunning;
+    private string? _stackNotice;
     private string _phaseText = string.Empty;
     private string _detailText = string.Empty;
     private int _current;
@@ -56,9 +61,11 @@ public sealed class ImportViewModel : ViewModelBase
             Folders.Add(folder);
         }
 
-        AddFolderCommand = new RelayCommand(AddFolder, () => !IsRunning);
-        RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => !IsRunning && parameter is string);
-        StartCommand = new RelayCommand(() => _ = RunAsync(), () => !IsRunning && Folders.Count > 0);
+        // 実行中でも足せる。「1ファイルだけ後から見つかった」は普通に起きるので、
+        // 終わるのを待たせない。押した先は同じ取り込みで、2本目は起こさない
+        AddFolderCommand = new RelayCommand(AddFolder);
+        RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => parameter is string);
+        StartCommand = new RelayCommand(() => _ = StartOrStackAsync(), () => Folders.Count > 0);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
         RemoveUnpackedCommand = new RelayCommand(() => _ = RemoveUnpackedAsync(), () => !IsRunning && HasUnpackedSelection);
@@ -88,12 +95,34 @@ public sealed class ImportViewModel : ViewModelBase
             if (SetField(ref _isRunning, value))
             {
                 OnPropertyChanged(nameof(IsIdle));
+                OnPropertyChanged(nameof(StartText));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
     }
 
     public bool IsIdle => !IsRunning;
+
+    /// <summary>
+    /// 実行中は「積む」になる。押した先が別の取り込みではなく**今の取り込み**である
+    /// ことが、文言だけで分かるようにする。
+    /// </summary>
+    public string StartText => IsRunning ? "今の取り込みに積む" : "取り込みを開始";
+
+    /// <summary>積んだ結果。押しても何も起きなかったときこそ要る。</summary>
+    public string? StackNotice
+    {
+        get => _stackNotice;
+        private set
+        {
+            if (SetField(ref _stackNotice, value))
+            {
+                OnPropertyChanged(nameof(HasStackNotice));
+            }
+        }
+    }
+
+    public bool HasStackNotice => !string.IsNullOrEmpty(StackNotice);
 
     public string PhaseText
     {
@@ -236,10 +265,21 @@ public sealed class ImportViewModel : ViewModelBase
 
     private void RemoveFolder(object? parameter)
     {
-        if (parameter is string folder)
+        if (parameter is not string folder)
         {
-            Folders.Remove(folder);
-            RelayCommand.RaiseCanExecuteChanged();
+            return;
+        }
+
+        Folders.Remove(folder);
+        RelayCommand.RaiseCanExecuteChanged();
+
+        // 実行中なら、まだ順番が来ていないものは取り下げられる。
+        // 「積んだ直後に取り消したい」はこれで済むので、取り消し操作を別に作らない
+        if (_work is { } running)
+        {
+            StackNotice = running.Remove(folder)
+                ? "今の取り込みから取り下げました。"
+                : "既に走査したので、今の取り込みからは外せません。中断すると止まります。";
         }
     }
 
@@ -413,12 +453,35 @@ public sealed class ImportViewModel : ViewModelBase
         return targets;
     }
 
+    /// <summary>
+    /// 走っていなければ始める。走っていれば**今の取り込みに積む**。
+    ///
+    /// 2本目を起こさないのは、取得の順序（画像より先にJSON）が2本では保てず、
+    /// どちらの進捗を出すのかも決められなくなるため。
+    /// </summary>
+    private async Task StartOrStackAsync()
+    {
+        if (_work is not { } running)
+        {
+            await RunAsync();
+            return;
+        }
+
+        var added = running.Add(ResolveUnpackedTargets());
+        await SaveFoldersAsync();
+
+        StackNotice = added == 0
+            ? "積むものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
+            : $"{added} 件を今の取り込みに積みました。順番が来たら走査します。";
+    }
+
     private async Task RunAsync()
     {
         var targets = ResolveUnpackedTargets();
 
         await SaveFoldersAsync();
 
+        StackNotice = null;
         IsRunning = true;
         Summary = null;
         ErrorText = null;
@@ -428,6 +491,7 @@ public sealed class ImportViewModel : ViewModelBase
         PhaseText = "準備中…";
 
         _cancellation = new CancellationTokenSource();
+        _work = new ImportWorkSet(targets);
 
         var progress = new Progress<ImportProgress>(report => RunOnUiThread(() =>
         {
@@ -452,7 +516,7 @@ public sealed class ImportViewModel : ViewModelBase
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ScanFolders(targets),
+                new UiCommand.ScanFolders(_work),
                 progress,
                 _cancellation.Token);
 
@@ -497,6 +561,7 @@ public sealed class ImportViewModel : ViewModelBase
         {
             _cancellation?.Dispose();
             _cancellation = null;
+            _work = null;
             IsRunning = false;
         }
     }

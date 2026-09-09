@@ -65,6 +65,12 @@ public interface IImportPipeline
         IReadOnlyList<string> folders,
         IProgress<ImportProgress>? progress = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>走らせている最中にも対象を足せる版。呼ぶ側が作業集合を握る。</summary>
+    Task<ImportSummary> RunAsync(
+        ImportWorkSet work,
+        IProgress<ImportProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -91,8 +97,24 @@ public sealed class ImportPipeline : IImportPipeline
         _settings = settings ?? new AppSettings();
     }
 
-    public async Task<ImportSummary> RunAsync(
+    public Task<ImportSummary> RunAsync(
         IReadOnlyList<string> folders,
+        IProgress<ImportProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+        => RunAsync(new ImportWorkSet(folders), progress, cancellationToken);
+
+    /// <summary>
+    /// 対象がまだ残っている限り回り続ける。
+    ///
+    /// 走っている最中に <see cref="ImportWorkSet.Add"/> されたフォルダは、
+    /// 今の周回が終わったところで次の周回として拾う。**押し直す必要がない。**
+    /// パイプラインが1本のままなので、取得の順序も進捗の出どころも1つに保てる。
+    ///
+    /// まとめの件数は周回をまたいで足し合わせる。ユーザにとっては
+    /// 「1回の取り込み」なので、途中で足したぶんも同じ数字に入っていてほしい。
+    /// </summary>
+    public async Task<ImportSummary> RunAsync(
+        ImportWorkSet work,
         IProgress<ImportProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -101,32 +123,84 @@ public sealed class ImportPipeline : IImportPipeline
         var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
 
-        // 既に商品へ紐付けたフォルダの中は見に行かない。
-        // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
-        var (registered, owned) = await LoadOwnedAsync(cancellationToken);
+        var totals = new ImportTotals();
 
-        var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
-        var resolution = await ResolveAsync(scan.Files, scanCache, exclusions, owned, progress, cancellationToken);
-        await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
-        await _store.Unresolved.SaveAsync(resolution.Unresolved, cancellationToken);
-
-        var fetchResult = await FetchAsync(resolution.FilesByItemId, progress, cancellationToken);
-
-        return new ImportSummary
+        while (work.TakePending() is { Count: > 0 } folders)
         {
-            FilesScanned = scan.Files.Count,
-            UnpackedFolders = scan.UnpackedFolders,
-            FilesSkippedAsUnpacked = scan.SkippedInsideUnpackedFolders,
-            FilesHashed = resolution.Hashed,
-            FilesReusedFromCache = resolution.ReusedFromCache,
-            FilesExcluded = resolution.Excluded,
-            FilesAlreadyOwned = resolution.AlreadyOwned,
-            UnresolvedFiles = resolution.Unresolved.Count,
-            ItemsAdded = fetchResult.Added,
-            ItemsAlreadyKnown = fetchResult.AlreadyKnown,
-            NotFound = fetchResult.NotFound,
-            TemporaryFailures = fetchResult.TemporaryFailures,
-            ImagesDownloaded = fetchResult.ImagesDownloaded,
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // 既に商品へ紐付けたフォルダの中は見に行かない。
+            // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
+            // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
+            var (registered, owned) = await LoadOwnedAsync(cancellationToken);
+
+            var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
+            var resolution = await ResolveAsync(scan.Files, scanCache, exclusions, owned, progress, cancellationToken);
+            await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
+
+            // 未確定は積み上げる。前の周回で残ったものを消してはいけない
+            totals.Unresolved.AddRange(resolution.Unresolved);
+            await _store.Unresolved.SaveAsync(totals.Unresolved, cancellationToken);
+
+            var fetchResult = await FetchAsync(resolution.FilesByItemId, progress, cancellationToken);
+
+            totals.Add(scan, resolution, fetchResult);
+        }
+
+        return totals.ToSummary();
+    }
+
+    /// <summary>周回をまたいだ合計。1回の取り込みとして1つのまとめに畳む。</summary>
+    private sealed class ImportTotals
+    {
+        public List<UnresolvedFile> Unresolved { get; } = [];
+
+        private readonly List<UnpackedFolder> _unpacked = [];
+        private int _scanned;
+        private int _skippedUnpacked;
+        private int _hashed;
+        private int _reused;
+        private int _excluded;
+        private int _alreadyOwned;
+        private int _added;
+        private int _alreadyKnown;
+        private int _notFound;
+        private int _temporaryFailures;
+        private int _imagesDownloaded;
+
+        public void Add(ScanOutcome scan, ResolutionResult resolution, FetchResult fetch)
+        {
+            _scanned += scan.Files.Count;
+            _unpacked.AddRange(scan.UnpackedFolders);
+            _skippedUnpacked += scan.SkippedInsideUnpackedFolders;
+
+            _hashed += resolution.Hashed;
+            _reused += resolution.ReusedFromCache;
+            _excluded += resolution.Excluded;
+            _alreadyOwned += resolution.AlreadyOwned;
+
+            _added += fetch.Added;
+            _alreadyKnown += fetch.AlreadyKnown;
+            _notFound += fetch.NotFound;
+            _temporaryFailures += fetch.TemporaryFailures;
+            _imagesDownloaded += fetch.ImagesDownloaded;
+        }
+
+        public ImportSummary ToSummary() => new()
+        {
+            FilesScanned = _scanned,
+            UnpackedFolders = _unpacked,
+            FilesSkippedAsUnpacked = _skippedUnpacked,
+            FilesHashed = _hashed,
+            FilesReusedFromCache = _reused,
+            FilesExcluded = _excluded,
+            FilesAlreadyOwned = _alreadyOwned,
+            UnresolvedFiles = Unresolved.Count,
+            ItemsAdded = _added,
+            ItemsAlreadyKnown = _alreadyKnown,
+            NotFound = _notFound,
+            TemporaryFailures = _temporaryFailures,
+            ImagesDownloaded = _imagesDownloaded,
         };
     }
 

@@ -136,6 +136,14 @@ Q10で読み直しがどの保存にも入るので、**条件が1つ増える�
 
 ## 3. 取り込みは積める。取り消しは即座
 
+> **2026-09-09 実装済み。** `ImportWorkSet`（`Scanning/ImportWorkSet.cs`）と
+> `ImportPipeline.RunAsync(ImportWorkSet, …)` の周回。画面のボタンは実行中
+> 「今の取り込みに積む」に変わる。
+>
+> **中断は元から即座だった。**待ちは `Task.Delay(cancellationToken)` を
+> 200ms刻みで回しており、ハッシュ計算も取得も1件ごとにトークンを見ている。
+> 手を入れる必要は無かった。
+
 ### 積む
 
 今は実行中に別の取り込みを開始できない（`StartCommand` が `!IsRunning` で塞がれている）。

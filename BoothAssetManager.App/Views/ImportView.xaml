@@ -55,10 +55,16 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <StackPanel Orientation="Horizontal" Margin="18,12">
-                            <Button Content="取り込みを開始" Style="{StaticResource PrimaryButton}"
-                                    Command="{Binding StartCommand}" />
-                            <Button Content="中断" Margin="9,0,0,0" Command="{Binding CancelCommand}" />
+                        <StackPanel Margin="18,12">
+                            <StackPanel Orientation="Horizontal">
+                                <!-- 実行中は「今の取り込みに積む」に変わる。押した先が今の取り込みだと分かるように -->
+                                <Button Content="{Binding StartText}" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding StartCommand}" />
+                                <Button Content="中断" Margin="9,0,0,0" Command="{Binding CancelCommand}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding StackNotice}" Style="{StaticResource Caption}"
+                                       Margin="0,9,0,0" TextWrapping="Wrap"
+                                       Visibility="{Binding HasStackNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

@@ -15,7 +15,17 @@ public abstract record UiCommand
     private protected UiCommand() { }
 
     /// <summary>指定フォルダを取り込む（走査 → BoothID解決 → BOOTH取得）。</summary>
-    public record ScanFolders(IReadOnlyList<string> Folders) : UiCommand;
+    /// <summary>
+    /// フォルダを取り込む。<paramref name="Work"/> は走っている最中にも足せるので、
+    /// 画面は同じ集合に積むだけでよく、2本目の取り込みを起こさずに済む。
+    /// </summary>
+    public record ScanFolders(Scanning.ImportWorkSet Work) : UiCommand
+    {
+        public ScanFolders(IReadOnlyList<string> folders)
+            : this(new Scanning.ImportWorkSet(folders))
+        {
+        }
+    }
 
     /// <summary>未確定ファイルに商品IDを与えて確定させる。</summary>
     public record AssignItemId(string Hash, string ItemId) : UiCommand;

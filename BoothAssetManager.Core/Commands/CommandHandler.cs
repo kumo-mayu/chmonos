@@ -48,7 +48,7 @@ public sealed class CommandHandler
         {
             case UiCommand.ScanFolders scan:
                 return new CommandResult.Imported(
-                    await _import.RunAsync(scan.Folders, progress, cancellationToken));
+                    await _import.RunAsync(scan.Work, progress, cancellationToken));
 
             case UiCommand.AssignItemId assign:
                 return await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken)
