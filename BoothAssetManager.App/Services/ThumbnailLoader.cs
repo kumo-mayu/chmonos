@@ -115,12 +115,6 @@ public sealed class ThumbnailLoader
     }
 
     /// <summary>フォルダ内の最初の1枚。一覧表示の初期状態に使う。</summary>
-    public BitmapSource? LoadFirst(string imageDirectory)
-    {
-        var files = ListFiles(imageDirectory);
-        return files.Count == 0 ? null : Load(files[0]);
-    }
-
     private void EvictIfNeeded()
     {
         if (_usedBytes <= _budgetBytes)

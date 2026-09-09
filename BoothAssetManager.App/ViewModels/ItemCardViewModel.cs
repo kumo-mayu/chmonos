@@ -103,8 +103,26 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// 実際に読むのは仮想化で実体化されたカードだけになる。
     /// </summary>
     public BitmapSource? Thumbnail => _activePath is null
-        ? _thumbnails.LoadFirst(_imageDirectory)
+        ? FirstImage()
         : _thumbnails.Load(_activePath);
+
+    /// <summary>
+    /// 静止しているときに出す1枚目。
+    ///
+    /// 保存名は元URLのハッシュなので、ディレクトリ順に取るとBOOTHの1枚目とは限らない
+    /// （実データでは13件中9件が違っていた）。BOOTHの並びを正にする。
+    ///
+    /// 覚え込まないのは、画像が後から届く場合があるため
+    /// （届いた時点で出せるようにしておく）。
+    /// </summary>
+    private BitmapSource? FirstImage()
+    {
+        var path = BoothAssetManager.Core.Images.ItemImageOrder
+            .Paths(_imageDirectory, Item.Booth.Images, _thumbnails.ListFiles(_imageDirectory))
+            .FirstOrDefault();
+
+        return path is null ? null : _thumbnails.Load(path);
+    }
 
     /// <summary>今どの画像を見ているかの目印。画像が2枚以上あるときだけ出す。</summary>
     public ObservableCollection<ThumbnailSegment> Segments { get; } = [];
