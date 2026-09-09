@@ -30,6 +30,14 @@
             </Grid>
         </Border>
 
+        <!-- 検索・要確認と同じ理由。読んでいる最中に一覧を動かさない -->
+        <Button DockPanel.Dock="Top" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                Background="{StaticResource AccentSoft}" BorderThickness="0"
+                Padding="20,9" Cursor="Hand" FontSize="12"
+                Content="{Binding Main.PendingItemText}"
+                Command="{Binding ReloadCommand}"
+                Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
         <!-- 片付いた表示と一覧は重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->
         <Grid>
 

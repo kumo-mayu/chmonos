@@ -54,6 +54,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
         ToggleNavCommand = new RelayCommand(ToggleNav);
+        ApplyPendingCommand = new RelayCommand(() => _ = ReloadLibraryAsync());
 
         _isNavCollapsed = services.Settings.NavCollapsed;
 
@@ -299,6 +300,14 @@ public sealed class MainViewModel : ViewModelBase
                 leaving.StopFetching();
             }
 
+            // 一覧を離れたら「押すと反映」は役目を終える。
+            // 守っていたのは「読んでいる最中に足元を動かさない」ことだけなので、
+            // 離れた時点で黙って最新にしてよい
+            if (HasPendingItems && !ReferenceEquals(_currentViewModel, value))
+            {
+                _ = ReloadLibraryAsync();
+            }
+
             if (SetField(ref _currentViewModel, value))
             {
                 OnPropertyChanged(nameof(IsSearchActive));
@@ -394,7 +403,68 @@ public sealed class MainViewModel : ViewModelBase
         await Search.ReloadAsync();
         RefreshCounts();
         OnPropertyChanged(nameof(LibrarySummary));
+        ClearPendingItems();
     }
+
+    private bool _isImporting;
+
+    /// <summary>
+    /// 取り込みが走っているか。
+    ///
+    /// 保存先の引越しを塞ぐために要る。走っている最中に運ぶと、
+    /// 運び終わった後の書き込みが**元の場所へ**行ってしまう。
+    /// </summary>
+    public bool IsImporting
+    {
+        get => _isImporting;
+        set
+        {
+            if (SetField(ref _isImporting, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private int _pendingItemCount;
+
+    /// <summary>
+    /// 取り込み中に増えて、まだ一覧へ反映していない件数。
+    ///
+    /// **件数とバッジは即座に更新するが、一覧そのものは勝手に並び替えない。**
+    /// 読んでいる最中に足元が動くと、どこを見ていたか分からなくなる。
+    /// 反映する時機はユーザに選ばせる。
+    /// </summary>
+    public int PendingItemCount
+    {
+        get => _pendingItemCount;
+        private set
+        {
+            if (SetField(ref _pendingItemCount, value))
+            {
+                OnPropertyChanged(nameof(HasPendingItems));
+                OnPropertyChanged(nameof(PendingItemText));
+            }
+        }
+    }
+
+    public bool HasPendingItems => PendingItemCount > 0;
+
+    public string PendingItemText => $"取り込み中に {PendingItemCount} 件増えました（押すと反映）";
+
+    /// <summary>反映するボタン。一覧を読み直して1行を消す。</summary>
+    public RelayCommand ApplyPendingCommand { get; }
+
+    /// <summary>取り込みが商品を1件ぶん見えるようにした。</summary>
+    public void NotePendingItems(int count) => RunOnUiThread(() => PendingItemCount = count);
+
+    /// <summary>
+    /// 1行を消す。反映したときと、その一覧から離れたときに呼ぶ。
+    ///
+    /// 離れたら消すのは、「押すと反映」が**その一覧を今読んでいる人のためのもの**だから。
+    /// 離れた時点で守るものが無くなるので、戻ってきたら黙って最新にする。
+    /// </summary>
+    public void ClearPendingItems() => RunOnUiThread(() => PendingItemCount = 0);
 
     private void RefreshCounts()
     {

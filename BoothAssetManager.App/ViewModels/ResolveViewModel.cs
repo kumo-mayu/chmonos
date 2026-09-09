@@ -91,6 +91,9 @@ public sealed class ResolveViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
+
+    /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
+    public MainViewModel Main => _main;
     private readonly List<string> _settledItemIds = [];
 
     private UnresolvedRow? _selected;
@@ -121,6 +124,8 @@ public sealed class ResolveViewModel : ViewModelBase
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
+        // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
+        ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
         SelectArchiveContentCommand = new RelayCommand(SelectArchiveContent, () => HasArchiveContent);
         RegisterFolderCommand = new RelayCommand(() => _ = RegisterFolderAsync(), () => CanRegisterFolder);
@@ -132,6 +137,9 @@ public sealed class ResolveViewModel : ViewModelBase
     }
 
     public RelayCommand SelectFolderCommand { get; }
+
+    /// <summary>「取り込み中に n 件増えました」を押したときの読み直し。</summary>
+    public RelayCommand ReloadCommand { get; }
 
     public RelayCommand SelectAllCommand { get; }
 

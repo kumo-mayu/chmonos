@@ -90,6 +90,9 @@ public sealed class InboxViewModel : ViewModelBase
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
 
+    /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
+    public MainViewModel Main => _main;
+
     private List<NotificationRow> _all = [];
     private bool _unreadOnly = true;
     private string _statusText = string.Empty;

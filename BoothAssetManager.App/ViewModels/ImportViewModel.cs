@@ -96,6 +96,10 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsIdle));
                 OnPropertyChanged(nameof(StartText));
+
+                // 設定画面が保存先の引越しを塞ぐために見る
+                _main.IsImporting = value;
+
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -512,6 +516,17 @@ public sealed class ImportViewModel : ViewModelBase
             Current = report.Current;
             Total = report.Total;
             DetailText = report.Detail ?? string.Empty;
+
+            // 1枚目が取れた時点で、その商品は一覧のカードとして成立する。
+            // JSONの時点で反映すると絵の無い白いカードが並ぶので、ここまで待つ。
+            //
+            // 件数とバッジは即座に更新するが、一覧そのものは動かさない。
+            // 読んでいる最中に足元が動くと、どこを見ていたか分からなくなる
+            if (report.Phase == ImportPhase.FetchingThumbnails)
+            {
+                _main.NotePendingItems(report.Current);
+                _main.RefreshBadges();
+            }
 
             // 減速は取得の合間に起きるので、進捗が届くたびに見る
             IsThrottled = _services.Client.IsThrottled;

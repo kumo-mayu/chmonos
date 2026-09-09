@@ -464,6 +464,18 @@
                 </Grid>
             </Border>
 
+            <!--
+                取り込み中に増えたぶんは、押されるまで一覧へ入れない。
+                読んでいる最中に足元が動くと、どこを見ていたか分からなくなる。
+                件数とバッジは即座に動くので、増えたこと自体は隠していない。
+            -->
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                    Background="{StaticResource AccentSoft}" BorderThickness="0"
+                    Padding="18,9" Cursor="Hand" FontSize="12"
+                    Content="{Binding Main.PendingItemText}"
+                    Command="{Binding Main.ApplyPendingCommand}"
+                    Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
             <Grid SizeChanged="OnResultsSizeChanged">
                 <!--
                     行を仮想化の単位にする。WPFには仮想化するWrapPanelが無いので、

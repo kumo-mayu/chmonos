@@ -63,6 +63,17 @@ public sealed class SettingsViewModel : ViewModelBase
         _services = services;
         _main = main;
 
+        // 取り込みが始まる／終わると「場所を変える」の可否と理由が変わる。
+        // ボタンの enabled は RelayCommand の一括通知で戻るが、理由の文は自分で書き換える
+        _main.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainViewModel.IsImporting))
+            {
+                OnPropertyChanged(nameof(CanChangeRoot));
+                OnPropertyChanged(nameof(RootLockedNote));
+            }
+        };
+
         AddFolderCommand = new RelayCommand(AddFolder);
         OpenRootCommand = new RelayCommand(OpenRoot);
         ChangeRootCommand = new RelayCommand(ChangeRoot, () => CanChangeRoot);
@@ -469,12 +480,28 @@ public sealed class SettingsViewModel : ViewModelBase
     /// 環境変数で保存先を差し替えている間は、設定から変えても意味がない
     /// （次の起動でも環境変数が勝つ）。押せる顔をして効かないより、押せなくして理由を出す。
     /// </summary>
-    public bool CanChangeRoot => Core.Storage.StoreLocation.Resolve().Source
-        != Core.Storage.StoreRootSource.Environment;
+    public bool CanChangeRoot
+        => Core.Storage.StoreLocation.Resolve().Source != Core.Storage.StoreRootSource.Environment
+            && !_main.IsImporting;
 
-    public string RootLockedNote => CanChangeRoot
-        ? string.Empty
-        : $"環境変数 {Core.Storage.AppPaths.RootVariable} で保存先が指定されているため、ここからは変えられません。";
+    /// <summary>
+    /// 押せない理由。**押せる顔をして効かないより、押せなくして理由を出す。**
+    /// 取り込み中を塞ぐのは、運んでいる間の書き込みが元の場所へ行ってしまうため。
+    /// </summary>
+    public string RootLockedNote
+    {
+        get
+        {
+            if (Core.Storage.StoreLocation.Resolve().Source == Core.Storage.StoreRootSource.Environment)
+            {
+                return $"環境変数 {Core.Storage.AppPaths.RootVariable} で保存先が指定されているため、ここからは変えられません。";
+            }
+
+            return _main.IsImporting
+                ? "取り込みが走っている間は場所を変えられません。終わるか、中断してから変えてください。"
+                : string.Empty;
+        }
+    }
 
     private void ChangeRoot()
     {

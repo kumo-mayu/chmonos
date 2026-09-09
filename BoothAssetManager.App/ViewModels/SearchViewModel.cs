@@ -60,6 +60,9 @@ public sealed class SearchViewModel : ViewModelBase
 
     private MainViewModel? _main;
 
+    /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
+    public MainViewModel? Main => _main;
+
     public SearchViewModel(AppServiceContainer services, ThumbnailLoader thumbnails)
     {
         _services = services;
