@@ -126,6 +126,12 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public ObservableCollection<RestorableRow> Excluded { get; } = [];
 
+    /// <summary>
+    /// 商品ページで「この商品から外す」を押したファイル。
+    /// 外した記録が見えないと、なぜその商品へ紐付かないのかを探す場所が無くなる。
+    /// </summary>
+    public ObservableCollection<RestorableRow> Detached { get; } = [];
+
     public static IReadOnlyList<ThumbnailSizeOption> ThumbnailSizes { get; } =
     [
         new ThumbnailSizeOption { Label = "小", Value = ThumbnailSize.Small },
@@ -350,11 +356,16 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public string ExcludedText => $"{Excluded.Count} 件";
 
+    public bool HasDetached => Detached.Count > 0;
+
+    public string DetachedText => $"{Detached.Count} 件";
+
     private async Task LoadAsync()
     {
         var usage = await _services.SettingsStore.LoadUsageAsync();
         var hidden = await _services.SettingsStore.LoadHiddenAsync();
         var excluded = _services.SettingsStore.LoadExcluded();
+        var detached = await _services.SettingsStore.LoadDetachedAsync();
 
         RunOnUiThread(() =>
         {
@@ -411,12 +422,27 @@ public sealed class SettingsViewModel : ViewModelBase
                 });
             }
 
+            Detached.Clear();
+            foreach (var record in detached)
+            {
+                var hash = record.Hash;
+                var itemId = record.ItemId;
+                Detached.Add(new RestorableRow
+                {
+                    Key = hash + ":" + itemId,
+                    Label = record.Path,
+                    SubText = $"「{record.ItemName}」から外しました",
+                    RestoreCommand = new RelayCommand(() => _ = ForgetDetachedAsync(hash, itemId)),
+                });
+            }
+
             IsLoading = false;
 
             foreach (var name in new[]
             {
                 nameof(RootPath), nameof(ImageUsageText), nameof(ItemUsageText),
                 nameof(HasHidden), nameof(HasExcluded), nameof(HiddenText), nameof(ExcludedText),
+                nameof(HasDetached), nameof(DetachedText),
             })
             {
                 OnPropertyChanged(name);
@@ -542,6 +568,17 @@ public sealed class SettingsViewModel : ViewModelBase
         Status = "非表示を解除しました。検索に戻ります。";
         await LoadAsync();
         _ = _main.Search.ReloadAsync();
+    }
+
+    /// <summary>
+    /// 外した記録を捨てる。外したのが間違いだったときの戻し方。
+    /// 次の取り込みで、手掛かりがその商品を指すならまた紐付く。
+    /// </summary>
+    private async Task ForgetDetachedAsync(string hash, string itemId)
+    {
+        await _services.SettingsStore.ForgetDetachedAsync(hash, itemId);
+        Status = "外した記録を消しました。次の取り込みで、手掛かりが指すならまたその商品に紐付きます。";
+        await LoadAsync();
     }
 
     private async Task RestoreAsync(string hash)

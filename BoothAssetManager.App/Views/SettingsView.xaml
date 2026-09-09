@@ -256,7 +256,7 @@
                     <StackPanel>
                         <TextBlock Text="隠したもの" Style="{StaticResource GroupTitle}" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,14"
-                                   Text="どちらも普段の画面には出てこなくなります。取り消せる場所はここだけなので、ここに置いてあります。" />
+                                   Text="どれも普段の画面には出てこなくなります。取り消せる場所はここだけなので、ここに置いてあります。" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="非表示にした商品" Style="{StaticResource RowLabel}" Width="220" />
@@ -296,6 +296,36 @@
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Command="{Binding RestoreCommand}"
                                                 ToolTip="次の取り込みで、また未確定として出てきます。" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!--
+                            商品ページで「この商品から外す」を押したもの。
+                            記録が見えないと、なぜその商品へ紐付かないのかを探す場所が無くなる。
+                            除外と違い、外したのはその商品への紐付けだけで、ファイルは管理下に残る。
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,8"
+                                    Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="商品から外したファイル" Style="{StaticResource RowLabel}" Width="220" />
+                            <TextBlock Text="{Binding DetachedText}" Style="{StaticResource Mono}" FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Detached}"
+                                      Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:RestorableRow}">
+                                    <Grid Margin="0,0,0,5">
+                                        <StackPanel Margin="0,0,90,0">
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource Mono}" FontSize="11.5"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
+                                        </StackPanel>
+                                        <Button Content="記録を消す" Style="{StaticResource SmallButton}"
+                                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Command="{Binding RestoreCommand}"
+                                                ToolTip="外したのが間違いだったとき。次の取り込みで、手掛かりが指すならまたその商品へ紐付きます。" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
