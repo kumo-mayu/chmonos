@@ -477,26 +477,62 @@ public sealed class SettingsViewModel : ViewModelBase
 
         var source = _services.Paths.Root;
 
-        // 選んだ先に既にライブラリがあるなら、それを使う。混ぜるとどちらが本物か分からなくなる
+        // 選んだ先に既にライブラリがあるなら、どちらを残すかを選んでもらう。
+        // 向こうが古い作りかけということもあるので、勝手にどちらかへ寄せない
         if (StoreLocation.LooksLikeStore(picked))
         {
-            var useThere = System.Windows.MessageBox.Show(
-                $"選んだ場所には既にライブラリがあります。\n\n{picked}\n\n"
-                + "そちらを使うように切り替えます。今のデータは元の場所に残ります（混ぜません）。\n\n"
-                + $"元の場所：{source}",
-                "保存先を切り替える",
-                System.Windows.MessageBoxButton.OKCancel,
+            var here = Core.Storage.StoreMover.Summarize(source);
+            var there = Core.Storage.StoreMover.Summarize(picked);
+
+            var answer = System.Windows.MessageBox.Show(
+                "選んだ場所には既にライブラリがあります。どちらを残しますか。\n\n"
+                + $"【今の保存先】{source}\n{Describe(here)}\n\n"
+                + $"【選んだ場所】{picked}\n{Describe(there)}\n\n"
+                + "［はい］今のデータで置き換える\n"
+                + "　　選んだ場所にあるものは消さず、「_置き換え前-（日時）」へ退けてから入れ替えます。\n\n"
+                + "［いいえ］選んだ場所のデータをそのまま使う\n"
+                + "　　今のデータは元の場所に残ります。混ぜることはしません。",
+                "どちらのライブラリを残しますか",
+                System.Windows.MessageBoxButton.YesNoCancel,
                 System.Windows.MessageBoxImage.Question,
                 System.Windows.MessageBoxResult.Cancel);
 
-            if (useThere != System.Windows.MessageBoxResult.OK)
+            if (answer == System.Windows.MessageBoxResult.Cancel)
             {
+                return;
+            }
+
+            if (answer == System.Windows.MessageBoxResult.No)
+            {
+                StoreLocation.Save(picked);
+                PendingRoot = picked;
+                RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
+                RaiseRootChanged();
+                return;
+            }
+
+            _services.ReleaseInstanceLock();
+            var replaced = Core.Storage.StoreMover.Replace(source, picked);
+
+            if (!replaced.Succeeded)
+            {
+                System.Windows.MessageBox.Show(
+                    $"置き換えられませんでした。\n\n{replaced.Error}\n\n"
+                    + "保存先は元のままです。データは失われていません。"
+                    + (replaced.ParkedAt is null
+                        ? string.Empty
+                        : $"\n\n選んだ場所のデータは「{replaced.ParkedAt}」に退けたままです。"),
+                    "置き換えに失敗しました",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
                 return;
             }
 
             StoreLocation.Save(picked);
             PendingRoot = picked;
-            RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
+            RootNotice = $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。"
+                + $"元々あったものは「{replaced.ParkedAt}」に残してあります（中身を確かめてから消してください）。"
+                + "再起動すると新しい場所を使います。";
             RaiseRootChanged();
             return;
         }
@@ -561,6 +597,16 @@ public sealed class SettingsViewModel : ViewModelBase
         PendingRoot = picked;
         RaiseRootChanged();
     }
+
+    /// <summary>
+    /// ライブラリ2つを見比べてもらうための1行。
+    /// 件数だけでは「どちらが新しいか」は分からないので、最終更新も出す。
+    /// </summary>
+    private static string Describe(Core.Storage.StoreSummary summary)
+        => summary.Files == 0
+            ? "　（空）"
+            : $"　{summary.Files:N0} ファイル / {FormatSize(summary.Bytes)}"
+                + (summary.LastWrite is { } at ? $"　最終更新 {at:yyyy-MM-dd HH:mm}" : string.Empty);
 
     /// <summary>再起動して初めて効くので、そこまで案内する。</summary>
     public string? PendingRoot { get; private set; }

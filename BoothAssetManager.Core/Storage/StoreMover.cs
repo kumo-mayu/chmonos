@@ -17,6 +17,20 @@ public sealed record StoreMoveResult
 
     /// <summary>元の場所を消せたか。消せていなければ、そこに残っている。</summary>
     public bool SourceRemoved { get; init; }
+
+    /// <summary>置き換えたとき、元々あったライブラリを退けた場所。消していないので後から戻せる。</summary>
+    public string? ParkedAt { get; init; }
+}
+
+/// <summary>ライブラリの姿。どちらを残すか決めてもらうために出す。</summary>
+public sealed record StoreSummary
+{
+    public required int Files { get; init; }
+
+    public required long Bytes { get; init; }
+
+    /// <summary>いちばん新しいファイルの更新日時。中身が無ければ null。</summary>
+    public required DateTime? LastWrite { get; init; }
 }
 
 /// <summary>
@@ -35,13 +49,73 @@ public static class StoreMover
     /// <summary>運ぶ量を先に測る。確認のダイアログに出す。</summary>
     public static (int Files, long Bytes) Measure(string root)
     {
+        var summary = Summarize(root);
+        return (summary.Files, summary.Bytes);
+    }
+
+    /// <summary>
+    /// そのライブラリの姿。2つを見比べてもらうために使う。
+    ///
+    /// 件数だけでは「どちらが新しいか」は分からない。少ない方が新しいこともある
+    /// （消して作り直した直後など）ので、最終更新も一緒に出す。
+    /// </summary>
+    public static StoreSummary Summarize(string root)
+    {
         if (!Directory.Exists(root))
         {
-            return (0, 0);
+            return new StoreSummary { Files = 0, Bytes = 0, LastWrite = null };
         }
 
-        var files = Enumerate(root).ToList();
-        return (files.Count, files.Sum(file => new FileInfo(file).Length));
+        var files = Enumerate(root).Select(path => new FileInfo(path)).ToList();
+
+        return new StoreSummary
+        {
+            Files = files.Count,
+            Bytes = files.Sum(file => file.Length),
+            LastWrite = files.Count == 0 ? null : files.Max(file => file.LastWriteTime),
+        };
+    }
+
+    /// <summary>
+    /// 選んだ場所にあるライブラリを退けてから、今のデータを入れる。
+    ///
+    /// 消してからコピーすると、途中で失敗したときに両方失う。
+    /// 退避したものは消さずに残すので、入れ替えた後で中身を確かめてから捨てられる。
+    /// </summary>
+    public static StoreMoveResult Replace(
+        string source,
+        string destination,
+        IProgress<StoreMoveProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parked = Path.Combine(destination, $"_置き換え前-{DateTime.Now:yyyyMMdd-HHmmss}");
+
+        try
+        {
+            Directory.CreateDirectory(parked);
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(destination))
+            {
+                if (string.Equals(entry, parked, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                Directory.Move(entry, Path.Combine(parked, Path.GetFileName(entry)));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return new StoreMoveResult
+            {
+                Succeeded = false,
+                Copied = 0,
+                Bytes = 0,
+                Error = $"選んだ場所のデータを退けられませんでした：{exception.Message}",
+            };
+        }
+
+        return Move(source, destination, progress, cancellationToken) with { ParkedAt = parked };
     }
 
     public static StoreMoveResult Move(
