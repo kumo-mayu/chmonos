@@ -161,6 +161,45 @@ public sealed class ImagePipeline
         return thumbnailUrl[..start] + IconSizeSegment + thumbnailUrl[(end + 1)..];
     }
 
+    /// <summary>
+    /// 1枚だけ落とす。取り込みの④（全商品の1枚目）で使う。
+    ///
+    /// <see cref="SyncAsync"/> と分けているのは、あちらが
+    /// 「渡された一覧に無いファイル＝BOOTHから消えた画像」を数えるため。
+    /// 1枚だけ渡すと、まだ落としていない残りが全部「消えた画像」になってしまう。
+    /// </summary>
+    /// <returns>手元にあるか（元から持っていた場合も true）。</returns>
+    public async Task<bool> SyncOneAsync(
+        string itemId,
+        BoothImage image,
+        CancellationToken cancellationToken = default)
+    {
+        var directory = _paths.ItemImagesDir(itemId);
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, FileNameFor(image.OriginalUrl));
+        if (File.Exists(path))
+        {
+            return true;
+        }
+
+        var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            await SaveAsWebpAsync(result.Value, path, cancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
+        {
+            return false;
+        }
+    }
+
     public async Task<ImageSyncResult> SyncAsync(
         string itemId,
         IReadOnlyList<BoothImage> images,

@@ -495,11 +495,18 @@ public sealed class ImportViewModel : ViewModelBase
 
         var progress = new Progress<ImportProgress>(report => RunOnUiThread(() =>
         {
+            // 何を待っているのかと、待たなくてよいことの両方が1行で分かるようにする。
+            // ④以降は「取得できたものから使える」が要点で、そこを書かないと
+            // 全部終わるまで待つものだと読まれてしまう
             PhaseText = report.Phase switch
             {
                 ImportPhase.Scanning => "1. ファイルを走査",
                 ImportPhase.Resolving => "2. 商品IDを解決",
-                _ => "3. BOOTHから取得（1件ずつ間隔を空けています）",
+                ImportPhase.FetchingJson => "3. 商品の情報を取得",
+                ImportPhase.FetchingHtml => "4. 商品ページを取得",
+                ImportPhase.FetchingThumbnails => "5. サムネイルを取得（取得できたものから編集できます）",
+                ImportPhase.FetchingGallery => "6. ギャラリーを取得",
+                _ => "7. ショップのアイコンを取得",
             };
             Current = report.Current;
             Total = report.Total;

@@ -3,8 +3,12 @@ namespace BoothAssetManager.Core.Models;
 /// <summary>
 /// BOOTHから取得した情報。再取得時はこのブロックを丸ごと差し替える。
 /// ここにユーザ入力を混ぜてはいけない（混ぜると再取得で消える）。
+///
+/// <see cref="LocalBlock"/> と同じくレコードにしているのは、
+/// 取り込みの②で <see cref="H2Sections"/> だけを後から入れるため。
+/// 手でコピーを書くと、項目を足した時に写し忘れて情報が消える。
 /// </summary>
-public sealed class BoothBlock
+public sealed record BoothBlock
 {
     public required DateTimeOffset FetchedAt { get; init; }
 
