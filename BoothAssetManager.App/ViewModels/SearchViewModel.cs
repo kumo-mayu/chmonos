@@ -838,7 +838,7 @@ public sealed class SearchViewModel : ViewModelBase
             // UIスレッドに乗せると読み込みのたびに画面が固まる
             _haystacks = _allItems.ToDictionary(
                 item => item.Id,
-                Core.Services.SearchText.Build,
+                item => Core.Services.SearchText.Build(item, _services.KanjiReadings),
                 StringComparer.Ordinal);
 
             // 「更新の有無」は要確認の未読と同じものを指す。既読にすれば条件から外れる
@@ -1598,7 +1598,15 @@ public sealed class SearchViewModel : ViewModelBase
 
     private bool MatchesQuery(ItemRecord item)
         => !_haystacks.TryGetValue(item.Id, out var haystack)
-            || Core.Services.SearchQuery.Matches(_widenedNode ?? _queryNode, haystack, _searchBody, _searchPaths);
+            || Core.Services.SearchQuery.Matches(
+                _widenedNode ?? _queryNode,
+                haystack,
+                _searchBody,
+                _searchPaths,
+
+                // 読みは広げるときだけ見る。組み立てた「あり得る読み」には外れも混じるので、
+                // 普段の検索から当たると「なぜこれが出たのか」が説明できなくなる
+                includeReadings: _widenedNode is not null);
 
     /// <summary>
     /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。

@@ -18,6 +18,14 @@ public sealed record SearchHaystack
 
     /// <summary>「ファイルのパスも探す」で加わる範囲。</summary>
     public string Paths { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 商品名の読み。**表記をまたいで探すときだけ**加わる範囲。
+    ///
+    /// 常に見ないのは、漢字1字ごとの音訓から組み立てた「あり得る読み」で、
+    /// 外れも混じっているため。0件のときに広げる場面でだけ効かせる。
+    /// </summary>
+    public string Readings { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -79,21 +87,32 @@ public static class SearchQuery
         return node ?? new SearchNode.All();
     }
 
-    public static bool Matches(SearchNode node, SearchHaystack haystack, bool includeBody, bool includePaths)
+    public static bool Matches(
+        SearchNode node,
+        SearchHaystack haystack,
+        bool includeBody,
+        bool includePaths,
+        bool includeReadings = false)
         => node switch
         {
             SearchNode.All => true,
-            SearchNode.Term term => Contains(term.Text, haystack, includeBody, includePaths),
-            SearchNode.Not not => !Matches(not.Inner, haystack, includeBody, includePaths),
-            SearchNode.And and => and.Parts.All(part => Matches(part, haystack, includeBody, includePaths)),
-            SearchNode.Or or => or.Parts.Any(part => Matches(part, haystack, includeBody, includePaths)),
+            SearchNode.Term term => Contains(term.Text, haystack, includeBody, includePaths, includeReadings),
+            SearchNode.Not not => !Matches(not.Inner, haystack, includeBody, includePaths, includeReadings),
+            SearchNode.And and => and.Parts.All(part => Matches(part, haystack, includeBody, includePaths, includeReadings)),
+            SearchNode.Or or => or.Parts.Any(part => Matches(part, haystack, includeBody, includePaths, includeReadings)),
             _ => true,
         };
 
-    private static bool Contains(string term, SearchHaystack haystack, bool includeBody, bool includePaths)
+    private static bool Contains(
+        string term,
+        SearchHaystack haystack,
+        bool includeBody,
+        bool includePaths,
+        bool includeReadings)
         => haystack.Primary.Contains(term, StringComparison.Ordinal)
             || (includeBody && haystack.Body.Contains(term, StringComparison.Ordinal))
-            || (includePaths && haystack.Paths.Contains(term, StringComparison.Ordinal));
+            || (includePaths && haystack.Paths.Contains(term, StringComparison.Ordinal))
+            || (includeReadings && haystack.Readings.Contains(term, StringComparison.Ordinal));
 
     // --- 字句 ---
 

@@ -96,11 +96,17 @@ public static class RomajiReading
             }
 
             // 母音が続く場合は「な行」と「ん＋母音」の両方があり得る。
-            // shinon → しのん / しんおん。後者でしか引けない語があるので両方進める
-            var branch = kana.Length;
-            kana.Append('ん');
-            Walk(source, index + 1, kana, results);
-            kana.Length = branch;
+            // shinon → しのん / しんおん。後者でしか引けない語があるので両方進める。
+            //
+            // ただし**語頭では枝を作らない**。日本語の語は「ん」で始まらないので、
+            // nadeoto から「んあでおと」のような読みが出るだけになる
+            if (index > 0)
+            {
+                var branch = kana.Length;
+                kana.Append('ん');
+                Walk(source, index + 1, kana, results);
+                kana.Length = branch;
+            }
         }
 
         foreach (var (romaji, kanaText) in Table)

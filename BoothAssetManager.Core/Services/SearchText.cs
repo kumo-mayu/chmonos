@@ -17,7 +17,10 @@ public static class SearchText
     /// 本文とパスを既定から外しているのは、当たりすぎて
     /// 「なぜこれが出たのか」が分からなくなるため。必要なときだけトグルで広げる。
     /// </summary>
-    public static SearchHaystack Build(ItemRecord item)
+    /// <param name="readings">
+    /// 商品名の読みを作るもの。渡さなければ読みの欄は空になる（表記をまたぐ検索が効かないだけ）。
+    /// </param>
+    public static SearchHaystack Build(ItemRecord item, Search.KanjiReadings? readings = null)
     {
         var primary = new StringBuilder();
         Append(primary, item.Booth.Name);
@@ -48,11 +51,22 @@ public static class SearchText
             }
         }
 
+        // 商品名の読み。辞書に載っていない造語（撫で音）はここでしか作れない
+        var reading = new StringBuilder();
+        if (readings is not null && item.Booth.Name is { Length: > 0 } name)
+        {
+            foreach (var text in readings.Of(name))
+            {
+                Append(reading, text);
+            }
+        }
+
         return new SearchHaystack
         {
             Primary = SearchQuery.Normalize(primary.ToString()),
             Body = SearchQuery.Normalize(body.ToString()),
             Paths = SearchQuery.Normalize(paths.ToString()),
+            Readings = SearchQuery.Normalize(reading.ToString()),
         };
     }
 

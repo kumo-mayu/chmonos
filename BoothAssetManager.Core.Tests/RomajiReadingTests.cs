@@ -33,6 +33,19 @@ public class RomajiReadingTests
         Assert.Contains("しんおん", readings);
     }
 
+    /// <summary>
+    /// 語頭では「ん」の枝を作らない。日本語の語は「ん」で始まらないので、
+    /// nadeoto から「んあでおと」のような読みが出るだけになる。
+    /// </summary>
+    [Fact]
+    public void DoesNotStartAWordWithN()
+    {
+        var readings = RomajiReading.Readings("nadeoto");
+
+        Assert.Contains("なでおと", readings);
+        Assert.DoesNotContain(readings, r => r.StartsWith("ん", StringComparison.Ordinal));
+    }
+
     /// <summary>子音が2つ続けば促音。ん だけは撥音なので別扱い。</summary>
     [Fact]
     public void ReadsDoubledConsonantsAsSmallTsu()

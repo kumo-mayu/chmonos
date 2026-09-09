@@ -47,6 +47,10 @@ public sealed class AppServiceContainer : IDisposable
         Bridge = new SearchBridge(new JapaneseDictionary(
             Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
             Paths.SearchBridgeCacheFile));
+
+        // 辞書に載っていない造語の読みは、漢字1字ごとの音訓から組み立てる
+        KanjiReadings = new KanjiReadings(
+            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
         Due = new DueRefresh(Store, Items);
         Resolver = new FallbackResolver(Client);
         Edit = new EditService(Store);
@@ -110,6 +114,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>打った語から同じものの別表記を作る。通信はしない（同梱の辞書だけ）。</summary>
     public SearchBridge Bridge { get; }
+
+    /// <summary>商品名の読みを組み立てる。造語の複合語はここでしか読めない。</summary>
+    public KanjiReadings KanjiReadings { get; }
 
     /// <summary>⑦ 期限の来た商品を取り直す。梯子のいちばん下。</summary>
     public DueRefresh Due { get; }

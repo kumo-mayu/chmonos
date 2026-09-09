@@ -16,6 +16,14 @@ JMdict (assets/JMdict_e.gz)
   加工した辞書を配らないので、継承条項に触れる配布物は存在しない。
   出典はアプリの設定画面にも出している（ライセンスの求めによる）。
 
+KANJIDIC2 (assets/kanjidic2.xml.gz)
+  Electronic Dictionary Research and Development Group
+  Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)
+  https://www.edrdg.org/edrdg/licence.html
+
+  こちらも無改変で同梱している。漢字1字ごとの音訓から商品名の読みを組み立て、
+  辞書に載っていない造語（「撫で音」など）を引けるようにするために使う。
+
 
 ---- 使っているライブラリ ----
 
