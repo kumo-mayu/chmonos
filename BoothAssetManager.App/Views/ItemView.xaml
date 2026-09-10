@@ -53,26 +53,59 @@
                                 -->
                                 <Grid.Resources>
                                     <Style x:Key="GalleryArrow" TargetType="Button">
-                                        <Setter Property="Width" Value="34" />
-                                        <Setter Property="Height" Value="52" />
-                                        <Setter Property="FontSize" Value="20" />
-                                        <Setter Property="Padding" Value="0" />
+                                        <!--
+                                            **見えている面がそのまま押せる。**
+                                            出る範囲と押せる範囲がずれていると、見えているのに
+                                            外して絵を押すことになる。帯そのものをボタンにする。
+
+                                            **テンプレートごと置き換える。**暗黙の Button スタイルは
+                                            独自のホバー色（水色）を持っていて、Background を
+                                            上書きしても効かない。カウンタまで塗り潰されてしまう。
+                                        -->
+                                        <Setter Property="Width" Value="90" />
+                                        <Setter Property="FontSize" Value="26" />
                                         <Setter Property="Foreground" Value="White" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                        <Setter Property="Background" Value="#40000000" />
-                                        <Setter Property="VerticalAlignment" Value="Center" />
-                                        <Setter Property="Opacity" Value="0" />
+                                        <Setter Property="VerticalAlignment" Value="Stretch" />
                                         <Setter Property="Cursor" Value="Hand" />
-                                        <Style.Triggers>
-                                            <!-- 矢印の近くにマウスが来たら現れる。絵の真ん中では出さない -->
-                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
-                                                <Setter Property="Opacity" Value="0.85" />
-                                            </DataTrigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Opacity" Value="1" />
-                                                <Setter Property="Background" Value="#66000000" />
-                                            </Trigger>
-                                        </Style.Triggers>
+
+                                        <!--
+                                            右クリックのメニューは絵に付いている。ボタンが絵の左右を
+                                            覆うので、繋いでおかないとその範囲だけメニューが出なくなる
+                                        -->
+                                        <Setter Property="ContextMenu"
+                                                Value="{Binding ContextMenu, RelativeSource={RelativeSource AncestorType=Grid}}" />
+
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <!-- 普段は透明。乗ったときだけ薄く敷いて矢印を出す -->
+                                                    <Border x:Name="Face" Background="Transparent">
+                                                        <TextBlock x:Name="Glyph"
+                                                                   Text="{TemplateBinding Content}"
+                                                                   Foreground="{TemplateBinding Foreground}"
+                                                                   FontSize="{TemplateBinding FontSize}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Opacity="0">
+                                                            <!--
+                                                                帯を濃くすれば白い字は読めるが、絵まで沈む。
+                                                                字にだけ影を付ければ、明るい絵でも輪郭が残る
+                                                            -->
+                                                            <TextBlock.Effect>
+                                                                <DropShadowEffect Color="Black" BlurRadius="6"
+                                                                                  ShadowDepth="0" Opacity="0.7" />
+                                                            </TextBlock.Effect>
+                                                        </TextBlock>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Face" Property="Background" Value="#2b000000" />
+                                                            <Setter TargetName="Glyph" Property="Opacity" Value="1" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
                                     </Style>
                                 </Grid.Resources>
 
@@ -122,21 +155,17 @@
                                     透明な Border で包んで**近くの当たり判定**にしている。
                                     絵の真ん中にマウスがあるだけで出すと、絵を見ているときに邪魔になる。
                                 -->
-                                <Border Width="90" HorizontalAlignment="Left" Background="Transparent"
-                                        Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <Button Content="‹" Command="{Binding PreviousImageCommand}"
-                                            Style="{StaticResource GalleryArrow}"
-                                            HorizontalAlignment="Left" Margin="8,0,0,0"
-                                            ToolTip="前の画像（←）" />
-                                </Border>
+                                <Button Content="‹" Command="{Binding PreviousImageCommand}"
+                                        Style="{StaticResource GalleryArrow}"
+                                        HorizontalAlignment="Left"
+                                        Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        ToolTip="前の画像（←）" />
 
-                                <Border Width="90" HorizontalAlignment="Right" Background="Transparent"
-                                        Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <Button Content="›" Command="{Binding NextImageCommand}"
-                                            Style="{StaticResource GalleryArrow}"
-                                            HorizontalAlignment="Right" Margin="0,0,8,0"
-                                            ToolTip="次の画像（→）" />
-                                </Border>
+                                <Button Content="›" Command="{Binding NextImageCommand}"
+                                        Style="{StaticResource GalleryArrow}"
+                                        HorizontalAlignment="Right"
+                                        Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        ToolTip="次の画像（→）" />
                             </Grid>
 
                             <ItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">
