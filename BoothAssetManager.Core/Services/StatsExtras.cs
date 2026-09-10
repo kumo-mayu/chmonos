@@ -66,6 +66,8 @@ public static class StatsExtras
             EndOfSaleCount = owned.Count(item => item.Booth.IsEndOfSale),
             SoldOutCount = owned.Count(item => item.Booth.IsSoldOut && !item.Booth.IsEndOfSale),
             EndOfSaleSpentYen = owned.Where(item => item.Booth.IsEndOfSale).Sum(item => (long)SpentOf(item)),
+            LocalOnlyCount = owned.Count(item => item.IsLocalOnly),
+            LocalOnlySpentYen = owned.Where(item => item.IsLocalOnly).Sum(item => (long)SpentOf(item)),
             WishBuckets = Buckets(
                 owned.Select(item => item.Booth.WishListsCount).Where(count => count > 0), WishEdges, string.Empty),
         };

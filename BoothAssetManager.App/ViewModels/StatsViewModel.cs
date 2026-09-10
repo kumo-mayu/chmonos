@@ -488,6 +488,7 @@ public sealed class StatsViewModel : ViewModelBase
             nameof(HasPriceChanges), nameof(HasAttributeDistributions), nameof(HasCorrelations),
             nameof(HasWearables), nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
             nameof(RepeatText), nameof(EndOfSaleText), nameof(UnsortedText), nameof(HiddenText),
+            nameof(HasLocalOnly), nameof(LocalOnlyText),
             nameof(UserTagSpendNote),
         })
         {
@@ -555,6 +556,18 @@ public sealed class StatsViewModel : ViewModelBase
     public string EndOfSaleText => _snapshot is null
         ? string.Empty
         : $"販売終了 {_snapshot.EndOfSaleCount} 件（¥{_snapshot.EndOfSaleSpentYen:N0}）／売り切れ {_snapshot.SoldOutCount} 件";
+
+    /// <summary>
+    /// BOOTHに無い商品として登録したもの。0件なら行ごと出さない。
+    ///
+    /// 販売終了と別の行にするのは金額の意味が違うため——
+    /// あちらはBOOTHの価格を観測できていた商品で、こちらは自分で入れた額しかない。
+    /// </summary>
+    public bool HasLocalOnly => _snapshot is { LocalOnlyCount: > 0 };
+
+    public string LocalOnlyText => _snapshot is null
+        ? string.Empty
+        : $"{_snapshot.LocalOnlyCount} 件（自分で入れた額 ¥{_snapshot.LocalOnlySpentYen:N0}）";
 
     public string UnsortedText => _snapshot is null ? string.Empty : $"{_snapshot.UnsortedOwnedCount} 件";
 

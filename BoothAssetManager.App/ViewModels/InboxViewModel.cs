@@ -299,6 +299,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanVariationLink => "消えたバリエーション",
         NotificationKind.PageStructureChanged => "BOOTHの構造変化",
         NotificationKind.ArchiveFoundForFolder => "zipが手元に入った",
+        NotificationKind.ItemBackOnBooth => "BOOTHに戻ってきた",
         _ => "その他",
     };
 
@@ -311,6 +312,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanVariationLink => "紐付けていたバリエーションがBOOTH側から消えました。",
         NotificationKind.PageStructureChanged => "説明文の読み取りが効かなくなっている可能性があります。",
         NotificationKind.ArchiveFoundForFolder => "フォルダ登録が役目を終えています。解除しないと容量が二重に数えられます。",
+        NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         _ => string.Empty,
     };
 }

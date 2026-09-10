@@ -23,6 +23,9 @@ public enum NotificationKind
 
     /// <summary>フォルダとして登録した商品のzipが手元に入った。登録を解除できる。</summary>
     ArchiveFoundForFolder,
+
+    /// <summary>非公開と見なしていた商品がBOOTHに戻ってきた。</summary>
+    ItemBackOnBooth,
 }
 
 /// <summary>

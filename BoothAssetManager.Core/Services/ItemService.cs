@@ -172,6 +172,7 @@ public sealed class ItemService : IItemService
         // 作者がたまたま商品ページを非公開にしていただけ、という場合はこれで復活する。
         _images.ClearMissingMarkers(itemId);
 
+        await NoteBackOnBoothAsync(existing, booth, cancellationToken);
         await NoteChangesAsync(existing, booth, cancellationToken);
 
         // **画像はここで落とさない。**梯子の規則をここだけ破らないため。
@@ -214,6 +215,50 @@ public sealed class ItemService : IItemService
             Title = $"{booth.Name ?? existing.Id}：商品ページが変わりました",
             Detail = BoothChanges.Summarize(diffs),
             Diffs = diffs,
+            CreatedAt = DateTimeOffset.Now,
+        });
+
+        await _store.Notifications.SaveAsync(notifications, cancellationToken);
+    }
+
+    /// <summary>
+    /// 非公開と見なしていた商品が戻ってきたことを要確認に出す。
+    ///
+    /// 黙って埋めると、画像が急に増え、価格が入り、印が消える。
+    /// 説明が無いと「壊れた」と読まれる。
+    ///
+    /// **名前を切り替えるかは聞かない。**自分で付けた名前を優先すると決めてあるので、
+    /// そこを毎回問い直す理由がない（編集画面で変えられることだけ言う）。
+    /// 「知らせる」を切っている商品にも出す——これは更新の知らせではなく、
+    /// **こちらが「もう無い」と判断していたのが誤りだったという訂正**だから。
+    /// </summary>
+    private async Task NoteBackOnBoothAsync(
+        ItemRecord existing,
+        BoothBlock booth,
+        CancellationToken cancellationToken)
+    {
+        if (!existing.Local.IsDelisted)
+        {
+            return;
+        }
+
+        var notifications = _store.Notifications.Load();
+
+        var id = $"item-back:{existing.Id}";
+        notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
+
+        var name = existing.Local.DisplayName;
+        var detail = name is { Length: > 0 }
+            ? $"「販売終了」の印を外しました。名前は自分で付けた「{name}」のままです（編集画面で変えられます）。"
+            : "「販売終了」の印を外しました。";
+
+        notifications.Add(new NotificationRecord
+        {
+            Id = id,
+            Kind = NotificationKind.ItemBackOnBooth,
+            ItemId = existing.Id,
+            Title = $"{name ?? booth.Name ?? existing.Id}：BOOTHに現れました",
+            Detail = detail,
             CreatedAt = DateTimeOffset.Now,
         });
 

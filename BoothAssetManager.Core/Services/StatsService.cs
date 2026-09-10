@@ -271,6 +271,17 @@ public sealed record StatsSnapshot
 
     public long EndOfSaleSpentYen { get; init; }
 
+    /// <summary>
+    /// BOOTHに無い商品として登録したものの点数と、それに払った額。
+    ///
+    /// **販売終了と同じ行に混ぜない。**販売終了は「BOOTHの価格が観測できていた商品」で、
+    /// こちらは「ユーザが入れた額しかない商品」——金額の意味が違う。
+    /// 「集計できない分は別枠に出す」がそのまま当てはまる。
+    /// </summary>
+    public int LocalOnlyCount { get; init; }
+
+    public long LocalOnlySpentYen { get; init; }
+
     /// <summary>スキ数の分布。人気商品を買うか、ニッチを掘るか。</summary>
     public IReadOnlyList<StatsBucket> WishBuckets { get; init; } = [];
 }
