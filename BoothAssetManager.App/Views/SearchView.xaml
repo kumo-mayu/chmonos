@@ -545,6 +545,13 @@
                             <CheckBox Content="ファイルのパスも探す" IsChecked="{Binding SearchPaths, Mode=TwoWay}" FontSize="11"
                                       VerticalAlignment="Center" Margin="14,0,0,0"
                                       ToolTip="自分でリネームしたファイルは商品名と一致しないので、そのときに使います。" />
+                            <!--
+                                0件のときは切っていても自動で広げる。ここを入にすると、
+                                当たっているときも一緒に広げる。
+                            -->
+                            <CheckBox Content="別の表記も探す" IsChecked="{Binding SearchAlternates, Mode=TwoWay}" FontSize="11"
+                                      VerticalAlignment="Center" Margin="14,0,0,0"
+                                      ToolTip="tori で「鳥」、shark で「サメ」のように、読みや英語からも探します。&#10;0件のときは、ここを切っていても自動で探します。" />
                         </StackPanel>
                     </Grid>
                 </StackPanel>

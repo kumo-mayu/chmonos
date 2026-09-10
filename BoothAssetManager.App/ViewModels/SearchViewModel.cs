@@ -41,6 +41,7 @@ public sealed class SearchViewModel : ViewModelBase
     private Core.Services.SearchNode _queryNode = new Core.Services.SearchNode.All();
     private bool _searchBody;
     private bool _searchPaths;
+    private bool _searchAlternates;
     private string? _selectedCategory;
     private bool _ownedOnly;
     private bool _missingOnly;
@@ -734,6 +735,27 @@ public sealed class SearchViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 別の表記でも探すか。
+    ///
+    /// 切っていても**0件のときは自動で広げる**（何も出ないより出た方がよく、
+    /// 広げたことは結果の上に出るので誤解も生まない）。
+    /// 入にすると、当たっているときも一緒に広げる——
+    /// 「tori」で当たった商品があっても『鳥』の商品を見たい場面があるため。
+    /// </summary>
+    public bool SearchAlternates
+    {
+        get => _searchAlternates;
+        set
+        {
+            if (SetField(ref _searchAlternates, value))
+            {
+                ClearWidening();
+                ApplyFilters();
+            }
+        }
+    }
+
     /// <summary>説明文とh2セクションも探すか。</summary>
     public bool SearchBody
     {
@@ -1164,10 +1186,10 @@ public sealed class SearchViewModel : ViewModelBase
             .Select(item => _cards[item.Id])
             .ToList();
 
-        // 0件のときだけ表記をまたいで探し直す。
-        // **当たっている検索は広げない**——結果が増えると「なぜこれが出たか」が読めなくなる。
-        // 広げるのは0件のときだけなので、悪くなりようが無い（0件が0件のままか、増えるか）
-        if (_matches.Count == 0)
+        // 0件のときは自動で広げる。悪くなりようが無い（0件のままか、増えるか）。
+        // 「別の表記も探す」を入れているときは、当たっていても広げる——
+        // 0件のときしか使えないのはこちらの都合で、ユーザの都合ではない
+        if (_matches.Count == 0 || _searchAlternates)
         {
             TryWiden();
         }
@@ -1221,8 +1243,9 @@ public sealed class SearchViewModel : ViewModelBase
 
             RunOnUiThread(() =>
             {
-                // 待っている間に打ち直されていたら捨てる
-                if (token != _widenToken || _matches.Count > 0)
+                // 待っている間に打ち直されていたら捨てる。
+                // 当たっている検索を広げるのは、トグルを入れているときだけ
+                if (token != _widenToken || (_matches.Count > 0 && !_searchAlternates))
                 {
                     return;
                 }

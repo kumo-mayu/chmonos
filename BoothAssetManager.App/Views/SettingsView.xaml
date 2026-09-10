@@ -162,7 +162,7 @@
                     <StackPanel>
                         <TextBlock Text="表記をまたぐ検索" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="検索が0件だったときだけ、打った語の別表記でもう一度探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。通信はしません。何で当たったかは結果の上に出ます。" />
+                                   Text="打った語の別表記でも探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に出ます。" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
