@@ -245,6 +245,145 @@
                         </StackPanel>
                     </Border>
 
+                    <!--
+                        Unityプロジェクト
+
+                        **改変1つにプロジェクトは0個か1個。**1つのプロジェクトで
+                        着替えを作り分けることがあるので、逆は多対1になる
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
+                        <StackPanel>
+                            <TextBlock Text="Unityプロジェクト" Style="{StaticResource SectionLabel}"
+                                       Margin="0,0,0,8" />
+
+                            <TextBlock Text="{Binding ProjectEmptyText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding HasProject, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                            <StackPanel Visibility="{Binding HasProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding ProjectName}" FontSize="13" FontWeight="Bold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding ProjectPath}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,2,0,0" MaxWidth="380"
+                                           HorizontalAlignment="Left" />
+
+                                <!-- 消えていても黙って外さない。指し直す導線を残す -->
+                                <Border Background="{StaticResource WarnSoft}"
+                                        BorderBrush="{StaticResource WarnBorder}"
+                                        BorderThickness="1" CornerRadius="4" Padding="8,5"
+                                        Margin="0,8,0,0" HorizontalAlignment="Left"
+                                        Visibility="{Binding ProjectMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="このフォルダが見つかりません。移したのなら下から指し直せます。"
+                                               FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Warn}" />
+                                </Border>
+
+                                <WrapPanel Margin="0,10,0,0">
+                                    <Button Content="Unityで開く" Style="{StaticResource SmallButton}"
+                                            Command="{Binding OpenProjectCommand}"
+                                            ToolTip="既に開いていれば、そのUnityを手前に出します。" />
+                                    <Button Content="フォルダを見る" Style="{StaticResource SmallButton}"
+                                            Margin="6,0,0,0" Command="{Binding OpenProjectFolderCommand}" />
+                                    <Button Content="紐付けを外す" Style="{StaticResource SmallButton}"
+                                            Margin="6,0,0,0" Command="{Binding UnlinkProjectCommand}"
+                                            ToolTip="改変の記録は残ります。付け直せます。" />
+                                </WrapPanel>
+                            </StackPanel>
+
+                            <Border Height="1" Background="{StaticResource Border}" Margin="0,14,0,12" />
+
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="紐付ける先" Style="{StaticResource SectionLabel}"
+                                           VerticalAlignment="Center" />
+                                <Button Content="読み直す" Style="{StaticResource SmallButton}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding RefreshProjectsCommand}"
+                                        ToolTip="Unity HubとVRChat Creator Companionの一覧を見ます。" />
+                            </Grid>
+
+                            <TextBlock Text="{Binding ProjectCandidatesEmptyText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding HasProjectCandidates, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                            <!-- 開いているものが先に来る。紐付けたいのは大抵いま作業しているもの -->
+                            <ItemsControl ItemsSource="{Binding ProjectCandidates}" MaxHeight="260"
+                                          Visibility="{Binding HasProjectCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.Template>
+                                    <ControlTemplate TargetType="ItemsControl">
+                                        <!-- 右を空けるのは、行の右端が縦のスクロールバーに隠れないため -->
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </ControlTemplate>
+                                </ItemsControl.Template>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:UnityProjectRowViewModel}">
+                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!--
+                                                            **名前とパスに上限を置く。**横に送れる作りなので、
+                                                            長いパスをそのまま測ると右の列が窓より広くなり、
+                                                            横スクロールが常に出てしまう
+                                                        -->
+                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12.5"
+                                                                   VerticalAlignment="Center" MaxWidth="240"
+                                                                   HorizontalAlignment="Left"
+                                                                   TextTrimming="CharacterEllipsis" />
+
+                                                        <Border Grid.Column="1" Background="{StaticResource AccentSoft}"
+                                                                CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                                Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <TextBlock Text="開いています" FontSize="10"
+                                                                       Foreground="#4a5160" />
+                                                        </Border>
+
+                                                        <Border Grid.Column="2" Background="{StaticResource WarnSoft}"
+                                                                BorderBrush="{StaticResource WarnBorder}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1"
+                                                                Margin="8,0,0,0"
+                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <TextBlock Text="見つかりません" FontSize="10"
+                                                                       Foreground="{StaticResource Warn}" />
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                               Margin="0,2,0,0" MaxWidth="300"
+                                                               HorizontalAlignment="Left"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+
+                                                <!-- 今の紐付け先は押させない。同じ操作を2度出す意味が無い -->
+                                                <Button Grid.Column="1" Content="紐付ける" Style="{StaticResource SmallButton}"
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.LinkProjectCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Visibility="{Binding IsCurrent, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                <TextBlock Grid.Column="1" Text="紐付け中" Style="{StaticResource Caption}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                           Visibility="{Binding IsCurrent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <StackPanel>
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />

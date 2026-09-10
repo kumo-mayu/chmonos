@@ -368,8 +368,9 @@ public sealed class ModificationService : IModificationService
     /// Windowsのパスは大文字小文字を区別せず、末尾の区切りも揺れる。
     /// 素の文字列比較だと、同じプロジェクトを別物と見て取り逃す。
     /// </summary>
-    private static bool SamePath(string a, string b)
-        => string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+    public static bool SamePath(string? a, string? b)
+        => a is not null && b is not null
+        && string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 1件を読んで、書き換えて、書き戻す。

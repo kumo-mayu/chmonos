@@ -4,6 +4,7 @@ using System.Windows.Media.Imaging;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
 
@@ -76,6 +77,32 @@ public sealed class ModificationImageViewModel
     public bool CanMoveForward => Index < Total - 1;
 }
 
+/// <summary>紐付けの候補に出すUnityプロジェクト1件。</summary>
+public sealed class UnityProjectRowViewModel
+{
+    public required UnityProjectCandidate Candidate { get; init; }
+
+    public string Name => Candidate.Name;
+
+    /// <summary>置き場所とバージョン。同名のプロジェクトを見分けるために出す。</summary>
+    public string Detail
+    {
+        get
+        {
+            var version = Candidate.Version ?? "バージョンが読めません";
+            return Candidate.Folder.Length > 0 ? $"{version}　{Candidate.Folder}" : version;
+        }
+    }
+
+    /// <summary>いま開いているものは目印を付ける。紐付けたいのは大抵これ。</summary>
+    public bool IsOpen => Candidate.IsOpen;
+
+    public bool IsMissing => !Candidate.Exists;
+
+    /// <summary>これが今の紐付け先か。二重に押させないために出す。</summary>
+    public required bool IsCurrent { get; init; }
+}
+
 /// <summary>
 /// 改変の詳細。
 ///
@@ -134,6 +161,14 @@ public sealed class ModificationViewModel : ViewModelBase
             parameter => _ = OpenItemAsync(parameter as ModificationMemberRowViewModel),
             parameter => parameter is ModificationMemberRowViewModel);
         AddMemberCommand = new RelayCommand(parameter => _ = AddMemberAsync(parameter as string));
+        OpenProjectCommand = new RelayCommand(() => OpenProject(), () => HasProject);
+        LinkProjectCommand = new RelayCommand(
+            parameter => _ = LinkProjectAsync(parameter as UnityProjectRowViewModel),
+            parameter => parameter is UnityProjectRowViewModel);
+        UnlinkProjectCommand = new RelayCommand(() => _ = LinkProjectAsync(null), () => HasProject);
+        RefreshProjectsCommand = new RelayCommand(() => _ = LoadProjectsAsync());
+        OpenProjectFolderCommand = new RelayCommand(
+            () => Shell.Reveal(Record.UnityProject), () => HasProject);
 
         _ = ReloadAsync();
     }
@@ -165,6 +200,16 @@ public sealed class ModificationViewModel : ViewModelBase
     public RelayCommand OpenItemCommand { get; }
 
     public RelayCommand AddMemberCommand { get; }
+
+    public RelayCommand OpenProjectCommand { get; }
+
+    public RelayCommand LinkProjectCommand { get; }
+
+    public RelayCommand UnlinkProjectCommand { get; }
+
+    public RelayCommand RefreshProjectsCommand { get; }
+
+    public RelayCommand OpenProjectFolderCommand { get; }
 
     /// <summary>使ったもの。**並びが導入の順。**</summary>
     public ObservableCollection<ModificationMemberRowViewModel> Members { get; } = [];
@@ -232,6 +277,38 @@ public sealed class ModificationViewModel : ViewModelBase
     }
 
     public bool MemoChanged => MemoInput != (Record.Memo ?? string.Empty);
+
+    // ---- Unityプロジェクト ----
+
+    /// <summary>紐付けの候補。開いているものが先に来る。</summary>
+    public ObservableCollection<UnityProjectRowViewModel> ProjectCandidates { get; } = [];
+
+    public bool HasProject => Record.HasUnityProject;
+
+    /// <summary>紐付けたプロジェクトの名前。フォルダ名で出す（パスは長すぎる）。</summary>
+    public string ProjectName => Record.UnityProject is { } path
+        ? Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        : string.Empty;
+
+    public string ProjectPath => Record.UnityProject ?? string.Empty;
+
+    /// <summary>
+    /// 紐付けたものが消えていないか。
+    ///
+    /// **黙って外さない。**消したのか移しただけなのかはユーザにしか分からないので、
+    /// 出すだけにして指し直す導線を残す。
+    /// </summary>
+    public bool ProjectMissing => HasProject && !Directory.Exists(Record.UnityProject!);
+
+    public string ProjectEmptyText =>
+        "Unityプロジェクトを紐付けると、ここから開けます。作業中のプロジェクトがあれば下に出ます。";
+
+    /// <summary>候補が1つも無いときに出す文。</summary>
+    public string ProjectCandidatesEmptyText =>
+        "Unity HubとVRChat Creator Companionの一覧を見ましたが、プロジェクトが見つかりませんでした。"
+        + "一度Unityで開いたプロジェクトなら出ます。";
+
+    public bool HasProjectCandidates => ProjectCandidates.Count > 0;
 
     // ---- 状態表示 ----
 
@@ -310,17 +387,80 @@ public sealed class ModificationViewModel : ViewModelBase
         }
 
         await LoadSuggestionsAsync();
+        await LoadProjectsAsync();
 
         foreach (var name in new[]
         {
             nameof(Record), nameof(AvatarText), nameof(HasMembers), nameof(HasImages),
             nameof(CreatedText), nameof(UpdatedText), nameof(NameChanged), nameof(MemoChanged),
+            nameof(HasProject), nameof(ProjectName), nameof(ProjectPath), nameof(ProjectMissing),
+            nameof(HasProjectCandidates),
         })
         {
             OnPropertyChanged(name);
         }
 
         RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 紐付けの候補を読み直す。
+    ///
+    /// **押されたときと開いたときに読む。**一覧は他のアプリが書くもので、
+    /// こちらが持っていても古くなる（Unityを開いたら開いている印も変わる）。
+    /// </summary>
+    private async Task LoadProjectsAsync()
+    {
+        var found = await Task.Run(() => UnityProjects.Discover());
+
+        ProjectCandidates.Clear();
+        foreach (var candidate in found)
+        {
+            ProjectCandidates.Add(new UnityProjectRowViewModel
+            {
+                Candidate = candidate,
+                IsCurrent = ModificationService.SamePath(candidate.Path, Record.UnityProject),
+            });
+        }
+
+        // 紐付けたものが一覧に無いことがある（HubにもVCCにも載っていない）。
+        // そのときも「今どこを指しているか」は画面に出るので、候補には足さない
+        OnPropertyChanged(nameof(HasProjectCandidates));
+    }
+
+    /// <summary>紐付けを差し替える。null を渡すと外す。</summary>
+    private async Task LinkProjectAsync(UnityProjectRowViewModel? row)
+    {
+        await _services.Commands.ExecuteAsync(
+            new UiCommand.SetModificationProject(Record.Id, row?.Candidate.Path));
+
+        Status = row is null
+            ? "Unityプロジェクトの紐付けを外しました。"
+            : $"「{row.Name}」を紐付けました。";
+
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 紐付けたプロジェクトを開く。
+    ///
+    /// **3通りに言い分ける。**開いていたら手前に出るだけなので、
+    /// 何も起きなかったように見えないように結果を出す。
+    /// </summary>
+    private void OpenProject()
+    {
+        var name = ProjectName;
+
+        Status = UnityLaunch.OpenProject(Record.UnityProject) switch
+        {
+            UnityOpenResult.BroughtToFront => $"「{name}」は既に開いています。そのUnityを手前に出しました。",
+            UnityOpenResult.Launched => $"「{name}」をUnityで開いています。少し時間がかかります。",
+            UnityOpenResult.HandedToHub =>
+                $"このプロジェクトのUnityが手元に無いので、Unity Hubに渡しました。Hubが入れるか聞いてくれます。",
+            UnityOpenResult.Missing =>
+                $"「{name}」が見つかりません。移したのなら、下の一覧から指し直せます。",
+            _ => "Unityを開けませんでした。Unity Hubから開いてみてください。",
+        };
     }
 
     /// <summary>記録に残した種類の番号を、人が読める名前に直す。</summary>
