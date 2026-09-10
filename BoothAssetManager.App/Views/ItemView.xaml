@@ -86,11 +86,13 @@
 
                                 <!-- 見る絵を送る。並べ替えではない（そちらは右クリック） -->
                                 <Button Content="‹" Command="{Binding PreviousImageCommand}"
+                                        Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                         HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0"
                                         Width="34" Height="52" FontSize="20" Padding="0"
                                         Background="#66000000" Foreground="White" BorderThickness="0"
                                         ToolTip="前の画像" />
                                 <Button Content="›" Command="{Binding NextImageCommand}"
+                                        Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                                         Width="34" Height="52" FontSize="20" Padding="0"
                                         Background="#66000000" Foreground="White" BorderThickness="0"
@@ -149,11 +151,17 @@
                                                                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
                                                     </Border>
 
-                                                    <!-- 自分で足した分。観測と入力を隠さない -->
-                                                    <Border Background="#662f7d5a"
+                                                    <!--
+                                                        自分で足した分。**絵にはかぶせない。**
+                                                        「削除済」の全面かぶせは「もう無い」を表すもので、
+                                                        自分の絵は劣化していないので同じ見せ方にはできない。
+                                                        下端の細い帯だけにする。
+                                                    -->
+                                                    <Border Background="#cc2f7d5a" Height="13"
+                                                            VerticalAlignment="Bottom"
                                                             Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="自分" Foreground="White" FontSize="9"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                                        <TextBlock Text="自分" Foreground="White" FontSize="8.5"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                     </Border>
 
                                                     <!-- サムネイルに指名した1枚 -->

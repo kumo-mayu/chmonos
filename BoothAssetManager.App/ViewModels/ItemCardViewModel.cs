@@ -175,7 +175,13 @@ public sealed class ItemCardViewModel : ViewModelBase
         SetIndex(step, Math.Clamp(index, 0, _imageFiles.Count - 1));
     }
 
-    /// <summary>マウスが離れたら先頭に戻す。</summary>
+    /// <summary>
+    /// マウスが離れたら、**止まっているときの1枚**に戻す。
+    ///
+    /// 先頭に戻すのではない。サムネイルに指名した絵があればそれが
+    /// 「止まっているときの姿」なので、そこへ戻さないと
+    /// 一度なぞっただけで指名が無かったことになる。
+    /// </summary>
     public void ResetImage()
     {
         if (_imageFiles is null || _stepCount <= 1)
@@ -185,6 +191,14 @@ public sealed class ItemCardViewModel : ViewModelBase
 
         SetIndex(0, 0);
         IsHovering = false;
+
+        // 指名があるなら、なぞる前の姿は指名した1枚。
+        // _activePath を空にすると FirstImage() が選び直す
+        if (!string.IsNullOrEmpty(Item.Local.ThumbnailImage))
+        {
+            _activePath = null;
+            OnPropertyChanged(nameof(Thumbnail));
+        }
     }
 
     private void EnsureImagesLoaded(double widthPixels)

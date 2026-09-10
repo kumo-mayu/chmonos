@@ -668,8 +668,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             SetField(ref _selectedIndex, value);
             Images[_selectedIndex].IsSelected = true;
 
-            OnPropertyChanged(nameof(SelectedImage));
-            OnPropertyChanged(nameof(GalleryCounter));
+            // 右クリックのメニューは「いま見ている1枚」で中身が変わる。
+            // ここで知らせないと、絵を送ってもメニューが前の絵のままになる
+            NoteGalleryChanged();
         }
     }
 
@@ -1287,6 +1288,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             : "サムネイルの指名を外しました。";
 
         await ReloadImagesAsync(current.FileName);
+
+        // 検索のカードは読み込んだ写しを持っている。読み直さないと、
+        // 指名したのにカードの絵が変わらない
+        await _main.ReloadLibraryAsync();
     }
 
     /// <summary>

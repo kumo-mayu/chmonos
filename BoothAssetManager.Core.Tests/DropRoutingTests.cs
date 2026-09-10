@@ -229,7 +229,9 @@ public class DropRoutingTests
 
     /// <summary>
     /// zipが混ざっていたら取り込みを採る。
-    /// 画像だけを選んで落とすことはできるので、混ざっているなら取り込みたい意図の方が強い。
+    /// **画像そのものが配布物のこともある**（BOOTHのダウンロード形式に画像が含まれる）ので、
+    /// 画像だから取り込みではない、とは言えない。混ざっているなら取り込みたい意図の方が強い、
+    /// という判断だけをする。
     /// </summary>
     [Fact]
     public void PrefersImportWhenSomethingElseIsMixedIn()
@@ -263,4 +265,34 @@ public class DropRoutingTests
     [InlineData(@"C:\a\b.unitypackage", false)]
     public void KnowsWhichFilesLookLikeImages(string path, bool expected)
         => Assert.Equal(expected, DropRouting.LooksLikeImage(path));
+
+    /// <summary>
+    /// ブラウザから絵をドラッグするとファイルにならず、URLだけが落ちてくる。
+    /// **BOOTHの画像URLだと分からないと「その商品を開く」になってしまう。**
+    /// </summary>
+    [Fact]
+    public void AsksWhenOnlyABoothImageUrlArrives()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            paths: null,
+            text: "https://booth.pximg.net/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/i/3565798/x.jpg",
+            hasBitmap: false,
+            _ => true);
+
+        Assert.Equal(DropAction.AskImageOrItem, decision.Action);
+        Assert.Equal("3565798", decision.ItemId);
+        Assert.EndsWith("x.jpg", decision.ImageUrl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// **BOOTHの画像置き場だけを見る。**このツールがBOOTH以外へ
+    /// 問い合わせる道を作らないため。
+    /// </summary>
+    [Theory]
+    [InlineData("https://booth.pximg.net/x/i/1/a.jpg", true)]
+    [InlineData("https://example.com/a.jpg", false)]
+    [InlineData("https://booth.pm/ja/items/3565798", false)]
+    [InlineData(null, false)]
+    public void OnlyTreatsBoothsOwnImageHostAsAnImageUrl(string? text, bool expected)
+        => Assert.Equal(expected, DropRouting.IsBoothImageUrl(text));
 }

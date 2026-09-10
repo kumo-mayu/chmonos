@@ -493,15 +493,16 @@ public sealed class MainViewModel : ViewModelBase
         switch (decision.Action)
         {
             case Core.Services.DropAction.AddImageToItem:
-                await AddDroppedImagesAsync(paths, hasBitmap);
+                await AddDroppedImagesAsync(paths, hasBitmap, decision.ImageUrl);
                 return;
 
             case Core.Services.DropAction.AskImageOrItem:
-                await AskImageOrItemAsync(decision.ItemId!, paths, hasBitmap);
+                await AskImageOrItemAsync(decision.ItemId!, paths, hasBitmap, decision.ImageUrl);
                 return;
 
             case Core.Services.DropAction.Import:
                 ShowImport();
+
                 Import.AddDroppedPaths(paths!);
                 return;
 
@@ -532,7 +533,10 @@ public sealed class MainViewModel : ViewModelBase
     ///
     /// ファイルとクリップボードの絵で、足したあとの流れは同じにしてある。
     /// </summary>
-    private async Task AddDroppedImagesAsync(IReadOnlyList<string>? paths, bool hasBitmap)
+    private async Task AddDroppedImagesAsync(
+        IReadOnlyList<string>? paths,
+        bool hasBitmap,
+        string? imageUrl = null)
     {
         if (CurrentViewModel is not ItemViewModel item)
         {
@@ -549,6 +553,29 @@ public sealed class MainViewModel : ViewModelBase
         {
             await item.AddImageBytesAsync(bytes);
             await item.ReloadGalleryAsync();
+            return;
+        }
+
+        // ブラウザからの絵はURLだけで落ちてくる。取りに行く。
+        // **BOOTHの画像置き場だけ**（DropRouting が確かめている）で、
+        // 人が押した操作なので他の取得より先に出る
+        if (imageUrl is not null)
+        {
+            using var priority = Core.Booth.BoothClient.Prioritize(Core.Booth.BoothPriority.PinnedImage);
+
+            var fetched = await _services.Client.GetBinaryAsync(imageUrl);
+            if (!fetched.IsSuccess || fetched.Value is null)
+            {
+                System.Windows.MessageBox.Show(
+                    "BOOTHから画像を取れませんでした。",
+                    "画像を足す",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
+            await item.AddImageBytesAsync(fetched.Value);
+            await item.ReloadGalleryAsync();
         }
     }
 
@@ -559,7 +586,11 @@ public sealed class MainViewModel : ViewModelBase
     /// BOOTHの商品ページから絵をドラッグすると、その絵のURLに商品IDが入っているので、
     /// 落としたものだけからは意図が読めない。ここだけ人に聞く。
     /// </summary>
-    private async Task AskImageOrItemAsync(string itemId, IReadOnlyList<string>? paths, bool hasBitmap)
+    private async Task AskImageOrItemAsync(
+        string itemId,
+        IReadOnlyList<string>? paths,
+        bool hasBitmap,
+        string? imageUrl = null)
     {
         if (CurrentViewModel is not ItemViewModel item)
         {
@@ -586,7 +617,7 @@ public sealed class MainViewModel : ViewModelBase
                 return;
 
             case System.Windows.MessageBoxResult.No:
-                await AddDroppedImagesAsync(paths, hasBitmap);
+                await AddDroppedImagesAsync(paths, hasBitmap, imageUrl);
                 return;
 
             default:

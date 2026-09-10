@@ -28,7 +28,13 @@ public enum DropAction
     AskImageOrItem,
 }
 
-public readonly record struct DropDecision(DropAction Action, string? ItemId, string? Shop = null);
+public readonly record struct DropDecision(
+    DropAction Action,
+    string? ItemId,
+    string? Shop = null,
+
+    /// <summary>BOOTHの画像そのものが落ちてきた場合のURL。取りに行くのは呼ぶ側。</summary>
+    string? ImageUrl = null);
 
 /// <summary>
 /// ウィンドウに落とされた／貼られたものの行き先を決める。
@@ -98,7 +104,11 @@ public static class DropRouting
         Func<string, bool> isKnown)
     {
         var images = paths?.Where(LooksLikeImage).ToList() ?? [];
-        var hasImage = images.Count > 0 || hasBitmap;
+
+        // ブラウザから絵をドラッグすると、ファイルではなくURLだけが落ちてくる。
+        // それがBOOTHの画像だと分かれば「足す」の選択肢を出せる
+        var imageUrl = FindBoothImageUrl(text);
+        var hasImage = images.Count > 0 || hasBitmap || imageUrl is not null;
 
         if (!hasImage)
         {
@@ -106,8 +116,10 @@ public static class DropRouting
             return Decide(paths, text, isKnown);
         }
 
-        // 画像に混ざって画像でないファイルも来ていたら、取り込みの方を採る。
-        // zipが混ざっているなら「取り込みたい」意図の方が強い
+        // 画像でないファイルが混ざっていたら取り込みを採る。
+        // **画像そのものが配布物のこともある**ので（BOOTHのダウンロード形式に画像が含まれる）、
+        // 画像だから取り込みではない、とは言えない。zipが混ざっているなら
+        // 「取り込みたい」意図の方が強い、という判断だけをする
         if (paths is { Count: > 0 } && images.Count != paths.Count)
         {
             return new DropDecision(DropAction.Import, null);
@@ -115,7 +127,31 @@ public static class DropRouting
 
         // BOOTH由来か。商品IDが読めるなら、どちらの意図かは決まらない
         return BoothItemId.Parse(text) is { } itemId
-            ? new DropDecision(DropAction.AskImageOrItem, itemId)
-            : new DropDecision(DropAction.AddImageToItem, null);
+            ? new DropDecision(DropAction.AskImageOrItem, itemId, null, imageUrl)
+            : new DropDecision(DropAction.AddImageToItem, null, null, imageUrl);
     }
+
+
+    /// <summary>
+    /// BOOTHの画像そのもののURLか。
+    ///
+    /// **ブラウザからの絵のドラッグはファイルにならない。**落ちてくるのはURLだけで、
+    /// それが商品ページのURLと見分けが付かないと「その商品を開く」になってしまう。
+    /// 画像のURLだと分かれば、「足す」の選択肢を出せる。
+    /// </summary>
+    public static bool IsBoothImageUrl(string? text)
+        => text is not null && BoothImageUrlRegex.IsMatch(text);
+
+    /// <summary>BOOTHの画像URLを取り出す。文章に混ざっていても拾う。</summary>
+    public static string? FindBoothImageUrl(string? text)
+        => text is null ? null : BoothImageUrlRegex.Match(text) is { Success: true } match ? match.Value : null;
+
+    /// <summary>
+    /// BOOTHの画像置き場。ここ以外は取りに行かない——
+    /// **このツールがBOOTH以外へ問い合わせる道を作らない。**
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex BoothImageUrlRegex = new(
+        @"https?://booth\.pximg\.net/[^\s""'<>\]\)]+",
+        System.Text.RegularExpressions.RegexOptions.Compiled
+            | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 }
