@@ -24,6 +24,13 @@ public sealed class AttributeMasterRow : ReorderableRow
 
     public bool IsUsed => ItemCount > 0;
 
+    /// <summary>
+    /// 編集画面で最初から並べる属性か。
+    ///
+    /// **並べるだけで、値は保存しない。**触らなかった行は書き出されない。
+    /// </summary>
+    public required bool IsDefault { get; init; }
+
     public bool IsSelected
     {
         get => _isSelected;
@@ -74,6 +81,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         RenameCommand = new RelayCommand(parameter => _ = RenameAsync(parameter as string), _ => Selected is not null);
         DeleteCommand = new RelayCommand(() => _ = DeleteAsync(), () => Selected is not null);
         SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => Selected is not null && MemoChanged);
+        ToggleDefaultCommand = new RelayCommand(() => _ = ToggleDefaultAsync(), () => Selected is not null);
         RefreshCommand = new RelayCommand(() => _ = ReloadAsync());
         ShowItemsCommand = new RelayCommand(
             () => _main.ShowItemsWithAttribute(Selected!.Name),
@@ -99,6 +107,13 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public RelayCommand DeleteCommand { get; }
 
     public RelayCommand SaveMemoCommand { get; }
+
+    /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
+    public RelayCommand ToggleDefaultCommand { get; }
+
+    public string ToggleDefaultText => Selected?.IsDefault == true
+        ? "最初から並べるのをやめる"
+        : "編集画面に最初から並べる";
 
     public RelayCommand RefreshCommand { get; }
 
@@ -134,6 +149,9 @@ public sealed class AttributeManageViewModel : ViewModelBase
             OnPropertyChanged(nameof(SelectedUsageText));
             OnPropertyChanged(nameof(SelectedIsUsed));
             OnPropertyChanged(nameof(RenameImpactText));
+            OnPropertyChanged(nameof(ToggleDefaultText));
+            OnPropertyChanged(nameof(SelectedIsDefault));
+            OnPropertyChanged(nameof(DefaultNote));
             RebuildOtherNames();
             RelayCommand.RaiseCanExecuteChanged();
         }
@@ -142,6 +160,13 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public bool HasSelection => Selected is not null;
 
     public bool SelectedIsUsed => Selected is { ItemCount: > 0 };
+
+    public bool SelectedIsDefault => Selected?.IsDefault == true;
+
+    /// <summary>並べるだけで保存しないことを、切り替える前に書いておく</summary>
+    public string DefaultNote => SelectedIsDefault
+        ? "編集画面に最初から並びます。値を動かすまで保存されません。"
+        : "編集画面に最初から並べておけます。値を動かすまで保存されません。";
 
     public string SelectedName => Selected?.Name ?? string.Empty;
 
@@ -217,6 +242,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
                 Memo = definition.Memo,
                 ItemCount = counts.TryGetValue(definition.Name, out var entry) ? entry.ItemCount : 0,
                 Average = counts.TryGetValue(definition.Name, out var found) ? found.Average : null,
+                IsDefault = definition.IsDefault,
             }).ToList();
 
             AllNames.Clear();
@@ -418,6 +444,27 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
         await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeMemo(Selected.Name, MemoDraft));
         StatusText = "メモを保存しました。";
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 編集画面で最初から並べる属性かを切り替える。
+    ///
+    /// **既に評価してある商品には何もしない。**並べるだけで、
+    /// 値は人が動かしたときにしか保存されない。
+    /// </summary>
+    private async Task ToggleDefaultAsync()
+    {
+        if (Selected is null)
+        {
+            return;
+        }
+
+        var next = !Selected.IsDefault;
+        await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeDefault(Selected.Name, next));
+        StatusText = next
+            ? $"「{Selected.Name}」を編集画面に最初から並べます。値は動かしたときだけ付きます。"
+            : $"「{Selected.Name}」を最初から並べるのをやめました。付けた評価はそのまま残ります。";
         await ReloadAsync();
     }
 

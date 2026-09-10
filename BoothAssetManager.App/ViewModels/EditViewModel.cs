@@ -620,6 +620,20 @@ public sealed class EditViewModel : ViewModelBase
             Attributes.Add(CreateAttributeRow(pair.Key, pair.Value));
         }
 
+        // 既定に指定した属性を、まだ付いていない分だけ並べておく（ユーザ指示）。
+        // **並べるだけで保存はしない。**触られた行だけが書き出される
+        foreach (var definition in _attributeMaster.Attributes.Where(entry => entry.IsDefault))
+        {
+            if (Attributes.Any(row => string.Equals(row.Name, definition.Name, StringComparison.CurrentCultureIgnoreCase)))
+            {
+                continue;
+            }
+
+            var row = CreateAttributeRow(definition.Name, 50);
+            row.IsSuggested = true;
+            Attributes.Add(row);
+        }
+
         Memo = record.Local.Memo ?? string.Empty;
         DisplayName = record.Local.DisplayName ?? string.Empty;
         ShopNameInput = record.Local.Shop?.Name ?? string.Empty;
@@ -1026,7 +1040,12 @@ public sealed class EditViewModel : ViewModelBase
             .Select(row => new UserTagAssignment { Top = row.Top, Subs = row.Subs.ToList() })
             .ToList();
 
-        var attributes = Attributes.ToDictionary(row => row.Name, row => row.Value);
+        // **並べてあるだけの行は書き出さない**（ユーザ指示）。全itemに同じ値の行が並ぶと、
+        // 付けていないのかそう評価したのかが区別できなくなる。
+        // 「未評価は行が無いことで表す」という決め方を崩さない
+        var attributes = Attributes
+            .Where(row => !row.IsSuggested)
+            .ToDictionary(row => row.Name, row => row.Value);
 
         // 買った1回が1レコード。版の行が1件目、その下にぶら下げたものが2件目以降。
         // ExistsOnBooth は保存側で計算し直されるので、ここでの値は目安にすぎない

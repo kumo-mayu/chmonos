@@ -265,4 +265,91 @@ public class AttributeServiceTests : IDisposable
         Assert.Equal(0, (await _service.RenameAsync("かわいい", "かわいい")).ItemsUpdated);
         Assert.Equal("かわいい", Assert.Single(_store.Attributes.Load().Attributes).Name);
     }
+
+    /// <summary>
+    /// 既定の指定は item に何も書かない。並べるだけで、値は触られたときにしか付かない。
+    /// </summary>
+    [Fact]
+    public async Task MarksTheAttributeAsDefaultWithoutTouchingItems()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "かわいい" });
+        await SaveItemAsync("1", ("かわいい", 80));
+
+        await _service.SetDefaultAsync("かわいい", true);
+
+        Assert.True(Assert.Single(_store.Attributes.Load().Attributes).IsDefault);
+        Assert.Equal(80, (await AttributesOfAsync("1"))["かわいい"]);
+    }
+
+    [Fact]
+    public async Task ClearsTheDefaultFlag()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "かわいい", IsDefault = true });
+
+        await _service.SetDefaultAsync("かわいい", false);
+
+        Assert.False(Assert.Single(_store.Attributes.Load().Attributes).IsDefault);
+    }
+
+    [Fact]
+    public async Task IgnoresUnknownAttributesWhenSettingTheDefault()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "かわいい" });
+
+        await _service.SetDefaultAsync("居ない属性", true);
+
+        Assert.False(Assert.Single(_store.Attributes.Load().Attributes).IsDefault);
+    }
+
+    /// <summary>メモを書き換えても既定の指定を落とさない。組み直すたびに書き写す必要がある</summary>
+    [Fact]
+    public async Task KeepsTheDefaultFlagWhenTheMemoChanges()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "かわいい", IsDefault = true });
+
+        await _service.SetMemoAsync("かわいい", "丸みで判断する");
+
+        Assert.True(Assert.Single(_store.Attributes.Load().Attributes).IsDefault);
+    }
+
+    [Fact]
+    public async Task KeepsTheDefaultFlagWhenRenamed()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "かわいい", IsDefault = true });
+
+        await _service.RenameAsync("かわいい", "愛らしい");
+
+        var definition = Assert.Single(_store.Attributes.Load().Attributes);
+        Assert.Equal("愛らしい", definition.Name);
+        Assert.True(definition.IsDefault);
+    }
+
+    /// <summary>統合したら残る側の指定が生きる。寄せ元の指定は付いてこない</summary>
+    [Fact]
+    public async Task KeepsTheTargetDefaultFlagWhenMerged()
+    {
+        await SaveMasterAsync(
+            new AttributeDefinition { Name = "かわいい", IsDefault = false },
+            new AttributeDefinition { Name = "愛らしい", IsDefault = true });
+
+        await _service.RenameAsync("愛らしい", "かわいい");
+
+        var definition = Assert.Single(_store.Attributes.Load().Attributes);
+        Assert.Equal("かわいい", definition.Name);
+        Assert.False(definition.IsDefault);
+    }
+
+    [Fact]
+    public async Task KeepsTheDefaultFlagWhenReordered()
+    {
+        await SaveMasterAsync(
+            new AttributeDefinition { Name = "かわいい", IsDefault = true },
+            new AttributeDefinition { Name = "かっこいい" });
+
+        await _service.ReorderAsync(["かっこいい", "かわいい"]);
+
+        var loaded = _store.Attributes.Load().Attributes;
+        Assert.Equal(["かっこいい", "かわいい"], loaded.Select(entry => entry.Name));
+        Assert.True(loaded.First(entry => entry.Name == "かわいい").IsDefault);
+    }
 }

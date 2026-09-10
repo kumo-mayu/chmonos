@@ -133,6 +133,9 @@ public abstract record UiCommand
     /// <summary>属性のメモを書き換える。item側には影響しない。</summary>
     public record SetAttributeMemo(string Name, string? Memo) : UiCommand;
 
+    /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
+    public record SetAttributeDefault(string Name, bool IsDefault) : UiCommand;
+
     /// <summary>属性を並べ替える。並びは検索の候補にも編集の候補にもそのまま出る。</summary>
     public record ReorderAttributes(IReadOnlyList<string> Names) : UiCommand;
 

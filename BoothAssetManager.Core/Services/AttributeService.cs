@@ -68,6 +68,9 @@ public interface IAttributeService
 
     Task<AttributeEditResult> DeleteAsync(string name, CancellationToken cancellationToken = default);
 
+    /// <summary>編集画面で最初から並べる属性かを切り替える。item側には何も書かない</summary>
+    Task<AttributeMaster> SetDefaultAsync(string name, bool isDefault, CancellationToken cancellationToken = default);
+
     Task<AttributeMaster> SetMemoAsync(string name, string? memo, CancellationToken cancellationToken = default);
 
     Task<AttributeMaster> ReorderAsync(IReadOnlyList<string> names, CancellationToken cancellationToken = default);
@@ -192,13 +195,16 @@ public sealed class AttributeService : IAttributeService
             {
                 Name = definitions[into].Name,
                 Memo = MergeMemo(definitions[into].Memo, definitions[from].Name, definitions[from].Memo),
+
+                // 残る側の指定を引き継ぐ。組み直すたびに書き写さないと黙って落ちる
+                IsDefault = definitions[into].IsDefault,
             };
 
             definitions.RemoveAt(from);
         }
         else if (from >= 0)
         {
-            definitions[from] = new AttributeDefinition { Name = target, Memo = definitions[from].Memo };
+            definitions[from] = new AttributeDefinition { Name = target, Memo = definitions[from].Memo, IsDefault = definitions[from].IsDefault };
         }
 
         var updated = new AttributeMaster { Attributes = definitions };
@@ -234,6 +240,38 @@ public sealed class AttributeService : IAttributeService
         return new AttributeEditResult { Master = updated, ItemsUpdated = rewritten };
     }
 
+    /// <summary>
+    /// 編集画面で最初から並べる属性かを切り替える。
+    ///
+    /// **item側には何も書かない。**並べるだけで、値は触られたときにしか保存されない。
+    /// 既に付いている商品に遡って何かすることもない。
+    /// </summary>
+    public async Task<AttributeMaster> SetDefaultAsync(
+        string name,
+        bool isDefault,
+        CancellationToken cancellationToken = default)
+    {
+        var master = _store.Attributes.Load();
+        var definitions = master.Attributes.ToList();
+        var index = definitions.FindIndex(entry => Same(entry.Name, name));
+
+        if (index < 0 || definitions[index].IsDefault == isDefault)
+        {
+            return master;
+        }
+
+        definitions[index] = new AttributeDefinition
+        {
+            Name = definitions[index].Name,
+            Memo = definitions[index].Memo,
+            IsDefault = isDefault,
+        };
+
+        var updated = new AttributeMaster { Attributes = definitions };
+        await _store.Attributes.SaveAsync(updated, cancellationToken);
+        return updated;
+    }
+
     /// <summary>メモだけを書き換える。item側は名前しか参照していないので影響しない。</summary>
     public async Task<AttributeMaster> SetMemoAsync(
         string name,
@@ -253,6 +291,7 @@ public sealed class AttributeService : IAttributeService
         {
             Name = definitions[index].Name,
             Memo = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(),
+            IsDefault = definitions[index].IsDefault,
         };
 
         var updated = new AttributeMaster { Attributes = definitions };

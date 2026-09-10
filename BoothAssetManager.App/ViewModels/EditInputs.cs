@@ -36,6 +36,7 @@ public sealed class UserTagRow : ViewModelBase
 public sealed class AttributeRow : ViewModelBase
 {
     private int _value = 50;
+    private bool _isSuggested;
 
     public required string Name { get; init; }
 
@@ -49,9 +50,34 @@ public sealed class AttributeRow : ViewModelBase
             if (SetField(ref _value, value))
             {
                 OnPropertyChanged(nameof(ValueText));
+
+                // 触られたので、もう「並べてあるだけ」ではない
+                IsSuggested = false;
             }
         }
     }
 
     public string ValueText => $"{Value}%";
+
+    /// <summary>
+    /// 既定として並べてあるだけで、まだ評価していない行。
+    ///
+    /// **この状態のまま保存しても書き出さない。**全itemに同じ値の行が並ぶと、
+    /// 付けていないのかそう評価したのかが区別できなくなる。
+    /// 値を動かした時点で普通の行になる。
+    /// </summary>
+    public bool IsSuggested
+    {
+        get => _isSuggested;
+        set
+        {
+            if (SetField(ref _isSuggested, value))
+            {
+                OnPropertyChanged(nameof(SuggestedNote));
+            }
+        }
+    }
+
+    /// <summary>並べてあるだけだと分かるようにする。黙って0%で保存されたと思われないため。</summary>
+    public string SuggestedNote => _isSuggested ? "未評価（動かすと付きます）" : string.Empty;
 }

@@ -201,6 +201,24 @@
                                     Margin="0,8,0,0" Command="{Binding SaveMemoCommand}" />
                         </StackPanel>
                     </Border>
+
+                    <!--
+                        編集画面に最初から並べる指定。
+
+                        **並べるだけで保存はしない。**全itemに同じ値の行が並ぶと、
+                        付けていないのかそう評価したのかが区別できなくなるので、
+                        値を動かした行だけが書き出される。切り替える前にそう書いておく
+                    -->
+                    <Border Style="{StaticResource Card}" Padding="18,14" Margin="0,14,0,0"
+                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <StackPanel>
+                            <TextBlock Text="編集画面での扱い" FontWeight="Bold" />
+                            <TextBlock Text="{Binding DefaultNote}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,7" />
+                            <Button Content="{Binding ToggleDefaultText}" Style="{StaticResource SmallButton}"
+                                    HorizontalAlignment="Left" Command="{Binding ToggleDefaultCommand}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

@@ -256,6 +256,18 @@ public sealed class CommandHandler
                 return new CommandResult.AttributesChanged(
                     await _attributes.SetMemoAsync(attributeMemo.Name, attributeMemo.Memo, cancellationToken));
 
+            case UiCommand.SetAttributeDefault attributeDefault:
+                if (_attributes is null)
+                {
+                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                }
+
+                return new CommandResult.AttributesChanged(
+                    await _attributes.SetDefaultAsync(
+                        attributeDefault.Name,
+                        attributeDefault.IsDefault,
+                        cancellationToken));
+
             case UiCommand.ReorderAttributes reorderAttributes:
                 if (_attributes is null)
                 {

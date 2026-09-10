@@ -40,6 +40,16 @@ public sealed class AttributeDefinition
 
     /// <summary>付け方の基準を書いておく場所。主観的な尺度なので基準がぶれるのを防ぐ。</summary>
     public string? Memo { get; init; }
+
+    /// <summary>
+    /// 編集画面で最初から並べておく属性か。
+    ///
+    /// **並べるだけで、値は保存しない。**触らなかった行は書き出さない
+    /// （<c>EditViewModel</c> 側で落とす）。全itemに値0や50の行が並ぶと、
+    /// **付けていないのか、そう評価したのかが区別できなくなる。**
+    /// 「未評価は行が無いことで表す」という決め方を崩さないため。
+    /// </summary>
+    public bool IsDefault { get; init; }
 }
 
 /// <summary>
