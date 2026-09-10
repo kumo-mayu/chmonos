@@ -55,6 +55,18 @@ public sealed class AppPaths
     /// <summary>「最近」の足跡。itemのJSONを足跡で埋めないために分けてある</summary>
     public string RecentFile => Path.Combine(Root, "recent.json");
 
+    /// <summary>改変の記録。1改変1ファイル（1つにまとめると壊れたときに全部失う）</summary>
+    public string ModificationsDir => Path.Combine(Root, "modifications");
+
+    public string ModificationFile(string id) => Path.Combine(ModificationsDir, $"{id}.json");
+
+    /// <summary>
+    /// 改変に貼った画像。<c>images/</c> 直下は商品IDのフォルダが並ぶ場所なので、
+    /// ショップアイコンの <c>_shops</c> と同じ避け方にする
+    /// （<c>mod-</c> で始まる商品IDが将来出ない保証が無い）。
+    /// </summary>
+    public string ModificationImagesDir(string id) => Path.Combine(ImagesDir, "_mods", id);
+
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
 
     public string EditSessionFile => Path.Combine(Root, "edit-session.json");

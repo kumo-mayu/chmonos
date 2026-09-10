@@ -40,6 +40,7 @@ public sealed class DataStore
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
         Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile);
+        Modifications = new ModificationRepository(paths);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
@@ -72,6 +73,9 @@ public sealed class DataStore
 
     /// <summary>「最近」の足跡（追加・使った・閲覧）</summary>
     public JsonFileStore<Services.RecentLog> Recent { get; }
+
+    /// <summary>改変の記録。1改変1ファイル</summary>
+    public ModificationRepository Modifications { get; }
 
     /// <summary>ショップのバナーを調べた記録。無いショップを何度も探しに行かないため。</summary>
     public JsonFileStore<List<ShopBannerRecord>> ShopBanners { get; }
