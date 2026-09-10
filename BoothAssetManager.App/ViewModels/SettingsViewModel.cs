@@ -113,6 +113,8 @@ public sealed class SettingsViewModel : ViewModelBase
         _fetchIntervalMs = settings.FetchIntervalMs;
         _imageMaxEdgePixels = settings.ImageMaxEdgePixels;
         _imageQuality = settings.ImageQuality;
+        _modificationImageMaxEdgePixels = settings.ModificationImageMaxEdgePixels;
+        _saveModificationImagesAtOriginalSize = settings.SaveModificationImagesAtOriginalSize;
         _shopBannerRecheckDays = settings.ShopBannerRecheckDays;
         _avatarDetectRecheckDays = settings.AvatarDetectRecheckDays;
         _suppressSave = false;
@@ -438,6 +440,45 @@ public sealed class SettingsViewModel : ViewModelBase
         set { if (SetField(ref _imageQuality, Math.Clamp(value, 40, 100))) { Save(); } }
     }
 
+    private int _modificationImageMaxEdgePixels;
+
+    /// <summary>
+    /// 改変に貼る写真の長辺。**商品画像より大きめが既定**（768）。
+    ///
+    /// 商品画像は一覧に並ぶサムネイルだが、改変の写真は見て
+    /// 「何を使ったか」を思い出すもの。実測で768pxは1枚14KB。
+    /// </summary>
+    public int ModificationImageMaxEdgePixels
+    {
+        get => _modificationImageMaxEdgePixels;
+        set
+        {
+            if (SetField(ref _modificationImageMaxEdgePixels, Math.Clamp(value, 128, 4096)))
+            {
+                Save();
+            }
+        }
+    }
+
+    private bool _saveModificationImagesAtOriginalSize;
+
+    /// <summary>改変の写真を原寸で保存するか。既定は切（4Kのスクショで1枚200KB前後に伸びる）。</summary>
+    public bool SaveModificationImagesAtOriginalSize
+    {
+        get => _saveModificationImagesAtOriginalSize;
+        set
+        {
+            if (SetField(ref _saveModificationImagesAtOriginalSize, value))
+            {
+                OnPropertyChanged(nameof(ModificationSizeEnabled));
+                Save();
+            }
+        }
+    }
+
+    /// <summary>原寸で保存するときは長辺の指定が効かない。触れないようにして黙って無視しない。</summary>
+    public bool ModificationSizeEnabled => !SaveModificationImagesAtOriginalSize;
+
     // ---- 保存先 ----
 
     public string RootPath => _usage?.Root ?? _services.Paths.Root;
@@ -602,6 +643,8 @@ public sealed class SettingsViewModel : ViewModelBase
             FetchIntervalMs = FetchIntervalMs,
             ImageMaxEdgePixels = ImageMaxEdgePixels,
             ImageQuality = ImageQuality,
+            ModificationImageMaxEdgePixels = ModificationImageMaxEdgePixels,
+            SaveModificationImagesAtOriginalSize = SaveModificationImagesAtOriginalSize,
             ImportFolders = Folders.Select(row => row.Path).ToList(),
         };
 

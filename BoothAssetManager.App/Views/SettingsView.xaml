@@ -289,12 +289,36 @@
                             <TextBlock Text="px" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="画像の品質" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding ImageQuality, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="（WebP・0〜100）" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
+
+                        <!--
+                            改変に貼る写真は商品画像とは別に持つ。用途が違う——
+                            商品画像は一覧に並ぶサムネイルだが、こちらは見て
+                            「何を使ったか」を思い出すもの。
+
+                            既定を768にしたのは表示の枠。改変詳細の大きい画像は
+                            420px（DIP）で、150%のDPIでは630物理pxになる。
+                            500pxだとそこで拡大されてぼやける。
+                            容量は実測で1枚14KB（500pxとの差は5.4KB）
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="改変の写真の長辺" Style="{StaticResource RowLabel}" Width="220" />
+                            <TextBox Style="{StaticResource NumberBox}"
+                                     IsEnabled="{Binding ModificationSizeEnabled}"
+                                     Text="{Binding ModificationImageMaxEdgePixels, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="px" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                        </StackPanel>
+
+                        <CheckBox Content="改変の写真を原寸で保存する" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding SaveModificationImagesAtOriginalSize, Mode=TwoWay}"
+                                  ToolTip="縮小せずに保存します。4Kのスクリーンショットは1枚200KB前後になります。" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,2,0,0"
+                                   Text="商品画像とは別の設定です。改変の写真は見て思い出すものなので、既定を大きめ（768px）にしてあります。" />
                     </StackPanel>
                 </Border>
 

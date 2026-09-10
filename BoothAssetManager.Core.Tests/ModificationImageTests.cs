@@ -61,6 +61,27 @@ public sealed class ModificationImageTests : IDisposable
         return stream.ToArray();
     }
 
+    /// <summary>縮小されるかを見るための大きなPNG。</summary>
+    private static byte[] MakeLargePng(int width, int height)
+    {
+        using var image = new Image<Rgba32>(width, height, new Rgba32(120, 140, 160));
+        using var stream = new MemoryStream();
+        image.SaveAsPng(stream);
+        return stream.ToArray();
+    }
+
+    private static (int Width, int Height) SizeOf(string path)
+    {
+        using var image = Image.Load(path);
+        return (image.Width, image.Height);
+    }
+
+    private ModificationService WithSettings(AppSettings settings)
+    {
+        var client = new BoothClient(new HttpClient(new Unreachable()), settings);
+        return new ModificationService(_store, new ImagePipeline(client, _paths, settings));
+    }
+
     private async Task<string> NewAsync()
     {
         await _store.Avatars.SaveAsync(new AvatarRegistry
@@ -179,6 +200,82 @@ public sealed class ModificationImageTests : IDisposable
         Assert.Equal(
             [first, second],
             (await _service.LoadAsync(id))!.Images.Select(image => image.FileName));
+    }
+
+    // ---- 大きさ ----
+
+    [Fact]
+    public async Task 既定では長辺768pxに縮める()
+    {
+        // 商品画像（384）より大きめ。見て「何を使ったか」を思い出すため
+        var id = await NewAsync();
+        var fileName = await _service.AddImageAsync(id, MakeLargePng(2048, 1326));
+
+        var size = SizeOf(Path.Combine(_paths.ModificationImagesDir(id), fileName!));
+
+        Assert.Equal(768, size.Width);
+        Assert.Equal(497, size.Height);
+    }
+
+    [Fact]
+    public async Task 商品画像の設定には引きずられない()
+    {
+        // 用途が違うので別の設定。商品を384のままにしても改変は768
+        var service = WithSettings(new AppSettings
+        {
+            FetchIntervalMs = 0,
+            ImageMaxEdgePixels = 384,
+        });
+
+        var id = await NewAsync();
+        var fileName = await service.AddImageAsync(id, MakeLargePng(2048, 2048));
+
+        Assert.Equal(768, SizeOf(Path.Combine(_paths.ModificationImagesDir(id), fileName!)).Width);
+    }
+
+    [Fact]
+    public async Task 原寸の指定があれば縮めない()
+    {
+        var service = WithSettings(new AppSettings
+        {
+            FetchIntervalMs = 0,
+            SaveModificationImagesAtOriginalSize = true,
+        });
+
+        var id = await NewAsync();
+        var fileName = await service.AddImageAsync(id, MakeLargePng(2048, 1326));
+
+        var size = SizeOf(Path.Combine(_paths.ModificationImagesDir(id), fileName!));
+
+        Assert.Equal(2048, size.Width);
+        Assert.Equal(1326, size.Height);
+    }
+
+    [Fact]
+    public async Task 長辺は設定で変えられる()
+    {
+        var service = WithSettings(new AppSettings
+        {
+            FetchIntervalMs = 0,
+            ModificationImageMaxEdgePixels = 500,
+        });
+
+        var id = await NewAsync();
+        var fileName = await service.AddImageAsync(id, MakeLargePng(2048, 2048));
+
+        Assert.Equal(500, SizeOf(Path.Combine(_paths.ModificationImagesDir(id), fileName!)).Width);
+    }
+
+    [Fact]
+    public async Task 元が小さい写真は拡大しない()
+    {
+        var id = await NewAsync();
+        var fileName = await _service.AddImageAsync(id, MakeLargePng(300, 200));
+
+        var size = SizeOf(Path.Combine(_paths.ModificationImagesDir(id), fileName!));
+
+        Assert.Equal(300, size.Width);
+        Assert.Equal(200, size.Height);
     }
 
     [Fact]

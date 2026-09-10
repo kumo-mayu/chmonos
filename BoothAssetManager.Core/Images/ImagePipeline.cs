@@ -463,7 +463,8 @@ public sealed class ImagePipeline
         string itemId,
         byte[] bytes,
         CancellationToken cancellationToken = default)
-        => SaveUserImageToAsync(_paths.ItemImagesDir(itemId), bytes, cancellationToken);
+        // 商品画像は今まで通り ImageMaxEdgePixels（既定384）
+        => SaveUserImageToAsync(_paths.ItemImagesDir(itemId), bytes, null, cancellationToken);
 
     /// <summary>
     /// 改変に貼る画像を保存する。置き場所は <c>images/_mods/{改変ID}/</c>。
@@ -475,7 +476,17 @@ public sealed class ImagePipeline
         string modificationId,
         byte[] bytes,
         CancellationToken cancellationToken = default)
-        => SaveUserImageToAsync(_paths.ModificationImagesDir(modificationId), bytes, cancellationToken);
+        => SaveUserImageToAsync(
+            _paths.ModificationImagesDir(modificationId),
+            bytes,
+
+            // **商品画像より大きめに保存する。**用途が違う——商品画像は一覧に並ぶ
+            // サムネイルだが、改変の写真は見て「何を使ったか」を思い出すもの。
+            // 原寸の指定があれば縮小しない
+            _settings.SaveModificationImagesAtOriginalSize
+                ? int.MaxValue
+                : _settings.ModificationImageMaxEdgePixels,
+            cancellationToken);
 
     /// <summary>
     /// 置き場所を受け取って保存する。
@@ -486,6 +497,7 @@ public sealed class ImagePipeline
     private async Task<string?> SaveUserImageToAsync(
         string directory,
         byte[] bytes,
+        int? maxEdge = null,
         CancellationToken cancellationToken = default)
     {
         if (bytes.Length == 0)
@@ -500,7 +512,7 @@ public sealed class ImagePipeline
 
         try
         {
-            await SaveAsWebpAsync(bytes, path, cancellationToken);
+            await SaveAsWebpAsync(bytes, path, cancellationToken, maxEdge);
             return fileName;
         }
         catch (Exception exception) when (exception is ImageFormatException or NotSupportedException)
