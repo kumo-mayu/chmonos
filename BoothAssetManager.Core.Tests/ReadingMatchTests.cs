@@ -76,19 +76,38 @@ public class ReadingMatchTests : IDisposable
     }
 
     /// <summary>
-    /// 英訳の側は見ない。作者は bird_v1.zip とは名付けないので、
-    /// 見ても誤った一致（Sin→罪、Ring→土俵）を作るだけになる。
+    /// 英訳の側も見る。ここは通信が増えないので、当たる見込みがある限り見る。
+    /// shark_avatar.zip と『サメっ子』は当たってほしい組。
     /// </summary>
     [Fact]
-    public void DoesNotMatchThroughEnglishMeaning()
+    public void MatchesThroughEnglishMeaningToo()
     {
         if (!Available)
         {
             return;
         }
 
-        Assert.Null(Find("Sin Avatar Pen", "罪と罰のゲーム"));
-        Assert.Null(Find("shark", "サメっ子オリジナル3Dモデル"));
+        Assert.NotNull(Find("shark", "サメっ子オリジナル3Dモデル"));
+    }
+
+    /// <summary>
+    /// 分かち書きにする前の綴りでも引く。heartbeat は割ると心臓・拍にしかならない。
+    /// </summary>
+    [Fact]
+    public void UsesTheUndividedSpellingToo()
+    {
+        if (!Available)
+        {
+            return;
+        }
+
+        // 「ギミック」は割った形でも当たってしまうので、それを含まない名前で見る
+        const string name = "なめらか心音 3.0【OSC心拍計対応】";
+
+        Assert.Null(ReadingMatch.Find("Heart Beat", name, _bridge, _readings));
+
+        // 割らない綴りなら「心拍」に届く（辞書の heartbeat は心拍を先に返す）
+        Assert.Equal("心拍", ReadingMatch.Find("Heart Beat", name, _bridge, _readings, ["HeartBeat"]));
     }
 
     /// <summary>無関係な商品には当たらない。</summary>

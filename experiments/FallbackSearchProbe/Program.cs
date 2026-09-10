@@ -127,90 +127,52 @@ foreach (var (fileName, itemId, itemName, query) in missed)
 
 Console.WriteLine($"\n2回目で拾えた: {secondPassHits}/{missed.Count}");
 
-// ── 3回目：英語の辞書を使う ──
+// ── 3回目：実装した AlternateQueries で引き直す ──
 //
-// 2回目（読みの経路）で残ったものは、まさに英訳が要る組
-// （Sig Ring → 指輪、HeartBeat → 心音）。
-// 生成される語の見た目（Sin→罪業、Ring→土俵）で切り捨てていたが、
-// **実際に当たるかは別の話**なので測る。
-Console.WriteLine("\n3回目: 残ったものを、英語の辞書から作った語で引き直す\n");
+// 読みの経路 → 英語の経路（分かち書き前の綴り）の順に、最大2語まで。
+// 実装そのものを通すので、「測ったとおりに動くか」の確認になる。
+Console.WriteLine("\n3回目: 実装した引き直し（読み→英語）を通す\n");
 
 var thirdPassHits = 0;
 var stillMissed = missed.Where(m => !secondPassSolved.Contains(m.FileName)).ToList();
+var extraRequests = 0;
 
 foreach (var (fileName, itemId, itemName, query) in stillMissed)
 {
-    var english = query
-        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-        .SelectMany(token => bridge.Expand(token))
-        .Where(candidate => candidate.Via == BridgeRoute.English)
-        .Select(candidate => candidate.Text)
-        .Distinct(StringComparer.Ordinal)
-        .ToList();
+    var alternates = AlternateQueries.For(fileName, query, bridge);
 
-    Console.WriteLine($"  {fileName}　英語から: {(english.Count == 0 ? "(なし)" : string.Join(" ", english))}");
-
-    if (english.Count == 0)
+    if (alternates.Count == 0)
     {
-        Console.WriteLine("    → 作れないので何もしない（通信も増えない）");
+        Console.WriteLine($"－ {fileName,-32} 引き直す語が作れない → 通信は増えない");
         continue;
     }
 
+    Console.WriteLine($"  {fileName}　引き直す語: {string.Join(" / ", alternates)}");
+
     var found = false;
-    foreach (var pick in english.Take(5))
+    foreach (var alternate in alternates)
     {
-        var rank = await RankOfAsync(pick, itemId);
+        extraRequests++;
+        var rank = await RankOfAsync(alternate, itemId);
         if (rank >= 0 && rank < UsedCandidates)
         {
             thirdPassHits++;
             found = true;
-            Console.WriteLine($"    ○ 「{pick}」 → {rank + 1}位　（{itemName}）");
+            Console.WriteLine($"    ○ 「{alternate}」 → {rank + 1}位　（{itemName}）");
             break;
         }
 
-        Console.WriteLine($"    × 「{pick}」 → {(rank < 0 ? "無し" : $"{rank + 1}位（外）")}");
+        Console.WriteLine($"    × 「{alternate}」 → {(rank < 0 ? "無し" : $"{rank + 1}位（外）")}");
     }
 
     if (!found)
     {
-        Console.WriteLine("    → 英語からも当たらなかった");
+        Console.WriteLine("    → 引き直しても当たらなかった");
     }
 }
 
-Console.WriteLine($"\n3回目で拾えた: {thirdPassHits}/{stillMissed.Count}");
+Console.WriteLine($"\n3回目で拾えた: {thirdPassHits}/{stillMissed.Count}　増えた通信: {extraRequests}本");
 Console.WriteLine($"合計: {firstPassHits}/{cases.Length} → {firstPassHits + secondPassHits + thirdPassHits}/{cases.Length}");
-
-// ── 4回目：3回目の取りこぼしを追う ──
-//
-// 3回目は上位5件しか試していなかった。Sig Ring の候補には「指輪」があったのに
-// 7番目で、試す前に切れていた。候補の並びが**語の位置順**（Sig が先）になっていて、
-// どちらの語が商品を指しているかを見ていない。
-//
-// HeartBeat は「Heart」「Beat」に割れるので「心音」が候補に出ない。
-// 割る前の綴り（heartbeat）でも辞書を引く必要がある。
-Console.WriteLine("\n4回目: 3回目の取りこぼし（並びと語の割り方）を追う\n");
-
-var extraChecks = new (string Label, string Query, string ItemId)[]
-{
-    ("Sig Ring の候補7番目", "指輪", "3565798"),
-    ("heartbeat（割らずに引く）", "心拍", "5316535"),
-    ("heartbeat（割らずに引く）", "心音", "5316535"),
-};
-
-foreach (var (label, query, itemId) in extraChecks)
-{
-    var rank = await RankOfAsync(query, itemId);
-    var where = rank < 0 ? "無し" : rank < UsedCandidates ? $"{rank + 1}位" : $"{rank + 1}位（上位{UsedCandidates}件の外）";
-    var mark = rank >= 0 && rank < UsedCandidates ? "○" : "×";
-    Console.WriteLine($"{mark} {label,-28} 「{query}」 → {where}");
-}
-
-// 割らずに引いたら何が出るかも見る（通信は要らない）
-foreach (var word in new[] { "heartbeat", "sigring", "shapekeyaddon" })
-{
-    var forms = bridge.Expand(word).Where(c => c.Via == BridgeRoute.English).Select(c => c.Text).Take(6);
-    Console.WriteLine($"  参考: 「{word}」を割らずに辞書へ → {string.Join(" ", forms)}");
-}
 
 async Task<int> RankOfAsync(string query, string itemId)
 {

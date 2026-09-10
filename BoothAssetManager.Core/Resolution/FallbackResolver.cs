@@ -132,10 +132,7 @@ public sealed class FallbackResolver
 
         progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
-        var searchResult = await _client.SearchAsync(query, cancellationToken);
-        var searchIds = searchResult.IsSuccess && searchResult.Value is not null
-            ? ExtractSearchResultIds(searchResult.Value)
-            : [];
+        var searchIds = await SearchIdsAsync(query, cancellationToken);
 
         var orderedIds = direct
             .Concat(searchIds)
@@ -153,33 +150,104 @@ public sealed class FallbackResolver
             // 1件ずつ間隔を空けて取るので、ここが一番待たされる。件数を出す
             progress?.Report(new ResolveProgress("候補を1件ずつ確認しています", rank, orderedIds.Count));
 
-            var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
-            if (!jsonResult.IsSuccess || jsonResult.Value is null)
+            var candidate = await ScoreCandidateAsync(
+                itemId, query, filePath, hints, rank, direct, cancellationToken);
+
+            if (candidate is not null)
             {
-                continue;
+                candidates.Add(candidate);
             }
+        }
 
-            var booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now);
+        // ── 裏付けのある候補が1件も出なければ、別の表記で引き直す ──
+        //
+        // ローマ字のファイル名が日本語の商品を指していると、そのままでは当たらない。
+        // 実測では Tori → 「鳥」1位、HeartBeat → 「心拍」1位 がここで拾えた。
+        //
+        // **当たっているときは引き直さない。**1回につきBOOTHへの問い合わせが
+        // 1本増えるうえ、出てきた候補ごとに商品JSONも取ることになる。
+        if (!candidates.Any(candidate => candidate.IsStrong))
+        {
+            var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
 
-            // 商品名はもう取ってあるので、読みの照合に通信は要らない
-            var readingMatch = booth.Name is null
-                ? null
-                : ReadingMatch.Find(query, booth.Name, _bridge, _readings);
+            foreach (var alternate in AlternateQueries.For(filePath, query, _bridge))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            candidates.Add(Score(
-                itemId,
-                booth.Name,
-                booth.Shop?.Name,
-                booth.Shop?.Subdomain,
-                query,
-                hints,
-                rank,
-                direct.Contains(itemId),
-                FileNameQuery.SignificantNumbers(filePath),
-                readingMatch));
+                progress?.Report(new ResolveProgress($"別の表記で探しています（{alternate}）", 0, 0));
+
+                var extraIds = (await SearchIdsAsync(alternate, cancellationToken))
+                    .Where(id => seen.Add(id))
+                    .Take(MaxCandidates - candidates.Count)
+                    .ToList();
+
+                for (var rank = 0; rank < extraIds.Count; rank++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progress?.Report(new ResolveProgress("候補を1件ずつ確認しています", rank, extraIds.Count));
+
+                    var extra = await ScoreCandidateAsync(
+                        extraIds[rank], alternate, filePath, hints, rank, direct, cancellationToken);
+
+                    if (extra is not null)
+                    {
+                        candidates.Add(extra);
+                    }
+                }
+
+                // 裏付けが出たらそこで止める。念のためもう1語、はしない
+                if (candidates.Any(candidate => candidate.IsStrong))
+                {
+                    break;
+                }
+            }
         }
 
         return candidates.OrderByDescending(candidate => candidate.Score).ToList();
+    }
+
+    private async Task<IReadOnlyList<string>> SearchIdsAsync(string query, CancellationToken cancellationToken)
+    {
+        var result = await _client.SearchAsync(query, cancellationToken);
+        return result.IsSuccess && result.Value is not null
+            ? ExtractSearchResultIds(result.Value)
+            : [];
+    }
+
+    /// <summary>候補1件を取って点数を付ける。取れなければ null。</summary>
+    private async Task<ResolutionCandidate?> ScoreCandidateAsync(
+        string itemId,
+        string query,
+        string filePath,
+        UnityPackageHints hints,
+        int rank,
+        List<string> direct,
+        CancellationToken cancellationToken)
+    {
+        var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
+        if (!jsonResult.IsSuccess || jsonResult.Value is null)
+        {
+            return null;
+        }
+
+        var booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now);
+
+        // 商品名はもう取ってあるので、読みの照合に通信は要らない
+        var readingMatch = booth.Name is null
+            ? null
+            : ReadingMatch.Find(query, booth.Name, _bridge, _readings, FileNameQuery.UndividedTokens(filePath));
+
+        return Score(
+            itemId,
+            booth.Name,
+            booth.Shop?.Name,
+            booth.Shop?.Subdomain,
+            query,
+            hints,
+            rank,
+            direct.Contains(itemId),
+            FileNameQuery.SignificantNumbers(filePath),
+            readingMatch);
     }
 
     /// <summary>候補の点数付け。UIで根拠をそのまま見せられるよう、理由も一緒に組み立てる。</summary>

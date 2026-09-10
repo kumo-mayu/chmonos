@@ -33,7 +33,65 @@ public static partial class FileNameQuery
             return string.Empty;
         }
 
-        // 末尾のバージョンを繰り返し落とす（Tori_v1_1_1 → Tori）
+        var trimmed = TrimTrailingVersion(name);
+
+        var tokens = SeparatorRegex.Split(trimmed)
+            .Where(token => token.Length > 0)
+            .Where(token => !NoiseTokens.Contains(token, StringComparer.OrdinalIgnoreCase))
+            .Select(SplitCamelCase)
+            .ToList();
+
+        return tokens.Count == 0 ? trimmed.Trim() : string.Join(' ', tokens).Trim();
+    }
+
+    /// <summary>
+    /// **分かち書きにする前**の語。辞書を引くときはこちらも要る。
+    ///
+    /// <c>HeartBeatGimmick</c> を <c>Heart Beat Gimmick</c> に割ってしまうと、
+    /// 辞書には <c>heart</c>（心臓）と <c>beat</c>（拍）としてしか引けない。
+    /// 割らずに <c>heartbeat</c> で引くと **心拍・心音** が出る——実測で
+    /// 「心拍」がBOOTH内検索の1位、「心音」が2位だった。
+    ///
+    /// 検索語そのものには使わない（割った方が当たる。実測で
+    /// 「SinAvatarPen」のままだと0件だった）。辞書を引くときだけ使う。
+    /// </summary>
+    public static IReadOnlyList<string> UndividedTokens(string fileNameOrPath)
+    {
+        var name = Path.GetFileNameWithoutExtension(fileNameOrPath);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return [];
+        }
+
+        var trimmed = TrimTrailingVersion(name);
+        var results = new List<string>();
+
+        foreach (var token in SeparatorRegex.Split(trimmed))
+        {
+            if (token.Length <= 2 || NoiseTokens.Contains(token, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            results.Add(token);
+
+            // 隣り合う2語をつないだ形も試す。
+            // `HeartBeatGimmick` を丸ごと引いても辞書には無いが、
+            // 隣り合う `HeartBeat` なら 心拍・心音 が出る。
+            // 3語以上つないだ形は、複合語として辞書に載ることがまず無い
+            var parts = SplitCamelCase(token).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i + 1 < parts.Length; i++)
+            {
+                results.Add(parts[i] + parts[i + 1]);
+            }
+        }
+
+        return results.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>末尾のバージョンを繰り返し落とす（Tori_v1_1_1 → Tori）。</summary>
+    private static string TrimTrailingVersion(string name)
+    {
         var trimmed = name;
         for (var i = 0; i < 4; i++)
         {
@@ -46,13 +104,7 @@ public static partial class FileNameQuery
             trimmed = next;
         }
 
-        var tokens = SeparatorRegex.Split(trimmed)
-            .Where(token => token.Length > 0)
-            .Where(token => !NoiseTokens.Contains(token, StringComparer.OrdinalIgnoreCase))
-            .Select(SplitCamelCase)
-            .ToList();
-
-        return tokens.Count == 0 ? trimmed.Trim() : string.Join(' ', tokens).Trim();
+        return trimmed;
     }
 
     /// <summary>

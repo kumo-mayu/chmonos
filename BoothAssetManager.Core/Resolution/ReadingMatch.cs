@@ -9,10 +9,10 @@ namespace BoothAssetManager.Core.Resolution;
 /// （`tori_v1.zip` → 『Bird/鳥』、`SinAvatarPen.zip` → 『真・アバターペンシステム』）。
 /// 文字を突き合わせるだけでは当たらないので、読みに直してから比べる。
 ///
-/// **英訳の側は見ない。**作者は `bird_v1.zip` とは名付けない。実測でも、
-/// 英語の経路は `Sin`→罪業、`Ring`→土俵 のように誤った語しか作らなかった。
-///
-/// ここは<b>既に取ってある商品名</b>と比べるだけなので、通信は増えない。
+/// 英訳の側も見る。`shark_avatar.zip` と『サメっ子』は当たってほしい組で、
+/// 外れ（`Sin`→罪業）が混じっても**ここでは通信が増えない**——
+/// 既に取ってある商品名と比べるだけなので、外れは「当たらない」で終わる。
+/// （BOOTHへ引き直す側は1語ごとに通信が増えるので、そちらでは順序を付けている）
 /// </summary>
 public static class ReadingMatch
 {
@@ -23,11 +23,16 @@ public static class ReadingMatch
     /// このファイル名の語が、この商品名と読みで一致するか。
     /// 一致した読みを返す（根拠としてそのまま画面に出せる）。
     /// </summary>
+    /// <param name="extraTokens">
+    /// 分かち書きにする前の綴り。<c>heartbeat</c> は割ると 心臓・拍 にしかならないが、
+    /// 割らずに引くと 心音 が出る。
+    /// </param>
     public static string? Find(
         string query,
         string itemName,
         SearchBridge? bridge,
-        KanjiReadings? readings)
+        KanjiReadings? readings,
+        IReadOnlyList<string>? extraTokens = null)
     {
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(itemName))
         {
@@ -35,25 +40,23 @@ public static class ReadingMatch
         }
 
         var nameReadings = readings?.Of(itemName) ?? [];
+        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Concat(extraTokens ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var token in query.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var token in tokens)
         {
             if (!RomajiReading.LooksRomaji(token) || token.Length < MinReadingLength)
             {
                 continue;
             }
 
-            // ① 読みから作った表記が、商品名にそのまま出てくるか。
-            //    とり → 鳥 が『Bird/鳥』に出てくる、さめ → サメ が『サメっ子』に出てくる
+            // ① 別表記が商品名にそのまま出てくるか。
+            //    とり → 鳥 が『Bird/鳥』に、さめ → サメ が『サメっ子』に出てくる
             if (bridge is not null)
             {
                 foreach (var candidate in bridge.Expand(token))
                 {
-                    if (candidate.Via == BridgeRoute.English)
-                    {
-                        continue;
-                    }
-
                     if (candidate.Text.Length >= MinReadingLength
                         && itemName.Contains(candidate.Text, StringComparison.Ordinal))
                     {
