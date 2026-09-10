@@ -459,8 +459,32 @@ public sealed class ImagePipeline
     /// 保存名は**中身のハッシュ**なので、同じ絵を2回落としても1枚にまとまる。
     /// </summary>
     /// <returns>保存したファイル名。画像として読めなければ null。</returns>
-    public async Task<string?> SaveUserImageAsync(
+    public Task<string?> SaveUserImageAsync(
         string itemId,
+        byte[] bytes,
+        CancellationToken cancellationToken = default)
+        => SaveUserImageToAsync(_paths.ItemImagesDir(itemId), bytes, cancellationToken);
+
+    /// <summary>
+    /// 改変に貼る画像を保存する。置き場所は <c>images/_mods/{改変ID}/</c>。
+    ///
+    /// 商品の画像と**同じ圧縮を通す**。別の設定にすると、同じアプリの中で
+    /// 画質と容量の基準が2つになる。
+    /// </summary>
+    public Task<string?> SaveModificationImageAsync(
+        string modificationId,
+        byte[] bytes,
+        CancellationToken cancellationToken = default)
+        => SaveUserImageToAsync(_paths.ModificationImagesDir(modificationId), bytes, cancellationToken);
+
+    /// <summary>
+    /// 置き場所を受け取って保存する。
+    ///
+    /// 商品と改変で置き場所だけが違い、名前の付け方（中身のハッシュ）と
+    /// 圧縮は同じ。**同じ絵を2回落としても1枚にまとまる**のも同じ。
+    /// </summary>
+    private async Task<string?> SaveUserImageToAsync(
+        string directory,
         byte[] bytes,
         CancellationToken cancellationToken = default)
     {
@@ -469,7 +493,6 @@ public sealed class ImagePipeline
             return null;
         }
 
-        var directory = _paths.ItemImagesDir(itemId);
         Directory.CreateDirectory(directory);
 
         var fileName = UserImageName.For(bytes);
@@ -492,6 +515,13 @@ public sealed class ImagePipeline
     /// BOOTHから取り直しても戻らないので、呼ぶ側で確かめてから呼ぶ。
     /// </summary>
     public void DeleteUserImage(string itemId, string fileName)
+        => DeleteUserImageFrom(_paths.ItemImagesDir(itemId), fileName);
+
+    /// <summary>改変に貼った画像を消す。**ファイルごと消える。**</summary>
+    public void DeleteModificationImage(string modificationId, string fileName)
+        => DeleteUserImageFrom(_paths.ModificationImagesDir(modificationId), fileName);
+
+    private void DeleteUserImageFrom(string directory, string fileName)
     {
         if (!UserImageName.IsUserAdded(fileName))
         {
@@ -500,7 +530,7 @@ public sealed class ImagePipeline
             return;
         }
 
-        var path = Path.Combine(_paths.ItemImagesDir(itemId), Path.GetFileName(fileName));
+        var path = Path.Combine(directory, Path.GetFileName(fileName));
 
         try
         {
@@ -514,6 +544,7 @@ public sealed class ImagePipeline
             // 消せなくても記録からは外す。次の掃除で消える
         }
     }
+
     private async Task SaveAsWebpAsync(
         byte[] bytes,
         string path,

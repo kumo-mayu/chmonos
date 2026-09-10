@@ -29,6 +29,59 @@ public interface IModificationService
         string avatarItemId,
         string name,
         CancellationToken cancellationToken = default);
+
+    Task<ModificationRecord?> LoadAsync(string id, CancellationToken cancellationToken = default);
+
+    Task<bool> RenameAsync(string id, string name, CancellationToken cancellationToken = default);
+
+    Task<bool> SetMemoAsync(string id, string? memo, CancellationToken cancellationToken = default);
+
+    /// <summary>Unityプロジェクトを紐付ける。null で外す。</summary>
+    Task<bool> SetProjectAsync(string id, string? path, CancellationToken cancellationToken = default);
+
+    // ---- 構成物 ----
+
+    /// <summary>
+    /// 使ったものを足す。**末尾に付く**（並びが導入の順）。
+    /// 同じ商品を2回足せる——別のバージョンを重ねることがある。
+    /// </summary>
+    Task<bool> AddMemberAsync(
+        string id,
+        ModificationMember member,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>位置で外す。並びが意味を持つので、商品IDではなく位置で指す。</summary>
+    Task<bool> RemoveMemberAsync(string id, int index, CancellationToken cancellationToken = default);
+
+    /// <summary>位置を動かす。依存物を後から思い出したときに直せるようにする。</summary>
+    Task<bool> MoveMemberAsync(
+        string id,
+        int index,
+        int delta,
+        CancellationToken cancellationToken = default);
+
+    // ---- 画像 ----
+
+    /// <summary>画像を足す。商品と同じ圧縮を通す。読めなければ null。</summary>
+    Task<string?> AddImageAsync(string id, byte[] bytes, CancellationToken cancellationToken = default);
+
+    Task<bool> RemoveImageAsync(string id, string fileName, CancellationToken cancellationToken = default);
+
+    Task<bool> MoveImageAsync(
+        string id,
+        string fileName,
+        int delta,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>その商品を使っている改変。商品ページに出すために引く。</summary>
+    Task<IReadOnlyList<ModificationRecord>> LoadUsingItemAsync(
+        string itemId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>そのプロジェクトに紐づく改変。Unityへ送るときに引く。</summary>
+    Task<IReadOnlyList<ModificationRecord>> LoadForProjectAsync(
+        string projectPath,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -41,10 +94,12 @@ public interface IModificationService
 public sealed class ModificationService : IModificationService
 {
     private readonly DataStore _store;
+    private readonly Images.ImagePipeline? _images;
 
-    public ModificationService(DataStore store)
+    public ModificationService(DataStore store, Images.ImagePipeline? images = null)
     {
         _store = store;
+        _images = images;
     }
 
     public async Task<IReadOnlyList<ModificationRecord>> LoadForAvatarAsync(
@@ -115,6 +170,231 @@ public sealed class ModificationService : IModificationService
         var mine = await LoadForAvatarAsync(avatarItemId, cancellationToken);
         return mine.Any(record =>
             string.Equals(record.Name, trimmed, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    public Task<ModificationRecord?> LoadAsync(string id, CancellationToken cancellationToken = default)
+        => _store.Modifications.LoadAsync(id, cancellationToken);
+
+    public Task<bool> RenameAsync(string id, string name, CancellationToken cancellationToken = default)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        return trimmed.Length == 0
+            ? Task.FromResult(false)
+            : UpdateAsync(id, record => record with { Name = trimmed }, cancellationToken);
+    }
+
+    public Task<bool> SetMemoAsync(string id, string? memo, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record => record with { Memo = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim() },
+            cancellationToken);
+
+    public Task<bool> SetProjectAsync(string id, string? path, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record => record with { UnityProject = string.IsNullOrWhiteSpace(path) ? null : path.Trim() },
+            cancellationToken);
+
+    // ---- 構成物 ----
+
+    public Task<bool> AddMemberAsync(
+        string id,
+        ModificationMember member,
+        CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            // **末尾に付ける。**並びが導入の順なので、後から来たものは後ろ
+            record => record with { Members = [.. record.Members, member with { AddedAt = DateTimeOffset.Now }] },
+            cancellationToken);
+
+    public Task<bool> RemoveMemberAsync(string id, int index, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record =>
+            {
+                if (index < 0 || index >= record.Members.Count)
+                {
+                    return record;
+                }
+
+                var members = record.Members.ToList();
+                members.RemoveAt(index);
+                return record with { Members = members };
+            },
+            cancellationToken);
+
+    public Task<bool> MoveMemberAsync(
+        string id,
+        int index,
+        int delta,
+        CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record =>
+            {
+                var members = record.Members.ToList();
+                var to = index + delta;
+                if (index < 0 || index >= members.Count || to < 0 || to >= members.Count)
+                {
+                    return record;
+                }
+
+                var moved = members[index];
+                members.RemoveAt(index);
+                members.Insert(to, moved);
+                return record with { Members = members };
+            },
+            cancellationToken);
+
+    // ---- 画像 ----
+
+    public async Task<string?> AddImageAsync(
+        string id,
+        byte[] bytes,
+        CancellationToken cancellationToken = default)
+    {
+        if (_images is null || !_store.Modifications.Exists(id))
+        {
+            return null;
+        }
+
+        var fileName = await _images.SaveModificationImageAsync(id, bytes, cancellationToken);
+        if (fileName is null)
+        {
+            return null;
+        }
+
+        await UpdateAsync(
+            id,
+            record => record.Images.Any(image =>
+                    string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+
+                // 同じ絵を2回落としても1枚にまとまる（名前が中身のハッシュ）。記録も増やさない
+                ? record
+                : record with
+                {
+                    Images = [.. record.Images, new ModificationImage
+                    {
+                        FileName = fileName,
+                        AddedAt = DateTimeOffset.Now,
+                    }],
+                },
+            cancellationToken);
+
+        return fileName;
+    }
+
+    public async Task<bool> RemoveImageAsync(
+        string id,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        var name = Path.GetFileName(fileName);
+        var removed = await UpdateAsync(
+            id,
+            record => record with
+            {
+                Images = record.Images
+                    .Where(image => !string.Equals(image.FileName, name, StringComparison.OrdinalIgnoreCase))
+                    .ToList(),
+            },
+            cancellationToken);
+
+        if (removed)
+        {
+            _images?.DeleteModificationImage(id, name);
+        }
+
+        return removed;
+    }
+
+    public Task<bool> MoveImageAsync(
+        string id,
+        string fileName,
+        int delta,
+        CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record =>
+            {
+                var images = record.Images.ToList();
+                var index = images.FindIndex(image =>
+                    string.Equals(image.FileName, Path.GetFileName(fileName), StringComparison.OrdinalIgnoreCase));
+
+                var to = index + delta;
+                if (index < 0 || to < 0 || to >= images.Count)
+                {
+                    return record;
+                }
+
+                var moved = images[index];
+                images.RemoveAt(index);
+                images.Insert(to, moved);
+                return record with { Images = images };
+            },
+            cancellationToken);
+
+    // ---- 逆引き ----
+
+    public async Task<IReadOnlyList<ModificationRecord>> LoadUsingItemAsync(
+        string itemId,
+        CancellationToken cancellationToken = default)
+    {
+        var all = await _store.Modifications.LoadAllAsync(cancellationToken);
+        return all.Modifications
+            .Where(record => record.Members.Any(member =>
+                string.Equals(member.ItemId, itemId, StringComparison.Ordinal)))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<ModificationRecord>> LoadForProjectAsync(
+        string projectPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            return [];
+        }
+
+        var all = await _store.Modifications.LoadAllAsync(cancellationToken);
+        return all.Modifications
+            .Where(record => record.UnityProject is { } path && SamePath(path, projectPath))
+            .ToList();
+    }
+
+    /// <summary>
+    /// 同じプロジェクトを指しているか。
+    ///
+    /// Windowsのパスは大文字小文字を区別せず、末尾の区切りも揺れる。
+    /// 素の文字列比較だと、同じプロジェクトを別物と見て取り逃す。
+    /// </summary>
+    private static bool SamePath(string a, string b)
+        => string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 1件を読んで、書き換えて、書き戻す。
+    ///
+    /// **<c>UpdatedAt</c> は必ず動かす。**触った跡が残らないと、
+    /// あとで「最近いじった改変」が分からない。
+    ///
+    /// 書き換えが何もしなかった場合（範囲外の位置を指した等）も true を返す。
+    /// 「対象が無い」と「動かせなかった」を呼ぶ側で区別する必要が無い。
+    /// </summary>
+    private async Task<bool> UpdateAsync(
+        string id,
+        Func<ModificationRecord, ModificationRecord> update,
+        CancellationToken cancellationToken)
+    {
+        if (await _store.Modifications.LoadAsync(id, cancellationToken) is not { } record)
+        {
+            return false;
+        }
+
+        await _store.Modifications.SaveAsync(
+            update(record) with { UpdatedAt = DateTimeOffset.Now },
+            cancellationToken);
+
+        return true;
     }
 
     /// <summary>

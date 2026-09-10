@@ -148,6 +148,28 @@ public abstract record UiCommand
     /// <summary>改変を消す。**貼った画像も一緒に消える**。聞くのは画面側</summary>
     public record DeleteModification(string Id) : UiCommand;
 
+    public record RenameModification(string Id, string Name) : UiCommand;
+
+    public record SetModificationMemo(string Id, string? Memo) : UiCommand;
+
+    /// <summary>Unityプロジェクトを紐付ける。null で外す</summary>
+    public record SetModificationProject(string Id, string? Path) : UiCommand;
+
+    /// <summary>使ったものを足す。**末尾に付く**（並びが導入の順）</summary>
+    public record AddModificationMember(string Id, Models.ModificationMember Member) : UiCommand;
+
+    /// <summary>位置で外す。並びが意味を持つので商品IDでは指さない</summary>
+    public record RemoveModificationMember(string Id, int Index) : UiCommand;
+
+    public record MoveModificationMember(string Id, int Index, int Delta) : UiCommand;
+
+    /// <summary>改変に画像を足す。商品と同じ圧縮を通す</summary>
+    public record AddModificationImage(string Id, byte[] Bytes) : UiCommand;
+
+    public record RemoveModificationImage(string Id, string FileName) : UiCommand;
+
+    public record MoveModificationImage(string Id, string FileName, int Delta) : UiCommand;
+
     /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
     public record SetAttributeDefault(string Name, bool IsDefault) : UiCommand;
 

@@ -291,6 +291,51 @@ public sealed class CommandHandler
                     ? new CommandResult.ModificationsChanged()
                     : new CommandResult.Failed("対象の改変が見つかりませんでした。");
 
+            case UiCommand.RenameModification rename:
+                return await RunModificationAsync(
+                    () => _modifications!.RenameAsync(rename.Id, rename.Name, cancellationToken),
+                    "名前を入れてください。");
+
+            case UiCommand.SetModificationMemo memo:
+                return await RunModificationAsync(
+                    () => _modifications!.SetMemoAsync(memo.Id, memo.Memo, cancellationToken));
+
+            case UiCommand.SetModificationProject project:
+                return await RunModificationAsync(
+                    () => _modifications!.SetProjectAsync(project.Id, project.Path, cancellationToken));
+
+            case UiCommand.AddModificationMember addMember:
+                return await RunModificationAsync(
+                    () => _modifications!.AddMemberAsync(addMember.Id, addMember.Member, cancellationToken));
+
+            case UiCommand.RemoveModificationMember removeMember:
+                return await RunModificationAsync(
+                    () => _modifications!.RemoveMemberAsync(removeMember.Id, removeMember.Index, cancellationToken));
+
+            case UiCommand.MoveModificationMember moveMember:
+                return await RunModificationAsync(
+                    () => _modifications!.MoveMemberAsync(
+                        moveMember.Id, moveMember.Index, moveMember.Delta, cancellationToken));
+
+            case UiCommand.AddModificationImage addImage2:
+                if (_modifications is null)
+                {
+                    return new CommandResult.Failed("改変の編集手段が設定されていません。");
+                }
+
+                return await _modifications.AddImageAsync(addImage2.Id, addImage2.Bytes, cancellationToken) is not null
+                    ? new CommandResult.ModificationsChanged()
+                    : new CommandResult.Failed("画像として読めませんでした。");
+
+            case UiCommand.RemoveModificationImage removeImage2:
+                return await RunModificationAsync(
+                    () => _modifications!.RemoveImageAsync(removeImage2.Id, removeImage2.FileName, cancellationToken));
+
+            case UiCommand.MoveModificationImage moveImage2:
+                return await RunModificationAsync(
+                    () => _modifications!.MoveImageAsync(
+                        moveImage2.Id, moveImage2.FileName, moveImage2.Delta, cancellationToken));
+
             case UiCommand.SetAttributeDefault attributeDefault:
                 if (_attributes is null)
                 {
@@ -367,5 +412,24 @@ public sealed class CommandHandler
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");
         }
+    }
+
+    /// <summary>
+    /// 改変の書き換えを1本にまとめる。
+    ///
+    /// 手段が無い／対象が無いの分岐が10箇所に並ぶと、どれかで文言がずれる。
+    /// </summary>
+    private async Task<CommandResult> RunModificationAsync(
+        Func<Task<bool>> run,
+        string failure = "対象の改変が見つかりませんでした。")
+    {
+        if (_modifications is null)
+        {
+            return new CommandResult.Failed("改変の編集手段が設定されていません。");
+        }
+
+        return await run()
+            ? new CommandResult.ModificationsChanged()
+            : new CommandResult.Failed(failure);
     }
 }

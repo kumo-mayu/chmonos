@@ -61,7 +61,7 @@ public sealed class AppServiceContainer : IDisposable
         Stats = new StatsService(Store);
         SettingsStore = new SettingsService(Store);
         Recent = new Services.RecentTracker(Store);
-        Modifications = new ModificationService(Store);
+        Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
             Modifications);
