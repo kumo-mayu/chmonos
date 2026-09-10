@@ -20,6 +20,43 @@ public enum ExtraFilterKind
     BaseAvatar,
     UsedOn,
     Folder,
+
+    /// <summary>最近使った（Unityへ送った）もの。</summary>
+    RecentlyUsed,
+
+    /// <summary>最近見たもの。</summary>
+    RecentlyViewed,
+
+    /// <summary>最近手元に入ったもの。</summary>
+    RecentlyAdded,
+}
+
+/// <summary>
+/// 「最近」の足跡を、商品IDから引ける形にまとめたもの。
+///
+/// 絞り込みの1回ぶんで使い回す。1商品ごとにファイルを読み直さないため。
+/// </summary>
+public sealed record RecentTimes(
+    IReadOnlyDictionary<string, DateTimeOffset> Added,
+    IReadOnlyDictionary<string, DateTimeOffset> Used,
+    IReadOnlyDictionary<string, DateTimeOffset> Viewed)
+{
+    public static RecentTimes Empty { get; } = new(
+        new Dictionary<string, DateTimeOffset>(),
+        new Dictionary<string, DateTimeOffset>(),
+        new Dictionary<string, DateTimeOffset>());
+
+    public DateTimeOffset? Of(string itemId, RecentKind kind)
+    {
+        var source = kind switch
+        {
+            RecentKind.Added => Added,
+            RecentKind.Used => Used,
+            _ => Viewed,
+        };
+
+        return source.TryGetValue(itemId, out var at) ? at : null;
+    }
 }
 
 /// <summary>入力の形。種類ごとにどの欄を出すかが決まる。</summary>
@@ -36,6 +73,14 @@ public enum ExtraFilterShape
 
     /// <summary>1階層ずつ降りる。フォルダだけ。</summary>
     Drill,
+
+    /// <summary>
+    /// 日数を1つ。「最近」の3種で使う。
+    ///
+    /// 上下限にしないのは、聞きたいことが「何日以内か」の片側しかないから。
+    /// 「30〜」と出る欄に30を入れさせると、どちら側の意味か読めない。
+    /// </summary>
+    Days,
 }
 
 /// <summary>追加できる条件の一覧。名前と形をここだけで決める。</summary>
@@ -57,6 +102,15 @@ public static class ExtraFilterCatalog
         new(ExtraFilterKind.UsedOn, "着せているアバター", ExtraFilterShape.Suggest,
             "自分が実際に着せた記録で絞ります（出品者の宣言とは別です）。"),
         new(ExtraFilterKind.Folder, "フォルダ", ExtraFilterShape.Drill, "ファイルの置き場所で絞ります。"),
+
+        // 記録が無い商品は、日数を入れた時点で外れる。「値が小さい」ではなく
+        // 「値が無い」ので、何日以内にも当てはまらない
+        new(ExtraFilterKind.RecentlyUsed, "最近使った", ExtraFilterShape.Days,
+            "Unityへ送った記録で絞ります。送ったことが無い商品は外れます。"),
+        new(ExtraFilterKind.RecentlyViewed, "最近見た", ExtraFilterShape.Days,
+            "商品ページを開いた記録で絞ります。開いたことが無い商品は外れます。"),
+        new(ExtraFilterKind.RecentlyAdded, "最近手元に入った", ExtraFilterShape.Days,
+            "取り込んだ記録で絞ります。この機能より前に取り込んだ商品には記録が無いので外れます。"),
     ];
 
     public static Entry Of(ExtraFilterKind kind) => All.First(entry => entry.Kind == kind);
@@ -90,6 +144,23 @@ public sealed class ExtraFilter : ViewModelBase
     public bool IsSuggest => Shape == ExtraFilterShape.Suggest;
 
     public bool IsDrill => Shape == ExtraFilterShape.Drill;
+
+    public bool IsDays => Shape == ExtraFilterShape.Days;
+
+    private string _days = string.Empty;
+
+    /// <summary>何日以内か。空なら絞っていない。</summary>
+    public string Days
+    {
+        get => _days;
+        set
+        {
+            if (SetField(ref _days, value))
+            {
+                Changed?.Invoke();
+            }
+        }
+    }
 
     private string? _currentPath;
 
@@ -201,8 +272,15 @@ public sealed class ExtraFilter : ViewModelBase
     }
 
     /// <summary>この条件がitemを通すか。</summary>
-    public bool Matches(ItemRecord item, IReadOnlyCollection<string> unreadItemIds) => Kind switch
+    public bool Matches(
+        ItemRecord item,
+        IReadOnlyCollection<string> unreadItemIds,
+        RecentTimes? recent = null) => Kind switch
     {
+        ExtraFilterKind.RecentlyUsed => WithinDays(recent, item.Id, RecentKind.Used),
+        ExtraFilterKind.RecentlyViewed => WithinDays(recent, item.Id, RecentKind.Viewed),
+        ExtraFilterKind.RecentlyAdded => WithinDays(recent, item.Id, RecentKind.Added),
+
         ExtraFilterKind.PublishedAt => InDateRange(item.Booth.PublishedAt),
         ExtraFilterKind.WishList => InNumberRange(item.Booth.WishListsCount),
         ExtraFilterKind.Price => InNumberRange(Purchases.SelfSpendOf(item)),
@@ -227,6 +305,7 @@ public sealed class ExtraFilter : ViewModelBase
     {
         ExtraFilterShape.Range => Min.Trim().Length > 0 || Max.Trim().Length > 0,
         ExtraFilterShape.Check => IsOn,
+        ExtraFilterShape.Days => DayCount is > 0,
         _ => Selected.Count > 0,
     };
 
@@ -234,8 +313,25 @@ public sealed class ExtraFilter : ViewModelBase
     {
         ExtraFilterShape.Range => $"{Label} {(Min.Trim().Length == 0 ? "" : Min)}〜{(Max.Trim().Length == 0 ? "" : Max)}",
         ExtraFilterShape.Check => Label,
+        ExtraFilterShape.Days => $"{Label} {DayCount}日以内",
         _ => $"{Label}（{string.Join("・", Selected)}）",
     };
+
+    /// <summary>入力した日数。読めなければ null（絞っていない扱い）。</summary>
+    private int? DayCount => int.TryParse(Days.Trim(), out var days) && days > 0 ? days : null;
+
+    /// <summary>
+    /// その足跡が指定の日数以内にあるか。
+    ///
+    /// **記録が無い商品は、日数を入れた時点で外す。**
+    /// 「値が小さい」ではなく「値が無い」ので、何日以内にも当てはまらない
+    /// （公開日の範囲指定と同じ考え方）。
+    /// </summary>
+    private bool WithinDays(RecentTimes? recent, string itemId, RecentKind kind)
+        => RecentActivity.IsWithin(
+            (recent ?? RecentTimes.Empty).Of(itemId, kind),
+            DayCount ?? 0,
+            DateTimeOffset.Now);
 
     private bool InNumberRange(int value)
     {

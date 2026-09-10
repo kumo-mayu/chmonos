@@ -402,6 +402,21 @@
                                                          VerticalContentAlignment="Center" />
                                             </StackPanel>
 
+                                            <!--
+                                                日数を1つ。上下限にしないのは、聞きたいことが
+                                                「何日以内か」の片側しかないから。
+                                                「30〜」と出る欄に30を入れさせると、
+                                                どちら側の意味か読めない
+                                            -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0"
+                                                        Visibility="{Binding IsDays, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBox Text="{Binding Days, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                                         Width="64" Height="26" FontSize="12" Padding="7,0"
+                                                         VerticalContentAlignment="Center" />
+                                                <TextBlock Text="日以内" VerticalAlignment="Center" Margin="7,0,0,0"
+                                                           Style="{StaticResource Caption}" />
+                                            </StackPanel>
+
                                             <CheckBox Content="この条件で絞る" IsChecked="{Binding IsOn, Mode=TwoWay}"
                                                       FontSize="12" Margin="0,7,0,0" Foreground="{StaticResource Text}"
                                                       Visibility="{Binding IsCheck, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

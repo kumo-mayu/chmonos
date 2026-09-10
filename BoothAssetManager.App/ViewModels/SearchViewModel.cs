@@ -55,6 +55,9 @@ public sealed class SearchViewModel : ViewModelBase
     private bool _isFilterPanelCollapsed;
     private int _columns = 1;
     private SortOption _sort = DefaultSort;
+
+    /// <summary>「最近」の足跡。絞り込み1回ぶんの間だけ持つ写し</summary>
+    private RecentTimes? _recentTimes;
     private List<string> _attributeNames = [];
 
     /// <summary>ライブラリにあるBOOTHタグの全種類。候補の元。</summary>
@@ -1400,6 +1403,10 @@ public sealed class SearchViewModel : ViewModelBase
 
     private void ApplyFilters()
     {
+        // 足跡は1回だけ読んで、この絞り込みの間は使い回す。
+        // 1商品ごとに読み直すと、件数に比例してファイルを開くことになる
+        _recentTimes = NeedsRecent() ? LoadRecentTimes() : null;
+
         _matches = SortItems(_allItems.Where(item => Matches(item)))
             .Select(item => _cards[item.Id])
             .ToList();
@@ -1730,7 +1737,7 @@ public sealed class SearchViewModel : ViewModelBase
 
         // 積んだ条件は軸ごとにANDで積む。積むこと自体が「この軸で選ぶ」という意思表示
         if (except != FilterAxis.Extra
-            && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds)))
+            && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds, _recentTimes)))
         {
             return false;
         }
@@ -1853,6 +1860,19 @@ public sealed class SearchViewModel : ViewModelBase
     /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。
     /// 未評価は「値が小さい」のではなく「値が無い」ので、0として混ぜると誤読させる。
     /// </summary>
+    /// <summary>
+    /// この絞り込みで足跡が要るか。
+    ///
+    /// 積んでいなければ読まない。関係の無い検索でファイルを開く理由が無い。
+    /// </summary>
+    private bool NeedsRecent()
+        => ExtraFilters.Any(filter => filter.Shape == ExtraFilterShape.Days && filter.IsActive);
+
+    private RecentTimes LoadRecentTimes() => new(
+        _services.Recent.Times(Core.Services.RecentKind.Added),
+        _services.Recent.Times(Core.Services.RecentKind.Used),
+        _services.Recent.Times(Core.Services.RecentKind.Viewed));
+
     /// <summary>その並び順が「最近」の足跡を見るものなら、どの種類か。</summary>
     private static Core.Services.RecentKind? RecentKindOf(SortKind kind) => kind switch
     {

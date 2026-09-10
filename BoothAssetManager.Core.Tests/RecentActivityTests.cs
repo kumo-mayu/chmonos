@@ -97,4 +97,42 @@ public sealed class RecentActivityTests
 
         Assert.Single(RecentActivity.KeepOnly(log, new HashSet<string> { "1", "2" }));
     }
+
+    // ---- 何日以内か ----
+
+    [Fact]
+    public void 記録が無ければ当てはまらない()
+    {
+        // 「値が小さい」ではなく「値が無い」ので、何日以内にも入らない
+        Assert.False(RecentActivity.IsWithin(null, 30, Now));
+    }
+
+    [Fact]
+    public void 日数が0以下なら絞っていない扱いで全部通す()
+    {
+        Assert.True(RecentActivity.IsWithin(null, 0, Now));
+        Assert.True(RecentActivity.IsWithin(null, -1, Now));
+    }
+
+    [Fact]
+    public void 期間の中にあれば当てはまる()
+        => Assert.True(RecentActivity.IsWithin(Now.AddDays(-3), 30, Now));
+
+    [Fact]
+    public void 期間より古ければ外れる()
+        => Assert.False(RecentActivity.IsWithin(Now.AddDays(-31), 30, Now));
+
+    [Fact]
+    public void ちょうど境目は含める()
+    {
+        // 「30日以内」に30日前を入れないと、境目の1日が誰にも当たらなくなる
+        Assert.True(RecentActivity.IsWithin(Now.AddDays(-30), 30, Now));
+    }
+
+    [Fact]
+    public void 未来の時刻も当てはまる()
+    {
+        // 時計を戻した後などに起こりうる。除くと「使ったのに出ない」になる
+        Assert.True(RecentActivity.IsWithin(Now.AddDays(1), 30, Now));
+    }
 }

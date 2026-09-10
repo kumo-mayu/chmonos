@@ -109,6 +109,24 @@ public static class RecentActivity
     }
 
     /// <summary>
+    /// その足跡が指定の日数以内にあるか。
+    ///
+    /// **記録が無ければ当てはまらない。**「値が小さい」ではなく「値が無い」ので、
+    /// 何日以内にも入らない（公開日の範囲指定と同じ考え方）。
+    ///
+    /// 日数が0以下なら絞っていない扱いで、全部通す。
+    /// </summary>
+    public static bool IsWithin(DateTimeOffset? at, int days, DateTimeOffset now)
+    {
+        if (days <= 0)
+        {
+            return true;
+        }
+
+        return at is { } stamped && stamped >= now.AddDays(-days);
+    }
+
+    /// <summary>
     /// 手元に無くなった商品の行を落とす。
     ///
     /// 足跡だけが残り続けると、消した商品の記録が延々と溜まる。
