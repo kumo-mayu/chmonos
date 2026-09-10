@@ -182,6 +182,18 @@ public sealed record StatsSnapshot
     /// <summary>うち重複コピーの分。<see cref="PhysicalBytes"/> と <see cref="LogicalBytes"/> の差。</summary>
     public long DuplicateBytes => PhysicalBytes - LogicalBytes;
 
+    /// <summary>
+    /// 重複の中身。空く量の大きい順。
+    ///
+    /// **合計だけでは触る場所が分からない。**<see cref="DuplicateBytes"/> は
+    /// 「どれだけ重複しているか」しか言えず、
+    /// しかも1商品の中しか見ていないので商品またぎを取り逃していた。
+    /// </summary>
+    public IReadOnlyList<DuplicateGroup> Duplicates { get; init; } = [];
+
+    /// <summary>1つ残して他を消したら空く合計。</summary>
+    public long ReclaimableBytes => Duplicates.Sum(group => group.ReclaimableBytes);
+
     public required int ShopCount { get; init; }
 
     /// <summary>月別。買っていない月も0として残す（間が空いたことも情報のため）。</summary>
@@ -430,6 +442,9 @@ public sealed class StatsService : IStatsService
             UnpricedItemCount = unpriced,
             LogicalBytes = logical,
             PhysicalBytes = physical,
+
+            // 所持しているものだけを見る。手元に無いものは容量を食っていない
+            Duplicates = DuplicateFinder.Find(owned),
             ShopCount = shops.Count,
             Months = FillMonths(months),
             Years = FillYears(years),

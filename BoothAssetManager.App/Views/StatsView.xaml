@@ -365,6 +365,67 @@
                                         <Run Text="（同じ中身のファイルを2箇所以上に置いている分）" />
                                     </TextBlock>
                                 </Border>
+
+                                <!--
+                                    空けられる場所
+
+                                    **合計だけでは触る場所が分からない。**上の「うち重複コピー」は
+                                    量しか言えず、しかも1商品の中しか見ていないので
+                                    商品またぎを取り逃していた。組ごとに、場所と空く量を出す。
+
+                                    **無いことも言う。**黙って消すと、調べた結果ゼロなのか
+                                    機能が無いのか分からない
+                                -->
+                                <Border BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0"
+                                        Padding="0,12,0,0" Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="空けられる場所" Style="{StaticResource PanelTitle}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding DuplicateSummary}" Style="{StaticResource Caption}"
+                                                       Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        </StackPanel>
+
+                                        <ItemsControl ItemsSource="{Binding Duplicates}" Margin="0,10,0,0"
+                                                      Visibility="{Binding HasDuplicates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:DuplicateRowViewModel}">
+                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                                            BorderThickness="1" CornerRadius="6"
+                                                            Padding="11,9" Margin="0,0,0,7">
+                                                        <StackPanel>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12.5"
+                                                                           TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding ReclaimText}"
+                                                                           Style="{StaticResource Mono}" FontSize="11"
+                                                                           VerticalAlignment="Center" />
+                                                            </Grid>
+                                                            <TextBlock Text="{Binding KindText}" Style="{StaticResource Caption}"
+                                                                       Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding ItemsText}" Style="{StaticResource Caption}"
+                                                                       Margin="0,2,0,0" TextWrapping="Wrap" />
+                                                            <!-- 消す前に場所が見えていること -->
+                                                            <ItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <TextBlock Text="{Binding}" Style="{StaticResource Mono}"
+                                                                                   FontSize="10.5" Margin="0,1,0,0"
+                                                                                   TextTrimming="CharacterEllipsis" />
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Border>
 

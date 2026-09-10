@@ -55,6 +55,34 @@ public sealed class StatsRowViewModel : ViewModelBase
 }
 
 /// <summary>積み残しの1行。</summary>
+/// <summary>
+/// 重複1組。**どれとどれか**と**消せばいくら空くか**を出す。
+/// </summary>
+public sealed class DuplicateRowViewModel(DuplicateGroup group)
+{
+    public string Label { get; } = group.Label;
+
+    public string ReclaimText { get; } = Core.Models.DisplayText.Size(group.ReclaimableBytes) + " 空きます";
+
+    /// <summary>
+    /// 何が起きているかの一言。消し方が違うので種類を言い分ける。
+    /// </summary>
+    public string KindText { get; } = group.Kind switch
+    {
+        DuplicateKind.ArchiveAndUnpacked => "zipと展開済みの両方があります（展開した方を消した場合）",
+        _ when group.CrossesItems => $"{group.Places.Count} 箇所にあります（別の商品にも紐付いています）",
+        _ => $"{group.Places.Count} 箇所に同じ中身があります",
+    };
+
+    /// <summary>置いてある場所。**消す前に見えている必要がある。**</summary>
+    public IReadOnlyList<string> Places { get; } = group.Places.Select(place => place.Path).ToList();
+
+    /// <summary>どの商品に紐付いているか。商品をまたぐときだけ意味がある。</summary>
+    public string ItemsText { get; } = string.Join(
+        "・",
+        group.Places.Select(place => place.ItemName).Distinct());
+}
+
 public sealed class BacklogRowViewModel
 {
     public required string Label { get; init; }
@@ -256,6 +284,30 @@ public sealed class StatsViewModel : ViewModelBase
 
     public string ShopCountText => $"{_snapshot?.ShopCount ?? 0:N0}";
 
+    // ---- 空けられる場所 ----
+
+    /// <summary>
+    /// 重複の一覧。空く量の大きい順。
+    ///
+    /// **合計だけでは触る場所が分からない**ので、組ごとに出す。
+    /// </summary>
+    public IReadOnlyList<DuplicateRowViewModel> Duplicates =>
+        _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group)).ToList() ?? [];
+
+    public bool HasDuplicates => Duplicates.Count > 0;
+
+    /// <summary>
+    /// 重複の見出し。
+    ///
+    /// **無いことも言う。**黙って消すと、調べた結果ゼロだったのか
+    /// 機能が無いのか分からない（メモが出ていないという指摘と同じ落とし穴）。
+    /// </summary>
+    public string DuplicateSummary => _snapshot is null
+        ? string.Empty
+        : HasDuplicates
+            ? $"1つずつ残して他を消すと {Core.Models.DisplayText.Size(_snapshot.ReclaimableBytes)} 空きます"
+            : "同じ中身を二重に持っているものはありません";
+
     // ---- 月別グラフの但し書き ----
 
     /// <summary>推定で埋めた日付がどれだけ混ざっているか。グラフの読み方が変わるので隠さない。</summary>
@@ -315,6 +367,7 @@ public sealed class StatsViewModel : ViewModelBase
                 nameof(SpentLabel), nameof(GivenText), nameof(GivenSubText), nameof(HasGiven),
                 nameof(TileColumns),
                 nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(SizeText), nameof(SizeSubText),
+                nameof(Duplicates), nameof(HasDuplicates), nameof(DuplicateSummary),
                 nameof(ShopCountText), nameof(HasData), nameof(IsEmpty),
             })
             {
