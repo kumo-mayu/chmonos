@@ -121,6 +121,9 @@ public sealed class ResolveViewModel : ViewModelBase
         UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow);
         AssignCommand = new RelayCommand(() => _ = AssignAsync(), () => HasPreview && HasSelection && !IsBusy);
         ExcludeCommand = new RelayCommand(() => _ = ExcludeAsync(), () => HasSelection && !IsBusy);
+        UseLocalNameCommand = new RelayCommand(
+            parameter => { if (parameter is string name) { LocalNameInput = name; } },
+            parameter => parameter is string);
         RegisterLocalCommand = new RelayCommand(
             () => _ = RegisterLocalAsync(),
             () => HasSelection && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
@@ -356,6 +359,20 @@ public sealed class ResolveViewModel : ViewModelBase
     public RelayCommand ExcludeCommand { get; }
 
     public RelayCommand RegisterLocalCommand { get; }
+
+    /// <summary>
+    /// 名前の候補。**自動では入れず、押したら入る。**（Q6）
+    ///
+    /// 登録簿の名前は他商品の記述から拾った推定を含むので、自動で入れると
+    /// それが観測なのか推定なのかが後から分からなくなる。
+    /// 押して入れば「自分が決めた」記録になり、
+    /// 「推定には出典と要確認を添える」という方針とも揃う。
+    /// </summary>
+    public ObservableCollection<string> LocalNameSuggestions { get; } = [];
+
+    public bool HasLocalNameSuggestions => LocalNameSuggestions.Count > 0;
+
+    public RelayCommand UseLocalNameCommand { get; }
 
     public RelayCommand SendSettledToEditCommand { get; }
 
@@ -805,6 +822,7 @@ public sealed class ResolveViewModel : ViewModelBase
             : BoothAssetManager.Core.Resolution.FileNameQuery.ToNameDraft(Selected.FileName);
 
         Candidates.Clear();
+        LocalNameSuggestions.Clear();
         foreach (var id in Selected?.File.CandidateItemIds ?? [])
         {
             Candidates.Add(WithBooth(new CandidateRow
@@ -814,6 +832,8 @@ public sealed class ResolveViewModel : ViewModelBase
                 Source = "取り込み時の手掛かり",
             }));
         }
+
+        AddRegistryCandidates();
 
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(RegisterTargetFolder));
@@ -830,7 +850,60 @@ public sealed class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasZone));
         OnPropertyChanged(nameof(HasStatus));
         OnPropertyChanged(nameof(LocalIdPreview));
+        OnPropertyChanged(nameof(HasLocalNameSuggestions));
         RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 手元のアバター登録簿から候補を足す。**通信は増えない。**
+    ///
+    /// 登録簿は未所持の商品の名前まで持っているので、BOOTHが404を返すファイルでも
+    /// 名前から辿り着けることがある。別名（「くうた対応」など）は
+    /// **まさにファイル名に現れる形**で溜まっている。
+    ///
+    /// **欄は分けない。**（Q7）候補が2箇所に出ると、ユーザは
+    /// 「どちらを先に見るべきか」を判断させられる。押した先で真実を出せばよい——
+    /// 「BOOTHでは見つかりません。手元の記録では『くうた』です」。
+    /// </summary>
+    private void AddRegistryCandidates()
+    {
+        if (Selected?.File.Paths.FirstOrDefault() is not { } path)
+        {
+            return;
+        }
+
+        var registry = _services.Store.Avatars.Load().Entries;
+        var already = Candidates.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var candidate in Core.Resolution.RegistryCandidates.For(
+            path, registry, _services.Bridge, _services.KanjiReadings))
+        {
+            // 名前は「BOOTHに無い商品として登録する」側の候補にも回す。
+            // 当たった項目が非公開なら、その名前こそが手元に残っている唯一の名前
+            if (!LocalNameSuggestions.Contains(candidate.Name))
+            {
+                LocalNameSuggestions.Add(candidate.Name);
+            }
+
+            if (!already.Add(candidate.ItemId))
+            {
+                continue;
+            }
+
+            var detail = $"「{candidate.MatchedOn}」で一致";
+            if (candidate.NeverFetched)
+            {
+                detail += "　BOOTHからは情報を取れていません";
+            }
+
+            Candidates.Add(WithBooth(new CandidateRow
+            {
+                ItemId = candidate.ItemId,
+                Title = candidate.Name,
+                Detail = detail,
+                Source = "手元のアバター登録簿",
+            }));
+        }
     }
 
     /// <summary>ファイル名からBOOTH内を検索して候補を出す。通信するので明示的に押させる。</summary>
