@@ -68,8 +68,21 @@
 
             右の列にも下限を置いて、潰れる前にスクロールが出るようにしてある
         -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-            <Grid Margin="20">
+        <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto">
+            <!--
+                **幅を窓に合わせる。**横に送れるScrollViewerは中身を「幅は無限」
+                として測るので、WrapPanel（BOOTHのタグ）は折り返さず、
+                `TextWrapping` を付けた商品名も1行ぶんの幅を要求する。
+                その結果、窓が十分広くても右の列が窓の外まで伸びていた
+                （タグ10個の商品で実測 約2900px）。
+
+                下限（1060 = 660 + 320 + 余白と内側の余白）を割ったときだけ横スクロールが出る。
+                余白を外の枠に持たせるのは、`Margin` だと幅に上積みされて
+                いつでも横スクロールが出てしまうため
+            -->
+            <Border Padding="20" MinWidth="1060"
+                    Width="{Binding ViewportWidth, ElementName=Body}">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="660" />
                     <ColumnDefinition Width="*" MinWidth="320" />
@@ -895,11 +908,24 @@
                                                                         <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="11.5"
                                                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                                                    Margin="0,0,10,0" />
-                                                                        <Button Grid.Column="1" Content="Unityへ送る" Style="{StaticResource SmallButton}"
-                                                                                ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
-                                                                                Command="{Binding DataContext.SendToUnityCommand,
-                                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                CommandParameter="{Binding}" />
+                                                                        <!--
+                                                                            **ボタンを2つに分ける。**送る前に「記録しますか」と
+                                                                            聞くと、記録を使っていない人の邪魔になる。
+                                                                            分ければ押した人だけが記録の話に入る
+                                                                        -->
+                                                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                                            <Button Content="Unityへ送る" Style="{StaticResource SmallButton}"
+                                                                                    ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
+                                                                                    Command="{Binding DataContext.SendToUnityCommand,
+                                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding}" />
+                                                                            <Button Content="改変に足して送る" Style="{StaticResource SmallButton}"
+                                                                                    Margin="6,0,0,0"
+                                                                                    ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
+                                                                                    Command="{Binding DataContext.SendToUnityWithRecordCommand,
+                                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding}" />
+                                                                        </StackPanel>
                                                                     </Grid>
                                                                 </Border>
                                                             </DataTemplate>
@@ -917,6 +943,12 @@
                             <TextBlock Text="{Binding UnityTargetText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="18,0,18,14"
                                        Visibility="{Binding HasAnyUnityPackage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!-- 積んだことはUnity側の反応では分からないので、ここで言う -->
+                            <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="18,0,18,14"
+                                       Foreground="{StaticResource Accent}"
+                                       Visibility="{Binding HasUnityRecordNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </Border>
 
@@ -969,6 +1001,7 @@
                     </Border>
                 </StackPanel>
             </Grid>
+            </Border>
         </ScrollViewer>
     </DockPanel>
 </UserControl>

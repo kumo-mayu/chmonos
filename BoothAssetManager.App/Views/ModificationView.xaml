@@ -39,8 +39,11 @@
             **横にも送れるようにする。**商品ページで踏んだのと同じ理由——
             左の列が固定幅なので、窓が狭いと右の列が幅0まで潰れて到達できなくなる
         -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-            <Grid Margin="20">
+        <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto">
+            <!-- 幅を窓に合わせる理由は商品ページと同じ（無限幅で測ると折り返さない） -->
+            <Border Padding="20" MinWidth="1060"
+                    Width="{Binding ViewportWidth, ElementName=Body}">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="660" />
                     <ColumnDefinition Width="*" MinWidth="320" />
@@ -397,6 +400,7 @@
                     </Border>
                 </StackPanel>
             </Grid>
+            </Border>
         </ScrollViewer>
     </DockPanel>
 </UserControl>

@@ -142,6 +142,9 @@ public sealed class LocalFileRow
 
     public string? VariationLabel { get; init; }
 
+    /// <summary>どの種類のファイルか。改変に積むときに、そのまま記録に入れる。</summary>
+    public long? VariationId { get; init; }
+
     public bool HasVariationLabel => VariationLabel is not null;
 
     /// <summary>同じ中身が複数箇所にある状態。容量は1回しか数えない。</summary>
@@ -245,6 +248,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string));
         SendToUnityCommand = new RelayCommand(
             SendToUnity,
+            parameter => parameter is Core.Services.UnityPackageEntry);
+        SendToUnityWithRecordCommand = new RelayCommand(
+            parameter => _ = SendToUnityWithRecordAsync(parameter),
             parameter => parameter is Core.Services.UnityPackageEntry);
         ToggleSectionCommand = new RelayCommand(
             parameter =>
@@ -432,6 +438,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     /// <summary>zipの中の <c>.unitypackage</c> をUnityへ送る。</summary>
     public RelayCommand SendToUnityCommand { get; }
+
+    public RelayCommand SendToUnityWithRecordCommand { get; }
 
     public RelayCommand UnregisterFolderCommand { get; }
 
@@ -1330,6 +1338,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 Paths = file.Paths,
                 VariationLabel = variation,
+                VariationId = file.VariationId,
                 UnityPackages = FindUnityPackages(file.Paths),
             });
         }
@@ -1360,23 +1369,24 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// 複数開いているときは送らない。どれに入るかが分からないまま
     /// 取り込みを始めさせると、入れた先を間違えて後から剥がすことになる。
     /// </summary>
-    private void SendToUnity(object? parameter)
+    /// <summary>
+    /// 送り先のUnityを1つに絞る。絞れなければ理由を出して null を返す。
+    ///
+    /// **「改変に足して送る」と共通の門。**どちらのボタンでも同じ条件で
+    /// 送れる／送れないが決まるべきで、片方だけ通ると挙動が読めなくなる。
+    /// </summary>
+    private Services.OpenUnityEditor? PickUnityTarget(string title)
     {
-        if (parameter is not Core.Services.UnityPackageEntry package)
-        {
-            return;
-        }
-
         var editors = Services.UnityEditors.Open();
         if (editors.Count == 0)
         {
             System.Windows.MessageBox.Show(
                 "送り先は、開いているUnityになります。\n\n"
                 + "いまUnityが開いていないので送れません。プロジェクトを開いてから、もう一度押してください。",
-                "Unityへ送る",
+                title,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
-            return;
+            return null;
         }
 
         if (editors.Count > 1)
@@ -1386,13 +1396,28 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 $"Unityが {editors.Count} つ開いています（{names}）。\n\n"
                 + "どちらに入るかを選べないので、送るのをやめました。\n"
                 + "入れたい方だけを開いた状態で、もう一度押してください。",
-                "Unityへ送る",
+                title,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
+            return null;
+        }
+
+        return editors[0];
+    }
+
+    private void SendToUnity(object? parameter)
+    {
+        if (parameter is not Core.Services.UnityPackageEntry package)
+        {
             return;
         }
 
-        var target = editors[0].ProjectName ?? "名前の分からないプロジェクト";
+        if (PickUnityTarget("Unityへ送る") is not { } editor)
+        {
+            return;
+        }
+
+        var target = editor.ProjectName ?? "名前の分からないプロジェクト";
         var answer = System.Windows.MessageBox.Show(
             $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
             + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
@@ -1411,6 +1436,156 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
         }
     }
+
+    /// <summary>
+    /// 改変に足して送る。
+    ///
+    /// **「送る」と別のボタンにしてある**（ユーザ判断）。送る前に「記録しますか」と
+    /// 聞くと、記録を使っていない人の邪魔になる。ボタンで分ければ、
+    /// **押した人だけが記録の話に入る。**
+    /// </summary>
+    private async Task SendToUnityWithRecordAsync(object? parameter)
+    {
+        if (parameter is not Core.Services.UnityPackageEntry package)
+        {
+            return;
+        }
+
+        const string title = "改変に足して送る";
+
+        if (PickUnityTarget(title) is not { } editor)
+        {
+            return;
+        }
+
+        // 送り先のプロジェクトを、窓のタイトルの名前から実体のパスに直す。
+        // HubにもVCCにも載っていないプロジェクトだと引けない——そのときは
+        // 候補を絞らずに全部出す（**推定で絞ると、正しい改変が消える**）
+        var projectPath = editor.ProjectName is { } name
+            ? await Task.Run(() => Core.Services.UnityProjects.Discover()
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
+            : null;
+
+        var records = projectPath is not null
+            ? await _services.Modifications.LoadForProjectAsync(projectPath)
+            : (await _services.Modifications.LoadAllAsync()).Modifications;
+
+        var registry = _services.Store.Avatars.Load();
+        var avatarNames = registry.Entries
+            .Select(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId)
+            .Where(text => text.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(text => text, StringComparer.CurrentCulture)
+            .ToList();
+
+        string AvatarTextOf(string itemId) => registry.Entries
+            .FirstOrDefault(entry => string.Equals(entry.ItemId, itemId, StringComparison.Ordinal))
+            is { } found
+                ? found.DisplayName ?? found.BoothName ?? itemId
+                : itemId;
+
+        var rows = records
+            .Select(record => new PickModificationRowViewModel
+            {
+                Record = record,
+                AvatarText = AvatarTextOf(record.AvatarItemId),
+            })
+            .ToList();
+
+        var model = new PickModificationDialogViewModel(
+            package.Name,
+            projectPath is not null
+                ? $"送り先：Unityの「{editor.ProjectName}」"
+                : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
+                    + "（一覧に無いプロジェクトなので、改変は全部出しています）",
+            rows,
+            avatarNames,
+            text => registry.Entries.FirstOrDefault(entry =>
+                string.Equals(entry.DisplayName ?? entry.BoothName ?? entry.ItemId, text,
+                    StringComparison.CurrentCultureIgnoreCase))?.ItemId);
+
+        if (new Views.PickModificationDialog(model).ShowDialog() != true)
+        {
+            return;
+        }
+
+        var record = model.Picked?.Record;
+        if (model.MakingNew)
+        {
+            if (model.NewAvatarItemId is not { } avatarItemId)
+            {
+                return;
+            }
+
+            if (await _services.Commands.ExecuteAsync(
+                    new Core.Commands.UiCommand.CreateModification(avatarItemId, model.NewName.Trim()))
+                is Core.Commands.CommandResult.ModificationCreated created)
+            {
+                record = created.Record;
+
+                // 作ったばかりの改変には紐付け先が無い。**いま送るプロジェクトで確定している**
+                // ので、ここで付けておく（後から手で選ばせる意味が無い）
+                if (projectPath is not null)
+                {
+                    await _services.Commands.ExecuteAsync(
+                        new Core.Commands.UiCommand.SetModificationProject(record.Id, projectPath));
+                }
+            }
+        }
+
+        if (record is null)
+        {
+            System.Windows.MessageBox.Show(
+                "改変を作れませんでした。名前を変えて、もう一度試してください。",
+                title,
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        // **記録してから送る。**送るのはWindows任せで結果が返らないので、
+        // 先に記録を確定させておく方が失うものが少ない
+        var owner = LocalFiles.FirstOrDefault(file => file.UnityPackages.Contains(package));
+        await _services.Commands.ExecuteAsync(
+            new Core.Commands.UiCommand.AddModificationMember(
+                record.Id,
+                new Core.Models.ModificationMember
+                {
+                    ItemId = Item.Id,
+                    VariationId = owner?.VariationId,
+                    FileHash = owner?.Hash,
+                    Package = package.EntryPath,
+                    AddedAt = DateTimeOffset.Now,
+                }));
+
+        Services.Shell.SendToUnity(package.VirtualPath);
+        _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
+
+        UnityRecordNotice = $"「{record.Name}」に足して、Unityへ送りました。";
+    }
+
+    private string? _unityRecordNotice;
+
+    /// <summary>
+    /// 直前に改変へ積んだ結果。
+    ///
+    /// **積んだことは画面のどこにも出ない。**Unityへ渡した先の反応は
+    /// こちらに返ってこないので、記録が入ったことだけは言っておく。
+    /// </summary>
+    public string? UnityRecordNotice
+    {
+        get => _unityRecordNotice;
+        private set
+        {
+            if (SetField(ref _unityRecordNotice, value))
+            {
+                OnPropertyChanged(nameof(HasUnityRecordNotice));
+            }
+        }
+    }
+
+    public bool HasUnityRecordNotice => !string.IsNullOrEmpty(UnityRecordNotice);
 
     /// <summary>この商品にUnityへ送れるものが1つでもあるか。無ければ送り先の話もしない。</summary>
     public bool HasAnyUnityPackage => LocalFiles.Any(file => file.HasUnityPackages);
