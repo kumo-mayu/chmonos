@@ -64,8 +64,8 @@
                                         <Setter Property="Opacity" Value="0" />
                                         <Setter Property="Cursor" Value="Hand" />
                                         <Style.Triggers>
-                                            <!-- 絵の上にマウスが来たら現れる -->
-                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Grid}}" Value="True">
+                                            <!-- 矢印の近くにマウスが来たら現れる。絵の真ん中では出さない -->
+                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
                                                 <Setter Property="Opacity" Value="0.85" />
                                             </DataTrigger>
                                             <Trigger Property="IsMouseOver" Value="True">
@@ -116,17 +116,27 @@
                                     <TextBlock Text="サムネイル" Foreground="White" FontSize="11" />
                                 </Border>
 
-                                <!-- 見る絵を送る。並べ替えではない（そちらは右クリック）。左右キーでも送れる -->
-                                <Button Content="‹" Command="{Binding PreviousImageCommand}"
-                                        Style="{StaticResource GalleryArrow}"
-                                        Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        HorizontalAlignment="Left" Margin="8,0,0,0"
-                                        ToolTip="前の画像（←）" />
-                                <Button Content="›" Command="{Binding NextImageCommand}"
-                                        Style="{StaticResource GalleryArrow}"
-                                        Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        HorizontalAlignment="Right" Margin="0,0,8,0"
-                                        ToolTip="次の画像（→）" />
+                                <!--
+                                    見る絵を送る。並べ替えではない（そちらは右クリック）。左右キーでも送れる。
+
+                                    透明な Border で包んで**近くの当たり判定**にしている。
+                                    絵の真ん中にマウスがあるだけで出すと、絵を見ているときに邪魔になる。
+                                -->
+                                <Border Width="90" HorizontalAlignment="Left" Background="Transparent"
+                                        Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Button Content="‹" Command="{Binding PreviousImageCommand}"
+                                            Style="{StaticResource GalleryArrow}"
+                                            HorizontalAlignment="Left" Margin="8,0,0,0"
+                                            ToolTip="前の画像（←）" />
+                                </Border>
+
+                                <Border Width="90" HorizontalAlignment="Right" Background="Transparent"
+                                        Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Button Content="›" Command="{Binding NextImageCommand}"
+                                            Style="{StaticResource GalleryArrow}"
+                                            HorizontalAlignment="Right" Margin="0,0,8,0"
+                                            ToolTip="次の画像（→）" />
+                                </Border>
                             </Grid>
 
                             <ItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">

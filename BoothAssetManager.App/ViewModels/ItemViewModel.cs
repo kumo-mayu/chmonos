@@ -1208,9 +1208,14 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public GalleryImage? CurrentImage
         => Images.Count == 0 || SelectedIndex >= Images.Count ? null : Images[SelectedIndex];
 
-    public bool CanGoPreviousImage => SelectedIndex > 0;
+    /// <summary>
+    /// 送れるか。**端で止めず、最初と最後をつなぐ。**
+    /// 端で止めると「もう無い」のか「押せていない」のかが分からない。
+    /// 1枚しか無ければ送る先が無いので出さない。
+    /// </summary>
+    public bool CanGoPreviousImage => Images.Count > 1;
 
-    public bool CanGoNextImage => SelectedIndex < Images.Count - 1;
+    public bool CanGoNextImage => Images.Count > 1;
 
     /// <summary>自分で足した画像か。並べ替えと削除はこれにだけ出す。</summary>
     public bool CurrentIsUserAdded => CurrentImage is { IsUserAdded: true };
@@ -1236,13 +1241,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 pair.FileName, current.FileName, StringComparison.OrdinalIgnoreCase), (null!, -1))
             .index;
 
+    /// <summary>見る絵を送る。最後の次は最初へ、最初の前は最後へ回る。</summary>
     private void GoToImage(int delta)
     {
-        var next = SelectedIndex + delta;
-        if (next >= 0 && next < Images.Count)
+        if (Images.Count <= 1)
         {
-            SelectedIndex = next;
+            return;
         }
+
+        SelectedIndex = ((SelectedIndex + delta) % Images.Count + Images.Count) % Images.Count;
     }
 
     /// <summary>並べ替えたあと、同じ絵を選んだままにする。動かした先を目で追えるように。</summary>
