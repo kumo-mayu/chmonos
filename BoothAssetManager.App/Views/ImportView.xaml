@@ -173,6 +173,17 @@
                             <TextBlock Text="{Binding AvatarSummaryText}" FontSize="12" TextWrapping="Wrap"
                                        Foreground="#28507f" />
                         </Border>
+                        <!--
+                            BOOTHに無かったもの。タイルを増やさず1行で出す。
+                            普段0の数字が常設で並ぶのを避けるため（ナビのバッジと同じ理由）。
+                        -->
+                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
+                                Visibility="{Binding HasNotFound, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding NotFoundText}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Warn}" />
+                        </Border>
+
 
                         <UniformGrid Columns="4" Rows="3">
                             <StackPanel Margin="0,0,12,10">

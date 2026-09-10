@@ -214,6 +214,8 @@ public sealed class ImportViewModel : ViewModelBase
             if (SetField(ref _summary, value))
             {
                 OnPropertyChanged(nameof(HasSummary));
+                OnPropertyChanged(nameof(NotFoundText));
+                OnPropertyChanged(nameof(HasNotFound));
             }
         }
     }
@@ -743,6 +745,19 @@ public sealed class ImportViewModel : ViewModelBase
     }
 
     public bool HasAvatarSummary => AvatarSummaryText.Length > 0;
+
+    /// <summary>
+    /// BOOTHに無かったファイルの1行。
+    ///
+    /// タイルを増やさないのは、**普段0の数字が常設で並ぶ**のを避けるため
+    /// （ナビのバッジで「0件のときは出さない」と決めたのと同じ理由）。
+    /// 1行なら、次にやること（未確定を見る）も一緒に言える。
+    /// </summary>
+    public string NotFoundText => Summary is { NotFound: > 0 } summary
+        ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、そちらで確かめてください。"
+        : string.Empty;
+
+    public bool HasNotFound => NotFoundText.Length > 0;
 
     private static string FormatSize(long bytes)
     {

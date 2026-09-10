@@ -195,6 +195,13 @@ public sealed class ImportPipeline : IImportPipeline
 
             var fetchResult = await FetchAsync(resolution.FilesByItemId, progress, cancellationToken);
 
+            // BOOTHに無かったものも未確定へ。ここで落とすと手元から消える
+            if (fetchResult.NotFoundFiles.Count > 0)
+            {
+                totals.Unresolved.AddRange(fetchResult.NotFoundFiles);
+                await _store.Unresolved.SaveAsync(totals.Unresolved, cancellationToken);
+            }
+
             totals.Add(scan, resolution, fetchResult);
         }
 
@@ -633,6 +640,7 @@ public sealed class ImportPipeline : IImportPipeline
         var added = 0;
         var alreadyKnown = 0;
         var notFound = 0;
+        var notFoundFiles = new List<UnresolvedFile>();
         var temporaryFailures = 0;
         var imagesDownloaded = 0;
         var avatarItemsUpdated = 0;
@@ -682,7 +690,14 @@ public sealed class ImportPipeline : IImportPipeline
 
             if (jsonResult.Status == BoothFetchStatus.NotFound)
             {
+                // BOOTHに無い＝ファイルが無かったことにはならない。
+                // 買っていて手元にあるものなので、未確定へ戻して人に決めてもらう。
+                // 別のIDで再公開されていることもあり、そのときは候補検索が拾える。
+                //
+                // 1回の404で流すのは、**こちらが「非公開だ」と確定する必要がないから。**
+                // 一時的な障害だったなら次の取り込みで普通に確定するだけで、何も失われない
                 notFound++;
+                notFoundFiles.AddRange(discovered.Select(file => ToUnresolved(file, itemId)));
                 continue;
             }
 
@@ -789,6 +804,7 @@ public sealed class ImportPipeline : IImportPipeline
                 Added = added,
                 AlreadyKnown = alreadyKnown,
                 NotFound = notFound,
+                NotFoundFiles = notFoundFiles,
                 TemporaryFailures = temporaryFailures,
                 ImagesDownloaded = 0,
                 AvatarItemsUpdated = avatarItemsUpdated,
@@ -855,6 +871,7 @@ public sealed class ImportPipeline : IImportPipeline
             Added = added,
             AlreadyKnown = alreadyKnown,
             NotFound = notFound,
+            NotFoundFiles = notFoundFiles,
             TemporaryFailures = temporaryFailures,
             ImagesDownloaded = imagesDownloaded,
             AvatarItemsUpdated = avatarItemsUpdated,
@@ -893,6 +910,41 @@ public sealed class ImportPipeline : IImportPipeline
         public int AlreadyOwned { get; init; }
     }
 
+    /// <summary>
+    /// 商品へ紐付けたファイルを、未確定のファイルへ戻す。
+    ///
+    /// 手掛かりから決まった商品IDは<b>候補として載せる</b>。
+    /// 「このファイルは 1234567 を指しているが、BOOTHには無い」と読める形にするため。
+    /// </summary>
+    private static UnresolvedFile ToUnresolved(LocalFileRecord file, string itemId)
+    {
+        var modified = DateTimeOffset.Now;
+        var path = file.Paths.FirstOrDefault();
+
+        if (path is not null)
+        {
+            try
+            {
+                modified = new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 日時が読めなくても未確定には出したいので、今の時刻で通す
+            }
+        }
+
+        return new UnresolvedFile
+        {
+            Hash = file.Hash,
+            Paths = file.Paths,
+            SizeBytes = file.SizeBytes,
+            ModifiedAtUtc = modified,
+            FirstSeenAt = DateTimeOffset.Now,
+            Contents = file.Contents,
+            CandidateItemIds = [itemId],
+        };
+    }
+
     private sealed class FetchResult
     {
         public int Added { get; init; }
@@ -900,6 +952,9 @@ public sealed class ImportPipeline : IImportPipeline
         public int AlreadyKnown { get; init; }
 
         public int NotFound { get; init; }
+
+        /// <summary>BOOTHに無かったので未確定へ戻すファイル。ここで捨てると手元から消える。</summary>
+        public IReadOnlyList<UnresolvedFile> NotFoundFiles { get; init; } = [];
 
         public int TemporaryFailures { get; init; }
 
