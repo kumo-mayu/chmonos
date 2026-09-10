@@ -421,20 +421,53 @@
                                                       FontSize="12" Margin="0,7,0,0" Foreground="{StaticResource Text}"
                                                       Visibility="{Binding IsCheck, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                            <ItemsControl ItemsSource="{Binding Selected}" Margin="0,7,0,0"
-                                                          Visibility="{Binding IsSuggest, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                                BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
-                                                            <TextBlock Text="{Binding}" FontSize="11" Foreground="#28507f" />
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
+                                            <!--
+                                                候補から積む条件
+
+                                                **入力欄が無いと、条件を積んでも何も選べない。**
+                                                チップだけを出していた間、この形の条件は
+                                                常に「全部通る」ままだった
+                                            -->
+                                            <StackPanel Margin="0,7,0,0"
+                                                        Visibility="{Binding IsSuggest, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
+                                                                     CommitCommand="{Binding AddSelectedCommand}"
+                                                                     Placeholder="{Binding SuggestPlaceholder}"
+                                                                     Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                                <TextBlock Text="{Binding SuggestEmptyText}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding HasSuggestions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                                                <ItemsControl ItemsSource="{Binding Selected}" Margin="0,6,0,0">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                                    BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding}" FontSize="11" Foreground="#28507f"
+                                                                               VerticalAlignment="Center" />
+                                                                    <!--
+                                                                        積んだものを外せないと、条件を作り直すしかなくなる。
+                                                                        形は呼ばれ方の履歴のチップに揃える
+                                                                        （幅を決め打つと暗黙のButtonスタイルの枠が丸く出る）
+                                                                    -->
+                                                                    <Button Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0"
+                                                                            Cursor="Hand"
+                                                                            Background="Transparent" BorderThickness="0"
+                                                                            Foreground="#28507f" ToolTip="この条件から外す"
+                                                                            Command="{Binding DataContext.RemoveSelectedCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
 
                                             <!--
                                                 フォルダは1階層ずつ降りる。インデント付きの木にしないのは、

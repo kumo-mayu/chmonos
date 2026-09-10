@@ -261,7 +261,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             parameter => parameter is LocalFileRow);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
-        AddUsedOnCommand = new RelayCommand(parameter => _ = AddUsedOnAsync(parameter as string));
         AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string));
         SendToUnityCommand = new RelayCommand(
             SendToUnity,
@@ -413,8 +412,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     }
 
     /// <summary>着せているアバターを足す。候補から選ぶ（登録簿に無い名前は受け取らない）。</summary>
-    public RelayCommand AddUsedOnCommand { get; }
-
     /// <summary>対応アバターを手で足す。検出が拾えなかったときの補い。</summary>
     public RelayCommand AddAvatarCommand { get; }
 
@@ -760,17 +757,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public bool HasAvatarBases => AvatarBases.Count > 0;
 
-    /// <summary>
-    /// 自分が実際に着せているアバター。出品者の宣言とは別に持つ。
-    /// 非対応衣装を着せることがあるので、宣言に無いアバターも入れられる。
-    /// </summary>
-    public ObservableCollection<AvatarUsageRow> UsedOn { get; } = [];
-
-    public bool HasUsedOn => UsedOn.Count > 0;
-
-    /// <summary>入力の候補。所有しているアバターを先に出す。</summary>
-    public IReadOnlyList<string> AvatarSuggestions { get; private set; } = [];
-
     public string AvatarSectionNote => HasAvatars || HasAvatarBases
         ? "出品者が対応と書いているアバターです。"
         : "出品者の対応表明は見つかっていません。アバターの管理から検出できます。";
@@ -1088,7 +1074,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>
     /// 対応アバターまわりを組み立てる。
     ///
-    /// 出品者の宣言（Avatars / AvatarBases）と、自分が着せている記録（UsedOn）を分けて出す。
+    /// **ここは出品者の宣言（Avatars / AvatarBases）だけ。**
+    /// 自分が着せた記録は改変（着せ替え1つ）を単位に持つことにしたので、
+    /// 「この商品を使った改変」のカードに分けてある。
     /// 混ぜると「誰が言っていることなのか」が分からなくなる。
     /// </summary>
     private void BuildAvatars()
@@ -1119,19 +1107,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             .Select(link => link.BaseName)
             .ToList();
 
-        UsedOn.Clear();
-        foreach (var usage in Item.Local.UsedOn)
-        {
-            var id = usage.AvatarItemId;
-            UsedOn.Add(new AvatarUsageRow
-            {
-                ItemId = id,
-                Name = NameOf(id, null),
-                Note = usage.Note ?? string.Empty,
-                RemoveCommand = new RelayCommand(() => _ = RemoveUsedOnAsync(id)),
-            });
-        }
-
         // 対応アバターの候補。既に宣言されているものは出さない
         var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
         SupportSuggestions = registry.Entries
@@ -1142,20 +1117,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
         OnPropertyChanged(nameof(SupportSuggestions));
 
-        var already = UsedOn.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
-
-        // 候補は手元にあるアバターを先に。実際に着せる相手は自分の持ち物であることが多い
-        AvatarSuggestions = registry.Entries
-            .Where(entry => AvatarService.IsAvatar(entry) && !already.Contains(entry.ItemId))
-            .OrderByDescending(entry => entry.IsOwnedManually || _services.Store.Items.Exists(entry.ItemId))
-            .ThenBy(entry => entry.DisplayName ?? entry.ItemId, StringComparer.CurrentCulture)
-            .Select(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId)
-            .ToList();
-
         foreach (var name in new[]
         {
             nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
-            nameof(HasUsedOn), nameof(AvatarSuggestions), nameof(AvatarSectionNote),
+            nameof(AvatarSectionNote),
         })
         {
             OnPropertyChanged(name);
@@ -1172,10 +1137,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         _ => string.Empty,
     };
 
-    /// <summary>
-    /// 「このアバターに着せている」を足す。名前から登録簿を引いてIDに直す。
-    /// 検出は UsedOn を触らないので、ここで足したものが消えることはない。
-    /// </summary>
     /// <summary>
     /// この対応は違う、と消す。
     ///
@@ -1237,46 +1198,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         return _services.Store.Avatars.Load().Entries.FirstOrDefault(entry =>
             string.Equals(entry.DisplayName, name, StringComparison.CurrentCultureIgnoreCase)
             || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
-    }
-
-    private async Task AddUsedOnAsync(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return;
-        }
-
-        var registry = _services.Store.Avatars.Load();
-        var match = registry.Entries.FirstOrDefault(entry =>
-            string.Equals(entry.DisplayName, name, StringComparison.CurrentCultureIgnoreCase)
-            || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
-
-        if (match is null)
-        {
-            return;
-        }
-
-        if (Item.Local.UsedOn.Any(usage => usage.AvatarItemId == match.ItemId))
-        {
-            return;
-        }
-
-        var local = Item.Local with
-        {
-            UsedOn = [.. Item.Local.UsedOn, new AvatarUsage { AvatarItemId = match.ItemId }],
-        };
-
-        await SaveLocalAsync(local, LocalOwners.Usage);
-    }
-
-    private async Task RemoveUsedOnAsync(string avatarItemId)
-    {
-        var local = Item.Local with
-        {
-            UsedOn = Item.Local.UsedOn.Where(usage => usage.AvatarItemId != avatarItemId).ToList(),
-        };
-
-        await SaveLocalAsync(local, LocalOwners.Usage);
     }
 
     /// <summary>
@@ -2247,16 +2168,3 @@ public sealed class AvatarRow
     public RelayCommand? RejectCommand { get; init; }
 }
 
-/// <summary>自分が着せている記録1件。</summary>
-public sealed class AvatarUsageRow
-{
-    public required string ItemId { get; init; }
-
-    public required string Name { get; init; }
-
-    public string Note { get; init; } = string.Empty;
-
-    public bool HasNote => Note.Length > 0;
-
-    public RelayCommand? RemoveCommand { get; init; }
-}

@@ -58,6 +58,9 @@ public sealed class SearchViewModel : ViewModelBase
 
     /// <summary>「最近」の足跡。絞り込み1回ぶんの間だけ持つ写し</summary>
     private RecentTimes? _recentTimes;
+
+    /// <summary>改変から引いた「どのアバターにどの商品を使ったか」。null は「まだ読んでいない」</summary>
+    private ModificationUsage? _modificationUsage;
     private List<string> _attributeNames = [];
 
     /// <summary>ライブラリにあるBOOTHタグの全種類。候補の元。</summary>
@@ -241,6 +244,44 @@ public sealed class SearchViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(HasAvatarSuggestions));
+        RefreshExtraSuggestions();
+    }
+
+    /// <summary>
+    /// 候補から積む条件に、候補を入れる。
+    ///
+    /// **持ち主をこちらにする。**候補はアバターの登録簿から作るもので、
+    /// 条件そのものではない。条件の側に持たせると、登録簿が変わっても古いまま残る。
+    /// </summary>
+    private void RefreshExtraSuggestions()
+    {
+        var registry = _services.Store.Avatars.Load();
+
+        var baseNames = registry.Entries
+            .Select(entry => entry.BaseName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToList();
+
+        foreach (var filter in ExtraFilters.Where(filter => filter.IsSuggest))
+        {
+            var source = filter.Kind switch
+            {
+                ExtraFilterKind.UsedOn => AvatarSuggestions.ToList(),
+                ExtraFilterKind.BaseAvatar => baseNames,
+                _ => [],
+            };
+
+            filter.Suggestions.Clear();
+            foreach (var value in source)
+            {
+                filter.Suggestions.Add(value);
+            }
+
+            filter.NoteSuggestionsChanged();
+        }
     }
 
     public bool HasAvatarSuggestions => AvatarSuggestions.Count > 0;
@@ -288,6 +329,13 @@ public sealed class SearchViewModel : ViewModelBase
         if (kind == ExtraFilterKind.Folder)
         {
             RebuildFolderRows(filter);
+        }
+
+        // **積んだ直後に候補を入れる。**入れないと「候補がありません」と出て、
+        // 積んだのに何も選べない条件になる
+        if (filter.IsSuggest)
+        {
+            RefreshExtraSuggestions();
         }
 
         RefreshAvailableExtraFilters();
@@ -1407,6 +1455,13 @@ public sealed class SearchViewModel : ViewModelBase
         // 1商品ごとに読み直すと、件数に比例してファイルを開くことになる
         _recentTimes = NeedsRecent() ? LoadRecentTimes() : null;
 
+        // 改変はファイルを読むので待てない。**読めたらもう一度絞り込む**——
+        // 一度きりの読みにしておくと、条件を積んだ直後だけ0件に見える
+        if (NeedsModifications() && _modificationUsage is null)
+        {
+            _ = LoadModificationUsageAsync();
+        }
+
         _matches = SortItems(_allItems.Where(item => Matches(item)))
             .Select(item => _cards[item.Id])
             .ToList();
@@ -1737,7 +1792,7 @@ public sealed class SearchViewModel : ViewModelBase
 
         // 積んだ条件は軸ごとにANDで積む。積むこと自体が「この軸で選ぶ」という意思表示
         if (except != FilterAxis.Extra
-            && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds, _recentTimes)))
+            && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds, _recentTimes, _modificationUsage)))
         {
             return false;
         }
@@ -1872,6 +1927,42 @@ public sealed class SearchViewModel : ViewModelBase
         _services.Recent.Times(Core.Services.RecentKind.Added),
         _services.Recent.Times(Core.Services.RecentKind.Used),
         _services.Recent.Times(Core.Services.RecentKind.Viewed));
+
+    /// <summary>改変を読む必要があるか。積んでいなければ読まない。</summary>
+    private bool NeedsModifications()
+        => ExtraFilters.Any(filter => filter.Kind == ExtraFilterKind.UsedOn && filter.IsActive);
+
+    private async Task LoadModificationUsageAsync()
+    {
+        ModificationUsage usage;
+        try
+        {
+            usage = ModificationUsage.From((await _services.Modifications.LoadAllAsync()).Modifications);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 読めなくても「空」で置く。null のままだと読み直しを繰り返す
+            usage = ModificationUsage.Empty;
+        }
+
+        RunOnUiThread(() =>
+        {
+            _modificationUsage = usage;
+            ApplyFilters();
+        });
+    }
+
+    /// <summary>
+    /// 改変が変わったので、次の絞り込みで読み直す。
+    ///
+    /// 改変は別の画面で増えたり減ったりする。持ち続けると
+    /// 「作ったのに絞り込みに出ない」が起きる。
+    /// </summary>
+    public void NoteModificationsChanged()
+    {
+        _modificationUsage = null;
+        RefreshExtraSuggestions();
+    }
 
     /// <summary>その並び順が「最近」の足跡を見るものなら、どの種類か。</summary>
     private static Core.Services.RecentKind? RecentKindOf(SortKind kind) => kind switch

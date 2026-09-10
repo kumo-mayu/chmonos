@@ -74,20 +74,6 @@ public sealed record AvatarBaseLink
 }
 
 /// <summary>
-/// ユーザが実際にそのアバターへ着せた記録。出品者の宣言とは別に持つ。
-///
-/// 混ぜると、再取得で宣言を作り直すたびにユーザの記録が消えるか、逆に宣言が汚れる。
-/// 「出品者はくうた対応と言っているが、自分はマヌカに着せている」を矛盾なく持つため。
-/// </summary>
-public sealed record AvatarUsage
-{
-    public required string AvatarItemId { get; init; }
-
-    /// <summary>調整した点など。非対応衣装を着せたときに何をしたかが要るので置く。</summary>
-    public string? Note { get; init; }
-}
-
-/// <summary>
 /// 購入したvariationの記録（旧形式）。読み込みのためだけに残している。
 /// <see cref="Purchase"/> へ移し替えたら二度と書かない。
 /// </summary>

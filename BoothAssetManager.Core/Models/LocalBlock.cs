@@ -80,9 +80,6 @@ public sealed record LocalBlock
     /// <summary>共通素体への対応宣言。素体は商品IDを持たないことがあるので名前で参照する。</summary>
     public IReadOnlyList<AvatarBaseLink> AvatarBases { get; init; } = [];
 
-    /// <summary>ユーザ自身が実際に着せた記録。検出は絶対に触らない。</summary>
-    public IReadOnlyList<AvatarUsage> UsedOn { get; init; } = [];
-
     /// <summary>最後に対応アバターを検出した日時。</summary>
     public DateTimeOffset? AvatarsDetectedAt { get; init; }
 

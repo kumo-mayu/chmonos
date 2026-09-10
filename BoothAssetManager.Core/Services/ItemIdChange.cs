@@ -261,12 +261,6 @@ public static class ItemIdChange
             Memo = JoinMemo(target.Memo, source.Memo),
             AcquiredAt = target.AcquiredAt ?? source.AcquiredAt,
 
-            // 着せた記録は検出が触らないユーザの記録なので、そのまま持って行く
-            UsedOn = target.UsedOn
-                .Concat(source.UsedOn.Where(usage => !target.UsedOn.Any(existing =>
-                    string.Equals(existing.AvatarItemId, usage.AvatarItemId, StringComparison.Ordinal))))
-                .ToList(),
-
             // 知らせるかは「片方が切っていたら切る」。勝手に通知を復活させない
             NotifyOnUpdate = target.NotifyOnUpdate && source.NotifyOnUpdate,
 

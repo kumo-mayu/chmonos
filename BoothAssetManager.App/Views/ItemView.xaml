@@ -667,37 +667,14 @@
                                                  AllowNew="False" Margin="0,6,0,0"
                                                  Placeholder="対応アバターを足す" />
 
-                            <Border Height="1" Background="#f0f1f4" Margin="0,12,0,12" />
+                            <!--
+                                「着せているアバター」の入力欄はここから消した。
 
-                            <TextBlock Text="着せているアバター" FontWeight="Bold" FontSize="12.5" />
-                            <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
-                                       Text="自分が実際に着せている記録です。出品者が対応と書いていなくても入れられます。" />
-                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Foreground="{StaticResource TextFaint}"
-                                       Text="検出で消えることはありません。" />
-
-                            <ItemsControl ItemsSource="{Binding UsedOn}" Margin="0,10,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:AvatarUsageRow}">
-                                        <Grid Margin="0,0,0,6">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,60,0">
-                                                <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}"
-                                                           Margin="10,0,0,0" VerticalAlignment="Center"
-                                                           Visibility="{Binding HasNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            </StackPanel>
-                                            <Button Content="外す" Style="{StaticResource SmallButton}"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                    Command="{Binding RemoveCommand}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <controls:SuggestBox Source="{Binding AvatarSuggestions}"
-                                                 CommitCommand="{Binding AddUsedOnCommand}"
-                                                 AllowNew="False" Margin="0,8,0,0"
-                                                 Placeholder="着せているアバターを足す" />
+                                着せた記録は**改変（着せ替え1つ）を単位に**持つことにしたので、
+                                商品1件にアバターを直接ぶら下げる形は要らなくなった。
+                                同じことを2箇所に持つと必ずずれる。
+                                足す先は「この商品を使った改変」のカード（右の列）。
+                            -->
                         </StackPanel>
                     </Border>
 

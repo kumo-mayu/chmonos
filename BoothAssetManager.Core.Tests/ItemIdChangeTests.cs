@@ -219,20 +219,80 @@ public class ItemIdChangeTests : IDisposable
         Assert.Empty(moved.Local.AvatarBases);
     }
 
-    /// <summary>着せた記録はユーザのもの。検出が触らないので、そのまま持って行く。</summary>
+    /// <summary>
+    /// 改変が指しているIDも読み替える。
+    ///
+    /// **改変は「そのとき何を使ったか」という過去の事実。**IDを移しても使った事実は
+    /// 変わらないので、指す先だけを付け替える。読み替えないと、消えたIDを指したまま
+    /// 「手元に無い」と出続ける。
+    /// </summary>
     [Fact]
-    public async Task KeepsTheUsageTheUserRecorded()
+    public async Task 改変が指している商品IDも移す()
     {
-        await SaveLocalItemAsync(new LocalBlock
+        var record = new ModificationRecord
         {
-            LocalFiles = [File("aaa")],
-            UsedOn = [new AvatarUsage { AvatarItemId = "4897493", Note = "肩を詰めた" }],
-        });
+            Id = "mod-11112222",
+            AvatarItemId = "4897493",
+            Name = "普段着",
+            CreatedAt = DateTimeOffset.Now,
+            UpdatedAt = DateTimeOffset.Now,
+            Members =
+            [
+                new ModificationMember { ItemId = LocalId, FileHash = "abc" },
+                new ModificationMember { ItemId = "6580186" },
+            ],
+        };
+
+        await _store.Modifications.SaveAsync(record);
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
         await _service.ChangeItemIdAsync(LocalId, RealId);
 
-        var usage = Assert.Single((await _store.Items.LoadAsync(RealId))!.Local.UsedOn);
+        var moved = await _store.Modifications.LoadAsync("mod-11112222");
 
-        Assert.Equal("肩を詰めた", usage.Note);
+        Assert.Equal([RealId, "6580186"], moved!.Members.Select(member => member.ItemId));
+
+        // どのファイルを使ったかは移しても変わらない
+        Assert.Equal("abc", moved.Members[0].FileHash);
+    }
+
+    /// <summary>アバターとして指されている場合も同じ（改変はアバター1体に属する）。</summary>
+    [Fact]
+    public async Task 改変が指しているアバターのIDも移す()
+    {
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-33334444",
+            AvatarItemId = LocalId,
+            Name = "制服",
+            CreatedAt = DateTimeOffset.Now,
+            UpdatedAt = DateTimeOffset.Now,
+        });
+
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        Assert.Equal(RealId, (await _store.Modifications.LoadAsync("mod-33334444"))!.AvatarItemId);
+    }
+
+    /// <summary>関係の無い改変は触らない。触った跡（更新日時）も付けない。</summary>
+    [Fact]
+    public async Task 関係の無い改変は触らない()
+    {
+        var updatedAt = DateTimeOffset.Now.AddDays(-30);
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-55556666",
+            AvatarItemId = "4897493",
+            Name = "よそ",
+            CreatedAt = updatedAt,
+            UpdatedAt = updatedAt,
+            Members = [new ModificationMember { ItemId = "6580186" }],
+        });
+
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        Assert.Equal(updatedAt, (await _store.Modifications.LoadAsync("mod-55556666"))!.UpdatedAt);
     }
 
     // ---- 移した先に既に中身があるとき ----

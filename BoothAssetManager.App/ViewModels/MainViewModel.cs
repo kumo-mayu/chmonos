@@ -474,7 +474,12 @@ public sealed class MainViewModel : ViewModelBase
 
     public string LibrarySummary => $"{Search.TotalCount} items / {Search.ShopCount} shops";
 
-    public void ShowSearch() => CurrentViewModel = Search;
+    public void ShowSearch()
+    {
+        // 改変は別の画面で増えたり減ったりする。戻ってきた時点で読み直させる
+        Search.NoteModificationsChanged();
+        CurrentViewModel = Search;
+    }
 
     /// <summary>このuserTagが付いているitemを検索画面で見せる。件数から中身へ辿るための入口。</summary>
     public void ShowItemsWithTag(string top, string? sub = null)

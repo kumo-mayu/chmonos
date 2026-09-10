@@ -59,6 +59,47 @@ public sealed record RecentTimes(
     }
 }
 
+/// <summary>
+/// 改変から引いた「どのアバターにどの商品を使ったか」。
+///
+/// **絞り込みの1回ぶんで使い回す**（<see cref="RecentTimes"/> と同じ理由。
+/// 1商品ごとに改変のファイルを読み直さないため）。
+/// </summary>
+public sealed record ModificationUsage(
+    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByAvatar)
+{
+    public static ModificationUsage Empty { get; } =
+        new(new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal));
+
+    public static ModificationUsage From(IEnumerable<Core.Models.ModificationRecord> records)
+    {
+        var found = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+        foreach (var record in records)
+        {
+            if (!found.TryGetValue(record.AvatarItemId, out var used))
+            {
+                used = new HashSet<string>(StringComparer.Ordinal);
+                found[record.AvatarItemId] = used;
+            }
+
+            // 同じ商品が2回入っていても、絞り込みに要るのは「入っているか」だけ
+            foreach (var member in record.Members)
+            {
+                used.Add(member.ItemId);
+            }
+        }
+
+        return new ModificationUsage(found.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlySet<string>)pair.Value,
+            StringComparer.Ordinal));
+    }
+
+    public bool Used(string avatarItemId, string itemId)
+        => ItemIdsByAvatar.TryGetValue(avatarItemId, out var used) && used.Contains(itemId);
+}
+
 /// <summary>入力の形。種類ごとにどの欄を出すかが決まる。</summary>
 public enum ExtraFilterShape
 {
@@ -99,8 +140,10 @@ public static class ExtraFilterCatalog
         new(ExtraFilterKind.HasUpdate, "更新の有無", ExtraFilterShape.Check,
             "要確認に未読の更新通知が残っている商品だけを出します。"),
         new(ExtraFilterKind.BaseAvatar, "対応素体", ExtraFilterShape.Suggest, "共通素体への対応で絞ります。"),
+        // **名前と候補はそのまま、中身だけ改変経由にした。**
+        // 「くうたに着せた衣装を探す」という用途は消えていない
         new(ExtraFilterKind.UsedOn, "着せているアバター", ExtraFilterShape.Suggest,
-            "自分が実際に着せた記録で絞ります（出品者の宣言とは別です）。"),
+            "そのアバターの改変に入れた商品で絞ります（出品者の宣言とは別です）。"),
         new(ExtraFilterKind.Folder, "フォルダ", ExtraFilterShape.Drill, "ファイルの置き場所で絞ります。"),
 
         // 記録が無い商品は、日数を入れた時点で外れる。「値が小さい」ではなく
@@ -254,6 +297,51 @@ public sealed class ExtraFilter : ViewModelBase
     /// <summary>候補入力で積んだ値。</summary>
     public System.Collections.ObjectModel.ObservableCollection<string> Selected { get; } = [];
 
+    /// <summary>
+    /// 候補入力に出す一覧。検索側が入れる。
+    ///
+    /// **持ち主を検索側にする。**候補はアバターの登録簿や素体の名前から作るもので、
+    /// 条件そのものではない（起動をまたいで残す値でもない）。
+    /// </summary>
+    public System.Collections.ObjectModel.ObservableCollection<string> Suggestions { get; } = [];
+
+    public bool HasSuggestions => Suggestions.Count > 0;
+
+    /// <summary>候補を入れ替えたことを画面に知らせる。入れる側から呼ぶ。</summary>
+    public void NoteSuggestionsChanged() => OnPropertyChanged(nameof(HasSuggestions));
+
+    /// <summary>
+    /// 候補が空のときに、なぜ選べないかを言う。
+    ///
+    /// **候補が何なのかを言う。**「着せているアバター」で選ぶのはアバターで、
+    /// 改変ではない（改変が無いだけなら候補は出るが、結果が0件になる）。
+    /// </summary>
+    public string SuggestEmptyText => Kind switch
+    {
+        ExtraFilterKind.UsedOn => "アバターがまだ登録されていません。アバターの管理から登録できます。",
+        ExtraFilterKind.BaseAvatar => "共通素体がまだ登録されていません。アバターの管理から設定できます。",
+        _ => "候補がありません。",
+    };
+
+    public string SuggestPlaceholder => Kind switch
+    {
+        ExtraFilterKind.UsedOn => "アバター名か商品IDで絞り込む",
+        ExtraFilterKind.BaseAvatar => "共通素体の名前で絞り込む",
+        _ => "候補から選ぶ",
+    };
+
+    public RelayCommand AddSelectedCommand => _addSelected ??=
+        new RelayCommand(parameter => Add(parameter as string ?? string.Empty));
+
+    private RelayCommand? _addSelected;
+
+    public RelayCommand RemoveSelectedCommand => _removeSelected ??=
+        new RelayCommand(
+            parameter => Remove(parameter as string ?? string.Empty),
+            parameter => parameter is string);
+
+    private RelayCommand? _removeSelected;
+
     public void Add(string value)
     {
         if (!string.IsNullOrWhiteSpace(value) && !Selected.Contains(value, StringComparer.CurrentCultureIgnoreCase))
@@ -275,7 +363,8 @@ public sealed class ExtraFilter : ViewModelBase
     public bool Matches(
         ItemRecord item,
         IReadOnlyCollection<string> unreadItemIds,
-        RecentTimes? recent = null) => Kind switch
+        RecentTimes? recent = null,
+        ModificationUsage? modifications = null) => Kind switch
     {
         ExtraFilterKind.RecentlyUsed => WithinDays(recent, item.Id, RecentKind.Used),
         ExtraFilterKind.RecentlyViewed => WithinDays(recent, item.Id, RecentKind.Viewed),
@@ -290,8 +379,10 @@ public sealed class ExtraFilter : ViewModelBase
         ExtraFilterKind.BaseAvatar => Selected.Count == 0
             || item.Local.AvatarBases.Any(link => !link.Rejected
                 && Selected.Contains(link.BaseName, StringComparer.CurrentCultureIgnoreCase)),
+        // 候補は「名前（ID）」の形。**IDで照合する**——名前は変わるが記録はIDで持つ
         ExtraFilterKind.UsedOn => Selected.Count == 0
-            || item.Local.UsedOn.Any(usage => Selected.Contains(usage.AvatarItemId, StringComparer.Ordinal)),
+            || Selected.Any(entry => AvatarSuggestionText.IdOf(entry) is { } avatarItemId
+                && (modifications ?? ModificationUsage.Empty).Used(avatarItemId, item.Id)),
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
         // 複数選んだ場合はOR（userTagと揃える）

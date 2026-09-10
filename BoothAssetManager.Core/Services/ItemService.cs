@@ -797,7 +797,55 @@ public sealed class ItemService : IItemService
             await _store.Detached.SaveAsync(detached, cancellationToken);
         }
 
+        await MoveModificationsAsync(fromId, toId, cancellationToken);
+
         return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 改変の記録を移した先のIDへ読み替える。
+    ///
+    /// **改変は「そのとき何を使ったか」という過去の事実。**IDを移したからといって
+    /// 使った事実は変わらないので、指す先だけを付け替える。
+    /// 読み替えないと、消えたIDを指したまま「手元に無い」と出続ける。
+    ///
+    /// アバターとして指されている場合も同じ（改変はアバター1体に属する）。
+    /// </summary>
+    private async Task MoveModificationsAsync(
+        string fromId,
+        string toId,
+        CancellationToken cancellationToken)
+    {
+        var loaded = await _store.Modifications.LoadAllAsync(cancellationToken);
+
+        foreach (var record in loaded.Modifications)
+        {
+            var usesAsAvatar = string.Equals(record.AvatarItemId, fromId, StringComparison.Ordinal);
+            var usesAsMember = record.Members.Any(member =>
+                string.Equals(member.ItemId, fromId, StringComparison.Ordinal));
+
+            if (!usesAsAvatar && !usesAsMember)
+            {
+                continue;
+            }
+
+            await _store.Modifications.SaveAsync(
+                record with
+                {
+                    AvatarItemId = usesAsAvatar ? toId : record.AvatarItemId,
+                    Members = usesAsMember
+                        ? record.Members
+                            .Select(member => string.Equals(member.ItemId, fromId, StringComparison.Ordinal)
+                                ? member with { ItemId = toId }
+                                : member)
+                            .ToList()
+                        : record.Members,
+
+                    // 触った跡は残す。あとで「なぜ変わったか」を辿れるようにする
+                    UpdatedAt = DateTimeOffset.Now,
+                },
+                cancellationToken);
+        }
     }
 
     /// <summary>

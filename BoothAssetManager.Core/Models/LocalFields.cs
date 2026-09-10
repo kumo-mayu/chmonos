@@ -19,7 +19,6 @@ public enum LocalField
     Memo,
     Avatars,
     AvatarBases,
-    UsedOn,
     AvatarsDetectedAt,
     Purchases,
     LocalFiles,
@@ -68,7 +67,6 @@ public static class LocalFields
                 LocalField.Memo => result with { Memo = incoming.Memo },
                 LocalField.Avatars => result with { Avatars = incoming.Avatars },
                 LocalField.AvatarBases => result with { AvatarBases = incoming.AvatarBases },
-                LocalField.UsedOn => result with { UsedOn = incoming.UsedOn },
                 LocalField.AvatarsDetectedAt => result with { AvatarsDetectedAt = incoming.AvatarsDetectedAt },
                 LocalField.Purchases => result with { Purchases = incoming.Purchases },
                 LocalField.LocalFiles => result with { LocalFiles = incoming.LocalFiles },
@@ -115,9 +113,6 @@ public static class LocalOwners
 
     /// <summary>商品ページの対応アバター操作（手で足す・違うと言う）。</summary>
     public static readonly IReadOnlyCollection<LocalField> SupportedAvatars = [LocalField.Avatars];
-
-    /// <summary>着せているアバターの操作。検出は絶対に触らない。</summary>
-    public static readonly IReadOnlyCollection<LocalField> Usage = [LocalField.UsedOn];
 
     /// <summary>対応アバターの検出。</summary>
     public static readonly IReadOnlyCollection<LocalField> Detection =
