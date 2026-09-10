@@ -648,6 +648,35 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public bool NotifyOnUpdate => Item.Local.NotifyOnUpdate;
 
+    /// <summary>
+    /// 検索とショップの件数から除いているか。
+    ///
+    /// **自分で設定したものなので、設定した本人に見えていないといけない。**
+    /// 件数が合わないときに、除いたせいなのかを確かめる先がここ以外に無い。
+    /// </summary>
+    public string HiddenText => Item.Local.IsHidden ? "している" : "していない";
+
+    /// <summary>
+    /// 販売終了かどうか。
+    ///
+    /// **「終了」と「まだ確かめていない」を同じ顔にしない。**
+    /// 見つからない回数を溜めてから終了と判断する作りなので、
+    /// 途中の状態を「販売中」と言い切ると嘘になる。
+    /// </summary>
+    public string DelistedText => Item.Local.IsDelisted
+        ? "終了"
+        : Item.Local.ConsecutiveNotFoundCount > 0
+            ? $"確認中（{Item.Local.ConsecutiveNotFoundCount} 回見つかりません）"
+            : "販売中";
+
+    /// <summary>
+    /// アバターの検出をいつ走らせたか。
+    /// 対応アバターが空のとき、検出していないのか検出して無かったのかを分ける。
+    /// </summary>
+    public string AvatarsDetectedText => Item.Local.AvatarsDetectedAt is null
+        ? "まだ検出していません"
+        : Item.Local.AvatarsDetectedAt.Value.ToString("yyyy-MM-dd");
+
     public int OrphanedImageCount => Images.Count(image => image.IsOrphaned);
 
     public bool HasOrphanedImages => OrphanedImageCount > 0;
