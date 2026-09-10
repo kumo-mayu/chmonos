@@ -88,6 +88,17 @@ public sealed class ImportViewModel : ViewModelBase
 
     public ObservableCollection<string> Folders { get; } = [];
 
+    public bool HasFolders => Folders.Count > 0;
+
+    /// <summary>
+    /// 対象が空のときに出す文。**次にやることを書く。**
+    ///
+    /// ボタンは既に押せない状態になっているが、それだけだと
+    /// 「何を入れればここが埋まるのか」が画面から分からない。
+    /// </summary>
+    public string FoldersEmptyText =>
+        "まだ何も入っていません。上の枠にフォルダかファイルを落とすか、「フォルダを選択」で選んでください。";
+
     public ObservableCollection<UnpackedFolderRow> UnpackedFolders { get; } = [];
 
     public RelayCommand AddFolderCommand { get; }
@@ -294,6 +305,7 @@ public sealed class ImportViewModel : ViewModelBase
             }
         }
 
+        OnPropertyChanged(nameof(HasFolders));
         RelayCommand.RaiseCanExecuteChanged();
 
         if (addedFolders.Count > 0)
@@ -395,6 +407,7 @@ public sealed class ImportViewModel : ViewModelBase
         }
 
         Folders.Remove(folder);
+        OnPropertyChanged(nameof(HasFolders));
         RelayCommand.RaiseCanExecuteChanged();
 
         // 実行中なら、まだ順番が来ていないものは取り下げられる。

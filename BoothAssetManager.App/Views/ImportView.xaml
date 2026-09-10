@@ -57,6 +57,12 @@
                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <TextBlock Text="取り込み対象" FontWeight="Bold" FontSize="13" />
                         </Border>
+
+                        <!-- ボタンは押せない状態になっているが、何を入れれば埋まるかは別に書く -->
+                        <TextBlock Text="{Binding FoldersEmptyText}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="18,12,18,0"
+                                   Visibility="{Binding HasFolders, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

@@ -244,6 +244,15 @@
                                              CommitCommand="{Binding AddBoothTagFilterCommand}"
                                              Placeholder="BOOTHタグで絞り込む"
                                              Visibility="{Binding HasBoothTagSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                        <!--
+                            見出しだけ出して黙らない。ユーザータグ・属性・対応アバターには
+                            同じ場面の文があるのに、ここだけ空白だった。
+                            BOOTHタグは人が付けるものではないので、次にやることは取り込み
+                        -->
+                        <TextBlock Text="BOOTHタグがまだありません。商品を取り込むと付いてきます。"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Visibility="{Binding HasBoothTagSuggestions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                         <ItemsControl ItemsSource="{Binding BoothTagFilters}" Margin="0,6,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

@@ -1646,7 +1646,22 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var back = _back;
         _main.ShowModification(
             row.Record,
-            ($"{item.DisplayName} に戻る", () => _main.ShowItem(item, back)));
+            (BackLabelFor(item), () => _main.ShowItem(item, back)));
+    }
+
+    /// <summary>
+    /// 戻る導線に載せる商品名。**長いものは詰める。**
+    ///
+    /// そのまま載せると上部バーを占領して、隣の情報（アバター名・作成日・更新日）を
+    /// 押し出す。手元の15件で名前は中央28字・最長48字なので、
+    /// **30字**にすると中央値は丸ごと入り、はみ出す5件だけが詰まる。
+    /// </summary>
+    private static string BackLabelFor(ItemRecord item)
+    {
+        const int limit = 30;
+
+        var name = item.DisplayName;
+        return name.Length <= limit ? $"{name} に戻る" : $"{name[..limit]}… に戻る";
     }
 
     private async Task LoadModificationsAsync()
