@@ -52,7 +52,7 @@ public sealed class AppServiceContainer : IDisposable
         KanjiReadings = new KanjiReadings(
             Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
         Due = new DueRefresh(Store, Items);
-        Resolver = new FallbackResolver(Client);
+        Resolver = new FallbackResolver(Client, Bridge, KanjiReadings);
         Edit = new EditService(Store);
         Notifications = new NotificationService(Store, Settings);
         UserTags = new UserTagService(Store);

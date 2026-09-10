@@ -63,10 +63,19 @@ public sealed class FallbackResolver
     private static readonly Regex NonAlphanumericRegex = new(@"[^\p{L}\p{N}]", RegexOptions.Compiled);
 
     private readonly IBoothClient _client;
+    private readonly Search.SearchBridge? _bridge;
+    private readonly Search.KanjiReadings? _readings;
 
-    public FallbackResolver(IBoothClient client)
+    /// <param name="bridge">読みから別表記を作るもの。渡さなければ読みの照合をしないだけ。</param>
+    /// <param name="readings">商品名の読みを作るもの。造語の照合に要る。</param>
+    public FallbackResolver(
+        IBoothClient client,
+        Search.SearchBridge? bridge = null,
+        Search.KanjiReadings? readings = null)
     {
         _client = client;
+        _bridge = bridge;
+        _readings = readings;
     }
 
     /// <summary>
@@ -151,6 +160,12 @@ public sealed class FallbackResolver
             }
 
             var booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now);
+
+            // 商品名はもう取ってあるので、読みの照合に通信は要らない
+            var readingMatch = booth.Name is null
+                ? null
+                : ReadingMatch.Find(query, booth.Name, _bridge, _readings);
+
             candidates.Add(Score(
                 itemId,
                 booth.Name,
@@ -160,13 +175,19 @@ public sealed class FallbackResolver
                 hints,
                 rank,
                 direct.Contains(itemId),
-                FileNameQuery.SignificantNumbers(filePath)));
+                FileNameQuery.SignificantNumbers(filePath),
+                readingMatch));
         }
 
         return candidates.OrderByDescending(candidate => candidate.Score).ToList();
     }
 
     /// <summary>候補の点数付け。UIで根拠をそのまま見せられるよう、理由も一緒に組み立てる。</summary>
+    /// <param name="readingMatch">
+    /// ファイル名と商品名が読みで一致した語。<see cref="ReadingMatch.Find"/> の結果。
+    /// ラテン文字のファイル名は日本語商品のローマ字表記であることが多く、
+    /// 文字の突き合わせだけでは当たらない。
+    /// </param>
     public static ResolutionCandidate Score(
         string itemId,
         string? itemName,
@@ -176,7 +197,8 @@ public sealed class FallbackResolver
         UnityPackageHints hints,
         int rank,
         bool fromDirectUrl = false,
-        IReadOnlyList<string>? significantNumbers = null)
+        IReadOnlyList<string>? significantNumbers = null,
+        string? readingMatch = null)
     {
         var score = 0;
         var reasons = new List<string>();
@@ -198,6 +220,14 @@ public sealed class FallbackResolver
         {
             score += 2;
             reasons.Add("商品名がファイル名と一致");
+        }
+
+        // 商品名の一致と同じ重み。読みで一致するのは、表記が違うだけで
+        // 同じものを指していることが多い（tori ↔ 鳥、Sin ↔ 真）
+        if (readingMatch is not null)
+        {
+            score += 2;
+            reasons.Add($"ファイル名が商品名と読みで一致（{readingMatch}）");
         }
 
         if (itemName is not null && hints.ProductNamespaces.Any(product => FileNameQuery.LooksRelated(itemName, product)))
