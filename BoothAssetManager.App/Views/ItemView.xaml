@@ -231,7 +231,15 @@
                                 </Hyperlink>
                             </TextBlock>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <TextBlock Text="{Binding IdText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
+                                <!-- IDそのものを押せるようにする。統合先の指定に要るので、
+                                     手で書き写させない。UI要素は増やさない -->
+                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0">
+                                    <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                               Foreground="{StaticResource TextMuted}"
+                                               ToolTip="{Binding IdCopyTip}">
+                                        <Run Text="{Binding IdText, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
                                 <TextBlock Text="{Binding PublishedText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
                                 <TextBlock Text="{Binding WishText}" Style="{StaticResource Mono}" FontSize="11" />
                             </StackPanel>

@@ -243,6 +243,25 @@ public sealed class BoothClient : IBoothClient
         return text.ToString();
     }
 
+    /// <summary>
+    /// BOOTHの一覧ページを1枚取る。**カテゴリ表を取り出すためだけにある。**
+    ///
+    /// 商品の取得と同じゲートを通るので、1本ずつ・1.5秒以上空けて出る。
+    /// booth.pm 以外は受け付けない——ここを汎用のGETにすると、
+    /// ゲートを通さない通信を書く道ができてしまう。
+    /// </summary>
+    public Task<BoothFetchResult<string>> GetBrowsePageAsync(
+        string url,
+        CancellationToken cancellationToken = default)
+    {
+        if (!url.StartsWith("https://booth.pm/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("booth.pm のページだけを取ります。", nameof(url));
+        }
+
+        return GetStringAsync(url, cancellationToken);
+    }
+
     private Task<BoothFetchResult<string>> GetStringAsync(string url, CancellationToken cancellationToken)
         => SendWithRetryAsync(url, response => response.Content.ReadAsStringAsync(cancellationToken), cancellationToken);
 

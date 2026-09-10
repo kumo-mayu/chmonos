@@ -20,6 +20,13 @@ DLforTest/
 # What those probes HARVESTED is not: scraped BOOTH catalog JSON, text extracted from
 # purchased PDFs, and downloaded product images are all third-party content.
 # The scripts that produce them are here, so anyone can regenerate the data locally.
+#
+# ONE EXCEPTION is committed: assets/booth-categories.json, BOOTH's category table.
+# It is a classification structure, not a seller's work - short functional names whose
+# purpose is interoperability, and we already store the same strings in every item JSON.
+# We bundle it so that a thousand users do not each fetch the same static table from
+# BOOTH; the rule here exists to reduce their load, and fetching it per-user would
+# increase it. Regenerate with experiments/CategoryFetch (one request). See NOTICE.
 research/*
 !research/.gitignore
 !research/*.md

@@ -136,6 +136,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             () => item.Booth.Shop is not null);
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
+        CopyIdCommand = new RelayCommand(CopyId);
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
@@ -274,6 +275,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public RelayCommand OpenBoothCommand { get; }
 
+    /// <summary>この商品のIDを写す。統合先の指定に使う。</summary>
+    public RelayCommand CopyIdCommand { get; }
+
     public RelayCommand EditCommand { get; }
 
     public RelayCommand OpenInExplorerCommand { get; }
@@ -405,6 +409,17 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             : $"{Item.Booth.Category.ParentName} / {Item.Booth.Category.Name}";
 
     public string IdText => $"ID {Item.Id}";
+
+    /// <summary>
+    /// 商品IDを写す。**IDそのものだけを写す**——「ID 12345」ごと写しても貼れない。
+    ///
+    /// 統合先の指定をIDやBOOTHのリンクで行うので、その商品のIDを
+    /// 手で書き写さずに取り出せる必要がある。UI要素は増やさず、
+    /// 出ているIDそのものを押せるようにした。
+    /// </summary>
+    public string IdCopyTip => Item.IsLocalOnly
+        ? "クリックすると仮のIDを写します"
+        : "クリックすると商品IDを写します";
 
     /// <summary>
     /// BOOTHに無い商品として登録したもの。**BOOTHへは問い合わせない。**
@@ -1082,6 +1097,26 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         if (record is not null)
         {
             _main.ShowItem(record);
+        }
+    }
+
+    /// <summary>
+    /// 商品IDをクリップボードへ。
+    ///
+    /// **IDそのものだけを写す。**画面には「ID 12345」と出ているが、
+    /// その飾りごと写しても貼り先で使えない。
+    /// </summary>
+    private void CopyId()
+    {
+        try
+        {
+            System.Windows.Clipboard.SetText(Item.Id);
+            RefreshStatus = $"{Item.Id} を写しました。";
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+            RefreshStatus = "写せませんでした。もう一度押してください。";
         }
     }
 
