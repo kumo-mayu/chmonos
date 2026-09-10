@@ -45,6 +45,38 @@
                         <StackPanel>
                             <Grid Height="420" Background="#e9edf4">
                                 <!--
+                                    絵を送る矢印。**普段は出さない。**
+                                    常に置いておくと絵の上に黒い箱が居座るので、
+                                    マウスが絵の上に来たときだけ現れる。
+                                    白い矢印にしているのは、絵の明暗どちらでも読めるようにするため
+                                    （薄い黒の下敷きを添えて、明るい絵でも消えないようにしている）。
+                                -->
+                                <Grid.Resources>
+                                    <Style x:Key="GalleryArrow" TargetType="Button">
+                                        <Setter Property="Width" Value="34" />
+                                        <Setter Property="Height" Value="52" />
+                                        <Setter Property="FontSize" Value="20" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Foreground" Value="White" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="Background" Value="#40000000" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="Opacity" Value="0" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Style.Triggers>
+                                            <!-- 絵の上にマウスが来たら現れる -->
+                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Grid}}" Value="True">
+                                                <Setter Property="Opacity" Value="0.85" />
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Opacity" Value="1" />
+                                                <Setter Property="Background" Value="#66000000" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Resources>
+
+                                <!--
                                     操作は全部この右クリックに集める。
                                     サムネイルは68×54しかなく、そこにボタンを乗せると絵が見えなくなる。
                                 -->
@@ -84,19 +116,17 @@
                                     <TextBlock Text="サムネイル" Foreground="White" FontSize="11" />
                                 </Border>
 
-                                <!-- 見る絵を送る。並べ替えではない（そちらは右クリック） -->
+                                <!-- 見る絵を送る。並べ替えではない（そちらは右クリック）。左右キーでも送れる -->
                                 <Button Content="‹" Command="{Binding PreviousImageCommand}"
+                                        Style="{StaticResource GalleryArrow}"
                                         Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0"
-                                        Width="34" Height="52" FontSize="20" Padding="0"
-                                        Background="#66000000" Foreground="White" BorderThickness="0"
-                                        ToolTip="前の画像" />
+                                        HorizontalAlignment="Left" Margin="8,0,0,0"
+                                        ToolTip="前の画像（←）" />
                                 <Button Content="›" Command="{Binding NextImageCommand}"
+                                        Style="{StaticResource GalleryArrow}"
                                         Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
-                                        Width="34" Height="52" FontSize="20" Padding="0"
-                                        Background="#66000000" Foreground="White" BorderThickness="0"
-                                        ToolTip="次の画像" />
+                                        HorizontalAlignment="Right" Margin="0,0,8,0"
+                                        ToolTip="次の画像（→）" />
                             </Grid>
 
                             <ItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">

@@ -224,6 +224,43 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 商品ページで左右キーを押したら、見る絵を送る。
+    ///
+    /// **入力欄にいるときは何もしない。**そこでの左右はカーソルの移動で、
+    /// 横取りすると文字が打てなくなる（Ctrl+V と同じ理由）。
+    /// </summary>
+    private static bool TryMoveGallery(MainViewModel main, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key is not (System.Windows.Input.Key.Left or System.Windows.Input.Key.Right)
+            || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None
+            || main.CurrentViewModel is not ItemViewModel item)
+        {
+            return false;
+        }
+
+        if (System.Windows.Input.Keyboard.FocusedElement
+            is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox)
+        {
+            return false;
+        }
+
+        var command = e.Key == System.Windows.Input.Key.Left
+            ? item.PreviousImageCommand
+            : item.NextImageCommand;
+
+        if (!command.CanExecute(null))
+        {
+            // 端では何もしないが、受け取ったことにする。
+            // 他の場所へ左右が流れて画面が動くのを防ぐ
+            return true;
+        }
+
+        command.Execute(null);
+        e.Handled = true;
+        return true;
+    }
+
+    /// <summary>
     /// 貼り付けもドロップと同じ扱い。マウスだけで完結させたいならドロップ、
     /// キーボードが使えるなら貼り付けの方が速い。
     ///
@@ -232,6 +269,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (DataContext is MainViewModel current && TryMoveGallery(current, e))
+        {
+            return;
+        }
+
         if (e.Key != System.Windows.Input.Key.V
             || (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0
             || DataContext is not MainViewModel main)
