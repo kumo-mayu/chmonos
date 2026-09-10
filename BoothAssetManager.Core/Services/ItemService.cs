@@ -80,6 +80,14 @@ public interface IItemService
         string? fileName,
         CancellationToken cancellationToken = default);
 
+    /// <summary>画像に役割を付ける。出どころから決まる値と同じなら記録しない。</summary>
+    Task<bool> SetImageRoleAsync(
+        string itemId,
+        string fileName,
+        Models.ImageRole role,
+        bool isUserAdded,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// IDを変更したら何が起きるかの下見。**書き込まない。**
     /// 移した先が手元に無ければBOOTHへ1度だけ聞きに行く。
@@ -909,6 +917,46 @@ public sealed class ItemService : IItemService
         await _store.Items.SaveLocalAsync(
             itemId,
             existing.Local with { UserImages = images },
+            LocalOwners.UserImages,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>
+    /// 画像に役割を付ける。
+    ///
+    /// **出どころから決まる値と同じなら記録しない。**BOOTHの画像に「BOOTH」を、
+    /// 自分で足した画像に「その他」を付けても、それは既定と同じなので書かない。
+    /// 全画像分を書き出すと、観測しただけのものまで人が決めたように見える。
+    /// </summary>
+    public async Task<bool> SetImageRoleAsync(
+        string itemId,
+        string fileName,
+        ImageRole role,
+        bool isUserAdded,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is null || string.IsNullOrWhiteSpace(fileName))
+        {
+            return false;
+        }
+
+        var name = Path.GetFileName(fileName);
+        var roles = existing.Local.ImageRoles
+            .Where(pair => !string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+        var natural = isUserAdded ? ImageRole.Other : ImageRole.Booth;
+        if (role != natural)
+        {
+            roles[name] = role;
+        }
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            existing.Local with { ImageRoles = roles },
             LocalOwners.UserImages,
             cancellationToken: cancellationToken);
 

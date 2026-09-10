@@ -155,6 +155,31 @@
                                         <MenuItem Header="サムネイルの指名を外す" Command="{Binding UnpinThumbnailCommand}"
                                                   Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                                        <Separator />
+
+                                        <!--
+                                            画像の役割。3つで固定。
+
+                                            付けていなければ出どころから決まる（BOOTHの画像は
+                                            「BOOTH」、自分で足した画像は「その他」）。
+                                            「改変例」は自動では付かない——どれが改変後の姿かは
+                                            人にしか分からない。
+
+                                            設定で「サムネイルに出す画像」に役割を選ぶと、
+                                            一覧のサムネイルがその役割の画像に切り替わる
+                                        -->
+                                        <MenuItem Header="{Binding CurrentRoleHeader}">
+                                            <MenuItem Header="BOOTH" IsCheckable="True"
+                                                      IsChecked="{Binding CurrentIsRoleBooth, Mode=OneWay}"
+                                                      Command="{Binding SetRoleBoothCommand}" />
+                                            <MenuItem Header="改変例" IsCheckable="True"
+                                                      IsChecked="{Binding CurrentIsRoleModified, Mode=OneWay}"
+                                                      Command="{Binding SetRoleModifiedCommand}" />
+                                            <MenuItem Header="その他" IsCheckable="True"
+                                                      IsChecked="{Binding CurrentIsRoleOther, Mode=OneWay}"
+                                                      Command="{Binding SetRoleOtherCommand}" />
+                                        </MenuItem>
+
                                         <!-- 消せるのは自分で足した分だけ。BOOTHの画像は取り直せば戻る -->
                                         <MenuItem Header="この画像を消す" Command="{Binding RemoveImageCommand}"
                                                   Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -260,6 +285,19 @@
                                                             Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                                                             Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="自分" Foreground="White" FontSize="8.5" />
+                                                    </Border>
+
+                                                    <!--
+                                                        人が付けた役割。「改変例」だけ出す。
+
+                                                        BOOTHとその他は出どころから決まる既定なので、
+                                                        出すと全タイルが札で埋まる。空いている右下に置くので
+                                                        「自分」（左下）と★（右上）とも重ならない
+                                                    -->
+                                                    <Border Background="{StaticResource Accent}" CornerRadius="4,0,0,0"
+                                                            Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                            Visibility="{Binding HasRoleLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="{Binding RoleLabel}" Foreground="White" FontSize="8.5" />
                                                     </Border>
 
                                                     <!-- サムネイルに指名した1枚 -->

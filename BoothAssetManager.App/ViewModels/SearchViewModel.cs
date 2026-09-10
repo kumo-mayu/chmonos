@@ -1876,7 +1876,11 @@ public sealed class SearchViewModel : ViewModelBase
     {
         var missing = item.Local.LocalFiles.Any(file => file.Paths.Count == 0);
 
-        return new ItemCardViewModel(item, _thumbnails, _services.Paths.ItemImagesDir(item.Id))
+        return new ItemCardViewModel(
+            item,
+            _thumbnails,
+            _services.Paths.ItemImagesDir(item.Id),
+            _services.Settings.ThumbnailRole)
         {
             Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,

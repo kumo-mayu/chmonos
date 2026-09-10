@@ -35,6 +35,19 @@ public sealed class GalleryImage : ViewModelBase
     public bool IsPinned { get; init; }
 
     /// <summary>
+    /// この画像の役割。付けていなければ出どころから決まる。
+    /// 「改変例」だけは人が付けたものなので、札に出す。
+    /// </summary>
+    public Core.Models.ImageRole Role { get; init; }
+
+    /// <summary>札に出す役割の名前。既定のままのものは出さない（札で埋まる）。</summary>
+    public string RoleLabel => Role == Core.Models.ImageRole.Modified
+        ? Core.Models.ImageRoles.Label(Role)
+        : string.Empty;
+
+    public bool HasRoleLabel => RoleLabel.Length > 0;
+
+    /// <summary>
     /// 一覧の末尾に置く「足す」枠。画像ではない。
     ///
     /// 同じ並びに混ぜているのは、**折り返しても末尾に付いてくる**ようにするため。
@@ -244,6 +257,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             },
             parameter => parameter is SectionRow);
         ToggleAllSectionsCommand = new RelayCommand(ToggleAllSections, () => Sections.Count > 0);
+        SetRoleBoothCommand = new RelayCommand(
+            () => _ = SetRoleAsync(Core.Models.ImageRole.Booth),
+            () => CurrentImage is { IsImage: true });
+        SetRoleModifiedCommand = new RelayCommand(
+            () => _ = SetRoleAsync(Core.Models.ImageRole.Modified),
+            () => CurrentImage is { IsImage: true });
+        SetRoleOtherCommand = new RelayCommand(
+            () => _ = SetRoleAsync(Core.Models.ImageRole.Other),
+            () => CurrentImage is { IsImage: true });
 
         Sections = item.Booth.H2Sections.Select(section => new SectionRow(section)).ToList();
 
@@ -400,6 +422,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand EditCommand { get; }
 
     public RelayCommand OpenInExplorerCommand { get; }
+
+    /// <summary>いま出ている画像に役割を付ける。3つで固定</summary>
+    public RelayCommand SetRoleBoothCommand { get; }
+
+    public RelayCommand SetRoleModifiedCommand { get; }
+
+    public RelayCommand SetRoleOtherCommand { get; }
 
     /// <summary>zipの中の <c>.unitypackage</c> をUnityへ送る。</summary>
     public RelayCommand SendToUnityCommand { get; }
@@ -978,6 +1007,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 IsUserAdded = entry.IsUserAdded,
                 IsPinned = string.Equals(
                     fileName, Item.Local.ThumbnailImage, StringComparison.OrdinalIgnoreCase),
+                Role = Core.Images.ItemImageOrder.RoleOf(entry, Item.Local.ImageRoles),
             });
         }
 
@@ -1454,6 +1484,41 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>いま出ている1枚がサムネイルに指名されているか。</summary>
     public bool CurrentIsPinned => CurrentImage is { IsPinned: true };
 
+    // ---- 画像の役割 ----
+
+    /// <summary>メニューの見出し。いま何が付いているかを見出しに出す。</summary>
+    public string CurrentRoleHeader => CurrentImage is { } image
+        ? $"役割：{Core.Models.ImageRoles.Label(image.Role)}"
+        : "役割";
+
+    public bool CurrentIsRoleBooth => CurrentImage is { Role: Core.Models.ImageRole.Booth };
+
+    public bool CurrentIsRoleModified => CurrentImage is { Role: Core.Models.ImageRole.Modified };
+
+    public bool CurrentIsRoleOther => CurrentImage is { Role: Core.Models.ImageRole.Other };
+
+    /// <summary>
+    /// いま出ている1枚に役割を付ける。
+    ///
+    /// 付けたら**一覧のサムネイルも変わりうる**ので、ライブラリを読み直す。
+    /// </summary>
+    private async Task SetRoleAsync(Core.Models.ImageRole role)
+    {
+        if (CurrentImage is not { IsImage: true } image)
+        {
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetImageRole(
+            Item.Id,
+            image.FileName,
+            role,
+            image.IsUserAdded));
+
+        await ReloadGalleryAsync();
+        await _main.ReloadLibraryAsync();
+    }
+
     /// <summary>
     /// 前へ動かせるか。**自分の画像の中だけで動く。**
     /// BOOTHの画像は並べ替えない（観測した並びが正）。
@@ -1678,6 +1743,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             nameof(SelectedImage), nameof(GalleryCounter), nameof(CurrentImage),
             nameof(CanGoPreviousImage), nameof(CanGoNextImage),
             nameof(CurrentIsUserAdded), nameof(CurrentIsPinned),
+            nameof(CurrentRoleHeader), nameof(CurrentIsRoleBooth),
+            nameof(CurrentIsRoleModified), nameof(CurrentIsRoleOther),
             nameof(CanMoveImageBack), nameof(CanMoveImageForward),
             nameof(HasOrphanedImages), nameof(OrphanedImageText),
             nameof(HasUserImages), nameof(UserImageText),

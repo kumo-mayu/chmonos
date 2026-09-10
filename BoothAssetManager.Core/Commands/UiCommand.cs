@@ -57,6 +57,13 @@ public abstract record UiCommand
     /// <summary>サムネイルに使う1枚を指名する。null で指名を外す。</summary>
     public record PinThumbnail(string ItemId, string? FileName) : UiCommand;
 
+    /// <summary>画像に役割を付ける。出どころから決まる値と同じなら記録されない</summary>
+    public record SetImageRole(
+        string ItemId,
+        string FileName,
+        Models.ImageRole Role,
+        bool IsUserAdded) : UiCommand;
+
     /// <summary>1件のitemをBOOTHから取り直す。</summary>
     public record RefreshItem(string ItemId) : UiCommand;
 

@@ -81,6 +81,22 @@
                                       DisplayMemberPath="Label"
                                       SelectedItem="{Binding SelectedThumbnailSize, Mode=TwoWay}" />
                         </StackPanel>
+
+                        <!--
+                            サムネイルに出す画像の役割。
+
+                            「デフォルト」のときだけ、商品ごとの★の指名が効く。
+                            特定の役割を選ぶと役割が勝つ——「改変例を出す」と決めたのに
+                            ★を付けた商品だけ別の絵になるのは筋が通らない
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="サムネイルに出す画像" Style="{StaticResource RowLabel}" Width="220" />
+                            <ComboBox Width="120" ItemsSource="{x:Static vm:SettingsViewModel.ThumbnailRoles}"
+                                      DisplayMemberPath="Label"
+                                      SelectedItem="{Binding SelectedThumbnailRole, Mode=TwoWay}" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                   Text="「デフォルト」のとき、商品ページで★を付けた1枚が優先されます。役割を選ぶとそちらが優先され、その役割の画像が無い商品は今まで通りの1枚になります。" />
                     </StackPanel>
                 </Border>
 

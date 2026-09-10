@@ -50,6 +50,19 @@ public sealed record LocalBlock
     /// </summary>
     public string? ThumbnailImage { get; init; }
 
+    /// <summary>
+    /// 画像に付けた役割。鍵はファイル名。
+    ///
+    /// **付けていない画像は書かない。**付いていなければ出どころから決まる——
+    /// BOOTHの画像は「BOOTH」、自分で足した画像は「その他」。
+    /// 全画像分を書き出すと、観測しただけのものまで人が決めたように見える。
+    ///
+    /// <see cref="ImageRole.Modified"/> は自動では付かない。
+    /// どれが改変後の姿かは人にしか分からない。
+    /// </summary>
+    public IReadOnlyDictionary<string, ImageRole> ImageRoles { get; init; }
+        = new Dictionary<string, ImageRole>();
+
     /// <summary>userTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
     public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 

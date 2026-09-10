@@ -13,6 +13,7 @@ public enum LocalField
     Category,
     UserImages,
     ThumbnailImage,
+    ImageRoles,
     UserTags,
     Attributes,
     Memo,
@@ -61,6 +62,7 @@ public static class LocalFields
                 LocalField.Category => result with { Category = incoming.Category },
                 LocalField.UserImages => result with { UserImages = incoming.UserImages },
                 LocalField.ThumbnailImage => result with { ThumbnailImage = incoming.ThumbnailImage },
+                LocalField.ImageRoles => result with { ImageRoles = incoming.ImageRoles },
                 LocalField.UserTags => result with { UserTags = incoming.UserTags },
                 LocalField.Attributes => result with { Attributes = incoming.Attributes },
                 LocalField.Memo => result with { Memo = incoming.Memo },
@@ -137,11 +139,12 @@ public static class LocalOwners
     /// <summary>属性の一括書き換え。</summary>
     public static readonly IReadOnlyCollection<LocalField> Attributes = [LocalField.Attributes];
 
-    /// <summary>自分で足した画像の操作（足す・消す・並べ替え・サムネイルの指名）。</summary>
+    /// <summary>自分で足した画像の操作（足す・消す・並べ替え・サムネイルの指名・役割）。</summary>
     public static readonly IReadOnlyCollection<LocalField> UserImages =
     [
         LocalField.UserImages,
         LocalField.ThumbnailImage,
+        LocalField.ImageRoles,
     ];
 
     /// <summary>取り込み。手元のファイルとフォルダだけ。</summary>

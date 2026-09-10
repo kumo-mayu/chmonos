@@ -118,6 +118,16 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(pin.ItemId)
                     : new CommandResult.Failed("対象の商品が見つかりませんでした。");
 
+            case UiCommand.SetImageRole imageRole:
+                return await _items.SetImageRoleAsync(
+                    imageRole.ItemId,
+                    imageRole.FileName,
+                    imageRole.Role,
+                    imageRole.IsUserAdded,
+                    cancellationToken)
+                    ? new CommandResult.ItemSaved(imageRole.ItemId)
+                    : new CommandResult.Failed("対象の商品が見つかりませんでした。");
+
             case UiCommand.RefreshItem refresh:
                 var outcome = await _items.RefreshAsync(refresh.ItemId, cancellationToken);
 

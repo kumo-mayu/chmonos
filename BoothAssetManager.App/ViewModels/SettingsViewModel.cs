@@ -14,6 +14,17 @@ public sealed class ThumbnailSizeOption
     public required ThumbnailSize Value { get; init; }
 }
 
+/// <summary>サムネイルに出す画像の役割の選択肢。</summary>
+public sealed class ThumbnailRoleOption
+{
+    public required ThumbnailRole Value { get; init; }
+
+    public string Label => ImageRoles.Label(Value);
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
+}
+
 /// <summary>取り込み元フォルダの1行。</summary>
 public sealed class ImportFolderRow
 {
@@ -87,6 +98,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _showAdult = settings.ShowAdult;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _thumbnailSize = settings.ThumbnailSize;
+        _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;
@@ -203,6 +215,42 @@ public sealed class SettingsViewModel : ViewModelBase
                 Save();
             }
         }
+    }
+
+    private ThumbnailRole _thumbnailRole;
+
+    /// <summary>
+    /// サムネイルに出す画像の役割。
+    ///
+    /// 変えたら一覧を組み直す。カードは組むときに役割を受け取るので、
+    /// 組み直さないと前の絵が残る。
+    /// </summary>
+    public ThumbnailRole ThumbnailRole
+    {
+        get => _thumbnailRole;
+        set
+        {
+            if (SetField(ref _thumbnailRole, value))
+            {
+                OnPropertyChanged(nameof(SelectedThumbnailRole));
+                Save();
+                _ = _main.ReloadLibraryAsync();
+            }
+        }
+    }
+
+    public static IReadOnlyList<ThumbnailRoleOption> ThumbnailRoles { get; } =
+    [
+        new ThumbnailRoleOption { Value = Core.Models.ThumbnailRole.Default },
+        new ThumbnailRoleOption { Value = Core.Models.ThumbnailRole.Booth },
+        new ThumbnailRoleOption { Value = Core.Models.ThumbnailRole.Modified },
+        new ThumbnailRoleOption { Value = Core.Models.ThumbnailRole.Other },
+    ];
+
+    public ThumbnailRoleOption SelectedThumbnailRole
+    {
+        get => ThumbnailRoles.First(option => option.Value == ThumbnailRole);
+        set { if (value is not null) { ThumbnailRole = value.Value; } }
     }
 
     /// <summary>ComboBoxに出す選択肢。enum名をそのまま見せない。</summary>
@@ -537,6 +585,7 @@ public sealed class SettingsViewModel : ViewModelBase
             ShowAdult = ShowAdult,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             ThumbnailSize = ThumbnailSize,
+            ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,

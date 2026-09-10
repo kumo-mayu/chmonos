@@ -29,6 +29,13 @@ public sealed record AppSettings
     public ThumbnailSize ThumbnailSize { get; init; } = ThumbnailSize.Medium;
 
     /// <summary>
+    /// サムネイルにどの役割の画像を出すか。
+    ///
+    /// 既定は「デフォルト」。商品ごとの★の指名が効くのはこのときだけ。
+    /// </summary>
+    public ThumbnailRole ThumbnailRole { get; init; } = ThumbnailRole.Default;
+
+    /// <summary>
     /// 商品ページのギャラリーを、サムネイル一覧に乗せるだけで切り替えるか。
     /// オフのときはクリックだけで切り替える。検索結果のカードは常にホバー切り替え。
     /// </summary>

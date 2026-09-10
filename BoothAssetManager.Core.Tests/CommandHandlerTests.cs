@@ -99,6 +99,14 @@ public class CommandHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(true);
 
+        public Task<bool> SetImageRoleAsync(
+            string itemId,
+            string fileName,
+            Models.ImageRole role,
+            bool isUserAdded,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
         public Task<ItemIdChangePlan?> PlanItemIdChangeAsync(
             string fromId,
             string toId,

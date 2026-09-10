@@ -293,7 +293,8 @@ public sealed class ShopViewModel : ViewModelBase
             _all = entries.Select(entry => new ItemCardViewModel(
                 entry.Item,
                 _thumbnails,
-                _services.Paths.ItemImagesDir(entry.Item.Id))
+                _services.Paths.ItemImagesDir(entry.Item.Id),
+                _services.Settings.ThumbnailRole)
             {
                 Name = entry.Item.DisplayName,
                 // カードの2行目は入手日にする。ショップ画面では店名が全部同じで意味が無い

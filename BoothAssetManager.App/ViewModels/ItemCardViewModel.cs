@@ -41,14 +41,27 @@ public sealed class ItemCardViewModel : ViewModelBase
     private int _activeIndex;
     private int _stepCount;
 
-    public ItemCardViewModel(ItemRecord item, ThumbnailLoader thumbnails, string imageDirectory)
+    public ItemCardViewModel(
+        ItemRecord item,
+        ThumbnailLoader thumbnails,
+        string imageDirectory,
+        ThumbnailRole thumbnailRole = ThumbnailRole.Default)
     {
         Item = item;
         _thumbnails = thumbnails;
         _imageDirectory = imageDirectory;
+        ThumbnailRole = thumbnailRole;
     }
 
     public ItemRecord Item { get; }
+
+    /// <summary>
+    /// どの役割の画像をサムネイルに出すか。設定から来る。
+    ///
+    /// カードを組むときに渡す。設定を変えたら一覧を組み直すので、
+    /// カード側で見張る必要はない。
+    /// </summary>
+    public ThumbnailRole ThumbnailRole { get; }
 
     private bool _isSelected;
     private bool _isSelectionMode;
@@ -124,8 +137,9 @@ public sealed class ItemCardViewModel : ViewModelBase
             _thumbnails.ListFiles(_imageDirectory),
             Item.Local.UserImages);
 
+        // 役割の指定があればそちらが勝つ。無指定（デフォルト）のときだけ★が効く
         var path = BoothAssetManager.Core.Images.ItemImageOrder
-            .Thumbnail(ordered, Item.Local.ThumbnailImage);
+            .Thumbnail(ordered, Item.Local.ThumbnailImage, ThumbnailRole, Item.Local.ImageRoles);
 
         return path is null ? null : _thumbnails.Load(path);
     }

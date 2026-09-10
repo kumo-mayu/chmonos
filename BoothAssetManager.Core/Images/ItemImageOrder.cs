@@ -121,4 +121,81 @@ public static class ItemImageOrder
 
         return ordered.Count > 0 ? ordered[0].Path : null;
     }
+
+    /// <summary>
+    /// その画像の役割。
+    ///
+    /// **付いていなければ出どころから決める。**BOOTHの画像は「BOOTH」、
+    /// 自分で足した画像は「その他」。<see cref="ImageRole.Modified"/> は
+    /// 自動では付かない——どれが改変後の姿かは人にしか分からない。
+    ///
+    /// BOOTHから消えた画像も出どころは BOOTH のままにする。
+    /// 消えたことは並びと札で示していて、役割の話ではない。
+    /// </summary>
+    public static ImageRole RoleOf(
+        OrderedImage image,
+        IReadOnlyDictionary<string, ImageRole>? roles)
+    {
+        var fileName = System.IO.Path.GetFileName(image.Path);
+        if (roles is not null && TryGet(roles, fileName, out var assigned))
+        {
+            return assigned;
+        }
+
+        return image.Origin == ImageOrigin.UserAdded ? ImageRole.Other : ImageRole.Booth;
+    }
+
+    /// <summary>
+    /// サムネイルに使う1枚を、役割の指定も見て選ぶ。
+    ///
+    /// **<see cref="ThumbnailRole.Default"/> のときだけ★の指名が効く**（ユーザ判断）。
+    /// 特定の役割を選んでいるときは役割が勝つ——「改変例を出す」と決めたのに、
+    /// ★を付けた商品だけ別の絵になるのは筋が通らない。
+    ///
+    /// **その役割の画像が1枚も無い商品は、普通のサムネイルに戻す。**
+    /// カードが空欄になると、絵が無いのか役割が付いていないのか読めない。
+    /// </summary>
+    public static string? Thumbnail(
+        IReadOnlyList<OrderedImage> ordered,
+        string? pinnedFileName,
+        ThumbnailRole thumbnailRole,
+        IReadOnlyDictionary<string, ImageRole>? roles)
+    {
+        if (ImageRoles.AsImageRole(thumbnailRole) is { } wanted)
+        {
+            foreach (var image in ordered)
+            {
+                if (RoleOf(image, roles) == wanted)
+                {
+                    return image.Path;
+                }
+            }
+        }
+
+        return Thumbnail(ordered, pinnedFileName);
+    }
+
+    private static bool TryGet(
+        IReadOnlyDictionary<string, ImageRole> roles,
+        string fileName,
+        out ImageRole role)
+    {
+        if (roles.TryGetValue(fileName, out role))
+        {
+            return true;
+        }
+
+        // 大文字小文字を無視して引き直す。JSONの辞書は比較の仕方を持たないので、
+        // 手で直したファイルから読むと素の比較になる
+        foreach (var pair in roles)
+        {
+            if (string.Equals(pair.Key, fileName, StringComparison.OrdinalIgnoreCase))
+            {
+                role = pair.Value;
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
