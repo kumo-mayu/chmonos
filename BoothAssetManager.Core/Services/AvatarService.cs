@@ -107,8 +107,19 @@ public sealed partial class AvatarService : IAvatarService
     private readonly AppSettings _settings;
     private readonly IBoothClient? _client;
 
-    /// <summary>「対応アバター」節から挙がったときだけ受け入れるcategory。素体はここに入ることが多い。</summary>
-    private static readonly string[] SupportOnlyCategories = ["3Dモデル（その他）"];
+    /// <summary>
+    /// 「対応アバター」節から挙がったときだけ受け入れるcategory。
+    ///
+    /// **3Dモデル（その他）**：素体はここに入ることが多い（+Head など）。
+    ///
+    /// **VRoid**：実測（一覧の先頭60件）では**アバター本体は3件だけ**で、
+    /// 残りはテクスチャ・衣装・アクセサリ・ツールだった。無条件に受け入れると
+    /// 95%が誤りになり、衣装がアバターとして一覧に並ぶ。
+    /// ただし本体が無いわけではない——『BlueMallow / ブルーマロウ』は
+    /// VRMのモデルなのに category が VRoid で、3Dキャラクターではない。
+    /// **出品者が「対応アバター」として挙げているなら、それは本体である。**
+    /// </summary>
+    private static readonly string[] SupportOnlyCategories = ["3Dモデル（その他）", "VRoid"];
 
     /// <summary>名前の手掛かりに出す参照元の数。並べすぎても読めない。</summary>
     private const int MaxReferenceNames = 4;
