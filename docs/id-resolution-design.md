@@ -228,3 +228,58 @@ IDで引けることが読めなかった。
 ## 14. experiments/
 
 `UnityPackageProbe`（名前空間＋Readme URL） / `ThumbnailHashProbe` / `JapaneseBridgeProbe` / `BrowserHistoryProbe`。使い方は `experiments/README.md`。PDF本文は Codex の `research/PdfProbe`（net9, PdfPig）。
+
+## 7. 候補検索に表記の橋渡しを使うか（2026-09-10 実測）
+
+手掛かりの無いファイルには、ファイル名から作った語でBOOTH内検索をかけている。
+ローマ字のファイル名が日本語の商品を指しているとき当たらないのではないか、を実測した
+（`experiments/FallbackSearchProbe`）。
+
+**正解が分かっている10ファイル**で、検索結果に正解が上位3件以内に出るかを見た。
+候補のJSONは取っていない——知りたいのは検索の当たりだけで、点数付けは通信の要らない側で測ってある。
+
+### 1回目（今のまま）：5/10
+
+| | ファイル名 | 検索語 | 結果 |
+|---|---|---|---|
+| ○ | `SinAvatarPen_v1.2.2.zip` | Sin Avatar Pen | 1位 |
+| ○ | `Bracelet_tamakurage.v1.01.zip` | Bracelet tamakurage | 1位 |
+| ○ | `rurune_v1.1.3.zip` | rurune | 1位 |
+| ○ | `Kipfel_1.2.0.zip` | Kipfel | 1位 |
+| ○ | `Wendy_ver1.01.zip` | Wendy | 2位 |
+| × | `Tori_v1_1_1.zip` | Tori | **無し** |
+| × | `Sig_Ring_07_ver2.zip` | Sig Ring | 無し |
+| × | `HeartBeatGimmick_v3.0.3.zip` | Heart Beat Gimmick | 無し |
+| × | `Kuuta_ShapekeyAddon.zip` | Kuuta Shapekey Addon | 無し |
+| × | `hotogiya_Kuuta_ver1.03.zip` | hotogiya Kuuta | 無し |
+
+### 2回目（別表記で引き直す）：+1
+
+- ○ `Tori` → **「鳥」→ 1位**。報告されていた例がそのまま直った
+- － `Sig Ring` / `Heart Beat Gimmick` → **別表記が作れないので何もしない**。通信も増えない
+- × `Kuuta Shapekey Addon` → 「くうた」20位。くうた関連の商品が多く、目的の物が埋もれる
+- × `hotogiya Kuuta` → 「ほとぎや」8位。同上（店名は「ほとぎ屋」で、読みは近いが商品が多い）
+
+### 3回目（語を差し替える）：0/4
+
+他の語を残したまま1語だけ差し替える形も試した。
+「くうた Shapekey Addon」「ほとぎや Kuuta」「hotogiya くうた」——**全部外れ**。
+BOOTH内検索はスペースをANDで読むので、語を混ぜるほど当たらなくなる。**この形は採らない。**
+
+### 結論：2回目の形だけ入れる
+
+**+1/10 に対して、10ファイルで+3リクエスト**（5件中2件は別表記が作れず通信ゼロ）。
+
+良い性質が2つある。
+
+- **当てられないときは黙って何もしない。**別表記が作れなければ通信も増えない
+- **報告された例がちょうど直る。**ローマ字のファイル名が日本語商品を指す場合が対象
+
+外れた3件の理由は表記ではない。
+`Sig Ring` と `HeartBeat` は英訳（指輪・心音）が要るが、
+**英語の経路は使わない**と決めてある（`Sin`→罪業、`Ring`→土俵 を作るため）。
+`Kuuta` の2件は、商品名がラテン文字で、BOOTH側の検索の挙動（AND）の問題。
+
+**この試験は検索の段だけを測っている。**実際の候補検索は、これに加えて
+zip内の商品URL・unitypackageの作者名前空間・読みの一致（点数付け）も使うので、
+端から端までの成功率はこれより高い。
