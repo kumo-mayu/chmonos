@@ -116,6 +116,9 @@ public sealed class AppServiceContainer : IDisposable
     public SearchBridge Bridge { get; }
 
     /// <summary>商品名の読みを組み立てる。造語の複合語はここでしか読めない。</summary>
+    /// <summary>同梱したBOOTHのカテゴリ表。候補と、親の補完に使う。</summary>
+    public Core.Services.CategoryTable Categories { get; } = Core.Services.CategoryTable.Bundled();
+
     public KanjiReadings KanjiReadings { get; }
 
     /// <summary>⑦ 期限の来た商品を取り直す。梯子のいちばん下。</summary>

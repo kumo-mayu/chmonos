@@ -407,9 +407,9 @@ public sealed class StatsService : IStatsService
                 shops[subdomain] = (shopName, current.Spent + itemSpent, current.Count + 1);
             }
 
-            var category = string.IsNullOrWhiteSpace(item.Booth.Category?.Name)
+            var category = string.IsNullOrWhiteSpace(item.CategoryName)
                 ? "分類なし"
-                : item.Booth.Category!.Name;
+                : item.CategoryName!;
             var bucket = categories.TryGetValue(category, out var size) ? size : (Bytes: 0L, Count: 0);
             categories[category] = (bucket.Bytes + itemPhysical, bucket.Count + 1);
 

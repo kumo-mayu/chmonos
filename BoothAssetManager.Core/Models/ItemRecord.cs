@@ -50,6 +50,17 @@ public sealed record ItemRecord
     [JsonIgnore]
     public bool HasUserShop => Local.Shop is not null;
 
+    /// <summary>
+    /// 分類。**ユーザが入れたものを優先する。**子の名前1つ。
+    /// 絞り込みも統計もこの1つで動く。
+    /// </summary>
+    [JsonIgnore]
+    public string? CategoryName => Local.Category ?? Booth.Category?.Name;
+
+    /// <summary>分類をユーザが入れたか。</summary>
+    [JsonIgnore]
+    public bool HasUserCategory => Local.Category is { Length: > 0 };
+
     /// <summary>ファイルを1つ以上持っているか。全画面で「所持している」の定義に使う。</summary>
     [JsonIgnore]
     public bool IsDownloaded => Local.LocalFiles.Count > 0;

@@ -31,6 +31,7 @@ public static class SearchText
         Append(primary, item.Local.Shop?.Name);
         Append(primary, item.Booth.Shop?.Name);
         Append(primary, item.Booth.Shop?.Subdomain);
+        Append(primary, item.Local.Category);
         Append(primary, item.Local.Memo);
 
         foreach (var tag in item.Booth.Tags)

@@ -26,6 +26,14 @@ public sealed record LocalBlock
     /// </summary>
     public LocalShop? Shop { get; init; }
 
+    /// <summary>
+    /// ユーザが入れたカテゴリ。**子の名前1つだけ。**
+    ///
+    /// BOOTHから取れない商品には分類が無いので、統計にも絞り込みにも出てこない。
+    /// 絞り込みは子の名前だけの平坦な一覧なので、親は持たなくてよい。
+    /// </summary>
+    public string? Category { get; init; }
+
     /// <summary>userTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
     public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 

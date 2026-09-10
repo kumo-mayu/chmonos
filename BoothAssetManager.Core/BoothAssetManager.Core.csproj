@@ -17,6 +17,7 @@
   <ItemGroup>
     <None Include="..\assets\JMdict_e.gz" Link="assets\JMdict_e.gz" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\assets\kanjidic2.xml.gz" Link="assets\kanjidic2.xml.gz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\assets\booth-categories.json" Link="assets\booth-categories.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\assets\README.md" Link="assets\README.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

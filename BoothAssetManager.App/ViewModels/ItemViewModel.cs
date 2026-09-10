@@ -415,11 +415,30 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         ? $"このショップは自分で結び付けたものです（BOOTHの {shop.Subdomain}）"
         : "このショップ名は自分で入れたものです";
 
-    public string CategoryText => Item.Booth.Category is null
-        ? string.Empty
-        : Item.Booth.Category.ParentName is null
-            ? Item.Booth.Category.Name
-            : $"{Item.Booth.Category.ParentName} / {Item.Booth.Category.Name}";
+    /// <summary>
+    /// 分類。ユーザが入れたものを優先する。親は同梱の表から引く
+    /// （ユーザには子の名前しか入れさせないので、こちらで補う）。
+    /// </summary>
+    public string CategoryText
+    {
+        get
+        {
+            if (Item.HasUserCategory)
+            {
+                var parent = _services.Categories.ParentOf(Item.Local.Category);
+                return parent is null ? Item.Local.Category! : $"{parent} / {Item.Local.Category}";
+            }
+
+            return Item.Booth.Category is null
+                ? string.Empty
+                : Item.Booth.Category.ParentName is null
+                    ? Item.Booth.Category.Name
+                    : $"{Item.Booth.Category.ParentName} / {Item.Booth.Category.Name}";
+        }
+    }
+
+    /// <summary>分類をユーザが入れたか。観測と入力の区別を隠さない。</summary>
+    public bool HasUserCategory => Item.HasUserCategory;
 
     public string IdText => $"ID {Item.Id}";
 

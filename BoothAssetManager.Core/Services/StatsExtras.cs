@@ -74,7 +74,7 @@ public static class StatsExtras
     }
 
     private static string CategoryOf(ItemRecord item)
-        => string.IsNullOrWhiteSpace(item.Booth.Category?.Name) ? "分類なし" : item.Booth.Category!.Name;
+        => string.IsNullOrWhiteSpace(item.CategoryName) ? "分類なし" : item.CategoryName!;
 
     private static int SpentOf(ItemRecord item) => Purchases.SelfSpendOf(item);
 

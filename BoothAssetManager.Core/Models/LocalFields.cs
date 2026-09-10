@@ -10,6 +10,7 @@ public enum LocalField
 {
     DisplayName,
     Shop,
+    Category,
     UserTags,
     Attributes,
     Memo,
@@ -55,6 +56,7 @@ public static class LocalFields
             {
                 LocalField.DisplayName => result with { DisplayName = incoming.DisplayName },
                 LocalField.Shop => result with { Shop = incoming.Shop },
+                LocalField.Category => result with { Category = incoming.Category },
                 LocalField.UserTags => result with { UserTags = incoming.UserTags },
                 LocalField.Attributes => result with { Attributes = incoming.Attributes },
                 LocalField.Memo => result with { Memo = incoming.Memo },
@@ -95,6 +97,7 @@ public static class LocalOwners
     [
         LocalField.DisplayName,
         LocalField.Shop,
+        LocalField.Category,
         LocalField.UserTags,
         LocalField.Attributes,
         LocalField.Memo,

@@ -892,8 +892,10 @@ public sealed class SearchViewModel : ViewModelBase
 
                 Categories.Clear();
                 Categories.Add(new CategoryOption { Name = AllCategories, IsAll = true });
+                // ユーザが入れた分類も一覧に出す。入れられるのに絞り込みに出ないなら、
+                // 入れる意味が半分無くなる
                 foreach (var category in _allItems
-                    .Select(item => item.Booth.Category?.Name)
+                    .Select(item => item.CategoryName)
                     .Where(name => !string.IsNullOrEmpty(name))
                     .Distinct(StringComparer.CurrentCulture)
                     .OrderBy(name => name, StringComparer.CurrentCulture))
@@ -1490,7 +1492,7 @@ public sealed class SearchViewModel : ViewModelBase
         if (except != FilterAxis.Category
             && !string.IsNullOrEmpty(_selectedCategory)
             && _selectedCategory != AllCategories
-            && !string.Equals(item.Booth.Category?.Name, _selectedCategory, StringComparison.CurrentCulture))
+            && !string.Equals(item.CategoryName, _selectedCategory, StringComparison.CurrentCulture))
         {
             return false;
         }
@@ -1542,7 +1544,7 @@ public sealed class SearchViewModel : ViewModelBase
             option.Count = option.IsAll
                 ? forCategory.Count
                 : forCategory.Count(item =>
-                    string.Equals(item.Booth.Category?.Name, option.Name, StringComparison.CurrentCulture));
+                    string.Equals(item.CategoryName, option.Name, StringComparison.CurrentCulture));
         }
 
         var forTags = _allItems.Where(item => Matches(item, FilterAxis.UserTag)).ToList();

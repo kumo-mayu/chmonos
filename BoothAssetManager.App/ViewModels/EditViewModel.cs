@@ -181,6 +181,9 @@ public sealed class EditViewModel : ViewModelBase
 
     /// <summary>候補に出す数。並べすぎると読めない。</summary>
     private const int ShopSuggestionLimit = 6;
+
+    /// <summary>分類の候補に出す数。3Dモデルの子が12件なので、それが収まる数。</summary>
+    private const int CategorySuggestionLimit = 12;
     private List<string> _queue = [];
     private int _index;
     private int _remainingSeconds;
@@ -189,6 +192,7 @@ public sealed class EditViewModel : ViewModelBase
     private string _displayName = string.Empty;
     private string _shopNameInput = string.Empty;
     private string _shopUrlInput = string.Empty;
+    private string _categoryInput = string.Empty;
     private string _acquiredAt = string.Empty;
     private bool _notifyOnUpdate = true;
     private bool _isHidden;
@@ -210,6 +214,9 @@ public sealed class EditViewModel : ViewModelBase
         OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem && !IsLocalOnly);
         AddTagCommand = new RelayCommand(parameter => _ = AddTagAsync(parameter as string));
         AddAttributeCommand = new RelayCommand(parameter => _ = AddAttributeAsync(parameter as string));
+        UseCategoryCommand = new RelayCommand(
+            parameter => { if (parameter is string name) { CategoryInput = name; } },
+            parameter => parameter is string);
         UseShopCommand = new RelayCommand(
             parameter => { if (parameter is string name) { ShopNameInput = name; } },
             parameter => parameter is string);
@@ -373,6 +380,8 @@ public sealed class EditViewModel : ViewModelBase
             if (SetField(ref _shopNameInput, value))
             {
                 OnPropertyChanged(nameof(ShopKeyNote));
+        OnPropertyChanged(nameof(BoothCategory));
+        OnPropertyChanged(nameof(HasBoothCategory));
                 RefreshShopSuggestions();
             }
         }
@@ -429,6 +438,38 @@ public sealed class EditViewModel : ViewModelBase
     public bool HasShopSuggestions => ShopSuggestions.Count > 0;
 
     public RelayCommand UseShopCommand { get; }
+
+    /// <summary>
+    /// 自分で入れる分類。**子の名前1つだけ。**
+    /// 空欄ならBOOTHから取れている分類に戻る。
+    /// </summary>
+    public string CategoryInput
+    {
+        get => _categoryInput;
+        set
+        {
+            if (SetField(ref _categoryInput, value))
+            {
+                RefreshCategorySuggestions();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 分類の候補。**同梱したBOOTHのカテゴリ表から出す。**
+    /// 3Dモデルの子を先に出すが、残りも全部並ぶ——
+    /// 選べる範囲を勝手に狭めると、BOOTHにある分類が入れられなくなる。
+    /// </summary>
+    public ObservableCollection<string> CategorySuggestions { get; } = [];
+
+    public bool HasCategorySuggestions => CategorySuggestions.Count > 0;
+
+    /// <summary>BOOTHから取れている分類。空欄にすると何に戻るのかを見せる。</summary>
+    public string BoothCategory => _item?.Booth.Category?.Name ?? string.Empty;
+
+    public bool HasBoothCategory => BoothCategory.Length > 0;
+
+    public RelayCommand UseCategoryCommand { get; }
 
     public bool HasBoothName => BoothName.Length > 0;
 
@@ -574,6 +615,7 @@ public sealed class EditViewModel : ViewModelBase
         DisplayName = record.Local.DisplayName ?? string.Empty;
         ShopNameInput = record.Local.Shop?.Name ?? string.Empty;
         ShopUrlInput = record.Local.Shop?.Url ?? string.Empty;
+        CategoryInput = record.Local.Category ?? string.Empty;
         AcquiredAt = record.Local.AcquiredAt?.ToString("yyyy-MM-dd") ?? string.Empty;
         OnPropertyChanged(nameof(AcquiredHintText));
         NotifyOnUpdate = record.Local.NotifyOnUpdate;
@@ -630,6 +672,29 @@ public sealed class EditViewModel : ViewModelBase
     /// 手で作った鍵が本物と衝突すると本物のアイコンとバナーが出てしまう。
     /// </summary>
     /// <summary>手元の商品が持っているショップ名を集める。</summary>
+    /// <summary>
+    /// 打った分で絞り込む。139件あるので、打つほど絞れる形にしないと選べない。
+    /// </summary>
+    private void RefreshCategorySuggestions()
+    {
+        var typed = CategoryInput.Trim();
+
+        var matched = _services.Categories.Suggestions()
+            .Where(name => typed.Length == 0
+                || (name.Contains(typed, StringComparison.CurrentCultureIgnoreCase)
+                    && !string.Equals(name, typed, StringComparison.CurrentCultureIgnoreCase)))
+            .Take(CategorySuggestionLimit)
+            .ToList();
+
+        CategorySuggestions.Clear();
+        foreach (var name in matched)
+        {
+            CategorySuggestions.Add(name);
+        }
+
+        OnPropertyChanged(nameof(HasCategorySuggestions));
+    }
+
     /// <summary>
     /// 打った分で絞り込む。14店あると全部並べても読めないので、
     /// 打つほど絞れる形にする。空欄のときは頭から数件だけ出す。
@@ -693,6 +758,8 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         RefreshShopSuggestions();
+
+        RefreshCategorySuggestions();
 
         AttributeSuggestions.Clear();
         foreach (var name in _attributeMaster.Attributes
@@ -984,6 +1051,7 @@ public sealed class EditViewModel : ViewModelBase
             Attributes = attributes,
             DisplayName = string.IsNullOrWhiteSpace(DisplayName) ? null : DisplayName.Trim(),
             Shop = BuildShop(),
+            Category = string.IsNullOrWhiteSpace(CategoryInput) ? null : CategoryInput.Trim(),
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
             Purchases = ordered,
             AcquiredAt = DateOnly.TryParse(AcquiredAt.Trim(), out var date) ? date : null,
