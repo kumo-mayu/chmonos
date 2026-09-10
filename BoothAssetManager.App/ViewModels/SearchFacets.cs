@@ -229,6 +229,15 @@ public enum SortKind
     Size,
     WishList,
     Attribute,
+
+    /// <summary>手元に入った順。足跡が無い商品は後ろに置く</summary>
+    RecentlyAdded,
+
+    /// <summary>使った順。いまはUnityへ送った記録だけ</summary>
+    RecentlyUsed,
+
+    /// <summary>商品ページを開いた順</summary>
+    RecentlyViewed,
 }
 
 /// <summary>
@@ -245,6 +254,9 @@ public sealed class SortOption
 
     /// <summary><see cref="SortKind.Attribute"/> のときの属性名。</summary>
     public string? AttributeName { get; init; }
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
 }
 
 /// <summary>

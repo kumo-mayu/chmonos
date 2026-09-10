@@ -12,6 +12,9 @@ public sealed class ThumbnailSizeOption
     public required string Label { get; init; }
 
     public required ThumbnailSize Value { get; init; }
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
 }
 
 /// <summary>サムネイルに出す画像の役割の選択肢。</summary>

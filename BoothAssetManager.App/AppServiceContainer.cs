@@ -60,6 +60,7 @@ public sealed class AppServiceContainer : IDisposable
         Shops = new ShopService(Store, Settings, Client);
         Stats = new StatsService(Store);
         SettingsStore = new SettingsService(Store);
+        Recent = new Services.RecentTracker(Store);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes);
     }
@@ -93,6 +94,9 @@ public sealed class AppServiceContainer : IDisposable
     public AppPaths Paths { get; }
 
     public DataStore Store { get; }
+
+    /// <summary>「最近」の足跡を打つ。itemのJSONではなく recent.json に集める</summary>
+    public Services.RecentTracker Recent { get; }
 
     /// <summary>
     /// 現在の設定。設定画面から差し替わる。

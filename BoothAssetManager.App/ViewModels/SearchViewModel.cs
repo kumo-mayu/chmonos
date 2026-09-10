@@ -1188,6 +1188,27 @@ public sealed class SearchViewModel : ViewModelBase
         SortOptions.Add(new SortOption { Label = "容量が大きい順", Kind = SortKind.Size, Descending = true });
         SortOptions.Add(new SortOption { Label = "スキ数が多い順", Kind = SortKind.WishList, Descending = true });
 
+        // 「最近」の3種。足跡が無い商品は後ろにまとめる（0扱いにすると
+        // 「まだ無い」が「一番古い」に化ける）
+        SortOptions.Add(new SortOption
+        {
+            Label = "最近使った順",
+            Kind = SortKind.RecentlyUsed,
+            Descending = true,
+        });
+        SortOptions.Add(new SortOption
+        {
+            Label = "最近見た順",
+            Kind = SortKind.RecentlyViewed,
+            Descending = true,
+        });
+        SortOptions.Add(new SortOption
+        {
+            Label = "最近手元に入った順",
+            Kind = SortKind.RecentlyAdded,
+            Descending = true,
+        });
+
         foreach (var name in _attributeNames)
         {
             SortOptions.Add(new SortOption
@@ -1832,6 +1853,15 @@ public sealed class SearchViewModel : ViewModelBase
     /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。
     /// 未評価は「値が小さい」のではなく「値が無い」ので、0として混ぜると誤読させる。
     /// </summary>
+    /// <summary>その並び順が「最近」の足跡を見るものなら、どの種類か。</summary>
+    private static Core.Services.RecentKind? RecentKindOf(SortKind kind) => kind switch
+    {
+        SortKind.RecentlyAdded => Core.Services.RecentKind.Added,
+        SortKind.RecentlyUsed => Core.Services.RecentKind.Used,
+        SortKind.RecentlyViewed => Core.Services.RecentKind.Viewed,
+        _ => null,
+    };
+
     private IEnumerable<ItemRecord> SortItems(IEnumerable<ItemRecord> items)
     {
         var sort = _sort;
@@ -1850,6 +1880,26 @@ public sealed class SearchViewModel : ViewModelBase
                 : rated.OrderBy(item => item.Local.Attributes[attributeName]);
 
             return ordered.Concat(unrated);
+        }
+
+        // ---- 「最近」の3種 ----
+        //
+        // **足跡が無い商品は後ろにまとめる。**時刻を MinValue で代えると
+        // 「まだ無い」が「一番古い」に化けて、昇順にしたときに先頭へ来てしまう。
+        if (RecentKindOf(sort.Kind) is { } recentKind)
+        {
+            var times = _services.Recent.Times(recentKind);
+
+            var stamped = items.Where(item => times.ContainsKey(item.Id)).ToList();
+            var untouched = items
+                .Where(item => !times.ContainsKey(item.Id))
+                .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture);
+
+            var byTime = sort.Descending
+                ? stamped.OrderByDescending(item => times[item.Id])
+                : stamped.OrderBy(item => times[item.Id]);
+
+            return byTime.Concat(untouched);
         }
 
         return sort.Kind switch

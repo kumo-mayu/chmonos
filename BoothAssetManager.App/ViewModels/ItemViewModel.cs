@@ -1404,6 +1404,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         if (answer == System.Windows.MessageBoxResult.OK)
         {
             Services.Shell.SendToUnity(package.VirtualPath);
+
+            // 「使った」の足跡。Unityへ送ったことが一番強い証拠（ユーザ判断）。
+            // Unity側で取り込みを取り消しても足跡は残るが、
+            // 「送ろうとした」という事実は本当なので消さない
+            _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
         }
     }
 

@@ -446,7 +446,11 @@ public sealed class MainViewModel : ViewModelBase
     /// 戻ったときに絞り込み条件もスクロール位置もそのまま残る。
     /// </summary>
     public void ShowItem(Core.Models.ItemRecord item, (string Label, Action Go)? back = null)
-        => CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails, back);
+    {
+        // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い
+        _ = _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed);
+        CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails, back);
+    }
 
     /// <summary>未確定ファイルの総件数。「残っている作業量」を示す。</summary>
     public int UnresolvedCount

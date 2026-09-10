@@ -722,6 +722,12 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 1件ずつ保存する。ここで中断しても、取れたぶんはそのまま残る
             await _store.Items.SaveAsync(item, cancellationToken);
+
+            // 「追加」の足跡。**itemのJSONには書かない**（足跡で埋めないため）。
+            // 既にある商品には打てないので、そちらは「不明」のまま残る——
+            // 後から作った時刻を騙るより、無いと言う方がよい
+            await StampAddedAsync(itemId, cancellationToken);
+
             fetched.Add(item);
             added++;
 
@@ -878,6 +884,31 @@ public sealed class ImportPipeline : IImportPipeline
             AvatarsFound = avatarsFound,
             AvatarDetectError = avatarDetectError,
         };
+    }
+
+    /// <summary>
+    /// 「手元に入った」時刻を <c>recent.json</c> に打つ。
+    ///
+    /// **itemのJSONには書かない。**足跡（追加・使った・閲覧）は
+    /// 人が入力したものと混ぜない方針（<see cref="Services.RecentActivity"/>）。
+    ///
+    /// 失敗しても取り込みは止めない。足跡が1つ欠けても商品の記録は無事。
+    /// </summary>
+    private async Task StampAddedAsync(string itemId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var log = _store.Recent.Load();
+            var updated = Services.RecentActivity.Touch(
+                log.Entries, itemId, Services.RecentKind.Added, DateTimeOffset.Now);
+
+            await _store.Recent.SaveAsync(
+                new Services.RecentLog { Entries = updated },
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     /// <summary>

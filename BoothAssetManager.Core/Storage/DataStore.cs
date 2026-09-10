@@ -39,6 +39,7 @@ public sealed class DataStore
         Detached = new JsonFileStore<List<DetachedFile>>(paths.DetachedFile);
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
+        Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
@@ -68,6 +69,9 @@ public sealed class DataStore
 
     /// <summary>検索の履歴。商品を開いたときに1件積む</summary>
     public JsonFileStore<Services.SearchHistoryList> SearchHistory { get; }
+
+    /// <summary>「最近」の足跡（追加・使った・閲覧）</summary>
+    public JsonFileStore<Services.RecentLog> Recent { get; }
 
     /// <summary>ショップのバナーを調べた記録。無いショップを何度も探しに行かないため。</summary>
     public JsonFileStore<List<ShopBannerRecord>> ShopBanners { get; }
