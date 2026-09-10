@@ -263,7 +263,7 @@ public sealed class ImportViewModel : ViewModelBase
 
     public string UnpackedSelectionText => SelectedUnpackedCount == 0
         ? "削除するフォルダを選んでください。"
-        : $"{SelectedUnpackedCount} フォルダ / {FormatSize(UnpackedFolders.Where(row => row.IsSelected).Sum(row => row.Folder.TotalBytes))} を削除します。";
+        : $"{SelectedUnpackedCount} フォルダ / {Core.Models.DisplayText.Size(UnpackedFolders.Where(row => row.IsSelected).Sum(row => row.Folder.TotalBytes))} を削除します。";
 
     /// <summary>削除の結果。何を消して何を消さなかったかを残す。</summary>
     public ObservableCollection<string> RemovalResults { get; } = [];
@@ -478,7 +478,7 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 var freed = removed.Results.Where(entry => entry.Removed).Sum(entry => entry.FreedBytes);
                 var removedCount = removed.Results.Count(entry => entry.Removed);
-                RemovalResults.Add($"{removedCount} フォルダを削除しました（{FormatSize(freed)} 空きました）。");
+                RemovalResults.Add($"{removedCount} フォルダを削除しました（{Core.Models.DisplayText.Size(freed)} 空きました）。");
 
                 foreach (var entry in removed.Results.Where(entry => !entry.Removed))
                 {
@@ -678,7 +678,7 @@ public sealed class ImportViewModel : ViewModelBase
                         Name = Path.GetFileName(folder.Path),
                         ArchiveName = Path.GetFileName(folder.ArchivePath),
                         FileCount = folder.FileCount,
-                        SizeText = FormatSize(folder.TotalBytes),
+                        SizeText = Core.Models.DisplayText.Size(folder.TotalBytes),
                     };
                     row.PropertyChanged += OnUnpackedRowChanged;
                     UnpackedFolders.Add(row);
@@ -759,17 +759,4 @@ public sealed class ImportViewModel : ViewModelBase
 
     public bool HasNotFound => NotFoundText.Length > 0;
 
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }

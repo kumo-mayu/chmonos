@@ -470,23 +470,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// 分類。ユーザが入れたものを優先する。親は同梱の表から引く
     /// （ユーザには子の名前しか入れさせないので、こちらで補う）。
     /// </summary>
-    public string CategoryText
-    {
-        get
-        {
-            if (Item.HasUserCategory)
-            {
-                var parent = _services.Categories.ParentOf(Item.Local.Category);
-                return parent is null ? Item.Local.Category! : $"{parent} / {Item.Local.Category}";
-            }
-
-            return Item.Booth.Category is null
-                ? string.Empty
-                : Item.Booth.Category.ParentName is null
-                    ? Item.Booth.Category.Name
-                    : $"{Item.Booth.Category.ParentName} / {Item.Booth.Category.Name}";
-        }
-    }
+    public string CategoryText => _services.Categories.TextFor(Item.Local.Category, Item.Booth.Category);
 
     /// <summary>分類をユーザが入れたか。観測と入力の区別を隠さない。</summary>
     public bool HasUserCategory => Item.HasUserCategory;
@@ -586,7 +570,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public bool HasLocalFolders => LocalFolders.Count > 0;
 
     public string FileSummary => Item.IsDownloaded
-        ? $"{Item.Local.LocalFiles.Count} 件 / {FormatSize(Item.LogicalSizeBytes)}"
+        ? $"{Item.Local.LocalFiles.Count} 件 / {Core.Models.DisplayText.Size(Item.LogicalSizeBytes)}"
         : "ファイルなし";
 
     /// <summary>
@@ -1061,7 +1045,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             var purchases = group.ToList();
             Variations.Add(new VariationRow
             {
-                Name = purchases[0].NameSnapshot ?? VariationLabel(group.Key),
+                Name = purchases[0].NameSnapshot ?? DisplayText.VariationLabel(group.Key),
                 PriceText = PurchaseText(purchases),
                 IsPurchased = true,
 
@@ -1078,15 +1062,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private static string PurchaseText(IReadOnlyList<Purchase> group)
     {
         var head = group[0];
-        var kind = head.Kind switch
-        {
-            PurchaseKind.Received => "貰った",
-            PurchaseKind.Given => "贈った",
-            _ => "購入",
-        };
 
+        // 括弧の中は名詞、文の中は動詞。同じ語を両方に使うと
+        // 「¥100 で自分用」か「価格未入力（買った）」のどちらかが崩れる
         var price = head.Price is null ? "価格未入力" : $"¥{head.Price:N0}";
-        var text = head.Price is null ? $"{price}（{kind}）" : $"{price} で{kind}";
+        var text = head.Price is null
+            ? $"{price}（{DisplayText.PurchaseKindLabel(head.Kind)}）"
+            : $"{price} で{DisplayText.PurchaseKindVerb(head.Kind)}";
 
         return group.Count > 1 ? $"{text} ほか {group.Count - 1} 件" : text;
     }
@@ -1103,20 +1085,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 Hash = file.Hash,
                 FileName = file.Paths.Count > 0 ? Path.GetFileName(file.Paths[0]) : "(見つかりません)",
-                SizeText = FormatSize(file.SizeBytes),
+                SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 Paths = file.Paths,
                 VariationLabel = variation,
             });
         }
     }
 
-    /// <summary>
-    /// バリエーションの行の名前。**null は「どのバリエーションも指していない」**——
-    /// BOOTHから取れない商品にはバリエーションが1件も無く、
-    /// バリエーション単位の販売終了でも指す先が消える。
-    /// </summary>
-    private static string VariationLabel(long? variationId)
-        => variationId is { } id ? $"variation {id}" : "バリエーションを指定しない購入";
 
     private void BuildLocalFolders()
     {
@@ -1131,7 +1106,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 {
                     Path = folder.Path,
                     Name = System.IO.Path.GetFileName(folder.Path),
-                    SummaryText = $"{folder.FileCount} ファイル / {FormatSize(folder.TotalBytes)}",
+                    SummaryText = $"{folder.FileCount} ファイル / {Core.Models.DisplayText.Size(folder.TotalBytes)}",
                     IsMissing = !Directory.Exists(folder.Path),
                     HasArchive = archive is not null,
                     ArchiveNoticeText = archive is null
@@ -1245,19 +1220,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         }
     }
 
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }
 
 public sealed class AttributeBar

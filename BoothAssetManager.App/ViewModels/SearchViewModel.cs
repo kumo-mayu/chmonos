@@ -1692,7 +1692,7 @@ public sealed class SearchViewModel : ViewModelBase
         {
             Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
-            SizeText = item.IsDownloaded ? FormatSize(item.LogicalSizeBytes) : "未取得",
+            SizeText = item.IsDownloaded ? Core.Models.DisplayText.Size(item.LogicalSizeBytes) : "未取得",
             IsOwned = item.IsDownloaded,
             NeedsEdit = item.Local.UserTags.Count == 0,
             HasMissingFile = missing,
@@ -1700,17 +1700,4 @@ public sealed class SearchViewModel : ViewModelBase
         };
     }
 
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }

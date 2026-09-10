@@ -252,7 +252,7 @@ public sealed class ShopViewModel : ViewModelBase
 
     public string LastAcquiredText => Shop.LastAcquiredAt?.ToString("yyyy-MM-dd") ?? "—";
 
-    public string SizeText => FormatSize(_totalBytes);
+    public string SizeText => Core.Models.DisplayText.Size(_totalBytes);
 
     /// <summary>所持しているものだけに絞る。既定は全部（情報だけのものも見せる）。</summary>
     public bool OwnedOnly
@@ -298,7 +298,7 @@ public sealed class ShopViewModel : ViewModelBase
                 Name = entry.Item.DisplayName,
                 // カードの2行目は入手日にする。ショップ画面では店名が全部同じで意味が無い
                 ShopName = AcquiredText(entry),
-                SizeText = entry.IsOwned ? FormatSize(entry.SizeBytes) : "未取得",
+                SizeText = entry.IsOwned ? Core.Models.DisplayText.Size(entry.SizeBytes) : "未取得",
                 IsOwned = entry.IsOwned,
                 NeedsEdit = entry.Item.Local.UserTags.Count == 0,
                 UserTagText = string.Join(" / ", entry.Item.Local.UserTags.Select(tag => tag.Top)),
@@ -391,23 +391,4 @@ public sealed class ShopViewModel : ViewModelBase
             ? date.ToString("yyyy-MM-dd") + "（ファイルの日付）"
             : date.ToString("yyyy-MM-dd");
 
-    private static string FormatSize(long bytes)
-    {
-        if (bytes <= 0)
-        {
-            return "0 B";
-        }
-
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        var value = (double)bytes;
-        var unit = 0;
-
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }

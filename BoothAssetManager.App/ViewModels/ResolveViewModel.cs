@@ -720,7 +720,7 @@ public sealed class ResolveViewModel : ViewModelBase
 
         var answer = System.Windows.MessageBox.Show(
             $"次のフォルダを「{Preview.Name}」（ID {Preview.Id}）として登録します。\n\n"
-            + $"{folder}\n{count} ファイル / {FormatSize(bytes)}\n\n"
+            + $"{folder}\n{count} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
             + "以降このフォルダの中はスキャンしなくなり、未確定にも出てこなくなります。\n"
             + "フォルダを移動するとリンクが切れるので、その場合は登録し直してください。",
             "フォルダを商品として登録",
@@ -790,7 +790,7 @@ public sealed class ResolveViewModel : ViewModelBase
                 File = file,
                 FileName = path.Length > 0 ? Path.GetFileName(path) : file.Hash[..12],
                 DirectoryText = path.Length > 0 ? Path.GetDirectoryName(path) ?? string.Empty : string.Empty,
-                SizeText = FormatSize(file.SizeBytes),
+                SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 IsArchiveContent = judgement.IsContent,
                 ContentReason = judgement.Reason,
                 ProductFolder = judgement.ProductFolder,
@@ -1314,17 +1314,4 @@ public sealed class ResolveViewModel : ViewModelBase
         }
     }
 
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }

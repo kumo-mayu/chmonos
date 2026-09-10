@@ -85,12 +85,7 @@ public sealed class OrderedVariationInput : ViewModelBase
         }
     }
 
-    public string KindLabel => Kind switch
-    {
-        PurchaseKind.Received => "貰った",
-        PurchaseKind.Given => "贈った",
-        _ => "自分用",
-    };
+    public string KindLabel => DisplayText.PurchaseKindLabel(Kind);
 
     /// <summary>
     /// 同じ版の2件目以降の購入記録。
@@ -274,33 +269,15 @@ public sealed class EditViewModel : ViewModelBase
     /// 「消せていない」ように見える。空欄にすればBOOTHの名前に戻ることが、
     /// 保存する前に目で分かる形にする。
     /// </summary>
-    public string Name => DisplayName.Trim() is { Length: > 0 } typed
-        ? typed
-        : _item?.Booth.Name ?? _item?.Id ?? string.Empty;
+    public string Name => _item is null
+        ? string.Empty
+        : DisplayText.ItemName(DisplayName, _item.Booth.Name, _item.Id);
 
     /// <summary>下見のショップ名。こちらも打った内容を映す。</summary>
-    public string ShopName => ShopNameInput.Trim() is { Length: > 0 } typed
-        ? typed
-        : _item?.Booth.Shop?.Name ?? string.Empty;
+    public string ShopName => DisplayText.ShopName(ShopNameInput, _item?.Booth.Shop?.Name);
 
     /// <summary>下見の分類。打った子の名前から、親は同梱の表で補う。</summary>
-    public string CategoryText
-    {
-        get
-        {
-            if (CategoryInput.Trim() is { Length: > 0 } typed)
-            {
-                var parent = _services.Categories.ParentOf(typed);
-                return parent is null ? typed : $"{parent} / {typed}";
-            }
-
-            return _item?.Booth.Category is null
-                ? string.Empty
-                : _item.Booth.Category.ParentName is null
-                    ? _item.Booth.Category.Name
-                    : $"{_item.Booth.Category.ParentName} / {_item.Booth.Category.Name}";
-        }
-    }
+    public string CategoryText => _services.Categories.TextFor(CategoryInput, _item?.Booth.Category);
 
     private int _selectedImageIndex;
 
@@ -928,7 +905,7 @@ public sealed class EditViewModel : ViewModelBase
             var row = new OrderedVariationInput
             {
                 VariationId = group.Key,
-                Name = first.NameSnapshot ?? VariationLabel(group.Key),
+                Name = first.NameSnapshot ?? DisplayText.VariationLabel(group.Key),
                 ListPriceText = "-",
 
                 // 指していない記録は「消えた」わけではない。
@@ -954,7 +931,7 @@ public sealed class EditViewModel : ViewModelBase
             Variations.Add(new OrderedVariationInput
             {
                 VariationId = null,
-                Name = VariationLabel(null),
+                Name = DisplayText.VariationLabel(null),
                 ListPriceText = "-",
                 IsPurchased = false,
             });
@@ -986,13 +963,6 @@ public sealed class EditViewModel : ViewModelBase
         row.NoteExtrasChanged();
     }
 
-    /// <summary>
-    /// バリエーションの行の名前。**null は「どのバリエーションも指していない」**——
-    /// BOOTHから取れない商品にはバリエーションが1件も無く、
-    /// バリエーション単位の販売終了でも指す先が消える。
-    /// </summary>
-    private static string VariationLabel(long? variationId)
-        => variationId is { } id ? $"variation {id}" : "バリエーションを指定しない購入";
 
     private void AddExtra(
         OrderedVariationInput row,

@@ -342,11 +342,11 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public string ImageUsageText => _usage is null
         ? "…"
-        : $"{FormatSize(_usage.ImageBytes)} / {_usage.ImageCount:N0} ファイル";
+        : $"{Core.Models.DisplayText.Size(_usage.ImageBytes)} / {_usage.ImageCount:N0} ファイル";
 
     public string ItemUsageText => _usage is null
         ? "…"
-        : $"{FormatSize(_usage.ItemBytes)} / {_usage.ItemCount:N0} ファイル";
+        : $"{Core.Models.DisplayText.Size(_usage.ItemBytes)} / {_usage.ItemCount:N0} ファイル";
 
     public bool HasHidden => Hidden.Count > 0;
 
@@ -712,7 +712,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         var move = System.Windows.MessageBox.Show(
             $"保存先を変えます。\n\n変更前：{source}\n変更後：{picked}\n\n"
-            + $"今のデータ（{files:N0} ファイル / {FormatSize(bytes)}）を新しい場所へ引っ越しますか？\n\n"
+            + $"今のデータ（{files:N0} ファイル / {Core.Models.DisplayText.Size(bytes)}）を新しい場所へ引っ越しますか？\n\n"
             + "［はい］コピーしてから元を消します。途中で失敗した場合は元のままにします。\n"
             + "［いいえ］場所だけ変えます。新しい場所は空なので、次の起動では何も無い状態から始まります。",
             "データを引っ越しますか",
@@ -765,7 +765,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private static string Describe(Core.Storage.StoreSummary summary)
         => summary.Files == 0
             ? "　（空）"
-            : $"　{summary.Files:N0} ファイル / {FormatSize(summary.Bytes)}"
+            : $"　{summary.Files:N0} ファイル / {Core.Models.DisplayText.Size(summary.Bytes)}"
                 + (summary.LastWrite is { } at ? $"　最終更新 {at:yyyy-MM-dd HH:mm}" : string.Empty);
 
     /// <summary>再起動して初めて効くので、そこまで案内する。</summary>
@@ -821,17 +821,4 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }

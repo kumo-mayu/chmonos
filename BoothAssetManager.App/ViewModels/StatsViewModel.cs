@@ -248,11 +248,11 @@ public sealed class StatsViewModel : ViewModelBase
 
     public bool HasUnpricedNote => UnpricedNote.Length > 0;
 
-    public string SizeText => FormatSize(_snapshot?.PhysicalBytes ?? 0);
+    public string SizeText => Core.Models.DisplayText.Size(_snapshot?.PhysicalBytes ?? 0);
 
     public string SizeSubText => _snapshot is null || _snapshot.DuplicateBytes <= 0
         ? string.Empty
-        : $"うち重複コピー {FormatSize(_snapshot.DuplicateBytes)}";
+        : $"うち重複コピー {Core.Models.DisplayText.Size(_snapshot.DuplicateBytes)}";
 
     public string ShopCountText => $"{_snapshot?.ShopCount ?? 0:N0}";
 
@@ -414,7 +414,7 @@ public sealed class StatsViewModel : ViewModelBase
             Categories.Add(new StatsRowViewModel
             {
                 Label = bar.Label,
-                ValueText = FormatSize(bar.Bytes),
+                ValueText = Core.Models.DisplayText.Size(bar.Bytes),
                 SubText = $"{bar.ItemCount} 件",
                 Ratio = categoryMax == 0 ? 0 : bar.Bytes / (double)categoryMax,
                 OpenCommand = new RelayCommand(() => ShowCategory(category)),
@@ -444,7 +444,7 @@ public sealed class StatsViewModel : ViewModelBase
         Fill(CategoryCounts, _snapshot.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(UserTagCounts, _snapshot.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(ShopsByCount, _snapshot.ShopsByCount.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, FormatSize(b.Bytes))));
+        Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, Core.Models.DisplayText.Size(b.Bytes))));
 
         // 素体経由は推定なので、直接対応と分けたまま出す
         Fill(Wearables, _snapshot.Wearables.Select(w =>
@@ -663,19 +663,6 @@ public sealed class StatsViewModel : ViewModelBase
         _ => $"{yen:N0}",
     };
 
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 }
 
 /// <summary>買った時と今で価格が変わった商品1行。</summary>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Services;
 
@@ -106,7 +107,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
                     Duplicates.Add(new DuplicateRow
                     {
                         Index = duplicate.Index,
-                        Text = $"¥{duplicate.Price:N0}（{KindText(duplicate.Kind)}）"
+                        Text = $"¥{duplicate.Price:N0}（{DisplayText.PurchaseKindLabel(duplicate.Kind)}）"
                             + $"　移した先にも同じ金額の記録が {duplicate.MatchingAtTarget} 件あります",
                     });
                 }
@@ -241,10 +242,4 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
         }
     }
 
-    private static string KindText(Core.Models.PurchaseKind kind) => kind switch
-    {
-        Core.Models.PurchaseKind.Received => "貰った",
-        Core.Models.PurchaseKind.Given => "贈った",
-        _ => "購入",
-    };
 }

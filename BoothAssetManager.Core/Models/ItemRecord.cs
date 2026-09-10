@@ -24,7 +24,7 @@ public sealed record ItemRecord
     /// ユーザによる命名であることは画面側で明記する（<c>Local.DisplayName is not null</c>）。
     /// </summary>
     [JsonIgnore]
-    public string DisplayName => Local.DisplayName ?? Booth.Name ?? Id;
+    public string DisplayName => DisplayText.ItemName(Local.DisplayName, Booth.Name, Id);
 
     /// <summary>
     /// BOOTHに無い商品として登録したものか。**BOOTHへは問い合わせない。**
@@ -37,7 +37,7 @@ public sealed record ItemRecord
     /// 名前と同じ理由——BOOTHから取れない商品はユーザが入れるしかない。
     /// </summary>
     [JsonIgnore]
-    public string? ShopName => Local.Shop?.Name ?? Booth.Shop?.Name;
+    public string? ShopName => DisplayText.Prefer(Local.Shop?.Name, Booth.Shop?.Name);
 
     /// <summary>
     /// ショップを束ねる鍵。ショップ画面のグループ分けと、アイコン・バナーの
@@ -55,7 +55,7 @@ public sealed record ItemRecord
     /// 絞り込みも統計もこの1つで動く。
     /// </summary>
     [JsonIgnore]
-    public string? CategoryName => Local.Category ?? Booth.Category?.Name;
+    public string? CategoryName => DisplayText.Prefer(Local.Category, Booth.Category?.Name);
 
     /// <summary>分類をユーザが入れたか。</summary>
     [JsonIgnore]

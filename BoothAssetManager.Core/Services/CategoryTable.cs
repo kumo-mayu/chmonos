@@ -57,6 +57,20 @@ public sealed class CategoryTable
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
+    /// <summary>
+    /// この商品の分類を画面に出す形にする。
+    ///
+    /// **商品ページと編集画面で同じ式を使うためにここに置く。**
+    /// 別々に書いていたせいで、編集画面の下見だけが `Local.Category` を
+    /// 見ておらず、自分で入れた分類が出ないままになっていた。
+    /// </summary>
+    /// <param name="userValue">ユーザが入れた子の名前（編集中なら入力欄の値）。</param>
+    /// <param name="observed">BOOTHから取れている分類。親を持っている。</param>
+    public string TextFor(string? userValue, Models.BoothCategory? observed)
+        => string.IsNullOrWhiteSpace(userValue)
+            ? Models.DisplayText.CategoryText(observed?.Name, observed?.ParentName)
+            : Models.DisplayText.CategoryText(userValue, ParentOf(userValue.Trim()));
+
     /// <summary>この子カテゴリの親。分からなければ null。</summary>
     public string? ParentOf(string? childName)
         => childName is null
