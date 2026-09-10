@@ -155,8 +155,10 @@ public sealed class ShopService : IShopService
         var bannerRecords = _store.ShopBanners.Load();
 
         return loaded.Items
-            .Where(item => item.Booth.Shop is not null)
-            .GroupBy(item => item.Booth.Shop!.Subdomain, StringComparer.OrdinalIgnoreCase)
+            // 束ねる鍵はユーザが入れたショップも見る。**商品が非公開でも
+            // ショップは見られる場合がある**ので、URLを貼れば本物のショップに正しく入る
+            .Where(item => item.ShopSubdomain is not null)
+            .GroupBy(item => item.ShopSubdomain!, StringComparer.OrdinalIgnoreCase)
             .Select(group => Summarize(group, updatedIds, bannerRecords))
             .OrderByDescending(shop => shop.OwnedCount)
             .ThenBy(shop => shop.Name, StringComparer.CurrentCulture)
@@ -174,8 +176,8 @@ public sealed class ShopService : IShopService
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
         return loaded.Items
-            .Where(item => item.Booth.Shop is not null
-                && string.Equals(item.Booth.Shop.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase)
+            .Where(item => item.ShopSubdomain is not null
+                && string.Equals(item.ShopSubdomain, subdomain, StringComparison.OrdinalIgnoreCase)
                 && IsCounted(item))
             .Select(item =>
             {
@@ -200,11 +202,18 @@ public sealed class ShopService : IShopService
         IReadOnlySet<string> updatedIds,
         IReadOnlyList<ShopBannerRecord> bannerRecords)
     {
-        // 名前は最後に取得したものを採る。改名されたら新しい方に寄せたい
-        var shop = group
+        // 名前は最後に取得したものを採る。改名されたら新しい方に寄せたい。
+        // BOOTHから取れていない商品だけのショップは、ユーザが入れた名前しか無い
+        var observed = group
+            .Where(item => item.Booth.Shop is not null)
             .OrderByDescending(item => item.Booth.FetchedAt)
             .Select(item => item.Booth.Shop!)
-            .First();
+            .FirstOrDefault();
+
+        var subdomain = group.Key;
+        var name = observed?.Name
+            ?? group.Select(item => item.ShopName).FirstOrDefault(text => text is { Length: > 0 })
+            ?? subdomain;
 
         var counted = group.Where(IsCounted).ToList();
         var owned = counted.Where(IsOwned).ToList();
@@ -219,13 +228,13 @@ public sealed class ShopService : IShopService
 
         return new ShopSummary
         {
-            Subdomain = shop.Subdomain,
-            Name = shop.Name,
-            Url = shop.Url,
-            ThumbnailUrl = shop.ThumbnailUrl,
-            IconPath = _store.Paths.FindShopIcon(shop.Subdomain),
-            BannerPath = Existing(_store.Paths.ShopBannerFile(shop.Subdomain)),
-            BannerState = BannerStateOf(shop.Subdomain, bannerRecords),
+            Subdomain = subdomain,
+            Name = name,
+            Url = observed?.Url,
+            ThumbnailUrl = observed?.ThumbnailUrl,
+            IconPath = _store.Paths.FindShopIcon(subdomain),
+            BannerPath = Existing(_store.Paths.ShopBannerFile(subdomain)),
+            BannerState = BannerStateOf(subdomain, bannerRecords),
             KnownCount = counted.Count,
             OwnedCount = owned.Count,
             SpentYen = owned.Sum(item => (long)Spent(item)),
@@ -355,6 +364,12 @@ public sealed class ShopService : IShopService
         ImagePipeline images,
         CancellationToken cancellationToken = default)
     {
+        // 手元だけのショップにはBOOTHのページが無い。叩いても404が返るだけ
+        if (LocalShopKey.IsLocal(subdomain))
+        {
+            return new ShopImageRefresh { Failed = true };
+        }
+
         if (_client is null)
         {
             return new ShopImageRefresh { Failed = true };
@@ -438,6 +453,12 @@ public sealed class ShopService : IShopService
     /// </summary>
     private async Task<BannerLookup> FindBannerUrlAsync(string subdomain, CancellationToken cancellationToken)
     {
+        // 手元だけのショップにはBOOTHのページが無い
+        if (LocalShopKey.IsLocal(subdomain))
+        {
+            return new BannerLookup(BannerLookupStatus.Failed, null);
+        }
+
         if (_client is null)
         {
             return new BannerLookup(BannerLookupStatus.Failed, null);

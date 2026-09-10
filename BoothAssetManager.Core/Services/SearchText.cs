@@ -27,6 +27,8 @@ public static class SearchText
         // 名前は両方入れる。ユーザが付けた名前でも、BOOTHの名前でも探せるように
         Append(primary, item.Local.DisplayName);
         Append(primary, item.Booth.Name);
+        // ショップも両方入れる。自分で入れた名前でも、BOOTHの名前でも探せるように
+        Append(primary, item.Local.Shop?.Name);
         Append(primary, item.Booth.Shop?.Name);
         Append(primary, item.Booth.Shop?.Subdomain);
         Append(primary, item.Local.Memo);

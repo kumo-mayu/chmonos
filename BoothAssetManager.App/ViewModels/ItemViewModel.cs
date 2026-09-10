@@ -129,11 +129,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
         // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）。
         // 戻り先はこの商品ページにする。ショップ一覧へ返すと、来た道と違う場所に出てしまう
+        // 自分で入れたショップにも飛べる。ショップ画面は鍵で束ねているので、
+        // 手元だけの鍵でもその1店として開ける
         OpenShopCommand = new RelayCommand(
             () => _ = main.ShowShopAsync(
-                item.Booth.Shop!.Subdomain,
+                item.ShopSubdomain!,
                 (item.DisplayName, () => main.ShowItem(item, back))),
-            () => item.Booth.Shop is not null);
+            () => item.ShopSubdomain is not null);
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
         CopyIdCommand = new RelayCommand(CopyId);
@@ -398,9 +400,20 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public string Name => Item.DisplayName;
 
-    public string ShopName => Item.Booth.Shop?.Name ?? "(ショップ不明)";
+    public string ShopName => Item.ShopName ?? "(ショップ不明)";
 
-    public string ShopSubdomain => Item.Booth.Shop?.Subdomain ?? string.Empty;
+    public string ShopSubdomain => Item.ShopSubdomain ?? string.Empty;
+
+    /// <summary>ショップをユーザが入れたか。観測と入力の区別を隠さない。</summary>
+    public bool HasUserShop => Item.HasUserShop;
+
+    /// <summary>
+    /// 自分で入れたショップであることを示す1行。
+    /// BOOTHのショップに結び付いているなら、そちらの店であることも言う。
+    /// </summary>
+    public string UserShopNotice => Item.Local.Shop is { IsOnBooth: true } shop
+        ? $"このショップは自分で結び付けたものです（BOOTHの {shop.Subdomain}）"
+        : "このショップ名は自分で入れたものです";
 
     public string CategoryText => Item.Booth.Category is null
         ? string.Empty

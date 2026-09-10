@@ -398,12 +398,13 @@ public sealed class StatsService : IStatsService
                 undated++;
             }
 
-            if (item.Booth.Shop is { } shop)
+            if (item.ShopSubdomain is { } subdomain)
             {
-                var current = shops.TryGetValue(shop.Subdomain, out var existing)
+                var shopName = item.ShopName ?? subdomain;
+                var current = shops.TryGetValue(subdomain, out var existing)
                     ? existing
-                    : (Name: shop.Name, Spent: 0L, Count: 0);
-                shops[shop.Subdomain] = (shop.Name, current.Spent + itemSpent, current.Count + 1);
+                    : (Name: shopName, Spent: 0L, Count: 0);
+                shops[subdomain] = (shopName, current.Spent + itemSpent, current.Count + 1);
             }
 
             var category = string.IsNullOrWhiteSpace(item.Booth.Category?.Name)

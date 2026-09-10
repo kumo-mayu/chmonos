@@ -175,12 +175,20 @@ public sealed class EditViewModel : ViewModelBase
 
     private UserTagMaster _tagMaster = new();
     private AttributeMaster _attributeMaster = new();
+
+    /// <summary>手元にあるショップ名。入力欄の候補に出して、二重に作る事故を防ぐ。</summary>
+    private List<string> _shopNames = [];
+
+    /// <summary>候補に出す数。並べすぎると読めない。</summary>
+    private const int ShopSuggestionLimit = 6;
     private List<string> _queue = [];
     private int _index;
     private int _remainingSeconds;
     private ItemRecord? _item;
     private string _memo = string.Empty;
     private string _displayName = string.Empty;
+    private string _shopNameInput = string.Empty;
+    private string _shopUrlInput = string.Empty;
     private string _acquiredAt = string.Empty;
     private bool _notifyOnUpdate = true;
     private bool _isHidden;
@@ -202,6 +210,9 @@ public sealed class EditViewModel : ViewModelBase
         OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem && !IsLocalOnly);
         AddTagCommand = new RelayCommand(parameter => _ = AddTagAsync(parameter as string));
         AddAttributeCommand = new RelayCommand(parameter => _ = AddAttributeAsync(parameter as string));
+        UseShopCommand = new RelayCommand(
+            parameter => { if (parameter is string name) { ShopNameInput = name; } },
+            parameter => parameter is string);
         StayCommand = new RelayCommand(StopReturnTimer);
 
         _returnTimer.Tick += OnReturnTick;
@@ -350,6 +361,75 @@ public sealed class EditViewModel : ViewModelBase
     /// <summary>BOOTHから取れている名前。入力欄の下に出して、何に戻るのかを見せる。</summary>
     public string BoothName => _item?.Booth.Name ?? string.Empty;
 
+    /// <summary>
+    /// 自分で入れるショップ名。**商品が非公開でもショップは見られる場合がある。**
+    /// 空欄ならBOOTHから取れているショップに戻る。
+    /// </summary>
+    public string ShopNameInput
+    {
+        get => _shopNameInput;
+        set
+        {
+            if (SetField(ref _shopNameInput, value))
+            {
+                OnPropertyChanged(nameof(ShopKeyNote));
+                RefreshShopSuggestions();
+            }
+        }
+    }
+
+    /// <summary>
+    /// ショップのURL。**貼れば本物のサブドメインが取れ、既にあるショップに正しく束ねられる。**
+    /// 貼らなければ手元だけの鍵になる。
+    /// </summary>
+    public string ShopUrlInput
+    {
+        get => _shopUrlInput;
+        set
+        {
+            if (SetField(ref _shopUrlInput, value))
+            {
+                OnPropertyChanged(nameof(ShopKeyNote));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 何が起きるかを押す前に出す。URLを貼ったかどうかで結果が変わるので、
+    /// 黙って分岐させない。
+    /// </summary>
+    public string ShopKeyNote
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ShopNameInput))
+            {
+                return _item?.Booth.Shop is { } booth
+                    ? $"空欄にするとBOOTHのショップ「{booth.Name}」に戻ります。"
+                    : string.Empty;
+            }
+
+            if (LocalShopKey.SubdomainFromUrl(ShopUrlInput) is { } subdomain)
+            {
+                return $"BOOTHのショップ {subdomain} に束ねます。アイコンやバナーもそちらのものになります。";
+            }
+
+            return string.IsNullOrWhiteSpace(ShopUrlInput)
+                ? "URLが無いので、手元だけのショップになります。同じ名前を入れれば同じショップに束ねます。"
+                : "ショップのURLとして読めませんでした（https://〇〇.booth.pm/ の形）。このままだと手元だけのショップになります。";
+        }
+    }
+
+    /// <summary>
+    /// 手元にあるショップ名の候補。**二重に作る事故をほぼ防げる。**
+    /// 鍵は名前から決まるので、候補から選べば同じショップに束ねられる。
+    /// </summary>
+    public ObservableCollection<string> ShopSuggestions { get; } = [];
+
+    public bool HasShopSuggestions => ShopSuggestions.Count > 0;
+
+    public RelayCommand UseShopCommand { get; }
+
     public bool HasBoothName => BoothName.Length > 0;
 
     /// <summary>BOOTHに無い商品として登録したもの。名前を空欄にすると仮IDが出てしまう</summary>
@@ -454,6 +534,7 @@ public sealed class EditViewModel : ViewModelBase
                 _item = record;
                 _tagMaster = _services.Store.UserTags.Load();
                 _attributeMaster = _services.Store.Attributes.Load();
+                _shopNames = await LoadShopNamesAsync();
                 FillFromItem(record);
                 RaiseItemChanged();
                 return;
@@ -491,6 +572,8 @@ public sealed class EditViewModel : ViewModelBase
 
         Memo = record.Local.Memo ?? string.Empty;
         DisplayName = record.Local.DisplayName ?? string.Empty;
+        ShopNameInput = record.Local.Shop?.Name ?? string.Empty;
+        ShopUrlInput = record.Local.Shop?.Url ?? string.Empty;
         AcquiredAt = record.Local.AcquiredAt?.ToString("yyyy-MM-dd") ?? string.Empty;
         OnPropertyChanged(nameof(AcquiredHintText));
         NotifyOnUpdate = record.Local.NotifyOnUpdate;
@@ -539,6 +622,66 @@ public sealed class EditViewModel : ViewModelBase
     }
 
     /// <summary>まだ使っていない候補だけを出す。既に付けたものを候補に残すと選び間違える。</summary>
+    /// <summary>
+    /// 入力からショップを組み立てる。
+    ///
+    /// **URLを貼れば本物のサブドメイン、貼らなければ手元だけの鍵。**
+    /// ローマ字化はしない——「ほとぎ屋」→ hotogiya は実在するので、
+    /// 手で作った鍵が本物と衝突すると本物のアイコンとバナーが出てしまう。
+    /// </summary>
+    /// <summary>手元の商品が持っているショップ名を集める。</summary>
+    /// <summary>
+    /// 打った分で絞り込む。14店あると全部並べても読めないので、
+    /// 打つほど絞れる形にする。空欄のときは頭から数件だけ出す。
+    /// </summary>
+    private void RefreshShopSuggestions()
+    {
+        var typed = ShopNameInput.Trim();
+
+        var matched = _shopNames
+            .Where(name => typed.Length == 0
+                || (name.Contains(typed, StringComparison.CurrentCultureIgnoreCase)
+                    && !string.Equals(name, typed, StringComparison.CurrentCultureIgnoreCase)))
+            .Take(ShopSuggestionLimit)
+            .ToList();
+
+        ShopSuggestions.Clear();
+        foreach (var name in matched)
+        {
+            ShopSuggestions.Add(name);
+        }
+
+        OnPropertyChanged(nameof(HasShopSuggestions));
+    }
+
+    private async Task<List<string>> LoadShopNamesAsync()
+        => (await _services.Store.Items.LoadAllAsync()).Items
+            .Select(item => item.ShopName)
+            .Where(name => name is { Length: > 0 })
+            .Select(name => name!)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToList();
+
+    private LocalShop? BuildShop()
+    {
+        var name = ShopNameInput.Trim();
+        if (name.Length == 0)
+        {
+            return null;
+        }
+
+        var url = ShopUrlInput.Trim();
+        var subdomain = LocalShopKey.SubdomainFromUrl(url);
+
+        return new LocalShop
+        {
+            Name = name,
+            Subdomain = subdomain ?? LocalShopKey.For(name),
+            Url = subdomain is null ? null : url,
+        };
+    }
+
     private void RefreshSuggestions()
     {
         TagSuggestions.Clear();
@@ -548,6 +691,8 @@ public sealed class EditViewModel : ViewModelBase
         {
             TagSuggestions.Add(top);
         }
+
+        RefreshShopSuggestions();
 
         AttributeSuggestions.Clear();
         foreach (var name in _attributeMaster.Attributes
@@ -838,6 +983,7 @@ public sealed class EditViewModel : ViewModelBase
             UserTags = userTags,
             Attributes = attributes,
             DisplayName = string.IsNullOrWhiteSpace(DisplayName) ? null : DisplayName.Trim(),
+            Shop = BuildShop(),
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
             Purchases = ordered,
             AcquiredAt = DateOnly.TryParse(AcquiredAt.Trim(), out var date) ? date : null,
@@ -982,6 +1128,7 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasBoothName));
         OnPropertyChanged(nameof(IsLocalOnly));
         OnPropertyChanged(nameof(OpenBoothTip));
+        OnPropertyChanged(nameof(ShopKeyNote));
         OnPropertyChanged(nameof(MainImage));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));

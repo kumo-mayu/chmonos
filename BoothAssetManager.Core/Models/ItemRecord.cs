@@ -32,6 +32,24 @@ public sealed record ItemRecord
     [JsonIgnore]
     public bool IsLocalOnly => LocalItemId.IsLocal(Id);
 
+    /// <summary>
+    /// 画面に出すショップ名。**ユーザが入れたものを優先する。**
+    /// 名前と同じ理由——BOOTHから取れない商品はユーザが入れるしかない。
+    /// </summary>
+    [JsonIgnore]
+    public string? ShopName => Local.Shop?.Name ?? Booth.Shop?.Name;
+
+    /// <summary>
+    /// ショップを束ねる鍵。ショップ画面のグループ分けと、アイコン・バナーの
+    /// ファイル名がこれ1つで決まる。持っていなければ null（ショップ画面に出ない）。
+    /// </summary>
+    [JsonIgnore]
+    public string? ShopSubdomain => Local.Shop?.Subdomain ?? Booth.Shop?.Subdomain;
+
+    /// <summary>ショップをユーザが入れたか。観測と入力の区別を隠さないために出す。</summary>
+    [JsonIgnore]
+    public bool HasUserShop => Local.Shop is not null;
+
     /// <summary>ファイルを1つ以上持っているか。全画面で「所持している」の定義に使う。</summary>
     [JsonIgnore]
     public bool IsDownloaded => Local.LocalFiles.Count > 0;

@@ -826,7 +826,7 @@ public sealed class SearchViewModel : ViewModelBase
     public int TotalCount => _allItems.Count;
 
     public int ShopCount => _allItems
-        .Select(item => item.Booth.Shop?.Subdomain)
+        .Select(item => item.ShopSubdomain)
         .Where(subdomain => subdomain is not null)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .Count();

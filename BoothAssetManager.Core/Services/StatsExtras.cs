@@ -161,9 +161,14 @@ public static class StatsExtras
     {
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var shop in owned.Select(item => item.Booth.Shop).Where(shop => shop is not null))
+        foreach (var item in owned)
         {
-            counts[shop!.Subdomain] = counts.TryGetValue(shop.Subdomain, out var current) ? current + 1 : 1;
+            if (item.ShopSubdomain is not { } subdomain)
+            {
+                continue;
+            }
+
+            counts[subdomain] = counts.TryGetValue(subdomain, out var current) ? current + 1 : 1;
         }
 
         return counts;
@@ -171,12 +176,12 @@ public static class StatsExtras
 
     private static List<StatsSpendBar> ShopsByCount(IReadOnlyList<ItemRecord> owned)
         => owned
-            .Where(item => item.Booth.Shop is not null)
-            .GroupBy(item => item.Booth.Shop!.Subdomain, StringComparer.OrdinalIgnoreCase)
+            .Where(item => item.ShopSubdomain is not null)
+            .GroupBy(item => item.ShopSubdomain!, StringComparer.OrdinalIgnoreCase)
             .Select(group => new StatsSpendBar
             {
                 Key = group.Key,
-                Label = group.First().Booth.Shop!.Name,
+                Label = group.First().ShopName ?? group.Key,
                 SpentYen = group.Sum(item => (long)SpentOf(item)),
                 ItemCount = group.Count(),
             })

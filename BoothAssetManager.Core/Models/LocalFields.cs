@@ -9,6 +9,7 @@ namespace BoothAssetManager.Core.Models;
 public enum LocalField
 {
     DisplayName,
+    Shop,
     UserTags,
     Attributes,
     Memo,
@@ -53,6 +54,7 @@ public static class LocalFields
             result = field switch
             {
                 LocalField.DisplayName => result with { DisplayName = incoming.DisplayName },
+                LocalField.Shop => result with { Shop = incoming.Shop },
                 LocalField.UserTags => result with { UserTags = incoming.UserTags },
                 LocalField.Attributes => result with { Attributes = incoming.Attributes },
                 LocalField.Memo => result with { Memo = incoming.Memo },
@@ -92,6 +94,7 @@ public static class LocalOwners
     public static readonly IReadOnlyCollection<LocalField> EditScreen =
     [
         LocalField.DisplayName,
+        LocalField.Shop,
         LocalField.UserTags,
         LocalField.Attributes,
         LocalField.Memo,

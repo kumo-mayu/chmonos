@@ -164,7 +164,10 @@ public sealed class ShopViewModel : ViewModelBase
 
     public string Name => Shop.Name;
 
-    public string DomainText => $"{Shop.Subdomain}.booth.pm";
+    /// <summary>手元だけのショップには .booth.pm を付けない（実在しないURLになる）。</summary>
+    public string DomainText => Core.Models.LocalShopKey.IsLocal(Shop.Subdomain)
+        ? "BOOTHのショップに結び付いていません"
+        : $"{Shop.Subdomain}.booth.pm";
 
     public string Initial => Shop.Name.Length == 0 ? "?" : Shop.Name[..1];
 

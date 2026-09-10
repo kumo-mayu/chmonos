@@ -18,6 +18,14 @@ public sealed record LocalBlock
     /// </summary>
     public string? DisplayName { get; init; }
 
+    /// <summary>
+    /// ユーザが入れたショップ。BOOTHから取れない商品のために持つ。
+    ///
+    /// **商品が非公開でもショップは見られる場合がある。**URLを貼れば本物の
+    /// サブドメインが取れ、既にあるショップに正しく束ねられる。
+    /// </summary>
+    public LocalShop? Shop { get; init; }
+
     /// <summary>userTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
     public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 

@@ -230,6 +230,11 @@
                                     <TextBlock Text="{Binding ShopName}" FontSize="13" />
                                 </Hyperlink>
                             </TextBlock>
+
+                            <!-- 観測と入力の区別を隠さない -->
+                            <TextBlock Text="{Binding UserShopNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding HasUserShop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <!-- IDそのものを押せるようにする。統合先の指定に要るので、
                                      手で書き写させない。UI要素は増やさない -->

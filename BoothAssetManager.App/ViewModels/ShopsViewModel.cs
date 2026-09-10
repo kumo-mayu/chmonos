@@ -40,7 +40,13 @@ public sealed class ShopCardViewModel : ViewModelBase
 
     public string Name => Shop.Name;
 
-    public string DomainText => $"{Shop.Subdomain}.booth.pm";
+    /// <summary>
+    /// ショップのドメイン。**手元だけのショップには付けない**——
+    /// BOOTHに無い鍵に .booth.pm を足すと、実在しないURLを名乗ることになる。
+    /// </summary>
+    public string DomainText => Core.Models.LocalShopKey.IsLocal(Shop.Subdomain)
+        ? "BOOTHのショップに結び付いていません"
+        : $"{Shop.Subdomain}.booth.pm";
 
     public string OwnedText => $"{Shop.OwnedCount}";
 
