@@ -267,15 +267,40 @@ public sealed class EditViewModel : ViewModelBase
 
     public double StepProgress => _queue.Count == 0 ? 0 : (double)_index / _queue.Count * 100;
 
-    public string Name => _item?.DisplayName ?? string.Empty;
+    /// <summary>
+    /// 左の下見に出す名前。**入力欄に打った内容をそのまま映す。**
+    ///
+    /// 保存済みの値を出していると、空欄にしても下見が変わらないので
+    /// 「消せていない」ように見える。空欄にすればBOOTHの名前に戻ることが、
+    /// 保存する前に目で分かる形にする。
+    /// </summary>
+    public string Name => DisplayName.Trim() is { Length: > 0 } typed
+        ? typed
+        : _item?.Booth.Name ?? _item?.Id ?? string.Empty;
 
-    public string ShopName => _item?.Booth.Shop?.Name ?? string.Empty;
+    /// <summary>下見のショップ名。こちらも打った内容を映す。</summary>
+    public string ShopName => ShopNameInput.Trim() is { Length: > 0 } typed
+        ? typed
+        : _item?.Booth.Shop?.Name ?? string.Empty;
 
-    public string CategoryText => _item?.Booth.Category is null
-        ? string.Empty
-        : _item.Booth.Category.ParentName is null
-            ? _item.Booth.Category.Name
-            : $"{_item.Booth.Category.ParentName} / {_item.Booth.Category.Name}";
+    /// <summary>下見の分類。打った子の名前から、親は同梱の表で補う。</summary>
+    public string CategoryText
+    {
+        get
+        {
+            if (CategoryInput.Trim() is { Length: > 0 } typed)
+            {
+                var parent = _services.Categories.ParentOf(typed);
+                return parent is null ? typed : $"{parent} / {typed}";
+            }
+
+            return _item?.Booth.Category is null
+                ? string.Empty
+                : _item.Booth.Category.ParentName is null
+                    ? _item.Booth.Category.Name
+                    : $"{_item.Booth.Category.ParentName} / {_item.Booth.Category.Name}";
+        }
+    }
 
     private int _selectedImageIndex;
 
@@ -362,7 +387,14 @@ public sealed class EditViewModel : ViewModelBase
     public string DisplayName
     {
         get => _displayName;
-        set => SetField(ref _displayName, value);
+        set
+        {
+            if (SetField(ref _displayName, value))
+            {
+                // 左の下見も一緒に動かす。動かないと「消せていない」ように見える
+                OnPropertyChanged(nameof(Name));
+            }
+        }
     }
 
     /// <summary>BOOTHから取れている名前。入力欄の下に出して、何に戻るのかを見せる。</summary>
@@ -380,8 +412,7 @@ public sealed class EditViewModel : ViewModelBase
             if (SetField(ref _shopNameInput, value))
             {
                 OnPropertyChanged(nameof(ShopKeyNote));
-        OnPropertyChanged(nameof(BoothCategory));
-        OnPropertyChanged(nameof(HasBoothCategory));
+                OnPropertyChanged(nameof(ShopName));
                 RefreshShopSuggestions();
             }
         }
@@ -450,6 +481,7 @@ public sealed class EditViewModel : ViewModelBase
         {
             if (SetField(ref _categoryInput, value))
             {
+                OnPropertyChanged(nameof(CategoryText));
                 RefreshCategorySuggestions();
             }
         }
@@ -1197,6 +1229,8 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsLocalOnly));
         OnPropertyChanged(nameof(OpenBoothTip));
         OnPropertyChanged(nameof(ShopKeyNote));
+        OnPropertyChanged(nameof(BoothCategory));
+        OnPropertyChanged(nameof(HasBoothCategory));
         OnPropertyChanged(nameof(MainImage));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));
