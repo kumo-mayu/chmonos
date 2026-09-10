@@ -93,6 +93,18 @@ public sealed class UserTagFilter : ViewModelBase
         OnPropertyChanged(nameof(HasSelectedSubs));
     }
 
+    /// <summary>
+    /// 通知だけ出して、絞り込みの再計算は呼ばない。
+    ///
+    /// 履歴から条件を戻すときに使う。1つ立てるたびに再計算すると、
+    /// タグの数だけ全件を走査することになる（呼ぶ側が最後に1回まとめて出す）。
+    /// </summary>
+    public void SetSilently(bool value)
+    {
+        SetField(ref _isSelected, value, nameof(IsSelected));
+        OnPropertyChanged(nameof(HasSelectedSubs));
+    }
+
     /// <summary>このitemが条件に合うか。</summary>
     public bool Matches(ItemRecord item)
     {
@@ -289,4 +301,38 @@ public sealed class BoothTagFilter : ViewModelBase
 
     public bool Matches(ItemRecord item)
         => item.Booth.Tags.Any(tag => string.Equals(tag, Name, StringComparison.CurrentCultureIgnoreCase));
+}
+
+/// <summary>
+/// 検索の履歴1件ぶんのスロット。
+///
+/// 検索欄の上に横に並ぶ。押すとその条件に戻る。
+/// **条件を思い出せる形で出す**（<see cref="SearchHistoryEntry.Summary"/>）——
+/// 「衣装」だけでは、そのとき何で絞っていたか分からない。
+/// </summary>
+public sealed class SearchHistorySlot
+{
+    public SearchHistorySlot(
+        SearchHistoryEntry entry,
+        Action<SearchHistoryEntry> apply,
+        Func<SearchHistoryEntry, Task> remove)
+    {
+        Entry = entry;
+        ApplyCommand = new RelayCommand(() => apply(entry));
+        RemoveCommand = new RelayCommand(() => _ = remove(entry));
+    }
+
+    public SearchHistoryEntry Entry { get; }
+
+    public string Summary => Entry.Summary;
+
+    /// <summary>名前を付けたものは落とさないので、印を出して区別する。</summary>
+    public bool IsNamed => Entry.IsNamed;
+
+    /// <summary>いつ使ったか。同じ見え方の条件が並んだときの手掛かり。</summary>
+    public string UsedText => Entry.UsedAt == default ? string.Empty : Entry.UsedAt.ToString("MM-dd HH:mm");
+
+    public RelayCommand ApplyCommand { get; }
+
+    public RelayCommand RemoveCommand { get; }
 }

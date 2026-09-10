@@ -12,6 +12,29 @@
             畳む・開くの小さなボタン。既定のボタンの見た目（枠と余白）だと
             「絞り込み」の見出しより目立ってしまうので、山形だけを置く。
         -->
+        <!--
+            履歴のスロット。枠は外側の Border が持つので、中身は素のまま出す。
+            **テンプレートごと置き換える。**暗黙の Button スタイルは枠線と余白を
+            持っていて setter では外せない（他の画面で同じ罠を踏んでいる）。
+        -->
+        <Style x:Key="HistorySlotButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Face" Background="Transparent" CornerRadius="5">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Face" Property="Background" Value="{StaticResource AccentSoft}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="PanelToggle" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Width" Value="24" />
@@ -489,6 +512,58 @@
 
         <!-- 結果 -->
         <DockPanel Grid.Column="1">
+            <!--
+                検索の履歴
+
+                **一番上に横のスロットで出す**（ユーザ指示）。絞り込みパネルは
+                既に手狭で、足したい条件も控えているので幅を食わせない。
+
+                横に溢れるので `ScrollViewer` に入れる。件数の上限は設定にある——
+                増やすほど端まで送る手間が増えるので、好みで決められるようにした。
+
+                入っているものが無いときは出さない。初回起動で空の帯が居座ると、
+                何のための場所か分からない
+            -->
+            <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                    Padding="18,7"
+                    Visibility="{Binding HasHistory, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding History}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:SearchHistorySlot}">
+                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                        BorderThickness="1" CornerRadius="6" Margin="0,0,7,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- 押すとその条件に戻る -->
+                                        <Button Style="{StaticResource HistorySlotButton}"
+                                                Command="{Binding ApplyCommand}"
+                                                ToolTip="{Binding Summary}">
+                                            <StackPanel Orientation="Horizontal" Margin="10,4">
+                                                <!-- 名前を付けたものは件数で落とさないので、印で区別する -->
+                                                <TextBlock Text="★" FontSize="10" Margin="0,0,5,0"
+                                                           Foreground="{StaticResource Accent}" VerticalAlignment="Center"
+                                                           Visibility="{Binding IsNamed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <TextBlock Text="{Binding Summary}" FontSize="11.5" MaxWidth="240"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <!-- 要らない条件は個別に消せる。全部消すのは設定から -->
+                                        <Button Style="{StaticResource HistorySlotButton}" Content="✕"
+                                                FontSize="10" Padding="6,4" Command="{Binding RemoveCommand}"
+                                                Foreground="{StaticResource TextMuted}"
+                                                ToolTip="この履歴を消します。検索の条件は変わりません。" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
             <Border DockPanel.Dock="Top" Height="78" Background="{StaticResource Surface}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
                 <StackPanel Margin="18,9,18,0">

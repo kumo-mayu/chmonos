@@ -1,4 +1,5 @@
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.Core.Tests;
 
@@ -141,4 +142,102 @@ public sealed class SearchHistoryTests
     [Fact]
     public void 条件が無ければそう言う()
         => Assert.Equal("条件なし", new SearchHistoryEntry().Summary);
+}
+
+public sealed class SearchHistoryListTests
+{
+    private static SearchHistoryEntry Entry(string text, string? name = null, string? category = null)
+        => new() { Text = text, Name = name, Category = category, UsedAt = DateTimeOffset.Now };
+
+    [Fact]
+    public void 積んだものが先頭に来る()
+    {
+        var list = SearchHistory.Add([], Entry("衣装"));
+        list = SearchHistory.Add(list, Entry("髪"));
+
+        Assert.Equal(["髪", "衣装"], list.Select(entry => entry.Text));
+    }
+
+    [Fact]
+    public void 同じ条件は積まずに持ち上げる()
+    {
+        var list = SearchHistory.Add([], Entry("衣装"));
+        list = SearchHistory.Add(list, Entry("髪"));
+        list = SearchHistory.Add(list, Entry("衣装"));
+
+        // 2行にはならない
+        Assert.Equal(2, list.Count);
+        Assert.Equal(["衣装", "髪"], list.Select(entry => entry.Text));
+    }
+
+    [Fact]
+    public void 条件が違えば別の行として積む()
+    {
+        var list = SearchHistory.Add([], Entry("衣装"));
+        list = SearchHistory.Add(list, Entry("衣装", category: "3D衣装"));
+
+        Assert.Equal(2, list.Count);
+    }
+
+    [Fact]
+    public void 何も絞っていないものは積まない()
+    {
+        var list = SearchHistory.Add([], new SearchHistoryEntry());
+
+        Assert.Empty(list);
+    }
+
+    [Fact]
+    public void 同じ条件を使い直しても名前は消えない()
+    {
+        var list = SearchHistory.Add([], Entry("衣装", name: "夏物"));
+        list = SearchHistory.Add(list, Entry("衣装"));
+
+        Assert.Equal("夏物", Assert.Single(list).Name);
+    }
+
+    [Fact]
+    public void 件数の上限で古いものが落ちる()
+    {
+        IReadOnlyList<SearchHistoryEntry> list = [];
+        foreach (var n in Enumerable.Range(1, 5))
+        {
+            list = SearchHistory.Add(list, Entry($"検索{n}"), limit: 3);
+        }
+
+        Assert.Equal(["検索5", "検索4", "検索3"], list.Select(entry => entry.Text));
+    }
+
+    [Fact]
+    public void 名前を付けたものは上限では落とさない()
+    {
+        IReadOnlyList<SearchHistoryEntry> list = [Entry("残したい", name: "大事")];
+        foreach (var n in Enumerable.Range(1, 5))
+        {
+            list = SearchHistory.Add(list, Entry($"検索{n}"), limit: 2);
+        }
+
+        Assert.Contains("残したい", list.Select(entry => entry.Text));
+        Assert.Equal(3, list.Count);
+    }
+
+    [Fact]
+    public void 上限は範囲に丸める()
+    {
+        var many = Enumerable.Range(1, 200).Select(n => Entry($"検索{n}")).ToList();
+
+        Assert.Equal(SearchHistory.MaxLimit, SearchHistory.Trim(many, 9999).Count);
+        Assert.Single(SearchHistory.Trim(many, 0));
+    }
+
+    [Fact]
+    public void 指定した1件だけ消せる()
+    {
+        var list = SearchHistory.Add([], Entry("衣装"));
+        list = SearchHistory.Add(list, Entry("髪"));
+
+        var left = SearchHistory.Remove(list, Entry("衣装").Fingerprint);
+
+        Assert.Equal("髪", Assert.Single(left).Text);
+    }
 }

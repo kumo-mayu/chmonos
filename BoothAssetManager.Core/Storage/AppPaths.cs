@@ -49,6 +49,9 @@ public sealed class AppPaths
 
     public string NotificationsFile => Path.Combine(Root, "notifications.json");
 
+    /// <summary>検索の履歴。人が読めるので、要らない行を手で消せる</summary>
+    public string SearchHistoryFile => Path.Combine(Root, "search-history.json");
+
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
 
     public string EditSessionFile => Path.Combine(Root, "edit-session.json");

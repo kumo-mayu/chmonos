@@ -208,12 +208,27 @@
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="要確認に残す件数" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding NotificationRetentionCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
+
+                        <!--
+                            検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。
+                            名前を付けたものはこの件数では落とさない
+                        -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="検索の履歴に残す件数" Style="{StaticResource RowLabel}" Width="220" />
+                            <TextBox Style="{StaticResource NumberBox}"
+                                     Text="{Binding SearchHistoryCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <Button Content="履歴を消す" Command="{Binding ClearSearchHistoryCommand}" Margin="14,0,0,0"
+                                    ToolTip="検索の履歴を全部消します。いまの検索の条件は変わりません。" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                   Text="商品を開いたときに1件残ります。同じ条件は積み増しません。" />
                     </StackPanel>
                 </Border>
 

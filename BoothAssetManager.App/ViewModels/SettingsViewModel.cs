@@ -78,6 +78,7 @@ public sealed class SettingsViewModel : ViewModelBase
         OpenRootCommand = new RelayCommand(OpenRoot);
         ChangeRootCommand = new RelayCommand(ChangeRoot, () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
+        ClearSearchHistoryCommand = new RelayCommand(ClearSearchHistory);
 
         var settings = services.Settings;
         _suppressSave = true;
@@ -93,6 +94,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _saveImages = settings.SaveImages;
         _refreshIntervalDays = settings.RefreshIntervalDays;
         _notificationRetentionCount = settings.NotificationRetentionCount;
+        _searchHistoryCount = settings.SearchHistoryCount;
         _fetchIntervalMs = settings.FetchIntervalMs;
         _imageMaxEdgePixels = settings.ImageMaxEdgePixels;
         _imageQuality = settings.ImageQuality;
@@ -299,6 +301,55 @@ public sealed class SettingsViewModel : ViewModelBase
         set { if (SetField(ref _notificationRetentionCount, Math.Clamp(value, 20, 5000))) { Save(); } }
     }
 
+    private int _searchHistoryCount;
+
+    /// <summary>
+    /// 検索の履歴を残す件数。
+    ///
+    /// 横に並ぶスロットなので、増やすほど端まで送る手間が増える。
+    /// 上限は <see cref="Core.Services.SearchHistory.MaxLimit"/>——
+    /// それ以上並べても選べない。
+    /// </summary>
+    public int SearchHistoryCount
+    {
+        get => _searchHistoryCount;
+        set
+        {
+            if (SetField(ref _searchHistoryCount, Math.Clamp(value, 1, Core.Services.SearchHistory.MaxLimit)))
+            {
+                Save();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 履歴を全部消す。
+    ///
+    /// **取り返しがつかないので聞く。**条件そのものは消えないと書いておく——
+    /// 「検索がリセットされる」と読まれると押せない。
+    /// </summary>
+    public RelayCommand ClearSearchHistoryCommand { get; }
+
+    private void ClearSearchHistory()
+    {
+        var answer = System.Windows.MessageBox.Show(
+            "検索の履歴を全部消します。\n\n"
+            + "名前を付けたものも一緒に消えます。元には戻せません。\n"
+            + "いまの検索の条件は変わりません。",
+            "検索の履歴を消す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        _ = _services.Store.SearchHistory.SaveAsync(new Core.Services.SearchHistoryList());
+        _main.Search.RestoreHistory();
+    }
+
     private int _shopBannerRecheckDays;
     public int ShopBannerRecheckDays
     {
@@ -493,6 +544,7 @@ public sealed class SettingsViewModel : ViewModelBase
             SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,
             NotificationRetentionCount = NotificationRetentionCount,
+            SearchHistoryCount = SearchHistoryCount,
             ShopBannerRecheckDays = ShopBannerRecheckDays,
             AvatarDetectRecheckDays = AvatarDetectRecheckDays,
             FetchIntervalMs = FetchIntervalMs,

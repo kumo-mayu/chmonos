@@ -105,6 +105,14 @@ public sealed record AppSettings
     /// <summary>要確認の履歴を残す件数。超えたら古い既読から捨てる。</summary>
     public int NotificationRetentionCount { get; init; } = 200;
 
+    /// <summary>
+    /// 検索の履歴を残す件数。
+    ///
+    /// 横に並ぶスロットなので、増やすほど端まで送る手間が増える。
+    /// 名前を付けたものはこの件数では落とさない。
+    /// </summary>
+    public int SearchHistoryCount { get; init; } = Services.SearchHistory.DefaultLimit;
+
     // --- 取得のマナー ---
 
     /// <summary>BOOTHへのリクエスト間隔（ミリ秒）。直列で必ず間隔を空ける。</summary>
