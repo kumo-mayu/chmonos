@@ -10,6 +10,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Unityの開き閉じはこのアプリの外で起きる。「Unityが開いていません」と
+        // 出したまま、実は開いている——という嘘を防ぐため、手前に戻ったら読み直す。
+        // 常時見張るほどの値ではない（プロセスを数えるだけとはいえ毎秒は無駄）。
+        // Unityを開いてこちらへ戻る、が実際の流れなのでここで足りる
+        Activated += (_, _) => (DataContext as MainViewModel)?.NoteWindowActivated();
     }
 
     /// <summary>

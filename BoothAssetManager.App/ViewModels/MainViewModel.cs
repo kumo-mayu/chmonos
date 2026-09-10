@@ -369,6 +369,14 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public void ShowResolve() => CurrentViewModel = new ResolveViewModel(_services, this);
 
+    /// <summary>
+    /// ウィンドウが手前に戻ったときに呼ばれる。
+    ///
+    /// アプリの外で変わったものを読み直す口。いまはUnityが開いているかだけ。
+    /// 常時見張るのは無駄なので、人が戻ってきた瞬間に合わせる。
+    /// </summary>
+    public void NoteWindowActivated() => (CurrentViewModel as ItemViewModel)?.NoteUnityChanged();
+
     public object? CurrentViewModel
     {
         get => _currentViewModel;

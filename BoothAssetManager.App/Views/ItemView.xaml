@@ -762,6 +762,46 @@
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+
+                                                <!--
+                                                    Unityへ送れるもの
+
+                                                    **zipを展開せずに送れる。**渡すのは
+                                                    `<zip>\<中のパス>` という仮想パスで、解決はWindowsがやる。
+                                                    詳しくは 設計詳細_Unityへの受け渡し.md
+
+                                                    **1つでも一覧に出す。**zipの名前と中の名前は
+                                                    しばしば違うので、何が入るのかは見せた方がよい
+                                                -->
+                                                <StackPanel Margin="10,4,0,0"
+                                                            Visibility="{Binding HasUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding UnityPackageNote}" Style="{StaticResource Caption}"
+                                                               Margin="10,0,0,5" TextWrapping="Wrap"
+                                                               Visibility="{Binding HasManyUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <ItemsControl ItemsSource="{Binding UnityPackages}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="{StaticResource AccentBorder}" BorderThickness="2,0,0,0"
+                                                                        Padding="10,3" Margin="0,0,0,4">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="11.5"
+                                                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                                   Margin="0,0,10,0" />
+                                                                        <Button Grid.Column="1" Content="Unityへ送る" Style="{StaticResource SmallButton}"
+                                                                                ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
+                                                                                Command="{Binding DataContext.SendToUnityCommand,
+                                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding}" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -769,6 +809,10 @@
                             </ItemsControl>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,10,18,14"
                                        Text="同じ中身のファイルは1件として数え、容量も1回だけ計上します（実際の占有量は統計で確認できます）。" />
+                            <!-- どこへ送るかは押す前に見えていること。開いていないと何も起きない -->
+                            <TextBlock Text="{Binding UnityTargetText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="18,0,18,14"
+                                       Visibility="{Binding HasAnyUnityPackage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </Border>
 

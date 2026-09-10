@@ -106,6 +106,25 @@ public sealed class LocalFileRow
     public string DuplicateNote => $"{Paths.Count}箇所に同じ実体";
 
     public bool IsMissing => Paths.Count == 0;
+
+    /// <summary>
+    /// このzipに入っている、Unityへ送れるもの。
+    /// zipを開いて数えるので、商品ページを組むときに1回だけ読む。
+    /// </summary>
+    public IReadOnlyList<Core.Services.UnityPackageEntry> UnityPackages { get; init; } = [];
+
+    public bool HasUnityPackages => UnityPackages.Count > 0;
+
+    /// <summary>
+    /// 複数入っているときの注意。
+    ///
+    /// **順番を当てにいかない。**実データでは2件とも片方が依存物だったが、
+    /// 2件から規則は決められない。人に決めてもらう。
+    /// </summary>
+    public bool HasManyUnityPackages => UnityPackages.Count > 1;
+
+    public string UnityPackageNote =>
+        $"Unityへ送れるもの {UnityPackages.Count} 件（依存するものを先に入れてください）";
 }
 
 /// <summary>
@@ -180,6 +199,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
         AddUsedOnCommand = new RelayCommand(parameter => _ = AddUsedOnAsync(parameter as string));
         AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string));
+        SendToUnityCommand = new RelayCommand(
+            SendToUnity,
+            parameter => parameter is Core.Services.UnityPackageEntry);
 
         BuildGallery();
         BuildVariations();
@@ -334,6 +356,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand EditCommand { get; }
 
     public RelayCommand OpenInExplorerCommand { get; }
+
+    /// <summary>zipの中の <c>.unitypackage</c> をUnityへ送る。</summary>
+    public RelayCommand SendToUnityCommand { get; }
 
     public RelayCommand UnregisterFolderCommand { get; }
 
@@ -1197,10 +1222,109 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
                 Paths = file.Paths,
                 VariationLabel = variation,
+                UnityPackages = FindUnityPackages(file.Paths),
             });
         }
     }
 
+
+    /// <summary>
+    /// このファイルがzipなら、中の <c>.unitypackage</c> を数える。
+    ///
+    /// **1箇所目だけ見る。**同じ中身が複数箇所にあっても中身は同じなので、
+    /// 全部開くのは無駄。zip以外（展開済みのフォルダやpdf）は対象外。
+    /// </summary>
+    private static IReadOnlyList<Core.Services.UnityPackageEntry> FindUnityPackages(IReadOnlyList<string> paths)
+    {
+        var path = paths.FirstOrDefault(File.Exists);
+        return path is not null && Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase)
+            ? Core.Services.UnityHandoff.FindPackages(path)
+            : [];
+    }
+
+    /// <summary>
+    /// Unityへ送る。
+    ///
+    /// **送り先はこちらで選べない。**Windowsが起動中のエディタへ転送するので、
+    /// 開いていなければ何も起きない（Unity Hubの窓が出るだけ）。
+    /// 押してから気付くのは最悪なので、先に数えて言い分ける。
+    ///
+    /// 複数開いているときは送らない。どれに入るかが分からないまま
+    /// 取り込みを始めさせると、入れた先を間違えて後から剥がすことになる。
+    /// </summary>
+    private void SendToUnity(object? parameter)
+    {
+        if (parameter is not Core.Services.UnityPackageEntry package)
+        {
+            return;
+        }
+
+        var editors = Services.UnityEditors.Open();
+        if (editors.Count == 0)
+        {
+            System.Windows.MessageBox.Show(
+                "送り先は、開いているUnityになります。\n\n"
+                + "いまUnityが開いていないので送れません。プロジェクトを開いてから、もう一度押してください。",
+                "Unityへ送る",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        if (editors.Count > 1)
+        {
+            var names = string.Join("・", editors.Select(editor => editor.ProjectName ?? "名前の分からないプロジェクト"));
+            System.Windows.MessageBox.Show(
+                $"Unityが {editors.Count} つ開いています（{names}）。\n\n"
+                + "どちらに入るかを選べないので、送るのをやめました。\n"
+                + "入れたい方だけを開いた状態で、もう一度押してください。",
+                "Unityへ送る",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        var target = editors[0].ProjectName ?? "名前の分からないプロジェクト";
+        var answer = System.Windows.MessageBox.Show(
+            $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
+            + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
+            "Unityへ送る",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.OK);
+
+        if (answer == System.Windows.MessageBoxResult.OK)
+        {
+            Services.Shell.SendToUnity(package.VirtualPath);
+        }
+    }
+
+    /// <summary>この商品にUnityへ送れるものが1つでもあるか。無ければ送り先の話もしない。</summary>
+    public bool HasAnyUnityPackage => LocalFiles.Any(file => file.HasUnityPackages);
+
+    /// <summary>
+    /// 送り先の表示を読み直す。
+    ///
+    /// **Unityの開き閉じはこのアプリの外で起きる。**画面を組んだときの値を
+    /// 持ち続けると、「開いていません」と出したまま実は開いている状態になる。
+    /// ウィンドウが手前に戻ったら読み直す（<see cref="MainViewModel.NoteWindowActivated"/>）。
+    /// </summary>
+    public void NoteUnityChanged() => OnPropertyChanged(nameof(UnityTargetText));
+
+    /// <summary>いま送るとどこへ行くか。押す前に見えている必要がある。</summary>
+    public string UnityTargetText
+    {
+        get
+        {
+            var editors = Services.UnityEditors.Open();
+            return editors.Count switch
+            {
+                0 => "Unityが開いていません（開いてから送れます）",
+                1 => $"送り先：Unityの「{editors[0].ProjectName ?? "名前不明のプロジェクト"}」",
+                _ => $"Unityが {editors.Count} つ開いています（1つだけにしてください）",
+            };
+        }
+    }
 
     private void BuildLocalFolders()
     {
