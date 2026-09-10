@@ -155,13 +155,14 @@
                                                         自分で足した分。**絵にはかぶせない。**
                                                         「削除済」の全面かぶせは「もう無い」を表すもので、
                                                         自分の絵は劣化していないので同じ見せ方にはできない。
-                                                        下端の細い帯だけにする。
+
+                                                        角の小さな札にする。★（サムネイル）と対になり、
+                                                        絵がいちばん見える。
                                                     -->
-                                                    <Border Background="#cc2f7d5a" Height="13"
-                                                            VerticalAlignment="Bottom"
+                                                    <Border Background="{StaticResource Good}" CornerRadius="0,4,0,0"
+                                                            Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                                                             Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="自分" Foreground="White" FontSize="8.5"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Text="自分" Foreground="White" FontSize="8.5" />
                                                     </Border>
 
                                                     <!-- サムネイルに指名した1枚 -->
