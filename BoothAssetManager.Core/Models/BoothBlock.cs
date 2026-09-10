@@ -10,7 +10,25 @@ namespace BoothAssetManager.Core.Models;
 /// </summary>
 public sealed record BoothBlock
 {
-    public required DateTimeOffset FetchedAt { get; init; }
+    /// <summary>
+    /// いつ観測したか。**一度も取れていなければ null。**
+    ///
+    /// BOOTHから取れない商品（非公開・販売終了で消えたもの）も手元に置けるようにしたので、
+    /// 「取得した日時」に嘘を書かずに済む形が要る。登録した日時を入れると、
+    /// ⑦の期限計算も「最終取得」の表示も狂う。
+    ///
+    /// **「一度も取れていない」はここから導く。**別のフラグを持たない——
+    /// 二重に持つと片方だけ更新される事故が起きる。
+    /// </summary>
+    public DateTimeOffset? FetchedAt { get; init; }
+
+    /// <summary>
+    /// BOOTHから一度でも取れたか。
+    /// 印の文言を分けるために使う——「BOOTHで見つかりません（情報を取れたことがありません）」と
+    /// 「販売終了」は、同じ <c>IsDelisted</c> でも中身が違う。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool WasEverFetched => FetchedAt is not null;
 
     public string? Name { get; init; }
 
