@@ -90,7 +90,7 @@ public class BoothChangesTests
 
         Assert.Contains("商品名", fields);
         Assert.Contains("価格", fields);
-        Assert.Contains("バリエーション", fields);
+        Assert.Contains("種類", fields);
         Assert.Contains("画像", fields);
     }
 

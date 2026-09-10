@@ -48,11 +48,19 @@ public class DisplayTextTests
     public void PutsThePurchaseKindIntoASentence(PurchaseKind kind, string expected)
         => Assert.Equal(expected, DisplayText.PurchaseKindVerb(kind));
 
+    /// <summary>
+    /// 種類の行の名前。**内部の言葉を漏らさない。**
+    /// 以前は <c>variation 900</c> を返していて、英語の内部トークンが画面に出ていた。
+    /// 番号は人が読んで意味が取れないので、名前が引けないことだけを言う。
+    /// </summary>
     [Fact]
     public void NamesTheVariationRow()
     {
-        Assert.Equal("variation 900", DisplayText.VariationLabel(900));
-        Assert.Equal("バリエーションを指定しない購入", DisplayText.VariationLabel(null));
+        Assert.Equal("名前の分からない種類", DisplayText.VariationLabel(900));
+        Assert.Equal("種類を選ばない購入", DisplayText.VariationLabel(null));
+
+        // 番号を漏らさない。どの番号でも同じ文になる
+        Assert.Equal(DisplayText.VariationLabel(900), DisplayText.VariationLabel(12345));
     }
 
     // ---- ユーザ入力を優先する決まり ----
