@@ -7,6 +7,34 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <UserControl.Resources>
+        <!--
+            h2の見出しを押せるようにするだけのボタン。
+
+            **テンプレートごと置き換える。**暗黙の `Button` スタイルは
+            中央揃えと枠線を持っていて、setter では外せない
+            （ギャラリーの矢印で同じ罠を踏んでいる）。
+            見出しは左揃えのまま、押せることだけを足したい。
+        -->
+        <Style x:Key="SectionHeaderButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Face" Background="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Face" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <DockPanel Background="{StaticResource Bg}">
 
         <!-- 上部バー -->
@@ -285,7 +313,17 @@
                     <!-- 説明文 -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <StackPanel>
-                            <TextBlock Text="商品説明" FontWeight="Bold" Margin="0,0,0,12" />
+                            <!--
+                                説明は長いことがある（1商品で画面6枚ぶん流れるものがある）。
+                                見出しだけ見て目当てを探せるように、まとめて畳めるようにした
+                            -->
+                            <Grid Margin="0,0,0,12">
+                                <TextBlock Text="商品説明" FontWeight="Bold" VerticalAlignment="Center" />
+                                <Button Content="{Binding ToggleAllSectionsText}" Style="{StaticResource SmallButton}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding ToggleAllSectionsCommand}"
+                                        Visibility="{Binding HasSections, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </Grid>
 
                             <!--
                                 説明文とh2は選択可能にし、含まれるURLはリンクにする。
@@ -300,13 +338,33 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,16">
-                                            <Border BorderBrush="{StaticResource Accent}" BorderThickness="3,0,0,0" Padding="9,0">
-                                                <TextBlock Text="{Binding Heading}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap" />
-                                            </Border>
+                                            <!--
+                                                見出しそのものを押して畳む。畳む用のボタンを別に置くと
+                                                見出しの横に小さな的が並んで狙いにくい
+                                            -->
+                                            <Button Style="{StaticResource SectionHeaderButton}"
+                                                    Command="{Binding DataContext.ToggleSectionCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Border BorderBrush="{StaticResource Accent}" BorderThickness="3,0,0,0" Padding="9,0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Heading}" FontWeight="Bold"
+                                                                   FontSize="14" TextWrapping="Wrap" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Marker}"
+                                                                   Foreground="{StaticResource TextMuted}"
+                                                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                            </Button>
                                             <RichTextBox Style="{StaticResource SelectableBody}" Margin="-2,7,0,0"
                                                          controls:SelectableText.Text="{Binding Text}"
                                                          controls:SelectableText.Navigator="{Binding DataContext,
-                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                         Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

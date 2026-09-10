@@ -65,6 +65,37 @@ public sealed class VariationRow
 }
 
 /// <summary>フォルダとして所有している1件。中身は個別に記録していない。</summary>
+/// <summary>
+/// 商品説明のh2セクション1つ。開閉を持つ。
+///
+/// **開閉は画面の状態なので Core には置かない。**`H2Section` は観測した中身で、
+/// 畳んでいるかどうかは見る人の都合。
+/// </summary>
+public sealed class SectionRow(Core.Models.H2Section section) : ViewModelBase
+{
+    private bool _isOpen = true;
+
+    public string Heading { get; } = section.Heading;
+
+    public string Text { get; } = section.Text;
+
+    /// <summary>既定は開いた状態（ユーザ指示）。畳んだ状態で出すと、あることに気付けない。</summary>
+    public bool IsOpen
+    {
+        get => _isOpen;
+        set
+        {
+            if (SetField(ref _isOpen, value))
+            {
+                OnPropertyChanged(nameof(Marker));
+            }
+        }
+    }
+
+    /// <summary>開閉の印。畳めることが分からないと押されない。</summary>
+    public string Marker => _isOpen ? "▾" : "▸";
+}
+
 public sealed class LocalFolderRow
 {
     public required string Path { get; init; }
@@ -202,6 +233,19 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         SendToUnityCommand = new RelayCommand(
             SendToUnity,
             parameter => parameter is Core.Services.UnityPackageEntry);
+        ToggleSectionCommand = new RelayCommand(
+            parameter =>
+            {
+                if (parameter is SectionRow row)
+                {
+                    row.IsOpen = !row.IsOpen;
+                    OnPropertyChanged(nameof(ToggleAllSectionsText));
+                }
+            },
+            parameter => parameter is SectionRow);
+        ToggleAllSectionsCommand = new RelayCommand(ToggleAllSections, () => Sections.Count > 0);
+
+        Sections = item.Booth.H2Sections.Select(section => new SectionRow(section)).ToList();
 
         BuildGallery();
         BuildVariations();
@@ -595,7 +639,41 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public bool HasUserTags => Item.Local.UserTags.Count > 0;
 
-    public IReadOnlyList<H2Section> Sections => Item.Booth.H2Sections;
+    /// <summary>
+    /// 商品説明のh2セクション。
+    ///
+    /// **長すぎることがある**（Wendyは説明だけで画面を6枚ぶん流れる）ので、
+    /// セクションごとに畳める。既定は全部開いた状態。
+    /// </summary>
+    public IReadOnlyList<SectionRow> Sections { get; private set; } = [];
+
+    /// <summary>
+    /// 1つずつ押さずにまとめて畳む／開く。
+    ///
+    /// 見出しだけ見て目当てを探したい場面と、通して読みたい場面の両方がある。
+    /// いま1つでも開いていれば「すべて畳む」、全部畳んでいれば「すべて開く」。
+    /// </summary>
+    public RelayCommand ToggleAllSectionsCommand { get; }
+
+    /// <summary>見出しを押して1つだけ畳む／開く。</summary>
+    public RelayCommand ToggleSectionCommand { get; }
+
+    public string ToggleAllSectionsText => Sections.Any(section => section.IsOpen)
+        ? "すべて畳む"
+        : "すべて開く";
+
+    private void ToggleAllSections()
+    {
+        // 1つでも開いていれば畳む側に寄せる。「全部開く」を押したのに
+        // 半分閉じたままになるのを避ける
+        var open = Sections.Any(section => section.IsOpen);
+        foreach (var section in Sections)
+        {
+            section.IsOpen = !open;
+        }
+
+        OnPropertyChanged(nameof(ToggleAllSectionsText));
+    }
 
     public bool HasSections => Item.Booth.H2Sections.Count > 0;
 
