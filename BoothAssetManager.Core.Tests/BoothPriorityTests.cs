@@ -93,6 +93,44 @@ public class BoothPriorityTests
         Assert.Equal(BoothClient.ItemJsonUrl("200"), handler.Requests[3]);
     }
 
+    /// <summary>
+    /// 画面が待っている対象は、人が押した操作より更に先に通す。
+    ///
+    /// 未確定で確定を押すと次の1件へ自動で移るので、前の件の後始末（User）と
+    /// 同じ順位だと、目の前の候補検索がその後ろに付く。
+    /// </summary>
+    [Fact]
+    public async Task 画面が待っている対象は人が押した操作より先に通る()
+    {
+        var handler = new BlockingHandler();
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 });
+
+        var holding = Task.Run(async () =>
+        {
+            using var _ = BoothClient.Prioritize(BoothPriority.Metadata);
+            await client.GetItemJsonAsync("100");
+        });
+
+        await handler.FirstArrived.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // 確定の後始末（人が押した操作）が先に並ぶ
+        var user = Start(client, BoothPriority.User, "999");
+        await WaitUntilQueued(client, 1);
+
+        // その後で、移った先の画面が候補を探し始める
+        var foreground = Start(client, BoothPriority.Foreground, "555");
+        await WaitUntilQueued(client, 2);
+
+        handler.Release();
+        await Task.WhenAll(holding, user, foreground).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(BoothClient.ItemJsonUrl("100"), handler.Requests[0]);
+
+        // 後から並んだ方が先に通る
+        Assert.Equal(BoothClient.ItemJsonUrl("555"), handler.Requests[1]);
+        Assert.Equal(BoothClient.ItemJsonUrl("999"), handler.Requests[2]);
+    }
+
     /// <summary>範囲を出れば元の優先度に戻る。段を抜けた後まで引きずらない。</summary>
     [Fact]
     public void RestoresThePreviousPriorityWhenTheScopeEnds()

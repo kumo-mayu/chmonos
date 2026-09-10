@@ -187,6 +187,14 @@ public abstract record UiCommand
     /// </summary>
     public record ProposeCandidates(string FilePath, IProgress<Resolution.ResolveProgress>? Progress = null) : UiCommand;
 
+    /// <summary>
+    /// 対応アバターを検出する（人が押したとき）。
+    ///
+    /// **取り込みの中の③とは別物。**あちらは待てるので <c>Detection</c> のまま、
+    /// こちらは画面の前で結果を待っているので、ここを通して <c>User</c> に乗る。
+    /// </summary>
+    public record DetectAvatars(IProgress<Services.AvatarDetectProgress>? Progress = null) : UiCommand;
+
     /// <summary>フォルダを商品に紐付ける。zipが手元に無く展開したものだけが残っている場合に使う。</summary>
     public record RegisterFolder(string ItemId, string FolderPath) : UiCommand;
 
@@ -254,6 +262,8 @@ public abstract record CommandResult
     public record PreviewLoaded(Services.ItemPreview Preview) : CommandResult;
 
     public record CandidatesProposed(IReadOnlyList<Resolution.ResolutionCandidate> Candidates) : CommandResult;
+
+    public record AvatarsDetected(Services.AvatarDetectResult Result) : CommandResult;
 
     public record Failed(string Message) : CommandResult;
 }

@@ -642,7 +642,7 @@ public sealed class AvatarsViewModel : ViewModelBase
     {
         "SupportSection" => "対応アバター節",
         "Tag" => "タグ",
-        "Variation" => "バリエーション名",
+        "Variation" => "種類の名前",
         "H2Link" => "説明文のリンク",
         "Manual" => "手入力",
         _ => source,
@@ -724,7 +724,23 @@ public sealed class AvatarsViewModel : ViewModelBase
             var progress = new Progress<AvatarDetectProgress>(report =>
                 Status = $"{report.Phase}　{report.Done} / {report.Total}");
 
-            var result = await Task.Run(() => _services.Avatars.DetectAsync(progress));
+            // **UiCommand を通す。**直接呼ぶと CommandHandler の優先度の包みの外に
+            // 出てしまい、既定の Metadata（取り込みの①②と同じ順位）で順番待ちする。
+            // 押した人は画面の前で結果を待っているので User に乗せたい。
+            // 取り込みの中の③は内側で Detection を指定しているので、そのまま待てる側に残る
+            var outcome = await _services.Commands.ExecuteAsync(new UiCommand.DetectAvatars(progress));
+            if (outcome is CommandResult.Failed detectFailed)
+            {
+                Status = detectFailed.Message;
+                return;
+            }
+
+            if (outcome is not CommandResult.AvatarsDetected detected)
+            {
+                return;
+            }
+
+            var result = detected.Result;
 
             var parts = new List<string>
             {

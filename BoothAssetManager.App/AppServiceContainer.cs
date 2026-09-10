@@ -64,7 +64,7 @@ public sealed class AppServiceContainer : IDisposable
         Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
-            Modifications);
+            Modifications, Avatars);
     }
 
     /// <summary>

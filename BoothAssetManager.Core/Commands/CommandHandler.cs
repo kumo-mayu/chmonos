@@ -19,6 +19,7 @@ public sealed class CommandHandler
     private readonly IUserTagService? _userTags;
     private readonly IAttributeService? _attributes;
     private readonly IModificationService? _modifications;
+    private readonly IAvatarService? _avatars;
 
     public CommandHandler(
         IImportPipeline import,
@@ -29,7 +30,8 @@ public sealed class CommandHandler
         INotificationService? notifications = null,
         IUserTagService? userTags = null,
         IAttributeService? attributes = null,
-        IModificationService? modifications = null)
+        IModificationService? modifications = null,
+        IAvatarService? avatars = null)
     {
         _import = import;
         _items = items;
@@ -40,6 +42,7 @@ public sealed class CommandHandler
         _userTags = userTags;
         _attributes = attributes;
         _modifications = modifications;
+        _avatars = avatars;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -71,7 +74,17 @@ public sealed class CommandHandler
             case UiCommand.AssignItemId assign:
                 return await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken)
                     ? new CommandResult.ItemSaved(assign.ItemId)
-                    : new CommandResult.Failed($"商品ID {assign.ItemId} を確定できませんでした。");
+
+                    // **考えられる理由を書く。**失敗する道は「未確定の一覧に
+                    // そのファイルが無い」か「BOOTHから商品を作れない」の2つだけ。
+                    // 前者は同じ中身のファイルが複数あるときに起きる——1つ確定すると
+                    // 一覧から消えるので、残った行を押すと空振りになる。
+                    // そのときは既に済んでいるので、実は失敗ではない
+                    : new CommandResult.Failed(
+                        $"商品ID {assign.ItemId} には確定できませんでした。"
+                        + "同じ中身のファイルが他にもあって、そちらで既に確定済みかもしれません"
+                        + "（その場合は商品ページのファイル一覧に出ています）。"
+                        + $"出ていなければ、商品ID {assign.ItemId} がBOOTHで見つからなかった可能性があります。");
 
             case UiCommand.RegisterLocalItem local:
                 var localId = await _items.RegisterLocalItemAsync(
@@ -400,14 +413,29 @@ public sealed class CommandHandler
                 await _notifications.MarkAllReadAsync(cancellationToken);
                 return new CommandResult.Done();
 
+            case UiCommand.DetectAvatars detect:
+                if (_avatars is null)
+                {
+                    return new CommandResult.Failed("対応アバターの検出手段が設定されていません。");
+                }
+
+                return new CommandResult.AvatarsDetected(
+                    await _avatars.DetectAsync(detect.Progress, cancellationToken));
+
             case UiCommand.ProposeCandidates propose:
                 if (_resolver is null)
                 {
                     return new CommandResult.Failed("候補の検索手段が設定されていません。");
                 }
 
-                return new CommandResult.CandidatesProposed(
-                    await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress));
+                // **画面が今まさに待っている対象。**確定を押すと次の1件へ自動で移るので、
+                // 前の件の後始末（新しい商品を作る取得）と同じ User だと、その後ろに付く。
+                // 1件ずつ間隔を空けるので待ちがそのまま目に見える
+                using (Booth.BoothClient.Prioritize(Booth.BoothPriority.Foreground))
+                {
+                    return new CommandResult.CandidatesProposed(
+                        await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress));
+                }
 
             default:
                 return new CommandResult.Failed($"未対応のコマンドです: {command.GetType().Name}");
