@@ -73,6 +73,32 @@ public class CommandHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<string?>(LocalItemId.For(hash));
 
+        public Task<string?> AddUserImageAsync(
+            string itemId,
+            byte[] bytes,
+            string? caption = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>("user-00000000.webp");
+
+        public Task<bool> RemoveUserImageAsync(
+            string itemId,
+            string fileName,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<bool> MoveUserImageAsync(
+            string itemId,
+            string fileName,
+            int delta,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<bool> PinThumbnailAsync(
+            string itemId,
+            string? fileName,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
         public Task<ItemIdChangePlan?> PlanItemIdChangeAsync(
             string fromId,
             string toId,

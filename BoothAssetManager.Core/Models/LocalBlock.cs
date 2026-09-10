@@ -34,6 +34,22 @@ public sealed record LocalBlock
     /// </summary>
     public string? Category { get; init; }
 
+    /// <summary>
+    /// 自分で足した画像。BOOTHの画像とは別に持つ——
+    /// 混ぜると「BOOTH側から消えた画像」と区別が付かなくなり、
+    /// 自分で足したのに「削除済」と出る。
+    /// </summary>
+    public IReadOnlyList<UserImage> UserImages { get; init; } = [];
+
+    /// <summary>
+    /// サムネイルに使う画像のファイル名。**BOOTHの画像も指名できる。**
+    /// 2枚目の方が分かりやすい商品は普通にある。
+    ///
+    /// 指名が無ければ並びの1枚目。指名した先が消えていたら黙って1枚目に戻すが、
+    /// **指名そのものは残す**——画像を取り直せば戻ってくるため。
+    /// </summary>
+    public string? ThumbnailImage { get; init; }
+
     /// <summary>userTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
     public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 

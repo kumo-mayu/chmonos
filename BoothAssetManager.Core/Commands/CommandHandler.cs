@@ -94,6 +94,30 @@ public sealed class CommandHandler
                     _ => new CommandResult.Failed("移した先を用意できませんでした。"),
                 };
 
+            case UiCommand.AddUserImage addImage:
+                var addedName = await _items.AddUserImageAsync(
+                    addImage.ItemId, addImage.Bytes, addImage.Caption, cancellationToken);
+                return addedName is not null
+                    ? new CommandResult.UserImageAdded(addImage.ItemId, addedName)
+                    : new CommandResult.Failed("画像として読めませんでした。");
+
+            case UiCommand.RemoveUserImage removeImage:
+                return await _items.RemoveUserImageAsync(
+                    removeImage.ItemId, removeImage.FileName, cancellationToken)
+                    ? new CommandResult.ItemSaved(removeImage.ItemId)
+                    : new CommandResult.Failed("対象の商品が見つかりませんでした。");
+
+            case UiCommand.MoveUserImage moveImage:
+                return await _items.MoveUserImageAsync(
+                    moveImage.ItemId, moveImage.FileName, moveImage.Delta, cancellationToken)
+                    ? new CommandResult.ItemSaved(moveImage.ItemId)
+                    : new CommandResult.Failed("これ以上は動かせません。");
+
+            case UiCommand.PinThumbnail pin:
+                return await _items.PinThumbnailAsync(pin.ItemId, pin.FileName, cancellationToken)
+                    ? new CommandResult.ItemSaved(pin.ItemId)
+                    : new CommandResult.Failed("対象の商品が見つかりませんでした。");
+
             case UiCommand.RefreshItem refresh:
                 var outcome = await _items.RefreshAsync(refresh.ItemId, cancellationToken);
 

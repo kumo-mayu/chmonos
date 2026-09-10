@@ -449,6 +449,71 @@ public sealed class ImagePipeline
             .ToList();
     }
 
+
+    /// <summary>
+    /// ユーザが自分で足した画像を保存する。
+    ///
+    /// **BOOTHの画像とまったく同じ圧縮を通す。**別の設定にすると、
+    /// 同じギャラリーの中で画質と容量の基準が2つになる。
+    ///
+    /// 保存名は**中身のハッシュ**なので、同じ絵を2回落としても1枚にまとまる。
+    /// </summary>
+    /// <returns>保存したファイル名。画像として読めなければ null。</returns>
+    public async Task<string?> SaveUserImageAsync(
+        string itemId,
+        byte[] bytes,
+        CancellationToken cancellationToken = default)
+    {
+        if (bytes.Length == 0)
+        {
+            return null;
+        }
+
+        var directory = _paths.ItemImagesDir(itemId);
+        Directory.CreateDirectory(directory);
+
+        var fileName = UserImageName.For(bytes);
+        var path = Path.Combine(directory, fileName);
+
+        try
+        {
+            await SaveAsWebpAsync(bytes, path, cancellationToken);
+            return fileName;
+        }
+        catch (Exception exception) when (exception is ImageFormatException or NotSupportedException)
+        {
+            // 画像として読めないものを落とされた。呼ぶ側が文言を出す
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// ユーザが足した画像を消す。**ファイルごと消える。**
+    /// BOOTHから取り直しても戻らないので、呼ぶ側で確かめてから呼ぶ。
+    /// </summary>
+    public void DeleteUserImage(string itemId, string fileName)
+    {
+        if (!UserImageName.IsUserAdded(fileName))
+        {
+            // BOOTHから取った画像はここでは消さない。取り直せば戻るものなので、
+            // 「消した」という記録が残らないと次の取得で復活して混乱する
+            return;
+        }
+
+        var path = Path.Combine(_paths.ItemImagesDir(itemId), Path.GetFileName(fileName));
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 消せなくても記録からは外す。次の掃除で消える
+        }
+    }
     private async Task SaveAsWebpAsync(
         byte[] bytes,
         string path,

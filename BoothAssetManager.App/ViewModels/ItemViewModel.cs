@@ -25,6 +25,25 @@ public sealed class GalleryImage : ViewModelBase
     /// <summary>BOOTH側の一覧から消えた画像。手元には残しておく。</summary>
     public bool IsOrphaned { get; init; }
 
+    /// <summary>ユーザが自分で足した画像。**観測と入力を隠さない。**</summary>
+    public bool IsUserAdded { get; init; }
+
+    /// <summary>ファイル名。サムネイルの指名と、消すときに使う。</summary>
+    public required string FileName { get; init; }
+
+    /// <summary>サムネイルに指名されている1枚か。検索カードに出る絵。</summary>
+    public bool IsPinned { get; init; }
+
+    /// <summary>
+    /// 一覧の末尾に置く「足す」枠。画像ではない。
+    ///
+    /// 同じ並びに混ぜているのは、**折り返しても末尾に付いてくる**ようにするため。
+    /// 別に置くと、画像が折り返したときだけ次の行へ落ちる。
+    /// </summary>
+    public bool IsAddTile { get; init; }
+
+    public bool IsImage => !IsAddTile;
+
     /// <summary>今メインに出ている画像か。一覧のどれを見ているか分かるようにする。</summary>
     public bool IsSelected
     {
@@ -139,6 +158,14 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
         CopyIdCommand = new RelayCommand(CopyId);
+        PreviousImageCommand = new RelayCommand(() => GoToImage(-1), () => CanGoPreviousImage);
+        NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
+        MoveImageBackCommand = new RelayCommand(() => _ = MoveImageAsync(-1), () => CanMoveImageBack);
+        MoveImageForwardCommand = new RelayCommand(() => _ = MoveImageAsync(1), () => CanMoveImageForward);
+        PinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(true), () => CurrentImage is not null && !CurrentIsPinned);
+        UnpinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(false), () => CurrentIsPinned);
+        RemoveImageCommand = new RelayCommand(() => _ = RemoveImageAsync(), () => CurrentIsUserAdded);
+        AddImageCommand = new RelayCommand(() => _ = AddImageAsync());
         ChangeIdCommand = new RelayCommand(() => _ = ChangeIdAsync());
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
@@ -280,6 +307,23 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     /// <summary>この商品のIDを写す。統合先の指定に使う。</summary>
     public RelayCommand CopyIdCommand { get; }
+
+    // ギャラリー。閲覧は矢印、操作は右クリックのメニュー
+    public RelayCommand PreviousImageCommand { get; }
+
+    public RelayCommand NextImageCommand { get; }
+
+    public RelayCommand MoveImageBackCommand { get; }
+
+    public RelayCommand MoveImageForwardCommand { get; }
+
+    public RelayCommand PinThumbnailCommand { get; }
+
+    public RelayCommand UnpinThumbnailCommand { get; }
+
+    public RelayCommand RemoveImageCommand { get; }
+
+    public RelayCommand AddImageCommand { get; }
 
     /// <summary>
     /// この商品まるごとを別のIDへ移す。
@@ -444,6 +488,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand FetchImagesCommand { get; }
 
     public ObservableCollection<GalleryImage> Images { get; } = [];
+
+    /// <summary>一覧に出す枠。画像に「足す」枠を1つ足したもの。</summary>
+    public ObservableCollection<GalleryImage> GalleryTiles { get; } = [];
 
     public ObservableCollection<VariationRow> Variations { get; } = [];
 
@@ -779,20 +826,49 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         MissingImageCount = Math.Max(0, Item.Booth.Images.Count - onDisk.Count - UnavailableImageCount);
 
         // 並べ替えは共有の規則に任せる（カードと編集画面でも同じ順になる）
-        foreach (var entry in ItemImageOrder.Arrange(directory, Item.Booth.Images, onDisk))
+        var ordered = ItemImageOrder.Arrange(
+            directory, Item.Booth.Images, onDisk, Item.Local.UserImages);
+
+        foreach (var entry in ordered)
         {
+            var fileName = System.IO.Path.GetFileName(entry.Path);
+
             Images.Add(new GalleryImage
             {
                 Path = entry.Path,
+                FileName = fileName,
                 Image = _thumbnails.Load(entry.Path),
                 IsOrphaned = entry.IsOrphaned,
+                IsUserAdded = entry.IsUserAdded,
+                IsPinned = string.Equals(
+                    fileName, Item.Local.ThumbnailImage, StringComparison.OrdinalIgnoreCase),
             });
         }
 
+        // 最初に出すのはサムネイルに指名した1枚。無ければ並びの1枚目。
+        // 検索カードに出ている絵と、開いたときに見える絵を揃える
         if (Images.Count > 0)
         {
-            Images[0].IsSelected = true;
+            var pinned = Images.FirstOrDefault(image => image.IsPinned);
+            _selectedIndex = pinned is null ? 0 : Images.IndexOf(pinned);
+            Images[_selectedIndex].IsSelected = true;
         }
+
+        // 一覧に出すのは画像＋末尾の「足す」枠。
+        // 数える側（何枚目／何枚）は Images だけを見るので、枠は混ざらない
+        GalleryTiles.Clear();
+        foreach (var image in Images)
+        {
+            GalleryTiles.Add(image);
+        }
+
+        GalleryTiles.Add(new GalleryImage
+        {
+            Path = string.Empty,
+            FileName = string.Empty,
+            Image = null,
+            IsAddTile = true,
+        });
 
         OnPropertyChanged(nameof(SelectedImage));
         OnPropertyChanged(nameof(GalleryCounter));
@@ -1118,6 +1194,253 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             .ToList();
     }
 
+
+    // ---- ギャラリーの操作 ----
+    //
+    // 閲覧は矢印、操作は右クリックのメニューに分けてある。
+    // サムネイルは68×54しかないので、そこにボタンを乗せると絵が見えなくなる。
+
+    /// <summary>いま大きく出ている1枚。右クリックのメニューはこれに対して働く。</summary>
+    public GalleryImage? CurrentImage
+        => Images.Count == 0 || SelectedIndex >= Images.Count ? null : Images[SelectedIndex];
+
+    public bool CanGoPreviousImage => SelectedIndex > 0;
+
+    public bool CanGoNextImage => SelectedIndex < Images.Count - 1;
+
+    /// <summary>自分で足した画像か。並べ替えと削除はこれにだけ出す。</summary>
+    public bool CurrentIsUserAdded => CurrentImage is { IsUserAdded: true };
+
+    /// <summary>いま出ている1枚がサムネイルに指名されているか。</summary>
+    public bool CurrentIsPinned => CurrentImage is { IsPinned: true };
+
+    /// <summary>
+    /// 前へ動かせるか。**自分の画像の中だけで動く。**
+    /// BOOTHの画像は並べ替えない（観測した並びが正）。
+    /// </summary>
+    public bool CanMoveImageBack => CurrentIsUserAdded && UserImageIndex > 0;
+
+    public bool CanMoveImageForward
+        => CurrentIsUserAdded && UserImageIndex >= 0 && UserImageIndex < Item.Local.UserImages.Count - 1;
+
+    /// <summary>いま出ている画像が、自分の画像の何番目か。自分の画像でなければ -1。</summary>
+    private int UserImageIndex => CurrentImage is not { IsUserAdded: true } current
+        ? -1
+        : Item.Local.UserImages
+            .Select((image, index) => (image.FileName, index))
+            .FirstOrDefault(pair => string.Equals(
+                pair.FileName, current.FileName, StringComparison.OrdinalIgnoreCase), (null!, -1))
+            .index;
+
+    private void GoToImage(int delta)
+    {
+        var next = SelectedIndex + delta;
+        if (next >= 0 && next < Images.Count)
+        {
+            SelectedIndex = next;
+        }
+    }
+
+    /// <summary>並べ替えたあと、同じ絵を選んだままにする。動かした先を目で追えるように。</summary>
+    private async Task MoveImageAsync(int delta)
+    {
+        if (CurrentImage is not { IsUserAdded: true } current)
+        {
+            return;
+        }
+
+        var fileName = current.FileName;
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.MoveUserImage(Item.Id, fileName, delta));
+
+        if (result is CommandResult.Failed failed)
+        {
+            RefreshStatus = failed.Message;
+            return;
+        }
+
+        await ReloadImagesAsync(fileName);
+    }
+
+    /// <summary>サムネイルに指名する／指名を外す。**BOOTHの画像も指名できる。**</summary>
+    private async Task PinThumbnailAsync(bool pin)
+    {
+        if (CurrentImage is not { } current)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.PinThumbnail(Item.Id, pin ? current.FileName : null));
+
+        if (result is CommandResult.Failed failed)
+        {
+            RefreshStatus = failed.Message;
+            return;
+        }
+
+        RefreshStatus = pin
+            ? "この画像をサムネイルにしました。"
+            : "サムネイルの指名を外しました。";
+
+        await ReloadImagesAsync(current.FileName);
+    }
+
+    /// <summary>
+    /// 自分で足した画像を消す。**取り返しがつかないので確かめる。**
+    ///
+    /// 「元のファイルには触りません」とは書かない——貼り付けたスクリーンショットには
+    /// 元のファイルが無いので、場合によって嘘になる。
+    /// </summary>
+    private async Task RemoveImageAsync()
+    {
+        if (CurrentImage is not { IsUserAdded: true } current)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            "この画像を消します。\n\n"
+            + "ライブラリから消えるので、元に戻せません。\n"
+            + "（元のファイルが手元にあれば、もう一度足せます）",
+            "画像を消す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.RemoveUserImage(Item.Id, current.FileName));
+
+        if (result is CommandResult.Failed failed)
+        {
+            RefreshStatus = failed.Message;
+            return;
+        }
+
+        await ReloadImagesAsync(null);
+    }
+
+    /// <summary>ファイルを選んで足す。落とす・貼るのほかに、選ぶ道も残しておく。</summary>
+    private async Task AddImageAsync()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "この商品に足す画像を選ぶ",
+            Filter = "画像 (*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp",
+            Multiselect = true,
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        await AddImageFilesAsync(dialog.FileNames);
+    }
+
+    /// <summary>
+    /// 画像のファイルを足す。落とした場合と選んだ場合で同じ道を通す。
+    /// </summary>
+    public async Task AddImageFilesAsync(IReadOnlyList<string> paths)
+    {
+        var added = 0;
+        string? last = null;
+
+        foreach (var path in paths)
+        {
+            byte[] bytes;
+            try
+            {
+                bytes = await System.IO.File.ReadAllBytesAsync(path);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                RefreshStatus = $"{System.IO.Path.GetFileName(path)} を読めませんでした。";
+                continue;
+            }
+
+            if (await AddImageBytesAsync(bytes) is { } fileName)
+            {
+                added++;
+                last = fileName;
+            }
+            else
+            {
+                RefreshStatus = $"{System.IO.Path.GetFileName(path)} は画像として読めませんでした。";
+            }
+        }
+
+        if (added > 0)
+        {
+            RefreshStatus = $"画像を {added} 枚足しました。";
+            await ReloadImagesAsync(last);
+        }
+    }
+
+    /// <summary>画像の中身を1枚足す。貼り付けもここを通る。</summary>
+    public async Task<string?> AddImageBytesAsync(byte[] bytes)
+    {
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.AddUserImage(Item.Id, bytes));
+
+        return result is CommandResult.UserImageAdded added ? added.FileName : null;
+    }
+
+    /// <summary>
+    /// 記録を読み直してギャラリーを組み直す。
+    /// <paramref name="keepFileName"/> を渡すと、その絵を選んだままにする。
+    /// </summary>
+    private async Task ReloadImagesAsync(string? keepFileName)
+    {
+        if (await _services.Store.Items.LoadAsync(Item.Id) is not { } reloaded)
+        {
+            return;
+        }
+
+        Item = reloaded;
+        BuildGallery();
+
+        if (keepFileName is not null)
+        {
+            var found = Images.FirstOrDefault(image =>
+                string.Equals(image.FileName, keepFileName, StringComparison.OrdinalIgnoreCase));
+
+            if (found is not null)
+            {
+                SelectedIndex = Images.IndexOf(found);
+            }
+        }
+
+        NoteGalleryChanged();
+    }
+
+    /// <summary>ギャラリーまわりの見た目をまとめて更新する。</summary>
+    private void NoteGalleryChanged()
+    {
+        foreach (var name in new[]
+        {
+            nameof(SelectedImage), nameof(GalleryCounter), nameof(CurrentImage),
+            nameof(CanGoPreviousImage), nameof(CanGoNextImage),
+            nameof(CurrentIsUserAdded), nameof(CurrentIsPinned),
+            nameof(CanMoveImageBack), nameof(CanMoveImageForward),
+            nameof(HasOrphanedImages), nameof(OrphanedImageText),
+            nameof(HasUserImages), nameof(UserImageText),
+        })
+        {
+            OnPropertyChanged(name);
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    public bool HasUserImages => Images.Any(image => image.IsUserAdded);
+
+    public string UserImageText
+        => $"自分で足した画像 {Images.Count(image => image.IsUserAdded)} 枚";
     private void SelectImage(object? parameter)
     {
         if (parameter is GalleryImage image)

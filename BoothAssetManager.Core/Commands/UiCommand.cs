@@ -45,6 +45,18 @@ public abstract record UiCommand
         string ToId,
         IReadOnlySet<int>? SkippedPurchases = null) : UiCommand;
 
+    /// <summary>自分で足す画像を1枚入れる。BOOTHと同じ圧縮を通す。</summary>
+    public record AddUserImage(string ItemId, byte[] Bytes, string? Caption = null) : UiCommand;
+
+    /// <summary>自分で足した画像を消す。ファイルごと消える。</summary>
+    public record RemoveUserImage(string ItemId, string FileName) : UiCommand;
+
+    /// <summary>自分で足した画像の並びを1つ動かす（-1 で前へ、+1 で後ろへ）。</summary>
+    public record MoveUserImage(string ItemId, string FileName, int Delta) : UiCommand;
+
+    /// <summary>サムネイルに使う1枚を指名する。null で指名を外す。</summary>
+    public record PinThumbnail(string ItemId, string? FileName) : UiCommand;
+
     /// <summary>1件のitemをBOOTHから取り直す。</summary>
     public record RefreshItem(string ItemId) : UiCommand;
 
@@ -164,6 +176,9 @@ public abstract record CommandResult
     private protected CommandResult() { }
 
     public record Imported(ImportSummary Summary) : CommandResult;
+
+    /// <summary>自分で足した画像が入った。</summary>
+    public record UserImageAdded(string ItemId, string FileName) : CommandResult;
 
     /// <summary>IDを変更したら何が起きるかの下見。まだ何も書いていない。</summary>
     public record ItemIdChangePlanned(Services.ItemIdChangePlan Plan) : CommandResult;

@@ -997,13 +997,19 @@ public sealed class EditViewModel : ViewModelBase
         var directory = _services.Paths.ItemImagesDir(record.Id);
 
         foreach (var entry in Core.Images.ItemImageOrder.Arrange(
-            directory, record.Booth.Images, _thumbnails.ListFiles(directory)))
+            directory, record.Booth.Images, _thumbnails.ListFiles(directory), record.Local.UserImages))
         {
+            var fileName = System.IO.Path.GetFileName(entry.Path);
+
             Images.Add(new GalleryImage
             {
                 Path = entry.Path,
+                FileName = fileName,
                 Image = _thumbnails.Load(entry.Path),
                 IsOrphaned = entry.IsOrphaned,
+                IsUserAdded = entry.IsUserAdded,
+                IsPinned = string.Equals(
+                    fileName, record.Local.ThumbnailImage, StringComparison.OrdinalIgnoreCase),
             });
         }
     }

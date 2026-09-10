@@ -44,14 +44,60 @@
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <StackPanel>
                             <Grid Height="420" Background="#e9edf4">
+                                <!--
+                                    操作は全部この右クリックに集める。
+                                    サムネイルは68×54しかなく、そこにボタンを乗せると絵が見えなくなる。
+                                -->
+                                <Grid.ContextMenu>
+                                    <ContextMenu>
+                                        <!-- 並べ替えは自分で足した画像だけ。BOOTHの並びは観測した事実 -->
+                                        <MenuItem Header="前へ移動" Command="{Binding MoveImageBackCommand}"
+                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <MenuItem Header="後ろへ移動" Command="{Binding MoveImageForwardCommand}"
+                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <Separator Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                        <MenuItem Header="この画像をサムネイルにする" Command="{Binding PinThumbnailCommand}"
+                                                  Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                        <MenuItem Header="サムネイルの指名を外す" Command="{Binding UnpinThumbnailCommand}"
+                                                  Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                        <!-- 消せるのは自分で足した分だけ。BOOTHの画像は取り直せば戻る -->
+                                        <MenuItem Header="この画像を消す" Command="{Binding RemoveImageCommand}"
+                                                  Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <Separator />
+                                        <MenuItem Header="画像を足す…" Command="{Binding AddImageCommand}" />
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+
                                 <Image Source="{Binding SelectedImage}" Stretch="Uniform" />
+
                                 <Border Background="#99000000" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
                                     <TextBlock Text="{Binding GalleryCounter}" Foreground="White" FontSize="11" />
                                 </Border>
+
+                                <!-- いまサムネイルに使っている1枚。検索カードに出る絵がどれか分かるように -->
+                                <Border Background="#cc3767a6" CornerRadius="9" Padding="8,2"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
+                                        Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="サムネイル" Foreground="White" FontSize="11" />
+                                </Border>
+
+                                <!-- 見る絵を送る。並べ替えではない（そちらは右クリック） -->
+                                <Button Content="‹" Command="{Binding PreviousImageCommand}"
+                                        HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0"
+                                        Width="34" Height="52" FontSize="20" Padding="0"
+                                        Background="#66000000" Foreground="White" BorderThickness="0"
+                                        ToolTip="前の画像" />
+                                <Button Content="›" Command="{Binding NextImageCommand}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
+                                        Width="34" Height="52" FontSize="20" Padding="0"
+                                        Background="#66000000" Foreground="White" BorderThickness="0"
+                                        ToolTip="次の画像" />
                             </Grid>
 
-                            <ItemsControl ItemsSource="{Binding Images}" Margin="10">
+                            <ItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />
@@ -59,42 +105,73 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <!--
-                                            乗せて少し止めると切り替わる（設定 GallerySwitchOnHover / GalleryHoverDelayMs）。
-                                            クリックなら待たずに即座に切り替わる。
-                                        -->
-                                        <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
-                                                Background="#eef0f2" Cursor="Hand"
-                                                MouseEnter="OnThumbnailMouseEnter"
-                                                MouseLeave="OnThumbnailMouseLeave"
-                                                Command="{Binding DataContext.SelectImageCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Border}" />
-                                                    <Setter Property="Opacity" Value="0.72" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                            <Setter Property="Opacity" Value="1" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                            <Grid>
-                                                <Image Source="{Binding Image}" Stretch="Uniform" />
-                                                <!-- BOOTH側から消えた画像は控えめに示す -->
-                                                <Border Background="#66000000"
-                                                        Visibility="{Binding IsOrphaned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="削除済" Foreground="White" FontSize="9"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
-                                                </Border>
-                                            </Grid>
-                                        </Button>
+                                        <Grid>
+                                            <!-- 末尾の「足す」枠。折り返しても末尾に付いてくるよう同じ並びに混ぜている -->
+                                            <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
+                                                    Content="＋" FontSize="18" Cursor="Hand"
+                                                    Background="{StaticResource SurfaceAlt}"
+                                                    ToolTip="この商品に画像を足す"
+                                                    Visibility="{Binding IsAddTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    Command="{Binding DataContext.AddImageCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+
+                                            <!--
+                                                乗せて少し止めると切り替わる（設定 GallerySwitchOnHover / GalleryHoverDelayMs）。
+                                                クリックなら待たずに即座に切り替わる。
+                                            -->
+                                            <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
+                                                    Background="#eef0f2" Cursor="Hand"
+                                                    Visibility="{Binding IsImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                    MouseEnter="OnThumbnailMouseEnter"
+                                                    MouseLeave="OnThumbnailMouseLeave"
+                                                    Command="{Binding DataContext.SelectImageCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+                                                        <Setter Property="Opacity" Value="0.72" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                                <Setter Property="Opacity" Value="1" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <Grid>
+                                                    <Image Source="{Binding Image}" Stretch="Uniform" />
+
+                                                    <!-- BOOTH側から消えた画像は控えめに示す -->
+                                                    <Border Background="#66000000"
+                                                            Visibility="{Binding IsOrphaned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="削除済" Foreground="White" FontSize="9"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                                    </Border>
+
+                                                    <!-- 自分で足した分。観測と入力を隠さない -->
+                                                    <Border Background="#662f7d5a"
+                                                            Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="自分" Foreground="White" FontSize="9"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                                    </Border>
+
+                                                    <!-- サムネイルに指名した1枚 -->
+                                                    <Border Background="{StaticResource Accent}" CornerRadius="0,0,0,4"
+                                                            Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                            Visibility="{Binding IsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="★" Foreground="White" FontSize="9" />
+                                                    </Border>
+                                                </Grid>
+                                            </Button>
+                                        </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <TextBlock Text="{Binding UserImageText}" Style="{StaticResource Caption}" Margin="12,0,12,4"
+                                       Visibility="{Binding HasUserImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
 
                             <TextBlock Text="{Binding OrphanedImageText}" Style="{StaticResource Caption}" Margin="12,0,12,12"
                                        Visibility="{Binding HasOrphanedImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

@@ -53,6 +53,33 @@ public interface IItemService
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
+    /// <summary>自分で足す画像を1枚入れる。BOOTHと同じ圧縮を通す。</summary>
+    /// <returns>保存したファイル名。画像として読めなければ null。</returns>
+    Task<string?> AddUserImageAsync(
+        string itemId,
+        byte[] bytes,
+        string? caption = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>自分で足した画像を消す。ファイルごと消える。</summary>
+    Task<bool> RemoveUserImageAsync(
+        string itemId,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>自分で足した画像の並びを1つ動かす（-1 で前へ、+1 で後ろへ）。</summary>
+    Task<bool> MoveUserImageAsync(
+        string itemId,
+        string fileName,
+        int delta,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>サムネイルに使う1枚を指名する。null で指名を外す。</summary>
+    Task<bool> PinThumbnailAsync(
+        string itemId,
+        string? fileName,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// IDを変更したら何が起きるかの下見。**書き込まない。**
     /// 移した先が手元に無ければBOOTHへ1度だけ聞きに行く。
@@ -766,6 +793,156 @@ public sealed class ItemService : IItemService
     }
 
     /// <summary>
+    /// 自分で足す画像を1枚入れる。
+    ///
+    /// BOOTHの画像と同じ圧縮を通してライブラリへ保存する。
+    /// **同じ絵を2回入れても1枚**にまとまる（保存名が中身のハッシュなので）。
+    /// </summary>
+    /// <returns>保存したファイル名。画像として読めなければ null。</returns>
+    public async Task<string?> AddUserImageAsync(
+        string itemId,
+        byte[] bytes,
+        string? caption = null,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        var fileName = await _images.SaveUserImageAsync(itemId, bytes, cancellationToken);
+        if (fileName is null)
+        {
+            return null;
+        }
+
+        // 既に同じ絵が入っていれば、記録は増やさずファイルだけ入れ替わる
+        var images = existing.Local.UserImages.ToList();
+        if (!images.Any(image => string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase)))
+        {
+            images.Add(new UserImage
+            {
+                FileName = fileName,
+                AddedAt = DateTimeOffset.Now,
+                Caption = string.IsNullOrWhiteSpace(caption) ? null : caption.Trim(),
+            });
+        }
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            existing.Local with { UserImages = images },
+            LocalOwners.UserImages,
+            cancellationToken: cancellationToken);
+
+        return fileName;
+    }
+
+    /// <summary>
+    /// 自分で足した画像を消す。**ファイルごと消える。**
+    ///
+    /// サムネイルに指名していたなら、指名も外す。
+    /// BOOTHの画像が消えたときは指名を残す（取り直せば戻る）が、
+    /// **自分で消したものは戻らない**ので、指名を残すと永久に空振りする。
+    /// </summary>
+    public async Task<bool> RemoveUserImageAsync(
+        string itemId,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        var images = existing.Local.UserImages
+            .Where(image => !string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var pinned = string.Equals(existing.Local.ThumbnailImage, fileName, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : existing.Local.ThumbnailImage;
+
+        _images.DeleteUserImage(itemId, fileName);
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            existing.Local with { UserImages = images, ThumbnailImage = pinned },
+            LocalOwners.UserImages,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>
+    /// 自分で足した画像の並びを1つ動かす。
+    ///
+    /// **動かせるのは自分の画像の中だけ。**BOOTHの並びは観測した事実なので触らない
+    /// （ギャラリーは「観測 → 自分の分 → 消えたもの」の順で出る）。
+    /// </summary>
+    /// <param name="delta">-1 で前へ、+1 で後ろへ。</param>
+    public async Task<bool> MoveUserImageAsync(
+        string itemId,
+        string fileName,
+        int delta,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        var images = existing.Local.UserImages.ToList();
+        var from = images.FindIndex(image =>
+            string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase));
+
+        var to = from + delta;
+        if (from < 0 || to < 0 || to >= images.Count)
+        {
+            return false;
+        }
+
+        (images[from], images[to]) = (images[to], images[from]);
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            existing.Local with { UserImages = images },
+            LocalOwners.UserImages,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>
+    /// サムネイルに使う1枚を指名する。**BOOTHの画像も指名できる。**
+    /// null を渡すと指名を外し、並びの1枚目に戻る。
+    /// </summary>
+    public async Task<bool> PinThumbnailAsync(
+        string itemId,
+        string? fileName,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            existing.Local with
+            {
+                ThumbnailImage = string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileName(fileName),
+            },
+            LocalOwners.UserImages,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>
     /// BOOTHから取れなかったIDのために、中身が空の商品を作る。
     /// <c>Booth.FetchedAt</c> は null のまま——観測していないので、それが正しい。
     /// </summary>
@@ -775,6 +952,7 @@ public sealed class ItemService : IItemService
         Booth = new BoothBlock(),
         Local = new LocalBlock(),
     };
+
     public async Task<string?> RegisterLocalItemAsync(
         string hash,
         string displayName,

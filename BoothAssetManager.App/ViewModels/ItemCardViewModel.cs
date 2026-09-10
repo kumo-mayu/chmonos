@@ -117,9 +117,15 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// </summary>
     private BitmapSource? FirstImage()
     {
+        // 指名があればそれをカードに出す。無ければ並びの1枚目
+        var ordered = BoothAssetManager.Core.Images.ItemImageOrder.Arrange(
+            _imageDirectory,
+            Item.Booth.Images,
+            _thumbnails.ListFiles(_imageDirectory),
+            Item.Local.UserImages);
+
         var path = BoothAssetManager.Core.Images.ItemImageOrder
-            .Paths(_imageDirectory, Item.Booth.Images, _thumbnails.ListFiles(_imageDirectory))
-            .FirstOrDefault();
+            .Thumbnail(ordered, Item.Local.ThumbnailImage);
 
         return path is null ? null : _thumbnails.Load(path);
     }
@@ -193,7 +199,10 @@ public sealed class ItemCardViewModel : ViewModelBase
         // 保存名はURLのハッシュなので、名前順に読むと1枚目が乱数で決まる。
         // BOOTHの並びを正にして、サムネイルが商品ページと一致するようにする
         _imageFiles = BoothAssetManager.Core.Images.ItemImageOrder.Paths(
-            _imageDirectory, Item.Booth.Images, _thumbnails.ListFiles(_imageDirectory));
+            _imageDirectory,
+            Item.Booth.Images,
+            _thumbnails.ListFiles(_imageDirectory),
+            Item.Local.UserImages);
         ImageCount = _imageFiles.Count;
 
         var maxSteps = Math.Max(1, (int)(widthPixels / MinimumSegmentWidth));
