@@ -60,11 +60,19 @@
             </Grid>
         </Border>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <!--
+            **横にも送れるようにする。**左の列が660px固定なので、窓が狭いと
+            右の列（商品名・ID・バリエーション・対応アバター・ローカルファイル）が
+            幅0まで潰れて**到達できなくなる**（900pxで実測）。
+            横スクロールを出せば、狭くても必ず届く。
+
+            右の列にも下限を置いて、潰れる前にスクロールが出るようにしてある
+        -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
             <Grid Margin="20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="660" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 左：ギャラリーと説明 -->

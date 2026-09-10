@@ -609,8 +609,18 @@
                         書き方の見本と、探す範囲を広げるトグル。
                         2つのトグルはどちらも「既定より広げる」という同じ性質なので1行に並べる。
                     -->
+                    <!--
+                        **列に分けてある。**1つのセルに左寄せと右寄せを重ねると、
+                        窓を狭めたときに文字が重なって読めなくなる（1100pxで実測）。
+                        見本は削れてよいので `*` 側に置き、はみ出した分は切る。
+                        トグルは操作なので `Auto` で必ず残す
+                    -->
                     <Grid Margin="2,5,2,0">
-                        <StackPanel Orientation="Horizontal">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True">
                             <TextBlock Style="{StaticResource Mono}" FontSize="11" Text="衣装 -無料 &quot;夏セット&quot;" />
                             <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="衣装 (夏 OR 冬)" />
                             <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" Foreground="{StaticResource TextFaint}"
@@ -628,7 +638,8 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                                    Margin="10,0,0,0">
                             <CheckBox Content="本文も探す" IsChecked="{Binding SearchBody, Mode=TwoWay}" FontSize="11"
                                       VerticalAlignment="Center"
                                       ToolTip="説明文とセクションの本文も対象にします。当たる件数が増えます。" />
