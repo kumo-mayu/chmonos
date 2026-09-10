@@ -7,22 +7,23 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:PickModificationDialogViewModel}"
-        Title="改変に足して送る"
+        Title="{Binding Title}"
         Width="480" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{StaticResource Surface}">
     <StackPanel Margin="22,20">
 
-        <TextBlock Text="改変に足して送る" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
         <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
                    TextWrapping="Wrap" Margin="0,7,0,0" />
-        <TextBlock Text="{Binding ProjectText}" Style="{StaticResource Caption}"
-                   TextWrapping="Wrap" Margin="0,3,0,0" />
+        <TextBlock Text="{Binding ContextText}" Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" Margin="0,3,0,0"
+                   Visibility="{Binding HasContext, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <!-- どの改変に積むか。1件のときも選ばせる（新しく作るのが答えのことがある） -->
         <StackPanel Margin="0,18,0,0"
                     Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <RadioButton Content="このプロジェクトの改変に足す" GroupName="Where"
+            <RadioButton Content="{Binding ExistingLabel}" GroupName="Where"
                          IsChecked="{Binding PickingExisting, Mode=TwoWay}"
                          Foreground="{StaticResource Text}" />
 
@@ -94,7 +95,7 @@
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
-            <Button Content="足して送る" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+            <Button Content="{Binding CommitLabel}" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
                     IsEnabled="{Binding CanCommit}" Click="OnCommit" />
         </StackPanel>
     </StackPanel>

@@ -964,6 +964,63 @@
                         `StackPanel Orientation="Horizontal"` は折り返さず、
                         窓を狭めると右端が黙って切れる
                     -->
+                    <!--
+                        この商品を使った改変
+
+                        **改変から辿れば分かる情報を商品ページで隠さない。**
+                        「持っているのに出していない」を直した直後なので、
+                        同じ指摘を作らない。
+
+                        **見せる場所と足す場所を同じにする**（ユーザ指摘）
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,14">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,12">
+                                <TextBlock Text="この商品を使った改変" FontWeight="Bold"
+                                           VerticalAlignment="Center" />
+                                <Button Content="改変に足す" Style="{StaticResource SmallButton}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding AddToModificationCommand}"
+                                        ToolTip="送らずに記録だけ残します。どの改変かはこのあと選べます。" />
+                            </Grid>
+
+                            <TextBlock Text="{Binding UsedInModificationsEmptyText}"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                            <ItemsControl ItemsSource="{Binding UsedInModifications}"
+                                          Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:UsedInModificationRowViewModel}">
+                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12.5"
+                                                               MaxWidth="440" HorizontalAlignment="Left"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                               MaxWidth="440" HorizontalAlignment="Left"
+                                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+
+                                                <Button Grid.Column="1" Content="開く" Style="{StaticResource SmallButton}"
+                                                        VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.OpenModificationCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,14">
                         <StackPanel>
                             <TextBlock Text="記録していること" FontWeight="Bold" Margin="0,0,0,12" />

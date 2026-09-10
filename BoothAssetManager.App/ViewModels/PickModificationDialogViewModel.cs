@@ -36,14 +36,16 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     private string _newAvatarText = string.Empty;
 
     public PickModificationDialogViewModel(
-        string packageName,
-        string projectText,
+        string title,
+        string headingText,
+        string contextText,
         IReadOnlyList<PickModificationRowViewModel> rows,
         IReadOnlyList<string> avatarNames,
         Func<string, string?> resolveAvatar)
     {
-        PackageName = packageName;
-        ProjectText = projectText;
+        Title = title;
+        HeadingText = headingText;
+        ContextText = contextText;
         Rows = new ObservableCollection<PickModificationRowViewModel>(rows);
         AvatarNames = avatarNames;
         ResolveAvatar = resolveAvatar;
@@ -57,10 +59,15 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         _makingNew = rows.Count == 0;
     }
 
-    public string PackageName { get; }
+    /// <summary>窓の題。送るときと足すだけのときで言い分ける。</summary>
+    public string Title { get; }
 
-    /// <summary>送り先のUnity。押す前に見えている必要がある。</summary>
-    public string ProjectText { get; }
+    public string HeadingText { get; }
+
+    /// <summary>送り先などの前提。**押す前に見えている必要がある。**空なら出さない。</summary>
+    public string ContextText { get; }
+
+    public bool HasContext => ContextText.Length > 0;
 
     public ObservableCollection<PickModificationRowViewModel> Rows { get; }
 
@@ -75,11 +82,14 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     public RelayCommand PickAvatarCommand { get; }
 
-    public string HeadingText => $"「{PackageName}」を送って、改変に足します。";
-
     /// <summary>候補が無いときに出す文。次にやることを書く。</summary>
-    public string EmptyText =>
-        "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに足せます。";
+    public required string EmptyText { get; init; }
+
+    /// <summary>既にある改変に足す側の見出し。</summary>
+    public required string ExistingLabel { get; init; }
+
+    /// <summary>押して確定するボタンの名前。**何が起きるかを名乗る。**</summary>
+    public required string CommitLabel { get; init; }
 
     public PickModificationRowViewModel? Picked
     {

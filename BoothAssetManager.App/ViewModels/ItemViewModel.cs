@@ -129,6 +129,23 @@ public sealed class LocalFolderRow
     public string ArchiveNoticeText { get; init; } = string.Empty;
 }
 
+/// <summary>この商品を使った改変1件。</summary>
+public sealed class UsedInModificationRowViewModel
+{
+    public required Core.Models.ModificationRecord Record { get; init; }
+
+    public required string AvatarText { get; init; }
+
+    /// <summary>この商品が何回入っているか。同じ商品を別のバージョンで2回足せる。</summary>
+    public required int UseCount { get; init; }
+
+    public string Name => Record.Name;
+
+    public string Detail => UseCount > 1
+        ? $"{AvatarText}　この商品は {UseCount} 回入っています"
+        : AvatarText;
+}
+
 public sealed class LocalFileRow
 {
     /// <summary>このファイルの同一性。商品から外すときに指す。</summary>
@@ -252,6 +269,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         SendToUnityWithRecordCommand = new RelayCommand(
             parameter => _ = SendToUnityWithRecordAsync(parameter),
             parameter => parameter is Core.Services.UnityPackageEntry);
+        AddToModificationCommand = new RelayCommand(() => _ = AddToModificationAsync());
+        OpenModificationCommand = new RelayCommand(
+            parameter => OpenModification(parameter as UsedInModificationRowViewModel),
+            parameter => parameter is UsedInModificationRowViewModel);
         ToggleSectionCommand = new RelayCommand(
             parameter =>
             {
@@ -279,6 +300,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         BuildVariations();
         BuildLocalFiles();
         BuildLocalFolders();
+
+        // 改変はファイルを読むので待たない。空で描いてから埋まる
+        _ = LoadModificationsAsync();
     }
 
     public ItemRecord Item { get; private set; }
@@ -440,6 +464,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand SendToUnityCommand { get; }
 
     public RelayCommand SendToUnityWithRecordCommand { get; }
+
+    public RelayCommand AddToModificationCommand { get; }
+
+    public RelayCommand OpenModificationCommand { get; }
 
     public RelayCommand UnregisterFolderCommand { get; }
 
@@ -1471,51 +1499,142 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             ? await _services.Modifications.LoadForProjectAsync(projectPath)
             : (await _services.Modifications.LoadAllAsync()).Modifications;
 
-        var registry = _services.Store.Avatars.Load();
-        var avatarNames = registry.Entries
-            .Select(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId)
-            .Where(text => text.Length > 0)
-            .Distinct(StringComparer.CurrentCultureIgnoreCase)
-            .OrderBy(text => text, StringComparer.CurrentCulture)
-            .ToList();
-
-        string AvatarTextOf(string itemId) => registry.Entries
-            .FirstOrDefault(entry => string.Equals(entry.ItemId, itemId, StringComparison.Ordinal))
-            is { } found
-                ? found.DisplayName ?? found.BoothName ?? itemId
-                : itemId;
-
-        var rows = records
-            .Select(record => new PickModificationRowViewModel
-            {
-                Record = record,
-                AvatarText = AvatarTextOf(record.AvatarItemId),
-            })
-            .ToList();
-
-        var model = new PickModificationDialogViewModel(
-            package.Name,
+        var model = await BuildPickModificationAsync(
+            title,
+            $"「{package.Name}」を送って、改変に足します。",
             projectPath is not null
                 ? $"送り先：Unityの「{editor.ProjectName}」"
                 : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
                     + "（一覧に無いプロジェクトなので、改変は全部出しています）",
-            rows,
-            avatarNames,
-            text => registry.Entries.FirstOrDefault(entry =>
-                string.Equals(entry.DisplayName ?? entry.BoothName ?? entry.ItemId, text,
-                    StringComparison.CurrentCultureIgnoreCase))?.ItemId);
+            records,
+            existingLabel: "このプロジェクトの改変に足す",
+            commitLabel: "足して送る",
+            emptyText: "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに足せます。");
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
             return;
         }
 
+        // **記録してから送る。**送るのはWindows任せで結果が返らないので、
+        // 先に記録を確定させておく方が失うものが少ない
+        var owner = LocalFiles.FirstOrDefault(file => file.UnityPackages.Contains(package));
+        if (await CommitPickedModificationAsync(model, title, projectPath, owner, package.EntryPath)
+            is not { } record)
+        {
+            return;
+        }
+
+        Services.Shell.SendToUnity(package.VirtualPath);
+        _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
+
+        UnityRecordNotice = $"「{record.Name}」に足して、Unityへ送りました。";
+    }
+
+    /// <summary>
+    /// 改変に足す（送らない）。
+    ///
+    /// **見せる場所と足す場所を同じにする**（ユーザ指摘）。
+    /// 使った改変を出しているカードから、そのまま足せるようにした。
+    /// </summary>
+    private async Task AddToModificationAsync()
+    {
+        const string title = "改変に足す";
+
+        var model = await BuildPickModificationAsync(
+            title,
+            $"「{Item.DisplayName}」を改変に足します。",
+            // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
+            "どのファイルを使ったかは残りません（Unityへ送ると残ります）。",
+            (await _services.Modifications.LoadAllAsync()).Modifications,
+            existingLabel: "今ある改変に足す",
+            commitLabel: "足す",
+            emptyText: "改変がまだありません。新しく作って、そこに足せます。");
+
+        if (new Views.PickModificationDialog(model).ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (await CommitPickedModificationAsync(model, title, project: null, owner: null, package: null)
+            is not { } record)
+        {
+            return;
+        }
+
+        UnityRecordNotice = $"「{record.Name}」に足しました。";
+        await LoadModificationsAsync();
+    }
+
+    /// <summary>ダイアログの中身を組む。送るときと足すだけのときで文言だけ変える。</summary>
+    private async Task<PickModificationDialogViewModel> BuildPickModificationAsync(
+        string title,
+        string headingText,
+        string contextText,
+        IReadOnlyList<Core.Models.ModificationRecord> records,
+        string existingLabel,
+        string commitLabel,
+        string emptyText)
+    {
+        var registry = _services.Store.Avatars.Load();
+
+        string NameOf(Core.Models.AvatarRegistryEntry entry)
+            => entry.DisplayName ?? entry.BoothName ?? entry.ItemId;
+
+        var avatarNames = registry.Entries
+            .Select(NameOf)
+            .Where(text => text.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(text => text, StringComparer.CurrentCulture)
+            .ToList();
+
+        var rows = records
+            .Select(record => new PickModificationRowViewModel
+            {
+                Record = record,
+                AvatarText = registry.Entries.FirstOrDefault(entry =>
+                    string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
+                    is { } found
+                        ? NameOf(found)
+                        : record.AvatarItemId,
+            })
+            .ToList();
+
+        await Task.CompletedTask;
+
+        return new PickModificationDialogViewModel(
+            title,
+            headingText,
+            contextText,
+            rows,
+            avatarNames,
+            text => registry.Entries.FirstOrDefault(entry =>
+                string.Equals(NameOf(entry), text, StringComparison.CurrentCultureIgnoreCase))?.ItemId)
+        {
+            ExistingLabel = existingLabel,
+            CommitLabel = commitLabel,
+            EmptyText = emptyText,
+        };
+    }
+
+    /// <summary>
+    /// ダイアログの答えを記録に落とす。作る側なら先に作る。
+    /// 作れなかったときは理由を出して null を返す。
+    /// </summary>
+    private async Task<Core.Models.ModificationRecord?> CommitPickedModificationAsync(
+        PickModificationDialogViewModel model,
+        string title,
+        string? project,
+        LocalFileRow? owner,
+        string? package)
+    {
         var record = model.Picked?.Record;
+
         if (model.MakingNew)
         {
             if (model.NewAvatarItemId is not { } avatarItemId)
             {
-                return;
+                return null;
             }
 
             if (await _services.Commands.ExecuteAsync(
@@ -1526,10 +1645,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
                 // 作ったばかりの改変には紐付け先が無い。**いま送るプロジェクトで確定している**
                 // ので、ここで付けておく（後から手で選ばせる意味が無い）
-                if (projectPath is not null)
+                if (project is not null)
                 {
                     await _services.Commands.ExecuteAsync(
-                        new Core.Commands.UiCommand.SetModificationProject(record.Id, projectPath));
+                        new Core.Commands.UiCommand.SetModificationProject(record.Id, project));
                 }
             }
         }
@@ -1541,12 +1660,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 title,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
-            return;
+            return null;
         }
 
-        // **記録してから送る。**送るのはWindows任せで結果が返らないので、
-        // 先に記録を確定させておく方が失うものが少ない
-        var owner = LocalFiles.FirstOrDefault(file => file.UnityPackages.Contains(package));
         await _services.Commands.ExecuteAsync(
             new Core.Commands.UiCommand.AddModificationMember(
                 record.Id,
@@ -1555,14 +1671,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                     ItemId = Item.Id,
                     VariationId = owner?.VariationId,
                     FileHash = owner?.Hash,
-                    Package = package.EntryPath,
+                    Package = package,
                     AddedAt = DateTimeOffset.Now,
                 }));
 
-        Services.Shell.SendToUnity(package.VirtualPath);
-        _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
-
-        UnityRecordNotice = $"「{record.Name}」に足して、Unityへ送りました。";
+        return record;
     }
 
     private string? _unityRecordNotice;
@@ -1586,6 +1699,63 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     }
 
     public bool HasUnityRecordNotice => !string.IsNullOrEmpty(UnityRecordNotice);
+
+    /// <summary>
+    /// この商品を使った改変。
+    ///
+    /// **改変から辿れば分かる情報を商品ページで隠さない。**
+    /// 「持っているのに出していない」を直した直後なので、同じ指摘を作らない。
+    /// </summary>
+    public ObservableCollection<UsedInModificationRowViewModel> UsedInModifications { get; } = [];
+
+    public bool HasUsedInModifications => UsedInModifications.Count > 0;
+
+    public string UsedInModificationsEmptyText =>
+        "まだどの改変にも入っていません。下の「改変に足す」で残せます。";
+
+    /// <summary>改変の詳細へ。戻り先はこの商品にしておく（見比べに戻ってくる）。</summary>
+    private void OpenModification(UsedInModificationRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var item = Item;
+        var back = _back;
+        _main.ShowModification(
+            row.Record,
+            ($"{item.DisplayName} に戻る", () => _main.ShowItem(item, back)));
+    }
+
+    private async Task LoadModificationsAsync()
+    {
+        var records = await _services.Modifications.LoadUsingItemAsync(Item.Id);
+        var registry = _services.Store.Avatars.Load();
+
+        RunOnUiThread(() =>
+        {
+            UsedInModifications.Clear();
+            foreach (var record in records)
+            {
+                UsedInModifications.Add(new UsedInModificationRowViewModel
+                {
+                    Record = record,
+                    AvatarText = registry.Entries.FirstOrDefault(entry =>
+                        string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
+                        is { } found
+                            ? found.DisplayName ?? found.BoothName ?? record.AvatarItemId
+                            : record.AvatarItemId,
+
+                    // 同じ商品を別のバージョンで2回足せるので、何回入っているかを出す
+                    UseCount = record.Members.Count(member =>
+                        string.Equals(member.ItemId, Item.Id, StringComparison.Ordinal)),
+                });
+            }
+
+            OnPropertyChanged(nameof(HasUsedInModifications));
+        });
+    }
 
     /// <summary>この商品にUnityへ送れるものが1つでもあるか。無ければ送り先の話もしない。</summary>
     public bool HasAnyUnityPackage => LocalFiles.Any(file => file.HasUnityPackages);
