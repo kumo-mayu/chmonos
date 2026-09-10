@@ -300,12 +300,20 @@
                                                                        Visibility="{Binding HasUnityProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                         </StackPanel>
                                                     </StackPanel>
-                                                    <Button Grid.Column="1" Content="消す" Style="{StaticResource SmallButton}"
-                                                            VerticalAlignment="Center"
-                                                            ToolTip="この改変の記録を消します。使った商品そのものは消えません。"
-                                                            Command="{Binding DataContext.DeleteModificationCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}" />
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                                VerticalAlignment="Center">
+                                                        <Button Content="開く" Style="{StaticResource SmallButton}"
+                                                                ToolTip="使ったものや写真を見る／足す。"
+                                                                Command="{Binding DataContext.OpenModificationCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <Button Content="消す" Style="{StaticResource SmallButton}"
+                                                                Margin="6,0,0,0"
+                                                                ToolTip="この改変の記録を消します。使った商品そのものは消えません。"
+                                                                Command="{Binding DataContext.DeleteModificationCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}" />
+                                                    </StackPanel>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>

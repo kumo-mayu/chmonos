@@ -165,6 +165,16 @@ public sealed class AvatarsViewModel : ViewModelBase
         CreateModificationCommand = new RelayCommand(
             () => _ = CreateModificationAsync(),
             () => Selected is not null && ModificationNameInput.Trim().Length > 0);
+        OpenModificationCommand = new RelayCommand(
+            parameter =>
+            {
+                if (parameter is ModificationRowViewModel row)
+                {
+                    // 戻り先をアバターの管理にしておく。改変からは必ずここへ帰る
+                    _main.ShowModification(row.Record, ("アバターの管理", _main.ShowAvatars));
+                }
+            },
+            parameter => parameter is ModificationRowViewModel);
         DeleteModificationCommand = new RelayCommand(
             parameter => _ = DeleteModificationAsync(parameter as ModificationRowViewModel),
             parameter => parameter is ModificationRowViewModel);
@@ -218,6 +228,9 @@ public sealed class AvatarsViewModel : ViewModelBase
     public bool HasModifications => Modifications.Count > 0;
 
     public RelayCommand CreateModificationCommand { get; }
+
+    /// <summary>改変の詳細を開く。商品ページと同じ格の画面へ差し替える</summary>
+    public RelayCommand OpenModificationCommand { get; }
 
     public RelayCommand DeleteModificationCommand { get; }
 

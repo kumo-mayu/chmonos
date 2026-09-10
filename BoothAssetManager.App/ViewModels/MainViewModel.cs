@@ -445,6 +445,12 @@ public sealed class MainViewModel : ViewModelBase
     /// 商品ページを開く。検索画面のインスタンスは保持したままなので、
     /// 戻ったときに絞り込み条件もスクロール位置もそのまま残る。
     /// </summary>
+    /// <summary>改変の詳細を開く。商品ページと同じ格の画面</summary>
+    public void ShowModification(
+        Core.Models.ModificationRecord record,
+        (string Label, Action Go)? back = null)
+        => CurrentViewModel = new ModificationViewModel(record, _services, this, Thumbnails, back);
+
     public void ShowItem(Core.Models.ItemRecord item, (string Label, Action Go)? back = null)
     {
         // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い

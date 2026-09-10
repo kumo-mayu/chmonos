@@ -47,6 +47,10 @@
         <DataTemplate DataType="{x:Type vm:AvatarsViewModel}">
             <views:AvatarsView />
         </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:ModificationViewModel}">
+            <views:ModificationView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
             <views:SettingsView />
         </DataTemplate>
