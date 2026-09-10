@@ -39,6 +39,23 @@ public sealed class BoolToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>
+/// 空文字のときだけ見せる。入力欄に重ねる placeholder に使う。
+///
+/// **空欄は「入力を求めている」と読まれる。**既定が決まっているなら、
+/// 空欄のままで何になるかを欄そのものに名乗らせたい。
+/// </summary>
+public sealed class EmptyToVisibilityConverter : IValueConverter
+{
+    public static readonly EmptyToVisibilityConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => string.IsNullOrEmpty(value as string) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>false のときだけ見せる。「まだ○○していない」という案内文に使う。</summary>
 public sealed class InverseBoolToVisibilityConverter : IValueConverter
 {

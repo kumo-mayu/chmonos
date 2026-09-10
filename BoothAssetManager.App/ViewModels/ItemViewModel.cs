@@ -355,7 +355,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public string RefreshButtonTip => Item.IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、取り直せません。"
-        : "商品名・価格・バリエーション・説明文・画像をBOOTHから取り直します。"
+        : "商品名・価格・種類・説明文・画像をBOOTHから取り直します。"
             + "\nメモや分類など自分で入れたものは変わりません。";
 
     public string RefreshStatus
@@ -1131,7 +1131,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     {
         AvatarLinkSource.SupportSection => "対応アバター節",
         AvatarLinkSource.Tag => "タグ",
-        AvatarLinkSource.Variation => "バリエーション名",
+        AvatarLinkSource.Variation => "種類の名前",
         AvatarLinkSource.H2Link => "説明文のリンク",
         AvatarLinkSource.Manual => "手入力",
         _ => string.Empty,
@@ -1229,7 +1229,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             var group = ordered[variation.Id].ToList();
             Variations.Add(new VariationRow
             {
-                Name = variation.Name ?? "（バリエーションなし）",
+                Name = variation.Name ?? "（1種類のみ）",
                 PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
                 IsPurchased = group.Count > 0,
             });

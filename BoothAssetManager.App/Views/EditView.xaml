@@ -27,7 +27,7 @@
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
                     <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
-                    <Button Content="この件は飛ばす" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                    <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
                     <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAndNextCommand}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <Button Content="終える" Command="{Binding FinishCommand}" />
@@ -145,18 +145,28 @@
 
                         <!--
                             商品名。BOOTHから取れない商品はこれしか名前が無い。
-                            取れている商品でも変えられるようにしてあるので、
-                            空欄にしたら何に戻るのかを必ず下に出す。
+                            取れている商品でも変えられるようにしてある。
                         -->
                         <TextBlock Text="商品名" FontWeight="Bold" FontSize="13" />
-                        <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
-                                 Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,7,0,0" />
 
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                   Visibility="{Binding HasBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <Run Text="空欄にするとBOOTHの名前「" /><Run Text="{Binding BoothName, Mode=OneWay}" /><Run Text="」に戻ります。どちらの名前でも検索できます。" />
-                        </TextBlock>
+                        <!--
+                            **空欄が何になるかは欄そのものに名乗らせる。**
+                            以前は下に「空欄にするとBOOTHの名前『〇〇』に戻ります」と
+                            常時出していたが、普段変えない欄なのに説明文で縦を食っていた。
+                            空欄は「入力を求めている」とも読まれる。
+                        -->
+                        <Grid Margin="0,7,0,0">
+                            <TextBox x:Name="NameBox" Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" />
+                            <TextBlock Text="{Binding NamePlaceholder}" IsHitTestVisible="False"
+                                       VerticalAlignment="Center" Margin="10,0,10,0"
+                                       Foreground="{StaticResource TextFaint}" FontSize="12.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Text, ElementName=NameBox,
+                                                    Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                        </Grid>
 
+                        <!-- これは注意なので消さない。空欄にすると仮IDが名前として出てしまう -->
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
                                    Foreground="{StaticResource Warn}"
                                    Text="BOOTHに無い商品なので、空欄にすると仮のIDが名前の代わりに出ます。"
@@ -170,11 +180,39 @@
                             貼らなければ手元だけの鍵になる（本物のアイコンやバナーは出ない）。
                         -->
                         <TextBlock Text="ショップ" FontWeight="Bold" FontSize="13" />
-                        <TextBox Text="{Binding ShopNameInput, UpdateSourceTrigger=PropertyChanged}"
-                                 Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,7,0,0" />
 
-                        <ItemsControl ItemsSource="{Binding ShopSuggestions}" Margin="0,6,0,0"
-                                      Visibility="{Binding HasShopSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Grid Margin="0,7,0,0">
+                            <TextBox x:Name="ShopBox" Text="{Binding ShopNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" />
+                            <TextBlock Text="{Binding ShopPlaceholder}" IsHitTestVisible="False"
+                                       VerticalAlignment="Center" Margin="10,0,10,0"
+                                       Foreground="{StaticResource TextFaint}" FontSize="12.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Text, ElementName=ShopBox,
+                                                    Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                        </Grid>
+
+                        <!--
+                            **候補は触ったときだけ出す。**普段変えない欄なので、
+                            常時並べると縦を食うだけになる（手元のショップ名が6件並ぶ）。
+                            focusで出すのは、キーボードでもタッチでも届くから——
+                            ホバーのtipだけにすると届かない経路がある。
+                        -->
+                        <ItemsControl ItemsSource="{Binding ShopSuggestions}" Margin="0,6,0,0">
+                            <ItemsControl.Style>
+                                <Style TargetType="ItemsControl">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding HasShopSuggestions}" Value="True" />
+                                                <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=ShopBox}" Value="True" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ItemsControl.Style>
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel />
@@ -190,26 +228,77 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBox Text="{Binding ShopUrlInput, UpdateSourceTrigger=PropertyChanged}"
-                                 Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,4,0,0" />
-                        <TextBlock Text="ショップのURL（https://〇〇.booth.pm/）" Style="{StaticResource Caption}"
-                                   Margin="0,4,0,0" />
+                        <Grid Margin="0,4,0,0">
+                            <TextBox x:Name="ShopUrlBox" Text="{Binding ShopUrlInput, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" />
+                            <!-- URLの形は placeholder で見せる。ここは既定が無く、実際に入力を求めている -->
+                            <TextBlock Text="ショップのURL（https://〇〇.booth.pm/）" IsHitTestVisible="False"
+                                       VerticalAlignment="Center" Margin="10,0,10,0"
+                                       Foreground="{StaticResource TextFaint}" FontSize="12.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Text, ElementName=ShopUrlBox,
+                                                    Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                        </Grid>
 
-                        <TextBlock Text="{Binding ShopKeyNote}" Style="{StaticResource Caption}"
-                                   TextWrapping="Wrap" Margin="0,6,0,0" />
+                        <!--
+                            URLを貼るかどうかで結果が変わる（本物のショップに束ねられるか、
+                            手元だけの鍵になるか）。**押す前に知る必要がある注意なので消さない。**
+                            ただし触っているときだけ出す
+                        -->
+                        <TextBlock Text="{Binding ShopKeyNote}"
+                                   TextWrapping="Wrap" Margin="0,6,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=ShopBox}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=ShopUrlBox}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
 
                         <!--
-                            分類。BOOTHから取れない商品には分類が無いので、統計にも
-                            絞り込みにも出てこない。候補は同梱したBOOTHのカテゴリ表から出す。
+                            BOOTHの分類名。**「分類」だけだとユーザータグと区別が付かない**
+                            ので、どこの分類かを名前に入れてある（ユーザ指示）。
+                            取れない商品には無いので、統計にも絞り込みにも出てこない。
+                            候補は同梱したBOOTHのカテゴリ表から出す。
                         -->
-                        <TextBlock Text="分類" FontWeight="Bold" FontSize="13" />
-                        <TextBox Text="{Binding CategoryInput, UpdateSourceTrigger=PropertyChanged}"
-                                 Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,7,0,0" />
+                        <TextBlock Text="BOOTH分類名" FontWeight="Bold" FontSize="13" />
 
-                        <ItemsControl ItemsSource="{Binding CategorySuggestions}" Margin="0,6,0,0"
-                                      Visibility="{Binding HasCategorySuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Grid Margin="0,7,0,0">
+                            <TextBox x:Name="CategoryBox" Text="{Binding CategoryInput, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="30" VerticalContentAlignment="Center" Padding="8,0" />
+                            <TextBlock Text="{Binding CategoryPlaceholder}" IsHitTestVisible="False"
+                                       VerticalAlignment="Center" Margin="10,0,10,0"
+                                       Foreground="{StaticResource TextFaint}" FontSize="12.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Text, ElementName=CategoryBox,
+                                                    Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                        </Grid>
+
+                        <!-- 候補は触ったときだけ。3Dモデルの子が12件並ぶので、常時出すと縦を食う -->
+                        <ItemsControl ItemsSource="{Binding CategorySuggestions}" Margin="0,6,0,0">
+                            <ItemsControl.Style>
+                                <Style TargetType="ItemsControl">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding HasCategorySuggestions}" Value="True" />
+                                                <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=CategoryBox}" Value="True" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ItemsControl.Style>
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel />
@@ -225,10 +314,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                   Visibility="{Binding HasBoothCategory, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <Run Text="空欄にするとBOOTHの分類「" /><Run Text="{Binding BoothCategory, Mode=OneWay}" /><Run Text="」に戻ります。" />
-                        </TextBlock>
+                        <!-- 「空欄にするとBOOTHの分類に戻ります」は placeholder に移した -->
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
 
@@ -333,7 +419,7 @@
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
                         <!-- 購入記録 -->
-                        <TextBlock Text="購入したバリエーション" FontWeight="Bold" FontSize="13" />
+                        <TextBlock Text="購入した種類" FontWeight="Bold" FontSize="13" />
                         <TextBlock Text="購入に印を付けるとBOOTHの現在価格が入ります。実際の支払額が違うときは書き換えてください。空欄は未入力（支出に数えない）、0は無料配布です。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
@@ -434,6 +520,22 @@
                                   Margin="0,9,0,0" Foreground="{StaticResource Text}" />
 
                         <TextBlock Text="{Binding StatusText}" Foreground="#9a3232" TextWrapping="Wrap" Margin="0,14,0,20" />
+
+                        <!--
+                            **埋め終わった所にも進む道を置く。**上から下へ埋めていく画面なので、
+                            埋め終わった時点で視線と手は下にある。そこから右上まで戻らせていた。
+
+                            上部バーの分は消さない。あちらはキューの進捗と並んでいて、
+                            途中で抜ける道（前へ・終える）も要る。
+                            中身が短い商品では上下に2つ見えるが、それは害にならない
+                        -->
+                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                                <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding SaveAndNextCommand}" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

@@ -482,6 +482,25 @@ public sealed class EditViewModel : ViewModelBase
 
     public bool HasBoothName => BoothName.Length > 0;
 
+    // ---- 空欄のときに欄そのものが名乗る既定 ----
+    //
+    // **空欄は「入力を求めている」と読まれる。**既定が決まっているなら、
+    // 空欄のままで何になるかを placeholder で見せる。
+    // BOOTHから取れていない商品には出す既定が無いので、そのときは
+    // 「入れてください」側の文になる（そこは実際に入力を求めている）。
+
+    public string NamePlaceholder => HasBoothName
+        ? BoothName
+        : "商品名を入れてください（BOOTHから取れていません）";
+
+    public string ShopPlaceholder => _item?.Booth.Shop?.Name is { Length: > 0 } shop
+        ? shop
+        : "ショップ名を入れると、同じショップの商品がまとまります";
+
+    public string CategoryPlaceholder => HasBoothCategory
+        ? BoothCategory
+        : "BOOTHの分類名を入れると、統計と絞り込みに出てきます";
+
     /// <summary>BOOTHに無い商品として登録したもの。名前を空欄にすると仮IDが出てしまう</summary>
     public bool IsLocalOnly => _item?.IsLocalOnly ?? false;
 
@@ -896,7 +915,7 @@ public sealed class EditViewModel : ViewModelBase
             var row = new OrderedVariationInput
             {
                 VariationId = variation.Id,
-                Name = variation.Name ?? "（バリエーションなし）",
+                Name = variation.Name ?? "（1種類のみ）",
                 ListPrice = variation.Price,
                 ListPriceText = $"¥{variation.Price:N0}",
                 IsPurchased = first is not null,
@@ -1226,6 +1245,11 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShopKeyNote));
         OnPropertyChanged(nameof(BoothCategory));
         OnPropertyChanged(nameof(HasBoothCategory));
+
+        // 空欄のときに欄が名乗る既定。商品が変わると中身も変わる
+        OnPropertyChanged(nameof(NamePlaceholder));
+        OnPropertyChanged(nameof(ShopPlaceholder));
+        OnPropertyChanged(nameof(CategoryPlaceholder));
         OnPropertyChanged(nameof(MainImage));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));
