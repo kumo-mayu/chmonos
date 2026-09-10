@@ -144,6 +144,38 @@
                                             <TextBlock Text="{Binding SelectedCheckedText}" Style="{StaticResource Caption}"
                                                        Margin="14,0,0,0" />
                                         </StackPanel>
+
+                                        <!--
+                                            名前が取れない項目のための欄。BOOTHが404を返すと
+                                            商品IDしか出せず、IDと件数だけでは何のことか分からない。
+                                            別名は IsAvatar の判定を通さずに溜まるので、404の項目にも残っている。
+                                        -->
+                                        <StackPanel Margin="6,8,0,0"
+                                                    Visibility="{Binding NeedsName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding ReferencedByText}" Style="{StaticResource Caption}"
+                                                       TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                                                       Visibility="{Binding HasReferencedBy, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                            <StackPanel Margin="0,6,0,0"
+                                                        Visibility="{Binding HasNameSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="呼ばれていた名前（押すと入ります）" Style="{StaticResource Caption}" />
+                                                <ItemsControl ItemsSource="{Binding NameSuggestions}" Margin="0,5,0,0">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Content="{Binding}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                                                                    Command="{Binding DataContext.UseNameSuggestionCommand,
+                                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">

@@ -98,6 +98,9 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 /// </summary>
 public sealed class AvatarsViewModel : ViewModelBase
 {
+    /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
+    private const int MaxNameSuggestions = 5;
+
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
 
@@ -122,6 +125,9 @@ public sealed class AvatarsViewModel : ViewModelBase
         AddAliasCommand = new RelayCommand(() => _ = AddAliasAsync());
         SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync());
         RenameCommand = new RelayCommand(() => _ = RenameAsync());
+        UseNameSuggestionCommand = new RelayCommand(
+            parameter => { if (parameter is string name) { NameInput = name; } },
+            parameter => parameter is string);
         RemoveAliasCommand = new RelayCommand(parameter => _ = RemoveAliasAsync(parameter as string));
         ToggleOwnedCommand = new RelayCommand(() => _ = ToggleOwnedAsync());
         RecheckCommand = new RelayCommand(() => _ = RecheckAsync());
@@ -278,6 +284,8 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText),
                     nameof(SelectedCheckedText), nameof(SelectedBaseNote), nameof(HasSelectedBaseNote),
                     nameof(SelectedBoothName), nameof(HasSelectedBoothName),
+                    nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),
+                    nameof(ReferencedByText), nameof(HasReferencedBy),
                 })
                 {
                     OnPropertyChanged(name);
@@ -287,6 +295,89 @@ public sealed class AvatarsViewModel : ViewModelBase
     }
 
     public bool HasSelection => Selected is not null;
+
+    /// <summary>
+    /// 名前がまだ無いか、商品IDのままの項目か。
+    /// BOOTHが404を返す項目は名前を引けないので、手元の材料から候補を出す。
+    /// </summary>
+    public bool NeedsName => Selected is not null
+        && (string.IsNullOrWhiteSpace(Selected.Summary.Entry.DisplayName)
+            || Selected.Summary.Entry.DisplayName == Selected.ItemId);
+
+    /// <summary>
+    /// 名前の候補。**別名から取る。**
+    ///
+    /// 別名（<c>nameHints</c>）は <c>IsAvatar</c> の判定を通さずに溜まるので、
+    /// 404の項目にも「くうた」「くうた対応」のような呼び名が残っている。
+    ///
+    /// **絞った1つを先頭に出し、残りも並べる。**絞る根拠が弱いから——
+    /// 「対応アバター」節由来は1件ずつしか溜まらないことが多く、回数が並ぶと選べない。
+    /// 1つに絞って外していたらユーザは打ち直すことになる。
+    ///
+    /// <c>ShortenName</c> による切り出しは**別名が1件も無いときの最後の手段**。
+    /// 参照商品の名前をそのまま入れるのは明確に誤り——それは*衣装*の名前で、
+    /// アバターの名前ではない。
+    /// </summary>
+    public IReadOnlyList<string> NameSuggestions
+    {
+        get
+        {
+            if (Selected is null)
+            {
+                return [];
+            }
+
+            var entry = Selected.Summary.Entry;
+
+            var fromAliases = entry.Aliases
+                .Where(alias => !alias.Rejected && alias.Text.Trim().Length >= 2)
+                .OrderByDescending(alias => alias.Count)
+                .ThenBy(alias => alias.Text.Length)
+                .Select(alias => alias.Text.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .Take(MaxNameSuggestions)
+                .ToList();
+
+            if (fromAliases.Count > 0)
+            {
+                return fromAliases;
+            }
+
+            var shortened = Core.Services.AvatarText.ShortenName(entry.BoothName);
+            return string.IsNullOrWhiteSpace(shortened) || shortened == entry.ItemId
+                ? []
+                : [shortened];
+        }
+    }
+
+    public bool HasNameSuggestions => NameSuggestions.Count > 0;
+
+    /// <summary>
+    /// このアバターを対応先として挙げている所持商品。
+    /// **IDと件数だけでは数字で判断させることになる**ので、商品名を並べる。
+    /// </summary>
+    public string ReferencedByText
+    {
+        get
+        {
+            var names = Selected?.Summary.ReferencedBy ?? [];
+            if (names.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var total = Selected!.Summary.DirectCount;
+            var rest = total - 1;
+
+            return rest > 0
+                ? $"「{names[0]}」ほか {rest} 件が対応先として挙げています"
+                : $"「{names[0]}」が対応先として挙げています";
+        }
+    }
+
+    public bool HasReferencedBy => ReferencedByText.Length > 0;
+
+    public RelayCommand UseNameSuggestionCommand { get; }
 
     public string SelectedName => Selected?.Name ?? string.Empty;
 

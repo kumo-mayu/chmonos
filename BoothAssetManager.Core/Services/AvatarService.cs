@@ -55,6 +55,15 @@ public sealed record AvatarSummary
 
     /// <summary>素体経由で着られる所持商品数。</summary>
     public required int ViaBaseCount { get; init; }
+
+    /// <summary>
+    /// このアバターを対応先として挙げている所持商品の名前（直接の対応のみ、先頭から数件）。
+    ///
+    /// **名前が取れないアバターのために持つ。**BOOTHが404を返す項目は
+    /// 商品IDしか出せず、IDと件数だけでは何のことか分からない。
+    /// 「『【くうた対応】School sweater』ほか2件が対応先として挙げています」と読めれば分かる。
+    /// </summary>
+    public IReadOnlyList<string> ReferencedBy { get; init; } = [];
 }
 
 /// <summary>素体グループ1件の一覧表示用。</summary>
@@ -100,6 +109,9 @@ public sealed partial class AvatarService : IAvatarService
 
     /// <summary>「対応アバター」節から挙がったときだけ受け入れるcategory。素体はここに入ることが多い。</summary>
     private static readonly string[] SupportOnlyCategories = ["3Dモデル（その他）"];
+
+    /// <summary>名前の手掛かりに出す参照元の数。並べすぎても読めない。</summary>
+    private const int MaxReferenceNames = 4;
 
     private const string AvatarCategory = "3Dキャラクター";
 
@@ -148,6 +160,7 @@ public sealed partial class AvatarService : IAvatarService
 
         var direct = new Dictionary<string, int>(StringComparer.Ordinal);
         var viaBase = new Dictionary<string, int>(StringComparer.Ordinal);
+        var names = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
         foreach (var item in owned)
         {
@@ -155,6 +168,21 @@ public sealed partial class AvatarService : IAvatarService
             {
                 var bucket = match == AvatarMatch.Direct ? direct : viaBase;
                 bucket[avatarId] = bucket.TryGetValue(avatarId, out var current) ? current + 1 : 1;
+
+                // 名前が取れないアバターの手掛かりになるので、直接の対応だけ名前も控える
+                if (match == AvatarMatch.Direct)
+                {
+                    if (!names.TryGetValue(avatarId, out var list))
+                    {
+                        list = [];
+                        names[avatarId] = list;
+                    }
+
+                    if (list.Count < MaxReferenceNames)
+                    {
+                        list.Add(item.DisplayName);
+                    }
+                }
             }
         }
 
@@ -166,6 +194,7 @@ public sealed partial class AvatarService : IAvatarService
                 IsOwned = entry.IsOwnedManually || ownedIds.Contains(entry.ItemId),
                 DirectCount = direct.TryGetValue(entry.ItemId, out var d) ? d : 0,
                 ViaBaseCount = viaBase.TryGetValue(entry.ItemId, out var v) ? v : 0,
+                ReferencedBy = names.TryGetValue(entry.ItemId, out var n) ? n : [],
             })
             // 「アバターとして扱わない」にしたものも残す。一覧から消すと選べなくなり、
             // 隣にある「自動判定に戻す」を押す手段が無くなる（JSONを手で直すしかなくなる）
