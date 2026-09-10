@@ -53,6 +53,16 @@ public interface IItemService
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 未確定のファイルを「BOOTHに無い商品」として登録する。
+    /// 仮ID（<see cref="LocalItemId"/>）を与えるので、BOOTHへは一切問い合わせない。
+    /// </summary>
+    /// <returns>作った商品のID。対象のファイルが無ければ null。</returns>
+    Task<string?> RegisterLocalItemAsync(
+        string hash,
+        string displayName,
+        CancellationToken cancellationToken = default);
+
     Task<DetachOutcome> DetachFileAsync(
         string itemId,
         string hash,
@@ -86,6 +96,12 @@ public sealed class ItemService : IItemService
     /// </summary>
     public async Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default)
     {
+        // 仮IDはBOOTHに存在しない。叩けば404が返るだけなので、通信する前に降りる
+        if (LocalItemId.IsLocal(itemId))
+        {
+            return RefreshOutcome.NotOnBooth;
+        }
+
         var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
         if (existing is null)
         {
@@ -343,8 +359,17 @@ public sealed class ItemService : IItemService
     /// まだ手元に無い商品をBOOTHから取ってきて保存する。説明HTMLと画像もここで揃える。
     /// ファイル確定とフォルダ登録の両方から使う（どちらも「新しい商品が増える」点は同じ）。
     /// </summary>
+    /// <summary>
+    /// BOOTHから取って新しいitemを作る。**仮IDでは何もしない**——
+    /// 存在しないIDなので、通信するだけ無駄になる。
+    /// </summary>
     private async Task<ItemRecord?> FetchNewItemAsync(string itemId, CancellationToken cancellationToken)
     {
+        if (LocalItemId.IsLocal(itemId))
+        {
+            return null;
+        }
+
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
@@ -561,6 +586,75 @@ public sealed class ItemService : IItemService
     }
 
     /// <summary>
+    /// 未確定のファイルを「BOOTHに無い商品」として登録する。
+    ///
+    /// 非公開・削除済みの商品は、買っていて手元にファイルがあってもIDが分からない。
+    /// 未確定に置き続けると**二度と復活しないものが永久に溜まり、作業一覧が
+    /// 「終わらない仕事」で埋まる。**除外もできない——除外は「これはBOOTH商品ではない」
+    /// に使う語で、入れると統計からも検索からも消えてしまう。
+    ///
+    /// **BOOTHへは一切問い合わせない。**存在しないIDなので、叩けば404が返るだけ。
+    /// <c>Booth.FetchedAt</c> は null のまま——観測していないので、それが正しい。
+    /// <c>NextFetchDueAt</c> も入れない（⑦の対象から自然に外れる）。
+    /// </summary>
+    public async Task<string?> RegisterLocalItemAsync(
+        string hash,
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        var unresolved = _store.Unresolved.Load();
+        var target = unresolved.FirstOrDefault(
+            file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            return null;
+        }
+
+        var itemId = LocalItemId.For(target.Hash);
+
+        var record = new LocalFileRecord
+        {
+            Hash = target.Hash,
+            Paths = target.Paths,
+            SizeBytes = target.SizeBytes,
+            Contents = target.Contents,
+        };
+
+        // 同じファイルを2回登録しようとした場合（未確定に二重に載っていた等）。
+        // 仮IDはハッシュから決まるので、同じ商品に行き着く
+        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (existing is null)
+        {
+            await _store.Items.SaveAsync(
+                new ItemRecord
+                {
+                    Id = itemId,
+                    Booth = new BoothBlock(),
+                    Local = new LocalBlock
+                    {
+                        DisplayName = displayName.Trim(),
+                        LocalFiles = [record],
+                    },
+                },
+                cancellationToken);
+        }
+        else
+        {
+            var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, [record]);
+            await _store.Items.SaveLocalAsync(
+                itemId,
+                existing.Local with { DisplayName = displayName.Trim(), LocalFiles = merged },
+                [LocalField.DisplayName, LocalField.LocalFiles],
+                cancellationToken: cancellationToken);
+        }
+
+        unresolved.Remove(target);
+        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+
+        return itemId;
+    }
+
+    /// <summary>
     /// ファイルをこの商品から外し、未確定へ戻す。
     ///
     /// **IDは書き換えない。**商品IDはファイル名にもフォルダ名にもなっていて、
@@ -712,6 +806,9 @@ public sealed class ItemService : IItemService
 public enum RefreshOutcome
 {
     Updated,
+
+    /// <summary>BOOTHに無い商品として登録したもの。問い合わせていない。</summary>
+    NotOnBooth,
     NotFound,
     Delisted,
     TemporaryFailure,

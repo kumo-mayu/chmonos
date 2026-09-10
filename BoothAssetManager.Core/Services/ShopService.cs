@@ -191,7 +191,7 @@ public sealed class ShopService : IShopService
                 };
             })
             .OrderByDescending(entry => entry.AcquiredAt ?? DateOnly.MinValue)
-            .ThenBy(entry => entry.Item.Booth.Name, StringComparer.CurrentCulture)
+            .ThenBy(entry => entry.Item.DisplayName, StringComparer.CurrentCulture)
             .ToList();
     }
 

@@ -140,7 +140,7 @@ public sealed class NotificationService : INotificationService
                 Id = id,
                 Kind = NotificationKind.OrphanTag,
                 ItemId = item.Id,
-                Title = $"{item.Booth.Name ?? item.Id}：マスタに無い分類を参照しています",
+                Title = $"{item.DisplayName}：マスタに無い分類を参照しています",
                 Detail = detail,
                 CreatedAt = DateTimeOffset.Now,
             });

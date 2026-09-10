@@ -166,6 +166,15 @@ public sealed class BoothClient : IBoothClient
 
     public static string ItemPageUrl(string itemId) => $"https://booth.pm/ja/items/{itemId}";
 
+    /// <summary>
+    /// この商品のBOOTHページ。**BOOTHに無い商品として登録したものには無い（null）。**
+    ///
+    /// 仮IDでURLを組むと、存在しない商品の404ページへ送ることになる。
+    /// 「BOOTHで開く」も「リンクをコピー」も、ここがnullなら出さない。
+    /// </summary>
+    public static string? PageUrlFor(ItemRecord item)
+        => item.IsLocalOnly ? null : item.Booth.Url ?? ItemPageUrl(item.Id);
+
     public static string SearchUrl(string query) => $"https://booth.pm/ja/search/{Uri.EscapeDataString(query)}";
 
     public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)

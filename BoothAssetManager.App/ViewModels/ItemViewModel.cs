@@ -121,16 +121,21 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← 検索に戻る";
         BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowSearch)());
 
-        RefreshCommand = new RelayCommand(() => _ = RefreshAsync(), () => !IsRefreshing);
+        // 仮IDの商品はBOOTHに存在しない。押せてしまうと「取り直したのに何も変わらない」
+        // という説明の付かない結果になるので、押せなくして理由をツールチップに置く
+        RefreshCommand = new RelayCommand(
+            () => _ = RefreshAsync(),
+            () => !IsRefreshing && !item.IsLocalOnly);
 
         // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）。
         // 戻り先はこの商品ページにする。ショップ一覧へ返すと、来た道と違う場所に出てしまう
         OpenShopCommand = new RelayCommand(
             () => _ = main.ShowShopAsync(
                 item.Booth.Shop!.Subdomain,
-                (item.Booth.Name ?? "商品", () => main.ShowItem(item, back))),
+                (item.DisplayName, () => main.ShowItem(item, back))),
             () => item.Booth.Shop is not null);
-        OpenBoothCommand = new RelayCommand(OpenBooth);
+        // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
+        OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
@@ -195,6 +200,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// 「BOOTHから」と言うことで、**自分で入れたものは変わらない**ことも同時に伝わる。
     /// </summary>
     public string RefreshButtonText => IsRefreshing ? "取り直しています…" : "BOOTHから取り直す";
+
+    public string OpenBoothTip => Item.IsLocalOnly
+        ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
+        : "BOOTHの商品ページをブラウザで開きます。";
+
+    public string RefreshButtonTip => Item.IsLocalOnly
+        ? "BOOTHに無い商品として登録したものなので、取り直せません。"
+        : "商品名・価格・バリエーション・説明文・画像をBOOTHから取り直します。"
+            + "\nメモや分類など自分で入れたものは変わりません。";
 
     public string RefreshStatus
     {
@@ -378,7 +392,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public ObservableCollection<LocalFileRow> LocalFiles { get; } = [];
 
-    public string Name => Item.Booth.Name ?? Item.Id;
+    public string Name => Item.DisplayName;
 
     public string ShopName => Item.Booth.Shop?.Name ?? "(ショップ不明)";
 
@@ -391,6 +405,29 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             : $"{Item.Booth.Category.ParentName} / {Item.Booth.Category.Name}";
 
     public string IdText => $"ID {Item.Id}";
+
+    /// <summary>
+    /// BOOTHに無い商品として登録したもの。**BOOTHへは問い合わせない。**
+    /// 商品ページに常設で出す——登録時に言うだけでは、半年後に
+    /// 「なぜこの商品だけ情報が増えないのか」の理由が思い出せない。
+    /// </summary>
+    public bool IsLocalOnly => Item.IsLocalOnly;
+
+    /// <summary>名前をユーザが付けたか。観測と入力の区別を隠さない。</summary>
+    public bool HasUserName => Item.Local.DisplayName is { Length: > 0 };
+
+    /// <summary>
+    /// ユーザが名付けたことを示す1行。BOOTHの名前も取れているなら並べて出す
+    /// （どちらの名前で覚えていても辿り着けるように）。
+    /// </summary>
+    public string UserNameNotice => Item.Booth.Name is { Length: > 0 } booth
+        ? $"この名前は自分で付けたものです。BOOTHでの名前は「{booth}」"
+        : "この名前は自分で付けたものです";
+
+    public string LocalOnlyNotice
+        => $"BOOTHに無い商品として登録しています（仮のID {Item.Id}）。"
+            + "BOOTHから情報を取り直さないので、名前も画像も増えません。";
+
 
     public string PublishedText => Item.Booth.PublishedAt is null
         ? string.Empty
@@ -1050,8 +1087,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     private void OpenBooth()
     {
-        var url = Item.Booth.Url ?? BoothClient.ItemPageUrl(Item.Id);
-        TryStart(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        if (BoothClient.PageUrlFor(Item) is { } url)
+        {
+            TryStart(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
     }
 
     /// <summary>エクスプローラで開いて、そのファイルを選択した状態にする。</summary>

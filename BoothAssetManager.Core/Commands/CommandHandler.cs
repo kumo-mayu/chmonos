@@ -70,6 +70,13 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(assign.ItemId)
                     : new CommandResult.Failed($"商品ID {assign.ItemId} を確定できませんでした。");
 
+            case UiCommand.RegisterLocalItem local:
+                var localId = await _items.RegisterLocalItemAsync(
+                    local.Hash, local.DisplayName, cancellationToken);
+                return localId is not null
+                    ? new CommandResult.ItemSaved(localId)
+                    : new CommandResult.Failed("対象のファイルが未確定に見つかりませんでした。");
+
             case UiCommand.RefreshItem refresh:
                 var outcome = await _items.RefreshAsync(refresh.ItemId, cancellationToken);
 
@@ -88,6 +95,8 @@ public sealed class CommandHandler
                     RefreshOutcome.Delisted => new CommandResult.Failed("非公開または削除済みと判定しました。"),
                     RefreshOutcome.TemporaryFailure => new CommandResult.Failed("一時的に取得できませんでした。次回に再試行します。"),
                     RefreshOutcome.Missing => new CommandResult.Failed("対象のitemがローカルにありません。"),
+                    RefreshOutcome.NotOnBooth =>
+                        new CommandResult.Failed("BOOTHに無い商品として登録したものなので、取り直せません。"),
                     _ => new CommandResult.Failed("不明な結果です。"),
                 };
 

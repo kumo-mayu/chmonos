@@ -16,6 +16,22 @@ public sealed record ItemRecord
 
     public required LocalBlock Local { get; init; }
 
+    /// <summary>
+    /// 画面に出す名前。**ユーザが付けた名前を優先する。**
+    ///
+    /// BOOTHから取れない商品はユーザが名付けるしかなく、
+    /// 後でBOOTHが復活しても、その人が選んだ呼び方の方が探しやすい。
+    /// ユーザによる命名であることは画面側で明記する（<c>Local.DisplayName is not null</c>）。
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayName => Local.DisplayName ?? Booth.Name ?? Id;
+
+    /// <summary>
+    /// BOOTHに無い商品として登録したものか。**BOOTHへは問い合わせない。**
+    /// </summary>
+    [JsonIgnore]
+    public bool IsLocalOnly => LocalItemId.IsLocal(Id);
+
     /// <summary>ファイルを1つ以上持っているか。全画面で「所持している」の定義に使う。</summary>
     [JsonIgnore]
     public bool IsDownloaded => Local.LocalFiles.Count > 0;

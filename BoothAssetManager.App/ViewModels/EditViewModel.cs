@@ -180,6 +180,7 @@ public sealed class EditViewModel : ViewModelBase
     private int _remainingSeconds;
     private ItemRecord? _item;
     private string _memo = string.Empty;
+    private string _displayName = string.Empty;
     private string _acquiredAt = string.Empty;
     private bool _notifyOnUpdate = true;
     private bool _isHidden;
@@ -197,7 +198,8 @@ public sealed class EditViewModel : ViewModelBase
         SkipCommand = new RelayCommand(() => _ = AdvanceAsync(), () => HasItem && !IsSaving);
         BackCommand = new RelayCommand(GoBack, () => _index > 0);
         FinishCommand = new RelayCommand(() => _ = FinishAsync());
-        OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem);
+        // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
+        OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem && !IsLocalOnly);
         AddTagCommand = new RelayCommand(parameter => _ = AddTagAsync(parameter as string));
         AddAttributeCommand = new RelayCommand(parameter => _ = AddAttributeAsync(parameter as string));
         StayCommand = new RelayCommand(StopReturnTimer);
@@ -247,7 +249,7 @@ public sealed class EditViewModel : ViewModelBase
 
     public double StepProgress => _queue.Count == 0 ? 0 : (double)_index / _queue.Count * 100;
 
-    public string Name => _item?.Booth.Name ?? string.Empty;
+    public string Name => _item?.DisplayName ?? string.Empty;
 
     public string ShopName => _item?.Booth.Shop?.Name ?? string.Empty;
 
@@ -334,6 +336,28 @@ public sealed class EditViewModel : ViewModelBase
         get => _memo;
         set => SetField(ref _memo, value);
     }
+
+    /// <summary>
+    /// 自分で付ける商品名。BOOTHから取れない商品はこれしか名前が無い。
+    /// 空欄ならBOOTHの名前に戻る（消せるようにしておかないと、付けた名前を取り消せない）。
+    /// </summary>
+    public string DisplayName
+    {
+        get => _displayName;
+        set => SetField(ref _displayName, value);
+    }
+
+    /// <summary>BOOTHから取れている名前。入力欄の下に出して、何に戻るのかを見せる。</summary>
+    public string BoothName => _item?.Booth.Name ?? string.Empty;
+
+    public bool HasBoothName => BoothName.Length > 0;
+
+    /// <summary>BOOTHに無い商品として登録したもの。名前を空欄にすると仮IDが出てしまう</summary>
+    public bool IsLocalOnly => _item?.IsLocalOnly ?? false;
+
+    public string OpenBoothTip => IsLocalOnly
+        ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
+        : "BOOTHの商品ページをブラウザで開きます。";
 
     /// <summary>入手日。空欄ならファイルの日付にフォールバックする（保存時にnullを書く）。</summary>
     public string AcquiredAt
@@ -466,6 +490,7 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         Memo = record.Local.Memo ?? string.Empty;
+        DisplayName = record.Local.DisplayName ?? string.Empty;
         AcquiredAt = record.Local.AcquiredAt?.ToString("yyyy-MM-dd") ?? string.Empty;
         OnPropertyChanged(nameof(AcquiredHintText));
         NotifyOnUpdate = record.Local.NotifyOnUpdate;
@@ -812,6 +837,7 @@ public sealed class EditViewModel : ViewModelBase
         {
             UserTags = userTags,
             Attributes = attributes,
+            DisplayName = string.IsNullOrWhiteSpace(DisplayName) ? null : DisplayName.Trim(),
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
             Purchases = ordered,
             AcquiredAt = DateOnly.TryParse(AcquiredAt.Trim(), out var date) ? date : null,
@@ -923,7 +949,11 @@ public sealed class EditViewModel : ViewModelBase
             return;
         }
 
-        var url = _item.Booth.Url ?? BoothClient.ItemPageUrl(_item.Id);
+        if (BoothClient.PageUrlFor(_item) is not { } url)
+        {
+            return;
+        }
+
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -948,6 +978,10 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(Name));
         OnPropertyChanged(nameof(ShopName));
         OnPropertyChanged(nameof(CategoryText));
+        OnPropertyChanged(nameof(BoothName));
+        OnPropertyChanged(nameof(HasBoothName));
+        OnPropertyChanged(nameof(IsLocalOnly));
+        OnPropertyChanged(nameof(OpenBoothTip));
         OnPropertyChanged(nameof(MainImage));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));

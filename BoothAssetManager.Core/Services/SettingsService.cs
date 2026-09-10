@@ -153,7 +153,7 @@ public sealed class SettingsService : ISettingsService
             .Select(item => new HiddenItem
             {
                 ItemId = item.Id,
-                Name = item.Booth.Name ?? item.Id,
+                Name = item.DisplayName,
             })
             .OrderBy(item => item.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -220,7 +220,7 @@ public sealed class SettingsService : ISettingsService
             {
                 Hash = entry.Hash,
                 ItemId = entry.ItemId,
-                ItemName = item?.Booth.Name ?? entry.ItemId,
+                ItemName = item?.DisplayName ?? entry.ItemId,
                 Path = entry.Paths.FirstOrDefault() ?? entry.Hash,
                 DetachedAt = entry.DetachedAt,
             });

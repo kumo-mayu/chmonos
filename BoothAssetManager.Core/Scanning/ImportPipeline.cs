@@ -405,7 +405,7 @@ public sealed class ImportPipeline : IImportPipeline
             Id = id,
             Kind = NotificationKind.ArchiveFoundForFolder,
             ItemId = item.Id,
-            Title = $"{item.Booth.Name ?? item.Id}：zipが手元に入りました",
+            Title = $"{item.DisplayName}：zipが手元に入りました",
             Detail = $"フォルダ登録は不要になりました。{Path.GetFileName(archivePath)} を取り込めば、"
                 + $"展開先（{Path.GetFileName(folderPath)}）は自動で対象から外れます。"
                 + "商品ページからフォルダの登録を解除してください（このままだと容量が二重に数えられます）。",

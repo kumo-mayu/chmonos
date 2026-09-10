@@ -292,7 +292,7 @@ public sealed class ShopViewModel : ViewModelBase
                 _thumbnails,
                 _services.Paths.ItemImagesDir(entry.Item.Id))
             {
-                Name = entry.Item.Booth.Name ?? entry.Item.Id,
+                Name = entry.Item.DisplayName,
                 // カードの2行目は入手日にする。ショップ画面では店名が全部同じで意味が無い
                 ShopName = AcquiredText(entry),
                 SizeText = entry.IsOwned ? FormatSize(entry.SizeBytes) : "未取得",

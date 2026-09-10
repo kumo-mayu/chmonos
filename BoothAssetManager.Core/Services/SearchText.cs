@@ -23,6 +23,9 @@ public static class SearchText
     public static SearchHaystack Build(ItemRecord item, Search.KanjiReadings? readings = null)
     {
         var primary = new StringBuilder();
+
+        // 名前は両方入れる。ユーザが付けた名前でも、BOOTHの名前でも探せるように
+        Append(primary, item.Local.DisplayName);
         Append(primary, item.Booth.Name);
         Append(primary, item.Booth.Shop?.Name);
         Append(primary, item.Booth.Shop?.Subdomain);
@@ -53,11 +56,19 @@ public static class SearchText
 
         // 商品名の読み。辞書に載っていない造語（撫で音）はここでしか作れない
         var reading = new StringBuilder();
-        if (readings is not null && item.Booth.Name is { Length: > 0 } name)
+        if (readings is not null)
         {
-            foreach (var text in readings.Of(name))
+            foreach (var name in new[] { item.Local.DisplayName, item.Booth.Name })
             {
-                Append(reading, text);
+                if (name is not { Length: > 0 })
+                {
+                    continue;
+                }
+
+                foreach (var text in readings.Of(name))
+                {
+                    Append(reading, text);
+                }
             }
         }
 

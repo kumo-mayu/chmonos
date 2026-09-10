@@ -24,9 +24,10 @@
                                Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 外部で更新を知ったときに、次回更新予定を待たずに取り直せるようにする -->
                     <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,0,8,0"
-                            ToolTip="商品名・価格・バリエーション・説明文・画像をBOOTHから取り直します。&#10;メモや分類など自分で入れたものは変わりません。" />
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
                     <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0" />
-                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" />
+                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -213,6 +214,14 @@
                             <Border Height="1" Background="#f0f1f4" Margin="0,10,0,14" />
 
                             <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
+
+                            <!--
+                                ユーザが付けた名前であることは隠さない。
+                                BOOTHの名前も取れているなら並べて出す（どちらで覚えていても辿り着けるように）
+                            -->
+                            <TextBlock Text="{Binding UserNameNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Visibility="{Binding HasUserName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 作者名からはアプリ内のショップ画面へ。外部BOOTHには飛ばさない -->
                             <TextBlock Margin="0,8,0,0">
                                 <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}"
@@ -226,6 +235,17 @@
                                 <TextBlock Text="{Binding PublishedText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
                                 <TextBlock Text="{Binding WishText}" Style="{StaticResource Mono}" FontSize="11" />
                             </StackPanel>
+
+                            <!--
+                                登録時に言うだけでは半年後に理由を思い出せないので、常設で1行出す。
+                                「BOOTHから取り直す」も押せなくしてあり、理由は同じ文をツールチップに置いている
+                            -->
+                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,12,0,0"
+                                    Visibility="{Binding IsLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="{Binding LocalOnlyNotice}" TextWrapping="Wrap"
+                                           FontSize="12" Foreground="{StaticResource Warn}" />
+                            </Border>
                         </StackPanel>
                     </Border>
 

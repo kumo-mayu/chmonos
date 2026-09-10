@@ -98,6 +98,7 @@ public sealed class ResolveViewModel : ViewModelBase
 
     private UnresolvedRow? _selected;
     private string _itemIdInput = string.Empty;
+    private string _localNameInput = string.Empty;
     private ItemPreview? _preview;
     private string _statusText = string.Empty;
     private bool _isBusy;
@@ -120,6 +121,9 @@ public sealed class ResolveViewModel : ViewModelBase
         UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow);
         AssignCommand = new RelayCommand(() => _ = AssignAsync(), () => HasPreview && HasSelection && !IsBusy);
         ExcludeCommand = new RelayCommand(() => _ = ExcludeAsync(), () => HasSelection && !IsBusy);
+        RegisterLocalCommand = new RelayCommand(
+            () => _ = RegisterLocalAsync(),
+            () => HasSelection && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
@@ -351,6 +355,8 @@ public sealed class ResolveViewModel : ViewModelBase
 
     public RelayCommand ExcludeCommand { get; }
 
+    public RelayCommand RegisterLocalCommand { get; }
+
     public RelayCommand SendSettledToEditCommand { get; }
 
     public RelayCommand OpenBoothCommand { get; }
@@ -401,6 +407,26 @@ public sealed class ResolveViewModel : ViewModelBase
             }
         }
     }
+
+    /// <summary>
+    /// BOOTHに無い商品として登録するときの名前。
+    /// 選び直すたびにファイル名から下書きを入れる（そのままでも通るように）。
+    /// </summary>
+    public string LocalNameInput
+    {
+        get => _localNameInput;
+        set
+        {
+            if (SetField(ref _localNameInput, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>登録したときに付く仮ID。押す前に見せる（何が起きるかを隠さない）。</summary>
+    public string LocalIdPreview
+        => Selected is null ? string.Empty : LocalItemId.For(Selected.File.Hash);
 
     public bool CanPreview => ItemIdInput.Trim().Length > 0;
 
@@ -772,6 +798,12 @@ public sealed class ResolveViewModel : ViewModelBase
         Preview = null;
         StatusText = string.Empty;
 
+        // 名前は下書きを入れておく。そのままでも通る形にしておかないと、
+        // 「登録できる」と言いながら毎回入力を強いることになる
+        LocalNameInput = Selected is null
+            ? string.Empty
+            : BoothAssetManager.Core.Resolution.FileNameQuery.ToNameDraft(Selected.FileName);
+
         Candidates.Clear();
         foreach (var id in Selected?.File.CandidateItemIds ?? [])
         {
@@ -797,6 +829,7 @@ public sealed class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(ZoneText));
         OnPropertyChanged(nameof(HasZone));
         OnPropertyChanged(nameof(HasStatus));
+        OnPropertyChanged(nameof(LocalIdPreview));
         RelayCommand.RaiseCanExecuteChanged();
     }
 
@@ -1041,6 +1074,67 @@ public sealed class ResolveViewModel : ViewModelBase
             if (!_settledItemIds.Contains(itemId))
             {
                 _settledItemIds.Add(itemId);
+            }
+
+            AfterSettled();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// 未確定の第三の出口。**BOOTHに無い商品として登録する。**
+    ///
+    /// 確定（BOOTHから取れる）でも除外（BOOTH商品ではない）でもないものが実在する——
+    /// 非公開・削除済みになった商品を買っていた場合。
+    /// 未確定に置き続けると二度と復活しないものが永久に溜まり、
+    /// 除外に入れると統計からも検索からも消える。
+    ///
+    /// **更新が走らないことは、押す前に言う。**半年後に
+    /// 「なぜこの商品だけ情報が増えないのか」にならないよう、商品ページにも常設で出す。
+    /// </summary>
+    private async Task RegisterLocalAsync()
+    {
+        if (Selected is null || string.IsNullOrWhiteSpace(LocalNameInput))
+        {
+            return;
+        }
+
+        var name = LocalNameInput.Trim();
+        var answer = System.Windows.MessageBox.Show(
+            $"{Selected.FileName} を「{name}」として登録します。\n\n"
+            + $"BOOTHには無い商品なので、仮のID（{LocalIdPreview}）を付けます。\n"
+            + "この商品はBOOTHから情報を取り直しません（名前も画像も増えません）。\n\n"
+            + "あとで本物の商品IDが分かったら、商品ページでファイルを外して付け直せます。",
+            "BOOTHに無い商品として登録する",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(
+                new UiCommand.RegisterLocalItem(Selected.File.Hash, name));
+
+            if (result is CommandResult.Failed failed)
+            {
+                StatusText = failed.Message;
+                OnPropertyChanged(nameof(HasStatus));
+                return;
+            }
+
+            // 確定と同じ扱いで溜める。まとめて編集へ送れば、支払額もそのまま入れられる
+            if (result is CommandResult.ItemSaved saved && !_settledItemIds.Contains(saved.ItemId))
+            {
+                _settledItemIds.Add(saved.ItemId);
             }
 
             AfterSettled();

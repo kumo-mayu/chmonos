@@ -23,7 +23,8 @@
                                  Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0" />
+                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
                     <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
                     <Button Content="この件は飛ばす" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
@@ -141,6 +142,27 @@
                     BorderBrush="{StaticResource Border}" BorderThickness="1,0,0,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
                     <StackPanel>
+
+                        <!--
+                            商品名。BOOTHから取れない商品はこれしか名前が無い。
+                            取れている商品でも変えられるようにしてあるので、
+                            空欄にしたら何に戻るのかを必ず下に出す。
+                        -->
+                        <TextBlock Text="商品名" FontWeight="Bold" FontSize="13" />
+                        <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,7,0,0" />
+
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                   Visibility="{Binding HasBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <Run Text="空欄にするとBOOTHの名前「" /><Run Text="{Binding BoothName, Mode=OneWay}" /><Run Text="」に戻ります。どちらの名前でも検索できます。" />
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                   Foreground="{StaticResource Warn}"
+                                   Text="BOOTHに無い商品なので、空欄にすると仮のIDが名前の代わりに出ます。"
+                                   Visibility="{Binding IsLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                        <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
 
                         <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
                         <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" />

@@ -9,6 +9,15 @@ namespace BoothAssetManager.Core.Models;
 /// </summary>
 public sealed record LocalBlock
 {
+    /// <summary>
+    /// ユーザが付けた商品名。BOOTHから取れない商品のために持つ。
+    ///
+    /// 観測（<c>Booth.Name</c>）とは別に置く。BOOTHが復活しても両方残り、どちらも捨てずに済む。
+    /// 画面には**こちらを優先して出し、ユーザによる命名であることを明記する**
+    /// （<c>AvatarRegistryEntry.DisplayName</c> と同じ形）。検索は両方の名前を対象にする。
+    /// </summary>
+    public string? DisplayName { get; init; }
+
     /// <summary>userTagの割当て。トップレベルは複数選べ、サブはトップごとに従属する。</summary>
     public IReadOnlyList<UserTagAssignment> UserTags { get; init; } = [];
 

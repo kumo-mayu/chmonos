@@ -369,6 +369,38 @@
                             </StackPanel>
 
                             <!--
+                                第三の出口。確定でも除外でもないものが実在する——
+                                非公開・削除済みになった商品を買っていた場合。
+                                除外は「これはBOOTH商品ではない」に使う語なので、
+                                入れると統計からも検索からも消えてしまう。
+                            -->
+                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="BOOTHに無い商品として登録する" FontWeight="Bold" FontSize="12.5" />
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                               Text="非公開・削除済みで商品IDが分からないもの。名前を付けて手元の商品として登録します。" />
+
+                                    <TextBox Margin="0,10,0,0"
+                                             Text="{Binding LocalNameInput, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0">
+                                        <Run Text="仮のID" />
+                                        <Run Text="{Binding LocalIdPreview, Mode=OneWay}" FontFamily="Consolas" />
+                                        <Run Text="を付けます。" />
+                                    </TextBlock>
+
+                                    <!-- 押す前に言う。商品ページにも常設で出す（半年後に理由を思い出せるように） -->
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                               Foreground="{StaticResource Warn}"
+                                               Text="この商品はBOOTHから情報を取り直しません。名前も画像も増えません。" />
+
+                                    <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            Command="{Binding RegisterLocalCommand}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!--
                                 選択中だけ出る一括操作。
                                 展開先の中身が10件以上並ぶことがあり、1件ずつでは捌けない。
                             -->

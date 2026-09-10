@@ -30,6 +30,12 @@ public abstract record UiCommand
     /// <summary>未確定ファイルに商品IDを与えて確定させる。</summary>
     public record AssignItemId(string Hash, string ItemId) : UiCommand;
 
+    /// <summary>
+    /// 未確定ファイルを「BOOTHに無い商品」として登録する。
+    /// 仮IDを与えるので、BOOTHへは問い合わせない。
+    /// </summary>
+    public record RegisterLocalItem(string Hash, string DisplayName) : UiCommand;
+
     /// <summary>1件のitemをBOOTHから取り直す。</summary>
     public record RefreshItem(string ItemId) : UiCommand;
 

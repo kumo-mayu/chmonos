@@ -89,6 +89,22 @@ public static partial class FileNameQuery
         return results.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>
+    /// ファイル名から、商品名の下書きを作る。
+    /// 拡張子と末尾のバージョンを落とすだけ——**分かち書きにはしない。**
+    /// 人がそのまま直して使うものなので、検索語のように崩すと直す手間が増える。
+    /// </summary>
+    public static string ToNameDraft(string fileNameOrPath)
+    {
+        var name = Path.GetFileNameWithoutExtension(fileNameOrPath.Trim());
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return string.Empty;
+        }
+
+        return TrimTrailingVersion(name).Trim(' ', '_', '-', '.');
+    }
+
     /// <summary>末尾のバージョンを繰り返し落とす（Tori_v1_1_1 → Tori）。</summary>
     private static string TrimTrailingVersion(string name)
     {

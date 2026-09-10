@@ -47,7 +47,7 @@ public static class StatsExtras
                 .Select(item => new StatsHeavyItem
                 {
                     ItemId = item.Id,
-                    Name = item.Booth.Name ?? item.Id,
+                    Name = item.DisplayName,
                     Bytes = PhysicalSizeOf(item),
                 })
                 .Where(entry => entry.Bytes > 0)
@@ -116,7 +116,7 @@ public static class StatsExtras
                 result.Add(new StatsPriceChange
                 {
                     ItemId = item.Id,
-                    Name = item.Booth.Name ?? item.Id,
+                    Name = item.DisplayName,
                     PaidYen = paid,
                     CurrentYen = now,
                 });

@@ -8,6 +8,7 @@ namespace BoothAssetManager.Core.Models;
 /// </summary>
 public enum LocalField
 {
+    DisplayName,
     UserTags,
     Attributes,
     Memo,
@@ -51,6 +52,7 @@ public static class LocalFields
         {
             result = field switch
             {
+                LocalField.DisplayName => result with { DisplayName = incoming.DisplayName },
                 LocalField.UserTags => result with { UserTags = incoming.UserTags },
                 LocalField.Attributes => result with { Attributes = incoming.Attributes },
                 LocalField.Memo => result with { Memo = incoming.Memo },
@@ -89,6 +91,7 @@ public static class LocalOwners
     /// <summary>編集画面。人が決めるものだけ。</summary>
     public static readonly IReadOnlyCollection<LocalField> EditScreen =
     [
+        LocalField.DisplayName,
         LocalField.UserTags,
         LocalField.Attributes,
         LocalField.Memo,

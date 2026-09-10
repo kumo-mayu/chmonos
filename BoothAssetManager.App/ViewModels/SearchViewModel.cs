@@ -461,7 +461,11 @@ public sealed class SearchViewModel : ViewModelBase
     {
         if (card is not null)
         {
-            Shell.OpenUrl(card.Item.Booth.Url ?? Core.Booth.BoothClient.ItemPageUrl(card.Item.Id));
+            // BOOTHに無い商品には送り先が無い（押しても何も起きないのが正しい）
+            if (Core.Booth.BoothClient.PageUrlFor(card.Item) is { } url)
+            {
+                Shell.OpenUrl(url);
+            }
         }
     }
 
@@ -478,7 +482,10 @@ public sealed class SearchViewModel : ViewModelBase
             return;
         }
 
-        var url = card.Item.Booth.Url ?? Core.Booth.BoothClient.ItemPageUrl(card.Item.Id);
+        if (Core.Booth.BoothClient.PageUrlFor(card.Item) is not { } url)
+        {
+            return;
+        }
 
         try
         {
@@ -853,7 +860,7 @@ public sealed class SearchViewModel : ViewModelBase
             var loaded = await _services.Store.Items.LoadAllAsync();
             _allItems = loaded.Items
                 .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
-                .ThenBy(item => item.Booth.Name, StringComparer.CurrentCulture)
+                .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
                 .ToList();
 
             // 検索対象の文字列はここで作る。正規化は全商品の説明文を畳むので、
@@ -1646,7 +1653,7 @@ public sealed class SearchViewModel : ViewModelBase
                 .ToList();
             var unrated = items
                 .Where(item => !item.Local.Attributes.ContainsKey(attributeName))
-                .OrderBy(item => item.Booth.Name, StringComparer.CurrentCulture);
+                .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture);
 
             var ordered = sort.Descending
                 ? rated.OrderByDescending(item => item.Local.Attributes[attributeName])
@@ -1658,8 +1665,8 @@ public sealed class SearchViewModel : ViewModelBase
         return sort.Kind switch
         {
             SortKind.Name => sort.Descending
-                ? items.OrderByDescending(item => item.Booth.Name, StringComparer.CurrentCulture)
-                : items.OrderBy(item => item.Booth.Name, StringComparer.CurrentCulture),
+                ? items.OrderByDescending(item => item.DisplayName, StringComparer.CurrentCulture)
+                : items.OrderBy(item => item.DisplayName, StringComparer.CurrentCulture),
             SortKind.Size => sort.Descending
                 ? items.OrderByDescending(item => item.LogicalSizeBytes)
                 : items.OrderBy(item => item.LogicalSizeBytes),
@@ -1668,9 +1675,9 @@ public sealed class SearchViewModel : ViewModelBase
                 : items.OrderBy(item => item.Booth.WishListsCount),
             _ => sort.Descending
                 ? items.OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
-                    .ThenBy(item => item.Booth.Name, StringComparer.CurrentCulture)
+                    .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
                 : items.OrderBy(item => item.Local.AcquiredAt ?? DateOnly.MaxValue)
-                    .ThenBy(item => item.Booth.Name, StringComparer.CurrentCulture),
+                    .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture),
         };
     }
 
@@ -1681,7 +1688,7 @@ public sealed class SearchViewModel : ViewModelBase
 
         return new ItemCardViewModel(item, _thumbnails, _services.Paths.ItemImagesDir(item.Id))
         {
-            Name = item.Booth.Name ?? item.Id,
+            Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
             SizeText = item.IsDownloaded ? FormatSize(item.LogicalSizeBytes) : "未取得",
             IsOwned = item.IsDownloaded,

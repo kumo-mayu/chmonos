@@ -1,4 +1,5 @@
 using BoothAssetManager.Core.Commands;
+using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Scanning;
 using BoothAssetManager.Core.Services;
 using Xunit;
@@ -65,6 +66,12 @@ public class CommandHandlerTests
             RefreshedItemId = itemId;
             return Task.FromResult(Outcome);
         }
+
+        public Task<string?> RegisterLocalItemAsync(
+            string hash,
+            string displayName,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(LocalItemId.For(hash));
 
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
         {

@@ -39,6 +39,9 @@ public sealed class DueRefresh
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
         return loaded.Items
+            // 仮IDはBOOTHに存在しないので対象にしない。予定日も入れていないが、
+            // 手でJSONを書いた場合に備えて、ここでも弾いておく
+            .Where(item => !item.IsLocalOnly)
             .Where(item => item.Local.NextFetchDueAt is { } due && due <= now)
             .OrderBy(item => item.Local.NextFetchDueAt!.Value)
             .Select(item => item.Id)
