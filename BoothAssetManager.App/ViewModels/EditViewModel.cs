@@ -16,7 +16,12 @@ public sealed class OrderedVariationInput : ViewModelBase
     private string _price = string.Empty;
     private PurchaseKind _kind = PurchaseKind.ForSelf;
 
-    public required long VariationId { get; init; }
+    /// <summary>
+    /// どのバリエーションの行か。**null は「どのバリエーションも指していない」購入の行。**
+    /// BOOTHから取れない商品にはバリエーションが1件も無く、
+    /// バリエーション単位の販売終了でも後から記録を入れる行が無くなる。
+    /// </summary>
+    public long? VariationId { get; init; }
 
     public required string Name { get; init; }
 
@@ -619,14 +624,14 @@ public sealed class EditViewModel : ViewModelBase
 
         // 同じ版を複数回買った記録がありうるので、版ごとにまとめる。
         // 1件目は版の行そのもの、2件目以降は行の下にぶら下げる
-        var ordered = record.Local.Purchases
-            .GroupBy(purchase => purchase.VariationId)
-            .ToDictionary(group => group.Key, group => group.ToList());
+        // ToLookup は null の鍵を持てる（ToDictionary は持てない）。
+        // 「どのバリエーションも指していない」記録がここに入る
+        var ordered = record.Local.Purchases.ToLookup(purchase => purchase.VariationId);
 
         foreach (var variation in record.Booth.Variations)
         {
-            var purchased = ordered.TryGetValue(variation.Id, out var group);
-            var first = group?.FirstOrDefault();
+            var group = ordered[variation.Id].ToList();
+            var first = group.FirstOrDefault();
 
             var row = new OrderedVariationInput
             {
@@ -634,33 +639,56 @@ public sealed class EditViewModel : ViewModelBase
                 Name = variation.Name ?? "（バリエーションなし）",
                 ListPrice = variation.Price,
                 ListPriceText = $"¥{variation.Price:N0}",
-                IsPurchased = purchased,
+                IsPurchased = first is not null,
                 Price = first?.Price?.ToString() ?? string.Empty,
                 Kind = first?.Kind ?? PurchaseKind.ForSelf,
             };
 
-            AttachExtras(row, group?.Skip(1));
+            AttachExtras(row, group.Skip(1));
             Variations.Add(row);
         }
 
-        // BOOTH側から消えた購入記録も、支出の記録として残っているので出す
-        var currentIds = record.Booth.Variations.Select(variation => variation.Id).ToHashSet();
-        foreach (var group in ordered.Where(pair => !currentIds.Contains(pair.Key)))
+        // BOOTH側から消えた購入記録も、支出の記録として残っているので出す。
+        // バリエーションを指していない記録（null）もここへ落ちる——
+        // 指す先が無いので「現存する」側には入らない
+        var currentIds = record.Booth.Variations.Select(variation => (long?)variation.Id).ToHashSet();
+        foreach (var group in ordered.Where(entry => !currentIds.Contains(entry.Key)))
         {
-            var first = group.Value[0];
+            var purchases = group.ToList();
+            var first = purchases[0];
             var row = new OrderedVariationInput
             {
                 VariationId = group.Key,
-                Name = first.NameSnapshot ?? $"variation {group.Key}",
+                Name = first.NameSnapshot ?? VariationLabel(group.Key),
                 ListPriceText = "-",
-                IsGone = true,
+
+                // 指していない記録は「消えた」わけではない。
+                // 指す先が無いだけなので、現存しない印は付けない
+                IsGone = group.Key is not null,
                 IsPurchased = true,
                 Price = first.Price?.ToString() ?? string.Empty,
                 Kind = first.Kind,
             };
 
-            AttachExtras(row, group.Value.Skip(1));
+            AttachExtras(row, purchases.Skip(1));
             Variations.Add(row);
+        }
+
+        // どのバリエーションも指さない購入を、いつでも足せるようにする。
+        //
+        // BOOTHから取れない商品にはバリエーションが1件も無いので、これが無いと
+        // **買った金額を記録する場所が存在しない**（統計の支出から丸ごと落ちる）。
+        // 普通の商品にも出すのは、**バリエーション単位の販売終了があるため**——
+        // 買ったあとにその版が消えると、後から記録を入れる行が無くなる。
+        if (Variations.All(row => row.VariationId is not null))
+        {
+            Variations.Add(new OrderedVariationInput
+            {
+                VariationId = null,
+                Name = VariationLabel(null),
+                ListPriceText = "-",
+                IsPurchased = false,
+            });
         }
 
         // ここから先の変更はユーザ操作。価格の自動入力を許可する
@@ -688,6 +716,14 @@ public sealed class EditViewModel : ViewModelBase
 
         row.NoteExtrasChanged();
     }
+
+    /// <summary>
+    /// バリエーションの行の名前。**null は「どのバリエーションも指していない」**——
+    /// BOOTHから取れない商品にはバリエーションが1件も無く、
+    /// バリエーション単位の販売終了でも指す先が消える。
+    /// </summary>
+    private static string VariationLabel(long? variationId)
+        => variationId is { } id ? $"variation {id}" : "バリエーションを指定しない購入";
 
     private void AddExtra(
         OrderedVariationInput row,

@@ -97,8 +97,11 @@ public static class StatsExtras
 
             foreach (var record in item.Local.Purchases)
             {
+                // バリエーションを指していない記録は比べられない。
+                // 今いくらかを引く先が無いので、値上がりの判定から外す
                 if (record.Kind != PurchaseKind.ForSelf || record.Price is not { } price
-                    || !current.TryGetValue(record.VariationId, out var nowPrice))
+                    || record.VariationId is not { } variationId
+                    || !current.TryGetValue(variationId, out var nowPrice))
                 {
                     continue;
                 }

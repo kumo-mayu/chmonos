@@ -902,31 +902,36 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private void BuildVariations()
     {
         // 同じ版を複数回買っていることがあるので、版ごとにまとめて回数も出す
-        var ordered = Item.Local.Purchases
-            .GroupBy(record => record.VariationId)
-            .ToDictionary(group => group.Key, group => group.ToList());
+        // ToLookup は null の鍵を持てる（ToDictionary は持てない）。
+        // 「どのバリエーションも指していない」記録がここに入る
+        var ordered = Item.Local.Purchases.ToLookup(record => record.VariationId);
 
         foreach (var variation in Item.Booth.Variations)
         {
-            var purchased = ordered.TryGetValue(variation.Id, out var group);
+            var group = ordered[variation.Id].ToList();
             Variations.Add(new VariationRow
             {
                 Name = variation.Name ?? "（バリエーションなし）",
-                PriceText = purchased ? PurchaseText(group!) : $"¥{variation.Price:N0}",
-                IsPurchased = purchased,
+                PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
+                IsPurchased = group.Count > 0,
             });
         }
 
-        // BOOTH側から消えた購入記録も、支出の記録として残っているので出す
-        var currentIds = Item.Booth.Variations.Select(variation => variation.Id).ToHashSet();
-        foreach (var group in ordered.Where(pair => !currentIds.Contains(pair.Key)))
+        // BOOTH側から消えた購入記録も、支出の記録として残っているので出す。
+        // バリエーションを指していない記録（null）もここへ落ちる——
+        // 指す先が無いので「現存する」側には入らない
+        var currentIds = Item.Booth.Variations.Select(variation => (long?)variation.Id).ToHashSet();
+        foreach (var group in ordered.Where(entry => !currentIds.Contains(entry.Key)))
         {
+            var purchases = group.ToList();
             Variations.Add(new VariationRow
             {
-                Name = group.Value[0].NameSnapshot ?? $"variation {group.Key}",
-                PriceText = PurchaseText(group.Value),
+                Name = purchases[0].NameSnapshot ?? VariationLabel(group.Key),
+                PriceText = PurchaseText(purchases),
                 IsPurchased = true,
-                IsGone = true,
+
+                // 指していない記録は「消えた」わけではない。指す先が無いだけ
+                IsGone = group.Key is not null,
             });
         }
     }
@@ -969,6 +974,14 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             });
         }
     }
+
+    /// <summary>
+    /// バリエーションの行の名前。**null は「どのバリエーションも指していない」**——
+    /// BOOTHから取れない商品にはバリエーションが1件も無く、
+    /// バリエーション単位の販売終了でも指す先が消える。
+    /// </summary>
+    private static string VariationLabel(long? variationId)
+        => variationId is { } id ? $"variation {id}" : "バリエーションを指定しない購入";
 
     private void BuildLocalFolders()
     {

@@ -141,7 +141,17 @@ public enum PurchaseKind
 /// </summary>
 public sealed record Purchase
 {
-    public required long VariationId { get; init; }
+    /// <summary>
+    /// どのバリエーションを買ったか。**分からなければ null。**
+    ///
+    /// 「分からない」は「無い」ではない。BOOTHから取れない商品にはバリエーションが1件も無く、
+    /// それでも買った金額は分かっている。仮のバリエーションを作ると、後で本物のIDへ
+    /// 寄せたときに本物と並んで残り、二重計上に見える。
+    ///
+    /// バリエーション単位の販売終了もあるので、**普通の商品でも起こり得る**——
+    /// 買ったあとにそのバリエーションが消えると、後から記録を入れる行が存在しなくなる。
+    /// </summary>
+    public long? VariationId { get; init; }
 
     /// <summary>購入時点のvariation名。BOOTH側に現存しない場合はこちらを表示に使う。</summary>
     public string? NameSnapshot { get; init; }
@@ -194,10 +204,14 @@ public sealed record Purchase
 
         var present = variations.Select(variation => variation.Id).ToHashSet();
 
+        // バリエーションを指していない記録は照合しない。
+        // 指していないものが「消えた」ことにはならないので、常に現存扱いにする
         return purchases
-            .Select(purchase => purchase.ExistsOnBooth == present.Contains(purchase.VariationId)
-                ? purchase
-                : purchase with { ExistsOnBooth = present.Contains(purchase.VariationId) })
+            .Select(purchase =>
+            {
+                var exists = purchase.VariationId is not { } id || present.Contains(id);
+                return purchase.ExistsOnBooth == exists ? purchase : purchase with { ExistsOnBooth = exists };
+            })
             .ToList();
     }
 }
