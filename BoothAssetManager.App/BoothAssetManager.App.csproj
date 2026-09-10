@@ -10,6 +10,20 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+
+    <!--
+      人に渡す形（自己完結・RID指定）で publish すると NETSDK1152 で止まる。
+
+      Core が参照している BoothZipInspector と BoothIdResolver は
+      **ライブラリとして使っている**のに OutputType が Exe（実験用のCLIも
+      持っているため）。Exe の参照は apphost・deps.json・runtimeconfig.json を
+      発行物に持ち込み、RIDを指定すると RID有り／無しの2組が出て衝突する。
+
+      アプリはこの2つを別プロセスとして起動しないので、どちらが残っても動く。
+      本筋の直し方は2つをライブラリにしてCLIを experiments/ へ移すことだが、
+      配布物を作るためだけにプロジェクトの構成は変えない。
+    -->
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
 </Project>
