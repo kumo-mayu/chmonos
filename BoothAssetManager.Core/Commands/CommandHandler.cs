@@ -77,6 +77,23 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(localId)
                     : new CommandResult.Failed("対象のファイルが未確定に見つかりませんでした。");
 
+            case UiCommand.PlanItemIdChange plan:
+                var planned = await _items.PlanItemIdChangeAsync(plan.FromId, plan.ToId, cancellationToken);
+                return planned is not null
+                    ? new CommandResult.ItemIdChangePlanned(planned)
+                    : new CommandResult.Failed("移せません。同じIDか、元の商品が見つかりません。");
+
+            case UiCommand.ChangeItemId change:
+                var changed = await _items.ChangeItemIdAsync(
+                    change.FromId, change.ToId, change.SkippedPurchases, cancellationToken);
+                return changed switch
+                {
+                    ItemIdChangeOutcome.Moved => new CommandResult.ItemSaved(change.ToId),
+                    ItemIdChangeOutcome.SameId => new CommandResult.Failed("同じIDです。"),
+                    ItemIdChangeOutcome.SourceMissing => new CommandResult.Failed("元の商品が見つかりませんでした。"),
+                    _ => new CommandResult.Failed("移した先を用意できませんでした。"),
+                };
+
             case UiCommand.RefreshItem refresh:
                 var outcome = await _items.RefreshAsync(refresh.ItemId, cancellationToken);
 

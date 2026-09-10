@@ -36,6 +36,15 @@ public abstract record UiCommand
     /// </summary>
     public record RegisterLocalItem(string Hash, string DisplayName) : UiCommand;
 
+    /// <summary>IDを変更したら何が起きるかの下見。書き込まない。</summary>
+    public record PlanItemIdChange(string FromId, string ToId) : UiCommand;
+
+    /// <summary>商品まるごとを別のIDへ移す。移し終えたら元の商品は消える。</summary>
+    public record ChangeItemId(
+        string FromId,
+        string ToId,
+        IReadOnlySet<int>? SkippedPurchases = null) : UiCommand;
+
     /// <summary>1件のitemをBOOTHから取り直す。</summary>
     public record RefreshItem(string ItemId) : UiCommand;
 
@@ -155,6 +164,9 @@ public abstract record CommandResult
     private protected CommandResult() { }
 
     public record Imported(ImportSummary Summary) : CommandResult;
+
+    /// <summary>IDを変更したら何が起きるかの下見。まだ何も書いていない。</summary>
+    public record ItemIdChangePlanned(Services.ItemIdChangePlan Plan) : CommandResult;
 
     public record ItemSaved(string ItemId) : CommandResult;
 

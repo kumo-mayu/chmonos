@@ -54,6 +54,25 @@ public interface IItemService
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// IDを変更したら何が起きるかの下見。**書き込まない。**
+    /// 移した先が手元に無ければBOOTHへ1度だけ聞きに行く。
+    /// </summary>
+    Task<ItemIdChangePlan?> PlanItemIdChangeAsync(
+        string fromId,
+        string toId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 商品まるごとを別のIDへ移す。移し終えたら元の商品は消える。
+    /// </summary>
+    /// <param name="skippedPurchases">移さない購入記録の番号（二重計上と判断したもの）。</param>
+    Task<ItemIdChangeOutcome> ChangeItemIdAsync(
+        string fromId,
+        string toId,
+        IReadOnlySet<int>? skippedPurchases = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 未確定のファイルを「BOOTHに無い商品」として登録する。
     /// 仮ID（<see cref="LocalItemId"/>）を与えるので、BOOTHへは一切問い合わせない。
     /// </summary>
@@ -642,6 +661,120 @@ public sealed class ItemService : IItemService
     /// <c>Booth.FetchedAt</c> は null のまま——観測していないので、それが正しい。
     /// <c>NextFetchDueAt</c> も入れない（⑦の対象から自然に外れる）。
     /// </summary>
+
+    /// <summary>
+    /// IDを変更したら何が起きるかの下見。**書き込まない。**
+    ///
+    /// 移した先が手元に無ければBOOTHへ聞きに行く（①②の2本）。
+    /// **取れなくても止めない**——非公開の商品へ寄せることもあるので、
+    /// 「見つかりませんが、このIDで登録しますか」と聞ける形にする。
+    /// </summary>
+    public async Task<ItemIdChangePlan?> PlanItemIdChangeAsync(
+        string fromId,
+        string toId,
+        CancellationToken cancellationToken = default)
+    {
+        var source = await _store.Items.LoadAsync(fromId, cancellationToken);
+        if (source is null || string.Equals(fromId, toId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var target = await _store.Items.LoadAsync(toId, cancellationToken);
+        if (target is not null)
+        {
+            // 既に手元にあるなら聞きに行かない。通信を増やさない
+            return ItemIdChange.Plan(source, target, toId, foundOnBooth: true);
+        }
+
+        // 仮IDへ移すことはない（BOOTHに無いIDへ寄せる意味がない）ので、そこは聞きに行かない
+        var found = !LocalItemId.IsLocal(toId)
+            && (await _client.GetItemJsonAsync(toId, cancellationToken)).Status != BoothFetchStatus.NotFound;
+
+        return ItemIdChange.Plan(source, target: null, toId, found);
+    }
+
+    /// <summary>
+    /// 商品まるごとを別のIDへ移す。
+    ///
+    /// **IDは書き換えない。**新しいIDの商品へ中身を移し、元の商品を消す。
+    /// 商品IDはファイル名にもフォルダ名にもなっていて、他の商品からも名前で
+    /// 参照されているので、IDだけ書き換えると参照が全部迷子になる。
+    ///
+    /// 移した先が手元に無ければ、BOOTHから取って作る。取れなければ
+    /// **中身が空の商品として作る**——買って手元にあるものを、
+    /// 移し先が非公開だという理由で消してはいけない。
+    /// </summary>
+    public async Task<ItemIdChangeOutcome> ChangeItemIdAsync(
+        string fromId,
+        string toId,
+        IReadOnlySet<int>? skippedPurchases = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.Equals(fromId, toId, StringComparison.Ordinal))
+        {
+            return ItemIdChangeOutcome.SameId;
+        }
+
+        var source = await _store.Items.LoadAsync(fromId, cancellationToken);
+        if (source is null)
+        {
+            return ItemIdChangeOutcome.SourceMissing;
+        }
+
+        var target = await _store.Items.LoadAsync(toId, cancellationToken)
+            ?? await FetchNewItemAsync(toId, cancellationToken)
+            ?? EmptyItem(toId);
+
+        var merged = ItemIdChange.Merge(source.Local, target.Local, skippedPurchases ?? new HashSet<int>());
+
+        // 移した先のvariation一覧で照合し直す。指していない記録は照合されず、
+        // 支出にはそのまま数えられる
+        merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, target.Booth.Variations) };
+
+        await _store.Items.SaveAsync(target with { Local = merged }, cancellationToken);
+
+        // 元の商品を消すのは最後。ここまでで落ちても、中身は移した先に残っている
+        // （両方に出るのは二重に見えるが、消えてしまうよりはるかによい）
+        _store.Items.Delete(fromId);
+
+        // 外した記録は移した先のIDへ読み替える。読み替えないと、
+        // 「この商品のものではない」と言ったファイルが次の取り込みで戻ってくる
+        var detached = _store.Detached.Load();
+        var moved = false;
+        for (var index = 0; index < detached.Count; index++)
+        {
+            if (detached[index].ItemId == fromId)
+            {
+                detached[index] = new DetachedFile
+                {
+                    Hash = detached[index].Hash,
+                    ItemId = toId,
+                    Paths = detached[index].Paths,
+                    DetachedAt = detached[index].DetachedAt,
+                };
+                moved = true;
+            }
+        }
+
+        if (moved)
+        {
+            await _store.Detached.SaveAsync(detached, cancellationToken);
+        }
+
+        return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// BOOTHから取れなかったIDのために、中身が空の商品を作る。
+    /// <c>Booth.FetchedAt</c> は null のまま——観測していないので、それが正しい。
+    /// </summary>
+    private static ItemRecord EmptyItem(string itemId) => new()
+    {
+        Id = itemId,
+        Booth = new BoothBlock(),
+        Local = new LocalBlock(),
+    };
     public async Task<string?> RegisterLocalItemAsync(
         string hash,
         string displayName,

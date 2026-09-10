@@ -73,6 +73,19 @@ public class CommandHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<string?>(LocalItemId.For(hash));
 
+        public Task<ItemIdChangePlan?> PlanItemIdChangeAsync(
+            string fromId,
+            string toId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<ItemIdChangePlan?>(null);
+
+        public Task<ItemIdChangeOutcome> ChangeItemIdAsync(
+            string fromId,
+            string toId,
+            IReadOnlySet<int>? skippedPurchases = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(ItemIdChangeOutcome.Moved);
+
         public Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
         {
             AssignedHash = hash;

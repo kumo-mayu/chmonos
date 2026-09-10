@@ -245,6 +245,13 @@
                                         <Run Text="{Binding IdText, Mode=OneWay}" />
                                     </Hyperlink>
                                 </TextBlock>
+
+                                <!-- IDのすぐ隣に置く。「このIDを変えたい」と思った場所にある -->
+                                <Button Content="IDを変える" Style="{StaticResource SmallButton}" Margin="0,0,14,0"
+                                        Padding="7,1" FontSize="10.5" VerticalAlignment="Center"
+                                        Command="{Binding ChangeIdCommand}"
+                                        ToolTip="この商品の中身を、別のIDの商品へ移します。&#10;何が移って何が移らないかは、移す前に出します。" />
+
                                 <TextBlock Text="{Binding PublishedText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
                                 <TextBlock Text="{Binding WishText}" Style="{StaticResource Mono}" FontSize="11" />
                             </StackPanel>

@@ -139,6 +139,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
         CopyIdCommand = new RelayCommand(CopyId);
+        ChangeIdCommand = new RelayCommand(() => _ = ChangeIdAsync());
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
@@ -280,6 +281,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>この商品のIDを写す。統合先の指定に使う。</summary>
     public RelayCommand CopyIdCommand { get; }
 
+    /// <summary>
+    /// この商品まるごとを別のIDへ移す。
+    /// 「この商品から外す」とは別——あちらはファイル、こちらは商品ごと。
+    /// </summary>
+    public RelayCommand ChangeIdCommand { get; }
+
     public RelayCommand EditCommand { get; }
 
     public RelayCommand OpenInExplorerCommand { get; }
@@ -328,6 +335,50 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// 対応アバターの宣言など他所からも参照されている。書き換えると参照が迷子になる。
     /// 「このファイルの行き先が違う」が本当にやりたいことなので、ファイルの側を動かす。
     /// </summary>
+
+    /// <summary>
+    /// 商品まるごとを別のIDへ移す。
+    ///
+    /// **「この商品から外す」とは別の操作。**あちらは*ファイル*を動かすもので、
+    /// こちらは*商品ごと*を動かすもの。同じボタンに畳むと、押した結果が
+    /// 「メモが残る／残らない」で変わることになる。
+    ///
+    /// 何が移って何が移らないかは、下見の画面で全部出してから押させる。
+    /// </summary>
+    private async Task ChangeIdAsync()
+    {
+        var model = new ChangeItemIdDialogViewModel(_services, Item.Id, Item.DisplayName);
+        var dialog = new Views.ChangeItemIdDialog(model);
+
+        if (dialog.ShowDialog() != true || model.Plan is null)
+        {
+            return;
+        }
+
+        var toId = model.ToId;
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.ChangeItemId(Item.Id, toId, model.SkippedPurchases));
+
+        if (result is CommandResult.Failed failed)
+        {
+            RefreshStatus = failed.Message;
+            return;
+        }
+
+        // 元の商品が消えて件数が変わるので、一覧を読み直す。
+        // 読み直さないと、ナビの件数と検索の一覧が消えたはずの商品を数え続ける
+        await _main.ReloadLibraryAsync();
+
+        // 移した先の商品ページへ送る。元の商品はもう無いので、ここに残せない
+        if (await _services.Store.Items.LoadAsync(toId) is { } moved)
+        {
+            _main.ShowItem(moved);
+        }
+        else
+        {
+            _main.ShowSearch();
+        }
+    }
     private async Task DetachFileAsync(LocalFileRow? row)
     {
         if (row is null)
