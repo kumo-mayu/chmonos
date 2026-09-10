@@ -1,3 +1,4 @@
+using System.IO;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Models;
 
@@ -479,13 +480,26 @@ public sealed class MainViewModel : ViewModelBase
     /// **勝手に処理を始めない。**ファイルは取り込みの対象に積むだけで、実行は押してから。
     /// 持っていない商品のURLは、外部への通信を伴うので必ず尋ねる。
     /// </summary>
-    public async Task HandleDropAsync(IReadOnlyList<string>? paths, string? text)
+    public async Task HandleDropAsync(IReadOnlyList<string>? paths, string? text, bool hasBitmap = false)
     {
-        // 判断は Core 側の規則に任せる。画面を立ち上げずに確かめられるようにするため
-        var decision = Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
+        // 判断は Core 側の規則に任せる。画面を立ち上げずに確かめられるようにするため。
+        //
+        // 商品ページを開いているときだけ規則が変わる。**足す先が決まっているから**——
+        // 決まっていない場所で「この商品の画像に足しますか」と聞いても答えられない
+        var decision = CurrentViewModel is ItemViewModel
+            ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists)
+            : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
 
         switch (decision.Action)
         {
+            case Core.Services.DropAction.AddImageToItem:
+                await AddDroppedImagesAsync(paths, hasBitmap);
+                return;
+
+            case Core.Services.DropAction.AskImageOrItem:
+                await AskImageOrItemAsync(decision.ItemId!, paths, hasBitmap);
+                return;
+
             case Core.Services.DropAction.Import:
                 ShowImport();
                 Import.AddDroppedPaths(paths!);
@@ -509,6 +523,117 @@ public sealed class MainViewModel : ViewModelBase
 
             default:
                 return;
+        }
+    }
+
+
+    /// <summary>
+    /// 落とした／貼った画像を、いま開いている商品に足す。
+    ///
+    /// ファイルとクリップボードの絵で、足したあとの流れは同じにしてある。
+    /// </summary>
+    private async Task AddDroppedImagesAsync(IReadOnlyList<string>? paths, bool hasBitmap)
+    {
+        if (CurrentViewModel is not ItemViewModel item)
+        {
+            return;
+        }
+
+        if (paths is { Count: > 0 })
+        {
+            await item.AddImageFilesAsync(paths.Where(Core.Services.DropRouting.LooksLikeImage).ToList());
+            return;
+        }
+
+        if (hasBitmap && ReadClipboardImage() is { } bytes)
+        {
+            await item.AddImageBytesAsync(bytes);
+            await item.ReloadGalleryAsync();
+        }
+    }
+
+    /// <summary>
+    /// BOOTH由来の画像を受け取ったとき。
+    ///
+    /// **その商品を開きたいのか、この商品の画像に足したいのかは決まらない。**
+    /// BOOTHの商品ページから絵をドラッグすると、その絵のURLに商品IDが入っているので、
+    /// 落としたものだけからは意図が読めない。ここだけ人に聞く。
+    /// </summary>
+    private async Task AskImageOrItemAsync(string itemId, IReadOnlyList<string>? paths, bool hasBitmap)
+    {
+        if (CurrentViewModel is not ItemViewModel item)
+        {
+            return;
+        }
+
+        var name = await _services.Store.Items.LoadAsync(itemId) is { } known
+            ? $"「{known.DisplayName}」"
+            : $" {itemId} ";
+
+        var answer = System.Windows.MessageBox.Show(
+            $"BOOTHの画像を受け取りました。\n\n"
+            + $"「はい」…… 商品{name}を開きます\n"
+            + $"「いいえ」… この商品「{item.Name}」の画像に足します",
+            "BOOTHの画像を受け取りました",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        switch (answer)
+        {
+            case System.Windows.MessageBoxResult.Yes:
+                await OpenOrOfferAsync(itemId);
+                return;
+
+            case System.Windows.MessageBoxResult.No:
+                await AddDroppedImagesAsync(paths, hasBitmap);
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>手元にあれば開き、無ければ登録するか尋ねる。落としたURLと同じ扱い。</summary>
+    private async Task OpenOrOfferAsync(string itemId)
+    {
+        if (await _services.Store.Items.LoadAsync(itemId) is { } owned)
+        {
+            ShowItem(owned);
+            return;
+        }
+
+        await OfferToRegisterAsync(itemId);
+    }
+
+    /// <summary>
+    /// クリップボードの絵をPNGの生データにする。
+    ///
+    /// スクリーンショットは**ファイルではなく絵そのもの**で置かれるので、
+    /// パス経由では受け取れない。ここで一度PNGに固めてから、
+    /// 足す側でBOOTHと同じ圧縮を通す。
+    /// </summary>
+    private static byte[]? ReadClipboardImage()
+    {
+        try
+        {
+            if (System.Windows.Clipboard.GetImage() is not { } source)
+            {
+                return null;
+            }
+
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
+
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+        catch (Exception exception)
+            when (exception is System.Runtime.InteropServices.ExternalException or NotSupportedException)
+        {
+            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+            return null;
         }
     }
 

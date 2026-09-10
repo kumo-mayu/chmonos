@@ -170,4 +170,97 @@ public class DropRoutingTests
     {
         Assert.Equal(DropAction.Ignore, DropRouting.Decide([], null, EverythingKnown).Action);
     }
+
+    // ---- 商品ページを開いているとき ----
+    //
+    // 足す先が決まっているので、画像を「この商品の画像に足す」へ回せる。
+    // 商品ページ以外では聞かない——足す先が無い場所で聞いても答えられない。
+
+    /// <summary>ただの画像ファイル。BOOTHとは関係が無いので、そのまま足す。</summary>
+    [Fact]
+    public void AddsAPlainImageFileToTheOpenItem()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            [@"C:\pics\mine.png"], text: null, hasBitmap: false, _ => true);
+
+        Assert.Equal(DropAction.AddImageToItem, decision.Action);
+    }
+
+    /// <summary>スクリーンショットの貼り付け。ファイルではなく絵そのものが来る。</summary>
+    [Fact]
+    public void AddsAPastedScreenshotToTheOpenItem()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            paths: null, text: null, hasBitmap: true, _ => true);
+
+        Assert.Equal(DropAction.AddImageToItem, decision.Action);
+    }
+
+    /// <summary>
+    /// **これが要。**BOOTHの商品ページから絵をドラッグすると、
+    /// その絵のURLに商品IDが入っている。どちらの意図かは決まらないので聞く。
+    /// </summary>
+    [Fact]
+    public void AsksWhenTheImageCameFromBooth()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            paths: null,
+            text: "https://booth.pximg.net/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/i/3565798/x.jpg",
+            hasBitmap: true,
+            _ => true);
+
+        Assert.Equal(DropAction.AskImageOrItem, decision.Action);
+        Assert.Equal("3565798", decision.ItemId);
+    }
+
+    /// <summary>画像ファイルと一緒にBOOTHのURLが来た場合も同じ。</summary>
+    [Fact]
+    public void AsksWhenAnImageFileArrivesWithABoothUrl()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            [@"C:\pics\mine.png"],
+            "https://siguna.booth.pm/items/3565798",
+            hasBitmap: false,
+            _ => true);
+
+        Assert.Equal(DropAction.AskImageOrItem, decision.Action);
+        Assert.Equal("3565798", decision.ItemId);
+    }
+
+    /// <summary>
+    /// zipが混ざっていたら取り込みを採る。
+    /// 画像だけを選んで落とすことはできるので、混ざっているなら取り込みたい意図の方が強い。
+    /// </summary>
+    [Fact]
+    public void PrefersImportWhenSomethingElseIsMixedIn()
+    {
+        var decision = DropRouting.DecideOnItemPage(
+            [@"C:\pics\mine.png", @"C:\dl\outfit.zip"], text: null, hasBitmap: false, _ => true);
+
+        Assert.Equal(DropAction.Import, decision.Action);
+    }
+
+    /// <summary>画像が来ていなければ、今まで通りの規則で決める。</summary>
+    [Fact]
+    public void FallsBackToTheUsualRuleWithoutAnImage()
+    {
+        Assert.Equal(
+            DropAction.OpenItem,
+            DropRouting.DecideOnItemPage(
+                paths: null, text: "https://booth.pm/ja/items/3565798", hasBitmap: false, _ => true).Action);
+
+        Assert.Equal(
+            DropAction.Import,
+            DropRouting.DecideOnItemPage(
+                [@"C:\dl\outfit.zip"], text: null, hasBitmap: false, _ => true).Action);
+    }
+
+    [Theory]
+    [InlineData(@"C:\a\b.png", true)]
+    [InlineData(@"C:\a\b.JPG", true)]
+    [InlineData(@"C:\a\b.webp", true)]
+    [InlineData(@"C:\a\b.zip", false)]
+    [InlineData(@"C:\a\b.unitypackage", false)]
+    public void KnowsWhichFilesLookLikeImages(string path, bool expected)
+        => Assert.Equal(expected, DropRouting.LooksLikeImage(path));
 }

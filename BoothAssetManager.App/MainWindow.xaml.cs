@@ -129,8 +129,12 @@ public partial class MainWindow : Window
 
         var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
 
+        // 絵そのものが落ちてくることもある（ブラウザからのドラッグ）。
+        // ファイルではないので、パス経由では受け取れない
+        var hasBitmap = e.Data.GetDataPresent(DataFormats.Bitmap);
+
         e.Handled = true;
-        Handle(main, paths, ReadText(e.Data));
+        Handle(main, paths, ReadText(e.Data), hasBitmap);
     }
 
     /// <summary>
@@ -199,11 +203,15 @@ public partial class MainWindow : Window
     /// 投げっぱなしにしないのは、**失敗すると何も起きないように見える**ため。
     /// 落としたのに無反応だと、受け付けていないのか壊れているのか分からない。
     /// </summary>
-    private static async void Handle(MainViewModel main, IReadOnlyList<string>? paths, string? text)
+    private static async void Handle(
+        MainViewModel main,
+        IReadOnlyList<string>? paths,
+        string? text,
+        bool hasBitmap = false)
     {
         try
         {
-            await main.HandleDropAsync(paths, text);
+            await main.HandleDropAsync(paths, text, hasBitmap);
         }
         catch (Exception exception)
         {
@@ -250,10 +258,14 @@ public partial class MainWindow : Window
 
         var text = ReadText(data);
 
-        if (paths is { Count: > 0 } || !string.IsNullOrWhiteSpace(text))
+        // スクリーンショットは絵そのものとして置かれる。
+        // 商品ページならこれをそのまま画像として足せる
+        var hasBitmap = data.GetDataPresent(DataFormats.Bitmap);
+
+        if (paths is { Count: > 0 } || hasBitmap || !string.IsNullOrWhiteSpace(text))
         {
             e.Handled = true;
-            Handle(main, paths, text);
+            Handle(main, paths, text, hasBitmap);
         }
     }
 }

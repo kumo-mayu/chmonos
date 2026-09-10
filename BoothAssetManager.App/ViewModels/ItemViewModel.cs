@@ -777,7 +777,6 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                     // 落とせた枚数ではなく、実際にディスクにある枚数で数え直す。
                     // 取れなかったものが残っていれば、その事実がそのまま出る
                     _thumbnails.ForgetDirectory(_services.Paths.ItemImagesDir(Item.Id));
-                    Images.Clear();
                     BuildGallery();
 
                     ImageFetchNotice = fetched.Downloaded == 0
@@ -814,6 +813,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     private void BuildGallery()
     {
+        // 組み直すたびに消す。**足したあとに呼ばれるので、消さないと二重に並ぶ**
+        Images.Clear();
+        _selectedIndex = 0;
+
         var directory = _services.Paths.ItemImagesDir(Item.Id);
         var onDisk = _thumbnails.ListFiles(directory);
 
@@ -1390,6 +1393,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         return result is CommandResult.UserImageAdded added ? added.FileName : null;
     }
 
+    /// <summary>落として／貼って足したあとに、外から組み直させる。</summary>
+    public Task ReloadGalleryAsync() => ReloadImagesAsync(null);
+
     /// <summary>
     /// 記録を読み直してギャラリーを組み直す。
     /// <paramref name="keepFileName"/> を渡すと、その絵を選んだままにする。
@@ -1402,6 +1408,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         }
 
         Item = reloaded;
+
+        // 足した／消した直後なので、フォルダの写しを捨ててから読み直す
+        _thumbnails.ForgetDirectory(_services.Paths.ItemImagesDir(Item.Id));
         BuildGallery();
 
         if (keepFileName is not null)
