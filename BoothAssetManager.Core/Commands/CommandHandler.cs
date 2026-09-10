@@ -18,6 +18,7 @@ public sealed class CommandHandler
     private readonly INotificationService? _notifications;
     private readonly IUserTagService? _userTags;
     private readonly IAttributeService? _attributes;
+    private readonly IModificationService? _modifications;
 
     public CommandHandler(
         IImportPipeline import,
@@ -27,7 +28,8 @@ public sealed class CommandHandler
         Resolution.FallbackResolver? resolver = null,
         INotificationService? notifications = null,
         IUserTagService? userTags = null,
-        IAttributeService? attributes = null)
+        IAttributeService? attributes = null,
+        IModificationService? modifications = null)
     {
         _import = import;
         _items = items;
@@ -37,6 +39,7 @@ public sealed class CommandHandler
         _notifications = notifications;
         _userTags = userTags;
         _attributes = attributes;
+        _modifications = modifications;
     }
 
     public async Task<CommandResult> ExecuteAsync(
@@ -265,6 +268,28 @@ public sealed class CommandHandler
 
                 return new CommandResult.AttributesChanged(
                     await _attributes.SetMemoAsync(attributeMemo.Name, attributeMemo.Memo, cancellationToken));
+
+            case UiCommand.CreateModification create:
+                if (_modifications is null)
+                {
+                    return new CommandResult.Failed("改変の編集手段が設定されていません。");
+                }
+
+                var created = await _modifications.CreateAsync(
+                    create.AvatarItemId, create.Name, cancellationToken);
+                return created is not null
+                    ? new CommandResult.ModificationCreated(created)
+                    : new CommandResult.Failed("名前を入れてください。");
+
+            case UiCommand.DeleteModification deleteMod:
+                if (_modifications is null)
+                {
+                    return new CommandResult.Failed("改変の編集手段が設定されていません。");
+                }
+
+                return await _modifications.DeleteAsync(deleteMod.Id, cancellationToken)
+                    ? new CommandResult.ModificationsChanged()
+                    : new CommandResult.Failed("対象の改変が見つかりませんでした。");
 
             case UiCommand.SetAttributeDefault attributeDefault:
                 if (_attributes is null)

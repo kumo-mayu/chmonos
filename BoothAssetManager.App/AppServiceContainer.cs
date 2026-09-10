@@ -61,8 +61,10 @@ public sealed class AppServiceContainer : IDisposable
         Stats = new StatsService(Store);
         SettingsStore = new SettingsService(Store);
         Recent = new Services.RecentTracker(Store);
+        Modifications = new ModificationService(Store);
         Commands = new CommandHandler(
-            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes);
+            Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
+            Modifications);
     }
 
     /// <summary>
@@ -94,6 +96,9 @@ public sealed class AppServiceContainer : IDisposable
     public AppPaths Paths { get; }
 
     public DataStore Store { get; }
+
+    /// <summary>改変の記録を作る・消す・読む</summary>
+    public IModificationService Modifications { get; }
 
     /// <summary>「最近」の足跡を打つ。itemのJSONではなく recent.json に集める</summary>
     public Services.RecentTracker Recent { get; }

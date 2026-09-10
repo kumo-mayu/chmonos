@@ -1,7 +1,35 @@
 using System.Collections.ObjectModel;
+using BoothAssetManager.Core.Commands;
+using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
+
+/// <summary>
+/// 改変の一覧の1行。
+///
+/// **同じ名前を許してあるので、日付が見分けの手掛かり**（`設計詳細_改変の記録.md` Q27）。
+/// </summary>
+public sealed class ModificationRowViewModel(ModificationRecord record)
+{
+    public ModificationRecord Record { get; } = record;
+
+    public string Name { get; } = record.Name;
+
+    public string CreatedText { get; } = record.CreatedAt.ToString("yyyy-MM-dd");
+
+    /// <summary>使ったものの件数。0件でも「まだ足していない」と分かるように出す。</summary>
+    public string MemberText { get; } = record.Members.Count == 0
+        ? "まだ足していません"
+        : $"{record.Members.Count} 件";
+
+    public bool HasUnityProject { get; } = record.HasUnityProject;
+
+    /// <summary>紐付けたプロジェクトのフォルダ名。フルパスは詳細で出す。</summary>
+    public string ProjectText { get; } = record.UnityProject is { } path
+        ? System.IO.Path.GetFileName(path.TrimEnd('\\', '/'))
+        : string.Empty;
+}
 
 /// <summary>一覧の1行。</summary>
 public sealed class AvatarRowViewModel : ViewModelBase
@@ -134,6 +162,12 @@ public sealed class AvatarsViewModel : ViewModelBase
         TreatAsAvatarCommand = new RelayCommand(parameter => _ = SetOverrideAsync(parameter as string));
         OpenBoothCommand = new RelayCommand(OpenBooth);
         ShowItemsCommand = new RelayCommand(ShowItems);
+        CreateModificationCommand = new RelayCommand(
+            () => _ = CreateModificationAsync(),
+            () => Selected is not null && ModificationNameInput.Trim().Length > 0);
+        DeleteModificationCommand = new RelayCommand(
+            parameter => _ = DeleteModificationAsync(parameter as ModificationRowViewModel),
+            parameter => parameter is ModificationRowViewModel);
 
         // 既定のビューに見出しを付ける。ListBoxはこのビューを通して並べる
         System.Windows.Data.CollectionViewSource.GetDefaultView(Rows).GroupDescriptions.Add(
@@ -175,6 +209,126 @@ public sealed class AvatarsViewModel : ViewModelBase
     public RelayCommand OpenBoothCommand { get; }
 
     public RelayCommand ShowItemsCommand { get; }
+
+    // ---- 改変の記録 ----
+
+    /// <summary>選んでいるアバターの改変。新しく作った順。</summary>
+    public ObservableCollection<ModificationRowViewModel> Modifications { get; } = [];
+
+    public bool HasModifications => Modifications.Count > 0;
+
+    public RelayCommand CreateModificationCommand { get; }
+
+    public RelayCommand DeleteModificationCommand { get; }
+
+    private string _modificationNameInput = string.Empty;
+
+    /// <summary>作る改変の名前。「普段着」「制服」のような呼び分け。</summary>
+    public string ModificationNameInput
+    {
+        get => _modificationNameInput;
+        set
+        {
+            if (SetField(ref _modificationNameInput, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 改変が無いときに出す文。
+    ///
+    /// **何のための場所かを書く。**空欄だけだと、使い方が分からないまま放置される
+    /// （`usedOn` が15件中0件だったのと同じ道を避ける）。
+    /// </summary>
+    public string ModificationEmptyText =>
+        "まだありません。着せ替えごとに1つ作ると、使った衣装やギミックをまとめて残せます。";
+
+    private async Task LoadModificationsAsync()
+    {
+        Modifications.Clear();
+
+        if (Selected is { } row)
+        {
+            foreach (var record in await _services.Modifications.LoadForAvatarAsync(row.ItemId))
+            {
+                Modifications.Add(new ModificationRowViewModel(record));
+            }
+        }
+
+        OnPropertyChanged(nameof(HasModifications));
+    }
+
+    private async Task CreateModificationAsync()
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        var name = ModificationNameInput.Trim();
+
+        // **同じ名前を許すが、黙って2つ並べない。**
+        // 作り直したいのか、間違えて2つ目を作ろうとしているのかは人にしか分からない
+        if (await _services.Modifications.HasSameNameAsync(row.ItemId, name))
+        {
+            var answer = System.Windows.MessageBox.Show(
+                $"「{name}」という改変が既にあります。\n\n"
+                + "同じ名前で作れます（作り直したいときのため）。\n"
+                + "一覧では作った日付で見分けられます。",
+                "同じ名前の改変があります",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.Cancel);
+
+            if (answer != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
+        }
+
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.CreateModification(row.ItemId, name));
+
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        ModificationNameInput = string.Empty;
+        Status = $"改変「{name}」を作りました。";
+        await LoadModificationsAsync();
+    }
+
+    private async Task DeleteModificationAsync(ModificationRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        // **取り返しがつかないので、何が消えるかを数で書く**
+        var images = row.Record.Images.Count;
+        var answer = System.Windows.MessageBox.Show(
+            $"改変「{row.Name}」を消します。\n\n"
+            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
+            + "元には戻せません。使った商品そのものは消えません。",
+            "改変を消す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteModification(row.Record.Id));
+        Status = result is CommandResult.Failed failed ? failed.Message : $"改変「{row.Name}」を消しました。";
+        await LoadModificationsAsync();
+    }
 
     public bool IsLoading
     {
@@ -286,10 +440,15 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(SelectedBoothName), nameof(HasSelectedBoothName),
                     nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),
                     nameof(ReferencedByText), nameof(HasReferencedBy),
+                    nameof(HasModifications),
                 })
                 {
                     OnPropertyChanged(name);
                 }
+
+                // 選んだアバターの改変を読み直す。待たせないので投げっぱなしにする
+                ModificationNameInput = string.Empty;
+                _ = LoadModificationsAsync();
             }
         }
     }

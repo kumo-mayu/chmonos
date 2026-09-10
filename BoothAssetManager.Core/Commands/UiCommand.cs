@@ -140,6 +140,14 @@ public abstract record UiCommand
     /// <summary>属性のメモを書き換える。item側には影響しない。</summary>
     public record SetAttributeMemo(string Name, string? Memo) : UiCommand;
 
+    // --- 改変の記録 ---
+
+    /// <summary>改変を作る。アバターが登録簿に無ければその場で足す</summary>
+    public record CreateModification(string AvatarItemId, string Name) : UiCommand;
+
+    /// <summary>改変を消す。**貼った画像も一緒に消える**。聞くのは画面側</summary>
+    public record DeleteModification(string Id) : UiCommand;
+
     /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
     public record SetAttributeDefault(string Name, bool IsDefault) : UiCommand;
 
@@ -211,6 +219,12 @@ public abstract record CommandResult
     public record UserTagsRewritten(Services.UserTagEditResult Result) : CommandResult;
 
     public record AttributesChanged(Models.AttributeMaster Master) : CommandResult;
+
+    /// <summary>改変を作った。画面はこのIDを開く</summary>
+    public record ModificationCreated(Models.ModificationRecord Record) : CommandResult;
+
+    /// <summary>改変の一覧が変わった（作った・消した）</summary>
+    public record ModificationsChanged() : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;
