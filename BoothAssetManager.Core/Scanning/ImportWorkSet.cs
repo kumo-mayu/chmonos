@@ -129,6 +129,75 @@ public sealed class ImportWorkSet
         }
     }
 
+    // ---- ③を待っている商品（U8・U10） ----
+    //
+    // ①で作った商品は検索や件数には出してよいが、対応アバターの検出（③）が済むまでは編集に出さない
+    // （ユーザ判断：「対応アバターの処理までは終わらせてからの方が安全」）。
+    // 検出の途中で人が対応アバターを直すと、検出の書き込みと取り合いになる。
+    // 画面は取り込みと同じこの集まりを見て判断するので、別に状態を持たずに済む
+
+    private readonly HashSet<string> _awaitingDetection = new(StringComparer.Ordinal);
+    private int _addedCount;
+
+    /// <summary>この取り込みで①から作った商品の数。一覧へ出していない件数を数えるのに使う。</summary>
+    public int AddedCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _addedCount;
+            }
+        }
+    }
+
+    /// <summary>①は済んだが③がまだの商品の数。</summary>
+    public int AwaitingDetectionCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _awaitingDetection.Count;
+            }
+        }
+    }
+
+    public bool IsAwaitingDetection(string itemId)
+    {
+        lock (_gate)
+        {
+            return _awaitingDetection.Contains(itemId);
+        }
+    }
+
+    /// <summary>①で商品を作った。③が済むまで編集に出さない。</summary>
+    public void NoteAdded(string itemId)
+    {
+        lock (_gate)
+        {
+            if (_awaitingDetection.Add(itemId))
+            {
+                _addedCount++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// ③の段が終わった。検出が失敗しても、検出を使わない設定でも外す——
+    /// 外さないと、その商品は取り込みが終わるまで編集できないままになる。
+    /// </summary>
+    public void NoteDetectionDone(IEnumerable<string> itemIds)
+    {
+        lock (_gate)
+        {
+            foreach (var itemId in itemIds)
+            {
+                _awaitingDetection.Remove(itemId);
+            }
+        }
+    }
+
     private static string Normalize(string path)
         => Path.TrimEndingDirectorySeparator(path.Trim());
 

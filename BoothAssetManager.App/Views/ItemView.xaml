@@ -50,10 +50,15 @@
                     <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                Margin="0,0,10,0" MaxWidth="320" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 取り込みの③がまだで、直す操作を塞いでいる理由（U8・U10）。塞いだことを黙らない -->
+                    <TextBlock Text="{Binding EditLockText}" FontSize="11.5" Foreground="{StaticResource Warn}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" MaxWidth="520" TextWrapping="Wrap"
+                               Visibility="{Binding IsEditLocked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 外部で更新を知ったときに、次回更新予定を待たずに取り直せるようにする -->
                     <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
-                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0" />
+                    <Button Content="この商品を編集" Command="{Binding EditCommand}" Margin="0,0,8,0"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                 </StackPanel>

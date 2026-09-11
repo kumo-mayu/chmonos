@@ -1382,7 +1382,18 @@ public sealed class SearchViewModel : ViewModelBase
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .Count();
 
-    public int NeedsEditCount => _allItems.Count(item => item.Local.UserTags.Count == 0);
+    /// <summary>
+    /// 編集を待っている件数（ナビのバッジ）。取り込みの③がまだの商品は数えない——
+    /// 数えると、押して開いた編集画面にその商品が出てこない（U8・U10）
+    /// </summary>
+    public int NeedsEditCount => _allItems.Count(item =>
+        item.Local.UserTags.Count == 0 && _main?.IsAwaitingDetection(item.Id) != true);
+
+    /// <summary>
+    /// 一覧を下へ読み進めているか。取り込みで増えた商品を黙って入れるか、
+    /// 「押すと反映」の1行にするかの分かれ目（U10）。画面の側が知らせる
+    /// </summary>
+    public bool IsScrolledDown { get; set; }
 
     public string ResultSummary => $"{_matches.Count} 件";
 
@@ -2470,6 +2481,9 @@ public sealed class SearchViewModel : ViewModelBase
     {
         var missing = item.Local.LocalFiles.Any(file => file.Paths.Count == 0);
 
+        // 取り込みの③がまだの商品は「未編集」ではなく「取り込み中」と出す（U8・U10）
+        var awaiting = _main?.IsAwaitingDetection(item.Id) == true;
+
         return new ItemCardViewModel(
             item,
             _thumbnails,
@@ -2480,7 +2494,14 @@ public sealed class SearchViewModel : ViewModelBase
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
             SizeText = item.IsDownloaded ? Core.Models.DisplayText.Size(item.LogicalSizeBytes) : "未取得",
             IsOwned = item.IsDownloaded,
-            NeedsEdit = item.Local.UserTags.Count == 0,
+            NeedsEdit = item.Local.UserTags.Count == 0 && !awaiting,
+            IsAwaitingDetection = awaiting,
+            // 取り込みの途中で、絵がまだ1枚も無い。灰色の枠だけだと壊れて見える（U8）
+            // 画像を保存しない設定では絵は来ないので、「取得中」と言うと嘘になる
+            IsImagePending = _main?.IsImporting == true
+                && _services.Settings.SaveImages
+                && item.Booth.Images.Count > 0
+                && !_thumbnails.ListFiles(_services.Paths.ItemImagesDir(item.Id)).Any(),
             HasMissingFile = missing,
             UserTagText = string.Join(" / ", item.Local.UserTags.Select(tag => tag.Top)),
         };

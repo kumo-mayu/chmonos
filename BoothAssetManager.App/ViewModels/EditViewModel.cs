@@ -673,6 +673,8 @@ public sealed class EditViewModel : ViewModelBase
         var loaded = await _services.Store.Items.LoadAllAsync();
         return loaded.Items
             .Where(item => item.Local.UserTags.Count == 0)
+            // 取り込みの③がまだの商品は積まない（U8・U10）。③が済めば次に開いたときに入る
+            .Where(item => !_main.IsAwaitingDetection(item.Id))
             .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
             .Select(item => item.Id)
             .ToList();

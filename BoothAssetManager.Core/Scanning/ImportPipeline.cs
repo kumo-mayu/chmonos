@@ -236,7 +236,7 @@ public sealed class ImportPipeline : IImportPipeline
             totals.Unresolved.AddRange(resolution.Unresolved);
             await _store.Unresolved.SaveAsync(totals.Unresolved, cancellationToken);
 
-            var fetchResult = await FetchAsync(resolution.FilesByItemId, progress, cancellationToken);
+            var fetchResult = await FetchAsync(resolution.FilesByItemId, work, progress, cancellationToken);
 
             // BOOTHに無かったものも未確定へ。ここで落とすと手元から消える
             if (fetchResult.NotFoundFiles.Count > 0)
@@ -689,6 +689,7 @@ public sealed class ImportPipeline : IImportPipeline
     /// </summary>
     private async Task<FetchResult> FetchAsync(
         Dictionary<string, List<LocalFileRecord>> filesByItemId,
+        ImportWorkSet work,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -795,6 +796,9 @@ public sealed class ImportPipeline : IImportPipeline
             fetched.Add(item);
             added++;
 
+            // 検索と件数にはもう出してよい。編集は③が済むまで待たせる（U8・U10）
+            work.NoteAdded(itemId);
+
             // どこまで進んだかを残す。閉じた時に何件残っていたかをユーザは覚えていない。
             // ①の途中で閉じると「IDは分かったがまだ取得していない商品」の一覧は消えるので、
             // 件数だけでも残しておかないと、中断したこと自体が黙って起きる
@@ -868,6 +872,9 @@ public sealed class ImportPipeline : IImportPipeline
                 avatarDetectError = exception.Message;
             }
         }
+
+        // ③の段は終わった（失敗しても、検出を使わない設定でも）。この周回の商品を編集に出す
+        work.NoteDetectionDone(fetched.Select(item => item.Id));
 
         // ④1枚目 ⑤残りの画像 ⑥ショップのアイコン は、周回の外の画像の列で取る（U5・DrainImagesAsync）。
         // 周回の中で取り切ると、その間に積まれたフォルダは⑥が終わるまで何も始まらない。

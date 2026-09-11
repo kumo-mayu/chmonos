@@ -31,6 +31,19 @@ public partial class SearchView : UserControl
         }
     }
 
+    /// <summary>
+    /// 一覧を下へ読み進めているかを知らせる（U10）。
+    /// 先頭を見ているなら、取り込みで増えた商品を黙って入れてよい。下を読んでいる最中なら
+    /// 足元を動かさず「押すと反映」の1行にする。
+    /// </summary>
+    private void OnResultsScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.OriginalSource is ScrollViewer && DataContext is SearchViewModel search)
+        {
+            search.IsScrolledDown = e.VerticalOffset > 0;
+        }
+    }
+
     /// <summary>サムネイル上の横位置に応じて、そのitemのギャラリー画像を切り替える。</summary>
     private void OnThumbnailMouseMove(object sender, MouseEventArgs e)
     {

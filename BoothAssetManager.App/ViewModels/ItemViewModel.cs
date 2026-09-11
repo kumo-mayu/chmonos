@@ -274,28 +274,30 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         CopyIdCommand = new RelayCommand(CopyId);
         PreviousImageCommand = new RelayCommand(() => GoToImage(-1), () => CanGoPreviousImage);
         NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
-        MoveImageBackCommand = new RelayCommand(() => _ = MoveImageAsync(-1), () => CanMoveImageBack);
-        MoveImageForwardCommand = new RelayCommand(() => _ = MoveImageAsync(1), () => CanMoveImageForward);
-        PinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(true), () => CurrentImage is not null && !CurrentIsPinned);
-        UnpinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(false), () => CurrentIsPinned);
-        RemoveImageCommand = new RelayCommand(() => _ = RemoveImageAsync(), () => CurrentIsUserAdded);
-        AddImageCommand = new RelayCommand(() => _ = AddImageAsync());
-        ChangeIdCommand = new RelayCommand(() => _ = ChangeIdAsync());
+        // 商品ページの中でその場で直す操作は、取り込みの③が済むまで塞ぐ（U8・U10・ユーザ判断）。
+        // 見る・Unityへ送る・改変に足す・お気に入りは塞がない（対応アバターの書き込みと取り合わない）
+        MoveImageBackCommand = new RelayCommand(() => _ = MoveImageAsync(-1), () => CanMoveImageBack && !IsEditLocked);
+        MoveImageForwardCommand = new RelayCommand(() => _ = MoveImageAsync(1), () => CanMoveImageForward && !IsEditLocked);
+        PinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(true), () => CurrentImage is not null && !CurrentIsPinned && !IsEditLocked);
+        UnpinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(false), () => CurrentIsPinned && !IsEditLocked);
+        RemoveImageCommand = new RelayCommand(() => _ = RemoveImageAsync(), () => CurrentIsUserAdded && !IsEditLocked);
+        AddImageCommand = new RelayCommand(() => _ = AddImageAsync(), () => !IsEditLocked);
+        ChangeIdCommand = new RelayCommand(() => _ = ChangeIdAsync(), () => !IsEditLocked);
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
-        EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
+        EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]), () => !IsEditLocked);
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
         UnpackCommand = new RelayCommand(
             parameter => _ = UnpackAsync(parameter as LocalFileRow),
             parameter => parameter is LocalFileRow { CanUnpack: true });
         UnregisterFolderCommand = new RelayCommand(
             parameter => _ = UnregisterFolderAsync(parameter as string),
-            parameter => parameter is string);
+            parameter => parameter is string && !IsEditLocked);
         DetachFileCommand = new RelayCommand(
             parameter => _ = DetachFileAsync(parameter as LocalFileRow),
-            parameter => parameter is LocalFileRow);
+            parameter => parameter is LocalFileRow && !IsEditLocked);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
-        AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string));
+        AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string), _ => !IsEditLocked);
         SendToUnityCommand = new RelayCommand(
             SendToUnity,
             parameter => parameter is Core.Services.UnityPackageEntry);
@@ -319,13 +321,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         ToggleAllSectionsCommand = new RelayCommand(ToggleAllSections, () => Sections.Count > 0);
         SetRoleBoothCommand = new RelayCommand(
             () => _ = SetRoleAsync(Core.Models.ImageRole.Booth),
-            () => CurrentImage is { IsImage: true });
+            () => CurrentImage is { IsImage: true } && !IsEditLocked);
         SetRoleModifiedCommand = new RelayCommand(
             () => _ = SetRoleAsync(Core.Models.ImageRole.Modified),
-            () => CurrentImage is { IsImage: true });
+            () => CurrentImage is { IsImage: true } && !IsEditLocked);
         SetRoleOtherCommand = new RelayCommand(
             () => _ = SetRoleAsync(Core.Models.ImageRole.Other),
-            () => CurrentImage is { IsImage: true });
+            () => CurrentImage is { IsImage: true } && !IsEditLocked);
 
         Sections = item.Booth.H2Sections.Select(section => new SectionRow(section)).ToList();
 
@@ -484,6 +486,24 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public RelayCommand ChangeIdCommand { get; }
 
     public RelayCommand EditCommand { get; }
+
+    /// <summary>
+    /// 取り込みの③（対応アバターの検出）がまだで、直す操作を塞いでいるか（U8・U10）。
+    /// 検出の途中で対応アバターや画像を直すと、検出の書き込みと取り合いになる
+    /// </summary>
+    public bool IsEditLocked => _main.IsAwaitingDetection(Item.Id);
+
+    public string EditLockText => "取り込みの途中です。対応アバターの検出が終わると編集できます（見る・Unityへ送る・改変に足すは今でもできます）";
+
+    public string EditButtonTip => IsEditLocked ? EditLockText : "分類・タグ・属性などを直す画面を開きます";
+
+    /// <summary>取り込みの③が済んだと主画面から知らされた。塞いでいた操作を開ける。</summary>
+    public void RefreshEditLock()
+    {
+        OnPropertyChanged(nameof(IsEditLocked));
+        OnPropertyChanged(nameof(EditButtonTip));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
     public RelayCommand OpenInExplorerCommand { get; }
 
@@ -1259,7 +1279,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 SourceText = SourceLabel(link.Source),
                 IsUnconfirmed = !link.Confirmed,
                 IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
-                RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId)),
+                RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId), () => !IsEditLocked),
                 OpenCommand = new RelayCommand(() => _ = OpenAvatarAsync(link.AvatarItemId)),
             })
             .OrderByDescending(row => row.IsOwned)

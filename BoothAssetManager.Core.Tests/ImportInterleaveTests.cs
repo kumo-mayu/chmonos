@@ -187,6 +187,59 @@ public class ImportInterleaveTests : IDisposable
             || Directory.EnumerateFiles(_paths.ItemImagesDir("333"), "*.webp").Count() == 2);
     }
 
+    /// <summary>
+    /// U8・U10：①で作った商品は③が済むまで「③待ち」で、画面はそれを見て編集に出さない。
+    /// ③の段が終わったら（検出を使わない設定でも）外れる。外れないと取り込みが終わるまで編集できない。
+    /// </summary>
+    [Fact]
+    public async Task HoldsNewItemsUntilDetectionIsDone()
+    {
+        var work = new ImportWorkSet([CreateSource("hold", "111", "222")]);
+        bool? heldDuringPage = null;
+        bool? heldDuringImages = null;
+
+        var progress = new InlineProgress(report =>
+        {
+            if (report.Phase == ImportPhase.FetchingHtml && heldDuringPage is null)
+            {
+                heldDuringPage = work.IsAwaitingDetection("111");
+            }
+
+            if (report.Phase == ImportPhase.FetchingThumbnails && heldDuringImages is null)
+            {
+                heldDuringImages = work.IsAwaitingDetection("111");
+            }
+        });
+
+        await _pipeline.RunAsync(work, progress);
+
+        Assert.True(heldDuringPage, "②の間に、①で作った商品が③待ちになっていない");
+        Assert.False(heldDuringImages, "③の後の画像の段になっても③待ちのまま");
+        Assert.Equal(0, work.AwaitingDetectionCount);
+        Assert.Equal(2, work.AddedCount);
+    }
+
+    /// <summary>取得済みの商品は③待ちにしない。前の取り込みで編集できていたものを塞がない。</summary>
+    [Fact]
+    public async Task DoesNotHoldItemsThatWereAlreadyThere()
+    {
+        var source = CreateSource("known", "111");
+        await _pipeline.RunAsync(new ImportWorkSet([source]));
+        File.Delete(_paths.ItemHtmlFile("111"));
+
+        var work = new ImportWorkSet([source]);
+        var held = false;
+        var progress = new InlineProgress(report =>
+        {
+            held |= work.IsAwaitingDetection("111");
+        });
+
+        await _pipeline.RunAsync(work, progress);
+
+        Assert.False(held, "取得済みの商品を③待ちにした（説明を取り直しているだけ）");
+        Assert.Equal(0, work.AddedCount);
+    }
+
     /// <summary>積まなければ、今までどおり段ごとに全商品を回る（1枚目を全部取ってから2枚目）。</summary>
     [Fact]
     public async Task KeepsTheLadderWhenNothingIsStacked()

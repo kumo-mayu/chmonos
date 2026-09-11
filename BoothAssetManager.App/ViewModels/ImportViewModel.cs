@@ -667,6 +667,7 @@ public sealed class ImportViewModel : ViewModelBase
 
         _cancellation = new CancellationTokenSource();
         _work = new ImportWorkSet(targets);
+        _main.AttachImportWork(_work);
 
         var progress = new Progress<ImportProgress>(report => RunOnUiThread(() =>
         {
@@ -693,16 +694,11 @@ public sealed class ImportViewModel : ViewModelBase
             DetailText = report.Detail
                 ?? (report.Phase == ImportPhase.Detecting && report.Step is not null ? "名前を確かめています" : string.Empty);
 
-            // 1枚目が取れた時点で、その商品は一覧のカードとして成立する。
-            // JSONの時点で反映すると絵の無い白いカードが並ぶので、ここまで待つ。
-            //
-            // 件数とバッジは即座に更新するが、一覧そのものは動かさない。
-            // 読んでいる最中に足元が動くと、どこを見ていたか分からなくなる
-            if (report.Phase == ImportPhase.FetchingThumbnails)
-            {
-                _main.NotePendingItems(report.Current);
-                _main.RefreshBadges();
-            }
+            // ①で商品ができた時点で一覧へ出す（U8）。以前は1枚目が取れるまで待っていたが、
+            // 画像を自動で取るようになり、名前・ショップ・タグで探せる方が先に要る。絵の無いカードは
+            // 「画像を取得中」と出す。読んでいる途中の一覧だけは動かさない（U10）。
+            // ③待ちの商品を編集に出すかどうかも、ここで知らせ直す
+            _main.NoteImportProgress();
 
             // 減速は取得の合間に起きるので、進捗が届くたびに見る
             IsThrottled = _services.Client.IsThrottled;

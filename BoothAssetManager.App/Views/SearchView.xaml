@@ -827,6 +827,7 @@
                     画面外の行のカードは実体化されないので、サムネイルの復号も走らない。
                 -->
                 <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+                         ScrollViewer.ScrollChanged="OnResultsScrollChanged"
                          Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -895,6 +896,10 @@
                                         <Grid DockPanel.Dock="Top" Height="200" Background="#e9edf4" Cursor="Hand"
                                               MouseMove="OnThumbnailMouseMove" MouseLeave="OnThumbnailMouseLeave">
                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                            <!-- 取り込みの途中で絵がまだ無いカード（U8）。灰色の枠だけだと壊れて見える -->
+                                            <TextBlock Text="画像を取得中" Style="{StaticResource Caption}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                       Visibility="{Binding IsImagePending, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                             <ItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Bottom"
                                                           Margin="6,0,6,5" IsHitTestVisible="False"
@@ -1011,6 +1016,13 @@
                                                             ToolTip="記録にあるファイルが、今その場所にありません"
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
+                                                    </Border>
+                                                    <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
+                                                    <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
+                                                            ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"
+                                                            Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="取り込み中" FontSize="10" Foreground="{StaticResource Accent}" />
                                                     </Border>
                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"

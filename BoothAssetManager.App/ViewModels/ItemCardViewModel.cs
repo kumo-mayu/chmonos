@@ -126,6 +126,22 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool NeedsEdit { get; init; }
 
+    /// <summary>取り込みの③（対応アバターの検出）がまだ。「未編集」の代わりに「取り込み中」と出す（U8・U10）。</summary>
+    public bool IsAwaitingDetection { get; init; }
+
+    private bool _isImagePending;
+
+    /// <summary>
+    /// 取り込みの途中で、絵がまだ1枚も無い。枠に「画像を取得中」と出す（U8）。
+    /// 絵が届いたら <see cref="RefreshImages"/> で下ろす。
+    /// 絵を読んでいる途中（裏で復号中）かどうかでは決めない——それだと読むたびに文字がちらつく
+    /// </summary>
+    public bool IsImagePending
+    {
+        get => _isImagePending;
+        init => _isImagePending = value;
+    }
+
     public bool HasMissingFile { get; init; }
 
     public string UserTagText { get; init; } = string.Empty;
@@ -260,8 +276,10 @@ public sealed class ItemCardViewModel : ViewModelBase
         Segments.Clear();
         ImageCount = 0;
         CurrentImageNumber = 1;
+        _isImagePending = false;
 
         OnPropertyChanged(nameof(Thumbnail));
+        OnPropertyChanged(nameof(IsImagePending));
         OnPropertyChanged(nameof(HasMultipleImages));
         OnPropertyChanged(nameof(ImageCount));
         OnPropertyChanged(nameof(CounterText));

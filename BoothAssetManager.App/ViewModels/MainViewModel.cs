@@ -460,6 +460,24 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public async Task ShowEditAsync(IReadOnlyList<string>? itemIds = null)
     {
+        // 取り込みの③がまだの商品は編集に出さない（U8・U10）。検索の複数選択から
+        // 取り込み中の商品が混ざって来ることがあるので、入口で外す
+        if (itemIds is not null)
+        {
+            var allowed = itemIds.Where(id => !IsAwaitingDetection(id)).ToList();
+            if (allowed.Count == 0)
+            {
+                System.Windows.MessageBox.Show(
+                    "選んだ商品は取り込みの途中です。対応アバターの検出が終わると編集できます。\n検索や商品ページで見ることは今でもできます。",
+                    "まだ編集できません",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+                return;
+            }
+
+            itemIds = allowed;
+        }
+
         var edit = new EditViewModel(_services, this, Thumbnails);
         CurrentViewModel = edit;
 
@@ -833,6 +851,10 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>取り込み後など、ライブラリが変わったときに呼ぶ。</summary>
     public async Task ReloadLibraryAsync()
     {
+        // 読み直しを始めた時点で、そこまでに増えた分は一覧へ入る
+        _reflectedAdded = _importWork?.AddedCount ?? 0;
+        _lastReflectAt = DateTime.UtcNow;
+
         await Search.ReloadAsync();
         RefreshCounts();
         OnPropertyChanged(nameof(LibrarySummary));
@@ -855,6 +877,20 @@ public sealed class MainViewModel : ViewModelBase
             if (SetField(ref _isImporting, value))
             {
                 RelayCommand.RaiseCanExecuteChanged();
+
+                // 取り込みが終わったら（中断を含む）③待ちの印は全部外れる。
+                // ②③の途中で止めた商品は「取り込み中」の札のまま一覧に残っているので、読み直して外す
+                if (!value)
+                {
+                    var hadAwaiting = _lastAwaitingCount > 0;
+                    _importWork = null;
+                    _lastAwaitingCount = 0;
+                    OnEditGateChanged();
+                    if (hadAwaiting)
+                    {
+                        _ = ReloadLibraryAsync();
+                    }
+                }
             }
         }
     }
@@ -890,6 +926,98 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>取り込みが商品を1件ぶん見えるようにした。</summary>
     public void NotePendingItems(int count) => RunOnUiThread(() => PendingItemCount = count);
+
+    // ---- 取り込みの途中の商品（U8・U10） ----
+    //
+    // ①で商品ができた時点で検索・ショップ・件数に出す（JSONだけで最低限の表示はできる）。
+    // 編集は③（対応アバターの検出）が済むまで出さない（ユーザ判断）。
+    // 判断は取り込みと同じ作業の集まり（ImportWorkSet）を見て行い、画面側に別の状態を持たない
+
+    private Core.Scanning.ImportWorkSet? _importWork;
+    private int _lastAwaitingCount;
+    private int _reflectedAdded;
+    private DateTime _lastReflectAt = DateTime.MinValue;
+
+    /// <summary>
+    /// 増えた商品を一覧へ入れる間隔の下限。
+    /// 読み直しは全商品を読み、検索用の文字列を作り直す。①は1.5秒に1件進むので、
+    /// 増えるたびに読み直すと取り込みの間じゅう読み直し続けることになる。
+    /// 10秒に1回なら、増えた商品は遅くとも10秒で一覧に出る
+    /// </summary>
+    private static readonly TimeSpan ReflectInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>取り込みが始まったときに、その作業の集まりを受け取る。</summary>
+    public void AttachImportWork(Core.Scanning.ImportWorkSet work)
+    {
+        _importWork = work;
+        _lastAwaitingCount = 0;
+        _reflectedAdded = 0;
+    }
+
+    /// <summary>この商品が、取り込みの③を待っているか。待っている間は編集に出さない。</summary>
+    public bool IsAwaitingDetection(string itemId)
+        => IsImporting && _importWork?.IsAwaitingDetection(itemId) == true;
+
+    /// <summary>
+    /// 取り込みの進み具合が届くたびに呼ぶ。③待ちの数が変わったら編集の可否を知らせ直し、
+    /// 増えた商品を一覧へ入れる（読んでいる途中なら「押すと反映」の1行にする）。
+    /// </summary>
+    public void NoteImportProgress()
+    {
+        if (_importWork is not { } work)
+        {
+            return;
+        }
+
+        var awaiting = work.AwaitingDetectionCount;
+        var gateChanged = awaiting != _lastAwaitingCount;
+        _lastAwaitingCount = awaiting;
+
+        if (gateChanged)
+        {
+            OnEditGateChanged();
+        }
+
+        var unseen = work.AddedCount - _reflectedAdded;
+        if (unseen <= 0 && !gateChanged)
+        {
+            return;
+        }
+
+        // 一覧を下へ読み進めている最中は足元を動かさない。件数だけ出して、反映は押してもらう（U10）
+        if (CurrentViewModel is SearchViewModel && Search.IsScrolledDown)
+        {
+            if (unseen > 0)
+            {
+                PendingItemCount = unseen;
+            }
+
+            return;
+        }
+
+        // ③が済んで編集に出せるようになったときは待たせない。札（取り込み中）を早く外す方が要る
+        if (!gateChanged && DateTime.UtcNow - _lastReflectAt < ReflectInterval)
+        {
+            return;
+        }
+
+        _ = ReloadLibraryAsync();
+    }
+
+    /// <summary>
+    /// 編集に出せる商品が変わった。押せるボタンと件数を知らせ直す。
+    /// 開いている商品ページには直接伝える——イベントで配ると、閉じた商品ページが購読したまま残る
+    /// </summary>
+    private void OnEditGateChanged()
+    {
+        RelayCommand.RaiseCanExecuteChanged();
+        if (CurrentViewModel is ItemViewModel item)
+        {
+            item.RefreshEditLock();
+        }
+
+        RefreshCounts();
+    }
 
     /// <summary>
     /// 1行を消す。反映したときと、その一覧から離れたときに呼ぶ。
