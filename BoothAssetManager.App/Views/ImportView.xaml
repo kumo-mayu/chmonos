@@ -161,6 +161,16 @@
                                      Maximum="{Binding Total, Mode=OneWay}" Value="{Binding Current, Mode=OneWay}"
                                      Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0"
                                      Visibility="{Binding HasTotal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <!--
+                            残り時間の見込み（U1）。取り込みの時間のほとんどは問い合わせの間隔を待つ時間なので、
+                            残りの問い合わせの数から出す。今の段／編集できるまで／画像を取り終わるまで、に分ける
+                        -->
+                        <WrapPanel Margin="0,8,0,0"
+                                   Visibility="{Binding HasEstimate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding EtaPhaseText}" Style="{StaticResource Caption}" Margin="0,0,20,0" />
+                            <TextBlock Text="{Binding EtaEditableText}" Style="{StaticResource Caption}" Margin="0,0,20,0" />
+                            <TextBlock Text="{Binding EtaImagesText}" Style="{StaticResource Caption}" />
+                        </WrapPanel>
                         <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,10,0,0"
                                    TextTrimming="CharacterEllipsis" />
 

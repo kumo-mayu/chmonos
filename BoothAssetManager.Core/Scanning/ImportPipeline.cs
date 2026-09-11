@@ -218,7 +218,7 @@ public sealed class ImportPipeline : IImportPipeline
 
                 // 画像は1件ずつ取り、そのたびに積まれたフォルダが無いかを見る。
                 // 積まれていれば、その場で次の周回（走査〜①②③）へ移る（U5）
-                totals.AddImages(await DrainImagesAsync(images, () => work.HasPending, progress, cancellationToken));
+                totals.AddImages(await DrainImagesAsync(images, work, progress, cancellationToken));
                 continue;
             }
 
@@ -250,6 +250,9 @@ public sealed class ImportPipeline : IImportPipeline
             // この周回の1枚目は、今の列に残っている画像より先に取る。
             // 積んだ物が早く一覧に出ることの方が、前の周回の2枚目より先に要る
             images.Enqueue(fetchResult.WithImages, fetchResult.ShopIcons);
+
+            // 画像の問い合わせの見込み（U1）。手元にある絵は取りに行かないので、多めに出ることがある
+            work.PlanRequests(images: fetchResult.WithImages.Sum(item => item.Booth.Images.Count) + fetchResult.ShopIcons.Count);
         }
 
         // 最後まで来たので記録は要らない。残すと次の起動で「中断した」と嘘をつく
@@ -736,6 +739,9 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
+        // 残り時間の見込み（U1）。①は新しい商品の数、②はそれに説明の無い取得済みを足した数
+        work.PlanRequests(json: pending.Count, pages: pending.Count + withoutPage.Count);
+
         // ── ① 商品JSON（全商品）。ここが終われば検索も統計も成立する ──
         //
         // 段ごとに優先度を切り替える。人が押した操作はこれより上なので、
@@ -752,6 +758,7 @@ public sealed class ImportPipeline : IImportPipeline
             Report(progress, ImportPhase.FetchingJson, ++done, pending.Count, itemId);
 
             var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
+            work.PlanRequests(json: -1);
 
             if (jsonResult.Status == BoothFetchStatus.NotFound)
             {
@@ -762,6 +769,7 @@ public sealed class ImportPipeline : IImportPipeline
                 // 1回の404で流すのは、**こちらが「非公開だ」と確定する必要がないから。**
                 // 一時的な障害だったなら次の取り込みで普通に確定するだけで、何も失われない
                 notFound++;
+                work.PlanRequests(pages: -1); // ②へは進まない
                 notFoundFiles.AddRange(discovered.Select(file => ToUnresolved(file, itemId)));
                 continue;
             }
@@ -769,6 +777,7 @@ public sealed class ImportPipeline : IImportPipeline
             if (!jsonResult.IsSuccess || jsonResult.Value is null)
             {
                 temporaryFailures++;
+                work.PlanRequests(pages: -1); // ②へは進まない
                 continue;
             }
 
@@ -828,6 +837,9 @@ public sealed class ImportPipeline : IImportPipeline
             Report(progress, ImportPhase.FetchingHtml, ++done, pages.Count, item.Id);
 
             var htmlResult = await _client.GetItemHtmlAsync(item.Id, cancellationToken);
+
+            // 見込みは問い合わせが済んでから減らす（①と揃える）。取っている最中の1件は残りに数える
+            work.PlanRequests(pages: -1);
             if (!htmlResult.IsSuccess || htmlResult.Value is null)
             {
                 // 節が取れなくても商品自体は使える。次の段へ進む
@@ -992,7 +1004,8 @@ public sealed class ImportPipeline : IImportPipeline
     /// <summary>
     /// 画像の列を1件ずつ取る（U5）。④1枚目 → ⑤残り → ⑥ショップのアイコン の順。
     ///
-    /// 1件ごとに <paramref name="stacked"/> を見て、積まれたフォルダがあればその場で戻る。
+    /// 1件ごとに <paramref name="work"/> を見て、積まれたフォルダがあればその場で戻る。
+    /// 残りの問い合わせの見込み（U1）もここで減らす。
     /// 周回の中で取り切っていた頃は、積んだ分は⑥が終わるまで何も始まらなかった
     /// （設計では「積まれたら①②が最優先」と決めてあったのに、実装が合っていなかった）。
     /// 優先度は段ごとに切り替える。人が押した通信はどの段よりも上なので待たされない。
@@ -1000,13 +1013,13 @@ public sealed class ImportPipeline : IImportPipeline
     /// <returns>落とせた画像の枚数。</returns>
     private async Task<int> DrainImagesAsync(
         ImageQueue queue,
-        Func<bool> stacked,
+        ImportWorkSet work,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
         var downloaded = 0;
 
-        while (!queue.IsEmpty && !stacked())
+        while (!queue.IsEmpty && !work.HasPending)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -1026,6 +1039,9 @@ public sealed class ImportPipeline : IImportPipeline
                     }
                 }
 
+                // 見込みは取り終えてから減らす（①②と揃える）
+                work.PlanRequests(images: -1);
+
                 queue.Galleries.Enqueue(item);
                 queue.GalleriesTotal++;
                 continue;
@@ -1041,6 +1057,8 @@ public sealed class ImportPipeline : IImportPipeline
                     downloaded += (await _images.SyncAsync(gallery.Id, gallery.Booth.Images, cancellationToken)).Downloaded;
                 }
 
+                work.PlanRequests(images: -(gallery.Booth.Images.Count - 1)); // 1枚目は④で数えた
+
                 continue;
             }
 
@@ -1053,6 +1071,8 @@ public sealed class ImportPipeline : IImportPipeline
             {
                 await _images.SyncShopIconAsync(subdomain, thumbnailUrl, cancellationToken);
             }
+
+            work.PlanRequests(images: -1);
         }
 
         return downloaded;

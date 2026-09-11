@@ -198,6 +198,39 @@ public sealed class ImportWorkSet
         }
     }
 
+    // ---- 残りの問い合わせの見込み（U1） ----
+    //
+    // 取り込みの時間のほとんどはBOOTHへの問い合わせの間隔（1.5秒以上）を待つ時間なので、
+    // 残り時間は「残りの問い合わせの数 × 1件あたりの時間」で出せる。数は取り込みしか知らないので、
+    // 取り込みがここへ書き、画面が読む。画像は既に手元にあれば問い合わせないので、多めに出ることがある
+
+    private int _jsonLeft;
+    private int _pagesLeft;
+    private int _imagesLeft;
+
+    /// <summary>残りの問い合わせ（①商品の情報・②商品ページ・④⑤⑥画像）。</summary>
+    public (int Json, int Pages, int Images) RequestsLeft
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return (Math.Max(0, _jsonLeft), Math.Max(0, _pagesLeft), Math.Max(0, _imagesLeft));
+            }
+        }
+    }
+
+    /// <summary>見込みを足す（済んだ分は負の数で引く）。</summary>
+    public void PlanRequests(int json = 0, int pages = 0, int images = 0)
+    {
+        lock (_gate)
+        {
+            _jsonLeft += json;
+            _pagesLeft += pages;
+            _imagesLeft += images;
+        }
+    }
+
     private static string Normalize(string path)
         => Path.TrimEndingDirectorySeparator(path.Trim());
 

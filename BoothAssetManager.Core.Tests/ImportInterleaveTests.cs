@@ -219,6 +219,38 @@ public class ImportInterleaveTests : IDisposable
         Assert.Equal(2, work.AddedCount);
     }
 
+    /// <summary>
+    /// U1：残り時間の見込みの元になる「残りの問い合わせ」。①の最初は新しい商品2件ぶんの①②が残っていて、
+    /// 画像（2枚×2件＋ショップのアイコン1つ）まで取り終わると0に戻る。
+    /// </summary>
+    [Fact]
+    public async Task CountsTheRequestsLeft()
+    {
+        var work = new ImportWorkSet([CreateSource("plan", "111", "222")]);
+        (int Json, int Pages, int Images)? atStart = null;
+        (int Json, int Pages, int Images)? atFirstImage = null;
+
+        var progress = new InlineProgress(report =>
+        {
+            if (report.Phase == ImportPhase.FetchingJson && atStart is null)
+            {
+                atStart = work.RequestsLeft;
+            }
+
+            if (report.Phase == ImportPhase.FetchingThumbnails && atFirstImage is null)
+            {
+                atFirstImage = work.RequestsLeft;
+            }
+        });
+
+        await _pipeline.RunAsync(work, progress);
+
+        Assert.Equal((2, 2, 0), atStart!.Value);
+        // 1枚目を取り始めたところ。取っている最中の1件は、取り終えるまで残りに数える
+        Assert.Equal((0, 0, 5), atFirstImage!.Value);
+        Assert.Equal((0, 0, 0), work.RequestsLeft);
+    }
+
     /// <summary>取得済みの商品は③待ちにしない。前の取り込みで編集できていたものを塞がない。</summary>
     [Fact]
     public async Task DoesNotHoldItemsThatWereAlreadyThere()

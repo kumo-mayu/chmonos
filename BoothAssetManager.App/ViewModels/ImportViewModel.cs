@@ -241,6 +241,142 @@ public sealed class ImportViewModel : ViewModelBase
 
     public string ProgressText => Total > 0 ? $"{Current} / {Total}" : Current.ToString();
 
+    // ---- 残り時間の見込み（U1） ----
+    //
+    // 取り込みの時間のほとんどはBOOTHへの問い合わせの間隔（1.5秒以上）を待つ時間なので、
+    // 「残りの問い合わせの数 × 1件あたりの実測」で出す。数は取り込み（ImportWorkSet）が持っている。
+    // 少なくとも3つに分けて出す（ユーザ判断）：今の段の残り／編集できるようになるまで（③の終わり）／画像を取り終わるまで
+
+    /// <summary>1件あたりの時間をならす件数。減速や一時の遅れ1回で見込みが跳ねないように。</summary>
+    private const int MeasuredWindow = 20;
+
+    /// <summary>③の中で問い合わせる小さな段。AvatarService が出す名前と揃える。</summary>
+    private const string DetectionCheckingStep = "見つかった商品を確かめています";
+
+    private readonly Queue<double> _requestSeconds = new();
+    private DateTime _lastRequestReportAt;
+    private ImportPhase? _lastRequestPhase;
+    private string _etaPhaseText = string.Empty;
+    private string _etaEditableText = string.Empty;
+    private string _etaImagesText = string.Empty;
+
+    public string EtaPhaseText
+    {
+        get => _etaPhaseText;
+        private set => SetField(ref _etaPhaseText, value);
+    }
+
+    public string EtaEditableText
+    {
+        get => _etaEditableText;
+        private set => SetField(ref _etaEditableText, value);
+    }
+
+    public string EtaImagesText
+    {
+        get => _etaImagesText;
+        private set => SetField(ref _etaImagesText, value);
+    }
+
+    public bool HasEstimate => EtaPhaseText.Length > 0 || EtaEditableText.Length > 0;
+
+    /// <summary>
+    /// 1件あたりの時間。①②④⑥の実測（間隔＋応答）をならしたもの。
+    /// 測れるまでは間隔だけで数えるので、最初の数件は少なめに出る
+    /// </summary>
+    private double SecondsPerRequest => _requestSeconds.Count > 0
+        ? _requestSeconds.Average()
+        : _services.Settings.FetchIntervalMs / 1000.0;
+
+    private void UpdateEstimate(ImportProgress report)
+    {
+        // 1件に1回だけ問い合わせる段で測る。⑤は1件で何枚も取り、③の確認は手元で済む商品が混ざるので使わない
+        var measurable = report.Phase is ImportPhase.FetchingJson or ImportPhase.FetchingHtml
+            or ImportPhase.FetchingThumbnails or ImportPhase.FetchingShopIcons;
+        var now = DateTime.UtcNow;
+
+        if (measurable)
+        {
+            if (_lastRequestPhase == report.Phase)
+            {
+                // 1分を超える間はスリープや長い減速の後なので、1件あたりには混ぜない
+                var seconds = (now - _lastRequestReportAt).TotalSeconds;
+                if (seconds is > 0 and < 60)
+                {
+                    _requestSeconds.Enqueue(seconds);
+                    while (_requestSeconds.Count > MeasuredWindow)
+                    {
+                        _requestSeconds.Dequeue();
+                    }
+                }
+            }
+
+            _lastRequestPhase = report.Phase;
+            _lastRequestReportAt = now;
+        }
+        else
+        {
+            _lastRequestPhase = null;
+        }
+
+        // 走査と解決は手元の作業で、この後の問い合わせの数もまだ分からない
+        if (_work is not { } work || report.Phase is ImportPhase.Scanning or ImportPhase.Resolving)
+        {
+            ClearEstimate();
+            return;
+        }
+
+        var (json, pages, images) = work.RequestsLeft;
+
+        // ③の確認は、手元に持っている商品なら問い合わせずに済む。全部を問い合わせとして数えるので多めに出る
+        var checking = report.Phase == ImportPhase.Detecting && report.Step == DetectionCheckingStep
+            ? Math.Max(0, report.Total - report.Current)
+            : 0;
+        var perRequest = SecondsPerRequest;
+
+        var phaseLeft = report.Phase switch
+        {
+            ImportPhase.FetchingJson => json,
+            ImportPhase.FetchingHtml => pages,
+            ImportPhase.Detecting => checking,
+            _ => images,
+        };
+        EtaPhaseText = $"この段の残り {Duration(phaseLeft * perRequest)}";
+
+        // ③の確認で何件問い合わせるかは、③に入るまで分からない。分からないことは分からないと書く
+        var beforeDetection = report.Phase is ImportPhase.FetchingJson or ImportPhase.FetchingHtml;
+        var editableLeft = json + pages + checking;
+        EtaEditableText = work.AwaitingDetectionCount > 0 || json > 0
+            ? $"編集できるまで {Duration(editableLeft * perRequest)}" + (beforeDetection ? "＋対応アバターの確認" : string.Empty)
+            : "新しい商品はもう編集できます";
+
+        EtaImagesText = _services.Settings.SaveImages
+            ? $"画像を取り終わるまで {Duration((editableLeft + images) * perRequest)}"
+            : "画像は保存しない設定です";
+
+        OnPropertyChanged(nameof(HasEstimate));
+    }
+
+    private void ClearEstimate()
+    {
+        EtaPhaseText = string.Empty;
+        EtaEditableText = string.Empty;
+        EtaImagesText = string.Empty;
+        OnPropertyChanged(nameof(HasEstimate));
+    }
+
+    /// <summary>「約 12 分」「約 1 時間 5 分」。秒まで出すと毎回変わって読めない。</summary>
+    private static string Duration(double seconds)
+    {
+        if (seconds < 60)
+        {
+            return "1分以内";
+        }
+
+        var minutes = (int)Math.Ceiling(seconds / 60);
+        return minutes < 60 ? $"約 {minutes} 分" : $"約 {minutes / 60} 時間 {minutes % 60} 分";
+    }
+
     public ImportSummary? Summary
     {
         get => _summary;
@@ -668,6 +804,9 @@ public sealed class ImportViewModel : ViewModelBase
         _cancellation = new CancellationTokenSource();
         _work = new ImportWorkSet(targets);
         _main.AttachImportWork(_work);
+        _requestSeconds.Clear();
+        _lastRequestPhase = null;
+        ClearEstimate();
 
         var progress = new Progress<ImportProgress>(report => RunOnUiThread(() =>
         {
@@ -689,6 +828,7 @@ public sealed class ImportViewModel : ViewModelBase
             Current = report.Current;
             Total = report.Total;
             StepText = report.Step ?? string.Empty;
+            UpdateEstimate(report);
 
             // 検出で確かめている商品は、問い合わせるまで名前が分からない。空にすると止まって見える
             DetailText = report.Detail
@@ -757,6 +897,7 @@ public sealed class ImportViewModel : ViewModelBase
             _cancellation?.Dispose();
             _cancellation = null;
             _work = null;
+            ClearEstimate();
             IsRunning = false;
         }
     }
