@@ -97,6 +97,13 @@ public sealed class ImportSummary
 
     /// <summary>③ 検出が途中で止まった理由。止まっても取り込み自体は成立している。</summary>
     public string? AvatarDetectError { get; init; }
+
+    /// <summary>
+    /// ③ 検出を走らせたか。**BOOTHから1件も取らなかった取り込みでは走らない**
+    /// （既にある商品にファイルを足しただけなど）。検出が読むのはBOOTHから取った説明文・タグ・種類名なので、
+    /// 新しく読むものが無い。走らなかったのに「見つかりませんでした」と言わないために持つ。
+    /// </summary>
+    public bool AvatarDetectRan { get; init; }
 }
 
 public interface IImportPipeline
@@ -264,6 +271,7 @@ public sealed class ImportPipeline : IImportPipeline
         private int _avatarItemsUpdated;
         private int _avatarsFound;
         private string? _avatarDetectError;
+        private bool _avatarDetectRan;
 
         public void Add(ScanOutcome scan, ResolutionResult resolution, FetchResult fetch)
         {
@@ -286,6 +294,7 @@ public sealed class ImportPipeline : IImportPipeline
             _avatarItemsUpdated += fetch.AvatarItemsUpdated;
             _avatarsFound += fetch.AvatarsFound;
             _avatarDetectError = fetch.AvatarDetectError ?? _avatarDetectError;
+            _avatarDetectRan |= fetch.AvatarDetectRan;
         }
 
         public ImportSummary ToSummary() => new()
@@ -306,6 +315,7 @@ public sealed class ImportPipeline : IImportPipeline
             AvatarItemsUpdated = _avatarItemsUpdated,
             AvatarsFound = _avatarsFound,
             AvatarDetectError = _avatarDetectError,
+            AvatarDetectRan = _avatarDetectRan,
         };
     }
 
@@ -646,6 +656,7 @@ public sealed class ImportPipeline : IImportPipeline
         var avatarItemsUpdated = 0;
         var avatarsFound = 0;
         string? avatarDetectError = null;
+        var avatarDetectRan = false;
 
         // 手元にある商品は通信が要らない。ファイルを足すだけなので、段に入る前に片付ける
         var pending = new List<(string ItemId, List<LocalFileRecord> Files)>();
@@ -787,6 +798,7 @@ public sealed class ImportPipeline : IImportPipeline
         if (_avatars is not null && fetched.Count > 0)
         {
             using var detectPriority = BoothClient.Prioritize(BoothPriority.Detection);
+            avatarDetectRan = true;
 
             try
             {
@@ -816,6 +828,7 @@ public sealed class ImportPipeline : IImportPipeline
                 AvatarItemsUpdated = avatarItemsUpdated,
                 AvatarsFound = avatarsFound,
                 AvatarDetectError = avatarDetectError,
+                AvatarDetectRan = avatarDetectRan,
             };
         }
 
@@ -883,6 +896,7 @@ public sealed class ImportPipeline : IImportPipeline
             AvatarItemsUpdated = avatarItemsUpdated,
             AvatarsFound = avatarsFound,
             AvatarDetectError = avatarDetectError,
+            AvatarDetectRan = avatarDetectRan,
         };
     }
 
@@ -996,5 +1010,7 @@ public sealed class ImportPipeline : IImportPipeline
         public int AvatarsFound { get; init; }
 
         public string? AvatarDetectError { get; init; }
+
+        public bool AvatarDetectRan { get; init; }
     }
 }

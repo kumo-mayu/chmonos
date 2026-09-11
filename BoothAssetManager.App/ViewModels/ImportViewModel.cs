@@ -737,6 +737,12 @@ public sealed class ImportViewModel : ViewModelBase
             return $"対応アバターの検出は途中で止まりました：{error}";
         }
 
+        // 走らなかったのに「見つかりませんでした」と言っていた（自動で走っていないと受け取られた）
+        if (!summary.AvatarDetectRan)
+        {
+            return "今回は対応アバターの検出をしていません（BOOTHから新しく取った商品が無いため）。";
+        }
+
         return summary.AvatarItemsUpdated == 0
             ? "対応アバターは見つかりませんでした。"
             : $"対応アバターを {summary.AvatarItemsUpdated} 件の商品に書きました（アバター {summary.AvatarsFound} 体）。";
