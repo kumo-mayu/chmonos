@@ -244,6 +244,49 @@
                                                  AutomationProperties.Name="使ったものを足す"
                                                  Placeholder="使ったものを足す（商品名で探す）"
                                                  Margin="0,12,0,0" />
+
+                            <!--
+                                紐付けたプロジェクトの中から探す（#72・ユーザ案）。
+                                プロジェクトのファイルを見るだけで、Unity の画面は読まない。自動では足さず、人が「足す」を押す
+                            -->
+                            <StackPanel Margin="0,16,0,0"
+                                        Visibility="{Binding HasProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Grid>
+                                    <TextBlock Text="紐付けたプロジェクトの中から探す" FontSize="12.5" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                    <Button Content="プロジェクトの中を調べる" Style="{StaticResource SmallButton}"
+                                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            Command="{Binding FindInProjectCommand}"
+                                            ToolTip="プロジェクトの Assets と Packages にあるファイルを、手元の商品の unitypackage の中身と比べます。プロジェクトは書き換えません。" />
+                                </Grid>
+                                <TextBlock Text="{Binding ProjectFindText}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Visibility="{Binding HasProjectFindText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <ItemsControl ItemsSource="{Binding FoundInProject}" Margin="0,4,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ProjectCandidateRowViewModel}">
+                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                    </StackPanel>
+                                                    <Button Grid.Column="1" Content="足す" Style="{StaticResource SmallButton}"
+                                                            VerticalAlignment="Center"
+                                                            ToolTip="「使ったもの」の最後に足します。あとで並べ替えたり外したりできます。"
+                                                            Command="{Binding DataContext.AddCandidateCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -103,6 +103,26 @@ public sealed class UnityProjectRowViewModel
     public required bool IsCurrent { get; init; }
 }
 
+/// <summary>紐付けたプロジェクトに入っている、手元の商品1件（#72）。</summary>
+public sealed class ProjectCandidateRowViewModel
+{
+    public required string ItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required int Present { get; init; }
+
+    public required int Total { get; init; }
+
+    /// <summary>
+    /// 何個あったか。**割合が低くても出す。**欲しい物だけを選んで取り込むのは普通の使い方で、
+    /// 数個しか無いのは「使っていない」を意味しない。
+    /// </summary>
+    public string Detail => Present == Total
+        ? $"{Total} 個のファイルがすべてプロジェクトにあります"
+        : $"{Total} 個のファイルのうち {Present} 個がプロジェクトにあります";
+}
+
 /// <summary>
 /// 改変の詳細。
 ///
@@ -170,6 +190,10 @@ public sealed class ModificationViewModel : ViewModelBase
         OpenProjectFolderCommand = new RelayCommand(
             () => Shell.Reveal(Record.UnityProject), () => HasProject);
         SendAllToUnityCommand = new RelayCommand(() => _ = SendAllToUnityAsync(), () => HasMembers && !IsSendingToUnity);
+        FindInProjectCommand = new RelayCommand(() => _ = FindInProjectAsync(), () => HasProject && !IsFindingInProject);
+        AddCandidateCommand = new RelayCommand(
+            parameter => _ = AddCandidateAsync(parameter as ProjectCandidateRowViewModel),
+            parameter => parameter is ProjectCandidateRowViewModel);
 
         _ = ReloadAsync();
     }
@@ -214,6 +238,136 @@ public sealed class ModificationViewModel : ViewModelBase
 
     /// <summary>使ったものを、並びの順に Unity へ送る（#69）。</summary>
     public RelayCommand SendAllToUnityCommand { get; }
+
+    // ---- 紐付けたプロジェクトの中から探す（#72） ----
+
+    /// <summary>紐付けたプロジェクトの中を調べ、入っている手元の商品を候補に出す。</summary>
+    public RelayCommand FindInProjectCommand { get; }
+
+    /// <summary>候補の1件を「使ったもの」に足す。</summary>
+    public RelayCommand AddCandidateCommand { get; }
+
+    /// <summary>紐付けたプロジェクトで見つかった手元の商品。紐付け先を選ぶ候補（<c>ProjectCandidates</c>）とは別物。</summary>
+    public ObservableCollection<ProjectCandidateRowViewModel> FoundInProject { get; } = [];
+
+    private bool _isFindingInProject;
+
+    public bool IsFindingInProject
+    {
+        get => _isFindingInProject;
+        private set
+        {
+            if (SetField(ref _isFindingInProject, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private string _projectFindText = string.Empty;
+
+    /// <summary>調べている途中の進み具合と、調べ終えた結果の1行。</summary>
+    public string ProjectFindText
+    {
+        get => _projectFindText;
+        private set
+        {
+            if (SetField(ref _projectFindText, value))
+            {
+                OnPropertyChanged(nameof(HasProjectFindText));
+            }
+        }
+    }
+
+    public bool HasProjectFindText => ProjectFindText.Length > 0;
+
+    /// <summary>
+    /// 紐付けたプロジェクトの <c>Assets/</c> と <c>Packages/</c> を見て、手元のどの商品が入っているかを出す（#72・ユーザ案）。
+    ///
+    /// **画面は読まない。**プロジェクトのファイルと、商品の unitypackage に入っているパスを突き合わせるだけ
+    /// （必要のない所に UI Automation を使わない・ユーザ指示）。数え方は <see cref="UnityProjectMatcher"/>。
+    ///
+    /// **自動では足さない。**プロジェクトには別の改変で入れた物や試しに入れた物も残る。
+    /// どれを使ったかは人が決め、「足す」で1件ずつ入れる。
+    /// </summary>
+    private async Task FindInProjectAsync()
+    {
+        if (Record.UnityProject is not { } project || !Directory.Exists(project))
+        {
+            ProjectFindText = "紐付けたプロジェクトのフォルダが見つかりません。消したか移した場合は、下の「Unityプロジェクト」から紐付け直してください。";
+            return;
+        }
+
+        IsFindingInProject = true;
+        FoundInProject.Clear();
+        try
+        {
+            var loaded = await _services.Store.Items.LoadAllAsync();
+            var items = loaded.Items.Where(item => item.IsDownloaded).ToList();
+            IProgress<int> progress = new Progress<int>(done =>
+                ProjectFindText = $"手元の商品の中身を読んでいます…（{done}/{items.Count}）");
+
+            // unitypackage を解くのは重い（大きな物は1件0.2秒ほど）ので裏で読む。
+            // 共有の部品（lilToon など）を見分けるため、使ったものに入っている商品も含めて全部読む
+            var matches = await Task.Run(() =>
+            {
+                var paths = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                var done = 0;
+                foreach (var item in items)
+                {
+                    paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(UnityHandoff.ReadAssetPaths).ToList();
+                    progress.Report(++done);
+                }
+
+                return UnityProjectMatcher.Match(project, paths);
+            });
+
+            var members = Record.Members.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+            var names = items.ToDictionary(item => item.Id, item => item.DisplayName, StringComparer.Ordinal);
+            foreach (var match in matches.Where(match => !members.Contains(match.ItemId)))
+            {
+                FoundInProject.Add(new ProjectCandidateRowViewModel
+                {
+                    ItemId = match.ItemId,
+                    Name = names[match.ItemId],
+                    Present = match.Present,
+                    Total = match.Total,
+                });
+            }
+
+            ProjectFindText = FoundInProject.Count > 0
+                ? $"このプロジェクトに入っている手元の商品が {FoundInProject.Count} 件ありました。この改変に使ったものなら「足す」を押してください。"
+                : matches.Count > 0
+                    ? "このプロジェクトに入っている手元の商品は、すべて「使ったもの」に入っています。"
+                    : "このプロジェクトの中に、手元の商品のファイルは見つかりませんでした。数えられるのは zip の中に unitypackage がある商品だけです。使ったものは上の欄から商品名で足せます。";
+        }
+        finally
+        {
+            IsFindingInProject = false;
+        }
+    }
+
+    private async Task AddCandidateAsync(ProjectCandidateRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
+            Record.Id,
+            new ModificationMember { ItemId = row.ItemId }));
+
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        FoundInProject.Remove(row);
+        Status = $"「{row.Name}」を足しました。";
+        await ReloadAsync();
+    }
 
     private bool _isSendingToUnity;
 

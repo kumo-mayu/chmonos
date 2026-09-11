@@ -587,7 +587,10 @@ Cancel の判定は5.1秒。Import 側は「静かになったら」でなく「
 zip の中は BlendShare（Packages/・スクリプト入り）→ Kuuta_ShapekeyAddon の順で、§11-2 で中身が抜けたのと同じ並び。
 1件目を Import してから、アプリは読み込み直しの終わりを待って **8.1秒後に**2件目の取り込み画面を出し、
 **BlendShare 16/16・Kuuta_ShapekeyAddon 2/2** がディスクに入った。test_ring も本番のデータも変わらず。
-Cancel の判断と確認の窓の知らせは、試験（`UnityImportWatchTests`）と記録で確かめたが、アプリを通しては試していない。
+続けて「なめらか心音ギミック」（HeartBeatGimmick → VRCHeartRate_Installer）をアプリから送り、1件目を閉じ、2件目を Import した。
+アプリは1件目が閉じてから **6.7秒で Cancel と判断**して2件目を出した。2件目の後にパッケージが確認の窓を出すと、1行が
+「Unity 側で確認（「VPAI Installer」）が出ています。Unity で答えると次に進みます」に変わり、答えるまで待った。
+最後の知らせは「2 件の取り込み画面を順に出しました（うち 1 件は Cancel されたので入っていません）」。
 
   参考：[Log files（2022.3）](https://docs.unity3d.com/2022.3/Documentation/Manual/LogFiles.html)、
   [Log files reference（6000.5）](https://docs.unity3d.com/6000.5/Documentation/Manual/log-files.html)、
