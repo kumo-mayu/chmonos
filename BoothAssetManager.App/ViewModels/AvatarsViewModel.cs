@@ -44,11 +44,38 @@ public sealed class AvatarRowViewModel : ViewModelBase
     /// <summary>絵を読むもの。一覧は見えている行しか作らないので、絵も見えた行だけで読む（U18）。</summary>
     public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
 
+    /// <summary>絵の場所を探すもの（U18）。</summary>
+    public Func<string?>? IconPathFactory { get; init; }
+
+    private string? _iconPath;
+    private bool _iconPathLoaded;
+
+    /// <summary>
+    /// 絵の場所。**見えた行で初めて探す。**一覧を組むときに約600体ぶん探すと、
+    /// アバター画面を開くのが遅れる疑いがあった（開いてから一覧が出るまで4.6〜8.0秒）
+    /// </summary>
+    private string? IconPath
+    {
+        get
+        {
+            if (!_iconPathLoaded)
+            {
+                _iconPathLoaded = true;
+                _iconPath = IconPathFactory?.Invoke();
+            }
+
+            return _iconPath;
+        }
+    }
+
     /// <summary>頭に絵を出すか。無ければ頭文字を出す（U18）。</summary>
-    public bool HasIcon => Summary.IconPath is not null;
+    public bool HasIcon => IconPath is not null;
 
     /// <summary>頭の絵。持っているアバターは商品の1枚目、持っていないアバターは控えの1枚（U18）。</summary>
-    public System.Windows.Media.Imaging.BitmapSource? Icon => Summary.IconPath is { } path ? Thumbnails?.LoadForTile(path) : null;
+    /// <remarks>裏で読み、届いたら描き直す。その場で読むと、画面を開くのが遅れた（<see cref="BoothAssetManager.App.Services.ThumbnailLoader.PeekForTile"/>）。</remarks>
+    public System.Windows.Media.Imaging.BitmapSource? Icon => IconPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
 
     /// <summary>画面に出す名前。手で付けた名前か、正式名から計算した名前（同じ名前ならショップ名付き）。</summary>
     public string Name => string.IsNullOrWhiteSpace(Summary.Name) ? Summary.Entry.ItemId : Summary.Name;
@@ -829,7 +856,13 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         RunOnUiThread(() =>
         {
-            _all = avatars.Select(summary => new AvatarRowViewModel { Summary = summary, Thumbnails = _main.Thumbnails }).ToList();
+            _all = avatars.Select(summary => new AvatarRowViewModel
+            {
+                Summary = summary,
+                Thumbnails = _main.Thumbnails,
+                IconPathFactory = () => AvatarImageSync.IconPath(
+                    _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId)),
+            }).ToList();
 
             // 素体の設定を変えると読み直すので、選んでいた素体を名前で戻す
             var selectedBaseName = SelectedBase?.Name;

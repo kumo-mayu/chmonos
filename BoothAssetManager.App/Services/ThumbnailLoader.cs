@@ -244,6 +244,25 @@ public sealed class ThumbnailLoader
         return small?.Image;
     }
 
+    /// <summary>
+    /// 小さな一覧（アバター画面の頭の絵など）の1枚。手元にあればすぐ返し、無ければ裏で読む（U18）。
+    /// その場で読むと、アバター画面を初めて開いたときに見えている約30行ぶんを画面のスレッドで読み、
+    /// 一覧が出るまでが4.3秒から7.7秒に延びた。
+    /// </summary>
+    public BitmapSource? PeekForTile(string path, Action onLoaded)
+    {
+        var edge = EdgePixels(TileEdgeDip);
+        var key = $"{path}|{edge}";
+        if (_byKey.TryGetValue(key, out var cached))
+        {
+            cached.LastUsedAt = ++_clock;
+            return cached.Image;
+        }
+
+        Request(key, path, edge, onLoaded);
+        return null;
+    }
+
     private void Request(string key, string path, int edge, Action onLoaded)
     {
         if (_requested.TryGetValue(key, out var existing))

@@ -67,12 +67,6 @@ public sealed record AvatarSummary
     /// 「『【くうた対応】School sweater』ほか2件が対応先として挙げています」と読めれば分かる。
     /// </summary>
     public IReadOnlyList<string> ReferencedBy { get; init; } = [];
-
-    /// <summary>
-    /// 一覧の頭に出す絵の場所（U18）。持っているアバターは商品の1枚目、持っていないアバターは
-    /// <c>images/_avatars</c> の1枚。まだ無ければ null（頭文字を出す）。
-    /// </summary>
-    public string? IconPath { get; init; }
 }
 
 /// <summary>素体グループ1件の一覧表示用。</summary>
@@ -223,14 +217,6 @@ public sealed partial class AvatarService : IAvatarService
         }
 
         var shownNames = AvatarNames.Map(registry.Entries);
-
-        // 絵の場所を決めるのに、商品として持っているかを引く（U18）
-        var itemsById = new Dictionary<string, ItemRecord>(StringComparer.Ordinal);
-        foreach (var item in loaded.Items)
-        {
-            itemsById.TryAdd(item.Id, item);
-        }
-
         return registry.Entries
             .Select(entry => new AvatarSummary
             {
@@ -241,7 +227,6 @@ public sealed partial class AvatarService : IAvatarService
                 DirectCount = direct.TryGetValue(entry.ItemId, out var d) ? d : 0,
                 ViaBaseCount = viaBase.TryGetValue(entry.ItemId, out var v) ? v : 0,
                 ReferencedBy = names.TryGetValue(entry.ItemId, out var n) ? n : [],
-                IconPath = AvatarImageSync.IconPath(_store.Paths, entry.ItemId, itemsById.GetValueOrDefault(entry.ItemId)),
             })
             // 「アバターとして扱わない」にしたものも残す。一覧から消すと選べなくなり、
             // 隣にある「自動判定に戻す」を押す手段が無くなる（JSONを手で直すしかなくなる）
