@@ -802,6 +802,41 @@ public sealed class SearchViewModel : ViewModelBase
     /// <summary>
     /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。
     /// </summary>
+    /// <summary>
+    /// お気に入りの星を切り替える（#70・ユーザ指示「searchのitem要素で空いている下の方に星のトグル」）。
+    ///
+    /// 星だけを名指しして書く。カードが抱えているのは前回の読み込み時の写しで、
+    /// 丸ごと書き戻すとその間に取り込みや検出が入れた項目まで古い値に戻る。
+    /// 一覧ごと読み直さないのは、星1つのためにスクロール位置や並びを崩さないため。
+    /// </summary>
+    public async Task ToggleFavoriteAsync(ItemCardViewModel card)
+    {
+        var next = !card.IsFavorite;
+        card.IsFavorite = next;
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
+            card.Item.Id, card.Item.Local with { IsFavorite = next }, LocalOwners.Favorite));
+
+        if (result is Core.Commands.CommandResult.Failed)
+        {
+            // 書けなかったら戻す。付いたように見えて次に開くと消えている、を起こさない
+            card.IsFavorite = !next;
+            return;
+        }
+
+        // 絞り込みは読み込み時の一覧を見るので、そちらの写しも差し替える
+        var index = _allItems.FindIndex(item => item.Id == card.Item.Id);
+        if (index >= 0)
+        {
+            _allItems[index] = _allItems[index] with { Local = _allItems[index].Local with { IsFavorite = next } };
+        }
+
+        if (ExtraFilters.Any(filter => filter.Kind == ExtraFilterKind.Favorite))
+        {
+            ApplyFilters();
+        }
+    }
+
     private async Task HideItemAsync(ItemCardViewModel? card)
     {
         if (card is null)

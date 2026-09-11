@@ -954,6 +954,27 @@
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
                                                            VerticalAlignment="Center"
                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <!--
+                                                    お気に入りの星（#70・ユーザ指示「空いている下の方に星のトグル」）。
+                                                    真ん中に置く：左は容量と未所持の襷、右は状態の札で埋まっている。
+                                                    背景を塗るのは、星の字の隙間でも押せるようにするため
+                                                -->
+                                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Padding="8,0"
+                                                        Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                                        MouseLeftButtonUp="OnFavoriteClick">
+                                                    <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#d99a00" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                     <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"

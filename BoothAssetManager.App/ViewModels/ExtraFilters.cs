@@ -29,6 +29,9 @@ public enum ExtraFilterKind
 
     /// <summary>最近手元に入ったもの。</summary>
     RecentlyAdded,
+
+    /// <summary>お気に入りの星を付けたもの（#70）。</summary>
+    Favorite,
 }
 
 /// <summary>
@@ -135,6 +138,7 @@ public static class ExtraFilterCatalog
         new(ExtraFilterKind.WishList, "スキ数", ExtraFilterShape.Range, "BOOTHのスキ数で絞ります。"),
         new(ExtraFilterKind.Price, "価格", ExtraFilterShape.Range,
             "自分が払った額で絞ります（BOOTHの現在価格ではありません）。"),
+        new(ExtraFilterKind.Favorite, "お気に入り", ExtraFilterShape.Check, "カードの星を付けた商品だけを出します。"),
         new(ExtraFilterKind.Adult, "R-18", ExtraFilterShape.Check, "R-18の商品だけを出します。"),
         new(ExtraFilterKind.EndOfSale, "販売終了", ExtraFilterShape.Check, "BOOTHで販売が終わった商品だけを出します。"),
         new(ExtraFilterKind.HasUpdate, "更新の有無", ExtraFilterShape.Check,
@@ -373,6 +377,7 @@ public sealed class ExtraFilter : ViewModelBase
         ExtraFilterKind.PublishedAt => InDateRange(item.Booth.PublishedAt),
         ExtraFilterKind.WishList => InNumberRange(item.Booth.WishListsCount),
         ExtraFilterKind.Price => InNumberRange(Purchases.SelfSpendOf(item)),
+        ExtraFilterKind.Favorite => !IsOn || item.Local.IsFavorite,
         ExtraFilterKind.Adult => !IsOn || item.Booth.IsAdult,
         ExtraFilterKind.EndOfSale => !IsOn || item.Booth.IsEndOfSale,
         ExtraFilterKind.HasUpdate => !IsOn || unreadItemIds.Contains(item.Id),

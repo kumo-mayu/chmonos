@@ -26,6 +26,7 @@ public enum LocalField
     AcquiredAt,
     NotifyOnUpdate,
     IsHidden,
+    IsFavorite,
     LastFetchedAt,
     NextFetchDueAt,
     ConsecutiveNotFoundCount,
@@ -74,6 +75,7 @@ public static class LocalFields
                 LocalField.AcquiredAt => result with { AcquiredAt = incoming.AcquiredAt },
                 LocalField.NotifyOnUpdate => result with { NotifyOnUpdate = incoming.NotifyOnUpdate },
                 LocalField.IsHidden => result with { IsHidden = incoming.IsHidden },
+                LocalField.IsFavorite => result with { IsFavorite = incoming.IsFavorite },
                 LocalField.LastFetchedAt => result with { LastFetchedAt = incoming.LastFetchedAt },
                 LocalField.NextFetchDueAt => result with { NextFetchDueAt = incoming.NextFetchDueAt },
                 LocalField.ConsecutiveNotFoundCount =>
@@ -124,6 +126,9 @@ public static class LocalOwners
 
     /// <summary>素体の対応宣言だけを直す操作。</summary>
     public static readonly IReadOnlyCollection<LocalField> AvatarBases = [LocalField.AvatarBases];
+
+    /// <summary>お気に入りの星（#70）。検索カードから切り替える。</summary>
+    public static readonly IReadOnlyCollection<LocalField> Favorite = [LocalField.IsFavorite];
 
     /// <summary>非表示の切り替え。検索の右クリックと設定画面の両方から。</summary>
     public static readonly IReadOnlyCollection<LocalField> Visibility = [LocalField.IsHidden];

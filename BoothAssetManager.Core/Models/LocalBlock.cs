@@ -116,6 +116,12 @@ public sealed record LocalBlock
     /// <summary>非表示。検索とショップ件数からは除くが、統計の金額には含める。</summary>
     public bool IsHidden { get; init; }
 
+    /// <summary>
+    /// お気に入り（#70）。検索カードの星で切り替える（ユーザ指示）。
+    /// 分類や属性とは別の、「すぐ見つけたい」だけの印。検索の「条件を追加」で絞れる。
+    /// </summary>
+    public bool IsFavorite { get; init; }
+
     /// <summary>最後にBOOTHから取得した日時。</summary>
     public DateTimeOffset? LastFetchedAt { get; init; }
 

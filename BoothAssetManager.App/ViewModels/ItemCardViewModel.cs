@@ -48,12 +48,36 @@ public sealed class ItemCardViewModel : ViewModelBase
         ThumbnailRole thumbnailRole = ThumbnailRole.Default)
     {
         Item = item;
+        _isFavorite = item.Local.IsFavorite;
         _thumbnails = thumbnails;
         _imageDirectory = imageDirectory;
         ThumbnailRole = thumbnailRole;
     }
 
     public ItemRecord Item { get; }
+
+    private bool _isFavorite;
+
+    /// <summary>
+    /// お気に入りの星（#70）。**押した瞬間に変える**——保存を待ってから変えると、押したのに反応しないように見える。
+    /// 書けなかったら検索画面が元に戻す。
+    /// </summary>
+    public bool IsFavorite
+    {
+        get => _isFavorite;
+        set
+        {
+            if (SetField(ref _isFavorite, value))
+            {
+                OnPropertyChanged(nameof(FavoriteGlyph));
+                OnPropertyChanged(nameof(FavoriteTip));
+            }
+        }
+    }
+
+    public string FavoriteGlyph => IsFavorite ? "★" : "☆";
+
+    public string FavoriteTip => IsFavorite ? "お気に入りから外す" : "お気に入りに入れる";
 
     /// <summary>
     /// どの役割の画像をサムネイルに出すか。設定から来る。

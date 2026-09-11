@@ -73,6 +73,17 @@ public partial class SearchView : UserControl
         }
     }
 
+    /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>
+    private void OnFavoriteClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card }
+            && DataContext is SearchViewModel search)
+        {
+            _ = search.ToggleFavoriteAsync(card);
+            e.Handled = true;
+        }
+    }
+
     /// <summary>選択中でも商品ページへ移れる出口。</summary>
     private void OnOpenItemClick(object sender, MouseButtonEventArgs e)
     {
