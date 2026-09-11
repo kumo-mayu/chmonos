@@ -208,6 +208,14 @@ public partial class SuggestBox : UserControl
 
     private void OnCandidateClicked(object sender, MouseButtonEventArgs e)
     {
+        // 離した場所が候補の行の上のときだけ決める。一覧全体で拾っているので、
+        // スクロールバーをドラッグして離しただけでも、先頭（開くたびに選ばれている）で確定していた
+        if (e.OriginalSource is not DependencyObject source
+            || ItemsControl.ContainerFromElement(Candidates, source) is not ListBoxItem)
+        {
+            return;
+        }
+
         if (Candidates.SelectedItem is Suggestion)
         {
             Commit();
