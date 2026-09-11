@@ -41,6 +41,15 @@ public sealed class AvatarRowViewModel : ViewModelBase
 
     public string ItemId => Summary.Entry.ItemId;
 
+    /// <summary>絵を読むもの。一覧は見えている行しか作らないので、絵も見えた行だけで読む（U18）。</summary>
+    public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>頭に絵を出すか。無ければ頭文字を出す（U18）。</summary>
+    public bool HasIcon => Summary.IconPath is not null;
+
+    /// <summary>頭の絵。持っているアバターは商品の1枚目、持っていないアバターは控えの1枚（U18）。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon => Summary.IconPath is { } path ? Thumbnails?.LoadForTile(path) : null;
+
     /// <summary>画面に出す名前。手で付けた名前か、正式名から計算した名前（同じ名前ならショップ名付き）。</summary>
     public string Name => string.IsNullOrWhiteSpace(Summary.Name) ? Summary.Entry.ItemId : Summary.Name;
 
@@ -820,7 +829,7 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         RunOnUiThread(() =>
         {
-            _all = avatars.Select(summary => new AvatarRowViewModel { Summary = summary }).ToList();
+            _all = avatars.Select(summary => new AvatarRowViewModel { Summary = summary, Thumbnails = _main.Thumbnails }).ToList();
 
             // 素体の設定を変えると読み直すので、選んでいた素体を名前で戻す
             var selectedBaseName = SelectedBase?.Name;

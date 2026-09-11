@@ -67,6 +67,12 @@ public sealed class AppPaths
     /// </summary>
     public string ModificationImagesDir(string id) => Path.Combine(ImagesDir, "_mods", id);
 
+    /// <summary>
+    /// 持っていないアバターの1枚目（U18）。持っているアバターは商品の画像を使うので、ここには置かない。
+    /// <c>images/</c> 直下は商品IDのフォルダが並ぶ場所なので、<c>_shops</c>・<c>_mods</c> と同じ避け方にする
+    /// </summary>
+    public string AvatarImagesDir(string avatarItemId) => Path.Combine(ImagesDir, "_avatars", avatarItemId);
+
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
 
     public string EditSessionFile => Path.Combine(Root, "edit-session.json");

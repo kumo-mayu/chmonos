@@ -59,6 +59,7 @@ public sealed class AppServiceContainer : IDisposable
         Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars);
         Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
+        AvatarImages = new AvatarImageSync(Store, Client, Images);
         Watch = new FolderWatch(Store);
 
         // 辞書は実行ファイルの隣に配られる。索引は最初に必要になったときだけ組む
@@ -136,6 +137,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>前の取り込みで残った画像を、次の起動で取り直す（梯子の⑤の再開）。</summary>
     public ImageBacklog Backlog { get; }
+
+    /// <summary>持っていないアバターの1枚目を取って置く（U18）。起動時の裏の取得で、⑤の後に回す。</summary>
+    public AvatarImageSync AvatarImages { get; }
 
     /// <summary>監視対象フォルダに新しいファイルが無いかを見る。起動時に走らせてよい唯一の走査。</summary>
     public FolderWatch Watch { get; }

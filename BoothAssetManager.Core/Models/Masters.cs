@@ -158,6 +158,12 @@ public sealed record AvatarRegistryEntry
     /// <summary>最後にBOOTHへ問い合わせた日時。</summary>
     public DateTimeOffset? CheckedAt { get; init; }
 
+    /// <summary>
+    /// BOOTHでの1枚目の画像のURL（U18）。観測した事実。持っていないアバターの絵を1枚だけ取るのに使う。
+    /// null は「まだ見ていない」、空文字は「見たが画像が無い（販売終了を含む）」——空文字を置かないと毎回問い合わせに行く
+    /// </summary>
+    public string? ImageUrl { get; init; }
+
     /// <summary>実際に呼ばれていた表記の履歴。タグやvariation名との照合に使う。</summary>
     public IReadOnlyList<AvatarAlias> Aliases { get; init; } = [];
 }

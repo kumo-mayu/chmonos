@@ -658,8 +658,15 @@
                                             アバター画面でそのアバターを選んだ状態。「×」はボタンなので、押しても開かない
                                         -->
                                         <!-- 持っているアバターは検索カードの「所持」と同じ緑（U25） -->
-                                        <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
-                                                ToolTip="{Binding SourceTooltip}" Cursor="Hand">
+                                        <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand">
+                                            <!-- ツールチップにアバターの絵を出す（R3）。名前だけでは見分けにくいアバターがある -->
+                                            <Border.ToolTip>
+                                                <StackPanel MaxWidth="260">
+                                                    <Image Source="{Binding Icon}" Width="160" Height="160" Stretch="Uniform" Margin="0,0,0,6"
+                                                           Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <TextBlock Text="{Binding SourceTooltip}" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border.ToolTip>
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Background" Value="{StaticResource AccentSoft}" />
@@ -735,6 +742,7 @@
                             <!-- 出品者が書き漏らしている場合や、検出が拾えなかった場合の補い -->
                             <controls:SuggestBox Source="{Binding SupportSuggestions}"
                                                  CommitCommand="{Binding AddAvatarCommand}"
+                                                 IconSelector="{Binding AvatarIconSelector}"
                                                  AllowNew="False" Margin="0,6,0,0"
                                                  Placeholder="対応アバターを足す" />
 

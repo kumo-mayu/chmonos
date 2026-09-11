@@ -2,12 +2,16 @@ using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace BoothAssetManager.App.Controls;
 
 /// <summary>候補1件。既存の語か、入力された新しい語か。</summary>
 public sealed class Suggestion
 {
+    private ImageSource? _icon;
+    private bool _iconLoaded;
+
     public required string Value { get; init; }
 
     public required string Display { get; init; }
@@ -15,6 +19,29 @@ public sealed class Suggestion
     public bool IsNew { get; init; }
 
     public Visibility NewBadgeVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>頭に出す小さな絵を作るもの（U18）。無ければ絵の欄ごと出さない。</summary>
+    public Func<string, ImageSource?>? IconFactory { get; init; }
+
+    /// <summary>
+    /// 頭の絵。**見えた行で初めて読む。**候補は空のまま触ると全部（アバターなら数百）並ぶので、
+    /// 開くたびに全部の絵を読むと固まる。一覧は見えている行しか作らないので、読むのもその分だけになる
+    /// </summary>
+    public ImageSource? Icon
+    {
+        get
+        {
+            if (!_iconLoaded)
+            {
+                _iconLoaded = true;
+                _icon = IconFactory?.Invoke(Value);
+            }
+
+            return _icon;
+        }
+    }
+
+    public Visibility IconVisibility => IconFactory is null || IsNew ? Visibility.Collapsed : Visibility.Visible;
 }
 
 /// <summary>
@@ -46,6 +73,17 @@ public partial class SuggestBox : UserControl
     public static readonly DependencyProperty CommitCommandProperty =
         DependencyProperty.Register(nameof(CommitCommand), typeof(ICommand), typeof(SuggestBox),
             new PropertyMetadata(null));
+
+    /// <summary>候補の語から、頭に出す小さな絵を作る（U18・アバターの候補）。無ければ絵は出さない。</summary>
+    public static readonly DependencyProperty IconSelectorProperty =
+        DependencyProperty.Register(nameof(IconSelector), typeof(Func<string, ImageSource?>), typeof(SuggestBox),
+            new PropertyMetadata(null));
+
+    public Func<string, ImageSource?>? IconSelector
+    {
+        get => (Func<string, ImageSource?>?)GetValue(IconSelectorProperty);
+        set => SetValue(IconSelectorProperty, value);
+    }
 
     private bool _isCommitting;
     private bool _skipNextFocusOpen;
@@ -147,7 +185,7 @@ public partial class SuggestBox : UserControl
                 .ToList();
 
         var items = matches
-            .Select(entry => new Suggestion { Value = entry, Display = entry })
+            .Select(entry => new Suggestion { Value = entry, Display = entry, IconFactory = IconSelector })
             .ToList();
 
         var exists = all.Any(entry => string.Equals(entry, text, StringComparison.CurrentCultureIgnoreCase));

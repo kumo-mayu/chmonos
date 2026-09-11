@@ -228,49 +228,73 @@ public sealed class ImagePipeline
         BoothImage image,
         CancellationToken cancellationToken = default)
     {
-        if (!_settings.SaveImages)
+        var (present, saved) = await FetchOneAsync(_paths.ItemImagesDir(itemId), image.OriginalUrl, cancellationToken);
+        if (saved)
         {
-            return false;
+            ItemImagesSaved?.Invoke(itemId);
         }
 
-        var directory = _paths.ItemImagesDir(itemId);
+        return present;
+    }
+
+    /// <summary>
+    /// 1枚だけを指定の場所へ落とす。商品ではないもの（持っていないアバターの1枚目・U18）に使う。
+    /// 保存の形（長辺・WebP・URLのハッシュの名前・404の印）は商品の画像と同じ。
+    /// </summary>
+    /// <returns>手元にあるか（元から持っていた場合も true）。</returns>
+    public async Task<bool> SyncOneToAsync(
+        string directory,
+        string originalUrl,
+        CancellationToken cancellationToken = default)
+        => (await FetchOneAsync(directory, originalUrl, cancellationToken)).Present;
+
+    /// <returns>手元にあるか、この呼び出しで新しく保存したか。</returns>
+    private async Task<(bool Present, bool Saved)> FetchOneAsync(
+        string directory,
+        string originalUrl,
+        CancellationToken cancellationToken)
+    {
+        if (!_settings.SaveImages)
+        {
+            return (false, false);
+        }
+
         Directory.CreateDirectory(directory);
 
-        var path = Path.Combine(directory, FileNameFor(image.OriginalUrl));
+        var path = Path.Combine(directory, FileNameFor(originalUrl));
         if (File.Exists(path))
         {
-            return true;
+            return (true, false);
         }
 
         // 404だったものは取りに行かない。毎回1本ずつ無駄にするのを避ける
-        if (File.Exists(Path.Combine(directory, MissingMarkerFor(image.OriginalUrl))))
+        if (File.Exists(Path.Combine(directory, MissingMarkerFor(originalUrl))))
         {
-            return false;
+            return (false, false);
         }
 
-        var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
+        var result = await _client.GetBinaryAsync(originalUrl, cancellationToken);
 
         if (result.Status == BoothFetchStatus.NotFound)
         {
-            MarkMissing(directory, image.OriginalUrl);
-            return false;
+            MarkMissing(directory, originalUrl);
+            return (false, false);
         }
 
         if (!result.IsSuccess || result.Value is null)
         {
             // 一時エラーでは印を置かない。商品が消えた証拠にならない
-            return false;
+            return (false, false);
         }
 
         try
         {
             await SaveAsWebpAsync(result.Value, path, cancellationToken);
-            ItemImagesSaved?.Invoke(itemId);
-            return true;
+            return (true, true);
         }
         catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
         {
-            return false;
+            return (false, false);
         }
     }
 

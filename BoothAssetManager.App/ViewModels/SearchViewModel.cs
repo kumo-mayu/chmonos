@@ -324,6 +324,16 @@ public sealed class SearchViewModel : ViewModelBase
 
     public bool HasAvatarSuggestions => AvatarSuggestions.Count > 0;
 
+    /// <summary>
+    /// 「対応アバター」の候補の頭に出す絵（U18）。候補の行（名前（ID））からIDを取り出し、
+    /// 持っていれば商品の1枚目、持っていなければ控えの1枚。候補は見えた行だけで読む
+    /// </summary>
+    public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => entry =>
+        AvatarSuggestionText.IdOf(entry) is { } id
+        && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id)) is { } path
+            ? _thumbnails.LoadForTile(path)
+            : null;
+
     /// <summary>積んだ条件。常設に置かないものはここへ足していく。</summary>
     public ObservableCollection<ExtraFilter> ExtraFilters { get; } = [];
 
@@ -1365,6 +1375,9 @@ public sealed class SearchViewModel : ViewModelBase
     }
 
     public int TotalCount => _allItems.Count;
+
+    /// <summary>読んである全商品から1件を引く。持っているアバターの絵に、その商品の1枚目を使うため（U18）。</summary>
+    public ItemRecord? FindItem(string itemId) => _allItems.FirstOrDefault(item => item.Id == itemId);
 
     /// <summary>
     /// 所持している商品のID（所持＝ファイルかフォルダを1つ以上持つ）。

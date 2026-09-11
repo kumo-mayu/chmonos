@@ -457,6 +457,23 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>「対応アバターを足す」の候補。既に宣言されているものは出さない。</summary>
     public IReadOnlyList<string> SupportSuggestions { get; private set; } = [];
 
+    /// <summary>候補に出した名前から登録簿のIDを引く（U18：候補の頭に絵を出すため）。</summary>
+    private Dictionary<string, string> _avatarIdsByName = new(StringComparer.CurrentCulture);
+
+    /// <summary>
+    /// 「対応アバターを足す」の候補の頭に出す絵（U18）。持っていれば商品の1枚目、持っていなければ控えの1枚。
+    /// 似た名前のアバターを名前だけで選ぶと取り違える
+    /// </summary>
+    public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => name =>
+        _avatarIdsByName.TryGetValue(name, out var id) ? AvatarIcon(id, _thumbnails.LoadForTile) : null;
+
+    private System.Windows.Media.Imaging.BitmapSource? AvatarIcon(
+        string avatarItemId,
+        Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
+        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, _main.Search.FindItem(avatarItemId)) is { } path
+            ? load(path)
+            : null;
+
     public RelayCommand OpenBoothCommand { get; }
 
     /// <summary>この商品のIDを写す。統合先の指定に使う。</summary>
@@ -1297,6 +1314,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 IsUnconfirmed = !link.Confirmed,
                 IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
                 RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId), () => !IsEditLocked),
+                // ツールチップに出す絵（R3）。乗せたときに初めて読む——248体の商品で全部を先に読むと開くのが遅れる
+                IconFactory = () => AvatarIcon(link.AvatarItemId, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => _ = OpenAvatarAsync(link.AvatarItemId)),
             })
             .OrderByDescending(row => row.IsOwned)
@@ -1308,6 +1327,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             .Where(link => !link.Rejected)
             .Select(link => link.BaseName)
             .ToList();
+
+        // 候補の名前から絵を引くための表（U18）
+        _avatarIdsByName = new Dictionary<string, string>(StringComparer.CurrentCulture);
+        foreach (var entry in registry.Entries)
+        {
+            _avatarIdsByName.TryAdd(names[entry.ItemId], entry.ItemId);
+        }
 
         // 対応アバターの候補。既に宣言されているものは出さない
         var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
@@ -2403,6 +2429,29 @@ public sealed class AvatarRow
 
     /// <summary>このアバターを持っているか（U25）。札を「所持」の緑にして先頭へ寄せる。</summary>
     public bool IsOwned { get; init; }
+
+    private System.Windows.Media.Imaging.BitmapSource? _icon;
+    private bool _iconLoaded;
+
+    /// <summary>ツールチップに出す絵を作るもの（R3）。</summary>
+    public Func<System.Windows.Media.Imaging.BitmapSource?>? IconFactory { get; init; }
+
+    /// <summary>ツールチップの絵。乗せたときに初めて読む。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon
+    {
+        get
+        {
+            if (!_iconLoaded)
+            {
+                _iconLoaded = true;
+                _icon = IconFactory?.Invoke();
+            }
+
+            return _icon;
+        }
+    }
+
+    public bool HasIcon => Icon is not null;
 
     /// <summary>
     /// どこから拾ったか、確認済みかをホバーで出す。

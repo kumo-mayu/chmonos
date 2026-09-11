@@ -112,6 +112,9 @@ public sealed class MainViewModel : ViewModelBase
             try
             {
                 await _services.Backlog.ResumeAsync(cancellationToken: token);
+
+                // 持っていないアバターの1枚目（U18）。商品の画像の穴の方が先に目に入るので⑤の後
+                await _services.AvatarImages.SyncAsync(token);
                 await _services.Due.RunAsync(cancellationToken: token);
 
                 // ⑦で商品ページが変わっていれば要確認が増える。件数を出し直す
