@@ -11,6 +11,18 @@ public enum UnityOpenResult
     /// <summary>既に開いていたので手前に出した。</summary>
     BroughtToFront,
 
+    /// <summary>
+    /// 既に開いているが、手前に出せなかった。Windows は前面を持っていないプロセスからの
+    /// 切り替えを断ることがある（最小化中など）。
+    /// </summary>
+    AlreadyOpenNotFront,
+
+    /// <summary>
+    /// プロジェクトは開いている印があるが、どの窓か分からない（起動中・コンパイル中で題が読めない）。
+    /// 起動し直すと弾かれる（exit 21）ので、何もしない。
+    /// </summary>
+    AlreadyOpenUnknownWindow,
+
     /// <summary>そのバージョンのエディタで開いた。</summary>
     Launched,
 
@@ -161,10 +173,21 @@ public static class UnityLaunch
                 if (window != IntPtr.Zero)
                 {
                     ShowWindow(window, Restore);
-                    SetForegroundWindow(window);
-                    return UnityOpenResult.BroughtToFront;
+
+                    // 断られても「手前に出しました」と言っていた。戻り値を見て言い分ける
+                    return SetForegroundWindow(window)
+                        ? UnityOpenResult.BroughtToFront
+                        : UnityOpenResult.AlreadyOpenNotFront;
                 }
             }
+        }
+
+        // 窓の題から見つからなくても、開いている印（Temp/UnityLockfile）があれば開いている。
+        // 起動中・コンパイル中は題が作業の名前になっていて読めない。ここで起動し直すと
+        // 同じプロジェクトは開けずに弾かれる（exit 21）のに「開いています」と言ってしまう
+        if (UnityProjects.IsProjectOpen(projectPath))
+        {
+            return UnityOpenResult.AlreadyOpenUnknownWindow;
         }
 
         // 一覧の値は古くなることがあるので、プロジェクト自身の記録を優先する

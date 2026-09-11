@@ -454,6 +454,10 @@ public sealed class ModificationViewModel : ViewModelBase
         Status = UnityLaunch.OpenProject(Record.UnityProject) switch
         {
             UnityOpenResult.BroughtToFront => $"「{name}」は既に開いています。そのUnityを手前に出しました。",
+            UnityOpenResult.AlreadyOpenNotFront =>
+                $"「{name}」は既に開いています。手前に出せなかったので、タスクバーのUnityを押して切り替えてください。",
+            UnityOpenResult.AlreadyOpenUnknownWindow =>
+                $"「{name}」は既に開いています（読み込み中のようです）。読み込みが終わったら、タスクバーのUnityから切り替えてください。",
             UnityOpenResult.Launched => $"「{name}」をUnityで開いています。少し時間がかかります。",
             UnityOpenResult.HandedToHub =>
                 $"このプロジェクトのUnityが手元に無いので、Unity Hubに渡しました。Hubが入れるか聞いてくれます。",

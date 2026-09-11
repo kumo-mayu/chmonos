@@ -27,8 +27,12 @@ public static class UnityEditors
     /// <summary>
     /// 開いているエディタを返す。1つも無ければ空。
     ///
-    /// プロジェクト名は窓のタイトルから取る。起動直後はタイトルが空のことがあるので、
-    /// **名前が取れないエディタも数には入れる**——
+    /// **窓を持たない Unity.exe は数えない。**Unity 2021.2 以降は取り込みを並列にするため、
+    /// 窓の無い Unity.exe（<c>-batchMode -name AssetImportWorkerN</c>）を裏で起こし、取り込みの後もしばらく残す。
+    /// これを数えて「Unityが3つ開いています」と言い、送れなくしていた
+    /// （2026-09-11 実機で確認。本体1＋AssetImportWorker4・5）。
+    ///
+    /// 窓があって題が読めない（起動中・コンパイル中）エディタは数に入れ、名前を null にする。
     /// 「開いていない」と誤って言う方が害が大きい。
     /// </summary>
     public static IReadOnlyList<OpenUnityEditor> Open()
@@ -40,11 +44,14 @@ public static class UnityEditors
                 {
                     using (process)
                     {
-                        return new OpenUnityEditor(
-                            process.Id,
-                            UnityHandoff.ProjectNameFromWindowTitle(process.MainWindowTitle));
+                        return process.MainWindowHandle == IntPtr.Zero
+                            ? null
+                            : new OpenUnityEditor(
+                                process.Id,
+                                UnityHandoff.ProjectNameFromWindowTitle(process.MainWindowTitle));
                     }
                 })
+                .OfType<OpenUnityEditor>()
                 .ToList();
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)

@@ -112,6 +112,10 @@ public static class UnityHandoff
     ///
     /// プロジェクト名に <c>" - "</c> が入っていると先頭だけを拾って短くなる。
     /// 名前を言い当てられないより、短い方がまだ役に立つ。
+    ///
+    /// **<c>" - "</c> を含まない題はプロジェクト名として読まない。**起動中やコンパイル中の題は
+    /// 「Compiling Scripts」「Reloading Domain」のような作業の名前で、これを名前として読むと
+    /// 開いているのに見つからず、起動し直して弾かれていた（実機で観測）。
     /// </summary>
     public static string? ProjectNameFromWindowTitle(string? title)
     {
@@ -121,7 +125,12 @@ public static class UnityHandoff
         }
 
         var cut = title.IndexOf(" - ", StringComparison.Ordinal);
-        var name = (cut < 0 ? title : title[..cut]).Trim();
+        if (cut < 0)
+        {
+            return null;
+        }
+
+        var name = title[..cut].Trim();
         return name.Length == 0 ? null : name;
     }
 

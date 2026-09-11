@@ -115,7 +115,9 @@ public sealed class UnityHandoffTests : IDisposable
     [Theory]
     [InlineData("kip01 - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", "kip01")]
     [InlineData("proj - Untitled - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", "proj")]
-    [InlineData("kip01", "kip01")]
+    // 起動中・コンパイル中の題は作業の名前で、プロジェクト名ではない
+    [InlineData("Compiling Scripts", null)]
+    [InlineData("Reloading Domain", null)]
     [InlineData("", null)]
     [InlineData(null, null)]
     public void 窓のタイトルからプロジェクト名を取る(string? title, string? expected)
