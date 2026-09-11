@@ -85,6 +85,11 @@ IVariant[] variants =
     new ProposalVariant(best with { ListRun = 5, HintAliases = true }),
     new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, HintAliases = true }),
     new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, HintAliases = true, Phrases = true }),
+
+    // 共通素体は対応（2026-09-11 ユーザ判断）。アプリでは検索側で素体→アバターをつなぐが、
+    // 評価ではその結果（素体の仲間が対応に並ぶ）を測る
+    new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, BaseInference = true }),
+    new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, BaseInference = true, Phrases = true }),
 ];
 
 Console.WriteLine($"{"案",-44} {"適合率",7} {"再現率",7} {"F1",6}  正/誤(参考・違う・未ラベル)/漏れ");
