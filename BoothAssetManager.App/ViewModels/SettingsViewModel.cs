@@ -115,6 +115,8 @@ public sealed class SettingsViewModel : ViewModelBase
         OpenRootCommand = new RelayCommand(OpenRoot);
         ChangeRootCommand = new RelayCommand(ChangeRoot, () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
+        ExportBackupCommand = new RelayCommand(() => _ = ExportBackupAsync(), () => !IsBackingUp);
+        RestoreBackupCommand = new RelayCommand(() => _ = RestoreBackupAsync(), () => !IsBackingUp && CanChangeRoot);
         ClearSearchHistoryCommand = new RelayCommand(ClearSearchHistory);
 
         var settings = services.Settings;
@@ -1018,6 +1020,156 @@ public sealed class SettingsViewModel : ViewModelBase
             ? "　（空）"
             : $"　{summary.Files:N0} ファイル / {Core.Models.DisplayText.Size(summary.Bytes)}"
                 + (summary.LastWrite is { } at ? $"　最終更新 {at:yyyy-MM-dd HH:mm}" : string.Empty);
+
+    // ---- バックアップと復元（#61） ----
+
+    public RelayCommand ExportBackupCommand { get; }
+
+    public RelayCommand RestoreBackupCommand { get; }
+
+    private bool _isBackingUp;
+
+    /// <summary>書き出し・戻しの最中か。二重に押させない。</summary>
+    public bool IsBackingUp
+    {
+        get => _isBackingUp;
+        private set
+        {
+            if (SetField(ref _isBackingUp, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 保存先を1つの zip に書き出す。画像を含めるかは押したときに聞く——
+    /// 画像は保存先の大半を占めるが、BOOTHから取り直せるので、無くても困らないことが多い。
+    /// </summary>
+    private async Task ExportBackupAsync()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "バックアップの書き出し先",
+            FileName = $"BoothAssetManager-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip",
+            Filter = "zip ファイル|*.zip",
+            DefaultExt = ".zip",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var withImages = System.Windows.MessageBox.Show(
+            $"画像も含めますか？（画像：{ImageUsageText}）\n\n"
+            + "［はい］画像も入れる。戻したときに取り直さずに済みますが、zip が大きくなります。\n"
+            + "［いいえ］画像は入れない。戻した後、使っていない間に BOOTH から少しずつ取り直します。",
+            "バックアップを書き出す",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.No);
+
+        if (withImages == System.Windows.MessageBoxResult.Cancel)
+        {
+            return;
+        }
+
+        IsBackingUp = true;
+        Status = "書き出しています…";
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ExportBackup(
+                _services.Paths.Root, dialog.FileName, withImages == System.Windows.MessageBoxResult.Yes));
+
+            Status = result switch
+            {
+                Core.Commands.CommandResult.BackupExported { Result: var exported } =>
+                    $"{exported.Files:N0} ファイル（{Core.Models.DisplayText.Size(exported.Bytes)}）を書き出しました。"
+                    + (exported.SkippedLocked > 0 ? $" 開けなかった {exported.SkippedLocked} ファイルは入れていません。" : string.Empty),
+                Core.Commands.CommandResult.Failed failed => failed.Message,
+                _ => string.Empty,
+            };
+        }
+        finally
+        {
+            IsBackingUp = false;
+        }
+    }
+
+    /// <summary>
+    /// バックアップを**別の空の場所**へ展開し、次の起動からそこを使う（ユーザ判断）。
+    /// 今の保存先に重ねない——混ざると、どちらが正しいか分からなくなる。
+    /// 今のデータは元の場所に残るので、戻したのが間違いでも「場所を変える」で戻れる。
+    /// </summary>
+    private async Task RestoreBackupAsync()
+    {
+        var open = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "戻すバックアップを選ぶ",
+            Filter = "zip ファイル|*.zip",
+        };
+
+        if (open.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (!Core.Storage.BackupArchive.LooksLikeBackup(open.FileName))
+        {
+            System.Windows.MessageBox.Show(
+                "このアプリのバックアップではないようです（商品も設定も入っていません）。\n\n"
+                + "設定画面の「バックアップを書き出す」で作った zip を選んでください。",
+                "バックアップから戻す",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        var chosen = PickFolder();
+        var destination = chosen is null ? null : StoreLocation.RootFor(chosen);
+        if (destination is null)
+        {
+            return;
+        }
+
+        if (!StoreLocation.IsEmpty(destination))
+        {
+            System.Windows.MessageBox.Show(
+                $"戻す先には既にファイルがあります。\n\n{destination}\n\n"
+                + "混ざらないよう、空のフォルダを選んでください（その中に「BoothAssetManager」を作って戻します）。",
+                "この場所には戻せません",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        IsBackingUp = true;
+        Status = "戻しています…";
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(
+                new Core.Commands.UiCommand.RestoreBackup(open.FileName, destination));
+
+            if (result is Core.Commands.CommandResult.Failed failed)
+            {
+                Status = failed.Message;
+                return;
+            }
+
+            var files = (result as Core.Commands.CommandResult.BackupRestored)?.Files ?? 0;
+            StoreLocation.Save(destination);
+            PendingRoot = destination;
+            RootNotice = $"バックアップの {files:N0} ファイルを「{destination}」に戻しました。再起動するとその場所を使います。"
+                + $"今のデータは「{_services.Paths.Root}」に残っています。";
+            Status = string.Empty;
+            RaiseRootChanged();
+        }
+        finally
+        {
+            IsBackingUp = false;
+        }
+    }
 
     /// <summary>再起動して初めて効くので、そこまで案内する。</summary>
     public string? PendingRoot { get; private set; }

@@ -477,6 +477,22 @@
                             </StackPanel>
                         </Border>
 
+                        <!--
+                            バックアップと復元（#61）。戻すのは別の空の場所へ展開してそこへ移る形（ユーザ判断）。
+                            今の保存先に重ねると、今のデータとバックアップが混ざる
+                        -->
+                        <Grid Margin="0,0,0,14">
+                            <TextBlock Text="バックアップ" Style="{StaticResource RowLabel}" VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="バックアップを書き出す…" Style="{StaticResource SmallButton}"
+                                        Command="{Binding ExportBackupCommand}"
+                                        ToolTip="保存先の中身を1つのzipにまとめます。画像を含めるかは押したときに選べます。" />
+                                <Button Content="バックアップから戻す…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                        Command="{Binding RestoreBackupCommand}"
+                                        ToolTip="バックアップを空のフォルダに展開して、次の起動からそこを使います。今のデータは元の場所に残ります。" />
+                            </StackPanel>
+                        </Grid>
+
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <TextBlock Text="画像" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBlock Text="{Binding ImageUsageText}" Style="{StaticResource Mono}" FontSize="12"

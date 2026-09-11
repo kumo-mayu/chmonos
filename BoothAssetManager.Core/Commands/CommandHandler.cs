@@ -408,6 +408,33 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(unregister.ItemId)
                     : new CommandResult.Failed("登録が見つかりませんでした。");
 
+            case UiCommand.ExportBackup export:
+                try
+                {
+                    var exported = await Task.Run(
+                        () => Storage.BackupArchive.Export(export.Root, export.ZipPath, export.IncludeImages, cancellationToken),
+                        cancellationToken);
+                    return new CommandResult.BackupExported(exported);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    return new CommandResult.Failed(
+                        $"書き出せませんでした：{exception.Message}（書き出し先の空きが足りないか、書けない場所のことがあります）");
+                }
+
+            case UiCommand.RestoreBackup restore:
+                try
+                {
+                    var restored = await Task.Run(
+                        () => Storage.BackupArchive.Restore(restore.ZipPath, restore.DestinationRoot, cancellationToken),
+                        cancellationToken);
+                    return new CommandResult.BackupRestored(restored);
+                }
+                catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+                {
+                    return new CommandResult.Failed($"戻せませんでした：{exception.Message}");
+                }
+
             case UiCommand.UnpackToTemporary unpack:
                 try
                 {

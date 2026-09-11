@@ -217,6 +217,12 @@ public abstract record UiCommand
     /// </summary>
     public record SetFileVariations(string ItemId, IReadOnlyDictionary<string, long?> VariationByHash) : UiCommand;
 
+    /// <summary>保存先を1つの zip に書き出す（#61）。</summary>
+    public record ExportBackup(string Root, string ZipPath, bool IncludeImages) : UiCommand;
+
+    /// <summary>バックアップの zip を空の場所へ展開する（#61）。そこへ移るのは呼ぶ側（保存先の切り替え）。</summary>
+    public record RestoreBackup(string ZipPath, string DestinationRoot) : UiCommand;
+
     /// <summary>zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。</summary>
     public record UnpackToTemporary(string ZipPath) : UiCommand;
 
@@ -278,4 +284,10 @@ public abstract record CommandResult
 
     /// <summary>一時フォルダへ展開した。</summary>
     public record Unpacked(string Folder) : CommandResult;
+
+    /// <summary>バックアップを書き出した。</summary>
+    public record BackupExported(Storage.BackupResult Result) : CommandResult;
+
+    /// <summary>バックアップを展開した。</summary>
+    public record BackupRestored(int Files) : CommandResult;
 }
