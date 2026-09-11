@@ -58,7 +58,7 @@ Windows Terminal、PowerShell、コマンドプロンプトへZIPファイルを
 ### 2. 引数なしで起動する
 
 ```powershell
-dotnet run --project BoothZipInspector
+dotnet run --project experiments/BoothZipInspectorCli
 ```
 
 次のように表示されるので、ZIPファイルをターミナルへドラッグ＆ドロップしてEnterを押してください。
@@ -97,8 +97,7 @@ ZIPファイルをこのウィンドウへドラッグ＆ドロップして、En
 
 ```text
 BoothAssetManager.sln
-BoothZipInspector/              コンソールアプリ本体
-  Program.cs                    エントリポイント、入出力、エラーハンドリング
+BoothZipInspector/              zipを読む中身（ライブラリ。アプリも使う）
   PathNormalizer.cs             D&D入力パスの引用符除去
   FileInspector.cs               ファイル基本情報・サイズ表記
   ZoneIdentifierReader.cs        Zone.Identifier読み取り(I/O)とパース(純粋ロジック)
@@ -108,8 +107,10 @@ BoothZipInspector/              コンソールアプリ本体
   BoothClueCollector.cs          手掛かりの重複除去
   Models/                        データモデル
 BoothZipInspector.Tests/        xUnitテストプロジェクト
-BoothIdResolver/                D&D→商品URLをクリップボードへコピーする専用ツール(下記)
+BoothIdResolver/                zip→商品IDの判定（ライブラリ。アプリも使う）
 BoothIdResolver.Tests/          xUnitテストプロジェクト
+experiments/BoothZipInspectorCli/  上の BoothZipInspector をコマンドで動かす入口（Program.cs）
+experiments/BoothIdResolverCli/    D&D→商品URLをクリップボードへコピーする入口(下記)
 ```
 
 ## BoothIdResolver（商品URLコピーツール）
@@ -121,19 +122,21 @@ ZIPファイルをドラッグ＆ドロップ（または引数指定）する�
 
 複数の異なる商品IDが見つかった場合は自動選択せず、候補をすべて表示するだけでクリップボードにはコピーしません（誤った商品IDを断定しないため）。
 
+`BoothIdResolver/` は判定の中身（ライブラリ）で、アプリもこれを使います。コマンドとして動かす入口は `experiments/BoothIdResolverCli/` にあります（アプリの配布物に使わない exe が入らないよう、入口を分けた。#46）。
+
 ```powershell
-dotnet run --project BoothIdResolver -- "C:\Downloads\example.zip"
+dotnet run --project experiments/BoothIdResolverCli -- "C:\Downloads\example.zip"
 ```
 
 ### ネイティブ単体実行ファイルとしてビルドする
 
-.NETランタイムのインストールが不要な、`BoothIdResolver.exe` 1ファイルだけで動くネイティブAOTビルドを作れます（VC++ Build ToolsとWindows SDKが必要）。
+.NETランタイムのインストールが不要な、`BoothIdResolverCli.exe` 1ファイルだけで動くネイティブAOTビルドを作れます（VC++ Build ToolsとWindows SDKが必要）。
 
 ```powershell
-dotnet publish BoothIdResolver/BoothIdResolver.csproj -c Release -r win-x64 -p:PublishAot=true --self-contained true -o publish/BoothIdResolver
+dotnet publish experiments/BoothIdResolverCli/BoothIdResolverCli.csproj -c Release -r win-x64 -p:PublishAot=true --self-contained true -o publish/BoothIdResolver
 ```
 
-`publish/BoothIdResolver/BoothIdResolver.exe`（約3.8MB）だけをコピーして配布・実行できます。同フォルダに生成される `.pdb` はデバッグシンボルなので実行には不要です。
+`publish/BoothIdResolver/BoothIdResolverCli.exe` だけをコピーして配布・実行できます。同フォルダに生成される `.pdb` はデバッグシンボルなので実行には不要です。
 
 ## 紐付け方式の調査資料
 

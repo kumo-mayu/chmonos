@@ -12,6 +12,8 @@
 | `UnityPackageProbe` | `.unitypackage`(tar.gz) 内のアセットパスを読み、`Assets/<作者>/<商品>` の名前空間を集計する。作者名がショップsubdomainと一致することが多く、cookie不要で最も強いシグナル | なし（.NET標準 `System.Formats.Tar`） |
 | `ThumbnailHashProbe` | ZIP内サムネイル(`main.png` 等)と商品JSONの画像を dHash で照合する。一致=距離0〜2 / 不一致=21以上 | SixLabors.ImageSharp 3.1.x (Six Labors Split License → 本プロジェクトではApache-2.0) |
 | `JapaneseBridgeProbe` | ローマ字/英語トークン → 日本語検索語（かな変換 → Google Transliterate → Jisho）。検索が失敗する「翻訳ギャップ」を埋める | MyNihongo.KanaConverter、Google Transliterate API(非公式)、Jisho API |
+| `BoothZipInspectorCli` | ZIPを1つ落とすと、ファイル情報・Zone.Identifier・エントリ一覧・BOOTH手掛かりを表示する。中身は `BoothZipInspector`（ライブラリ）で、ここは入口だけ。アプリの配布物に使わない exe が入らないよう分けた（#46） | なし |
+| `BoothIdResolverCli` | ZIPを落とすと商品URLを表示してクリップボードへ写す。中身は `BoothIdResolver`（ライブラリ）で、ここは入口だけ（#46） | なし |
 | `BrowserHistoryProbe` | Chromium系ブラウザ（Brave/Chrome/Edge）の History DB のダウンロード履歴から、配布CDN URL `s{n}.booth.pm/<shop-uuid>/f/<商品ID>/<配布ID>/<ファイル名>` を読み、ローカルZIPとファイル名＋バイト数で照合する。DBは必ずスナップショットにコピーしてReadOnlyで開き、終了時に削除。署名付きURLのクエリは表示しない | Microsoft.Data.Sqlite |
 
 ## 実行例

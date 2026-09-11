@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    zip の中身と手掛かりを表示する調査用の CLI。本体は BoothZipInspector（ライブラリ）。
+    本体と同じ名前にすると、出力先で BoothZipInspector.dll が2つになり衝突する
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\BoothZipInspector\BoothZipInspector.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>BoothZipInspectorCli</AssemblyName>
+  </PropertyGroup>
+
+</Project>

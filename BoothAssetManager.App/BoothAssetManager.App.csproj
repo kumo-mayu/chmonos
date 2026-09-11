@@ -10,21 +10,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-
-    <!--
-      人に渡す形（自己完結・RID指定）で publish すると NETSDK1152 で止まる。
-
-      Core が参照している BoothZipInspector と BoothIdResolver は
-      **ライブラリとして使っている**のに OutputType が Exe（実験用のCLIも
-      持っているため）。Exe の参照は apphost・deps.json・runtimeconfig.json を
-      発行物に持ち込み、RIDを指定すると RID有り／無しの2組が出て衝突する。
-
-      アプリはこの2つを別プロセスとして起動しないので、どちらが残っても動く。
-      本筋の直し方は2つをライブラリにしてCLIを experiments/ へ移すことだが、
-      配布物を作るためだけにプロジェクトの構成は変えない。
-    -->
-    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
+
+  <!--
+    自己完結で publish すると、.NET はプロセスのメモリを書き出す道具 createdump.exe を同梱する。
+    アプリはこれを使わない。用途の分からない exe、とくにメモリを書き出す道具は
+    セキュリティソフトに怪しまれやすいので、配布物から落とす（#46、2026-09-11 ユーザ判断）
+  -->
+  <Target Name="DropCreatedump" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'createdump.exe'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <!--
