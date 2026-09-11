@@ -232,6 +232,15 @@ Littlenight2023【19対応】    → 16 variations: フルセット版 / マヌ�
 **ただし +Head は「頭部の規格」であって体の素体ではない**（85体・カタログ最大）。一致しても衣装は合わない。
 → グループごとに `inferClothing` を持ち、部位規格は false にする。既定 true。
 
+> **2026-09-11 訂正：+Head は体の共通素体だった**（ユーザが調べて確認）。上の「頭部の規格であって体の素体ではない」は誤り。
+> 実データでも、ネイル（手の物）の出品者が「+head素体アバター」「■+Head■」と体ごと対応を書いていた。
+> 同じ誤った前提に立っている場所：`AvatarBaseSeed`（`InferClothing = false` と「頭部の共通規格」のメモ）、
+> `AvatarBaseGroup.InferClothing` のコメント、`AvatarServiceEditing.SetInferClothingAsync` のコメント、
+> `AvatarCompatibility` のコメント、アバター管理画面の文言（「頭部などの部位規格は外してください」）、
+> `AvatarCompatibilityTests`（+Head を広げないことを確かめている）、本書の §4 の例と操作の一覧の表。
+> 既存の `avatar-registry.json` には false が保存済みなので、初期辞書を直すだけでは残る。
+> `inferClothing` という仕組み自体も、実例がこの +Head しか無かった。残すかを含めて直すときに決める。
+
 補強材料：カタログサイトは **Women S / Women M / Women L を別グループ**として立てている。
 コミュニティ側が既に「服が合わなくなる境目」でグループを割っているので、`X共通素体` という名前の単位は概ね衣装互換の単位として使える。
 
