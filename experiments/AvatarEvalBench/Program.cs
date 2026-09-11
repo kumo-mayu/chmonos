@@ -211,9 +211,13 @@ namespace AvatarEvalBench
     /// 今の Core の検出を、試験データの**写しの上で**走らせ直す。通信はしない（client なし）。
     /// 登録簿は友人のもの（汚れた別名を含む）から始まるので、「今の不具合がどれだけ効いているか」が出る。
     /// </summary>
+    /// <remarks>
+    /// 数え方は**検索の絞り込みと同じ**（<see cref="AvatarCompatibilityIndex.Resolve"/>：直接対応＋素体経由）。
+    /// 本体の今のコードが、評価台の案と同じ数字に届いたかを確かめるためのもの。
+    /// </remarks>
     public sealed class RerunCurrentVariant : IVariant
     {
-        public string Name => "現行の検出を再実行・要確認も数える";
+        public string Name => "本体の検出を再実行（検索と同じ数え方）";
 
         public async Task<Dictionary<string, HashSet<string>>> RunAsync(EvalContext context)
         {
@@ -224,9 +228,10 @@ namespace AvatarEvalBench
                 var store = new DataStore(new AppPaths(temp));
                 await new AvatarService(store, context.Settings, client: null).DetectAsync();
                 var loaded = await store.Items.LoadAllAsync();
+                var index = AvatarCompatibilityIndex.Build(store.Avatars.Load());
                 return loaded.Items.ToDictionary(
                     item => item.Id,
-                    item => item.Local.Avatars.Where(link => !link.Rejected).Select(link => link.AvatarItemId).ToHashSet(StringComparer.Ordinal));
+                    item => index.Resolve(item.Local).Keys.ToHashSet(StringComparer.Ordinal));
             }
             finally
             {

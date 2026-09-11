@@ -875,6 +875,67 @@ public static class AvatarDetector
     }
 
     /// <summary>
+    /// 商品が共通素体を名指ししているか。名指ししている素体グループの名前を返す。
+    ///
+    /// タグ（「まるぼでぃ」「+Head」）・種類名（「まるぼでぃ対応」「+head対応」）・
+    /// 対応の見出しの下の行（「+head素体アバター」「■まるぼでぃ2.0■」）・
+    /// 「〇〇素体に着用可能」の行を見る。所持207件の実データで、ネイルやアクセサリーの出品者が
+    /// 素体名で対応を書いていた。
+    ///
+    /// **アバターへは展開しない。**商品には素体への対応宣言だけを持たせ、
+    /// 検索の側（<see cref="AvatarCompatibilityIndex"/>）で素体の仲間とつなぐ（2026-09-11 ユーザ判断）。
+    /// </summary>
+    public static IReadOnlyList<string> ScanBaseDeclarations(
+        string? html,
+        string? description,
+        IEnumerable<string> tags,
+        IEnumerable<string> variationNames,
+        IEnumerable<AvatarBaseGroup> groups,
+        IReadOnlyList<string> supportHeadings)
+    {
+        var lookup = AvatarBaseKeys.Lookup(groups);
+        var found = new List<string>();
+
+        void Take(IEnumerable<string> names)
+        {
+            foreach (var name in names)
+            {
+                if (!found.Contains(name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    found.Add(name);
+                }
+            }
+        }
+
+        foreach (var text in tags.Concat(variationNames))
+        {
+            Take(AvatarBaseKeys.GroupsIn(text, lookup));
+        }
+
+        foreach (var section in Sections(html, description))
+        {
+            var isSupport = Contains(section.Heading, supportHeadings) && !NotAvatarSupport.IsMatch(section.Heading);
+
+            foreach (var line in section.Lines)
+            {
+                if (NotAvatarSupport.IsMatch(line) || line.Contains("以外", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var declares = Regex.IsMatch(line, "対応|着用可能|Supported", RegexOptions.IgnoreCase);
+                if (isSupport || declares)
+                {
+                    var bare = Regex.Replace(line, @"^[^\p{L}\p{N}+]+|[^\p{L}\p{N}]+$", string.Empty);
+                    Take(AvatarBaseKeys.GroupsIn(bare, lookup));
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
     /// タグから共通素体の宣言を取り出す。「珍飯亭共通素体対応」→「珍飯亭」。
     /// </summary>
     public static IReadOnlyList<string> ScanBaseTags(IEnumerable<string> tags)

@@ -227,6 +227,10 @@ public sealed partial class AvatarService : IAvatarService
 
         var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
 
+        // 人数は検索と同じ数え方にする。手で決めた所属だけで数えると、名前から推した仲間が
+        // 検索では素体経由として出るのに、ここでは「属しているのはこのアバターだけ」と出てしまう
+        var compatibility = AvatarCompatibilityIndex.Build(registry);
+
         var declared = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
         foreach (var link in owned.SelectMany(item => item.Local.AvatarBases).Where(link => !link.Rejected))
         {
@@ -236,8 +240,9 @@ public sealed partial class AvatarService : IAvatarService
         return registry.BaseGroups
             .Select(group =>
             {
+                var memberIds = compatibility.MembersOf(group.Name).ToHashSet(StringComparer.Ordinal);
                 var members = registry.Entries
-                    .Where(entry => string.Equals(entry.BaseName, group.Name, StringComparison.CurrentCultureIgnoreCase))
+                    .Where(entry => memberIds.Contains(entry.ItemId))
                     .ToList();
 
                 return new AvatarBaseSummary
@@ -384,7 +389,7 @@ public sealed partial class AvatarService : IAvatarService
                 Current = item.Booth.Name,
             });
 
-            var scan = ScanItem(item, index);
+            var scan = ScanItem(item, index, groups.Values);
             candidates[item.Id] = scan;
 
             foreach (var hit in scan.Description.Support)
@@ -641,7 +646,7 @@ public sealed partial class AvatarService : IAvatarService
         public IReadOnlyList<string> SupportLists { get; init; } = [];
     }
 
-    private ItemScan ScanItem(ItemRecord item, AvatarNameIndex index)
+    private ItemScan ScanItem(ItemRecord item, AvatarNameIndex index, IEnumerable<AvatarBaseGroup> groups)
     {
         var html = ReadHtml(item.Id);
 
@@ -663,7 +668,11 @@ public sealed partial class AvatarService : IAvatarService
             Description = description,
             FromTags = fromTags,
             FromVariations = fromVariations,
-            BaseNames = AvatarDetector.ScanBaseTags(item.Booth.Tags),
+            BaseNames = AvatarDetector.ScanBaseTags(item.Booth.Tags)
+                .Concat(AvatarDetector.ScanBaseDeclarations(
+                    html, item.Booth.Description, item.Booth.Tags, variationNames, groups, SupportHeadings))
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .ToList(),
             SupportLists = AvatarDetector.ScanLists(
                 html, item.Booth.Description, item.Id, index, SupportHeadings, _settings.AvatarIgnoredHeadings),
         };

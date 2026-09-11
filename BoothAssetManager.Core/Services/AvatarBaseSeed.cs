@@ -106,6 +106,19 @@ public static class AvatarBaseSeed
             Name = "FLASTORE",
             Aliases = [new AvatarAlias { Text = "FLASTORE共通素体", Source = "Seed" }],
         },
+
+        // 2026-09-11 に足した。所持207件の実データで、複数のショップがタグ「MARUBODY」「まるぼでぃ」を使い、
+        // 名前に「#MARUBODY」を持つアバターが8体あった。読みと綴りが別の語なので別名でつなぐ
+        new AvatarBaseGroup
+        {
+            Name = "MARUBODY",
+            Memo = "配布されている共通素体。「まるぼでぃ」とも書かれます。",
+            Aliases =
+            [
+                new AvatarAlias { Text = "まるぼでぃ", Source = "Seed" },
+                new AvatarAlias { Text = "MARUBODY", Source = "Seed" },
+            ],
+        },
     ];
 
     /// <summary>

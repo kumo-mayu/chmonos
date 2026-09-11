@@ -64,19 +64,28 @@ public sealed class AvatarCompatibilityIndex
             }
         }
 
+        // 手で決めた所属が無いアバターは、名前・別名の「#MARUBODY」「（えも研素体）」「+Head」から推す。
+        // 手で決める道しか無かった頃は、所持207件の実データでも所属しているアバターが0体で、
+        // 素体経由の対応が一度も働いていなかった。推した所属は保存しない（ここで毎回計算する）
+        var lookup = AvatarBaseKeys.Lookup(registry.BaseGroups);
+
         foreach (var entry in registry.Entries)
         {
-            if (string.IsNullOrWhiteSpace(entry.BaseName))
+            var baseName = !string.IsNullOrWhiteSpace(entry.BaseName)
+                ? entry.BaseName!
+                : AvatarService.IsAvatar(entry) ? AvatarBaseKeys.InferBaseOf(entry, lookup) : null;
+
+            if (baseName is null)
             {
                 continue;
             }
 
-            index._baseOfAvatar[entry.ItemId] = entry.BaseName!;
+            index._baseOfAvatar[entry.ItemId] = baseName;
 
-            if (!index._membersOfBase.TryGetValue(entry.BaseName!, out var members))
+            if (!index._membersOfBase.TryGetValue(baseName, out var members))
             {
                 members = [];
-                index._membersOfBase[entry.BaseName!] = members;
+                index._membersOfBase[baseName] = members;
             }
 
             members.Add(entry.ItemId);
