@@ -52,6 +52,17 @@ public static class H2SectionExtractor
         '：', ':', '、', '。', '　', ' ', '\t',
     ];
 
+    /// <summary>保存する説明に残さない要素。中身ごと落とす。</summary>
+    private const string DroppedElementsSelector =
+        "script, noscript, style, template, iframe, frame, frameset, object, embed, applet, "
+        + "form, input, button, textarea, select, link, meta, base, svg, math";
+
+    /// <summary>それ自体が動く物を運べる属性。値を見ずに落とす。</summary>
+    private static readonly string[] DroppedAttributes = ["style", "srcdoc", "srcset"];
+
+    /// <summary>URLを持つ属性。http・https・相対以外（javascript: や data:）なら落とす。</summary>
+    private static readonly string[] UrlAttributes = ["href", "src", "action", "formaction", "poster", "xlink:href"];
+
     /// <summary>更新履歴を表す見出しに現れる語。表記の揺れを吸収するため複数持つ。</summary>
     private static readonly string[] UpdateHistoryKeywords =
     [
@@ -76,6 +87,17 @@ public static class H2SectionExtractor
         if (sectionElements.Count == 0 && !ReferenceEquals(sectionSource, document))
         {
             sectionElements = document.QuerySelectorAll(SectionSelector).ToList();
+        }
+
+        // 本文を読む前に削る。script の中身がセクションの本文に混ざるのも防げる
+        if (shortDescription is not null)
+        {
+            RemoveActiveContent(shortDescription);
+        }
+
+        foreach (var element in sectionElements)
+        {
+            RemoveActiveContent(element);
         }
 
         var sections = new List<H2Section>();
@@ -158,6 +180,56 @@ public static class H2SectionExtractor
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 保存する説明から、動く物（script・埋め込み・フォーム・イベントの属性・http 以外のURL）を取り除く。
+    ///
+    /// 説明は <c>items/{id}.h2.html</c> としてディスクに残り、セキュリティソフトの
+    /// Web の検査に掛かり得る（#46）。2026-09-11 に手元の178件を数えたときは1つも入っていなかったが、
+    /// BOOTH 側の作りが変われば入り得る。読む側（対応アバターの検出）が使うのは文章と、
+    /// 素のテキストで置かれたURLだけなので、削っても失う物は無い。
+    /// </summary>
+    private static void RemoveActiveContent(IElement root)
+    {
+        foreach (var element in root.QuerySelectorAll(DroppedElementsSelector).ToList())
+        {
+            element.Remove();
+        }
+
+        foreach (var element in root.QuerySelectorAll("*").Prepend(root))
+        {
+            foreach (var attribute in element.Attributes.ToList())
+            {
+                var name = attribute.Name;
+                var drop = name.StartsWith("on", StringComparison.OrdinalIgnoreCase)
+                    || DroppedAttributes.Contains(name, StringComparer.OrdinalIgnoreCase)
+                    || (UrlAttributes.Contains(name, StringComparer.OrdinalIgnoreCase) && !IsWebUrl(attribute.Value));
+                if (drop)
+                {
+                    element.RemoveAttribute(name);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// http・https か、スキームの無い相対URLか。
+    /// ブラウザは空白や制御文字を読み飛ばして「java&#9;script:」も実行するので、それらを除いてから見る。
+    /// </summary>
+    private static bool IsWebUrl(string value)
+    {
+        var compact = new string(value.Where(character => !char.IsWhiteSpace(character) && !char.IsControl(character)).ToArray());
+        var colon = compact.IndexOf(':');
+        var pathStart = compact.IndexOfAny(['/', '?', '#']);
+        if (colon < 0 || (pathStart >= 0 && pathStart < colon))
+        {
+            return true;
+        }
+
+        var scheme = compact[..colon];
+        return scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+            || scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ExtractBody(IElement section, IElement headingElement)

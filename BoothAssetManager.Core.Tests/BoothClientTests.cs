@@ -64,6 +64,22 @@ public class BoothClientTests
             delay: (_, _) => Task.CompletedTask);
 
     /// <summary>
+    /// ブラウザを名乗らず、アプリ名で名乗る（#46）。
+    /// ブラウザの顔をした自動の通信は、セキュリティソフトにスクレイパーと見られ得る。
+    /// </summary>
+    [Fact]
+    public void IntroducesItselfByAppNameNotAsBrowser()
+    {
+        using var http = new HttpClient(new QueuedHandler());
+        _ = new BoothClient(http, new AppSettings { FetchIntervalMs = 0 });
+
+        var sent = http.DefaultRequestHeaders.UserAgent.ToString();
+
+        Assert.StartsWith("BoothAssetManager/", sent);
+        Assert.DoesNotContain("Mozilla", sent);
+    }
+
+    /// <summary>
     /// 自動減速を見るためのクライアント。間隔は0にできない（倍にしても0のままなので）。
     /// 実際には待たせず、<paramref name="waits"/> に指示された待ち時間だけ記録する。
     /// </summary>

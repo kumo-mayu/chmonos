@@ -126,6 +126,72 @@ public class H2SectionExtractorTests
         Assert.DoesNotContain("price-box", result.DescriptionHtml);
     }
 
+    /// <summary>
+    /// 保存する説明から動く物を落とし、文章・リンク・画像は残す（#46）。
+    /// 保存したファイルがセキュリティソフトの検査に掛かっても、怪しまれる物を持たないように。
+    /// </summary>
+    [Fact]
+    public void RemovesActiveContentButKeepsTextLinksAndImages()
+    {
+        const string html = """
+            <section class="main-info-column">
+              <div class="js-market-item-detail-description description" onmouseover="x()">
+                <p>説明本文</p><script>alert('desc')</script>
+              </div>
+              <section class="shop__text">
+                <h2 onclick="y()">対応アバター</h2>
+                <p style="background:url(javascript:z)">https://booth.pm/ja/items/123</p>
+                <a href="https://booth.pm/ja/items/456">公式</a>
+                <a href="/ja/items/789">相対</a>
+                <a href="javascript:alert(1)">危ない</a>
+                <a href=" java&#9;script:alert(2)">隠した</a>
+                <img src="https://booth.pximg.net/a.png" srcset="data:x 1x">
+                <img src="data:image/svg+xml,&lt;svg onload=alert(3)&gt;">
+                <iframe src="https://example.com"></iframe>
+                <embed src="https://example.com/a.swf">
+                <form action="https://example.com"><input name="q"></form>
+                <svg><script>alert(4)</script></svg>
+              </section>
+            </section>
+            """;
+
+        var result = H2SectionExtractor.Extract(html);
+        var saved = result.DescriptionHtml!;
+
+        Assert.Contains("説明本文", saved);
+        Assert.Contains("https://booth.pm/ja/items/123", saved);
+        Assert.Contains("href=\"https://booth.pm/ja/items/456\"", saved);
+        Assert.Contains("href=\"/ja/items/789\"", saved);
+        Assert.Contains("src=\"https://booth.pximg.net/a.png\"", saved);
+        Assert.Contains("危ない", saved);
+
+        Assert.DoesNotContain("<script", saved);
+        Assert.DoesNotContain("alert", saved);
+        Assert.DoesNotContain("javascript", saved, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("data:", saved);
+        Assert.DoesNotContain("onclick", saved);
+        Assert.DoesNotContain("onmouseover", saved);
+        Assert.DoesNotContain("style=", saved);
+        Assert.DoesNotContain("<iframe", saved);
+        Assert.DoesNotContain("<embed", saved);
+        Assert.DoesNotContain("<form", saved);
+        Assert.DoesNotContain("<input", saved);
+        Assert.DoesNotContain("<svg", saved);
+    }
+
+    /// <summary>script の中身は、セクションの本文（検索と差分の材料）にも混ざらない。</summary>
+    [Fact]
+    public void KeepsScriptTextOutOfSectionBody()
+    {
+        const string html = """
+            <section class="shop__text"><h2>利用規約</h2><p>再配布は禁止です。</p><script>var a = 1;</script></section>
+            """;
+
+        var result = H2SectionExtractor.Extract(html);
+
+        Assert.Equal("再配布は禁止です。", result.Sections[0].Text);
+    }
+
     [Fact]
     public void ReturnsNothingForEmptyHtml()
     {
