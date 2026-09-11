@@ -78,6 +78,106 @@ public sealed class FallbackResolver
         _readings = readings;
     }
 
+    /// <summary>検索結果の商品カード1枚。名前とショップが載っているので、通信せずに並べ直せる。</summary>
+    public sealed record SearchCard(string ItemId, string Name, string ShopSubdomain);
+
+    private static readonly Regex CardTagRegex = new(@"<li[^>]*class=""item-card[^""]*""[^>]*>", RegexOptions.Compiled);
+
+    /// <summary>検索結果HTMLから商品カードを表示順に取り出す。</summary>
+    public static IReadOnlyList<SearchCard> ExtractSearchCards(string html)
+    {
+        var cards = new List<SearchCard>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (Match tag in CardTagRegex.Matches(html))
+        {
+            var id = Attribute(tag.Value, "data-product-id");
+            if (id.Length > 0 && seen.Add(id))
+            {
+                cards.Add(new SearchCard(id, Attribute(tag.Value, "data-product-name"), Attribute(tag.Value, "data-product-brand")));
+            }
+        }
+
+        return cards;
+    }
+
+    private static string Attribute(string tag, string name)
+    {
+        var match = Regex.Match(tag, name + @"=""([^""]*)""");
+        return match.Success ? System.Net.WebUtility.HtmlDecode(match.Groups[1].Value) : string.Empty;
+    }
+
+    /// <summary>
+    /// 検索結果の1ページ（最大60件）を、ファイル名との近さで並べ直す。**通信は増えない。**
+    ///
+    /// 確かめる（商品JSONを取る）のは上位3件だけなので、並びがそのまま当たり外れになる。
+    /// BOOTHの並びは人気寄りで、連番のシリーズ物は番号を捨てた検索語だと十数位に沈み、
+    /// ファイル名の頭や尻に付いたショップ名（sampleflow_ / _samplecat）も効かない。
+    /// 点が同じならBOOTHの並びを保つ。
+    /// </summary>
+    public static IReadOnlyList<SearchCard> Rerank(IReadOnlyList<SearchCard> cards, string filePath)
+    {
+        var tokens = FileNameQuery.Tokens(filePath);
+        var numbers = FileNameQuery.SeriesNumbers(filePath).Concat(FileNameQuery.SignificantNumbers(filePath)).Distinct().ToList();
+        var raw = Path.GetFileNameWithoutExtension(filePath).ToLowerInvariant();
+
+        return cards
+            .Select((card, position) =>
+            {
+                var score = tokens.Count(token => FileNameQuery.LooksRelated(card.Name, token)) * 2;
+
+                if (numbers.Any(number => ContainsNumber(card.Name, number)))
+                {
+                    score += 3;
+                }
+
+                if (card.ShopSubdomain.Length >= 3 && raw.Contains(card.ShopSubdomain.ToLowerInvariant(), StringComparison.Ordinal))
+                {
+                    score += 3;
+                }
+
+                return (card, position, score);
+            })
+            .OrderByDescending(entry => entry.score)
+            .ThenBy(entry => entry.position)
+            .Select(entry => entry.card)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 裏付けのある候補が出なかったときに引き直す語を、試す順に返す。
+    /// <list type="number">
+    ///   <item><b>いちばん特徴のある1語</b>。AND 検索は商品名に無い語が1つ混ざるだけで全滅する。
+    ///   整えても残る余計な語（アバター名・「Basic」など）を丸ごと外せる</item>
+    ///   <item><b>別の表記</b>（<see cref="AlternateQueries"/>）。ローマ字や英単語の商品名</item>
+    /// </list>
+    /// </summary>
+    public static IReadOnlyList<string> RetryQueries(string filePath, string query, Search.SearchBridge? bridge)
+    {
+        var results = new List<string>();
+
+        var distinctive = FileNameQuery.MostDistinctiveToken(filePath);
+        if (distinctive.Length > 0 && !string.Equals(distinctive, query, StringComparison.OrdinalIgnoreCase))
+        {
+            results.Add(distinctive);
+        }
+
+        foreach (var alternate in AlternateQueries.For(filePath, query, bridge))
+        {
+            if (!string.Equals(alternate, query, StringComparison.OrdinalIgnoreCase)
+                && !results.Contains(alternate, StringComparer.OrdinalIgnoreCase))
+            {
+                results.Add(alternate);
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>数字として含むか。「13」が「113」や「2013」に当たらないように、前後が数字でないことを見る。</summary>
+    private static bool ContainsNumber(string text, string number)
+        => Regex.IsMatch(text, $@"(?<![0-9]){Regex.Escape(number)}(?![0-9])");
+
     /// <summary>
     /// 検索結果HTMLから商品IDを表示順に取り出す。
     /// 商品カードの <c>data-product-id</c> を優先し、それが無い場合だけリンクから拾う。
@@ -132,7 +232,7 @@ public sealed class FallbackResolver
 
         progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
-        var searchIds = await SearchIdsAsync(query, cancellationToken);
+        var searchIds = await SearchIdsAsync(query, filePath, cancellationToken);
 
         var orderedIds = direct
             .Concat(searchIds)
@@ -159,26 +259,29 @@ public sealed class FallbackResolver
             }
         }
 
-        // ── 裏付けのある候補が1件も出なければ、別の表記で引き直す ──
+        // ── 裏付けのある候補が1件も出なければ、1語だけで、次に別の表記で引き直す ──
         //
+        // 整えた検索語でも商品名に無い語が残ると AND 検索が全滅する。
         // ローマ字のファイル名が日本語の商品を指していると、そのままでは当たらない。
-        // 実測では Tori → 「鳥」1位、HeartBeat → 「心拍」1位 がここで拾えた。
+        // 実測では Tori → 「鳥」1位、HeartBeat → 「心拍」1位 が別の表記で拾えた。
         //
         // **当たっているときは引き直さない。**1回につきBOOTHへの問い合わせが
         // 1本増えるうえ、出てきた候補ごとに商品JSONも取ることになる。
+        // 先の検索で弱い候補が3件出ていても、引き直しの候補は別枠で3件まで確かめる
+        // （枠を共有すると、弱い候補で埋まった時点で引き直しが何も足さなくなる）
         if (!candidates.Any(candidate => candidate.IsStrong))
         {
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
 
-            foreach (var alternate in AlternateQueries.For(filePath, query, _bridge))
+            foreach (var alternate in RetryQueries(filePath, query, _bridge))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                progress?.Report(new ResolveProgress($"別の表記で探しています（{alternate}）", 0, 0));
+                progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
-                var extraIds = (await SearchIdsAsync(alternate, cancellationToken))
+                var extraIds = (await SearchIdsAsync(alternate, filePath, cancellationToken))
                     .Where(id => seen.Add(id))
-                    .Take(MaxCandidates - candidates.Count)
+                    .Take(MaxCandidates)
                     .ToList();
 
                 for (var rank = 0; rank < extraIds.Count; rank++)
@@ -206,12 +309,19 @@ public sealed class FallbackResolver
         return candidates.OrderByDescending(candidate => candidate.Score).ToList();
     }
 
-    private async Task<IReadOnlyList<string>> SearchIdsAsync(string query, CancellationToken cancellationToken)
+    /// <summary>検索して、ファイル名との近さで並べ直したIDを返す。カードが読めなければBOOTHの並びのまま。</summary>
+    private async Task<IReadOnlyList<string>> SearchIdsAsync(string query, string filePath, CancellationToken cancellationToken)
     {
         var result = await _client.SearchAsync(query, cancellationToken);
-        return result.IsSuccess && result.Value is not null
-            ? ExtractSearchResultIds(result.Value)
-            : [];
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return [];
+        }
+
+        var cards = ExtractSearchCards(result.Value);
+        return cards.Count > 0
+            ? Rerank(cards, filePath).Select(card => card.ItemId).ToList()
+            : ExtractSearchResultIds(result.Value);
     }
 
     /// <summary>候補1件を取って点数を付ける。取れなければ null。</summary>
@@ -246,7 +356,7 @@ public sealed class FallbackResolver
             hints,
             rank,
             direct.Contains(itemId),
-            FileNameQuery.SignificantNumbers(filePath),
+            FileNameQuery.SignificantNumbers(filePath).Concat(FileNameQuery.SeriesNumbers(filePath)).Distinct().ToList(),
             readingMatch);
     }
 
@@ -305,7 +415,7 @@ public sealed class FallbackResolver
         }
 
         if (itemName is not null && significantNumbers is not null
-            && significantNumbers.Any(number => itemName.Contains(number, StringComparison.Ordinal)))
+            && significantNumbers.Any(number => ContainsNumber(itemName, number)))
         {
             score += 1;
             reasons.Add("ファイル名の番号が商品名と一致");

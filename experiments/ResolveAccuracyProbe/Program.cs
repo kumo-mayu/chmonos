@@ -151,16 +151,18 @@ if (doSearch)
         }
 
         requests++;
-        var (rank, count) = await RankOfAsync(client, row.Query, row.Pair.Id);
+        var (rank, count, reranked) = await RankOfAsync(client, row.Query, row.Pair.Id, row.Pair.File);
         row.SearchRank = rank;
         row.SearchCount = count;
+        row.RerankRank = reranked;
 
-        if (rank is < 0 or >= 3)
+        // 本体と同じく、並べ直した後で上位3件に来なければ引き直す
+        if (reranked is < 0 or >= 3)
         {
-            foreach (var alternate in AlternateQueries.For(row.Pair.File, row.Query, bridge))
+            foreach (var alternate in FallbackResolver.RetryQueries(row.Pair.File, row.Query, bridge))
             {
                 requests++;
-                var (altRank, _) = await RankOfAsync(client, alternate, row.Pair.Id);
+                var (_, _, altRank) = await RankOfAsync(client, alternate, row.Pair.Id, row.Pair.File);
                 row.Alternates.Add($"{alternate}:{(altRank < 0 ? "-" : (altRank + 1).ToString())}");
                 if (altRank is >= 0 and < 3)
                 {
@@ -183,8 +185,9 @@ if (doSearch)
     Console.WriteLine($"  4位以下       : {searched.Count(row => row.SearchRank >= 3)}");
     Console.WriteLine($"  出てこない    : {searched.Count(row => row.SearchRank < 0)}");
     Console.WriteLine($"  0件           : {searched.Count(row => row.SearchCount == 0)}");
+    Console.WriteLine($"  並べ直し後の上位3件: {searched.Count(row => row.RerankRank is >= 0 and < 3)}");
     Console.WriteLine($"  引き直しで当たる: {searched.Count(row => row.AlternateHit)}");
-    var reached = searched.Count(row => row.SearchRank is >= 0 and < 3 || row.AlternateHit || row.RegistryRank >= 0);
+    var reached = searched.Count(row => row.RerankRank is >= 0 and < 3 || row.AlternateHit || row.RegistryRank >= 0);
     Console.WriteLine($"  どれかで上位3件に届く（登録簿を含む）: {reached}/{rows.Count}");
 }
 
@@ -280,17 +283,20 @@ if (outPath is not null)
     }
 }
 
-static async Task<(int Rank, int Count)> RankOfAsync(BoothClient client, string query, string itemId)
+/// 同じ検索結果から、BOOTHの並びでの順位と、本体と同じ並べ直しの後の順位を数える（通信は1本）
+static async Task<(int Rank, int Count, int Reranked)> RankOfAsync(BoothClient client, string query, string itemId, string file)
 {
     var result = await client.SearchAsync(query);
     if (!result.IsSuccess || result.Value is null)
     {
         Console.WriteLine($"  （検索できませんでした: {query} / {result.Error}）");
-        return (-1, -1);
+        return (-1, -1, -1);
     }
 
-    var ids = FallbackResolver.ExtractSearchResultIds(result.Value);
-    return (ids.ToList().IndexOf(itemId), ids.Count);
+    var ids = FallbackResolver.ExtractSearchResultIds(result.Value).ToList();
+    var cards = FallbackResolver.ExtractSearchCards(result.Value);
+    var reranked = cards.Count > 0 ? FallbackResolver.Rerank(cards, file).Select(card => card.ItemId).ToList() : ids;
+    return (ids.IndexOf(itemId), ids.Count, reranked.IndexOf(itemId));
 }
 
 sealed class Pair
@@ -323,6 +329,8 @@ sealed class Row
     public int? SearchRank { get; set; }
 
     public int? SearchCount { get; set; }
+
+    public int? RerankRank { get; set; }
 
     public List<string> Alternates { get; } = [];
 

@@ -46,6 +46,82 @@ public class FileNameQueryTests
         Assert.Equal(expected, FileNameQuery.ToSearchQuery(fileName));
     }
 
+    /// <summary>
+    /// AND 検索を全滅させていた余計な語を落とす（正解の分かる319本の外れから）。
+    /// 版番号の残り・括弧の付け足し・#タグ・作者の略号・ダウンロードの重複番号・同梱物の種類。
+    /// </summary>
+    [Theory]
+    [InlineData("pochio_v1.3.2_update (1).zip", "pochio")]
+    [InlineData("mynail_texture_MikaFuwa_ver.1.20.zip", "mynail Mika Fuwa")]
+    [InlineData("PuniNail【VRネイルチップ】【Tinydoll対応】#ぷにらぼ.zip", "Puni Nail")]
+    [InlineData("MA_Goggles_Ver_2_update-20240923.zip", "Goggles")]
+    [InlineData("A_LegStraight_v1.2.1.zip", "Leg Straight")]
+    [InlineData("Dragonfly_1.02_Amber.zip", "Dragonfly Amber")]
+    [InlineData("星空アイ_Marycia_ver.1.2.zip", "星空アイ Marycia")]
+    [InlineData("やわらか影システム 9.2(for Avatar) PCSS For VRC .zip", "やわらか影システム PCSS")]
+    public void DropsWordsThatBreakAnAndSearch(string fileName, string expected)
+    {
+        Assert.Equal(expected, FileNameQuery.ToSearchQuery(fileName));
+    }
+
+    /// <summary>日本語と英数字の境目で分ける。続けて書かれていると、BOOTHはそれを1語として探す。</summary>
+    [Fact]
+    public void SplitsBetweenJapaneseAndLatin()
+    {
+        Assert.Equal("撫 mofu nade controller", FileNameQuery.ToSearchQuery("撫mofu_nade_controller.zip"));
+    }
+
+    /// <summary>
+    /// 「」は商品名を括っていることが多いので、中身は残す。括弧だけで名前ができている場合も同じ。
+    /// 「3Dモデル」の 3D は日本語との境目で分かれ、版番号の形（数字＋英字1字）として落ちる。
+    /// 一般的な語なので検索には効かない
+    /// </summary>
+    [Theory]
+    [InlineData("3Dモデル ネックレス「LuneBlanc」.zip", "モデル ネックレス Lune Blanc")]
+    [InlineData("【くうた】.zip", "くうた")]
+    public void KeepsWhatQuotesAndLoneBracketsHold(string fileName, string expected)
+    {
+        Assert.Equal(expected, FileNameQuery.ToSearchQuery(fileName));
+    }
+
+    /// <summary>重複語は潰さない。試作で「Fuwari Fuwari」を1語にしたら当たらなくなった。</summary>
+    [Fact]
+    public void KeepsRepeatedWords()
+    {
+        Assert.Equal("Fuwari Fuwari", FileNameQuery.ToSearchQuery("Fuwari_Fuwari_v1.0.zip"));
+    }
+
+    /// <summary>引き直しに使う1語。日本語は倍に数えて、いちばん長いもの。</summary>
+    [Theory]
+    [InlineData("F_撫で音ギミック4_00_Basic.zip", "撫で音ギミック")]
+    [InlineData("HeartBeatGimmick_v3.0.3.zip", "Gimmick")]
+    [InlineData("Braid_Caramel.zip", "Caramel")]
+    public void PicksTheMostDistinctiveToken(string fileName, string expected)
+    {
+        Assert.Equal(expected, FileNameQuery.MostDistinctiveToken(fileName));
+    }
+
+    /// <summary>語に直接付いた番号を拾う。版番号の各桁は拾わない。</summary>
+    [Theory]
+    [InlineData("練習用ポーズ集13.zip", new[] { "13" })]
+    [InlineData("光のヘイロー012　天使の羽.zip", new[] { "012" })]
+    [InlineData("Kipfel_1.2.0.zip", new string[0])]
+    [InlineData("Wendy_ver1.01.zip", new string[0])]
+    public void PicksUpSeriesNumbers(string fileName, string[] expected)
+    {
+        Assert.Equal(expected, FileNameQuery.SeriesNumbers(fileName));
+    }
+
+    /// <summary>名前の下書きは控えめに：重複番号・配布形態の語・版番号だけ落とし、同梱物の種類は残す。</summary>
+    [Theory]
+    [InlineData("pochio_v1.3.2_update (1).zip", "pochio")]
+    [InlineData("Marycia_texture.zip", "Marycia_texture")]
+    [InlineData("Kipfel_1.2.0.zip", "Kipfel")]
+    public void DraftsANameConservatively(string fileName, string expected)
+    {
+        Assert.Equal(expected, FileNameQuery.ToNameDraft(fileName));
+    }
+
     [Fact]
     public void KeepsJapaneseNames()
     {

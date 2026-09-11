@@ -30,6 +30,56 @@ public class FallbackResolverTests
     }
 
     [Fact]
+    public void ReadsNameAndShopFromProductCards()
+    {
+        const string html = """
+            <li class="item-card l-card" data-product-id="111" data-product-name="練習用ポーズ集12" data-product-brand="posepose">
+            <li class="item-card l-card" data-product-id="222" data-product-name="練習用ポーズ集13 &amp; おまけ" data-product-brand="posepose">
+            """;
+
+        var cards = FallbackResolver.ExtractSearchCards(html);
+
+        Assert.Equal(["111", "222"], cards.Select(card => card.ItemId));
+        Assert.Equal("練習用ポーズ集13 & おまけ", cards[1].Name);
+        Assert.Equal("posepose", cards[1].ShopSubdomain);
+    }
+
+    /// <summary>連番のシリーズ物は、番号の合うものを先に。BOOTHの並びでは十数位に沈んでいた。</summary>
+    [Fact]
+    public void RerankPutsTheMatchingSeriesNumberFirst()
+    {
+        var cards = new[]
+        {
+            new FallbackResolver.SearchCard("111", "練習用ポーズ集12", "posepose"),
+            new FallbackResolver.SearchCard("222", "練習用ポーズ集13", "posepose"),
+        };
+
+        Assert.Equal("222", FallbackResolver.Rerank(cards, @"C:\dl\練習用ポーズ集13.zip")[0].ItemId);
+    }
+
+    /// <summary>ファイル名に付いたショップ名も手掛かりにする。点が同じならBOOTHの並びを保つ。</summary>
+    [Fact]
+    public void RerankUsesTheShopInTheFileNameAndKeepsBoothOrderOnTies()
+    {
+        var cards = new[]
+        {
+            new FallbackResolver.SearchCard("111", "Hair A", "someone"),
+            new FallbackResolver.SearchCard("222", "Hair B", "sampleflow"),
+            new FallbackResolver.SearchCard("333", "Hair C", "other"),
+        };
+
+        Assert.Equal(["222", "111", "333"], FallbackResolver.Rerank(cards, @"C:\dl\sampleflow_hair.zip").Select(card => card.ItemId));
+    }
+
+    /// <summary>引き直しは、まず特徴のある1語。検索語と同じなら引き直さない。</summary>
+    [Fact]
+    public void RetriesWithTheMostDistinctiveTokenFirst()
+    {
+        Assert.Equal(["Caramel"], FallbackResolver.RetryQueries(@"C:\dl\Braid_Caramel.zip", "Braid Caramel", null));
+        Assert.Empty(FallbackResolver.RetryQueries(@"C:\dl\Kipfel_1.2.0.zip", "Kipfel", null));
+    }
+
+    [Fact]
     public void ReturnsNothingForHtmlWithoutItems()
     {
         Assert.Empty(FallbackResolver.ExtractSearchResultIds("<html><body>該当なし</body></html>"));

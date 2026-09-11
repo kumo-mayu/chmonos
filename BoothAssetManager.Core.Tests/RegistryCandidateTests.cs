@@ -80,6 +80,25 @@ public class RegistryCandidateTests
     }
 
     /// <summary>
+    /// 名前そのものが短い項目には、2文字の読みでも当てる。
+    /// 実データで Tori_v1_0_0.zip → 『Bird/鳥』、Eku_PC_v1_0_0.zip → エク が正解だった。
+    /// </summary>
+    [Theory]
+    [InlineData(@"C:\dl\Tori_v1_0_0.zip", "Bird/鳥")]
+    [InlineData(@"C:\dl\Eku_PC_v1_0_0.zip", "エク")]
+    public void MatchesAShortNameThroughATwoLetterReading(string file, string displayName)
+    {
+        var readings = new KanjiReadings(
+            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
+        var bridge = new SearchBridge(new JapaneseDictionary(
+            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
+            Path.Combine(Path.GetTempPath(), "registry-candidate-bridge.cache")));
+        var entry = new AvatarRegistryEntry { ItemId = "6", DisplayName = displayName, Category = "3Dキャラクター" };
+
+        Assert.Equal("6", Assert.Single(RegistryCandidates.For(file, [entry], bridge, readings)).ItemId);
+    }
+
+    /// <summary>
     /// BOOTHから一度も取れていない項目には印を付ける。
     /// 404でも項目は作られるので（categoryがnullのまま）、そこが手掛かりになる。
     /// </summary>
@@ -116,10 +135,51 @@ public class RegistryCandidateTests
             {
                 ItemId = $"90000{index}",
                 DisplayName = $"くうた{index}",
-                Aliases = [new AvatarAlias { Text = "くうた", Count = 1 }],
             })
             .ToList();
 
-        Assert.Equal(3, RegistryCandidates.For(@"C:\dl\くうた_衣装.zip", many).Count);
+        Assert.Equal(3, RegistryCandidates.For(@"C:\dl\くうた0_くうた1_くうた2_くうた3_くうた4_くうた5.zip", many).Count);
+    }
+
+    /// <summary>
+    /// 登録簿の2項目以上が持っている表記では当てない。どれを指しているか決められず、
+    /// 実データでは「シェーダー」「ポーズ」がそれぞれ3項目に付いていて、外ればかりを3件並べていた。
+    /// </summary>
+    [Fact]
+    public void IgnoresATextSharedByTwoEntries()
+    {
+        var shaderA = new AvatarRegistryEntry { ItemId = "1", DisplayName = "水シェーダー", Aliases = [new AvatarAlias { Text = "シェーダー", Count = 1 }] };
+        var shaderB = new AvatarRegistryEntry { ItemId = "2", DisplayName = "目シェーダー", Aliases = [new AvatarAlias { Text = "シェーダー", Count = 1 }] };
+
+        Assert.Empty(RegistryCandidates.For(@"C:\dl\新しいシェーダー.zip", [shaderA, shaderB]));
+    }
+
+    /// <summary>短いラテン文字と、語の途中での一致では当てない（「VR」が VRChat に、「Nemo」が Nemoria に当たっていた）。</summary>
+    [Theory]
+    [InlineData("VR", @"C:\dl\VRネイルチップ.zip")]
+    [InlineData("Nemo", @"C:\dl\Accessory featuring Nemoria flowers.zip")]
+    public void IgnoresShortOrPartialLatinMatches(string alias, string file)
+    {
+        var entry = new AvatarRegistryEntry { ItemId = "3", DisplayName = "どこかのアバター", Aliases = [new AvatarAlias { Text = alias, Count = 1 }] };
+
+        Assert.Empty(RegistryCandidates.For(file, [entry]));
+    }
+
+    /// <summary>ラテン文字の名前も、語として現れていれば当てる。</summary>
+    [Fact]
+    public void MatchesALatinNameAsAWord()
+    {
+        var entry = new AvatarRegistryEntry { ItemId = "4", DisplayName = "もふ子", Aliases = [new AvatarAlias { Text = "Mofuko", Count = 1 }] };
+
+        Assert.Equal("4", Assert.Single(RegistryCandidates.For(@"C:\dl\Mofuko_PSD.zip", [entry])).ItemId);
+    }
+
+    /// <summary>一般的な語（天使・アバター）は別名に紛れ込んでいても使わない。</summary>
+    [Fact]
+    public void IgnoresGenericWords()
+    {
+        var entry = new AvatarRegistryEntry { ItemId = "5", DisplayName = "ぷまちゃん", Aliases = [new AvatarAlias { Text = "天使", Count = 1 }] };
+
+        Assert.Empty(RegistryCandidates.For(@"C:\dl\光のヘイロー012　天使の羽.zip", [entry]));
     }
 }
