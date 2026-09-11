@@ -227,3 +227,33 @@ Unityを開いてアプリへ戻っても「Unityが開いていません」と�
 - エディタが複数開いているときの行き先（4-2）
 - VPMパッケージ形式で配布されるもの。手元の12件には無かったが、
   新しいものはこちらで来る可能性がある
+
+---
+
+## 8. プロジェクトに拡張を入れずにできること（2026-09-11 調査）
+
+ユーザ依頼：このソフトから、Unity のエディタ拡張（プロジェクトに入れるスクリプトやパッケージ）を
+使わずにできる働きかけを洗い出す。上の §2 に書いたもの（開いているエディタへシェルで渡す／
+閉じているプロジェクトへ CLI で入る／Hub は窓が開くだけ）に足す。
+
+| 手段 | できること | 条件・限界 |
+|---|---|---|
+| `.unitypackage` をシェルで開く（§2-1） | 開いているエディタに取り込みの画面を出す | 取り込むかは人が押す。どのエディタへ行くかは §4-2 |
+| `Unity.exe -projectPath … -importPackage … -batchmode -quit`（§2-4） | 画面を出さずに取り込む | **同じプロジェクトを開いているエディタとは同時に動かせない**（「別のインスタンスが開いている」になる） |
+| `-executeMethod` | 開くときに関数を呼ぶ | 関数は**プロジェクトの Editor フォルダにあるスクリプト**の static。拡張を入れない前提では使えない |
+| `Assets/` へファイルを直接置く | エディタに戻った時点で取り込まれる | 設定の Auto Refresh（既定は有効）が効いているとき。unitypackage でないテクスチャを置く用途に合う（#56） |
+| `Editor.log` を読む | **取り込み先が分かる**：`Start importing Assets/Piyo_crafts/tamakurage/…` の行が1件ずつ残る（この PC の記録で161行）。リフレッシュの完了も `Asset Pipeline Refresh … Total: 2.774 seconds` で分かる | 場所は `%LOCALAPPDATA%\Unity\Editor\Editor.log`（前回分は `Editor-prev.log`）。エディタを複数開くと混ざる。#41（Assets の下に何という名前で入ったか）に使える |
+| `Temp/UnityLockfile` を見る | そのプロジェクトが開いているか | 実装済み（`UnityProjects.IsProjectOpen`） |
+| Unity Hub のコマンドライン（`Unity Hub.exe -- --headless install …`） | エディタや追加モジュールを入れる | プロジェクトへの取り込みはできない |
+| VRChat のパッケージ（vrc-get・VPM のコマンドライン） | VPM パッケージをプロジェクトへ入れる（`vrc-get install <pkg>`） | 別途そのツールの導入が要る。VPM で配られる物が来たときの受け皿（§7） |
+
+「拡張なしで Unity を操作できる」とうたう外部ツール（unity-cli）も調べたが、
+実際にはプロジェクトへ Connector パッケージを入れ、エディタ内の HTTP の窓口と話す形だった。
+**エディタの中で起きることを外から直接動かす道は、拡張なしには無い。**
+できるのは「ファイルを置く／シェルで渡す／閉じている間に CLI で入る／ログを読む」の4つ。
+
+参考：[コマンドライン引数（Unity マニュアル）](https://docs.unity3d.com/6000.0/Documentation/Manual/EditorCommandLineArguments.html)、
+[Asset Database の更新（Unity マニュアル）](https://docs.unity3d.com/Manual/AssetDatabaseRefreshing.html)、
+[Hub CLI](https://docs.unity3d.com/hub/manual/HubCLI.html)、
+[vrc-get](https://github.com/vrc-get/vrc-get/blob/master/README.md)、
+[unity-cli](https://github.com/youngwoocho02/unity-cli)
