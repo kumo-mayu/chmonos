@@ -408,6 +408,12 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(unregister.ItemId)
                     : new CommandResult.Failed("登録が見つかりませんでした。");
 
+            case UiCommand.SetFileVariations setVariations:
+                return await _items.SetFileVariationsAsync(
+                        setVariations.ItemId, setVariations.VariationByHash, cancellationToken)
+                    ? new CommandResult.ItemSaved(setVariations.ItemId)
+                    : new CommandResult.Failed("対象の商品がローカルにありません。");
+
             case UiCommand.DetachFile detach:
             {
                 var detachOutcome = await _items.DetachFileAsync(

@@ -211,6 +211,12 @@ public abstract record UiCommand
     /// </param>
     public record DetachFile(string ItemId, string Hash, bool DeleteItemWhenEmpty = false) : UiCommand;
 
+    /// <summary>
+    /// ファイルがどの種類（BOOTHのバリエーション）のものかを付け直す。値が null なら外す。
+    /// 名指ししなかったファイルは今のまま。
+    /// </summary>
+    public record SetFileVariations(string ItemId, IReadOnlyDictionary<string, long?> VariationByHash) : UiCommand;
+
     /// <summary>要確認の既読・未読を切り替える。消さずに既読にするのは「見た」と「無かった」を分けるため。</summary>
     public record SetNotificationRead(string Id, bool IsRead) : UiCommand;
 

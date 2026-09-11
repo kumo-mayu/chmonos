@@ -440,16 +440,60 @@
                                 <DataTemplate>
                                     <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,8">
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" MaxWidth="250" />
-                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                        BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="6,0,0,0"
-                                                        Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{StaticResource TextFaint}" />
-                                                </Border>
-                                            </StackPanel>
+                                            <DockPanel>
+                                                <!--
+                                                    この種類のファイルを選ぶ（#40・ユーザ指示「バリエーションの選択の横」）。
+                                                    付ける操作がどこにも無く、友人のデータで327件中0件だった。
+                                                    種類が2つ以上ある商品で、手元にファイルがあるときだけ出す
+                                                -->
+                                                <Grid DockPanel.Dock="Right" Width="150" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                      Visibility="{Binding CanLinkFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <ComboBox x:Name="FileChoiceBox" ItemsSource="{Binding FileChoices}"
+                                                              SelectedItem="{Binding SelectedFileChoice, Mode=TwoWay}"
+                                                              DisplayMemberPath="Display" Height="26" FontSize="11.5"
+                                                              ToolTip="この種類のファイルを選びます。同じ種類に複数付けられます。" />
+                                                    <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
+                                                    <TextBlock Text="ファイルを紐付ける…" IsHitTestVisible="False" FontSize="11.5"
+                                                               Foreground="{StaticResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
+                                                               Visibility="{Binding Text, ElementName=FileChoiceBox,
+                                                                            Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" MaxWidth="250" />
+                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="6,0,0,0"
+                                                            Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{StaticResource TextFaint}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </DockPanel>
+
+                                            <!-- この種類に付けたファイル。✕で外す（保存して次へで書く） -->
+                                            <ItemsControl ItemsSource="{Binding LinkedFiles}" Margin="22,6,0,0"
+                                                          Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,5,5">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
+                                                                           MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
+                                                                           Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="この種類から外す">
+                                                                    <TextBlock.InputBindings>
+                                                                        <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />
+                                                                    </TextBlock.InputBindings>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                             <StackPanel Orientation="Horizontal" Margin="22,6,0,0"
                                                         Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />

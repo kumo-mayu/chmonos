@@ -111,6 +111,64 @@ public sealed class OrderedVariationInput : ViewModelBase
     }
 
     internal void NoteExtrasChanged() => OnPropertyChanged(nameof(HasExtras));
+
+    // ---- この種類のファイル（#40） ----
+
+    private bool _canLinkFiles;
+    private FileLinkInput? _selectedFileChoice;
+
+    /// <summary>
+    /// ファイルを紐付けられる行か。種類が2つ以上ある商品で、手元にファイルがあるときだけ。
+    /// 1種類しかない商品では、どのファイルもその種類なので選ぶ意味が無い。
+    /// </summary>
+    public bool CanLinkFiles
+    {
+        get => _canLinkFiles;
+        set => SetField(ref _canLinkFiles, value);
+    }
+
+    /// <summary>この種類に紐付けたファイル。同じ種類に複数付けられる（別zipでも同じ種類由来のことがある）。</summary>
+    public ObservableCollection<FileLinkInput> LinkedFiles { get; } = [];
+
+    public bool HasLinkedFiles => LinkedFiles.Count > 0;
+
+    /// <summary>プルダウンに出す、まだこの種類に付いていないファイル。名前が似ているものを先に並べる。</summary>
+    public ObservableCollection<FileLinkInput> FileChoices { get; } = [];
+
+    /// <summary>プルダウンで選ばれたら紐付ける。選んだファイルは一覧から抜けるので、選択は自然に空へ戻る。</summary>
+    public Action<FileLinkInput>? LinkRequested { get; set; }
+
+    public FileLinkInput? SelectedFileChoice
+    {
+        get => _selectedFileChoice;
+        set
+        {
+            _selectedFileChoice = value;
+            if (value is not null)
+            {
+                LinkRequested?.Invoke(value);
+            }
+
+            OnPropertyChanged();
+        }
+    }
+
+    internal void NoteLinkedFilesChanged() => OnPropertyChanged(nameof(HasLinkedFiles));
+}
+
+/// <summary>種類に紐付ける／紐付いたファイル1件。</summary>
+public sealed class FileLinkInput
+{
+    public required string Hash { get; init; }
+
+    public required string Name { get; init; }
+
+    /// <summary>「『〇〇』に付いています」「名前が似ています」。無ければ空。</summary>
+    public string Note { get; init; } = string.Empty;
+
+    public string Display => Note.Length == 0 ? Name : $"{Name}（{Note}）";
+
+    public RelayCommand? UnlinkCommand { get; set; }
 }
 
 /// <summary>
@@ -692,6 +750,7 @@ public sealed class EditViewModel : ViewModelBase
         IsHidden = record.Local.IsHidden;
 
         BuildVariations(record);
+        BuildFileLinks(record);
         BuildImages(record);
         RefreshSuggestions();
     }
@@ -1005,6 +1064,121 @@ public sealed class EditViewModel : ViewModelBase
         }
     }
 
+    // ---- ファイルに種類を付ける（#40） ----
+    //
+    // 付ける操作がどこにも無く、友人のデータで327件中0件だった。
+    // 他の入力と同じく「保存して次へ」で書く（スキップすれば捨てる）。
+    // 書くのは編集画面の保存とは別の命令——種類は LocalFiles の中の項目で、
+    // 編集画面が LocalFiles を丸ごと持つと、開いている間に取り込みが足したファイルを消してしまう。
+
+    /// <summary>手元のファイル（ハッシュ→表示名）。場所の分からないものは出さない。</summary>
+    private List<(string Hash, string Name)> _files = [];
+
+    /// <summary>今の画面上の紐付け。</summary>
+    private Dictionary<string, long?> _fileVariations = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>開いた時点の紐付け。保存のときに差だけを書く。</summary>
+    private Dictionary<string, long?> _savedFileVariations = new(StringComparer.OrdinalIgnoreCase);
+
+    private void BuildFileLinks(ItemRecord record)
+    {
+        _files = record.Local.LocalFiles
+            .Where(file => file.Paths.Count > 0)
+            .Select(file => (file.Hash, System.IO.Path.GetFileName(file.Paths[0])))
+            .ToList();
+
+        _fileVariations = record.Local.LocalFiles.ToDictionary(
+            file => file.Hash, file => file.VariationId, StringComparer.OrdinalIgnoreCase);
+        _savedFileVariations = new Dictionary<string, long?>(_fileVariations, StringComparer.OrdinalIgnoreCase);
+
+        var canLink = record.Booth.Variations.Count >= 2 && _files.Count > 0;
+
+        foreach (var row in Variations)
+        {
+            // 「種類を選ばない購入」の行には付けない。付け先の種類が無い
+            row.CanLinkFiles = canLink && row.VariationId is not null;
+            row.LinkRequested = choice =>
+            {
+                _fileVariations[choice.Hash] = row.VariationId;
+                RefreshFileLinks();
+            };
+        }
+
+        RefreshFileLinks();
+    }
+
+    private void RefreshFileLinks()
+    {
+        var names = Variations
+            .Where(row => row.VariationId is not null)
+            .ToDictionary(row => row.VariationId!.Value, row => row.Name);
+
+        foreach (var row in Variations.Where(row => row.CanLinkFiles))
+        {
+            row.LinkedFiles.Clear();
+            row.FileChoices.Clear();
+
+            foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
+            {
+                var current = _fileVariations.GetValueOrDefault(hash);
+                if (current == row.VariationId)
+                {
+                    row.LinkedFiles.Add(new FileLinkInput
+                    {
+                        Hash = hash,
+                        Name = name,
+                        UnlinkCommand = new RelayCommand(() =>
+                        {
+                            _fileVariations[hash] = null;
+                            RefreshFileLinks();
+                        }),
+                    });
+                }
+            }
+
+            // 名前に種類名がそのまま入っているものを先に出す。友人のデータで当たるのは14%だけなので、
+            // 自動では付けずに候補の順番にだけ使う
+            var choices = _files
+                .Where(file => _fileVariations.GetValueOrDefault(file.Hash) != row.VariationId)
+                .Select(file =>
+                {
+                    var other = _fileVariations.GetValueOrDefault(file.Hash);
+                    var looksLike = NameLooksLike(file.Name, row.Name);
+                    return (File: file, LooksLike: looksLike, Note: other is { } otherId && names.TryGetValue(otherId, out var otherName)
+                        ? $"「{otherName}」に付いています"
+                        : looksLike ? "名前が似ています" : string.Empty);
+                })
+                .OrderByDescending(entry => entry.LooksLike)
+                .ThenBy(entry => entry.File.Name, StringComparer.CurrentCulture);
+
+            foreach (var entry in choices)
+            {
+                row.FileChoices.Add(new FileLinkInput { Hash = entry.File.Hash, Name = entry.File.Name, Note = entry.Note });
+            }
+
+            row.NoteLinkedFilesChanged();
+        }
+    }
+
+    /// <summary>ファイル名に種類名が丸ごと入っているか。空白・括弧・区切りは無視する。</summary>
+    private static bool NameLooksLike(string fileName, string variationName)
+    {
+        static string Fold(string text) => new(text
+            .ToLowerInvariant()
+            .Where(character => !char.IsWhiteSpace(character) && !"_-.()[]【】（）「」『』・/\\".Contains(character))
+            .ToArray());
+
+        var file = Fold(System.IO.Path.GetFileNameWithoutExtension(fileName));
+        var variation = Fold(variationName);
+        return variation.Length >= 2 && file.Contains(variation, StringComparison.Ordinal);
+    }
+
+    /// <summary>開いた時点から変わった紐付けだけ。</summary>
+    private Dictionary<string, long?> ChangedFileVariations()
+        => _fileVariations
+            .Where(pair => _savedFileVariations.GetValueOrDefault(pair.Key) != pair.Value)
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// 2件目以降の購入記録を行にぶら下げ、足す／消すを配線する。
     /// 版の行と同じ形にしておくと、1件目と2件目で操作が変わらない。
@@ -1150,6 +1324,16 @@ public sealed class EditViewModel : ViewModelBase
             if (result is CommandResult.Failed failed)
             {
                 StatusText = failed.Message;
+                return;
+            }
+
+            // ファイルの種類は LocalFiles の中の項目なので、上の保存とは別の命令で書く（理由は BuildFileLinks の上）
+            var changedFiles = ChangedFileVariations();
+            if (changedFiles.Count > 0
+                && await _services.Commands.ExecuteAsync(new UiCommand.SetFileVariations(_item.Id, changedFiles))
+                    is CommandResult.Failed fileFailed)
+            {
+                StatusText = fileFailed.Message;
                 return;
             }
 

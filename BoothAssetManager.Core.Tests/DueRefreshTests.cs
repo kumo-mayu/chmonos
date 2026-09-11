@@ -131,6 +131,10 @@ public class DueRefreshTests : IDisposable
             string itemId, string hash, bool deleteItemWhenEmpty, CancellationToken cancellationToken = default)
             => Task.FromResult(DetachOutcome.Detached);
 
+        public Task<bool> SetFileVariationsAsync(
+            string itemId, IReadOnlyDictionary<string, long?> variationByHash, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
         public Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }

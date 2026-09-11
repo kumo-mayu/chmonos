@@ -117,6 +117,12 @@ public interface IItemService
         string displayName,
         CancellationToken cancellationToken = default);
 
+    /// <summary>ファイルに種類を付け直す（null で外す）。商品が無ければ false。</summary>
+    Task<bool> SetFileVariationsAsync(
+        string itemId,
+        IReadOnlyDictionary<string, long?> variationByHash,
+        CancellationToken cancellationToken = default);
+
     Task<DetachOutcome> DetachFileAsync(
         string itemId,
         string hash,
@@ -1126,6 +1132,52 @@ public sealed class ItemService : IItemService
     /// ファイルだと**次の取り込みで同じ商品へ戻ってしまう**ため。
     /// 外す操作が要るのはまさに手掛かりが間違っている場合なので、記録が無いと直せない。
     /// </summary>
+    /// <summary>
+    /// ファイルがどの種類のものかを付け直す（#40）。
+    ///
+    /// **読み直した一覧の種類だけを書き換える。**LocalFiles は取り込みも書くので、
+    /// 画面が開いた時点の写しを渡すと、その間に足されたファイルやパスが消える。
+    /// ここで読み直してから書けば、失うのは読んでから書くまでの一瞬だけになる。
+    /// </summary>
+    public async Task<bool> SetFileVariationsAsync(
+        string itemId,
+        IReadOnlyDictionary<string, long?> variationByHash,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            return false;
+        }
+
+        // ハッシュは大文字で持っているが、呼び出し側の表記に左右されないようにする
+        var wanted = new Dictionary<string, long?>(variationByHash, StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        var files = item.Local.LocalFiles
+            .Select(file =>
+            {
+                if (!wanted.TryGetValue(file.Hash, out var variationId) || file.VariationId == variationId)
+                {
+                    return file;
+                }
+
+                changed = true;
+                return file with { VariationId = variationId };
+            })
+            .ToList();
+
+        if (!changed)
+        {
+            return true;
+        }
+
+        return await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { LocalFiles = files },
+            LocalOwners.FileVariations,
+            cancellationToken: cancellationToken);
+    }
+
     public async Task<DetachOutcome> DetachFileAsync(
         string itemId,
         string hash,
