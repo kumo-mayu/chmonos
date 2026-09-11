@@ -1545,8 +1545,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         await LoadModificationsAsync();
     }
 
-    /// <summary>ダイアログの中身を組む。送るときと足すだけのときで文言だけ変える。</summary>
-    private async Task<PickModificationDialogViewModel> BuildPickModificationAsync(
+    /// <summary>ダイアログの中身を組む。送るときと足すだけのときで文言だけ変える（組み方は検索画面と共通）。</summary>
+    private Task<PickModificationDialogViewModel> BuildPickModificationAsync(
         string title,
         string headingText,
         string contextText,
@@ -1554,47 +1554,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         string existingLabel,
         string commitLabel,
         string emptyText)
-    {
-        var registry = _services.Store.Avatars.Load();
-
-        string NameOf(Core.Models.AvatarRegistryEntry entry)
-            => entry.DisplayName ?? entry.BoothName ?? entry.ItemId;
-
-        var avatarNames = registry.Entries
-            .Select(NameOf)
-            .Where(text => text.Length > 0)
-            .Distinct(StringComparer.CurrentCultureIgnoreCase)
-            .OrderBy(text => text, StringComparer.CurrentCulture)
-            .ToList();
-
-        var rows = records
-            .Select(record => new PickModificationRowViewModel
-            {
-                Record = record,
-                AvatarText = registry.Entries.FirstOrDefault(entry =>
-                    string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
-                    is { } found
-                        ? NameOf(found)
-                        : record.AvatarItemId,
-            })
-            .ToList();
-
-        await Task.CompletedTask;
-
-        return new PickModificationDialogViewModel(
-            title,
-            headingText,
-            contextText,
-            rows,
-            avatarNames,
-            text => registry.Entries.FirstOrDefault(entry =>
-                string.Equals(NameOf(entry), text, StringComparison.CurrentCultureIgnoreCase))?.ItemId)
-        {
-            ExistingLabel = existingLabel,
-            CommitLabel = commitLabel,
-            EmptyText = emptyText,
-        };
-    }
+        => Task.FromResult(ModificationPicking.BuildDialog(
+            _services, title, headingText, contextText, records, existingLabel, commitLabel, emptyText));
 
     /// <summary>
     /// ダイアログの答えを記録に落とす。作る側なら先に作る。
@@ -1607,38 +1568,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         LocalFileRow? owner,
         string? package)
     {
-        var record = model.Picked?.Record;
-
-        if (model.MakingNew)
+        if (await ModificationPicking.ResolvePickedAsync(_services, model, title, project) is not { } record)
         {
-            if (model.NewAvatarItemId is not { } avatarItemId)
-            {
-                return null;
-            }
-
-            if (await _services.Commands.ExecuteAsync(
-                    new Core.Commands.UiCommand.CreateModification(avatarItemId, model.NewName.Trim()))
-                is Core.Commands.CommandResult.ModificationCreated created)
-            {
-                record = created.Record;
-
-                // 作ったばかりの改変には紐付け先が無い。**いま送るプロジェクトで確定している**
-                // ので、ここで付けておく（後から手で選ばせる意味が無い）
-                if (project is not null)
-                {
-                    await _services.Commands.ExecuteAsync(
-                        new Core.Commands.UiCommand.SetModificationProject(record.Id, project));
-                }
-            }
-        }
-
-        if (record is null)
-        {
-            System.Windows.MessageBox.Show(
-                "改変を作れませんでした。名前を変えて、もう一度試してください。",
-                title,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
             return null;
         }
 

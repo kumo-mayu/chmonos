@@ -765,6 +765,13 @@
                                 Command="{Binding SelectAllCommand}" />
                         <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                 Command="{Binding ClearSelectionCommand}" />
+                        <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
+                        <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                Command="{Binding AddSelectionToFavoritesCommand}"
+                                ToolTip="選んだ商品に星を付けます。付いている物はそのままです。" />
+                        <Button Content="改変に足す…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                Command="{Binding AddSelectionToModificationCommand}"
+                                ToolTip="どの改変に足すかを選んでから、選んだ商品をまとめて足します。" />
                         <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
                                 Command="{Binding SendSelectionToEditCommand}" />
                     </StackPanel>

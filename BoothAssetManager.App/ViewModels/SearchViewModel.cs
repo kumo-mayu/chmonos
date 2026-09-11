@@ -88,6 +88,8 @@ public sealed class SearchViewModel : ViewModelBase
         SelectAllCommand = new RelayCommand(SelectAllMatches);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
+        AddSelectionToFavoritesCommand = new RelayCommand(() => _ = AddSelectionToFavoritesAsync(), () => SelectedCount > 0);
+        AddSelectionToModificationCommand = new RelayCommand(() => _ = AddSelectionToModificationAsync(), () => SelectedCount > 0);
         OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter as ItemCardViewModel));
         OpenShopCommand = new RelayCommand(parameter => OpenShop(parameter as ItemCardViewModel));
         CopyLinkCommand = new RelayCommand(parameter => CopyLink(parameter as ItemCardViewModel));
@@ -963,6 +965,92 @@ public sealed class SearchViewModel : ViewModelBase
     public RelayCommand ClearSelectionCommand { get; }
 
     public RelayCommand SendSelectionToEditCommand { get; }
+
+    /// <summary>選んだ物をまとめてお気に入りに入れる（#44）。</summary>
+    public RelayCommand AddSelectionToFavoritesCommand { get; }
+
+    /// <summary>選んだ物をまとめて改変に足す（#44）。</summary>
+    public RelayCommand AddSelectionToModificationCommand { get; }
+
+    /// <summary>選んだカード。表示中の並びを先に、絞り込みを変えて見えなくなった物を後に。</summary>
+    private List<ItemCardViewModel> SelectedCards()
+    {
+        var cards = _matches.Where(card => card.IsSelected).ToList();
+        cards.AddRange(_cards.Values.Where(card => card.IsSelected && !cards.Contains(card)));
+        return cards;
+    }
+
+    /// <summary>
+    /// 選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。
+    /// 選択は解かない——続けて「改変に足す」などをしたいことがある。
+    /// </summary>
+    private async Task AddSelectionToFavoritesAsync()
+    {
+        foreach (var card in SelectedCards().Where(card => !card.IsFavorite))
+        {
+            await ToggleFavoriteAsync(card);
+        }
+    }
+
+    /// <summary>
+    /// 選んだ物を1つの改変に足す。どの改変かは商品ページの「改変に足す」と同じ画面で1回だけ選ぶ。
+    ///
+    /// **既にその改変に入っている商品は重ねて足さない。**まとめて足すときは、
+    /// どれが入っていたかを1件ずつ覚えていないので、同じ物が2行並ぶと記録を確かめにくい
+    /// （別の版を2回入れたいときは、商品ページから1件ずつ足せる）。
+    /// </summary>
+    private async Task AddSelectionToModificationAsync()
+    {
+        const string title = "改変に足す";
+        var cards = SelectedCards();
+        if (cards.Count == 0)
+        {
+            return;
+        }
+
+        var model = ModificationPicking.BuildDialog(
+            _services,
+            title,
+            $"選んだ {cards.Count} 件を改変に足します。",
+            // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
+            "どのファイルを使ったかは残りません（商品ページからUnityへ送ると残ります）。",
+            (await _services.Modifications.LoadAllAsync()).Modifications,
+            existingLabel: "今ある改変に足す",
+            commitLabel: "足す",
+            emptyText: "改変がまだありません。新しく作って、そこに足せます。");
+
+        if (new Views.PickModificationDialog(model).ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (await ModificationPicking.ResolvePickedAsync(_services, model, title, project: null) is not { } record)
+        {
+            return;
+        }
+
+        var present = record.Members.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+        var added = 0;
+        foreach (var card in cards.Where(card => !present.Contains(card.Item.Id)))
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddModificationMember(
+                record.Id,
+                new ModificationMember { ItemId = card.Item.Id, AddedAt = DateTimeOffset.Now }));
+            added++;
+        }
+
+        var skipped = cards.Count - added;
+        System.Windows.MessageBox.Show(
+            skipped == 0
+                ? $"「{record.Name}」に {added} 件を足しました。"
+                : $"「{record.Name}」に {added} 件を足しました。{skipped} 件は既に入っていたので、重ねて足していません。",
+            title,
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+
+        // 改変が変わったので、「着せているアバター」の絞り込みが読み直すようにする
+        NoteModificationsChanged();
+    }
 
     /// <summary>選択中の件数。0より大きいときだけ操作バーを出す。</summary>
     public int SelectedCount => _cards.Values.Count(card => card.IsSelected);
