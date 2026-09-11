@@ -526,3 +526,33 @@ Editor.log に増えた行を同じ時計で並べた。
 **A にも残る隙：**今の作りは「見える窓が送る前の状態に戻り、2秒続いたら次」。BlendShare の3回の実測で、
 取り込み画面が消えてから Package Manager の窓が出るまでの**窓の無い間が1.2〜1.4秒**あった。2秒の待ちで越えられているが余裕は0.6秒ほどで、
 遅い機械でこの間が2秒を超えると、次の画面を後処理の前に出してしまい、B と同じく黙って入らない。
+
+### 11-3. ログ監視で「終わった」を掴む（ユーザ案・2026-09-11 に試した）
+
+Unity は取り込みの節目を `%LOCALAPPDATA%\Unity\Editor\Editor.log` に書く。窓の出入りより確かに終わりを掴めるかを試した。
+
+**取り込みの終わりには必ず同じ形の行が出る：**`Asset Pipeline Refresh (id=…): Total: ○ seconds - Initiated by RefreshV2(ForceSynchronousImport)`
+（直後に Total 0.00x の小さい同じ行が続く）。
+
+| 種類 | 最初の動き | 完了の行 | 備考 |
+|---|---|---|---|
+| Assets だけ（撫で音オイルオーブ） | 0.4秒 | 0.43秒（Total 0.133） | |
+| Assets のスクリプト入り（撫で音5_00） | 0.7秒 | 2.76秒（Total 2.284） | 進捗「Importing」 |
+| Packages/ のスクリプト入り（BlendShare） | 0.7秒（窓）／2.3秒（ログ） | 4.86秒（Total 4.527・domain reloads=1） | 画面が消えてからログが2秒止まる（Package Manager の解決中。窓は出ている） |
+| **Cancel** | — | **1行も出ない**（12秒見た） | 窓も動かない |
+
+**決め方：**取り込み画面が消えた後、
+1. 取り込みの行（`Start importing` / `[Package Manager]` / `Asset Pipeline Refresh` / `Refreshing native plugins` / `[ScriptCompilation]` / `[API Updater]`）も窓も**5秒動かなければ Cancel**
+2. 何か動いたら Import。**完了の行が出るまで待つ**（途中でログが止まっても待つ。BlendShare の2秒の空白で誤らない）
+3. 完了の行の後、進捗の窓が1秒出ていなければ次を出す
+
+**試した結果：**BlendShare の後にこの決め方で次（SinAvatarPen）を出すと **35/35**（B では0/35だった）。Cancel の後も次（どこなで拡張）が **7/7**。
+Cancel の判定は5.1秒。Import 側は「静かになったら」でなく「完了の行が出たら」なので、§11-2 の隙（窓の無い間1.2〜1.4秒）に左右されない。
+
+**分かった注意点：**
+- **Editor.log は PC に1つで、最後に起動したエディタの物。**起動のたびに前の物は `Editor-prev.log` へ回る。
+  先に開いていた test_ring（pid 16912）の行は、どちらのファイルにも無かった。**送り先が最後に起動したエディタでなければログは使えない。**
+  見分けは、Editor.log の `Successfully changed project path to: <送り先のプロジェクト>` と `"processId":<送り先の pid>`
+- **取り込みと関係のない行も出る**（Cancel の直後に `<RI> Initialized touch support.` `TrimDiskCacheJob`）。何でも「動き」と数えると Cancel を Import と取り違え、来ない完了の行を待ち続けた。取り込みの行だけを数える
+- **パッケージ自身が確認を出すことがある**（VRCHeartRate の VPM 自動インストーラが「Confirm：次のパッケージを入れます」を出した。これも `#32770`）。
+  利用者が答えるまで次へ進めないのが正しいが、アプリの1行で「Unity 側で確認が出ています」と言わないと、止まったように見える
