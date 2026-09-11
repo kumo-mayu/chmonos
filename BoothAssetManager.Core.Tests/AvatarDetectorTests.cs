@@ -27,6 +27,14 @@ public class AvatarTextTests
     public void NormalizeKeepsProlongedSoundMark(string input)
         => Assert.Equal(input.ToLowerInvariant(), AvatarText.Normalize(input));
 
+    /// <summary>
+    /// 片割れのサロゲート（絵文字の半分）が混ざっても例外にしない。
+    /// 放っておくと、1件の商品のせいで検出全体が止まる。
+    /// </summary>
+    [Fact]
+    public void NormalizeSurvivesBrokenSurrogates()
+        => Assert.Equal("マヌカ", AvatarText.Normalize("\uDC8Eマヌカ\uD83D"));
+
     [Theory]
     [InlineData("くうた対応", "くうた")]
     [InlineData("マヌカ用", "マヌカ")]

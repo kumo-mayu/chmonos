@@ -1,3 +1,4 @@
+using System.Text;
 using BoothZipInspector.Models;
 
 namespace BoothZipInspector;
@@ -29,7 +30,10 @@ public static class ZoneIdentifierParser
             }
 
             var key = line[..separatorIndex].Trim();
-            var value = line[(separatorIndex + 1)..].Trim();
+
+            // エクスプローラーの「すべて展開」が書く ReferrerUrl（元のzipのパス）は末尾に NUL が付く。
+            // 残すとパスとして比べられず、ファイル名も取り出せない
+            var value = line[(separatorIndex + 1)..].Trim().TrimEnd('\0').Trim();
 
             if (key.Equals("ZoneId", StringComparison.OrdinalIgnoreCase))
             {
@@ -72,9 +76,9 @@ public static class ZoneIdentifierReader
         try
         {
             using var stream = new FileStream(adsPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var reader = new StreamReader(stream);
-            var content = reader.ReadToEnd();
-            return ZoneIdentifierParser.Parse(content);
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            return ZoneIdentifierParser.Parse(Decode(memory.ToArray()));
         }
         catch (FileNotFoundException)
         {
@@ -95,6 +99,32 @@ public static class ZoneIdentifierReader
         catch (NotSupportedException)
         {
             return ZoneIdentifierInfo.NotFound();
+        }
+    }
+
+    /// <summary>
+    /// ストリームの中身を文字列にする。
+    ///
+    /// ブラウザが書く URL は ASCII なので何で読んでも同じだが、エクスプローラーの「すべて展開」が
+    /// 中のファイルに書く ReferrerUrl（元のzipの絶対パス）は**システムの ANSI コードページ**で書かれる
+    /// （日本語環境では CP932。2026-09-11 に実際のバイト列で確認）。UTF-8 で読むと
+    /// 「アバター」が「�A�o�^�[」に化け、元のzip名が取れなくなる。
+    /// UTF-8 として正しく読めるならそのまま、読めなければ ANSI で読み直す。
+    /// </summary>
+    /// <param name="ansiCodePage">読み直すコードページ。省略時は今の環境の ANSI コードページ。</param>
+    public static string Decode(byte[] bytes, int? ansiCodePage = null)
+    {
+        var strictUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+        try
+        {
+            return strictUtf8.GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            var codePage = ansiCodePage ?? System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+            return Encoding.GetEncoding(codePage).GetString(bytes);
         }
     }
 }

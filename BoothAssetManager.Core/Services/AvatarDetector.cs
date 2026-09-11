@@ -153,7 +153,7 @@ public static class AvatarText
         // 実測では装飾除去そのものより効果が大きかった
         var builder = new StringBuilder(text.Length);
 
-        foreach (var ch in text.Normalize(NormalizationForm.FormKC).ToLowerInvariant())
+        foreach (var ch in SafeNormalize(text).ToLowerInvariant())
         {
             if (ch == 'ー' || char.IsLetterOrDigit(ch))
             {
@@ -162,6 +162,40 @@ public static class AvatarText
         }
 
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// NFKC に通す。**壊れた UTF-16（片割れのサロゲート）でも例外にしない。**
+    ///
+    /// 絵文字は2つの UTF-16 単位でできていて、文字列を途中で切ったり、記号を1つずつ並べた
+    /// 正規表現で落としたりすると片方だけが残る。<see cref="string.Normalize()"/> はそれを受けると
+    /// 例外を投げるので、検出が1件の商品で丸ごと止まる（評価台で実際に止まった）。
+    /// 片割れは文字として意味を持たないので落として続ける。
+    /// </summary>
+    private static string SafeNormalize(string text)
+    {
+        try
+        {
+            return text.Normalize(NormalizationForm.FormKC);
+        }
+        catch (ArgumentException)
+        {
+            var builder = new StringBuilder(text.Length);
+            for (var i = 0; i < text.Length; i++)
+            {
+                var ch = text[i];
+                if (char.IsHighSurrogate(ch) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+                {
+                    builder.Append(ch).Append(text[++i]);
+                }
+                else if (!char.IsSurrogate(ch))
+                {
+                    builder.Append(ch);
+                }
+            }
+
+            return builder.ToString().Normalize(NormalizationForm.FormKC);
+        }
     }
 
     private static readonly string[] SupportSuffixes =
