@@ -6,10 +6,16 @@ using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.App.ViewModels;
 
-/// <summary>結果一覧の1行。仮想化の単位。</summary>
+/// <summary>
+/// 結果一覧の1行。仮想化の単位。
+///
+/// 中身は足し引きできる一覧にしてある。列数が変わるたびに行を全部作り直していた頃は、
+/// ナビや絞り込みを畳むと見えている行のカードの見た目が全部作り直され、画面が 146〜380ms 固まった（U28）。
+/// 並びの合っているカードには触らず、ずれた所だけを抜き差しする（<c>SearchViewModel.RebuildRows</c>）。
+/// </summary>
 public sealed class CardRow
 {
-    public required IReadOnlyList<ItemCardViewModel> Cards { get; init; }
+    public ObservableCollection<ItemCardViewModel> Cards { get; } = [];
 }
 
 /// <summary>
@@ -2042,16 +2048,71 @@ public sealed class SearchViewModel : ViewModelBase
             ? "「条件をクリア」で全件に戻ります"
             : "「取り込み」からフォルダを読み込んでください";
 
-    /// <summary>絞り込み結果を、現在の列数で行に切り直す。</summary>
+    /// <summary>
+    /// 絞り込み結果を、現在の列数で行に切り直す。
+    ///
+    /// **行を全部消して作り直さない。**作り直すと見えている行のカードの見た目が全部作り直され、
+    /// 列数が変わるたび（ナビや絞り込みを畳むたび）に画面が 146〜380ms 固まった（U28、実測）。
+    /// 並びの合っているカードには触らず、ずれた所だけを抜き差しする。
+    /// 列が8から9に増えると、行 k で作り直すのは k+1 枚だけになる（見えている5行なら45枚→15枚）。
+    /// カードの ViewModel は使い回している（<c>_cards</c>）ので、同じ商品は同じ物として比べられる。
+    /// </summary>
     private void RebuildRows()
     {
-        Rows.Clear();
-        for (var start = 0; start < _matches.Count; start += _columns)
+        var needed = (_matches.Count + _columns - 1) / _columns;
+
+        while (Rows.Count > needed)
         {
-            Rows.Add(new CardRow
+            Rows.RemoveAt(Rows.Count - 1);
+        }
+
+        while (Rows.Count < needed)
+        {
+            Rows.Add(new CardRow());
+        }
+
+        for (var row = 0; row < needed; row++)
+        {
+            var cards = Rows[row].Cards;
+            var start = row * _columns;
+            var count = Math.Min(_columns, _matches.Count - start);
+
+            for (var index = 0; index < count; index++)
             {
-                Cards = _matches.GetRange(start, Math.Min(_columns, _matches.Count - start)),
-            });
+                var card = _matches[start + index];
+                if (index < cards.Count && ReferenceEquals(cards[index], card))
+                {
+                    continue;
+                }
+
+                // 同じ行の後ろにあるなら、手前のずれた物を抜いて詰める（列が増えたときの普通の形）
+                var later = -1;
+                for (var look = index + 1; look < cards.Count; look++)
+                {
+                    if (ReferenceEquals(cards[look], card))
+                    {
+                        later = look;
+                        break;
+                    }
+                }
+
+                if (later > 0)
+                {
+                    for (var remove = later - 1; remove >= index; remove--)
+                    {
+                        cards.RemoveAt(remove);
+                    }
+                }
+                else
+                {
+                    cards.Insert(index, card);
+                }
+            }
+
+            while (cards.Count > count)
+            {
+                cards.RemoveAt(cards.Count - 1);
+            }
         }
     }
 
