@@ -1,3 +1,4 @@
+using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
 
@@ -100,6 +101,92 @@ public static class UnityHandoff
             return [];
         }
     }
+
+    /// <summary>
+    /// Unityのどこに入るかを読む。<c>Assets/Piyo_crafts</c> のような、入る先の一番上を多い順に返す。
+    ///
+    /// **取り込んだ後に「何という名前で入ったか」を忘れる**（友人の要望）。
+    /// <c>.unitypackage</c> は tar.gz で、アセットごとの <c>pathname</c> に Unity 上のパスが入っている。
+    /// tar は先頭から順に読むしかないので、パスを集めるには最後まで解くことになる
+    /// （手元の実測で 40MB の物が 0.2 秒ほど）。画面を組むときに同期で読まず、裏で読む。
+    ///
+    /// **Assets/ に限らない。**BlendShare のように Packages/ に入る物があり、
+    /// Assets/ だけ見て「入っていない」と取り違えたことがある。
+    ///
+    /// 読めないときは空を返す。投げない——入る先が分からなくても送ることはできる。
+    /// </summary>
+    public static IReadOnlyList<string> ReadDestinations(UnityPackageEntry package)
+    {
+        try
+        {
+            using var archive = ZipFile.Open(package.ZipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+            if (archive.GetEntry(package.EntryPath) is not { } entry)
+            {
+                return [];
+            }
+
+            using var stream = entry.Open();
+            using var gzip = new GZipStream(stream, CompressionMode.Decompress);
+            using var tar = new TarReader(gzip);
+
+            var paths = new List<string>();
+            while (tar.GetNextEntry(copyData: false) is { } tarEntry)
+            {
+                if (tarEntry.DataStream is null || !tarEntry.Name.EndsWith("/pathname", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                using var reader = new StreamReader(tarEntry.DataStream, Encoding.UTF8, false, 1024, leaveOpen: true);
+                if (reader.ReadLine()?.Trim() is { Length: > 0 } path)
+                {
+                    paths.Add(path);
+                }
+
+                if (paths.Count >= MaxAssetPaths)
+                {
+                    break;
+                }
+            }
+
+            return DestinationRoots(paths);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
+                                              or UnauthorizedAccessException or NotSupportedException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 1つの物が持つアセットの数の上限。実データの最多は105件で、
+    /// 壊れた物を掴んだときに読み続けないための歯止め（<c>UnityPackageInspector</c> と同じ値）。
+    /// </summary>
+    private const int MaxAssetPaths = 20000;
+
+    /// <summary>
+    /// Unity上のパスを、入る先の一番上（最初の2段）にまとめて多い順に並べる。
+    ///
+    /// **2段で止める。**Unity の Project 窓で最初に探すのがそこで、
+    /// 手元の12件はすべて1か所（<c>Assets/FUKA</c> など）に収まっていた。
+    /// </summary>
+    public static IReadOnlyList<string> DestinationRoots(IEnumerable<string> assetPaths)
+        => assetPaths
+            .Select(path => path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            .Where(segments => segments.Length >= 2)
+            .Select(segments => $"{segments[0]}/{segments[1]}")
+            .GroupBy(root => root, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .Select(group => group.First())
+            .ToList();
+
+    /// <summary>入る先を1文にする。多すぎるときは3か所まで出して残りは数だけ言う。</summary>
+    public static string DescribeDestinations(IReadOnlyList<string> roots) => roots.Count switch
+    {
+        0 => string.Empty,
+        <= 3 => $"{string.Join("・", roots)} に入ります",
+        _ => $"{string.Join("・", roots.Take(3))} ほか {roots.Count - 3} か所に入ります",
+    };
 
     /// <summary>
     /// Unityエディタの窓のタイトルからプロジェクト名を取る。

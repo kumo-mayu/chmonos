@@ -872,7 +872,7 @@
                                                     <TextBlock Text="{Binding UnityPackageNote}" Style="{StaticResource Caption}"
                                                                Margin="10,0,0,5" TextWrapping="Wrap"
                                                                Visibility="{Binding HasManyUnityPackages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <ItemsControl ItemsSource="{Binding UnityPackages}">
+                                                    <ItemsControl ItemsSource="{Binding UnityPackageRows}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Border BorderBrush="{StaticResource AccentBorder}" BorderThickness="2,0,0,0"
@@ -882,9 +882,19 @@
                                                                             <ColumnDefinition Width="*" />
                                                                             <ColumnDefinition Width="Auto" />
                                                                         </Grid.ColumnDefinitions>
-                                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="11.5"
-                                                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                                                   Margin="0,0,10,0" />
+                                                                        <!--
+                                                                            Unityのどこに入るか。**取り込んだ後に何という名前で
+                                                                            入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
+                                                                        -->
+                                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5"
+                                                                                       TextTrimming="CharacterEllipsis" />
+                                                                            <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
+                                                                                       FontSize="10.5" Foreground="{StaticResource TextMuted}"
+                                                                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                                                       ToolTip="{Binding DestinationText}"
+                                                                                       Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                        </StackPanel>
                                                                         <!--
                                                                             **ボタンを2つに分ける。**送る前に「記録しますか」と
                                                                             聞くと、記録を使っていない人の邪魔になる。
@@ -895,13 +905,13 @@
                                                                                     ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
                                                                                     Command="{Binding DataContext.SendToUnityCommand,
                                                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding}" />
+                                                                                    CommandParameter="{Binding Entry}" />
                                                                             <Button Content="改変に足して送る" Style="{StaticResource SmallButton}"
                                                                                     Margin="6,0,0,0"
                                                                                     ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
                                                                                     Command="{Binding DataContext.SendToUnityWithRecordCommand,
                                                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding}" />
+                                                                                    CommandParameter="{Binding Entry}" />
                                                                         </StackPanel>
                                                                     </Grid>
                                                                 </Border>

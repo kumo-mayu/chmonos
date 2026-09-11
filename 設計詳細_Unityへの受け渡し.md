@@ -435,3 +435,20 @@ ID は版で変わりうるので、決め打ちせず、毎回メニューの�
 [Hub CLI](https://docs.unity3d.com/hub/manual/HubCLI.html)、
 [vrc-get](https://github.com/vrc-get/vrc-get/blob/master/README.md)、
 [unity-cli](https://github.com/youngwoocho02/unity-cli)
+
+## 10. Unity のどこに入るかを見せる（2026-09-11 作った分）
+
+友人の要望：「UnityのAssets/の下で何て名前で取り込まれてたのか忘れることがあるから確認できると有り難い」。
+
+商品ページの「Unityへ送る」の行に、名前の下へ **`Assets/Piyo_crafts に入ります`** と出す。送る前にも後にも同じ所で見える。
+
+- **読み方：**unitypackage は tar.gz で、アセットごとの `<guid>/pathname` に Unity 上のパスが入っている（§3）。
+  zip は展開せず、zip の中の unitypackage をそのまま解いて読む（`UnityHandoff.ReadDestinations`）
+- **最初の2段にまとめる：**`Assets/FUKA/撫で音/…` は `Assets/FUKA`。Project 窓で最初に探すのがそこ。
+  手元の12件はすべて1か所に収まっていた。多いときは3か所まで出して残りは数だけ言う
+- **Packages/ も出す：**BlendShare は `Packages/com.triturbo.blendshare` に入る。Assets/ だけ見ると「入っていない」と取り違える
+- **裏で読む：**tar は先頭から順に読むしかなく、パスを集めるには最後まで解く。手元の実測で 40.5MB の物が 0.17 秒、
+  ほかは 1〜85ms。商品ページは行を先に出し、1件ずつ読んで埋める。読めなければ何も出さない（送ることはできる）
+- **覚えておかない：**中身から毎回出せる値なので JSON に書かない。開くたびに読み直しても 0.2 秒程度
+
+改変の構成物（`ModificationMember.Package`）からも同じ読み方で引けるが、改変の画面にはまだ出していない。

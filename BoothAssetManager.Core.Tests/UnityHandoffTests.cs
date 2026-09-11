@@ -1,3 +1,4 @@
+using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
 using BoothAssetManager.Core.Services;
@@ -111,6 +112,105 @@ public sealed class UnityHandoffTests : IDisposable
     {
         Assert.Empty(UnityHandoff.FindPackages(Path.Combine(_dir, "居ない.zip")));
     }
+
+    /// <summary>本物と同じ形の unitypackage（tar.gz、アセットごとに guid/pathname）を作る。</summary>
+    private static byte[] MakeUnityPackage(params string[] assetPaths)
+    {
+        using var memory = new MemoryStream();
+        using (var gzip = new GZipStream(memory, CompressionLevel.Fastest, leaveOpen: true))
+        using (var tar = new TarWriter(gzip, TarEntryFormat.Pax, leaveOpen: true))
+        {
+            for (var index = 0; index < assetPaths.Length; index++)
+            {
+                var guid = index.ToString("x32");
+                tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, $"{guid}/asset")
+                {
+                    DataStream = new MemoryStream(Encoding.UTF8.GetBytes("本体")),
+                });
+                // 本物の pathname は2行目に "00" が付いていることがある
+                tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, $"{guid}/pathname")
+                {
+                    DataStream = new MemoryStream(Encoding.UTF8.GetBytes(assetPaths[index] + "\n00")),
+                });
+            }
+        }
+
+        return memory.ToArray();
+    }
+
+    private UnityPackageEntry MakeZipWithPackage(string entryPath, byte[] package)
+    {
+        var path = Path.Combine(_dir, "with-package.zip");
+        using (var stream = File.Create(path))
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false, Encoding.UTF8))
+        using (var entry = archive.CreateEntry(entryPath).Open())
+        {
+            entry.Write(package);
+        }
+
+        return UnityHandoff.FindPackages(path).Single();
+    }
+
+    [Fact]
+    public void unitypackageから入る先を読む()
+    {
+        var package = MakeZipWithPackage(
+            "Bracelet/Bracelet.v1.01.unitypackage",
+            MakeUnityPackage(
+                "Assets/Piyo_crafts",
+                "Assets/Piyo_crafts/Bracelet/Bracelet.prefab",
+                "Assets/Piyo_crafts/Bracelet/Textures/base.png"));
+
+        Assert.Equal(["Assets/Piyo_crafts"], UnityHandoff.ReadDestinations(package));
+    }
+
+    [Fact]
+    public void Packagesに入る物も入る先として読む()
+    {
+        // BlendShare の実例。Assets/ だけ見て「入っていない」と取り違えたことがある
+        var package = MakeZipWithPackage(
+            "日本語のフォルダ/BlendShare-0.0.10-User.unitypackage",
+            MakeUnityPackage(
+                "Packages/com.triturbo.blendshare/package.json",
+                "Packages/com.triturbo.blendshare/Editor/BlendShare.cs",
+                "Assets/Kuuta_ShapekeyAddon/readme.txt"));
+
+        Assert.Equal(
+            ["Packages/com.triturbo.blendshare", "Assets/Kuuta_ShapekeyAddon"],
+            UnityHandoff.ReadDestinations(package));
+    }
+
+    [Fact]
+    public void 壊れたunitypackageでは入る先を空で返す()
+    {
+        var package = MakeZipWithPackage("broken.unitypackage", Encoding.UTF8.GetBytes("tar.gzではない"));
+
+        Assert.Empty(UnityHandoff.ReadDestinations(package));
+    }
+
+    [Fact]
+    public void 入る先は最初の2段にまとめて多い順に並べる()
+    {
+        var roots = UnityHandoff.DestinationRoots(
+        [
+            "Assets/FUKA/a.cs",
+            "Packages/com.x/package.json",
+            "Assets/FUKA/b/c.prefab",
+            "assets/fuka/d.png",
+            // 1段だけのパスは入る先として読まない
+            "Assets",
+        ]);
+
+        Assert.Equal(["Assets/FUKA", "Packages/com.x"], roots);
+    }
+
+    [Theory]
+    [InlineData(new string[0], "")]
+    [InlineData(new[] { "Assets/FUKA" }, "Assets/FUKA に入ります")]
+    [InlineData(new[] { "Assets/A", "Packages/B" }, "Assets/A・Packages/B に入ります")]
+    [InlineData(new[] { "Assets/A", "Assets/B", "Assets/C", "Assets/D", "Assets/E" }, "Assets/A・Assets/B・Assets/C ほか 2 か所に入ります")]
+    public void 入る先を1文にする(string[] roots, string expected)
+        => Assert.Equal(expected, UnityHandoff.DescribeDestinations(roots));
 
     [Theory]
     [InlineData("kip01 - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", "kip01")]

@@ -146,6 +146,31 @@ public sealed class UsedInModificationRowViewModel
         : AvatarText;
 }
 
+/// <summary>Unityへ送れるもの1件と、Unityのどこに入るか。</summary>
+public sealed class UnityPackageRow : ViewModelBase
+{
+    private string _destinationText = string.Empty;
+
+    public required Core.Services.UnityPackageEntry Entry { get; init; }
+
+    public string Name => Entry.Name;
+
+    /// <summary>「Assets/〇〇 に入ります」。中を最後まで読むので、画面を出してから裏で埋まる。</summary>
+    public string DestinationText
+    {
+        get => _destinationText;
+        set
+        {
+            if (SetField(ref _destinationText, value))
+            {
+                OnPropertyChanged(nameof(HasDestination));
+            }
+        }
+    }
+
+    public bool HasDestination => DestinationText.Length > 0;
+}
+
 public sealed class LocalFileRow
 {
     /// <summary>このファイルの同一性。商品から外すときに指す。</summary>
@@ -178,6 +203,9 @@ public sealed class LocalFileRow
     public IReadOnlyList<Core.Services.UnityPackageEntry> UnityPackages { get; init; } = [];
 
     public bool HasUnityPackages => UnityPackages.Count > 0;
+
+    /// <summary>画面に並べる行。入る先を後から埋めるので、中身とは別に持つ。</summary>
+    public IReadOnlyList<UnityPackageRow> UnityPackageRows { get; init; } = [];
 
     /// <summary>
     /// 複数入っているときの注意。
@@ -299,6 +327,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         BuildVariations();
         BuildLocalFiles();
         BuildLocalFolders();
+
+        // Unityのどこに入るかは中を最後まで読むので待たない。行を出してから埋まる
+        _ = LoadUnityDestinationsAsync();
 
         // 改変はファイルを読むので待たない。空で描いてから埋まる
         _ = LoadModificationsAsync();
@@ -1280,6 +1311,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             var variation = file.VariationId is null
                 ? null
                 : Item.Booth.Variations.FirstOrDefault(entry => entry.Id == file.VariationId)?.Name;
+            var packages = FindUnityPackages(file.Paths);
 
             LocalFiles.Add(new LocalFileRow
             {
@@ -1289,8 +1321,25 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 Paths = file.Paths,
                 VariationLabel = variation,
                 VariationId = file.VariationId,
-                UnityPackages = FindUnityPackages(file.Paths),
+                UnityPackages = packages,
+                UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
             });
+        }
+    }
+
+    /// <summary>
+    /// Unityのどこに入るかを、行ごとに裏で読んで埋める。
+    ///
+    /// **画面を組むときに同期で読まない。**入る先は unitypackage を最後まで解かないと
+    /// 分からない（手元の実測で 40MB の物が 0.2 秒ほど）。1つずつ順に読むのは、
+    /// 同じzipを並んで開いてディスクを取り合わないため。
+    /// </summary>
+    private async Task LoadUnityDestinationsAsync()
+    {
+        foreach (var row in LocalFiles.SelectMany(file => file.UnityPackageRows).ToList())
+        {
+            var roots = await Task.Run(() => Core.Services.UnityHandoff.ReadDestinations(row.Entry));
+            row.DestinationText = Core.Services.UnityHandoff.DescribeDestinations(roots);
         }
     }
 
