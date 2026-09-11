@@ -63,7 +63,8 @@ IVariant[] variants =
 [
     new StoredVariant(confirmedOnly: false),
     new StoredVariant(confirmedOnly: true),
-    new RerunCurrentVariant(),
+    new RerunCurrentVariant(includeViaBase: false),
+    new RerunCurrentVariant(includeViaBase: true),
     new ProposalVariant(ProposalOptions.Exact),
     new ProposalVariant(ProposalOptions.Exact with { PlainDescription = true }),
     new ProposalVariant(ProposalOptions.Exact with
@@ -215,9 +216,9 @@ namespace AvatarEvalBench
     /// 数え方は**検索の絞り込みと同じ**（<see cref="AvatarCompatibilityIndex.Resolve"/>：直接対応＋素体経由）。
     /// 本体の今のコードが、評価台の案と同じ数字に届いたかを確かめるためのもの。
     /// </remarks>
-    public sealed class RerunCurrentVariant : IVariant
+    public sealed class RerunCurrentVariant(bool includeViaBase) : IVariant
     {
-        public string Name => "本体の検出を再実行（検索と同じ数え方）";
+        public string Name => includeViaBase ? "本体の検出を再実行・素体経由も含める" : "本体の検出を再実行・直接の対応だけ";
 
         public async Task<Dictionary<string, HashSet<string>>> RunAsync(EvalContext context)
         {
@@ -228,14 +229,27 @@ namespace AvatarEvalBench
                 var store = new DataStore(new AppPaths(temp));
                 await new AvatarService(store, context.Settings, client: null).DetectAsync();
                 var loaded = await store.Items.LoadAllAsync();
+                // 検索画面の「素体経由の対応も含める」を入れた状態と切った状態の両方を測る。
+                // 商品自身（アバターの商品が自分の素体の仲間として出る）は害が無いので数えない
                 var index = AvatarCompatibilityIndex.Build(store.Avatars.Load());
                 return loaded.Items.ToDictionary(
                     item => item.Id,
-                    item => index.Resolve(item.Local).Keys.ToHashSet(StringComparer.Ordinal));
+                    item => index.Resolve(item.Local)
+                        .Where(pair => pair.Key != item.Id && (includeViaBase || pair.Value == AvatarMatch.Direct))
+                        .Select(pair => pair.Key)
+                        .ToHashSet(StringComparer.Ordinal));
             }
             finally
             {
-                Directory.Delete(temp, recursive: true);
+                // --keep：検出し直した写しを残す。どの出どころで付いたかを保存された links から読むため
+                if (Environment.GetCommandLineArgs().Contains("--keep"))
+                {
+                    Console.WriteLine($"  （写しを残した: {temp}）");
+                }
+                else
+                {
+                    Directory.Delete(temp, recursive: true);
+                }
             }
         }
 
