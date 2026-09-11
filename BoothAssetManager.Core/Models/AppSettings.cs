@@ -206,8 +206,22 @@ public sealed record AppSettings
     /// 「対応アバター」を宣言している見出し。ここに載る節のリンクだけを対応表明として読む。
     /// 見出しは出品者の自由記述なので、揺れが出たらユーザが足せるようにする。
     /// </summary>
-    public IReadOnlyList<string> AvatarSupportHeadings { get; init; } =
-        ["対応アバター", "対応モデル", "対応リスト", "対応表", "対応一覧", "Supported", "Compatible"];
+    public IReadOnlyList<string> AvatarSupportHeadings { get; init; } = DefaultAvatarSupportHeadings;
+
+    /// <summary>
+    /// 対応を宣言する見出しの既定。**保存済みの設定にも、使うときに合わせて足す**
+    /// （<see cref="AvatarSupportHeadings"/> は settings.json に丸ごと保存されるので、
+    /// 既定に語を足しても今の利用者には届かない）。
+    ///
+    /// 検索用〜セットアップ済は 2026-09-11 に足した。所持207件の実データで、
+    /// 「🔍検索用🔍」（アバターの商品IDで探す人向けに対応アバターのURLを並べる）や
+    /// 「プリセットについて」「位置設定済アバター」の下に対応の一覧が置かれていた。
+    /// </summary>
+    public static IReadOnlyList<string> DefaultAvatarSupportHeadings { get; } =
+    [
+        "対応アバター", "対応モデル", "対応リスト", "対応表", "対応一覧", "Supported", "Compatible",
+        "検索用", "プリセット", "位置設定済", "設定済みアバター", "セットアップ済",
+    ];
 
     /// <summary>
     /// 読まない見出し。クレジット節のリンクは宣伝画像に使ったモデルへの謝辞で、

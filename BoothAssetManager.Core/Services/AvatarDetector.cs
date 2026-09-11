@@ -627,6 +627,253 @@ public static class AvatarDetector
     private static string StripTags(string html)
         => System.Net.WebUtility.HtmlDecode(TagPattern.Replace(html, " "));
 
+    private static readonly Regex AnyItemUrl = new(
+        @"booth\.pm/(?:[a-z]{2}/)?items/(?<id>\d+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>本文中で見出しの代わりに使われる行。「🌙 【対応アバター】」「◆対応アバターリスト」など。</summary>
+    private static readonly Regex MarkerLine = new(
+        @"^[^\p{L}\p{N}]*(?:【|\[|［|■|◆|◇|●|○|〇|<|＜|《)?\s*(?:対応アバター|対応モデル|対応一覧|Supported|Compatible)[^\p{L}\p{N}]*$|^[^\p{L}\p{N}]*【[^】]*対応[^】]*】[^\p{L}\p{N}]*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>クレジット・サムネ・使用素材の見出し。ここの一覧は対応の宣言ではない。</summary>
+    private static readonly Regex CreditHeading = new(
+        "クレジット|credit|サムネ|使用|お借り|撮影|着用|協力|素材|thanks|規約|更新",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>「対応」を含んでいても、アバターの一覧ではない見出し。</summary>
+    private static readonly Regex NotAvatarSupport = new("非対応|対応シェーダー|対応環境|対応バージョン|対応機種", RegexOptions.Compiled);
+
+    /// <summary>平文でURLと同じ行に書かれたクレジット（「使用アバター：URL」）。</summary>
+    private static readonly Regex CreditLine = new("使用アバター|着用アバター|サムネ|撮影|お借り|使用させ|レプリカ|参考に", RegexOptions.Compiled);
+
+    /// <summary>見出しが無くても一覧とみなす行数。クレジットは1〜3体のことが多い（試験データで3〜4行にすると誤りが増えた）。</summary>
+    public const int MinListRun = 5;
+
+    private sealed record Section(string Heading, IReadOnlyList<string> Lines, bool IsPlain);
+
+    /// <summary>
+    /// h2 を使わずに書かれた対応の一覧を読む。<see cref="ScanDescription"/> の取りこぼしを補う。
+    ///
+    /// 所持207件の実データ（正解付きの試験データ）で、次の3つの形の取りこぼしがあった：
+    /// ・本文中の「🌙 【対応アバター】」の1行の下に「-マヌカ」のような名前だけを並べる
+    /// ・h2 の無い商品で、平文の説明文に「・名前 − URL」の対応リストを書く
+    /// ・空の見出しや「🍀【JP】」の下に、アバターのURLが長く並ぶ
+    /// 読んだ結果、再現率が約96%から約98%に上がり、適合率は99%台のまま変わらなかった。
+    ///
+    /// 返すのは商品IDだけ。アバターかどうかは後で登録簿（category）で決まるので、
+    /// アバターでない商品のURLが混ざっても対応にはならない。
+    /// </summary>
+    public static IReadOnlyList<string> ScanLists(
+        string? html,
+        string? description,
+        string selfItemId,
+        AvatarNameIndex index,
+        IReadOnlyList<string> supportHeadings,
+        IReadOnlyList<string> ignoredHeadings)
+    {
+        var found = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal) { selfItemId };
+
+        void Take(IEnumerable<string> ids)
+        {
+            foreach (var id in ids)
+            {
+                if (seen.Add(id))
+                {
+                    found.Add(id);
+                }
+            }
+        }
+
+        bool IsCredit(string heading) => CreditHeading.IsMatch(heading) || Contains(heading, ignoredHeadings);
+
+        foreach (var section in Sections(html, description))
+        {
+            // ① 対応の見出し（h2 か見出し代わりの行）の下は、URLと名前だけの行を全部拾う
+            if (Contains(section.Heading, supportHeadings) && !NotAvatarSupport.IsMatch(section.Heading) && !IsCredit(section.Heading))
+            {
+                foreach (var line in section.Lines)
+                {
+                    // 対応一覧のすぐ下に「使用アバター：URL」のようなクレジットが続く書き方がある
+                    if (AnyItemUrl.IsMatch(line) && CreditLine.IsMatch(line))
+                    {
+                        continue;
+                    }
+
+                    Take(IdsOnLine(line, index));
+                }
+
+                continue;
+            }
+
+            if (IsCredit(section.Heading))
+            {
+                continue;
+            }
+
+            // ② 平文の説明文の対応リスト。見出しが無いので、説明のどこかに「対応」とあるときだけ読む
+            if (section.IsPlain && (description ?? string.Empty).Contains("対応", StringComparison.Ordinal))
+            {
+                Take(PlainSupport(section.Lines));
+            }
+
+            // ③ 見出しが無くても、アバターの行が長く続く一覧は対応の一覧とみなす
+            Take(LongRuns(section.Lines, index));
+        }
+
+        return found;
+    }
+
+    private static IEnumerable<Section> Sections(string? html, string? description)
+    {
+        var raw = new List<Section>();
+        if (!string.IsNullOrEmpty(html))
+        {
+            var heading = string.Empty;
+            var last = 0;
+            foreach (Match match in Regex.Matches(html, "<h2[^>]*>(?<heading>[\\s\\S]*?)</h2>", RegexOptions.IgnoreCase))
+            {
+                raw.Add(new Section(heading, LinesOf(html[last..match.Index]), false));
+                heading = StripTags(match.Groups["heading"].Value).Trim();
+                last = match.Index + match.Length;
+            }
+
+            raw.Add(new Section(heading, LinesOf(html[last..]), false));
+        }
+
+        raw.Add(new Section(string.Empty, (description ?? string.Empty).Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList(), true));
+
+        // 見出し代わりの行でさらに区切る。URLを含む行や長い文は見出しとみなさない
+        foreach (var section in raw)
+        {
+            var heading = section.Heading;
+            var lines = new List<string>();
+            foreach (var line in section.Lines)
+            {
+                if (line.Length <= 40 && !AnyItemUrl.IsMatch(line) && MarkerLine.IsMatch(line))
+                {
+                    yield return new Section(heading, lines, section.IsPlain);
+                    heading = line;
+                    lines = [];
+                    continue;
+                }
+
+                lines.Add(line);
+            }
+
+            yield return new Section(heading, lines, section.IsPlain);
+        }
+    }
+
+    private static List<string> LinesOf(string html)
+        => StripTags(Regex.Replace(html, @"<br\s*/?>|</(p|div|li)>", "\n", RegexOptions.IgnoreCase))
+            .Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList();
+
+    /// <summary>この行が指すアバター（URLの商品か、名前だけの行の呼び名）。</summary>
+    private static IEnumerable<string> IdsOnLine(string line, AvatarNameIndex index)
+    {
+        var urls = AnyItemUrl.Matches(line).Select(match => match.Groups["id"].Value).ToList();
+        if (urls.Count > 0)
+        {
+            return urls;
+        }
+
+        // 名前だけの行：「-マヌカ」「🖤 Airi」「『ルミナ』 LUMINA」。飾りを落として完全一致で見る。
+        // 絵文字は2つの UTF-16 単位でできているので、記号を1つずつ並べた文字クラスで落とさない
+        var bare = Regex.Replace(line, @"^[^\p{L}\p{N}『「(（+]+", string.Empty).Trim();
+        if (bare.Length is 0 or > 40)
+        {
+            return [];
+        }
+
+        return Regex.Split(bare, @"\s+|[/／・、,，]")
+            .Select(part => part.Trim('『', '』', '「', '」', '(', ')', '（', '）', '-', '：', ':'))
+            .SelectMany(index.FindExact)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static IEnumerable<string> PlainSupport(IReadOnlyList<string> lines)
+    {
+        var inCredit = false;
+        foreach (var line in lines)
+        {
+            var hasUrl = AnyItemUrl.IsMatch(line);
+            if (hasUrl && CreditLine.IsMatch(line))
+            {
+                continue;
+            }
+
+            if (!hasUrl && CreditHeading.IsMatch(line))
+            {
+                inCredit = true;
+                continue;
+            }
+
+            if (!hasUrl && (line.Contains("対応", StringComparison.Ordinal) || line.Contains("Supported", StringComparison.OrdinalIgnoreCase)))
+            {
+                inCredit = false;
+                continue;
+            }
+
+            if (inCredit)
+            {
+                continue;
+            }
+
+            foreach (Match match in AnyItemUrl.Matches(line))
+            {
+                yield return match.Groups["id"].Value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// アバターの行（URLか名前だけ）が <see cref="MinListRun"/> 行以上続くまとまり。
+    /// 「『ルミナ』 LUMINA」の次の行にURLが来る形があるので、2行までの隙間は続きとみなす。
+    /// </summary>
+    private static IEnumerable<string> LongRuns(IReadOnlyList<string> lines, AvatarNameIndex index)
+    {
+        var run = new List<string>();
+        var gap = 0;
+
+        foreach (var line in lines)
+        {
+            var ids = IdsOnLine(line, index).ToList();
+            if (ids.Count > 0)
+            {
+                run.AddRange(ids);
+                gap = 0;
+                continue;
+            }
+
+            // クレジットの小見出しが一覧の途中に来たら、そこで切る
+            var cut = CreditHeading.IsMatch(line) && line.Length <= 30;
+            if (cut || ++gap > 2)
+            {
+                foreach (var id in Flush(run))
+                {
+                    yield return id;
+                }
+
+                gap = 0;
+            }
+        }
+
+        foreach (var id in Flush(run))
+        {
+            yield return id;
+        }
+    }
+
+    private static List<string> Flush(List<string> run)
+    {
+        var distinct = run.Distinct(StringComparer.Ordinal).ToList();
+        run.Clear();
+        return distinct.Count >= MinListRun ? distinct : [];
+    }
+
     /// <summary>
     /// タグから共通素体の宣言を取り出す。「珍飯亭共通素体対応」→「珍飯亭」。
     /// </summary>

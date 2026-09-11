@@ -312,6 +312,63 @@ public class AvatarDetectorTests
         Assert.Equal(["rurune"], index.FindExact("Rurune"));
     }
 
+    private static readonly string[] Ignored2 = ["クレジット", "利用規約"];
+
+    /// <summary>
+    /// 本文中の「🌙 【対応アバター】」の1行を見出しとして扱い、その下の名前だけの行を拾う。
+    /// h2 を使わずに対応一覧を書く出品者がいる。
+    /// </summary>
+    [Fact]
+    public void ReadsNameListsUnderAMarkerLine()
+    {
+        var index = IndexOf(("1", "マヌカ", ["マヌカ"]), ("2", "しなの", ["しなの"]));
+        var html = "<p>🌙 【対応アバター】<br>-マヌカ<br>-しなの<br>-知らない名前</p>";
+
+        var ids = AvatarDetector.ScanLists(html, null, "999", index, Support, Ignored2);
+
+        Assert.Equal(["1", "2"], ids);
+    }
+
+    /// <summary>h2 の無い商品の、平文の説明文に書かれた対応リストを読む。クレジットの行は読まない。</summary>
+    [Fact]
+    public void ReadsSupportListsInThePlainDescription()
+    {
+        var description = """
+            対応アバター
+            ・しなの - https://booth.pm/ja/items/1111
+            ・マヌカ - https://booth.pm/ja/items/2222
+            使用アバター：https://booth.pm/ja/items/3333
+            """;
+
+        var ids = AvatarDetector.ScanLists(null, description, "999", IndexOf(), Support, Ignored2);
+
+        Assert.Equal(["1111", "2222"], ids);
+    }
+
+    /// <summary>見出しが無くても、アバターの行が5行以上続く一覧は拾う。4行では拾わない（クレジットと区別する）。</summary>
+    [Theory]
+    [InlineData(5, true)]
+    [InlineData(4, false)]
+    public void ReadsLongListsWithoutAHeading(int count, bool expected)
+    {
+        var lines = string.Join("<br>", Enumerable.Range(1, count).Select(i => $"🖤 名前{i} - https://booth.pm/ja/items/{1000 + i}"));
+        var html = $"<h2></h2><p>{lines}</p>";
+
+        var ids = AvatarDetector.ScanLists(html, null, "999", IndexOf(), Support, Ignored2);
+
+        Assert.Equal(expected ? count : 0, ids.Count);
+    }
+
+    /// <summary>クレジットの見出しの下は、長い一覧でも拾わない。</summary>
+    [Fact]
+    public void IgnoresLongListsUnderCreditHeadings()
+    {
+        var lines = string.Join("<br>", Enumerable.Range(1, 6).Select(i => $"https://booth.pm/ja/items/{1000 + i}"));
+        var html = $"<h2>🙏 クレジット 🙏</h2><p>{lines}</p>";
+
+        Assert.Empty(AvatarDetector.ScanLists(html, null, "999", IndexOf(), Support, Ignored2));
+    }
+
     /// <summary>1文字の別名は何にでも当たるので索引に入れない。</summary>
     [Fact]
     public void IgnoresSingleCharacterAliases()

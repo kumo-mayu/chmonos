@@ -1133,6 +1133,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         AvatarLinkSource.Tag => "タグ",
         AvatarLinkSource.Variation => "種類の名前",
         AvatarLinkSource.H2Link => "説明文のリンク",
+        AvatarLinkSource.SupportList => "説明文の対応一覧",
         AvatarLinkSource.Manual => "手入力",
         _ => string.Empty,
     };

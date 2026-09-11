@@ -411,6 +411,11 @@ public sealed partial class AvatarService : IAvatarService
                 Bump(seenAs, id, nameof(AvatarLinkSource.Variation));
             }
 
+            foreach (var id in scan.SupportLists)
+            {
+                Bump(seenAs, id, nameof(AvatarLinkSource.SupportList));
+            }
+
             // 別名の出現回数は毎回数え直す（加算しない）。
             // **呼び名そのものに当たったタグだけを数える。**以前は含んでいるかで当たったタグを
             // 覚えていたので、「ミルティナ対応」が「ティナ」の別名になり、次の回から誤りが固定されていた
@@ -631,6 +636,9 @@ public sealed partial class AvatarService : IAvatarService
         public required IReadOnlyCollection<string> FromVariations { get; init; }
 
         public required IReadOnlyList<string> BaseNames { get; init; }
+
+        /// <summary>h2 を使わずに書かれた対応の一覧（本文中の対応行・平文・長い一覧）から拾ったID。</summary>
+        public IReadOnlyList<string> SupportLists { get; init; } = [];
     }
 
     private ItemScan ScanItem(ItemRecord item, AvatarNameIndex index)
@@ -638,7 +646,7 @@ public sealed partial class AvatarService : IAvatarService
         var html = ReadHtml(item.Id);
 
         var description = AvatarDetector.ScanDescription(
-            html, item.Id, _settings.AvatarSupportHeadings, _settings.AvatarIgnoredHeadings);
+            html, item.Id, SupportHeadings, _settings.AvatarIgnoredHeadings);
 
         // 購入したvariationがあればそれを先に見る。買った版がそのままアバター名になっている
         var variationNames = item.Local.Purchases
@@ -656,8 +664,20 @@ public sealed partial class AvatarService : IAvatarService
             FromTags = fromTags,
             FromVariations = fromVariations,
             BaseNames = AvatarDetector.ScanBaseTags(item.Booth.Tags),
+            SupportLists = AvatarDetector.ScanLists(
+                html, item.Booth.Description, item.Id, index, SupportHeadings, _settings.AvatarIgnoredHeadings),
         };
     }
+
+    /// <summary>
+    /// 対応を宣言する見出し。保存済みの設定に、既定の語を合わせる。
+    /// 見出し語の一覧は settings.json に丸ごと保存されるので、既定に語を足しても
+    /// 合わせなければ今の利用者には届かない。
+    /// </summary>
+    private IReadOnlyList<string> SupportHeadings
+        => _settings.AvatarSupportHeadings
+            .Union(AppSettings.DefaultAvatarSupportHeadings, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     private string? ReadHtml(string itemId)
     {
@@ -711,6 +731,12 @@ public sealed partial class AvatarService : IAvatarService
         foreach (var id in scan.FromVariations)
         {
             Add(id, AvatarLinkSource.Variation, confirmed: true);
+        }
+
+        // 説明文のリンク（要確認）より先に入れる。同じアバターが両方に出たら、確定の方を残す
+        foreach (var id in scan.SupportLists)
+        {
+            Add(id, AvatarLinkSource.SupportList, confirmed: true);
         }
 
         foreach (var id in scan.Description.Other)

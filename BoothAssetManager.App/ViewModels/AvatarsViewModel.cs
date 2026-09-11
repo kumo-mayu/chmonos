@@ -644,6 +644,7 @@ public sealed class AvatarsViewModel : ViewModelBase
         "Tag" => "タグ",
         "Variation" => "種類の名前",
         "H2Link" => "説明文のリンク",
+        "SupportList" => "説明文の対応一覧",
         "Manual" => "手入力",
         _ => source,
     };
