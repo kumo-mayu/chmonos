@@ -26,16 +26,15 @@ public sealed class ShopViewModel : ViewModelBase
         ShopSummary shop,
         AppServiceContainer services,
         MainViewModel main,
-        ThumbnailLoader thumbnails,
-        (string Label, Action Go)? back = null)
+        ThumbnailLoader thumbnails)
     {
         Shop = shop;
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
 
-        BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← ショップ一覧に戻る";
-        BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowShops)());
+        // 戻るは画面の履歴を遡る（U23）
+        BackCommand = new RelayCommand(main.GoBack);
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
 
         // ショップ画面に絞り込みを作り直さず、検索の絞り込みをそのまま使う（#55・ユーザ判断）
@@ -59,7 +58,8 @@ public sealed class ShopViewModel : ViewModelBase
     public RelayCommand BackCommand { get; }
 
     /// <summary>どこから来たかで戻り先を変える。来た道と違う場所へ戻されると迷子になる。</summary>
-    public string BackText { get; }
+    /// <summary>戻るの文言。行き先は画面の履歴の直前の画面（U23）。</summary>
+    public string BackText => _main.BackButtonText;
 
     public RelayCommand OpenBoothCommand { get; }
 
@@ -278,7 +278,7 @@ public sealed class ShopViewModel : ViewModelBase
     /// 戻り先はこのショップにする（検索へ戻されると、見ていた場所を失う）。
     /// </summary>
     public void OpenItem(ItemCardViewModel card)
-        => _main.ShowItem(card.Item, (Shop.Name, () => _main.ShowShop(Shop)));
+        => _main.ShowItem(card.Item);
 
     public string CountText => _all.Count == Items.Count
         ? $"{Items.Count} 件"

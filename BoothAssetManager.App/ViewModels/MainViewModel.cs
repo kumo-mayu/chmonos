@@ -318,11 +318,11 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public void ShowShops() => CurrentViewModel = new ShopsViewModel(_services, this, Thumbnails);
 
-    public void ShowShop(Core.Services.ShopSummary shop, (string Label, Action Go)? back = null)
-        => CurrentViewModel = new ShopViewModel(shop, _services, this, Thumbnails, back);
+    public void ShowShop(Core.Services.ShopSummary shop)
+        => CurrentViewModel = new ShopViewModel(shop, _services, this, Thumbnails);
 
     /// <summary>サブドメインからショップ画面を開く。商品ページの作者名からの経路。</summary>
-    public async Task ShowShopAsync(string subdomain, (string Label, Action Go)? back = null)
+    public async Task ShowShopAsync(string subdomain)
     {
         var shops = await _services.Shops.LoadAsync();
         var shop = shops.FirstOrDefault(entry =>
@@ -330,7 +330,7 @@ public sealed class MainViewModel : ViewModelBase
 
         if (shop is not null)
         {
-            ShowShop(shop, back);
+            ShowShop(shop);
         }
     }
 
@@ -416,6 +416,14 @@ public sealed class MainViewModel : ViewModelBase
         get => _currentViewModel;
         private set
         {
+            // 離れる画面を履歴に積む（U23）。戻るで来たときと、同じ商品を開き直すときは積まない
+            var navigation = _nextNavigation;
+            _nextNavigation = Navigation.Push;
+            if (navigation == Navigation.Push && _currentViewModel is not null && !ReferenceEquals(_currentViewModel, value))
+            {
+                Remember(_currentViewModel);
+            }
+
             // ショップ一覧を離れたら、裏で走らせているアイコン取得を止める
             if (_currentViewModel is ShopsViewModel leaving && !ReferenceEquals(leaving, value))
             {
@@ -447,9 +455,121 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsSettingsActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
                 OnPropertyChanged(nameof(IsAttributeManageActive));
+                OnPropertyChanged(nameof(CanGoBack));
+                OnPropertyChanged(nameof(BackButtonText));
             }
         }
     }
+
+    // ---- 画面の履歴（U23） ----
+    //
+    // 「戻る」は常に直前の画面へ（ブラウザと同じ・ユーザ判断）。以前は開くときに戻り先を1つ渡す作りで、
+    // 渡さない入口（要確認・説明のリンク・落とす／貼る・ファイルを外した後など）は検索へ落ち、
+    // 商品→ショップ→商品のように往復すると2段目から先を失っていた。
+    // ナビで移っても履歴は切らない（ユーザ判断：「一瞬の確認の可能性もあります」）
+
+    /// <summary>覚えておく画面の数。一日中開いたままでも伸び続けないように。50画面を遡る使い方は考えにくい。</summary>
+    private const int MaxHistory = 50;
+
+    /// <summary>
+    /// 戻るの文言に載せる名前の長さ。長い商品名が上部バーを占領して隣の情報を押し出さないように
+    /// （以前の商品ページの決め事と同じ30字。手元の15件で名前は中央28字・最長48字）
+    /// </summary>
+    private const int MaxBackLabel = 30;
+
+    private sealed record HistoryEntry(string Label, Action Restore);
+
+    private enum Navigation
+    {
+        Push,
+        Replace,
+        Back,
+    }
+
+    private readonly List<HistoryEntry> _history = [];
+    private Navigation _nextNavigation = Navigation.Push;
+
+    public bool CanGoBack => _history.Count > 0;
+
+    /// <summary>戻るボタンの文言。行き先の名前を出す（どこへ戻るのか分からないと押せない）。</summary>
+    public string BackButtonText => _history.Count > 0 ? $"← {_history[^1].Label}に戻る" : "← 検索に戻る";
+
+    /// <summary>直前の画面へ戻る。履歴が無ければ検索へ。</summary>
+    public void GoBack()
+    {
+        if (_history.Count == 0)
+        {
+            ShowSearch();
+            return;
+        }
+
+        var entry = _history[^1];
+        _history.RemoveAt(_history.Count - 1);
+        _nextNavigation = Navigation.Back;
+        entry.Restore();
+    }
+
+    private void Remember(object leaving)
+    {
+        if (EntryFor(leaving) is not { } entry)
+        {
+            return;
+        }
+
+        _history.Add(entry);
+        if (_history.Count > MaxHistory)
+        {
+            _history.RemoveAt(0);
+        }
+    }
+
+    /// <summary>
+    /// 画面を戻すための控え。**画面そのものは持たず、開き直す手順を持つ。**
+    /// 画面を抱えると、戻るまでその画面の画像や一覧を握ったままになる（#71でメモリを押し上げた型）。
+    /// 検索と取り込みの画面は1つを持ち回しているので、絞り込みやスクロール位置もそのまま戻る
+    /// </summary>
+    private HistoryEntry? EntryFor(object screen) => screen switch
+    {
+        SearchViewModel => new HistoryEntry("検索", ShowSearch),
+        ItemViewModel item => new HistoryEntry(Shorten(item.Name), () => _ = RestoreItemAsync(item.Item.Id)),
+        ShopViewModel shop => new HistoryEntry(Shorten(shop.Shop.Name), () => ShowShop(shop.Shop)),
+        ModificationViewModel modification => new HistoryEntry(
+            Shorten(modification.Record.Name), () => ShowModification(modification.Record)),
+        AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
+        ShopsViewModel => new HistoryEntry("ショップ一覧", ShowShops),
+        StatsViewModel => new HistoryEntry("統計", ShowStats),
+        ImportViewModel => new HistoryEntry("取り込み", ShowImport),
+        ResolveViewModel => new HistoryEntry("未確定", ShowResolve),
+        InboxViewModel => new HistoryEntry("要確認", ShowInbox),
+        TagManageViewModel => new HistoryEntry("タグの管理", ShowTagManage),
+        AttributeManageViewModel => new HistoryEntry("属性の管理", ShowAttributeManage),
+        SettingsViewModel => new HistoryEntry("設定", ShowSettings),
+        EditViewModel => new HistoryEntry("編集", () => _ = ShowEditAsync()),
+        _ => null,
+    };
+
+    /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
+    private Action RestoreAvatars(string? selectedId)
+        => selectedId is null ? ShowAvatars : () => ShowAvatar(selectedId);
+
+    /// <summary>
+    /// 商品ページは開き直した時点の中身で出す（覚えた時の中身は、その後の編集で古くなっている）。
+    /// 消えた商品（IDを変えた・登録を外した）は飛ばして、もう1つ前へ戻る
+    /// </summary>
+    private async Task RestoreItemAsync(string itemId)
+    {
+        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
+        {
+            ShowItem(item);
+            return;
+        }
+
+        _nextNavigation = Navigation.Push;
+        GoBack();
+    }
+
+    private static string Shorten(string label)
+        => label.Length <= MaxBackLabel ? label : label[..MaxBackLabel] + "…";
 
     public bool IsSearchActive => CurrentViewModel is SearchViewModel;
 
@@ -499,16 +619,24 @@ public sealed class MainViewModel : ViewModelBase
     /// 戻ったときに絞り込み条件もスクロール位置もそのまま残る。
     /// </summary>
     /// <summary>改変の詳細を開く。商品ページと同じ格の画面</summary>
-    public void ShowModification(
-        Core.Models.ModificationRecord record,
-        (string Label, Action Go)? back = null)
-        => CurrentViewModel = new ModificationViewModel(record, _services, this, Thumbnails, back);
+    public void ShowModification(Core.Models.ModificationRecord record)
+        => CurrentViewModel = new ModificationViewModel(record, _services, this, Thumbnails);
 
-    public void ShowItem(Core.Models.ItemRecord item, (string Label, Action Go)? back = null)
+    public void ShowItem(Core.Models.ItemRecord item)
     {
         // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い
         _ = _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed);
-        CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails, back);
+        CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails);
+    }
+
+    /// <summary>
+    /// 今の商品ページを開き直す（取り直した・ファイルを外した・IDを変えた後）。
+    /// 履歴には積まない——積むと、戻るを押すたびに同じ商品の古い姿が出てくる
+    /// </summary>
+    public void ReplaceItem(Core.Models.ItemRecord item)
+    {
+        _nextNavigation = Navigation.Replace;
+        ShowItem(item);
     }
 
     /// <summary>未確定ファイルの総件数。「残っている作業量」を示す。</summary>
@@ -553,14 +681,19 @@ public sealed class MainViewModel : ViewModelBase
                 ShowSearch();
                 return true;
             case ShortcutAction.Back:
-                return CurrentViewModel switch
+                // 編集画面では前の1件へ（割り当ての説明どおり）。それ以外はどの画面でも直前の画面へ（U23）
+                if (CurrentViewModel is EditViewModel editing)
                 {
-                    ItemViewModel item => Run(item.BackCommand),
-                    ShopViewModel shop => Run(shop.BackCommand),
-                    ModificationViewModel modification => Run(modification.BackCommand),
-                    EditViewModel edit => Run(edit.BackCommand),
-                    _ => false,
-                };
+                    return Run(editing.BackCommand);
+                }
+
+                if (!CanGoBack)
+                {
+                    return false;
+                }
+
+                GoBack();
+                return true;
             default:
                 return false;
         }

@@ -213,7 +213,7 @@ public sealed class AvatarsViewModel : ViewModelBase
                 if (parameter is ModificationRowViewModel row)
                 {
                     // 戻り先をアバターの管理にしておく。改変からは必ずここへ帰る
-                    _main.ShowModification(row.Record, ("アバターの管理", _main.ShowAvatars));
+                    _main.ShowModification(row.Record);
                 }
             },
             parameter => parameter is ModificationRowViewModel);
@@ -261,6 +261,18 @@ public sealed class AvatarsViewModel : ViewModelBase
     public RelayCommand OpenBoothCommand { get; }
 
     public RelayCommand ShowItemsCommand { get; }
+
+    private RelayCommand? _backCommand;
+
+    /// <summary>
+    /// 戻る（U23）。商品ページの対応アバターの札から持っていないアバターを開くと、
+    /// 元の商品へ戻る手段が無かった。行き先は画面の履歴の直前の画面
+    /// </summary>
+    public RelayCommand BackCommand => _backCommand ??= new RelayCommand(_main.GoBack);
+
+    public string BackText => _main.BackButtonText;
+
+    public bool CanGoBack => _main.CanGoBack;
 
     // ---- 改変の記録 ----
 

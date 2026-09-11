@@ -90,6 +90,12 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 戻る（U23）。商品ページの札から来たときに、元の商品へ戻れるように -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent" />
+                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    </StackPanel>
                     <TextBlock Text="アバターの管理" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                     <TextBlock Text="対応アバターの名前と、共通素体の関係を管理します"
                                Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center" />

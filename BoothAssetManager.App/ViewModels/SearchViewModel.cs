@@ -802,7 +802,7 @@ public sealed class SearchViewModel : ViewModelBase
         var subdomain = card?.Item.Booth.Shop?.Subdomain;
         if (!string.IsNullOrWhiteSpace(subdomain) && _main is not null)
         {
-            _ = _main.ShowShopAsync(subdomain, ("検索に戻る", () => _main.ShowSearch()));
+            _ = _main.ShowShopAsync(subdomain);
         }
     }
 

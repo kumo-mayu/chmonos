@@ -135,7 +135,6 @@ public sealed class ModificationViewModel : ViewModelBase
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
-    private readonly (string Label, Action Go)? _back;
 
     private string _status = string.Empty;
 
@@ -143,19 +142,18 @@ public sealed class ModificationViewModel : ViewModelBase
         ModificationRecord record,
         AppServiceContainer services,
         MainViewModel main,
-        ThumbnailLoader thumbnails,
-        (string Label, Action Go)? back = null)
+        ThumbnailLoader thumbnails)
     {
         Record = record;
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
-        _back = back;
 
         _nameInput = record.Name;
         _memoInput = record.Memo ?? string.Empty;
 
-        BackCommand = new RelayCommand(() => (_back?.Go ?? _main.ShowAvatars).Invoke());
+        // 戻るは画面の履歴を遡る（U23）
+        BackCommand = new RelayCommand(main.GoBack);
         SaveNameCommand = new RelayCommand(() => _ = SaveNameAsync(), () => NameChanged);
         SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => MemoChanged);
         AddImageCommand = new RelayCommand(() => _ = AddImageAsync());
@@ -202,7 +200,8 @@ public sealed class ModificationViewModel : ViewModelBase
 
     public RelayCommand BackCommand { get; }
 
-    public string BackText => _back is { } back ? $"← {back.Label}" : "← アバターの管理";
+    /// <summary>戻るの文言。他の画面と同じ「← {行き先}に戻る」に揃える（以前はここだけ「に戻る」が無かった・U23）。</summary>
+    public string BackText => _main.BackButtonText;
 
     public RelayCommand SaveNameCommand { get; }
 
@@ -896,9 +895,7 @@ public sealed class ModificationViewModel : ViewModelBase
 
         if (await _services.Store.Items.LoadAsync(row.Member.ItemId) is { } item)
         {
-            var label = Record.Name;
-            var record = Record;
-            _main.ShowItem(item, (label, () => _main.ShowModification(record)));
+            _main.ShowItem(item);
             return;
         }
 

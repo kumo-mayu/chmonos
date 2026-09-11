@@ -231,28 +231,21 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
-    private readonly (string Label, Action Go)? _back;
     private int _selectedIndex;
 
-    /// <param name="back">
-    /// 戻り先。ショップから来たならショップへ戻したいので、呼び出し側から受け取る。
-    /// 指定が無ければ検索（ほとんどの経路がそちらなので、既定にしておく）。
-    /// </param>
     public ItemViewModel(
         ItemRecord item,
         AppServiceContainer services,
         MainViewModel main,
-        ThumbnailLoader thumbnails,
-        (string Label, Action Go)? back = null)
+        ThumbnailLoader thumbnails)
     {
         Item = item;
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
 
-        _back = back;
-        BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← 検索に戻る";
-        BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowSearch)());
+        // 戻るは画面の履歴を遡る（U23）。以前は開くときに戻り先を1つ受け取っていた
+        BackCommand = new RelayCommand(main.GoBack);
 
         // 仮IDの商品はBOOTHに存在しない。押せてしまうと「取り直したのに何も変わらない」
         // という説明の付かない結果になるので、押せなくして理由をツールチップに置く
@@ -261,13 +254,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             () => !IsRefreshing && !item.IsLocalOnly);
 
         // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）。
-        // 戻り先はこの商品ページにする。ショップ一覧へ返すと、来た道と違う場所に出てしまう
+        // 戻るとこの商品ページへ帰る（画面の履歴・U23）。
         // 自分で入れたショップにも飛べる。ショップ画面は鍵で束ねているので、
         // 手元だけの鍵でもその1店として開ける
         OpenShopCommand = new RelayCommand(
-            () => _ = main.ShowShopAsync(
-                item.ShopSubdomain!,
-                (item.DisplayName, () => main.ShowItem(item, back))),
+            () => _ = main.ShowShopAsync(item.ShopSubdomain!),
             () => item.ShopSubdomain is not null);
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
@@ -347,7 +338,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public RelayCommand BackCommand { get; }
 
-    public string BackText { get; }
+    /// <summary>戻るの文言。行き先は画面の履歴の直前の画面（U23）。</summary>
+    public string BackText => _main.BackButtonText;
 
     public RelayCommand OpenShopCommand { get; }
 
@@ -436,7 +428,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 if (updated is not null)
                 {
-                    _main.ShowItem(updated, _back);
+                    _main.ReplaceItem(updated);
                 }
             });
         }
@@ -595,9 +587,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             return;
         }
 
-        var current = Item;
-        var back = _back;
-        _main.ShowItem(avatar, (Name, () => _main.ShowItem(current, back)));
+        _main.ShowItem(avatar);
     }
 
     private void SetFavorite(bool value)
@@ -648,7 +638,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)
         {
-            _main.ShowItem(reloaded);
+            _main.ReplaceItem(reloaded);
         }
     }
 
@@ -698,7 +688,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 移した先の商品ページへ送る。元の商品はもう無いので、ここに残せない
         if (await _services.Store.Items.LoadAsync(toId) is { } moved)
         {
-            _main.ShowItem(moved);
+            _main.ReplaceItem(moved);
         }
         else
         {
@@ -760,7 +750,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)
         {
-            _main.ShowItem(reloaded);
+            _main.ReplaceItem(reloaded);
         }
     }
 
@@ -1837,34 +1827,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public string UsedInModificationsEmptyText =>
         "まだどの改変にも入っていません。下の「改変に足す」で残せます。";
 
-    /// <summary>改変の詳細へ。戻り先はこの商品にしておく（見比べに戻ってくる）。</summary>
+    /// <summary>改変の詳細へ。戻るとこの商品へ帰る（見比べに戻ってくる。画面の履歴・U23）。</summary>
     private void OpenModification(UsedInModificationRowViewModel? row)
     {
-        if (row is null)
+        if (row is not null)
         {
-            return;
+            _main.ShowModification(row.Record);
         }
-
-        var item = Item;
-        var back = _back;
-        _main.ShowModification(
-            row.Record,
-            (BackLabelFor(item), () => _main.ShowItem(item, back)));
-    }
-
-    /// <summary>
-    /// 戻る導線に載せる商品名。**長いものは詰める。**
-    ///
-    /// そのまま載せると上部バーを占領して、隣の情報（アバター名・作成日・更新日）を
-    /// 押し出す。手元の15件で名前は中央28字・最長48字なので、
-    /// **30字**にすると中央値は丸ごと入り、はみ出す5件だけが詰まる。
-    /// </summary>
-    private static string BackLabelFor(ItemRecord item)
-    {
-        const int limit = 30;
-
-        var name = item.DisplayName;
-        return name.Length <= limit ? $"{name} に戻る" : $"{name[..limit]}… に戻る";
     }
 
     private async Task LoadModificationsAsync()

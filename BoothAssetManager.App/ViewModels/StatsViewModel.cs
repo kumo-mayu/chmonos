@@ -454,7 +454,7 @@ public sealed class StatsViewModel : ViewModelBase
                 ValueText = $"¥{bar.SpentYen:N0}",
                 SubText = $"{bar.ItemCount} 件",
                 Ratio = shopMax == 0 ? 0 : bar.SpentYen / (double)shopMax,
-                OpenCommand = new RelayCommand(() => _ = _main.ShowShopAsync(subdomain, ("統計", _main.ShowStats))),
+                OpenCommand = new RelayCommand(() => _ = _main.ShowShopAsync(subdomain)),
                 Tooltip = "このショップの画面を開きます。",
             });
         }
@@ -574,7 +574,7 @@ public sealed class StatsViewModel : ViewModelBase
         var item = _services.Store.Items.LoadAsync(itemId).GetAwaiter().GetResult();
         if (item is not null)
         {
-            _main.ShowItem(item, ("統計", _main.ShowStats));
+            _main.ShowItem(item);
         }
     }
 

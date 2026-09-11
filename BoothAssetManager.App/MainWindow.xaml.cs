@@ -17,6 +17,18 @@ public partial class MainWindow : Window
         // Unityを開いてこちらへ戻る、が実際の流れなのでここで足りる
         Activated += (_, _) => (DataContext as MainViewModel)?.NoteWindowActivated();
 
+        // マウスの「戻る」ボタン（U23）。ブラウザと同じ操作で画面の履歴を遡る。
+        // 割り当てのショートカットと同じ道を通す（編集画面では前の1件へ）
+        PreviewMouseDown += (_, e) =>
+        {
+            if (e.ChangedButton == System.Windows.Input.MouseButton.XButton1
+                && DataContext is MainViewModel main
+                && main.RunShortcut(Services.ShortcutAction.Back))
+            {
+                e.Handled = true;
+            }
+        };
+
         HookFind();
     }
 
