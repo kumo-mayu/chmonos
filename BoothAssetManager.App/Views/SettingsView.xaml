@@ -282,19 +282,16 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 取得と画像。次の起動から効くので、そう書いておく -->
+                <!--
+                    取得と画像。**保存した直後の取得から効く**（サービスは今の設定を毎回読む。SettingsSource・#39）。
+                    以前は「次に起動したときから効きます」と札を出していたが、それは直す前の作りの話。
+                    今ある画像を作り直さないことだけは書いておく——長辺を変えたのに一覧が変わらない、と読まれないため
+                -->
                 <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock Text="取得と画像" Style="{StaticResource GroupTitle}" VerticalAlignment="Center" />
-                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                    BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="12,0,0,0">
-                                <TextBlock Text="次に起動したときから効きます" FontSize="10.5"
-                                           Foreground="{StaticResource Warn}" />
-                            </Border>
-                        </StackPanel>
+                        <TextBlock Text="取得と画像" Style="{StaticResource GroupTitle}" Margin="0,0,0,4" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
-                                   Text="起動時にBOOTHとの通信や画像の処理へ渡している値なので、変えても今動いている処理には反映されません。" />
+                                   Text="変えると、次に取る分から効きます。今ある画像は作り直しません（長辺や画質を変えても、新しく取る画像から変わります）。" />
 
                         <!--
                             取得の76%が画像。切れば取り込みは4分の1の時間で終わる。
