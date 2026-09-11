@@ -189,6 +189,12 @@ zip名だと「usakami」「Mofuko」「ことりめがね」「Short Socks Mary
 ただし `pochio_v1.3.2_update (1).zip` → 「pochio v1 3 2 (1)」、`…_ver.1.20.zip` → 「… ver」のように、
 版番号とダウンロードの重複番号が残るものがある（検索語の整え方は #59 で直す）。
 
+本物の自動検索（`ZipOriginProbe --search --compare`、本体と同じ `ProposeAsync`）で友人の12束を比べた結果：
+**zip名の方が良い 6・同じ 4・どちらも外れ 2・悪化 0。**
+良くなったのは、今の検索語では関係の無い商品しか出なかったもの（ポチォの商品・「ことりめがね」の同名商品3件が出た）と、
+正解が3位から1位に上がったもの（Sample Eye Texture）。どちらも外れの2束のうち1つは、
+ツールに同梱された部品（`base_library.zip`）で、そもそも BOOTH の商品ではなかった。
+
 ## 7. ブラウザ履歴DB（`experiments/BrowserHistoryProbe`）
 
 - 場所: `%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\Default\History`（Chrome/Edge も同構造）。SQLite。実行中ブラウザのDBは触らず、**スナップショットにコピーして ReadOnly で開き、終了時に削除**。
