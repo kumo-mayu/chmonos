@@ -192,6 +192,14 @@ public sealed class AvatarNameIndex
                 continue;
             }
 
+            // カタカナだけの名前は、前後がカタカナでないときだけ当てる。
+            // 表示名を読める短い名前（リース）に直すと、「先行リリース」の中に当たった（友人のデータ、2026-09-11）。
+            // 英字の語境界と同じ考え。「カリン対応」「カリンちゃん」は前後が漢字・ひらがななので当たる
+            if (IsKatakanaWord(alias) && !Regex.IsMatch(lower, $@"(?<![\p{{IsKatakana}}ー]){Regex.Escape(alias)}(?![\p{{IsKatakana}}ー])"))
+            {
+                continue;
+            }
+
             foreach (var key in from[alias])
             {
                 found.Add(key);
@@ -202,6 +210,8 @@ public sealed class AvatarNameIndex
     }
 
     private static bool IsAsciiWord(string text) => text.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9'));
+
+    private static bool IsKatakanaWord(string text) => text.All(ch => ch is (>= 'ァ' and <= 'ヺ') or 'ー');
 
     public bool IsEmpty => _avatars.Count == 0 && _bases.Count == 0;
 }

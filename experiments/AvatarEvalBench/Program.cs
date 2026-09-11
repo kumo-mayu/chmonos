@@ -13,7 +13,10 @@
 // 案は IVariant を足すだけで並ぶ。本体（BoothAssetManager.Core）は読むだけで書き換えない。
 //
 // 使い方:
-//   dotnet run --project experiments/AvatarEvalBench -- [評価フォルダ] [--show <案の名前の一部>] [--limit N]
+//   dotnet run --project experiments/AvatarEvalBench -- [評価フォルダ] [--store <写しのフォルダ名>] [--show <案の名前の一部>] [--limit N]
+//
+// --store は評価フォルダの中の写しを選ぶ（既定は store）。store-clean は友人の登録簿の
+// 汚れ（自分の正式名に出ない別名・読めない表示名）を直した版で、同じ正解で測れる。
 
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -26,7 +29,7 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 // 値を取るオプション（--show 平文）の値を、評価フォルダと取り違えないようにする
 var optionValues = args.Select((arg, index) => (arg, index))
-    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump")
+    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump" or "--store")
     .Select(pair => pair.index + 1)
     .ToHashSet();
 var evalDir = args.Where((arg, index) => !arg.StartsWith("--") && !optionValues.Contains(index)).FirstOrDefault()
@@ -37,7 +40,11 @@ var show = showIndex >= 0 && showIndex + 1 < args.Length ? args[showIndex + 1] :
 var limitIndex = Array.IndexOf(args, "--limit");
 var limit = limitIndex >= 0 && int.TryParse(args[limitIndex + 1], out var parsedLimit) ? parsedLimit : 25;
 
-var context = EvalContext.Load(evalDir);
+var storeIndex = Array.IndexOf(args, "--store");
+var storeName = storeIndex >= 0 && storeIndex + 1 < args.Length ? args[storeIndex + 1] : "store";
+
+var context = EvalContext.Load(evalDir, storeName);
+Console.WriteLine($"写し: {storeName}");
 
 // --exclude 123,456：その商品を測らない。1商品に巨大な一覧があると数字がそれに引きずられるので、
 // 除いた場合と並べて読むために使う
@@ -148,9 +155,9 @@ namespace AvatarEvalBench
             return File.Exists(path) ? File.ReadAllText(path) : null;
         }
 
-        public static EvalContext Load(string evalDir)
+        public static EvalContext Load(string evalDir, string storeName = "store")
         {
-            var storeDir = Path.Combine(evalDir, "store");
+            var storeDir = Path.Combine(evalDir, storeName);
             var items = Directory.EnumerateFiles(Path.Combine(storeDir, "items"), "*.json")
                 .Where(path => Regex.IsMatch(Path.GetFileName(path), @"^\d+\.json$"))
                 .Select(path => JsonStore.Read<ItemRecord>(path)!)

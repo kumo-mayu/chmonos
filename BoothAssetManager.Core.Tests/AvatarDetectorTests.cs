@@ -262,6 +262,20 @@ public class AvatarDetectorTests
     }
 
     /// <summary>
+    /// カタカナだけの名前は、長いカタカナ語の途中では当てない。
+    /// 表示名を読める短い名前に直した写しで、種類名「支援版(先行リリース)」の「リース」に当たった。
+    /// </summary>
+    [Fact]
+    public void DoesNotMatchAKatakanaNameInsideALongerKatakanaWord()
+    {
+        var index = IndexOf(("lys", "リース", []), ("karin", "カリン", []));
+
+        Assert.Empty(index.FindAvatars("支援版(先行リリース)"));
+        Assert.Equal(["lys"], index.FindAvatars("リース対応"));
+        Assert.Equal(["karin"], index.FindAvatars("カリンちゃん用"));
+    }
+
+    /// <summary>
     /// 覚えた別名は、自分の正式名に出てくるものだけを使う。部分一致で覚えてしまった
     /// 「ミルティナ対応」のような別名で、別のアバターに当たり続けないため。
     /// 手で足した別名は利用者の意思なので、正式名に出てこなくても使う。
