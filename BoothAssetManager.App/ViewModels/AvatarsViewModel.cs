@@ -41,9 +41,8 @@ public sealed class AvatarRowViewModel : ViewModelBase
 
     public string ItemId => Summary.Entry.ItemId;
 
-    public string Name => string.IsNullOrWhiteSpace(Summary.Entry.DisplayName)
-        ? Summary.Entry.ItemId
-        : Summary.Entry.DisplayName!;
+    /// <summary>画面に出す名前。手で付けた名前か、正式名から計算した名前（同じ名前ならショップ名付き）。</summary>
+    public string Name => string.IsNullOrWhiteSpace(Summary.Name) ? Summary.Entry.ItemId : Summary.Name;
 
     public bool IsOwned => Summary.IsOwned;
 
@@ -472,9 +471,7 @@ public sealed class AvatarsViewModel : ViewModelBase
     /// 名前がまだ無いか、商品IDのままの項目か。
     /// BOOTHが404を返す項目は名前を引けないので、手元の材料から候補を出す。
     /// </summary>
-    public bool NeedsName => Selected is not null
-        && (string.IsNullOrWhiteSpace(Selected.Summary.Entry.DisplayName)
-            || Selected.Summary.Entry.DisplayName == Selected.ItemId);
+    public bool NeedsName => Selected is not null && Selected.Name == Selected.ItemId;
 
     /// <summary>
     /// 名前の候補。**別名から取る。**

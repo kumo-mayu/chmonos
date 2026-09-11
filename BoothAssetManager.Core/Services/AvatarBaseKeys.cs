@@ -144,7 +144,7 @@ public static partial class AvatarBaseKeys
     /// </summary>
     public static string? InferBaseOf(AvatarRegistryEntry entry, IReadOnlyDictionary<string, string> lookup)
     {
-        var texts = new[] { entry.BoothName, entry.DisplayName }
+        var texts = new[] { entry.BoothName, AvatarNames.ShownName(entry) }
             .Concat(entry.Aliases.Where(alias => !alias.Rejected).Select(alias => alias.Text));
 
         foreach (var text in texts)

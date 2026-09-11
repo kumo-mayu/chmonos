@@ -105,9 +105,10 @@ public sealed class AvatarNameIndex
             yield return latin.Groups[1].Value;
         }
 
-        if (entry.DisplayName is { } display)
+        // 画面に出す名前。「Ciel（シエル）」ならどちらの書き方で呼ばれても当たるよう、分けて渡す
+        foreach (var part in AvatarNames.Parts(AvatarNames.ShownName(entry)))
         {
-            yield return display;
+            yield return part;
         }
 
         // 人が「この表記は違う」と消したものは照合に使わない。
@@ -421,6 +422,268 @@ public static class AvatarText
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// 名簿に出す表示名を、BOOTHの正式名の形から切り出す（#54・ユーザ判断で付け方を変える）。
+    ///
+    /// **呼び名の一覧から最短を選ぶのをやめる。**所持207件・アバター392体の実データで、
+    /// 「【VRChatアバター】」の「VR」、「男性アバター」の「男性」、「天使リーマン」の「天使」が名前になり、
+    /// 読めない名前が66体あった（付け直した版を正解にして測った。設計詳細_grill結果3_アバター.md）。
+    ///
+    /// 手順：
+    /// <list type="number">
+    /// <item>タグ（<c>#Renard3D</c>）と版（<c>Ver.1.10</c>・<c>ver3_0</c>・<c>Gen3.0</c>）を落とす</item>
+    /// <item>「」『』｢｣"" で括られた名前があればそれ（1文字の名前もある）</item>
+    /// <item>括弧と区切り（/ ｜ * ＋ など）で分け、先頭から見て「名前ではない語」だけでできていない最初の部分</item>
+    /// <item>その部分の英字の読み（<c>-Rusk-</c>）と、前後の名前ではない語（<c>男性アバター</c>）を落とす</item>
+    /// <item>何も残らなければ、これまでの付け方（<see cref="ShortenName"/>）</item>
+    /// </list>
+    /// </summary>
+    public static string DisplayNameFrom(string? boothName, IEnumerable<string>? aliases = null)
+    {
+        var name = (boothName ?? string.Empty).Normalize(NormalizationForm.FormKC).Trim();
+        if (name.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var body = VersionToken.Replace(HashTag.Replace(name, " "), " ");
+
+        var quoted = QuotedName.Match(body);
+        if (quoted.Success && Clean(quoted.Groups["name"].Value, out _) is { Length: > 0 } inside && !IsNoiseSegment(inside))
+        {
+            return inside;
+        }
+
+        var segments = Segments(body).ToList();
+        for (var index = 0; index < segments.Count; index++)
+        {
+            var cleaned = Clean(segments[index].Text, out var reading);
+            if (cleaned.Length == 0 || IsNoiseSegment(cleaned))
+            {
+                continue;
+            }
+
+            // 名前が2通りで書かれている（「Ciel - シエル -」「Kalifa〈カリファ〉」）なら、
+            // 先に書かれた方を前に、もう一方を括弧に入れて両方出す（ユーザ判断 2026-09-11）。
+            // 読みとみなすのは「-」で挟んだ物と、名前のすぐ後ろの括弧の中身だけ。
+            // 「/」の後ろは別の語で読みではない（「ARMA_アルマ/ZEPTO002」）
+            if (reading is null && index + 1 < segments.Count && segments[index + 1].IsBracket
+                && Clean(segments[index + 1].Text, out _) is { Length: > 0 } next && !IsNoiseSegment(next)
+                && IsReadingOf(cleaned, next))
+            {
+                reading = next;
+            }
+
+            return WithReading(cleaned, reading);
+        }
+
+        // タグだけの商品名（#Menno3D）。タグの中身から末尾の 3D を落として名前にする
+        var tag = HashTag.Match(name);
+        if (tag.Success && TrailingThreeD.Replace(tag.Value.TrimStart('#'), string.Empty) is { Length: >= 2 } fromTag)
+        {
+            return fromTag;
+        }
+
+        return ShortenName(boothName, aliases);
+    }
+
+    /// <summary>表示名の上限。読みを並べてこれを超えるなら、名前だけにする（一覧で長くなりすぎない）。</summary>
+    private const int MaxDisplayNameLength = 24;
+
+    /// <summary>「Ciel（シエル）」の形にする。読みが無い・名前と同じ・長すぎるなら名前だけ。</summary>
+    private static string WithReading(string name, string? reading)
+    {
+        if (reading is not { Length: > 0 } || Normalize(reading) == Normalize(name) || IsNoiseSegment(reading))
+        {
+            return name;
+        }
+
+        var both = $"{name}（{reading}）";
+        return both.Length <= MaxDisplayNameLength ? both : name;
+    }
+
+    /// <summary>
+    /// 後ろの括弧の中身が、名前のもう一つの書き方（読み）か。文字の種類が違うときだけ読みとみなす：
+    /// 英字の名前にかな・漢字、かな・漢字の名前に英字、漢字の名前にかな。
+    /// 「姫華【黒猫洋品店×MinaFrancesca】」のようなコラボ先やショップの括弧を読みにしないため。
+    /// 版の数字（V2）は種類の判定から外す（「ScentedV2【センティッドV2】」）。
+    /// </summary>
+    private static bool IsReadingOf(string name, string candidate)
+    {
+        static string Strip(string text) => VersionDigits.Replace(text, string.Empty);
+        static bool HasLatin(string text) => text.Any(ch => ch is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= 'À' and <= 'ÿ');
+        static bool HasKanji(string text) => text.Any(ch => ch is >= '一' and <= '鿿');
+        static bool KanaOnly(string text) => text.Where(char.IsLetter).All(ch => ch is >= '぀' and <= 'ヿ');
+
+        var n = Strip(name);
+        var c = Strip(candidate);
+        if (c.Length == 0 || c.Length > 16)
+        {
+            return false;
+        }
+
+        return (HasLatin(n) && !HasLatin(c))
+            || (!HasLatin(n) && c.Where(char.IsLetter).All(ch => ch is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= 'À' and <= 'ÿ'))
+            || (HasKanji(n) && KanaOnly(c));
+    }
+
+    private static readonly Regex VersionDigits = new(@"[Vv]?\d+", RegexOptions.Compiled);
+
+    /// <summary>タグ。括弧や区切りの手前で止める（「【#PlusHead】メンズ…」で括弧の外まで食わない）。</summary>
+    private static readonly Regex HashTag = new(@"#[^\s【】\[\]()〔〕《》〚〛<>〈〉/|,*、+&:]+", RegexOptions.Compiled);
+
+    private static readonly Regex TrailingThreeD = new(@"3D$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>版の表記。名前の後ろに付くだけで、名前ではない。</summary>
+    private static readonly Regex VersionToken = new(
+        @"(?i)(\bver(sion)?[\s._]*\d[\w.+]*|\bv\d+(\.\d+)+\w*|\bgen\d[\w.]*|\b\d{4}\s*update\S*|\bupdate\S*)",
+        RegexOptions.Compiled);
+
+    /// <summary>名前を括る印。｢｣ は「」の半角（NFKC で揃わない）。</summary>
+    private static readonly Regex QuotedName = new(
+        @"[「『｢""“](?<name>[^「」『』｢｣""“”]{1,24})[」』｣""”]",
+        RegexOptions.Compiled);
+
+    /// <summary>括弧の組。中身は1つの部分として扱う。</summary>
+    private static readonly Dictionary<char, char> BracketPairs = new()
+    {
+        ['【'] = '】', ['['] = ']', ['('] = ')', ['〔'] = '〕', ['《'] = '》', ['◁'] = '▷', ['<'] = '>', ['〈'] = '〉', ['◀'] = '▶',
+        ['〚'] = '〛',
+    };
+
+    /// <summary>
+    /// 括弧の外で部分を分ける印。「・」では分けない（「ナナセ・ノワール」のように名前の中に入る）。
+    /// </summary>
+    /// <remarks>「&amp;」でも分けない。「彼方-Kanata-&amp;此方-Konata-」は2人で1つの商品で、分けると片方の名前が消えた。</remarks>
+    private static readonly HashSet<char> SegmentSeparators = ['/', '|', ',', '*', '、', '+', ':', '◆'];
+
+    /// <summary>括弧と区切りで分けた1つの部分。括弧の中身だったかを覚えておく（読みかを見分けるため）。</summary>
+    private readonly record struct NameSegment(string Text, bool IsBracket);
+
+    /// <summary>括弧と区切りで商品名を部分に分ける。並びは商品名の順。空の部分は返さない。</summary>
+    private static IEnumerable<NameSegment> Segments(string text)
+        => SplitSegments(text).Where(segment => segment.Text.Trim().Length > 0);
+
+    private static IEnumerable<NameSegment> SplitSegments(string text)
+    {
+        var current = new StringBuilder();
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (BracketPairs.TryGetValue(ch, out var close))
+            {
+                var end = text.IndexOf(close, i + 1);
+                if (end > i)
+                {
+                    yield return new NameSegment(current.ToString(), false);
+                    current.Clear();
+                    yield return new NameSegment(text[(i + 1)..end], true);
+                    i = end;
+                    continue;
+                }
+            }
+
+            // 「 - 」（前後が空白）では分けない。「Nova - ノヴァ -」「涼舞 - Ryoma」の後ろは名前の読みで、
+            // 分けると読みを拾えない（読みは Clean で拾う）
+            if (SegmentSeparators.Contains(ch) && !(ch == '+' && i + 1 < text.Length && char.IsLetter(text[i + 1]) && (i == 0 || text[i - 1] != ' ')))
+            {
+                yield return new NameSegment(current.ToString(), false);
+                current.Clear();
+                continue;
+            }
+
+            current.Append(ch);
+        }
+
+        yield return new NameSegment(current.ToString(), false);
+    }
+
+    /// <summary>
+    /// 名前の後ろに「-」で挟んで添えた読み：<c>ラスク -Rusk-</c>・<c>灰島-haishima-</c>・<c>Zil S -ジル S-</c>・<c>彼方-Kanata-</c>。
+    /// 英字でもかなでも同じ形で書かれるので、文字の種類では決めない。
+    /// </summary>
+    private static readonly Regex WrappedReading = new(
+        @"(?<=\S)\s*[-~〜‐]\s*(?<reading>[^-~〜‐\s][^-~〜‐]*?)\s*[-~〜‐](?=\s|$|[^\p{L}\p{N}]|\p{IsCJKUnifiedIdeographs}|\p{IsHiragana}|\p{IsKatakana})",
+        RegexOptions.Compiled);
+
+    /// <summary>閉じていない後ろの読み：<c>LeotaRiota -レオタリオタ</c>・<c>Platinum - プラチナ</c>。</summary>
+    private static readonly Regex TrailingReading = new(@"^(?<name>.{2,}?)\s+[-‐]\s*(?<reading>\S.*)$", RegexOptions.Compiled);
+
+    /// <summary>1つの部分から、読み・前後の名前ではない語・飾りの記号を落とす。落とした読みは <paramref name="reading"/> に返す。</summary>
+    private static string Clean(string segment, out string? reading)
+    {
+        reading = null;
+        var text = segment.Trim();
+
+        var wrapped = WrappedReading.Matches(text);
+        if (wrapped.Count > 0)
+        {
+            var without = WrappedReading.Replace(text, " ").Trim();
+            if (without.Length > 0 && !IsNoiseSegment(without))
+            {
+                // 読みが2つ以上ある（「彼方-Kanata-＆此方-Konata-」）ときは、どれがどれの読みか紛らわしいので付けない
+                reading = wrapped.Count == 1 ? wrapped[0].Groups["reading"].Value.Trim() : null;
+                text = without;
+            }
+        }
+
+        var trailing = TrailingReading.Match(text);
+        if (trailing.Success && !IsNoiseSegment(trailing.Groups["name"].Value))
+        {
+            reading ??= trailing.Groups["reading"].Value.Trim(' ', '-', '‐');
+            text = trailing.Groups["name"].Value;
+        }
+
+        // 前後の語のうち、名前ではない物を落とす（「彼方&此方 男性アバター」の「男性アバター」）
+        var words = text.Split([' ', '　'], StringSplitOptions.RemoveEmptyEntries).ToList();
+        while (words.Count > 1 && IsNoiseSegment(words[^1]))
+        {
+            words.RemoveAt(words.Count - 1);
+        }
+
+        while (words.Count > 1 && IsNoiseSegment(words[0]))
+        {
+            words.RemoveAt(0);
+        }
+
+        return string.Join(' ', words).Trim(' ', '-', '~', '〜', '‐', '_', '・', ':', '：', '.');
+    }
+
+    /// <summary>
+    /// 名前ではない語。これらを取り除いて何も残らない部分は名前ではない
+    /// （「オリジナル3D男性モデル」「VRChat想定アバター / 無料」「VRC対応3Dアバター」「標準版」）。
+    /// 長い物から順に取り除く。
+    /// </summary>
+    private static readonly string[] NoiseTokens = new[]
+    {
+        "パーフェクトシンク", "unitypackage", "キャラクター", "オリジナル", "original", "megapack", "remaster", "3dmodel", "3dモデル",
+        "vrchat", "android", "avatar", "mobile", "アバター", "モデル", "model", "quest", "標準版", "人外", "男性", "女性",
+        "データ", "無料", "有料", "対応", "想定", "向け", "新作", "限定", "セール", "更新", "vrc", "vrm", "pc", "3d", "cg",
+        "用", "版", "ma", "pb",
+    }.OrderByDescending(token => token.Length).ToArray();
+
+    /// <summary>
+    /// 名前ではない語だけでできているか（「VRChat対応3Dモデル」「Mobile対応」「VR」「男性」「標準版」）。
+    /// 以前の版が自動で付けた名前を見分けるのに使う（<see cref="AvatarNames.ManualName"/>）。
+    /// </summary>
+    public static bool IsNotAName(string? text)
+        => string.IsNullOrWhiteSpace(text) || IsGenericName(text) || IsNoiseSegment(text);
+
+    private static bool IsNoiseSegment(string segment)
+    {
+        var letters = new string(segment.Normalize(NormalizationForm.FormKC).ToLowerInvariant()
+            .Where(char.IsLetterOrDigit).ToArray());
+        foreach (var token in NoiseTokens)
+        {
+            letters = letters.Replace(token, string.Empty, StringComparison.Ordinal);
+        }
+
+        // 残りが数字だけ、または英字1文字だけなら名前ではない。漢字・かなは1文字でも名前になり得る（「梵」「萌」）
+        return letters.Length == 0
+            || letters.All(char.IsDigit)
+            || (letters.Length == 1 && letters[0] < 0x80);
     }
 
     /// <summary>

@@ -23,9 +23,9 @@ public static class ModificationPicking
         string emptyText)
     {
         var registry = services.Store.Avatars.Load();
+        var names = Core.Services.AvatarNames.Map(registry.Entries);
 
-        string NameOf(AvatarRegistryEntry entry)
-            => entry.DisplayName ?? entry.BoothName ?? entry.ItemId;
+        string NameOf(AvatarRegistryEntry entry) => names[entry.ItemId];
 
         var avatarNames = registry.Entries
             .Select(NameOf)

@@ -10,9 +10,22 @@ namespace BoothAssetManager.Core.Services;
 /// </summary>
 public sealed partial class AvatarService
 {
-    /// <summary>表示名を変える。BOOTHの正式名が長いときに短くするための操作。</summary>
+    /// <summary>
+    /// 表示名を手で付ける。付けた名前は自動では上書きしない（ユーザ判断 #54）。
+    /// **空にすると自動に戻る**（正式名から計算した名前を出す）。
+    /// 名前の欄には自動の名前が入っているので、変えずに「名前を保存」を押すと自動の名前が手で付けた名前として固まり、
+    /// 付け方を直しても変わらなくなる。自動の名前と同じなら自動のままにする。
+    /// </summary>
     public async Task SetDisplayNameAsync(string itemId, string name, CancellationToken cancellationToken = default)
-        => await UpdateEntryAsync(itemId, entry => entry with { DisplayName = name.Trim() }, cancellationToken);
+        => await UpdateEntryAsync(
+            itemId,
+            entry =>
+            {
+                var typed = name.Trim();
+                var automatic = AvatarNames.ShownName(entry with { DisplayName = null });
+                return entry with { DisplayName = typed.Length == 0 || typed == automatic ? null : typed };
+            },
+            cancellationToken);
 
     /// <summary>メモを書く。</summary>
     public async Task SetMemoAsync(string itemId, string? memo, CancellationToken cancellationToken = default)
@@ -272,8 +285,8 @@ public sealed partial class AvatarService
             entry => entry with
             {
                 BoothName = booth.Name,
-                // 表示名はユーザが変えている可能性があるので、空のときだけ埋める
-                DisplayName = entry.DisplayName ?? AvatarText.ShortenName(booth.Name),
+                // 表示名は書かない（手で付けた名前はそのまま、無ければ正式名から計算する #54）
+                ShopName = booth.Shop?.Name ?? entry.ShopName,
                 Category = booth.Category?.Name,
                 CheckedAt = DateTimeOffset.Now,
             },

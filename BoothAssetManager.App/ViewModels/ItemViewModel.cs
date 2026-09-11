@@ -1125,10 +1125,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private void BuildAvatars()
     {
         var registry = _services.Store.Avatars.Load();
-        var names = registry.Entries.ToDictionary(
-            entry => entry.ItemId,
-            entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId,
-            StringComparer.Ordinal);
+        var names = AvatarNames.Map(registry.Entries);
 
         string NameOf(string id, string? cached)
             => names.TryGetValue(id, out var name) ? name : cached ?? id;
@@ -1154,7 +1151,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
         SupportSuggestions = registry.Entries
             .Where(entry => AvatarService.IsAvatar(entry) && !declared.Contains(entry.ItemId))
-            .Select(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId)
+            .Select(entry => names[entry.ItemId])
             .OrderBy(name => name, StringComparer.CurrentCulture)
             .ToList();
 
@@ -1219,7 +1216,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             ? [.. Item.Local.Avatars, new AvatarLink
             {
                 AvatarItemId = match.ItemId,
-                Name = match.DisplayName ?? match.BoothName,
+                Name = AvatarNames.ShownName(match),
                 Source = AvatarLinkSource.Manual,
                 Confirmed = true,
             }]
@@ -1239,8 +1236,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             return null;
         }
 
-        return _services.Store.Avatars.Load().Entries.FirstOrDefault(entry =>
-            string.Equals(entry.DisplayName, name, StringComparison.CurrentCultureIgnoreCase)
+        // 候補に出した名前（同じ名前ならショップ名付き）と、正式名のどちらでも引けるようにする
+        var entries = _services.Store.Avatars.Load().Entries;
+        var names = AvatarNames.Map(entries);
+        return entries.FirstOrDefault(entry =>
+            string.Equals(names[entry.ItemId], name, StringComparison.CurrentCultureIgnoreCase)
+            || string.Equals(AvatarNames.ShownName(entry), name, StringComparison.CurrentCultureIgnoreCase)
             || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
     }
 
@@ -1684,7 +1685,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                     AvatarText = registry.Entries.FirstOrDefault(entry =>
                         string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
                         is { } found
-                            ? found.DisplayName ?? found.BoothName ?? record.AvatarItemId
+                            ? AvatarNames.ShownName(found)
                             : record.AvatarItemId,
 
                     // 同じ商品を別のバージョンで2回足せるので、何回入っているかを出す

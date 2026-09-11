@@ -46,6 +46,9 @@ public sealed record AvatarSummary
 {
     public required AvatarRegistryEntry Entry { get; init; }
 
+    /// <summary>画面に出す名前。同じ名前の別アバターがあればショップ名まで付けてある（<see cref="AvatarNames.Map"/>）。</summary>
+    public string Name { get; init; } = string.Empty;
+
     public required bool IsAvatar { get; init; }
 
     public required bool IsOwned { get; init; }
@@ -206,10 +209,12 @@ public sealed partial class AvatarService : IAvatarService
             }
         }
 
+        var shownNames = AvatarNames.Map(registry.Entries);
         return registry.Entries
             .Select(entry => new AvatarSummary
             {
                 Entry = entry,
+                Name = shownNames[entry.ItemId],
                 IsAvatar = IsAvatar(entry),
                 IsOwned = entry.IsOwnedManually || ownedIds.Contains(entry.ItemId),
                 DirectCount = direct.TryGetValue(entry.ItemId, out var d) ? d : 0,
@@ -221,7 +226,7 @@ public sealed partial class AvatarService : IAvatarService
             .Where(summary => summary.IsAvatar || summary.Entry.AvatarOverride == false)
             .OrderByDescending(summary => summary.IsOwned)
             .ThenByDescending(summary => summary.DirectCount + summary.ViaBaseCount)
-            .ThenBy(summary => summary.Entry.DisplayName ?? summary.Entry.ItemId, StringComparer.CurrentCulture)
+            .ThenBy(summary => summary.Name, StringComparer.CurrentCulture)
             .ToList();
     }
 
@@ -379,17 +384,26 @@ public sealed partial class AvatarService : IAvatarService
                 continue;
             }
 
+            // 表示名は書かない。正式名から計算する（AvatarNames・#54）
             entries[item.Id] = new AvatarRegistryEntry
             {
                 ItemId = item.Id,
                 BoothName = item.Booth.Name,
-                DisplayName = AvatarText.ShortenName(
-                    item.Booth.Name,
-                    BuildAliasesFromTags(item.Booth).Select(alias => alias.Text)),
+                ShopName = item.Booth.Shop?.Name,
                 Category = item.Booth.Category?.Name,
                 CheckedAt = item.Booth.FetchedAt,
                 Aliases = BuildAliasesFromTags(item.Booth),
             };
+        }
+
+        // 以前の版で入れたアバターにはショップ名が無い。手元に持っている物だけは通信せずに埋められる
+        // （同じ名前のアバターを見分けるのに使う）
+        foreach (var item in loaded.Items)
+        {
+            if (entries.TryGetValue(item.Id, out var known) && known.ShopName is null && item.Booth.Shop?.Name is { Length: > 0 } shop)
+            {
+                entries[item.Id] = known with { ShopName = shop };
+            }
         }
 
         // 索引はライブラリのアバターを入れた後に組む。先に組むと、
@@ -495,7 +509,7 @@ public sealed partial class AvatarService : IAvatarService
                 {
                     ItemId = id,
                     BoothName = owned.Booth.Name,
-                    DisplayName = AvatarText.ShortenName(owned.Booth.Name),
+                    ShopName = owned.Booth.Shop?.Name,
                     Category = owned.Booth.Category?.Name,
                     CheckedAt = DateTimeOffset.Now,
                 };
@@ -539,7 +553,7 @@ public sealed partial class AvatarService : IAvatarService
             {
                 ItemId = id,
                 BoothName = booth.Name,
-                DisplayName = AvatarText.ShortenName(booth.Name, aliases.Select(alias => alias.Text)),
+                ShopName = booth.Shop?.Name,
                 Category = booth.Category?.Name,
                 CheckedAt = DateTimeOffset.Now,
                 // 別名はアバターにだけ持たせる。依存ツールの名前で照合しても意味が無い
@@ -749,7 +763,7 @@ public sealed partial class AvatarService : IAvatarService
             links[id] = new AvatarLink
             {
                 AvatarItemId = id,
-                Name = entry.DisplayName,
+                Name = AvatarNames.ShownName(entry),
                 Source = source,
                 Confirmed = confirmed,
             };

@@ -268,11 +268,11 @@ public sealed class SearchViewModel : ViewModelBase
         AvatarSuggestions.Clear();
 
         var registry = _services.Store.Avatars.Load();
+        var names = Core.Services.AvatarNames.Map(registry.Entries);
         foreach (var entry in registry.Entries.Where(entry => entry.AvatarOverride != false)
-            .OrderBy(entry => entry.DisplayName ?? entry.BoothName ?? entry.ItemId, StringComparer.CurrentCulture))
+            .OrderBy(entry => names[entry.ItemId], StringComparer.CurrentCulture))
         {
-            AvatarSuggestions.Add(AvatarSuggestionText.Format(
-                entry.DisplayName ?? entry.BoothName ?? entry.ItemId, entry.ItemId));
+            AvatarSuggestions.Add(AvatarSuggestionText.Format(names[entry.ItemId], entry.ItemId));
         }
 
         OnPropertyChanged(nameof(HasAvatarSuggestions));

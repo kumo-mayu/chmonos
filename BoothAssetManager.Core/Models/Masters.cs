@@ -105,11 +105,23 @@ public sealed record AvatarRegistryEntry
     /// <summary>BOOTH商品ID。アバターは実在の商品なので、これを自然キーにする。</summary>
     public required string ItemId { get; init; }
 
-    /// <summary>一覧や絞り込みに出す短い名前。ユーザが変えられる。</summary>
+    /// <summary>
+    /// **ユーザが付けた**表示名。付けていなければ null で、表示には正式名から計算した名前を使う
+    /// （<see cref="Services.AvatarNames"/>・#54）。
+    ///
+    /// 以前はここに自動で付けた名前も入れていた。計算で出せる値なので、今は書かない。
+    /// 以前の版が書いた自動の名前は、読むときに「以前の付け方でできる名前か」で見分けて、自動の扱いに戻す。
+    /// </summary>
     public string? DisplayName { get; init; }
 
     /// <summary>BOOTHの正式な商品名。観測した事実なので上書きしない。</summary>
     public string? BoothName { get; init; }
+
+    /// <summary>
+    /// BOOTHのショップ名。観測した事実。同じ表示名のアバターが2体以上あるとき、後ろに付けて見分けるのに使う
+    /// （ユーザ判断 2026-09-11。試験データでは「レイ」という名前の別々のアバターが2体あった）。
+    /// </summary>
+    public string? ShopName { get; init; }
 
     /// <summary>
     /// BOOTHのcategory名をそのまま。判定に使うのは規則側で、ここは観測した事実。
