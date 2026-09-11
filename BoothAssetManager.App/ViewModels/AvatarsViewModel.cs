@@ -395,6 +395,100 @@ public sealed class AvatarsViewModel : ViewModelBase
 
     public bool HasBases => Bases.Count > 0;
 
+    // ---- 見る物の切り替え（U16） ----
+    //
+    // 以前は共通素体の管理を、どのアバターを選んでも右の詳細の下に常に出していた。
+    // アバター1体のことを見ている最中に全素体の一覧が付いて回り、どちらの話か分からなかった。
+    // 左の一覧の上で「アバター／共通素体」を切り替え、右はそのとき選んでいる1つのことだけを出す
+
+    private bool _isBaseMode;
+    private AvatarBaseRowViewModel? _selectedBase;
+    private RelayCommand? _showAvatarModeCommand;
+    private RelayCommand? _showBaseModeCommand;
+    private RelayCommand? _openMemberCommand;
+
+    /// <summary>左の一覧に共通素体を並べているか。既定はアバター。</summary>
+    public bool IsBaseMode
+    {
+        get => _isBaseMode;
+        set
+        {
+            if (SetField(ref _isBaseMode, value))
+            {
+                OnPropertyChanged(nameof(ShowsAvatarDetail));
+                OnPropertyChanged(nameof(ShowsNoBases));
+                OnPropertyChanged(nameof(ShowsBaseDetail));
+            }
+        }
+    }
+
+    public string AvatarModeText => $"アバター（{_all.Count}）";
+
+    public string BaseModeText => $"共通素体（{Bases.Count}）";
+
+    /// <summary>右にアバターの詳細を出すか。素体を見ているときは出さない。</summary>
+    public bool ShowsAvatarDetail => HasSelection && !IsBaseMode;
+
+    /// <summary>素体を見ようとしたが1つも無いとき。空欄ではなく作り方を出す。</summary>
+    public bool ShowsNoBases => IsBaseMode && !HasBases;
+
+    public RelayCommand ShowAvatarModeCommand => _showAvatarModeCommand ??= new RelayCommand(() => IsBaseMode = false);
+
+    public RelayCommand ShowBaseModeCommand => _showBaseModeCommand ??= new RelayCommand(() => IsBaseMode = true);
+
+    /// <summary>素体を見ているときに選んでいる1つ。</summary>
+    public AvatarBaseRowViewModel? SelectedBase
+    {
+        get => _selectedBase;
+        set
+        {
+            if (SetField(ref _selectedBase, value))
+            {
+                OnPropertyChanged(nameof(SelectedBaseMembers));
+                OnPropertyChanged(nameof(HasSelectedBase));
+                OnPropertyChanged(nameof(ShowsBaseDetail));
+            }
+        }
+    }
+
+    public bool HasSelectedBase => SelectedBase is not null;
+
+    /// <summary>右に素体の管理を出すか。アバターを見ているときは出さない。</summary>
+    public bool ShowsBaseDetail => IsBaseMode && HasSelectedBase;
+
+    /// <summary>
+    /// 選んだ素体を使っているアバター。持っているものを先に。
+    /// 所属は素体の人数と同じ数え方（名前から推した仲間を含む）で引く。
+    /// 手で決めた所属（BaseName）だけで引くと、「アバター 8」なのに一覧が空になった
+    /// </summary>
+    public IReadOnlyList<AvatarRowViewModel> SelectedBaseMembers => SelectedBase is null
+        ? []
+        : _all
+            .Where(row => SelectedBase.Summary.MemberIds.Contains(row.ItemId))
+            .OrderByDescending(row => row.IsOwned)
+            .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+            .ToList();
+
+    /// <summary>素体の中のアバターを押すと、アバターの一覧へ切り替えてそれを選ぶ。</summary>
+    public RelayCommand OpenMemberCommand => _openMemberCommand ??= new RelayCommand(
+        parameter =>
+        {
+            if (parameter is not AvatarRowViewModel row)
+            {
+                return;
+            }
+
+            // 絞り込みで外れていると選べないので、そのときだけ絞り込みを外す
+            if (!Rows.Contains(row))
+            {
+                Query = string.Empty;
+            }
+
+            IsBaseMode = false;
+            Selected = row;
+        },
+        parameter => parameter is AvatarRowViewModel);
+
     public string Query
     {
         get => _query;
@@ -469,7 +563,7 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(ReferencedByText), nameof(HasReferencedBy),
                     nameof(HasModifications),
                     nameof(IsOverrideAuto), nameof(IsForcedAvatar), nameof(IsForcedNotAvatar), nameof(AutoJudgementText),
-                    nameof(SetBaseButtonText), nameof(HasBaseInput),
+                    nameof(SetBaseButtonText), nameof(HasBaseInput), nameof(ShowsAvatarDetail),
                 })
                 {
                     OnPropertyChanged(name);
@@ -728,6 +822,8 @@ public sealed class AvatarsViewModel : ViewModelBase
         {
             _all = avatars.Select(summary => new AvatarRowViewModel { Summary = summary }).ToList();
 
+            // 素体の設定を変えると読み直すので、選んでいた素体を名前で戻す
+            var selectedBaseName = SelectedBase?.Name;
             Bases.Clear();
             BaseNames.Clear();
 
@@ -746,6 +842,10 @@ public sealed class AvatarsViewModel : ViewModelBase
                 Bases.Add(baseRow);
                 BaseNames.Add(name);
             }
+
+            // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す
+            _selectedBase = null;
+            SelectedBase = Bases.FirstOrDefault(row => row.Name == selectedBaseName) ?? Bases.FirstOrDefault();
 
             IsLoading = false;
             Rebuild();
@@ -781,6 +881,9 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasBases));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(AvatarModeText));
+        OnPropertyChanged(nameof(BaseModeText));
+        OnPropertyChanged(nameof(ShowsNoBases));
 
         // 商品ページの札から来たときは、そのアバターを選んだ状態で開く（U13）。指名は最初の1回だけ
         var wanted = _openWith ?? selectedId;

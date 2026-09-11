@@ -76,6 +76,13 @@ public sealed record AvatarBaseSummary
 
     public required int MemberCount { get; init; }
 
+    /// <summary>
+    /// この素体に属するアバターの商品ID。<see cref="MemberCount"/> と同じ数え方
+    /// （手で決めた所属に、名前から推した仲間を足したもの）。
+    /// 画面で「この素体を使っているアバター」を並べるのに使う。所属を別の数え方で引くと、人数と一覧が食い違う
+    /// </summary>
+    public IReadOnlyList<string> MemberIds { get; init; } = [];
+
     public required int OwnedMemberCount { get; init; }
 
     /// <summary>この素体を名指ししている所持商品数。</summary>
@@ -263,6 +270,7 @@ public sealed partial class AvatarService : IAvatarService
                 {
                     Group = group,
                     MemberCount = members.Count,
+                    MemberIds = members.Select(entry => entry.ItemId).ToList(),
                     OwnedMemberCount = members.Count(entry => entry.IsOwnedManually || ownedIds.Contains(entry.ItemId)),
                     ItemCount = declared.TryGetValue(group.Name, out var count) ? count : 0,
                 };

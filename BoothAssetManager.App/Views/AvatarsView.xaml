@@ -34,6 +34,49 @@
                            FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
+
+        <!-- 見る物の切り替えボタン（U16）。今見ている方を太字と色で示す -->
+        <Style x:Key="ModeButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
+            <Setter Property="Padding" Value="12,4" />
+        </Style>
+
+        <!-- 共通素体1つの管理。素体を見ているときに、右に選んだ1つだけを出す -->
+        <DataTemplate x:Key="BaseCard" DataType="{x:Type vm:AvatarBaseRowViewModel}">
+            <Border Style="{StaticResource Card}" Padding="22,18">
+                <Grid>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="19" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
+                            <TextBlock Text="{Binding ItemIdText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
+                        </StackPanel>
+                        <!--
+                            配布されている素体は商品に結べる。
+                            結ぶと素体のページへ行けるようになり、所有の判定にも使える。
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <TextBox Width="230" Padding="7,4" VerticalAlignment="Center"
+                                     Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
+                            <Button Content="配布商品を結ぶ" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                    VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
+                        </StackPanel>
+                        <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}"
+                                  Command="{Binding ToggleInferCommand}" Margin="0,12,0,0"
+                                  Foreground="{StaticResource Text}"
+                                  ToolTip="同じ素体でも衣装が合わない組だけ外してください。外すと、この組の他のアバター向けの衣装が素体経由として出なくなります。" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <Button Content="名前を変える" Style="{StaticResource SmallButton}"
+                                Command="{Binding RenameCommand}" />
+                        <Button Content="消す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                Command="{Binding DeleteCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Background="{StaticResource Bg}">
@@ -82,7 +125,43 @@
                 <Border Grid.Column="0" Background="{StaticResource Surface}"
                         BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
                     <DockPanel>
-                        <Grid DockPanel.Dock="Top" Margin="14,14,14,10">
+                        <!--
+                            見る物の切り替え（U16）。以前は共通素体の管理がどのアバターの詳細の下にも付いて回り、
+                            今どちらの話をしているのかが分からなかった
+                        -->
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,14,14,0">
+                            <Button Content="{Binding AvatarModeText}" Command="{Binding ShowAvatarModeCommand}"
+                                    ToolTip="アバターを1体ずつ見て、名前・所有・共通素体を設定します。">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ModeButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBaseMode}" Value="False">
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <Button Content="{Binding BaseModeText}" Command="{Binding ShowBaseModeCommand}" Margin="6,0,0,0"
+                                    ToolTip="複数のアバターが使っている共通の体（素体）を見て、名前や配布商品を設定します。">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ModeButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBaseMode}" Value="True">
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+
+                        <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
+                              Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・別名で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
@@ -95,22 +174,46 @@
                             一覧は1つのListBoxにまとめ、所有／未所有はグループ見出しで分ける。
                             ListBoxを2つ縦に積んでScrollViewerへ入れると高さが無限になり、描画が壊れる。
                         -->
-                        <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
-                                 ItemTemplate="{StaticResource AvatarRow}"
-                                 BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
-                                 HorizontalContentAlignment="Stretch"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <ListBox.GroupStyle>
-                                <GroupStyle>
-                                    <GroupStyle.HeaderTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}"
-                                                       Margin="0,10,0,6" />
-                                        </DataTemplate>
-                                    </GroupStyle.HeaderTemplate>
-                                </GroupStyle>
-                            </ListBox.GroupStyle>
-                        </ListBox>
+                        <Grid>
+                            <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                     SelectionChanged="AvatarList_SelectionChanged"
+                                     ItemTemplate="{StaticResource AvatarRow}"
+                                     BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
+                                     HorizontalContentAlignment="Stretch"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                <ListBox.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.HeaderTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}"
+                                                           Margin="0,10,0,6" />
+                                            </DataTemplate>
+                                        </GroupStyle.HeaderTemplate>
+                                    </GroupStyle>
+                                </ListBox.GroupStyle>
+                            </ListBox>
+
+                            <!-- 共通素体の一覧。選ぶと右にその素体の管理と、使っているアバターが出る -->
+                            <ListBox ItemsSource="{Binding Bases}" SelectedItem="{Binding SelectedBase, Mode=TwoWay}"
+                                     BorderThickness="0" Background="Transparent" Margin="14,12,14,14"
+                                     HorizontalContentAlignment="Stretch"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:AvatarBaseRowViewModel}">
+                                        <StackPanel Margin="0,3,0,5">
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
+                                       Visibility="{Binding ShowsNoBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                       Text="共通素体はまだありません。「アバター」でアバターを選び、「共通素体」の欄に素体の名前を入れると作れます。" />
+                        </Grid>
                     </DockPanel>
                 </Border>
 
@@ -119,7 +222,7 @@
                     <StackPanel>
 
                         <Border Style="{StaticResource Card}" Padding="22,18"
-                                Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                Visibility="{Binding ShowsAvatarDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <StackPanel>
                                 <Grid>
                                     <StackPanel>
@@ -410,60 +513,37 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- 共通素体の管理。アバター一覧とは別の欄にする -->
-                        <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0"
-                                Visibility="{Binding HasBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="共通素体" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" />
-                                    <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center"
-                                               Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に出ます" />
+                        <!--
+                            共通素体を見ているときだけ出す（U16）。選んだ1つの管理と、それを使っているアバター。
+                            アバターを見ているときに全素体の管理が付いて回ると、どちらの話か分からなくなる
+                        -->
+                        <StackPanel Visibility="{Binding ShowsBaseDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+
+                            <ContentControl Content="{Binding SelectedBase}" ContentTemplate="{StaticResource BaseCard}" />
+
+                            <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="この素体を使っているアバター" FontSize="13" FontWeight="Bold" />
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
+                                               Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に出ます。押すとそのアバターを開きます。" />
+                                    <ItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">
+                                                <Border Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
+                                                        ToolTip="このアバターを開きます">
+                                                    <Border.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick"
+                                                                      Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}" />
+                                                    </Border.InputBindings>
+                                                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
-
-                                <ItemsControl ItemsSource="{Binding Bases}" Margin="0,14,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:AvatarBaseRowViewModel}">
-                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="1"
-                                                    CornerRadius="6" Padding="14,11" Margin="0,0,0,8">
-                                                <Grid>
-                                                    <StackPanel>
-                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" />
-                                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" />
-                                                            <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
-                                                            <TextBlock Text="{Binding ItemIdText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
-                                                        </StackPanel>
-                                                        <!--
-                                                            配布されている素体は商品に結べる。
-                                                            結ぶと素体のページへ行けるようになり、所有の判定にも使える。
-                                                        -->
-                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                            <TextBox Width="230" Padding="7,4" VerticalAlignment="Center"
-                                                                     Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
-                                                                     ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
-                                                            <Button Content="配布商品を結ぶ" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                                                    VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
-                                                        </StackPanel>
-                                                    </StackPanel>
-
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                        <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}"
-                                                                  Command="{Binding ToggleInferCommand}"
-                                                                  VerticalAlignment="Center" Margin="0,0,14,0"
-                                                                  Foreground="{StaticResource Text}"
-                                                                  ToolTip="同じ素体でも衣装が合わない組だけ外してください。外すと、この組の他のアバター向けの衣装が素体経由として出なくなります。" />
-                                                        <Button Content="名前を変える" Style="{StaticResource SmallButton}"
-                                                                Command="{Binding RenameCommand}" />
-                                                        <Button Content="消す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                                                Command="{Binding DeleteCommand}" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
+                            </Border>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
