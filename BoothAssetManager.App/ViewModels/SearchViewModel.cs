@@ -1432,6 +1432,9 @@ public sealed class SearchViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TotalCount));
                 OnPropertyChanged(nameof(ShopCount));
                 OnPropertyChanged(nameof(NeedsEditCount));
+
+                // 全件の読み込みと検索対象の文字列作りが出したゴミを、ここでOSへ返させる（#71）
+                BoothAssetManager.App.Services.MemoryTrim.Request();
             });
         }
         finally

@@ -26,4 +26,13 @@
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!--
+      第2世代の空きが多くなったら、GCに詰め直させる（0〜9、大きいほど早めに詰める）。
+      2000件の保存先では起動直後に第2世代の37%が空きのまま握られていた（#71）。
+      裏で動くGCは詰め直しをしないので、放っておくと穴ごと持ち続ける。
+    -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
+
 </Project>

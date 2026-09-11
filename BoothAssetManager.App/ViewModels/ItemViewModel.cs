@@ -894,7 +894,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         }
     }
 
-    public BitmapSource? SelectedImage => Images.Count == 0 ? null : Images[SelectedIndex].Image;
+    /// <summary>
+    /// 大きく出す1枚。一覧の方は小さく縮めたものなので、ここは保存された大きさで読み直す（キャッシュに乗る）。
+    /// 末尾の「＋」は画像ではないので何も出さない。
+    /// </summary>
+    public BitmapSource? SelectedImage => Images.Count == 0 || Images[SelectedIndex] is not { IsImage: true } selected
+        ? null
+        : _thumbnails.Load(selected.Path);
 
     public string GalleryCounter => Images.Count == 0 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
 
@@ -1061,7 +1067,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 Path = entry.Path,
                 FileName = fileName,
-                Image = _thumbnails.Load(entry.Path),
+                Image = _thumbnails.LoadForTile(entry.Path),
                 IsOrphaned = entry.IsOrphaned,
                 IsUserAdded = entry.IsUserAdded,
                 IsPinned = string.Equals(

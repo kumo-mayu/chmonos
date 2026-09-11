@@ -229,8 +229,12 @@ public sealed class EditViewModel : ViewModelBase
     private UserTagMaster _tagMaster = new();
     private AttributeMaster _attributeMaster = new();
 
-    /// <summary>手元にあるショップ名。入力欄の候補に出して、二重に作る事故を防ぐ。</summary>
+    /// <summary>
+    /// 手元にあるショップ名。入力欄の候補に出して、二重に作る事故を防ぐ。
+    /// 画面を開いて最初の1件で全件から作り、あとは保存した名前を足していく。
+    /// </summary>
     private List<string> _shopNames = [];
+    private bool _shopNamesLoaded;
 
     /// <summary>候補に出す数。並べすぎると読めない。</summary>
     private const int ShopSuggestionLimit = 6;
@@ -363,10 +367,13 @@ public sealed class EditViewModel : ViewModelBase
 
     private int _selectedImageIndex;
 
-    /// <summary>今メインに出している画像。属性を付けるには複数枚見たいので切り替えられる。</summary>
+    /// <summary>
+    /// 今メインに出している画像。属性を付けるには複数枚見たいので切り替えられる。
+    /// 一覧の方は小さく縮めたものなので、メインは保存された大きさで読み直す（キャッシュに乗る）。
+    /// </summary>
     public BitmapSource? MainImage => Images.Count == 0
         ? null
-        : Images[Math.Clamp(_selectedImageIndex, 0, Images.Count - 1)].Image;
+        : _thumbnails.Load(Images[Math.Clamp(_selectedImageIndex, 0, Images.Count - 1)].Path);
 
     public RelayCommand SelectImageCommand { get; }
 
@@ -685,7 +692,14 @@ public sealed class EditViewModel : ViewModelBase
                 _item = record;
                 _tagMaster = _services.Store.UserTags.Load();
                 _attributeMaster = _services.Store.Attributes.Load();
-                _shopNames = await LoadShopNamesAsync();
+                // 店名の候補は画面を開いて1回だけ作る。以前は1件進むたびに全件を読み直していて、
+                // 2000件の保存先では「スキップ」30回で全件の読み込みが30回走り、500MBを超えた（#71）
+                if (!_shopNamesLoaded)
+                {
+                    _shopNames = await LoadShopNamesAsync();
+                    _shopNamesLoaded = true;
+                }
+
                 FillFromItem(record);
 
                 // BOOTHから名前が取れていない商品は、ここを埋めないと名前が無い。
@@ -1240,7 +1254,7 @@ public sealed class EditViewModel : ViewModelBase
             {
                 Path = entry.Path,
                 FileName = fileName,
-                Image = _thumbnails.Load(entry.Path),
+                Image = _thumbnails.LoadForTile(entry.Path),
                 IsOrphaned = entry.IsOrphaned,
                 IsUserAdded = entry.IsUserAdded,
                 IsPinned = string.Equals(
@@ -1337,6 +1351,7 @@ public sealed class EditViewModel : ViewModelBase
                 return;
             }
 
+            RememberShopName(BuildShop()?.Name);
             StatusText = string.Empty;
             await AdvanceAsync();
         }
@@ -1344,6 +1359,21 @@ public sealed class EditViewModel : ViewModelBase
         {
             IsSaving = false;
         }
+    }
+
+    /// <summary>
+    /// 保存した店名を候補に足す。候補は画面を開いたときに1回だけ作るので、
+    /// 足さないと、いま入れたばかりの店が次の商品で候補に出ない。
+    /// </summary>
+    private void RememberShopName(string? name)
+    {
+        if (name is not { Length: > 0 } || _shopNames.Contains(name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            return;
+        }
+
+        _shopNames.Add(name);
+        _shopNames.Sort(StringComparer.CurrentCulture);
     }
 
     private async Task AdvanceAsync()

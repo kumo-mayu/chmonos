@@ -123,7 +123,8 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>
     /// 現在の設定。設定画面から差し替わる。
-    /// 起動時にサービスへ渡した値（通信間隔・画像の解像度など）は次の起動から効く。
+    /// サービスには値ではなく「今の設定を読む関数」を渡しているので、差し替えはすぐ効く。
+    /// サムネイルの保持上限だけは起動時に決まる（読み込み器を作り直すと復号し直しになるため）。
     /// </summary>
     public AppSettings Settings { get; private set; }
 

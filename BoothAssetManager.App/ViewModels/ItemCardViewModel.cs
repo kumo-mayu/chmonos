@@ -141,7 +141,7 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// </summary>
     public BitmapSource? Thumbnail => _activePath is null
         ? FirstImage()
-        : _thumbnails.Load(_activePath);
+        : _thumbnails.LoadForCard(_activePath);
 
     /// <summary>
     /// 静止しているときに出す1枚目。
@@ -165,7 +165,7 @@ public sealed class ItemCardViewModel : ViewModelBase
         var path = BoothAssetManager.Core.Images.ItemImageOrder
             .Thumbnail(ordered, Item.Local.ThumbnailImage, ThumbnailRole, Item.Local.ImageRoles);
 
-        return path is null ? null : _thumbnails.Load(path);
+        return path is null ? null : _thumbnails.LoadForCard(path);
     }
 
     /// <summary>今どの画像を見ているかの目印。画像が2枚以上あるときだけ出す。</summary>
@@ -304,7 +304,7 @@ public sealed class ItemCardViewModel : ViewModelBase
         }
 
         var path = _imageFiles[imageIndex];
-        if (_thumbnails.Load(path) is null)
+        if (_thumbnails.LoadForCard(path) is null)
         {
             return;
         }

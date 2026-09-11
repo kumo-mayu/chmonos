@@ -265,7 +265,7 @@ Q10で読み直しがどの保存にも入るので、**条件が1つ増える�
 
 ### 印はギャラリーを壊さない
 
-`ThumbnailLoader.ListFiles` は `*.webp` だけを拾う（`ThumbnailLoader.cs:67`）。
+`ThumbnailLoader.ListFiles` は `*.webp` だけを拾う（`ThumbnailLoader.cs:100`）。
 `.missing` が画像として読まれることも、消えた画像の枠に混ざることもない。
 
 ### ただし優先ボタンには穴が開く

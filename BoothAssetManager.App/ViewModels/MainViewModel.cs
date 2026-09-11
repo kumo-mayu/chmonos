@@ -423,6 +423,10 @@ public sealed class MainViewModel : ViewModelBase
 
             if (SetField(ref _currentViewModel, value))
             {
+                // 画面を移るのは手が止まる所。前の画面が作ったものをここで返させる（#71）。
+                // 編集画面で30件送った後、何もしなければ440MBを握ったままだった
+                Services.MemoryTrim.Request();
+
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsImportActive));
                 OnPropertyChanged(nameof(IsEditActive));

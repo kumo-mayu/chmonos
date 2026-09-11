@@ -163,6 +163,11 @@ public sealed record AppSettings
             result = result with { Shortcuts = new ShortcutSettings() };
         }
 
+        if (result.ThumbnailCacheBudgetMb == FormerThumbnailCacheBudgetMb)
+        {
+            result = result with { ThumbnailCacheBudgetMb = DefaultThumbnailCacheBudgetMb };
+        }
+
         return result;
     }
 
@@ -243,8 +248,21 @@ public sealed record AppSettings
     /// <summary>
     /// 復号済みサムネイルを保持する上限（MB）。超えたら最後に見てから古いものから捨てる。
     /// 保持しているのは圧縮前の生ピクセルで、ディスク上の30倍以上になる点に注意。
+    ///
+    /// **32MB。**検索カードは表示の大きさ（長辺240px・約230KB）に縮めて持つので約140枚、
+    /// 原寸（長辺384px・576KB）でも約55枚入る。検索画面に一度に並ぶのは7列×4行ほどで、
+    /// なぞって切り替える分と少し戻る分を足しても収まる。
+    /// 以前は192MBで、2000件を最後までスクロールするとそれだけで作業セットが600MBを超えていた（#71）。
     /// </summary>
-    public int ThumbnailCacheBudgetMb { get; init; } = 192;
+    public int ThumbnailCacheBudgetMb { get; init; } = DefaultThumbnailCacheBudgetMb;
+
+    public const int DefaultThumbnailCacheBudgetMb = 32;
+
+    /// <summary>
+    /// 以前の既定。設定画面に出したことが無く、保存された192は全員「既定を写しただけ」なので
+    /// 読み込み時に新しい既定へ置き換える。手で別の値に書き換えた人の値は尊重する。
+    /// </summary>
+    private const int FormerThumbnailCacheBudgetMb = 192;
 
     /// <summary>WebPの品質（0-100）。</summary>
     public int ImageQuality { get; init; } = 80;

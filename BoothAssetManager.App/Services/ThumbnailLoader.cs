@@ -3,6 +3,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace BoothAssetManager.App.Services;
 
@@ -34,22 +35,43 @@ public sealed class ThumbnailLoader
     /// <summary>上限を超えたら、ここまで減らしてから戻る。毎回1枚ずつ捨てて並べ直さないため。</summary>
     private const double EvictionTargetRatio = 0.8;
 
-    private readonly Dictionary<string, Entry> _byPath = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// 検索カードに出すときの長辺（DIP）。カードの画像枠は幅およそ226×高さ200なので、
+    /// これより大きく復号しても画面では縮めて描かれるだけになる。
+    ///
+    /// **カードだけは表示の大きさで復号する（#71）。**長辺384pxのまま作ると、
+    /// WPFの画像1枚が管理外に約1MiBを取る（576KBの生ピクセルが1MiB単位で確保される）。
+    /// 2000件を最後までスクロールしたとき、それが115個・115MB並んでいた。
+    /// 240pxに縮めて作ると同じ100枚が112MB→42MBになり、1MiBの確保も消えた（画面なしの試験で実測）。
+    /// </summary>
+    public const int CardEdgeDip = 240;
+
+    /// <summary>
+    /// 商品ページ・編集画面の小さな一覧（68×54 / 58×46 DIP）に出すときの長辺。
+    /// 大きく出す1枚は原寸で読むので、一覧は見分けが付けば足りる。
+    /// 以前は一覧も原寸で作っていて、編集画面で30件送ると1MiBずつの画像が107個（107MB）並んでいた（#71）。
+    /// </summary>
+    public const int TileEdgeDip = 96;
+
+    /// <summary>キャッシュの鍵。同じファイルでもカード用と原寸は別物として持つ。</summary>
+    private readonly Dictionary<string, Entry> _byKey = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>フォルダの中身と、数えたときのフォルダの更新時刻。</summary>
     private readonly Dictionary<string, (IReadOnlyList<string> Files, DateTime WrittenAt)> _filesByDirectory =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly long _budgetBytes;
     private long _usedBytes;
     private long _clock;
+    /// <summary>前回GCを急かしてから捨てた量。</summary>
+    private long _evictedSinceCollect;
 
     /// <param name="budgetMegabytes">復号済み画像を保持する上限。</param>
-    public ThumbnailLoader(int budgetMegabytes = 192)
+    public ThumbnailLoader(int budgetMegabytes = Core.Models.AppSettings.DefaultThumbnailCacheBudgetMb)
     {
         _budgetBytes = Math.Max(16, budgetMegabytes) * 1024L * 1024L;
     }
 
     /// <summary>キャッシュが保持している復号済み画像の枚数。</summary>
-    public int CachedImageCount => _byPath.Count;
+    public int CachedImageCount => _byKey.Count;
 
     /// <summary>キャッシュが使っているメモリ量。</summary>
     public long CachedBytes => _usedBytes;
@@ -107,16 +129,28 @@ public sealed class ThumbnailLoader
     /// </summary>
     public void ForgetDirectory(string imageDirectory) => _filesByDirectory.Remove(imageDirectory);
 
-    /// <summary>1枚を読む。読めなければ null。</summary>
-    public BitmapSource? Load(string path)
+    /// <summary>1枚を保存された大きさのまま読む。読めなければ null。</summary>
+    public BitmapSource? Load(string path) => Load(path, maxEdgePixels: null);
+
+    /// <summary>
+    /// 検索カードに出す1枚を、カードの大きさに縮めて読む。
+    /// 画面の拡大率を掛けるので、150%の画面では360pxで作られ、粗くはならない。
+    /// </summary>
+    public BitmapSource? LoadForCard(string path) => Load(path, EdgePixels(CardEdgeDip));
+
+    /// <summary>小さな一覧に並べる1枚を、一覧の大きさに縮めて読む。</summary>
+    public BitmapSource? LoadForTile(string path) => Load(path, EdgePixels(TileEdgeDip));
+
+    private BitmapSource? Load(string path, int? maxEdgePixels)
     {
-        if (_byPath.TryGetValue(path, out var cached))
+        var key = maxEdgePixels is { } edge ? $"{path}|{edge}" : path;
+        if (_byKey.TryGetValue(key, out var cached))
         {
             cached.LastUsedAt = ++_clock;
             return cached.Image;
         }
 
-        var image = Decode(path);
+        var image = Decode(path, maxEdgePixels);
         var entry = new Entry
         {
             Image = image,
@@ -125,7 +159,7 @@ public sealed class ThumbnailLoader
             LastUsedAt = ++_clock,
         };
 
-        _byPath[path] = entry;
+        _byKey[key] = entry;
         _usedBytes += entry.Bytes;
         EvictIfNeeded();
 
@@ -136,16 +170,30 @@ public sealed class ThumbnailLoader
     /// 同じ場所のファイルを取り直したときに呼ぶ。
     /// 名前がURLで決まる画像は差し替えで別名になるが、ショップのバナーのように
     /// 場所が固定のものは、覚えている絵を捨てないと古いままになる。
+    /// カード用に縮めたものも一緒に捨てる。
     /// </summary>
     public void Forget(string path)
     {
-        if (_byPath.Remove(path, out var entry))
+        var prefix = path + "|";
+        foreach (var key in _byKey.Keys
+            .Where(key => key.Equals(path, StringComparison.OrdinalIgnoreCase)
+                || key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .ToList())
         {
-            _usedBytes -= entry.Bytes;
+            _usedBytes -= _byKey[key].Bytes;
+            _byKey.Remove(key);
         }
     }
 
-    /// <summary>フォルダ内の最初の1枚。一覧表示の初期状態に使う。</summary>
+    /// <summary>画面の拡大率を掛けた長辺（ピクセル）。窓がまだ無いときは等倍とみなす。</summary>
+    private static int EdgePixels(int dip)
+    {
+        var scale = System.Windows.Application.Current?.MainWindow is { } window
+            ? VisualTreeHelper.GetDpi(window).DpiScaleX
+            : 1.0;
+        return (int)Math.Ceiling(dip * scale);
+    }
+
     private void EvictIfNeeded()
     {
         if (_usedBytes <= _budgetBytes)
@@ -154,39 +202,75 @@ public sealed class ThumbnailLoader
         }
 
         var target = (long)(_budgetBytes * EvictionTargetRatio);
-        foreach (var pair in _byPath.OrderBy(pair => pair.Value.LastUsedAt).ToList())
+        foreach (var pair in _byKey.OrderBy(pair => pair.Value.LastUsedAt).ToList())
         {
             if (_usedBytes <= target)
             {
                 break;
             }
 
-            _byPath.Remove(pair.Key);
+            _byKey.Remove(pair.Key);
             _usedBytes -= pair.Value.Bytes;
+            _evictedSinceCollect += pair.Value.Bytes;
         }
+
+        // 捨てた画像の実体（WPFの管理外の領域）は、GCが回ってファイナライザが走るまで返らない。
+        // 縮小して1枚が小さくなった分、GCが急かされず、スクロール中に数百枚ぶん溜まっていた（#71）。
+        // スクロールしている間は手が止まらないので、下の MemoryTrim だけでは山が削れない。
+        // 上限の半分ぶん捨てるたびに、若い世代だけ掃かせる（捨てたばかりの画像はそこにいて、数ミリ秒で終わる）
+        if (_evictedSinceCollect >= _budgetBytes / 2)
+        {
+            _evictedSinceCollect = 0;
+            GC.Collect(1);
+        }
+
+        MemoryTrim.Request();
     }
 
-    private static BitmapSource? Decode(string path)
+    private static BitmapSource? Decode(string path, int? maxEdgePixels)
     {
         try
         {
             using var image = Image.Load<Bgra32>(path);
+
+            // 拡大はしない。元が小さい画像はそのままの大きさで作る
+            if (maxEdgePixels is { } edge && (image.Width > edge || image.Height > edge))
+            {
+                image.Mutate(context => context.Resize(new ResizeOptions
+                {
+                    Mode = ResizeMode.Max,
+                    Size = new Size(edge, edge),
+                }));
+            }
+
             var stride = image.Width * 4;
-            var buffer = new byte[stride * image.Height];
-            image.CopyPixelDataTo(buffer);
+            var size = stride * image.Height;
 
-            var bitmap = BitmapSource.Create(
-                image.Width,
-                image.Height,
-                96,
-                96,
-                PixelFormats.Bgra32,
-                null,
-                buffer,
-                stride);
+            // 受け渡しの配列は借りて返す。BitmapSource.Create は中身を自分の領域へ写すので、
+            // 呼び終われば要らない。毎回 new すると1枚576KBが大きいオブジェクト用のヒープに積もり、
+            // スクロールで数百枚読むとその穴がメモリを押し上げていた（#71）
+            var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(size);
+            try
+            {
+                image.CopyPixelDataTo(buffer.AsSpan(0, size));
 
-            bitmap.Freeze();
-            return bitmap;
+                var bitmap = BitmapSource.Create(
+                    image.Width,
+                    image.Height,
+                    96,
+                    96,
+                    PixelFormats.Bgra32,
+                    null,
+                    buffer,
+                    stride);
+
+                bitmap.Freeze();
+                return bitmap;
+            }
+            finally
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
         catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
         {

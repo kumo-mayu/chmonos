@@ -13,6 +13,16 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // ImageSharp は復号・縮小に使った作業領域を後で使い回すために溜めておく。
+        // 既定の上限は搭載メモリから決まり、数百MBまで握り得る。
+        // このアプリが一度に扱うのは長辺384pxのサムネイルか取り込み中の1枚なので、
+        // 溜めるのは小さくてよい（#71・メモリは多いときでも200〜300MBに抑える）
+        SixLabors.ImageSharp.Configuration.Default.MemoryAllocator =
+            SixLabors.ImageSharp.Memory.MemoryAllocator.Create(new SixLabors.ImageSharp.Memory.MemoryAllocatorOptions
+            {
+                MaximumPoolSizeMegabytes = 16,
+            });
+
         DispatcherUnhandledException += (_, args) =>
         {
             MessageBox.Show($"予期しないエラーが発生しました。\n\n{args.Exception.Message}",
