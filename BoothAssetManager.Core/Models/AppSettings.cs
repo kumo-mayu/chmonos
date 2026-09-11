@@ -163,7 +163,7 @@ public sealed record AppSettings
             result = result with { Shortcuts = new ShortcutSettings() };
         }
 
-        if (result.ThumbnailCacheBudgetMb == FormerThumbnailCacheBudgetMb)
+        if (result.ThumbnailCacheBudgetMb is FormerThumbnailCacheBudgetMb or PreviousThumbnailCacheBudgetMb)
         {
             result = result with { ThumbnailCacheBudgetMb = DefaultThumbnailCacheBudgetMb };
         }
@@ -256,7 +256,14 @@ public sealed record AppSettings
     /// </summary>
     public int ThumbnailCacheBudgetMb { get; init; } = DefaultThumbnailCacheBudgetMb;
 
-    public const int DefaultThumbnailCacheBudgetMb = 32;
+    /// <remarks>
+    /// U12（ユーザ判断 2026-09-11）：一覧として不便なので、あと100MB使ってよい。32MBでは
+    /// 速く流して戻ったときに読み直しが起き、カクついた。作業セットの目標は300〜400MB。
+    /// </remarks>
+    public const int DefaultThumbnailCacheBudgetMb = 132;
+
+    /// <summary>1つ前の既定。これも設定画面に出したことが無いので、保存された32は既定を写しただけ。</summary>
+    private const int PreviousThumbnailCacheBudgetMb = 32;
 
     /// <summary>
     /// 以前の既定。設定画面に出したことが無く、保存された192は全員「既定を写しただけ」なので

@@ -184,7 +184,29 @@ public sealed class ItemCardViewModel : ViewModelBase
         // 手元に無ければ裏で読み、その間は枠の薄い灰色のまま描く（U12）。
         // 画面のスレッドで読むと、速いスクロールで新しい行が出るたびに止まった。
         // なぞって送るとき（_activePath）は今までどおりその場で読む——裏へ回すと、なぞるたびに灰色がちらつく
-        return path is null ? null : _thumbnails.PeekForCard(path, () => OnPropertyChanged(nameof(Thumbnail)));
+        if (path is null)
+        {
+            return null;
+        }
+
+        // 速く流している間に頼んだ絵は小さい。止まったら正規の大きさで頼み直す（U27）
+        _peekedWhileFast |= _thumbnails.IsFastScrolling;
+        return _thumbnails.PeekForCard(path, () => OnPropertyChanged(nameof(Thumbnail)));
+    }
+
+    private bool _peekedWhileFast;
+
+    /// <summary>
+    /// スクロールが止まった。速く流している間に小さく読んだカードだけ、正規の大きさで頼み直させる。
+    /// 読み終わるまでは小さい絵をそのまま出しておくので、灰色には戻らない
+    /// </summary>
+    public void NoteScrollSettled()
+    {
+        if (_peekedWhileFast)
+        {
+            _peekedWhileFast = false;
+            OnPropertyChanged(nameof(Thumbnail));
+        }
     }
 
     /// <summary>今どの画像を見ているかの目印。画像が2枚以上あるときだけ出す。</summary>

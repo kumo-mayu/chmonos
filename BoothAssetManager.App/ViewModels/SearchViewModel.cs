@@ -1395,6 +1395,27 @@ public sealed class SearchViewModel : ViewModelBase
     /// </summary>
     public bool IsScrolledDown { get; set; }
 
+    /// <summary>
+    /// 速く流しているかを知らせる（U12・U27）。流している間はカードの絵を小さく読み、
+    /// 止まったら小さく読んだカードだけ正規の大きさで読み直させる。
+    /// </summary>
+    public void SetFastScrolling(bool fast)
+    {
+        if (_thumbnails.IsFastScrolling == fast)
+        {
+            return;
+        }
+
+        _thumbnails.IsFastScrolling = fast;
+        if (!fast)
+        {
+            foreach (var card in _cards.Values)
+            {
+                card.NoteScrollSettled();
+            }
+        }
+    }
+
     public string ResultSummary => $"{_matches.Count} 件";
 
     public bool IsEmpty => !IsLoading && _matches.Count == 0;

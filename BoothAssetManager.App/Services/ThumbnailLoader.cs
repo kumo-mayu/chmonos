@@ -155,50 +155,154 @@ public sealed class ThumbnailLoader
         return image;
     }
 
-    /// <summary>裏で読んでいる最中の1枚。同じ画像を二重に読み始めないために覚えておく。</summary>
-    private readonly Dictionary<string, Task<BitmapSource?>> _loading = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// 速く流している間に読む長辺（U12・U27）。ユーザ判断で120（96では小さすぎる）。
+    /// 止まったら見えている分を <see cref="CardEdgeDip"/> で読み直す。後でユーザが調整するかもしれない
+    /// </summary>
+    public const int FastCardEdgeDip = 120;
 
     /// <summary>
-    /// 検索カードの止まっているときの1枚。手元にあればすぐ返し、無ければ null を返して裏で読み始める（U12）。
+    /// 順番待ちの上限。速く流すと、もう見えていない行の読みかけが溜まり、止まった所の絵が後回しになる。
+    /// 超えたら古いものから取り消す（そのカードは見えていないので、戻ってきたときにもう一度頼まれる）。
+    /// 画面に一度に出るカードは多くて30枚ほどなので、その1.5倍
+    /// </summary>
+    private const int MaxQueuedDecodes = 48;
+
+    /// <summary>同時に復号する数。画面のスレッドを空けておくため、芯の半分まで（2〜4）。</summary>
+    private static readonly int MaxParallelDecodes = Math.Clamp(Environment.ProcessorCount / 2, 2, 4);
+
+    /// <summary>裏で読む1件。同じ絵を待つカードが複数あれば、読み終わりにまとめて知らせる。</summary>
+    private sealed class DecodeRequest
+    {
+        public required string Key { get; init; }
+
+        public required string Path { get; init; }
+
+        public required int Edge { get; init; }
+
+        public List<Action> Waiters { get; } = [];
+
+        /// <summary>順番待ちの列での位置。読み始めたら null。</summary>
+        public LinkedListNode<DecodeRequest>? Node { get; set; }
+    }
+
+    /// <summary>順番待ち。先頭が新しい——今見えているカードを先に読む。</summary>
+    private readonly LinkedList<DecodeRequest> _queue = new();
+
+    /// <summary>頼まれているもの（順番待ちと読んでいる最中）。同じ絵を二重に読まないために覚えておく。</summary>
+    private readonly Dictionary<string, DecodeRequest> _requested = new(StringComparer.OrdinalIgnoreCase);
+    private int _running;
+
+    /// <summary>速く流している間か。検索画面が知らせる（U12・U27）。</summary>
+    public bool IsFastScrolling { get; set; }
+
+    /// <summary>
+    /// 検索カードの止まっているときの1枚。手元にあればすぐ返し、無ければ裏で読み始める（U12）。
     /// 読み終わったら <paramref name="onLoaded"/> を画面のスレッドで呼ぶので、そこで描き直させる。
     ///
     /// 以前は画面のスレッドでその場で読んで縮めていて、速くスクロールすると新しい行が出るたびに
     /// 1枚ずつ画面が止まった（保持の上限を増やしても、初めて見る所では同じだった）。
     /// 復号は状態を触らない関数で、作った画像は凍結しているので別のスレッドで作ってよい。
-    /// 保持（辞書）を触るのは今までどおり画面のスレッドだけにする。
+    /// 保持（辞書）と順番待ちを触るのは画面のスレッドだけにする。
+    ///
+    /// 速く流している間は小さく（<see cref="FastCardEdgeDip"/>）読む。完全には止めない——
+    /// 流しながらでも絵で見つけられるように（ユーザ判断）。正規の大きさを頼まれたときに
+    /// 小さい方しか無ければ、読み終わるまでそれを出しておく（灰色に戻すとちらつく）。
     /// </summary>
     public BitmapSource? PeekForCard(string path, Action onLoaded)
     {
-        var edge = EdgePixels(CardEdgeDip);
-        var key = $"{path}|{edge}";
-        if (_byKey.TryGetValue(key, out var cached))
+        var normalKey = $"{path}|{EdgePixels(CardEdgeDip)}";
+        if (_byKey.TryGetValue(normalKey, out var normal))
         {
-            cached.LastUsedAt = ++_clock;
-            return cached.Image;
+            normal.LastUsedAt = ++_clock;
+            return normal.Image;
         }
 
-        if (!_loading.TryGetValue(key, out var loading))
-        {
-            loading = Task.Run(() => Decode(path, edge));
-            _loading[key] = loading;
-        }
+        var fastEdge = EdgePixels(FastCardEdgeDip);
+        var fastKey = $"{path}|{fastEdge}";
+        _byKey.TryGetValue(fastKey, out var small);
 
-        loading.ContinueWith(
-            done =>
+        if (IsFastScrolling)
+        {
+            if (small is not null)
             {
-                _loading.Remove(key);
+                small.LastUsedAt = ++_clock;
+                return small.Image;
+            }
 
-                // 同じ画像を待っていたカードが複数あると、ここは複数回呼ばれる。入れるのは1回だけ
-                if (!_byKey.ContainsKey(key))
+            Request(fastKey, path, fastEdge, onLoaded);
+            return null;
+        }
+
+        Request(normalKey, path, EdgePixels(CardEdgeDip), onLoaded);
+
+        if (small is not null)
+        {
+            small.LastUsedAt = ++_clock;
+        }
+
+        return small?.Image;
+    }
+
+    private void Request(string key, string path, int edge, Action onLoaded)
+    {
+        if (_requested.TryGetValue(key, out var existing))
+        {
+            existing.Waiters.Add(onLoaded);
+
+            // もう一度頼まれた＝まだ見えている。列の先頭へ戻す
+            if (existing.Node is { } node)
+            {
+                _queue.Remove(node);
+                _queue.AddFirst(node);
+            }
+
+            return;
+        }
+
+        var request = new DecodeRequest { Key = key, Path = path, Edge = edge };
+        request.Waiters.Add(onLoaded);
+        request.Node = _queue.AddFirst(request);
+        _requested[key] = request;
+
+        while (_queue.Count > MaxQueuedDecodes && _queue.Last is { } oldest)
+        {
+            _queue.RemoveLast();
+            _requested.Remove(oldest.Value.Key);
+        }
+
+        Pump();
+    }
+
+    private void Pump()
+    {
+        while (_running < MaxParallelDecodes && _queue.First is { } node)
+        {
+            _queue.RemoveFirst();
+            var request = node.Value;
+            request.Node = null;
+            _running++;
+
+            Task.Run(() => Decode(request.Path, request.Edge)).ContinueWith(
+                done =>
                 {
-                    Store(key, done.IsCompletedSuccessfully ? done.Result : null);
-                }
+                    _running--;
+                    _requested.Remove(request.Key);
 
-                onLoaded();
-            },
-            TaskScheduler.FromCurrentSynchronizationContext());
+                    if (!_byKey.ContainsKey(request.Key))
+                    {
+                        Store(request.Key, done.IsCompletedSuccessfully ? done.Result : null);
+                    }
 
-        return null;
+                    foreach (var waiter in request.Waiters)
+                    {
+                        waiter();
+                    }
+
+                    Pump();
+                },
+                TaskScheduler.FromCurrentSynchronizationContext());
+        }
     }
 
     private void Store(string key, BitmapSource? image)

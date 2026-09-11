@@ -50,6 +50,8 @@ public sealed class SettingsNormalizeTests
     [Theory]
     // 以前の既定。画面に出したことが無いので、保存された192は既定を写しただけ（#71）
     [InlineData(192, AppSettings.DefaultThumbnailCacheBudgetMb)]
+    // 1つ前の既定。これも画面に出したことが無い（U12で132へ上げた）
+    [InlineData(32, AppSettings.DefaultThumbnailCacheBudgetMb)]
     // 手で書き換えた値はそのまま
     [InlineData(128, 128)]
     [InlineData(16, 16)]
