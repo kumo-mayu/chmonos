@@ -169,6 +169,7 @@ public sealed class ModificationViewModel : ViewModelBase
         RefreshProjectsCommand = new RelayCommand(() => _ = LoadProjectsAsync());
         OpenProjectFolderCommand = new RelayCommand(
             () => Shell.Reveal(Record.UnityProject), () => HasProject);
+        SendAllToUnityCommand = new RelayCommand(() => _ = SendAllToUnityAsync(), () => HasMembers && !IsSendingToUnity);
 
         _ = ReloadAsync();
     }
@@ -210,6 +211,146 @@ public sealed class ModificationViewModel : ViewModelBase
     public RelayCommand RefreshProjectsCommand { get; }
 
     public RelayCommand OpenProjectFolderCommand { get; }
+
+    /// <summary>使ったものを、並びの順に Unity へ送る（#69）。</summary>
+    public RelayCommand SendAllToUnityCommand { get; }
+
+    private bool _isSendingToUnity;
+
+    public bool IsSendingToUnity
+    {
+        get => _isSendingToUnity;
+        private set
+        {
+            if (SetField(ref _isSendingToUnity, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private string _unityQueueText = string.Empty;
+
+    /// <summary>今どこまで送ったか。取り込み画面は Unity 側に出る。</summary>
+    public string UnityQueueText
+    {
+        get => _unityQueueText;
+        private set
+        {
+            if (SetField(ref _unityQueueText, value))
+            {
+                OnPropertyChanged(nameof(HasUnityQueueText));
+            }
+        }
+    }
+
+    public bool HasUnityQueueText => UnityQueueText.Length > 0;
+
+    /// <summary>
+    /// 使ったものを**並びの順に**（＝導入の順、依存物が先）Unity へ1件ずつ送る（#69・ユーザ判断）。
+    /// 改変を作り直すとき、記録した順に入れ直せば同じものが組める。
+    ///
+    /// 送り先は、紐付けたプロジェクトが開いていればそこ。開いていなければ選ばせ、
+    /// 紐付けと違うプロジェクトへ送るときは一度聞く（別のプロジェクトに入れてしまうと剥がすのが手間）。
+    /// </summary>
+    private async Task SendAllToUnityAsync()
+    {
+        const string title = "使ったものを順にUnityへ送る";
+        var queue = new List<(string ItemId, UnityPackageEntry Package)>();
+        var nothing = new List<string>();
+
+        foreach (var row in Members)
+        {
+            var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
+            var packages = item is null ? [] : PackagesFor(item, row.Member);
+            if (packages.Count == 0)
+            {
+                nothing.Add(row.Name);
+                continue;
+            }
+
+            queue.AddRange(packages.Select(package => (row.Member.ItemId, package)));
+        }
+
+        if (queue.Count == 0)
+        {
+            System.Windows.MessageBox.Show(
+                "使ったものの中に、Unityへ送れるもの（手元の zip の中の .unitypackage）がありませんでした。",
+                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        var linkedName = Record.UnityProject is { } project
+            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(project))
+            : null;
+
+        if (UnityTargetPicker.Pick(title, linkedName) is not { } editor)
+        {
+            return;
+        }
+
+        var target = editor.ProjectName ?? "名前の分からないプロジェクト";
+        var elsewhere = linkedName is not null
+            && !string.Equals(editor.ProjectName, linkedName, StringComparison.OrdinalIgnoreCase);
+
+        var confirm = System.Windows.MessageBox.Show(
+            (elsewhere
+                ? $"紐付けたプロジェクト「{linkedName}」は開いていません。代わりに「{target}」へ送ります。\n\n"
+                : $"Unityの「{target}」へ送ります。\n\n")
+            + $"使ったもの {queue.Count} 件を、上から順に送ります。1件ずつ取り込み画面が出るので、"
+            + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が出ます。"
+            + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
+            title,
+            System.Windows.MessageBoxButton.OKCancel,
+            elsewhere ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Question,
+            elsewhere ? System.Windows.MessageBoxResult.Cancel : System.Windows.MessageBoxResult.OK);
+
+        if (confirm != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsSendingToUnity = true;
+        try
+        {
+            var progress = new Progress<UnityQueueProgress>(report => UnityQueueText = report.Text);
+            var outcomes = await UnityImportQueue.RunAsync(
+                editor.ProcessId, queue.Select(entry => entry.Package).ToList(), progress, CancellationToken.None);
+
+            var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).ToHashSet();
+            foreach (var itemId in queue.Where(entry => opened.Contains(entry.Package)).Select(entry => entry.ItemId).Distinct())
+            {
+                _ = _services.Recent.TouchAsync(itemId, RecentKind.Used);
+            }
+
+            var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+            UnityQueueText = failed.Count == 0
+                ? $"{opened.Count} 件の取り込み画面を順に出しました。"
+                : $"{opened.Count} 件を出しました。{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
+        }
+        finally
+        {
+            IsSendingToUnity = false;
+        }
+    }
+
+    /// <summary>
+    /// この構成物で送るもの。**Unityへ送って足した分は、そのとき使った zip と unitypackage をそのまま使う**
+    /// ——版まで同じにするため（1年後に組み直すとき v1.01 と v1.06 は別物）。
+    /// 手で足した分は、どのファイルを使ったかが分からないので、今ある zip の中身を zip の順に送る。
+    /// </summary>
+    private static IReadOnlyList<UnityPackageEntry> PackagesFor(ItemRecord item, ModificationMember member)
+    {
+        if (member.FileHash is { } hash && member.Package is { } package
+            && item.Local.LocalFiles
+                .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
+                ?.Paths.FirstOrDefault(File.Exists) is { } zip)
+        {
+            return [new UnityPackageEntry(zip, package, 0)];
+        }
+
+        return UnityImportQueue.PackagesOf(item);
+    }
 
     /// <summary>使ったもの。**並びが導入の順。**</summary>
     public ObservableCollection<ModificationMemberRowViewModel> Members { get; } = [];

@@ -90,6 +90,7 @@ public sealed class SearchViewModel : ViewModelBase
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
         AddSelectionToFavoritesCommand = new RelayCommand(() => _ = AddSelectionToFavoritesAsync(), () => SelectedCount > 0);
         AddSelectionToModificationCommand = new RelayCommand(() => _ = AddSelectionToModificationAsync(), () => SelectedCount > 0);
+        SendSelectionToUnityCommand = new RelayCommand(() => _ = SendSelectionToUnityAsync(), () => SelectedCount > 0 && !IsSendingToUnity);
         OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter as ItemCardViewModel));
         OpenShopCommand = new RelayCommand(parameter => OpenShop(parameter as ItemCardViewModel));
         CopyLinkCommand = new RelayCommand(parameter => CopyLink(parameter as ItemCardViewModel));
@@ -971,6 +972,123 @@ public sealed class SearchViewModel : ViewModelBase
 
     /// <summary>選んだ物をまとめて改変に足す（#44）。</summary>
     public RelayCommand AddSelectionToModificationCommand { get; }
+
+    /// <summary>選んだ物の unitypackage を、開いている Unity へ順に送る（#69）。</summary>
+    public RelayCommand SendSelectionToUnityCommand { get; }
+
+    private bool _isSendingToUnity;
+
+    /// <summary>送っている最中か。二重に始めさせない。</summary>
+    public bool IsSendingToUnity
+    {
+        get => _isSendingToUnity;
+        private set
+        {
+            if (SetField(ref _isSendingToUnity, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private string _unityQueueText = string.Empty;
+
+    /// <summary>今どこまで送ったか。取り込み画面は Unity 側に出るので、こちらには進み具合だけを出す。</summary>
+    public string UnityQueueText
+    {
+        get => _unityQueueText;
+        private set
+        {
+            if (SetField(ref _unityQueueText, value))
+            {
+                OnPropertyChanged(nameof(HasUnityQueueText));
+            }
+        }
+    }
+
+    public bool HasUnityQueueText => UnityQueueText.Length > 0;
+
+    /// <summary>
+    /// 選んだ商品の unitypackage を、選んだ順（表示中の並び）に1件ずつ Unity へ積む（#69・ユーザ追加要望）。
+    /// 1件ずつ取り込み画面が出るので、利用者が Import か Cancel を押すと次が出る。
+    /// </summary>
+    private async Task SendSelectionToUnityAsync()
+    {
+        const string title = "Unityへ順に送る";
+        var cards = SelectedCards();
+        var queue = new List<(ItemCardViewModel Card, Core.Services.UnityPackageEntry Package)>();
+        var nothing = new List<string>();
+
+        foreach (var card in cards)
+        {
+            var packages = Services.UnityImportQueue.PackagesOf(card.Item);
+            if (packages.Count == 0)
+            {
+                nothing.Add(card.Name);
+                continue;
+            }
+
+            queue.AddRange(packages.Select(package => (card, package)));
+        }
+
+        if (queue.Count == 0)
+        {
+            System.Windows.MessageBox.Show(
+                "選んだ商品には、Unityへ送れるもの（zip の中の .unitypackage）が入っていませんでした。",
+                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        if (Services.UnityTargetPicker.Pick(title) is not { } editor)
+        {
+            return;
+        }
+
+        var confirm = System.Windows.MessageBox.Show(
+            $"{queue.Count} 件を、Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」へ順に送ります。\n\n"
+            + "1件ずつ取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。\n"
+            + "1つの zip に依存するものが入っていれば、zip に入っている順に送ります。"
+            + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
+            title,
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.OK);
+
+        if (confirm != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsSendingToUnity = true;
+        try
+        {
+            var progress = new Progress<Services.UnityQueueProgress>(report => UnityQueueText = report.Text);
+            var outcomes = await Services.UnityImportQueue.RunAsync(
+                editor.ProcessId, queue.Select(entry => entry.Package).ToList(), progress, CancellationToken.None);
+
+            // 「使った」の足跡。Unityへ送ったことが一番強い証拠（Unityへ送る と同じ扱い）
+            var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).ToHashSet();
+            foreach (var itemId in queue.Where(entry => opened.Contains(entry.Package)).Select(entry => entry.Card.Item.Id).Distinct())
+            {
+                _ = _services.Recent.TouchAsync(itemId, Core.Services.RecentKind.Used);
+            }
+
+            var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+            UnityQueueText = string.Empty;
+            System.Windows.MessageBox.Show(
+                failed.Count == 0
+                    ? $"{opened.Count} 件の取り込み画面を順に出しました。"
+                    : $"{opened.Count} 件の取り込み画面を出しました。{failed.Count} 件は送れませんでした：\n\n"
+                        + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)),
+                title,
+                System.Windows.MessageBoxButton.OK,
+                failed.Count == 0 ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsSendingToUnity = false;
+        }
+    }
 
     /// <summary>選んだカード。表示中の並びを先に、絞り込みを変えて見えなくなった物を後に。</summary>
     private List<ItemCardViewModel> SelectedCards()

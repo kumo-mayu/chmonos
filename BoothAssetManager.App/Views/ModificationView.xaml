@@ -124,7 +124,20 @@
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <StackPanel>
-                            <TextBlock Text="使ったもの" FontWeight="Bold" Margin="0,0,0,4" />
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="使ったもの" FontWeight="Bold" VerticalAlignment="Center" />
+                                <!--
+                                    並びの順（＝導入の順）に Unity へ1件ずつ送る（#69・ユーザ判断）。
+                                    改変を作り直すとき、記録した順に入れ直せば同じものが組める
+                                -->
+                                <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding SendAllToUnityCommand}"
+                                        ToolTip="上から順に1件ずつ取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                            </Grid>
+                            <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
+                                       TextWrapping="Wrap" Margin="0,2,0,6"
+                                       Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                        Text="上から順に入れた記録です。依存するものが先に来るように並べ替えられます。" />
 

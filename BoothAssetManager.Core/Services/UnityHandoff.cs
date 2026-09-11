@@ -189,6 +189,33 @@ public static class UnityHandoff
     };
 
     /// <summary>
+    /// メニューの項目名をそろえる（#69）。Windows のメニューの文字には、キーの印の <c>&amp;</c> と、
+    /// タブの後ろのショートカット表記（<c>Ctrl+R</c>）が入っている。比べる前にどちらも落とす。
+    /// </summary>
+    public static string NormalizeMenuText(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        var tab = text.IndexOf('\t');
+        var head = tab < 0 ? text : text[..tab];
+        return head.Replace("&", string.Empty).Trim();
+    }
+
+    /// <summary>
+    /// 「Assets &gt; Import Package &gt; Custom Package...」の段ごとの名前。
+    /// エディタを日本語にしている人のために日本語の名前も並べる（日本語のエディタでは確かめていない）。
+    /// </summary>
+    public static readonly IReadOnlyList<IReadOnlyList<string>> CustomPackageMenuPath =
+    [
+        ["Assets", "アセット"],
+        ["Import Package", "パッケージをインポート"],
+        ["Custom Package...", "カスタムパッケージ..."],
+    ];
+
+    /// <summary>
     /// Unityエディタの窓のタイトルからプロジェクト名を取る。
     ///
     /// <c>kip01 - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 &lt;DX11&gt;</c> → <c>kip01</c>

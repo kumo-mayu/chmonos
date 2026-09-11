@@ -107,6 +107,48 @@ public sealed class TemporaryUnpacker
     }
 
     /// <summary>
+    /// zip の中の1ファイルだけを取り出して、その場所を返す（#69 Unityへ順に送る）。
+    ///
+    /// Unity の「Custom Package...」のファイル選択には実在するパスを渡す必要がある
+    /// （zip の中を指す仮想パスは、ファイル選択の画面を通したときに何が返るか分からない）。
+    /// 置き場所は一時展開と同じで、アプリを閉じると消える。同じ zip の同じファイルは取り出し直さない。
+    /// </summary>
+    public string ExtractEntry(string zipPath, string entryPath, CancellationToken cancellationToken = default)
+    {
+        var info = new FileInfo(zipPath);
+        if (!info.Exists)
+        {
+            throw new FileNotFoundException("zip が見つかりません。", zipPath);
+        }
+
+        var folder = Path.Combine(_root, "packages", Stamp(info));
+        var target = Path.Combine(folder, SafeFileName(Path.GetFileName(entryPath.Replace('/', Path.DirectorySeparatorChar))));
+        if (File.Exists(target))
+        {
+            return target;
+        }
+
+        Directory.CreateDirectory(folder);
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+        var entry = archive.GetEntry(entryPath) ?? throw new FileNotFoundException("zip の中に見つかりません。", entryPath);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // 書きかけを本物の名前で置かない。Unity が途中のファイルを掴むと、壊れたパッケージとして読まれる
+        var partial = target + ".part";
+        entry.ExtractToFile(partial, overwrite: true);
+        File.Move(partial, target, overwrite: true);
+        return target;
+    }
+
+    private static string SafeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Select(character => invalid.Contains(character) ? '_' : character).ToArray()).Trim();
+        return cleaned.Length == 0 ? "package.unitypackage" : cleaned;
+    }
+
+    /// <summary>
     /// 置き場所ごと消す。エクスプローラが中を開いたままだと消せない物が残るが、
     /// 次の起動でまた消すので、ここでは諦めて進む。
     /// </summary>

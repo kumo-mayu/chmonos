@@ -89,6 +89,29 @@ public sealed class TemporaryUnpackerTests : IDisposable
     }
 
     [Fact]
+    public void zipの中の1ファイルだけを取り出す()
+    {
+        // Unity の「Custom Package...」には実在するパスを渡す（#69）
+        var zip = MakeZip("pack.zip", ("中/Sig_Ring.unitypackage", "tar.gz"), ("readme.txt", "説明"));
+        var unpacker = new TemporaryUnpacker(Root);
+
+        var path = unpacker.ExtractEntry(zip, "中/Sig_Ring.unitypackage");
+
+        Assert.Equal("Sig_Ring.unitypackage", Path.GetFileName(path));
+        Assert.Equal("tar.gz", File.ReadAllText(path));
+        Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(path)!, "readme.txt")));
+        Assert.Equal(path, unpacker.ExtractEntry(zip, "中/Sig_Ring.unitypackage"));
+    }
+
+    [Fact]
+    public void zipの中に無いファイルは投げる()
+    {
+        var zip = MakeZip("pack.zip", ("a.txt", "a"));
+
+        Assert.Throws<FileNotFoundException>(() => new TemporaryUnpacker(Root).ExtractEntry(zip, "無い.unitypackage"));
+    }
+
+    [Fact]
     public void 無いzipでは投げる()
         => Assert.Throws<FileNotFoundException>(() => new TemporaryUnpacker(Root).Unpack(Path.Combine(_dir, "無い.zip")));
 

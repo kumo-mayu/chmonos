@@ -213,6 +213,15 @@ public sealed class UnityHandoffTests : IDisposable
         => Assert.Equal(expected, UnityHandoff.DescribeDestinations(roots));
 
     [Theory]
+    [InlineData("&Assets", "Assets")]
+    [InlineData("Custom Package...", "Custom Package...")]
+    [InlineData("&Refresh\tCtrl+R", "Refresh")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void メニューの項目名からキーの印とショートカットを落とす(string? text, string expected)
+        => Assert.Equal(expected, UnityHandoff.NormalizeMenuText(text));
+
+    [Theory]
     [InlineData("kip01 - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", "kip01")]
     [InlineData("proj - Untitled - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", "proj")]
     // 起動中・コンパイル中の題は作業の名前で、プロジェクト名ではない
