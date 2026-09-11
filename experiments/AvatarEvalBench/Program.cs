@@ -81,6 +81,10 @@ IVariant[] variants =
     new ProposalVariant(best with { Phrases = true }),
     new ProposalVariant(best with { BaseInference = true }),
     new ProposalVariant(best with { ListRun = 4, Phrases = true, BaseInference = true }),
+    new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true }),
+    new ProposalVariant(best with { ListRun = 5, HintAliases = true }),
+    new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, HintAliases = true }),
+    new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, HintAliases = true, Phrases = true }),
 ];
 
 Console.WriteLine($"{"案",-44} {"適合率",7} {"再現率",7} {"F1",6}  正/誤(参考・違う・未ラベル)/漏れ");
@@ -276,6 +280,18 @@ namespace AvatarEvalBench
         /// </summary>
         public bool BaseInference { get; init; }
 
+        /// <summary>
+        /// 本文中の「🌙 【対応アバター】」のような短い行も見出しとして扱い、その下のアバターの行を全部拾う。
+        /// h2 を使わずに対応一覧を書く出品者がいる。見出しがあるので一覧の長さは問わない。
+        /// </summary>
+        public bool MarkerBlocks { get; init; }
+
+        /// <summary>
+        /// 呼び名を、全商品の対応一覧の「名前 URL」の行から集める（Lashusya・Kyalong のようなローマ字表記）。
+        /// URLでアバターが特定できている行だけを使うので、別名を育てる今のやり方のような汚れ方はしない。
+        /// </summary>
+        public bool HintAliases { get; init; }
+
         public static ProposalOptions Exact { get; } = new() { ExactMatch = true, DeriveAliases = true };
     }
 
@@ -296,12 +312,15 @@ namespace AvatarEvalBench
             options.ListRun > 0 ? $"一覧{options.ListRun}行" : null,
             options.Phrases ? "言い回し" : null,
             options.BaseInference ? "素体" : null,
+            options.MarkerBlocks ? "本文の対応行" : null,
+            options.HintAliases ? "呼び名収集" : null,
             options.ExcludeUnconfirmed ? "要確認除外" : null,
         }.Where(part => part is not null));
 
         public Task<Dictionary<string, HashSet<string>>> RunAsync(EvalContext context)
         {
-            var names = NameTable.Build(context.Registry, options.DeriveAliases);
+            var extraNames = options.HintAliases ? HintHarvest.Collect(context) : null;
+            var names = NameTable.Build(context.Registry, options.DeriveAliases, extraNames);
             var bases = options.BaseInference ? BaseTable.Build(context.Registry) : null;
             var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
@@ -343,9 +362,14 @@ namespace AvatarEvalBench
                     found.UnionWith(PlainDescription.SupportedIds(item, names));
                 }
 
-                if (options.ListRun > 0 || options.Phrases)
+                if (options.ListRun > 0 || options.Phrases || options.MarkerBlocks)
                 {
-                    var sections = TextSections.Of(item, context.HtmlOf(item.Id));
+                    var sections = TextSections.Of(item, context.HtmlOf(item.Id), options.MarkerBlocks);
+                    if (options.MarkerBlocks)
+                    {
+                        found.UnionWith(SupportBlocks.SupportedIds(sections, names));
+                    }
+
                     if (options.ListRun > 0)
                     {
                         found.UnionWith(ListRule.SupportedIds(sections, names, options.ListRun));
@@ -387,7 +411,7 @@ namespace AvatarEvalBench
 
         public bool IsAvatar(string id) => _avatars.Contains(id);
 
-        public static NameTable Build(AvatarRegistry registry, bool derive)
+        public static NameTable Build(AvatarRegistry registry, bool derive, IReadOnlyDictionary<string, HashSet<string>>? extra = null)
         {
             var table = new NameTable();
             foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
@@ -395,6 +419,19 @@ namespace AvatarEvalBench
                 table._avatars.Add(entry.ItemId);
                 var own = AvatarText.Normalize(entry.BoothName);
                 var names = new HashSet<string>(StringComparer.Ordinal);
+
+                // 対応一覧から集めた呼び名。URLで本人と分かっている行から取っているので、正式名に出なくても使う
+                if (extra is not null && extra.TryGetValue(entry.ItemId, out var harvested))
+                {
+                    foreach (var text in harvested)
+                    {
+                        var normalized = Strip(text);
+                        if (normalized.Length >= 3 && !Generic.Contains(normalized) && !AvatarText.IsGenericName(text))
+                        {
+                            names.Add(normalized);
+                        }
+                    }
+                }
 
                 void Add(string? text)
                 {
@@ -570,7 +607,45 @@ namespace AvatarEvalBench
     {
         private static readonly Regex Section = new("<h2[^>]*>(?<heading>[\\s\\S]*?)</h2>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        public static List<TextSection> Of(ItemRecord item, string? html)
+        /// <summary>本文中で見出しの代わりに使われる行。「🌙 【対応アバター】」「◆対応アバターリスト」など。</summary>
+        private static readonly Regex Marker = new(
+            @"^[^\p{L}\p{N}]*(?:【|\[|［|■|◆|◇|●|○|〇|<|＜|《)?\s*(?:対応アバター|対応モデル|対応一覧|Supported|Compatible)[^\p{L}\p{N}]*$|^[^\p{L}\p{N}]*【[^】]*対応[^】]*】[^\p{L}\p{N}]*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        public static List<TextSection> Of(ItemRecord item, string? html, bool splitMarkers = false)
+        {
+            var sections = OfRaw(item, html);
+            if (!splitMarkers)
+            {
+                return sections;
+            }
+
+            // 見出しの代わりの行でさらに区切る。URLを含む行や長い文は見出しとみなさない
+            var split = new List<TextSection>();
+            foreach (var section in sections)
+            {
+                var heading = section.Heading;
+                var lines = new List<string>();
+                foreach (var line in section.Lines)
+                {
+                    if (line.Length <= 40 && !line.Contains("items/", StringComparison.Ordinal) && Marker.IsMatch(line))
+                    {
+                        split.Add(new TextSection(heading, lines));
+                        heading = line;
+                        lines = [];
+                        continue;
+                    }
+
+                    lines.Add(line);
+                }
+
+                split.Add(new TextSection(heading, lines));
+            }
+
+            return split;
+        }
+
+        private static List<TextSection> OfRaw(ItemRecord item, string? html)
         {
             var sections = new List<TextSection>();
             if (!string.IsNullOrEmpty(html))
@@ -684,6 +759,91 @@ namespace AvatarEvalBench
     }
 
     /// <summary>
+    /// 見出し（h2 か、本文中の見出し代わりの行）に「対応」とあるまとまりの中の、アバターの行を全部拾う。
+    /// h2 の対応節のURLは Core の読み取りで既に拾えているので、ここで増えるのは
+    /// 「本文中の見出し」の下と、URLの無い名前だけの行（-マヌカ）。
+    /// </summary>
+    public static class SupportBlocks
+    {
+        private static readonly Regex Url = new(@"booth\.pm/(?:[a-z]{2}/)?items/(\d+)", RegexOptions.Compiled);
+
+        public static IEnumerable<string> SupportedIds(List<TextSection> sections, NameTable names)
+        {
+            foreach (var section in sections)
+            {
+                if (!Regex.IsMatch(section.Heading, "対応|Supported|Compatible", RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(section.Heading, "非対応|対応シェーダー|対応環境|対応バージョン")
+                    || TextSections.IsCreditHeading(section.Heading))
+                {
+                    continue;
+                }
+
+                foreach (var line in section.Lines)
+                {
+                    foreach (Match match in Url.Matches(line))
+                    {
+                        if (names.IsAvatar(match.Groups[1].Value))
+                        {
+                            yield return match.Groups[1].Value;
+                        }
+                    }
+
+                    // 名前だけの行。短いものに限る（説明の文で名前が出るのは対応の宣言とは限らない）
+                    var bare = Regex.Replace(line, @"^[^\p{L}\p{N}『「(（+]+", string.Empty).Trim();
+                    if (bare.Length is > 0 and <= 40 && !line.Contains("items/", StringComparison.Ordinal))
+                    {
+                        foreach (var part in Regex.Split(bare, @"\s+|[/／・、,，]"))
+                        {
+                            foreach (var id in names.MatchTag(part.Trim('『', '』', '「', '」', '(', ')', '（', '）', '-', '：', ':')))
+                            {
+                                yield return id;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 呼び名の収集。全商品の対応節から「名前 URL」の行を拾い、URLの指すアバターの呼び名にする。
+    /// 例：「ラシューシャ - Lashusya - https://booth.pm/ja/items/4825073」→ 4825073 に Lashusya。
+    /// </summary>
+    public static class HintHarvest
+    {
+        public static Dictionary<string, HashSet<string>> Collect(EvalContext context)
+        {
+            var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var item in context.Items.Values)
+            {
+                var scan = AvatarDetector.ScanDescription(
+                    context.HtmlOf(item.Id), item.Id, context.Settings.AvatarSupportHeadings, context.Settings.AvatarIgnoredHeadings);
+
+                foreach (var hit in scan.Support.Where(hit => hit.NameHint is { Length: > 0 and <= 60 }))
+                {
+                    if (!result.TryGetValue(hit.ItemId, out var set))
+                    {
+                        set = new HashSet<string>(StringComparer.Ordinal);
+                        result[hit.ItemId] = set;
+                    }
+
+                    // 「ラシューシャ - Lashusya -」「Marycia マリシア」のように複数の表記が並ぶので割る
+                    foreach (var part in Regex.Split(hit.NameHint!, @"\s+[-‐―–—/／|｜]\s+|[/／（）()「」『』【】〈〉：:]|\s{2,}"))
+                    {
+                        var trimmed = Regex.Replace(part, @"^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$", string.Empty);
+                        if (trimmed.Length >= 3 && trimmed.Length <= 24)
+                        {
+                            set.Add(trimmed);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
     /// 言い回し。アバター名を含む行が、作った前提・合わせた先・確かめた先を述べているなら対応とみなす。
     /// 否定（非対応・対応しておりません・以外）とクレジットの見出しの下は拾わない。
     /// </summary>
@@ -693,7 +853,11 @@ namespace AvatarEvalBench
             "をベースに|ベースに制作|基準で|基準に|に合わせて|に合わせた|専用|用に調整|用に作|用にも作|テスター|確認して|確認済|試験的に追加|対応追加|対応しました|プリセット",
             RegexOptions.Compiled);
 
-        private static readonly Regex Negative = new("非対応|対応しておりません|対応していません|以外|同梱されておりません|付属しません|含まれません", RegexOptions.Compiled);
+        // 撮影・画像・着用イメージは「その姿で撮った」だけで、作った前提ではない。
+        // 「参考に」「レプリカ」は着想元。「→」は変換ツールの例（しなの→桔梗）で、対応の宣言ではない
+        private static readonly Regex Negative = new(
+            "非対応|対応しておりません|対応していません|以外|同梱されておりません|付属しません|含まれません|撮影|画像|着用イメージ|参考に|レプリカ|→|⇒",
+            RegexOptions.Compiled);
 
         public static IEnumerable<string> SupportedIds(List<TextSection> sections, NameTable names)
         {
