@@ -22,9 +22,20 @@ namespace BoothAssetManager.App.Services;
 /// </summary>
 public sealed class ThumbnailLoader
 {
+    /// <summary>
+    /// 保持の1件。**WPFの絵ではなく、画素のバイト列で持つ**（U12・3回目）。
+    /// WPFの絵は一度画面に出すと、描画のための写しをもう1枚持ち、絵が生きている間はそれも残る。
+    /// 絵のまま保持すると、保持1MBにつき全体で約2.2MBになっていた（上限132MBで最大約620MB）。
+    /// 画素で持てば、写しができるのは画面に出している分だけになる
+    /// </summary>
     private sealed class Entry
     {
-        public required BitmapSource? Image { get; init; }
+        /// <summary>Bgra32 の画素。読めなかったものは null（「読めない」という結果自体に意味があるので残す）。</summary>
+        public required byte[]? Pixels { get; init; }
+
+        public int Width { get; init; }
+
+        public int Height { get; init; }
 
         public required long Bytes { get; init; }
 
@@ -63,6 +74,53 @@ public sealed class ThumbnailLoader
     private long _clock;
     /// <summary>前回GCを急かしてから捨てた量。</summary>
     private long _evictedSinceCollect;
+
+    /// <summary>
+    /// 画素から作ったWPFの絵を、直近に使った分だけ持っておく数。
+    /// 画面に並ぶカードは多くて40枚ほどで、なぞって切り替える分と商品ページの一覧を足しても収まる。
+    /// ここを超えた古い絵は手放す（画面の部品が使っていれば、それが離すまでは生きている）
+    /// </summary>
+    private const int MaxLiveBitmaps = 64;
+
+    /// <summary>画素から作ったWPFの絵。同じ絵を読むたびに作り直さないために、直近の分だけ持つ。</summary>
+    private readonly Dictionary<string, (BitmapSource Image, long LastUsedAt)> _live = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>復号した画素。裏のスレッドで作り、保持へ入れるのは画面のスレッド。</summary>
+    private sealed record Decoded(byte[] Pixels, int Width, int Height);
+
+    /// <summary>
+    /// 保持している画素から、画面に出すWPFの絵を作る（直近の分は作り直さない）。
+    /// 作るのは画素の写しだけなので、復号し直すよりずっと軽い（1枚0.5MB程度の写し）
+    /// </summary>
+    private BitmapSource? Materialize(string key, Entry entry)
+    {
+        entry.LastUsedAt = ++_clock;
+        if (entry.Pixels is null)
+        {
+            return null;
+        }
+
+        if (_live.TryGetValue(key, out var live))
+        {
+            _live[key] = (live.Image, _clock);
+            return live.Image;
+        }
+
+        var bitmap = BitmapSource.Create(
+            entry.Width, entry.Height, 96, 96, PixelFormats.Bgra32, null, entry.Pixels, entry.Width * 4);
+        bitmap.Freeze();
+        _live[key] = (bitmap, _clock);
+
+        if (_live.Count > MaxLiveBitmaps)
+        {
+            foreach (var old in _live.OrderBy(pair => pair.Value.LastUsedAt).Take(_live.Count - MaxLiveBitmaps).ToList())
+            {
+                _live.Remove(old.Key);
+            }
+        }
+
+        return bitmap;
+    }
 
     /// <param name="budgetMegabytes">復号済み画像を保持する上限。</param>
     public ThumbnailLoader(int budgetMegabytes = Core.Models.AppSettings.DefaultThumbnailCacheBudgetMb)
@@ -144,15 +202,12 @@ public sealed class ThumbnailLoader
     private BitmapSource? Load(string path, int? maxEdgePixels)
     {
         var key = maxEdgePixels is { } edge ? $"{path}|{edge}" : path;
-        if (_byKey.TryGetValue(key, out var cached))
+        if (!_byKey.TryGetValue(key, out var cached))
         {
-            cached.LastUsedAt = ++_clock;
-            return cached.Image;
+            cached = Store(key, Decode(path, maxEdgePixels));
         }
 
-        var image = Decode(path, maxEdgePixels);
-        Store(key, image);
-        return image;
+        return Materialize(key, cached);
     }
 
     /// <summary>
@@ -214,8 +269,7 @@ public sealed class ThumbnailLoader
         var normalKey = $"{path}|{EdgePixels(CardEdgeDip)}";
         if (_byKey.TryGetValue(normalKey, out var normal))
         {
-            normal.LastUsedAt = ++_clock;
-            return normal.Image;
+            return Materialize(normalKey, normal);
         }
 
         var fastEdge = EdgePixels(FastCardEdgeDip);
@@ -226,8 +280,7 @@ public sealed class ThumbnailLoader
         {
             if (small is not null)
             {
-                small.LastUsedAt = ++_clock;
-                return small.Image;
+                return Materialize(fastKey, small);
             }
 
             Request(fastKey, path, fastEdge, onLoaded);
@@ -235,13 +288,7 @@ public sealed class ThumbnailLoader
         }
 
         Request(normalKey, path, EdgePixels(CardEdgeDip), onLoaded);
-
-        if (small is not null)
-        {
-            small.LastUsedAt = ++_clock;
-        }
-
-        return small?.Image;
+        return small is null ? null : Materialize(fastKey, small);
     }
 
     /// <summary>
@@ -255,8 +302,7 @@ public sealed class ThumbnailLoader
         var key = $"{path}|{edge}";
         if (_byKey.TryGetValue(key, out var cached))
         {
-            cached.LastUsedAt = ++_clock;
-            return cached.Image;
+            return Materialize(key, cached);
         }
 
         Request(key, path, edge, onLoaded);
@@ -324,19 +370,22 @@ public sealed class ThumbnailLoader
         }
     }
 
-    private void Store(string key, BitmapSource? image)
+    private Entry Store(string key, Decoded? decoded)
     {
         var entry = new Entry
         {
-            Image = image,
+            Pixels = decoded?.Pixels,
+            Width = decoded?.Width ?? 0,
+            Height = decoded?.Height ?? 0,
             // 復号に失敗したものは「読めない」という結果自体に意味があるので残すが、容量には数えない
-            Bytes = image is null ? 0 : (long)image.PixelWidth * image.PixelHeight * 4,
+            Bytes = decoded?.Pixels.LongLength ?? 0,
             LastUsedAt = ++_clock,
         };
 
         _byKey[key] = entry;
         _usedBytes += entry.Bytes;
         EvictIfNeeded();
+        return entry;
     }
 
     /// <summary>
@@ -355,6 +404,7 @@ public sealed class ThumbnailLoader
         {
             _usedBytes -= _byKey[key].Bytes;
             _byKey.Remove(key);
+            _live.Remove(key);
         }
     }
 
@@ -403,7 +453,11 @@ public sealed class ThumbnailLoader
         MemoryTrim.Request();
     }
 
-    private static BitmapSource? Decode(string path, int? maxEdgePixels)
+    /// <summary>
+    /// 復号して、Bgra32 の画素を返す。**保持するのは画素そのもの**なので、配列は1枚ごとに作る
+    /// （以前は借りた配列から WPF の絵へ写して返していた。今は絵を作るのは画面に出すときだけ）。
+    /// </summary>
+    private static Decoded? Decode(string path, int? maxEdgePixels)
     {
         try
         {
@@ -419,34 +473,9 @@ public sealed class ThumbnailLoader
                 }));
             }
 
-            var stride = image.Width * 4;
-            var size = stride * image.Height;
-
-            // 受け渡しの配列は借りて返す。BitmapSource.Create は中身を自分の領域へ写すので、
-            // 呼び終われば要らない。毎回 new すると1枚576KBが大きいオブジェクト用のヒープに積もり、
-            // スクロールで数百枚読むとその穴がメモリを押し上げていた（#71）
-            var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(size);
-            try
-            {
-                image.CopyPixelDataTo(buffer.AsSpan(0, size));
-
-                var bitmap = BitmapSource.Create(
-                    image.Width,
-                    image.Height,
-                    96,
-                    96,
-                    PixelFormats.Bgra32,
-                    null,
-                    buffer,
-                    stride);
-
-                bitmap.Freeze();
-                return bitmap;
-            }
-            finally
-            {
-                System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
-            }
+            var pixels = new byte[image.Width * 4 * image.Height];
+            image.CopyPixelDataTo(pixels);
+            return new Decoded(pixels, image.Width, image.Height);
         }
         catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
         {
