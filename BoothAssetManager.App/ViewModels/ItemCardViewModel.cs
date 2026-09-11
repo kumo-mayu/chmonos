@@ -215,6 +215,28 @@ public sealed class ItemCardViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 画像が後から届いたときに、描き直させる。
+    ///
+    /// なぞるための一覧（<see cref="_imageFiles"/>）は最初に乗ったときに作って持っているので、
+    /// 捨てないと増えた分をなぞれない。止まっている1枚は <see cref="Thumbnail"/> が毎回選び直す。
+    /// </summary>
+    public void RefreshImages()
+    {
+        _imageFiles = null;
+        _activePath = null;
+        _activeIndex = 0;
+        _stepCount = 0;
+        Segments.Clear();
+        ImageCount = 0;
+        CurrentImageNumber = 1;
+
+        OnPropertyChanged(nameof(Thumbnail));
+        OnPropertyChanged(nameof(HasMultipleImages));
+        OnPropertyChanged(nameof(ImageCount));
+        OnPropertyChanged(nameof(CounterText));
+    }
+
     private void EnsureImagesLoaded(double widthPixels)
     {
         IsHovering = true;

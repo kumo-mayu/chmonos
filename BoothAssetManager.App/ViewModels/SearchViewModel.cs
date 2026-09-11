@@ -494,6 +494,18 @@ public sealed class SearchViewModel : ViewModelBase
     /// 絞り込みは打つたびに変わるので、変わるたびに残すとゴミになる。
     /// 「探して見つけた」が一区切りで、実りのあった検索だけが残る。
     /// </summary>
+    /// <summary>
+    /// 裏の取得がこの商品の画像を置いた（UIスレッドで呼ばれる）。カードを描き直させる。
+    /// 一覧ごと組み直さないのは、絞り込みやスクロール位置を崩さないため。
+    /// </summary>
+    public void NoteItemImagesSaved(string itemId)
+    {
+        if (_cards.TryGetValue(itemId, out var card))
+        {
+            card.RefreshImages();
+        }
+    }
+
     public void OpenItem(ItemCardViewModel card)
     {
         _ = RecordHistoryAsync();

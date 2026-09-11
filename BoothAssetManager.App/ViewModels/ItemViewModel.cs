@@ -2041,6 +2041,34 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public Task ReloadGalleryAsync() => ReloadImagesAsync(null);
 
     /// <summary>
+    /// 裏の取得（取り込みの④⑤・使っていない間の取得・期限の取り直し）が
+    /// この商品の画像を置いた（UIスレッドで呼ばれる）。
+    ///
+    /// **見ていた絵は選んだまま組み直す。**画像が1枚届くたびに先頭へ戻されると、
+    /// 取得の最中は落ち着いて見られない。
+    /// </summary>
+    public void NoteImagesSaved(string itemId)
+    {
+        if (!string.Equals(itemId, Item.Id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var keepFileName = _selectedIndex < Images.Count ? Images[_selectedIndex].FileName : null;
+
+        BuildGallery();
+
+        if (keepFileName is not null
+            && Images.FirstOrDefault(image =>
+                string.Equals(image.FileName, keepFileName, StringComparison.OrdinalIgnoreCase)) is { } found)
+        {
+            SelectedIndex = Images.IndexOf(found);
+        }
+
+        NoteGalleryChanged();
+    }
+
+    /// <summary>
     /// 記録を読み直してギャラリーを組み直す。
     /// <paramref name="keepFileName"/> を渡すと、その絵を選んだままにする。
     /// </summary>

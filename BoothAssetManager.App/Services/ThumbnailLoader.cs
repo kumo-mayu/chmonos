@@ -35,7 +35,9 @@ public sealed class ThumbnailLoader
     private const double EvictionTargetRatio = 0.8;
 
     private readonly Dictionary<string, Entry> _byPath = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, IReadOnlyList<string>> _filesByDirectory = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>フォルダの中身と、数えたときのフォルダの更新時刻。</summary>
+    private readonly Dictionary<string, (IReadOnlyList<string> Files, DateTime WrittenAt)> _filesByDirectory =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly long _budgetBytes;
     private long _usedBytes;
     private long _clock;
@@ -52,12 +54,21 @@ public sealed class ThumbnailLoader
     /// <summary>キャッシュが使っているメモリ量。</summary>
     public long CachedBytes => _usedBytes;
 
-    /// <summary>そのitemが持つ画像ファイルのパス一覧（表示順）。</summary>
+    /// <summary>
+    /// そのitemが持つ画像ファイルのパス一覧（表示順）。
+    ///
+    /// **覚えた一覧は、フォルダの更新時刻が変わっていたら数え直す。**
+    /// 以前は一度数えたら覚えたままで、取り込みの④⑤や裏での取得が後から画像を置いても、
+    /// 起動し直すまで「画像が無い」ままだった（友人の報告）。
+    /// ファイルを足すと入れ物のフォルダの更新時刻が変わるので、時刻を1回見るだけで気付ける
+    /// （画像の保存名はURLのハッシュなので、増えるときは必ず新しい名前になる）。
+    /// </summary>
     public IReadOnlyList<string> ListFiles(string imageDirectory)
     {
-        if (_filesByDirectory.TryGetValue(imageDirectory, out var cached))
+        var writtenAt = LastWriteOf(imageDirectory);
+        if (_filesByDirectory.TryGetValue(imageDirectory, out var cached) && cached.WrittenAt == writtenAt)
         {
-            return cached;
+            return cached.Files;
         }
 
         IReadOnlyList<string> files;
@@ -72,8 +83,21 @@ public sealed class ThumbnailLoader
             files = [];
         }
 
-        _filesByDirectory[imageDirectory] = files;
+        _filesByDirectory[imageDirectory] = (files, writtenAt);
         return files;
+    }
+
+    /// <summary>フォルダの更新時刻。無ければ最小値（作られたら変わったと分かる）。</summary>
+    private static DateTime LastWriteOf(string directory)
+    {
+        try
+        {
+            return Directory.Exists(directory) ? Directory.GetLastWriteTimeUtc(directory) : DateTime.MinValue;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return DateTime.MinValue;
+        }
     }
 
     /// <summary>

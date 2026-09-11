@@ -30,6 +30,18 @@ public sealed class MainViewModel : ViewModelBase
         Search = new SearchViewModel(services, Thumbnails);
         Search.AttachMain(this);
 
+        // 裏の取得が画像を置いたら、開いている画面へ知らせる。知らせないと起動し直すまで空のままだった。
+        // 検索画面は持ち回るので常に、商品ページはそれが今の画面のときだけ。
+        // ここ（アプリと同じ寿命）で1回だけ繋ぐので、画面ごとに外し忘れて残ることが無い
+        services.Images.ItemImagesSaved += itemId => RunOnUiThread(() =>
+        {
+            Search.NoteItemImagesSaved(itemId);
+            if (CurrentViewModel is ItemViewModel item)
+            {
+                item.NoteImagesSaved(itemId);
+            }
+        });
+
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
         Search.RestoreHistory();
         Import = new ImportViewModel(services, this);

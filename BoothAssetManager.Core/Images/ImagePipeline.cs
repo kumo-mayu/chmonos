@@ -57,6 +57,15 @@ public sealed class ImagePipeline
     private AppSettings _settings => _currentSettings();
 
     /// <summary>
+    /// 商品の画像を新しく保存した。引数は商品ID。**取得した側のスレッドで呼ばれる。**
+    ///
+    /// 取り込みの④⑤・裏での取得・期限の取り直しは画面と関係なく画像を置く。
+    /// 知らせる道が無いと、開いている検索カードや商品ページは起動し直すまで空のままだった
+    /// （友人の報告「画像を取得しても即時反映されていない」）。
+    /// </summary>
+    public event Action<string>? ItemImagesSaved;
+
+    /// <summary>
     /// 画像を取る設定になっているか。
     ///
     /// 呼び出し側でも梯子の④⑤⑥を飛ばすが、ここでも見る。
@@ -256,6 +265,7 @@ public sealed class ImagePipeline
         try
         {
             await SaveAsWebpAsync(result.Value, path, cancellationToken);
+            ItemImagesSaved?.Invoke(itemId);
             return true;
         }
         catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
@@ -411,6 +421,12 @@ public sealed class ImagePipeline
         }
 
         RemoveStaleMarkers(directory, liveMarkers);
+
+        // 1枚ごとではなく最後に1回。画面は商品単位で組み直すので、枚数分知らせても同じ
+        if (downloaded > 0)
+        {
+            ItemImagesSaved?.Invoke(itemId);
+        }
 
         return new ImageSyncResult
         {

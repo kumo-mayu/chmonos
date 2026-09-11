@@ -151,6 +151,34 @@ public class MissingImageMarkerTests : IDisposable
         Assert.Equal(1, result.Missing);
     }
 
+    /// <summary>
+    /// 新しく置いたら知らせる。知らせないと、開いている検索カードや商品ページは
+    /// 起動し直すまで空のままだった（友人の報告）。
+    /// 取れなかったとき・元から持っていたときは知らせない——描き直す理由が無い。
+    /// </summary>
+    [Fact]
+    public async Task 画像を新しく置いたときだけ知らせる()
+    {
+        var saved = new List<string>();
+        _images.ItemImagesSaved += saved.Add;
+        _notFound.Add(Url(3));
+
+        // 2枚落としても知らせは1回。画面は商品単位で組み直すので、枚数分知らせても同じ
+        await _images.SyncAsync(ItemId, Images(1, 2, 3));
+        Assert.Equal([ItemId], saved);
+
+        await _images.SyncAsync(ItemId, Images(1, 2, 3));
+        Assert.Single(saved);
+
+        // 1枚だけ取る経路（④）でも知らせる
+        Assert.True(await _images.SyncOneAsync(ItemId, Images(4)[0]));
+        Assert.Equal(2, saved.Count);
+
+        // 404だった物は知らせない
+        Assert.False(await _images.SyncOneAsync(ItemId, Images(3)[0]));
+        Assert.Equal(2, saved.Count);
+    }
+
     /// <summary>1枚だけ取る経路（④）でも同じ。</summary>
     [Fact]
     public async Task HonoursTheMarkerWhenFetchingJustTheFirstImage()
