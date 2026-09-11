@@ -193,6 +193,7 @@ public sealed class EditViewModel : ViewModelBase
     private bool _isHidden;
     private string _statusText = string.Empty;
     private bool _isSaving;
+    private bool _isEditingBasics;
 
     public EditViewModel(AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails)
     {
@@ -216,6 +217,7 @@ public sealed class EditViewModel : ViewModelBase
             parameter => { if (parameter is string name) { ShopNameInput = name; } },
             parameter => parameter is string);
         StayCommand = new RelayCommand(StopReturnTimer);
+        EditBasicsCommand = new RelayCommand(() => IsEditingBasics = !IsEditingBasics, () => HasItem);
 
         _returnTimer.Tick += OnReturnTick;
     }
@@ -235,6 +237,28 @@ public sealed class EditViewModel : ViewModelBase
     public RelayCommand AddAttributeCommand { get; }
 
     public RelayCommand StayCommand { get; }
+
+    /// <summary>商品名・ショップ・BOOTH分類名の欄を開く／閉じる。閉じても打った内容は残り、保存で書かれる。</summary>
+    public RelayCommand EditBasicsCommand { get; }
+
+    /// <summary>
+    /// 商品名・ショップ・BOOTH分類名の欄を開いているか。
+    /// **普段は変える必要が無い**ので閉じておき、右の入力はユーザータグから始める（ユーザ指示）。
+    /// 常に開いていると、毎回の編集で使わない欄の分だけ下へ送られる。
+    /// </summary>
+    public bool IsEditingBasics
+    {
+        get => _isEditingBasics;
+        set
+        {
+            if (SetField(ref _isEditingBasics, value))
+            {
+                OnPropertyChanged(nameof(EditBasicsLabel));
+            }
+        }
+    }
+
+    public string EditBasicsLabel => IsEditingBasics ? "閉じる" : "編集";
 
     /// <summary>付けたuserTag。マスタ全部ではなく、選んだものだけが並ぶ。</summary>
     public ObservableCollection<UserTagRow> Tags { get; } = [];
@@ -605,6 +629,10 @@ public sealed class EditViewModel : ViewModelBase
                 _attributeMaster = _services.Store.Attributes.Load();
                 _shopNames = await LoadShopNamesAsync();
                 FillFromItem(record);
+
+                // BOOTHから名前が取れていない商品は、ここを埋めないと名前が無い。
+                // 閉じたままだと入れる場所が見えないので、その商品だけ開いて出す
+                IsEditingBasics = record.Booth.Name is not { Length: > 0 };
                 RaiseItemChanged();
                 return;
             }
