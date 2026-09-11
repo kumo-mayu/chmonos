@@ -550,9 +550,23 @@ Unity は取り込みの節目を `%LOCALAPPDATA%\Unity\Editor\Editor.log` に�
 Cancel の判定は5.1秒。Import 側は「静かになったら」でなく「完了の行が出たら」なので、§11-2 の隙（窓の無い間1.2〜1.4秒）に左右されない。
 
 **分かった注意点：**
-- **Editor.log は PC に1つで、最後に起動したエディタの物。**起動のたびに前の物は `Editor-prev.log` へ回る。
-  先に開いていた test_ring（pid 16912）の行は、どちらのファイルにも無かった。**送り先が最後に起動したエディタでなければログは使えない。**
-  見分けは、Editor.log の `Successfully changed project path to: <送り先のプロジェクト>` と `"processId":<送り先の pid>`
+- **Editor.log は PC に1つで、エディタを2つ開くと同じファイルを取り合う**（ユーザの疑問「普通の動作に感じない」を受けて調べた）。
+  - 仕様：2022.3 の既定のログは `%LOCALAPPDATA%\Unity\Editor\Editor.log` の1つだけで、全プロジェクト・全エディタが共有する。
+    **Unity 6.5 で既定がプロジェクトごと（`<プロジェクト>/Logs/Editor.log`）に変わった**（`-useGlobalLog` で旧来に戻せる）。
+    Unity 自身が「全体で1つのログは、複数のエディタが同じファイルに書くと分かりにくい」と注意している
+  - 手元の観察（2022.3.22f1）：`Editor.log` を今つかんでいるのは先に開いていた test_ring（Restart Manager で確認）なのに、
+    中身は後から起動した試験用エディタの起動（17:21）から始まり、test_ring の行は1行も無かった。
+    **後から起動した物が先頭から上書きし、先の物が朝から書いた分は消えていた。**`Editor-prev.log` への退避は最初の起動（10:55）のときだけ
+  - フォーラムには逆向きの報告もある（Unity 6.0：「最初の1つだけが書き、後の物は何も書かない」）。どちら向きにせよ、**2つ開くと全体のログは当てにならない**
+  - 回避策は起動引数 `-logFile <絶対パス>` でエディタごとにログを分けること（Hub のプロジェクトごとの「コマンドライン引数を追加」でも付けられる）
+  - 見分け：Editor.log の `Successfully changed project path to: <送り先のプロジェクト>` と `"processId":<送り先の pid>`。
+    ただし先の物が後で書けば混ざり得るので、**ログを信じてよいのは開いているエディタが1つだけのとき**（6.5 以降はプロジェクトの Logs/Editor.log を読む）
+
+  参考：[Log files（2022.3）](https://docs.unity3d.com/2022.3/Documentation/Manual/LogFiles.html)、
+  [Log files reference（6000.5）](https://docs.unity3d.com/6000.5/Documentation/Manual/log-files.html)、
+  [Upgrade to Unity 6.5](https://docs.unity3d.com/6000.5/Documentation/Manual/UpgradeGuideUnity65.html)、
+  [Command line arguments（2022.3）](https://docs.unity3d.com/2022.3/Documentation/Manual/EditorCommandLineArguments.html)、
+  [Running multiple instances of Unity results in no log](https://discussions.unity.com/t/running-multiple-instances-of-unity-results-in-no-log/1550994)
 - **取り込みと関係のない行も出る**（Cancel の直後に `<RI> Initialized touch support.` `TrimDiskCacheJob`）。何でも「動き」と数えると Cancel を Import と取り違え、来ない完了の行を待ち続けた。取り込みの行だけを数える
 - **パッケージ自身が確認を出すことがある**（VRCHeartRate の VPM 自動インストーラが「Confirm：次のパッケージを入れます」を出した。これも `#32770`）。
   利用者が答えるまで次へ進めないのが正しいが、アプリの1行で「Unity 側で確認が出ています」と言わないと、止まったように見える
