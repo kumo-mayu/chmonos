@@ -196,9 +196,25 @@ public sealed class ImportPipeline : IImportPipeline
 
         var totals = new ImportTotals();
 
-        while (work.TakePending() is { Count: > 0 } folders)
+        // 周回の外で取る画像の列（④1枚目 ⑤残り ⑥ショップのアイコン）。周回をまたいで持ち越す
+        var images = new ImageQueue();
+
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (work.TakePending() is not { Count: > 0 } folders)
+            {
+                if (images.IsEmpty)
+                {
+                    break;
+                }
+
+                // 画像は1件ずつ取り、そのたびに積まれたフォルダが無いかを見る。
+                // 積まれていれば、その場で次の周回（走査〜①②③）へ移る（U5）
+                totals.AddImages(await DrainImagesAsync(images, () => work.HasPending, progress, cancellationToken));
+                continue;
+            }
 
             // 既に商品へ紐付けたフォルダの中は見に行かない。
             // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
@@ -224,6 +240,10 @@ public sealed class ImportPipeline : IImportPipeline
             }
 
             totals.Add(scan, resolution, fetchResult);
+
+            // この周回の1枚目は、今の列に残っている画像より先に取る。
+            // 積んだ物が早く一覧に出ることの方が、前の周回の2枚目より先に要る
+            images.Enqueue(fetchResult.WithImages, fetchResult.ShopIcons);
         }
 
         // 最後まで来たので記録は要らない。残すと次の起動で「中断した」と嘘をつく
@@ -302,7 +322,6 @@ public sealed class ImportPipeline : IImportPipeline
             _alreadyKnown += fetch.AlreadyKnown;
             _notFound += fetch.NotFound;
             _temporaryFailures += fetch.TemporaryFailures;
-            _imagesDownloaded += fetch.ImagesDownloaded;
 
             // 検出は周回ごとに走るので足し合わせる。理由は最後のものを残す
             _avatarItemsUpdated += fetch.AvatarItemsUpdated;
@@ -310,6 +329,9 @@ public sealed class ImportPipeline : IImportPipeline
             _avatarDetectError = fetch.AvatarDetectError ?? _avatarDetectError;
             _avatarDetectRan |= fetch.AvatarDetectRan;
         }
+
+        /// <summary>周回の外で取った画像の数（U5）。</summary>
+        public void AddImages(int downloaded) => _imagesDownloaded += downloaded;
 
         public ImportSummary ToSummary() => new()
         {
@@ -666,7 +688,6 @@ public sealed class ImportPipeline : IImportPipeline
         var notFound = 0;
         var notFoundFiles = new List<UnresolvedFile>();
         var temporaryFailures = 0;
-        var imagesDownloaded = 0;
         var avatarItemsUpdated = 0;
         var avatarsFound = 0;
         string? avatarDetectError = null;
@@ -674,6 +695,9 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 手元にある商品は通信が要らない。ファイルを足すだけなので、段に入る前に片付ける
         var pending = new List<(string ItemId, List<LocalFileRecord> Files)>();
+
+        // 取得済みなのに説明が無い商品。①の後・②の前で閉じた取り込みの続き（U9）
+        var withoutPage = new List<ItemRecord>();
 
         foreach (var (itemId, discovered) in filesByItemId)
         {
@@ -694,6 +718,12 @@ public sealed class ImportPipeline : IImportPipeline
                 cancellationToken: cancellationToken);
 
             alreadyKnown++;
+
+            // 販売終了の商品はページも無いので戻さない（取りに行っても毎回失敗するだけ）
+            if (!existing.Local.IsDelisted && !File.Exists(_store.Paths.ItemHtmlFile(itemId)))
+            {
+                withoutPage.Add(existing);
+            }
         }
 
         // ── ① 商品JSON（全商品）。ここが終われば検索も統計も成立する ──
@@ -771,14 +801,18 @@ public sealed class ImportPipeline : IImportPipeline
         }
 
         // ── ② 商品ページHTML（全商品）。対応アバターの節と説明文 ──
+        //
+        // 取得済みでも説明が無い商品はここへ戻す。②③の途中で閉じてから押し直すと、
+        // ①が済んだ商品は「取得済み」で飛ばされ、説明が⑦の取り直しの日まで埋まらなかった（U9）
+        var pages = fetched.Concat(withoutPage).ToList();
         done = 0;
 
-        for (var index = 0; index < fetched.Count; index++)
+        for (var index = 0; index < pages.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var item = fetched[index];
-            Report(progress, ImportPhase.FetchingHtml, ++done, fetched.Count, item.Id);
+            var item = pages[index];
+            Report(progress, ImportPhase.FetchingHtml, ++done, pages.Count, item.Id);
 
             var htmlResult = await _client.GetItemHtmlAsync(item.Id, cancellationToken);
             if (!htmlResult.IsSuccess || htmlResult.Value is null)
@@ -789,7 +823,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             var extraction = H2SectionExtractor.Extract(htmlResult.Value);
 
-            fetched[index] = item = item with { Booth = item.Booth with { H2Sections = extraction.Sections } };
+            pages[index] = item = item with { Booth = item.Booth with { H2Sections = extraction.Sections } };
             await _store.Items.SaveLocalAsync(
                 item.Id,
                 item.Local,
@@ -797,10 +831,9 @@ public sealed class ImportPipeline : IImportPipeline
                 item.Booth,
                 cancellationToken);
 
-            if (extraction.DescriptionHtml is not null)
-            {
-                await _store.Items.SaveDescriptionHtmlAsync(item.Id, extraction.DescriptionHtml, cancellationToken);
-            }
+            // 説明が無い商品でも空のファイルを置く。置かないと「まだ取っていない」と見分けが付かず、
+            // 取り込むたびに取り直しに来る
+            await _store.Items.SaveDescriptionHtmlAsync(item.Id, extraction.DescriptionHtml ?? string.Empty, cancellationToken);
         }
 
         // ── ③ 対応アバターの検出 ──
@@ -809,7 +842,7 @@ public sealed class ImportPipeline : IImportPipeline
         // ことの方が、絵が見えていることより先に要る。
         // 通信が要るのは「対応表明で名前が出たが、手元に持っていないアバター」だけなので、
         // ここを④の前に置いても待ちはほとんど伸びない。
-        if (_avatars is not null && fetched.Count > 0)
+        if (_avatars is not null && pages.Count > 0)
         {
             using var detectPriority = BoothClient.Prioritize(BoothPriority.Detection);
             avatarDetectRan = true;
@@ -827,77 +860,12 @@ public sealed class ImportPipeline : IImportPipeline
             }
         }
 
-        // 画像を取らない設定なら、梯子はここで終わり（①②③だけ）。
-        // 検索・絞り込み・統計は商品JSONだけで成立するので、機能は何も失われない
-        if (!_images.SavesImages)
-        {
-            return new FetchResult
-            {
-                Added = added,
-                AlreadyKnown = alreadyKnown,
-                NotFound = notFound,
-                NotFoundFiles = notFoundFiles,
-                TemporaryFailures = temporaryFailures,
-                ImagesDownloaded = 0,
-                AvatarItemsUpdated = avatarItemsUpdated,
-                AvatarsFound = avatarsFound,
-                AvatarDetectError = avatarDetectError,
-                AvatarDetectRan = avatarDetectRan,
-            };
-        }
-
-        // ── ④ 1枚目の画像（全商品）──
-        //
-        // 一覧のカードは1枚目しか使っていない（静止時に1枚だけ読み、
-        // マウスを乗せて初めてギャラリーを組む）。だから1枚あれば一覧は完成する。
-        var withImages = fetched.Where(item => item.Booth.Images.Count > 0).ToList();
-        done = 0;
-
-        using var thumbnailPriority = BoothClient.Prioritize(BoothPriority.Thumbnail);
-
-        foreach (var item in withImages)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Report(progress, ImportPhase.FetchingThumbnails, ++done, withImages.Count, item.Booth.Name);
-
-            if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], cancellationToken))
-            {
-                imagesDownloaded++;
-            }
-
-            // 取れなくても商品は画面に出す。出さないとその商品は永久に見えない
-        }
-
-        // ── ⑤ 残りの画像（商品ごと）──
-        //
-        // 商品ごとにまとめて取るのは、その商品を開いたときに揃っている確率を上げるため。
-        done = 0;
-
-        using var galleryPriority = BoothClient.Prioritize(BoothPriority.Gallery);
-
-        foreach (var item in withImages)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Report(progress, ImportPhase.FetchingGallery, ++done, withImages.Count, item.Booth.Name);
-
-            var result = await _images.SyncAsync(item.Id, item.Booth.Images, cancellationToken);
-            imagesDownloaded += result.Downloaded;
-        }
-
-        // ── ⑥ ショップのアイコン ──
-        //
-        // 使うのはショップ画面と商品ページの作者名の横だけで、無くても名前で用は足りる。
-        done = 0;
-
-        using var iconPriority = BoothClient.Prioritize(BoothPriority.ShopIcon);
-
-        foreach (var (subdomain, thumbnailUrl) in shopIcons)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Report(progress, ImportPhase.FetchingShopIcons, ++done, shopIcons.Count, subdomain);
-
-            await _images.SyncShopIconAsync(subdomain, thumbnailUrl, cancellationToken);
-        }
+        // ④1枚目 ⑤残りの画像 ⑥ショップのアイコン は、周回の外の画像の列で取る（U5・DrainImagesAsync）。
+        // 周回の中で取り切ると、その間に積まれたフォルダは⑥が終わるまで何も始まらない。
+        // 画像を取らない設定なら何も積まない（梯子は①②③で終わり。検索・絞り込み・統計は JSON だけで成立する）
+        var withImages = _images.SavesImages
+            ? pages.Where(item => item.Booth.Images.Count > 0).ToList()
+            : [];
 
         return new FetchResult
         {
@@ -906,7 +874,8 @@ public sealed class ImportPipeline : IImportPipeline
             NotFound = notFound,
             NotFoundFiles = notFoundFiles,
             TemporaryFailures = temporaryFailures,
-            ImagesDownloaded = imagesDownloaded,
+            WithImages = withImages,
+            ShopIcons = _images.SavesImages ? shopIcons : new Dictionary<string, string>(),
             AvatarItemsUpdated = avatarItemsUpdated,
             AvatarsFound = avatarsFound,
             AvatarDetectError = avatarDetectError,
@@ -1004,6 +973,123 @@ public sealed class ImportPipeline : IImportPipeline
         };
     }
 
+    /// <summary>
+    /// 画像の列を1件ずつ取る（U5）。④1枚目 → ⑤残り → ⑥ショップのアイコン の順。
+    ///
+    /// 1件ごとに <paramref name="stacked"/> を見て、積まれたフォルダがあればその場で戻る。
+    /// 周回の中で取り切っていた頃は、積んだ分は⑥が終わるまで何も始まらなかった
+    /// （設計では「積まれたら①②が最優先」と決めてあったのに、実装が合っていなかった）。
+    /// 優先度は段ごとに切り替える。人が押した通信はどの段よりも上なので待たされない。
+    /// </summary>
+    /// <returns>落とせた画像の枚数。</returns>
+    private async Task<int> DrainImagesAsync(
+        ImageQueue queue,
+        Func<bool> stacked,
+        IProgress<ImportProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var downloaded = 0;
+
+        while (!queue.IsEmpty && !stacked())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // ④ 1枚目。一覧のカードは1枚目しか使わない（マウスを乗せて初めてギャラリーを組む）ので、1枚あれば一覧は完成する
+            if (queue.Thumbnails.First is { } next)
+            {
+                queue.Thumbnails.RemoveFirst();
+                var item = next.Value;
+                Report(progress, ImportPhase.FetchingThumbnails, ++queue.ThumbnailsDone, queue.ThumbnailsTotal, item.Booth.Name);
+
+                using (BoothClient.Prioritize(BoothPriority.Thumbnail))
+                {
+                    // 取れなくても商品は画面に出す。出さないとその商品は永久に見えない
+                    if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], cancellationToken))
+                    {
+                        downloaded++;
+                    }
+                }
+
+                queue.Galleries.Enqueue(item);
+                queue.GalleriesTotal++;
+                continue;
+            }
+
+            // ⑤ 残りの画像。商品ごとにまとめて取ると、その商品を開いたときに揃っている確率が上がる
+            if (queue.Galleries.TryDequeue(out var gallery))
+            {
+                Report(progress, ImportPhase.FetchingGallery, ++queue.GalleriesDone, queue.GalleriesTotal, gallery.Booth.Name);
+
+                using (BoothClient.Prioritize(BoothPriority.Gallery))
+                {
+                    downloaded += (await _images.SyncAsync(gallery.Id, gallery.Booth.Images, cancellationToken)).Downloaded;
+                }
+
+                continue;
+            }
+
+            // ⑥ ショップのアイコン。使うのはショップ画面と作者名の横だけで、無くても名前で用は足りる
+            var (subdomain, thumbnailUrl) = queue.ShopIcons.First();
+            queue.ShopIcons.Remove(subdomain);
+            Report(progress, ImportPhase.FetchingShopIcons, ++queue.IconsDone, queue.IconsTotal, subdomain);
+
+            using (BoothClient.Prioritize(BoothPriority.ShopIcon))
+            {
+                await _images.SyncShopIconAsync(subdomain, thumbnailUrl, cancellationToken);
+            }
+        }
+
+        return downloaded;
+    }
+
+    /// <summary>
+    /// 周回の外で取る画像の列（U5）。
+    ///
+    /// 新しい周回の1枚目は**先頭**へ入れる。積んだ物が早く一覧に出ることの方が、
+    /// 前の周回の2枚目より先に要る。件数は周回をまたいで数える（画面には1本の進み具合として出す）。
+    /// </summary>
+    private sealed class ImageQueue
+    {
+        public LinkedList<ItemRecord> Thumbnails { get; } = new();
+
+        public Queue<ItemRecord> Galleries { get; } = new();
+
+        public Dictionary<string, string> ShopIcons { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public int ThumbnailsDone { get; set; }
+
+        public int ThumbnailsTotal { get; set; }
+
+        public int GalleriesDone { get; set; }
+
+        public int GalleriesTotal { get; set; }
+
+        public int IconsDone { get; set; }
+
+        public int IconsTotal { get; set; }
+
+        public bool IsEmpty => Thumbnails.Count == 0 && Galleries.Count == 0 && ShopIcons.Count == 0;
+
+        public void Enqueue(IReadOnlyList<ItemRecord> withImages, IReadOnlyDictionary<string, string> shopIcons)
+        {
+            // 並びは保ったまま先頭へ
+            for (var index = withImages.Count - 1; index >= 0; index--)
+            {
+                Thumbnails.AddFirst(withImages[index]);
+            }
+
+            ThumbnailsTotal += withImages.Count;
+
+            foreach (var (subdomain, url) in shopIcons)
+            {
+                if (ShopIcons.TryAdd(subdomain, url))
+                {
+                    IconsTotal++;
+                }
+            }
+        }
+    }
+
     private sealed class FetchResult
     {
         public int Added { get; init; }
@@ -1017,7 +1103,11 @@ public sealed class ImportPipeline : IImportPipeline
 
         public int TemporaryFailures { get; init; }
 
-        public int ImagesDownloaded { get; init; }
+        /// <summary>画像の列（④⑤）に積む商品。画像を取らない設定なら空。</summary>
+        public IReadOnlyList<ItemRecord> WithImages { get; init; } = [];
+
+        /// <summary>画像の列（⑥）に積むショップのアイコン。サブドメイン → アイコンのURL。</summary>
+        public IReadOnlyDictionary<string, string> ShopIcons { get; init; } = new Dictionary<string, string>();
 
         public int AvatarItemsUpdated { get; init; }
 
