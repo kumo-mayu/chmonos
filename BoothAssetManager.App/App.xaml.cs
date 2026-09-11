@@ -132,6 +132,12 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // 一時展開は閉じるときに消す（#56・ユーザ判断）。開いたままの物は次の起動で消える
+        if (_services?.IsSingleInstance == true)
+        {
+            new Core.Services.TemporaryUnpacker().CleanUp();
+        }
+
         _services?.Dispose();
         base.OnExit(e);
     }

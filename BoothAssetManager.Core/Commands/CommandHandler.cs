@@ -408,6 +408,22 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(unregister.ItemId)
                     : new CommandResult.Failed("登録が見つかりませんでした。");
 
+            case UiCommand.UnpackToTemporary unpack:
+                try
+                {
+                    // 大きい zip は数秒かかるので画面の手を止めない
+                    var folder = await Task.Run(
+                        () => new Services.TemporaryUnpacker().Unpack(unpack.ZipPath, cancellationToken), cancellationToken);
+                    return new CommandResult.Unpacked(folder);
+                }
+                catch (Exception exception) when (exception is IOException or InvalidDataException
+                                                      or UnauthorizedAccessException or NotSupportedException)
+                {
+                    // 原因はこちらでは決め付けない。見当だけ添える
+                    return new CommandResult.Failed(
+                        $"展開できませんでした：{exception.Message}（zip が壊れているか、一時フォルダの空きが足りないことがあります）");
+                }
+
             case UiCommand.SetFileVariations setVariations:
                 return await _items.SetFileVariationsAsync(
                         setVariations.ItemId, setVariations.VariationByHash, cancellationToken)

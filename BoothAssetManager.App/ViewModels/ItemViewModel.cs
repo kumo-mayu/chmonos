@@ -204,6 +204,9 @@ public sealed class LocalFileRow
 
     public bool HasUnityPackages => UnityPackages.Count > 0;
 
+    /// <summary>一時フォルダへ展開できるか（手元にある zip のときだけ）。</summary>
+    public bool CanUnpack { get; init; }
+
     /// <summary>画面に並べる行。入る先を後から埋めるので、中身とは別に持つ。</summary>
     public IReadOnlyList<UnityPackageRow> UnityPackageRows { get; init; } = [];
 
@@ -281,6 +284,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
         EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]));
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
+        UnpackCommand = new RelayCommand(
+            parameter => _ = UnpackAsync(parameter as LocalFileRow),
+            parameter => parameter is LocalFileRow { CanUnpack: true });
         UnregisterFolderCommand = new RelayCommand(
             parameter => _ = UnregisterFolderAsync(parameter as string),
             parameter => parameter is string);
@@ -1322,6 +1328,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 VariationLabel = variation,
                 VariationId = file.VariationId,
                 UnityPackages = packages,
+                CanUnpack = file.Paths.Any(path =>
+                    path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path)),
                 UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
             });
         }
@@ -2193,6 +2201,30 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     }
 
     /// <summary>エクスプローラで開いて、そのファイルを選択した状態にする。</summary>
+    /// <summary>zip を一時フォルダへ展開してエクスプローラで開く（#56）。</summary>
+    public RelayCommand UnpackCommand { get; }
+
+    private async Task UnpackAsync(LocalFileRow? row)
+    {
+        var zip = row?.Paths.FirstOrDefault(path =>
+            path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path));
+        if (zip is null)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.UnpackToTemporary(zip));
+        if (result is CommandResult.Unpacked unpacked)
+        {
+            TryStart(new ProcessStartInfo { FileName = unpacked.Folder, UseShellExecute = true });
+        }
+        else if (result is CommandResult.Failed failed)
+        {
+            System.Windows.MessageBox.Show(failed.Message, "展開して開く",
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+        }
+    }
+
     private void OpenInExplorer(object? parameter)
     {
         if (parameter is not string path)

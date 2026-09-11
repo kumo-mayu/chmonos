@@ -827,12 +827,23 @@
                                                     間違って紐付いたファイルを直す入口。1商品に複数ファイルがあり得るので、
                                                     商品単位ではなくファイル単位に置く（zipだけが誤りのことがある）
                                                 -->
-                                                <Button Grid.Column="1" Content="この商品から外す" Style="{StaticResource SmallButton}"
-                                                        VerticalAlignment="Center"
-                                                        ToolTip="このファイルを未確定に戻します。ファイルは消しません。"
-                                                        Command="{Binding DataContext.DetachFileCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!--
+                                                        unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れられない（#56）。
+                                                        一時フォルダに展開して開き、アプリを閉じると消す
+                                                    -->
+                                                    <Button Content="展開して開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                            ToolTip="中身を一時フォルダに展開して、エクスプローラで開きます。アプリを閉じると消えます。元のzipはそのままです。"
+                                                            Visibility="{Binding CanUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.UnpackCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
+                                                            ToolTip="このファイルを未確定に戻します。ファイルは消しません。"
+                                                            Command="{Binding DataContext.DetachFileCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
                                               </Grid>
 
                                                 <!-- 保存場所ごとに開ける（削除も場所ごとに選べるようにする予定） -->

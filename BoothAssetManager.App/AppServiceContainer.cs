@@ -34,6 +34,13 @@ public sealed class AppServiceContainer : IDisposable
         // 書き込みの途中で落ちると .tmp が残る。本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い
         JsonStore.DeleteStaleTemporaryFiles(Paths.Root);
         JsonStore.DeleteStaleTemporaryFiles(Paths.ItemsDir);
+
+        // 前回閉じたときに消し残った一時展開（#56）。二重に起動した側が消すと、
+        // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
+        if (IsSingleInstance)
+        {
+            new TemporaryUnpacker().CleanUp();
+        }
         // 以前の版は取得の間隔を500msまで保存できた。約束（1.5秒以上）の範囲に戻してから使う
         Settings = Store.Settings.Load().Normalized();
 

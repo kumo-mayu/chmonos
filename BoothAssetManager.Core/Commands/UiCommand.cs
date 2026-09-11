@@ -217,6 +217,9 @@ public abstract record UiCommand
     /// </summary>
     public record SetFileVariations(string ItemId, IReadOnlyDictionary<string, long?> VariationByHash) : UiCommand;
 
+    /// <summary>zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。</summary>
+    public record UnpackToTemporary(string ZipPath) : UiCommand;
+
     /// <summary>要確認の既読・未読を切り替える。消さずに既読にするのは「見た」と「無かった」を分けるため。</summary>
     public record SetNotificationRead(string Id, bool IsRead) : UiCommand;
 
@@ -272,4 +275,7 @@ public abstract record CommandResult
     public record AvatarsDetected(Services.AvatarDetectResult Result) : CommandResult;
 
     public record Failed(string Message) : CommandResult;
+
+    /// <summary>一時フォルダへ展開した。</summary>
+    public record Unpacked(string Folder) : CommandResult;
 }
