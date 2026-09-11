@@ -26,7 +26,7 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 // 値を取るオプション（--show 平文）の値を、評価フォルダと取り違えないようにする
 var optionValues = args.Select((arg, index) => (arg, index))
-    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude")
+    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump")
     .Select(pair => pair.index + 1)
     .ToHashSet();
 var evalDir = args.Where((arg, index) => !arg.StartsWith("--") && !optionValues.Contains(index)).FirstOrDefault()
@@ -52,6 +52,13 @@ if (excludeIndex >= 0 && excludeIndex + 1 < args.Length)
 Console.WriteLine($"試験データ: 商品 {context.Items.Count} 件／正解の組 {context.Labels.Sum(label => label.Value.Avatars.Count)}（うち対応 {context.PositiveCount}）");
 Console.WriteLine();
 
+// ここまでで一番良かった組み合わせ。残りの漏れを拾う案はこれに足して比べる
+var best = ProposalOptions.Exact with
+{
+    PlainDescription = true,
+    ExtraSupportHeadings = ["プリセット", "位置設定済", "設定済みアバター", "セットアップ済", "検索用"],
+};
+
 IVariant[] variants =
 [
     new StoredVariant(confirmedOnly: false),
@@ -67,11 +74,13 @@ IVariant[] variants =
 
     // 「🔍検索用🔍」の一覧は対応（2026-09-11 ユーザ判断）。アバターの商品IDで検索する習慣に向けて、
     // 対応アバターのURLを並べておく出品者がいる
-    new ProposalVariant(ProposalOptions.Exact with
-    {
-        PlainDescription = true,
-        ExtraSupportHeadings = ["プリセット", "位置設定済", "設定済みアバター", "セットアップ済", "検索用"],
-    }),
+    new ProposalVariant(best),
+    new ProposalVariant(best with { ListRun = 3 }),
+    new ProposalVariant(best with { ListRun = 4 }),
+    new ProposalVariant(best with { ListRun = 5 }),
+    new ProposalVariant(best with { Phrases = true }),
+    new ProposalVariant(best with { BaseInference = true }),
+    new ProposalVariant(best with { ListRun = 4, Phrases = true, BaseInference = true }),
 ];
 
 Console.WriteLine($"{"案",-44} {"適合率",7} {"再現率",7} {"F1",6}  正/誤(参考・違う・未ラベル)/漏れ");
@@ -84,6 +93,14 @@ foreach (var variant in variants)
     if (show is not null && variant.Name.Contains(show, StringComparison.OrdinalIgnoreCase))
     {
         score.PrintExamples(context, limit);
+
+        // --dump <file>：誤りと漏れを ID の組で書き出す。根拠（candidates.json）と突き合わせて分類するため
+        var dumpIndex = Array.IndexOf(args, "--dump");
+        if (dumpIndex >= 0 && dumpIndex + 1 < args.Length)
+        {
+            File.WriteAllText(args[dumpIndex + 1], JsonSerializer.Serialize(
+                score.Errors.Select(error => new { item = error.Item, avatar = error.Avatar, kind = error.Kind })));
+        }
     }
 }
 
@@ -244,6 +261,21 @@ namespace AvatarEvalBench
         /// </summary>
         public IReadOnlyList<string> ExtraSupportHeadings { get; init; } = [];
 
+        /// <summary>
+        /// 見出しに頼らず、アバターの行（URLか名前だけ）が続く一覧を対応とみなす。0なら使わない。
+        /// 値は「何行続いたら一覧とみなすか」。クレジットは1〜3体のことが多いので、閾値で分ける。
+        /// </summary>
+        public int ListRun { get; init; }
+
+        /// <summary>「〇〇をベースに制作」「〇〇基準」「テスター」などの言い回しからも拾う。</summary>
+        public bool Phrases { get; init; }
+
+        /// <summary>
+        /// 素体経由。アバター名の「#MARUBODY」「（えも研素体）」「+Head」から素体の仲間を作り、
+        /// 商品のタグや対応節に素体名が出たら仲間全員へ広げる。
+        /// </summary>
+        public bool BaseInference { get; init; }
+
         public static ProposalOptions Exact { get; } = new() { ExactMatch = true, DeriveAliases = true };
     }
 
@@ -261,12 +293,16 @@ namespace AvatarEvalBench
             options.ExtraSupportHeadings.Count > 0
                 ? options.ExtraSupportHeadings.Contains("検索用") ? "見出し語追加（検索用も）" : "見出し語追加"
                 : null,
+            options.ListRun > 0 ? $"一覧{options.ListRun}行" : null,
+            options.Phrases ? "言い回し" : null,
+            options.BaseInference ? "素体" : null,
             options.ExcludeUnconfirmed ? "要確認除外" : null,
         }.Where(part => part is not null));
 
         public Task<Dictionary<string, HashSet<string>>> RunAsync(EvalContext context)
         {
             var names = NameTable.Build(context.Registry, options.DeriveAliases);
+            var bases = options.BaseInference ? BaseTable.Build(context.Registry) : null;
             var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
             foreach (var item in context.Items.Values)
@@ -305,6 +341,25 @@ namespace AvatarEvalBench
                 if (options.PlainDescription)
                 {
                     found.UnionWith(PlainDescription.SupportedIds(item, names));
+                }
+
+                if (options.ListRun > 0 || options.Phrases)
+                {
+                    var sections = TextSections.Of(item, context.HtmlOf(item.Id));
+                    if (options.ListRun > 0)
+                    {
+                        found.UnionWith(ListRule.SupportedIds(sections, names, options.ListRun));
+                    }
+
+                    if (options.Phrases)
+                    {
+                        found.UnionWith(PhraseRule.SupportedIds(sections, names));
+                    }
+                }
+
+                if (options.BaseInference)
+                {
+                    found.UnionWith(bases!.Expand(item, context.HtmlOf(item.Id), found));
                 }
 
                 found.Remove(item.Id);
@@ -508,6 +563,281 @@ namespace AvatarEvalBench
         }
     }
 
+    /// <summary>説明文を「見出し → 行」に分けたもの。見出しの無い前置きと平文の説明文も並べる。</summary>
+    public sealed record TextSection(string Heading, IReadOnlyList<string> Lines);
+
+    public static class TextSections
+    {
+        private static readonly Regex Section = new("<h2[^>]*>(?<heading>[\\s\\S]*?)</h2>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        public static List<TextSection> Of(ItemRecord item, string? html)
+        {
+            var sections = new List<TextSection>();
+            if (!string.IsNullOrEmpty(html))
+            {
+                var heading = "(見出しより前)";
+                var last = 0;
+                foreach (Match match in Section.Matches(html))
+                {
+                    sections.Add(new TextSection(heading, LinesOf(html[last..match.Index])));
+                    heading = Plain(match.Groups["heading"].Value).Trim();
+                    last = match.Index + match.Length;
+                }
+
+                sections.Add(new TextSection(heading, LinesOf(html[last..])));
+            }
+
+            sections.Add(new TextSection("(平文)", (item.Booth.Description ?? string.Empty).Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList()));
+            return sections;
+        }
+
+        private static List<string> LinesOf(string html)
+            => Plain(Regex.Replace(html, @"<br\s*/?>|</(p|div|li)>", "\n", RegexOptions.IgnoreCase))
+                .Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList();
+
+        private static string Plain(string html) => System.Net.WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]+>", " "));
+
+        /// <summary>クレジット・サムネ・使用素材の見出し。ここの一覧は対応の宣言ではない。</summary>
+        public static bool IsCreditHeading(string heading)
+            => Regex.IsMatch(heading, "クレジット|credit|サムネ|使用|お借り|撮影|着用|協力|素材|thanks|規約|更新", RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>
+    /// アバターの行が続く一覧。行は「URLがアバターを指す」か「装飾を落とすとアバター名だけ」のもの。
+    /// 間に名前だけの行（『ルミナ』 LUMINA の次の行にURL）を挟む形があるので、2行までの隙間は続きとみなす。
+    /// </summary>
+    public static class ListRule
+    {
+        private static readonly Regex Url = new(@"booth\.pm/(?:[a-z]{2}/)?items/(\d+)", RegexOptions.Compiled);
+
+        public static IEnumerable<string> SupportedIds(List<TextSection> sections, NameTable names, int minRun)
+        {
+            foreach (var section in sections.Where(section => !TextSections.IsCreditHeading(section.Heading)))
+            {
+                var run = new List<string>();
+                var gap = 0;
+
+                foreach (var line in section.Lines)
+                {
+                    var ids = AvatarsOnLine(line, names).ToList();
+                    if (ids.Count > 0)
+                    {
+                        run.AddRange(ids);
+                        gap = 0;
+                        continue;
+                    }
+
+                    // クレジットの小見出しが一覧の途中に来たら、そこで切る
+                    if (TextSections.IsCreditHeading(line) && line.Length <= 30)
+                    {
+                        foreach (var id in Flush(run, minRun)) { yield return id; }
+                        gap = 0;
+                        continue;
+                    }
+
+                    if (++gap > 2)
+                    {
+                        foreach (var id in Flush(run, minRun)) { yield return id; }
+                        gap = 0;
+                    }
+                }
+
+                foreach (var id in Flush(run, minRun)) { yield return id; }
+            }
+        }
+
+        private static List<string> Flush(List<string> run, int minRun)
+        {
+            var result = run.Distinct(StringComparer.Ordinal).Count() >= minRun ? run.Distinct(StringComparer.Ordinal).ToList() : [];
+            run.Clear();
+            return result;
+        }
+
+        private static IEnumerable<string> AvatarsOnLine(string line, NameTable names)
+        {
+            var urls = Url.Matches(line).Select(match => match.Groups[1].Value).Where(names.IsAvatar).ToList();
+            if (urls.Count > 0)
+            {
+                return urls;
+            }
+
+            // 名前だけの行：「-マヌカ」「🖤 Airi」「『ルミナ』 LUMINA」。装飾と読み仮名を落として完全一致で見る
+            // 絵文字は2つの UTF-16 単位でできている。記号を1つずつ並べた文字クラスで落とすと
+            // 片方だけが残り、正規化で例外になる。「文字でも数字でもないもの」をまとめて落とす
+            var bare = Regex.Replace(line, @"^[^\p{L}\p{N}『「(（+]+", string.Empty).Trim();
+            if (bare.Length is 0 or > 40)
+            {
+                return [];
+            }
+
+            foreach (var part in Regex.Split(bare, @"\s+|[/／]"))
+            {
+                var hits = names.MatchTag(part.Trim('『', '』', '「', '」', '(', ')', '（', '）')).ToList();
+                if (hits.Count > 0)
+                {
+                    return hits;
+                }
+            }
+
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 言い回し。アバター名を含む行が、作った前提・合わせた先・確かめた先を述べているなら対応とみなす。
+    /// 否定（非対応・対応しておりません・以外）とクレジットの見出しの下は拾わない。
+    /// </summary>
+    public static class PhraseRule
+    {
+        private static readonly Regex Positive = new(
+            "をベースに|ベースに制作|基準で|基準に|に合わせて|に合わせた|専用|用に調整|用に作|用にも作|テスター|確認して|確認済|試験的に追加|対応追加|対応しました|プリセット",
+            RegexOptions.Compiled);
+
+        private static readonly Regex Negative = new("非対応|対応しておりません|対応していません|以外|同梱されておりません|付属しません|含まれません", RegexOptions.Compiled);
+
+        public static IEnumerable<string> SupportedIds(List<TextSection> sections, NameTable names)
+        {
+            foreach (var section in sections.Where(section => !TextSections.IsCreditHeading(section.Heading)))
+            {
+                // 見出しそのものが言い回しを含む（「汎用版テスター確認していただいたアバター」）なら、その下の行の名前を拾う
+                var headingSays = Positive.IsMatch(section.Heading) && !Negative.IsMatch(section.Heading);
+
+                foreach (var line in section.Lines)
+                {
+                    if (Negative.IsMatch(line))
+                    {
+                        continue;
+                    }
+
+                    if (headingSays || Positive.IsMatch(line))
+                    {
+                        foreach (var id in names.MatchInside(line))
+                        {
+                            yield return id;
+                        }
+
+                        // 「しなの・しお・ショコラ」のように区切って並べた短い名前は MatchInside では長い名前に負けるので、区切って引く
+                        foreach (var part in Regex.Split(line, "[・、,，/／\\s]+"))
+                        {
+                            foreach (var id in names.MatchTag(part))
+                            {
+                                yield return id;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 素体の仲間。登録簿のアバター名・別名から「#MARUBODY」「（えも研素体）」「+Head」を読み、
+    /// 同じ素体名を持つアバターを1つの組にする。商品側はタグ・対応節の行に素体名が出たら組全体へ広げる。
+    /// </summary>
+    public sealed class BaseTable
+    {
+        private readonly Dictionary<string, HashSet<string>> _members = new(StringComparer.Ordinal);
+
+        public static BaseTable Build(AvatarRegistry registry)
+        {
+            var table = new BaseTable();
+            foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
+            {
+                var text = string.Join(' ', new[] { entry.BoothName, entry.DisplayName }.Concat(entry.Aliases.Select(alias => alias.Text)));
+                foreach (var key in KeysIn(text).Append(entry.BaseName).Where(key => !string.IsNullOrEmpty(key)))
+                {
+                    table.Add(Key(key!), entry.ItemId);
+                }
+            }
+
+            return table;
+        }
+
+        private void Add(string key, string id)
+        {
+            if (!_members.TryGetValue(key, out var set))
+            {
+                set = new HashSet<string>(StringComparer.Ordinal);
+                _members[key] = set;
+            }
+
+            set.Add(id);
+        }
+
+        private static IEnumerable<string> KeysIn(string text)
+        {
+            foreach (Match match in Regex.Matches(text, @"#([A-Za-z0-9_]*BODY)\b", RegexOptions.IgnoreCase))
+            {
+                yield return match.Groups[1].Value;
+            }
+
+            foreach (Match match in Regex.Matches(text, @"[（(]([^（()）]{1,12}?)(共通素体|素体)[）)]"))
+            {
+                yield return match.Groups[1].Value;
+            }
+
+            if (Regex.IsMatch(text, @"\+\s?Head|PlusHead", RegexOptions.IgnoreCase))
+            {
+                yield return "+Head";
+            }
+        }
+
+        /// <summary>素体名の比較用。「MARUBODY 2.0」「まるぼでぃ素体」「+head素体アバター」を同じにする。</summary>
+        public static string Key(string text)
+        {
+            var normalized = AvatarText.Normalize(text);
+            normalized = Regex.Replace(normalized, "(共通素体|素体アバター|素体|対応|用|アバター)$", string.Empty);
+            normalized = Regex.Replace(normalized, "[0-9]+$", string.Empty);
+            return normalized switch
+            {
+                "plushead" or "head" => "+head",
+                "まるぼでぃ" => "marubody",
+                _ => normalized,
+            };
+        }
+
+        /// <summary>
+        /// この商品が素体を名指ししていれば、その素体の仲間を返す。
+        /// 名指しとみなすのは、タグ・種類名と、対応節（見出しに「対応」）の行。
+        /// 素体の仲間が1体しかいない（＝素体名が実はアバター名）ものは広げない。
+        /// </summary>
+        public IEnumerable<string> Expand(ItemRecord item, string? html, IReadOnlySet<string> already)
+        {
+            var mentions = new List<string>(item.Booth.Tags);
+            mentions.AddRange(item.Booth.Variations.Select(variation => variation.Name ?? string.Empty));
+            foreach (var section in TextSections.Of(item, html).Where(section => section.Heading.Contains("対応", StringComparison.Ordinal)))
+            {
+                mentions.AddRange(section.Lines);
+            }
+
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var mention in mentions)
+            {
+                var whole = Key(mention);
+                if (_members.ContainsKey(whole))
+                {
+                    keys.Add(whole);
+                }
+
+                foreach (var key in KeysIn(mention))
+                {
+                    keys.Add(Key(key));
+                }
+            }
+
+            foreach (var key in keys)
+            {
+                if (_members.TryGetValue(key, out var members) && members.Count >= 2)
+                {
+                    foreach (var id in members.Where(id => !already.Contains(id)))
+                    {
+                        yield return id;
+                    }
+                }
+            }
+        }
+    }
+
     /// <summary>汎用品の手掛かり（正規表現）。案A6の出発点。</summary>
     public static class UniversalRule
     {
@@ -533,6 +863,8 @@ namespace AvatarEvalBench
         public int FalseNegative { get; private set; }
 
         private readonly List<(string Item, string Avatar, string Kind)> _errors = [];
+
+        public IReadOnlyList<(string Item, string Avatar, string Kind)> Errors => _errors;
 
         public double Precision => TruePositive + FalseReference + FalseWrong + FalseUnlabeled == 0
             ? 0
