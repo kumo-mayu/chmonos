@@ -9,7 +9,12 @@
 //
 // 類義語辞書のファイルと試験データ（第三者のライブラリ）はリポジトリに入れない。通信はしない。
 //
-// 使い方: ThesaurusBridgeProbe <store\items> <類義語辞書のフォルダ>
+// 使い方: ThesaurusBridgeProbe <store\items> <類義語辞書のフォルダ> [<書き出し先.tsv>]
+//
+// 書き出し先を渡すと、推しの形（日本語＝類義語2つ、ローマ字・英語＝橋渡し→類義語2つ）で
+// 新しく当たった商品を1行ずつ書く（打った語・どの道で広がったか・広がった語・商品ID・商品名）。
+// 人が「探している物か」を付けて、関係の無い物がどれだけ混ざるかを数えるため（§9）。
+// 商品名が入るので、書き出し先はリポジトリの外にする。
 
 using System.Globalization;
 using System.IO.Compression;
@@ -168,6 +173,69 @@ Console.WriteLine($"商品 {items.Count} 件／Sudachi の語 {sudachiOf.Count}�
 
 Measure("日本語で打った語", japaneseProbes, japanese);
 Measure("ローマ字・英語で打った語", latinProbes, latin);
+
+if (args.Length >= 3)
+{
+    Dump(args[2]);
+}
+
+// 推しの形で新しく当たった商品を、どの道で広がったかと一緒に1行ずつ書く。
+// 同じ打った語で同じ商品が何度も当たるときは、最初に当たった1行だけにする（数え直さない）
+void Dump(string path)
+{
+    var names = Directory.EnumerateFiles(itemsDir, "*.json")
+        .Where(file => Path.GetFileNameWithoutExtension(file).All(char.IsAsciiDigit))
+        .ToDictionary(Path.GetFileName, file =>
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(file));
+            return doc.RootElement.TryGetProperty("booth", out var booth) && booth.TryGetProperty("name", out var name)
+                ? name.GetString() ?? string.Empty
+                : string.Empty;
+        });
+
+    IEnumerable<(string Route, string Word)> Routes(string probe, bool isLatin)
+    {
+        if (!isLatin)
+        {
+            foreach (var word in Sudachi(probe).Where(LongEnough)) yield return ("Sudachi", word);
+            foreach (var word in WordNet(probe).Where(LongEnough)) yield return ("WordNet", word);
+            yield break;
+        }
+
+        foreach (var bridged in Bridge(probe).Distinct())
+        {
+            yield return ("橋渡し", bridged);
+            foreach (var word in Sudachi(bridged).Where(LongEnough)) yield return ("橋渡し→Sudachi", word);
+            foreach (var word in WordNet(bridged).Where(LongEnough)) yield return ("橋渡し→WordNet", word);
+        }
+    }
+
+    using var writer = new StreamWriter(path, false, new UTF8Encoding(true));
+    writer.WriteLine("打った語\t道\t広がった語\t商品ID\t商品名\t探している物か");
+    var rows = 0;
+    foreach (var (probes, isLatin) in new[] { (japaneseProbes, false), (latinProbes, true) })
+    {
+        foreach (var probe in probes)
+        {
+            var seen = Hits(probe);
+            foreach (var (route, word) in Routes(probe, isLatin))
+            {
+                if (string.Equals(word, probe, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                foreach (var id in Hits(word).Where(seen.Add))
+                {
+                    writer.WriteLine($"{probe}\t{route}\t{word}\t{Path.GetFileNameWithoutExtension(id)}\t{names.GetValueOrDefault(id)}\t");
+                    rows++;
+                }
+            }
+        }
+    }
+
+    Console.WriteLine($"書き出した: {path}（{rows} 行）");
+}
 
 void Measure(string title, string[] probes, (string Name, Func<string, IEnumerable<string>> Expand)[] forms)
 {
