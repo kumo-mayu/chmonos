@@ -100,6 +100,31 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ショートカット（#43）。割り当ては利用者が変えられる（ユーザ判断） -->
+                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="ショートカット" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Text="欄を選んでキーを押すと、そのキーが割り当てられます。Backspace で外せます。文字の欄にいるときは、文字を打つ・カーソルを動かすキー（矢印・Home・End など）の割り当ては働きません。" />
+                        <ItemsControl ItemsSource="{Binding ShortcutRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding Label}" Style="{StaticResource RowLabel}" Width="220" />
+                                        <TextBox Width="170" Height="28" IsReadOnly="True" IsReadOnlyCaretVisible="False"
+                                                 VerticalContentAlignment="Center" Padding="8,0" Cursor="Hand"
+                                                 Tag="shortcut-capture" PreviewKeyDown="OnShortcutKeyDown"
+                                                 Text="{Binding DisplayText, Mode=OneWay}"
+                                                 ToolTip="ここを選んで、割り当てたいキーを押してください" />
+                                        <Button Content="既定に戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" Command="{Binding ResetCommand}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <!-- 取り込み元 -->
                 <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
                     <StackPanel>

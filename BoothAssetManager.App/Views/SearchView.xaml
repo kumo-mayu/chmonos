@@ -644,7 +644,7 @@
                     <Border BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6"
                             Height="34" HorizontalAlignment="Stretch" Background="White">
                         <Grid>
-                            <TextBox Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                            <TextBox x:Name="QueryBox" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0"
                                      FontSize="13" Background="Transparent" />
                             <TextBlock Text="商品名・ショップ・メモ・タグから探す" IsHitTestVisible="False"

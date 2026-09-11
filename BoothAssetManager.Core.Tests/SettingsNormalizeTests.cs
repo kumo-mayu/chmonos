@@ -23,6 +23,21 @@ public sealed class SettingsNormalizeTests
         => Assert.Equal(expected, new AppSettings { FetchIntervalMs = saved }.Normalized().FetchIntervalMs);
 
     [Fact]
+    public void ショートカットの既定はユーザが決めた4つ()
+    {
+        var shortcuts = new AppSettings().Shortcuts;
+
+        Assert.Equal("Ctrl+Enter", shortcuts.SaveAndNext);
+        Assert.Equal("Ctrl+Right", shortcuts.Skip);
+        Assert.Equal("Ctrl+F", shortcuts.FocusSearch);
+        Assert.Equal("Alt+Left", shortcuts.Back);
+    }
+
+    [Fact]
+    public void ショートカットが消えた設定は既定に戻す()
+        => Assert.Equal(new ShortcutSettings(), new AppSettings { Shortcuts = null! }.Normalized().Shortcuts);
+
+    [Fact]
     public void 範囲内なら他の項目も含めてそのまま返す()
     {
         var settings = new AppSettings { FetchIntervalMs = 2000, ImageMaxEdgePixels = 512 };

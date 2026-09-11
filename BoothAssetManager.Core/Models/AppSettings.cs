@@ -135,9 +135,28 @@ public sealed record AppSettings
     /// <summary>
     /// 読み込んだ設定を約束の範囲に戻す。以前の版で1.5秒より短く保存された設定もここで直る。
     /// </summary>
-    public AppSettings Normalized() => FetchIntervalMs >= MinFetchIntervalMs
-        ? this
-        : this with { FetchIntervalMs = MinFetchIntervalMs };
+    public AppSettings Normalized()
+    {
+        var result = this;
+        if (result.FetchIntervalMs < MinFetchIntervalMs)
+        {
+            result = result with { FetchIntervalMs = MinFetchIntervalMs };
+        }
+
+        // 手で消した・壊れた settings.json でショートカットが丸ごと null になっていたら既定に戻す
+        if (result.Shortcuts is null)
+        {
+            result = result with { Shortcuts = new ShortcutSettings() };
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// ショートカットの割り当て（#43）。設定画面で変えられる（ユーザ判断）。
+    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+→、検索欄へ＝Ctrl+F、戻る＝Alt+←。
+    /// </summary>
+    public ShortcutSettings Shortcuts { get; init; } = new();
 
     /// <summary>
     /// 429を受けたときに自動で広げる間隔の上限（ミリ秒）。
@@ -279,6 +298,28 @@ public sealed record AppSettings
     /// 復元時に、今あるモニタのどれとも重ならなければ捨てて中央に開く。
     /// </summary>
     public WindowPlacement? Window { get; init; }
+}
+
+/// <summary>
+/// ショートカットの割り当て。**キーの書き方は人が読める文字で持つ**（"Ctrl+Enter"・"Alt+Left"）。
+/// settings.json を開いて直せるようにするため。空文字は「割り当てなし」。
+/// </summary>
+public sealed record ShortcutSettings
+{
+    /// <summary>編集画面の「保存して次へ」。</summary>
+    public string SaveAndNext { get; init; } = "Ctrl+Enter";
+
+    /// <summary>
+    /// 編集画面の「スキップ」。**文字の欄では働かない**——Ctrl+→ は文字の欄では1語ずつ動く操作で、
+    /// 編集画面ではたいてい文字の欄にいるため、横取りすると打ちにくくなる。
+    /// </summary>
+    public string Skip { get; init; } = "Ctrl+Right";
+
+    /// <summary>検索画面を出して検索欄へ。</summary>
+    public string FocusSearch { get; init; } = "Ctrl+F";
+
+    /// <summary>その画面の「戻る」（編集画面では「前へ」）。</summary>
+    public string Back { get; init; } = "Alt+Left";
 }
 
 /// <summary>ウィンドウの位置・大きさ・最大化。</summary>

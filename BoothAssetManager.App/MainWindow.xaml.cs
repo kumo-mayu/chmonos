@@ -267,6 +267,80 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// ショートカット（#43）。割り当ては設定から読む（設定画面で変えられる）。
+    ///
+    /// **文字の欄にいるときは、打つ・カーソルを動かす操作を横取りしない。**
+    /// Ctrl も Alt も無いキーは文字を打つ操作で、矢印・Home・End はカーソルの移動なので、
+    /// そういう割り当てはその欄の中では働かせない。
+    /// 割り当てを打ち込んでいる欄では何もしない——Ctrl+F を割り当てようとして検索へ飛ばないため。
+    /// </summary>
+    private bool TryShortcut(MainViewModel main, System.Windows.Input.KeyEventArgs e)
+    {
+        var focused = System.Windows.Input.Keyboard.FocusedElement;
+        if (focused is FrameworkElement { Tag: Views.SettingsView.ShortcutCaptureTag })
+        {
+            return false;
+        }
+
+        var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+        var modifiers = System.Windows.Input.Keyboard.Modifiers;
+        var inText = focused is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox;
+
+        foreach (var action in Enum.GetValues<Services.ShortcutAction>())
+        {
+            if (Services.Shortcuts.Parse(Services.Shortcuts.GestureOf(main.Shortcuts, action)) is not { } gesture
+                || gesture.Key != key
+                || gesture.Modifiers != modifiers)
+            {
+                continue;
+            }
+
+            var typing = (modifiers & (System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Alt)) == 0;
+            if (inText && (typing || Services.Shortcuts.IsTextEditingKey(key)))
+            {
+                return false;
+            }
+
+            if (!main.RunShortcut(action))
+            {
+                return false;
+            }
+
+            e.Handled = true;
+            if (action == Services.ShortcutAction.FocusSearch)
+            {
+                // 検索画面は差し替えた直後にはまだ組み上がっていない。組み上がってから欄へ入る
+                Dispatcher.BeginInvoke(
+                    () => FindDescendant<Views.SearchView>(this)?.FocusQuery(),
+                    System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is T found)
+            {
+                return found;
+            }
+
+            if (FindDescendant<T>(child) is { } deeper)
+            {
+                return deeper;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// 貼り付けもドロップと同じ扱い。マウスだけで完結させたいならドロップ、
     /// キーボードが使えるなら貼り付けの方が速い。
     ///
@@ -275,6 +349,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (DataContext is MainViewModel shortcutMain && TryShortcut(shortcutMain, e))
+        {
+            return;
+        }
+
         if (DataContext is MainViewModel current && TryMoveGallery(current, e))
         {
             return;

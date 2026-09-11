@@ -29,6 +29,29 @@ public sealed class ThumbnailRoleOption
 }
 
 /// <summary>取り込み元フォルダの1行。</summary>
+/// <summary>ショートカット1件の割り当て（#43）。</summary>
+public sealed class ShortcutRow : ViewModelBase
+{
+    public required BoothAssetManager.App.Services.ShortcutAction Action { get; init; }
+
+    public required string Label { get; init; }
+
+    /// <summary>設定に書く形（"Ctrl+Enter"）。空は割り当てなし。</summary>
+    public string Gesture { get; private set; } = string.Empty;
+
+    /// <summary>欄に見せる形（"Ctrl + →"）。</summary>
+    public string DisplayText => BoothAssetManager.App.Services.Shortcuts.Display(Gesture);
+
+    public RelayCommand? ResetCommand { get; set; }
+
+    public void SetGesture(string gesture)
+    {
+        Gesture = gesture;
+        OnPropertyChanged(nameof(Gesture));
+        OnPropertyChanged(nameof(DisplayText));
+    }
+}
+
 public sealed class ImportFolderRow
 {
     public required string Path { get; init; }
@@ -117,6 +140,13 @@ public sealed class SettingsViewModel : ViewModelBase
         _saveModificationImagesAtOriginalSize = settings.SaveModificationImagesAtOriginalSize;
         _shopBannerRecheckDays = settings.ShopBannerRecheckDays;
         _avatarDetectRecheckDays = settings.AvatarDetectRecheckDays;
+
+        foreach (var action in Enum.GetValues<Services.ShortcutAction>())
+        {
+            ShortcutRows.Add(CreateShortcutRow(
+                action, Services.Shortcuts.GestureOf(settings.Shortcuts ?? new ShortcutSettings(), action)));
+        }
+
         _suppressSave = false;
 
         _ = LoadAsync();
@@ -132,6 +162,41 @@ public sealed class SettingsViewModel : ViewModelBase
     public RelayCommand RestartCommand { get; }
 
     public ObservableCollection<ImportFolderRow> Folders { get; } = [];
+
+    /// <summary>ショートカットの割り当て（#43）。1操作1行。</summary>
+    public ObservableCollection<ShortcutRow> ShortcutRows { get; } = [];
+
+    private ShortcutRow CreateShortcutRow(Services.ShortcutAction action, string gesture)
+    {
+        var row = new ShortcutRow { Action = action, Label = Services.Shortcuts.ActionLabel(action) };
+        row.SetGesture(gesture);
+        row.ResetCommand = new RelayCommand(() =>
+            AssignShortcut(row, Services.Shortcuts.GestureOf(new ShortcutSettings(), action)));
+        return row;
+    }
+
+    /// <summary>
+    /// 割り当てる。**同じキーが別の操作に付いていたら、そちらを外して知らせる。**
+    /// 黙って2つに同じキーを残すと、押したときにどちらが動くか分からない。
+    /// </summary>
+    public void AssignShortcut(ShortcutRow row, string gesture)
+    {
+        if (gesture.Length > 0)
+        {
+            foreach (var other in ShortcutRows.Where(entry => !ReferenceEquals(entry, row)
+                         && string.Equals(entry.Gesture, gesture, StringComparison.OrdinalIgnoreCase)))
+            {
+                other.SetGesture(string.Empty);
+                Status = $"「{other.Label}」の割り当てを外しました（同じキーだったため）。";
+            }
+        }
+
+        row.SetGesture(gesture);
+        Save();
+    }
+
+    private ShortcutSettings BuildShortcuts()
+        => ShortcutRows.Aggregate(new ShortcutSettings(), (settings, row) => Services.Shortcuts.With(settings, row.Action, row.Gesture));
 
     /// <summary>
     /// 監視対象フォルダ。取り込み元（履歴）とは意味が違うので別に並べる。
@@ -660,6 +725,7 @@ public sealed class SettingsViewModel : ViewModelBase
             ModificationImageMaxEdgePixels = ModificationImageMaxEdgePixels,
             SaveModificationImagesAtOriginalSize = SaveModificationImagesAtOriginalSize,
             ImportFolders = Folders.Select(row => row.Path).ToList(),
+            Shortcuts = BuildShortcuts(),
         };
 
         _ = SaveAsync(updated);

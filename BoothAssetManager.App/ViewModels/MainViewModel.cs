@@ -493,6 +493,49 @@ public sealed class MainViewModel : ViewModelBase
         CurrentViewModel = Search;
     }
 
+    /// <summary>今のショートカットの割り当て（#43）。設定画面で保存するとすぐ変わる。</summary>
+    public ShortcutSettings Shortcuts => _services.Settings.Shortcuts ?? new ShortcutSettings();
+
+    /// <summary>
+    /// ショートカットの操作を今の画面で行う。その画面に無い操作・今は押せない操作なら false
+    /// （キーは他へ流れる。Ctrl+Enter が保存できないときは、欄の改行として働く）。
+    /// </summary>
+    public bool RunShortcut(ShortcutAction action)
+    {
+        switch (action)
+        {
+            case ShortcutAction.SaveAndNext when CurrentViewModel is EditViewModel edit:
+                return Run(edit.SaveAndNextCommand);
+            case ShortcutAction.Skip when CurrentViewModel is EditViewModel edit:
+                return Run(edit.SkipCommand);
+            case ShortcutAction.FocusSearch:
+                ShowSearch();
+                return true;
+            case ShortcutAction.Back:
+                return CurrentViewModel switch
+                {
+                    ItemViewModel item => Run(item.BackCommand),
+                    ShopViewModel shop => Run(shop.BackCommand),
+                    ModificationViewModel modification => Run(modification.BackCommand),
+                    EditViewModel edit => Run(edit.BackCommand),
+                    _ => false,
+                };
+            default:
+                return false;
+        }
+
+        static bool Run(RelayCommand command)
+        {
+            if (!command.CanExecute(null))
+            {
+                return false;
+            }
+
+            command.Execute(null);
+            return true;
+        }
+    }
+
     /// <summary>このショップの商品を検索画面で見せる。ショップ画面から検索の絞り込みを使うための入口（#55）。</summary>
     public void ShowItemsOfShop(string shopKey, string shopName)
     {

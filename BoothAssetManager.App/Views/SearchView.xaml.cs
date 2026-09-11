@@ -12,6 +12,13 @@ public partial class SearchView : UserControl
         InitializeComponent();
     }
 
+    /// <summary>検索欄へ入り、今の文字を選んだ状態にする（ショートカット「検索欄へ」#43）。そのまま打てば置き換わる。</summary>
+    public void FocusQuery()
+    {
+        QueryBox.Focus();
+        QueryBox.SelectAll();
+    }
+
     /// <summary>
     /// 表示幅が変わったら列数を決め直す。
     /// 仮想化のために結果を行に切っているので、折り返し位置はこちらで計算する必要がある。
