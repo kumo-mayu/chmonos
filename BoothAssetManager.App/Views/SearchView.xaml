@@ -68,19 +68,43 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <!--
+            絞り込みを畳む／開くつまみ。パネルと結果の境の線に半分はみ出させて置く（U3・ユーザ判断）。
+            見出しの行で「条件をクリア」の右隣にあった頃は押し間違えやすかった。
+            開いても畳んでも同じ高さに残るので、開け閉めでつまみの場所が変わらない
+        -->
+        <Border Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,13,-13,0"
+                Width="26" Height="26" CornerRadius="13" Panel.ZIndex="1"
+                Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1">
+            <Button Command="{Binding ToggleFilterPanelCommand}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource PanelToggle}">
+                        <Setter Property="Content" Value="{StaticResource IconCollapse}" />
+                        <Setter Property="ToolTip" Value="絞り込みを畳む" />
+                        <Setter Property="AutomationProperties.Name" Value="絞り込みを畳む" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFilterPanelCollapsed}" Value="True">
+                                <Setter Property="Content" Value="{StaticResource IconExpand}" />
+                                <Setter Property="ToolTip" Value="絞り込みを開く" />
+                                <Setter Property="AutomationProperties.Name" Value="絞り込みを開く" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </Border>
+
         <!-- 絞り込み -->
         <Border Grid.Column="0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
           <Grid>
             <!--
                 畳んだ姿。条件は外れていないので、効いている数を出しておく。
                 数が見えていないと「なぜか商品が少ない」の原因を探す場所が無くなる。
+                開くつまみは境の線の上（上の Border）にあるので、その下から並べる
             -->
             <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <Button DockPanel.Dock="Top" Style="{StaticResource PanelToggle}" Content="{StaticResource IconExpand}"
-                        Command="{Binding ToggleFilterPanelCommand}" Margin="0,14,0,0" ToolTip="絞り込みを開く"
-                        AutomationProperties.Name="絞り込みを開く" />
                 <Border DockPanel.Dock="Top" Background="{StaticResource Accent}" CornerRadius="8" Padding="5,1"
-                        Margin="0,8,0,0" HorizontalAlignment="Center" ToolTip="{Binding FilterSummary}"
+                        Margin="0,48,0,0" HorizontalAlignment="Center" ToolTip="{Binding FilterSummary}"
                         Visibility="{Binding ActiveFilterCount, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
                     <TextBlock Text="{Binding ActiveFilterCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
                 </Border>
@@ -94,22 +118,20 @@
 
             <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <Border DockPanel.Dock="Top" Height="52" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
-                    <Grid Margin="16,0,9,0">
+                    <!-- 右の余白は、境の線に半分はみ出したつまみ（13px）から「条件をクリア」をはっきり離すため -->
+                    <Grid Margin="16,0,40,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
+                        <!-- 押す前の条件は検索の履歴に積むので、押し間違えても履歴から戻せる（U3・ユーザ判断） -->
                         <TextBlock Grid.Column="1" Text="条件をクリア" Foreground="{StaticResource Accent}" FontSize="12"
-                                   VerticalAlignment="Center" Margin="0,0,4,0" Cursor="Hand">
+                                   VerticalAlignment="Center" Cursor="Hand">
                             <TextBlock.InputBindings>
                                 <MouseBinding MouseAction="LeftClick" Command="{Binding ClearFiltersCommand}" />
                             </TextBlock.InputBindings>
                         </TextBlock>
-                        <Button Grid.Column="2" Style="{StaticResource PanelToggle}" Content="{StaticResource IconCollapse}"
-                                Command="{Binding ToggleFilterPanelCommand}" ToolTip="絞り込みを畳む"
-                                AutomationProperties.Name="絞り込みを畳む" />
                     </Grid>
                 </Border>
 
@@ -983,27 +1005,6 @@
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
                                                            VerticalAlignment="Center"
                                                            Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <!--
-                                                    お気に入りの星（#70・ユーザ指示「空いている下の方に星のトグル」）。
-                                                    真ん中に置く：左は容量と未所持の襷、右は状態の札で埋まっている。
-                                                    背景を塗るのは、星の字の隙間でも押せるようにするため
-                                                -->
-                                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Padding="8,0"
-                                                        Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
-                                                        MouseLeftButtonUp="OnFavoriteClick">
-                                                    <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#d99a00" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </Border>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                     <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
@@ -1026,21 +1027,45 @@
                                             </Grid>
                                         </Border>
 
-                                        <StackPanel Margin="11,10,11,0">
-                                            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
-                                                       TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <WrapPanel Margin="0,8,0,0">
-                                                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                        BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
-                                                        Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <!-- userTagが長くても2行に折り返さないよう、幅で切る -->
-                                                    <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="#28507f"
-                                                               MaxWidth="150" TextTrimming="CharacterEllipsis" />
-                                                </Border>
-                                            </WrapPanel>
-                                        </StackPanel>
+                                        <!--
+                                            名前とショップ名の欄。お気に入りの星はこの欄の右下の角に置く（U22・ユーザ指示）。
+                                            下の段の真ん中に置いていた頃（#70）は、左右の容量や状態の札が商品ごとに出たり消えたりして
+                                            星の見え方がずれた。この欄の高さはカードの高さで決まるので、角の位置は全カードで同じになる
+                                        -->
+                                        <Grid Margin="11,10,11,0">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
+                                                           TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <WrapPanel Margin="0,8,0,0">
+                                                    <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                            BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
+                                                            Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <!-- userTagが長くても2行に折り返さないよう、幅で切る。右下の星に重ならない幅にする -->
+                                                        <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="#28507f"
+                                                                   MaxWidth="130" TextTrimming="CharacterEllipsis" />
+                                                    </Border>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                            <!-- 背景を塗るのは、星の字の隙間でも押せるようにするため -->
+                                            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,2" Padding="4,0"
+                                                    Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                                    MouseLeftButtonUp="OnFavoriteClick">
+                                                <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#d99a00" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+                                        </Grid>
                                     </DockPanel>
 
                                     <!--

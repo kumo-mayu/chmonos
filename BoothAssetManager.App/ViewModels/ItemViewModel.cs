@@ -494,6 +494,47 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public RelayCommand SetRoleOtherCommand { get; }
 
+    /// <summary>
+    /// お気に入りの星（U21）。以前は検索のカードでしか付けられなかった。
+    /// 保存は検索のカードと同じ道（お気に入りの項目だけを書く）なので、その間の取り込みや検出の書き込みを潰さない。
+    /// </summary>
+    public bool IsFavorite => Item.Local.IsFavorite;
+
+    public string FavoriteGlyph => IsFavorite ? "★" : "☆";
+
+    public string FavoriteTip => IsFavorite ? "お気に入りから外す" : "お気に入りに入れる";
+
+    private RelayCommand? _toggleFavoriteCommand;
+
+    public RelayCommand ToggleFavoriteCommand => _toggleFavoriteCommand ??= new RelayCommand(() => _ = ToggleFavoriteAsync());
+
+    private async Task ToggleFavoriteAsync()
+    {
+        var next = !IsFavorite;
+        SetFavorite(next);
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
+            Item.Id, Item.Local with { IsFavorite = next }, Core.Models.LocalOwners.Favorite));
+
+        if (result is Core.Commands.CommandResult.Failed)
+        {
+            // 書けなかったら戻す。付いたように見えて次に開くと消えている、を起こさない
+            SetFavorite(!next);
+            return;
+        }
+
+        // 検索の一覧は読み込んだ写しを持っている。戻ったときに古い星が出ないよう知らせる
+        _main.Search.NoteFavoriteChanged(Item.Id, next);
+    }
+
+    private void SetFavorite(bool value)
+    {
+        Item = Item with { Local = Item.Local with { IsFavorite = value } };
+        OnPropertyChanged(nameof(IsFavorite));
+        OnPropertyChanged(nameof(FavoriteGlyph));
+        OnPropertyChanged(nameof(FavoriteTip));
+    }
+
     /// <summary>zipの中の <c>.unitypackage</c> をUnityへ送る。</summary>
     public RelayCommand SendToUnityCommand { get; }
 

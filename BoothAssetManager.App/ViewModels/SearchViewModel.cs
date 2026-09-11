@@ -82,7 +82,7 @@ public sealed class SearchViewModel : ViewModelBase
     {
         _services = services;
         _thumbnails = thumbnails;
-        ClearFiltersCommand = new RelayCommand(ClearFilters);
+        ClearFiltersCommand = new RelayCommand(() => _ = ClearFiltersKeepingHistoryAsync());
         AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
         AddBoothTagFilterCommand = new RelayCommand(parameter => AddBoothTagFilter(parameter as string));
         SelectAllCommand = new RelayCommand(SelectAllMatches);
@@ -1723,6 +1723,41 @@ public sealed class SearchViewModel : ViewModelBase
         ClearFilters();
         _missingOnly = true;
         ApplyFilters();
+    }
+
+    /// <summary>
+    /// 「条件をクリア」。消す前の条件を検索の履歴に積んでから消す（U3・ユーザ判断）。
+    ///
+    /// クリアは検索の文字まで全部消し、取り返しがつかない。「元に戻す」は付けず、
+    /// 押し間違えても履歴の欄から1回で戻れるようにする（履歴は商品を開いたときにしか積んでいなかった）。
+    /// </summary>
+    private async Task ClearFiltersKeepingHistoryAsync()
+    {
+        await RecordHistoryAsync();
+        ClearFilters();
+    }
+
+    /// <summary>
+    /// 商品ページで星を変えたことを知る（U21）。一覧は読み込んだ写しを持っているので、
+    /// 知らせないと戻ったときに古い星が出る。一覧ごと読み直さないのは、スクロール位置や並びを崩さないため。
+    /// </summary>
+    public void NoteFavoriteChanged(string itemId, bool isFavorite)
+    {
+        var index = _allItems.FindIndex(item => item.Id == itemId);
+        if (index >= 0)
+        {
+            _allItems[index] = _allItems[index] with { Local = _allItems[index].Local with { IsFavorite = isFavorite } };
+        }
+
+        foreach (var card in _cards.Values.Where(card => card.Item.Id == itemId))
+        {
+            card.IsFavorite = isFavorite;
+        }
+
+        if (ExtraFilters.Any(filter => filter.Kind == ExtraFilterKind.Favorite))
+        {
+            ApplyFilters();
+        }
     }
 
     private void ClearFilters()
