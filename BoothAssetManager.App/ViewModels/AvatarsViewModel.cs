@@ -141,10 +141,17 @@ public sealed class AvatarsViewModel : ViewModelBase
     private string _nameInput = string.Empty;
     private List<AvatarRowViewModel> _all = [];
 
-    public AvatarsViewModel(AppServiceContainer services, MainViewModel main)
+    /// <summary>開いたときに選んでおくアバター。最初の読み込みで1回だけ使う。</summary>
+    private string? _openWith;
+
+    /// <param name="selectItemId">
+    /// 開いたときに選んでおくアバター（商品ページの対応アバターの札から来たとき、U13）。
+    /// </param>
+    public AvatarsViewModel(AppServiceContainer services, MainViewModel main, string? selectItemId = null)
     {
         _services = services;
         _main = main;
+        _openWith = selectItemId;
 
         DetectCommand = new RelayCommand(() => _ = DetectAsync(), () => !IsDetecting);
         SetBaseCommand = new RelayCommand(() => _ = SetBaseAsync());
@@ -403,7 +410,15 @@ public sealed class AvatarsViewModel : ViewModelBase
     public string BaseInput
     {
         get => _baseInput;
-        set => SetField(ref _baseInput, value);
+        set
+        {
+            if (SetField(ref _baseInput, value))
+            {
+                // 打った名前が既にある素体かどうかで、ボタンの文字と置き文字が変わる（U19）
+                OnPropertyChanged(nameof(SetBaseButtonText));
+                OnPropertyChanged(nameof(HasBaseInput));
+            }
+        }
     }
 
     public string AliasInput
@@ -453,6 +468,8 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),
                     nameof(ReferencedByText), nameof(HasReferencedBy),
                     nameof(HasModifications),
+                    nameof(IsOverrideAuto), nameof(IsForcedAvatar), nameof(IsForcedNotAvatar), nameof(AutoJudgementText),
+                    nameof(SetBaseButtonText), nameof(HasBaseInput),
                 })
                 {
                     OnPropertyChanged(name);
@@ -592,6 +609,49 @@ public sealed class AvatarsViewModel : ViewModelBase
         ? $"最終確認 {at:yyyy-MM-dd}"
         : string.Empty;
 
+    // ── アバターかどうか（判定の上書き）の3択（U17）──
+    // 以前はボタンを押すだけで、今どれが効いているかを出していなかった
+
+    public bool IsOverrideAuto => Selected?.Summary.Entry.AvatarOverride is null;
+
+    public bool IsForcedAvatar => Selected?.Summary.Entry.AvatarOverride == true;
+
+    public bool IsForcedNotAvatar => Selected?.Summary.Entry.AvatarOverride == false;
+
+    /// <summary>「自動」を選んだときに何になるかを書く。上書きを外した判定なので、上書き中でも先が読める。</summary>
+    public string AutoJudgementText
+    {
+        get
+        {
+            if (Selected is null)
+            {
+                return "自動";
+            }
+
+            var automatic = Core.Services.AvatarService.IsAvatar(Selected.Summary.Entry with { AvatarOverride = null });
+            return automatic ? "自動（今の判定：アバター）" : "自動（今の判定：アバターではない）";
+        }
+    }
+
+    // ── 共通素体の欄（U19）──
+
+    public bool HasBaseInput => BaseInput.Trim().Length > 0;
+
+    /// <summary>
+    /// 素体の欄のボタン。まだ無い名前を打ったときは、グループが1つ増えることをボタンの文字で言う
+    /// （以前の「設定」は何をするか読めず、新しい名前だと黙ってグループが増えていた）。
+    /// </summary>
+    public string SetBaseButtonText
+    {
+        get
+        {
+            var typed = BaseInput.Trim();
+            return typed.Length == 0 || BaseNames.Any(name => string.Equals(name, typed, StringComparison.CurrentCultureIgnoreCase))
+                ? "この素体に入れる"
+                : $"新しい素体『{typed}』を作って入れる";
+        }
+    }
+
     /// <summary>素体を指定したときに何が起きるかをその場に書く。推定が広がる操作なので。</summary>
     public string SelectedBaseNote
     {
@@ -615,10 +675,23 @@ public sealed class AvatarsViewModel : ViewModelBase
                 return $"「{name}」は衣装の互換を広げない設定です。他のアバター向けの衣装は、素体経由として出ません。";
             }
 
-            var siblings = group.Summary.MemberCount - 1;
-            return siblings <= 0
-                ? $"「{name}」に属しているのはこのアバターだけです。"
-                : $"「{name}」の他の {siblings} 体向けの衣装も、素体経由として一緒に出ます。";
+            // 数ではなく名前で並べる（U19）。「他の 3 体」ではどのアバターか分からず、入れてよいかを判断できない
+            var siblings = _all
+                .Where(row => row.ItemId != Selected.ItemId
+                    && string.Equals(row.Summary.Entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase))
+                .Select(row => row.Name)
+                .ToList();
+
+            if (siblings.Count == 0)
+            {
+                return $"「{name}」に属しているのはこのアバターだけです。";
+            }
+
+            // 多いと1行が長くなりすぎるので8体まで。残りは数で添える
+            const int shown = 8;
+            var names = string.Join("・", siblings.Take(shown));
+            var rest = siblings.Count > shown ? $" ほか {siblings.Count - shown} 体" : string.Empty;
+            return $"「{name}」の他のアバター（{names}{rest}）向けの衣装も、素体経由として一緒に出ます。";
         }
     }
 
@@ -709,7 +782,10 @@ public sealed class AvatarsViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasBases));
         OnPropertyChanged(nameof(IsEmpty));
 
-        Selected = matched.FirstOrDefault(row => row.ItemId == selectedId) ?? matched.FirstOrDefault();
+        // 商品ページの札から来たときは、そのアバターを選んだ状態で開く（U13）。指名は最初の1回だけ
+        var wanted = _openWith ?? selectedId;
+        _openWith = null;
+        Selected = matched.FirstOrDefault(row => row.ItemId == wanted) ?? matched.FirstOrDefault();
     }
 
     private async Task DetectAsync()

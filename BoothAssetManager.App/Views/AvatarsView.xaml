@@ -142,7 +142,11 @@
                                             <TextBlock Text="{Binding SelectedCategoryText}" Style="{StaticResource Caption}"
                                                        Margin="14,0,0,0" />
                                             <TextBlock Text="{Binding SelectedCheckedText}" Style="{StaticResource Caption}"
-                                                       Margin="14,0,0,0" />
+                                                       Margin="14,0,0,0" VerticalAlignment="Center" />
+                                            <!-- 判定の根拠（カテゴリ・最終確認）を疑うときの逃げ道なので、その横に置く（U17） -->
+                                            <Button Content="BOOTHに確認し直す" Style="{StaticResource SmallButton}" Margin="12,0,0,0"
+                                                    Command="{Binding RecheckCommand}"
+                                                    ToolTip="この商品をBOOTHに問い合わせ直し、カテゴリと名前を取り直します。販売終了から戻った物にも使えます。" />
                                         </StackPanel>
 
                                         <!--
@@ -190,23 +194,40 @@
                                 <Border Height="1" Background="{StaticResource Border}" Margin="0,16,0,14" />
 
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding SelectedCountText}" Style="{StaticResource Mono}" FontSize="12" />
-                                    <TextBlock Text="{Binding SelectedOwnedText}" Style="{StaticResource Caption}" Margin="18,0,0,0" />
+                                    <TextBlock Text="{Binding SelectedCountText}" Style="{StaticResource Mono}" FontSize="12"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding SelectedOwnedText}" Style="{StaticResource Caption}" Margin="18,0,0,0"
+                                               VerticalAlignment="Center" />
+                                    <!-- 所有の切り替えは、所有の表示の横（U17）。以前は下の「扱いの指定」に混ざっていた -->
+                                    <Button Content="{Binding OwnedButtonText}" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                            Command="{Binding ToggleOwnedCommand}"
+                                            ToolTip="本体を取り込んでいないアバターや、BOOTH外で入手したものを所有として扱えます。" />
                                 </StackPanel>
 
                                 <!-- どの経路で見つかったか。判定の根拠なので隠さない -->
                                 <TextBlock Text="{Binding SelectedSeenAsText}" Style="{StaticResource Caption}" Margin="0,8,0,0"
                                            TextWrapping="Wrap" />
 
-                                <!-- 共通素体 -->
-                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <!--
+                                    共通素体（U19・ユーザ判断）。以前は見出しと「設定」「外す」だけで、何を入れる欄か・
+                                    入れると何が起きるかが欄のそばに無かった（説明はツールチップと下の別の枠にだけあった）
+                                -->
+                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
+                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620"
+                                           HorizontalAlignment="Left"
+                                           Text="このアバターが他のアバターと同じ体（素体）を使っているとき、その素体の名前を選びます。選ぶと、同じ素体の他のアバター向けの衣装も『素体経由』として対応に出ます。" />
                                 <StackPanel Orientation="Horizontal">
-                                    <ComboBox Width="240" IsEditable="True" ItemsSource="{Binding BaseNames}"
-                                              Text="{Binding BaseInput, UpdateSourceTrigger=PropertyChanged}"
-                                              ToolTip="既にあるグループから選ぶか、新しい名前を入れてください。" />
-                                    <Button Content="設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                    <Grid Width="240">
+                                        <ComboBox IsEditable="True" ItemsSource="{Binding BaseNames}"
+                                                  Text="{Binding BaseInput, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="既にある素体から選ぶか、新しい名前を入れてください。" />
+                                        <TextBlock Text="例：〇〇素体（無ければ空のまま）" Style="{StaticResource Caption}"
+                                                   Margin="8,0,24,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                   Visibility="{Binding HasBaseInput, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                    </Grid>
+                                    <Button Content="{Binding SetBaseButtonText}" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding SetBaseCommand}" />
-                                    <Button Content="外す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                    <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
@@ -332,20 +353,59 @@
                                             VerticalAlignment="Top" Command="{Binding SaveMemoCommand}" />
                                 </StackPanel>
 
-                                <!-- 例外の指定 -->
-                                <TextBlock Text="扱いの指定" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <!--
+                                    アバターかどうか（判定の上書き）。以前の「扱いの指定」は、所有・判定の上書き・
+                                    BOOTHへの問い合わせ直しの3つが1行に混ざり、今どれが効いているかも見えなかった（U17・ユーザ判断）。
+                                    ここは3択だけにし、選ばれている物を太字と強調色で示す。
+                                    所有の切り替えは上の「所有している／していない」の横、
+                                    「BOOTHに確認し直す」は判定の根拠（カテゴリ・最終確認）の横へ移した
+                                -->
+                                <TextBlock Text="アバターかどうか" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="{Binding OwnedButtonText}" Style="{StaticResource SmallButton}"
-                                            Command="{Binding ToggleOwnedCommand}"
-                                            ToolTip="本体を取り込んでいないアバターや、BOOTH外で入手したものを所有として扱えます。" />
-                                    <Button Content="アバターとして扱う" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="true" />
-                                    <Button Content="扱わない" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="false" />
-                                    <Button Content="自動判定に戻す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto" />
-                                    <Button Content="BOOTHに確認し直す" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
-                                            Command="{Binding RecheckCommand}" />
+                                    <Button Content="{Binding AutoJudgementText}" Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"
+                                            ToolTip="カテゴリと、出品者が「対応アバター」に挙げているかで決めます。">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsOverrideAuto}" Value="True">
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="アバターとして扱う" Margin="6,0,0,0"
+                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
+                                            ToolTip="カテゴリで拾えないアバター（販売終了で確かめられない物など）を、アバターとして扱います。">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsForcedAvatar}" Value="True">
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="アバターではない" Margin="6,0,0,0"
+                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
+                                            ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsForcedNotAvatar}" Value="True">
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

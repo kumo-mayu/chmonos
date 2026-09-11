@@ -527,6 +527,25 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         _main.Search.NoteFavoriteChanged(Item.Id, next);
     }
 
+    /// <summary>
+    /// 対応アバターの札から、そのアバターを開く（U13・ユーザ判断）。
+    /// 手元に持っていればその商品ページ（戻るとこの商品へ）、持っていなければアバター画面でそのアバターを選んだ状態。
+    /// 外の BOOTH へは飛ばさない（作者名からショップへ行くのと同じく、アプリの中で完結させる）。
+    /// </summary>
+    private async Task OpenAvatarAsync(string avatarItemId)
+    {
+        var avatar = await _services.Store.Items.LoadAsync(avatarItemId);
+        if (avatar is null)
+        {
+            _main.ShowAvatar(avatarItemId);
+            return;
+        }
+
+        var current = Item;
+        var back = _back;
+        _main.ShowItem(avatar, (Name, () => _main.ShowItem(current, back)));
+    }
+
     private void SetFavorite(bool value)
     {
         Item = Item with { Local = Item.Local with { IsFavorite = value } };
@@ -1180,6 +1199,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 SourceText = SourceLabel(link.Source),
                 IsUnconfirmed = !link.Confirmed,
                 RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId)),
+                OpenCommand = new RelayCommand(() => _ = OpenAvatarAsync(link.AvatarItemId)),
             })
             .ToList();
 
@@ -2274,10 +2294,13 @@ public sealed class AvatarRow
     /// 常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
     /// </summary>
     public string SourceTooltip => IsUnconfirmed
-        ? $"{SourceText}から拾いました（未確認）"
-        : $"{SourceText}から拾いました";
+        ? $"{SourceText}から拾いました（未確認）。押すとこのアバターを開きます"
+        : $"{SourceText}から拾いました。押すとこのアバターを開きます";
 
     /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
     public RelayCommand? RejectCommand { get; init; }
+
+    /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
+    public RelayCommand? OpenCommand { get; init; }
 }
 

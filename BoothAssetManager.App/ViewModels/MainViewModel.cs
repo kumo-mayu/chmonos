@@ -348,6 +348,12 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>アバターの管理。検出や編集で中身が変わるので、開き直した時点で読み直す。</summary>
     public void ShowAvatars() => CurrentViewModel = new AvatarsViewModel(_services, this);
 
+    /// <summary>
+    /// このアバターを選んだ状態でアバター画面を開く（U13）。商品ページの対応アバターの札から、
+    /// 手元に持っていないアバターのときに使う（持っていればその商品ページへ行く）。外の BOOTH へは飛ばさない。
+    /// </summary>
+    public void ShowAvatar(string itemId) => CurrentViewModel = new AvatarsViewModel(_services, this, itemId);
+
     public RelayCommand ShowSettingsCommand { get; }
 
     public bool IsSettingsActive => CurrentViewModel is SettingsViewModel;

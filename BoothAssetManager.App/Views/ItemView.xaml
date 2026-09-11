@@ -623,9 +623,16 @@
                                             出所を常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
                                             名前だけにして、出所はホバーへ回す。
                                         -->
+                                        <!--
+                                            押すとそのアバターを開く（U13）。持っていればその商品ページ、持っていなければ
+                                            アバター画面でそのアバターを選んだ状態。「×」はボタンなので、押しても開かない
+                                        -->
                                         <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                 BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
-                                                ToolTip="{Binding SourceTooltip}">
+                                                ToolTip="{Binding SourceTooltip}" Cursor="Hand">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
+                                            </Border.InputBindings>
                                             <StackPanel Orientation="Horizontal">
                                                 <!--
                                                     推定を確定と同じ顔で出さない、は守る。
