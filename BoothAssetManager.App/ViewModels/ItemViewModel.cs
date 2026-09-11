@@ -497,6 +497,23 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public string EditButtonTip => IsEditLocked ? EditLockText : "分類・タグ・属性などを直す画面を開きます";
 
+    /// <summary>
+    /// 画面内検索（U20）。畳んだ説明の中に一致があれば開いて見せる（ユーザ判断）。
+    /// 畳んだ中身は画面に作られていないので、開かないと探しようがない。開いたものは開いたままにする
+    /// （閉じ直すと、印を付けた場所が消える）
+    /// </summary>
+    public void RevealMatches(string text)
+    {
+        var compare = System.Globalization.CultureInfo.CurrentCulture.CompareInfo;
+        foreach (var section in Sections.Where(section =>
+                     !section.IsOpen && compare.IndexOf(section.Text, text, Views.FindInPage.Options) >= 0))
+        {
+            section.IsOpen = true;
+        }
+
+        OnPropertyChanged(nameof(ToggleAllSectionsText));
+    }
+
     /// <summary>取り込みの③が済んだと主画面から知らされた。塞いでいた操作を開ける。</summary>
     public void RefreshEditLock()
     {

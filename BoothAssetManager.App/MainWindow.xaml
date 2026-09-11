@@ -371,7 +371,27 @@
                 </Grid>
             </Border>
 
-            <ContentControl Content="{Binding CurrentViewModel}" />
+            <!-- 画面内検索（U20）の帯を今の画面の上に重ねるため、同じ枠に置く -->
+            <Grid>
+                <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" />
+                <Border x:Name="FindBar" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,58,24,0" Padding="10,7" CornerRadius="8" Background="{StaticResource Surface}"
+                        BorderBrush="{StaticResource Border}" BorderThickness="1">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.18" />
+                    </Border.Effect>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="FindBox" Width="220" Padding="6,3"
+                                 TextChanged="OnFindTextChanged" PreviewKeyDown="OnFindKeyDown"
+                                 ToolTip="この画面の中の文字を探します。Enterで次、Shift+Enterで前、Escで閉じます。" />
+                        <TextBlock x:Name="FindCount" Style="{StaticResource Caption}" Margin="10,0,8,0" MinWidth="64"
+                                   VerticalAlignment="Center" />
+                        <Button Content="↑" Style="{StaticResource SmallButton}" Click="OnFindPrevious" ToolTip="前の一致" />
+                        <Button Content="↓" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Click="OnFindNext" ToolTip="次の一致" />
+                        <Button Content="×" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnFindClose" ToolTip="閉じる（Esc）" />
+                    </StackPanel>
+                </Border>
+            </Grid>
         </DockPanel>
     </Grid>
 </Window>

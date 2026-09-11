@@ -16,6 +16,8 @@ public partial class MainWindow : Window
         // 常時見張るほどの値ではない（プロセスを数えるだけとはいえ毎秒は無駄）。
         // Unityを開いてこちらへ戻る、が実際の流れなのでここで足りる
         Activated += (_, _) => (DataContext as MainViewModel)?.NoteWindowActivated();
+
+        HookFind();
     }
 
     /// <summary>
@@ -299,6 +301,14 @@ public partial class MainWindow : Window
             if (inText && (typing || Services.Shortcuts.IsTextEditingKey(key)))
             {
                 return false;
+            }
+
+            // U20：検索とショップ以外の画面では、同じキーで画面の中の文字を探す（ユーザ判断）
+            if (action == Services.ShortcutAction.FocusSearch && !UsesSearchBox(main.CurrentViewModel))
+            {
+                e.Handled = true;
+                OpenFind();
+                return true;
             }
 
             if (!main.RunShortcut(action))
