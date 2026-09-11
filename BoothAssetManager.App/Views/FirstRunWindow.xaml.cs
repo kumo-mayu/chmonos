@@ -62,7 +62,8 @@ public partial class FirstRunWindow : Window
             return;
         }
 
-        var picked = dialog.FolderName;
+        // 選んだ場所の中に「BoothAssetManager」を作って使う（ライブラリがある場所ならそのまま）
+        var picked = StoreLocation.RootFor(dialog.FolderName);
 
         // 既に別のライブラリが入っている場所を選んだら、そちらを開くことになる。
         // 黙って混ざるより、選び直す機会を出す
@@ -84,7 +85,11 @@ public partial class FirstRunWindow : Window
 
         _root = picked;
         RootText.Text = picked;
-        Notice.Text = "「はじめる」を押すとこの場所を使います。";
+
+        // 作るのか、そのまま使うのかを押す前に言う
+        Notice.Text = string.Equals(picked, Path.TrimEndingDirectorySeparator(dialog.FolderName), StringComparison.OrdinalIgnoreCase)
+            ? "「はじめる」を押すとこの場所を使います。"
+            : $"選んだ場所の中に「{StoreLocation.FolderName}」フォルダを作って、そこを使います。";
     }
 
     private void OnStart(object sender, RoutedEventArgs e)

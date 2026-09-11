@@ -776,7 +776,9 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
-        var picked = PickFolder();
+        // 初回画面と同じ規則：選んだ場所の中に「BoothAssetManager」を作って使う（ライブラリがある場所ならそのまま）
+        var chosen = PickFolder();
+        var picked = chosen is null ? null : StoreLocation.RootFor(chosen);
         if (picked is null || string.Equals(picked, _services.Paths.Root, StringComparison.OrdinalIgnoreCase))
         {
             return;

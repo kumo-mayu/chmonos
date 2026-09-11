@@ -140,6 +140,26 @@ public static class StoreLocation
             || File.Exists(paths.UserTagsFile);
     }
 
+    /// <summary>保存先を選んだときに、その中に作るフォルダの名前。</summary>
+    public const string FolderName = "BoothAssetManager";
+
+    /// <summary>
+    /// 選んだ場所から、実際に使う保存先を決める。
+    ///
+    /// **選んだ場所そのものではなく、その中の「BoothAssetManager」を使う。**そのまま使うと、
+    /// ドキュメントやドライブの直下を選んだとき、そこに十数個のフォルダとJSONが散らばる。
+    /// 友人は「選んだフォルダの中に1階層作ってくれる」と思って選んでいた。
+    /// 既にライブラリがある場所と、名前が既に「BoothAssetManager」の場所は、そのまま使う。
+    /// </summary>
+    public static string RootFor(string picked)
+    {
+        var trimmed = System.IO.Path.TrimEndingDirectorySeparator(picked);
+        return LooksLikeStore(trimmed)
+            || string.Equals(System.IO.Path.GetFileName(trimmed), FolderName, StringComparison.OrdinalIgnoreCase)
+                ? trimmed
+                : System.IO.Path.Combine(trimmed, FolderName);
+    }
+
     /// <summary>そのフォルダが空か（引越しの提案を出すかの判断に使う）。</summary>
     public static bool IsEmpty(string root)
         => !Directory.Exists(root) || !Directory.EnumerateFileSystemEntries(root).Any();
