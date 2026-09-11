@@ -35,14 +35,26 @@ public sealed class ImagePipeline
 {
     private readonly IBoothClient _client;
     private readonly AppPaths _paths;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
 
     public ImagePipeline(IBoothClient client, AppPaths paths, AppSettings? settings = null)
+        : this(client, paths, SettingsSource.Fixed(settings))
+    {
+    }
+
+    /// <param name="currentSettings">
+    /// 使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。
+    /// 設定画面で長辺や画質を変えたら、次に取る画像から効く。
+    /// </param>
+    public ImagePipeline(IBoothClient client, AppPaths paths, Func<AppSettings> currentSettings)
     {
         _client = client;
         _paths = paths;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
     }
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
 
     /// <summary>
     /// 画像を取る設定になっているか。

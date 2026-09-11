@@ -104,7 +104,7 @@ public interface IAvatarService
 public sealed partial class AvatarService : IAvatarService
 {
     private readonly DataStore _store;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
     private readonly IBoothClient? _client;
 
     /// <summary>
@@ -127,11 +127,20 @@ public sealed partial class AvatarService : IAvatarService
     private const string AvatarCategory = "3Dキャラクター";
 
     public AvatarService(DataStore store, AppSettings? settings = null, IBoothClient? client = null)
+        : this(store, SettingsSource.Fixed(settings), client)
+    {
+    }
+
+    /// <param name="currentSettings">使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。</param>
+    public AvatarService(DataStore store, Func<AppSettings> currentSettings, IBoothClient? client = null)
     {
         _store = store;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
         _client = client;
     }
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
 
     /// <summary>
     /// この登録簿の項目をアバターとして扱うか。

@@ -100,22 +100,37 @@ public sealed class BoothClient : IBoothClient
     private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8)];
 
     private readonly HttpClient _httpClient;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly PriorityGate _gate = new();
     private DateTimeOffset _lastRequestAt = DateTimeOffset.MinValue;
     private int _currentIntervalMs;
+
+    /// <summary><see cref="_currentIntervalMs"/> を決めたときの、設定の間隔。</summary>
+    private int _intervalBaseMs;
 
     /// <param name="delay">待機処理。テストでは実際に待たせないよう差し替える。</param>
     public BoothClient(
         HttpClient httpClient,
         AppSettings? settings = null,
         Func<TimeSpan, CancellationToken, Task>? delay = null)
+        : this(httpClient, SettingsSource.Fixed(settings), delay)
+    {
+    }
+
+    /// <param name="currentSettings">
+    /// 使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。取得の間隔も保存した直後から効く。
+    /// </param>
+    /// <param name="delay">待機処理。テストでは実際に待たせないよう差し替える。</param>
+    public BoothClient(
+        HttpClient httpClient,
+        Func<AppSettings> currentSettings,
+        Func<TimeSpan, CancellationToken, Task>? delay = null)
     {
         _httpClient = httpClient;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
         _delay = delay ?? ((duration, token) => Task.Delay(duration, token));
-        _currentIntervalMs = _settings.FetchIntervalMs;
+        _currentIntervalMs = _intervalBaseMs = _settings.FetchIntervalMs;
 
         if (!_httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(UserAgent))
         {
@@ -158,9 +173,33 @@ public sealed class BoothClient : IBoothClient
     /// <summary>順番待ちの本数。溜まり具合を見るためのもので、判断には使わない。</summary>
     public int WaitingRequestCount => _gate.WaitingCount;
 
-    public int CurrentIntervalMs => _currentIntervalMs;
+    public int CurrentIntervalMs => SyncedIntervalMs();
 
-    public bool IsThrottled => _currentIntervalMs > _settings.FetchIntervalMs;
+    public bool IsThrottled => SyncedIntervalMs() > _settings.FetchIntervalMs;
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
+
+    /// <summary>
+    /// 設定で間隔が変わっていたら、今の間隔をそこへ合わせ直してから返す。
+    ///
+    /// 合わせ直さないと、間隔を縮めたときに元の値が「429で広げている最中」に見え続け、
+    /// 広げたときには新しい値が効かない。
+    /// **429で広げている最中なら、広げた分は保つ**——相手が待てと言っているのに、
+    /// 設定を触っただけで詰めて問い合わせることになる。
+    /// </summary>
+    private int SyncedIntervalMs()
+    {
+        var configured = _settings.FetchIntervalMs;
+        if (configured != _intervalBaseMs)
+        {
+            var throttled = _currentIntervalMs > _intervalBaseMs;
+            _currentIntervalMs = throttled ? Math.Max(_currentIntervalMs, configured) : configured;
+            _intervalBaseMs = configured;
+        }
+
+        return _currentIntervalMs;
+    }
 
     public static string ItemJsonUrl(string itemId) => $"https://booth.pm/ja/items/{itemId}.json";
 
@@ -426,7 +465,7 @@ public sealed class BoothClient : IBoothClient
         }
 
         var elapsed = DateTimeOffset.UtcNow - _lastRequestAt;
-        var interval = TimeSpan.FromMilliseconds(_currentIntervalMs);
+        var interval = TimeSpan.FromMilliseconds(SyncedIntervalMs());
         if (elapsed >= interval)
         {
             return;
@@ -479,7 +518,7 @@ public sealed class BoothClient : IBoothClient
     /// <summary>429を受けるたびに間隔を倍にする。上限に達したらそこで止める。呼び出しは必ずゲート内。</summary>
     private void SlowDown()
     {
-        var doubled = Math.Min((long)_currentIntervalMs * 2, _settings.FetchIntervalMaxMs);
+        var doubled = Math.Min((long)SyncedIntervalMs() * 2, _settings.FetchIntervalMaxMs);
         _currentIntervalMs = (int)Math.Max(doubled, _settings.FetchIntervalMs);
     }
 

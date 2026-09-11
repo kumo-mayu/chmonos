@@ -37,17 +37,19 @@ public sealed class AppServiceContainer : IDisposable
         Settings = Store.Settings.Load();
 
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        Client = new BoothClient(_httpClient, Settings);
-        Images = new ImagePipeline(Client, Paths, Settings);
+        // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても
+        // 起動し直すまで効かなかった（画像の長辺・画質・取得の間隔など。SettingsSource に理由）
+        Client = new BoothClient(_httpClient, () => Settings);
+        Images = new ImagePipeline(Client, Paths, () => Settings);
 
         // 検出は梯子の③なので、取り込みより先に組み立てる
-        Avatars = new AvatarService(Store, Settings, Client);
+        Avatars = new AvatarService(Store, () => Settings, Client);
 
         // 以前の初期辞書は +Head を「頭部だけの規格」として配っていた（体の共通素体だった）。
         // 保存済みの登録簿も、初期辞書のままなら直す。利用者が変えた値は触らない
         Avatars.RepairSeededGroups();
-        Import = new ImportPipeline(Store, Client, Images, Settings, Avatars);
-        Items = new ItemService(Store, Client, Images, Settings);
+        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars);
+        Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
         Watch = new FolderWatch(Store);
 
@@ -62,10 +64,10 @@ public sealed class AppServiceContainer : IDisposable
         Due = new DueRefresh(Store, Items);
         Resolver = new FallbackResolver(Client, Bridge, KanjiReadings);
         Edit = new EditService(Store);
-        Notifications = new NotificationService(Store, Settings);
+        Notifications = new NotificationService(Store, () => Settings);
         UserTags = new UserTagService(Store);
         Attributes = new AttributeService(Store);
-        Shops = new ShopService(Store, Settings, Client);
+        Shops = new ShopService(Store, () => Settings, Client);
         Stats = new StatsService(Store);
         SettingsStore = new SettingsService(Store);
         Recent = new Services.RecentTracker(Store);

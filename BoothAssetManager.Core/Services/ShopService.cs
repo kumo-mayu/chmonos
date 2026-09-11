@@ -131,15 +131,24 @@ public interface IShopService
 public sealed class ShopService : IShopService
 {
     private readonly DataStore _store;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
     private readonly Booth.IBoothClient? _client;
 
     public ShopService(DataStore store, AppSettings? settings = null, Booth.IBoothClient? client = null)
+        : this(store, SettingsSource.Fixed(settings), client)
+    {
+    }
+
+    /// <param name="currentSettings">使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。</param>
+    public ShopService(DataStore store, Func<AppSettings> currentSettings, Booth.IBoothClient? client = null)
     {
         _store = store;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
         _client = client;
     }
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
 
     public async Task<IReadOnlyList<ShopSummary>> LoadAsync(CancellationToken cancellationToken = default)
     {

@@ -267,6 +267,24 @@ public sealed class ModificationImageTests : IDisposable
     }
 
     [Fact]
+    public async Task 長辺の設定を変えると次の画像から効く()
+    {
+        // 以前は起動時の設定を抱えていて、設定画面で変えても起動し直すまで効かなかった
+        // （友人の報告「設定にある画像サイズが反映されていないのでは」）
+        var settings = new AppSettings { FetchIntervalMs = 0, ModificationImageMaxEdgePixels = 500 };
+        var client = new BoothClient(new HttpClient(new Unreachable()), () => settings);
+        var service = new ModificationService(_store, new ImagePipeline(client, _paths, () => settings));
+        var id = await NewAsync();
+
+        var before = await service.AddImageAsync(id, MakeLargePng(2048, 2048));
+        settings = settings with { ModificationImageMaxEdgePixels = 300 };
+        var after = await service.AddImageAsync(id, MakeLargePng(2048, 1024));
+
+        Assert.Equal(500, SizeOf(Path.Combine(_paths.ModificationImagesDir(id), before!)).Width);
+        Assert.Equal(300, SizeOf(Path.Combine(_paths.ModificationImagesDir(id), after!)).Width);
+    }
+
+    [Fact]
     public async Task 元が小さい写真は拡大しない()
     {
         var id = await NewAsync();

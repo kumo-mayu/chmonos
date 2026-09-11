@@ -133,7 +133,7 @@ public sealed class ImportPipeline : IImportPipeline
     private readonly DataStore _store;
     private readonly IBoothClient _client;
     private readonly ImagePipeline _images;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
     private readonly FolderScanner _scanner = new();
 
     /// <summary>③ 対応アバターの検出。渡されなければその段を飛ばす。</summary>
@@ -145,13 +145,27 @@ public sealed class ImportPipeline : IImportPipeline
         ImagePipeline images,
         AppSettings? settings = null,
         Services.IAvatarService? avatars = null)
+        : this(store, client, images, SettingsSource.Fixed(settings), avatars)
+    {
+    }
+
+    /// <param name="currentSettings">使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。</param>
+    public ImportPipeline(
+        DataStore store,
+        IBoothClient client,
+        ImagePipeline images,
+        Func<AppSettings> currentSettings,
+        Services.IAvatarService? avatars = null)
     {
         _store = store;
         _client = client;
         _images = images;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
         _avatars = avatars;
     }
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
 
     public Task<ImportSummary> RunAsync(
         IReadOnlyList<string> folders,

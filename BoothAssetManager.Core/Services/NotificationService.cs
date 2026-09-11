@@ -24,13 +24,22 @@ public interface INotificationService
 public sealed class NotificationService : INotificationService
 {
     private readonly DataStore _store;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
 
     public NotificationService(DataStore store, AppSettings? settings = null)
+        : this(store, SettingsSource.Fixed(settings))
+    {
+    }
+
+    /// <param name="currentSettings">使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。</param>
+    public NotificationService(DataStore store, Func<AppSettings> currentSettings)
     {
         _store = store;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
     }
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
 
     public IReadOnlyList<NotificationRecord> Load() => _store.Notifications.Load();
 

@@ -265,6 +265,44 @@ public class BoothClientTests
         Assert.False(client.IsThrottled);
     }
 
+    /// <summary>
+    /// 設定画面で間隔を変えたら、起動し直さなくてもその場で効く。
+    /// 以前は起動時の値を抱えていて、縮めても広げても次に開くまで変わらなかった。
+    /// </summary>
+    [Fact]
+    public void 設定で間隔を変えるとその場で効く()
+    {
+        var settings = new AppSettings { FetchIntervalMs = 1500 };
+        var client = new BoothClient(new HttpClient(new QueuedHandler()), () => settings);
+
+        settings = settings with { FetchIntervalMs = 3000 };
+        Assert.Equal(3000, client.CurrentIntervalMs);
+        Assert.False(client.IsThrottled);
+
+        // 縮めたときに元の値が「広げている最中」に見え続けない
+        settings = settings with { FetchIntervalMs = 2000 };
+        Assert.Equal(2000, client.CurrentIntervalMs);
+        Assert.False(client.IsThrottled);
+    }
+
+    /// <summary>429で広げている最中に設定を縮めても、相手が求めた分は詰めない。</summary>
+    [Fact]
+    public async Task 広げている最中に設定を縮めても広げた分は保つ()
+    {
+        var settings = new AppSettings { FetchIntervalMs = 1000, FetchIntervalMaxMs = 8000 };
+        var client = new BoothClient(
+            new HttpClient(new QueuedHandler(TooManyRequests(), Ok("ok"))),
+            () => settings,
+            (_, _) => Task.CompletedTask);
+
+        await client.GetItemJsonAsync("123");
+        Assert.Equal(2000, client.CurrentIntervalMs);
+
+        settings = settings with { FetchIntervalMs = 1500 };
+        Assert.Equal(2000, client.CurrentIntervalMs);
+        Assert.True(client.IsThrottled);
+    }
+
     /// <summary>ふつうの5xxでは減速しない。BOOTH側の不調にこちらが付き合う理由はない。</summary>
     [Fact]
     public async Task DoesNotSlowDownOnOrdinaryServerErrors()

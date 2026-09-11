@@ -132,15 +132,24 @@ public sealed class ItemService : IItemService
     private readonly DataStore _store;
     private readonly IBoothClient _client;
     private readonly ImagePipeline _images;
-    private readonly AppSettings _settings;
+    private readonly Func<AppSettings> _currentSettings;
 
     public ItemService(DataStore store, IBoothClient client, ImagePipeline images, AppSettings? settings = null)
+        : this(store, client, images, SettingsSource.Fixed(settings))
+    {
+    }
+
+    /// <param name="currentSettings">使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。</param>
+    public ItemService(DataStore store, IBoothClient client, ImagePipeline images, Func<AppSettings> currentSettings)
     {
         _store = store;
         _client = client;
         _images = images;
-        _settings = settings ?? new AppSettings();
+        _currentSettings = currentSettings;
     }
+
+    /// <summary>今の設定。**抱えずに毎回読む。**</summary>
+    private AppSettings _settings => _currentSettings();
 
     /// <summary>
     /// BOOTHから取り直して <c>booth</c> ブロックだけを差し替える。
