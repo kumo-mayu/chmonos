@@ -90,30 +90,74 @@
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                              VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <!--
+                            束は元zip（分からなければフォルダ）。元zipの束は畳んで出し、zipを単位に扱う。
+                            1件ずつ扱いたいときだけ開いて行を選ぶ。
+                            束の見出しは GroupItem の DataContext（CollectionViewGroup）に結ぶので、
+                            元zipかどうかは先頭の行（Items[0]）から読む
+                        -->
                         <ListBox.GroupStyle>
                             <GroupStyle>
-                                <GroupStyle.HeaderTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                BorderThickness="0,0,0,1" Padding="10,7">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                    <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
-                                                               Style="{StaticResource Mono}" FontSize="11"
-                                                               VerticalAlignment="Center" />
-                                                    <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
-                                                    <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
-                                                            Height="23" FontSize="10.5" Margin="8,0,0,0"
-                                                            Command="{Binding DataContext.SelectFolderCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding Name}" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </GroupStyle.HeaderTemplate>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="GroupItem">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="GroupItem">
+                                                    <Expander IsExpanded="{Binding Items[0].StartsExpanded, Mode=OneTime}"
+                                                              Background="{StaticResource SurfaceAlt}"
+                                                              BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                                                              Padding="0">
+                                                        <Expander.Header>
+                                                            <!-- 列の幅は330で固定。見出しは伸びないので、長い名前は幅を決めて省略させる -->
+                                                            <StackPanel Margin="2,6,0,6" Width="270">
+                                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding Name}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding Items[0].HasOrigin}" Value="True">
+                                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                    <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
+                                                                            BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
+                                                                            VerticalAlignment="Center"
+                                                                            Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <TextBlock Text="元zip" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                                    </Border>
+                                                                    <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
+                                                                               Style="{StaticResource Mono}" FontSize="11"
+                                                                               VerticalAlignment="Center" />
+                                                                    <Button Content="このzipを選ぶ" Style="{StaticResource SmallButton}"
+                                                                            Height="23" FontSize="10.5" Margin="8,0,0,0"
+                                                                            Command="{Binding DataContext.SelectGroupCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding Name}"
+                                                                            Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
+                                                                    <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
+                                                                            Height="23" FontSize="10.5" Margin="8,0,0,0"
+                                                                            Command="{Binding DataContext.SelectFolderCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding Name}"
+                                                                            Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Expander.Header>
+                                                        <Border Background="{StaticResource Surface}">
+                                                            <ItemsPresenter />
+                                                        </Border>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
                             </GroupStyle>
                         </ListBox.GroupStyle>
                         <ListBox.ItemTemplate>
@@ -152,6 +196,20 @@
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20"
                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+
+                    <!-- 元zipの束を選んでいるとき。下の確定・管理から外すが全件に効くことを先に言う -->
+                    <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                            BorderThickness="1" CornerRadius="8" Padding="16,13" Margin="0,0,0,14"
+                            Visibility="{Binding HasActiveGroup, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ActiveGroupText}" FontWeight="Bold" FontSize="12.5"
+                                       Foreground="#28507f" TextWrapping="Wrap" />
+                            <TextBlock Text="展開したときに Windows が残した記録から、このzipの中身と分かったファイルです。下の「確定」と「管理から外す」は、この全件に効きます。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <Button Content="1件ずつ扱う" Style="{StaticResource SmallButton}" Margin="0,9,0,0"
+                                    HorizontalAlignment="Left" Command="{Binding ClearGroupCommand}" />
+                        </StackPanel>
+                    </Border>
 
                     <!--
                         展開物の中身と判断できたものは、先にまとめて片付けられるようにする。
@@ -222,6 +280,12 @@
                                        Visibility="{Binding HasZone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <TextBlock Text="{Binding ZoneText}" Style="{StaticResource Mono}" FontSize="11" TextWrapping="Wrap"
                                        Visibility="{Binding HasZone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!-- 今もそこにあるとは限らない。消したzipや、別のPCで展開したzipでも記録は残る -->
+                            <TextBlock Text="元のzip（展開したときの記録）" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
+                                       Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="{Binding SelectedOriginText}" Style="{StaticResource Mono}" FontSize="11" TextWrapping="Wrap"
+                                       Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <TextBlock Text="{Binding ContentsSummary}" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasContents, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

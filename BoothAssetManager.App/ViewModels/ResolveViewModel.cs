@@ -45,6 +45,24 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>展開物の根とみなしたフォルダ。まとめて扱う単位。</summary>
     public string? ProductFolder { get; init; }
 
+    /// <summary>
+    /// 展開元のzip。エクスプローラーの「すべて展開」が中のファイルに残した記録から分かる
+    /// （zipを消した後でも、展開先を別のドライブへ移した後でも残る）。分からなければ null。
+    /// </summary>
+    public ArchiveOrigin? Origin { get; init; }
+
+    public bool HasOrigin => Origin is not null;
+
+    /// <summary>
+    /// 一覧で束ねる単位。元zipが分かれば元zip、分からなければフォルダ。
+    /// zipは配布された単位そのもので、中身はたいてい1商品。フォルダは展開の仕方次第で
+    /// 1つのzipが何か所にも割れる（友人のデータで元zip 12 本のうち 6 本が複数のフォルダに割れていた）
+    /// </summary>
+    public string GroupKey => Origin?.ArchiveName ?? DirectoryText;
+
+    /// <summary>元zipの束は畳んでおく。基本はzip単位で扱い、1件ずつ見たいときだけ開く。</summary>
+    public bool StartsExpanded => Origin is null;
+
     /// <summary>取り込み時に拾えた候補の数。0件（手掛かりなし）と複数件（曖昧）がある。</summary>
     public int CandidateCount => File.CandidateItemIds.Count;
 
@@ -109,7 +127,8 @@ public sealed class ResolveViewModel : ViewModelBase
         _main = main;
 
         FilesView = System.Windows.Data.CollectionViewSource.GetDefaultView(Files);
-        FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(UnresolvedRow.DirectoryText)));
+        FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(
+            nameof(UnresolvedRow.GroupKey), null, StringComparison.OrdinalIgnoreCase));
 
         // 走っている最中に止めるのは「書き込む操作」だけにする。
         // 候補を出す・候補を確認する・ブラウザで開くは読み取りだけなので、
@@ -131,6 +150,8 @@ public sealed class ResolveViewModel : ViewModelBase
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
+        SelectGroupCommand = new RelayCommand(SelectGroup, parameter => parameter is string);
+        ClearGroupCommand = new RelayCommand(() => ActiveGroup = null, () => HasActiveGroup);
         // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
@@ -144,6 +165,12 @@ public sealed class ResolveViewModel : ViewModelBase
     }
 
     public RelayCommand SelectFolderCommand { get; }
+
+    /// <summary>元zipの束をまとめて1つの対象にする。</summary>
+    public RelayCommand SelectGroupCommand { get; }
+
+    /// <summary>束をやめて、選んでいる1件だけを扱う。</summary>
+    public RelayCommand ClearGroupCommand { get; }
 
     /// <summary>「取り込み中に n 件増えました」を押したときの読み直し。</summary>
     public RelayCommand ReloadCommand { get; }
@@ -197,6 +224,59 @@ public sealed class ResolveViewModel : ViewModelBase
         {
             row.IsSelected = true;
         }
+    }
+
+    private string? _activeGroup;
+
+    /// <summary>
+    /// まとめて扱っている元zipの束。null なら選んだ1件だけを扱う。
+    /// 確定・管理から外すがこの束の全件に効く。元zipが単位の基本で、
+    /// 1件ずつ扱いたいときは束を開いて行を選ぶ（行を選ぶと束は外れる）。
+    /// </summary>
+    public string? ActiveGroup
+    {
+        get => _activeGroup;
+        private set
+        {
+            if (SetField(ref _activeGroup, value))
+            {
+                OnPropertyChanged(nameof(HasActiveGroup));
+                OnPropertyChanged(nameof(ActiveGroupText));
+                OnPropertyChanged(nameof(AssignOutcomeText));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasActiveGroup => ActiveGroup is not null;
+
+    public string ActiveGroupText => ActiveGroup is null
+        ? string.Empty
+        : $"元zip「{ActiveGroup}」の {ActiveRows.Count} 件をまとめて扱っています";
+
+    /// <summary>確定・管理から外すの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
+    private IReadOnlyList<UnresolvedRow> ActiveRows => ActiveGroup is { } key
+        ? Files.Where(row => row.HasOrigin && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList()
+        : Selected is null ? [] : [Selected];
+
+    private void SelectGroup(object? parameter)
+    {
+        if (parameter is not string key)
+        {
+            return;
+        }
+
+        var first = Files.FirstOrDefault(row =>
+            row.HasOrigin && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase));
+        if (first is null)
+        {
+            return;
+        }
+
+        // 行を選ぶと束は外れるので、先に代表の行を選んでから束を立てる。
+        // 代表の行は手掛かりの表示と検索の対象に使う（検索は元zipの名前で引くので、どの行でも同じ）
+        Selected = first;
+        ActiveGroup = key;
     }
 
     private void SelectAll()
@@ -498,8 +578,13 @@ public sealed class ResolveViewModel : ViewModelBase
     public string AssignOutcomeText => Preview is null
         ? string.Empty
         : IsPreviewOwned
-            ? "確定すると：このファイルが、既にある商品に加わります"
-            : "確定すると：この商品を新しく登録して、このファイルを結び付けます";
+            ? $"確定すると：{OutcomeSubject}が、既にある商品に加わります"
+            : $"確定すると：この商品を新しく登録して、{OutcomeSubject}を結び付けます";
+
+    /// <summary>束を選んでいるときは件数まで言う。1件のつもりで押して全件が動くことが無いように。</summary>
+    private string OutcomeSubject => ActiveGroup is null
+        ? "このファイル"
+        : $"元zip「{ActiveGroup}」の {ActiveRows.Count} 件";
 
     public bool HasAssignOutcome => Preview is not null;
 
@@ -526,6 +611,14 @@ public sealed class ResolveViewModel : ViewModelBase
     public string? ZoneText => Selected?.File.ZoneHostUrl;
 
     public bool HasZone => !string.IsNullOrEmpty(ZoneText);
+
+    /// <summary>記録にあった元zipのパス。今もそこにあるとは限らない（消した・別のPCで展開した）。</summary>
+    public string? SelectedOriginText => Selected?.Origin is { } origin
+        && !string.Equals(origin.ArchivePath, Selected.File.Paths.FirstOrDefault(), StringComparison.OrdinalIgnoreCase)
+            ? origin.ArchivePath
+            : null;
+
+    public bool HasSelectedOrigin => SelectedOriginText is not null;
 
     /// <summary>
     /// 開くたびに、既にitem側が持っているファイルを未確定から均してから読み直す。
@@ -772,12 +865,19 @@ public sealed class ResolveViewModel : ViewModelBase
 
         Files.Clear();
 
-        // フォルダごとにまとめて並べる。1つのアーカイブを展開した中身が
+        // 元zipの分かるものを先に、zip名の順で並べる（一覧の束はこの並びで出る）。
+        // 分からないものは従来どおりフォルダごとにまとめる。1つのアーカイブを展開した中身が
         // 固まって見えるので、まとめて外す判断がしやすい
-        foreach (var file in unresolved
-            .OrderBy(entry => entry.Paths.Count > 0 ? Path.GetDirectoryName(entry.Paths[0]) : string.Empty,
+        var withOrigin = unresolved
+            .Select(file => (File: file, Origin: UnresolvedOrigin.For(file)))
+            .OrderBy(entry => entry.Origin is null)
+            .ThenBy(entry => entry.Origin?.ArchiveName
+                ?? (entry.File.Paths.Count > 0 ? Path.GetDirectoryName(entry.File.Paths[0]) : string.Empty),
                 StringComparer.OrdinalIgnoreCase)
-            .ThenByDescending(entry => entry.SizeBytes))
+            .ThenByDescending(entry => entry.File.SizeBytes)
+            .ToList();
+
+        foreach (var (file, origin) in withOrigin)
         {
             var path = file.Paths.Count > 0 ? file.Paths[0] : string.Empty;
 
@@ -794,6 +894,7 @@ public sealed class ResolveViewModel : ViewModelBase
                 IsArchiveContent = judgement.IsContent,
                 ContentReason = judgement.Reason,
                 ProductFolder = judgement.ProductFolder,
+                Origin = origin,
             };
 
             row.SelectionChanged += OnCheckedChanged;
@@ -811,15 +912,19 @@ public sealed class ResolveViewModel : ViewModelBase
 
     private void OnSelectionChanged()
     {
+        // 行を選び直したら、束ではなくその1件を扱う。束は見出しのボタンからだけ立つ
+        ActiveGroup = null;
+
         ItemIdInput = string.Empty;
         Preview = null;
         StatusText = string.Empty;
 
         // 名前は下書きを入れておく。そのままでも通る形にしておかないと、
-        // 「登録できる」と言いながら毎回入力を強いることになる
+        // 「登録できる」と言いながら毎回入力を強いることになる。
+        // 元zipが分かれば、中の1ファイルの名前（cloth.psd など）より商品名に近い
         LocalNameInput = Selected is null
             ? string.Empty
-            : BoothAssetManager.Core.Resolution.FileNameQuery.ToNameDraft(Selected.FileName);
+            : BoothAssetManager.Core.Resolution.FileNameQuery.ToNameDraft(Selected.Origin?.ArchiveName ?? Selected.FileName);
 
         Candidates.Clear();
         LocalNameSuggestions.Clear();
@@ -848,6 +953,8 @@ public sealed class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(ContentsSummary));
         OnPropertyChanged(nameof(ZoneText));
         OnPropertyChanged(nameof(HasZone));
+        OnPropertyChanged(nameof(SelectedOriginText));
+        OnPropertyChanged(nameof(HasSelectedOrigin));
         OnPropertyChanged(nameof(HasStatus));
         OnPropertyChanged(nameof(LocalIdPreview));
         OnPropertyChanged(nameof(HasLocalNameSuggestions));
@@ -911,17 +1018,23 @@ public sealed class ResolveViewModel : ViewModelBase
     /// 検索の手掛かりにするパス。
     ///
     /// 展開物の中身は、ファイル名（cloth.psd など）で引いても商品には辿り着かない。
-    /// その場合は展開元とみなしたフォルダの名前で引く。
+    /// 元zipが分かればその名前で、分からなければ展開元とみなしたフォルダの名前で引く。
+    /// zip名は配布者が付けた名前そのもので、フォルダ名は展開した人が変えていることがある。
+    /// zipが今もその場所にあれば、中の unitypackage も手掛かりとして読まれる。
     /// バナーからも候補カードからも同じ対象になるようにここへ集約する。
     /// </summary>
     public string? SearchTargetPath => Selected is null || Selected.File.Paths.Count == 0
         ? null
-        : Selected.IsArchiveContent && RegisterTargetFolder is { } folder
-            ? folder
-            : Selected.File.Paths[0];
+        : Selected.Origin is { } origin
+            ? origin.ArchivePath
+            : Selected.IsArchiveContent && RegisterTargetFolder is { } folder
+                ? folder
+                : Selected.File.Paths[0];
 
     public string SearchTargetText => SearchTargetPath is null
         ? string.Empty
+        : SelectedOriginText is not null
+            ? $"元のzipの名前「{Selected!.Origin!.ArchiveName}」で探します（展開したときに Windows が残した記録から分かりました）"
         : Selected?.IsArchiveContent == true
             ? $"フォルダ名「{Path.GetFileName(SearchTargetPath)}」で探します（ファイル名では商品に辿り着かないため）"
             : $"ファイル名「{Path.GetFileName(SearchTargetPath)}」で探します";
@@ -1129,16 +1242,31 @@ public sealed class ResolveViewModel : ViewModelBase
             return;
         }
 
-        var hash = Selected.File.Hash;
+        // 元zipの束を選んでいればその全件。1件ずつの確定を順に掛ける
+        // （2件目以降は既にある商品へ加わるだけで、BOOTHへは行かない）
+        var targets = ActiveRows;
         var itemId = Preview.Id;
 
         IsBusy = true;
         try
         {
-            var result = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(hash, itemId));
-            if (result is CommandResult.Failed failed)
+            var settled = new List<UnresolvedRow>();
+            string? failure = null;
+            foreach (var row in targets)
             {
-                StatusText = failed.Message;
+                var result = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId));
+                if (result is CommandResult.Failed failed)
+                {
+                    failure ??= failed.Message;
+                    continue;
+                }
+
+                settled.Add(row);
+            }
+
+            if (settled.Count == 0)
+            {
+                StatusText = failure ?? string.Empty;
                 OnPropertyChanged(nameof(HasStatus));
                 return;
             }
@@ -1149,7 +1277,17 @@ public sealed class ResolveViewModel : ViewModelBase
                 _settledItemIds.Add(itemId);
             }
 
-            AfterSettled();
+            if (targets.Count == 1)
+            {
+                AfterSettled();
+                return;
+            }
+
+            RemoveRows(settled);
+            StatusText = settled.Count == targets.Count
+                ? $"{settled.Count} 件を確定しました。"
+                : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗：{failure}）。";
+            OnPropertyChanged(nameof(HasStatus));
         }
         finally
         {
@@ -1220,13 +1358,15 @@ public sealed class ResolveViewModel : ViewModelBase
 
     private async Task ExcludeAsync()
     {
-        if (Selected is null)
+        var targets = ActiveRows;
+        if (targets.Count == 0)
         {
             return;
         }
 
+        var what = targets.Count == 1 ? targets[0].FileName : $"元zip「{ActiveGroup}」の {targets.Count} 件";
         var answer = System.Windows.MessageBox.Show(
-            $"{Selected.FileName} を管理から外します。\n\n"
+            $"{what} を管理から外します。\n\n"
             + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
             "管理から外す",
             System.Windows.MessageBoxButton.OKCancel,
@@ -1241,9 +1381,22 @@ public sealed class ResolveViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            await _services.Commands.ExecuteAsync(
-                new UiCommand.ExcludeFile(Selected.File.Hash, Selected.File.Paths, "未確定画面から除外"));
-            AfterSettled();
+            var reason = targets.Count == 1 ? "未確定画面から除外" : "未確定画面から元zipごと除外";
+            foreach (var row in targets)
+            {
+                await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFile(row.File.Hash, row.File.Paths, reason));
+            }
+
+            if (targets.Count == 1)
+            {
+                AfterSettled();
+            }
+            else
+            {
+                RemoveRows(targets);
+                StatusText = $"{targets.Count} 件を管理から外しました。";
+                OnPropertyChanged(nameof(HasStatus));
+            }
         }
         finally
         {
