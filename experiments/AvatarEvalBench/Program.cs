@@ -64,6 +64,14 @@ IVariant[] variants =
         PlainDescription = true,
         ExtraSupportHeadings = ["プリセット", "位置設定済", "設定済みアバター", "セットアップ済"],
     }),
+
+    // 「🔍検索用🔍」の一覧は対応（2026-09-11 ユーザ判断）。アバターの商品IDで検索する習慣に向けて、
+    // 対応アバターのURLを並べておく出品者がいる
+    new ProposalVariant(ProposalOptions.Exact with
+    {
+        PlainDescription = true,
+        ExtraSupportHeadings = ["プリセット", "位置設定済", "設定済みアバター", "セットアップ済", "検索用"],
+    }),
 ];
 
 Console.WriteLine($"{"案",-44} {"適合率",7} {"再現率",7} {"F1",6}  正/誤(参考・違う・未ラベル)/漏れ");
@@ -250,7 +258,9 @@ namespace AvatarEvalBench
             options.ExactMatch ? "完全一致" : null,
             options.DeriveAliases ? "別名導き直し" : null,
             options.PlainDescription ? "平文" : null,
-            options.ExtraSupportHeadings.Count > 0 ? "見出し語追加" : null,
+            options.ExtraSupportHeadings.Count > 0
+                ? options.ExtraSupportHeadings.Contains("検索用") ? "見出し語追加（検索用も）" : "見出し語追加"
+                : null,
             options.ExcludeUnconfirmed ? "要確認除外" : null,
         }.Where(part => part is not null));
 
