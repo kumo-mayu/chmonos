@@ -22,6 +22,10 @@
                     <Button Content="画像を取り直す" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                             Command="{Binding RefreshImagesCommand}"
                             ToolTip="このショップのアイコンとバナーを、普段と同じ手順で取り直します。" />
+                    <!-- 絞り込みはショップ画面に作らず、検索の絞り込みをそのまま使う（#55） -->
+                    <Button Content="検索でこのショップの商品を絞る" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                            Command="{Binding ShowInSearchCommand}"
+                            ToolTip="検索画面へ移り、このショップの商品だけを出します。分類・対応アバター・タグなどで続けて絞れます。" />
                     <Button Content="BOOTHのショップページを開く" Style="{StaticResource SmallButton}"
                             Command="{Binding OpenBoothCommand}" />
                 </StackPanel>

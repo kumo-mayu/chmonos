@@ -37,6 +37,9 @@ public sealed class ShopViewModel : ViewModelBase
         BackText = back is { } destination ? $"← {destination.Label}に戻る" : "← ショップ一覧に戻る";
         BackCommand = new RelayCommand(() => (back?.Go ?? main.ShowShops)());
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
+
+        // ショップ画面に絞り込みを作り直さず、検索の絞り込みをそのまま使う（#55・ユーザ判断）
+        ShowInSearchCommand = new RelayCommand(() => main.ShowItemsOfShop(Shop.Subdomain, Shop.Name));
         RefreshImagesCommand = new RelayCommand(() => _ = RefreshImagesAsync(), () => !IsRefreshingImages);
 
         // 有無が分からない店だけ、開いた瞬間から場所を空けて待つ。
@@ -59,6 +62,9 @@ public sealed class ShopViewModel : ViewModelBase
     public string BackText { get; }
 
     public RelayCommand OpenBoothCommand { get; }
+
+    /// <summary>このショップの商品で絞った検索画面へ移る。</summary>
+    public RelayCommand ShowInSearchCommand { get; }
 
     /// <summary>
     /// このショップの画像を今すぐ取り直す。

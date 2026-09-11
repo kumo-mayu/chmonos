@@ -362,6 +362,23 @@
                             </Border>
                         </StackPanel>
 
+                        <!--
+                            ショップで絞っているとき。入口はショップ画面の「検索でこのショップの商品を絞る」だけなので、
+                            絞っている間だけ出す。出さないと、何で絞られているのかが見えなくなる
+                        -->
+                        <StackPanel Margin="0,14,0,0"
+                                    Visibility="{Binding HasShopFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="ショップ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
+                            <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock DockPanel.Dock="Left" Text="{Binding ShopFilterName}" FontSize="12"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="170" />
+                                    <Button DockPanel.Dock="Right" Content="外す" Style="{StaticResource SmallButton}"
+                                            Command="{Binding ClearShopFilterCommand}" />
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+
                         <TextBlock Text="アバターがまだ見つかっていません。アバターの管理から検出できます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                    Visibility="{Binding HasAvatarSuggestions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />

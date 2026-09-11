@@ -49,6 +49,10 @@ public sealed class SearchViewModel : ViewModelBase
     private bool _receivedOnly;
     private string? _avatarFilterId;
     private string? _avatarFilterName;
+
+    /// <summary>ショップで絞っているときの鍵（サブドメイン、手元だけのショップは local: 付き）と見せる名前。</summary>
+    private string? _shopFilterKey;
+    private string? _shopFilterName;
     private bool _includeViaBase = true;
     private Core.Services.AvatarCompatibilityIndex? _compatibility;
     private bool _isLoading;
@@ -94,6 +98,7 @@ public sealed class SearchViewModel : ViewModelBase
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
         SetAvatarFilterCommand = new RelayCommand(parameter => SetAvatarFilter(parameter as string));
         ClearAvatarFilterCommand = new RelayCommand(ClearAvatarFilter);
+        ClearShopFilterCommand = new RelayCommand(ClearShopFilter);
         _isFilterPanelCollapsed = services.Settings.FilterPanelCollapsed;
 
         // 前回積んでいた条件の種類だけを戻す。値は戻さない
@@ -151,6 +156,30 @@ public sealed class SearchViewModel : ViewModelBase
     public RelayCommand SetAvatarFilterCommand { get; }
 
     public RelayCommand ClearAvatarFilterCommand { get; }
+
+    public RelayCommand ClearShopFilterCommand { get; }
+
+    /// <summary>
+    /// ショップで絞っているか。ショップ画面の「検索でこのショップの商品を絞る」から入る（#55）。
+    /// ショップ画面に絞り込みを作り直すより、検索の絞り込みをそのまま使えた方が同じ操作で済む（ユーザ判断）。
+    /// </summary>
+    public bool HasShopFilter => _shopFilterKey is not null;
+
+    public string ShopFilterName => _shopFilterName ?? string.Empty;
+
+    private void ClearShopFilter()
+    {
+        _shopFilterKey = null;
+        _shopFilterName = null;
+        RaiseShopFilterChanged();
+        ApplyFilters();
+    }
+
+    private void RaiseShopFilterChanged()
+    {
+        OnPropertyChanged(nameof(HasShopFilter));
+        OnPropertyChanged(nameof(ShopFilterName));
+    }
 
     /// <summary>今アバターで絞っているか。絞っているときだけ、外す手段と素体経由の切り替えを出す。</summary>
     public bool HasAvatarFilter => _avatarFilterId is not null;
@@ -1405,6 +1434,19 @@ public sealed class SearchViewModel : ViewModelBase
         ApplyFilters();
     }
 
+    /// <summary>
+    /// このショップの商品だけで絞り込む。ショップ画面からの導線（#55）。
+    /// 他の条件は外してから絞る——前の条件が残っていると「このショップの商品」に見えない。
+    /// </summary>
+    public void ShowOnlyShop(string shopKey, string shopName)
+    {
+        ClearFilters();
+        _shopFilterKey = shopKey;
+        _shopFilterName = shopName;
+        RaiseShopFilterChanged();
+        ApplyFilters();
+    }
+
     /// <summary>このカテゴリだけで絞り込む。統計の容量内訳から中身を見に来る導線。</summary>
     public void ShowOnlyCategory(string category)
     {
@@ -1437,6 +1479,9 @@ public sealed class SearchViewModel : ViewModelBase
         _avatarFilterName = null;
         _avatarFilterHasBase = false;
         RaiseAvatarFilterChanged();
+        _shopFilterKey = null;
+        _shopFilterName = null;
+        RaiseShopFilterChanged();
 
         foreach (var tag in TagFilters)
         {
@@ -1671,6 +1716,11 @@ public sealed class SearchViewModel : ViewModelBase
             parts.Add("貰った");
         }
 
+        if (_shopFilterName is not null)
+        {
+            parts.Add($"ショップ：{_shopFilterName}");
+        }
+
         if (_avatarFilterName is not null)
         {
             // 素体を持たないアバターに「素体経由を含む」と書かない。
@@ -1754,6 +1804,13 @@ public sealed class SearchViewModel : ViewModelBase
                     return false;
                 }
             }
+        }
+
+        // ショップでの絞り込み。束ねる鍵はショップ一覧と同じ（名前は変わり得るので鍵で見る）
+        if (_shopFilterKey is not null
+            && !string.Equals(item.ShopSubdomain, _shopFilterKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
         }
 
         // 対応アバターでの絞り込み。素体経由は推定なので、含めるかを選べるようにする

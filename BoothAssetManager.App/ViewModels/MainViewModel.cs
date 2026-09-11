@@ -493,6 +493,13 @@ public sealed class MainViewModel : ViewModelBase
         CurrentViewModel = Search;
     }
 
+    /// <summary>このショップの商品を検索画面で見せる。ショップ画面から検索の絞り込みを使うための入口（#55）。</summary>
+    public void ShowItemsOfShop(string shopKey, string shopName)
+    {
+        Search.ShowOnlyShop(shopKey, shopName);
+        ShowSearch();
+    }
+
     /// <summary>このuserTagが付いているitemを検索画面で見せる。件数から中身へ辿るための入口。</summary>
     public void ShowItemsWithTag(string top, string? sub = null)
     {
