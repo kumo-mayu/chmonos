@@ -105,7 +105,10 @@ public sealed class AvatarCompatibilityIndex
 
         foreach (var link in local.Avatars)
         {
-            if (link.Rejected)
+            // 説明文のリンク（要確認）は数えない。中身はサムネに使ったアバター・クレジット・
+            // 他の商品の紹介で、対応の宣言ではないことが多い（所持207件の実データで、
+            // これを数えていたために絞り込みの約1割が誤りだった）。商品ページには要確認として出る
+            if (link.Rejected || link.Source == AvatarLinkSource.H2Link)
             {
                 continue;
             }

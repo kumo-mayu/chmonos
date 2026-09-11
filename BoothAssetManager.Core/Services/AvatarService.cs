@@ -411,11 +411,12 @@ public sealed partial class AvatarService : IAvatarService
                 Bump(seenAs, id, nameof(AvatarLinkSource.Variation));
             }
 
-            // 別名の出現回数は毎回数え直す（加算しない）
+            // 別名の出現回数は毎回数え直す（加算しない）。
+            // **呼び名そのものに当たったタグだけを数える。**以前は含んでいるかで当たったタグを
+            // 覚えていたので、「ミルティナ対応」が「ティナ」の別名になり、次の回から誤りが固定されていた
             foreach (var tag in item.Booth.Tags)
             {
-                var stripped = AvatarText.StripSupportSuffix(tag);
-                foreach (var id in index.FindAvatars(stripped))
+                foreach (var id in index.FindExact(tag))
                 {
                     Bump(aliasCounts, id, tag);
                 }

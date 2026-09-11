@@ -116,6 +116,22 @@ public class AvatarCompatibilityTests
         Assert.Equal(AvatarMatch.Unknown, index.MatchFor(Declaring("a"), "b"));
     }
 
+    /// <summary>
+    /// 説明文のリンク（要確認）は絞り込みで数えない。サムネに使ったアバターやクレジットで、
+    /// 対応の宣言ではないことが多い。
+    /// </summary>
+    [Fact]
+    public void DoesNotCountDescriptionLinks()
+    {
+        var index = AvatarCompatibilityIndex.Build(Registry());
+        var local = new LocalBlock
+        {
+            Avatars = [new AvatarLink { AvatarItemId = "kuuta", Source = AvatarLinkSource.H2Link }],
+        };
+
+        Assert.Equal(AvatarMatch.Unknown, index.MatchFor(local, "kuuta"));
+    }
+
     /// <summary>ユーザが消した宣言は最初から数えない。</summary>
     [Fact]
     public void IgnoresRejectedLinks()

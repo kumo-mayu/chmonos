@@ -50,14 +50,10 @@ public sealed class AvatarNameIndex
                 continue;
             }
 
-            // 人が「この表記は違う」と消したものは照合に使わない。
-            // 行は残っている（消したという事実を次の検出まで持ち越すため）
-            foreach (var alias in entry.Aliases.Where(alias => !alias.Rejected))
+            foreach (var name in NamesOf(entry))
             {
-                index.Add(index._avatars, alias.Text, entry.ItemId);
+                index.Add(index._avatars, name, entry.ItemId);
             }
-
-            index.Add(index._avatars, entry.DisplayName, entry.ItemId);
         }
 
         foreach (var group in registry.BaseGroups)
@@ -80,10 +76,56 @@ public sealed class AvatarNameIndex
         return index;
     }
 
+    /// <summary>
+    /// このアバターを照合するときの呼び名。**毎回、事実から導き直す。**
+    ///
+    /// 以前は「当たったタグ」を別名として覚えて積み上げていた。タグを部分一致で引いていたので、
+    /// 「ミルティナ対応」が「ティナ」の別名に、「Sio」「Expression Menu」が「si」の別名になり、
+    /// 次の回からは完全一致で当たって誤りが固定されていた（所持207件の実データで、
+    /// 自分の正式名に出てこない別名が110個。作者の15件では1件も出ていなかった）。
+    ///
+    /// 使うのは次のものだけ：
+    /// ・BOOTHの正式名の「」『』の中と「-Latin-」の表記（rurune、Rinasciita）
+    /// ・表示名（利用者が直した名前もここにある。汎用語は索引に入る前に落ちる）
+    /// ・別名のうち、自分の正式名に現れるもの。手で足した別名は利用者の意思なので現れなくても使う
+    /// 正式名が取れていない項目（販売終了など）は確かめようがないので、別名を今までどおり使う。
+    /// </summary>
+    public static IEnumerable<string> NamesOf(AvatarRegistryEntry entry)
+    {
+        var booth = (entry.BoothName ?? string.Empty).Normalize(NormalizationForm.FormKC);
+        var own = AvatarText.Normalize(entry.BoothName);
+
+        foreach (Match quoted in Regex.Matches(booth, @"[「『｢]([^「」『』｢｣]{1,24})[」』｣]"))
+        {
+            yield return quoted.Groups[1].Value;
+        }
+
+        foreach (Match latin in Regex.Matches(booth, @"-\s?([A-Za-z][A-Za-z .]{1,20}?)\s?-"))
+        {
+            yield return latin.Groups[1].Value;
+        }
+
+        if (entry.DisplayName is { } display)
+        {
+            yield return display;
+        }
+
+        // 人が「この表記は違う」と消したものは照合に使わない。
+        // 行は残っている（消したという事実を次の検出まで持ち越すため）
+        foreach (var alias in entry.Aliases.Where(alias => !alias.Rejected))
+        {
+            var manual = string.Equals(alias.Source, nameof(AvatarLinkSource.Manual), StringComparison.Ordinal);
+            if (manual || own.Length == 0 || own.Contains(AvatarText.StripForMatch(alias.Text), StringComparison.Ordinal))
+            {
+                yield return alias.Text;
+            }
+        }
+    }
+
     private void Add(Dictionary<string, HashSet<string>> into, string? text, string key)
     {
-        var normalized = AvatarText.Normalize(text);
-        if (normalized.Length < MinAliasLength || AvatarText.IsGenericName(text))
+        var normalized = AvatarText.StripForMatch(text);
+        if (normalized.Length < MinAliasLength || AvatarText.IsGenericName(text) || AvatarText.IsGenericName(normalized))
         {
             return;
         }
@@ -97,7 +139,27 @@ public sealed class AvatarNameIndex
         set.Add(key);
     }
 
-    /// <summary>この文字列に名前が含まれているアバターを返す。</summary>
+    /// <summary>
+    /// この語がアバターの呼び名そのものか。**タグはこちらで引く。**
+    ///
+    /// タグは1語で1つのものを指すので、含んでいるかで引くと別のアバターに当たる
+    /// （「ミルティナ」⊃「ティナ」「ルティ」、「Sio」⊃「si」）。
+    /// 接尾辞（対応・専用・用…）と敬称（ちゃん・くん…）は落として比べる。
+    /// </summary>
+    public IReadOnlyCollection<string> FindExact(string? text)
+    {
+        var key = AvatarText.StripForMatch(text);
+        return _avatars.TryGetValue(key, out var ids) ? ids : [];
+    }
+
+    /// <summary>
+    /// この文字列に名前が含まれているアバターを返す。種類名（「✧しなの対応✧」「[愛莉] Airi」）のように
+    /// 装飾の付いた文に使う。
+    ///
+    /// 次の2つは数えない。どちらも所持207件の実データで誤りの元になっていた。
+    /// ・より長いアバター名の一部としてしか現れないもの（「ミルティナ」の中の「ティナ」）
+    /// ・英字の名前が単語の途中に埋まっているだけのもの（「Satellite」の中の「tell」）
+    /// </summary>
     public IReadOnlyCollection<string> FindAvatars(string? text) => Find(_avatars, text);
 
     /// <summary>この文字列に名前が含まれている素体グループを返す。</summary>
@@ -111,21 +173,35 @@ public sealed class AvatarNameIndex
             return [];
         }
 
+        var lower = (text ?? string.Empty).Normalize(NormalizationForm.FormKC).ToLowerInvariant();
+        var hits = from.Keys.Where(alias => normalized.Contains(alias, StringComparison.Ordinal)).ToList();
         var found = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var (alias, keys) in from)
+        foreach (var alias in hits)
         {
-            if (normalized.Contains(alias, StringComparison.Ordinal))
+            // 自分より長い別の名前の中にしか出てこないなら、その長い方の話
+            if (hits.Any(other => other.Length > alias.Length
+                && other.Contains(alias, StringComparison.Ordinal)
+                && !from[other].SetEquals(from[alias])))
             {
-                foreach (var key in keys)
-                {
-                    found.Add(key);
-                }
+                continue;
+            }
+
+            if (IsAsciiWord(alias) && !Regex.IsMatch(lower, $"(^|[^a-z0-9]){Regex.Escape(alias)}([^a-z0-9]|$)"))
+            {
+                continue;
+            }
+
+            foreach (var key in from[alias])
+            {
+                found.Add(key);
             }
         }
 
         return found;
     }
+
+    private static bool IsAsciiWord(string text) => text.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9'));
 
     public bool IsEmpty => _avatars.Count == 0 && _bases.Count == 0;
 }
@@ -201,6 +277,40 @@ public static class AvatarText
     private static readonly string[] SupportSuffixes =
         ["対応版", "対応", "専用", "向け", "用", "版"];
 
+    private static readonly string[] Honorifics = ["ちゃん", "くん", "君", "さん", "様", "3d"];
+
+    /// <summary>
+    /// 照合に使う形。正規化して、接尾辞（対応・専用・用…）と敬称（ちゃん・くん…）を落とす。
+    /// 「しなのちゃん対応」「マヌカ3D」「くうた君対応」を、呼び名そのものと同じにする。
+    /// 落とした結果が2文字未満になる場合は落とさない（「用」「君」だけの語を空にしない）。
+    /// </summary>
+    public static string StripForMatch(string? text)
+    {
+        var normalized = Normalize(text);
+
+        for (var round = 0; round < 3; round++)
+        {
+            var before = normalized;
+            foreach (var suffix in SupportSuffixes.Concat(["対応衣装"]).Concat(Honorifics))
+            {
+                var normalizedSuffix = Normalize(suffix);
+                if (normalized.Length >= normalizedSuffix.Length + 2
+                    && normalized.EndsWith(normalizedSuffix, StringComparison.Ordinal))
+                {
+                    normalized = normalized[..^normalizedSuffix.Length];
+                    break;
+                }
+            }
+
+            if (normalized == before)
+            {
+                break;
+            }
+        }
+
+        return normalized;
+    }
+
     /// <summary>「くうた対応」「マヌカ用」から接尾辞を落とす。タグの照合に使う。</summary>
     public static string StripSupportSuffix(string? text)
     {
@@ -233,6 +343,14 @@ public static class AvatarText
         "アバター", "avatar", "vrchat", "vrc", "vrchat向け", "vrc想定モデル", "vrc対応",
         "quest", "quest対応", "pc版", "blender", "unity", "unitypackage", "fbx", "vrm",
         "衣装", "テクスチャ", "ギミック", "シェイプキー", "blendshape", "無料", "商用利用可",
+
+        // 所持207件の実データで、別名や表示名に紛れて誤りの元になっていた語（2026-09-11）。
+        // 「VR」は【VRChatアバター】の中に、「男性」は「男性アバター」の中に現れて、
+        // 最短の別名として表示名にまでなっていた
+        "vr", "男性", "女性", "男性アバター", "女性アバター", "男性モデル", "人外", "天使", "悪魔", "ドラゴン", "山羊",
+        "対応", "標準版", "mobile", "mobile対応", "素体", "素体無料", "3dアバター", "vrcアバター", "vrchatアバター",
+        "vrchat想定アバター", "vrc対応3dアバター", "vrchat対応3dモデル", "vrchat想定オリジナル3dモデル",
+        "セットアップ", "セットアップコーデ", "cluster", "head",
     };
 
     /// <summary>別名として使うには一般的すぎるか。</summary>
@@ -522,7 +640,7 @@ public static class AvatarDetector
     /// <summary>
     /// タグとvariation名を既知の名前と突き合わせる。
     ///
-    /// タグは「くうた対応」のように接尾辞が付くので落としてから引く。
+    /// タグは「くうた対応」のように接尾辞が付くので落としてから、**完全一致で**引く。
     /// variation名は「✧しなの対応✧」のように装飾が前後に付くので、含有で引く。
     /// </summary>
     public static (IReadOnlyCollection<string> FromTags, IReadOnlyCollection<string> FromVariations) ScanNames(
@@ -534,7 +652,7 @@ public static class AvatarDetector
 
         foreach (var tag in tags)
         {
-            foreach (var id in index.FindAvatars(AvatarText.StripSupportSuffix(tag)))
+            foreach (var id in index.FindExact(tag))
             {
                 fromTags.Add(id);
             }

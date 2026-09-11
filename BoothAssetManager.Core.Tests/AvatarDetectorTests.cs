@@ -215,6 +215,103 @@ public class AvatarDetectorTests
         Assert.Empty(fromVariations);
     }
 
+    /// <summary>
+    /// タグは完全一致で引く。含んでいるかで引くと別のアバターに当たる
+    /// （所持207件の実データで「ミルティナ」が「ティナ」「ルティ」に当たっていた）。
+    /// </summary>
+    [Fact]
+    public void DoesNotMatchTagsThatOnlyContainAName()
+    {
+        var index = IndexOf(("tina", "ティナ", ["ティナ"]), ("milltina", "ミルティナ", ["ミルティナ"]));
+
+        var (fromTags, _) = AvatarDetector.ScanNames(index, ["ミルティナ対応"], []);
+
+        Assert.Equal(["milltina"], fromTags);
+    }
+
+    /// <summary>敬称も落として比べる。「しなのちゃん対応」は しなの。</summary>
+    [Fact]
+    public void StripsHonorificsFromTags()
+    {
+        var index = IndexOf(("1", "しなの", ["しなの"]));
+
+        var (fromTags, _) = AvatarDetector.ScanNames(index, ["しなのちゃん対応"], []);
+
+        Assert.Equal(["1"], fromTags);
+    }
+
+    /// <summary>種類名でも、より長い別のアバター名の一部としてしか出てこないものは数えない。</summary>
+    [Fact]
+    public void IgnoresNamesInsideLongerNamesInVariations()
+    {
+        var index = IndexOf(("tina", "ティナ", ["ティナ"]), ("milltina", "ミルティナ", ["ミルティナ"]));
+
+        var (_, fromVariations) = AvatarDetector.ScanNames(index, [], ["[ミルティナ] Milltina"]);
+
+        Assert.Equal(["milltina"], fromVariations);
+    }
+
+    /// <summary>英字の名前が単語の途中に埋まっているだけのものは数えない（Satellite の中の tell）。</summary>
+    [Fact]
+    public void IgnoresLatinNamesInsideWords()
+    {
+        var index = IndexOf(("tell", "Tell", ["Tell"]));
+
+        Assert.Empty(index.FindAvatars("Satellite-Beam Rod"));
+        Assert.Equal(["tell"], index.FindAvatars("for Tell"));
+    }
+
+    /// <summary>
+    /// 覚えた別名は、自分の正式名に出てくるものだけを使う。部分一致で覚えてしまった
+    /// 「ミルティナ対応」のような別名で、別のアバターに当たり続けないため。
+    /// 手で足した別名は利用者の意思なので、正式名に出てこなくても使う。
+    /// </summary>
+    [Fact]
+    public void UsesOnlyLearnedAliasesThatAppearInTheOwnName()
+    {
+        var index = AvatarNameIndex.Build(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry
+                {
+                    ItemId = "tina",
+                    BoothName = "オリジナル3Dモデル「ティナ」",
+                    DisplayName = "ティナ",
+                    Category = "3Dキャラクター",
+                    Aliases =
+                    [
+                        new AvatarAlias { Text = "ミルティナ対応", Source = nameof(AvatarLinkSource.Tag) },
+                        new AvatarAlias { Text = "Tina", Source = nameof(AvatarLinkSource.Manual) },
+                    ],
+                },
+            ],
+        });
+
+        Assert.Empty(index.FindExact("ミルティナ対応"));
+        Assert.Equal(["tina"], index.FindExact("Tina"));
+    }
+
+    /// <summary>正式名の「」の中も呼び名にする。表示名や別名に無くても引ける。</summary>
+    [Fact]
+    public void UsesTheQuotedPartOfTheBoothName()
+    {
+        var index = AvatarNameIndex.Build(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry
+                {
+                    ItemId = "rurune",
+                    BoothName = "サメっ子オリジナル3Dモデル「rurune」-ルルネ-",
+                    Category = "3Dキャラクター",
+                },
+            ],
+        });
+
+        Assert.Equal(["rurune"], index.FindExact("Rurune"));
+    }
+
     /// <summary>1文字の別名は何にでも当たるので索引に入れない。</summary>
     [Fact]
     public void IgnoresSingleCharacterAliases()
