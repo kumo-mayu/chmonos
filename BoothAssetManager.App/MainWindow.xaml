@@ -272,9 +272,14 @@
                 背景で画像を取りに行くこともあるので、黙って通信しないよう常に見える場所に置く。
                 何もしていないときは畳む（高さを取らない）。
             -->
+            <!-- 押すと取り込みの画面へ（U24）。通信の話を見に行く先は1つにしておく -->
             <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAlt}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Cursor="Hand" ToolTip="取り込みの画面を開く"
                     Visibility="{Binding BoothActivity.IsActive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding ShowImportCommand}" />
+                </Border.InputBindings>
                 <Grid Height="26">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- 長さの分かっている待ちはバーで、通信そのものは点滅で -->

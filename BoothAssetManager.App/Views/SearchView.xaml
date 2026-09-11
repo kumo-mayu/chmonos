@@ -902,9 +902,22 @@
 
                                             <!-- 区切りを絞っている場合でも、全体で何枚あるかが分かるようにする -->
                                             <Border Background="#99000000" CornerRadius="9" Padding="7,1"
-                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8"
-                                                    Visibility="{Binding IsHovering, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8">
                                                 <TextBlock Text="{Binding CounterText}" FontSize="10" Foreground="White" />
+                                                <!-- 画像が1枚だと文字が空になり、余白だけの黒い丸が出ていた（U11）。空なら出さない -->
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsHovering}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding CounterText}" Value="">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
                                             </Border>
 
                                             <!--

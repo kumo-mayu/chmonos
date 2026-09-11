@@ -222,13 +222,16 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// </summary>
     public void ResetImage()
     {
+        // 早抜けの前に下ろす。画像が1枚の商品はここで抜けるので、「乗っている」が残ったまま
+        // 選択のチェックと中身の無い枚数の札（黒い丸）が出続けていた（U11）
+        IsHovering = false;
+
         if (_imageFiles is null || _stepCount <= 1)
         {
             return;
         }
 
         SetIndex(0, 0);
-        IsHovering = false;
 
         // 指名があるなら、なぞる前の姿は指名した1枚。
         // _activePath を空にすると FirstImage() が選び直す
