@@ -571,7 +571,12 @@ public sealed class MainViewModel : ViewModelBase
         ShowSearch();
     }
 
-    public void ShowImport() => CurrentViewModel = Import;
+    public void ShowImport()
+    {
+        // 設定画面で「起動時に取り込む」を変えて戻ってきたときに、監視対象の説明を合わせる（U7）
+        Import.NoteShown();
+        CurrentViewModel = Import;
+    }
 
     /// <summary>
     /// ウィンドウに落とされた／貼り付けられたものを振り分ける。

@@ -54,6 +54,12 @@ public sealed class ImportProgress
 
     public int Total { get; init; }
 
+    /// <summary>
+    /// 段の中の小さな段（検出の「見つかった商品を確かめています」など）。件数の前に出す。
+    /// 件数だけでは何を数えているかが読めず、検出の「346 / 599」がアバターの数に見えた。
+    /// </summary>
+    public string? Step { get; init; }
+
     public string? Detail { get; init; }
 }
 
@@ -267,7 +273,10 @@ public sealed class ImportPipeline : IImportPipeline
                 Phase = ImportPhase.Detecting,
                 Current = value.Done,
                 Total = value.Total,
-                Detail = value.Current ?? value.Phase,
+                // 小さな段と、今見ている商品の名前を分けて渡す。名前が無いときに段の名前を
+                // 代わりに出すと、件数の前の欄と同じ文が2回並ぶ
+                Step = value.Phase,
+                Detail = value.Current,
             });
     }
 

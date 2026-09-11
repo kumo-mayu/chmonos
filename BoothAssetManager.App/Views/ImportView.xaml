@@ -109,8 +109,15 @@
                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <StackPanel>
                                 <TextBlock Text="監視対象" FontWeight="Bold" FontSize="13" />
-                                <TextBlock Text="次に開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込みません。"
-                                           Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                <!--
+                                    起動時に自動で取り込む設定で出し分ける（U7）。以前の「次に開いたとき」は
+                                    取り込み画面を開くことにも読め、設定を入にした人には「勝手には取り込みません」が嘘になっていた
+                                -->
+                                <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                           Visibility="{Binding ImportsOnLaunch, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"><Run Text="起動時にファイルが増えていないかを自動で調べます。取り込みの開始を自動化するには" /><Hyperlink Command="{Binding ShowSettingsCommand}">設定</Hyperlink><Run Text="を変更してください。" /></TextBlock>
+                                <TextBlock Text="起動時にファイルが増えていないか自動で調べ、増えたファイルを自動で取り込みます。"
+                                           Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                           Visibility="{Binding ImportsOnLaunch, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
                         <ItemsControl ItemsSource="{Binding Watched}">
@@ -139,7 +146,9 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding PhaseText}" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Mono}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                            <!-- 何を数えているか。件数だけだと検出の「346 / 599」がアバターの数に見えた -->
+                            <TextBlock Text="{Binding StepText}" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Mono}" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <!-- ProgressBar.Value は RangeBase 由来で既定が TwoWay。読み取り専用プロパティに繋ぐので明示的に OneWay にする -->
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0"

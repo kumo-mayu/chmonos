@@ -191,6 +191,27 @@ public sealed class ImportViewModel : ViewModelBase
         private set => SetField(ref _detailText, value);
     }
 
+    private string _stepText = string.Empty;
+
+    /// <summary>段の中の小さな段。件数の前に出して、何を数えているかを読めるようにする。</summary>
+    public string StepText
+    {
+        get => _stepText;
+        private set => SetField(ref _stepText, value);
+    }
+
+    /// <summary>
+    /// 起動したときに監視フォルダの新着を自動で取り込むか（#38 の設定）。監視対象の説明を出し分ける（U7）。
+    /// 以前は設定に関係なく「見つけても勝手には取り込みません」と出していて、入にした人には嘘になっていた。
+    /// </summary>
+    public bool ImportsOnLaunch => _services.Settings.StartImportOnLaunch;
+
+    /// <summary>監視対象の説明の「設定」から、設定画面へ移る。</summary>
+    public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
+
+    /// <summary>画面を開いたときに呼ぶ。設定画面で変えた値を説明に映す。</summary>
+    public void NoteShown() => OnPropertyChanged(nameof(ImportsOnLaunch));
+
     public int Current
     {
         get => _current;
@@ -658,14 +679,19 @@ public sealed class ImportViewModel : ViewModelBase
                 ImportPhase.Resolving => "2. 商品IDを解決",
                 ImportPhase.FetchingJson => "3. 商品の情報を取得",
                 ImportPhase.FetchingHtml => "4. 商品ページを取得",
-                ImportPhase.Detecting => "5. 対応アバターを検出",
+                // リンクだけでなくタグ・種類の名前も見ているので「タグ」を入れる（ユーザ判断）
+                ImportPhase.Detecting => "5. 商品ページとタグから対応アバターを検出",
                 ImportPhase.FetchingThumbnails => "6. サムネイルを取得（取得できたものから編集できます）",
                 ImportPhase.FetchingGallery => "7. ギャラリーを取得",
                 _ => "8. ショップのアイコンを取得",
             };
             Current = report.Current;
             Total = report.Total;
-            DetailText = report.Detail ?? string.Empty;
+            StepText = report.Step ?? string.Empty;
+
+            // 検出で確かめている商品は、問い合わせるまで名前が分からない。空にすると止まって見える
+            DetailText = report.Detail
+                ?? (report.Phase == ImportPhase.Detecting && report.Step is not null ? "名前を確かめています" : string.Empty);
 
             // 1枚目が取れた時点で、その商品は一覧のカードとして成立する。
             // JSONの時点で反映すると絵の無い白いカードが並ぶので、ここまで待つ。

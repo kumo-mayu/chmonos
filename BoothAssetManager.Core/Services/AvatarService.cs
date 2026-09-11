@@ -425,7 +425,7 @@ public sealed partial class AvatarService : IAvatarService
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(new AvatarDetectProgress
             {
-                Phase = "説明文とタグを読む",
+                Phase = "説明文とタグを読んでいます",
                 Done = ++done,
                 Total = loaded.Items.Count,
                 Current = item.Booth.Name,
@@ -492,12 +492,12 @@ public sealed partial class AvatarService : IAvatarService
         foreach (var id in unknown)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // 商品IDは画面に出さない（内部の言葉）。名前は問い合わせるまで分からないので空で渡す
             progress?.Report(new AvatarDetectProgress
             {
-                Phase = "候補の種類を確かめる",
+                Phase = "見つかった商品を確かめています",
                 Done = ++done,
                 Total = unknown.Count,
-                Current = id,
             });
 
             // 手元に持っている商品なら、カテゴリも名前も items/{ID}.json にある。
@@ -617,7 +617,7 @@ public sealed partial class AvatarService : IAvatarService
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(new AvatarDetectProgress
             {
-                Phase = "対応アバターを書き込む",
+                Phase = "対応アバターを書き込んでいます",
                 Done = ++done,
                 Total = loaded.Items.Count,
             });

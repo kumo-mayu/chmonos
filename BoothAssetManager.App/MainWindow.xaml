@@ -177,11 +177,57 @@
             </Setter>
         </Style>
 
+        <!--
+            区切りの見出し。畳んでも場所は残す（Hidden）。場所ごと消すと、下のアイコンが
+            開閉のたびに上下へずれた（U2）。畳んだときは同じ高さに細い線（NavGroupRule）を出す
+        -->
         <Style x:Key="NavGroupLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource RailLabel}" />
             <Setter Property="FontSize" Value="10" />
             <Setter Property="Margin" Value="22,12,0,4" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
+                    <Setter Property="Visibility" Value="Hidden" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
+
+        <!-- 線の左右はナビのアイコン（左から20・幅16）にそろえる -->
+        <Style x:Key="NavGroupRule" TargetType="Border">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Margin" Value="20,4,0,0" />
+            <Setter Property="Width" Value="16" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{StaticResource RailLabel}" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 開いたときだけ見せる。畳んでも場所は残す -->
+        <Style x:Key="NavExpandedOnly" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
+                    <Setter Property="Visibility" Value="Hidden" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="NavCollapsedOnly" TargetType="FrameworkElement">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- アプリの印（箱）。畳んだときに見出しの代わりに置く。ほかのアイコンと同じ 24 の座標で描く -->
+        <PathGeometry x:Key="IconApp" Figures="M4,8 L12,4 L20,8 V16 L12,20 L4,16 Z M4,8 L12,12 L20,8 M12,12 V20" />
     </Window.Resources>
 
     <Grid>
@@ -194,12 +240,25 @@
         <Border Grid.Column="0" Background="{StaticResource Rail}">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Top" Margin="0,16,0,0">
-                    <!-- 畳んだ幅ではタイトルが入らないので、そのときは畳むボタンだけを残す -->
-                    <StackPanel Margin="18,0,18,14"
-                                Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="BOOTH Asset Manager" Foreground="White" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
-                    </StackPanel>
+                    <!--
+                        畳んだ幅ではタイトルが入らないので、同じ高さにアプリの印を置く。
+                        場所ごと消すと、畳むボタンと下のアイコンが開閉のたびに上へ詰まってずれた（U2）。
+                        印の位置と描き方はナビのアイコン（左から20・16px・線の太さ1.8）にそろえる
+                    -->
+                    <Grid Margin="10,0,10,14">
+                        <StackPanel Margin="8,0" Style="{StaticResource NavExpandedOnly}">
+                            <TextBlock Text="BOOTH Asset Manager" Foreground="White" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                 Style="{StaticResource NavCollapsedOnly}" ToolTip="BOOTH Asset Manager">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="{StaticResource IconApp}" Fill="{x:Null}" StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Stroke="{StaticResource RailText}" />
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
                     <Button Command="{Binding ToggleNavCommand}" Margin="10,0,10,2">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
@@ -216,8 +275,14 @@
                         </Button.Style>
                     </Button>
 
-                    <TextBlock Text="ライブラリ" Style="{StaticResource NavGroupLabel}"
-                               Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <!--
+                        区切りの見出しは、畳んでも高さを残し、名前の代わりに細い線を引く。
+                        場所ごと消すと、下のアイコンが開閉のたびに上下へずれた（U2）
+                    -->
+                    <Grid>
+                        <TextBlock Text="ライブラリ" Style="{StaticResource NavGroupLabel}" />
+                        <Border Style="{StaticResource NavGroupRule}" />
+                    </Grid>
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowSearchCommand}"
                             views:Nav.Label="検索" views:Nav.Icon="{StaticResource IconSearch}"
                             views:Nav.IsActive="{Binding IsSearchActive}" />
@@ -228,8 +293,10 @@
                             views:Nav.Label="統計" views:Nav.Icon="{StaticResource IconStats}"
                             views:Nav.IsActive="{Binding IsStatsActive}" />
 
-                    <TextBlock Text="作業" Style="{StaticResource NavGroupLabel}"
-                               Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <Grid>
+                        <TextBlock Text="作業" Style="{StaticResource NavGroupLabel}" />
+                        <Border Style="{StaticResource NavGroupRule}" />
+                    </Grid>
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowImportCommand}"
                             views:Nav.Label="取り込み" views:Nav.Icon="{StaticResource IconImport}"
                             views:Nav.IsActive="{Binding IsImportActive}" />
@@ -237,17 +304,23 @@
                             views:Nav.Label="未確定" views:Nav.Icon="{StaticResource IconResolve}"
                             views:Nav.IsActive="{Binding IsResolveActive}"
                             views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="#9a6b1f" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}"
-                            views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
-                            views:Nav.IsActive="{Binding IsInboxActive}"
-                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="#8a3f6b" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
                             views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
                             views:Nav.IsActive="{Binding IsEditActive}"
                             views:Nav.Badge="{Binding NeedsEditCount}" views:Nav.BadgeBrush="#9a6b1f" />
 
-                    <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}"
-                               Visibility="{Binding IsNavCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                    <Grid>
+                        <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}" />
+                        <Border Style="{StaticResource NavGroupRule}" />
+                    </Grid>
+                    <!--
+                        要確認は「取り込んだ物を片付ける流れ」ではなく管理の側（U6・ユーザ判断）。
+                        件数のバッジが付くのはここだけなので、先頭に置いて目に入るようにする
+                    -->
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}"
+                            views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
+                            views:Nav.IsActive="{Binding IsInboxActive}"
+                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="#8a3f6b" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}"
                             views:Nav.Label="アバター" views:Nav.Icon="{StaticResource IconAvatars}"
                             views:Nav.IsActive="{Binding IsAvatarsActive}" />
