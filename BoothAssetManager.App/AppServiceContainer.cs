@@ -30,6 +30,10 @@ public sealed class AppServiceContainer : IDisposable
         IsSingleInstance = _instanceLock is not null;
 
         Store = new DataStore(Paths);
+
+        // 書き込みの途中で落ちると .tmp が残る。本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い
+        JsonStore.DeleteStaleTemporaryFiles(Paths.Root);
+        JsonStore.DeleteStaleTemporaryFiles(Paths.ItemsDir);
         Settings = Store.Settings.Load();
 
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };

@@ -96,7 +96,56 @@ public static class JsonStore
         }
 
         var temporaryPath = path + ".tmp";
-        await File.WriteAllTextAsync(temporaryPath, text, cancellationToken);
-        File.Move(temporaryPath, path, overwrite: true);
+        try
+        {
+            await File.WriteAllTextAsync(temporaryPath, text, cancellationToken);
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        catch
+        {
+            // 置き換えに失敗すると .tmp が残り、誰も片付けなかった（友人のストアに2件残っていた）。
+            // 本体を読んでいる人がいると置き換えは失敗しうる。例外はそのまま上へ返す
+            TryDelete(temporaryPath);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 書きかけで残った一時ファイル（<c>*.tmp</c>）を片付ける。起動時に呼ぶ。
+    ///
+    /// **10分より古いものだけ消す。**同じ保存先を別のプロセスが今まさに書いているかもしれない
+    /// （二重起動は止めているが、念のため）。書き込みは一瞬で終わるので、10分残っていれば書きかけではない。
+    /// </summary>
+    public static int DeleteStaleTemporaryFiles(string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return 0;
+        }
+
+        var deleted = 0;
+        var cutoff = DateTime.UtcNow.AddMinutes(-10);
+        foreach (var file in Directory.EnumerateFiles(directory, "*.tmp", SearchOption.TopDirectoryOnly))
+        {
+            if (File.GetLastWriteTimeUtc(file) < cutoff && TryDelete(file))
+            {
+                deleted++;
+            }
+        }
+
+        return deleted;
+    }
+
+    private static bool TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }
