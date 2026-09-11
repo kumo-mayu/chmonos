@@ -126,8 +126,12 @@ public static class UnityImportQueue
             var baseline = VisibleWindows(processId);
             PostMessage(main, WmCommand, (IntPtr)command, IntPtr.Zero);
 
+            // ファイル名の欄を持つ窓だけをファイル選択とみなす。Unity の進捗の窓（Importing・Compiling Scripts・
+            // Reloading Domain）も同じ #32770 で、Packages/ に入るパッケージは取り込み画面が閉じた後も
+            // 数秒それを出し続ける（実機で9秒 §11）。種類だけで拾うと進捗の窓を掴んで止まる
             var dialog = await WaitForAsync(
-                () => VisibleWindows(processId).FirstOrDefault(window => !baseline.Contains(window) && ClassOf(window) == "#32770"),
+                () => VisibleWindows(processId).FirstOrDefault(window =>
+                    !baseline.Contains(window) && ClassOf(window) == "#32770" && FindFileNameBox(window) is not null),
                 TimeSpan.FromSeconds(10),
                 cancellationToken);
 
