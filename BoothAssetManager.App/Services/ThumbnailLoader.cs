@@ -390,11 +390,14 @@ public sealed class ThumbnailLoader
         // 捨てた画像の実体（WPFの管理外の領域）は、GCが回ってファイナライザが走るまで返らない。
         // 縮小して1枚が小さくなった分、GCが急かされず、スクロール中に数百枚ぶん溜まっていた（#71）。
         // スクロールしている間は手が止まらないので、下の MemoryTrim だけでは山が削れない。
-        // 上限の半分ぶん捨てるたびに、若い世代だけ掃かせる（捨てたばかりの画像はそこにいて、数ミリ秒で終わる）
+        //
+        // 以前は若い世代だけ掃かせていたが、保持している間に何度もGCをくぐった画像は古い世代へ上がっていて、
+        // それでは回収できなかった（U12：2000件を端まで流した後、管理ヒープは91MBなのに画像が1,578個生きていた）。
+        // 古い世代まで、画面を止めない形（背景のGC）で掃かせる
         if (_evictedSinceCollect >= _budgetBytes / 2)
         {
             _evictedSinceCollect = 0;
-            GC.Collect(1);
+            GC.Collect(2, GCCollectionMode.Forced, blocking: false);
         }
 
         MemoryTrim.Request();
