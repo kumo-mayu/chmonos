@@ -34,7 +34,8 @@ public sealed class AppServiceContainer : IDisposable
         // 書き込みの途中で落ちると .tmp が残る。本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い
         JsonStore.DeleteStaleTemporaryFiles(Paths.Root);
         JsonStore.DeleteStaleTemporaryFiles(Paths.ItemsDir);
-        Settings = Store.Settings.Load();
+        // 以前の版は取得の間隔を500msまで保存できた。約束（1.5秒以上）の範囲に戻してから使う
+        Settings = Store.Settings.Load().Normalized();
 
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても

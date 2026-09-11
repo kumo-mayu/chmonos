@@ -831,6 +831,7 @@
                                                       Command="{Binding PlacementTarget.Tag.HideItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                         </ContextMenu>
                                     </Border.ContextMenu>
+                                    <Grid>
                                     <DockPanel>
                                         <!--
                                             マウスの横位置でギャラリー画像を切り替える（BOOTHのサイトと同じ操作感）。
@@ -932,8 +933,10 @@
                                         <Border DockPanel.Dock="Bottom" BorderBrush="#f0f1f4" BorderThickness="0,1,0,0"
                                                 Margin="11,0,11,11" Padding="0,6,0,0">
                                             <Grid>
+                                                <!-- 未所持のときは左下の襷が同じことを言うので、重ねて出さない -->
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
-                                                           VerticalAlignment="Center" />
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                     <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
@@ -972,6 +975,23 @@
                                             </WrapPanel>
                                         </StackPanel>
                                     </DockPanel>
+
+                                    <!--
+                                        未所持の襷（ユーザ指示：左下の隅にバックスラッシュの形で掛ける）。
+                                        所持が大半なので、所持の側に札を付けても「無い」ことに気付けなかった（友人の要望 #42）。
+                                        カードの角で切れるよう、カード自体の ClipToBounds に任せる。押した操作はカードへ通す
+                                    -->
+                                    <Border Width="150" Height="22" Background="{StaticResource Bad}"
+                                            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-45,0,0,19"
+                                            RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"
+                                            Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                        <Border.RenderTransform>
+                                            <RotateTransform Angle="45" />
+                                        </Border.RenderTransform>
+                                        <TextBlock Text="未所持" Foreground="White" FontSize="11" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                                 </ItemsControl.ItemTemplate>

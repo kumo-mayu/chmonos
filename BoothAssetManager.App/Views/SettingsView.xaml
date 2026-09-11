@@ -278,7 +278,7 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding FetchIntervalMs, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="ミリ秒" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
-                            <TextBlock Text="短くしすぎると断られて逆に遅くなります" Style="{StaticResource Caption}"
+                            <TextBlock Text="1500ミリ秒より短くはできません（相手のサービスに負担をかけないため）" Style="{StaticResource Caption}"
                                        Margin="14,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
 

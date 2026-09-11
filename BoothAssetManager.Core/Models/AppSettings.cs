@@ -123,7 +123,21 @@ public sealed record AppSettings
     // --- 取得のマナー ---
 
     /// <summary>BOOTHへのリクエスト間隔（ミリ秒）。直列で必ず間隔を空ける。</summary>
-    public int FetchIntervalMs { get; init; } = 1500;
+    public int FetchIntervalMs { get; init; } = MinFetchIntervalMs;
+
+    /// <summary>
+    /// 間隔の下限。**1.5秒より詰めない**（CLAUDE.md の絶対に破らないこと・ユーザ判断 2026-09-11）。
+    /// 設定画面は以前500msまで下げられ、約束と食い違っていた。広げるのは自由。
+    /// 試験では通信を待たせないため0を使うので、下限は <c>BoothClient</c> ではなく設定の入口で守る。
+    /// </summary>
+    public const int MinFetchIntervalMs = 1500;
+
+    /// <summary>
+    /// 読み込んだ設定を約束の範囲に戻す。以前の版で1.5秒より短く保存された設定もここで直る。
+    /// </summary>
+    public AppSettings Normalized() => FetchIntervalMs >= MinFetchIntervalMs
+        ? this
+        : this with { FetchIntervalMs = MinFetchIntervalMs };
 
     /// <summary>
     /// 429を受けたときに自動で広げる間隔の上限（ミリ秒）。

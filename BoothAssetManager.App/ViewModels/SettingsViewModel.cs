@@ -424,7 +424,20 @@ public sealed class SettingsViewModel : ViewModelBase
     public int FetchIntervalMs
     {
         get => _fetchIntervalMs;
-        set { if (SetField(ref _fetchIntervalMs, Math.Clamp(value, 500, 10000))) { Save(); } }
+        // 下限は約束の1.5秒（AppSettings.MinFetchIntervalMs）。短く打っても1500に戻す
+        set
+        {
+            var clamped = Math.Clamp(value, AppSettings.MinFetchIntervalMs, 10000);
+            if (SetField(ref _fetchIntervalMs, clamped))
+            {
+                Save();
+            }
+            else if (clamped != value)
+            {
+                // 同じ値に戻っただけだと欄に打った数字が残るので、戻したことを欄に映す
+                OnPropertyChanged();
+            }
+        }
     }
 
     private int _imageMaxEdgePixels;

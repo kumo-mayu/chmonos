@@ -136,6 +136,7 @@
                         <DataTemplate>
                             <Border Style="{StaticResource Card}" Width="228" Height="300" Margin="0,0,14,14"
                                     Cursor="Hand" MouseLeftButtonUp="OnCardClick" ClipToBounds="True">
+                                <Grid>
                                 <DockPanel>
                                     <Grid DockPanel.Dock="Top" Height="180" Background="#e9edf4">
                                         <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
@@ -155,14 +156,29 @@
                                                    FontSize="11" Foreground="{StaticResource TextFaint}" Margin="0,6,0,0" />
                                         <Border Height="1" Background="#f0f1f4" Margin="0,8,0,7" />
                                         <Grid>
+                                            <!-- 未所持のときは左下の襷が同じことを言うので、重ねて出さない -->
                                             <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}"
-                                                       FontSize="11" Foreground="{StaticResource TextMuted}" />
+                                                       FontSize="11" Foreground="{StaticResource TextMuted}"
+                                                       Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBlock Text="{Binding UserTagText}" Style="{StaticResource Caption}"
                                                        HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
                                                        MaxWidth="120" />
                                         </Grid>
                                     </StackPanel>
                                 </DockPanel>
+
+                                <!-- 未所持の襷。検索カードと同じ（理由は SearchView の同じ所） -->
+                                <Border Width="150" Height="22" Background="{StaticResource Bad}"
+                                        HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-45,0,0,19"
+                                        RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"
+                                        Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                    <Border.RenderTransform>
+                                        <RotateTransform Angle="45" />
+                                    </Border.RenderTransform>
+                                    <TextBlock Text="未所持" Foreground="White" FontSize="11" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
