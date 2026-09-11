@@ -849,6 +849,58 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public bool HasAvatars => Avatars.Count > 0;
 
+    /// <summary>
+    /// 札を絞り込む欄を出す境目（U26）。
+    /// 20体までなら札は4〜5行に収まり、目で追える。それを超えると探す手間の方が大きい
+    /// （友人のデータには248体を宣言している商品がある）。
+    /// </summary>
+    private const int AvatarFilterThreshold = 20;
+
+    private string _avatarFilter = string.Empty;
+
+    /// <summary>アバター名で札を絞る（U26）。ひらがな・カタカナ、全角・半角、大文字・小文字は区別しない。</summary>
+    public string AvatarFilter
+    {
+        get => _avatarFilter;
+        set
+        {
+            if (SetField(ref _avatarFilter, value ?? string.Empty))
+            {
+                ApplyAvatarFilter();
+            }
+        }
+    }
+
+    /// <summary>画面に出す札。絞り込み欄に何か入っていれば、名前が一致するものだけ。</summary>
+    public IReadOnlyList<AvatarRow> VisibleAvatars { get; private set; } = [];
+
+    public bool ShowsAvatarFilter => Avatars.Count > AvatarFilterThreshold;
+
+    public string AvatarFilterPlaceholder => $"アバター名で絞る（{Avatars.Count} 体）";
+
+    /// <summary>絞った結果の件数。0件のときに「無い」のか「絞り過ぎ」なのかを分ける。</summary>
+    public string AvatarFilterResultText => _avatarFilter.Trim().Length == 0
+        ? string.Empty
+        : VisibleAvatars.Count == 0
+            ? "一致するアバターはありません"
+            : $"{Avatars.Count} 体中 {VisibleAvatars.Count} 体";
+
+    private void ApplyAvatarFilter()
+    {
+        var needle = _avatarFilter.Trim();
+        var compare = System.Globalization.CultureInfo.CurrentCulture.CompareInfo;
+        const System.Globalization.CompareOptions options = System.Globalization.CompareOptions.IgnoreCase
+            | System.Globalization.CompareOptions.IgnoreKanaType
+            | System.Globalization.CompareOptions.IgnoreWidth;
+
+        VisibleAvatars = needle.Length == 0
+            ? Avatars
+            : Avatars.Where(row => compare.IndexOf(row.Name, needle, options) >= 0).ToList();
+
+        OnPropertyChanged(nameof(VisibleAvatars));
+        OnPropertyChanged(nameof(AvatarFilterResultText));
+    }
+
     /// <summary>この商品が名指ししている共通素体。</summary>
     public IReadOnlyList<string> AvatarBases { get; private set; } = [];
 
@@ -1190,6 +1242,14 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         string NameOf(string id, string? cached)
             => names.TryGetValue(id, out var name) ? name : cached ?? id;
 
+        // 持っているアバターを先に（U25）。100体を超える商品では、自分のアバターが
+        // 札の山のどこにあるかを探すことになっていた。持っていない分は出品者の並びのまま
+        var ownedIds = _main.Search.OwnedItemIds();
+        var manuallyOwned = registry.Entries
+            .Where(entry => entry.IsOwnedManually)
+            .Select(entry => entry.ItemId)
+            .ToHashSet(StringComparer.Ordinal);
+
         Avatars = Item.Local.Avatars
             .Where(link => !link.Rejected)
             .Select(link => new AvatarRow
@@ -1198,10 +1258,14 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 Name = NameOf(link.AvatarItemId, link.Name),
                 SourceText = SourceLabel(link.Source),
                 IsUnconfirmed = !link.Confirmed,
+                IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
                 RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId)),
                 OpenCommand = new RelayCommand(() => _ = OpenAvatarAsync(link.AvatarItemId)),
             })
+            .OrderByDescending(row => row.IsOwned)
             .ToList();
+
+        ApplyAvatarFilter();
 
         AvatarBases = Item.Local.AvatarBases
             .Where(link => !link.Rejected)
@@ -1221,7 +1285,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         foreach (var name in new[]
         {
             nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
-            nameof(AvatarSectionNote),
+            nameof(AvatarSectionNote), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
         })
         {
             OnPropertyChanged(name);
@@ -2300,13 +2364,18 @@ public sealed class AvatarRow
 
     public bool IsUnconfirmed { get; init; }
 
+    /// <summary>このアバターを持っているか（U25）。札を「所持」の緑にして先頭へ寄せる。</summary>
+    public bool IsOwned { get; init; }
+
     /// <summary>
     /// どこから拾ったか、確認済みかをホバーで出す。
     /// 常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
+    /// 所持は色だけに頼らず、ここでも言葉で言う。
     /// </summary>
-    public string SourceTooltip => IsUnconfirmed
-        ? $"{SourceText}から拾いました（未確認）。押すとこのアバターを開きます"
-        : $"{SourceText}から拾いました。押すとこのアバターを開きます";
+    public string SourceTooltip => (IsOwned ? "持っているアバターです。" : string.Empty)
+        + (IsUnconfirmed
+            ? $"{SourceText}から拾いました（未確認）。押すとこのアバターを開きます"
+            : $"{SourceText}から拾いました。押すとこのアバターを開きます");
 
     /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
     public RelayCommand? RejectCommand { get; init; }

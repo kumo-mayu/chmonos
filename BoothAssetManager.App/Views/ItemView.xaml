@@ -609,7 +609,32 @@
                             <TextBlock Text="{Binding AvatarSectionNote}" Style="{StaticResource Caption}"
                                        Margin="0,5,0,0" TextWrapping="Wrap" />
 
-                            <ItemsControl ItemsSource="{Binding Avatars}" Margin="0,10,0,0"
+                            <!-- 札が多い商品だけ、アバター名で絞る欄を出す（U26） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0"
+                                        Visibility="{Binding ShowsAvatarFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Grid Width="260">
+                                    <TextBox x:Name="AvatarFilterBox" Padding="6,3"
+                                             Text="{Binding AvatarFilter, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Text="{Binding AvatarFilterPlaceholder}" IsHitTestVisible="False"
+                                               Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextFaint}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=AvatarFilterBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                                <TextBlock Text="{Binding AvatarFilterResultText}" Style="{StaticResource Caption}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <ItemsControl ItemsSource="{Binding VisibleAvatars}" Margin="0,10,0,0"
                                           Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -627,9 +652,21 @@
                                             押すとそのアバターを開く（U13）。持っていればその商品ページ、持っていなければ
                                             アバター画面でそのアバターを選んだ状態。「×」はボタンなので、押しても開かない
                                         -->
-                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
+                                        <!-- 持っているアバターは検索カードの「所持」と同じ緑（U25） -->
+                                        <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
                                                 ToolTip="{Binding SourceTooltip}" Cursor="Hand">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{StaticResource AccentSoft}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBorder}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource GoodSoft}" />
+                                                            <Setter Property="BorderBrush" Value="{StaticResource GoodBorder}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
                                             <Border.InputBindings>
                                                 <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
                                             </Border.InputBindings>

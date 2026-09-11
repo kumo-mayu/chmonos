@@ -1366,6 +1366,16 @@ public sealed class SearchViewModel : ViewModelBase
 
     public int TotalCount => _allItems.Count;
 
+    /// <summary>
+    /// 所持している商品のID（所持＝ファイルかフォルダを1つ以上持つ）。
+    /// 商品ページの対応アバターの札を「所持」の色にするのに使う（U25）。
+    /// 検索画面は起動時に全商品を読んでいるので、札のために200件以上を読み直さない
+    /// </summary>
+    public IReadOnlySet<string> OwnedItemIds() => _allItems
+        .Where(item => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+        .Select(item => item.Id)
+        .ToHashSet(StringComparer.Ordinal);
+
     public int ShopCount => _allItems
         .Select(item => item.ShopSubdomain)
         .Where(subdomain => subdomain is not null)
