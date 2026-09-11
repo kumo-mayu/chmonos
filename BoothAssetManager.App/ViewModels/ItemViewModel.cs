@@ -1461,42 +1461,23 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             return null;
         }
 
-        var editors = Services.UnityEditors.Open();
-        if (editors.Count == 0)
-        {
-            System.Windows.MessageBox.Show(
-                "送り先は、開いているUnityになります。\n\n"
-                + "いまUnityが開いていないので送れません。プロジェクトを開いてから、もう一度押してください。",
-                title,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
-            return null;
-        }
-
-        if (editors.Count > 1)
-        {
-            var names = string.Join("・", editors.Select(editor => editor.ProjectName ?? "名前の分からないプロジェクト"));
-            System.Windows.MessageBox.Show(
-                $"Unityが {editors.Count} つ開いています（{names}）。\n\n"
-                + "どちらに入るかを選べないので、送るのをやめました。\n"
-                + "入れたい方だけを開いた状態で、もう一度押してください。",
-                title,
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
-            return null;
-        }
-
-        return editors[0];
+        // 窓を名指しして送る道なので、複数開いていても選べば送れる（U14・ユーザ判断）。
+        // 以前はファイルの関連付けに渡していて、どれに入るかを指名できず、2つ以上開いていると断っていた
+        return Services.UnityTargetPicker.Pick(title);
     }
 
-    private void SendToUnity(object? parameter)
+    private void SendToUnity(object? parameter) => _ = SendToUnityAsync(parameter);
+
+    private async Task SendToUnityAsync(object? parameter)
     {
         if (parameter is not Core.Services.UnityPackageEntry package)
         {
             return;
         }
 
-        if (PickUnityTarget("Unityへ送る") is not { } editor)
+        const string title = "Unityへ送る";
+
+        if (PickUnityTarget(title) is not { } editor)
         {
             return;
         }
@@ -1505,20 +1486,47 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var answer = System.Windows.MessageBox.Show(
             $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
             + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
-            "Unityへ送る",
+            title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.OK);
 
         if (answer == System.Windows.MessageBoxResult.OK)
         {
-            Services.Shell.SendToUnity(package.VirtualPath);
+            await SendOneToUnityAsync(editor, package, title);
+        }
+    }
 
-            // 「使った」の足跡。Unityへ送ったことが一番強い証拠（ユーザ判断）。
-            // Unity側で取り込みを取り消しても足跡は残るが、
-            // 「送ろうとした」という事実は本当なので消さない
+    /// <summary>
+    /// 1件を、選んだ Unity の窓へ名指しで送る（U14）。検索の複数選択・改変と同じ道（1件だけの列）。
+    /// 取り込みの終わりをログで見るので、Cancel されたかも分かる。
+    /// </summary>
+    /// <returns>取り込み画面を出せたか。</returns>
+    private async Task<bool> SendOneToUnityAsync(
+        Services.OpenUnityEditor editor,
+        Core.Services.UnityPackageEntry package,
+        string title)
+    {
+        var outcomes = await Services.UnityImportQueue.RunAsync(
+            editor.ProcessId, [package], progress: null, CancellationToken.None);
+        var outcome = outcomes.FirstOrDefault();
+
+        if (outcome is null || !outcome.Opened)
+        {
+            System.Windows.MessageBox.Show(
+                $"「{package.Name}」をUnityへ送れませんでした。\n\n{outcome?.Problem ?? "理由が分かりませんでした。"}",
+                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return false;
+        }
+
+        // 「使った」の足跡。Unityへ送ったことが一番強い証拠（ユーザ判断）。
+        // 取り込み画面で Cancel された物は入っていないので付けない（検索の複数選択と同じ扱い）
+        if (!outcome.Cancelled)
+        {
             _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
         }
+
+        return true;
     }
 
     /// <summary>
@@ -1572,8 +1580,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             return;
         }
 
-        // **記録してから送る。**送るのはWindows任せで結果が返らないので、
-        // 先に記録を確定させておく方が失うものが少ない
+        // **記録してから送る。**送るのは Unity 側の取り込み画面を待つので時間がかかり、
+        // 途中で窓を閉じられることもある。先に記録を確定させておく方が失うものが少ない
         var owner = LocalFiles.FirstOrDefault(file => file.UnityPackages.Contains(package));
         if (await CommitPickedModificationAsync(model, title, projectPath, owner, package.EntryPath)
             is not { } record)
@@ -1581,10 +1589,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             return;
         }
 
-        Services.Shell.SendToUnity(package.VirtualPath);
-        _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
+        // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
+        var sent = await SendOneToUnityAsync(editor, package, title);
 
-        UnityRecordNotice = $"「{record.Name}」に足して、Unityへ送りました。";
+        UnityRecordNotice = sent
+            ? $"「{record.Name}」に足して、Unityへ送りました。"
+            : $"「{record.Name}」に足しました。Unityへは送れませんでした。";
     }
 
     /// <summary>
@@ -1781,7 +1791,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 0 => "Unityが開いていません（開いてから送れます）",
                 1 => $"送り先：Unityの「{editors[0].ProjectName ?? "名前不明のプロジェクト"}」",
-                _ => $"Unityが {editors.Count} つ開いています（1つだけにしてください）",
+                // 窓を名指しして送るので、複数開いていても送るときに選べる（U14）
+                _ => $"Unityが {editors.Count} つ開いています（送るときにどれへ送るか選べます）",
             };
         }
     }

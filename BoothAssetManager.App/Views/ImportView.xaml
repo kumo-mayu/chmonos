@@ -86,6 +86,12 @@
                                         Command="{Binding StartCommand}" />
                                 <Button Content="中断" Margin="9,0,0,0" Command="{Binding CancelCommand}" />
                             </StackPanel>
+                            <!--
+                                閉じても大丈夫だと先に書く（U9・ユーザ判断）。中断を知らせるのは閉じた後だけだった。
+                                ②③の途中で閉じると説明が埋まらない穴を塞いでから入れた（嘘にならないように）
+                            -->
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,9,0,0" TextWrapping="Wrap"
+                                       Text="途中で閉じても、取れた分は残ります。もう一度「取り込みを開始」を押すと続きから進みます（画像は起動したときに自動で続きを取ります）。" />
                             <TextBlock Text="{Binding StackNotice}" Style="{StaticResource Caption}"
                                        Margin="0,9,0,0" TextWrapping="Wrap"
                                        Visibility="{Binding HasStackNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

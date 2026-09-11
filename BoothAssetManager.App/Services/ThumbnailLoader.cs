@@ -151,6 +151,58 @@ public sealed class ThumbnailLoader
         }
 
         var image = Decode(path, maxEdgePixels);
+        Store(key, image);
+        return image;
+    }
+
+    /// <summary>裏で読んでいる最中の1枚。同じ画像を二重に読み始めないために覚えておく。</summary>
+    private readonly Dictionary<string, Task<BitmapSource?>> _loading = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 検索カードの止まっているときの1枚。手元にあればすぐ返し、無ければ null を返して裏で読み始める（U12）。
+    /// 読み終わったら <paramref name="onLoaded"/> を画面のスレッドで呼ぶので、そこで描き直させる。
+    ///
+    /// 以前は画面のスレッドでその場で読んで縮めていて、速くスクロールすると新しい行が出るたびに
+    /// 1枚ずつ画面が止まった（保持の上限を増やしても、初めて見る所では同じだった）。
+    /// 復号は状態を触らない関数で、作った画像は凍結しているので別のスレッドで作ってよい。
+    /// 保持（辞書）を触るのは今までどおり画面のスレッドだけにする。
+    /// </summary>
+    public BitmapSource? PeekForCard(string path, Action onLoaded)
+    {
+        var edge = EdgePixels(CardEdgeDip);
+        var key = $"{path}|{edge}";
+        if (_byKey.TryGetValue(key, out var cached))
+        {
+            cached.LastUsedAt = ++_clock;
+            return cached.Image;
+        }
+
+        if (!_loading.TryGetValue(key, out var loading))
+        {
+            loading = Task.Run(() => Decode(path, edge));
+            _loading[key] = loading;
+        }
+
+        loading.ContinueWith(
+            done =>
+            {
+                _loading.Remove(key);
+
+                // 同じ画像を待っていたカードが複数あると、ここは複数回呼ばれる。入れるのは1回だけ
+                if (!_byKey.ContainsKey(key))
+                {
+                    Store(key, done.IsCompletedSuccessfully ? done.Result : null);
+                }
+
+                onLoaded();
+            },
+            TaskScheduler.FromCurrentSynchronizationContext());
+
+        return null;
+    }
+
+    private void Store(string key, BitmapSource? image)
+    {
         var entry = new Entry
         {
             Image = image,
@@ -162,8 +214,6 @@ public sealed class ThumbnailLoader
         _byKey[key] = entry;
         _usedBytes += entry.Bytes;
         EvictIfNeeded();
-
-        return image;
     }
 
     /// <summary>

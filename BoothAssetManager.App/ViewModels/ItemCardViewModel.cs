@@ -165,7 +165,10 @@ public sealed class ItemCardViewModel : ViewModelBase
         var path = BoothAssetManager.Core.Images.ItemImageOrder
             .Thumbnail(ordered, Item.Local.ThumbnailImage, ThumbnailRole, Item.Local.ImageRoles);
 
-        return path is null ? null : _thumbnails.LoadForCard(path);
+        // 手元に無ければ裏で読み、その間は枠の薄い灰色のまま描く（U12）。
+        // 画面のスレッドで読むと、速いスクロールで新しい行が出るたびに止まった。
+        // なぞって送るとき（_activePath）は今までどおりその場で読む——裏へ回すと、なぞるたびに灰色がちらつく
+        return path is null ? null : _thumbnails.PeekForCard(path, () => OnPropertyChanged(nameof(Thumbnail)));
     }
 
     /// <summary>今どの画像を見ているかの目印。画像が2枚以上あるときだけ出す。</summary>

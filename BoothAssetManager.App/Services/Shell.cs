@@ -45,25 +45,6 @@ public static class Shell
         }
     }
 
-    /// <summary>
-    /// zipの中の <c>.unitypackage</c> をUnityへ送る。
-    ///
-    /// **展開しない。**渡すのは <c>&lt;zip&gt;\&lt;中のパス&gt;</c> という仮想パスで、
-    /// zipを「フォルダ」として解決するのはWindowsの仕事。
-    /// 関連付け（<c>Unity.exe -openfile</c>）が起動中のエディタへ転送し、
-    /// 取り込みダイアログが出る。
-    ///
-    /// **開いていないと何も起きない**（Unity Hubの窓が出るだけ）。
-    /// 呼ぶ側で <see cref="UnityEditors.Open"/> を見て言い分けること。
-    /// </summary>
-    public static void SendToUnity(string? virtualPath)
-    {
-        if (!string.IsNullOrWhiteSpace(virtualPath))
-        {
-            TryStart(new ProcessStartInfo { FileName = virtualPath, UseShellExecute = true });
-        }
-    }
-
     private static void TryStart(ProcessStartInfo startInfo)
     {
         try
