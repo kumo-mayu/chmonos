@@ -615,7 +615,7 @@ public sealed class AvatarsViewModel : ViewModelBase
 
             if (!group.InferClothing)
             {
-                return $"「{name}」は衣装の互換を広げない設定です（頭部などの部位規格）。";
+                return $"「{name}」は衣装の互換を広げない設定です。他のアバター向けの衣装は、素体経由として出ません。";
             }
 
             var siblings = group.Summary.MemberCount - 1;

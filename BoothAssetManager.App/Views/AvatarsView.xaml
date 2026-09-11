@@ -391,7 +391,7 @@
                                                                   Command="{Binding ToggleInferCommand}"
                                                                   VerticalAlignment="Center" Margin="0,0,14,0"
                                                                   Foreground="{StaticResource Text}"
-                                                                  ToolTip="頭部などの部位規格は外してください。一致しても衣装は合いません。" />
+                                                                  ToolTip="同じ素体でも衣装が合わない組だけ外してください。外すと、この組の他のアバター向けの衣装が素体経由として出なくなります。" />
                                                         <Button Content="名前を変える" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding RenameCommand}" />
                                                         <Button Content="消す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"

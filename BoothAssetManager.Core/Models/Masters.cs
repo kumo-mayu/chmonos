@@ -167,8 +167,8 @@ public sealed record AvatarBaseGroup
     /// <summary>
     /// このグループの一致から衣装の互換を推し量ってよいか。
     ///
-    /// 既定は true。false にするのは頭部などの部位規格で、
-    /// 一致しても衣装が合うとは限らないもの（+Head など）。
+    /// 既定は true。false にするのは、同じ素体を名乗っていても衣装が合わない組。
+    /// 初期辞書で false のものは無い（以前は +Head を false にしていたが、体の共通素体だった）。
     /// </summary>
     public bool InferClothing { get; init; } = true;
 

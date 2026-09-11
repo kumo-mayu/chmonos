@@ -137,7 +137,7 @@ public sealed class AvatarCompatibilityIndex
 
         foreach (var baseName in basesToExpand)
         {
-            // 頭部などの部位規格は、一致しても衣装が合うとは限らないので広げない
+            // 「衣装の互換を広げない」にした組は、素体が一致しても広げない
             if (_noInfer.Contains(baseName))
             {
                 continue;

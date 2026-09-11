@@ -64,7 +64,7 @@ public sealed partial class AvatarService
 
     /// <summary>
     /// このグループの一致から衣装の互換を推し量ってよいかを切り替える。
-    /// +Head のような部位規格は false にする（一致しても衣装は合わない）。
+    /// 同じ素体を名乗っていても衣装が合わない組は false にする。
     /// </summary>
     public async Task SetInferClothingAsync(
         string name,

@@ -94,20 +94,20 @@ public class AvatarCompatibilityTests
     }
 
     /// <summary>
-    /// +Head は「頭部の規格」で85体が属するが、一致しても衣装は合わない。
-    /// InferClothing を false にしたグループは広げない。
+    /// 「衣装の互換を広げない」にした組は、素体が一致しても広げない。
+    /// 同じ素体を名乗っていても衣装が合わない組のために、仕組みとして残してある。
     /// </summary>
     [Fact]
-    public void DoesNotSpreadThroughPartStandards()
+    public void DoesNotSpreadThroughGroupsMarkedNotToInfer()
     {
         var registry = new AvatarRegistry
         {
             Entries =
             [
-                new AvatarRegistryEntry { ItemId = "a", BaseName = "+Head" },
-                new AvatarRegistryEntry { ItemId = "b", BaseName = "+Head" },
+                new AvatarRegistryEntry { ItemId = "a", BaseName = "頭部だけの規格" },
+                new AvatarRegistryEntry { ItemId = "b", BaseName = "頭部だけの規格" },
             ],
-            BaseGroups = [new AvatarBaseGroup { Name = "+Head", InferClothing = false }],
+            BaseGroups = [new AvatarBaseGroup { Name = "頭部だけの規格", InferClothing = false }],
         };
 
         var index = AvatarCompatibilityIndex.Build(registry);
@@ -213,19 +213,55 @@ public class AvatarBaseSeedTests
         Assert.Equal("自分で直した", head.Memo);
     }
 
-    /// <summary>+Head は頭部の規格なので、衣装の互換は広げない。</summary>
+    /// <summary>
+    /// +Head も体の共通素体。以前は頭部だけの規格とみなして広げない設定で配っていた。
+    /// 初期辞書はすべて衣装の互換を広げる。
+    /// </summary>
     [Fact]
-    public void PartStandardsDoNotSpreadClothing()
-    {
-        var head = AvatarBaseSeed.Groups.Single(group => group.Name == "+Head");
+    public void EverySeedGroupSpreadsClothing()
+        => Assert.All(AvatarBaseSeed.Groups, group => Assert.True(group.InferClothing));
 
-        Assert.False(head.InferClothing);
+    private static AvatarBaseGroup LegacyPlusHead() => new()
+    {
+        Name = "+Head",
+        InferClothing = false,
+        Memo = "頭部の共通規格。頭を差し替えられるだけで、衣装が合うとは限りません。",
+        Aliases = [new AvatarAlias { Text = "+Head", Source = "Seed" }, new AvatarAlias { Text = "ぷらすへっど", Source = "Manual" }],
+    };
+
+    /// <summary>以前の初期辞書のままの +Head は直す。利用者が足した別名は残す。</summary>
+    [Fact]
+    public void RepairsTheLegacyPlusHeadSeed()
+    {
+        var groups = new List<AvatarBaseGroup> { LegacyPlusHead() };
+
+        var repaired = AvatarBaseSeed.RepairLegacy(groups);
+
+        var head = Assert.Single(groups);
+        Assert.Equal(1, repaired);
+        Assert.True(head.InferClothing);
+        Assert.Contains(head.Aliases, alias => alias.Text == "ぷらすへっど");
+        Assert.Contains(head.Aliases, alias => alias.Text == "PlusHead");
     }
 
-    /// <summary>ほかは既定どおり衣装を広げる。</summary>
+    /// <summary>利用者がメモを書き換えていたら、その人の判断なので触らない。</summary>
     [Fact]
-    public void BodyBasesSpreadClothing()
-        => Assert.All(
-            AvatarBaseSeed.Groups.Where(group => group.Name != "+Head"),
-            group => Assert.True(group.InferClothing));
+    public void LeavesAPlusHeadTheUserHasEdited()
+    {
+        var groups = new List<AvatarBaseGroup> { LegacyPlusHead() with { Memo = "うちでは頭だけ使う" } };
+
+        Assert.Equal(0, AvatarBaseSeed.RepairLegacy(groups));
+        Assert.False(groups.Single().InferClothing);
+    }
+
+    /// <summary>初期辞書を合流するときにも直す（検出のたびに通る）。</summary>
+    [Fact]
+    public void MergeAlsoRepairsTheLegacySeed()
+    {
+        var groups = new List<AvatarBaseGroup> { LegacyPlusHead() };
+
+        AvatarBaseSeed.Merge(groups);
+
+        Assert.True(groups.Single(group => group.Name == "+Head").InferClothing);
+    }
 }

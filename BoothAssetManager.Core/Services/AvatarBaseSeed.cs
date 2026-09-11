@@ -17,18 +17,30 @@ namespace BoothAssetManager.Core.Services;
 public static class AvatarBaseSeed
 {
     /// <summary>
-    /// 初期辞書の中身。
-    /// <c>InferClothing = false</c> は部位規格で、一致しても衣装が合うとは限らないもの。
+    /// 以前の初期辞書が +Head に付けていたメモ。**これと一致するものだけを直す**目印に使う。
+    ///
+    /// 以前は +Head を「頭部だけの規格」とみなして衣装の互換を広げない設定で配っていたが、
+    /// 体の共通素体だった（2026-09-11 ユーザが調べて確認。実データでもネイルの出品者が
+    /// 「+head素体アバター」と体ごと対応を書いていた）。
+    /// </summary>
+    private const string LegacyPlusHeadMemo = "頭部の共通規格。頭を差し替えられるだけで、衣装が合うとは限りません。";
+
+    /// <summary>
+    /// 初期辞書の中身。全部、衣装の互換を広げる（既定）。
+    /// 広げない設定（<c>InferClothing = false</c>）は仕組みとして残してあり、利用者が組ごとに切り替えられる。
     /// </summary>
     public static IReadOnlyList<AvatarBaseGroup> Groups { get; } =
     [
-        // 頭部の規格。カタログ上は最大の85体だが、体は揃わないので衣装は広げない
+        // 体の共通素体。カタログ上は最大の85体
         new AvatarBaseGroup
         {
             Name = "+Head",
-            InferClothing = false,
-            Memo = "頭部の共通規格。頭を差し替えられるだけで、衣装が合うとは限りません。",
-            Aliases = [new AvatarAlias { Text = "+Head", Source = "Seed" }],
+            Memo = "体の共通素体。+Head のアバター同士は、同じ衣装を着られることが多いです。",
+            Aliases =
+            [
+                new AvatarAlias { Text = "+Head", Source = "Seed" },
+                new AvatarAlias { Text = "PlusHead", Source = "Seed" },
+            ],
         },
 
         new AvatarBaseGroup
@@ -103,6 +115,8 @@ public static class AvatarBaseSeed
     /// <returns>足したグループ数。</returns>
     public static int Merge(List<AvatarBaseGroup> groups)
     {
+        RepairLegacy(groups);
+
         var known = groups.Select(group => group.Name)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
@@ -115,5 +129,38 @@ public static class AvatarBaseSeed
         }
 
         return added;
+    }
+
+    /// <summary>
+    /// 以前の初期辞書が配った誤った値を直す。直した組の数を返す。
+    ///
+    /// **初期辞書のまま（広げない＋以前のメモ）のものだけを直す。**利用者が切り替えたり
+    /// メモを書き換えたりしたものは、その人の判断なので触らない。
+    /// 別名は利用者が足しているかもしれないので残し、足りない初期の別名だけを足す。
+    /// </summary>
+    public static int RepairLegacy(List<AvatarBaseGroup> groups)
+    {
+        var repaired = 0;
+        var seed = Groups.Single(group => group.Name == "+Head");
+
+        for (var i = 0; i < groups.Count; i++)
+        {
+            var group = groups[i];
+            if (!string.Equals(group.Name, seed.Name, StringComparison.CurrentCultureIgnoreCase)
+                || group.InferClothing
+                || !string.Equals(group.Memo, LegacyPlusHeadMemo, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var aliases = group.Aliases.ToList();
+            aliases.AddRange(seed.Aliases.Where(alias => !aliases.Any(existing =>
+                string.Equals(existing.Text, alias.Text, StringComparison.CurrentCultureIgnoreCase))));
+
+            groups[i] = group with { InferClothing = true, Memo = seed.Memo, Aliases = aliases };
+            repaired++;
+        }
+
+        return repaired;
     }
 }
