@@ -72,15 +72,37 @@ public sealed class CommandHandler
                     : new CommandResult.Failed($"商品 {register.ItemId} をBOOTHから取得できませんでした。");
 
             case UiCommand.AssignItemId assign:
-                return await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken)
-                    ? new CommandResult.ItemSaved(assign.ItemId)
+                if (await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken))
+                {
+                    // 手で紐付けた商品は、説明文・タグ・種類名が揃っているのに、次の検出まで
+                    // 対応アバターが空だった（「手で紐付けると上手く行かない」と見えていた）。
+                    // **裏で走らせ、確定の画面は待たせない。**確定すると次の1件の自動検索が走るので、
+                    // ここで待たせると #27 で直した待ちが戻る。検出は1本ずつなので重ならない
+                    if (_avatars is { } avatars)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.Detection);
+                            try
+                            {
+                                await avatars.DetectAsync();
+                            }
+                            catch (Exception exception) when (exception is not OperationCanceledException)
+                            {
+                                // 拾えなくても、次の取り込みかアバター画面のボタンで拾われる
+                            }
+                        });
+                    }
 
-                    // **考えられる理由を書く。**失敗する道は「未確定の一覧に
-                    // そのファイルが無い」か「BOOTHから商品を作れない」の2つだけ。
-                    // 前者は同じ中身のファイルが複数あるときに起きる——1つ確定すると
-                    // 一覧から消えるので、残った行を押すと空振りになる。
-                    // そのときは既に済んでいるので、実は失敗ではない
-                    : new CommandResult.Failed(
+                    return new CommandResult.ItemSaved(assign.ItemId);
+                }
+
+                // **考えられる理由を書く。**失敗する道は「未確定の一覧に
+                // そのファイルが無い」か「BOOTHから商品を作れない」の2つだけ。
+                // 前者は同じ中身のファイルが複数あるときに起きる——1つ確定すると
+                // 一覧から消えるので、残った行を押すと空振りになる。
+                // そのときは既に済んでいるので、実は失敗ではない
+                return new CommandResult.Failed(
                         $"商品ID {assign.ItemId} には確定できませんでした。"
                         + "同じ中身のファイルが他にもあって、そちらで既に確定済みかもしれません"
                         + "（その場合は商品ページのファイル一覧に出ています）。"

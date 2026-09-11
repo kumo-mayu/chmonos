@@ -276,6 +276,25 @@ public sealed partial class AvatarService : IAvatarService
         IProgress<AvatarDetectProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // **1本ずつ走らせる。**取り込みの③、アバター画面のボタン、手で紐付けた後の検出が重なりうる。
+        // どれもライブラリ全体を読み書きするので、重なると後から書いた方が先の結果を消す
+        await _detectGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await DetectUnguardedAsync(progress, cancellationToken);
+        }
+        finally
+        {
+            _detectGate.Release();
+        }
+    }
+
+    private readonly SemaphoreSlim _detectGate = new(1, 1);
+
+    private async Task<AvatarDetectResult> DetectUnguardedAsync(
+        IProgress<AvatarDetectProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         AvatarDetectResult? result = null;
         var requests = 0;
         var updated = 0;
