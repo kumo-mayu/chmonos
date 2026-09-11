@@ -140,6 +140,8 @@ public sealed class SettingsViewModel : ViewModelBase
         _saveModificationImagesAtOriginalSize = settings.SaveModificationImagesAtOriginalSize;
         _shopBannerRecheckDays = settings.ShopBannerRecheckDays;
         _avatarDetectRecheckDays = settings.AvatarDetectRecheckDays;
+        _startImportOnDrop = settings.StartImportOnDrop;
+        _startImportOnLaunch = settings.StartImportOnLaunch;
 
         foreach (var action in Enum.GetValues<Services.ShortcutAction>())
         {
@@ -162,6 +164,24 @@ public sealed class SettingsViewModel : ViewModelBase
     public RelayCommand RestartCommand { get; }
 
     public ObservableCollection<ImportFolderRow> Folders { get; } = [];
+
+    private bool _startImportOnDrop;
+
+    /// <summary>落としたらそのまま取り込みを始める（#38）。</summary>
+    public bool StartImportOnDrop
+    {
+        get => _startImportOnDrop;
+        set { if (SetField(ref _startImportOnDrop, value)) { Save(); } }
+    }
+
+    private bool _startImportOnLaunch;
+
+    /// <summary>起動時に監視フォルダの新着を取り込む（#38）。次に起動したときから効く。</summary>
+    public bool StartImportOnLaunch
+    {
+        get => _startImportOnLaunch;
+        set { if (SetField(ref _startImportOnLaunch, value)) { Save(); } }
+    }
 
     /// <summary>ショートカットの割り当て（#43）。1操作1行。</summary>
     public ObservableCollection<ShortcutRow> ShortcutRows { get; } = [];
@@ -726,6 +746,8 @@ public sealed class SettingsViewModel : ViewModelBase
             SaveModificationImagesAtOriginalSize = SaveModificationImagesAtOriginalSize,
             ImportFolders = Folders.Select(row => row.Path).ToList(),
             Shortcuts = BuildShortcuts(),
+            StartImportOnDrop = StartImportOnDrop,
+            StartImportOnLaunch = StartImportOnLaunch,
         };
 
         _ = SaveAsync(updated);

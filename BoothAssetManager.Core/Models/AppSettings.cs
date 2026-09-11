@@ -75,6 +75,20 @@ public sealed record AppSettings
     /// </summary>
     public IReadOnlyList<string> WatchedFolders { get; init; } = [];
 
+    /// <summary>
+    /// 窓や取り込み画面へ落としたら、そのまま取り込みを始めるか。**既定は入**（#38・ユーザ判断）。
+    /// 落とす操作自体がはっきりした指示なので、もう一度「取り込みを開始」を押させる理由が無い。
+    /// 走っている最中に落とした分は今の取り込みに積む。
+    /// </summary>
+    public bool StartImportOnDrop { get; init; } = true;
+
+    /// <summary>
+    /// 起動したとき、監視フォルダに新しいファイルがあれば取り込みを始めるか。**既定は切**（ユーザ判断）。
+    /// 起動しただけで BOOTH への通信が走るのを嫌う人がいる。対象は監視フォルダの新着だけ
+    /// （起動時に勝手に走査してよい範囲はそこだけ、という決まりは変えない）。
+    /// </summary>
+    public bool StartImportOnLaunch { get; init; }
+
     // --- 更新 ---
 
     /// <summary>商品情報の更新間隔（日）。</summary>

@@ -88,6 +88,9 @@ public sealed class ImportViewModel : ViewModelBase
 
     public ObservableCollection<string> Folders { get; } = [];
 
+    /// <summary>落としたらそのまま取り込みを始める設定か（#38）。</summary>
+    public bool StartsOnDrop => _services.Settings.StartImportOnDrop;
+
     public bool HasFolders => Folders.Count > 0;
 
     /// <summary>
@@ -287,7 +290,11 @@ public sealed class ImportViewModel : ViewModelBase
     /// ファイルはそのファイルだけを対象にする。親フォルダへ広げると、
     /// ダウンロードフォルダの1件を落としただけでフォルダ全体が対象になってしまう。
     /// </summary>
-    public void AddDroppedPaths(IEnumerable<string> paths)
+    /// <param name="startImmediately">
+    /// 足したらそのまま取り込みを始めるか（#38）。落としたとき・起動時の自動開始で true。
+    /// 「フォルダを足す」で選んだときは false——続けて他も足してから始めたいことがある。
+    /// </param>
+    public void AddDroppedPaths(IEnumerable<string> paths, bool startImmediately = false)
     {
         var addedFolders = new List<string>();
 
@@ -311,6 +318,12 @@ public sealed class ImportViewModel : ViewModelBase
         if (addedFolders.Count > 0)
         {
             _ = OfferToWatchAsync(addedFolders);
+        }
+
+        // 走っていれば今の取り込みに積む。2本目は起こさない（StartOrStackAsync の決まり）
+        if (startImmediately && Folders.Count > 0)
+        {
+            _ = StartOrStackAsync();
         }
     }
 

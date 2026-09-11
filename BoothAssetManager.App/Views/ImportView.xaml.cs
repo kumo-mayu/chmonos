@@ -26,7 +26,8 @@ public partial class ImportView : UserControl
 
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
         {
-            viewModel.AddDroppedPaths(paths);
+            // 落としたらそのまま始める（#38。設定で切れる）
+            viewModel.AddDroppedPaths(paths, startImmediately: viewModel.StartsOnDrop);
         }
 
         e.Handled = true;

@@ -34,6 +34,16 @@ public sealed class SettingsNormalizeTests
     }
 
     [Fact]
+    public void 取り込みの自動開始は落としたときだけが既定()
+    {
+        // 落とすのははっきりした指示。起動しただけで通信が走るのは嫌う人がいる（#38・ユーザ判断）
+        var settings = new AppSettings();
+
+        Assert.True(settings.StartImportOnDrop);
+        Assert.False(settings.StartImportOnLaunch);
+    }
+
+    [Fact]
     public void ショートカットが消えた設定は既定に戻す()
         => Assert.Equal(new ShortcutSettings(), new AppSettings { Shortcuts = null! }.Normalized().Shortcuts);
 

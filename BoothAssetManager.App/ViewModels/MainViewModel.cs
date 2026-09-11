@@ -138,9 +138,13 @@ public sealed class MainViewModel : ViewModelBase
     /// **走査してよいのは、ユーザが「ここを見ておいて」と指示したフォルダだけ。**
     /// 監視に入っていないフォルダは今まで通り、押されるまで見に行かない。
     ///
-    /// 見つけても<b>取り込みは始めない</b>。走査は手元のディスクを読むだけだが、
+    /// 見つけても**既定では取り込みを始めない**。走査は手元のディスクを読むだけだが、
     /// 取り込みはBOOTHへの通信で1件あたり十数秒かかる。起動した瞬間に黙って始めると、
     /// ユーザがこれからやろうとしていた操作と行列を取り合う。件数を出して押させる。
+    ///
+    /// 設定「起動時に監視フォルダの新着を取り込む」を入れた人だけ、そのまま始める（#38）。
+    /// そのときも画面は切り替えない——起動した直後に画面が飛ぶと、しようとしていた操作の邪魔になる。
+    /// 進み具合は常設の1行に出る。
     /// </summary>
     private void StartWatchScan()
     {
@@ -159,6 +163,12 @@ public sealed class MainViewModel : ViewModelBase
                 var result = await _services.Watch.FindNewAsync(_services.Settings.WatchedFolders, token);
                 if (!result.HasNew)
                 {
+                    return;
+                }
+
+                if (_services.Settings.StartImportOnLaunch)
+                {
+                    RunOnUiThread(() => Import.AddDroppedPaths(result.NewFiles, startImmediately: true));
                     return;
                 }
 
@@ -591,7 +601,8 @@ public sealed class MainViewModel : ViewModelBase
             case Core.Services.DropAction.Import:
                 ShowImport();
 
-                Import.AddDroppedPaths(paths!);
+                // 落としたらそのまま始める（#38。設定で切れる）
+                Import.AddDroppedPaths(paths!, startImmediately: _services.Settings.StartImportOnDrop);
                 return;
 
             case Core.Services.DropAction.OpenItem:
