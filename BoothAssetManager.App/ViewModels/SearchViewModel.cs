@@ -1039,6 +1039,14 @@ public sealed class SearchViewModel : ViewModelBase
             return;
         }
 
+        // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
+        if (Services.UnityImportQueue.IsRunning)
+        {
+            System.Windows.MessageBox.Show(Services.UnityImportQueue.BusyMessage, title,
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
         if (Services.UnityTargetPicker.Pick(title) is not { } editor)
         {
             return;
@@ -1066,19 +1074,25 @@ public sealed class SearchViewModel : ViewModelBase
             var outcomes = await Services.UnityImportQueue.RunAsync(
                 editor.ProcessId, queue.Select(entry => entry.Package).ToList(), progress, CancellationToken.None);
 
-            // 「使った」の足跡。Unityへ送ったことが一番強い証拠（Unityへ送る と同じ扱い）
+            // 「使った」の足跡。Unityへ送ったことが一番強い証拠（Unityへ送る と同じ扱い）。
+            // 取り込み画面で Cancel された物は入っていないので付けない
             var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).ToHashSet();
-            foreach (var itemId in queue.Where(entry => opened.Contains(entry.Package)).Select(entry => entry.Card.Item.Id).Distinct())
+            var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
+            foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.Card.Item.Id).Distinct())
             {
                 _ = _services.Recent.TouchAsync(itemId, Core.Services.RecentKind.Used);
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+            var skipped = outcomes.Count(outcome => outcome.Cancelled);
+            var shown = skipped == 0
+                ? $"{opened.Count} 件の取り込み画面を順に出しました。"
+                : $"{opened.Count} 件の取り込み画面を順に出しました（うち {skipped} 件は Cancel されたので入っていません）。";
             UnityQueueText = string.Empty;
             System.Windows.MessageBox.Show(
                 failed.Count == 0
-                    ? $"{opened.Count} 件の取り込み画面を順に出しました。"
-                    : $"{opened.Count} 件の取り込み画面を出しました。{failed.Count} 件は送れませんでした：\n\n"
+                    ? shown
+                    : $"{shown}{failed.Count} 件は送れませんでした：\n\n"
                         + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)),
                 title,
                 System.Windows.MessageBoxButton.OK,

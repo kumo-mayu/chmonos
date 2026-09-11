@@ -284,6 +284,14 @@ public sealed class ModificationViewModel : ViewModelBase
             ? Path.GetFileName(Path.TrimEndingDirectorySeparator(project))
             : null;
 
+        // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
+        if (UnityImportQueue.IsRunning)
+        {
+            System.Windows.MessageBox.Show(UnityImportQueue.BusyMessage, title,
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
         if (UnityTargetPicker.Pick(title, linkedName) is not { } editor)
         {
             return;
@@ -318,15 +326,21 @@ public sealed class ModificationViewModel : ViewModelBase
                 editor.ProcessId, queue.Select(entry => entry.Package).ToList(), progress, CancellationToken.None);
 
             var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).ToHashSet();
-            foreach (var itemId in queue.Where(entry => opened.Contains(entry.Package)).Select(entry => entry.ItemId).Distinct())
+            // 取り込み画面で Cancel された物は入っていないので、「使った」の足跡を付けない
+            var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
+            foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.ItemId).Distinct())
             {
                 _ = _services.Recent.TouchAsync(itemId, RecentKind.Used);
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
-            UnityQueueText = failed.Count == 0
+            var skipped = outcomes.Count(outcome => outcome.Cancelled);
+            var shown = skipped == 0
                 ? $"{opened.Count} 件の取り込み画面を順に出しました。"
-                : $"{opened.Count} 件を出しました。{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
+                : $"{opened.Count} 件の取り込み画面を順に出しました（うち {skipped} 件は Cancel されたので入っていません）。";
+            UnityQueueText = failed.Count == 0
+                ? shown
+                : $"{shown}{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
         }
         finally
         {

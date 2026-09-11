@@ -116,6 +116,18 @@ public static class UnityHandoff
     /// 読めないときは空を返す。投げない——入る先が分からなくても送ることはできる。
     /// </summary>
     public static IReadOnlyList<string> ReadDestinations(UnityPackageEntry package)
+        => DestinationRoots(ReadAssetPaths(package));
+
+    /// <summary>
+    /// 中身のアセットのパスを全部返す（<c>Assets/FUKA/撫で音/…</c> のまま）。
+    ///
+    /// 連続で送るとき、Unity のログの <c>Start importing &lt;パス&gt;</c> が
+    /// **送った物の取り込みかを見分けるのに使う**（§11-3）。Editor.log は開いている全エディタが共有するので、
+    /// 完了の行だけでは誰の物か分からない。
+    ///
+    /// 読めないときは空を返す。投げない。
+    /// </summary>
+    public static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package)
     {
         try
         {
@@ -149,7 +161,7 @@ public static class UnityHandoff
                 }
             }
 
-            return DestinationRoots(paths);
+            return paths;
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
                                               or UnauthorizedAccessException or NotSupportedException)

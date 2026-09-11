@@ -1390,6 +1390,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// </summary>
     private Services.OpenUnityEditor? PickUnityTarget(string title)
     {
+        // 連続送りの最中は混ぜない。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
+        if (Services.UnityImportQueue.IsRunning)
+        {
+            System.Windows.MessageBox.Show(
+                Services.UnityImportQueue.BusyMessage, title,
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return null;
+        }
+
         var editors = Services.UnityEditors.Open();
         if (editors.Count == 0)
         {
