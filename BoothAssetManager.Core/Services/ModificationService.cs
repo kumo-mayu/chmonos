@@ -407,28 +407,32 @@ public sealed class ModificationService : IModificationService
     /// </summary>
     private async Task EnsureInRegistryAsync(string avatarItemId, CancellationToken cancellationToken)
     {
-        var registry = _store.Avatars.Load();
-        if (registry.Entries.Any(entry =>
+        if (_store.Avatars.Load().Entries.Any(entry =>
                 string.Equals(entry.ItemId, avatarItemId, StringComparison.Ordinal)))
         {
             return;
         }
 
         var item = await _store.Items.LoadAsync(avatarItemId, cancellationToken);
-        var entries = registry.Entries.ToList();
-        entries.Add(new AvatarRegistryEntry
-        {
-            ItemId = avatarItemId,
-            BoothName = item?.Booth.Name,
-            Category = item?.Booth.Category?.Name,
-        });
 
-        await _store.Avatars.SaveAsync(
-            new AvatarRegistry
-            {
-                Entries = entries.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
-                BaseGroups = registry.BaseGroups,
-            },
+        // 検出や名前の保存と同じファイルを書くので、錠を掛けて最新に足す（U15）
+        await _store.Avatars.UpdateAsync(
+            registry => registry.Entries.Any(entry =>
+                    string.Equals(entry.ItemId, avatarItemId, StringComparison.Ordinal))
+                ? registry
+                : new AvatarRegistry
+                {
+                    Entries = registry.Entries
+                        .Append(new AvatarRegistryEntry
+                        {
+                            ItemId = avatarItemId,
+                            BoothName = item?.Booth.Name,
+                            Category = item?.Booth.Category?.Name,
+                        })
+                        .OrderBy(entry => entry.ItemId, StringComparer.Ordinal)
+                        .ToList(),
+                    BaseGroups = registry.BaseGroups,
+                },
             cancellationToken);
     }
 }

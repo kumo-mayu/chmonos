@@ -19,6 +19,32 @@ public sealed class JsonFileStore<T> where T : class, new()
 
     public Task SaveAsync(T value, CancellationToken cancellationToken = default)
         => JsonStore.WriteAsync(_path, value, cancellationToken);
+
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>
+    /// 最新を読み、変えて書く。**書き手が複数いるファイル**（登録簿など）はこちらを通す。
+    ///
+    /// 読んでから書くまでの間に別の書き手が入ると、後から書いた方が先の変更を消す。
+    /// 対応アバターの検出は始めに読んで数十分後に書くので、その間にアバター画面で保存した名前が
+    /// 検出の終わりに消えていた（U15、友人データの初回で約37分）。
+    /// 錠はこの窓口1つにつき1本。アプリは <see cref="DataStore"/> を1つだけ持つので、書き手どうしは重ならない。
+    /// </summary>
+    /// <returns>書いた値。</returns>
+    public async Task<T> UpdateAsync(Func<T, T> change, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var updated = change(Load());
+            await SaveAsync(updated, cancellationToken);
+            return updated;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 }
 
 /// <summary>

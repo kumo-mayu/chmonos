@@ -7,6 +7,9 @@ namespace BoothAssetManager.Core.Services;
 ///
 /// 素体グループは名前で参照されているので、改名はitem側の宣言も一緒に書き換える
 /// （userTag・属性の改名と同じ扱い）。
+///
+/// **登録簿は必ず <see cref="Storage.JsonFileStore{T}.UpdateAsync"/> で書く。**
+/// 検出が同じファイルを書くので、読んでから書くまでの間に割り込まれると片方の変更が消える（U15）。
 /// </summary>
 public sealed partial class AvatarService
 {
@@ -57,22 +60,25 @@ public sealed partial class AvatarService
     /// </summary>
     public async Task SetBaseAsync(string itemId, string? baseName, CancellationToken cancellationToken = default)
     {
-        var registry = _store.Avatars.Load();
         var trimmed = string.IsNullOrWhiteSpace(baseName) ? null : baseName.Trim();
 
-        var entries = registry.Entries
-            .Select(entry => entry.ItemId == itemId ? entry with { BaseName = trimmed } : entry)
-            .ToList();
+        await _store.Avatars.UpdateAsync(
+            registry =>
+            {
+                var entries = registry.Entries
+                    .Select(entry => entry.ItemId == itemId ? entry with { BaseName = trimmed } : entry);
 
-        var groups = registry.BaseGroups.ToList();
+                var groups = registry.BaseGroups.ToList();
 
-        if (trimmed is not null
-            && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            groups.Add(new AvatarBaseGroup { Name = trimmed });
-        }
+                if (trimmed is not null
+                    && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    groups.Add(new AvatarBaseGroup { Name = trimmed });
+                }
 
-        await SaveAsync(registry, entries, groups, cancellationToken);
+                return Sorted(entries, groups);
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -83,34 +89,17 @@ public sealed partial class AvatarService
         string name,
         bool infer,
         CancellationToken cancellationToken = default)
-    {
-        var registry = _store.Avatars.Load();
-
-        var groups = registry.BaseGroups
-            .Select(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
-                ? group with { InferClothing = infer }
-                : group)
-            .ToList();
-
-        await SaveAsync(registry, registry.Entries.ToList(), groups, cancellationToken);
-    }
+        => await UpdateGroupAsync(name, group => group with { InferClothing = infer }, cancellationToken);
 
     /// <summary>素体グループの配布商品IDを結び付ける。</summary>
     public async Task SetBaseItemIdAsync(
         string name,
         string? itemId,
         CancellationToken cancellationToken = default)
-    {
-        var registry = _store.Avatars.Load();
-
-        var groups = registry.BaseGroups
-            .Select(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
-                ? group with { ItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId.Trim() }
-                : group)
-            .ToList();
-
-        await SaveAsync(registry, registry.Entries.ToList(), groups, cancellationToken);
-    }
+        => await UpdateGroupAsync(
+            name,
+            group => group with { ItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId.Trim() },
+            cancellationToken);
 
     /// <summary>
     /// 素体グループを改名する。名前で参照しているので、
@@ -128,29 +117,31 @@ public sealed partial class AvatarService
             return 0;
         }
 
-        var registry = _store.Avatars.Load();
+        await _store.Avatars.UpdateAsync(
+            registry =>
+            {
+                var entries = registry.Entries
+                    .Select(entry => string.Equals(entry.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)
+                        ? entry with { BaseName = trimmed }
+                        : entry);
 
-        var entries = registry.Entries
-            .Select(entry => string.Equals(entry.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)
-                ? entry with { BaseName = trimmed }
-                : entry)
-            .ToList();
+                // 同名のグループが既にあれば統合する
+                var groups = registry.BaseGroups
+                    .Where(group => !string.Equals(group.Name, oldName, StringComparison.CurrentCultureIgnoreCase))
+                    .ToList();
 
-        // 同名のグループが既にあれば統合する
-        var groups = registry.BaseGroups
-            .Where(group => !string.Equals(group.Name, oldName, StringComparison.CurrentCultureIgnoreCase))
-            .ToList();
+                var renamed = registry.BaseGroups
+                    .FirstOrDefault(group => string.Equals(group.Name, oldName, StringComparison.CurrentCultureIgnoreCase));
 
-        var renamed = registry.BaseGroups
-            .FirstOrDefault(group => string.Equals(group.Name, oldName, StringComparison.CurrentCultureIgnoreCase));
+                if (renamed is not null
+                    && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    groups.Add(renamed with { Name = trimmed });
+                }
 
-        if (renamed is not null
-            && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            groups.Add(renamed with { Name = trimmed });
-        }
-
-        await SaveAsync(registry, entries, groups, cancellationToken);
+                return Sorted(entries, groups);
+            },
+            cancellationToken);
 
         return await RewriteBaseNameInItemsAsync(oldName, trimmed, cancellationToken);
     }
@@ -174,19 +165,13 @@ public sealed partial class AvatarService
     /// <returns>書き換えたitem数。</returns>
     public async Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default)
     {
-        var registry = _store.Avatars.Load();
-
-        var entries = registry.Entries
-            .Select(entry => string.Equals(entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase)
-                ? entry with { BaseName = null }
-                : entry)
-            .ToList();
-
-        var groups = registry.BaseGroups
-            .Where(group => !string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase))
-            .ToList();
-
-        await SaveAsync(registry, entries, groups, cancellationToken);
+        await _store.Avatars.UpdateAsync(
+            registry => Sorted(
+                registry.Entries.Select(entry => string.Equals(entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase)
+                    ? entry with { BaseName = null }
+                    : entry),
+                registry.BaseGroups.Where(group => !string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase))),
+            cancellationToken);
 
         return await RewriteBaseNameInItemsAsync(name, null, cancellationToken);
     }
@@ -299,34 +284,35 @@ public sealed partial class AvatarService
         string itemId,
         Func<AvatarRegistryEntry, AvatarRegistryEntry> update,
         CancellationToken cancellationToken)
-    {
-        var registry = _store.Avatars.Load();
-
-        var entries = registry.Entries.ToList();
-        var index = entries.FindIndex(entry => entry.ItemId == itemId);
-
-        if (index < 0)
-        {
-            return;
-        }
-
-        entries[index] = update(entries[index]);
-
-        await SaveAsync(registry, entries, registry.BaseGroups.ToList(), cancellationToken);
-    }
-
-    private Task SaveAsync(
-        AvatarRegistry registry,
-        List<AvatarRegistryEntry> entries,
-        List<AvatarBaseGroup> groups,
-        CancellationToken cancellationToken)
-        => _store.Avatars.SaveAsync(
-            new AvatarRegistry
-            {
-                Entries = entries.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
-                BaseGroups = groups.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
-            },
+        => await _store.Avatars.UpdateAsync(
+            registry => registry.Entries.Any(entry => entry.ItemId == itemId)
+                ? Sorted(
+                    registry.Entries.Select(entry => entry.ItemId == itemId ? update(entry) : entry),
+                    registry.BaseGroups)
+                : registry,
             cancellationToken);
+
+    private async Task UpdateGroupAsync(
+        string name,
+        Func<AvatarBaseGroup, AvatarBaseGroup> update,
+        CancellationToken cancellationToken)
+        => await _store.Avatars.UpdateAsync(
+            registry => Sorted(
+                registry.Entries,
+                registry.BaseGroups.Select(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
+                    ? update(group)
+                    : group)),
+            cancellationToken);
+
+    /// <summary>保存する形。人が開いて読むファイルなので、並びを毎回そろえる。</summary>
+    private static AvatarRegistry Sorted(
+        IEnumerable<AvatarRegistryEntry> entries,
+        IEnumerable<AvatarBaseGroup> groups)
+        => new()
+        {
+            Entries = entries.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
+            BaseGroups = groups.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
+        };
 
     /// <summary>
     /// 全itemの素体宣言を書き換える。名前で参照しているので改名・削除に追随が要る。

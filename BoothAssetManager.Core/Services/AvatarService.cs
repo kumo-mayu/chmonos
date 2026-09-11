@@ -653,13 +653,11 @@ public sealed partial class AvatarService : IAvatarService
             }
         }
 
-        var finalRegistry = new AvatarRegistry
-        {
-            Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
-            BaseGroups = groups.Values.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
-        };
-
-        await _store.Avatars.SaveAsync(finalRegistry, cancellationToken);
+        // 始めに読んだ写しで丸ごと書くと、検出の間に人が保存した名前・メモ・素体などが消える（U15）。
+        // 書く直前の最新に、検出が受け持つ項目だけを重ねる
+        var finalRegistry = await _store.Avatars.UpdateAsync(
+            latest => MergeDetected(latest, registry, entries, groups),
+            cancellationToken);
 
         return new AvatarDetectResult
         {
@@ -906,6 +904,121 @@ public sealed partial class AvatarService : IAvatarService
         }
 
         return byText.Values.OrderByDescending(alias => alias.Count).ToList();
+    }
+
+    /// <summary>
+    /// 検出の結果を、書く直前の登録簿に重ねる（U15）。
+    ///
+    /// 検出は始めに登録簿を読み（<paramref name="snapshot"/>）、数十分かけて結果を組み立てる
+    /// （友人データの初回で約37分）。その間に人が保存した表示名・メモ・所有・素体・判定の上書き・
+    /// 別名の印は <paramref name="latest"/> にしか無い。**検出が受け持つのは BOOTH から観測した事実と、
+    /// 毎回数え直す値だけ**なので、それだけを重ねる。
+    /// <see cref="IsAvatar"/> と同じく規則だけの関数なので公開している。
+    /// </summary>
+    public static AvatarRegistry MergeDetected(
+        AvatarRegistry latest,
+        AvatarRegistry snapshot,
+        IReadOnlyDictionary<string, AvatarRegistryEntry> detected,
+        IReadOnlyDictionary<string, AvatarBaseGroup> detectedGroups)
+    {
+        var before = new Dictionary<string, AvatarRegistryEntry>(StringComparer.Ordinal);
+        foreach (var entry in snapshot.Entries)
+        {
+            before.TryAdd(entry.ItemId, entry);
+        }
+
+        var entries = new Dictionary<string, AvatarRegistryEntry>(StringComparer.Ordinal);
+        foreach (var entry in latest.Entries)
+        {
+            entries.TryAdd(entry.ItemId, entry);
+        }
+
+        foreach (var (id, found) in detected)
+        {
+            if (!entries.TryGetValue(id, out var current))
+            {
+                entries[id] = found;
+                continue;
+            }
+
+            var old = before.GetValueOrDefault(id);
+
+            // 検出が値を変えたときだけ重ねる。変えていなければ、その間に
+            // 「BOOTHに確認し直す」で入った値かもしれないので最新を残す
+            T Observed<T>(Func<AvatarRegistryEntry, T> field)
+                => old is not null && EqualityComparer<T>.Default.Equals(field(found), field(old))
+                    ? field(current)
+                    : field(found);
+
+            entries[id] = current with
+            {
+                BoothName = Observed(entry => entry.BoothName),
+                ShopName = Observed(entry => entry.ShopName),
+                Category = Observed(entry => entry.Category),
+                CheckedAt = Observed(entry => entry.CheckedAt),
+                SeenAs = found.SeenAs,
+                Aliases = MergeDetectedAliases(current.Aliases, found.Aliases),
+            };
+        }
+
+        // 素体のグループは、検出が新しく作ったものだけを足す。
+        // 写しにあって最新に無いものは、その間に人が消したか改名したもの
+        var beforeGroups = snapshot.BaseGroups.Select(group => group.Name).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        var groups = new Dictionary<string, AvatarBaseGroup>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var group in latest.BaseGroups)
+        {
+            groups.TryAdd(group.Name, group);
+        }
+
+        foreach (var (name, group) in detectedGroups)
+        {
+            if (!groups.ContainsKey(name) && !beforeGroups.Contains(name))
+            {
+                groups[name] = group;
+            }
+        }
+
+        return new AvatarRegistry
+        {
+            Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
+            BaseGroups = groups.Values.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// 別名を重ねる。数は検出が数え直した値、消した印と出所は人が触った最新の方を使う。
+    /// 手で足した別名は検出が作らないので、最新に無ければ、その間に人が消したものとして戻さない。
+    /// </summary>
+    private static IReadOnlyList<AvatarAlias> MergeDetectedAliases(
+        IReadOnlyList<AvatarAlias> current,
+        IReadOnlyList<AvatarAlias> found)
+    {
+        var now = new Dictionary<string, AvatarAlias>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var alias in current)
+        {
+            now.TryAdd(alias.Text, alias);
+        }
+
+        var merged = new Dictionary<string, AvatarAlias>(StringComparer.CurrentCultureIgnoreCase);
+
+        foreach (var alias in found)
+        {
+            if (now.TryGetValue(alias.Text, out var kept))
+            {
+                merged[alias.Text] = alias with { Rejected = kept.Rejected, Source = kept.Source };
+            }
+            else if (!string.Equals(alias.Source, nameof(AvatarLinkSource.Manual), StringComparison.Ordinal))
+            {
+                merged[alias.Text] = alias;
+            }
+        }
+
+        foreach (var alias in current)
+        {
+            merged.TryAdd(alias.Text, alias);
+        }
+
+        return merged.Values.OrderByDescending(alias => alias.Count).ToList();
     }
 
     private static void Bump<TKey>(Dictionary<TKey, Dictionary<string, int>> into, TKey key, string inner)
