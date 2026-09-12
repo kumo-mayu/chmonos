@@ -603,6 +603,7 @@ public sealed class AvatarsViewModel : ViewModelBase
                 foreach (var name in new[]
                 {
                     nameof(HasSelection), nameof(SelectedName), nameof(SelectedIdText),
+                    nameof(HasManualName), nameof(ResetNameTip),
                     nameof(SelectedCategoryText), nameof(SelectedCountText), nameof(Aliases),
                     nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText),
                     nameof(SelectedCheckedText), nameof(SelectedBaseNote), nameof(HasSelectedBaseNote),
@@ -1142,6 +1143,36 @@ public sealed class AvatarsViewModel : ViewModelBase
     {
         var updated = await _services.Avatars.DeleteBaseAsync(name);
         Status = $"「{name}」を消しました（商品 {updated} 件を書き換え）。";
+        await LoadAsync();
+    }
+
+    /// <summary>このアバターに人が名前を付けているか。「自動の名前に戻す」はそのときだけ出す。</summary>
+    public bool HasManualName => Selected is not null && AvatarNames.ManualName(Selected.Summary.Entry) is not null;
+
+    /// <summary>戻したらどの名前になるかを、押す前に見せる。</summary>
+    public string ResetNameTip => Selected is null
+        ? string.Empty
+        : $"付けた名前を消して、BOOTHの商品名から作る名前（{AvatarNames.ShownName(Selected.Summary.Entry with { DisplayName = null })}）に戻します。あとからまた付け直せます。";
+
+    private RelayCommand? _resetNameCommand;
+
+    /// <summary>
+    /// 付けた名前を消して自動の名前に戻す（ユーザ指示）。
+    /// 名前の欄を空にして保存する、という戻し方は直感的でない（しかも「名前を保存」は空の入力を受け付けない）ので、
+    /// 戻す操作を名乗るボタンにする。
+    /// </summary>
+    public RelayCommand ResetNameCommand => _resetNameCommand ??= new RelayCommand(
+        () => _ = ResetNameAsync(),
+        () => HasManualName);
+
+    private async Task ResetNameAsync()
+    {
+        if (Selected is null)
+        {
+            return;
+        }
+
+        await _services.Avatars.SetDisplayNameAsync(Selected.ItemId, string.Empty);
         await LoadAsync();
     }
 

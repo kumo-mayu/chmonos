@@ -290,6 +290,11 @@
                                                      VerticalAlignment="Center" />
                                             <Button Content="名前を保存" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding RenameCommand}" />
+                                            <!-- 付けた名前を消す操作は、欄を空にする形では分からないのでボタンで名乗る（ユーザ指示） -->
+                                            <Button Content="自動の名前に戻す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                    VerticalAlignment="Center" Command="{Binding ResetNameCommand}"
+                                                    ToolTip="{Binding ResetNameTip}"
+                                                    Visibility="{Binding HasManualName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </StackPanel>
                                         <TextBlock Text="{Binding SelectedBoothName}" Style="{StaticResource Caption}"
                                                    Margin="6,2,0,0" TextWrapping="Wrap" MaxWidth="620"
