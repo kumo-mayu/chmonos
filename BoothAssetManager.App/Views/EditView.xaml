@@ -10,8 +10,13 @@
              d:DataContext="{d:DesignInstance Type=vm:EditViewModel}">
     <DockPanel Background="{StaticResource Bg}">
 
-        <!-- 上部バー：何件目かと、進み方の操作 -->
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
+        <!--
+            上部バー：何件目かと進み方の操作（1段目）、続く商品の帯（2段目）。
+            帯は最初ボタンの間の空きに34pxで置いたが、小さくて見分けにくく、ボタンと横幅も取り合った。
+            案B（ユーザ判断）：ボタンの段の下に帯だけの段を置き、横幅を全部使って56pxにする。
+            帯を設定で消すと2段目ごと畳まれ、元の1段に戻る
+        -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
@@ -19,6 +24,14 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="52" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- ボタンの段と帯の段の境目。帯が無ければ出さない -->
+                <Border Grid.Row="1" Grid.ColumnSpan="3" Height="1" VerticalAlignment="Top" Background="#f0f1f4"
+                        Visibility="{Binding ShowsQueueStrip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="編集" FontWeight="Bold" VerticalAlignment="Center" />
@@ -38,8 +51,8 @@
                     帯の中で絵を拡大すると上のバーの高さで切れるので、大きな絵は帯の下へ浮かせて出す。
                     キーボードの操作を奪わないよう、絵はフォーカスを取らない
                 -->
-                <ItemsControl x:Name="QueueStrip" Grid.Column="1" ItemsSource="{Binding QueueTiles}" Height="34" Margin="18,0"
-                              VerticalAlignment="Center" Focusable="False"
+                <ItemsControl x:Name="QueueStrip" Grid.Row="1" Grid.ColumnSpan="3" ItemsSource="{Binding QueueTiles}"
+                              Height="56" Margin="0,8,0,8" VerticalAlignment="Center" Focusable="False"
                               PreviewMouseWheel="QueueStrip_PreviewMouseWheel"
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                               VirtualizingPanel.ScrollUnit="Pixel"
@@ -59,7 +72,11 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:EditQueueTile}">
-                            <Button Margin="0,0,6,0" Focusable="False" Cursor="Hand"
+                            <!--
+                                大きさは絵の枠と同じにはっきり書く。書かないとアプリ全体のボタンの既定の高さが効き、
+                                56の枠が上だけ残して切れた（右下の保存の印も見えなくなった）
+                            -->
+                            <Button Width="56" Height="56" Margin="0,0,6,0" Padding="0" Focusable="False" Cursor="Hand"
                                     ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0"
                                     ToolTipService.Placement="Bottom"
                                     Command="{Binding DataContext.JumpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -79,18 +96,18 @@
                                 </Button.ToolTip>
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
-                                        <Grid Width="34" Height="34" Background="Transparent">
-                                            <Border x:Name="Frame" CornerRadius="6" BorderThickness="2"
+                                        <Grid Width="56" Height="56" Background="Transparent">
+                                            <Border x:Name="Frame" CornerRadius="8" BorderThickness="2"
                                                     BorderBrush="Transparent" Background="#edeff3">
-                                                <Border CornerRadius="4" ClipToBounds="True">
+                                                <Border CornerRadius="6" ClipToBounds="True">
                                                     <Image x:Name="Picture" Source="{Binding Image}" Stretch="UniformToFill" />
                                                 </Border>
                                             </Border>
-                                            <Border x:Name="SavedMark" Width="14" Height="14" CornerRadius="7"
+                                            <Border x:Name="SavedMark" Width="18" Height="18" CornerRadius="9"
                                                     Background="{StaticResource Good}" BorderBrush="{StaticResource Surface}"
-                                                    BorderThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                    Visibility="Collapsed">
-                                                <TextBlock Text="✓" FontSize="8.5" FontWeight="Bold" Foreground="White"
+                                                    BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                    Margin="0,0,1,1" Visibility="Collapsed">
+                                                <TextBlock Text="✓" FontSize="10.5" FontWeight="Bold" Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                         </Grid>
