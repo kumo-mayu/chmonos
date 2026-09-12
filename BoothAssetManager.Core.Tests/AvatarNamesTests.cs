@@ -65,6 +65,25 @@ public sealed class AvatarNamesTests
         Assert.Equal("ミモザ", AvatarNames.ShownName(entry));
     }
 
+    [Fact]
+    public void 付けた時刻があれば以前の自動の名前と同じ形でも手で付けた物()
+    {
+        // 正式名に含まれる呼び名そのもの（以前の付け方は最短の呼び名を採った）を選んだ人の名前。
+        // 時刻が無いと以前の自動の名前と見分けられず、保存しても読むたびに自動の扱いへ戻っていた
+        var legacy = new AvatarRegistryEntry
+        {
+            ItemId = "1",
+            BoothName = "【VRChat対応3Dモデル】ミモザ -V2.0",
+            Aliases = [new AvatarAlias { Text = "ミモ" }],
+            DisplayName = "ミモ",
+        };
+        Assert.Null(AvatarNames.ManualName(legacy));
+
+        var named = legacy with { DisplayNameSetAt = DateTimeOffset.Now };
+        Assert.Equal("ミモ", AvatarNames.ManualName(named));
+        Assert.Equal("ミモ", AvatarNames.ShownName(named));
+    }
+
     [Theory]
     // 以前の付け方が選んだ「名前ではない語」。呼び名の一覧が後で変わると、やり直しでは一致しない
     [InlineData("VRChat対応3Dモデル")]

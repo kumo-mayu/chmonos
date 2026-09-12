@@ -109,6 +109,43 @@ public class AvatarRegistryMergeTests : IDisposable
         Assert.True(entry.SeenAs.ContainsKey(nameof(AvatarLinkSource.SupportSection)));
     }
 
+    /// <summary>
+    /// 呼び名そのものを名前に付けても、保存した名前で出る。
+    /// 以前は以前の版の自動の名前と見分けられず、保存しても元の名前に戻って見えた（U15 の後も未所持のアバターで報告）。
+    /// </summary>
+    [Fact]
+    public async Task KeepsANameThatLooksLikeTheOldAutomaticOne()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry
+                {
+                    ItemId = AvatarId,
+                    BoothName = "【VRChat対応3Dモデル】ミモザ -V2.0",
+                    Category = "3Dキャラクター",
+                    Aliases = [new AvatarAlias { Text = "ミモ" }],
+                },
+            ],
+        });
+        var service = new AvatarService(_store);
+
+        await service.SetDisplayNameAsync(AvatarId, "ミモ");
+
+        var named = _store.Avatars.Load().Entries.Single(entry => entry.ItemId == AvatarId);
+        Assert.Equal("ミモ", AvatarNames.ShownName(named));
+        Assert.NotNull(named.DisplayNameSetAt);
+
+        // 空で保存すると自動の名前に戻り、付けた時刻も残らない
+        await service.SetDisplayNameAsync(AvatarId, "");
+
+        var cleared = _store.Avatars.Load().Entries.Single(entry => entry.ItemId == AvatarId);
+        Assert.Null(cleared.DisplayName);
+        Assert.Null(cleared.DisplayNameSetAt);
+        Assert.Equal("ミモザ", AvatarNames.ShownName(cleared));
+    }
+
     /// <summary>検出が変えなかった観測値は、その間に「BOOTHに確認し直す」で入った最新の値を残す。</summary>
     [Fact]
     public void KeepsObservedValuesTheDetectionDidNotChange()

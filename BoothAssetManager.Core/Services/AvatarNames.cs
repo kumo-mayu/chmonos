@@ -31,6 +31,13 @@ public static class AvatarNames
             return null;
         }
 
+        // 付けた時刻のある名前は、形を問わず人が付けた物。下の見分けは以前の版の記録のためのもので、
+        // 当てると、呼び名そのものを選んだ人の名前まで自動の扱いに戻してしまう
+        if (entry.DisplayNameSetAt is not null)
+        {
+            return name;
+        }
+
         if (name == entry.ItemId || name == entry.BoothName?.Trim())
         {
             return null;
