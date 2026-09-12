@@ -24,8 +24,11 @@ public sealed class EditQueueTile : ViewModelBase
     /// <summary>この回で保存した。</summary>
     public bool IsSaved { get; init; }
 
-    /// <summary>通り過ぎたのに保存していない（飛ばした）。薄く出して、保存した物と見分ける。</summary>
-    public bool IsSkipped => IsPast && !IsSaved;
+    /// <summary>保存していない入力が残っている（書きかけ）。左上に印を出す。</summary>
+    public bool IsDraft { get; init; }
+
+    /// <summary>通り過ぎたのに保存していない（飛ばした）。薄く出して、保存した物と見分ける。書きかけは薄くしない。</summary>
+    public bool IsSkipped => IsPast && !IsSaved && !IsDraft;
 
     public Func<Action, BitmapSource?>? ImageFactory { get; init; }
 
@@ -40,5 +43,6 @@ public sealed class EditQueueTile : ViewModelBase
 
     public string StateText => IsCurrent
         ? "いま開いている商品"
-        : (IsSaved ? "保存済み" : IsPast ? "保存せずに飛ばした" : "これから") + "（押すとこの商品へ移ります）";
+        : (IsSaved ? "保存済み" : IsDraft ? "編集途中（保存していない入力があります）" : IsPast ? "保存せずに飛ばした" : "これから")
+            + "（押すとこの商品へ移ります）";
 }

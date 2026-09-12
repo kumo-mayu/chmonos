@@ -265,7 +265,7 @@ public sealed class EditViewModel : ViewModelBase
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
 
         SaveAndNextCommand = new RelayCommand(() => _ = SaveAndAdvanceAsync(), () => HasItem && !IsSaving);
-        SkipCommand = new RelayCommand(() => _ = AdvanceAsync(), () => HasItem && !IsSaving);
+        SkipCommand = new RelayCommand(() => _ = SkipAsync(), () => HasItem && !IsSaving);
         BackCommand = new RelayCommand(GoBack, () => _index > 0);
         FinishCommand = new RelayCommand(() => _ = FinishAsync());
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
@@ -674,10 +674,23 @@ public sealed class EditViewModel : ViewModelBase
     /// </summary>
     public async Task StartAsync(IReadOnlyList<string>? itemIds = null)
     {
-        _queue = itemIds?.ToList() ?? await BuildDefaultQueueAsync();
-        _index = 0;
-        _saved = new HashSet<string>(StringComparer.Ordinal);
-        await _services.Edit.StartSessionAsync(_queue);
+        if (itemIds is null)
+        {
+            _run = null;
+            _queue = await BuildDefaultQueueAsync();
+            _index = 0;
+            _saved = new HashSet<string>(StringComparer.Ordinal);
+            await _services.Edit.StartSessionAsync(_queue);
+        }
+        else
+        {
+            // 指定して入った編集は、未編集の順番の記録（edit-session.json）を上書きしない。画面の履歴に預ける（ユーザ判断）
+            _run = new EditRun { ItemIds = itemIds.ToList() };
+            _queue = _run.ItemIds;
+            _index = 0;
+            _saved = _run.Saved;
+        }
+
         await LoadCurrentAsync();
     }
 
@@ -691,11 +704,94 @@ public sealed class EditViewModel : ViewModelBase
             return;
         }
 
+        _run = null;
         _queue = session.ItemIds.ToList();
         _index = Math.Clamp(session.Index, 0, _queue.Count);
         _saved = new HashSet<string>(session.SavedItemIds, StringComparer.Ordinal);
         await LoadCurrentAsync();
     }
+
+    /// <summary>
+    /// 指定して入った編集の順番と位置。null なら未編集の順番（edit-session.json に持つ）。
+    /// </summary>
+    private EditRun? _run;
+
+    /// <summary>画面の履歴に預けるため。指定して入った編集だけが持つ。</summary>
+    public EditRun? Run => _run;
+
+    /// <summary>画面の履歴から、指定して入った編集を続きから開く。</summary>
+    public async Task ResumeRunAsync(EditRun run)
+    {
+        _run = run;
+        _queue = run.ItemIds;
+        _index = Math.Clamp(run.Index, 0, _queue.Count);
+        _saved = run.Saved;
+        await LoadCurrentAsync();
+    }
+
+    /// <summary>位置を控える。未編集の順番はファイルへ、指定して入った順番は履歴に預けた控えへ。</summary>
+    private Task SavePositionAsync()
+    {
+        if (_run is not null)
+        {
+            _run.Index = _index;
+            return Task.CompletedTask;
+        }
+
+        return _services.Edit.AdvanceSessionAsync(_index);
+    }
+
+    // ---- 書きかけ（ユーザ判断 2026-09-12） ----
+    //
+    // 保存せずに商品を離れたとき（スキップ・前へ・帯で飛ぶ・別の画面へ移る・閉じる）の入力を、
+    // 変えた項目だけ控える。控えはアプリに1つの置き場（EditDraftStore）にあり、保存したら消える
+
+    /// <summary>
+    /// 開いた時点の入力から組んだ local。変えた項目はこれと比べて見分ける。
+    /// 記録そのものと比べると、開いただけで形が整う項目（購入の名前の控え・現存の印など）まで
+    /// 変えたことになってしまう。
+    /// </summary>
+    private LocalBlock? _baseline;
+
+    /// <summary>今の商品の入力を書きかけとして控える。変えた項目が無ければ控えを消す（元に戻した＝書きかけではない）。</summary>
+    public void CaptureDraft()
+    {
+        if (_item is null || _baseline is null)
+        {
+            return;
+        }
+
+        var current = BuildLocal(_item);
+        var changed = LocalOwners.EditScreen.Where(field => !SameField(_baseline, current, field)).ToList();
+        var files = ChangedFileVariations();
+
+        if (changed.Count == 0 && files.Count == 0)
+        {
+            _main.Drafts.Remove(_item.Id);
+            return;
+        }
+
+        _main.Drafts.Put(_item.Id, new EditDraft { Local = current, Changed = changed, FileVariations = files });
+    }
+
+    /// <summary>その項目だけを比べる。項目の中身（一覧や入れ子）ごと比べたいので、書き出した形で比べる。</summary>
+    private static bool SameField(LocalBlock before, LocalBlock after, LocalField field)
+        => System.Text.Json.JsonSerializer.Serialize(LocalFields.Merge(new LocalBlock(), before, [field]))
+            == System.Text.Json.JsonSerializer.Serialize(LocalFields.Merge(new LocalBlock(), after, [field]));
+
+    /// <summary>「編集途中 n件」のボタン。書きかけの置き場そのもの。</summary>
+    public EditDraftStore Drafts => _main.Drafts;
+
+    private RelayCommand? _openDraftsCommand;
+
+    /// <summary>書きかけのある商品だけを並べて開く（ユーザ指示）。今の商品の入力も先に控える。</summary>
+    public RelayCommand OpenDraftsCommand => _openDraftsCommand ??= new RelayCommand(
+        () =>
+        {
+            CaptureDraft();
+            _ = _main.ShowEditAsync(_main.Drafts.ItemIds);
+        },
+        () => _main.Drafts.HasAny);
 
     // ---- 上の帯：どんな商品が続くか（ユーザ指示 2026-09-12） ----
     //
@@ -811,8 +907,9 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         StopReturnTimer();
+        CaptureDraft();
         _index = index;
-        await _services.Edit.AdvanceSessionAsync(_index);
+        await SavePositionAsync();
         await LoadCurrentAsync();
     }
 
@@ -836,6 +933,7 @@ public sealed class EditViewModel : ViewModelBase
                 IsCurrent = index == _index,
                 IsPast = index < _index,
                 IsSaved = _saved.Contains(itemId),
+                IsDraft = _main.Drafts.Contains(itemId),
                 ImageFactory = onLoaded => TileImage(itemId, onLoaded, preview: false),
                 PreviewFactory = onLoaded => TileImage(itemId, onLoaded, preview: true),
             });
@@ -912,6 +1010,22 @@ public sealed class EditViewModel : ViewModelBase
                 }
 
                 FillFromItem(record);
+                _baseline = BuildLocal(record);
+
+                // 書きかけがあれば、読み直した記録に変えた項目だけを重ねて埋め直す
+                if (_main.Drafts.Get(record.Id) is { } draft)
+                {
+                    FillFromItem(record with { Local = LocalFields.Merge(record.Local, draft.Local, draft.Changed) });
+                    foreach (var (hash, variation) in draft.FileVariations)
+                    {
+                        if (_fileVariations.ContainsKey(hash))
+                        {
+                            _fileVariations[hash] = variation;
+                        }
+                    }
+
+                    RefreshFileLinks();
+                }
 
                 // BOOTHから名前が取れていない商品は、ここを埋めないと名前が無い。
                 // 閉じたままだと入れる場所が見えないので、その商品だけ開いて出す
@@ -924,6 +1038,7 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         _item = null;
+        _baseline = null;
         RaiseItemChanged();
         StartReturnTimer();
     }
@@ -1565,9 +1680,17 @@ public sealed class EditViewModel : ViewModelBase
             RememberShopName(BuildShop()?.Name);
             StatusText = string.Empty;
 
-            // 上の帯で、保存した物と飛ばした物を見分けるための印。開き直しても残す
+            // 上の帯で、保存した物と飛ばした物を見分けるための印。未編集の順番はファイルに残し、
+            // 指定して入った順番は履歴に預けた控え（_saved がそのまま控えの集合）に残る
             _saved.Add(_item.Id);
-            await _services.Edit.NoteSavedAsync(_item.Id);
+            if (_run is null)
+            {
+                await _services.Edit.NoteSavedAsync(_item.Id);
+            }
+
+            // 保存したので書きかけではない。次へ進むときに控え直さないよう、消してから進む
+            _main.Drafts.Remove(_item.Id);
+            _baseline = null;
 
             await AdvanceAsync();
         }
@@ -1595,8 +1718,18 @@ public sealed class EditViewModel : ViewModelBase
     private async Task AdvanceAsync()
     {
         _index++;
-        await _services.Edit.AdvanceSessionAsync(_index);
+        await SavePositionAsync();
         await LoadCurrentAsync();
+    }
+
+    /// <summary>
+    /// スキップ。保存はしないが、**書きかけは残す**（ユーザ判断）。「編集途中 n件」から戻れる。
+    /// 以前は入力を捨てて次へ進んでいた。
+    /// </summary>
+    private async Task SkipAsync()
+    {
+        CaptureDraft();
+        await AdvanceAsync();
     }
 
     private void GoBack()
@@ -1607,8 +1740,9 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         StopReturnTimer();
+        CaptureDraft();
         _index--;
-        _ = _services.Edit.AdvanceSessionAsync(_index);
+        _ = SavePositionAsync();
         _ = LoadCurrentAsync();
     }
 
@@ -1654,7 +1788,13 @@ public sealed class EditViewModel : ViewModelBase
     private async Task FinishAsync()
     {
         StopReturnTimer();
-        await _services.Edit.ClearSessionAsync();
+
+        // 捨てるのは未編集の順番の記録だけ。指定して入った順番は履歴に預けてあり、ファイルには無い
+        if (_run is null)
+        {
+            await _services.Edit.ClearSessionAsync();
+        }
+
         await _main.ReloadLibraryAsync();
         _main.ShowSearch();
     }

@@ -471,6 +471,12 @@ public sealed class MainViewModel : ViewModelBase
                 Remember(_currentViewModel);
             }
 
+            // 編集画面を離れるときは、今の商品の入力を書きかけとして控える（別の画面へ移っても消さない・ユーザ判断）
+            if (_currentViewModel is EditViewModel leavingEdit && !ReferenceEquals(leavingEdit, value))
+            {
+                leavingEdit.CaptureDraft();
+            }
+
             // ショップ一覧を離れたら、裏で走らせているアイコン取得を止める
             if (_currentViewModel is ShopsViewModel leaving && !ReferenceEquals(leaving, value))
             {
@@ -591,7 +597,11 @@ public sealed class MainViewModel : ViewModelBase
         TagManageViewModel => new HistoryEntry("タグの管理", ShowTagManage),
         AttributeManageViewModel => new HistoryEntry("属性の管理", ShowAttributeManage),
         SettingsViewModel => new HistoryEntry("設定", ShowSettings),
-        EditViewModel => new HistoryEntry("編集", () => _ = ShowEditAsync()),
+        // 指定して入った編集は、順番と位置を履歴の項目に預けて続きから開く（ユーザ判断）。
+        // 未編集の順番は edit-session.json から開き直す
+        EditViewModel edit => edit.Run is { } run
+            ? new HistoryEntry("編集", () => _ = ShowEditRunAsync(run))
+            : new HistoryEntry("編集", () => _ = ShowEditAsync()),
         _ => null,
     };
 
@@ -658,6 +668,55 @@ public sealed class MainViewModel : ViewModelBase
         else
         {
             await edit.StartAsync(itemIds);
+        }
+    }
+
+    /// <summary>
+    /// 編集の書きかけ（アプリに1つ）。未編集の順番と指定して入った順番で共有する。
+    /// </summary>
+    public EditDraftStore Drafts { get; } = new();
+
+    /// <summary>画面の履歴から、指定して入った編集を続きから開く。</summary>
+    private async Task ShowEditRunAsync(EditRun run)
+    {
+        var edit = new EditViewModel(_services, this, Thumbnails);
+        CurrentViewModel = edit;
+        await edit.ResumeRunAsync(run);
+    }
+
+    /// <summary>
+    /// 閉じる前に、書きかけが残っていれば尋ねる（ユーザ判断）。閉じるのをやめるなら true。
+    /// 「移動する」なら、書きかけの商品だけを並べて編集画面を開く。
+    /// </summary>
+    public bool ShouldCancelCloseForDrafts()
+    {
+        (CurrentViewModel as EditViewModel)?.CaptureDraft();
+        if (!Drafts.HasAny)
+        {
+            return false;
+        }
+
+        var answer = Views.ChoiceDialog.Ask(
+            "編集途中の商品があります",
+            "編集途中の商品があります。編集画面に移動しますか？",
+            $"このまま終了すると、編集途中の商品（{Drafts.Count} 件）の保存していない入力は消えてしまいます。\n\n"
+            + "移動する …… 編集途中の商品だけを並べて編集画面を開きます\n"
+            + "終了する …… 入力を捨てて終了します",
+            "移動する",
+            "終了する");
+
+        switch (answer)
+        {
+            case Views.ChoiceDialogResult.First:
+                _ = ShowEditAsync(Drafts.ItemIds);
+                return true;
+
+            case Views.ChoiceDialogResult.Second:
+                return false;
+
+            default:
+                // キャンセルは「閉じるのをやめる」
+                return true;
         }
     }
 

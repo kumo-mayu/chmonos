@@ -39,6 +39,14 @@
                     <ProgressBar Width="160" Height="5" Margin="12,0,0,0" Minimum="0" Maximum="100"
                                  Value="{Binding StepProgress, Mode=OneWay}"
                                  Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                    <!--
+                        保存していない入力が残っている商品へ戻る入口（ユーザ指示）。書きかけが無ければ出さない。
+                        書きかけはアプリを閉じるまで残る（閉じるときに残っていれば尋ねる）
+                    -->
+                    <Button Content="{Binding Drafts.ButtonText}" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
+                            VerticalAlignment="Center" Command="{Binding OpenDraftsCommand}"
+                            ToolTip="保存していない入力が残っている商品だけを並べて開きます。アプリを閉じると、保存していない入力は消えます。"
+                            Visibility="{Binding Drafts.HasAny, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
                 <!--
@@ -122,8 +130,16 @@
                                                 <TextBlock Text="✓" FontSize="10.5" FontWeight="Bold" Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
+                                            <!-- 書きかけ（保存していない入力が残っている）。保存の印の対角に置く -->
+                                            <Border x:Name="DraftMark" Width="12" Height="12" CornerRadius="6"
+                                                    Background="{StaticResource Warn}" BorderBrush="{StaticResource Surface}"
+                                                    BorderThickness="2" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                    Margin="1,1,0,0" Visibility="Collapsed" />
                                         </Grid>
                                         <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsDraft}" Value="True">
+                                                <Setter TargetName="DraftMark" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSkipped}" Value="True">
                                                 <Setter TargetName="Picture" Property="Opacity" Value="0.35" />
                                             </DataTrigger>

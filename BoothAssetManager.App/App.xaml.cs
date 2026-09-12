@@ -70,7 +70,17 @@ public partial class App : Application
         mainWindow.RestorePlacement(_services.Settings.Window);
 
         // 閉じる直前に採る。Closed だと既に位置を失っている
-        mainWindow.Closing += (_, _) => SavePlacement(main, mainWindow);
+        mainWindow.Closing += (_, e) =>
+        {
+            // 編集途中の入力が残っていれば尋ねる（ユーザ判断）。「移動する」「キャンセル」なら閉じない
+            if (main.ShouldCancelCloseForDrafts())
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            SavePlacement(main, mainWindow);
+        };
 
         mainWindow.Show();
     }
