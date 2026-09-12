@@ -107,21 +107,39 @@ public sealed class MainViewModel : ViewModelBase
         _backlog = new CancellationTokenSource();
         var token = _backlog.Token;
 
+        // 進み具合は常設の1行に「何を n/N」で出す（ユーザ指示）。以前は通信の様子
+        // （間隔を空けています）しか出ず、何をしているのか読めなかった。
+        // UIスレッドで作っておく（Progress は作ったスレッドへ知らせを戻す）
+        IProgress<(int Done, int Total)> ReportAs(string label)
+            => new Progress<(int Done, int Total)>(
+                report => BoothActivity.ReportWork(WorkSource.Background, label, report.Done, report.Total));
+
+        var images = ReportAs("画像を取得中");
+        var avatars = ReportAs("アバターの画像を取得中");
+        var due = ReportAs("商品の更新を確認中");
+
         _ = Task.Run(async () =>
         {
             try
             {
-                await _services.Backlog.ResumeAsync(cancellationToken: token);
+                await _services.Backlog.ResumeAsync(images, token);
+                BoothActivity.EndWork(WorkSource.Background);
 
                 // 持っていないアバターの1枚目（U18）。商品の画像の穴の方が先に目に入るので⑤の後
-                await _services.AvatarImages.SyncAsync(token);
-                await _services.Due.RunAsync(cancellationToken: token);
+                await _services.AvatarImages.SyncAsync(avatars, token);
+                BoothActivity.EndWork(WorkSource.Background);
+
+                await _services.Due.RunAsync(due, token);
 
                 // ⑦で商品ページが変わっていれば要確認が増える。件数を出し直す
                 RunOnUiThread(RefreshCounts);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+            }
+            finally
+            {
+                BoothActivity.EndWork(WorkSource.Background);
             }
         }, token);
     }
@@ -869,22 +887,22 @@ public sealed class MainViewModel : ViewModelBase
             ? $"「{known.DisplayName}」"
             : $" {itemId} ";
 
-        var answer = System.Windows.MessageBox.Show(
-            $"BOOTHの画像を受け取りました。\n\n"
-            + $"「はい」…… 商品{name}を開きます\n"
-            + $"「いいえ」… この商品「{item.Name}」の画像に足します",
+        // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（#18・ユーザ指摘）
+        var answer = Views.ChoiceDialog.Ask(
             "BOOTHの画像を受け取りました",
-            System.Windows.MessageBoxButton.YesNoCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Cancel);
+            "この画像をどうしますか？",
+            $"商品を開く …… 商品{name}のページへ移ります\n"
+            + $"画像として足す …… いま開いている「{item.Name}」の画像に加えます",
+            "商品を開く",
+            "画像として足す");
 
         switch (answer)
         {
-            case System.Windows.MessageBoxResult.Yes:
+            case Views.ChoiceDialogResult.First:
                 await OpenOrOfferAsync(itemId);
                 return;
 
-            case System.Windows.MessageBoxResult.No:
+            case Views.ChoiceDialogResult.Second:
                 await AddDroppedImagesAsync(paths, hasBitmap, imageUrl);
                 return;
 

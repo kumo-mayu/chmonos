@@ -70,6 +70,9 @@ public sealed class ImageBacklog
         var downloaded = 0;
         var done = 0;
 
+        // 1件目が終わるまで何も出ないと、何をしているのか分からない
+        progress?.Report((0, pending.Count));
+
         foreach (var itemId in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();

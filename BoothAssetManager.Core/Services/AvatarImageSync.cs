@@ -38,8 +38,11 @@ public sealed class AvatarImageSync
     /// <summary>1枚保存した。引数はアバターの商品ID。**取得した側のスレッドで呼ばれる。**</summary>
     public event Action<string>? AvatarImageSaved;
 
+    /// <param name="progress">取りに行く分の何件目か。**先に数えてから回す**ので、件数は最初から分かる。</param>
     /// <returns>この呼び出しで保存した枚数。</returns>
-    public async Task<int> SyncAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SyncAsync(
+        IProgress<(int Done, int Total)>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (!_images.SavesImages)
         {
@@ -50,63 +53,49 @@ public sealed class AvatarImageSync
         var observed = new Dictionary<string, string>(StringComparer.Ordinal);
         var saved = 0;
 
+        // 取りに行く分を先に選ぶ。常設の1行に「何件中何件目」を出すため（ユーザ指示）。
+        // 手元だけで決まる片付け（持っているアバターの控えを消す）はここで済ませる
+        var targets = new List<AvatarRegistryEntry>();
+        foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
+        {
+            var directory = _store.Paths.AvatarImagesDir(entry.ItemId);
+
+            // 持っているなら商品の1枚目を使う。こちらに置いた1枚は要らなくなった
+            if (File.Exists(_store.Paths.ItemFile(entry.ItemId)))
+            {
+                DeleteQuietly(directory);
+                continue;
+            }
+
+            // 空のURLは「BOOTHに1枚目が無い」と分かっている印。問い合わせ直さない
+            if (FirstImage(directory) is null && entry.ImageUrl is not "")
+            {
+                targets.Add(entry);
+            }
+        }
+
+        if (targets.Count == 0)
+        {
+            return 0;
+        }
+
         using var priority = BoothClient.Prioritize(BoothPriority.Gallery);
+        var done = 0;
+        progress?.Report((0, targets.Count));
 
         try
         {
-            foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
+            foreach (var entry in targets)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var directory = _store.Paths.AvatarImagesDir(entry.ItemId);
-
-                // 持っているなら商品の1枚目を使う。こちらに置いた1枚は要らなくなった
-                if (File.Exists(_store.Paths.ItemFile(entry.ItemId)))
-                {
-                    DeleteQuietly(directory);
-                    continue;
-                }
-
-                if (FirstImage(directory) is not null)
-                {
-                    continue;
-                }
-
-                var url = entry.ImageUrl;
-                if (url is null)
-                {
-                    var fetched = await _client.GetItemJsonAsync(entry.ItemId, cancellationToken);
-                    if (fetched.Status == BoothFetchStatus.NotFound)
-                    {
-                        url = string.Empty;
-                    }
-                    else if (!fetched.IsSuccess || fetched.Value is null)
-                    {
-                        // 通信の失敗では何も決めない。次の起動でまた試す
-                        continue;
-                    }
-                    else
-                    {
-                        url = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now).Images.FirstOrDefault()?.OriginalUrl ?? string.Empty;
-                    }
-
-                    observed[entry.ItemId] = url;
-                    if (observed.Count >= FlushEvery)
-                    {
-                        await FlushAsync(observed, cancellationToken);
-                    }
-                }
-
-                if (url.Length == 0)
-                {
-                    continue;
-                }
-
-                if (await _images.SyncOneToAsync(directory, url, cancellationToken) && FirstImage(directory) is not null)
+                if (await SyncOneAsync(entry, observed, cancellationToken))
                 {
                     saved++;
                     AvatarImageSaved?.Invoke(entry.ItemId);
                 }
+
+                progress?.Report((++done, targets.Count));
             }
         }
         finally
@@ -116,6 +105,49 @@ public sealed class AvatarImageSync
         }
 
         return saved;
+    }
+
+    /// <summary>
+    /// 1体ぶん。1枚目のURLをまだ知らなければ、JSONを1回問い合わせて知る。
+    /// </summary>
+    /// <returns>絵を保存できたか。</returns>
+    private async Task<bool> SyncOneAsync(
+        AvatarRegistryEntry entry,
+        Dictionary<string, string> observed,
+        CancellationToken cancellationToken)
+    {
+        var directory = _store.Paths.AvatarImagesDir(entry.ItemId);
+        var url = entry.ImageUrl;
+        if (url is null)
+        {
+            var fetched = await _client.GetItemJsonAsync(entry.ItemId, cancellationToken);
+            if (fetched.Status == BoothFetchStatus.NotFound)
+            {
+                url = string.Empty;
+            }
+            else if (!fetched.IsSuccess || fetched.Value is null)
+            {
+                // 通信の失敗では何も決めない。次の起動でまた試す
+                return false;
+            }
+            else
+            {
+                url = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now).Images.FirstOrDefault()?.OriginalUrl ?? string.Empty;
+            }
+
+            observed[entry.ItemId] = url;
+            if (observed.Count >= FlushEvery)
+            {
+                await FlushAsync(observed, cancellationToken);
+            }
+        }
+
+        if (url.Length == 0)
+        {
+            return false;
+        }
+
+        return await _images.SyncOneToAsync(directory, url, cancellationToken) && FirstImage(directory) is not null;
     }
 
     /// <summary>

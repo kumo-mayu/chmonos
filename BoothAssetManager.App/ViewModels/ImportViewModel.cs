@@ -830,6 +830,9 @@ public sealed class ImportViewModel : ViewModelBase
             StepText = report.Step ?? string.Empty;
             UpdateEstimate(report);
 
+            // 常設の1行にも同じ段と件数を出す（ユーザ指示）。取り込み画面の段の名前は長いので短い呼び名で
+            _main.BoothActivity.ReportWork(WorkSource.Import, LineLabelOf(report.Phase), report.Current, report.Total);
+
             // 検出で確かめている商品は、問い合わせるまで名前が分からない。空にすると止まって見える
             DetailText = report.Detail
                 ?? (report.Phase == ImportPhase.Detecting && report.Step is not null ? "名前を確かめています" : string.Empty);
@@ -899,8 +902,21 @@ public sealed class ImportViewModel : ViewModelBase
             _work = null;
             ClearEstimate();
             IsRunning = false;
+            _main.BoothActivity.EndWork(WorkSource.Import);
         }
     }
+
+    /// <summary>常設の1行に出す段の呼び名。取り込み画面の段の名前を1行に収まるよう短くしたもの。</summary>
+    private static string LineLabelOf(ImportPhase phase) => phase switch
+    {
+        ImportPhase.Scanning => "取り込み：ファイルを走査中",
+        ImportPhase.Resolving => "取り込み：商品IDを解決中",
+        ImportPhase.FetchingJson => "取り込み：商品の情報を取得中",
+        ImportPhase.FetchingHtml => "取り込み：商品ページを取得中",
+        ImportPhase.Detecting => "取り込み：対応アバターを検出中",
+        ImportPhase.FetchingThumbnails or ImportPhase.FetchingGallery => "取り込み：画像を取得中",
+        _ => "取り込み：ショップのアイコンを取得中",
+    };
 
     /// <summary>
     /// 検出（③）の結果を1行にする。検出そのものは取り込みの1段として

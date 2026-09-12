@@ -164,7 +164,14 @@ public class ImageBacklogTests : IDisposable
         using var cancellation = new CancellationTokenSource();
 
         // Progress<T> は別スレッドへ投げるので、止まる位置が実行の速さで変わる。試験は時間に依存させない
-        var progress = new InlineProgress(_ => cancellation.Cancel());
+        // 始めに「0件目」も知らせるので、1商品ぶん終わった知らせで止める
+        var progress = new InlineProgress(report =>
+        {
+            if (report.Done > 0)
+            {
+                cancellation.Cancel();
+            }
+        });
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => _backlog.ResumeAsync(progress, cancellation.Token));

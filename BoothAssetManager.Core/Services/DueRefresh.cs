@@ -70,6 +70,9 @@ public sealed class DueRefresh
         var refreshed = 0;
         var done = 0;
 
+        // 1件目が終わるまで何も出ないと、何をしているのか分からない
+        progress?.Report((0, due.Count));
+
         foreach (var itemId in due)
         {
             cancellationToken.ThrowIfCancellationRequested();
