@@ -714,6 +714,28 @@ public sealed class EditViewModel : ViewModelBase
     /// </summary>
     public IReadOnlyList<EditQueueTile> QueueTiles { get; private set; } = [];
 
+    /// <summary>
+    /// 「購入した種類」の欄を開いているか。種類の多い商品では膨大になるので畳める（ユーザ指示）。
+    /// 編集画面は開くたびに作り直されるので、アプリを閉じるまでここに持つ（次の商品へ進んでも畳んだまま）。
+    /// </summary>
+    private static bool s_isPurchasesExpanded = true;
+
+    public bool IsPurchasesExpanded
+    {
+        get => s_isPurchasesExpanded;
+        set
+        {
+            if (s_isPurchasesExpanded != value)
+            {
+                s_isPurchasesExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>見出しに添える種類の数。畳んでいても何件あるかは分かるように。</summary>
+    public string PurchasesCountText => Variations.Count > 0 ? $"（{Variations.Count} 種類）" : string.Empty;
+
     /// <summary>上の帯を出すか。要らない人もいるので設定で消せる（ユーザ指示）。</summary>
     public bool ShowsQueueStrip => _services.Settings.ShowEditQueueStrip;
 
@@ -1669,6 +1691,7 @@ public sealed class EditViewModel : ViewModelBase
         // 進む・戻る・飛ぶ・保存のたびにここを通るので、上の帯もここで作り直す
         RebuildQueueTiles();
 
+        OnPropertyChanged(nameof(PurchasesCountText));
         OnPropertyChanged(nameof(Item));
         OnPropertyChanged(nameof(HasItem));
         OnPropertyChanged(nameof(IsFinished));

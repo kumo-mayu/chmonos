@@ -149,8 +149,7 @@
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
-                    <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
-                    <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                    <!-- 「前へ」「スキップ」は右の入力欄の上と下へ移した（ユーザ指示）。入力しながら押す物なので入力欄の側に置く -->
                     <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAndNextCommand}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <Button Content="終える" Command="{Binding FinishCommand}" />
@@ -542,6 +541,15 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18,16">
                     <StackPanel>
 
+                        <!--
+                            入力欄の上にも「前へ」「スキップ」（ユーザ指示。下の行と同じ並び）。
+                            入力欄は長く流れるので、上から見始めたときも下まで入れたときも手の届く所に置く
+                        -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,14">
+                            <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
+                            <Button Content="スキップ" Command="{Binding SkipCommand}" />
+                        </StackPanel>
+
                         <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
                         <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" />
                         <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しい分類として追加されます。"
@@ -642,8 +650,16 @@
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
-                        <!-- 購入記録 -->
-                        <TextBlock Text="購入した種類" FontWeight="Bold" FontSize="13" />
+                        <!--
+                            購入記録。種類の多い商品では膨大になるので、この欄だけ畳める（ユーザ指示）。
+                            畳んだかどうかは次の商品へ進んでも保つ（1件ごとに開き直させない）。
+                            見出しに種類の数を出し、畳んでいても何件あるかは分かるようにする
+                        -->
+                        <Expander IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
+                            <Expander.Header>
+                                <TextBlock FontWeight="Bold" FontSize="13"><Run Text="購入した種類" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                            </Expander.Header>
+                            <StackPanel>
                         <TextBlock Text="購入に印を付けるとBOOTHの現在価格が入ります。実際の支払額が違うときは書き換えてください。空欄は未入力（支出に数えない）、0は無料配布です。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
@@ -766,6 +782,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                            </StackPanel>
+                        </Expander>
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
