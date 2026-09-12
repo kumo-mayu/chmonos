@@ -243,7 +243,27 @@
                                 Visibility="{Binding ShowsAvatarDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <StackPanel>
                                 <Grid>
-                                    <StackPanel>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!--
+                                        名前の左に絵を大きく出す（ユーザ指示）。似た名前のアバターを一目で見分けるため。
+                                        高さは名前・正式名・IDの3行ぶん。保存している絵は長辺384px（読み込みは96相当）
+                                        なので、この大きさなら拡大でぼやけない
+                                    -->
+                                    <Border Grid.Column="0" Width="84" Height="84" CornerRadius="10" Margin="0,2,16,0"
+                                            VerticalAlignment="Top" Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Selected.Initial}" FontSize="30" FontWeight="Bold"
+                                                       Foreground="#4a5160" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Image Source="{Binding Selected.Icon}" Stretch="UniformToFill"
+                                                   Visibility="{Binding Selected.HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1">
                                         <!-- 表示名は短くしてある。編集できるようにし、正式名は下に添える -->
                                         <StackPanel Orientation="Horizontal">
                                             <TextBox Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
@@ -303,7 +323,7 @@
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                                         <Button Content="この商品を検索で見る" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                                                 Command="{Binding ShowItemsCommand}"
                                                 ToolTip="このアバターに対応している商品を、素体経由も含めて検索で開きます。" />
