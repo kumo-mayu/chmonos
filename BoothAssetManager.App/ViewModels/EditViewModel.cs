@@ -1593,15 +1593,9 @@ public sealed class EditViewModel : ViewModelBase
 
         foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
         {
-            var current = auto ?? _fileVariations.GetValueOrDefault(hash);
+            // 選べるのは買った種類と「指定しない」だけ（ユーザ指示）
+            var current = auto ?? EffectiveVariation(hash);
             var rowChoices = choices.ToList();
-
-            // 買っていない種類に付いているファイルも、付いている事実は隠さない
-            if (current is { } id && rowChoices.All(choice => choice.VariationId != id))
-            {
-                rowChoices.Add(new VariationChoice(
-                    id, Variations.FirstOrDefault(row => row.VariationId == id)?.Name ?? DisplayText.VariationLabel(id)));
-            }
 
             var row = new FileSortRow(rowChoices.First(choice => choice.VariationId == current))
             {
@@ -1637,7 +1631,8 @@ public sealed class EditViewModel : ViewModelBase
 
             // 「種類を選ばない購入」の行には付けない（付け先の種類が無い）。
             // 買った種類が1つのときは全部その種類として見せるので、選ぶ欄は出さない
-            row.CanLinkFiles = auto is null && _canLinkAny && row.VariationId is not null;
+            // 結び付けられるのは買った種類だけ（ユーザ指示）。買っていない種類のファイルは手元に無いはず
+            row.CanLinkFiles = auto is null && _canLinkAny && row.VariationId is not null && row.IsPurchased;
 
             if (auto is { } autoId)
             {
@@ -1661,7 +1656,7 @@ public sealed class EditViewModel : ViewModelBase
 
             foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
             {
-                var current = _fileVariations.GetValueOrDefault(hash);
+                var current = EffectiveVariation(hash);
                 if (current == row.VariationId)
                 {
                     row.LinkedFiles.Add(new FileLinkInput
@@ -1680,10 +1675,10 @@ public sealed class EditViewModel : ViewModelBase
             // 名前に種類名がそのまま入っているものを先に出す。友人のデータで当たるのは14%だけなので、
             // 自動では付けずに候補の順番にだけ使う
             var choices = _files
-                .Where(file => _fileVariations.GetValueOrDefault(file.Hash) != row.VariationId)
+                .Where(file => EffectiveVariation(file.Hash) != row.VariationId)
                 .Select(file =>
                 {
-                    var other = _fileVariations.GetValueOrDefault(file.Hash);
+                    var other = EffectiveVariation(file.Hash);
                     var looksLike = NameLooksLike(file.Name, row.Name);
                     return (File: file, LooksLike: looksLike, Note: other is { } otherId && names.TryGetValue(otherId, out var otherName)
                         ? $"「{otherName}」に付いています"
@@ -1725,11 +1720,22 @@ public sealed class EditViewModel : ViewModelBase
         return variation.Length >= 2 && file.Contains(variation, StringComparison.Ordinal);
     }
 
-    /// <summary>開いた時点から変わった紐付けだけ。</summary>
+    /// <summary>
+    /// 画面と保存に使う結び付け。**買っていない種類に付いていれば「指定しない」として扱う**（ユーザ指示）。
+    /// 画面の中の控え（_fileVariations）は消さないので、印を外して付け直せば元の結び付けに戻る。
+    /// </summary>
+    private long? EffectiveVariation(string hash)
+        => _fileVariations.GetValueOrDefault(hash) is { } id
+            && Variations.Any(row => row.VariationId == id && row.IsPurchased)
+                ? id
+                : null;
+
+    /// <summary>開いた時点から変わった紐付けだけ。買っていない種類への結び付けは外れた扱いで書く。</summary>
     private Dictionary<string, long?> ChangedFileVariations()
-        => _fileVariations
-            .Where(pair => _savedFileVariations.GetValueOrDefault(pair.Key) != pair.Value)
-            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        => _fileVariations.Keys
+            .Select(hash => (Hash: hash, Value: EffectiveVariation(hash)))
+            .Where(pair => _savedFileVariations.GetValueOrDefault(pair.Hash) != pair.Value)
+            .ToDictionary(pair => pair.Hash, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// 2件目以降の購入記録を行にぶら下げ、足す／消すを配線する。
