@@ -727,8 +727,10 @@
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
                                                                            MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                                                                <!-- 買った種類が1つで全部この種類として見せている札には出さない（外す意味が無い） -->
                                                                 <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                           Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="この種類から外す">
+                                                                           Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="この種類から外す"
+                                                                           Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                     <TextBlock.InputBindings>
                                                                         <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />
                                                                     </TextBlock.InputBindings>
@@ -798,6 +800,68 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                            </StackPanel>
+                        </Expander>
+
+                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+
+                        <!--
+                            ファイルの種類分け（ユーザ指示）。ファイルを主にして、どの種類のファイルかを選ぶ。
+                            上の各行の選び欄と同じ中身なので、どちらで選んでも揃う。既定は畳む。
+                            開けないとき（種類を1つしか買っていない・ファイルも1つ以下）は消さずに灰色にして、理由を右に書く。
+                            買った種類が1つのときは全部その種類として見せるだけ（書かない）。2つ目に印を付けると自動で開く
+                        -->
+                        <Expander IsExpanded="{Binding IsFileSortExpanded, Mode=TwoWay}" IsEnabled="{Binding CanSortFiles}">
+                            <Expander.Style>
+                                <Style TargetType="Expander">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.6" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Expander.Style>
+                            <Expander.Header>
+                                <TextBlock TextWrapping="Wrap"><Run Text="ファイルの種類分け" FontWeight="Bold" FontSize="13" /><Run Text="{Binding FileSortHeaderNote, Mode=OneWay}" FontSize="11" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                            </Expander.Header>
+                            <StackPanel Margin="0,6,0,0">
+                                <TextBlock Text="ファイルごとに、どの種類のファイルかを選びます。上の「購入した種類」の各行から選んでも同じ内容です。「保存して次へ」で保存します。"
+                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                        BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,8"
+                                        Visibility="{Binding HasFileSortAuto, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="{Binding FileSortAutoText}" FontSize="11.5" TextWrapping="Wrap" Foreground="#28507f" />
+                                </Border>
+
+                                <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここで種類を選べます。"
+                                           Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                           Visibility="{Binding HasNoFilesToSort, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                <ItemsControl ItemsSource="{Binding FileSortRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:FileSortRow}">
+                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                                <DockPanel>
+                                                    <ComboBox DockPanel.Dock="Right" Width="170" Height="26" FontSize="11.5" Margin="10,0,0,0"
+                                                              VerticalAlignment="Top" ItemsSource="{Binding Choices}"
+                                                              SelectedItem="{Binding Selected, Mode=TwoWay}" DisplayMemberPath="Name"
+                                                              IsEnabled="{Binding IsAuto, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                                                              ToolTip="このファイルがどの種類のものかを選びます。" />
+                                                    <!-- まだどの種類にも付いていないファイル。残りが一目で分かるように -->
+                                                    <Border DockPanel.Dock="Left" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,2,7,0" VerticalAlignment="Top"
+                                                            Visibility="{Binding IsUnassigned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="未指定" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                    </Border>
+                                                    <!-- ファイル名は切らずに折り返す（以前の選び欄は150pxで途中が切れていた） -->
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Mono}" FontSize="11.5"
+                                                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Expander>
 
