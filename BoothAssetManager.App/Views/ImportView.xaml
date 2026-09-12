@@ -184,6 +184,27 @@
                     </StackPanel>
                 </Border>
 
+                <!--
+                    使っていない間の取得（⑤の残り・アバターの1枚目・⑦の期限）。取り込みではないが、
+                    ユーザからは取り込みの続きに見える（ユーザ判断 2026-09-12）。下の1行を押すとこの画面へ来るので、
+                    来た先に何も無いと食い違う
+                -->
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
+                        Visibility="{Binding Activity.HasBackgroundWork, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="使っていない間の取得" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="{Binding Activity.BackgroundText}" Style="{StaticResource Caption}"
+                                       Margin="12,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0" Maximum="1"
+                                     Value="{Binding Activity.BackgroundProgress, Mode=OneWay}"
+                                     Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Text="取り込みで取り切れなかった画像や、持っていないアバターの1枚目を、BOOTHへの間隔を空けながら少しずつ取っています。取り込みを始めると、そちらが先に進みます。" />
+                    </StackPanel>
+                </Border>
+
                 <!-- エラー -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
                         Background="#fbeaea" BorderBrush="#eecccc"

@@ -906,25 +906,48 @@ public sealed class AvatarsViewModel : ViewModelBase
         });
     }
 
+    private const string OwnedGroup = "所有しているアバター";
+    private const string ExcludedGroup = "アバターとして扱わないもの";
+    private const string SeenGroup = "対応表記で見かけたアバター";
+
+    /// <summary>
+    /// 畳んだ見出し。この画面は開くたびに作り直されるので、アプリを閉じるまでここに持つ。
+    /// </summary>
+    private static readonly HashSet<string> CollapsedGroups = new(StringComparer.Ordinal);
+
+    public static bool IsGroupCollapsed(string group) => CollapsedGroups.Contains(group);
+
+    public static void SetGroupCollapsed(string group, bool collapsed)
+    {
+        if (collapsed)
+        {
+            CollapsedGroups.Add(group);
+        }
+        else
+        {
+            CollapsedGroups.Remove(group);
+        }
+    }
+
     private void Rebuild()
     {
         var selectedId = Selected?.ItemId;
 
+        // 並びは「所有していてアバター扱い → アバターとして扱わない → 未所有」（ユーザ判断 2026-09-12）。
+        // 扱わないものは所有していても真ん中に固める。見出しの中の並びは読み込んだ順のまま
+        // （OrderBy は同じ順位の中の並びを変えない）
         var matched = _all
             .Where(row => _query.Length == 0 || row.Matches(_query))
+            .OrderBy(row => row.IsExcluded ? 1 : row.IsOwned ? 0 : 2)
             .ToList();
 
-        var ownedCount = matched.Count(row => row.IsOwned && !row.IsExcluded);
-
         // 未所有も必ず出す。手持ちの衣装の対応先が未所有アバターなのは普通で、
-        // 隠すと一覧がほぼ空になる（実データでも主力の対応先が未所有だった）
+        // 隠すと一覧がほぼ空になる（実データでも主力の対応先が未所有だった）。
+        // 見出しの名前に件数を入れない。件数が変わると別の見出しになり、畳んだ状態を覚えられない
+        // （件数は見出しの側で数える）
         foreach (var row in matched)
         {
-            row.GroupName = row.IsExcluded
-                ? "アバターとして扱わないもの"
-                : row.IsOwned
-                    ? $"所有しているアバター（{ownedCount}）"
-                    : $"対応表記で見かけたアバター（{matched.Count - ownedCount}）";
+            row.GroupName = row.IsExcluded ? ExcludedGroup : row.IsOwned ? OwnedGroup : SeenGroup;
         }
 
         Rows.Clear();

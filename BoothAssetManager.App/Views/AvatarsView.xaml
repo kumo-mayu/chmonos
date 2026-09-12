@@ -200,14 +200,32 @@
                                      HorizontalContentAlignment="Stretch"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                <!--
+                                    見出しごとに畳める（ユーザ指示）。400体の中で見たいのは所有している数体と、
+                                    見直すときの「扱わないもの」なので、残りを畳んでおけるようにする。
+                                    畳んだ状態は画面を開き直しても残す（コードビハインドで ViewModel に預ける）
+                                -->
                                 <ListBox.GroupStyle>
                                     <GroupStyle>
-                                        <GroupStyle.HeaderTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}"
-                                                           Margin="0,10,0,6" />
-                                            </DataTemplate>
-                                        </GroupStyle.HeaderTemplate>
+                                        <GroupStyle.ContainerStyle>
+                                            <Style TargetType="GroupItem">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="GroupItem">
+                                                            <Expander IsExpanded="True" Margin="0,8,0,2"
+                                                                      Loaded="GroupExpander_Loaded"
+                                                                      Expanded="GroupExpander_Changed"
+                                                                      Collapsed="GroupExpander_Changed">
+                                                                <Expander.Header>
+                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4"><Run Text="{Binding Name, Mode=OneWay}" /><Run Text="（" /><Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text="）" /></TextBlock>
+                                                                </Expander.Header>
+                                                                <ItemsPresenter />
+                                                            </Expander>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </GroupStyle.ContainerStyle>
                                     </GroupStyle>
                                 </ListBox.GroupStyle>
                             </ListBox>

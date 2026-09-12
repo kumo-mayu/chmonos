@@ -88,6 +88,9 @@ public sealed class ImportViewModel : ViewModelBase
 
     public ObservableCollection<string> Folders { get; } = [];
 
+    /// <summary>通信と作業の様子。使っていない間の取得を、この画面にも出すため。</summary>
+    public BoothActivityViewModel Activity => _main.BoothActivity;
+
     /// <summary>落としたらそのまま取り込みを始める設定か（#38）。</summary>
     public bool StartsOnDrop => _services.Settings.StartImportOnDrop;
 
@@ -883,6 +886,9 @@ public sealed class ImportViewModel : ViewModelBase
                 PhaseText = "完了";
                 DetailText = string.Empty;
                 await _main.ReloadLibraryAsync();
+
+                // 新しく見つかったアバターの1枚目を続けて取る（次の起動まで待たせない）
+                _main.StartAvatarImageSync();
             }
             else if (result is CommandResult.Failed failed)
             {

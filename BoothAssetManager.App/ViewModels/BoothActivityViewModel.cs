@@ -106,11 +106,31 @@ public sealed class BoothActivityViewModel : ViewModelBase
 
     public bool IsThrottled => _activity.IsThrottled;
 
+    /// <summary>
+    /// 使っていない間の取得をしているか。取り込み画面にも出す——取り込みではないが、
+    /// ユーザからは取り込みの続きに見える（ユーザ判断 2026-09-12）。下の1行を押すと取り込み画面へ行くので、
+    /// 行った先で何をしているのか分かるようにする。取り込みと重なっても、こちらはこちらで出す。
+    /// </summary>
+    public bool HasBackgroundWork => _work.ContainsKey(WorkSource.Background);
+
+    public string BackgroundText => _work.TryGetValue(WorkSource.Background, out var work)
+        ? work.Total > 0 ? $"{work.Label} {work.Done}/{work.Total}" : work.Label
+        : string.Empty;
+
+    public double BackgroundProgress => _work.TryGetValue(WorkSource.Background, out var work) && work.Total > 0
+        ? Math.Clamp((double)work.Done / work.Total, 0, 1)
+        : 0;
+
     private void NotifyLine()
     {
+        // 作業があれば通信の合間でも1行を出すので、作業の出入りでも知らせ直す
+        OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(Text));
         OnPropertyChanged(nameof(HasProgress));
         OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(HasBackgroundWork));
+        OnPropertyChanged(nameof(BackgroundText));
+        OnPropertyChanged(nameof(BackgroundProgress));
     }
 
     /// <summary>

@@ -38,11 +38,32 @@ public sealed class AvatarImageSync
     /// <summary>1枚保存した。引数はアバターの商品ID。**取得した側のスレッドで呼ばれる。**</summary>
     public event Action<string>? AvatarImageSaved;
 
+    /// <summary>
+    /// 1本ずつ回すための鍵。起動時の裏の取得と、取り込みの後の取得が重なることがある。
+    /// 後から来た方は前が終わるのを待ってから数え直すので、同じアバターを二重に取らない。
+    /// </summary>
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
     /// <param name="progress">取りに行く分の何件目か。**先に数えてから回す**ので、件数は最初から分かる。</param>
     /// <returns>この呼び出しで保存した枚数。</returns>
     public async Task<int> SyncAsync(
         IProgress<(int Done, int Total)>? progress = null,
         CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await SyncCoreAsync(progress, cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<int> SyncCoreAsync(
+        IProgress<(int Done, int Total)>? progress,
+        CancellationToken cancellationToken)
     {
         if (!_images.SavesImages)
         {

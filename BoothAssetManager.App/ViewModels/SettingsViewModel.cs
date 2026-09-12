@@ -897,25 +897,23 @@ public sealed class SettingsViewModel : ViewModelBase
             var here = Core.Storage.StoreMover.Summarize(source);
             var there = Core.Storage.StoreMover.Summarize(picked);
 
-            var answer = System.Windows.MessageBox.Show(
-                "選んだ場所には既にライブラリがあります。どちらを残しますか。\n\n"
-                + $"【今の保存先】{source}\n{Describe(here)}\n\n"
-                + $"【選んだ場所】{picked}\n{Describe(there)}\n\n"
-                + "［はい］今のデータで置き換える\n"
-                + "　　選んだ場所にあるものは消さず、「_置き換え前-（日時）」へ退けてから入れ替えます。\n\n"
-                + "［いいえ］選んだ場所のデータをそのまま使う\n"
-                + "　　今のデータは元の場所に残ります。混ぜることはしません。",
+            // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ判断）
+            var answer = Views.ChoiceDialog.Ask(
                 "どちらのライブラリを残しますか",
-                System.Windows.MessageBoxButton.YesNoCancel,
-                System.Windows.MessageBoxImage.Question,
-                System.Windows.MessageBoxResult.Cancel);
+                "選んだ場所には既にライブラリがあります。どちらを残しますか？",
+                $"【今の保存先】{source}\n{Describe(here)}\n\n"
+                + $"【選んだ場所】{picked}\n{Describe(there)}\n\n"
+                + "今のデータで置き換える …… 選んだ場所にあるものは消さず、「_置き換え前-（日時）」へ退けてから入れ替えます。\n"
+                + "選んだ場所のデータを使う …… 今のデータは元の場所に残ります。混ぜることはしません。",
+                "今のデータで置き換える",
+                "選んだ場所のデータを使う");
 
-            if (answer == System.Windows.MessageBoxResult.Cancel)
+            if (answer == Views.ChoiceDialogResult.Cancel)
             {
                 return;
             }
 
-            if (answer == System.Windows.MessageBoxResult.No)
+            if (answer == Views.ChoiceDialogResult.Second)
             {
                 StoreLocation.Save(picked);
                 PendingRoot = picked;
@@ -963,22 +961,22 @@ public sealed class SettingsViewModel : ViewModelBase
 
         var (files, bytes) = Core.Storage.StoreMover.Measure(source);
 
-        var move = System.Windows.MessageBox.Show(
-            $"保存先を変えます。\n\n変更前：{source}\n変更後：{picked}\n\n"
-            + $"今のデータ（{files:N0} ファイル / {Core.Models.DisplayText.Size(bytes)}）を新しい場所へ引っ越しますか？\n\n"
-            + "［はい］コピーしてから元を消します。途中で失敗した場合は元のままにします。\n"
-            + "［いいえ］場所だけ変えます。新しい場所は空なので、次の起動では何も無い状態から始まります。",
+        var move = Views.ChoiceDialog.Ask(
             "データを引っ越しますか",
-            System.Windows.MessageBoxButton.YesNoCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.Yes);
+            "今のデータを新しい場所へ引っ越しますか？",
+            $"変更前：{source}\n変更後：{picked}\n"
+            + $"今のデータ：{files:N0} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
+            + "引っ越す …… コピーしてから元を消します。途中で失敗した場合は元のままにします。\n"
+            + "場所だけ変える …… 新しい場所は空なので、次の起動では何も無い状態から始まります。",
+            "引っ越す",
+            "場所だけ変える");
 
-        if (move == System.Windows.MessageBoxResult.Cancel)
+        if (move == Views.ChoiceDialogResult.Cancel)
         {
             return;
         }
 
-        if (move == System.Windows.MessageBoxResult.Yes)
+        if (move == Views.ChoiceDialogResult.First)
         {
             // 実行中のロックを持ったままだと、元のフォルダを畳みきれない
             _services.ReleaseInstanceLock();
@@ -1061,16 +1059,15 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
-        var withImages = System.Windows.MessageBox.Show(
-            $"画像も含めますか？（画像：{ImageUsageText}）\n\n"
-            + "［はい］画像も入れる。戻したときに取り直さずに済みますが、zip が大きくなります。\n"
-            + "［いいえ］画像は入れない。戻した後、使っていない間に BOOTH から少しずつ取り直します。",
+        var withImages = Views.ChoiceDialog.Ask(
             "バックアップを書き出す",
-            System.Windows.MessageBoxButton.YesNoCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.No);
+            $"画像も含めますか？（画像：{ImageUsageText}）",
+            "画像も入れる …… 戻したときに取り直さずに済みますが、zip が大きくなります。\n"
+            + "画像は入れない …… 戻した後、使っていない間に BOOTH から少しずつ取り直します。",
+            "画像も入れる",
+            "画像は入れない");
 
-        if (withImages == System.Windows.MessageBoxResult.Cancel)
+        if (withImages == Views.ChoiceDialogResult.Cancel)
         {
             return;
         }
@@ -1080,7 +1077,7 @@ public sealed class SettingsViewModel : ViewModelBase
         try
         {
             var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ExportBackup(
-                _services.Paths.Root, dialog.FileName, withImages == System.Windows.MessageBoxResult.Yes));
+                _services.Paths.Root, dialog.FileName, withImages == Views.ChoiceDialogResult.First));
 
             Status = result switch
             {

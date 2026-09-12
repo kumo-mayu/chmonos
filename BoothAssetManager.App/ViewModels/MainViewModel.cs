@@ -144,6 +144,35 @@ public sealed class MainViewModel : ViewModelBase
         }, token);
     }
 
+    /// <summary>
+    /// 取り込みの後、新しく見つかったアバターの1枚目を続けて取る（ユーザ判断 2026-09-12）。
+    /// 以前は次の起動の裏の取得まで待っていたので、取り込んだ直後の一覧や候補は頭文字のままだった。
+    /// 検出のときにJSONを取っているので1枚目のURLは分かっており、ここで増えるのは画像の取得だけ。
+    /// 起動時の裏の取得と重なっても、<see cref="Core.Services.AvatarImageSync"/> が1本ずつ回すので二重には取らない。
+    /// </summary>
+    public void StartAvatarImageSync()
+    {
+        var token = (_backlog ??= new CancellationTokenSource()).Token;
+        IProgress<(int Done, int Total)> progress = new Progress<(int Done, int Total)>(
+            report => BoothActivity.ReportWork(WorkSource.Background, "アバターの画像を取得中", report.Done, report.Total));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _services.AvatarImages.SyncAsync(progress, token);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // 取れなくても次の起動でまた試す。頼まれた作業ではないので邪魔をしない
+            }
+            finally
+            {
+                BoothActivity.EndWork(WorkSource.Background);
+            }
+        }, token);
+    }
+
     /// <summary>閉じるときに背景の取得を止める。</summary>
     public void StopBackgroundWork()
     {
