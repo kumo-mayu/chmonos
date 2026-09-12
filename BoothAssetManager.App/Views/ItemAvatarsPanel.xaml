@@ -74,16 +74,14 @@
                                                     押すとそのアバターを開く（U13）。「×」はボタンなので、押しても開かない。
                                                     持っているアバターは検索カードの「所持」と同じ緑（U25）
                                                 -->
+                                                <!--
+                                                    ツールチップにアバターの絵を出す（R3）。名前だけでは見分けにくいアバターがある。
+                                                    **絵の入った枠は乗せたときに作る**（ユーザ判断 2026-09-12）。札ごとに先に作ると、
+                                                    244体の商品で開くのが150〜200ms遅れた。普段は短い文字だけを持たせておく
+                                                -->
                                                 <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
-                                                        Visibility="{Binding IsAddTile, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                                                    <!-- ツールチップにアバターの絵を出す（R3）。名前だけでは見分けにくいアバターがある -->
-                                                    <Border.ToolTip>
-                                                        <StackPanel MaxWidth="260">
-                                                            <Image Source="{Binding Icon}" Width="160" Height="160" Stretch="Uniform" Margin="0,0,0,6"
-                                                                   Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                            <TextBlock Text="{Binding SourceTooltip}" TextWrapping="Wrap" />
-                                                        </StackPanel>
-                                                    </Border.ToolTip>
+                                                        Visibility="{Binding IsChip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        ToolTip="{Binding SourceTooltip}" ToolTipOpening="OnChipToolTipOpening">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
                                                             <Setter Property="Background" Value="{StaticResource AccentSoft}" />
@@ -131,6 +129,16 @@
                                                         </Button>
                                                     </StackPanel>
                                                 </Border>
+
+                                                <!--
+                                                    「残り n 体を表示」（ユーザ判断 2026-09-12）。多い商品は最初の一部だけ並べ、
+                                                    押したらこの商品を開いている間だけ全部並べる
+                                                -->
+                                                <Button Content="{Binding Name}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                                                        Visibility="{Binding IsMoreTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Command="{Binding DataContext.ShowAllAvatarsCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        ToolTip="残りの対応アバターも並べます。多い商品は、開くのを速くするため最初は一部だけ並べています。" />
 
                                                 <!--
                                                     末尾の「＋ 追加」（ユーザ指示）。押すとその場に候補付きの入力欄を出し、すぐ打てる。

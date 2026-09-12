@@ -460,16 +460,25 @@
                                 <Expander.Header>
                                     <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
                                 </Expander.Header>
-                                <ItemsControl ItemsSource="{Binding BoothTags}" Margin="0,8,0,0">
+                                <!-- 畳んでいる間は作らず、多い商品は最初の一部と「残り n 件を表示」だけ（商品ページと同じ） -->
+                                <ItemsControl ItemsSource="{Binding BoothTagTiles}" Margin="0,8,0,0">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
-                                                    Padding="10,3" Margin="0,0,6,6" Background="White">
-                                                <TextBlock Text="{Binding}" FontSize="12" Foreground="#454b57" />
-                                            </Border>
+                                        <DataTemplate DataType="{x:Type vm:TagTile}">
+                                            <Grid>
+                                                <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
+                                                        Padding="10,3" Margin="0,0,6,6" Background="White"
+                                                        Visibility="{Binding IsTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding Text}" FontSize="12" Foreground="#454b57" />
+                                                </Border>
+                                                <Button Content="{Binding Text}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                                                        Visibility="{Binding IsMore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Command="{Binding DataContext.ShowAllTagsCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        ToolTip="残りのタグも並べます。多い商品は、開くのを速くするため最初は一部だけ並べています。" />
+                                            </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

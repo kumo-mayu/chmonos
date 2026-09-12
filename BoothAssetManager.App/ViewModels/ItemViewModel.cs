@@ -947,6 +947,23 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>BOOTHのタグの見出しに添える件数。畳んでいても何件あるかは分かるように。</summary>
     public string BoothTagsCountText => $"（{Tags.Count}）";
 
+    private bool _showAllTags;
+
+    /// <summary>
+    /// 並べるタグの札（ユーザ指示 2026-09-12：多い商品を開くのが遅い）。畳んでいる間は作らず、
+    /// 多い商品は最初の一部と「残り n 件を表示」だけ（<see cref="ChipLists"/>）。
+    /// </summary>
+    public IReadOnlyList<TagTile> TagTiles => ChipLists.Tags(Tags, IsBoothTagsExpanded, _showAllTags);
+
+    private RelayCommand? _showAllTagsCommand;
+
+    /// <summary>「残り n 件を表示」。この商品を開いている間だけ全部並べる。</summary>
+    public RelayCommand ShowAllTagsCommand => _showAllTagsCommand ??= new RelayCommand(() =>
+    {
+        _showAllTags = true;
+        OnPropertyChanged(nameof(TagTiles));
+    });
+
     /// <summary>
     /// BOOTHのタグを開いているか（ユーザ指示 2026-09-12：多過ぎる商品があるので畳める）。
     /// 商品ページと編集画面で共通で、商品を移っても保つ（<see cref="SectionFolds"/>）。
@@ -960,6 +977,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 SectionFolds.BoothTagsExpanded = value;
                 OnPropertyChanged(nameof(IsBoothTagsExpanded));
+
+                // 畳んでいる間は札を作らない。開いたときに作る
+                OnPropertyChanged(nameof(TagTiles));
             }
         }
     }
@@ -1084,6 +1104,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         IsAddTile = true,
     };
 
+    /// <summary>「残り n 体を表示」の1枚。札の並びの末尾（「＋ 追加」の前）に混ぜる。</summary>
+    private static AvatarRow MoreAvatarsTile(int rest) => new()
+    {
+        ItemId = string.Empty,
+        Name = $"残り {rest} 体を表示",
+        SourceText = string.Empty,
+        IsMoreTile = true,
+    };
+
     /// <summary>対応アバターの見出しに添える件数。畳んでいても何体あるかは分かるように。</summary>
     public string AvatarsCountText => Avatars.Count == 0 ? string.Empty : $"（{Avatars.Count} 体）";
 
@@ -1100,6 +1129,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 SectionFolds.AvatarsExpanded = value;
                 OnPropertyChanged(nameof(IsAvatarsExpanded));
+
+                // 畳んでいる間は札を作らない。開いたときに作る
+                ApplyAvatarFilter();
             }
         }
     }
@@ -1121,6 +1153,16 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         () => !IsEditLocked);
 
     public RelayCommand StopAddAvatarCommand => _stopAddAvatarCommand ??= new RelayCommand(() => IsAddingAvatar = false);
+
+    private bool _showAllAvatars;
+    private RelayCommand? _showAllAvatarsCommand;
+
+    /// <summary>「残り n 体を表示」。この商品を開いている間だけ全部並べる。</summary>
+    public RelayCommand ShowAllAvatarsCommand => _showAllAvatarsCommand ??= new RelayCommand(() =>
+    {
+        _showAllAvatars = true;
+        ApplyAvatarFilter();
+    });
 
     public bool ShowsAvatarFilter => Avatars.Count > AvatarFilterThreshold;
 
@@ -1145,7 +1187,24 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             ? Avatars
             : Avatars.Where(row => compare.IndexOf(row.Name, needle, options) >= 0).ToList();
 
-        AvatarTiles = [.. VisibleAvatars, AddAvatarTile];
+        // 札を並べるのは画面の中で重い（友人データの244体の商品で、札だけで約550ms・ユーザ指摘 2026-09-12）。
+        // ・畳んでいる間は作らない
+        // ・多い商品は最初の一部と「残り n 体を表示」だけ（持っているアバターが先頭に来る並びのまま切る）
+        // ・絞り込んでいるときは、探しているのだから一致したものを全部並べる
+        if (!IsAvatarsExpanded)
+        {
+            AvatarTiles = [];
+        }
+        else
+        {
+            var showAll = _showAllAvatars || needle.Length > 0 || VisibleAvatars.Count <= ChipLists.ShowAllUpTo;
+            var shown = showAll ? VisibleAvatars : VisibleAvatars.Take(ChipLists.PreviewCount).ToList();
+            var rest = VisibleAvatars.Count - shown.Count;
+
+            AvatarTiles = rest > 0
+                ? [.. shown, MoreAvatarsTile(rest), AddAvatarTile]
+                : [.. shown, AddAvatarTile];
+        }
 
         OnPropertyChanged(nameof(VisibleAvatars));
         OnPropertyChanged(nameof(AvatarTiles));
@@ -2649,6 +2708,12 @@ public sealed class AvatarRow
     /// <summary>札の並びの末尾に混ぜる「＋ 追加」の1枚か（アバターではない）。</summary>
     public bool IsAddTile { get; init; }
 
+    /// <summary>多い商品で並べるのを止めたところに置く「残り n 体を表示」の1枚か（アバターではない）。</summary>
+    public bool IsMoreTile { get; init; }
+
+    /// <summary>アバターの札か（「＋ 追加」「残り n 体を表示」ではない）。</summary>
+    public bool IsChip => !IsAddTile && !IsMoreTile;
+
     private System.Windows.Media.Imaging.BitmapSource? _icon;
     private bool _iconLoaded;
 
@@ -2698,6 +2763,51 @@ public static class SectionFolds
     public static bool BoothTagsExpanded { get; set; } = true;
 
     public static bool AvatarsExpanded { get; set; } = true;
+}
+
+/// <summary>BOOTHのタグの札1枚。「残り n 件を表示」も同じ並びに混ぜる。</summary>
+public sealed class TagTile
+{
+    public required string Text { get; init; }
+
+    /// <summary>「残り n 件を表示」の1枚か。</summary>
+    public bool IsMore { get; init; }
+
+    public bool IsTag => !IsMore;
+}
+
+/// <summary>
+/// 札を並べる数の決め事（ユーザ指示 2026-09-12：タグや対応アバターが多い商品を開くのが遅い）。
+/// 札は1枚ごとに画面の部品を作るので、数百並べると開くのに体感できるほど掛かる（244体で約550ms）。
+/// 欄は既定で開いたまま（ユーザ判断：畳んでおくべき項目ではない）にし、並べる数の方を絞る。
+/// </summary>
+public static class ChipLists
+{
+    /// <summary>多い商品で最初に並べる数。</summary>
+    public const int PreviewCount = 40;
+
+    /// <summary>この数までは全部並べる。「残り 3 件」のような切り方をしない。</summary>
+    public const int ShowAllUpTo = 50;
+
+    public static IReadOnlyList<TagTile> Tags(IReadOnlyList<string> tags, bool expanded, bool showAll)
+    {
+        // 畳んでいる間は作らない。開いたときに作る
+        if (!expanded)
+        {
+            return [];
+        }
+
+        if (showAll || tags.Count <= ShowAllUpTo)
+        {
+            return tags.Select(tag => new TagTile { Text = tag }).ToList();
+        }
+
+        return
+        [
+            .. tags.Take(PreviewCount).Select(tag => new TagTile { Text = tag }),
+            new TagTile { Text = $"残り {tags.Count - PreviewCount} 件を表示", IsMore = true },
+        ];
+    }
 }
 
 /// <summary>ユーザが消した対応アバターの1行（「消したもの」の欄）。</summary>

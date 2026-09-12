@@ -503,6 +503,20 @@ public sealed class EditViewModel : ViewModelBase
     /// <summary>BOOTHのタグの見出しに添える件数。畳んでいても何件あるかは分かるように。</summary>
     public string BoothTagsCountText => $"（{BoothTags.Count}）";
 
+    private bool _showAllTags;
+
+    /// <summary>並べるタグの札。畳んでいる間は作らず、多い商品は一部だけ（商品ページと同じ・<see cref="ChipLists"/>）。</summary>
+    public IReadOnlyList<TagTile> BoothTagTiles => ChipLists.Tags(BoothTags, IsBoothTagsExpanded, _showAllTags);
+
+    private RelayCommand? _showAllTagsCommand;
+
+    /// <summary>「残り n 件を表示」。この商品を開いている間だけ全部並べる。</summary>
+    public RelayCommand ShowAllTagsCommand => _showAllTagsCommand ??= new RelayCommand(() =>
+    {
+        _showAllTags = true;
+        OnPropertyChanged(nameof(BoothTagTiles));
+    });
+
     /// <summary>BOOTHのタグを開いているか。商品ページと共通（<see cref="SectionFolds"/>・ユーザ指示 2026-09-12）。</summary>
     public bool IsBoothTagsExpanded
     {
@@ -513,6 +527,9 @@ public sealed class EditViewModel : ViewModelBase
             {
                 SectionFolds.BoothTagsExpanded = value;
                 OnPropertyChanged(nameof(IsBoothTagsExpanded));
+
+                // 畳んでいる間は札を作らない。開いたときに作る
+                OnPropertyChanged(nameof(BoothTagTiles));
             }
         }
     }
@@ -1159,6 +1176,9 @@ public sealed class EditViewModel : ViewModelBase
             if (record is not null)
             {
                 _item = record;
+
+                // 「残り n 件を表示」で全部並べたのは、その商品を開いている間だけ
+                _showAllTags = false;
                 _tagMaster = _services.Store.UserTags.Load();
                 _attributeMaster = _services.Store.Attributes.Load();
                 // 店名の候補は画面を開いて1回だけ作る。以前は1件進むたびに全件を読み直していて、
@@ -2201,6 +2221,7 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));
         OnPropertyChanged(nameof(BoothTagsCountText));
+        OnPropertyChanged(nameof(BoothTagTiles));
         RelayCommand.RaiseCanExecuteChanged();
     }
 }
