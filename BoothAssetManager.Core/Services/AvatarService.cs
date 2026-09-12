@@ -340,27 +340,6 @@ public sealed partial class AvatarService : IAvatarService
         return result!;
     }
 
-    /// <summary>
-    /// 以前の初期辞書が配った誤った値を、保存済みの登録簿でも直す。直した組の数を返す。
-    ///
-    /// 起動時に呼ぶ。初期辞書は検出のときにしか合流しないので、検出を走らせない人の登録簿は
-    /// いつまでも古い値のまま残り、検索の素体経由が広がらない。
-    /// 直すものが無ければ書かない（毎回の起動で登録簿を書き換えない）。
-    /// </summary>
-    public int RepairSeededGroups()
-    {
-        var registry = _store.Avatars.Load();
-        var groups = registry.BaseGroups.ToList();
-
-        var repaired = AvatarBaseSeed.RepairLegacy(groups);
-        if (repaired > 0)
-        {
-            JsonStore.Write(_store.Avatars.Path, new AvatarRegistry { Entries = registry.Entries, BaseGroups = groups });
-        }
-
-        return repaired;
-    }
-
     private async Task<AvatarDetectResult> DetectOnceAsync(
         IProgress<AvatarDetectProgress>? progress,
         CancellationToken cancellationToken)

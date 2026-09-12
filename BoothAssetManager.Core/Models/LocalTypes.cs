@@ -83,26 +83,6 @@ public sealed record AvatarBaseLink
 }
 
 /// <summary>
-/// 購入したvariationの記録（旧形式）。読み込みのためだけに残している。
-/// <see cref="Purchase"/> へ移し替えたら二度と書かない。
-/// </summary>
-public sealed record OrderedVariation
-{
-    public required long VariationId { get; init; }
-
-    /// <summary>購入時点のvariation名。BOOTH側に現存しない場合はこちらを表示に使う。</summary>
-    public string? NameSnapshot { get; init; }
-
-    /// <summary>購入価格。null は未入力、0 は無料配布。</summary>
-    public int? Price { get; init; }
-
-    public bool IsGifted { get; init; }
-
-    /// <summary>BOOTH側の現在のvariation一覧に存在するか。消えても記録は残し、統計の支出には含める。</summary>
-    public bool ExistsOnBooth { get; init; } = true;
-}
-
-/// <summary>
 /// その購入が誰のためのものだったか。
 ///
 /// JSONには日本語で書く。この値は「自分用か、贈ったか、貰ったか」という
@@ -168,16 +148,6 @@ public sealed record Purchase
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsOwnSpending => Kind is PurchaseKind.ForSelf or PurchaseKind.Given;
-
-    /// <summary>旧形式から読み替える。kind が無い記録は自分用、isGifted は「貰った」。</summary>
-    public static Purchase FromLegacy(OrderedVariation legacy) => new()
-    {
-        VariationId = legacy.VariationId,
-        NameSnapshot = legacy.NameSnapshot,
-        Price = legacy.Price,
-        Kind = legacy.IsGifted ? PurchaseKind.Received : PurchaseKind.ForSelf,
-        ExistsOnBooth = legacy.ExistsOnBooth,
-    };
 
     /// <summary>
     /// <see cref="ExistsOnBooth"/> を今のバリエーション一覧から計算し直す。

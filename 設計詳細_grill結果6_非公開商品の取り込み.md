@@ -360,7 +360,7 @@ Bで作った「この商品から外す」とは**別の操作**にする。
 | 項目 | 移せるか |
 |---|---|
 | `Purchases[].VariationId` | **✗** `Booth.Variations[].Id` を指す |
-| `LegacyOrderedVariations[].VariationId` | **✗** 旧形式。同じ |
+| `LegacyOrderedVariations[].VariationId` | **✗** 旧形式。同じ（2026-09-12 に旧形式の読み込みごと外した） |
 | **`LocalFiles[].VariationId`** | **✗** 見落としやすい。「このファイルはどのバリエーションか」の紐付け |
 | `Avatars` / `AvatarBases` / `AvatarsDetectedAt` | **△ 意味が衝突。** この商品の説明文から検出したもの。移さず捨て、新しい商品で検出し直す |
 | UserTags / Attributes / Memo / AcquiredAt / NotifyOnUpdate / IsHidden / UsedOn | ○ |

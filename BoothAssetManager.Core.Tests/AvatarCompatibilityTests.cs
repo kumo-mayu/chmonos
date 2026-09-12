@@ -236,48 +236,4 @@ public class AvatarBaseSeedTests
     [Fact]
     public void EverySeedGroupSpreadsClothing()
         => Assert.All(AvatarBaseSeed.Groups, group => Assert.True(group.InferClothing));
-
-    private static AvatarBaseGroup LegacyPlusHead() => new()
-    {
-        Name = "+Head",
-        InferClothing = false,
-        Memo = "頭部の共通規格。頭を差し替えられるだけで、衣装が合うとは限りません。",
-        Aliases = [new AvatarAlias { Text = "+Head", Source = "Seed" }, new AvatarAlias { Text = "ぷらすへっど", Source = "Manual" }],
-    };
-
-    /// <summary>以前の初期辞書のままの +Head は直す。利用者が足した別名は残す。</summary>
-    [Fact]
-    public void RepairsTheLegacyPlusHeadSeed()
-    {
-        var groups = new List<AvatarBaseGroup> { LegacyPlusHead() };
-
-        var repaired = AvatarBaseSeed.RepairLegacy(groups);
-
-        var head = Assert.Single(groups);
-        Assert.Equal(1, repaired);
-        Assert.True(head.InferClothing);
-        Assert.Contains(head.Aliases, alias => alias.Text == "ぷらすへっど");
-        Assert.Contains(head.Aliases, alias => alias.Text == "PlusHead");
-    }
-
-    /// <summary>利用者がメモを書き換えていたら、その人の判断なので触らない。</summary>
-    [Fact]
-    public void LeavesAPlusHeadTheUserHasEdited()
-    {
-        var groups = new List<AvatarBaseGroup> { LegacyPlusHead() with { Memo = "うちでは頭だけ使う" } };
-
-        Assert.Equal(0, AvatarBaseSeed.RepairLegacy(groups));
-        Assert.False(groups.Single().InferClothing);
-    }
-
-    /// <summary>初期辞書を合流するときにも直す（検出のたびに通る）。</summary>
-    [Fact]
-    public void MergeAlsoRepairsTheLegacySeed()
-    {
-        var groups = new List<AvatarBaseGroup> { LegacyPlusHead() };
-
-        AvatarBaseSeed.Merge(groups);
-
-        Assert.True(groups.Single(group => group.Name == "+Head").InferClothing);
-    }
 }

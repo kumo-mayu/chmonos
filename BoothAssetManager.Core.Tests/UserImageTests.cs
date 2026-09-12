@@ -297,31 +297,23 @@ public class UserImageTests : IDisposable
     }
 
     /// <summary>
-    /// 新しく足した絵は自分の画像の末尾に付く。記録を失った自分の画像は、ファイルの時刻の順で先に並ぶ
-    /// （ユーザ判断 2026-09-12）。以前は記録に無い分が後ろに回り、今足した絵が古い絵より前に入って見えた。
+    /// 新しく足した絵は自分の画像の末尾に付く（記録の順・ユーザ判断 2026-09-12）。
+    /// 名前（中身のハッシュ）の順に並べると、今足した絵が古い絵より前に入ることがある。
     /// </summary>
     [Fact]
     public void PutsNewlyAddedImagesLast()
     {
         var directory = @"C:\images\5927710";
-        var olderStray = Path.Combine(directory, "user-ffff0000.webp");
-        var newerStray = Path.Combine(directory, "user-00000000.webp");
-        var added = Path.Combine(directory, "user-88888888.webp");
-        var times = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase)
-        {
-            [olderStray] = new DateTime(2026, 9, 10, 15, 0, 0, DateTimeKind.Utc),
-            [newerStray] = new DateTime(2026, 9, 10, 16, 0, 0, DateTimeKind.Utc),
-            [added] = new DateTime(2026, 9, 12, 14, 0, 0, DateTimeKind.Utc),
-        };
+        var first = Path.Combine(directory, "user-ffff0000.webp");
+        var added = Path.Combine(directory, "user-00000000.webp");
 
         var ordered = ItemImageOrder.Arrange(
             directory,
             [],
-            [added, newerStray, olderStray],
-            [new UserImage { FileName = "user-88888888.webp" }],
-            path => times[path]);
+            [added, first],
+            [new UserImage { FileName = "user-ffff0000.webp" }, new UserImage { FileName = "user-00000000.webp" }]);
 
-        Assert.Equal(new[] { olderStray, newerStray, added }, ordered.Select(entry => entry.Path));
+        Assert.Equal(new[] { first, added }, ordered.Select(entry => entry.Path));
         Assert.All(ordered, entry => Assert.Equal(ImageOrigin.UserAdded, entry.Origin));
     }
 

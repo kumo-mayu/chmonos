@@ -89,17 +89,6 @@ public sealed record LocalBlock
     /// </summary>
     public IReadOnlyList<Purchase> Purchases { get; init; } = [];
 
-    /// <summary>
-    /// 旧形式の購入記録。読み込みのためだけに置いてある。
-    ///
-    /// 読み込み時に <see cref="Purchases"/> へ移し、ここは null にする。
-    /// null のときは書き出されないので、一度保存すれば古い形は消える。
-    /// </summary>
-    [System.Text.Json.Serialization.JsonPropertyName("orderedVariations")]
-    [System.Text.Json.Serialization.JsonIgnore(
-        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<OrderedVariation>? LegacyOrderedVariations { get; init; }
-
     /// <summary>紐付いたファイル。この商品から外したもの（<see cref="LocalFileRecord.Detached"/>）も印付きで残る。</summary>
     public IReadOnlyList<LocalFileRecord> LocalFiles { get; init; } = [];
 

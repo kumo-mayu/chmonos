@@ -7,10 +7,10 @@ using Xunit;
 namespace BoothAssetManager.Core.Tests;
 
 /// <summary>
-/// 旧形式（orderedVariations）から新形式（purchases）への読み替え。
+/// 購入記録（purchases）の読み書き。
 ///
-/// 一括変換は走らせず、読んだときに読み替えて、次に保存したときに書き換わる形にしてある。
-/// 全件を一度に書き換えると、途中で失敗したときにどこまで進んだか分からなくなるため。
+/// 以前はここに旧形式（orderedVariations）の読み替えの試験もあったが、読み替えそのものを外した
+/// （2026-09-12・ユーザ判断：公開前は今の形に合わないデータの側を問題にする）。
 /// </summary>
 public class PurchaseMigrationTests : IDisposable
 {
@@ -42,67 +42,6 @@ public class PurchaseMigrationTests : IDisposable
               "local": {{localJson}}
             }
             """);
-    }
-
-    [Fact]
-    public async Task ReadsLegacyRecordsAsPurchases()
-    {
-        await WriteRawAsync("1", """
-            {
-              "orderedVariations": [
-                { "variationId": 100, "price": 1500, "nameSnapshot": "本体" },
-                { "variationId": 200, "price": 800, "isGifted": true }
-              ]
-            }
-            """);
-
-        var item = await Repository().LoadAsync("1");
-
-        Assert.NotNull(item);
-        Assert.Equal(2, item!.Local.Purchases.Count);
-        Assert.Equal(PurchaseKind.ForSelf, item.Local.Purchases[0].Kind);
-        Assert.Equal(1500, item.Local.Purchases[0].Price);
-        Assert.Equal("本体", item.Local.Purchases[0].NameSnapshot);
-
-        // isGifted は「貰った」の意味で使われていた
-        Assert.Equal(PurchaseKind.Received, item.Local.Purchases[1].Kind);
-    }
-
-    /// <summary>読み替えたら旧形式は落とす。保存し直したときに古い形が残らないように。</summary>
-    [Fact]
-    public async Task DropsLegacyFieldAfterReading()
-    {
-        await WriteRawAsync("1", """
-            { "orderedVariations": [ { "variationId": 100, "price": 1500 } ] }
-            """);
-
-        var repository = Repository();
-        var item = await repository.LoadAsync("1");
-        Assert.Null(item!.Local.LegacyOrderedVariations);
-
-        await repository.SaveAsync(item);
-
-        var json = await File.ReadAllTextAsync(Path.Combine(_root, "items", "1.json"));
-        Assert.DoesNotContain("orderedVariations", json, StringComparison.Ordinal);
-        Assert.Contains("purchases", json, StringComparison.Ordinal);
-    }
-
-    /// <summary>新しい形が既にあるなら、そちらが正。古い方は捨てるだけ。</summary>
-    [Fact]
-    public async Task PrefersNewFormatWhenBothArePresent()
-    {
-        await WriteRawAsync("1", """
-            {
-              "purchases": [ { "variationId": 100, "price": 9999, "kind": "贈った" } ],
-              "orderedVariations": [ { "variationId": 100, "price": 1500 } ]
-            }
-            """);
-
-        var item = await Repository().LoadAsync("1");
-
-        var purchase = Assert.Single(item!.Local.Purchases);
-        Assert.Equal(9999, purchase.Price);
-        Assert.Equal(PurchaseKind.Given, purchase.Kind);
     }
 
     /// <summary>
@@ -139,7 +78,6 @@ public class PurchaseMigrationTests : IDisposable
         var item = await Repository().LoadAsync("1");
 
         Assert.Empty(item!.Local.Purchases);
-        Assert.Null(item.Local.LegacyOrderedVariations);
     }
 
     /// <summary>書き出した形が人に読めること。JSONは直接編集する前提なので。</summary>

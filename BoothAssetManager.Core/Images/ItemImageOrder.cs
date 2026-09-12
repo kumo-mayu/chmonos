@@ -39,13 +39,11 @@ public readonly record struct OrderedImage(string Path, ImageOrigin Origin)
 /// </summary>
 public static class ItemImageOrder
 {
-    /// <param name="fileTime">ファイルの時刻を引く。試験で差し替えるためだけにある。</param>
     public static IReadOnlyList<OrderedImage> Arrange(
         string directory,
         IReadOnlyList<BoothImage> images,
         IReadOnlyList<string> onDisk,
-        IReadOnlyList<UserImage>? userImages = null,
-        Func<string, DateTime>? fileTime = null)
+        IReadOnlyList<UserImage>? userImages = null)
     {
         var result = new List<OrderedImage>(onDisk.Count);
         var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -62,29 +60,8 @@ public static class ItemImageOrder
         }
 
         // ② 自分で足した分。**消えたものより前**に置く（観測 → 入力 → 消えたもの）。
-        //
-        // 記録を失った自分の画像（名前は user- なのに記録に無い物。記録だけ古い写しで戻した、など）を先に、
-        // ファイルの時刻の順で置く。記録にある分はその後に記録の順（足した順・手で並べ替えた順）で続くので、
-        // **新しく足した絵は必ず末尾に付く**（ユーザ判断 2026-09-12）。以前は記録に無い分が後ろに回り、
-        // 今足した絵が古い絵より前に「先頭・その次・その次」と入って見えた
-        var recorded = new HashSet<string>(
-            (userImages ?? []).Select(userImage => System.IO.Path.Combine(directory, userImage.FileName)),
-            StringComparer.OrdinalIgnoreCase);
-
-        var strays = onDisk
-            .Where(path => !taken.Contains(path) && !recorded.Contains(path) && UserImageName.IsUserAdded(path))
-            .OrderBy(fileTime ?? WrittenAt)
-            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var path in strays)
-        {
-            if (taken.Add(path))
-            {
-                result.Add(new OrderedImage(path, ImageOrigin.UserAdded));
-            }
-        }
-
+        // 記録の順（足した順・手で並べ替えた順）なので、**新しく足した絵は必ず末尾に付く**（ユーザ判断 2026-09-12）。
+        // 記録に無い自分の画像（古いデータ）を時刻順で先に並べる補正は外した（公開前は古いデータに合わせない・ユーザ判断）
         foreach (var userImage in userImages ?? [])
         {
             var path = System.IO.Path.Combine(directory, userImage.FileName);
@@ -111,19 +88,6 @@ public static class ItemImageOrder
         }
 
         return result;
-    }
-
-    /// <summary>ファイルの時刻。読めなければ最小値（先頭に寄る）。</summary>
-    private static DateTime WrittenAt(string path)
-    {
-        try
-        {
-            return System.IO.File.GetLastWriteTimeUtc(path);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return DateTime.MinValue;
-        }
     }
 
     /// <summary>並びだけが要る場合。</summary>

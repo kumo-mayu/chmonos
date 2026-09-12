@@ -52,10 +52,6 @@ public sealed class AppServiceContainer : IDisposable
 
         // 検出は梯子の③なので、取り込みより先に組み立てる
         Avatars = new AvatarService(Store, () => Settings, Client);
-
-        // 以前の初期辞書は +Head を「頭部だけの規格」として配っていた（体の共通素体だった）。
-        // 保存済みの登録簿も、初期辞書のままなら直す。利用者が変えた値は触らない
-        Avatars.RepairSeededGroups();
         Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars);
         Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
