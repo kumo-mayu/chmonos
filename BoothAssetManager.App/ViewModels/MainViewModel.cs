@@ -634,11 +634,14 @@ public sealed class MainViewModel : ViewModelBase
     {
         var run = edit.Run;
         var index = edit.Index;
+
+        // 位置ではなく商品で覚える。編集画面に入り直すと保存した商品が外れて順番が詰まるので、位置はずれる
+        var itemId = edit.CurrentItemId;
         var label = edit.HasItem ? $"編集（{Shorten(edit.Name)}）" : "編集";
-        return new HistoryEntry(label, () => _ = RestoreEditAsync(run, index));
+        return new HistoryEntry(label, () => _ = RestoreEditAsync(run, itemId, index));
     }
 
-    private async Task RestoreEditAsync(EditRun? run, int index)
+    private async Task RestoreEditAsync(EditRun? run, string? itemId, int index)
     {
         // 同じ順番の編集を開いている間は、画面はそのままで位置だけ戻す。
         // 作り直すと、店名の候補を作るために全件を読み直す（#71。2000件で重い）
@@ -648,7 +651,7 @@ public sealed class MainViewModel : ViewModelBase
             _nextNavigation = Navigation.Push;
             OnPropertyChanged(nameof(CanGoBack));
             OnPropertyChanged(nameof(BackButtonText));
-            await current.ShowStepAsync(index);
+            await current.ShowStepAsync(itemId, index);
             return;
         }
 
@@ -657,11 +660,11 @@ public sealed class MainViewModel : ViewModelBase
 
         if (run is not null)
         {
-            await edit.ResumeRunAsync(run, index);
+            await edit.ResumeRunAsync(run, itemId);
         }
         else
         {
-            await edit.ResumeAsync(index);
+            await edit.ResumeAsync(itemId);
         }
     }
 

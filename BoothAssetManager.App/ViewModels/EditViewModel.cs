@@ -764,30 +764,75 @@ public sealed class EditViewModel : ViewModelBase
     }
 
     /// <summary>前回の続きを開く。残っていなければ新しく積み直す。</summary>
-    /// <param name="index">画面の履歴から戻るときの位置（その時に開いていた商品）。null なら記録の位置から。</param>
-    public async Task ResumeAsync(int? index = null)
+    /// <param name="itemId">画面の履歴から戻るときに開いていた商品。null ならナビから入った（記録の位置から）。</param>
+    public async Task ResumeAsync(string? itemId = null)
     {
         var session = _services.Store.EditSession.Load();
-        if (session.ItemIds.Count == 0 || (index is null && session.IsFinished))
+        if (session.ItemIds.Count == 0 || (itemId is null && session.IsFinished))
         {
             await StartAsync();
             return;
         }
 
         _run = null;
-        _queue = session.ItemIds.ToList();
-        _index = Math.Clamp(index ?? session.Index, 0, _queue.Count);
-        _saved = new HashSet<string>(session.SavedItemIds, StringComparer.Ordinal);
-        if (index is not null)
+
+        if (itemId is not null)
         {
+            // 画面の履歴から戻った。そのときに開いていた商品を開く。入り直したときに保存した商品を外していて
+            // 順番に無ければ、その1件だけを開く（戻った先で別の商品が出るより分かりやすい）
+            var at = session.ItemIds.ToList().IndexOf(itemId);
+            if (at < 0)
+            {
+                await StartAsync([itemId]);
+                return;
+            }
+
+            _queue = session.ItemIds.ToList();
+            _index = at;
+            _saved = new HashSet<string>(session.SavedItemIds, StringComparer.Ordinal);
             await SavePositionAsync();
+            await LoadCurrentAsync();
+            return;
         }
 
+        // ナビから入り直した。**保存した商品はもう出さない**（ユーザ指示 2026-09-12）——残すのは未編集と書きかけだけ。
+        // 同じ回の間は帯に緑の印で残して戻れるようにしてあるが、離れて入り直したら片付いたものは要らない。
+        // 他の入り方でタグを付けた商品（写しでユーザータグがある）も外す。書きかけのある商品は保存していても残す
+        var saved = session.SavedItemIds.ToHashSet(StringComparer.Ordinal);
+        bool Keep(string id) => _main.Drafts.Contains(id)
+            || (!saved.Contains(id) && _main.Search.FindItem(id) is not { Local.UserTags.Count: > 0 });
+
+        var kept = session.ItemIds.Where(Keep).ToList();
+        if (kept.Count == 0)
+        {
+            await StartAsync();
+            return;
+        }
+
+        // 位置は、外した分だけ前へ詰める。前回の位置より後ろに何も残っていなければ（残りが飛ばした物だけ）、先頭から
+        var index = session.ItemIds.Take(session.Index).Count(Keep);
+        if (index >= kept.Count)
+        {
+            index = 0;
+        }
+
+        if (kept.Count != session.ItemIds.Count || saved.Count > 0)
+        {
+            await _services.Edit.StartSessionAsync(kept);
+            await _services.Edit.AdvanceSessionAsync(index);
+        }
+
+        _queue = kept;
+        _index = index;
+        _saved = new HashSet<string>(StringComparer.Ordinal);
         await LoadCurrentAsync();
     }
 
     /// <summary>今の位置。画面の履歴に、どの商品を開いていたかを預けるため。</summary>
     public int Index => _index;
+
+    /// <summary>今開いている商品。画面の履歴は位置ではなく商品で覚える（入り直すと順番が詰まるため）。</summary>
+    public string? CurrentItemId => _item?.Id;
 
     /// <summary>
     /// 指定して入った編集の順番と位置。null なら未編集の順番（edit-session.json に持つ）。
@@ -798,9 +843,9 @@ public sealed class EditViewModel : ViewModelBase
     public EditRun? Run => _run;
 
     /// <summary>画面の履歴から、指定して入った編集を続きから開く。</summary>
-    public async Task ResumeRunAsync(EditRun run, int? index = null)
+    public async Task ResumeRunAsync(EditRun run, string? itemId = null)
     {
-        if (index is { } at)
+        if (itemId is not null && run.ItemIds.IndexOf(itemId) is var at and >= 0)
         {
             run.Index = at;
         }
@@ -979,9 +1024,11 @@ public sealed class EditViewModel : ViewModelBase
     }
 
     /// <summary>画面の履歴から戻ってきたとき。履歴には積まない（戻るで積むと、戻った先から戻れなくなる）。</summary>
-    public Task ShowStepAsync(int index)
+    /// <param name="itemId">そのとき開いていた商品。順番の中に無ければ（IDを変えた等）位置で開く。</param>
+    public Task ShowStepAsync(string? itemId, int fallbackIndex)
     {
-        var target = Math.Clamp(index, 0, _queue.Count);
+        var at = itemId is null ? -1 : _queue.IndexOf(itemId);
+        var target = at >= 0 ? at : Math.Clamp(fallbackIndex, 0, _queue.Count);
         return target == _index ? Task.CompletedTask : MoveToAsync(target);
     }
 
@@ -1949,6 +1996,13 @@ public sealed class EditViewModel : ViewModelBase
 
             RememberShopName(BuildShop()?.Name);
             StatusText = string.Empty;
+
+            // ナビの「未:」をその場で減らす（ユーザ指示 2026-09-12）。検索画面の写しの1件を差し替えると数え直しが走る。
+            // 帯には緑の印で残し、編集画面を離れて入り直すまでは戻れる（入り直したら出さない・ResumeAsync）
+            if (await _services.Store.Items.LoadAsync(_item.Id) is { } savedRecord)
+            {
+                _main.Search.NoteItemChanged(savedRecord);
+            }
 
             // 上の帯で、保存した物と飛ばした物を見分けるための印。未編集の順番はファイルに残し、
             // 指定して入った順番は履歴に預けた控え（_saved がそのまま控えの集合）に残る

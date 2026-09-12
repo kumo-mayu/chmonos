@@ -1842,6 +1842,35 @@ public sealed class SearchViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 1件を保存し直したことを知る（編集画面の「保存して次へ」）。写しの1件・検索用の文字列・カードだけを差し替え、
+    /// 一覧ごとは読み直さない（全件の読み直しは2000件で重い）。
+    /// これでナビの「未:」がその場で減る（ユーザ指示 2026-09-12：以前は編集を終えるまで減らなかった）
+    /// </summary>
+    public void NoteItemChanged(ItemRecord item)
+    {
+        var index = _allItems.FindIndex(entry => entry.Id == item.Id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _allItems[index] = item;
+        _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
+
+        if (_cards.TryGetValue(item.Id, out var old))
+        {
+            old.SelectionChanged -= OnCardSelectionChanged;
+        }
+
+        var card = ToCard(item);
+        card.SelectionChanged += OnCardSelectionChanged;
+        _cards[item.Id] = card;
+
+        ApplyFilters();
+        OnPropertyChanged(nameof(NeedsEditCount));
+    }
+
     private void ClearFilters()
     {
         _queryText = string.Empty;
