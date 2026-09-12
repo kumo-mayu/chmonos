@@ -88,7 +88,12 @@ public static class AvatarNames
         var list = entries.ToList();
         var shown = list.ToDictionary(entry => entry.ItemId, ShownName, StringComparer.Ordinal);
 
+        // 名簿にはアバターでないと分かった物（そのアバター向けのテクスチャなど）も残っている。
+        // それと名前が重なっただけで、本物のアバターにショップ名が付いていた
+        // （「しなの / 〇〇 Makeup」というテクスチャのせいで、アバターの「しなの」が「しなの（〇〇研究所）」になった）。
+        // 見分ける相手はアバターだけにする。販売終了などで確かめられていない物はアバターかもしれないので数に入れる
         var duplicated = list
+            .Where(entry => entry.Category is null || AvatarService.IsAvatar(entry))
             .GroupBy(entry => AvatarText.Normalize(shown[entry.ItemId]), StringComparer.Ordinal)
             .Where(group => group.Count() > 1)
             .SelectMany(group => group);

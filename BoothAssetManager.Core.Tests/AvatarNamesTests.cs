@@ -123,6 +123,19 @@ public sealed class AvatarNamesTests
     }
 
     [Fact]
+    public void アバターでない物と名前が重なってもショップ名を付けない()
+    {
+        // そのアバター向けのテクスチャは名簿にアバターでない物として残り、切り出すと同じ名前になる
+        var names = AvatarNames.Map(
+        [
+            new AvatarRegistryEntry { ItemId = "a", BoothName = "オリジナル3Dモデル「レン」", ShopName = "青工房", Category = "3Dキャラクター" },
+            new AvatarRegistryEntry { ItemId = "b", BoothName = "レン / 夕焼けメイク", ShopName = "赤工房", Category = "3Dテクスチャ" },
+        ]);
+
+        Assert.Equal("レン", names["a"]);
+    }
+
+    [Fact]
     public void ショップ名が分からない物にはそのまま()
     {
         var names = AvatarNames.Map(
