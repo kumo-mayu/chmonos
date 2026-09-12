@@ -53,7 +53,51 @@ public sealed class ShopViewModel : ViewModelBase
 
     public ShopSummary Shop { get; }
 
-    public ObservableCollection<ItemCardViewModel> Items { get; } = [];
+    /// <summary>
+    /// 行に切った一覧。見えている行のカードだけが作られ、絵を裏で読む（検索画面と同じ作り）。
+    /// 以前は WrapPanel に全商品のカードを並べていた。
+    /// </summary>
+    public ObservableCollection<CardRow> Rows { get; } = [];
+
+    /// <summary>絞り込んだ後の商品（「所持しているものだけ」）。</summary>
+    private List<ItemCardViewModel> _matches = [];
+
+    private int _columns = 1;
+
+    /// <summary>カード1枚ぶんの幅（カード228＋間14）。ShopView.xaml のカードの Width と Margin に合わせる。</summary>
+    private const double CardStride = 242;
+
+    /// <summary>一覧の左右の余白（24×2）と縦のスクロールバーのぶん。</summary>
+    private const double ListChrome = 48 + 18;
+
+    /// <summary>一覧の幅から列数を決める（WPFには仮想化するWrapPanelが無いので、行に切って並べる）。</summary>
+    public void SetViewportWidth(double width)
+    {
+        var columns = Math.Max(1, (int)((width - ListChrome) / CardStride));
+        if (columns == _columns)
+        {
+            return;
+        }
+
+        _columns = columns;
+        FillRows();
+    }
+
+    /// <summary>行に切り直す。1店の商品は多くても数百なので、丸ごと作り直す。</summary>
+    private void FillRows()
+    {
+        Rows.Clear();
+        for (var start = 0; start < _matches.Count; start += _columns)
+        {
+            var row = new CardRow();
+            foreach (var card in _matches.Skip(start).Take(_columns))
+            {
+                row.Cards.Add(card);
+            }
+
+            Rows.Add(row);
+        }
+    }
 
     public RelayCommand BackCommand { get; }
 
@@ -280,17 +324,20 @@ public sealed class ShopViewModel : ViewModelBase
     public void OpenItem(ItemCardViewModel card)
         => _main.ShowItem(card.Item);
 
-    public string CountText => _all.Count == Items.Count
-        ? $"{Items.Count} 件"
-        : $"{Items.Count} 件 / 全 {_all.Count} 件";
+    public string CountText => _all.Count == _matches.Count
+        ? $"{_matches.Count} 件"
+        : $"{_matches.Count} 件 / 全 {_all.Count} 件";
 
-    public bool IsEmpty => Items.Count == 0;
+    public bool IsEmpty => _matches.Count == 0;
 
     private long _totalBytes;
 
     public async Task ReloadAsync()
     {
-        var entries = await _services.Shops.LoadItemsAsync(Shop.Subdomain);
+        // 全商品のJSONは読み直さず、検索画面が起動時に読んだ写しから引く（ユーザ指示 2026-09-12）。
+        // 写しは画面のスレッドで取り出し、引くのは裏で
+        var items = _main.Search.SnapshotItems();
+        var entries = await Task.Run(() => _services.Shops.ItemsOf(items, Shop.Subdomain));
 
         RunOnUiThread(() =>
         {
@@ -368,11 +415,8 @@ public sealed class ShopViewModel : ViewModelBase
 
     private void Rebuild()
     {
-        Items.Clear();
-        foreach (var card in _all.Where(card => !_ownedOnly || card.IsOwned))
-        {
-            Items.Add(card);
-        }
+        _matches = _all.Where(card => !_ownedOnly || card.IsOwned).ToList();
+        FillRows();
 
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));

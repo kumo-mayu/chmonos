@@ -101,6 +101,12 @@ public interface IShopService
 
     Task<IReadOnlyList<ShopItem>> LoadItemsAsync(string subdomain, CancellationToken cancellationToken = default);
 
+    /// <summary>読んである商品から集計する。JSONは読まない（画面は起動時に読んだ写しを渡す）。</summary>
+    IReadOnlyList<ShopSummary> Summarize(IEnumerable<ItemRecord> items);
+
+    /// <summary>読んである商品から、そのショップの商品を引く。JSONは読まない。</summary>
+    IReadOnlyList<ShopItem> ItemsOf(IEnumerable<ItemRecord> items, string subdomain);
+
     Task<string?> EnsureBannerAsync(
         string subdomain,
         ImagePipeline images,
@@ -153,7 +159,18 @@ public sealed class ShopService : IShopService
     public async Task<IReadOnlyList<ShopSummary>> LoadAsync(CancellationToken cancellationToken = default)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return Summarize(loaded.Items);
+    }
 
+    /// <summary>
+    /// 読んである商品から集計する。
+    ///
+    /// **全商品のJSONを読み直さない。**ショップ一覧は開くたびに全件を読み直していて、開くのが遅かった
+    /// （ユーザ指摘 2026-09-12）。画面は、検索画面が起動時に読んだ写しを渡す。
+    /// 知らせとバナーの記録は小さいので毎回読む。
+    /// </summary>
+    public IReadOnlyList<ShopSummary> Summarize(IEnumerable<ItemRecord> items)
+    {
         var updatedIds = _store.Notifications.Load()
             .Where(record => !record.IsRead
                 && record.Kind == NotificationKind.ItemUpdated
@@ -163,7 +180,7 @@ public sealed class ShopService : IShopService
 
         var bannerRecords = _store.ShopBanners.Load();
 
-        return loaded.Items
+        return items
             // 束ねる鍵はユーザが入れたショップも見る。**商品が非公開でも
             // ショップは見られる場合がある**ので、URLを貼れば本物のショップに正しく入る
             .Where(item => item.ShopSubdomain is not null)
@@ -183,8 +200,13 @@ public sealed class ShopService : IShopService
         CancellationToken cancellationToken = default)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        return ItemsOf(loaded.Items, subdomain);
+    }
 
-        return loaded.Items
+    /// <summary>読んである商品から、そのショップの商品を引く。JSONは読まない（<see cref="Summarize"/> と同じ理由）。</summary>
+    public IReadOnlyList<ShopItem> ItemsOf(IEnumerable<ItemRecord> items, string subdomain)
+    {
+        return items
             .Where(item => item.ShopSubdomain is not null
                 && string.Equals(item.ShopSubdomain, subdomain, StringComparison.OrdinalIgnoreCase)
                 && IsCounted(item))

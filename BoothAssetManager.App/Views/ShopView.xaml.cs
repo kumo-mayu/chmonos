@@ -20,4 +20,13 @@ public partial class ShopView : UserControl
             shop.OpenItem(card);
         }
     }
+
+    /// <summary>一覧の幅が変わったら列数を決め直す（行を仮想化の単位にしているため）。</summary>
+    private void OnListSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is ShopViewModel shop)
+        {
+            shop.SetViewportWidth(e.NewSize.Width);
+        }
+    }
 }

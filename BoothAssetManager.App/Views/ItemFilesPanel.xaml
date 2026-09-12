@@ -19,6 +19,20 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!--
+            保存場所の文字。薄くするのは文字だけで、横の「エクスプローラで開く」は薄くしない
+            （外したファイルでも開ける。薄いと押せないように見えた・ユーザ指摘）。
+            行の中はパスの文字列が DataContext なので、外したかどうかはファイルの行（一覧の持ち主）から引く
+        -->
+        <Style x:Key="DetachedDimPath" TargetType="TextBlock" BasedOn="{StaticResource Mono}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.IsDetached, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                             Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <!--
         手元のファイル（フォルダ・ファイル・保存場所・Unityへ送れるもの）の欄。
@@ -150,7 +164,7 @@
                                               </Grid>
 
                                                 <!-- 保存場所ごとに開ける（削除も場所ごとに選べるようにする予定） -->
-                                                <ItemsControl ItemsSource="{Binding Paths}" Margin="10,7,0,0" Style="{StaticResource DetachedDim}">
+                                                <ItemsControl ItemsSource="{Binding Paths}" Margin="10,7,0,0">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
@@ -159,7 +173,7 @@
                                                                         <ColumnDefinition Width="*" />
                                                                         <ColumnDefinition Width="Auto" />
                                                                     </Grid.ColumnDefinitions>
-                                                                    <TextBlock Grid.Column="0" Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
+                                                                    <TextBlock Grid.Column="0" Text="{Binding}" Style="{StaticResource DetachedDimPath}" FontSize="11"
                                                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
                                                                     <Button Grid.Column="1" Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                                                             Command="{Binding DataContext.OpenInExplorerCommand,

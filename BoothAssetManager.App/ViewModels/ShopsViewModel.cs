@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Media.Imaging;
 using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
@@ -16,27 +17,40 @@ public sealed class ShopSortOption
 /// <summary>ショップ一覧の1枚。</summary>
 public sealed class ShopCardViewModel : ViewModelBase
 {
-    private System.Windows.Media.Imaging.BitmapSource? _icon;
+    private BitmapSource? _icon;
+    private Func<Action, BitmapSource?>? _iconFactory;
 
     public required ShopSummary Shop { get; init; }
 
-    /// <summary>落としてあるアイコン。まだ無ければ頭文字のタイルで代える。</summary>
-    public System.Windows.Media.Imaging.BitmapSource? Icon
+    /// <summary>
+    /// アイコンの読み方。**見えたカードだけが裏で読む**（検索カードと同じ・U12）。
+    /// 以前は一覧を開くときに全店ぶん（友人データで151店）を画面のスレッドで原寸のまま読んでいた。
+    /// 裏で取り終えたアイコンは差し替える。
+    /// </summary>
+    public Func<Action, BitmapSource?>? IconFactory
     {
-        get => _icon;
+        get => _iconFactory;
         set
         {
-            if (SetField(ref _icon, value))
-            {
-                OnPropertyChanged(nameof(HasIcon));
-                OnPropertyChanged(nameof(ShowInitial));
-            }
+            _iconFactory = value;
+            _icon = null;
+            RaiseIcon();
         }
     }
+
+    /// <summary>落としてあるアイコン。まだ無いか読み終わっていなければ頭文字のタイルで代える。</summary>
+    public BitmapSource? Icon => _icon ??= _iconFactory?.Invoke(RaiseIcon);
 
     public bool HasIcon => Icon is not null;
 
     public bool ShowInitial => Icon is null;
+
+    private void RaiseIcon()
+    {
+        OnPropertyChanged(nameof(Icon));
+        OnPropertyChanged(nameof(HasIcon));
+        OnPropertyChanged(nameof(ShowInitial));
+    }
 
     public string Name => Shop.Name;
 
@@ -116,20 +130,38 @@ public sealed class ShopCardViewModel : ViewModelBase
     }
 }
 
+/// <summary>ショップ一覧の1行。行を仮想化の単位にする（検索画面の <see cref="CardRow"/> と同じ作り）。</summary>
+public sealed class ShopCardRow
+{
+    public ObservableCollection<ShopCardViewModel> Cards { get; } = [];
+}
+
 /// <summary>
 /// ショップ一覧。
 ///
 /// 数え方は決定事項に合わせてある（所持＝ファイルあり、非表示とR-18は件数から除く）。
 /// 内部の扱いを隠さないよう、その但し書きは画面にも出す。
+///
+/// **開くたびに全商品のJSONを読み直さない**（ユーザ指示 2026-09-12：開くのが遅い）。
+/// 検索画面が起動時に読んだ写しから数え、並べ方は検索画面で効いた軽量化に揃える
+/// （行を単位にした仮想化・見えたカードだけが絵を裏で読む）。
 /// </summary>
 public sealed class ShopsViewModel : ViewModelBase
 {
+    /// <summary>カード1枚ぶんの幅（カード304＋間14）。ShopsView.xaml のカードの Width と Margin に合わせる。</summary>
+    private const double CardStride = 318;
+
+    /// <summary>一覧の左右の余白（18×2）と縦のスクロールバーのぶん。</summary>
+    private const double ListChrome = 36 + 18;
+
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private readonly Services.ThumbnailLoader _thumbnails;
     private readonly CancellationTokenSource _iconFetch = new();
 
     private List<ShopCardViewModel> _all = [];
+    private List<ShopCardViewModel> _matches = [];
+    private int _columns = 1;
     private string _iconStatus = string.Empty;
     private string _filterText = string.Empty;
     private ShopSortOption _sort;
@@ -155,12 +187,16 @@ public sealed class ShopsViewModel : ViewModelBase
         ];
 
         _sort = SortOptions[0];
-        RefreshCommand = new RelayCommand(() => _ = ReloadAsync());
+
+        // 「読み直す」は全商品を読み直してから数える。普段は写しから数えるので、
+        // 手でJSONを直したときなどに最新にする道がここ
+        RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
 
         _ = ReloadAsync();
     }
 
-    public ObservableCollection<ShopCardViewModel> Shops { get; } = [];
+    /// <summary>行に切った一覧。見えている行のカードだけが作られる。</summary>
+    public ObservableCollection<ShopCardRow> Rows { get; } = [];
 
     public IReadOnlyList<ShopSortOption> SortOptions { get; }
 
@@ -198,28 +234,49 @@ public sealed class ShopsViewModel : ViewModelBase
 
     public string HeaderText => $"{_all.Count} ショップ";
 
-    public bool IsEmpty => !IsLoading && Shops.Count == 0;
+    public bool IsEmpty => !IsLoading && _matches.Count == 0;
 
     public string EmptyText => _all.Count == 0
         ? "ショップがありません"
         : "該当するショップがありません。検索語を短くしてみてください。";
+
+    /// <summary>一覧の幅から列数を決める（WPFには仮想化するWrapPanelが無いので、行に切って並べる）。</summary>
+    public void SetViewportWidth(double width)
+    {
+        var columns = Math.Max(1, (int)((width - ListChrome) / CardStride));
+        if (columns == _columns)
+        {
+            return;
+        }
+
+        _columns = columns;
+        FillRows();
+    }
+
+    private async Task RefreshAsync()
+    {
+        await _main.ReloadLibraryAsync();
+        await ReloadAsync();
+    }
 
     public async Task ReloadAsync()
     {
         IsLoading = true;
         try
         {
-            var shops = await _services.Shops.LoadAsync();
+            // 写しは画面のスレッドで取り出し、数えるのは裏で（ショップ151店・商品2000件でも画面を止めない）
+            var items = _main.Search.SnapshotItems();
+            var shops = await Task.Run(() => _services.Shops.Summarize(items));
 
             RunOnUiThread(() =>
             {
                 _all = shops.Select(shop =>
                 {
-                    var card = new ShopCardViewModel
+                    var card = new ShopCardViewModel { Shop = shop };
+                    if (shop.IconPath is { } path)
                     {
-                        Shop = shop,
-                        Icon = shop.IconPath is null ? null : _thumbnails.Load(shop.IconPath),
-                    };
+                        card.IconFactory = onLoaded => _thumbnails.PeekForTile(path, onLoaded);
+                    }
 
                     card.OpenCommand = new RelayCommand(() => _main.ShowShop(shop));
                     return card;
@@ -247,7 +304,8 @@ public sealed class ShopsViewModel : ViewModelBase
     /// </summary>
     private async Task FetchMissingIconsAsync()
     {
-        var missing = _all.Count(card => card.Icon is null && card.Shop.ThumbnailUrl is not null);
+        // 数えるのは「手元に無い」で。カードのアイコンを見に行くと、見えていないカードまで読み始める
+        var missing = _all.Count(card => card.Shop.IconPath is null && card.Shop.ThumbnailUrl is not null);
         if (missing == 0)
         {
             return;
@@ -271,7 +329,7 @@ public sealed class ShopsViewModel : ViewModelBase
 
                         if (card is not null)
                         {
-                            card.Icon = _thumbnails.Load(path);
+                            card.IconFactory = onLoaded => _thumbnails.PeekForTile(path, onLoaded);
                         }
 
                         IconStatus = done >= missing
@@ -322,13 +380,29 @@ public sealed class ShopsViewModel : ViewModelBase
             ? matches.OrderByDescending(card => _sort.Key(card.Shop))
             : matches.OrderBy(card => _sort.Key(card.Shop));
 
-        Shops.Clear();
-        foreach (var card in sorted.ThenBy(card => card.Name, StringComparer.CurrentCulture))
-        {
-            Shops.Add(card);
-        }
+        _matches = sorted.ThenBy(card => card.Name, StringComparer.CurrentCulture).ToList();
+        FillRows();
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+    }
+
+    /// <summary>
+    /// 行に切り直す。検索画面ほど詰めず（ずれた所だけ抜き差しする工夫はしない）、丸ごと作り直す。
+    /// 店数は数百までで、作り直しても見えている行のカードしか描かれない。
+    /// </summary>
+    private void FillRows()
+    {
+        Rows.Clear();
+        for (var start = 0; start < _matches.Count; start += _columns)
+        {
+            var row = new ShopCardRow();
+            foreach (var card in _matches.Skip(start).Take(_columns))
+            {
+                row.Cards.Add(card);
+            }
+
+            Rows.Add(row);
+        }
     }
 }

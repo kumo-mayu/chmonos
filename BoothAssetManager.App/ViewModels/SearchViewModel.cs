@@ -1388,6 +1388,14 @@ public sealed class SearchViewModel : ViewModelBase
     /// 「この商品に戻す」を押す前に戻せないことを見せるため。読んである写しから引くので、
     /// 最後に読み直してからの紐付けは見えない（押したときに保存側で改めて確かめる）。
     /// </summary>
+    /// <summary>
+    /// 読んである全商品の写し（取り出した時点のもの）。ショップ一覧・ショップ画面が、開くたびに
+    /// 全商品のJSONを読み直さずに数えるため（ユーザ指示 2026-09-12）。
+    /// **画面のスレッドで呼ぶ。**お気に入りの切り替えがこの一覧をその場で書き換えるので、
+    /// 裏で数える側には取り出した写しを渡す。新しくなる時機は検索画面と同じ（取り込み後・編集を終えた後など）
+    /// </summary>
+    public IReadOnlyList<ItemRecord> SnapshotItems() => _allItems.ToList();
+
     public ItemRecord? FindFileOwner(string hash, string exceptItemId) => _allItems.FirstOrDefault(item =>
         item.Id != exceptItemId
         && item.Local.OwnedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)));

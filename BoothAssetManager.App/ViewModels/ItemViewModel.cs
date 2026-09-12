@@ -802,16 +802,23 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var deleteWhenEmpty = false;
         if (LocalFiles.Count(file => !file.IsDetached) == 1 && LocalFolders.Count == 0)
         {
-            var keep = System.Windows.MessageBox.Show(
-                "これが最後のファイルなので、この商品は手元に何も無い状態になります。\n\n"
-                + "「はい」で商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。\n"
-                + "「いいえ」でこの商品を消します。メモや分類も一緒に消えます。",
+            // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ指示）
+            var choice = Views.ChoiceDialog.Ask(
                 "商品を残しますか",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Question,
-                System.Windows.MessageBoxResult.Yes);
+                "これが最後のファイルなので、この商品は手元に何も無い状態になります。商品をどうしますか？",
+                "残す：商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。"
+                + "外した印も残るので、次の取り込みでこのファイルがこの商品に戻ることはありません。\n"
+                + "削除する：この商品を消します。メモや分類も一緒に消えます。"
+                + "外した印も消えるので、次の取り込みで手掛かりがこの商品を指せば、また作られます。",
+                "残す",
+                "削除する");
 
-            deleteWhenEmpty = keep == System.Windows.MessageBoxResult.No;
+            if (choice == Views.ChoiceDialogResult.Cancel)
+            {
+                return;
+            }
+
+            deleteWhenEmpty = choice == Views.ChoiceDialogResult.Second;
         }
 
         var result = await _services.Commands.ExecuteAsync(

@@ -361,7 +361,8 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>
     /// ショップ一覧。検索と違って持ち回さないのは、集計が取り込みや編集で変わるため。
-    /// 開き直した時点で数え直す。
+    /// 開き直した時点で数え直すが、**全商品のJSONは読み直さない**——検索画面が起動時に読んだ写しから数える
+    /// （ユーザ指示 2026-09-12：開くのが遅い）。写しが新しくなる時機は検索画面と同じ。
     /// </summary>
     public void ShowShops() => CurrentViewModel = new ShopsViewModel(_services, this, Thumbnails);
 
@@ -371,7 +372,9 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>サブドメインからショップ画面を開く。商品ページの作者名からの経路。</summary>
     public async Task ShowShopAsync(string subdomain)
     {
-        var shops = await _services.Shops.LoadAsync();
+        // ショップ一覧と同じく、全商品のJSONは読み直さずに写しから数える
+        var items = Search.SnapshotItems();
+        var shops = await Task.Run(() => _services.Shops.Summarize(items));
         var shop = shops.FirstOrDefault(entry =>
             string.Equals(entry.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
 
