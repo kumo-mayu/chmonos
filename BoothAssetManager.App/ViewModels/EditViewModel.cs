@@ -517,6 +517,15 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(BoothTagTiles));
     });
 
+    private RelayCommand? _showFewerTagsCommand;
+
+    /// <summary>「最初の 40 件だけにする」。全部並べたのを元に戻す（ユーザ指示：可逆にする）。</summary>
+    public RelayCommand ShowFewerTagsCommand => _showFewerTagsCommand ??= new RelayCommand(() =>
+    {
+        _showAllTags = false;
+        OnPropertyChanged(nameof(BoothTagTiles));
+    });
+
     /// <summary>BOOTHのタグを開いているか。商品ページと共通（<see cref="SectionFolds"/>・ユーザ指示 2026-09-12）。</summary>
     public bool IsBoothTagsExpanded
     {

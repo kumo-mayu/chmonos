@@ -139,6 +139,12 @@
                                                         Command="{Binding DataContext.ShowAllAvatarsCommand,
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         ToolTip="残りの対応アバターも並べます。多い商品は、開くのを速くするため最初は一部だけ並べています。" />
+                                                <!-- 全部並べた後の戻し方（ユーザ指示：可逆にする） -->
+                                                <Button Content="{Binding Name}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                                                        Visibility="{Binding IsLessTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Command="{Binding DataContext.ShowFewerAvatarsCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        ToolTip="並べるのを最初の一部に戻します。" />
 
                                                 <!--
                                                     末尾の「＋ 追加」（ユーザ指示）。押すとその場に候補付きの入力欄を出し、すぐ打てる。

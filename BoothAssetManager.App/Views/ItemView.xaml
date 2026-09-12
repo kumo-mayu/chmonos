@@ -222,6 +222,12 @@
                                                         Command="{Binding DataContext.ShowAllTagsCommand,
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         ToolTip="残りのタグも並べます。多い商品は、開くのを速くするため最初は一部だけ並べています。" />
+                                                <!-- 全部並べた後の戻し方（ユーザ指示：可逆にする） -->
+                                                <Button Content="{Binding Text}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                                                        Visibility="{Binding IsLess, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Command="{Binding DataContext.ShowFewerTagsCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        ToolTip="並べるのを最初の一部に戻します。" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

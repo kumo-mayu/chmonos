@@ -964,6 +964,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         OnPropertyChanged(nameof(TagTiles));
     });
 
+    private RelayCommand? _showFewerTagsCommand;
+
+    /// <summary>「最初の 40 件だけにする」。全部並べたのを元に戻す（ユーザ指示：可逆にする）。</summary>
+    public RelayCommand ShowFewerTagsCommand => _showFewerTagsCommand ??= new RelayCommand(() =>
+    {
+        _showAllTags = false;
+        OnPropertyChanged(nameof(TagTiles));
+    });
+
     /// <summary>
     /// BOOTHのタグを開いているか（ユーザ指示 2026-09-12：多過ぎる商品があるので畳める）。
     /// 商品ページと編集画面で共通で、商品を移っても保つ（<see cref="SectionFolds"/>）。
@@ -1104,6 +1113,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         IsAddTile = true,
     };
 
+    /// <summary>全部並べた後に置く「最初の 40 体だけにする」の1枚（ユーザ指示：可逆にする）。</summary>
+    private static readonly AvatarRow FewerAvatarsTile = new()
+    {
+        ItemId = string.Empty,
+        Name = $"最初の {ChipLists.PreviewCount} 体だけにする",
+        SourceText = string.Empty,
+        IsLessTile = true,
+    };
+
     /// <summary>「残り n 体を表示」の1枚。札の並びの末尾（「＋ 追加」の前）に混ぜる。</summary>
     private static AvatarRow MoreAvatarsTile(int rest) => new()
     {
@@ -1164,6 +1182,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         ApplyAvatarFilter();
     });
 
+    private RelayCommand? _showFewerAvatarsCommand;
+
+    /// <summary>「最初の 40 体だけにする」。全部並べたのを元に戻す（ユーザ指示：可逆にする）。</summary>
+    public RelayCommand ShowFewerAvatarsCommand => _showFewerAvatarsCommand ??= new RelayCommand(() =>
+    {
+        _showAllAvatars = false;
+        ApplyAvatarFilter();
+    });
+
     public bool ShowsAvatarFilter => Avatars.Count > AvatarFilterThreshold;
 
     public string AvatarFilterPlaceholder => $"アバター名で絞る（{Avatars.Count} 体）";
@@ -1201,9 +1228,14 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             var shown = showAll ? VisibleAvatars : VisibleAvatars.Take(ChipLists.PreviewCount).ToList();
             var rest = VisibleAvatars.Count - shown.Count;
 
+            // 全部並べた後は、戻す札も置く（ユーザ指示：可逆にする）。絞り込んでいる間は全部並べる決まりなので出さない
+            var canFold = _showAllAvatars && needle.Length == 0 && VisibleAvatars.Count > ChipLists.ShowAllUpTo;
+
             AvatarTiles = rest > 0
                 ? [.. shown, MoreAvatarsTile(rest), AddAvatarTile]
-                : [.. shown, AddAvatarTile];
+                : canFold
+                    ? [.. shown, FewerAvatarsTile, AddAvatarTile]
+                    : [.. shown, AddAvatarTile];
         }
 
         OnPropertyChanged(nameof(VisibleAvatars));
@@ -2711,8 +2743,11 @@ public sealed class AvatarRow
     /// <summary>多い商品で並べるのを止めたところに置く「残り n 体を表示」の1枚か（アバターではない）。</summary>
     public bool IsMoreTile { get; init; }
 
-    /// <summary>アバターの札か（「＋ 追加」「残り n 体を表示」ではない）。</summary>
-    public bool IsChip => !IsAddTile && !IsMoreTile;
+    /// <summary>全部並べた後に置く「最初の 40 体だけにする」の1枚か（アバターではない）。</summary>
+    public bool IsLessTile { get; init; }
+
+    /// <summary>アバターの札か（「＋ 追加」「残り n 体を表示」「最初の 40 体だけにする」ではない）。</summary>
+    public bool IsChip => !IsAddTile && !IsMoreTile && !IsLessTile;
 
     private System.Windows.Media.Imaging.BitmapSource? _icon;
     private bool _iconLoaded;
@@ -2773,7 +2808,10 @@ public sealed class TagTile
     /// <summary>「残り n 件を表示」の1枚か。</summary>
     public bool IsMore { get; init; }
 
-    public bool IsTag => !IsMore;
+    /// <summary>全部並べた後に置く「最初の 40 件だけにする」の1枚か。</summary>
+    public bool IsLess { get; init; }
+
+    public bool IsTag => !IsMore && !IsLess;
 }
 
 /// <summary>
@@ -2797,9 +2835,19 @@ public static class ChipLists
             return [];
         }
 
-        if (showAll || tags.Count <= ShowAllUpTo)
+        if (tags.Count <= ShowAllUpTo)
         {
             return tags.Select(tag => new TagTile { Text = tag }).ToList();
+        }
+
+        // 全部並べた後は、戻す札も置く（ユーザ指示：可逆にする）
+        if (showAll)
+        {
+            return
+            [
+                .. tags.Select(tag => new TagTile { Text = tag }),
+                new TagTile { Text = $"最初の {PreviewCount} 件だけにする", IsLess = true },
+            ];
         }
 
         return
