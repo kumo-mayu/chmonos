@@ -649,6 +649,7 @@ public sealed class EditViewModel : ViewModelBase
     {
         _queue = itemIds?.ToList() ?? await BuildDefaultQueueAsync();
         _index = 0;
+        _saved = new HashSet<string>(StringComparer.Ordinal);
         await _services.Edit.StartSessionAsync(_queue);
         await LoadCurrentAsync();
     }
@@ -665,7 +666,95 @@ public sealed class EditViewModel : ViewModelBase
 
         _queue = session.ItemIds.ToList();
         _index = Math.Clamp(session.Index, 0, _queue.Count);
+        _saved = new HashSet<string>(session.SavedItemIds, StringComparer.Ordinal);
         await LoadCurrentAsync();
+    }
+
+    // ---- 上の帯：どんな商品が続くか（ユーザ指示 2026-09-12） ----
+    //
+    // 「n / N 件」とバーだけでは何が続くのか分からないので、右の空きに続く商品を小さな絵で並べる。
+    // 済んだ物は5件まで、これからの物は幅に収まるだけ。保存した物には印を付け、押すとその商品へ飛ぶ
+
+    /// <summary>帯に出す済んだ物の数（ユーザ指示）。</summary>
+    private const int PastTileCount = 5;
+
+    /// <summary>
+    /// 帯に作るこれからの物の数。見えるのは幅に収まる分だけで、はみ出た分は折り返して枠の外に隠れる。
+    /// 広い画面（2560px）でも埋まる数にしてある。絵は描いた分しか読まない。
+    /// </summary>
+    private const int UpcomingTileCount = 60;
+
+    /// <summary>この回で保存した商品。飛ばした物と見分けるため。</summary>
+    private HashSet<string> _saved = new(StringComparer.Ordinal);
+
+    public ObservableCollection<EditQueueTile> QueueTiles { get; } = [];
+
+    private RelayCommand? _jumpCommand;
+
+    /// <summary>帯の絵を押すと、その商品へ飛ぶ。いま開いている商品の入力は保存しない（スキップと同じ）。</summary>
+    public RelayCommand JumpCommand => _jumpCommand ??= new RelayCommand(
+        parameter =>
+        {
+            if (parameter is EditQueueTile tile)
+            {
+                _ = JumpAsync(tile.Index);
+            }
+        },
+        parameter => parameter is EditQueueTile && !IsSaving);
+
+    private async Task JumpAsync(int index)
+    {
+        if (index == _index || index < 0 || index >= _queue.Count)
+        {
+            return;
+        }
+
+        StopReturnTimer();
+        _index = index;
+        await _services.Edit.AdvanceSessionAsync(_index);
+        await LoadCurrentAsync();
+    }
+
+    private void RebuildQueueTiles()
+    {
+        QueueTiles.Clear();
+        if (_queue.Count == 0)
+        {
+            return;
+        }
+
+        var from = Math.Max(0, _index - PastTileCount);
+        var to = Math.Min(_queue.Count, _index + 1 + UpcomingTileCount);
+
+        for (var index = from; index < to; index++)
+        {
+            var itemId = _queue[index];
+
+            // 検索が読んである写しから引く。1件進むたびに数十件のJSONを読み直さない（#71 と同じ理由）
+            var record = _main.Search.FindItem(itemId);
+
+            QueueTiles.Add(new EditQueueTile
+            {
+                Index = index,
+                Name = record?.DisplayName ?? itemId,
+                IsCurrent = index == _index,
+                IsPast = index < _index,
+                IsSaved = _saved.Contains(itemId),
+                ImageFactory = record is null ? null : onLoaded => TileImage(record, onLoaded),
+            });
+        }
+    }
+
+    /// <summary>帯の絵。検索のカードと同じ1枚（指名・役割の設定を見る）にそろえる。</summary>
+    private BitmapSource? TileImage(ItemRecord record, Action onLoaded)
+    {
+        var directory = _services.Paths.ItemImagesDir(record.Id);
+        var ordered = Core.Images.ItemImageOrder.Arrange(
+            directory, record.Booth.Images, _thumbnails.ListFiles(directory), record.Local.UserImages);
+        var path = Core.Images.ItemImageOrder.Thumbnail(
+            ordered, record.Local.ThumbnailImage, _services.Settings.ThumbnailRole, record.Local.ImageRoles);
+
+        return path is null ? null : _thumbnails.PeekForTile(path, onLoaded);
     }
 
     private async Task<List<string>> BuildDefaultQueueAsync()
@@ -1355,6 +1444,11 @@ public sealed class EditViewModel : ViewModelBase
 
             RememberShopName(BuildShop()?.Name);
             StatusText = string.Empty;
+
+            // 上の帯で、保存した物と飛ばした物を見分けるための印。開き直しても残す
+            _saved.Add(_item.Id);
+            await _services.Edit.NoteSavedAsync(_item.Id);
+
             await AdvanceAsync();
         }
         finally
@@ -1474,6 +1568,9 @@ public sealed class EditViewModel : ViewModelBase
 
     private void RaiseItemChanged()
     {
+        // 進む・戻る・飛ぶ・保存のたびにここを通るので、上の帯もここで作り直す
+        RebuildQueueTiles();
+
         OnPropertyChanged(nameof(Item));
         OnPropertyChanged(nameof(HasItem));
         OnPropertyChanged(nameof(IsFinished));

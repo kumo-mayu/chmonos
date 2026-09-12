@@ -299,4 +299,25 @@ public class EditServiceTests : IDisposable
 
         Assert.Empty(_store.EditSession.Load().ItemIds);
     }
+
+    /// <summary>
+    /// 保存した商品は続きの記録に残る。編集画面の上の帯で、保存した物と飛ばした物を見分けるため。
+    /// 同じ商品を2回保存しても1件。積み直すと空に戻る。
+    /// </summary>
+    [Fact]
+    public async Task RemembersWhichItemsWereSaved()
+    {
+        await _service.StartSessionAsync(["1", "2", "3"]);
+        await _service.NoteSavedAsync("1");
+        await _service.NoteSavedAsync("3");
+        await _service.NoteSavedAsync("1");
+        await _service.AdvanceSessionAsync(2);
+
+        var session = _store.EditSession.Load();
+        Assert.Equal(["1", "3"], session.SavedItemIds);
+        Assert.Equal(2, session.Index);
+
+        await _service.StartSessionAsync(["4"]);
+        Assert.Empty(_store.EditSession.Load().SavedItemIds);
+    }
 }

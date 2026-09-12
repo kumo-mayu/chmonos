@@ -20,6 +20,12 @@ public sealed record EditSession
     public DateTimeOffset? StartedAt { get; init; }
 
     /// <summary>
+    /// この回で「保存して次へ」を押した商品。編集画面の上の帯で、保存した物と飛ばした物を見分けるため（ユーザ指示）。
+    /// 押した事実の記録で、位置からは分からない（飛ばした物も同じ位置を通り過ぎる）。
+    /// </summary>
+    public IReadOnlyList<string> SavedItemIds { get; init; } = [];
+
+    /// <summary>
     /// 位置から導かれる値なので、ファイルには書かない。
     /// 手で開いたときに、書き換えても効かない項目が並んでいると迷わせるため。
     /// </summary>

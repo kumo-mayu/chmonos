@@ -15,6 +15,8 @@ public interface IEditService
 
     Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default);
 
+    Task<EditSession> NoteSavedAsync(string itemId, CancellationToken cancellationToken = default);
+
     Task ClearSessionAsync(CancellationToken cancellationToken = default);
 
     Task<UserTagMaster> AddUserTagAsync(string top, string? sub, CancellationToken cancellationToken = default);
@@ -71,6 +73,22 @@ public sealed class EditService : IEditService
     public async Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default)
     {
         var session = _store.EditSession.Load() with { Index = index };
+        await _store.EditSession.SaveAsync(session, cancellationToken);
+        return session;
+    }
+
+    /// <summary>
+    /// この回で保存した商品を控える。編集画面の上の帯で、保存した物と飛ばした物を見分けるため。
+    /// </summary>
+    public async Task<EditSession> NoteSavedAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        var current = _store.EditSession.Load();
+        if (current.SavedItemIds.Contains(itemId, StringComparer.Ordinal))
+        {
+            return current;
+        }
+
+        var session = current with { SavedItemIds = [.. current.SavedItemIds, itemId] };
         await _store.EditSession.SaveAsync(session, cancellationToken);
         return session;
     }

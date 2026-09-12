@@ -14,7 +14,13 @@
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="編集" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding StepText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
@@ -22,7 +28,64 @@
                                  Value="{Binding StepProgress, Mode=OneWay}"
                                  Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+
+                <!--
+                    続く商品を小さな絵で（ユーザ指示）。済んだ物は5件まで、これからの物は幅に収まるだけ。
+                    はみ出た分は2行目へ折り返して枠の外に隠れるので、欠けた絵が端に出ない。
+                    保存した物は右下に緑の印、保存せずに飛ばした物は薄く、いま開いている物は青い枠。
+                    押すとその商品へ飛ぶ。キーボードの操作を奪わないよう、絵はフォーカスを取らない
+                -->
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding QueueTiles}" Height="34" Margin="18,0"
+                              VerticalAlignment="Center" ClipToBounds="True" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:EditQueueTile}">
+                            <Button Margin="0,0,6,0" Focusable="False" Cursor="Hand" ToolTip="{Binding ToolTip}"
+                                    Command="{Binding DataContext.JumpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid Width="34" Height="34" Background="Transparent">
+                                            <Border x:Name="Frame" CornerRadius="6" BorderThickness="2"
+                                                    BorderBrush="Transparent" Background="#edeff3">
+                                                <Border CornerRadius="4" ClipToBounds="True">
+                                                    <Image x:Name="Picture" Source="{Binding Image}" Stretch="UniformToFill" />
+                                                </Border>
+                                            </Border>
+                                            <Border x:Name="SavedMark" Width="14" Height="14" CornerRadius="7"
+                                                    Background="{StaticResource Good}" BorderBrush="{StaticResource Surface}"
+                                                    BorderThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                    Visibility="Collapsed">
+                                                <TextBlock Text="✓" FontSize="8.5" FontWeight="Bold" Foreground="White"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsSkipped}" Value="True">
+                                                <Setter TargetName="Picture" Property="Opacity" Value="0.35" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSaved}" Value="True">
+                                                <Setter TargetName="SavedMark" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Border}" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
