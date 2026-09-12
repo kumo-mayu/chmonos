@@ -74,6 +74,9 @@
                                   IsChecked="{Binding GallerySwitchOnHover, Mode=TwoWay}" />
                         <CheckBox Content="編集が終わったら検索に戻る" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ReturnToSearchWhenEditDone, Mode=TwoWay}" />
+                        <CheckBox Content="編集画面の上に、続く商品を小さな絵で並べる" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ShowEditQueueStrip, Mode=TwoWay}"
+                                  ToolTip="保存した商品には緑の印、飛ばした商品は薄く出ます。押すとその商品へ移れます。切ると帯を出しません（「1件目へ」「最初の未保存へ」は残ります）。" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                             <TextBlock Text="サムネイルの大きさ" Style="{StaticResource RowLabel}" Width="220" />

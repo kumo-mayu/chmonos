@@ -675,19 +675,71 @@ public sealed class EditViewModel : ViewModelBase
     // 「n / N 件」とバーだけでは何が続くのか分からないので、右の空きに続く商品を小さな絵で並べる。
     // 済んだ物は5件まで、これからの物は幅に収まるだけ。保存した物には印を付け、押すとその商品へ飛ぶ
 
-    /// <summary>帯に出す済んだ物の数（ユーザ指示）。</summary>
+    /// <summary>帯に出す済んだ物の数（ユーザ指示）。これからの物は全部並べ、ホイールで横に送る。</summary>
     private const int PastTileCount = 5;
-
-    /// <summary>
-    /// 帯に作るこれからの物の数。見えるのは幅に収まる分だけで、はみ出た分は折り返して枠の外に隠れる。
-    /// 広い画面（2560px）でも埋まる数にしてある。絵は描いた分しか読まない。
-    /// </summary>
-    private const int UpcomingTileCount = 60;
 
     /// <summary>この回で保存した商品。飛ばした物と見分けるため。</summary>
     private HashSet<string> _saved = new(StringComparer.Ordinal);
 
-    public ObservableCollection<EditQueueTile> QueueTiles { get; } = [];
+    /// <summary>
+    /// 帯の絵。1件進むたびに差し替える（1枚ずつ足し引きすると、2000件の順番で2000回の知らせが飛ぶ）。
+    /// 帯は見えている分しか作らないので、名前と絵も作られた分しか引かない。
+    /// </summary>
+    public IReadOnlyList<EditQueueTile> QueueTiles { get; private set; } = [];
+
+    /// <summary>上の帯を出すか。要らない人もいるので設定で消せる（ユーザ指示）。</summary>
+    public bool ShowsQueueStrip => _services.Settings.ShowEditQueueStrip;
+
+    private RelayCommand? _goFirstCommand;
+
+    /// <summary>1件目へ戻る（ユーザ指示）。いま開いている商品の入力は保存しない（スキップと同じ）。</summary>
+    public RelayCommand GoFirstCommand => _goFirstCommand ??= new RelayCommand(
+        () => _ = JumpAsync(0),
+        () => _queue.Count > 0 && _index != 0 && !IsSaving);
+
+    private RelayCommand? _goFirstUnsavedCommand;
+
+    /// <summary>
+    /// まだ保存していない物のうち、いちばん前へ飛ぶ（ユーザ指示）。
+    /// 飛ばしながら進んだ後で、残した物を頭から片付けるため。
+    /// </summary>
+    public RelayCommand GoFirstUnsavedCommand => _goFirstUnsavedCommand ??= new RelayCommand(
+        () =>
+        {
+            if (FirstUnsavedIndex() is { } index)
+            {
+                _ = JumpAsync(index);
+            }
+        },
+        () => !IsSaving && FirstUnsavedIndex() is { } index && index != _index);
+
+    private int? FirstUnsavedIndex()
+    {
+        for (var index = 0; index < _queue.Count; index++)
+        {
+            if (!_saved.Contains(_queue[index]))
+            {
+                return index;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>画像の一覧に乗せるだけで切り替えるか。商品ページと同じ設定に従う。</summary>
+    public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
+
+    /// <summary>乗ってから切り替わるまでの間（ミリ秒）。通り過ぎただけでは切り替えない。</summary>
+    public int HoverDelayMs => Math.Max(0, _services.Settings.GalleryHoverDelayMs);
+
+    /// <summary>画像の一覧のホバーで大きい絵を切り替える（商品ページと同じ動き・ユーザ指示）。</summary>
+    public void HoverImage(GalleryImage image)
+    {
+        if (SwitchOnHover)
+        {
+            SelectImage(image);
+        }
+    }
 
     private RelayCommand? _jumpCommand;
 
@@ -717,44 +769,54 @@ public sealed class EditViewModel : ViewModelBase
 
     private void RebuildQueueTiles()
     {
-        QueueTiles.Clear();
-        if (_queue.Count == 0)
-        {
-            return;
-        }
-
+        var tiles = new List<EditQueueTile>();
         var from = Math.Max(0, _index - PastTileCount);
-        var to = Math.Min(_queue.Count, _index + 1 + UpcomingTileCount);
 
-        for (var index = from; index < to; index++)
+        for (var index = from; index < _queue.Count; index++)
         {
             var itemId = _queue[index];
 
-            // 検索が読んである写しから引く。1件進むたびに数十件のJSONを読み直さない（#71 と同じ理由）
-            var record = _main.Search.FindItem(itemId);
-
-            QueueTiles.Add(new EditQueueTile
+            // 名前も絵も、帯に作られたときに初めて引く。検索が読んである写しから引き、
+            // 1件進むたびにJSONを読み直さない（#71 と同じ理由）
+            tiles.Add(new EditQueueTile
             {
                 Index = index,
-                Name = record?.DisplayName ?? itemId,
+                NameFactory = () => _main.Search.FindItem(itemId)?.DisplayName ?? itemId,
                 IsCurrent = index == _index,
                 IsPast = index < _index,
                 IsSaved = _saved.Contains(itemId),
-                ImageFactory = record is null ? null : onLoaded => TileImage(record, onLoaded),
+                ImageFactory = onLoaded => TileImage(itemId, onLoaded, preview: false),
+                PreviewFactory = onLoaded => TileImage(itemId, onLoaded, preview: true),
             });
         }
+
+        QueueTiles = tiles;
+        OnPropertyChanged(nameof(QueueTiles));
     }
 
-    /// <summary>帯の絵。検索のカードと同じ1枚（指名・役割の設定を見る）にそろえる。</summary>
-    private BitmapSource? TileImage(ItemRecord record, Action onLoaded)
+    /// <summary>
+    /// 帯の絵。検索のカードと同じ1枚（指名・役割の設定を見る）にそろえる。
+    /// 乗せたときに大きく出す方（<paramref name="preview"/>）はカードの大きさで読む。
+    /// </summary>
+    private BitmapSource? TileImage(string itemId, Action onLoaded, bool preview)
     {
+        if (_main.Search.FindItem(itemId) is not { } record)
+        {
+            return null;
+        }
+
         var directory = _services.Paths.ItemImagesDir(record.Id);
         var ordered = Core.Images.ItemImageOrder.Arrange(
             directory, record.Booth.Images, _thumbnails.ListFiles(directory), record.Local.UserImages);
         var path = Core.Images.ItemImageOrder.Thumbnail(
             ordered, record.Local.ThumbnailImage, _services.Settings.ThumbnailRole, record.Local.ImageRoles);
 
-        return path is null ? null : _thumbnails.PeekForTile(path, onLoaded);
+        if (path is null)
+        {
+            return null;
+        }
+
+        return preview ? _thumbnails.PeekForCard(path, onLoaded) : _thumbnails.PeekForTile(path, onLoaded);
     }
 
     private async Task<List<string>> BuildDefaultQueueAsync()

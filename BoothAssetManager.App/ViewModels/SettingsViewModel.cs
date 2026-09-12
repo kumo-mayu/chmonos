@@ -129,6 +129,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
+        _showEditQueueStrip = settings.ShowEditQueueStrip;
         _notifyOnUpdateByDefault = settings.NotifyOnUpdateByDefault;
         _resumeFetchInBackground = settings.ResumeFetchInBackground;
         _saveImages = settings.SaveImages;
@@ -364,6 +365,15 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => _returnToSearchWhenEditDone;
         set { if (SetField(ref _returnToSearchWhenEditDone, value)) { Save(); } }
+    }
+
+    private bool _showEditQueueStrip;
+
+    /// <summary>編集画面の上に、続く商品を小さな絵で並べるか（ユーザ指示）。</summary>
+    public bool ShowEditQueueStrip
+    {
+        get => _showEditQueueStrip;
+        set { if (SetField(ref _showEditQueueStrip, value)) { Save(); } }
     }
 
     // ---- 更新 ----
@@ -733,6 +743,7 @@ public sealed class SettingsViewModel : ViewModelBase
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,
+            ShowEditQueueStrip = ShowEditQueueStrip,
             NotifyOnUpdateByDefault = NotifyOnUpdateByDefault,
             ResumeFetchInBackground = ResumeFetchInBackground,
             SaveImages = SaveImages,

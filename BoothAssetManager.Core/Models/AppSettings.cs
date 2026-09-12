@@ -57,6 +57,12 @@ public sealed record AppSettings
     /// <summary>自動で戻るまでの秒数。終わったことを読む間を置く。</summary>
     public int ReturnToSearchDelaySeconds { get; init; } = 3;
 
+    /// <summary>
+    /// 編集画面の上に、続く商品を小さな絵で並べるか（ユーザ指示 2026-09-12）。
+    /// 何が続くかを見ながら進めたい人向けで、要らない人もいるので消せる。既定は出す。
+    /// </summary>
+    public bool ShowEditQueueStrip { get; init; } = true;
+
     // --- 取り込み ---
 
     /// <summary>取り込み元フォルダの履歴。ファイルが欠落した時の再スキャン範囲も兼ねる。</summary>

@@ -30,23 +30,53 @@
                 </StackPanel>
 
                 <!--
-                    続く商品を小さな絵で（ユーザ指示）。済んだ物は5件まで、これからの物は幅に収まるだけ。
-                    はみ出た分は2行目へ折り返して枠の外に隠れるので、欠けた絵が端に出ない。
+                    続く商品を小さな絵で（ユーザ指示）。済んだ物は5件まで、これからの物は全部。
+                    見えるのは幅に収まる分で、マウスが帯の上にあるときだけホイールで横に送れる（ユーザ指示）。
+                    見えている分しか作らないので、2000件の順番でも重くならない。
                     保存した物は右下に緑の印、保存せずに飛ばした物は薄く、いま開いている物は青い枠。
-                    押すとその商品へ飛ぶ。キーボードの操作を奪わないよう、絵はフォーカスを取らない
+                    乗せるとその絵だけ大きく出し、押すとその商品へ飛ぶ。
+                    帯の中で絵を拡大すると上のバーの高さで切れるので、大きな絵は帯の下へ浮かせて出す。
+                    キーボードの操作を奪わないよう、絵はフォーカスを取らない
                 -->
-                <ItemsControl Grid.Column="1" ItemsSource="{Binding QueueTiles}" Height="34" Margin="18,0"
-                              VerticalAlignment="Center" ClipToBounds="True" Focusable="False">
+                <ItemsControl x:Name="QueueStrip" Grid.Column="1" ItemsSource="{Binding QueueTiles}" Height="34" Margin="18,0"
+                              VerticalAlignment="Center" Focusable="False"
+                              PreviewMouseWheel="QueueStrip_PreviewMouseWheel"
+                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              Visibility="{Binding ShowsQueueStrip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <ItemsControl.Template>
+                        <ControlTemplate TargetType="ItemsControl">
+                            <ScrollViewer x:Name="StripScroll" HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled" CanContentScroll="True" Focusable="False">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </ItemsControl.Template>
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" />
+                            <VirtualizingStackPanel Orientation="Horizontal" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:EditQueueTile}">
-                            <Button Margin="0,0,6,0" Focusable="False" Cursor="Hand" ToolTip="{Binding ToolTip}"
+                            <Button Margin="0,0,6,0" Focusable="False" Cursor="Hand"
+                                    ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0"
+                                    ToolTipService.Placement="Bottom"
                                     Command="{Binding DataContext.JumpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding}">
+                                <Button.ToolTip>
+                                    <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                        <StackPanel Width="200">
+                                            <Border Width="200" Height="200" CornerRadius="6" Background="#edeff3" ClipToBounds="True">
+                                                <Image Source="{Binding Preview}" Stretch="Uniform" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Text}" Margin="0,8,0,0" />
+                                            <TextBlock Text="{Binding StateText}" Style="{StaticResource Caption}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Grid Width="34" Height="34" Background="Transparent">
@@ -88,6 +118,12 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
+                    <!-- 頭へ戻る・残した物を頭から片付ける（ユーザ指示）。どちらも今の入力は保存しない（スキップと同じ） -->
+                    <Button Content="1件目へ" Command="{Binding GoFirstCommand}" Margin="0,0,8,0"
+                            ToolTip="編集の1件目へ戻ります。いま開いている商品の入力は保存しません。" />
+                    <Button Content="最初の未保存へ" Command="{Binding GoFirstUnsavedCommand}" Margin="0,0,8,0"
+                            ToolTip="まだ保存していない商品のうち、いちばん前へ移ります。いま開いている商品の入力は保存しません。" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
                     <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
                     <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
@@ -140,25 +176,58 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <!-- 押すとメインが切り替わる。属性を付けるには複数枚見たい -->
-                                        <Button Command="{Binding DataContext.SelectImageCommand,
+                                        <!--
+                                            商品ページの一覧と同じ大きさ・札・動きにそろえる（ユーザ指示）。
+                                            以前は58×46の枠に既定のボタンの余白が重なり、横長の絵が細く潰れて見えた。
+                                            乗せて少し止めると切り替わり（設定 GallerySwitchOnHover / GalleryHoverDelayMs）、
+                                            押せば待たずに切り替わる
+                                        -->
+                                        <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
+                                                Background="#eef0f2" Cursor="Hand"
+                                                MouseEnter="OnThumbnailMouseEnter"
+                                                MouseLeave="OnThumbnailMouseLeave"
+                                                Command="{Binding DataContext.SelectImageCommand,
                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
-                                            <Border Width="58" Height="46" Margin="0,0,6,6" Background="#eef0f2"
-                                                    BorderThickness="2" CornerRadius="4" ClipToBounds="True">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="BorderBrush" Value="Transparent" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+                                                    <Setter Property="Opacity" Value="0.72" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                            <Setter Property="Opacity" Value="1" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <Grid>
                                                 <Image Source="{Binding Image}" Stretch="Uniform" />
-                                            </Border>
+
+                                                <!-- BOOTH側から消えた画像は控えめに示す -->
+                                                <Border Background="#66000000"
+                                                        Visibility="{Binding IsOrphaned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="削除済" Foreground="White" FontSize="9"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                                </Border>
+
+                                                <!-- 自分で足した分（左下）・改変例（右下）・サムネイルに指名した1枚（右上）。商品ページと同じ位置 -->
+                                                <Border Background="{StaticResource Good}" CornerRadius="0,4,0,0"
+                                                        Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                        Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="自分" Foreground="White" FontSize="8.5" />
+                                                </Border>
+                                                <Border Background="{StaticResource Accent}" CornerRadius="4,0,0,0"
+                                                        Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                        Visibility="{Binding HasRoleLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding RoleLabel}" Foreground="White" FontSize="8.5" />
+                                                </Border>
+                                                <Border Background="{StaticResource Accent}" CornerRadius="0,0,0,4"
+                                                        Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                        Visibility="{Binding IsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="★" Foreground="White" FontSize="9" />
+                                                </Border>
+                                            </Grid>
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
