@@ -117,6 +117,16 @@ public interface IShopService
         ImagePipeline images,
         CancellationToken cancellationToken = default);
 
+    /// <summary>アイコンを取りに行く店を選ぶ（手元に無く、商品JSONにURLがある店）。</summary>
+    IReadOnlyList<ShopSummary> ShopsNeedingIcons(IEnumerable<ShopSummary> shops);
+
+    /// <summary>選んだ店のアイコンを順に取る。</summary>
+    Task<int> SyncIconsAsync(
+        IReadOnlyList<ShopSummary> shops,
+        ImagePipeline images,
+        Func<string, string, Task>? onFetched = null,
+        CancellationToken cancellationToken = default);
+
     Task<int> SyncMissingIconsAsync(
         ImagePipeline images,
         Func<string, string, Task>? onFetched = null,
@@ -543,15 +553,30 @@ public sealed class ShopService : IShopService
         ImagePipeline images,
         Func<string, string, Task>? onFetched = null,
         CancellationToken cancellationToken = default)
+        => await SyncIconsAsync(ShopsNeedingIcons(await LoadAsync(cancellationToken)), images, onFetched, cancellationToken);
+
+    /// <summary>
+    /// アイコンを取りに行く店（手元に無く、商品JSONにURLがある店）。
+    /// **選ぶのは保存側で、画面は選んだ一覧を渡して取らせる**——画面がカードのアイコンを見て数えると、
+    /// 見えていないカードまで絵を読み始める（行を単位にした仮想化の狙いが崩れる）
+    /// </summary>
+    public IReadOnlyList<ShopSummary> ShopsNeedingIcons(IEnumerable<ShopSummary> shops)
+        => shops.Where(shop => shop.IconPath is null && shop.ThumbnailUrl is not null).ToList();
+
+    public async Task<int> SyncIconsAsync(
+        IReadOnlyList<ShopSummary> shops,
+        ImagePipeline images,
+        Func<string, string, Task>? onFetched = null,
+        CancellationToken cancellationToken = default)
     {
-        var shops = await LoadAsync(cancellationToken);
         var fetched = 0;
 
-        foreach (var shop in shops.Where(entry => entry.IconPath is null && entry.ThumbnailUrl is not null))
+        foreach (var shop in shops)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!await images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken))
+            if (!await images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken)
+                || _store.Paths.FindShopIcon(shop.Subdomain) is not { } path)
             {
                 continue;
             }
@@ -560,7 +585,7 @@ public sealed class ShopService : IShopService
 
             if (onFetched is not null)
             {
-                await onFetched(shop.Subdomain, _store.Paths.FindShopIcon(shop.Subdomain) ?? string.Empty);
+                await onFetched(shop.Subdomain, path);
             }
         }
 

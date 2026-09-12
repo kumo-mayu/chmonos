@@ -304,8 +304,10 @@ public sealed class ShopsViewModel : ViewModelBase
     /// </summary>
     private async Task FetchMissingIconsAsync()
     {
-        // 数えるのは「手元に無い」で。カードのアイコンを見に行くと、見えていないカードまで読み始める
-        var missing = _all.Count(card => card.Shop.IconPath is null && card.Shop.ThumbnailUrl is not null);
+        // 取りに行く店は保存側で選ぶ（手元に無い店）。
+        // カードのアイコンを見に行って数えると、見えていないカードまで読み始める
+        var needing = _services.Shops.ShopsNeedingIcons(_all.Select(card => card.Shop));
+        var missing = needing.Count;
         if (missing == 0)
         {
             return;
@@ -317,7 +319,8 @@ public sealed class ShopsViewModel : ViewModelBase
         {
             var done = 0;
 
-            await _services.Shops.SyncMissingIconsAsync(
+            await _services.Shops.SyncIconsAsync(
+                needing,
                 _services.Images,
                 (subdomain, path) =>
                 {
