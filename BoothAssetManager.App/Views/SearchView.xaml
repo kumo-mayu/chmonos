@@ -1056,7 +1056,7 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                     <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
-                                                            ToolTip="記録にあるファイルが、今その場所にありません"
+                                                            ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと付け直します"
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
                                                     </Border>

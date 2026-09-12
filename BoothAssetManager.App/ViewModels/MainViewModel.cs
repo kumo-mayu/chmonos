@@ -544,7 +544,8 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     private const int MaxBackLabel = 30;
 
-    private sealed record HistoryEntry(string Label, Action Restore);
+    /// <param name="IsEdit">編集画面の中で商品を移った分か。指定して入った編集を終えるとき、ここを飛ばして入る前の画面へ戻す</param>
+    private sealed record HistoryEntry(string Label, Action Restore, bool IsEdit = false);
 
     private enum Navigation
     {
@@ -574,6 +575,21 @@ public sealed class MainViewModel : ViewModelBase
         _history.RemoveAt(_history.Count - 1);
         _nextNavigation = Navigation.Back;
         entry.Restore();
+    }
+
+    /// <summary>
+    /// 商品を指定して入った編集を終えたとき、入る前の画面へ戻す（動線の点検 D4）。
+    /// 商品ページの「この商品を編集」から1件だけ直しに入っても、以前は検索へ飛ばされていた。
+    /// 編集の中で商品を移った分の履歴は飛ばす（そのまま戻ると、前に開いていた商品の編集に戻ってしまう）
+    /// </summary>
+    public void LeaveEdit()
+    {
+        while (_history.Count > 0 && _history[^1].IsEdit)
+        {
+            _history.RemoveAt(_history.Count - 1);
+        }
+
+        GoBack();
     }
 
     private void Remember(object leaving)
@@ -638,7 +654,7 @@ public sealed class MainViewModel : ViewModelBase
         // 位置ではなく商品で覚える。編集画面に入り直すと保存した商品が外れて順番が詰まるので、位置はずれる
         var itemId = edit.CurrentItemId;
         var label = edit.HasItem ? $"編集（{Shorten(edit.Name)}）" : "編集";
-        return new HistoryEntry(label, () => _ = RestoreEditAsync(run, itemId, index));
+        return new HistoryEntry(label, () => _ = RestoreEditAsync(run, itemId, index), IsEdit: true);
     }
 
     private async Task RestoreEditAsync(EditRun? run, string? itemId, int index)

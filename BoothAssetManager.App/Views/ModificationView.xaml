@@ -18,8 +18,12 @@
                     <Button Content="{Binding BackText}" Command="{Binding BackCommand}"
                             BorderThickness="0" Background="Transparent" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
-                    <TextBlock Text="{Binding AvatarText}" Style="{StaticResource Caption}"
-                               VerticalAlignment="Center" />
+                    <!-- 押すとアバターの管理でこのアバターを開く（動線の点検 D6） -->
+                    <Button Command="{Binding OpenAvatarCommand}" BorderThickness="0" Background="Transparent"
+                            Cursor="Hand" VerticalAlignment="Center"
+                            ToolTip="このアバターをアバターの管理で開きます。同じアバターのほかの改変も見られます。">
+                        <TextBlock Text="{Binding AvatarText}" Style="{StaticResource Caption}" TextDecorations="Underline" />
+                    </Button>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

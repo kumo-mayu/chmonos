@@ -200,6 +200,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             parameter => parameter is string);
         RemoveAliasCommand = new RelayCommand(parameter => _ = RemoveAliasAsync(parameter as string));
         ToggleOwnedCommand = new RelayCommand(() => _ = ToggleOwnedAsync());
+        OpenItemCommand = new RelayCommand(() => _ = OpenItemAsync());
         RecheckCommand = new RelayCommand(() => _ = RecheckAsync());
         TreatAsAvatarCommand = new RelayCommand(parameter => _ = SetOverrideAsync(parameter as string));
         OpenBoothCommand = new RelayCommand(OpenBooth);
@@ -253,6 +254,25 @@ public sealed class AvatarsViewModel : ViewModelBase
     public RelayCommand RemoveAliasCommand { get; }
 
     public RelayCommand ToggleOwnedCommand { get; }
+
+    /// <summary>
+    /// 取り込んであるアバターの商品ページを開く（動線の点検 D2）。逆向き（商品ページの対応アバターの札から、
+    /// 持っていれば商品ページ）はあったが、アバターの画面からファイルや改変を見に行く道が無かった
+    /// </summary>
+    public RelayCommand OpenItemCommand { get; }
+
+    /// <summary>
+    /// 商品として取り込んであるか。手で「所有として扱う」にしただけのアバターは、開く商品ページが無い
+    /// </summary>
+    public bool CanOpenItem => Selected is not null && _services.Store.Items.Exists(Selected.ItemId);
+
+    private async Task OpenItemAsync()
+    {
+        if (Selected is not null && await _services.Store.Items.LoadAsync(Selected.ItemId) is { } item)
+        {
+            _main.ShowItem(item);
+        }
+    }
 
     public RelayCommand RecheckCommand { get; }
 
@@ -605,7 +625,7 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(HasSelection), nameof(SelectedName), nameof(SelectedIdText),
                     nameof(HasManualName), nameof(ResetNameTip),
                     nameof(SelectedCategoryText), nameof(SelectedCountText), nameof(Aliases),
-                    nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText),
+                    nameof(OwnedButtonText), nameof(SelectedOwnedText), nameof(SelectedSeenAsText), nameof(CanOpenItem),
                     nameof(SelectedCheckedText), nameof(SelectedBaseNote), nameof(HasSelectedBaseNote),
                     nameof(SelectedBoothName), nameof(HasSelectedBoothName),
                     nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),

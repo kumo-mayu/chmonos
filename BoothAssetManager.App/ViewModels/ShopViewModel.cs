@@ -330,6 +330,41 @@ public sealed class ShopViewModel : ViewModelBase
 
     public bool IsEmpty => _matches.Count == 0;
 
+    /// <summary>件数から外している数（非表示・R-18を出さない設定）。</summary>
+    private (int Hidden, int Adult) _excluded;
+
+    /// <summary>
+    /// 空のときに、なぜ無いのかと戻し方を言う（動線の点検 D8）。以前は「表示する商品がありません」だけで、
+    /// 全部非表示にしたのか、R-18を出さない設定なのか、絞っているのかが分からなかった
+    /// </summary>
+    public string EmptyReasonText
+    {
+        get
+        {
+            var lines = new List<string>();
+            if (_ownedOnly && _all.Count > 0)
+            {
+                lines.Add($"「持っているものだけ」を外すと {_all.Count} 件出ます。");
+            }
+
+            if (_excluded.Hidden > 0)
+            {
+                lines.Add($"非表示にしている商品が {_excluded.Hidden} 件あります。設定の「非表示にした商品」から戻せます。");
+            }
+
+            if (_excluded.Adult > 0)
+            {
+                lines.Add($"R-18 の商品が {_excluded.Adult} 件あります。設定の「R-18 の商品を表示する」をオンにすると出ます。");
+            }
+
+            return lines.Count > 0 ? string.Join("\n", lines) : "このショップの商品は、まだ取り込まれていません。";
+        }
+    }
+
+    public bool HasExcluded => _excluded.Hidden > 0 || _excluded.Adult > 0;
+
+    public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
+
     private long _totalBytes;
 
     public async Task ReloadAsync()
@@ -337,10 +372,12 @@ public sealed class ShopViewModel : ViewModelBase
         // 全商品のJSONは読み直さず、検索画面が起動時に読んだ写しから引く（ユーザ指示 2026-09-12）。
         // 写しは画面のスレッドで取り出し、引くのは裏で
         var items = _main.Search.SnapshotItems();
-        var entries = await Task.Run(() => _services.Shops.ItemsOf(items, Shop.Subdomain));
+        var (entries, excluded) = await Task.Run(() =>
+            (_services.Shops.ItemsOf(items, Shop.Subdomain), _services.Shops.ExcludedOf(items, Shop.Subdomain)));
 
         RunOnUiThread(() =>
         {
+            _excluded = excluded;
             _totalBytes = entries.Sum(entry => entry.SizeBytes);
 
             _all = entries.Select(entry => new ItemCardViewModel(
@@ -420,6 +457,8 @@ public sealed class ShopViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyReasonText));
+        OnPropertyChanged(nameof(HasExcluded));
     }
 
     private void OpenBooth()

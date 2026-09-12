@@ -2145,7 +2145,10 @@ public sealed class EditViewModel : ViewModelBase
         }
     }
 
-    /// <summary>編集を終える。キューを捨てて検索へ戻る。</summary>
+    /// <summary>
+    /// 編集を終える。未編集の順番（ナビから入った）は検索へ戻る。
+    /// 商品を指定して入った編集は、入る前の画面へ戻る（動線の点検 D4：商品ページから1件直しに入っても、検索へ飛ばされていた）
+    /// </summary>
     private async Task FinishAsync()
     {
         StopReturnTimer();
@@ -2157,7 +2160,15 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         await _main.ReloadLibraryAsync();
-        _main.ShowSearch();
+
+        if (_run is null)
+        {
+            _main.ShowSearch();
+        }
+        else
+        {
+            _main.LeaveEdit();
+        }
     }
 
     /// <summary>編集しながら実物のページを見たいことがあるので、ここからも飛べるようにする。</summary>

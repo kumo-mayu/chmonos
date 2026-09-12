@@ -1808,6 +1808,16 @@ public sealed class SearchViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 条件を外し、最近手元に入った順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
+    /// 絞らずに並べるだけにするのは、取り込みの前からあった物も一緒に見えていた方が、何が増えたかが分かるため
+    /// </summary>
+    public void ShowRecentlyAddedFirst()
+    {
+        ClearFilters();
+        Sort = SortOptions.FirstOrDefault(option => option.Kind == SortKind.RecentlyAdded) ?? Sort;
+    }
+
+    /// <summary>
     /// 「条件をクリア」。消す前の条件を検索の履歴に積んでから消す（U3・ユーザ判断）。
     ///
     /// クリアは検索の文字まで全部消し、取り返しがつかない。「元に戻す」は付けず、

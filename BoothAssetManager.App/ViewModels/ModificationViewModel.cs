@@ -179,6 +179,7 @@ public sealed class ModificationViewModel : ViewModelBase
             parameter => _ = OpenItemAsync(parameter as ModificationMemberRowViewModel),
             parameter => parameter is ModificationMemberRowViewModel);
         AddMemberCommand = new RelayCommand(parameter => _ = AddMemberAsync(parameter as string));
+        OpenAvatarCommand = new RelayCommand(() => _main.ShowAvatar(AvatarItemId));
         OpenProjectCommand = new RelayCommand(() => OpenProject(), () => HasProject);
         LinkProjectCommand = new RelayCommand(
             parameter => _ = LinkProjectAsync(parameter as UnityProjectRowViewModel),
@@ -222,6 +223,12 @@ public sealed class ModificationViewModel : ViewModelBase
     public RelayCommand MoveMemberForwardCommand { get; }
 
     public RelayCommand OpenItemCommand { get; }
+
+    /// <summary>
+    /// 着せているアバターを、アバターの管理で開く（動線の点検 D6）。同じアバターのほかの改変を見に行くのに、
+    /// ナビからアバターを選び直していた
+    /// </summary>
+    public RelayCommand OpenAvatarCommand { get; }
 
     public RelayCommand AddMemberCommand { get; }
 

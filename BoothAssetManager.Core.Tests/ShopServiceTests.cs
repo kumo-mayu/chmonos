@@ -157,6 +157,24 @@ public class ShopServiceTests : IDisposable
             AcquiredAt = acquiredAt is null ? null : DateOnly.Parse(acquiredAt),
         };
 
+    /// <summary>
+    /// ショップの画面が空のときに、なぜ無いのか（非表示・R-18を出さない設定）を言うための数（動線の点検 D8）。
+    /// 非表示でR-18のものは非表示の方に数える。別の店の商品は数えない
+    /// </summary>
+    [Fact]
+    public async Task CountsItemsLeftOutOfTheShop()
+    {
+        await SaveItemAsync("1", Shop("a", "A"), Owned() with { IsHidden = true });
+        await SaveItemAsync("2", Shop("a", "A"), Owned(), isAdult: true);
+        await SaveItemAsync("3", Shop("a", "A"), Owned() with { IsHidden = true }, isAdult: true);
+        await SaveItemAsync("4", Shop("a", "A"), Owned());
+        await SaveItemAsync("5", Shop("b", "B"), Owned() with { IsHidden = true });
+        var items = (await _store.Items.LoadAllAsync()).Items;
+
+        Assert.Equal((2, 1), Create(showAdult: false).ExcludedOf(items, "a"));
+        Assert.Equal((2, 0), Create(showAdult: true).ExcludedOf(items, "a"));
+    }
+
     /// <summary>集計キーはサブドメイン。名前で束ねると、改名した店が2つに割れる。</summary>
     [Fact]
     public async Task GroupsBySubdomainNotByName()

@@ -24,6 +24,10 @@
                             Visibility="{Binding HasSettled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="{Binding SettledText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <!-- 正しく結び付いたかを、その場で商品ページで確かめる（動線の点検 D3） -->
+                    <Button Content="最後に確定した商品を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                            VerticalAlignment="Center" Command="{Binding OpenLastSettledCommand}"
+                            ToolTip="最後に確定した商品のページを開きます。「確定した分を編集へ送る」の対象は、この画面を離れると消えます（未編集のまま残るので、編集の順番には出てきます）。" />
                     <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}"
                             Command="{Binding SendSettledToEditCommand}" />
                 </StackPanel>

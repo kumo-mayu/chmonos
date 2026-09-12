@@ -238,6 +238,36 @@ public sealed class ShopService : IShopService
             .ToList();
     }
 
+    /// <summary>
+    /// そのショップの商品のうち、件数から外しているものの数（非表示・R-18を出さない設定）。
+    /// ショップの画面が空になったときに、なぜ無いのかと戻し方を言うため（動線の点検 D8）。
+    /// 非表示でR-18のものは非表示の方に数える（戻すのは非表示が先）
+    /// </summary>
+    public (int Hidden, int Adult) ExcludedOf(IEnumerable<ItemRecord> items, string subdomain)
+    {
+        var hidden = 0;
+        var adult = 0;
+        foreach (var item in items)
+        {
+            if (item.ShopSubdomain is null
+                || !string.Equals(item.ShopSubdomain, subdomain, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (item.Local.IsHidden)
+            {
+                hidden++;
+            }
+            else if (!_settings.ShowAdult && item.Booth.IsAdult)
+            {
+                adult++;
+            }
+        }
+
+        return (hidden, adult);
+    }
+
     private ShopSummary Summarize(
         IGrouping<string, ItemRecord> group,
         IReadOnlySet<string> updatedIds,

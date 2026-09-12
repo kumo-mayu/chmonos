@@ -147,6 +147,7 @@ public sealed class ResolveViewModel : ViewModelBase
             () => _ = RegisterLocalAsync(),
             () => HasSelection && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
+        OpenLastSettledCommand = new RelayCommand(() => _ = OpenLastSettledAsync(), () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
@@ -455,6 +456,12 @@ public sealed class ResolveViewModel : ViewModelBase
     public RelayCommand UseLocalNameCommand { get; }
 
     public RelayCommand SendSettledToEditCommand { get; }
+
+    /// <summary>
+    /// 最後に確定した商品を開く（動線の点検 D3）。以前は編集へ送るしかなく、正しく結び付いたかを
+    /// 商品ページでその場で確かめられなかった
+    /// </summary>
+    public RelayCommand OpenLastSettledCommand { get; }
 
     public RelayCommand OpenBoothCommand { get; }
 
@@ -1439,6 +1446,14 @@ public sealed class ResolveViewModel : ViewModelBase
         var ids = _settledItemIds.ToList();
         _settledItemIds.Clear();
         _ = _main.ShowEditAsync(ids);
+    }
+
+    private async Task OpenLastSettledAsync()
+    {
+        if (_settledItemIds.Count > 0 && await _services.Store.Items.LoadAsync(_settledItemIds[^1]) is { } item)
+        {
+            _main.ShowItem(item);
+        }
     }
 
     /// <summary>自分で探したいときのために、ファイル名でBOOTH検索を開く。</summary>

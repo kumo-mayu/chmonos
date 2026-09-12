@@ -84,6 +84,8 @@ public sealed class ImportViewModel : ViewModelBase
         RemoveUnpackedCommand = new RelayCommand(() => _ = RemoveUnpackedAsync(), () => !IsRunning && HasUnpackedSelection);
         RemoveWatchedCommand = new RelayCommand(parameter => _ = RemoveWatchedAsync(parameter as string), parameter => parameter is string);
         TakeWatchedNewCommand = new RelayCommand(() => _main.TakeWatchedNew());
+        OpenResolveCommand = new RelayCommand(() => _main.ShowResolve());
+        ShowAddedCommand = new RelayCommand(() => _ = ShowAddedAsync());
     }
 
     public ObservableCollection<string> Folders { get; } = [];
@@ -128,6 +130,8 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsIdle));
                 OnPropertyChanged(nameof(StartText));
+                OnPropertyChanged(nameof(HasUnresolvedResult));
+                OnPropertyChanged(nameof(HasAddedResult));
 
                 // 設定画面が保存先の引越しを塞ぐために見る
                 _main.IsImporting = value;
@@ -211,6 +215,30 @@ public sealed class ImportViewModel : ViewModelBase
 
     /// <summary>監視対象の説明の「設定」から、設定画面へ移る。</summary>
     public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
+
+    /// <summary>
+    /// 取り込みの結果から次の画面へ（動線の点検 D1）。以前は「未確定で確かめてください」と文で言うだけで、
+    /// そこへ飛ぶ道が無く、ナビから探し直していた
+    /// </summary>
+    public RelayCommand OpenResolveCommand { get; }
+
+    /// <summary>取り込んだ物を検索で見る。最近手元に入った順に並べて開く。</summary>
+    public RelayCommand ShowAddedCommand { get; }
+
+    /// <summary>商品が決まらなかったファイルが残ったか。取り込み中は出さない（まだ増える）。</summary>
+    public bool HasUnresolvedResult => !IsRunning && Summary is { } summary
+        && (summary.UnresolvedFiles > 0 || summary.NotFound > 0);
+
+    /// <summary>新しく商品が増えたか。取り込み中は出さない。</summary>
+    public bool HasAddedResult => !IsRunning && Summary is { ItemsAdded: > 0 };
+
+    private async Task ShowAddedAsync()
+    {
+        // 取り込みで増えた分は、検索の一覧を読み直すまで入らない（「押すと反映」の1行）。読み直してから並べる
+        await _main.ReloadLibraryAsync();
+        _main.Search.ShowRecentlyAddedFirst();
+        _main.ShowSearch();
+    }
 
     /// <summary>画面を開いたときに呼ぶ。設定画面で変えた値を説明に映す。</summary>
     public void NoteShown() => OnPropertyChanged(nameof(ImportsOnLaunch));
@@ -390,6 +418,8 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasSummary));
                 OnPropertyChanged(nameof(NotFoundText));
                 OnPropertyChanged(nameof(HasNotFound));
+                OnPropertyChanged(nameof(HasUnresolvedResult));
+                OnPropertyChanged(nameof(HasAddedResult));
             }
         }
     }
@@ -971,7 +1001,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 1行なら、次にやること（未確定を見る）も一緒に言える。
     /// </summary>
     public string NotFoundText => Summary is { NotFound: > 0 } summary
-        ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、そちらで確かめてください。"
+        ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、下の「未確定を開く」から確かめてください。"
         : string.Empty;
 
     public bool HasNotFound => NotFoundText.Length > 0;

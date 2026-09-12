@@ -69,11 +69,21 @@
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center" />
                                                         <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
                                                                    Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                        <!--
+                                                            見つからないファイル。直し方を言う（動線の点検 D7）。取り込みで読み直せば
+                                                            置き場所を付け直す仕組みはあるのに、札が「見つかりません」だけで伝わっていなかった
+                                                        -->
                                                         <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。消した場合は「この商品から外す」で外せます。">
                                                             <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
                                                         </Border>
+                                                        <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                       ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">取り込みを開く</Hyperlink>
+                                                        </TextBlock>
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11"
                                                                Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
@@ -131,6 +141,21 @@
                                                             Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="{Binding DuplicateNote}" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                     </Border>
+                                                    <!--
+                                                        見つからないファイル（取り込みで読み直したら、記録の場所がどれも無かった）。直し方を言う（動線の点検 D7）。
+                                                        以前はファイルの行には札が無く、置き場所の欄が空になるだけだった
+                                                    -->
+                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。消した場合は「この商品から外す」で外せます。">
+                                                        <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                    </Border>
+                                                    <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                               Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                   ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">取り込みを開く</Hyperlink>
+                                                    </TextBlock>
                                                 </StackPanel>
 
                                                 <!--

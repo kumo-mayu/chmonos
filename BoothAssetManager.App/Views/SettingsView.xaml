@@ -374,9 +374,15 @@
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">
                                     <Grid Margin="0,0,0,5">
                                         <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" Margin="0,0,90,0" />
-                                        <Button Content="元に戻す" Style="{StaticResource SmallButton}"
-                                                HorizontalAlignment="Right" Command="{Binding RestoreCommand}" />
+                                                   TextTrimming="CharacterEllipsis" Margin="0,0,220,0" />
+                                        <!-- 戻す前に中身を確かめられるよう、商品ページも開ける（動線の点検 D9） -->
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Content="商品ページを開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                    Command="{Binding OpenCommand}"
+                                                    Visibility="{Binding CanOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <Button Content="元に戻す" Style="{StaticResource SmallButton}"
+                                                    Command="{Binding RestoreCommand}" />
+                                        </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

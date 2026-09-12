@@ -77,6 +77,11 @@ public sealed class RestorableRow
     public string SubText { get; init; } = string.Empty;
 
     public RelayCommand? RestoreCommand { get; set; }
+
+    /// <summary>その商品のページを開く（非表示にした商品だけ。動線の点検 D9：戻す前に中身を確かめられるように）。</summary>
+    public RelayCommand? OpenCommand { get; set; }
+
+    public bool CanOpen => OpenCommand is not null;
 }
 
 /// <summary>
@@ -614,6 +619,14 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public string DetachedText => $"{Detached.Count} 件";
 
+    private async Task OpenHiddenAsync(string itemId)
+    {
+        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
+        {
+            _main.ShowItem(item);
+        }
+    }
+
     private async Task LoadAsync()
     {
         var usage = await _services.SettingsStore.LoadUsageAsync();
@@ -660,6 +673,7 @@ public sealed class SettingsViewModel : ViewModelBase
                     Key = item.ItemId,
                     Label = item.Name,
                     RestoreCommand = new RelayCommand(() => _ = UnhideAsync(captured)),
+                    OpenCommand = new RelayCommand(() => _ = OpenHiddenAsync(captured)),
                 });
             }
 

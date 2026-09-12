@@ -350,6 +350,11 @@
                                         <Button Content="この商品を検索で見る" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                                                 Command="{Binding ShowItemsCommand}"
                                                 ToolTip="このアバターに対応している商品を、素体経由も含めて検索で開きます。" />
+                                        <!-- 取り込んであるアバターは、ファイルや改変を見に商品ページへ（動線の点検 D2） -->
+                                        <Button Content="商品ページを開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                Command="{Binding OpenItemCommand}"
+                                                Visibility="{Binding CanOpenItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                ToolTip="このアバターの商品ページを開きます。手元のファイルや、このアバターの改変を見られます。" />
                                         <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}"
                                                 Command="{Binding OpenBoothCommand}" />
                                     </StackPanel>

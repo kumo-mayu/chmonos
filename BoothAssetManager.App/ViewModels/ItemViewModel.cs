@@ -664,6 +664,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public RelayCommand AddToModificationCommand { get; }
 
+    /// <summary>見つからないファイルの札から、取り込みへ（動線の点検 D7）。移した先のフォルダを取り込むと付け直す。</summary>
+    public RelayCommand ShowImportCommand => _main.ShowImportCommand;
+
+    /// <summary>非表示にしている商品の、戻す場所へ（動線の点検 D9）。</summary>
+    public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
+
     public RelayCommand OpenModificationCommand { get; }
 
     public RelayCommand UnregisterFolderCommand { get; }
@@ -1244,6 +1250,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// 件数が合わないときに、除いたせいなのかを確かめる先がここ以外に無い。
     /// </summary>
     public string HiddenText => Item.Local.IsHidden ? "している" : "していない";
+
+    public bool IsHidden => Item.Local.IsHidden;
 
     /// <summary>
     /// 販売終了かどうか。
