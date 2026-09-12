@@ -133,10 +133,9 @@
                                         Background="{Binding Path=(views:Nav.BadgeBrush), RelativeSource={RelativeSource TemplatedParent}}"
                                         Visibility="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent},
                                                              Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
-                                    <TextBlock x:Name="BadgeText"
-                                               Text="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent}}"
-                                               Foreground="White" FontSize="11" FontWeight="Bold"
-                                               FontFamily="Yu Gothic UI, Meiryo, Segoe UI" />
+                                    <!-- 頭の名前（「未:」など）は、件数が2つ並ぶ項目にだけ付く。無い項目では空で、数字だけになる -->
+                                    <TextBlock x:Name="BadgeText" Foreground="White" FontSize="11" FontWeight="Bold"
+                                               FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="{Binding Path=(views:Nav.BadgePrefix), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
 
                                 <!--
@@ -148,7 +147,7 @@
                                         Visibility="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent},
                                                              Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
                                     <TextBlock x:Name="SubBadgeText" Foreground="White" FontSize="11" FontWeight="Bold"
-                                               FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="途中 " /><Run Text="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
+                                               FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="{Binding Path=(views:Nav.SubBadgePrefix), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
                             </Grid>
                         </Border>
@@ -331,8 +330,8 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
                             views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
                             views:Nav.IsActive="{Binding IsEditActive}"
-                            views:Nav.Badge="{Binding NeedsEditCount}" views:Nav.BadgeBrush="#9a6b1f"
-                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{StaticResource Warn}" />
+                            views:Nav.Badge="{Binding NeedsEditBadgeCount}" views:Nav.BadgeBrush="#9a6b1f" views:Nav.BadgePrefix="未:"
+                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{StaticResource Accent}" views:Nav.SubBadgePrefix="編:" />
 
                     <Grid>
                         <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}" />

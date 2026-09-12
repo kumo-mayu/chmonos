@@ -52,8 +52,26 @@ public static class Nav
         => element.SetValue(BadgeBrushProperty, value);
 
     /// <summary>
+    /// 件数の頭に付ける短い名前（「未:」など）。1項目に件数が2つ並ぶときに、どちらが何の数かを名乗らせる。
+    /// 1つだけの項目では付けない。
+    /// </summary>
+    public static readonly DependencyProperty BadgePrefixProperty =
+        DependencyProperty.RegisterAttached("BadgePrefix", typeof(string), typeof(Nav), new PropertyMetadata(string.Empty));
+
+    public static string GetBadgePrefix(DependencyObject element) => (string)element.GetValue(BadgePrefixProperty);
+
+    public static void SetBadgePrefix(DependencyObject element, string value) => element.SetValue(BadgePrefixProperty, value);
+
+    public static readonly DependencyProperty SubBadgePrefixProperty =
+        DependencyProperty.RegisterAttached("SubBadgePrefix", typeof(string), typeof(Nav), new PropertyMetadata(string.Empty));
+
+    public static string GetSubBadgePrefix(DependencyObject element) => (string)element.GetValue(SubBadgePrefixProperty);
+
+    public static void SetSubBadgePrefix(DependencyObject element, string value) => element.SetValue(SubBadgePrefixProperty, value);
+
+    /// <summary>
     /// 2つ目の件数。「編集」の編集途中（保存していない入力が残っている商品）の数に使う（ユーザ指示）。
-    /// 数字だけが2つ並ぶとどちらが何の数か分からないので、「途中 n」と名乗って出す。0のときは出さない。
+    /// 数字だけが2つ並ぶとどちらが何の数か分からないので、頭の名前（「編:」）と一緒に出す。0のときは出さない。
     /// </summary>
     public static readonly DependencyProperty SubBadgeProperty =
         DependencyProperty.RegisterAttached("SubBadge", typeof(int), typeof(Nav));

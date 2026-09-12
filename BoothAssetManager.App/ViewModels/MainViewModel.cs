@@ -58,6 +58,9 @@ public sealed class MainViewModel : ViewModelBase
             }
         };
 
+        // 書きかけが増えたり消えたりすると「未:」の数も変わる（未から編へ移るので）
+        Drafts.PropertyChanged += (_, _) => OnPropertyChanged(nameof(NeedsEditBadgeCount));
+
         ShowSearchCommand = new RelayCommand(ShowSearch);
         ShowImportCommand = new RelayCommand(ShowImport);
         ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
@@ -756,8 +759,22 @@ public sealed class MainViewModel : ViewModelBase
     public int NeedsEditCount
     {
         get => _needsEditCount;
-        private set => SetField(ref _needsEditCount, value);
+        private set
+        {
+            if (SetField(ref _needsEditCount, value))
+            {
+                OnPropertyChanged(nameof(NeedsEditBadgeCount));
+            }
+        }
     }
+
+    /// <summary>
+    /// ナビの「未:」に出す数。未編集のうち、書きかけの無いもの。
+    /// 「編:」（書きかけのある商品）と**重ならない数え方**にする（ユーザ指示）——未編集の商品に書きかけができると、
+    /// 未から編へ1件移る。数え方は検索の未編集と同じ（ユーザータグが無く、取り込みの③を待っていない）
+    /// </summary>
+    public int NeedsEditBadgeCount => NeedsEditCount - Drafts.ItemIds.Count(id =>
+        Search.FindItem(id) is { } item && item.Local.UserTags.Count == 0 && !IsAwaitingDetection(id));
 
     public string LibrarySummary => $"{Search.TotalCount} items / {Search.ShopCount} shops";
 
