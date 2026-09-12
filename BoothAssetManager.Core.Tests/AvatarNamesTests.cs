@@ -55,48 +55,20 @@ public sealed class AvatarNamesTests
     }
 
     [Fact]
-    public void 以前の版が自動で付けた名前は手で付けた物とみなさない()
+    public void 呼び名そのものを付けても手で付けた名前として出す()
     {
-        // 以前の付け方の名前（ここでは括弧の中身）が保存されていても、新しい付け方で出す
-        var booth = "【VRChat対応3Dモデル】ミモザ";
-        var entry = new AvatarRegistryEntry { ItemId = "1", BoothName = booth, DisplayName = AvatarText.ShortenName(booth) };
-
-        Assert.Null(AvatarNames.ManualName(entry));
-        Assert.Equal("ミモザ", AvatarNames.ShownName(entry));
-    }
-
-    [Fact]
-    public void 付けた時刻があれば以前の自動の名前と同じ形でも手で付けた物()
-    {
-        // 正式名に含まれる呼び名そのもの（以前の付け方は最短の呼び名を採った）を選んだ人の名前。
-        // 時刻が無いと以前の自動の名前と見分けられず、保存しても読むたびに自動の扱いへ戻っていた
-        var legacy = new AvatarRegistryEntry
+        // 正式名に含まれる呼び名そのもの（以前の版が自動で選んだのと同じ形）でも、付けた名前はそのまま出す。
+        // 以前は以前の版の記録と見分ける決まりがあり、保存しても読むたびに自動の名前へ戻っていた
+        var entry = new AvatarRegistryEntry
         {
             ItemId = "1",
             BoothName = "【VRChat対応3Dモデル】ミモザ -V2.0",
             Aliases = [new AvatarAlias { Text = "ミモ" }],
             DisplayName = "ミモ",
         };
-        Assert.Null(AvatarNames.ManualName(legacy));
 
-        var named = legacy with { DisplayNameSetAt = DateTimeOffset.Now };
-        Assert.Equal("ミモ", AvatarNames.ManualName(named));
-        Assert.Equal("ミモ", AvatarNames.ShownName(named));
-    }
-
-    [Theory]
-    // 以前の付け方が選んだ「名前ではない語」。呼び名の一覧が後で変わると、やり直しでは一致しない
-    [InlineData("VRChat対応3Dモデル")]
-    [InlineData("Mobile対応")]
-    [InlineData("VR")]
-    [InlineData("男性")]
-    [InlineData("標準版")]
-    public void 名前ではない語だけの名前は手で付けた物とみなさない(string stored)
-    {
-        var entry = new AvatarRegistryEntry { ItemId = "1", BoothName = "【VRChat対応3Dモデル】ミモザ【Mobile対応】", DisplayName = stored };
-
-        Assert.Null(AvatarNames.ManualName(entry));
-        Assert.Equal("ミモザ", AvatarNames.ShownName(entry));
+        Assert.Equal("ミモ", AvatarNames.ManualName(entry));
+        Assert.Equal("ミモ", AvatarNames.ShownName(entry));
     }
 
     [Fact]

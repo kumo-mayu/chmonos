@@ -135,14 +135,12 @@ public class AvatarRegistryMergeTests : IDisposable
 
         var named = _store.Avatars.Load().Entries.Single(entry => entry.ItemId == AvatarId);
         Assert.Equal("ミモ", AvatarNames.ShownName(named));
-        Assert.NotNull(named.DisplayNameSetAt);
 
-        // 空で保存すると自動の名前に戻り、付けた時刻も残らない
+        // 空で保存すると自動の名前に戻る
         await service.SetDisplayNameAsync(AvatarId, "");
 
         var cleared = _store.Avatars.Load().Entries.Single(entry => entry.ItemId == AvatarId);
         Assert.Null(cleared.DisplayName);
-        Assert.Null(cleared.DisplayNameSetAt);
         Assert.Equal("ミモザ", AvatarNames.ShownName(cleared));
     }
 

@@ -110,19 +110,10 @@ public sealed record AvatarRegistryEntry
     /// （<see cref="Services.AvatarNames"/>・#54）。
     ///
     /// 以前はここに自動で付けた名前も入れていた。計算で出せる値なので、今は書かない。
-    /// 以前の版が書いた自動の名前は、読むときに「以前の付け方でできる名前か」で見分けて、自動の扱いに戻す。
+    /// **null でなければ人が付けた名前。**以前の版が書いた自動の名前が残っている記録は、
+    /// 公開前なのでコードで見分けず、データの側の問題として直す（ユーザ判断 2026-09-12）。
     /// </summary>
     public string? DisplayName { get; init; }
-
-    /// <summary>
-    /// ユーザが <see cref="DisplayName"/> を付けた時刻。**これがあれば、その名前はどんな形でも手で付けた物。**
-    ///
-    /// 以前の版が書いた自動の名前は「以前の付け方でできる名前か」で見分けているが、それだけだと
-    /// 人が選んだ名前がたまたま同じ形（正式名に含まれる呼び名そのもの、など）のとき、
-    /// 保存しても読むたびに自動の扱いへ戻され、名前を変えても元に戻って見えた。
-    /// 見分けは、この印の無い古い記録にだけ使う。人の入力の記録なので計算では出せない。
-    /// </summary>
-    public DateTimeOffset? DisplayNameSetAt { get; init; }
 
     /// <summary>BOOTHの正式な商品名。観測した事実なので上書きしない。</summary>
     public string? BoothName { get; init; }

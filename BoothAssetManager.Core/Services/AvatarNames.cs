@@ -16,49 +16,16 @@ namespace BoothAssetManager.Core.Services;
 public static class AvatarNames
 {
     /// <summary>
-    /// ユーザが付けた名前。付けていなければ null。
+    /// ユーザが付けた名前。付けていなければ null。**null でなければ人が付けた名前**で、形は問わない。
     ///
-    /// **以前の版は自動の名前も <c>DisplayName</c> に書いていた。**それを手で付けた名前と取り違えると、
-    /// 付け方を直しても読めない名前が残る。以前の付け方（<see cref="AvatarText.ShortenName"/>）でできる名前・
-    /// 正式名そのもの・商品IDと同じなら、自動で付いた物とみなす（試験データでは保存されていた392体のうち見分けられた数を
-    /// 評価台 experiments/AvatarNameBench で数えた）。
+    /// 以前の版は自動の名前も <c>DisplayName</c> に書いていた。それを読むときに「以前の付け方でできる名前か」で
+    /// 見分けていたが、人が呼び名そのものを選ぶと同じ形になり、保存しても元の名前に戻って見えた。
+    /// 公開前なので古い記録に合わせる見分けは持たず、残っている記録はデータの側で直す（ユーザ判断 2026-09-12）。
     /// </summary>
     public static string? ManualName(AvatarRegistryEntry entry)
     {
         var name = entry.DisplayName?.Trim();
-        if (string.IsNullOrEmpty(name))
-        {
-            return null;
-        }
-
-        // 付けた時刻のある名前は、形を問わず人が付けた物。下の見分けは以前の版の記録のためのもので、
-        // 当てると、呼び名そのものを選んだ人の名前まで自動の扱いに戻してしまう
-        if (entry.DisplayNameSetAt is not null)
-        {
-            return name;
-        }
-
-        if (name == entry.ItemId || name == entry.BoothName?.Trim())
-        {
-            return null;
-        }
-
-        // 名前ではない語だけの名前（「VRChat対応3Dモデル」「Mobile対応」「VR」）は、以前の付け方が選んだ物。
-        // 呼び名の一覧が後で掃除されると、下のやり直しでは一致しなくなる（試験データで19体がこれだった）。
-        // 人がアバターにこういう名前を付けることは考えにくい
-        if (AvatarText.IsNotAName(name))
-        {
-            return null;
-        }
-
-        if (entry.BoothName is { Length: > 0 } booth
-            && (name == AvatarText.ShortenName(booth)
-                || name == AvatarText.ShortenName(booth, entry.Aliases.Select(alias => alias.Text))))
-        {
-            return null;
-        }
-
-        return name;
+        return string.IsNullOrEmpty(name) ? null : name;
     }
 
     /// <summary>ショップ名を付ける前の名前。</summary>

@@ -25,12 +25,10 @@ public sealed partial class AvatarService
             entry =>
             {
                 var typed = name.Trim();
-                var automatic = AvatarNames.ShownName(entry with { DisplayName = null, DisplayNameSetAt = null });
+                var automatic = AvatarNames.ShownName(entry with { DisplayName = null });
 
                 // 自動の名前と同じなら付けていないのと同じ（付け方を直せば一緒に直るよう、書かない）
-                return typed.Length == 0 || typed == automatic
-                    ? entry with { DisplayName = null, DisplayNameSetAt = null }
-                    : entry with { DisplayName = typed, DisplayNameSetAt = DateTimeOffset.Now };
+                return entry with { DisplayName = typed.Length == 0 || typed == automatic ? null : typed };
             },
             cancellationToken);
 
