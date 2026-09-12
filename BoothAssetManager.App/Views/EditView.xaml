@@ -19,11 +19,11 @@
         <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <!--
+                    列は1本。左の件数とバーは左寄せ、右のボタンは右寄せで同じ行に重ねる。
+                    幅が中身で決まる列（Auto）をまたいで帯を置くと、WPFは帯を「幅の上限なし」で測るので、
+                    全部の絵が収まる幅があるつもりになって横に送れず、最後の絵が窓の縁で切れていた
+                -->
                 <Grid.RowDefinitions>
                     <RowDefinition Height="52" />
                     <RowDefinition Height="Auto" />
@@ -51,7 +51,8 @@
                     帯の中で絵を拡大すると上のバーの高さで切れるので、大きな絵は帯の下へ浮かせて出す。
                     キーボードの操作を奪わないよう、絵はフォーカスを取らない
                 -->
-                <ItemsControl x:Name="QueueStrip" Grid.Row="1" Grid.ColumnSpan="3" ItemsSource="{Binding QueueTiles}"
+                <ItemsControl x:Name="QueueStrip" Grid.Row="1" ItemsSource="{Binding QueueTiles}"
+                              AutomationProperties.Name="続く商品"
                               Height="56" Margin="0,8,0,8" VerticalAlignment="Center" Focusable="False"
                               PreviewMouseWheel="QueueStrip_PreviewMouseWheel"
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -132,7 +133,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
