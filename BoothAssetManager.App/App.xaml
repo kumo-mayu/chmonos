@@ -1,6 +1,7 @@
 <Application x:Class="BoothAssetManager.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels">
     <Application.Resources>
         <!--
             畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
@@ -159,5 +160,23 @@
             <Setter Property="Padding" Value="9,0" />
             <Setter Property="FontSize" Value="11.5" />
         </Style>
+
+        <!--
+            札の並び（BOOTHのタグ・対応アバター）に混ぜる札。商品ページと編集画面で同じ見た目にするのでここに置く。
+            作った札は隠すだけで捨てない（ChipStrip・ユーザ判断 2026-09-12）ので、見えるかどうかは札の IsShown で決める
+        -->
+        <DataTemplate DataType="{x:Type vm:TagTile}">
+            <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
+                    Padding="10,3" Margin="0,0,6,6" Background="White"
+                    Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="#454b57" />
+            </Border>
+        </DataTemplate>
+        <!-- 「残り n を表示」⇔「最初の 40 だけにする」（ユーザ指示：可逆にする）。1枚のまま文字だけ変わる -->
+        <DataTemplate DataType="{x:Type vm:ChipToggle}">
+            <Button Content="{Binding Text}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
+                    Command="{Binding Command}" ToolTip="{Binding Hint}"
+                    Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </DataTemplate>
     </Application.Resources>
 </Application>

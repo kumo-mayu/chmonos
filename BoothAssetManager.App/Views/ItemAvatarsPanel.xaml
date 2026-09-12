@@ -64,9 +64,12 @@
                                             <WrapPanel />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
+                                    <!--
+                                        札・切り替え（App.xaml）・「＋ 追加」を型で選んで並べる。
+                                        作った札は隠すだけで捨てない（ChipStrip・ユーザ判断 2026-09-12：2回目以降に全部並べるのを速くする）
+                                    -->
+                                    <ItemsControl.Resources>
                                         <DataTemplate DataType="{x:Type vm:AvatarRow}">
-                                            <Grid>
                                                 <!--
                                                     ここは閲覧が目的なので、全部が一度に見えることを優先する。
                                                     出所を常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
@@ -80,7 +83,7 @@
                                                     244体の商品で開くのが150〜200ms遅れた。普段は短い文字だけを持たせておく
                                                 -->
                                                 <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
-                                                        Visibility="{Binding IsChip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                         ToolTip="{Binding SourceTooltip}" ToolTipOpening="OnChipToolTipOpening">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -129,29 +132,14 @@
                                                         </Button>
                                                     </StackPanel>
                                                 </Border>
+                                        </DataTemplate>
 
-                                                <!--
-                                                    「残り n 体を表示」（ユーザ判断 2026-09-12）。多い商品は最初の一部だけ並べ、
-                                                    押したらこの商品を開いている間だけ全部並べる
-                                                -->
-                                                <Button Content="{Binding Name}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
-                                                        Visibility="{Binding IsMoreTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                        Command="{Binding DataContext.ShowAllAvatarsCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        ToolTip="残りの対応アバターも並べます。多い商品は、開くのを速くするため最初は一部だけ並べています。" />
-                                                <!-- 全部並べた後の戻し方（ユーザ指示：可逆にする） -->
-                                                <Button Content="{Binding Name}" Style="{StaticResource SmallButton}" Margin="0,0,6,6"
-                                                        Visibility="{Binding IsLessTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                        Command="{Binding DataContext.ShowFewerAvatarsCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        ToolTip="並べるのを最初の一部に戻します。" />
-
-                                                <!--
-                                                    末尾の「＋ 追加」（ユーザ指示）。押すとその場に候補付きの入力欄を出し、すぐ打てる。
-                                                    出品者が書き漏らしている場合や、検出が拾えなかった場合の補い
-                                                -->
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,6"
-                                                            Visibility="{Binding IsAddTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <!--
+                                            末尾の「＋ 追加」（ユーザ指示）。押すとその場に候補付きの入力欄を出し、すぐ打てる。
+                                            出品者が書き漏らしている場合や、検出が拾えなかった場合の補い
+                                        -->
+                                        <DataTemplate DataType="{x:Type vm:AvatarAddTile}">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,6">
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -179,9 +167,8 @@
                                                                          RelativeSource={RelativeSource AncestorType=UserControl},
                                                                          Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 </StackPanel>
-                                            </Grid>
                                         </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
+                                    </ItemsControl.Resources>
                                 </ItemsControl>
 
                                 <ItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0"
