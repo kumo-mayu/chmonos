@@ -377,6 +377,32 @@ public sealed class EditViewModel : ViewModelBase
 
     public RelayCommand SelectImageCommand { get; }
 
+    private RelayCommand? _previousImageCommand;
+    private RelayCommand? _nextImageCommand;
+
+    /// <summary>前の画像へ（大きい絵の左の矢印・←キー）。商品ページと同じ動き（ユーザ指示）。</summary>
+    public RelayCommand PreviousImageCommand => _previousImageCommand ??= new RelayCommand(() => GoToImage(-1), () => Images.Count > 1);
+
+    /// <summary>次の画像へ（大きい絵の右の矢印・→キー）。</summary>
+    public RelayCommand NextImageCommand => _nextImageCommand ??= new RelayCommand(() => GoToImage(1), () => Images.Count > 1);
+
+    /// <summary>何枚目か。商品ページと同じく大きい絵の左上に出す。</summary>
+    public string GalleryCounter => Images.Count == 0
+        ? string.Empty
+        : $"{Math.Clamp(_selectedImageIndex, 0, Images.Count - 1) + 1} / {Images.Count}";
+
+    /// <summary>見る絵を送る。最後の次は最初へ、最初の前は最後へ回る（端で止めると「もう無い」のか「押せていない」のか分からない）。</summary>
+    private void GoToImage(int delta)
+    {
+        if (Images.Count <= 1)
+        {
+            return;
+        }
+
+        var index = ((_selectedImageIndex + delta) % Images.Count + Images.Count) % Images.Count;
+        SelectImage(Images[index]);
+    }
+
     private void SelectImage(object? parameter)
     {
         if (parameter is not GalleryImage image)
@@ -398,6 +424,7 @@ public sealed class EditViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(MainImage));
+        OnPropertyChanged(nameof(GalleryCounter));
     }
 
     public string DescriptionPreview => _item?.Booth.Description ?? string.Empty;
@@ -1654,6 +1681,7 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShopPlaceholder));
         OnPropertyChanged(nameof(CategoryPlaceholder));
         OnPropertyChanged(nameof(MainImage));
+        OnPropertyChanged(nameof(GalleryCounter));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));
         RelayCommand.RaiseCanExecuteChanged();

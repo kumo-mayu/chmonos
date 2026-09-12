@@ -244,7 +244,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 商品ページで左右キーを押したら、見る絵を送る。
+    /// 商品ページと編集画面で左右キーを押したら、見る絵を送る。
     ///
     /// **入力欄にいるときは何もしない。**そこでの左右はカーソルの移動で、
     /// 横取りすると文字が打てなくなる（Ctrl+V と同じ理由）。
@@ -252,8 +252,20 @@ public partial class MainWindow : Window
     private static bool TryMoveGallery(MainViewModel main, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key is not (System.Windows.Input.Key.Left or System.Windows.Input.Key.Right)
-            || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None
-            || main.CurrentViewModel is not ItemViewModel item)
+            || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None)
+        {
+            return false;
+        }
+
+        var (previous, next) = main.CurrentViewModel switch
+        {
+            ItemViewModel item => (item.PreviousImageCommand, item.NextImageCommand),
+            // 編集画面でも同じ動き（ユーザ指示）。入力欄が多い画面なので、下の「入力欄では効かせない」がそのまま効く
+            EditViewModel edit => (edit.PreviousImageCommand, edit.NextImageCommand),
+            _ => ((RelayCommand?)null, (RelayCommand?)null),
+        };
+
+        if (previous is null || next is null)
         {
             return false;
         }
@@ -264,9 +276,7 @@ public partial class MainWindow : Window
             return false;
         }
 
-        var command = e.Key == System.Windows.Input.Key.Left
-            ? item.PreviousImageCommand
-            : item.NextImageCommand;
+        var command = e.Key == System.Windows.Input.Key.Left ? previous : next;
 
         if (!command.CanExecute(null))
         {
