@@ -667,149 +667,108 @@
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
                         <!--
-                            購入記録。種類の多い商品では膨大になるので、この欄だけ畳める（ユーザ指示）。
-                            畳んだかどうかは次の商品へ進んでも保つ（1件ごとに開き直させない）。
-                            見出しに種類の数を出し、畳んでいても何件あるかは分かるようにする
+                            購入記録（案A・ユーザ判断）。**種類の行はお金のことだけ**にし、印を付けても形を変えない：
+                            値段・誰のためか・［＋］（この版をもう1回買った）を常に並べ、印が無いときは灰色にする
+                            （以前は印を付けるたびに行が3段に膨らみ、選び欄や札も出入りして分かりにくかった）。
+                            ファイルの結び付けは下の「ファイルの種類分け」だけで行い、ここには数だけ出す。
+                            種類の多い商品では膨大になるので、この欄だけ畳める。畳んだかどうかは次の商品へ進んでも保つ
                         -->
                         <Expander IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
                             <Expander.Header>
                                 <TextBlock FontWeight="Bold" FontSize="13"><Run Text="購入した種類" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
                             </Expander.Header>
                             <StackPanel>
-                        <TextBlock Text="購入に印を付けるとBOOTHの現在価格が入ります。実際の支払額が違うときは書き換えてください。空欄は未入力（支出に数えない）、0は無料配布です。"
-                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+                                <TextBlock Text="買った種類に印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
+                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
+                                           ToolTip="空欄は未入力（支出に数えない）、0は無料配布です。同じ種類を2回買った（自分用に1つ、ギフトに1つなど）ときは［＋］で記録を足します。" />
 
-                        <ItemsControl ItemsSource="{Binding Variations}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <!--
-                                                    この種類のファイルを選ぶ（#40・ユーザ指示「バリエーションの選択の横」）。
-                                                    付ける操作がどこにも無く、友人のデータで327件中0件だった。
-                                                    種類が2つ以上ある商品で、手元にファイルがあるときだけ出す
-                                                -->
-                                                <Grid DockPanel.Dock="Right" Width="150" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                      Visibility="{Binding CanLinkFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <ComboBox x:Name="FileChoiceBox" ItemsSource="{Binding FileChoices}"
-                                                              SelectedItem="{Binding SelectedFileChoice, Mode=TwoWay}"
-                                                              DisplayMemberPath="Display" Height="26" FontSize="11.5"
-                                                              ToolTip="この種類のファイルを選びます。同じ種類に複数付けられます。" />
-                                                    <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
-                                                    <TextBlock Text="ファイルを紐付ける…" IsHitTestVisible="False" FontSize="11.5"
-                                                               Foreground="{StaticResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
-                                                               Visibility="{Binding Text, ElementName=FileChoiceBox,
-                                                                            Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
-                                                </Grid>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis" MaxWidth="250" />
-                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="6,0,0,0"
-                                                            Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{StaticResource TextFaint}" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </DockPanel>
-
-                                            <!-- この種類に付けたファイル。✕で外す（保存して次へで書く） -->
-                                            <ItemsControl ItemsSource="{Binding LinkedFiles}" Margin="22,6,0,0"
-                                                          Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                                BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,5,5">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
-                                                                           MaxWidth="260" TextTrimming="CharacterEllipsis" />
-                                                                <!-- 買った種類が1つで全部この種類として見せている札には出さない（外す意味が無い） -->
-                                                                <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                           Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="この種類から外す"
-                                                                           Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                    <TextBlock.InputBindings>
-                                                                        <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />
-                                                                    </TextBlock.InputBindings>
-                                                                </TextBlock>
-                                                            </StackPanel>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <StackPanel Orientation="Horizontal" Margin="22,6,0,0"
-                                                        Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
-                                                <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
-                                                         Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
-                                                         VerticalContentAlignment="Center" />
-                                                <TextBlock Text="{Binding ListPriceText, StringFormat=現在 {0}}" Style="{StaticResource Caption}"
-                                                           VerticalAlignment="Center" Margin="8,0,0,0" />
-                                                <!--
-                                                    「ギフト」のチェック1つでは、貰ったのか贈ったのかが書き分けられない。
-                                                    貰い物は支出に数えず、贈答は支出に入るが所持には入らないので、
-                                                    集計上まったく別の扱いになる。
-                                                -->
-                                                <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
-                                                          Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
-                                                          VerticalContentAlignment="Center">
-                                                    <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
-                                                    <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
-                                                    <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
-                                                </ComboBox>
-                                            </StackPanel>
-                                            <!--
-                                                同じ版を2回買った記録。「自分用に1つ、ギフトに1つ」がこれ。
-                                                買った1回が1レコードなので、行を増やす形で足す。
-                                            -->
-                                            <ItemsControl ItemsSource="{Binding Extras}" Margin="22,4,0,0"
-                                                          Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                            <TextBlock Text="＋" Style="{StaticResource Caption}"
-                                                                       VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                            <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
-                                                            <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
-                                                                     Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
-                                                                     VerticalContentAlignment="Center" />
-                                                            <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
-                                                                      Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
-                                                                      VerticalContentAlignment="Center">
-                                                                <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
-                                                                <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
-                                                                <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
-                                                            </ComboBox>
-                                                            <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
-                                                            <Button Content="この記録を消す" Style="{StaticResource SmallButton}"
-                                                                    Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
+                                <ItemsControl ItemsSource="{Binding Variations}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
+                                                                   VerticalAlignment="Center" Margin="8,0,0,0"
+                                                                   ToolTip="この種類に付いたファイルの数です。付け分けは下の「ファイルの種類分け」で行います。" />
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis" MaxWidth="300" ToolTip="{Binding Name}" />
+                                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                    BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="6,0,0,0"
+                                                                    Visibility="{Binding IsGone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                <TextBlock Text="BOOTHに現存しない" FontSize="10" Foreground="{StaticResource TextFaint}" />
+                                                            </Border>
                                                         </StackPanel>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
+                                                    </DockPanel>
 
-                                            <Button Content="この版をもう1回買った" Style="{StaticResource SmallButton}"
-                                                    HorizontalAlignment="Left" Margin="22,6,0,0"
-                                                    Command="{Binding AddPurchaseCommand}"
-                                                    Visibility="{Binding IsPurchased, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                                    <!-- 値段・誰のためか・［＋］。印が無いときも出して灰色にする（印を付けるたびに行が膨らまないように） -->
+                                                    <StackPanel Orientation="Horizontal" Margin="22,6,0,0" IsEnabled="{Binding IsPurchased}">
+                                                        <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+                                                        <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
+                                                                 Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                 VerticalContentAlignment="Center" />
+                                                        <TextBlock Text="{Binding ListPriceText, StringFormat=現在 {0}}" Style="{StaticResource Caption}"
+                                                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                        <!--
+                                                            「ギフト」のチェック1つでは、貰ったのか贈ったのかが書き分けられない。
+                                                            貰い物は支出に数えず、贈答は支出に入るが所持には入らないので、集計上まったく別の扱いになる。
+                                                        -->
+                                                        <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
+                                                                  Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
+                                                                  VerticalContentAlignment="Center">
+                                                            <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
+                                                            <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
+                                                            <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
+                                                        </ComboBox>
+                                                        <Button Content="＋" Style="{StaticResource SmallButton}" Width="28" Padding="0" Margin="8,0,0,0"
+                                                                Command="{Binding AddPurchaseCommand}"
+                                                                ToolTip="この版をもう1回買った記録を足します（自分用に1つ、ギフトに1つなど）。" />
+                                                    </StackPanel>
+
+                                                    <!-- 同じ版を2回買った記録。買った1回が1レコードなので、行を増やす形で足す -->
+                                                    <ItemsControl ItemsSource="{Binding Extras}" Margin="22,4,0,0"
+                                                                  Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                    <TextBlock Text="＋" Style="{StaticResource Caption}"
+                                                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                                    <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+                                                                    <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
+                                                                             Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                             VerticalContentAlignment="Center" />
+                                                                    <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
+                                                                              Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
+                                                                              VerticalContentAlignment="Center">
+                                                                        <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
+                                                                        <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
+                                                                        <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
+                                                                    </ComboBox>
+                                                                    <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
+                                                                    <Button Content="この記録を消す" Style="{StaticResource SmallButton}"
+                                                                            Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Expander>
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
 
                         <!--
-                            ファイルの種類分け（ユーザ指示）。ファイルを主にして、どの種類のファイルかを選ぶ。
-                            上の各行の選び欄と同じ中身なので、どちらで選んでも揃う。既定は畳む。
+                            ファイルの種類分け（ユーザ指示・案A）。ファイルの結び付けはこの欄だけで行う。
+                            中の表示は「ファイルごと」（ファイルを主に種類を選ぶ）と「種類ごと」（種類を主にファイルを足す）。
+                            どちらも同じ中身を直す。既定は畳み、勝手には開かない（残りは見出しの「未指定 n」で知らせる）。
                             開けないとき（種類を1つしか買っていない・ファイルも1つ以下）は消さずに灰色にして、理由を右に書く。
-                            買った種類が1つのときは全部その種類として見せるだけ（書かない）。2つ目に印を付けると自動で開く
+                            買った種類が1つのときは、選び欄に「〇〇（自動）」と見せるだけ（書かない）。結び付けられるのは買った種類だけ
                         -->
                         <Expander IsExpanded="{Binding IsFileSortExpanded, Mode=TwoWay}" IsEnabled="{Binding CanSortFiles}">
                             <Expander.Style>
@@ -825,20 +784,24 @@
                                 <TextBlock TextWrapping="Wrap"><Run Text="ファイルの種類分け" FontWeight="Bold" FontSize="13" /><Run Text="{Binding FileSortHeaderNote, Mode=OneWay}" FontSize="11" Foreground="{StaticResource TextFaint}" /></TextBlock>
                             </Expander.Header>
                             <StackPanel Margin="0,6,0,0">
-                                <TextBlock Text="ファイルごとに、どの種類のファイルかを選びます。上の「購入した種類」の各行から選んでも同じ内容です。「保存して次へ」で保存します。"
-                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
-
-                                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                        BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,8"
-                                        Visibility="{Binding HasFileSortAuto, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="{Binding FileSortAutoText}" FontSize="11.5" TextWrapping="Wrap" Foreground="#28507f" />
-                                </Border>
+                                <DockPanel Margin="0,0,0,8">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <RadioButton Content="ファイルごと" FontSize="11.5" Foreground="{StaticResource Text}"
+                                                     IsChecked="{Binding IsByFileView, Mode=TwoWay}" />
+                                        <RadioButton Content="種類ごと" FontSize="11.5" Foreground="{StaticResource Text}" Margin="12,0,0,0"
+                                                     IsChecked="{Binding IsByVariationView, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <TextBlock Text="どの種類のファイルかを選びます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                               ToolTip="「保存して次へ」で保存します。買った種類が1つのときは、すべてのファイルをその種類として扱います（選ぶ必要はありません）。結び付けられるのは買った種類だけです。" />
+                                </DockPanel>
 
                                 <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここで種類を選べます。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap"
                                            Visibility="{Binding HasNoFilesToSort, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                <ItemsControl ItemsSource="{Binding FileSortRows}">
+                                <!-- ファイルごと -->
+                                <ItemsControl ItemsSource="{Binding FileSortRows}"
+                                              Visibility="{Binding IsByFileView, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:FileSortRow}">
                                             <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
@@ -854,10 +817,66 @@
                                                             Visibility="{Binding IsUnassigned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="未指定" FontSize="10" Foreground="{StaticResource Warn}" />
                                                     </Border>
-                                                    <!-- ファイル名は切らずに折り返す（以前の選び欄は150pxで途中が切れていた） -->
+                                                    <!-- ファイル名は切らずに折り返す -->
                                                     <TextBlock Text="{Binding Name}" Style="{StaticResource Mono}" FontSize="11.5"
                                                                TextWrapping="Wrap" VerticalAlignment="Center" />
                                                 </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- 種類ごと（以前「購入した種類」の各行にあった選び方） -->
+                                <ItemsControl ItemsSource="{Binding PurchasedVariationRows}"
+                                              Visibility="{Binding IsByVariationView, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <Grid DockPanel.Dock="Right" Width="170" Margin="10,0,0,0" VerticalAlignment="Top"
+                                                              Visibility="{Binding CanLinkFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                            <ComboBox x:Name="FileChoiceBox" ItemsSource="{Binding FileChoices}"
+                                                                      SelectedItem="{Binding SelectedFileChoice, Mode=TwoWay}"
+                                                                      DisplayMemberPath="Display" Height="26" FontSize="11.5"
+                                                                      ToolTip="この種類のファイルを選びます。同じ種類に複数付けられます。" />
+                                                            <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
+                                                            <TextBlock Text="ファイルを足す…" IsHitTestVisible="False" FontSize="11.5"
+                                                                       Foreground="{StaticResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
+                                                                       Visibility="{Binding Text, ElementName=FileChoiceBox,
+                                                                                    Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Name}" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                    </DockPanel>
+
+                                                    <!-- この種類に付けたファイル。✕で外す（買った種類が1つで自動で見せている札には✕を出さない） -->
+                                                    <ItemsControl ItemsSource="{Binding LinkedFiles}" Margin="0,6,0,0"
+                                                                  Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                        BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,5,5">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
+                                                                                   MaxWidth="360" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                                        <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
+                                                                                   Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="この種類から外す"
+                                                                                   Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                            <TextBlock.InputBindings>
+                                                                                <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />
+                                                                            </TextBlock.InputBindings>
+                                                                        </TextBlock>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="まだファイルを付けていません。" Style="{StaticResource Caption}" Margin="0,6,0,0"
+                                                               Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                </StackPanel>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

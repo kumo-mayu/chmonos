@@ -157,7 +157,17 @@ public sealed class OrderedVariationInput : ViewModelBase
         }
     }
 
-    internal void NoteLinkedFilesChanged() => OnPropertyChanged(nameof(HasLinkedFiles));
+    /// <summary>
+    /// 種類の行の右端に出すファイルの数（案A・ユーザ判断）。結び付けそのものは「ファイルの種類分け」だけで行い、
+    /// 種類の行には数だけ出す（行に選び欄や札を並べると、印を付けるたびに形が変わって分かりにくかった）。
+    /// </summary>
+    public string FileCountText => LinkedFiles.Count > 0 ? $"ファイル {LinkedFiles.Count}" : string.Empty;
+
+    internal void NoteLinkedFilesChanged()
+    {
+        OnPropertyChanged(nameof(HasLinkedFiles));
+        OnPropertyChanged(nameof(FileCountText));
+    }
 }
 
 /// <summary>種類に紐付ける／紐付いたファイル1件。</summary>
@@ -1534,15 +1544,10 @@ public sealed class EditViewModel : ViewModelBase
 
     private void OnPurchasedChanged()
     {
-        var before = _purchasedCount;
         _purchasedCount = PurchasedVariationCount();
 
-        // 2つ目の種類に印を付けたら開く。手で付け分けが要るのはここから（ユーザ指示「購入した種類が選択されたら開く」）
-        if (before < 2 && _purchasedCount >= 2)
-        {
-            _isFileSortExpanded = true;
-        }
-
+        // 勝手には開かない（案A・ユーザ判断）。印を付けるたびに下の欄が開いたり閉じたりすると、画面が動いて分かりにくい。
+        // 残りがあることは見出しの「未指定 n」で知らせる
         RefreshFileLinks();
     }
 
@@ -1568,28 +1573,60 @@ public sealed class EditViewModel : ViewModelBase
         }
     }
 
-    /// <summary>見出しの右の一言。開けないときは理由、開けるときはファイルの数。</summary>
+    /// <summary>
+    /// 見出しの右の一言。開けないときは理由、開けるときはファイルの数と、まだ種類を付けていない数。
+    /// 欄は勝手に開かないので、残りがあることはここで知らせる（案A）。
+    /// </summary>
     public string FileSortHeaderNote => CanSortFiles
-        ? $"（{_files.Count} ファイル）"
+        ? $"（{_files.Count} ファイル・未指定 {FileSortRows.Count(row => row.IsUnassigned)}）"
         : "　複数の種類を購入するか、複数のファイルがこの商品に付いている場合にだけ開けます";
 
-    public bool HasFileSortAuto => AutoVariation() is not null;
-
-    public string FileSortAutoText => AutoVariation() is { } id
-        ? $"買った種類が1つなので、すべてのファイルを「{Variations.First(row => row.VariationId == id).Name}」として扱います。"
-          + "2つ目の種類に印を付けると、ファイルごとに選べるようになります。"
-        : string.Empty;
-
     public bool HasNoFilesToSort => _files.Count == 0;
+
+    /// <summary>
+    /// 欄の中の表示。ファイルごと（ファイルを主に種類を選ぶ）と種類ごと（種類を主にファイルを足す）。
+    /// 種類ごとは、以前「購入した種類」の各行にあった選び方をこの欄へ移したもの（案A：入口を1か所にする）。
+    /// 選んだ表示は次の商品へ進んでも保つ（アプリを閉じるまで）。
+    /// </summary>
+    private static bool s_isByVariationView;
+
+    public bool IsByVariationView
+    {
+        get => s_isByVariationView;
+        set
+        {
+            if (s_isByVariationView != value)
+            {
+                s_isByVariationView = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsByFileView));
+            }
+        }
+    }
+
+    public bool IsByFileView
+    {
+        get => !s_isByVariationView;
+        set => IsByVariationView = !value;
+    }
+
+    /// <summary>種類ごとの表示に並べる、買った種類の行。</summary>
+    public ObservableCollection<OrderedVariationInput> PurchasedVariationRows { get; } = [];
 
     private void RebuildFileSortRows(long? auto)
     {
         FileSortRows.Clear();
 
-        var choices = new List<VariationChoice> { new(null, "指定しない") };
-        choices.AddRange(Variations
-            .Where(row => row.VariationId is not null && row.IsPurchased)
-            .Select(row => new VariationChoice(row.VariationId, row.Name)));
+        // 買った種類が1つなら、その種類を「（自動）」として1つだけ見せる（書かない）。案内の枠は出さない（案A）
+        var choices = auto is { } autoId
+            ? [new VariationChoice(autoId, $"{Variations.First(row => row.VariationId == autoId).Name}（自動）")]
+            : new List<VariationChoice> { new(null, "指定しない") };
+        if (auto is null)
+        {
+            choices.AddRange(Variations
+                .Where(row => row.VariationId is not null && row.IsPurchased)
+                .Select(row => new VariationChoice(row.VariationId, row.Name)));
+        }
 
         foreach (var (hash, name) in _files.OrderBy(file => file.Name, StringComparer.CurrentCulture))
         {
@@ -1697,10 +1734,15 @@ public sealed class EditViewModel : ViewModelBase
 
         RebuildFileSortRows(auto);
 
+        PurchasedVariationRows.Clear();
+        foreach (var row in Variations.Where(row => row.VariationId is not null && row.IsPurchased))
+        {
+            PurchasedVariationRows.Add(row);
+        }
+
         foreach (var name in new[]
         {
-            nameof(CanSortFiles), nameof(IsFileSortExpanded), nameof(FileSortHeaderNote),
-            nameof(HasFileSortAuto), nameof(FileSortAutoText), nameof(HasNoFilesToSort),
+            nameof(CanSortFiles), nameof(IsFileSortExpanded), nameof(FileSortHeaderNote), nameof(HasNoFilesToSort),
         })
         {
             OnPropertyChanged(name);
