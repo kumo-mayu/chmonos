@@ -1519,12 +1519,12 @@ public sealed class EditViewModel : ViewModelBase
 
     private void BuildFileLinks(ItemRecord record)
     {
-        _files = record.Local.LocalFiles
+        _files = record.Local.OwnedFiles
             .Where(file => file.Paths.Count > 0)
             .Select(file => (file.Hash, System.IO.Path.GetFileName(file.Paths[0])))
             .ToList();
 
-        _fileVariations = record.Local.LocalFiles.ToDictionary(
+        _fileVariations = record.Local.OwnedFiles.ToDictionary(
             file => file.Hash, file => file.VariationId, StringComparer.OrdinalIgnoreCase);
         _savedFileVariations = new Dictionary<string, long?>(_fileVariations, StringComparer.OrdinalIgnoreCase);
 

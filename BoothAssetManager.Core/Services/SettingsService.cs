@@ -51,8 +51,6 @@ public sealed record DetachedRecord
     public required string ItemName { get; init; }
 
     public required string Path { get; init; }
-
-    public required DateTimeOffset DetachedAt { get; init; }
 }
 
 public interface ISettingsService
@@ -202,47 +200,57 @@ public sealed class SettingsService : ISettingsService
     /// <summary>
     /// 商品ページで外したファイルの一覧。
     ///
-    /// 出すのは、**外した記録がどこにも見えないと、なぜ紐付かないのかを探す場所が無い**ため。
-    /// 取り消す道（未確定から同じ商品へ選び直す）は別にあるが、
-    /// 「そもそも自分が外したのだった」に気付ける場所がここしかない。
+    /// 出すのは、**外した記録を全商品まとめて見られる場所がここしかない**ため
+    /// （1件ずつなら商品ページで灰色の行として見え、「この商品に戻す」で戻せる）。
+    /// 外した印は商品のJSONの中にあるので全商品から集める。日時は持たない（ユーザ判断）ので、商品名の順に並べる。
     /// </summary>
     public async Task<IReadOnlyList<DetachedRecord>> LoadDetachedAsync(
         CancellationToken cancellationToken = default)
     {
-        var entries = _store.Detached.Load();
-        var records = new List<DetachedRecord>();
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
-        foreach (var entry in entries.OrderByDescending(entry => entry.DetachedAt))
-        {
-            var item = await _store.Items.LoadAsync(entry.ItemId, cancellationToken);
-
-            records.Add(new DetachedRecord
-            {
-                Hash = entry.Hash,
-                ItemId = entry.ItemId,
-                ItemName = item?.DisplayName ?? entry.ItemId,
-                Path = entry.Paths.FirstOrDefault() ?? entry.Hash,
-                DetachedAt = entry.DetachedAt,
-            });
-        }
-
-        return records;
+        return loaded.Items
+            .SelectMany(item => item.Local.LocalFiles
+                .Where(file => file.Detached)
+                .Select(file => new DetachedRecord
+                {
+                    Hash = file.Hash,
+                    ItemId = item.Id,
+                    ItemName = item.DisplayName,
+                    Path = file.Paths.FirstOrDefault() ?? file.Hash,
+                }))
+            .OrderBy(record => record.ItemName, StringComparer.CurrentCulture)
+            .ThenBy(record => record.Path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>
-    /// 外した記録を捨てる。次の取り込みで、手掛かりが指すならまたその商品へ紐付く。
-    /// 「外したのが間違いだった」を戻す道。
+    /// 外した記録を捨てる（商品のJSONから、印の付いた行ごと消す）。
+    /// 次の取り込みで、手掛かりが指すならまたその商品へ紐付く。
     /// </summary>
     public async Task ForgetDetachedAsync(
         string hash,
         string itemId,
         CancellationToken cancellationToken = default)
     {
-        var entries = _store.Detached.Load()
-            .Where(entry => !(string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)
-                && entry.ItemId == itemId))
-            .ToList();
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            return;
+        }
 
-        await _store.Detached.SaveAsync(entries, cancellationToken);
+        var files = item.Local.LocalFiles
+            .Where(file => !(file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        if (files.Count == item.Local.LocalFiles.Count)
+        {
+            return;
+        }
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { LocalFiles = files },
+            [LocalField.LocalFiles],
+            cancellationToken: cancellationToken);
     }
 }

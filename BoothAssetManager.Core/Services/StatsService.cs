@@ -479,7 +479,7 @@ public sealed class StatsService : IStatsService
                 UnresolvedCount = unresolvedCount,
                 NeedsUserTagCount = items.Count(item => item.Local.UserTags.Count == 0),
                 MissingFileCount = items.Count(item =>
-                    item.Local.LocalFiles.Any(file => file.Paths.Count == 0)),
+                    item.Local.OwnedFiles.Any(file => file.Paths.Count == 0)),
             },
         };
 
@@ -634,11 +634,11 @@ public sealed class StatsService : IStatsService
         => new(int.Parse(key[..4]), int.Parse(key[5..]), 1);
 
     private static bool IsOwned(ItemRecord item)
-        => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
+        => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
 
     /// <summary>同じ中身を1回だけ数えた大きさ。商品ページに出している容量と同じ求め方。</summary>
     private static long LogicalSizeOf(ItemRecord item)
-        => item.Local.LocalFiles
+        => item.Local.OwnedFiles
             .DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase)
             .Sum(file => file.SizeBytes)
             + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
@@ -648,6 +648,6 @@ public sealed class StatsService : IStatsService
     /// 「どれだけ空けられるか」を知りたい時に要るのはこちら。
     /// </summary>
     private static long PhysicalSizeOf(ItemRecord item)
-        => item.Local.LocalFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
+        => item.Local.OwnedFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
             + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
 }

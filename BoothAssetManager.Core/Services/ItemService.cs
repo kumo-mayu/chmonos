@@ -129,6 +129,8 @@ public interface IItemService
         bool deleteItemWhenEmpty,
         CancellationToken cancellationToken = default);
 
+    Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default);
+
     Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
 }
 
@@ -565,7 +567,7 @@ public sealed class ItemService : IItemService
 
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var owned = loaded.Items
-            .SelectMany(item => item.Local.LocalFiles)
+            .SelectMany(item => item.Local.OwnedFiles)
             .Select(file => file.Hash)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -683,18 +685,10 @@ public sealed class ItemService : IItemService
                 cancellationToken: cancellationToken);
         }
 
+        // 前に「この商品のものではない」と外していたなら、上の突き合わせ（LocalFileMerger）で印が下りている。
+        // ユーザが改めて選び直したのだから、こちらが覚えていて弾き続ける方がおかしい
         unresolved.Remove(target);
         await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
-
-        // 前に「この商品のものではない」と外していたなら、その記録は捨てる。
-        // ユーザが改めて選び直したのだから、こちらが覚えていて弾き続ける方がおかしい
-        var detached = _store.Detached.Load();
-        if (detached.RemoveAll(entry =>
-                string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)
-                && entry.ItemId == itemId) > 0)
-        {
-            await _store.Detached.SaveAsync(detached, cancellationToken);
-        }
 
         return true;
     }
@@ -788,29 +782,8 @@ public sealed class ItemService : IItemService
         // （両方に出るのは二重に見えるが、消えてしまうよりはるかによい）
         _store.Items.Delete(fromId);
 
-        // 外した記録は移した先のIDへ読み替える。読み替えないと、
-        // 「この商品のものではない」と言ったファイルが次の取り込みで戻ってくる
-        var detached = _store.Detached.Load();
-        var moved = false;
-        for (var index = 0; index < detached.Count; index++)
-        {
-            if (detached[index].ItemId == fromId)
-            {
-                detached[index] = new DetachedFile
-                {
-                    Hash = detached[index].Hash,
-                    ItemId = toId,
-                    Paths = detached[index].Paths,
-                    DetachedAt = detached[index].DetachedAt,
-                };
-                moved = true;
-            }
-        }
-
-        if (moved)
-        {
-            await _store.Detached.SaveAsync(detached, cancellationToken);
-        }
+        // 外した印はファイルの行と一緒に移した先へ移っている（ItemIdChange.Merge）。
+        // 以前は別の detached.json をここで読み替えていた
 
         await MoveModificationsAsync(fromId, toId, cancellationToken);
 
@@ -1122,17 +1095,6 @@ public sealed class ItemService : IItemService
     }
 
     /// <summary>
-    /// ファイルをこの商品から外し、未確定へ戻す。
-    ///
-    /// **IDは書き換えない。**商品IDはファイル名にもフォルダ名にもなっていて、
-    /// 他の商品からも名前で参照されているので、書き換えると参照が全部迷子になる。
-    /// やりたいことは「このファイルの行き先が違う」なので、ファイルの側を動かす。
-    ///
-    /// 外した記録（<c>detached.json</c>）を残すのは、手掛かりから商品IDが決まる
-    /// ファイルだと**次の取り込みで同じ商品へ戻ってしまう**ため。
-    /// 外す操作が要るのはまさに手掛かりが間違っている場合なので、記録が無いと直せない。
-    /// </summary>
-    /// <summary>
     /// ファイルがどの種類のものかを付け直す（#40）。
     ///
     /// **読み直した一覧の種類だけを書き換える。**LocalFiles は取り込みも書くので、
@@ -1178,6 +1140,18 @@ public sealed class ItemService : IItemService
             cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// ファイルをこの商品から外し、未確定へ戻す。
+    ///
+    /// **IDは書き換えない。**商品IDはファイル名にもフォルダ名にもなっていて、
+    /// 他の商品からも名前で参照されているので、書き換えると参照が全部迷子になる。
+    /// やりたいことは「このファイルの行き先が違う」なので、ファイルの側を動かす。
+    ///
+    /// **行は消さずに外した印（<see cref="LocalFileRecord.Detached"/>）を付ける**（ユーザ判断 2026-09-12）。
+    /// 手掛かりでこの商品に紐付いていたこと自体は確かなので、消すと何を外したのかが見えなくなる。
+    /// 印は、手掛かりから商品IDが決まるファイルが**次の取り込みで同じ商品へ戻ってしまう**のも止める
+    /// （外す操作が要るのはまさに手掛かりが間違っている場合）。以前は別の detached.json に持っていた。
+    /// </summary>
     public async Task<DetachOutcome> DetachFileAsync(
         string itemId,
         string hash,
@@ -1190,28 +1164,16 @@ public sealed class ItemService : IItemService
             return DetachOutcome.Missing;
         }
 
-        var target = item.Local.LocalFiles.FirstOrDefault(
-            file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+        var target = item.Local.LocalFiles.FirstOrDefault(file =>
+            !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
         if (target is null)
         {
             return DetachOutcome.Missing;
         }
 
-        var remaining = item.Local.LocalFiles.Where(file => file != target).ToList();
-
-        var detached = _store.Detached.Load();
-        if (!detached.Any(entry =>
-                string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase) && entry.ItemId == itemId))
-        {
-            detached.Add(new DetachedFile
-            {
-                Hash = target.Hash,
-                ItemId = itemId,
-                Paths = target.Paths,
-                DetachedAt = DateTimeOffset.Now,
-            });
-            await _store.Detached.SaveAsync(detached, cancellationToken);
-        }
+        var files = item.Local.LocalFiles
+            .Select(file => ReferenceEquals(file, target) ? file with { Detached = true } : file)
+            .ToList();
 
         // 実体が残っているものだけ未確定へ戻す。
         // 既に消えているファイルを並べても、紐付け直す相手がいない
@@ -1244,9 +1206,10 @@ public sealed class ItemService : IItemService
             }
         }
 
-        // 手元に何も無くなったか。フォルダ登録も所持のうちなので一緒に見る
-        var becameEmpty = remaining.Count == 0 && item.Local.LocalFolders.Count == 0;
+        // 手元に何も無くなったか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る
+        var becameEmpty = !files.Any(file => !file.Detached) && item.Local.LocalFolders.Count == 0;
 
+        // 商品ごと消すと、外した印も一緒に消える（次の取り込みで手掛かりが指せば、また作られる）
         if (becameEmpty && deleteItemWhenEmpty)
         {
             _store.Items.Delete(itemId);
@@ -1255,11 +1218,55 @@ public sealed class ItemService : IItemService
 
         await _store.Items.SaveLocalAsync(
             itemId,
-            item.Local with { LocalFiles = remaining },
+            item.Local with { LocalFiles = files },
             LocalOwners.Import,
             cancellationToken: cancellationToken);
 
         return becameEmpty ? DetachOutcome.ItemNowEmpty : DetachOutcome.Detached;
+    }
+
+    /// <summary>
+    /// 外したファイルをこの商品に戻す（商品ページの灰色の行の「この商品に戻す」・ユーザ判断 2026-09-12）。
+    /// 未確定からは取り除く。**外した後で別の商品へ紐付け直していたら戻さない**——同じファイルが
+    /// 2つの商品の持ち物になり、容量も二重に数える。
+    /// </summary>
+    public async Task<ReattachOutcome> ReattachFileAsync(
+        string itemId,
+        string hash,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        var target = item?.Local.LocalFiles.FirstOrDefault(file =>
+            file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+        if (item is null || target is null)
+        {
+            return ReattachOutcome.Missing;
+        }
+
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        if (loaded.Items.Any(other => other.Id != itemId
+                && other.Local.OwnedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))))
+        {
+            return ReattachOutcome.OwnedElsewhere;
+        }
+
+        var files = item.Local.LocalFiles
+            .Select(file => ReferenceEquals(file, target) ? file with { Detached = false } : file)
+            .ToList();
+
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with { LocalFiles = files },
+            LocalOwners.Import,
+            cancellationToken: cancellationToken);
+
+        var unresolved = _store.Unresolved.Load();
+        if (unresolved.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0)
+        {
+            await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+        }
+
+        return ReattachOutcome.Reattached;
     }
 
     /// <summary>ファイルを管理対象から外す。未確定一覧からも取り除く。</summary>
@@ -1325,6 +1332,18 @@ public enum RefreshOutcome
     NotFound,
     Delisted,
     TemporaryFailure,
+    Missing,
+}
+
+/// <summary>外したファイルを商品に戻した結果。</summary>
+public enum ReattachOutcome
+{
+    Reattached,
+
+    /// <summary>外した後で別の商品へ紐付けてあった。戻していない。</summary>
+    OwnedElsewhere,
+
+    /// <summary>商品か、外したファイルが見つからなかった。</summary>
     Missing,
 }
 

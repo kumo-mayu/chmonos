@@ -820,7 +820,7 @@ public sealed class SearchViewModel : ViewModelBase
 
     /// <summary>手元のファイルをエクスプローラで開く。最初の1件を的にする。</summary>
     private void Reveal(ItemCardViewModel? card)
-        => Shell.Reveal(card?.Item.Local.LocalFiles.SelectMany(file => file.Paths).FirstOrDefault());
+        => Shell.Reveal(card?.Item.Local.OwnedFiles.SelectMany(file => file.Paths).FirstOrDefault());
 
     /// <summary>
     /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。
@@ -1384,12 +1384,21 @@ public sealed class SearchViewModel : ViewModelBase
     public ItemRecord? FindItem(string itemId) => _allItems.FirstOrDefault(item => item.Id == itemId);
 
     /// <summary>
+    /// そのファイルを持っている（外していない）別の商品。商品ページの灰色の行で、
+    /// 「この商品に戻す」を押す前に戻せないことを見せるため。読んである写しから引くので、
+    /// 最後に読み直してからの紐付けは見えない（押したときに保存側で改めて確かめる）。
+    /// </summary>
+    public ItemRecord? FindFileOwner(string hash, string exceptItemId) => _allItems.FirstOrDefault(item =>
+        item.Id != exceptItemId
+        && item.Local.OwnedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
     /// 所持している商品のID（所持＝ファイルかフォルダを1つ以上持つ）。
     /// 商品ページの対応アバターの札を「所持」の色にするのに使う（U25）。
     /// 検索画面は起動時に全商品を読んでいるので、札のために200件以上を読み直さない
     /// </summary>
     public IReadOnlySet<string> OwnedItemIds() => _allItems
-        .Where(item => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
+        .Where(item => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0)
         .Select(item => item.Id)
         .ToHashSet(StringComparer.Ordinal);
 
@@ -2200,7 +2209,7 @@ public sealed class SearchViewModel : ViewModelBase
                 return false;
             }
 
-            if (_missingOnly && !item.Local.LocalFiles.Any(file => file.Paths.Count == 0))
+            if (_missingOnly && !item.Local.OwnedFiles.Any(file => file.Paths.Count == 0))
             {
                 return false;
             }
@@ -2324,7 +2333,7 @@ public sealed class SearchViewModel : ViewModelBase
 
         var forOwned = _allItems.Where(item => Matches(item, FilterAxis.Owned)).ToList();
         OwnedCount = forOwned.Count(item => item.IsDownloaded);
-        MissingCount = forOwned.Count(item => item.Local.LocalFiles.Any(file => file.Paths.Count == 0));
+        MissingCount = forOwned.Count(item => item.Local.OwnedFiles.Any(file => file.Paths.Count == 0));
         GivenCount = forOwned.Count(Core.Services.Purchases.WasGiven);
         ReceivedCount = forOwned.Count(Core.Services.Purchases.WasReceived);
 
@@ -2517,7 +2526,7 @@ public sealed class SearchViewModel : ViewModelBase
 
     private ItemCardViewModel ToCard(ItemRecord item)
     {
-        var missing = item.Local.LocalFiles.Any(file => file.Paths.Count == 0);
+        var missing = item.Local.OwnedFiles.Any(file => file.Paths.Count == 0);
 
         // 取り込みの③がまだの商品は「未編集」ではなく「取り込み中」と出す（U8・U10）
         var awaiting = _main?.IsAwaitingDetection(item.Id) == true;

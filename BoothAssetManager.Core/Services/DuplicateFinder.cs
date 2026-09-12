@@ -97,7 +97,7 @@ public static class DuplicateFinder
 
         foreach (var item in items)
         {
-            foreach (var file in item.Local.LocalFiles)
+            foreach (var file in item.Local.OwnedFiles)
             {
                 if (!byHash.TryGetValue(file.Hash, out var list))
                 {
@@ -146,13 +146,13 @@ public static class DuplicateFinder
     {
         foreach (var item in items)
         {
-            if (item.Local.LocalFolders.Count == 0 || item.Local.LocalFiles.Count == 0)
+            if (item.Local.LocalFolders.Count == 0 || item.Local.OwnedFiles.Count == 0)
             {
                 continue;
             }
 
             // この商品が持っているファイル名を、突き合わせの候補にする
-            var candidates = item.Local.LocalFiles
+            var candidates = item.Local.OwnedFiles
                 .SelectMany(file => file.Paths)
                 .Select(Path.GetFileName)
                 .OfType<string>()
@@ -166,7 +166,7 @@ public static class DuplicateFinder
                     continue;
                 }
 
-                var archivePath = item.Local.LocalFiles
+                var archivePath = item.Local.OwnedFiles
                     .SelectMany(file => file.Paths)
                     .FirstOrDefault(path =>
                         string.Equals(Path.GetFileName(path), archiveName, StringComparison.OrdinalIgnoreCase));

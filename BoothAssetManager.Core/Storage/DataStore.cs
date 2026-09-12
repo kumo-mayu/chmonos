@@ -62,7 +62,6 @@ public sealed class DataStore
         Settings = new JsonFileStore<AppSettings>(paths.SettingsFile);
         Unresolved = new JsonFileStore<List<UnresolvedFile>>(paths.UnresolvedFile);
         Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);
-        Detached = new JsonFileStore<List<DetachedFile>>(paths.DetachedFile);
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
         Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile);
@@ -88,9 +87,6 @@ public sealed class DataStore
     public JsonFileStore<List<UnresolvedFile>> Unresolved { get; }
 
     public JsonFileStore<List<ExcludedEntry>> Excluded { get; }
-
-    /// <summary>商品ページで外したファイル。取り込みが同じ商品へ戻さないように見る。</summary>
-    public JsonFileStore<List<DetachedFile>> Detached { get; }
 
     public JsonFileStore<List<NotificationRecord>> Notifications { get; }
 

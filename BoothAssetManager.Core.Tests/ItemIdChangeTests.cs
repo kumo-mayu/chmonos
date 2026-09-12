@@ -440,26 +440,19 @@ public class ItemIdChangeTests : IDisposable
     }
 
     /// <summary>
-    /// 外した記録は移した先のIDへ読み替える。読み替えないと、
+    /// 外した印は移した先へ一緒に移る。移らないと、
     /// 「この商品のものではない」と言ったファイルが次の取り込みで戻ってくる。
     /// </summary>
     [Fact]
-    public async Task RewritesTheDetachedRecords()
+    public async Task CarriesTheDetachedMarkToTheTarget()
     {
-        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
-        await _store.Detached.SaveAsync(
-        [
-            new DetachedFile
-            {
-                Hash = "bbb",
-                ItemId = LocalId,
-                Paths = [@"C:\dl\bbb.zip"],
-                DetachedAt = DateTimeOffset.Now,
-            },
-        ]);
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa"), File("bbb") with { Detached = true }] });
 
         await _service.ChangeItemIdAsync(LocalId, RealId);
 
-        Assert.Equal(RealId, Assert.Single(_store.Detached.Load()).ItemId);
+        var moved = await _store.Items.LoadAsync(RealId);
+        Assert.NotNull(moved);
+        Assert.True(moved!.Local.LocalFiles.Single(file => file.Hash == "bbb").Detached);
+        Assert.False(moved.Local.LocalFiles.Single(file => file.Hash == "aaa").Detached);
     }
 }

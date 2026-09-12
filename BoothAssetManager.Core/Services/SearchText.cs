@@ -49,7 +49,7 @@ public static class SearchText
         }
 
         var paths = new StringBuilder();
-        foreach (var file in item.Local.LocalFiles)
+        foreach (var file in item.Local.OwnedFiles)
         {
             foreach (var path in file.Paths)
             {

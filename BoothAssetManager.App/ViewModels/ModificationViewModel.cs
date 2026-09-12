@@ -509,7 +509,7 @@ public sealed class ModificationViewModel : ViewModelBase
     private static IReadOnlyList<UnityPackageEntry> PackagesFor(ItemRecord item, ModificationMember member)
     {
         if (member.FileHash is { } hash && member.Package is { } package
-            && item.Local.LocalFiles
+            && item.Local.OwnedFiles
                 .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
                 ?.Paths.FirstOrDefault(File.Exists) is { } zip)
         {

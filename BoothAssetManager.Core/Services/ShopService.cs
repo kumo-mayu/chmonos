@@ -554,7 +554,7 @@ public sealed class ShopService : IShopService
 
     /// <summary>所持＝ローカルにファイルかフォルダを持っている。全画面で同じ定義を使う。</summary>
     private static bool IsOwned(ItemRecord item)
-        => item.Local.LocalFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
+        => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0;
 
     /// <summary>
     /// 支出。貰い物は自分の支出ではないので除き、未入力は0として扱う。
@@ -565,7 +565,7 @@ public sealed class ShopService : IShopService
 
     /// <summary>同じ中身のファイルは1回だけ数える。複数箇所に置いていても容量は1つ分。</summary>
     private static long SizeOf(ItemRecord item)
-        => item.Local.LocalFiles
+        => item.Local.OwnedFiles
             .DistinctBy(file => file.Hash, StringComparer.OrdinalIgnoreCase)
             .Sum(file => file.SizeBytes)
             + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);

@@ -211,6 +211,9 @@ public abstract record UiCommand
     /// </param>
     public record DetachFile(string ItemId, string Hash, bool DeleteItemWhenEmpty = false) : UiCommand;
 
+    /// <summary>外したファイルをこの商品に戻す（灰色の行の「この商品に戻す」）。未確定からは取り除く。</summary>
+    public record ReattachFile(string ItemId, string Hash) : UiCommand;
+
     /// <summary>
     /// ファイルがどの種類（BOOTHのバリエーション）のものかを付け直す。値が null なら外す。
     /// 名指ししなかったファイルは今のまま。

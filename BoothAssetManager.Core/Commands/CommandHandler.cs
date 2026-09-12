@@ -466,6 +466,15 @@ public sealed class CommandHandler
                     : new CommandResult.FileDetached(detach.ItemId, detachOutcome);
             }
 
+            case UiCommand.ReattachFile reattach:
+                return await _items.ReattachFileAsync(reattach.ItemId, reattach.Hash, cancellationToken) switch
+                {
+                    Services.ReattachOutcome.Reattached => new CommandResult.ItemSaved(reattach.ItemId),
+                    Services.ReattachOutcome.OwnedElsewhere => new CommandResult.Failed(
+                        "このファイルは外した後で別の商品に紐付けてあるので、戻せません。先にそちらの商品から外してください。"),
+                    _ => new CommandResult.Failed("そのファイルはこの商品から外したものではありませんでした。"),
+                };
+
             case UiCommand.SetNotificationRead setRead:
                 if (_notifications is null)
                 {

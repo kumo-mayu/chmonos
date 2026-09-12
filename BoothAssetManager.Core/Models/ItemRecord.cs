@@ -63,13 +63,13 @@ public sealed record ItemRecord
 
     /// <summary>ファイルを1つ以上持っているか。全画面で「所持している」の定義に使う。</summary>
     [JsonIgnore]
-    public bool IsDownloaded => Local.LocalFiles.Count > 0;
+    public bool IsDownloaded => Local.OwnedFiles.Count > 0;
 
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>
     [JsonIgnore]
-    public long LogicalSizeBytes => Local.LocalFiles.Sum(file => file.SizeBytes);
+    public long LogicalSizeBytes => Local.OwnedFiles.Sum(file => file.SizeBytes);
 
     /// <summary>実占有量。重複コピーを含めて実際にドライブを食っている量（統計の表示用）。</summary>
     [JsonIgnore]
-    public long ActualDiskBytes => Local.LocalFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count));
+    public long ActualDiskBytes => Local.OwnedFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count));
 }

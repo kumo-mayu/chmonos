@@ -100,7 +100,15 @@ public sealed record LocalBlock
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<OrderedVariation>? LegacyOrderedVariations { get; init; }
 
+    /// <summary>紐付いたファイル。この商品から外したもの（<see cref="LocalFileRecord.Detached"/>）も印付きで残る。</summary>
     public IReadOnlyList<LocalFileRecord> LocalFiles { get; init; } = [];
+
+    /// <summary>
+    /// 手元に持っているファイル（外したものを除く）。所持・容量・検索・Unityへ送る対象はこちらで数える。
+    /// 計算で出せるので書き出さない。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<LocalFileRecord> OwnedFiles => LocalFiles.Where(file => !file.Detached).ToList();
 
     /// <summary>
     /// フォルダとして所有しているもの。zipが残っていない展開済みの配布物に使う。

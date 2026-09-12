@@ -7,6 +7,19 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <UserControl.Resources>
+        <!--
+            この商品から外したファイルは、行を消さずに薄くして残す（ユーザ判断 2026-09-12）。
+            薄くするのは名前と保存場所だけ。「この商品に戻す」まで薄いと押せないように見える
+        -->
+        <Style x:Key="DetachedDim" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
     <!--
         手元のファイル（フォルダ・ファイル・保存場所・Unityへ送れるもの）の欄。
         商品ページと編集画面で同じ部品を使う（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
@@ -85,8 +98,14 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Style="{StaticResource DetachedDim}">
                                                     <TextBlock Text="{Binding FileName}" FontSize="12.5" />
+                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            ToolTip="この商品から外したファイルです。所持や容量には数えず、取り込みでこの商品に戻ることもありません。"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="外したファイル" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                    </Border>
                                                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding HasVariationLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -116,15 +135,22 @@
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
-                                                            ToolTip="このファイルを未確定に戻します。ファイルは消しません。"
+                                                            ToolTip="このファイルを未確定に戻します。ファイルは消しません。この欄には灰色で残り、戻すこともできます。"
+                                                            Visibility="{Binding IsAttached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.DetachFileCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="この商品に戻す" Style="{StaticResource SmallButton}"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding ReattachTip}"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.ReattachFileCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                 </StackPanel>
                                               </Grid>
 
                                                 <!-- 保存場所ごとに開ける（削除も場所ごとに選べるようにする予定） -->
-                                                <ItemsControl ItemsSource="{Binding Paths}" Margin="10,7,0,0">
+                                                <ItemsControl ItemsSource="{Binding Paths}" Margin="10,7,0,0" Style="{StaticResource DetachedDim}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">

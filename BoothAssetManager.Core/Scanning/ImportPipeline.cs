@@ -198,7 +198,6 @@ public sealed class ImportPipeline : IImportPipeline
 
         var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
-        var detached = DetachedIndex.From(_store.Detached.Load());
 
         var totals = new ImportTotals();
 
@@ -225,7 +224,8 @@ public sealed class ImportPipeline : IImportPipeline
             // 既に商品へ紐付けたフォルダの中は見に行かない。
             // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
             // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
-            var (registered, owned) = await LoadOwnedAsync(cancellationToken);
+            // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
+            var (registered, owned, detached) = await LoadOwnedAsync(cancellationToken);
 
             var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
             var resolution = await ResolveAsync(
@@ -372,7 +372,7 @@ public sealed class ImportPipeline : IImportPipeline
     /// ついでに登録済みフォルダの中身を数え直して保存する
     /// （数えるのは列挙だけでハッシュは計算しないので速い）。
     /// </summary>
-    private async Task<(RegisteredFolderSet Registered, IReadOnlySet<string> OwnedHashes)> LoadOwnedAsync(
+    private async Task<(RegisteredFolderSet Registered, IReadOnlySet<string> OwnedHashes, DetachedIndex Detached)> LoadOwnedAsync(
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -381,7 +381,7 @@ public sealed class ImportPipeline : IImportPipeline
         var notificationCountBefore = notifications.Count;
 
         var owned = loaded.Items
-            .SelectMany(item => item.Local.LocalFiles)
+            .SelectMany(item => item.Local.OwnedFiles)
             .Select(file => file.Hash)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -439,7 +439,7 @@ public sealed class ImportPipeline : IImportPipeline
             await _store.Notifications.SaveAsync(notifications, cancellationToken);
         }
 
-        return (new RegisteredFolderSet(paths), owned);
+        return (new RegisteredFolderSet(paths), owned, DetachedIndex.From(loaded.Items));
     }
 
     /// <summary>

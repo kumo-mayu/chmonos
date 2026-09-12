@@ -79,7 +79,7 @@ public static class StatsExtras
     private static int SpentOf(ItemRecord item) => Purchases.SelfSpendOf(item);
 
     private static long PhysicalSizeOf(ItemRecord item)
-        => item.Local.LocalFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
+        => item.Local.OwnedFiles.Sum(file => file.SizeBytes * Math.Max(1, file.Paths.Count))
             + item.Local.LocalFolders.Sum(folder => folder.TotalBytes);
 
     /// <summary>

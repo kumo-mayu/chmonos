@@ -97,7 +97,7 @@ public static class UnityImportQueue
 
     /// <summary>この商品の zip に入っている、Unity へ送れるもの（zip に入っている順）。</summary>
     public static IReadOnlyList<UnityPackageEntry> PackagesOf(ItemRecord item)
-        => item.Local.LocalFiles
+        => item.Local.OwnedFiles
             .Select(file => file.Paths.FirstOrDefault(File.Exists))
             .Where(path => path is not null && path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             .SelectMany(path => UnityHandoff.FindPackages(path!))

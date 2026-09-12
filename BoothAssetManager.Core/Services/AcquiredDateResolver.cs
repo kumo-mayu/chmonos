@@ -29,7 +29,7 @@ public static class AcquiredDateResolver
 
         DateTime? earliest = null;
 
-        foreach (var path in item.Local.LocalFiles.SelectMany(file => file.Paths))
+        foreach (var path in item.Local.OwnedFiles.SelectMany(file => file.Paths))
         {
             try
             {

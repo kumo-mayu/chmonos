@@ -196,6 +196,18 @@ public sealed class LocalFileRow
 
     public bool IsMissing => Paths.Count == 0;
 
+    /// <summary>この商品から外したファイル（ユーザ判断 2026-09-12：消さずに灰色で残す）。</summary>
+    public bool IsDetached { get; init; }
+
+    /// <summary>「この商品から外す」を出すか（外していない行だけ）。</summary>
+    public bool IsAttached => !IsDetached;
+
+    /// <summary>「この商品に戻す」を押せるか。外した後で別の商品へ紐付けてあれば押せない。</summary>
+    public bool CanReattach { get; init; }
+
+    /// <summary>「この商品に戻す」の説明。押せないときはその理由。</summary>
+    public string ReattachTip { get; init; } = string.Empty;
+
     /// <summary>
     /// このzipに入っている、Unityへ送れるもの。
     /// zipを開いて数えるので、商品ページを組むときに1回だけ読む。
@@ -291,7 +303,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             parameter => parameter is string && !IsEditLocked);
         DetachFileCommand = new RelayCommand(
             parameter => _ = DetachFileAsync(parameter as LocalFileRow),
-            parameter => parameter is LocalFileRow && !IsEditLocked);
+            parameter => parameter is LocalFileRow { IsDetached: false } && !IsEditLocked);
+        ReattachFileCommand = new RelayCommand(
+            parameter => _ = ReattachFileAsync(parameter as LocalFileRow),
+            parameter => parameter is LocalFileRow { CanReattach: true } && !IsEditLocked);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
         AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string), _ => !IsEditLocked);
@@ -688,6 +703,33 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public RelayCommand DetachFileCommand { get; }
 
+    /// <summary>灰色の行（外したファイル）をこの商品に戻す（ユーザ判断 2026-09-12）。</summary>
+    public RelayCommand ReattachFileCommand { get; }
+
+    private async Task ReattachFileAsync(LocalFileRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.ReattachFile(Item.Id, row.Hash));
+        if (result is CommandResult.Failed failed)
+        {
+            RefreshStatus = failed.Message;
+            return;
+        }
+
+        // 未確定が1件減るので、ナビの件数を数え直す
+        _main.RefreshBadges();
+
+        var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
+        if (reloaded is not null)
+        {
+            ReplaceSelf(reloaded);
+        }
+    }
+
     /// <summary>
     /// ファイルをこの商品から外して未確定へ戻す。間違って紐付いたものを直す唯一の道。
     ///
@@ -743,7 +785,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var answer = System.Windows.MessageBox.Show(
             $"{row.FileName} をこの商品から外します。\n\n"
             + "ファイルは消しません。未確定に戻るので、そこで正しい商品を選び直せます。\n"
-            + "次の取り込みでこの商品に戻ることもありません。",
+            + "次の取り込みでこの商品に戻ることもありません。\n"
+            + "この欄には灰色で残り、「この商品に戻す」で戻せます。",
             "この商品から外す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -757,7 +800,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 手元に何も無くなるときだけ、商品を残すか聞く。
         // まだ他が残っていれば所持のままなので、聞くことが無い
         var deleteWhenEmpty = false;
-        if (LocalFiles.Count == 1 && LocalFolders.Count == 0)
+        if (LocalFiles.Count(file => !file.IsDetached) == 1 && LocalFolders.Count == 0)
         {
             var keep = System.Windows.MessageBox.Show(
                 "これが最後のファイルなので、この商品は手元に何も無い状態になります。\n\n"
@@ -1002,7 +1045,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     public bool HasLocalFolders => LocalFolders.Count > 0;
 
     public string FileSummary => Item.IsDownloaded
-        ? $"{Item.Local.LocalFiles.Count} 件 / {Core.Models.DisplayText.Size(Item.LogicalSizeBytes)}"
+        ? $"{Item.Local.OwnedFiles.Count} 件 / {Core.Models.DisplayText.Size(Item.LogicalSizeBytes)}"
         : "ファイルなし";
 
     /// <summary>
@@ -1535,13 +1578,19 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     private void BuildLocalFiles()
     {
-        foreach (var file in Item.Local.LocalFiles)
+        // 外したファイルは灰色で後ろに残す（ユーザ判断 2026-09-12）。持っているファイルを先に
+        foreach (var file in Item.Local.LocalFiles.OrderBy(file => file.Detached))
         {
             var variation = file.VariationId is null
                 ? null
                 : Item.Booth.Variations.FirstOrDefault(entry => entry.Id == file.VariationId)?.Name;
-            // 編集画面では「使う」操作を出さないので、zipを開いて数えることもしない（1件進むたびに開くことになる）
-            var packages = ShowsUseActions ? FindUnityPackages(file.Paths) : [];
+            // 編集画面では「使う」操作を出さないので、zipを開いて数えることもしない（1件進むたびに開くことになる）。
+            // 外したファイルも使う対象ではない
+            var usable = ShowsUseActions && !file.Detached;
+            var packages = usable ? FindUnityPackages(file.Paths) : [];
+
+            // 外した後で別の商品へ紐付けてあれば戻せない（同じファイルが2つの商品の持ち物になる）
+            var owner = file.Detached ? _main.Search.FindFileOwner(file.Hash, Item.Id) : null;
 
             LocalFiles.Add(new LocalFileRow
             {
@@ -1552,7 +1601,12 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 VariationLabel = variation,
                 VariationId = file.VariationId,
                 UnityPackages = packages,
-                CanUnpack = ShowsUseActions && file.Paths.Any(path =>
+                IsDetached = file.Detached,
+                CanReattach = file.Detached && owner is null,
+                ReattachTip = owner is null
+                    ? "このファイルをこの商品に戻します。未確定からは消えます。"
+                    : $"外した後で「{owner.DisplayName}」に紐付けてあるので、戻せません。先にそちらの商品から外してください。",
+                CanUnpack = usable && file.Paths.Any(path =>
                     path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path)),
                 UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
             });

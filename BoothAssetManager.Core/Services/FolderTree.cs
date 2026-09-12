@@ -96,7 +96,7 @@ public static class FolderTree
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var paths = item.Local.LocalFiles.SelectMany(file => file.Paths)
+        var paths = item.Local.OwnedFiles.SelectMany(file => file.Paths)
             .Concat(item.Local.LocalFolders.Select(folder => folder.Path));
 
         foreach (var path in paths)
@@ -190,7 +190,7 @@ public static class FolderTree
     {
         var target = Normalize(folder);
 
-        return item.Local.LocalFiles.SelectMany(file => file.Paths)
+        return item.Local.OwnedFiles.SelectMany(file => file.Paths)
             .Concat(item.Local.LocalFolders.Select(f => f.Path))
             .Any(path =>
             {
