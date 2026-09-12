@@ -161,7 +161,8 @@ public sealed class OrderedVariationInput : ViewModelBase
     /// 種類の行の右端に出すファイルの数（案A・ユーザ判断）。結び付けそのものは「ファイルの種類分け」だけで行い、
     /// 種類の行には数だけ出す（行に選び欄や札を並べると、印を付けるたびに形が変わって分かりにくかった）。
     /// </summary>
-    public string FileCountText => LinkedFiles.Count > 0 ? $"ファイル {LinkedFiles.Count}" : string.Empty;
+    /// 「ファイル n」では何の数か分からなかった（ユーザ指摘）ので、紐付けた数だと読める言い方にする。
+    public string FileCountText => LinkedFiles.Count > 0 ? $"{LinkedFiles.Count} ファイル紐付け済" : string.Empty;
 
     internal void NoteLinkedFilesChanged()
     {

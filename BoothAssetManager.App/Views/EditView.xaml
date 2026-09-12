@@ -722,19 +722,22 @@
                                                             <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
                                                             <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
                                                         </ComboBox>
-                                                        <Button Content="＋" Style="{StaticResource SmallButton}" Width="28" Padding="0" Margin="8,0,0,0"
+                                                        <!-- 「＋」だけではファイルの結び付けか追加購入か分からなかった（ユーザ指摘）。何が起きるかを名乗らせる -->
+                                                        <Button Content="＋ 追加購入" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 Command="{Binding AddPurchaseCommand}"
                                                                 ToolTip="この版をもう1回買った記録を足します（自分用に1つ、ギフトに1つなど）。" />
                                                     </StackPanel>
 
-                                                    <!-- 同じ版を2回買った記録。買った1回が1レコードなので、行を増やす形で足す -->
+                                                    <!--
+                                                        同じ版を2回買った記録。買った1回が1レコードなので、行を増やす形で足す。
+                                                        1件目の値段の段と同じ位置から始める。種類の行からは既に1段下がっているので、
+                                                        さらに下げなくても1件目と見分けられる（ユーザ指摘。以前は行頭に「＋」を置いてずらしていた）
+                                                    -->
                                                     <ItemsControl ItemsSource="{Binding Extras}" Margin="22,4,0,0"
                                                                   Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                                    <TextBlock Text="＋" Style="{StaticResource Caption}"
-                                                                               VerticalAlignment="Center" Margin="0,0,6,0" />
                                                                     <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
                                                                     <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
                                                                              Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
