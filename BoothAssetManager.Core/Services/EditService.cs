@@ -17,6 +17,8 @@ public interface IEditService
 
     Task<EditSession> NoteSavedAsync(string itemId, CancellationToken cancellationToken = default);
 
+    Task<EditSession> ReplaceItemIdAsync(string fromId, string toId, CancellationToken cancellationToken = default);
+
     Task ClearSessionAsync(CancellationToken cancellationToken = default);
 
     Task<UserTagMaster> AddUserTagAsync(string top, string? sub, CancellationToken cancellationToken = default);
@@ -89,6 +91,28 @@ public sealed class EditService : IEditService
         }
 
         var session = current with { SavedItemIds = [.. current.SavedItemIds, itemId] };
+        await _store.EditSession.SaveAsync(session, cancellationToken);
+        return session;
+    }
+
+    /// <summary>
+    /// 編集の最中に商品のIDを変えたとき、順番と保存した印の中のIDを付け替える。
+    /// 付け替えないと、続きから開いたときに元のIDは無いので飛ばされ、移した先の商品が順番から消える。
+    /// </summary>
+    public async Task<EditSession> ReplaceItemIdAsync(string fromId, string toId, CancellationToken cancellationToken = default)
+    {
+        var current = _store.EditSession.Load();
+        if (!current.ItemIds.Contains(fromId, StringComparer.Ordinal))
+        {
+            return current;
+        }
+
+        string Swap(string id) => string.Equals(id, fromId, StringComparison.Ordinal) ? toId : id;
+        var session = current with
+        {
+            ItemIds = [.. current.ItemIds.Select(Swap)],
+            SavedItemIds = [.. current.SavedItemIds.Select(Swap)],
+        };
         await _store.EditSession.SaveAsync(session, cancellationToken);
         return session;
     }

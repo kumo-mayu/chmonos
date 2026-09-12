@@ -233,16 +233,22 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     private readonly ThumbnailLoader _thumbnails;
     private int _selectedIndex;
 
+    /// <param name="forEditing">
+    /// 編集画面の中に入れる（今開いている商品の分）。「使う」操作（Unityへ送る・展開して開く・改変）は
+    /// 出さないので、そのためのzipの読み取りもしない。
+    /// </param>
     public ItemViewModel(
         ItemRecord item,
         AppServiceContainer services,
         MainViewModel main,
-        ThumbnailLoader thumbnails)
+        ThumbnailLoader thumbnails,
+        bool forEditing = false)
     {
         Item = item;
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
+        ShowsUseActions = !forEditing;
 
         // 戻るは画面の履歴を遡る（U23）。以前は開くときに戻り先を1つ受け取っていた
         BackCommand = new RelayCommand(main.GoBack);
@@ -326,6 +332,11 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         BuildVariations();
         BuildLocalFiles();
         BuildLocalFolders();
+
+        if (!ShowsUseActions)
+        {
+            return;
+        }
 
         // Unityのどこに入るかは中を最後まで読むので待たない。行を出してから埋まる
         _ = LoadUnityDestinationsAsync();
@@ -428,7 +439,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             {
                 if (updated is not null)
                 {
-                    _main.ReplaceItem(updated);
+                    ReplaceSelf(updated);
                 }
             });
         }
@@ -529,6 +540,39 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         OnPropertyChanged(nameof(IsEditLocked));
         OnPropertyChanged(nameof(EditButtonTip));
         RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 編集画面の中に入れたときの、開き直しの受け口（ユーザ判断：編集画面でも商品ページと同じ操作をする）。
+    /// 取り直し・ファイルやフォルダを外した・IDを変えた後、商品ページなら画面ごと開き直すが、
+    /// 編集画面では画面を移らずに編集の中で読み直す。null（商品ページ）なら今まで通り商品ページを開き直す。
+    /// 引数は開き直した商品。商品が消えたときは null。
+    /// </summary>
+    public Action<ItemRecord?>? Replaced { get; set; }
+
+    /// <summary>
+    /// 「使う」操作（Unityへ送る・展開して開く）を出すか。編集画面では出さない（ユーザ判断：
+    /// 編集画面はJSONに関わる操作と確かめたいものを見せる所。その商品に何をしたいかを網羅するのは商品ページ）。
+    /// </summary>
+    public bool ShowsUseActions { get; }
+
+    /// <summary>開き直す。編集画面に入っていれば持ち主に任せ、商品ページなら画面ごと作り直す。</summary>
+    private void ReplaceSelf(ItemRecord? updated)
+    {
+        if (Replaced is { } replaced)
+        {
+            replaced(updated);
+            return;
+        }
+
+        if (updated is not null)
+        {
+            _main.ReplaceItem(updated);
+        }
+        else
+        {
+            _main.ShowSearch();
+        }
     }
 
     public RelayCommand OpenInExplorerCommand { get; }
@@ -638,7 +682,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)
         {
-            _main.ReplaceItem(reloaded);
+            ReplaceSelf(reloaded);
         }
     }
 
@@ -685,15 +729,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 読み直さないと、ナビの件数と検索の一覧が消えたはずの商品を数え続ける
         await _main.ReloadLibraryAsync();
 
-        // 移した先の商品ページへ送る。元の商品はもう無いので、ここに残せない
-        if (await _services.Store.Items.LoadAsync(toId) is { } moved)
-        {
-            _main.ReplaceItem(moved);
-        }
-        else
-        {
-            _main.ShowSearch();
-        }
+        // 移した先の商品で開き直す。元の商品はもう無いので、ここに残せない
+        // （編集画面なら、編集の順番の中の商品を移した先に差し替える）
+        ReplaceSelf(await _services.Store.Items.LoadAsync(toId));
     }
     private async Task DetachFileAsync(LocalFileRow? row)
     {
@@ -738,9 +776,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
         if (result is CommandResult.FileDetached { Outcome: Core.Services.DetachOutcome.ItemDeleted })
         {
-            // 開いていた商品が消えたので、戻る先は検索。一覧からも消えている必要がある
+            // 開いていた商品が消えたので、戻る先は検索（編集画面なら次の商品へ）。一覧からも消えている必要がある
             await _main.ReloadLibraryAsync();
-            _main.ShowSearch();
+            ReplaceSelf(null);
             return;
         }
 
@@ -750,7 +788,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)
         {
-            _main.ReplaceItem(reloaded);
+            ReplaceSelf(reloaded);
         }
     }
 
@@ -1502,7 +1540,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             var variation = file.VariationId is null
                 ? null
                 : Item.Booth.Variations.FirstOrDefault(entry => entry.Id == file.VariationId)?.Name;
-            var packages = FindUnityPackages(file.Paths);
+            // 編集画面では「使う」操作を出さないので、zipを開いて数えることもしない（1件進むたびに開くことになる）
+            var packages = ShowsUseActions ? FindUnityPackages(file.Paths) : [];
 
             LocalFiles.Add(new LocalFileRow
             {
@@ -1513,7 +1552,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
                 VariationLabel = variation,
                 VariationId = file.VariationId,
                 UnityPackages = packages,
-                CanUnpack = file.Paths.Any(path =>
+                CanUnpack = ShowsUseActions && file.Paths.Any(path =>
                     path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path)),
                 UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
             });

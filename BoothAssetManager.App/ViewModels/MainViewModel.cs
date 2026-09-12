@@ -36,10 +36,7 @@ public sealed class MainViewModel : ViewModelBase
         services.Images.ItemImagesSaved += itemId => RunOnUiThread(() =>
         {
             Search.NoteItemImagesSaved(itemId);
-            if (CurrentViewModel is ItemViewModel item)
-            {
-                item.NoteImagesSaved(itemId);
-            }
+            CurrentItemPage?.NoteImagesSaved(itemId);
         });
 
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
@@ -459,6 +456,13 @@ public sealed class MainViewModel : ViewModelBase
     /// アプリの外で変わったものを読み直す口。いまはUnityが開いているかだけ。
     /// 常時見張るのは無駄なので、人が戻ってきた瞬間に合わせる。
     /// </summary>
+    /// <summary>
+    /// いま開いている商品の操作の持ち主。商品ページならその画面、編集画面なら今の商品の分
+    /// （ユーザ判断：画像の追加などの編集は両方で同等にする。落とす・貼る・画像が届いた知らせもこれに向ける）。
+    /// </summary>
+    public ItemViewModel? CurrentItemPage
+        => CurrentViewModel as ItemViewModel ?? (CurrentViewModel as EditViewModel)?.ItemPage;
+
     public void NoteWindowActivated() => (CurrentViewModel as ItemViewModel)?.NoteUnityChanged();
 
     public object? CurrentViewModel
@@ -804,12 +808,9 @@ public sealed class MainViewModel : ViewModelBase
                 ShowSearch();
                 return true;
             case ShortcutAction.Back:
-                // 編集画面では前の1件へ（割り当ての説明どおり）。それ以外はどの画面でも直前の画面へ（U23）
-                if (CurrentViewModel is EditViewModel editing)
-                {
-                    return Run(editing.BackCommand);
-                }
-
+                // どの画面でも直前の画面へ（U23）。編集画面も同じ（ユーザ判断 2026-09-12）——
+                // 以前は編集画面だけ「前の1件へ」にしていたが、入力欄にいると効かず、他の画面と食い違っていた。
+                // 前の1件へは「← 前へ」ボタンで行く。離れるときに書きかけは控えるので、戻っても入力は消えない
                 if (!CanGoBack)
                 {
                     return false;
@@ -876,7 +877,8 @@ public sealed class MainViewModel : ViewModelBase
         //
         // 商品ページを開いているときだけ規則が変わる。**足す先が決まっているから**——
         // 決まっていない場所で「この商品の画像に足しますか」と聞いても答えられない
-        var decision = CurrentViewModel is ItemViewModel
+        // 編集画面も同じ（ユーザ判断：画像の追加などは商品ページと同等。落とす・貼るも含む）
+        var decision = CurrentItemPage is not null
             ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists)
             : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
 
@@ -929,7 +931,7 @@ public sealed class MainViewModel : ViewModelBase
         bool hasBitmap,
         string? imageUrl = null)
     {
-        if (CurrentViewModel is not ItemViewModel item)
+        if (CurrentItemPage is not { } item)
         {
             return;
         }
@@ -983,7 +985,7 @@ public sealed class MainViewModel : ViewModelBase
         bool hasBitmap,
         string? imageUrl = null)
     {
-        if (CurrentViewModel is not ItemViewModel item)
+        if (CurrentItemPage is not { } item)
         {
             return;
         }
@@ -1270,10 +1272,7 @@ public sealed class MainViewModel : ViewModelBase
     private void OnEditGateChanged()
     {
         RelayCommand.RaiseCanExecuteChanged();
-        if (CurrentViewModel is ItemViewModel item)
-        {
-            item.RefreshEditLock();
-        }
+        CurrentItemPage?.RefreshEditLock();
 
         RefreshCounts();
     }

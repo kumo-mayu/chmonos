@@ -363,7 +363,7 @@ public sealed record ShortcutSettings
     /// <summary>検索画面を出して検索欄へ。</summary>
     public string FocusSearch { get; init; } = "Ctrl+F";
 
-    /// <summary>その画面の「戻る」（編集画面では「前へ」）。</summary>
+    /// <summary>直前の画面へ戻る（どの画面でも。編集画面の「前の1件へ」は「← 前へ」ボタン）。</summary>
     public string Back { get; init; } = "Alt+Left";
 }
 

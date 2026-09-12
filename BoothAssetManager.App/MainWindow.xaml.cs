@@ -261,7 +261,7 @@ public partial class MainWindow : Window
         {
             ItemViewModel item => (item.PreviousImageCommand, item.NextImageCommand),
             // 編集画面でも同じ動き（ユーザ指示）。入力欄が多い画面なので、下の「入力欄では効かせない」がそのまま効く
-            EditViewModel edit => (edit.PreviousImageCommand, edit.NextImageCommand),
+            EditViewModel { ItemPage: { } page } => (page.PreviousImageCommand, page.NextImageCommand),
             _ => ((RelayCommand?)null, (RelayCommand?)null),
         };
 
@@ -320,7 +320,12 @@ public partial class MainWindow : Window
             }
 
             var typing = (modifiers & (System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Alt)) == 0;
-            if (inText && (typing || Services.Shortcuts.IsTextEditingKey(key)))
+
+            // 文字の欄が使う矢印は素の矢印と Ctrl＋矢印（1語ずつ）だけ。Alt＋矢印は使わないので、
+            // 欄の中でも効かせる（Alt＋← で戻れないと、入力欄の多い編集画面では戻る手段が無かった）
+            var altOnly = (modifiers & System.Windows.Input.ModifierKeys.Alt) != 0
+                && (modifiers & System.Windows.Input.ModifierKeys.Control) == 0;
+            if (inText && (typing || (Services.Shortcuts.IsTextEditingKey(key) && !altOnly)))
             {
                 return false;
             }

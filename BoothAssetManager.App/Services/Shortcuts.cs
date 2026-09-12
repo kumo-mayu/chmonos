@@ -25,7 +25,7 @@ public static class Shortcuts
         ShortcutAction.SaveAndNext => "保存して次へ（編集）",
         ShortcutAction.Skip => "スキップ（編集）",
         ShortcutAction.FocusSearch => "検索欄へ",
-        ShortcutAction.Back => "戻る（編集では前へ）",
+        ShortcutAction.Back => "直前の画面へ戻る",
         _ => action.ToString(),
     };
 

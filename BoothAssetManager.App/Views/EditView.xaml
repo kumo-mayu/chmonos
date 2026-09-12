@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:models="clr-namespace:BoothAssetManager.Core.Models;assembly=BoothAssetManager.Core"
              xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
+             xmlns:views="clr-namespace:BoothAssetManager.App.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -162,6 +163,15 @@
                 </DockPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!--
+                        取り直す（ユーザ指示 2026-09-12。商品ページと同じ位置・同じ動き）。
+                        取り直した後は編集の中で読み直す。右の打ちかけの入力は書きかけとして控えて重ね直すので消えない
+                    -->
+                    <TextBlock Text="{Binding ItemPage.RefreshStatus, FallbackValue=''}" Style="{StaticResource Caption}"
+                               VerticalAlignment="Center" Margin="0,0,10,0" MaxWidth="320" TextTrimming="CharacterEllipsis" />
+                    <Button Content="{Binding ItemPage.RefreshButtonText}" Command="{Binding ItemPage.RefreshCommand}" Margin="0,0,8,0"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding ItemPage.RefreshButtonTip}"
+                            Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
@@ -204,131 +214,12 @@
             <!-- 左：何を編集しているかが分かるだけの控えめな表示 -->
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="20">
                 <StackPanel>
-                    <Border Style="{StaticResource Card}" ClipToBounds="True">
-                        <StackPanel>
-                            <Grid Height="300" Background="#e9edf4">
-                                <!--
-                                    絵を送る矢印（ユーザ指示。商品ページと同じ動き）。普段は透明で、帯に乗ったときだけ出る。
-                                    帯そのものがボタンで、見えている面がそのまま押せる。最後の次は最初へ回る。左右キーでも送れる。
-                                    テンプレートごと置き換えるのは、暗黙の Button スタイルの水色のホバーが上書きできないため
-                                -->
-                                <Grid.Resources>
-                                    <Style x:Key="GalleryArrow" TargetType="Button">
-                                        <Setter Property="Width" Value="90" />
-                                        <Setter Property="FontSize" Value="26" />
-                                        <Setter Property="Foreground" Value="White" />
-                                        <Setter Property="VerticalAlignment" Value="Stretch" />
-                                        <Setter Property="Cursor" Value="Hand" />
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border x:Name="Face" Background="Transparent">
-                                                        <TextBlock x:Name="Glyph" Text="{TemplateBinding Content}"
-                                                                   Foreground="{TemplateBinding Foreground}"
-                                                                   FontSize="{TemplateBinding FontSize}"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0">
-                                                            <TextBlock.Effect>
-                                                                <DropShadowEffect Color="Black" BlurRadius="6" ShadowDepth="0" Opacity="0.7" />
-                                                            </TextBlock.Effect>
-                                                        </TextBlock>
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="Face" Property="Background" Value="#2b000000" />
-                                                            <Setter TargetName="Glyph" Property="Opacity" Value="1" />
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                        <!-- 1枚しか無ければ送る先が無いので出さない -->
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Images.Count}" Value="0">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Images.Count}" Value="1">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Resources>
-
-                                <Image Source="{Binding MainImage}" Stretch="Uniform" />
-
-                                <Border Background="#99000000" CornerRadius="9" Padding="8,2"
-                                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
-                                    <TextBlock Text="{Binding GalleryCounter}" Foreground="White" FontSize="11" />
-                                </Border>
-
-                                <Button Content="‹" Command="{Binding PreviousImageCommand}" Style="{StaticResource GalleryArrow}"
-                                        HorizontalAlignment="Left" ToolTip="前の画像（←）" />
-                                <Button Content="›" Command="{Binding NextImageCommand}" Style="{StaticResource GalleryArrow}"
-                                        HorizontalAlignment="Right" ToolTip="次の画像（→）" />
-                            </Grid>
-                            <ItemsControl ItemsSource="{Binding Images}" Margin="10">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <!--
-                                            商品ページの一覧と同じ大きさ・札・動きにそろえる（ユーザ指示）。
-                                            以前は58×46の枠に既定のボタンの余白が重なり、横長の絵が細く潰れて見えた。
-                                            乗せて少し止めると切り替わり（設定 GallerySwitchOnHover / GalleryHoverDelayMs）、
-                                            押せば待たずに切り替わる
-                                        -->
-                                        <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
-                                                Background="#eef0f2" Cursor="Hand"
-                                                MouseEnter="OnThumbnailMouseEnter"
-                                                MouseLeave="OnThumbnailMouseLeave"
-                                                Command="{Binding DataContext.SelectImageCommand,
-                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Border}" />
-                                                    <Setter Property="Opacity" Value="0.72" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                            <Setter Property="Opacity" Value="1" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                            <Grid>
-                                                <Image Source="{Binding Image}" Stretch="Uniform" />
-
-                                                <!-- BOOTH側から消えた画像は控えめに示す -->
-                                                <Border Background="#66000000"
-                                                        Visibility="{Binding IsOrphaned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="削除済" Foreground="White" FontSize="9"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
-                                                </Border>
-
-                                                <!-- 自分で足した分（左下）・改変例（右下）・サムネイルに指名した1枚（右上）。商品ページと同じ位置 -->
-                                                <Border Background="{StaticResource Good}" CornerRadius="0,4,0,0"
-                                                        Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                                                        Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="自分" Foreground="White" FontSize="8.5" />
-                                                </Border>
-                                                <Border Background="{StaticResource Accent}" CornerRadius="4,0,0,0"
-                                                        Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                        Visibility="{Binding HasRoleLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="{Binding RoleLabel}" Foreground="White" FontSize="8.5" />
-                                                </Border>
-                                                <Border Background="{StaticResource Accent}" CornerRadius="0,0,0,4"
-                                                        Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                        Visibility="{Binding IsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="★" Foreground="White" FontSize="9" />
-                                                </Border>
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                    <!--
+                        画像の欄は商品ページと同じ部品（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
+                        足す（ファイル・落とす・貼る）・消す・並べ替え・サムネイルの指名・役割・足りない画像の取得がそのまま使える。
+                        書き込みはその場で保存する（右の入力の「保存して次へ」を待たない。商品ページと同じ）
+                    -->
+                    <views:ItemGalleryPanel DataContext="{Binding ItemPage}" />
 
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
@@ -339,8 +230,49 @@
                                         HorizontalAlignment="Right" Command="{Binding EditBasicsCommand}"
                                         ToolTip="商品名・ショップ・BOOTH分類名を直します。BOOTHから取れている商品は、普段は直す必要がありません。" />
                             </Grid>
-                            <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <!--
+                                お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。商品ページと同じ位置・同じ見た目）。
+                                押すとその場で保存する（右の入力の「保存して次へ」を待たない）
+                            -->
+                            <DockPanel Margin="0,6,0,0">
+                                <Border DockPanel.Dock="Left" DataContext="{Binding ItemPage}" VerticalAlignment="Top"
+                                        Margin="0,0,6,0" Padding="0,0,2,0"
+                                        Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                        AutomationProperties.Name="{Binding FavoriteTip}">
+                                    <Border.InputBindings>
+                                        <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleFavoriteCommand}" />
+                                    </Border.InputBindings>
+                                    <TextBlock Text="{Binding FavoriteGlyph}" FontSize="19">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                        <Setter Property="Foreground" Value="#d99a00" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" />
+                            </DockPanel>
                             <TextBlock Text="{Binding ShopName}" FontSize="13" Foreground="{StaticResource Accent}" Margin="0,6,0,0" />
+
+                            <!-- IDと「IDを変える」（ユーザ指示：商品ページの欄に倣う）。IDそのものを押すと写せる -->
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0" DataContext="{Binding ItemPage}">
+                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                               Foreground="{StaticResource TextMuted}"
+                                               ToolTip="{Binding IdCopyTip}">
+                                        <Run Text="{Binding IdText, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
+                                <Button Content="IDを変える" Style="{StaticResource SmallButton}"
+                                        Padding="7,1" FontSize="10.5" VerticalAlignment="Center"
+                                        Command="{Binding ChangeIdCommand}"
+                                        ToolTip="この商品の中身を、別のIDの商品へ移します。&#10;何が移って何が移らないかは、移す前に出します。" />
+                            </StackPanel>
 
                             <!--
                                 商品名・ショップ・BOOTH分類名。**普段は変える必要が無い**ので、
@@ -539,6 +471,14 @@
                             </ItemsControl>
                         </StackPanel>
                     </Border>
+
+                    <!--
+                        対応アバターと手元のファイルも商品ページと同じ部品（ユーザ判断 2026-09-12）。
+                        手元のファイルの欄は、外す・フォルダの登録を解除・エクスプローラで開くだけを出す
+                        （Unityへ送る・展開して開くは商品ページ。編集画面はJSONに関わる操作と確かめたいものを見せる所）
+                    -->
+                    <views:ItemAvatarsPanel DataContext="{Binding ItemPage}" />
+                    <views:ItemFilesPanel DataContext="{Binding ItemPage}" />
 
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
                         <StackPanel>

@@ -326,7 +326,6 @@ public sealed class EditViewModel : ViewModelBase
         _services = services;
         _main = main;
         _thumbnails = thumbnails;
-        SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
 
         SaveAndNextCommand = new RelayCommand(() => _ = SaveAndAdvanceAsync(), () => HasItem && !IsSaving);
         SkipCommand = new RelayCommand(() => _ = SkipAsync(), () => HasItem && !IsSaving);
@@ -394,8 +393,6 @@ public sealed class EditViewModel : ViewModelBase
 
     public ObservableCollection<OrderedVariationInput> Variations { get; } = [];
 
-    public ObservableCollection<GalleryImage> Images { get; } = [];
-
     /// <summary>userTagトップの候補。既に付けたものは出さない。</summary>
     public ObservableCollection<string> TagSuggestions { get; } = [];
 
@@ -429,66 +426,74 @@ public sealed class EditViewModel : ViewModelBase
     /// <summary>下見の分類。打った子の名前から、親は同梱の表で補う。</summary>
     public string CategoryText => _services.Categories.TextFor(CategoryInput, _item?.Booth.Category);
 
-    private int _selectedImageIndex;
+    private ItemViewModel? _itemPage;
 
     /// <summary>
-    /// 今メインに出している画像。属性を付けるには複数枚見たいので切り替えられる。
-    /// 一覧の方は小さく縮めたものなので、メインは保存された大きさで読み直す（キャッシュに乗る）。
+    /// 今の商品の、商品ページと同じ操作の持ち主（ユーザ判断 2026-09-12：JSONに関わる編集は商品ページと同等にする）。
+    /// 左の画像・対応アバター・手元のファイルの欄、名前の横の星・ID・「IDを変える」・「BOOTHから取り直す」はこれに繋ぐ。
+    ///
+    /// **書き込みはその場で保存する**（ユーザ判断：保存のタイミングは商品ページと同じ）。
+    /// 右の入力とは持つ項目が重ならない（右は <see cref="LocalOwners.EditScreen"/>）ので、
+    /// 「保存して次へ」がここで直したものを古い写しで戻すことは無い。
+    /// 商品が変わるたびに作り直し、終えたら null。
     /// </summary>
-    public BitmapSource? MainImage => Images.Count == 0
-        ? null
-        : _thumbnails.Load(Images[Math.Clamp(_selectedImageIndex, 0, Images.Count - 1)].Path);
-
-    public RelayCommand SelectImageCommand { get; }
-
-    private RelayCommand? _previousImageCommand;
-    private RelayCommand? _nextImageCommand;
-
-    /// <summary>前の画像へ（大きい絵の左の矢印・←キー）。商品ページと同じ動き（ユーザ指示）。</summary>
-    public RelayCommand PreviousImageCommand => _previousImageCommand ??= new RelayCommand(() => GoToImage(-1), () => Images.Count > 1);
-
-    /// <summary>次の画像へ（大きい絵の右の矢印・→キー）。</summary>
-    public RelayCommand NextImageCommand => _nextImageCommand ??= new RelayCommand(() => GoToImage(1), () => Images.Count > 1);
-
-    /// <summary>何枚目か。商品ページと同じく大きい絵の左上に出す。</summary>
-    public string GalleryCounter => Images.Count == 0
-        ? string.Empty
-        : $"{Math.Clamp(_selectedImageIndex, 0, Images.Count - 1) + 1} / {Images.Count}";
-
-    /// <summary>見る絵を送る。最後の次は最初へ、最初の前は最後へ回る（端で止めると「もう無い」のか「押せていない」のか分からない）。</summary>
-    private void GoToImage(int delta)
+    public ItemViewModel? ItemPage
     {
-        if (Images.Count <= 1)
-        {
-            return;
-        }
-
-        var index = ((_selectedImageIndex + delta) % Images.Count + Images.Count) % Images.Count;
-        SelectImage(Images[index]);
+        get => _itemPage;
+        private set => SetField(ref _itemPage, value);
     }
 
-    private void SelectImage(object? parameter)
+    /// <summary>
+    /// 左の欄が商品を開き直したとき（取り直した・ファイルやフォルダを外した・IDを変えた）。
+    /// 商品ページなら画面ごと作り直すが、ここでは編集の中で読み直す。
+    /// 右の打ちかけの入力は、書きかけとして控えてから読み直した記録に重ね直す（消さない）。
+    /// </summary>
+    private void OnItemPageReplaced(ItemRecord? updated)
     {
-        if (parameter is not GalleryImage image)
+        if (_item is null)
         {
             return;
         }
 
-        var index = Images.IndexOf(image);
-        if (index < 0)
+        var previousId = _item.Id;
+        CaptureDraft();
+
+        if (updated is null)
         {
-            return;
+            // 最後のファイルを外して商品ごと消えた。読み直すと、消えた商品を飛ばして次へ進む
+            _main.Drafts.Remove(previousId);
+        }
+        else if (!string.Equals(updated.Id, previousId, StringComparison.Ordinal))
+        {
+            // IDを変えた。順番の中の商品も、書きかけも保存した印も、移した先に付け替える
+            _queue[_index] = updated.Id;
+            if (_main.Drafts.Get(previousId) is { } draft)
+            {
+                _main.Drafts.Remove(previousId);
+                _main.Drafts.Put(updated.Id, draft);
+            }
+
+            if (_saved.Remove(previousId))
+            {
+                _saved.Add(updated.Id);
+            }
+
+            _ = ReplaceInSessionAsync(previousId, updated.Id);
         }
 
-        _selectedImageIndex = index;
+        _ = LoadCurrentAsync();
+    }
 
-        foreach (var entry in Images)
+    /// <summary>
+    /// 未編集の順番（ファイルに残す方）の中のIDを付け替える。指定して入った順番は
+    /// <see cref="_queue"/> そのものが履歴に預けた控えなので、上で付け替えた時点で済んでいる。
+    /// </summary>
+    private async Task ReplaceInSessionAsync(string fromId, string toId)
+    {
+        if (_run is null)
         {
-            entry.IsSelected = ReferenceEquals(entry, image);
+            await _services.Edit.ReplaceItemIdAsync(fromId, toId);
         }
-
-        OnPropertyChanged(nameof(MainImage));
-        OnPropertyChanged(nameof(GalleryCounter));
     }
 
     public string DescriptionPreview => _item?.Booth.Description ?? string.Empty;
@@ -935,21 +940,6 @@ public sealed class EditViewModel : ViewModelBase
         return null;
     }
 
-    /// <summary>画像の一覧に乗せるだけで切り替えるか。商品ページと同じ設定に従う。</summary>
-    public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
-
-    /// <summary>乗ってから切り替わるまでの間（ミリ秒）。通り過ぎただけでは切り替えない。</summary>
-    public int HoverDelayMs => Math.Max(0, _services.Settings.GalleryHoverDelayMs);
-
-    /// <summary>画像の一覧のホバーで大きい絵を切り替える（商品ページと同じ動き・ユーザ指示）。</summary>
-    public void HoverImage(GalleryImage image)
-    {
-        if (SwitchOnHover)
-        {
-            SelectImage(image);
-        }
-    }
-
     private RelayCommand? _jumpCommand;
 
     /// <summary>帯の絵を押すと、その商品へ飛ぶ。いま開いている商品の入力は保存しない（スキップと同じ）。</summary>
@@ -1094,6 +1084,10 @@ public sealed class EditViewModel : ViewModelBase
                 // BOOTHから名前が取れていない商品は、ここを埋めないと名前が無い。
                 // 閉じたままだと入れる場所が見えないので、その商品だけ開いて出す
                 IsEditingBasics = record.Booth.Name is not { Length: > 0 };
+                ItemPage = new ItemViewModel(record, _services, _main, _thumbnails, forEditing: true)
+                {
+                    Replaced = OnItemPageReplaced,
+                };
                 RaiseItemChanged();
                 return;
             }
@@ -1103,6 +1097,7 @@ public sealed class EditViewModel : ViewModelBase
 
         _item = null;
         _baseline = null;
+        ItemPage = null;
         RaiseItemChanged();
         StartReturnTimer();
     }
@@ -1155,7 +1150,6 @@ public sealed class EditViewModel : ViewModelBase
 
         BuildVariations(record);
         BuildFileLinks(record);
-        BuildImages(record);
         RefreshSuggestions();
     }
 
@@ -1826,30 +1820,6 @@ public sealed class EditViewModel : ViewModelBase
         row.NoteExtrasChanged();
     }
 
-    private void BuildImages(ItemRecord record)
-    {
-        Images.Clear();
-        _selectedImageIndex = 0;
-        var directory = _services.Paths.ItemImagesDir(record.Id);
-
-        foreach (var entry in Core.Images.ItemImageOrder.Arrange(
-            directory, record.Booth.Images, _thumbnails.ListFiles(directory), record.Local.UserImages))
-        {
-            var fileName = System.IO.Path.GetFileName(entry.Path);
-
-            Images.Add(new GalleryImage
-            {
-                Path = entry.Path,
-                FileName = fileName,
-                Image = _thumbnails.LoadForTile(entry.Path),
-                IsOrphaned = entry.IsOrphaned,
-                IsUserAdded = entry.IsUserAdded,
-                IsPinned = string.Equals(
-                    fileName, record.Local.ThumbnailImage, StringComparison.OrdinalIgnoreCase),
-            });
-        }
-    }
-
     /// <summary>
     /// 入力を <c>local</c> の形に組み直す。
     ///
@@ -2113,8 +2083,6 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(NamePlaceholder));
         OnPropertyChanged(nameof(ShopPlaceholder));
         OnPropertyChanged(nameof(CategoryPlaceholder));
-        OnPropertyChanged(nameof(MainImage));
-        OnPropertyChanged(nameof(GalleryCounter));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));
         RelayCommand.RaiseCanExecuteChanged();

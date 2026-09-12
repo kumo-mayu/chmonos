@@ -1,0 +1,167 @@
+<UserControl x:Class="BoothAssetManager.App.Views.ItemAvatarsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <!--
+        対応アバターの欄（出品者の宣言の札・共通素体・手で足す）。
+        商品ページと編集画面で同じ部品を使う（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
+        DataContext は ItemViewModel（編集画面では、今開いている商品の分）
+    -->
+                    <!--
+                        対応アバター。出品者の宣言（上）と、自分が着せている記録（下）を分ける。
+                        混ぜると「誰が言っていることなのか」が分からなくなる。
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="対応アバター" FontWeight="Bold" />
+                            <TextBlock Text="{Binding AvatarSectionNote}" Style="{StaticResource Caption}"
+                                       Margin="0,5,0,0" TextWrapping="Wrap" />
+
+                            <!-- 札が多い商品だけ、アバター名で絞る欄を出す（U26） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0"
+                                        Visibility="{Binding ShowsAvatarFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Grid Width="260">
+                                    <TextBox x:Name="AvatarFilterBox" Padding="6,3"
+                                             Text="{Binding AvatarFilter, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Text="{Binding AvatarFilterPlaceholder}" IsHitTestVisible="False"
+                                               Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextFaint}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=AvatarFilterBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                                <TextBlock Text="{Binding AvatarFilterResultText}" Style="{StaticResource Caption}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <ItemsControl ItemsSource="{Binding VisibleAvatars}" Margin="0,10,0,0"
+                                          Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:AvatarRow}">
+                                        <!--
+                                            ここは閲覧が目的なので、全部が一度に見えることを優先する。
+                                            出所を常時出すとチップが横に長くなり、1行に1〜2個しか入らなくなる。
+                                            名前だけにして、出所はホバーへ回す。
+                                        -->
+                                        <!--
+                                            押すとそのアバターを開く（U13）。持っていればその商品ページ、持っていなければ
+                                            アバター画面でそのアバターを選んだ状態。「×」はボタンなので、押しても開かない
+                                        -->
+                                        <!-- 持っているアバターは検索カードの「所持」と同じ緑（U25） -->
+                                        <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand">
+                                            <!-- ツールチップにアバターの絵を出す（R3）。名前だけでは見分けにくいアバターがある -->
+                                            <Border.ToolTip>
+                                                <StackPanel MaxWidth="260">
+                                                    <Image Source="{Binding Icon}" Width="160" Height="160" Stretch="Uniform" Margin="0,0,0,6"
+                                                           Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    <TextBlock Text="{Binding SourceTooltip}" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border.ToolTip>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{StaticResource AccentSoft}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBorder}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource GoodSoft}" />
+                                                            <Setter Property="BorderBrush" Value="{StaticResource GoodBorder}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
+                                            </Border.InputBindings>
+                                            <StackPanel Orientation="Horizontal">
+                                                <!--
+                                                    推定を確定と同じ顔で出さない、は守る。
+                                                    ただし語ではなく印にして、幅を取らない形にする
+                                                -->
+                                                <Ellipse Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                         Fill="{StaticResource Warn}"
+                                                         Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                                                <!--
+                                                    検出の適合率は実測で89%。1割は誤りが出るので消せる必要がある。
+                                                    乗せたときだけ出して、普段は宣言そのものを読ませる。
+                                                -->
+                                                <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                        Height="16" Background="Transparent" BorderThickness="0"
+                                                        Cursor="Hand" Foreground="{StaticResource TextMuted}"
+                                                        Command="{Binding RejectCommand}"
+                                                        ToolTip="この対応は違う、として消します。次の検出でも復活しません。">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                            <Setter Property="Visibility" Value="Hidden" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Value="True"
+                                                                             Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <ItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0"
+                                          Visibility="{Binding HasAvatarBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
+                                                <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
+                                                           VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- 出品者が書き漏らしている場合や、検出が拾えなかった場合の補い -->
+                            <controls:SuggestBox Source="{Binding SupportSuggestions}"
+                                                 CommitCommand="{Binding AddAvatarCommand}"
+                                                 IconSelector="{Binding AvatarIconSelector}"
+                                                 AllowNew="False" Margin="0,6,0,0"
+                                                 Placeholder="対応アバターを足す" />
+
+                            <!--
+                                「着せているアバター」の入力欄はここから消した。
+
+                                着せた記録は**改変（着せ替え1つ）を単位に**持つことにしたので、
+                                商品1件にアバターを直接ぶら下げる形は要らなくなった。
+                                同じことを2箇所に持つと必ずずれる。
+                                足す先は「この商品を使った改変」のカード（右の列）。
+                            -->
+                        </StackPanel>
+                    </Border>
+</UserControl>
