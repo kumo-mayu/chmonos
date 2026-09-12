@@ -119,6 +119,10 @@ public sealed class SearchViewModel : ViewModelBase
             }
         }
 
+        // 候補は足す・外すのたびに作り直しているが、それだけだと**積んだ条件が1つも無い起動では
+        // 一度も作られず**、「条件を追加」を触っても何も出なかった（1つ足すと出るようになっていた）
+        RefreshAvailableExtraFilters();
+
         _ = ReloadAsync();
     }
 
