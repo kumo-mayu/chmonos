@@ -29,9 +29,8 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- ボタンの段と帯の段の境目。帯が無ければ出さない -->
-                <Border Grid.Row="1" Grid.ColumnSpan="3" Height="1" VerticalAlignment="Top" Background="#f0f1f4"
-                        Visibility="{Binding ShowsQueueStrip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!-- ボタンの段と帯の段の境目。帯を消しても2段目には「1件目へ」などが残るので、常に出す -->
+                <Border Grid.Row="1" Height="1" VerticalAlignment="Top" Background="#f0f1f4" />
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="編集" FontWeight="Bold" VerticalAlignment="Center" />
@@ -51,9 +50,21 @@
                     帯の中で絵を拡大すると上のバーの高さで切れるので、大きな絵は帯の下へ浮かせて出す。
                     キーボードの操作を奪わないよう、絵はフォーカスを取らない
                 -->
-                <ItemsControl x:Name="QueueStrip" Grid.Row="1" ItemsSource="{Binding QueueTiles}"
+                <!--
+                    帯の段。左端に「1件目へ」「最初の未保存へ」（ユーザ指示でボタンの段から移した。
+                    どちらも帯の上を動く操作なので、帯の隣にある方が何が起きるか分かる）。
+                    どちらも今の入力は保存しない（スキップと同じ）。帯を設定で消してもボタンは残る
+                -->
+                <DockPanel Grid.Row="1" Margin="0,8,0,8">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                        <Button Content="1件目へ" Command="{Binding GoFirstCommand}"
+                                ToolTip="編集の1件目へ戻ります。いま開いている商品の入力は保存しません。" />
+                        <Button Content="最初の未保存へ" Command="{Binding GoFirstUnsavedCommand}" Margin="8,0,0,0"
+                                ToolTip="まだ保存していない商品のうち、いちばん前へ移ります。いま開いている商品の入力は保存しません。" />
+                    </StackPanel>
+                <ItemsControl x:Name="QueueStrip" ItemsSource="{Binding QueueTiles}"
                               AutomationProperties.Name="続く商品"
-                              Height="56" Margin="0,8,0,8" VerticalAlignment="Center" Focusable="False"
+                              Height="56" VerticalAlignment="Center" Focusable="False"
                               PreviewMouseWheel="QueueStrip_PreviewMouseWheel"
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                               VirtualizingPanel.ScrollUnit="Pixel"
@@ -132,16 +143,11 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                </DockPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,0,8,0"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
-                    <!-- 頭へ戻る・残した物を頭から片付ける（ユーザ指示）。どちらも今の入力は保存しない（スキップと同じ） -->
-                    <Button Content="1件目へ" Command="{Binding GoFirstCommand}" Margin="0,0,8,0"
-                            ToolTip="編集の1件目へ戻ります。いま開いている商品の入力は保存しません。" />
-                    <Button Content="最初の未保存へ" Command="{Binding GoFirstUnsavedCommand}" Margin="0,0,8,0"
-                            ToolTip="まだ保存していない商品のうち、いちばん前へ移ります。いま開いている商品の入力は保存しません。" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="4,0,12,0" />
                     <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
                     <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
@@ -793,6 +799,8 @@
                         -->
                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <!-- 下まで入力してから前の商品を見直すことがある（ユーザ指示）。並びは上のバーと同じ -->
+                                <Button Content="← 前へ" Command="{Binding BackCommand}" Margin="0,0,8,0" />
                                 <Button Content="スキップ" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
                                 <Button Content="保存して次へ" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding SaveAndNextCommand}" />

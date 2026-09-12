@@ -702,7 +702,7 @@ public sealed class EditViewModel : ViewModelBase
     // 「n / N 件」とバーだけでは何が続くのか分からないので、右の空きに続く商品を小さな絵で並べる。
     // 済んだ物は5件まで、これからの物は幅に収まるだけ。保存した物には印を付け、押すとその商品へ飛ぶ
 
-    /// <summary>帯に出す済んだ物の数（ユーザ指示）。これからの物は全部並べ、ホイールで横に送る。</summary>
+    /// <summary>開いたときに見せる済んだ物の数（ユーザ指示）。帯には全部並び、ホイールで遡れる。</summary>
     private const int PastTileCount = 5;
 
     /// <summary>この回で保存した商品。飛ばした物と見分けるため。</summary>
@@ -796,10 +796,12 @@ public sealed class EditViewModel : ViewModelBase
 
     private void RebuildQueueTiles()
     {
-        var tiles = new List<EditQueueTile>();
-        var from = Math.Max(0, _index - PastTileCount);
+        // 1件目から最後まで全部並べる（ユーザ判断）。以前は済んだ物を5件で切っていたので、
+        // 最後の方の件を開くと帯が数枚になり、送る分が無くてホイールが効かないように見えた。
+        // 開いたときに見せる所（済んだ5件＋今の商品が左端）は、画面の側が送って合わせる
+        var tiles = new List<EditQueueTile>(_queue.Count);
 
-        for (var index = from; index < _queue.Count; index++)
+        for (var index = 0; index < _queue.Count; index++)
         {
             var itemId = _queue[index];
 
@@ -819,7 +821,14 @@ public sealed class EditViewModel : ViewModelBase
 
         QueueTiles = tiles;
         OnPropertyChanged(nameof(QueueTiles));
+        OnPropertyChanged(nameof(QueueFirstVisibleIndex));
     }
+
+    /// <summary>
+    /// 開いたときに帯の左端へ来る絵の位置。済んだ物を5件見せ、その次が今の商品になる（ユーザ指示）。
+    /// 最後の方では帯の右端で止まるので、実際にはもっと前から見える。
+    /// </summary>
+    public int QueueFirstVisibleIndex => Math.Max(0, _index - PastTileCount);
 
     /// <summary>
     /// 帯の絵。検索のカードと同じ1枚（指名・役割の設定を見る）にそろえる。
