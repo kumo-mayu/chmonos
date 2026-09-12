@@ -16,6 +16,9 @@
             <Button Content="キャンセル" IsCancel="True" MinWidth="90" Click="OnCancel" />
             <Button x:Name="FirstButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnFirst" />
             <Button x:Name="SecondButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnSecond" />
+            <!-- 3つ目の選択肢。要るときだけ出す（外して空になった商品の「非表示・残す・完全に削除」） -->
+            <Button x:Name="ThirdButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnThird"
+                    Visibility="Collapsed" />
         </StackPanel>
     </StackPanel>
 </Window>

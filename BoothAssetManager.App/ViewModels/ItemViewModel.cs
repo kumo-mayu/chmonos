@@ -800,25 +800,32 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         // 手元に何も無くなるときだけ、商品を残すか聞く。
         // まだ他が残っていれば所持のままなので、聞くことが無い
         var deleteWhenEmpty = false;
+        var hideWhenEmpty = false;
         if (LocalFiles.Count(file => !file.IsDetached) == 1 && LocalFolders.Count == 0)
         {
-            // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ指示）
+            // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ指示）。
+            // **非表示で残すのを勧め、削除は特別な操作にする**（ユーザ判断 2026-09-12）——残せば外した印も残り、
+            // 次の取り込みで同じ商品が作り直されない。削除すると印も消え、再取り込みの対象になる
             var choice = Views.ChoiceDialog.Ask(
                 "商品を残しますか",
                 "これが最後のファイルなので、この商品は手元に何も無い状態になります。商品をどうしますか？",
-                "残す：商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。"
+                "非表示にして残す：検索やショップの件数には出さず、商品の情報と外した印を残します。"
+                + "統計の支出には入ります。設定の「非表示にした商品」から戻せます。\n"
+                + "残す：商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。"
                 + "外した印も残るので、次の取り込みでこのファイルがこの商品に戻ることはありません。\n"
-                + "削除する：この商品を消します。メモや分類も一緒に消えます。"
-                + "外した印も消えるので、次の取り込みで手掛かりがこの商品を指せば、また作られます。",
+                + "完全に削除：アプリ内の履歴から完全に削除します。メモや分類も一緒に消えます。"
+                + "外した印も消えるので、次の取り込みで手掛かりがこの商品を指せば、再取り込みの対象になります。",
+                "非表示にして残す（おすすめ）",
                 "残す",
-                "削除する");
+                "完全に削除");
 
             if (choice == Views.ChoiceDialogResult.Cancel)
             {
                 return;
             }
 
-            deleteWhenEmpty = choice == Views.ChoiceDialogResult.Second;
+            hideWhenEmpty = choice == Views.ChoiceDialogResult.First;
+            deleteWhenEmpty = choice == Views.ChoiceDialogResult.Third;
         }
 
         var result = await _services.Commands.ExecuteAsync(
@@ -830,6 +837,17 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             await _main.ReloadLibraryAsync();
             ReplaceSelf(null);
             return;
+        }
+
+        // 「非表示にして残す」：外した後で、非表示の印だけを書く（ほかの項目は保存の直前に読み直したものが残る）。
+        // 検索の一覧は写しを持っているので読み直す（読み直さないと、非表示にした商品が一覧に残る）
+        if (hideWhenEmpty
+            && result is CommandResult.FileDetached { Outcome: Core.Services.DetachOutcome.ItemNowEmpty }
+            && await _services.Store.Items.LoadAsync(Item.Id) is { } emptied)
+        {
+            await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(
+                Item.Id, emptied.Local with { IsHidden = true }, LocalOwners.Visibility));
+            await _main.ReloadLibraryAsync();
         }
 
         // 未確定が1件増えるので、ナビの件数を数え直す
@@ -978,6 +996,32 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     /// <summary>出品者が宣言している対応アバター。こちらは編集しない。</summary>
     public IReadOnlyList<AvatarRow> Avatars { get; private set; } = [];
+
+    /// <summary>
+    /// ユーザが消した対応アバター（ユーザ判断 2026-09-12）。以前は消すと画面のどこにも出ず、
+    /// 消したことも戻せることも分からなかった（戻す道は名前を打ち直すことだけだった）。
+    /// </summary>
+    public IReadOnlyList<RejectedAvatarRow> RejectedAvatars { get; private set; } = [];
+
+    public bool HasRejectedAvatars => RejectedAvatars.Count > 0;
+
+    public string RejectedAvatarsHeader => $"消したもの {RejectedAvatars.Count} 件";
+
+    private static bool s_rejectedAvatarsExpanded;
+
+    /// <summary>「消したもの」を開いているか。既定は畳む。商品を移っても保つ（アプリを閉じるまで）。</summary>
+    public bool IsRejectedAvatarsExpanded
+    {
+        get => s_rejectedAvatarsExpanded;
+        set
+        {
+            if (s_rejectedAvatarsExpanded != value)
+            {
+                s_rejectedAvatarsExpanded = value;
+                OnPropertyChanged(nameof(IsRejectedAvatarsExpanded));
+            }
+        }
+    }
 
     public bool HasAvatars => Avatars.Count > 0;
 
@@ -1406,6 +1450,16 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             .Select(link => link.BaseName)
             .ToList();
 
+        // 消した対応は畳んだ欄に並べ、1件ずつ戻せるようにする（ユーザ判断 2026-09-12）
+        RejectedAvatars = Item.Local.Avatars
+            .Where(link => link.Rejected)
+            .Select(link => new RejectedAvatarRow
+            {
+                Name = NameOf(link.AvatarItemId, link.Name),
+                RestoreCommand = new RelayCommand(() => _ = RestoreAvatarAsync(link.AvatarItemId), () => !IsEditLocked),
+            })
+            .ToList();
+
         // 候補の名前から絵を引くための表（U18）
         _avatarIdsByName = new Dictionary<string, string>(StringComparer.CurrentCulture);
         foreach (var entry in registry.Entries)
@@ -1427,6 +1481,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         {
             nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
             nameof(AvatarSectionNote), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
+            nameof(RejectedAvatars), nameof(HasRejectedAvatars), nameof(RejectedAvatarsHeader),
         })
         {
             OnPropertyChanged(name);
@@ -1458,6 +1513,22 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
         var links = Item.Local.Avatars
             .Select(link => link.AvatarItemId == avatarItemId
                 ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
+                : link)
+            .ToList();
+
+        await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
+    }
+
+    /// <summary>
+    /// 消した対応を戻す（「消したもの」の欄の［戻す］・ユーザ判断 2026-09-12）。
+    /// 出どころは消したときに「手入力」へ付け替えてあるので、元の出どころ（対応アバター節・タグなど）には戻らない。
+    /// 手入力のままにするのは、次の検出でも消えないようにするため（手で足したのと同じ扱い）
+    /// </summary>
+    private async Task RestoreAvatarAsync(string avatarItemId)
+    {
+        var links = Item.Local.Avatars
+            .Select(link => link.AvatarItemId == avatarItemId
+                ? link with { Rejected = false, Confirmed = true }
                 : link)
             .ToList();
 
@@ -2537,5 +2608,14 @@ public sealed class AvatarRow
 
     /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
     public RelayCommand? OpenCommand { get; init; }
+}
+
+/// <summary>ユーザが消した対応アバターの1行（「消したもの」の欄）。</summary>
+public sealed class RejectedAvatarRow
+{
+    public required string Name { get; init; }
+
+    /// <summary>この対応を戻す。出どころは「手入力」になる。</summary>
+    public RelayCommand? RestoreCommand { get; init; }
 }
 
