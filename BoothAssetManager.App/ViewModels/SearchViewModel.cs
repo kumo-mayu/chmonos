@@ -1475,23 +1475,37 @@ public sealed class SearchViewModel : ViewModelBase
         try
         {
             var loaded = await _services.Store.Items.LoadAllAsync();
-            _allItems = loaded.Items
-                .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
-                .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
-                .ToList();
 
-            // 検索対象の文字列はここで作る。正規化は全商品の説明文を畳むので、
-            // UIスレッドに乗せると読み込みのたびに画面が固まる
-            _haystacks = _allItems.ToDictionary(
-                item => item.Id,
-                item => Core.Services.SearchText.Build(item, _services.KanjiReadings),
-                StringComparer.Ordinal);
+            // 並べ替えと検索用の文字列作りは、はっきり画面のスレッドの外で行う（夜の調査 2026-09-13）。
+            // await の続きは画面のスレッドに戻るので、ここにそのまま書くと画面のスレッドで走り、
+            // 2000件で約0.5秒、読み込むたびに画面が止まっていた（起動・取り込みや編集の後の読み直し）。
+            // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
+            var (sorted, built, unreadIds) = await Task.Run(() =>
+            {
+                var sortedItems = loaded.Items
+                    .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
+                    .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
+                    .ToList();
 
-            // 「更新の有無」は要確認の未読と同じものを指す。既読にすれば条件から外れる
-            _unreadItemIds = _services.Notifications.Load()
-                .Where(record => !record.IsRead && record.ItemId is not null)
-                .Select(record => record.ItemId!)
-                .ToHashSet(StringComparer.Ordinal);
+                // 検索対象の文字列はここで作る。正規化は全商品の説明文を畳むので、
+                // UIスレッドに乗せると読み込みのたびに画面が固まる
+                var haystacks = sortedItems.ToDictionary(
+                    item => item.Id,
+                    item => Core.Services.SearchText.Build(item, _services.KanjiReadings),
+                    StringComparer.Ordinal);
+
+                // 「更新の有無」は要確認の未読と同じものを指す。既読にすれば条件から外れる
+                var unread = _services.Notifications.Load()
+                    .Where(record => !record.IsRead && record.ItemId is not null)
+                    .Select(record => record.ItemId!)
+                    .ToHashSet(StringComparer.Ordinal);
+
+                return (sortedItems, haystacks, unread);
+            });
+
+            _allItems = sorted;
+            _haystacks = built;
+            _unreadItemIds = unreadIds;
 
             RunOnUiThread(() =>
             {
