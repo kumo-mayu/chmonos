@@ -1000,12 +1000,22 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                             <DataTemplate>
+                              <!--
+                                  カードの中身は DeferredCardHost が、画面のスレッドが空いたときに4枚ずつ作る（U12・4回目・ユーザ判断）。
+                                  まとめて作ると流すたびに画面が固まっていた。作るまでは白いカードの枠だけを出す。
+                                  大きさと間隔はこの外側で決め、中身がまだ無くても行の高さと並びが崩れないようにする
+                              -->
+                              <Grid Width="228" Height="336" Margin="0,0,14,14">
+                                <Border Style="{StaticResource Card}" />
+                                <controls:DeferredCardHost>
+                                  <controls:DeferredCardHost.RealTemplate>
+                            <DataTemplate>
                                 <!-- 高さを揃えて、行の下端が不揃いにならないようにする -->
                                 <!--
                                     Tag に検索画面を入れておく。ContextMenu は視覚ツリーの外に出るので、
                                     PlacementTarget 経由でないと画面側のコマンドに届かない。
                                 -->
-                                <Border Style="{StaticResource Card}" Width="228" Height="336" Margin="0,0,14,14"
+                                <Border Style="{StaticResource Card}" Width="228" Height="336"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
                                         ClipToBounds="True"
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -1130,6 +1140,10 @@
                                     </Border>
                                     </Grid>
                                 </Border>
+                            </DataTemplate>
+                                  </controls:DeferredCardHost.RealTemplate>
+                                </controls:DeferredCardHost>
+                              </Grid>
                             </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
