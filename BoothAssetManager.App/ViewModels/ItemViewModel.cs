@@ -944,6 +944,26 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
 
     public IReadOnlyList<string> Tags => Item.Booth.Tags;
 
+    /// <summary>BOOTHのタグの見出しに添える件数。畳んでいても何件あるかは分かるように。</summary>
+    public string BoothTagsCountText => $"（{Tags.Count}）";
+
+    /// <summary>
+    /// BOOTHのタグを開いているか（ユーザ指示 2026-09-12：多過ぎる商品があるので畳める）。
+    /// 商品ページと編集画面で共通で、商品を移っても保つ（<see cref="SectionFolds"/>）。
+    /// </summary>
+    public bool IsBoothTagsExpanded
+    {
+        get => SectionFolds.BoothTagsExpanded;
+        set
+        {
+            if (SectionFolds.BoothTagsExpanded != value)
+            {
+                SectionFolds.BoothTagsExpanded = value;
+                OnPropertyChanged(nameof(IsBoothTagsExpanded));
+            }
+        }
+    }
+
     public IReadOnlyList<UserTagAssignment> UserTags => Item.Local.UserTags;
 
     public bool HasUserTags => Item.Local.UserTags.Count > 0;
@@ -1050,6 +1070,58 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>画面に出す札。絞り込み欄に何か入っていれば、名前が一致するものだけ。</summary>
     public IReadOnlyList<AvatarRow> VisibleAvatars { get; private set; } = [];
 
+    /// <summary>
+    /// 並べる札に、末尾の「＋ 追加」を1枚混ぜたもの（ユーザ指示 2026-09-12）。画像の一覧の「足す」枠と同じく、
+    /// 同じ並びに混ぜると折り返しても末尾に付いてくる。札が0件でも「＋ 追加」は出る
+    /// </summary>
+    public IReadOnlyList<AvatarRow> AvatarTiles { get; private set; } = [AddAvatarTile];
+
+    private static readonly AvatarRow AddAvatarTile = new()
+    {
+        ItemId = string.Empty,
+        Name = string.Empty,
+        SourceText = string.Empty,
+        IsAddTile = true,
+    };
+
+    /// <summary>対応アバターの見出しに添える件数。畳んでいても何体あるかは分かるように。</summary>
+    public string AvatarsCountText => Avatars.Count == 0 ? string.Empty : $"（{Avatars.Count} 体）";
+
+    /// <summary>
+    /// 対応アバターの欄を開いているか（ユーザ指示 2026-09-12：200体を超える商品があるので畳める）。
+    /// 商品ページと編集画面で共通で、商品を移っても保つ（アプリを閉じるまで）。
+    /// </summary>
+    public bool IsAvatarsExpanded
+    {
+        get => SectionFolds.AvatarsExpanded;
+        set
+        {
+            if (SectionFolds.AvatarsExpanded != value)
+            {
+                SectionFolds.AvatarsExpanded = value;
+                OnPropertyChanged(nameof(IsAvatarsExpanded));
+            }
+        }
+    }
+
+    private bool _isAddingAvatar;
+
+    /// <summary>「＋ 追加」を押して、足す入力欄を出しているか。商品を移ると畳んだ状態に戻る。</summary>
+    public bool IsAddingAvatar
+    {
+        get => _isAddingAvatar;
+        private set => SetField(ref _isAddingAvatar, value);
+    }
+
+    private RelayCommand? _startAddAvatarCommand;
+    private RelayCommand? _stopAddAvatarCommand;
+
+    public RelayCommand StartAddAvatarCommand => _startAddAvatarCommand ??= new RelayCommand(
+        () => IsAddingAvatar = true,
+        () => !IsEditLocked);
+
+    public RelayCommand StopAddAvatarCommand => _stopAddAvatarCommand ??= new RelayCommand(() => IsAddingAvatar = false);
+
     public bool ShowsAvatarFilter => Avatars.Count > AvatarFilterThreshold;
 
     public string AvatarFilterPlaceholder => $"アバター名で絞る（{Avatars.Count} 体）";
@@ -1073,7 +1145,10 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             ? Avatars
             : Avatars.Where(row => compare.IndexOf(row.Name, needle, options) >= 0).ToList();
 
+        AvatarTiles = [.. VisibleAvatars, AddAvatarTile];
+
         OnPropertyChanged(nameof(VisibleAvatars));
+        OnPropertyChanged(nameof(AvatarTiles));
         OnPropertyChanged(nameof(AvatarFilterResultText));
     }
 
@@ -1482,6 +1557,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
             nameof(AvatarSectionNote), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
             nameof(RejectedAvatars), nameof(HasRejectedAvatars), nameof(RejectedAvatarsHeader),
+            nameof(AvatarsCountText),
         })
         {
             OnPropertyChanged(name);
@@ -2570,6 +2646,9 @@ public sealed class AvatarRow
     /// <summary>このアバターを持っているか（U25）。札を「所持」の緑にして先頭へ寄せる。</summary>
     public bool IsOwned { get; init; }
 
+    /// <summary>札の並びの末尾に混ぜる「＋ 追加」の1枚か（アバターではない）。</summary>
+    public bool IsAddTile { get; init; }
+
     private System.Windows.Media.Imaging.BitmapSource? _icon;
     private bool _iconLoaded;
 
@@ -2608,6 +2687,17 @@ public sealed class AvatarRow
 
     /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
     public RelayCommand? OpenCommand { get; init; }
+}
+
+/// <summary>
+/// 畳める欄の開き具合。商品ページと編集画面で共通にし、商品を移っても保つ（アプリを閉じるまで・ユーザ指示 2026-09-12）。
+/// 既定は開く——畳むのは多過ぎる商品を見たときの操作で、普段は見えている方が早い。
+/// </summary>
+public static class SectionFolds
+{
+    public static bool BoothTagsExpanded { get; set; } = true;
+
+    public static bool AvatarsExpanded { get; set; } = true;
 }
 
 /// <summary>ユーザが消した対応アバターの1行（「消したもの」の欄）。</summary>

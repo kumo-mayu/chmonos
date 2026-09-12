@@ -455,20 +455,25 @@
                                 <!-- 「空欄にするとBOOTHの分類に戻ります」は placeholder に移した -->
                             </StackPanel>
 
-                            <TextBlock Text="BOOTHのタグ" Style="{StaticResource SectionLabel}" Margin="0,16,0,8" />
-                            <ItemsControl ItemsSource="{Binding BoothTags}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
-                                                Padding="10,3" Margin="0,0,6,6" Background="White">
-                                            <TextBlock Text="{Binding}" FontSize="12" Foreground="#454b57" />
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <!-- BOOTHのタグは畳める（ユーザ指示 2026-09-12）。畳んだかどうかは商品ページと共通 -->
+                            <Expander Margin="0,16,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}">
+                                <Expander.Header>
+                                    <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
+                                </Expander.Header>
+                                <ItemsControl ItemsSource="{Binding BoothTags}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
+                                                    Padding="10,3" Margin="0,0,6,6" Background="White">
+                                                <TextBlock Text="{Binding}" FontSize="12" Foreground="#454b57" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
                         </StackPanel>
                     </Border>
 

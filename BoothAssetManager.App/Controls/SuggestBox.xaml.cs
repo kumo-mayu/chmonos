@@ -117,6 +117,9 @@ public partial class SuggestBox : UserControl
         set => SetValue(CommitCommandProperty, value);
     }
 
+    /// <summary>入力欄にフォーカスを移す。ボタンで出した直後にすぐ打てるように（対応アバターの「＋ 追加」）。</summary>
+    public void FocusInput() => Input.Focus();
+
     private static void OnSourceChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
         => ((SuggestBox)element).Refresh();
 

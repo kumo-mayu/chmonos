@@ -500,6 +500,23 @@ public sealed class EditViewModel : ViewModelBase
 
     public IReadOnlyList<string> BoothTags => _item?.Booth.Tags ?? [];
 
+    /// <summary>BOOTHのタグの見出しに添える件数。畳んでいても何件あるかは分かるように。</summary>
+    public string BoothTagsCountText => $"（{BoothTags.Count}）";
+
+    /// <summary>BOOTHのタグを開いているか。商品ページと共通（<see cref="SectionFolds"/>・ユーザ指示 2026-09-12）。</summary>
+    public bool IsBoothTagsExpanded
+    {
+        get => SectionFolds.BoothTagsExpanded;
+        set
+        {
+            if (SectionFolds.BoothTagsExpanded != value)
+            {
+                SectionFolds.BoothTagsExpanded = value;
+                OnPropertyChanged(nameof(IsBoothTagsExpanded));
+            }
+        }
+    }
+
     /// <summary>自動で検索へ戻るまでのカウントダウン。0なら出さない。</summary>
     public int RemainingSeconds
     {
@@ -2183,6 +2200,7 @@ public sealed class EditViewModel : ViewModelBase
         OnPropertyChanged(nameof(CategoryPlaceholder));
         OnPropertyChanged(nameof(DescriptionPreview));
         OnPropertyChanged(nameof(BoothTags));
+        OnPropertyChanged(nameof(BoothTagsCountText));
         RelayCommand.RaiseCanExecuteChanged();
     }
 }
