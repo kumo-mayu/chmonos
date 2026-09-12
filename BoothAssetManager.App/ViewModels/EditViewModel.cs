@@ -798,9 +798,12 @@ public sealed class EditViewModel : ViewModelBase
         // ナビから入り直した。**保存した商品はもう出さない**（ユーザ指示 2026-09-12）——残すのは未編集と書きかけだけ。
         // 同じ回の間は帯に緑の印で残して戻れるようにしてあるが、離れて入り直したら片付いたものは要らない。
         // 他の入り方でタグを付けた商品（写しでユーザータグがある）も外す。書きかけのある商品は保存していても残す
+        // 消えた商品も外す（写しに無いだけの商品は取り込み中かもしれないので、ディスクで確かめる。
+        // 残すと帯に絵の無い枠が並んだ）
         var saved = session.SavedItemIds.ToHashSet(StringComparer.Ordinal);
-        bool Keep(string id) => _main.Drafts.Contains(id)
-            || (!saved.Contains(id) && _main.Search.FindItem(id) is not { Local.UserTags.Count: > 0 });
+        bool Keep(string id) => _services.Store.Items.Exists(id)
+            && (_main.Drafts.Contains(id)
+                || (!saved.Contains(id) && _main.Search.FindItem(id) is not { Local.UserTags.Count: > 0 }));
 
         var kept = session.ItemIds.Where(Keep).ToList();
         if (kept.Count == 0)
