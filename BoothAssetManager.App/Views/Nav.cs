@@ -50,4 +50,23 @@ public static class Nav
 
     public static void SetBadgeBrush(DependencyObject element, Brush? value)
         => element.SetValue(BadgeBrushProperty, value);
+
+    /// <summary>
+    /// 2つ目の件数。「編集」の編集途中（保存していない入力が残っている商品）の数に使う（ユーザ指示）。
+    /// 数字だけが2つ並ぶとどちらが何の数か分からないので、「途中 n」と名乗って出す。0のときは出さない。
+    /// </summary>
+    public static readonly DependencyProperty SubBadgeProperty =
+        DependencyProperty.RegisterAttached("SubBadge", typeof(int), typeof(Nav));
+
+    public static int GetSubBadge(DependencyObject element) => (int)element.GetValue(SubBadgeProperty);
+
+    public static void SetSubBadge(DependencyObject element, int value) => element.SetValue(SubBadgeProperty, value);
+
+    public static readonly DependencyProperty SubBadgeBrushProperty =
+        DependencyProperty.RegisterAttached("SubBadgeBrush", typeof(Brush), typeof(Nav));
+
+    public static Brush? GetSubBadgeBrush(DependencyObject element) => (Brush?)element.GetValue(SubBadgeBrushProperty);
+
+    public static void SetSubBadgeBrush(DependencyObject element, Brush? value)
+        => element.SetValue(SubBadgeBrushProperty, value);
 }

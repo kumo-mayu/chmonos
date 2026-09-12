@@ -106,6 +106,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
                                 <Viewbox Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center">
@@ -136,6 +137,18 @@
                                                Text="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent}}"
                                                Foreground="White" FontSize="11" FontWeight="Bold"
                                                FontFamily="Yu Gothic UI, Meiryo, Segoe UI" />
+                                </Border>
+
+                                <!--
+                                    2つ目の件数（編集途中の数・ユーザ指示）。数字だけが2つ並ぶとどちらが何か分からないので
+                                    「途中 n」と名乗る。0件のときは出さない
+                                -->
+                                <Border x:Name="SubBadge" Grid.Column="3" Style="{StaticResource NavBadge}" Margin="4,0,0,0"
+                                        Background="{Binding Path=(views:Nav.SubBadgeBrush), RelativeSource={RelativeSource TemplatedParent}}"
+                                        Visibility="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent},
+                                                             Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
+                                    <TextBlock x:Name="SubBadgeText" Foreground="White" FontSize="11" FontWeight="Bold"
+                                               FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="途中 " /><Run Text="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
                             </Grid>
                         </Border>
@@ -168,6 +181,17 @@
                                 <Setter TargetName="Badge" Property="VerticalAlignment" Value="Top" />
                                 <Setter TargetName="Badge" Property="BorderThickness" Value="2" />
                                 <Setter TargetName="Badge" Property="BorderBrush" Value="{StaticResource Rail}" />
+                                <!-- 2つ目の件数は右下の点。右上の点（残っている作業）と重ならない -->
+                                <Setter TargetName="SubBadgeText" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="SubBadge" Property="Grid.Column" Value="0" />
+                                <Setter TargetName="SubBadge" Property="Width" Value="10" />
+                                <Setter TargetName="SubBadge" Property="Height" Value="10" />
+                                <Setter TargetName="SubBadge" Property="Padding" Value="0" />
+                                <Setter TargetName="SubBadge" Property="Margin" Value="0,0,-5,6" />
+                                <Setter TargetName="SubBadge" Property="HorizontalAlignment" Value="Right" />
+                                <Setter TargetName="SubBadge" Property="VerticalAlignment" Value="Bottom" />
+                                <Setter TargetName="SubBadge" Property="BorderThickness" Value="2" />
+                                <Setter TargetName="SubBadge" Property="BorderBrush" Value="{StaticResource Rail}" />
                                 <Setter Property="ToolTip"
                                         Value="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource Self}}" />
                             </DataTrigger>
@@ -307,7 +331,8 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
                             views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
                             views:Nav.IsActive="{Binding IsEditActive}"
-                            views:Nav.Badge="{Binding NeedsEditCount}" views:Nav.BadgeBrush="#9a6b1f" />
+                            views:Nav.Badge="{Binding NeedsEditCount}" views:Nav.BadgeBrush="#9a6b1f"
+                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{StaticResource Warn}" />
 
                     <Grid>
                         <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}" />
