@@ -764,10 +764,11 @@ public sealed class EditViewModel : ViewModelBase
     }
 
     /// <summary>前回の続きを開く。残っていなければ新しく積み直す。</summary>
-    public async Task ResumeAsync()
+    /// <param name="index">画面の履歴から戻るときの位置（その時に開いていた商品）。null なら記録の位置から。</param>
+    public async Task ResumeAsync(int? index = null)
     {
         var session = _services.Store.EditSession.Load();
-        if (session.ItemIds.Count == 0 || session.IsFinished)
+        if (session.ItemIds.Count == 0 || (index is null && session.IsFinished))
         {
             await StartAsync();
             return;
@@ -775,10 +776,18 @@ public sealed class EditViewModel : ViewModelBase
 
         _run = null;
         _queue = session.ItemIds.ToList();
-        _index = Math.Clamp(session.Index, 0, _queue.Count);
+        _index = Math.Clamp(index ?? session.Index, 0, _queue.Count);
         _saved = new HashSet<string>(session.SavedItemIds, StringComparer.Ordinal);
+        if (index is not null)
+        {
+            await SavePositionAsync();
+        }
+
         await LoadCurrentAsync();
     }
+
+    /// <summary>今の位置。画面の履歴に、どの商品を開いていたかを預けるため。</summary>
+    public int Index => _index;
 
     /// <summary>
     /// 指定して入った編集の順番と位置。null なら未編集の順番（edit-session.json に持つ）。
@@ -789,8 +798,13 @@ public sealed class EditViewModel : ViewModelBase
     public EditRun? Run => _run;
 
     /// <summary>画面の履歴から、指定して入った編集を続きから開く。</summary>
-    public async Task ResumeRunAsync(EditRun run)
+    public async Task ResumeRunAsync(EditRun run, int? index = null)
     {
+        if (index is { } at)
+        {
+            run.Index = at;
+        }
+
         _run = run;
         _queue = run.ItemIds;
         _index = Math.Clamp(run.Index, 0, _queue.Count);
@@ -960,11 +974,36 @@ public sealed class EditViewModel : ViewModelBase
             return;
         }
 
+        RememberStep();
+        await MoveToAsync(index);
+    }
+
+    /// <summary>画面の履歴から戻ってきたとき。履歴には積まない（戻るで積むと、戻った先から戻れなくなる）。</summary>
+    public Task ShowStepAsync(int index)
+    {
+        var target = Math.Clamp(index, 0, _queue.Count);
+        return target == _index ? Task.CompletedTask : MoveToAsync(target);
+    }
+
+    private async Task MoveToAsync(int index)
+    {
         StopReturnTimer();
         CaptureDraft();
         _index = index;
         await SavePositionAsync();
         await LoadCurrentAsync();
+    }
+
+    /// <summary>
+    /// 別の商品へ移る前に、今の商品を画面の履歴に積む（ユーザ指示 2026-09-12）。
+    /// 保存して次へ・スキップ・前へ・帯で飛ぶのどれでも、Alt＋← で直前に開いていた商品へ戻れる
+    /// </summary>
+    private void RememberStep()
+    {
+        if (_item is not null)
+        {
+            _main.RememberEditStep(this);
+        }
     }
 
     private void RebuildQueueTiles()
@@ -1948,6 +1987,7 @@ public sealed class EditViewModel : ViewModelBase
 
     private async Task AdvanceAsync()
     {
+        RememberStep();
         _index++;
         await SavePositionAsync();
         await LoadCurrentAsync();
@@ -1970,6 +2010,7 @@ public sealed class EditViewModel : ViewModelBase
             return;
         }
 
+        RememberStep();
         StopReturnTimer();
         CaptureDraft();
         _index--;

@@ -528,8 +528,12 @@ public sealed class MainViewModel : ViewModelBase
     // 商品→ショップ→商品のように往復すると2段目から先を失っていた。
     // ナビで移っても履歴は切らない（ユーザ判断：「一瞬の確認の可能性もあります」）
 
-    /// <summary>覚えておく画面の数。一日中開いたままでも伸び続けないように。50画面を遡る使い方は考えにくい。</summary>
-    private const int MaxHistory = 50;
+    /// <summary>
+    /// 覚えておく画面の数。一日中開いたままでも伸び続けないように。
+    /// 100（ユーザ指示 2026-09-12）。編集画面で商品を移るたびに1つ積むようにしたので、50では編集の数十件で押し出される。
+    /// 1つは開き直す手順だけ（画面は持たない）なので、100でも軽い
+    /// </summary>
+    private const int MaxHistory = 100;
 
     /// <summary>
     /// 戻るの文言に載せる名前の長さ。長い商品名が上部バーを占領して隣の情報を押し出さないように
@@ -604,13 +608,59 @@ public sealed class MainViewModel : ViewModelBase
         TagManageViewModel => new HistoryEntry("タグの管理", ShowTagManage),
         AttributeManageViewModel => new HistoryEntry("属性の管理", ShowAttributeManage),
         SettingsViewModel => new HistoryEntry("設定", ShowSettings),
-        // 指定して入った編集は、順番と位置を履歴の項目に預けて続きから開く（ユーザ判断）。
-        // 未編集の順番は edit-session.json から開き直す
-        EditViewModel edit => edit.Run is { } run
-            ? new HistoryEntry("編集", () => _ = ShowEditRunAsync(run))
-            : new HistoryEntry("編集", () => _ = ShowEditAsync()),
+        EditViewModel edit => EditEntry(edit),
         _ => null,
     };
+
+    /// <summary>
+    /// 編集画面の中で商品を移るとき、今の商品を履歴に積む（ユーザ指示 2026-09-12：
+    /// Alt＋← で、編集画面で前に開いていた商品へ戻れるように）。
+    /// </summary>
+    public void RememberEditStep(EditViewModel edit)
+    {
+        Remember(edit);
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(BackButtonText));
+    }
+
+    /// <summary>
+    /// 編集画面の控え。**どの商品を開いていたか（位置）まで預ける。**
+    /// 指定して入った編集は順番そのもの（<see cref="EditRun"/>）も預け、未編集の順番は edit-session.json から開き直す（ユーザ判断）
+    /// </summary>
+    private HistoryEntry EditEntry(EditViewModel edit)
+    {
+        var run = edit.Run;
+        var index = edit.Index;
+        var label = edit.HasItem ? $"編集（{Shorten(edit.Name)}）" : "編集";
+        return new HistoryEntry(label, () => _ = RestoreEditAsync(run, index));
+    }
+
+    private async Task RestoreEditAsync(EditRun? run, int index)
+    {
+        // 同じ順番の編集を開いている間は、画面はそのままで位置だけ戻す。
+        // 作り直すと、店名の候補を作るために全件を読み直す（#71。2000件で重い）
+        if (CurrentViewModel is EditViewModel current && ReferenceEquals(current.Run, run))
+        {
+            // 画面の差し替えが起きないので、戻るの印をここで下ろす（残すと次の画面移動が履歴に積まれない）
+            _nextNavigation = Navigation.Push;
+            OnPropertyChanged(nameof(CanGoBack));
+            OnPropertyChanged(nameof(BackButtonText));
+            await current.ShowStepAsync(index);
+            return;
+        }
+
+        var edit = new EditViewModel(_services, this, Thumbnails);
+        CurrentViewModel = edit;
+
+        if (run is not null)
+        {
+            await edit.ResumeRunAsync(run, index);
+        }
+        else
+        {
+            await edit.ResumeAsync(index);
+        }
+    }
 
     /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
     private Action RestoreAvatars(string? selectedId)
@@ -682,14 +732,6 @@ public sealed class MainViewModel : ViewModelBase
     /// 編集の書きかけ（アプリに1つ）。未編集の順番と指定して入った順番で共有する。
     /// </summary>
     public EditDraftStore Drafts { get; } = new();
-
-    /// <summary>画面の履歴から、指定して入った編集を続きから開く。</summary>
-    private async Task ShowEditRunAsync(EditRun run)
-    {
-        var edit = new EditViewModel(_services, this, Thumbnails);
-        CurrentViewModel = edit;
-        await edit.ResumeRunAsync(run);
-    }
 
     /// <summary>
     /// 閉じる前に、書きかけが残っていれば尋ねる（ユーザ判断）。閉じるのをやめるなら true。
