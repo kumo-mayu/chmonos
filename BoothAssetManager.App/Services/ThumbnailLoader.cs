@@ -334,9 +334,33 @@ public sealed class ThumbnailLoader
         {
             _queue.RemoveLast();
             _requested.Remove(oldest.Value.Key);
+
+            // 取り消した頼みの持ち主には、列が空いたら知らせ直す。まだ見えていれば頼み直し、見えていなければ何も起きない。
+            // 知らせないと、見えたまま取り消された絵が二度と来ない——ショップ一覧は広い窓で一度に56枚ほど並び、
+            // 最初に頼んだ上の段のアイコンが頭文字のままになった（ユーザ指摘 2026-09-12）
+            _dropped.AddRange(oldest.Value.Waiters);
         }
 
         Pump();
+    }
+
+    /// <summary>順番待ちからあふれて取り消した頼みの持ち主。列が空いたら知らせ直す。</summary>
+    private readonly List<Action> _dropped = [];
+
+    /// <summary>列が空いたら、取り消した頼みの持ち主に知らせ直す（見えていれば頼み直す）。</summary>
+    private void RetryDropped()
+    {
+        if (_queue.Count > 0 || _dropped.Count == 0)
+        {
+            return;
+        }
+
+        var retry = _dropped.ToList();
+        _dropped.Clear();
+        foreach (var waiter in retry)
+        {
+            waiter();
+        }
     }
 
     private void Pump()
@@ -365,6 +389,7 @@ public sealed class ThumbnailLoader
                     }
 
                     Pump();
+                    RetryDropped();
                 },
                 TaskScheduler.FromCurrentSynchronizationContext());
         }
