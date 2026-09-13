@@ -105,6 +105,44 @@ public class NotFoundImportTests : IDisposable
         return folder;
     }
 
+    private static UnresolvedFile Unresolved(string hash, string path) => new()
+    {
+        Hash = hash,
+        Paths = [path],
+        SizeBytes = 1,
+        ModifiedAtUtc = DateTimeOffset.UnixEpoch,
+        FirstSeenAt = DateTimeOffset.UnixEpoch,
+    };
+
+    /// <summary>
+    /// 外付けを外したまま取り込んでも、そこにあった未確定が消えないこと（技術的負債 1-3）。
+    /// 走査はつながっていないフォルダを「中身なし」として返すので、前は片付いたのと区別が付かず消えていた。
+    /// </summary>
+    [Fact]
+    public async Task KeepsUnresolvedOnAnUnpluggedDrive()
+    {
+        var offline = UnresolvedMergeTests.MissingVolumeFolder();
+        await _store.Unresolved.SaveAsync([Unresolved("OFFLINE", offline + @"\a.zip")]);
+
+        await _pipeline.RunAsync(new ImportWorkSet([CreateSource(MissingId), offline]));
+
+        var unresolved = _store.Unresolved.Load();
+        Assert.Contains(unresolved, file => file.Hash == "OFFLINE");
+        Assert.Equal(2, unresolved.Count);
+    }
+
+    /// <summary>つながっている取り込み元で見つからなくなった物は、片付いたので落とす（前と同じ）。</summary>
+    [Fact]
+    public async Task DropsUnresolvedThatIsGoneFromAConnectedSource()
+    {
+        var source = CreateSource(LivingId);
+        await _store.Unresolved.SaveAsync([Unresolved("GONE", Path.Combine(source, "gone.zip"))]);
+
+        await _pipeline.RunAsync(new ImportWorkSet([source]));
+
+        Assert.DoesNotContain(_store.Unresolved.Load(), file => file.Hash == "GONE");
+    }
+
     /// <summary>これが本命。404のファイルが手元から消えないこと。</summary>
     [Fact]
     public async Task KeepsFilesWhoseItemIsGoneFromBooth()

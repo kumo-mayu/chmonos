@@ -212,6 +212,11 @@ public sealed class ImportPipeline : IImportPipeline
 
         var totals = new ImportTotals();
 
+        // 未確定の一覧は取り込みの最中に人も書く。書くたびに、前に書いた物と今の物を比べて人の変更を残す（UnresolvedMerge）。
+        // 外付けを外している取り込み元の下の物は、見られなかっただけなので引き継ぐ
+        var unresolvedBase = _store.Unresolved.Load();
+        var offlineTargets = new List<string>();
+
         // unitypackage の中身を裏で読む（2026-09-13 ユーザ判断）。問い合わせは1本ずつ1.5秒空けるので、その間 CPU とディスクは空いている。
         // 前の取り込みで読み残した物（中断など）も、最初の周回で一緒に拾う
         var unityPending = _unityPackages is null ? null : await _unityPackages.FindPendingAsync(cancellationToken);
@@ -245,6 +250,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
             await RecordVolumesAsync(folders, cancellationToken);
+            offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
 
             var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
             var resolution = await ResolveAsync(
@@ -270,7 +276,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 未確定は積み上げる。前の周回で残ったものを消してはいけない
             totals.Unresolved.AddRange(resolution.Unresolved);
-            await _store.Unresolved.SaveAsync(totals.Unresolved, cancellationToken);
+            unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, offlineTargets, cancellationToken);
 
             var fetchResult = await FetchAsync(resolution.FilesByItemId, work, progress, cancellationToken);
 
@@ -285,7 +291,7 @@ public sealed class ImportPipeline : IImportPipeline
             if (fetchResult.NotFoundFiles.Count > 0)
             {
                 totals.Unresolved.AddRange(fetchResult.NotFoundFiles);
-                await _store.Unresolved.SaveAsync(totals.Unresolved, cancellationToken);
+                unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, offlineTargets, cancellationToken);
             }
 
             totals.Add(scan, resolution, fetchResult);
@@ -306,6 +312,16 @@ public sealed class ImportPipeline : IImportPipeline
 
         return totals.ToSummary();
     }
+
+    /// <summary>未確定の一覧を、錠の中で人の変更と合わせて書く（技術的負債 1-2・1-3）。書いた物を次の比べる元にする。</summary>
+    private Task<List<UnresolvedFile>> SaveUnresolvedAsync(
+        IReadOnlyList<UnresolvedFile> found,
+        IReadOnlyList<UnresolvedFile> lastWritten,
+        IReadOnlyList<string> offlineTargets,
+        CancellationToken cancellationToken)
+        => _store.Unresolved.UpdateAsync(
+            current => UnresolvedMerge.ForImport(current, lastWritten, found, new RegisteredFolderSet(offlineTargets)),
+            cancellationToken);
 
     /// <summary>控えられなくても取り込みは止めない（次に開いたフォルダビューで控え直す）。</summary>
     private async Task RecordVolumesAsync(IReadOnlyList<string> folders, CancellationToken cancellationToken)

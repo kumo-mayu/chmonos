@@ -529,25 +529,35 @@ public sealed class ItemService : IItemService
     /// <summary>登録したフォルダの配下にあった未確定を取り除く。行き先が決まったため。</summary>
     private async Task RemoveUnresolvedUnderAsync(string folderPath, CancellationToken cancellationToken)
     {
-        var unresolved = _store.Unresolved.Load();
         var registered = new RegisteredFolderSet([folderPath]);
-
-        var inside = unresolved
-            .Where(file => file.Paths.Any(registered.Contains))
-            .ToList();
-
-        if (inside.Count == 0)
+        if (!_store.Unresolved.Load().Any(file => file.Paths.Any(registered.Contains)))
         {
             return;
         }
 
-        foreach (var file in inside)
-        {
-            unresolved.Remove(file);
-        }
-
-        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+        await _store.Unresolved.UpdateAsync(
+            current =>
+            {
+                current.RemoveAll(file => file.Paths.Any(registered.Contains));
+                return current;
+            },
+            cancellationToken);
     }
+
+    /// <summary>
+    /// 未確定の一覧から1件外す。
+    ///
+    /// **錠の中で今の一覧から外す**（技術的負債 1-2）。一覧は取り込みも書くので、始めに読んだ写しを書き戻すと、
+    /// その間に取り込みが足した物が消える（逆に取り込みがこちらの変更を消すのは <see cref="UnresolvedMerge"/> で防ぐ）。
+    /// </summary>
+    private Task RemoveUnresolvedAsync(string hash, CancellationToken cancellationToken)
+        => _store.Unresolved.UpdateAsync(
+            current =>
+            {
+                current.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+                return current;
+            },
+            cancellationToken);
 
     /// <summary>
     /// 既にどこかのitemが持っているファイルを、未確定の一覧から取り除く。
@@ -571,19 +581,21 @@ public sealed class ItemService : IItemService
             .Select(file => file.Hash)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var stale = unresolved.Where(file => owned.Contains(file.Hash)).ToList();
-        if (stale.Count == 0)
+        if (!unresolved.Any(file => owned.Contains(file.Hash)))
         {
             return 0;
         }
 
-        foreach (var file in stale)
-        {
-            unresolved.Remove(file);
-        }
-
-        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
-        return stale.Count;
+        // 商品を全部読む間に取り込みが一覧を書くことがあるので、錠の中で今の一覧から外す（技術的負債 1-2）
+        var removed = 0;
+        await _store.Unresolved.UpdateAsync(
+            current =>
+            {
+                removed = current.RemoveAll(file => owned.Contains(file.Hash));
+                return current;
+            },
+            cancellationToken);
+        return removed;
     }
 
     /// <summary>
@@ -687,8 +699,7 @@ public sealed class ItemService : IItemService
 
         // 前に「この商品のものではない」と外していたなら、上の突き合わせ（LocalFileMerger）で印が下りている。
         // ユーザが改めて選び直したのだから、こちらが覚えていて弾き続ける方がおかしい
-        unresolved.Remove(target);
-        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+        await RemoveUnresolvedAsync(target.Hash, cancellationToken);
 
         return true;
     }
@@ -1088,8 +1099,7 @@ public sealed class ItemService : IItemService
                 cancellationToken: cancellationToken);
         }
 
-        unresolved.Remove(target);
-        await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+        await RemoveUnresolvedAsync(target.Hash, cancellationToken);
 
         return itemId;
     }
@@ -1180,30 +1190,38 @@ public sealed class ItemService : IItemService
         var alive = target.Paths.Where(File.Exists).ToList();
         if (alive.Count > 0)
         {
-            var unresolved = _store.Unresolved.Load();
-            if (!unresolved.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+            var modified = DateTimeOffset.Now;
+            try
             {
-                var modified = DateTimeOffset.Now;
-                try
-                {
-                    modified = new DateTimeOffset(File.GetLastWriteTimeUtc(alive[0]), TimeSpan.Zero);
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-                {
-                    // 日時が読めなくても未確定には出したいので、今の時刻で通す
-                }
-
-                unresolved.Add(new UnresolvedFile
-                {
-                    Hash = target.Hash,
-                    Paths = alive,
-                    SizeBytes = target.SizeBytes,
-                    ModifiedAtUtc = modified,
-                    FirstSeenAt = DateTimeOffset.Now,
-                    Contents = target.Contents,
-                });
-                await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
+                modified = new DateTimeOffset(File.GetLastWriteTimeUtc(alive[0]), TimeSpan.Zero);
             }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 日時が読めなくても未確定には出したいので、今の時刻で通す
+            }
+
+            var entry = new UnresolvedFile
+            {
+                Hash = target.Hash,
+                Paths = alive,
+                SizeBytes = target.SizeBytes,
+                ModifiedAtUtc = modified,
+                FirstSeenAt = DateTimeOffset.Now,
+                Contents = target.Contents,
+            };
+
+            // 錠の中で今の一覧に足す（技術的負債 1-2）
+            await _store.Unresolved.UpdateAsync(
+                current =>
+                {
+                    if (!current.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        current.Add(entry);
+                    }
+
+                    return current;
+                },
+                cancellationToken);
         }
 
         // 手元に何も無くなったか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る
@@ -1260,11 +1278,7 @@ public sealed class ItemService : IItemService
             LocalOwners.Import,
             cancellationToken: cancellationToken);
 
-        var unresolved = _store.Unresolved.Load();
-        if (unresolved.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0)
-        {
-            await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
-        }
+        await RemoveUnresolvedAsync(hash, cancellationToken);
 
         return ReattachOutcome.Reattached;
     }
@@ -1276,24 +1290,25 @@ public sealed class ItemService : IItemService
         string? reason,
         CancellationToken cancellationToken = default)
     {
-        var excluded = _store.Excluded.Load();
-        if (!excluded.Any(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)))
-        {
-            excluded.Add(new ExcludedEntry
+        await _store.Excluded.UpdateAsync(
+            excluded =>
             {
-                Hash = hash,
-                Paths = paths,
-                ExcludedAt = DateTimeOffset.Now,
-                Reason = reason,
-            });
-            await _store.Excluded.SaveAsync(excluded, cancellationToken);
-        }
+                if (!excluded.Any(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+                {
+                    excluded.Add(new ExcludedEntry
+                    {
+                        Hash = hash,
+                        Paths = paths,
+                        ExcludedAt = DateTimeOffset.Now,
+                        Reason = reason,
+                    });
+                }
 
-        var unresolved = _store.Unresolved.Load();
-        if (unresolved.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0)
-        {
-            await _store.Unresolved.SaveAsync(unresolved, cancellationToken);
-        }
+                return excluded;
+            },
+            cancellationToken);
+
+        await RemoveUnresolvedAsync(hash, cancellationToken);
     }
 
     /// <summary>
