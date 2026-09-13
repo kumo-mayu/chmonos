@@ -42,8 +42,11 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <!-- フォルダビューに組み込んだときは戻るを隠す（ShowsBack） -->
+                    <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -85,11 +88,12 @@
                 余白を外の枠に持たせるのは、`Margin` だと幅に上積みされて
                 いつでも横スクロールが出てしまうため
             -->
-            <Border Padding="20" MinWidth="1060"
+            <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth・LeftColumnWidth） -->
+            <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
                     Width="{Binding ViewportWidth, ElementName=Body}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="660" />
+                    <ColumnDefinition Width="{Binding LeftColumnWidth}" />
                     <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
 

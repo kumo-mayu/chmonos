@@ -67,6 +67,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowStatsCommand = new RelayCommand(ShowStats);
         ShowAvatarsCommand = new RelayCommand(ShowAvatars);
         ShowModificationsCommand = new RelayCommand(() => ShowModifications());
+        ShowFoldersCommand = new RelayCommand(() => ShowFolders());
         ShowSettingsCommand = new RelayCommand(ShowSettings);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
@@ -360,6 +361,24 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool IsShopsActive => CurrentViewModel is ShopsViewModel or ShopViewModel;
 
+    public RelayCommand ShowFoldersCommand { get; }
+
+    public bool IsFoldersActive => CurrentViewModel is FolderViewModel;
+
+    /// <summary>
+    /// フォルダビュー（ユーザ仕様 2026-09-13）。記録は他の画面でも変わるので、開くたびに作る。
+    /// 行の鍵を渡すと、その行を選んで開く（戻るで戻ったとき）。
+    /// </summary>
+    public void ShowFolders(string? selectKey = null)
+        => CurrentViewModel = new FolderViewModel(_services, this, Thumbnails, selectKey);
+
+    /// <summary>このフォルダの下にファイルを持つ商品だけで検索する（フォルダビューからの導線）。</summary>
+    public void ShowItemsInFolder(string path)
+    {
+        Search.ShowOnlyFolder(path);
+        ShowSearch();
+    }
+
     /// <summary>
     /// ショップ一覧。検索と違って持ち回さないのは、集計が取り込みや編集で変わるため。
     /// 開き直した時点で数え直すが、**全商品のJSONは読み直さない**——検索画面が起動時に読んだ写しから数える
@@ -485,6 +504,9 @@ public sealed class MainViewModel : ViewModelBase
         // 改変の画面は「読み直す」のボタンを持たない代わりに、戻ってくるたびに読み直す
         // （Unity を開いて戻る・Hub や VCC でプロジェクトを作って戻る・外で記録を直して戻る）
         (CurrentViewModel as ModificationHubViewModel)?.NoteWindowActivated();
+
+        // フォルダビューも同じ。取り込みや未確定の片付けを別の画面でした後に、木を読み直す
+        (CurrentViewModel as FolderViewModel)?.NoteWindowActivated();
     }
 
     public object? CurrentViewModel
@@ -532,6 +554,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsResolveActive));
                 OnPropertyChanged(nameof(IsInboxActive));
                 OnPropertyChanged(nameof(IsShopsActive));
+                OnPropertyChanged(nameof(IsFoldersActive));
                 OnPropertyChanged(nameof(IsStatsActive));
                 OnPropertyChanged(nameof(IsAvatarsActive));
                 OnPropertyChanged(nameof(IsModificationsActive));
@@ -642,6 +665,7 @@ public sealed class MainViewModel : ViewModelBase
         ModificationHubViewModel hub => new HistoryEntry(
             "改変", () => ShowModifications(hub.Level, hub.Selection)),
         ShopsViewModel => new HistoryEntry("ショップ一覧", ShowShops),
+        FolderViewModel folders => new HistoryEntry("フォルダ", () => ShowFolders(folders.SelectedKey)),
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
         ResolveViewModel => new HistoryEntry("未確定", ShowResolve),

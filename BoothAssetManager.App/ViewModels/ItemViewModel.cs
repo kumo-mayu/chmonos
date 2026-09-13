@@ -571,6 +571,21 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
     /// </summary>
     public bool ShowsUseActions { get; }
 
+    /// <summary>
+    /// フォルダビューの右側に組み込んだとき（ユーザ判断 2026-09-13：商品ページをそのまま右に組み込む）。
+    /// 戻るを隠し、左右の列を幅に合わせる（改変の画面に改変の画面を組み込んだのと同じ）。
+    /// </summary>
+    public bool IsEmbedded { get; init; }
+
+    public bool ShowsBack => !IsEmbedded;
+
+    /// <summary>組み込んだときは右側が窓より狭いので、単独の画面の最小幅（1060px）では横にはみ出す。</summary>
+    public double BodyMinWidth => IsEmbedded ? 0 : 1060;
+
+    public System.Windows.GridLength LeftColumnWidth => IsEmbedded
+        ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star)
+        : new System.Windows.GridLength(660);
+
     /// <summary>開き直す。編集画面に入っていれば持ち主に任せ、商品ページなら画面ごと作り直す。</summary>
     private void ReplaceSelf(ItemRecord? updated)
     {

@@ -121,10 +121,14 @@ public sealed class ResolveViewModel : ViewModelBase
     private string _statusText = string.Empty;
     private bool _isBusy;
 
-    public ResolveViewModel(AppServiceContainer services, MainViewModel main)
+    /// <param name="scope">
+    /// 扱う未確定を絞る。フォルダビューの右側に組み込むとき、選んだファイル（またはフォルダの下）だけにする（ユーザ判断 2026-09-13）。
+    /// </param>
+    public ResolveViewModel(AppServiceContainer services, MainViewModel main, Func<UnresolvedFile, bool>? scope = null)
     {
         _services = services;
         _main = main;
+        _scope = scope;
 
         FilesView = System.Windows.Data.CollectionViewSource.GetDefaultView(Files);
         FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(
@@ -597,6 +601,20 @@ public sealed class ResolveViewModel : ViewModelBase
 
     public int RemainingCount => Files.Count;
 
+    private readonly Func<UnresolvedFile, bool>? _scope;
+
+    /// <summary>
+    /// フォルダビューの右側に組み込んだとき（ユーザ判断 2026-09-13：未確定の画面の右側をそのまま組み込む）。
+    /// 上の帯と左の一覧を隠し、絞った分（<c>scope</c>）だけを扱う。
+    /// </summary>
+    public bool IsEmbedded { get; init; }
+
+    public bool ShowsChrome => !IsEmbedded;
+
+    public System.Windows.GridLength ListColumnWidth => IsEmbedded
+        ? new System.Windows.GridLength(0)
+        : new System.Windows.GridLength(330);
+
     public string RemainingText => $"未確定 {Files.Count} 件";
 
     public int SettledCount => _settledItemIds.Count;
@@ -867,7 +885,7 @@ public sealed class ResolveViewModel : ViewModelBase
 
     public void Reload()
     {
-        var unresolved = _services.Store.Unresolved.Load();
+        var unresolved = _services.Store.Unresolved.Load().Where(file => _scope?.Invoke(file) ?? true).ToList();
         _judgements.Clear();
 
         Files.Clear();

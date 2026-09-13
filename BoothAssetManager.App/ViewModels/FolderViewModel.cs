@@ -1,0 +1,1046 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
+using System.Windows.Media.Imaging;
+using BoothAssetManager.App.Services;
+using BoothAssetManager.Core.Commands;
+using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
+
+namespace BoothAssetManager.App.ViewModels;
+
+public enum FolderViewRowKind
+{
+    Volume,
+    Root,
+    Folder,
+    File,
+    Unresolved,
+    ItemFolder,
+}
+
+/// <summary>木の中の絞り込み（ユーザ判断 2026-09-13）。</summary>
+public enum FolderViewMode
+{
+    All,
+    Managed,
+    Unresolved,
+}
+
+/// <summary>木に置く1件（管理しているファイル・未確定のファイル・フォルダごと登録した商品）。</summary>
+public sealed class FolderViewEntry
+{
+    public required string Path { get; init; }
+
+    public required FolderViewRowKind Kind { get; init; }
+
+    public ItemRecord? Item { get; init; }
+
+    public UnresolvedFile? Unresolved { get; init; }
+
+    /// <summary>同じ中身（ハッシュ）が置いてあるほかの場所（ユーザ判断：それぞれの場所に出し「ほかに n か所」と添える）。</summary>
+    public IReadOnlyList<string> Others { get; init; } = [];
+
+    public bool IsMissing { get; set; }
+
+    /// <summary>zip の横にある、展開したフォルダ（ユーザ判断：zip の下に薄く出す）。</summary>
+    public string? ExtractedFolder { get; set; }
+
+    public string Name => System.IO.Path.GetFileName(Path.TrimEnd('\\')) is { Length: > 0 } name ? name : Path;
+}
+
+/// <summary>木の1つのフォルダ（記録したパスから組む。ディスクは読み回らない）。</summary>
+internal sealed class FolderViewNode
+{
+    public required string Path { get; init; }
+
+    public required string Name { get; init; }
+
+    public Dictionary<string, FolderViewNode> Children { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public List<FolderViewEntry> Entries { get; } = [];
+
+    /// <summary>この下（子孫を含む）にファイルを持つ商品。</summary>
+    public Dictionary<string, ItemRecord> Items { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>この下（子孫を含む）の未確定。ハッシュで1件。</summary>
+    public Dictionary<string, UnresolvedFile> Unresolved { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public FolderViewNode Child(string name)
+    {
+        if (!Children.TryGetValue(name, out var child))
+        {
+            child = new FolderViewNode { Path = $@"{Path}\{name}", Name = name };
+            Children[name] = child;
+        }
+
+        return child;
+    }
+
+    public void Aggregate()
+    {
+        foreach (var child in Children.Values)
+        {
+            child.Aggregate();
+            foreach (var (id, item) in child.Items)
+            {
+                Items[id] = item;
+            }
+
+            foreach (var (hash, file) in child.Unresolved)
+            {
+                Unresolved[hash] = file;
+            }
+        }
+
+        foreach (var entry in Entries)
+        {
+            if (entry.Item is { } item)
+            {
+                Items[item.Id] = item;
+            }
+
+            if (entry.Unresolved is { } file)
+            {
+                Unresolved[file.Hash] = file;
+            }
+        }
+    }
+}
+
+internal sealed class FolderViewRootModel
+{
+    public required FolderViewRoot Root { get; init; }
+
+    public required FolderViewNode Node { get; init; }
+
+    public required string Label { get; init; }
+}
+
+internal sealed class FolderViewVolume
+{
+    public required string Volume { get; init; }
+
+    public required string Label { get; init; }
+
+    public required bool IsOnline { get; init; }
+
+    public List<FolderViewRootModel> Roots { get; } = [];
+
+    /// <summary>ボリューム全体をまとめた物（右に詳細を出すときに使う）。</summary>
+    public required FolderViewNode Summary { get; init; }
+}
+
+/// <summary>左の一覧の1行。**見えている行だけを平らに並べる**（1つのフォルダに1000本あっても、仮想化した一覧で重くしない）。</summary>
+public sealed class FolderViewRow : ViewModelBase
+{
+    public required string Key { get; init; }
+
+    public required FolderViewRowKind Kind { get; init; }
+
+    public required int Depth { get; init; }
+
+    public required string Name { get; init; }
+
+    public string Path { get; init; } = string.Empty;
+
+    public string SubText { get; init; } = string.Empty;
+
+    public bool HasSubText => SubText.Length > 0;
+
+    public bool CanExpand { get; init; }
+
+    public bool IsExpanded { get; init; }
+
+    public string Glyph => CanExpand ? (IsExpanded ? "▾" : "▸") : string.Empty;
+
+    public Thickness Indent => new(Depth * 16, 0, 0, 0);
+
+    /// <summary>取り外したドライブ・見つからないファイル。灰色で残す（木から消すと、持っていることを忘れる）。</summary>
+    public bool IsDim { get; init; }
+
+    public string? MissingText { get; init; }
+
+    public bool HasMissingText => MissingText is not null;
+
+    public string CountText { get; init; } = string.Empty;
+
+    public int UnresolvedCount { get; init; }
+
+    public bool HasUnresolvedBadge => UnresolvedCount > 0 && Kind is FolderViewRowKind.Volume or FolderViewRowKind.Root or FolderViewRowKind.Folder;
+
+    public string UnresolvedBadgeText => $"未確定 {UnresolvedCount}";
+
+    public bool IsFolderLike => Kind is FolderViewRowKind.Volume or FolderViewRowKind.Root or FolderViewRowKind.Folder;
+
+    public bool IsUnresolved => Kind == FolderViewRowKind.Unresolved;
+
+    public bool IsItemFile => Kind is FolderViewRowKind.File or FolderViewRowKind.ItemFolder;
+
+    public FolderViewEntry? Entry { get; init; }
+
+    internal FolderViewNode? Node { get; init; }
+
+    public string OthersText => Entry is { Others.Count: > 0 } entry ? $"ほかに {entry.Others.Count} か所" : string.Empty;
+
+    public bool HasOthers => OthersText.Length > 0;
+
+    public bool HasExtracted => Entry?.ExtractedFolder is not null;
+
+    public string? ThumbnailPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    public BitmapSource? Thumbnail => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        : null;
+
+    public string Initial => AvatarText.InitialOf(Entry?.Item?.DisplayName ?? Name);
+}
+
+/// <summary>右に出す商品の小さな行（フォルダを選んだとき）。</summary>
+public sealed class FolderViewItemRow : ViewModelBase
+{
+    public required ItemRecord Item { get; init; }
+
+    public string Name => Item.DisplayName;
+
+    public string? ThumbnailPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    public BitmapSource? Thumbnail => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        : null;
+
+    public string Initial => AvatarText.InitialOf(Name);
+}
+
+/// <summary>右に出すフォルダの詳細（ユーザ判断 2026-09-13：場所・数・操作・中の商品の一覧）。</summary>
+public sealed class FolderViewDetail
+{
+    /// <summary>一覧に出す商品の上限。これを超える分は「このフォルダで絞り込んで検索」で見る。</summary>
+    public const int MaxItems = 100;
+
+    public required string Path { get; init; }
+
+    public required string Title { get; init; }
+
+    public required IReadOnlyList<FolderViewItemRow> Items { get; init; }
+
+    public required int ItemCount { get; init; }
+
+    public required IReadOnlyList<UnresolvedFile> Unresolved { get; init; }
+
+    public bool IsOffline { get; init; }
+
+    public bool CanAddImport { get; init; }
+
+    public bool CanAddWatch { get; init; }
+
+    public string CountText => Unresolved.Count > 0
+        ? $"商品 {ItemCount} 件・未確定 {Unresolved.Count} 件"
+        : $"商品 {ItemCount} 件";
+
+    public bool HasItems => Items.Count > 0;
+
+    public bool HasMoreItems => ItemCount > Items.Count;
+
+    public string MoreItemsText => $"ほか {ItemCount - Items.Count} 件は「このフォルダで絞り込んで検索」で見られます。";
+
+    public bool HasUnresolved => Unresolved.Count > 0;
+
+    public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。確定・フォルダの登録は「未確定として開く」から、"
+        + "要らない物は「管理から外す」で片付けられます（ファイル自体は消しません）。";
+
+    public string ExcludeText => $"この下の未確定 {Unresolved.Count} 件を管理から外す";
+}
+
+/// <summary>
+/// フォルダビュー（ユーザ仕様 2026-09-13 <c>設計詳細_フォルダビュー.md</c>）。
+///
+/// 左はフォルダの木（ファイルまで・未確定も印付きで）、右は選んだ物の詳細。管理しているファイルは商品ページを、
+/// 未確定のファイルは未確定の画面の右側を、そのまま組み込む。根の決め方は <see cref="FolderViewRoots"/>。
+/// **木は保存した記録のパスから組み、ディスクを読み回らない**（取り外したドライブも最後に分かっていた形で出す）。
+/// </summary>
+public sealed class FolderViewModel : ViewModelBase
+{
+    // 開いた・畳んだはアプリを閉じるまで覚える（改変の画面と同じ・ユーザ判断）
+    private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> s_collapsed = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly AppServiceContainer _services;
+    private readonly MainViewModel _main;
+    private readonly ThumbnailLoader _thumbnails;
+
+    private List<FolderViewVolume> _volumes = [];
+    private FolderViewRow? _selected;
+    private object? _detail;
+    private string _filter = string.Empty;
+    private FolderViewMode _mode = FolderViewMode.All;
+    private string _status = string.Empty;
+    private bool _isLoading = true;
+    private string? _pendingSelect;
+    private int _lastResolveCount = -1;
+
+    public FolderViewModel(AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails, string? selectKey = null)
+    {
+        _services = services;
+        _main = main;
+        _thumbnails = thumbnails;
+        _pendingSelect = selectKey;
+
+        ToggleCommand = new RelayCommand(parameter => Toggle(parameter as FolderViewRow));
+        ShowOtherCommand = new RelayCommand(parameter => ShowOther(parameter as FolderViewRow));
+        RevealExtractedCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewRow)?.Entry?.ExtractedFolder));
+        SearchHereCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is FolderViewDetail detail)
+            {
+                _main.ShowItemsInFolder(detail.Path);
+            }
+        });
+        RevealCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewDetail)?.Path));
+        AddImportCommand = new RelayCommand(parameter => _ = AddFolderAsync(parameter as FolderViewDetail, watch: false));
+        AddWatchCommand = new RelayCommand(parameter => _ = AddFolderAsync(parameter as FolderViewDetail, watch: true));
+        ExcludeUnresolvedCommand = new RelayCommand(parameter => _ = ExcludeUnresolvedAsync(parameter as FolderViewDetail));
+        OpenUnresolvedCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is FolderViewDetail detail)
+            {
+                var hashes = detail.Unresolved.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                ShowResolve(file => hashes.Contains(file.Hash));
+            }
+        });
+        ShowItemCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is FolderViewItemRow row)
+            {
+                ShowItem(row.Item);
+            }
+        });
+
+        _ = LoadAsync();
+    }
+
+    public ObservableCollection<FolderViewRow> Rows { get; } = [];
+
+    public FolderViewRow? Selected
+    {
+        get => _selected;
+        set
+        {
+            if (SetField(ref _selected, value))
+            {
+                ShowDetail(value);
+            }
+        }
+    }
+
+    /// <summary>戻るで戻ったときに、同じ行を選び直すための鍵。</summary>
+    public string? SelectedKey => _selected?.Key;
+
+    public object? Detail
+    {
+        get => _detail;
+        private set
+        {
+            if (SetField(ref _detail, value))
+            {
+                OnPropertyChanged(nameof(HasDetail));
+            }
+        }
+    }
+
+    public bool HasDetail => Detail is not null;
+
+    // ---- 絞り込み（ユーザ判断：木全体を名前で絞る＋［すべて／管理している物／未確定］） ----
+
+    public string Filter
+    {
+        get => _filter;
+        set
+        {
+            if (SetField(ref _filter, value))
+            {
+                OnPropertyChanged(nameof(HasFilter));
+                Rebuild();
+            }
+        }
+    }
+
+    public bool HasFilter => Filter.Length > 0;
+
+    public bool IsAllMode
+    {
+        get => _mode == FolderViewMode.All;
+        set => SetMode(value, FolderViewMode.All);
+    }
+
+    public bool IsManagedMode
+    {
+        get => _mode == FolderViewMode.Managed;
+        set => SetMode(value, FolderViewMode.Managed);
+    }
+
+    public bool IsUnresolvedMode
+    {
+        get => _mode == FolderViewMode.Unresolved;
+        set => SetMode(value, FolderViewMode.Unresolved);
+    }
+
+    private void SetMode(bool value, FolderViewMode mode)
+    {
+        if (!value || _mode == mode)
+        {
+            return;
+        }
+
+        _mode = mode;
+        OnPropertyChanged(nameof(IsAllMode));
+        OnPropertyChanged(nameof(IsManagedMode));
+        OnPropertyChanged(nameof(IsUnresolvedMode));
+        Rebuild();
+    }
+
+    private bool IsFiltering => Filter.Trim().Length > 0 || _mode != FolderViewMode.All;
+
+    public string Status
+    {
+        get => _status;
+        private set
+        {
+            if (SetField(ref _status, value))
+            {
+                OnPropertyChanged(nameof(HasStatus));
+            }
+        }
+    }
+
+    public bool HasStatus => Status.Length > 0;
+
+    public bool IsEmpty => Rows.Count == 0;
+
+    /// <summary>空のときに次にやることを書く。</summary>
+    public string EmptyText => _isLoading
+        ? "読み込んでいます…"
+        : IsFiltering
+            ? "当てはまるものがありません。絞り込みを変えてみてください。"
+            : "まだ手元のファイルがありません。「取り込み」でフォルダを選ぶと、ここに置き場所ごとに並びます。";
+
+    // ---- 操作 ----
+
+    public RelayCommand ToggleCommand { get; }
+
+    public RelayCommand ShowOtherCommand { get; }
+
+    public RelayCommand RevealExtractedCommand { get; }
+
+    public RelayCommand SearchHereCommand { get; }
+
+    public RelayCommand RevealCommand { get; }
+
+    public RelayCommand AddImportCommand { get; }
+
+    public RelayCommand AddWatchCommand { get; }
+
+    public RelayCommand ExcludeUnresolvedCommand { get; }
+
+    public RelayCommand OpenUnresolvedCommand { get; }
+
+    public RelayCommand ShowItemCommand { get; }
+
+    /// <summary>窓が手前に戻ったとき。取り込み・未確定の片付けを別の画面でした後に、木を読み直す。右に出している物は作り直さない。</summary>
+    public void NoteWindowActivated() => _ = LoadAsync();
+
+    // ---- 読み込み ----
+
+    private async Task LoadAsync()
+    {
+        var items = _main.Search.SnapshotItems();
+        if (items.Count == 0)
+        {
+            items = (await _services.Store.Items.LoadAllAsync()).Items;
+        }
+
+        var unresolved = _services.Store.Unresolved.Load();
+        var built = await Task.Run(() => Build(items, unresolved));
+
+        _volumes = built;
+        _isLoading = false;
+
+        if (_pendingSelect is { } pending)
+        {
+            _pendingSelect = null;
+            ExpandTo(pending.StartsWith("e:", StringComparison.Ordinal) ? pending[2..] : pending[(pending.IndexOf(':') + 1)..]);
+            Rebuild();
+            Selected = Rows.FirstOrDefault(row => row.Key == pending);
+        }
+        else
+        {
+            Rebuild();
+        }
+    }
+
+    /// <summary>記録から木を組む（裏のスレッドで）。在るかどうかと、zip の横の展開したフォルダもここで見る。</summary>
+    private static List<FolderViewVolume> Build(IReadOnlyList<ItemRecord> items, IReadOnlyList<UnresolvedFile> unresolved)
+    {
+        var entries = new List<FolderViewEntry>();
+        foreach (var item in items)
+        {
+            foreach (var file in item.Local.OwnedFiles)
+            {
+                foreach (var path in file.Paths)
+                {
+                    entries.Add(new FolderViewEntry
+                    {
+                        Path = path,
+                        Kind = FolderViewRowKind.File,
+                        Item = item,
+                        Others = file.Paths.Where(other => !Same(other, path)).ToList(),
+                    });
+                }
+            }
+
+            foreach (var folder in item.Local.LocalFolders)
+            {
+                entries.Add(new FolderViewEntry { Path = folder.Path, Kind = FolderViewRowKind.ItemFolder, Item = item });
+            }
+        }
+
+        foreach (var file in unresolved)
+        {
+            foreach (var path in file.Paths)
+            {
+                entries.Add(new FolderViewEntry
+                {
+                    Path = path,
+                    Kind = FolderViewRowKind.Unresolved,
+                    Unresolved = file,
+                    Others = file.Paths.Where(other => !Same(other, path)).ToList(),
+                });
+            }
+        }
+
+        entries.RemoveAll(entry => ParentOf(entry.Path) is null);
+
+        var oneDrive = Environment.GetEnvironmentVariable("OneDrive");
+        var roots = FolderViewRoots.Roots(
+            entries.Select(entry => ParentOf(entry.Path)!),
+            path => FolderViewRoots.IsHardBoundary(path, oneDrive));
+
+        var volumes = new List<FolderViewVolume>();
+        foreach (var group in roots.GroupBy(root => root.Volume, StringComparer.OrdinalIgnoreCase))
+        {
+            var online = VolumeOnline(group.Key);
+            var volume = new FolderViewVolume
+            {
+                Volume = group.Key,
+                Label = VolumeLabel(group.Key, online),
+                IsOnline = online,
+                Summary = new FolderViewNode { Path = group.Key, Name = group.Key },
+            };
+
+            foreach (var root in group.OrderBy(root => root.Path, NaturalComparer.Instance))
+            {
+                volume.Roots.Add(new FolderViewRootModel
+                {
+                    Root = root,
+                    Node = new FolderViewNode { Path = root.Path, Name = root.Path },
+                    Label = RootLabel(root),
+                });
+            }
+
+            volumes.Add(volume);
+        }
+
+        foreach (var entry in entries)
+        {
+            var folder = ParentOf(entry.Path)!;
+            var volume = volumes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Volume, FolderViewRoots.VolumeOf(folder), StringComparison.OrdinalIgnoreCase));
+            if (volume is null || FindRoot(volume, folder) is not { } root)
+            {
+                continue;
+            }
+
+            var node = root.Node;
+            var relative = folder.Length > root.Root.Path.Length ? folder[root.Root.Path.Length..].Trim('\\') : string.Empty;
+            foreach (var segment in relative.Split('\\', StringSplitOptions.RemoveEmptyEntries))
+            {
+                node = node.Child(segment);
+            }
+
+            // 取り外したボリュームは確かめない（全部「取り外しているドライブ」）
+            entry.IsMissing = !volume.IsOnline
+                || !(entry.Kind == FolderViewRowKind.ItemFolder ? Directory.Exists(entry.Path) : File.Exists(entry.Path));
+
+            if (!entry.IsMissing && entry.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                && Directory.Exists(entry.Path[..^4]))
+            {
+                entry.ExtractedFolder = entry.Path[..^4];
+            }
+
+            node.Entries.Add(entry);
+        }
+
+        foreach (var volume in volumes)
+        {
+            foreach (var root in volume.Roots)
+            {
+                root.Node.Aggregate();
+                foreach (var (id, item) in root.Node.Items)
+                {
+                    volume.Summary.Items[id] = item;
+                }
+
+                foreach (var (hash, file) in root.Node.Unresolved)
+                {
+                    volume.Summary.Unresolved[hash] = file;
+                }
+            }
+        }
+
+        return volumes.OrderBy(volume => volume.Volume, NaturalComparer.Instance).ToList();
+    }
+
+    /// <summary>その置き場所が入る根。「直下など」は境目の直下と、まとめた小さなフォルダだけを受け持つ。</summary>
+    private static FolderViewRootModel? FindRoot(FolderViewVolume volume, string folder)
+    {
+        var normal = volume.Roots
+            .Where(root => !root.Root.IsLooseBucket
+                && (Same(folder, root.Root.Path) || folder.StartsWith(root.Root.Path + @"\", StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(root => root.Root.Path.Length)
+            .FirstOrDefault();
+
+        return normal ?? volume.Roots.FirstOrDefault(root => root.Root.IsLooseBucket
+            && (Same(folder, root.Root.Path) || root.Root.LooseFolders.Any(loose => Same(folder, loose))));
+    }
+
+    /// <summary>
+    /// 根の名前。ボリュームから下の経路を「 › 」でつないで**消さずに畳んだまま**見せる（ユーザ：経路は完全に消すのではなくスキップできればよい）。
+    /// </summary>
+    private static string RootLabel(FolderViewRoot root)
+    {
+        if (root.IsLooseBucket)
+        {
+            var leaf = root.Path.Length > root.Volume.Length ? Path.GetFileName(root.Path) : root.Volume;
+            return $"{leaf}（直下など）";
+        }
+
+        var relative = root.Path.Length > root.Volume.Length ? root.Path[root.Volume.Length..].Trim('\\') : root.Path;
+        return relative.Replace(@"\", " › ");
+    }
+
+    private static bool VolumeOnline(string volume)
+    {
+        try
+        {
+            return Directory.Exists(volume + @"\");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static string VolumeLabel(string volume, bool online)
+    {
+        if (!online)
+        {
+            return $"{volume}（取り外しています）";
+        }
+
+        if (volume.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return volume;
+        }
+
+        try
+        {
+            var drive = new DriveInfo(volume);
+            return drive.IsReady && drive.VolumeLabel.Length > 0 ? $"{volume}（{drive.VolumeLabel}）" : volume;
+        }
+        catch (Exception exception) when (exception is IOException or ArgumentException or UnauthorizedAccessException)
+        {
+            return volume;
+        }
+    }
+
+    // ---- 行を並べる ----
+
+    private void Rebuild()
+    {
+        var keep = _selected?.Key;
+        Rows.Clear();
+
+        foreach (var volume in _volumes)
+        {
+            var children = new List<FolderViewRow>();
+            foreach (var root in volume.Roots)
+            {
+                AddFolder(root.Node, root.Label, FolderViewRowKind.Root, 1, !volume.IsOnline, children, textHit: false);
+            }
+
+            if (IsFiltering && children.Count == 0)
+            {
+                continue;
+            }
+
+            var key = $"Volume:{volume.Volume}";
+            var expanded = IsExpanded(key, byDefault: true);
+            Rows.Add(new FolderViewRow
+            {
+                Key = key,
+                Kind = FolderViewRowKind.Volume,
+                Depth = 0,
+                Name = volume.Label,
+                Path = volume.Volume,
+                CanExpand = volume.Roots.Count > 0,
+                IsExpanded = expanded,
+                IsDim = !volume.IsOnline,
+                CountText = $"商品 {volume.Summary.Items.Count}",
+                UnresolvedCount = volume.Summary.Unresolved.Count,
+                Node = volume.Summary,
+            });
+
+            if (expanded)
+            {
+                foreach (var row in children)
+                {
+                    Rows.Add(row);
+                }
+            }
+        }
+
+        // 選んでいた行を選び直す。**右は作り直さない**（開き直すたびに商品ページの読み込みが走り、見ていた所が戻る）
+        if (keep is not null)
+        {
+            _selected = Rows.FirstOrDefault(row => row.Key == keep);
+            OnPropertyChanged(nameof(Selected));
+        }
+
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
+    }
+
+    /// <returns>何か出したか（絞り込みで空になったフォルダは出さない）。</returns>
+    private bool AddFolder(
+        FolderViewNode node,
+        string label,
+        FolderViewRowKind kind,
+        int depth,
+        bool offline,
+        List<FolderViewRow> output,
+        bool textHit)
+    {
+        // 1本道の段は1行に畳む（今の FolderTree と同じ）。畳んだ段は名前に「 › 」で残すので、経路は消えない
+        var name = label;
+        while (node.Entries.Count == 0 && node.Children.Count == 1)
+        {
+            var only = node.Children.Values.First();
+            name = $"{name} › {only.Name}";
+            node = only;
+        }
+
+        var hit = textHit || TextHits(name);
+        var children = new List<FolderViewRow>();
+        foreach (var child in node.Children.Values.OrderBy(child => child.Name, NaturalComparer.Instance))
+        {
+            AddFolder(child, child.Name, FolderViewRowKind.Folder, depth + 1, offline, children, hit);
+        }
+
+        foreach (var entry in node.Entries.OrderBy(entry => entry.Name, NaturalComparer.Instance))
+        {
+            if (ModeHits(entry) && (hit || TextHits(entry.Name) || TextHits(entry.Item?.DisplayName)))
+            {
+                children.Add(EntryRow(entry, depth + 1, offline));
+            }
+        }
+
+        if (IsFiltering && children.Count == 0)
+        {
+            return false;
+        }
+
+        var key = $"{kind}:{node.Path}";
+        var expanded = IsExpanded(key, byDefault: kind == FolderViewRowKind.Root);
+        output.Add(new FolderViewRow
+        {
+            Key = key,
+            Kind = kind,
+            Depth = depth,
+            Name = name,
+            Path = node.Path,
+            CanExpand = node.Children.Count + node.Entries.Count > 0,
+            IsExpanded = expanded,
+            IsDim = offline,
+            CountText = $"商品 {node.Items.Count}",
+            UnresolvedCount = node.Unresolved.Count,
+            Node = node,
+        });
+
+        if (expanded)
+        {
+            output.AddRange(children);
+        }
+
+        return true;
+    }
+
+    private FolderViewRow EntryRow(FolderViewEntry entry, int depth, bool offline) => new()
+    {
+        Key = $"e:{entry.Path}",
+        Kind = entry.Kind,
+        Depth = depth,
+        Name = entry.Name,
+        Path = entry.Path,
+        SubText = entry.Kind switch
+        {
+            FolderViewRowKind.Unresolved => "未確定（商品が決まっていません）",
+            FolderViewRowKind.ItemFolder => $"{entry.Item!.DisplayName}（フォルダごと登録した商品）",
+            _ => entry.Item!.DisplayName,
+        },
+        IsDim = offline || entry.IsMissing,
+        MissingText = !entry.IsMissing ? null : offline ? "取り外しているドライブ" : "見つかりません",
+        Entry = entry,
+        ThumbnailPath = entry.Item is { } item ? ItemThumbnailPath(item) : null,
+        Thumbnails = _thumbnails,
+    };
+
+    private bool ModeHits(FolderViewEntry entry) => _mode switch
+    {
+        FolderViewMode.Managed => entry.Kind != FolderViewRowKind.Unresolved,
+        FolderViewMode.Unresolved => entry.Kind == FolderViewRowKind.Unresolved,
+        _ => true,
+    };
+
+    private bool TextHits(string? text)
+        => Filter.Trim().Length == 0 || (text is not null && text.Contains(Filter.Trim(), StringComparison.CurrentCultureIgnoreCase));
+
+    private bool IsExpanded(string key, bool byDefault)
+        => IsFiltering || s_expanded.Contains(key) || (byDefault && !s_collapsed.Contains(key));
+
+    private void Toggle(FolderViewRow? row)
+    {
+        if (row is null || !row.CanExpand || IsFiltering)
+        {
+            return;
+        }
+
+        if (row.IsExpanded)
+        {
+            s_expanded.Remove(row.Key);
+            s_collapsed.Add(row.Key);
+        }
+        else
+        {
+            s_collapsed.Remove(row.Key);
+            s_expanded.Add(row.Key);
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>その場所まで木を開く（「ほかに n か所」と、戻るで戻ったとき）。</summary>
+    private void ExpandTo(string path)
+    {
+        var folder = ParentOf(path) ?? path;
+        var volume = FolderViewRoots.VolumeOf(folder);
+        s_collapsed.Remove($"Volume:{volume}");
+
+        for (var current = folder; current is not null && current.Length >= volume.Length; current = ParentOf(current))
+        {
+            foreach (var kind in new[] { "Root", "Folder" })
+            {
+                s_collapsed.Remove($"{kind}:{current}");
+                s_expanded.Add($"{kind}:{current}");
+            }
+        }
+    }
+
+    /// <summary>同じ中身が置いてある、もう1つの場所へ移る。</summary>
+    private void ShowOther(FolderViewRow? row)
+    {
+        if (row?.Entry is not { Others.Count: > 0 } entry)
+        {
+            return;
+        }
+
+        var target = entry.Others[0];
+        Filter = string.Empty;
+        ExpandTo(target);
+        Rebuild();
+        Selected = Rows.FirstOrDefault(candidate => candidate.Key == $"e:{target}");
+    }
+
+    // ---- 右に出す ----
+
+    private void ShowDetail(FolderViewRow? row)
+    {
+        switch (row)
+        {
+            case null:
+                Detail = null;
+                break;
+            case { IsFolderLike: true, Node: { } node }:
+                Detail = DetailFor(row, node);
+                break;
+            case { Entry.Item: { } item }:
+                ShowItem(item);
+                break;
+            case { Entry.Unresolved: { } file }:
+                ShowResolve(candidate => string.Equals(candidate.Hash, file.Hash, StringComparison.OrdinalIgnoreCase));
+                break;
+        }
+    }
+
+    private FolderViewDetail DetailFor(FolderViewRow row, FolderViewNode node)
+    {
+        var items = node.Items.Values.OrderBy(item => item.DisplayName, NaturalComparer.Instance).ToList();
+        var settings = _services.Settings;
+        var offline = row.IsDim;
+        return new FolderViewDetail
+        {
+            Path = node.Path,
+            Title = row.Name,
+            ItemCount = items.Count,
+            Items = items.Take(FolderViewDetail.MaxItems)
+                .Select(item => new FolderViewItemRow { Item = item, ThumbnailPath = ItemThumbnailPath(item), Thumbnails = _thumbnails })
+                .ToList(),
+            Unresolved = node.Unresolved.Values.ToList(),
+            IsOffline = offline,
+            CanAddImport = !offline && !settings.ImportFolders.Contains(node.Path, StringComparer.OrdinalIgnoreCase),
+            CanAddWatch = !offline && !settings.WatchedFolders.Contains(node.Path, StringComparer.OrdinalIgnoreCase),
+        };
+    }
+
+    /// <summary>商品ページをそのまま右に組み込む（ユーザ判断。改変の画面に改変の画面を組み込んだのと同じ形）。</summary>
+    private void ShowItem(ItemRecord item)
+    {
+        var page = new ItemViewModel(item, _services, _main, _thumbnails) { IsEmbedded = true };
+
+        // 開き直すのは右側だけ（主画面ごと差し替えない）。ファイルを外すと木の形も変わるので読み直す
+        page.Replaced = updated =>
+        {
+            if (updated is null)
+            {
+                Detail = null;
+            }
+            else
+            {
+                ShowItem(updated);
+            }
+
+            _ = LoadAsync();
+        };
+        Detail = page;
+    }
+
+    /// <summary>未確定の画面の右側をそのまま組み込む（ユーザ判断）。片付いたら木を読み直す。</summary>
+    private void ShowResolve(Func<UnresolvedFile, bool> scope)
+    {
+        var resolve = new ResolveViewModel(_services, _main, scope) { IsEmbedded = true };
+        _lastResolveCount = -1;
+        resolve.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(ResolveViewModel.RemainingCount))
+            {
+                return;
+            }
+
+            var count = resolve.RemainingCount;
+            if (_lastResolveCount >= 0 && count < _lastResolveCount)
+            {
+                _ = LoadAsync();
+            }
+
+            _lastResolveCount = count;
+        };
+        Detail = resolve;
+    }
+
+    // ---- フォルダの操作 ----
+
+    private async Task AddFolderAsync(FolderViewDetail? detail, bool watch)
+    {
+        if (detail is null)
+        {
+            return;
+        }
+
+        var settings = _services.Settings;
+        var next = watch
+            ? settings with { WatchedFolders = [.. settings.WatchedFolders, detail.Path] }
+            : settings with { ImportFolders = [.. settings.ImportFolders, detail.Path] };
+        _services.ReplaceSettings(next);
+        await _services.SettingsStore.SaveAsync(next);
+
+        Status = watch
+            ? $"「{detail.Path}」を監視に足しました。次に起動したとき、この中の新しいファイルを見ます。"
+            : $"「{detail.Path}」を取り込み元に足しました。次の取り込みから、このフォルダも見ます。";
+        ShowDetail(_selected);
+    }
+
+    /// <summary>その下の未確定を全部（子のフォルダも含む）管理から外す（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>
+    private async Task ExcludeUnresolvedAsync(FolderViewDetail? detail)
+    {
+        if (detail is not { Unresolved.Count: > 0 })
+        {
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            $"「{detail.Title}」の下の未確定 {detail.Unresolved.Count} 件を管理から外します。\n\n"
+            + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
+            "管理から外す",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question,
+            MessageBoxResult.Cancel);
+
+        if (answer != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        foreach (var file in detail.Unresolved)
+        {
+            await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFile(file.Hash, file.Paths, "フォルダビューからフォルダごと除外"));
+        }
+
+        Status = $"{detail.Unresolved.Count} 件を管理から外しました。";
+        _main.RefreshBadges();
+        await LoadAsync();
+        ShowDetail(_selected);
+    }
+
+    // ---- 小道具 ----
+
+    /// <summary>商品の1枚目。検索のカードと同じ選び方（BOOTHの並び・★・役割の指定）。</summary>
+    private string? ItemThumbnailPath(ItemRecord item)
+    {
+        var directory = _services.Paths.ItemImagesDir(item.Id);
+        var ordered = Core.Images.ItemImageOrder.Arrange(
+            directory, item.Booth.Images, _thumbnails.ListFiles(directory), item.Local.UserImages);
+        return Core.Images.ItemImageOrder.Thumbnail(
+            ordered, item.Local.ThumbnailImage, _services.Settings.ThumbnailRole, item.Local.ImageRoles);
+    }
+
+    private static string? ParentOf(string path)
+    {
+        var trimmed = path.Replace('/', '\\').TrimEnd('\\');
+        var index = trimmed.LastIndexOf('\\');
+        if (index <= 0)
+        {
+            return null;
+        }
+
+        var parent = trimmed[..index];
+        return parent.StartsWith(@"\\", StringComparison.Ordinal) && parent.Count(character => character == '\\') < 3
+            ? null
+            : parent;
+    }
+
+    private static bool Same(string left, string right) => string.Equals(
+        left.TrimEnd('\\'), right.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+}

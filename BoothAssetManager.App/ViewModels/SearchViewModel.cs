@@ -1833,6 +1833,34 @@ public sealed class SearchViewModel : ViewModelBase
         ApplyFilters();
     }
 
+    /// <summary>
+    /// このフォルダの下にファイルを持つ商品だけを出す。フォルダビューの「このフォルダで絞り込んで検索」からの導線
+    /// （ユーザ：「フォルダビューからそのフォルダで絞り込んで検索に入れても良いくらいだ」）。条件は検索の「フォルダ」と同じ物を使う
+    /// </summary>
+    public void ShowOnlyFolder(string path)
+    {
+        ClearFilters();
+        AddExtraFilter(ExtraFilterKind.Folder);
+        if (ExtraFilters.FirstOrDefault(filter => filter.Kind == ExtraFilterKind.Folder) is not { } folder)
+        {
+            return;
+        }
+
+        folder.IsOn = true;
+        foreach (var existing in folder.Selected.ToList())
+        {
+            folder.Remove(existing);
+        }
+
+        folder.CurrentPath = System.IO.Path.GetDirectoryName(path.TrimEnd('\\'));
+        folder.Add(path);
+
+        // 選んだ印を行に出す。行は現在地を変えたところで作られていて、そのときはまだ選んでいなかった
+        // （絞り込めているのに、左の欄のチェックが外れて見えた）
+        RebuildFolderRows(folder);
+        ApplyFilters();
+    }
+
     /// <summary>このカテゴリだけで絞り込む。統計の容量内訳から中身を見に来る導線。</summary>
     public void ShowOnlyCategory(string category)
     {

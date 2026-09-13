@@ -8,8 +8,10 @@
              d:DataContext="{d:DesignInstance Type=vm:ResolveViewModel}">
     <DockPanel Background="{StaticResource Bg}">
 
+        <!-- フォルダビューに組み込んだときは上の帯と左の一覧を隠す（ShowsChrome・ListColumnWidth） -->
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" />
@@ -35,11 +37,14 @@
         </Border>
 
         <!-- 検索・要確認と同じ理由。読んでいる最中に一覧を動かさない -->
-        <Button DockPanel.Dock="Top" Margin="20,12,20,0" FontSize="12"
-                Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                Content="{Binding Main.PendingItemText}"
-                Command="{Binding ReloadCommand}"
-                Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        <Border DockPanel.Dock="Top"
+                Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <Button Margin="20,12,20,0" FontSize="12"
+                    Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                    Content="{Binding Main.PendingItemText}"
+                    Command="{Binding ReloadCommand}"
+                    Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </Border>
 
         <!-- 片付いた表示と一覧は重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->
         <Grid>
@@ -73,13 +78,14 @@
                 </Style>
             </Grid.Style>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="330" />
+                <ColumnDefinition Width="{Binding ListColumnWidth}" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <!-- 左：未確定の一覧（フォルダごとにまとめる） -->
             <Border Grid.Column="0" Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0"
+                    Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
                         <StackPanel Orientation="Horizontal">
