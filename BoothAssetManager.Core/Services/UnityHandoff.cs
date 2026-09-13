@@ -13,6 +13,12 @@ namespace BoothAssetManager.Core.Services;
 public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long SizeBytes)
 {
     /// <summary>
+    /// 包んでいる zip のハッシュ（手元のファイルの記録から作ったときだけ入れる）。あれば中身のパスを控え
+    /// （<see cref="Storage.UnityPackagePathStore"/>）から引き、zip を解き直さない。
+    /// </summary>
+    public string? ZipHash { get; init; }
+
+    /// <summary>
     /// Windowsに渡すパス。**zipを「フォルダ」として扱う仮想パス。**
     ///
     /// <c>D:\...\HeartBeatGimmick.zip\なめらか心音ギミック\VRCHeartRate_Installer.unitypackage</c>
@@ -152,20 +158,54 @@ public static class UnityHandoff
             return cached.Paths;
         }
 
-        var paths = ReadAssetPathsFromDisk(package);
-        if (zip is { Exists: true } && paths.Count > 0)
+        // 取り込みの裏で読んだ控え（2026-09-13）。ハッシュが同じなら中身は変わらないので、zip を解かずに引ける
+        if (package.ZipHash is { } hash
+            && s_pathStore?.Load(hash) is { } stored
+            && stored.TryGetValue(package.EntryPath, out var storedPaths))
         {
-            // 覚えすぎない。手元の商品の数を大きく超えたら一度忘れる（読み直せば戻る）
-            if (PathCache.Count >= MaxCachedPackages)
-            {
-                PathCache.Clear();
-            }
+            Remember(key, zip, storedPaths);
+            return storedPaths;
+        }
 
-            PathCache[key] = (zip.Length, zip.LastWriteTimeUtc, paths);
+        var paths = ReadAssetPathsFromDisk(package);
+        Remember(key, zip, paths);
+
+        // 取り込みの裏より先に読んだ物も控えに足す（次の起動では解かずに済む）
+        if (package.ZipHash is { } readHash && paths.Count > 0 && s_pathStore is { } store)
+        {
+            try
+            {
+                store.Add(readHash, package.EntryPath, paths);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 控えは無くても動く。次に読んだときに足し直す
+            }
         }
 
         return paths;
     }
+
+    private static void Remember((string Zip, string Entry) key, FileInfo? zip, IReadOnlyList<string> paths)
+    {
+        if (zip is not { Exists: true } || paths.Count == 0)
+        {
+            return;
+        }
+
+        // 覚えすぎない。手元の商品の数を大きく超えたら一度忘れる（読み直せば戻る）
+        if (PathCache.Count >= MaxCachedPackages)
+        {
+            PathCache.Clear();
+        }
+
+        PathCache[key] = (zip.Length, zip.LastWriteTimeUtc, paths);
+    }
+
+    private static Storage.UnityPackagePathStore? s_pathStore;
+
+    /// <summary>中身のパスの控えを使う。アプリの起動時に1度渡す。渡さなければ（試験など）毎回 zip を解く。</summary>
+    public static void UsePathStore(Storage.UnityPackagePathStore? store) => s_pathStore = store;
 
     /// <summary>読んだパスの一覧。キーは zip の場所（大文字小文字をそろえる）と中の名前。</summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Zip, string Entry), (long Length, DateTime Written, IReadOnlyList<string> Paths)>

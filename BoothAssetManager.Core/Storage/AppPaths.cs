@@ -76,6 +76,15 @@ public sealed class AppPaths
 
     public string ScanCacheFile => Path.Combine(Root, "scan-cache.json");
 
+    /// <summary>
+    /// unitypackage の中身の全部のパスの控え。zip のハッシュごとに1ファイル。
+    /// 1つのファイルにまとめると、2000件の規模で数十MBを書くたびに丸ごと書き直すことになるので分ける。
+    /// 消しても作り直せる（取り込みの裏で読み直す）
+    /// </summary>
+    public string UnityPackagesDir => Path.Combine(Root, "unitypackages");
+
+    public string UnityPackageFile(string hash) => Path.Combine(UnityPackagesDir, hash.ToUpperInvariant() + ".json");
+
     /// <summary>中断した取り込みの記録。最後まで終われば消える。</summary>
     public string ImportStateFile => Path.Combine(Root, "import-state.json");
 

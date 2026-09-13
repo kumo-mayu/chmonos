@@ -52,7 +52,13 @@ public sealed class AppServiceContainer : IDisposable
 
         // 検出は梯子の③なので、取り込みより先に組み立てる
         Avatars = new AvatarService(Store, () => Settings, Client);
-        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars);
+
+        // unitypackage の中身は取り込みの裏で1度だけ読み、ハッシュごとの控えに置く（2026-09-13 ユーザ判断）。
+        // 商品ページや改変の画面は zip を解く前に控えを見る
+        var unityPackagePaths = new UnityPackagePathStore(Paths);
+        UnityHandoff.UsePathStore(unityPackagePaths);
+        UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths);
+        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages);
         Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
         AvatarImages = new AvatarImageSync(Store, Client, Images);
@@ -79,8 +85,11 @@ public sealed class AppServiceContainer : IDisposable
         Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
-            Modifications, Avatars);
+            Modifications, Avatars, UnityPackages);
     }
+
+    /// <summary>unitypackage の中身を1度だけ読んで残す（取り込みの裏・手でファイルを付けた後）。</summary>
+    public UnityPackageCatalog UnityPackages { get; }
 
     /// <summary>
     /// フォルダをごみ箱へ送る。完全削除にしないのは、判定を誤ったときに取り返しがつくようにするため。

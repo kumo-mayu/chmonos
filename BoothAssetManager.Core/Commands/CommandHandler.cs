@@ -31,8 +31,10 @@ public sealed class CommandHandler
         IUserTagService? userTags = null,
         IAttributeService? attributes = null,
         IModificationService? modifications = null,
-        IAvatarService? avatars = null)
+        IAvatarService? avatars = null,
+        UnityPackageCatalog? unityPackages = null)
     {
+        _unityPackages = unityPackages;
         _import = import;
         _items = items;
         _edit = edit;
@@ -74,6 +76,8 @@ public sealed class CommandHandler
             case UiCommand.AssignItemId assign:
                 if (await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken))
                 {
+                    FillUnityPackagesInBackground(assign.ItemId);
+
                     // 手で紐付けた商品は、説明文・タグ・種類名が揃っているのに、次の検出まで
                     // 対応アバターが空だった（「手で紐付けると上手く行かない」と見えていた）。
                     // **裏で走らせ、確定の画面は待たせない。**確定すると次の1件の自動検索が走るので、
@@ -111,6 +115,11 @@ public sealed class CommandHandler
             case UiCommand.RegisterLocalItem local:
                 var localId = await _items.RegisterLocalItemAsync(
                     local.Hash, local.DisplayName, cancellationToken);
+                if (localId is not null)
+                {
+                    FillUnityPackagesInBackground(localId);
+                }
+
                 return localId is not null
                     ? new CommandResult.ItemSaved(localId)
                     : new CommandResult.Failed("対象のファイルが未確定に見つかりませんでした。");
@@ -473,7 +482,13 @@ public sealed class CommandHandler
             }
 
             case UiCommand.ReattachFile reattach:
-                return await _items.ReattachFileAsync(reattach.ItemId, reattach.Hash, cancellationToken) switch
+                var reattached = await _items.ReattachFileAsync(reattach.ItemId, reattach.Hash, cancellationToken);
+                if (reattached == Services.ReattachOutcome.Reattached)
+                {
+                    FillUnityPackagesInBackground(reattach.ItemId);
+                }
+
+                return reattached switch
                 {
                     Services.ReattachOutcome.Reattached => new CommandResult.ItemSaved(reattach.ItemId),
                     Services.ReattachOutcome.OwnedElsewhere => new CommandResult.Failed(
@@ -533,6 +548,32 @@ public sealed class CommandHandler
     ///
     /// 手段が無い／対象が無いの分岐が10箇所に並ぶと、どれかで文言がずれる。
     /// </summary>
+    private readonly UnityPackageCatalog? _unityPackages;
+
+    /// <summary>
+    /// 手でファイルを付けた後、その商品の unitypackage を裏で読む（取り込みの裏で読むのと同じ・ユーザ判断 2026-09-13）。
+    /// **確定の画面は待たせない。**読めなくても、使うときに zip を解くか、次の取り込みで読む
+    /// </summary>
+    private void FillUnityPackagesInBackground(string itemId)
+    {
+        if (_unityPackages is not { } catalog)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await catalog.FillItemAsync(itemId);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                                  or System.Text.Json.JsonException)
+            {
+            }
+        });
+    }
+
     private async Task<CommandResult> RunModificationAsync(
         Func<Task<bool>> run,
         string failure = "対象の改変が見つかりませんでした。")

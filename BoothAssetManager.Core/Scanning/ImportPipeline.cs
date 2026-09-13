@@ -145,13 +145,17 @@ public sealed class ImportPipeline : IImportPipeline
     /// <summary>③ 対応アバターの検出。渡されなければその段を飛ばす。</summary>
     private readonly Services.IAvatarService? _avatars;
 
+    /// <summary>unitypackage の中身を裏で読む。渡されなければ読まない（使うときに zip を解く）。</summary>
+    private readonly Services.UnityPackageCatalog? _unityPackages;
+
     public ImportPipeline(
         DataStore store,
         IBoothClient client,
         ImagePipeline images,
         AppSettings? settings = null,
-        Services.IAvatarService? avatars = null)
-        : this(store, client, images, SettingsSource.Fixed(settings), avatars)
+        Services.IAvatarService? avatars = null,
+        Services.UnityPackageCatalog? unityPackages = null)
+        : this(store, client, images, SettingsSource.Fixed(settings), avatars, unityPackages)
     {
     }
 
@@ -161,13 +165,15 @@ public sealed class ImportPipeline : IImportPipeline
         IBoothClient client,
         ImagePipeline images,
         Func<AppSettings> currentSettings,
-        Services.IAvatarService? avatars = null)
+        Services.IAvatarService? avatars = null,
+        Services.UnityPackageCatalog? unityPackages = null)
     {
         _store = store;
         _client = client;
         _images = images;
         _currentSettings = currentSettings;
         _avatars = avatars;
+        _unityPackages = unityPackages;
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
@@ -201,6 +207,11 @@ public sealed class ImportPipeline : IImportPipeline
 
         var totals = new ImportTotals();
 
+        // unitypackage の中身を裏で読む（2026-09-13 ユーザ判断）。問い合わせは1本ずつ1.5秒空けるので、その間 CPU とディスクは空いている。
+        // 前の取り込みで読み残した物（中断など）も、最初の周回で一緒に拾う
+        var unityPending = _unityPackages is null ? null : await _unityPackages.FindPendingAsync(cancellationToken);
+        var unityWork = new List<Task>();
+
         // 周回の外で取る画像の列（④1枚目 ⑤残り ⑥ショップのアイコン）。周回をまたいで持ち越す
         var images = new ImageQueue();
 
@@ -232,11 +243,35 @@ public sealed class ImportPipeline : IImportPipeline
                 scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
             await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
 
+            // 読むのは item に触らないので、①と同時に進めてよい。①に着くのを遅らせないよう、ここでは待たない
+            Task? unityReading = null;
+            var unityItemIds = new List<string>();
+            if (_unityPackages is { } catalog)
+            {
+                var unityFiles = resolution.FilesByItemId.Values.SelectMany(list => list).ToList();
+                unityItemIds.AddRange(resolution.FilesByItemId.Keys);
+                if (unityPending is { } pending)
+                {
+                    unityFiles.AddRange(pending.Files);
+                    unityItemIds.AddRange(pending.ItemIds);
+                    unityPending = null;
+                }
+
+                unityReading = catalog.ReadAsync(unityFiles, cancellationToken);
+            }
+
             // 未確定は積み上げる。前の周回で残ったものを消してはいけない
             totals.Unresolved.AddRange(resolution.Unresolved);
             await _store.Unresolved.SaveAsync(totals.Unresolved, cancellationToken);
 
             var fetchResult = await FetchAsync(resolution.FilesByItemId, work, progress, cancellationToken);
+
+            // 入り先を item に写すのは①の後。item の手元のファイルは①も書き、錠が無いので、重なると片方の書き込みが消える。
+            // 読み終わっていなければ、読み終わったところで写す（画像の段は待たせない）
+            if (unityReading is not null)
+            {
+                unityWork.Add(ApplyUnityPackagesAsync(unityReading, unityItemIds, cancellationToken));
+            }
 
             // BOOTHに無かったものも未確定へ。ここで落とすと手元から消える
             if (fetchResult.NotFoundFiles.Count > 0)
@@ -255,10 +290,27 @@ public sealed class ImportPipeline : IImportPipeline
             work.PlanRequests(images: fetchResult.WithImages.Sum(item => item.Booth.Images.Count) + fetchResult.ShopIcons.Count);
         }
 
+        // 取り込みが終わったと言うのは、裏で読んでいた unitypackage も書き終えてから
+        await Task.WhenAll(unityWork);
+
         // 最後まで来たので記録は要らない。残すと次の起動で「中断した」と嘘をつく
         await _store.ImportState.SaveAsync(new ImportState(), cancellationToken);
 
         return totals.ToSummary();
+    }
+
+    /// <summary>読み終わるのを待って、入り先を item に写す。読めなくても取り込みは止めない（次の取り込みで読み直す）。</summary>
+    private async Task ApplyUnityPackagesAsync(Task reading, IReadOnlyList<string> itemIds, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await reading;
+            await _unityPackages!.ApplyAsync(itemIds, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or System.Text.Json.JsonException)
+        {
+        }
     }
 
     /// <summary>

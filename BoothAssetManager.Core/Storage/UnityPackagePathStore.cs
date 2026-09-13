@@ -1,0 +1,50 @@
+using System.Text.Json;
+
+namespace BoothAssetManager.Core.Storage;
+
+/// <summary><c>unitypackages/&lt;ハッシュ&gt;.json</c> の中身。</summary>
+public sealed class UnityPackagePathsFile
+{
+    /// <summary>zip の中の場所 → unitypackage の中身のパス（<c>Assets/FUKA/…</c> のまま）。</summary>
+    public Dictionary<string, List<string>> Packages { get; init; } = new(StringComparer.Ordinal);
+}
+
+/// <summary>
+/// unitypackage の中身の全部のパスの控え（2026-09-13 ユーザ判断）。**鍵は zip のハッシュ**なので、控えが古くなることは無い
+/// （中身が変われば別のハッシュ＝別の手元のファイル）。消しても、取り込みの裏か、使うときに zip を解き直すだけで壊れない。
+/// </summary>
+public sealed class UnityPackagePathStore(AppPaths paths)
+{
+    public bool Has(string hash) => File.Exists(paths.UnityPackageFile(hash));
+
+    /// <summary>読めなければ null（無い・壊れている）。</summary>
+    public IReadOnlyDictionary<string, List<string>>? Load(string hash)
+    {
+        try
+        {
+            return JsonStore.Read<UnityPackagePathsFile>(paths.UnityPackageFile(hash))?.Packages;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>1つの zip の分を丸ごと書く（取り込みの裏で読んだとき）。</summary>
+    public void Save(string hash, IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
+        => JsonStore.Write(
+            paths.UnityPackageFile(hash),
+            new UnityPackagePathsFile
+            {
+                Packages = packages.ToDictionary(pair => pair.Key, pair => pair.Value.ToList(), StringComparer.Ordinal),
+            });
+
+    /// <summary>1つだけ足す（取り込みの裏より先に、商品ページなどで読んだとき）。</summary>
+    public void Add(string hash, string entry, IReadOnlyList<string> assetPaths)
+    {
+        var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value, StringComparer.Ordinal)
+            ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        packages[entry] = assetPaths;
+        Save(hash, packages);
+    }
+}

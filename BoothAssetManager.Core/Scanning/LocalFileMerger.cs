@@ -47,6 +47,7 @@ public static class LocalFileMerger
                     SizeBytes = record.SizeBytes,
                     VariationId = record.VariationId,
                     Contents = record.Contents,
+                    UnityPackages = record.UnityPackages,
                     Detached = record.Detached,
                 });
         }
@@ -70,6 +71,9 @@ public static class LocalFileMerger
             // variationの紐付けとアーカイブ内容はユーザ入力や解析の結果なので、既存を優先して失わない。
             VariationId = current.VariationId ?? discovered.VariationId,
             Contents = current.Contents.Count > 0 ? current.Contents : discovered.Contents,
+
+            // 走査で見つけた方はまだ読んでいない（null）。読んだ結果を失わない
+            UnityPackages = current.UnityPackages ?? discovered.UnityPackages,
 
             // 外した印は、両方が外したものだったときだけ残す。外したファイルをこの商品へ選び直した
             // （未確定から同じ商品を選んだ）なら、ユーザが改めて決めたのだから印を下ろす

@@ -98,9 +98,10 @@ public static class UnityImportQueue
     /// <summary>この商品の zip に入っている、Unity へ送れるもの（zip に入っている順）。</summary>
     public static IReadOnlyList<UnityPackageEntry> PackagesOf(ItemRecord item)
         => item.Local.OwnedFiles
-            .Select(file => file.Paths.FirstOrDefault(File.Exists))
-            .Where(path => path is not null && path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-            .SelectMany(path => UnityHandoff.FindPackages(path!))
+            .Select(file => (file.Hash, Path: file.Paths.FirstOrDefault(File.Exists)))
+            .Where(pair => pair.Path is not null && pair.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            // zip のハッシュを持たせる。中身のパスを取り込みの裏で読んだ控えから引ける（zip を解き直さない）
+            .SelectMany(pair => UnityHandoff.FindPackages(pair.Path!).Select(package => package with { ZipHash = pair.Hash }))
             .ToList();
 
     /// <summary>

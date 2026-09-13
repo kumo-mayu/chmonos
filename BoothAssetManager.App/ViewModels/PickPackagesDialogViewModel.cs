@@ -130,7 +130,7 @@ public sealed class PackageChoiceSection
 
                 foreach (var package in UnityHandoff.FindPackages(zip))
                 {
-                    candidates.Add((new PackageChoiceRow { Package = package, Owner = file }, key, label, order));
+                    candidates.Add((new PackageChoiceRow { Package = package with { ZipHash = file.Hash }, Owner = file }, key, label, order));
                 }
             }
 

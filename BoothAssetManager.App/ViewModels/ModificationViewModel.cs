@@ -610,7 +610,7 @@ public sealed class ModificationViewModel : ViewModelBase
                 .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
                 ?.Paths.FirstOrDefault(File.Exists) is { } zip)
         {
-            return [new UnityPackageEntry(zip, package, 0)];
+            return [new UnityPackageEntry(zip, package, 0) { ZipHash = hash }];
         }
 
         return UnityImportQueue.PackagesOf(item);

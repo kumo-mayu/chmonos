@@ -181,6 +181,16 @@ public sealed record Purchase
     }
 }
 
+/// <summary>zip の中の <c>.unitypackage</c> 1つの要約（<see cref="LocalFileRecord.UnityPackages"/>）。</summary>
+public sealed record UnityPackageSummary
+{
+    /// <summary>zip の中の場所（区切りは <c>/</c>）。</summary>
+    public required string Entry { get; init; }
+
+    /// <summary>入る先の一番上（<c>Assets/FUKA</c> など）を多い順に。読めなかった物は空。</summary>
+    public IReadOnlyList<string> Roots { get; init; } = [];
+}
+
 /// <summary>
 /// ローカルに持っているファイル1件。同一性はハッシュで、同じ中身が複数箇所にあれば
 /// 1レコードが複数の <see cref="Paths"/> を持つ。移動はパスの差し替えとして扱う。
@@ -200,6 +210,18 @@ public sealed record LocalFileRecord
 
     /// <summary>アーカイブ内のファイル名一覧。欠落復旧の照合と、動作環境の推測に使う。</summary>
     public IReadOnlyList<string> Contents { get; init; } = [];
+
+    /// <summary>
+    /// 中の <c>.unitypackage</c> ごとの、Unity のどこに入るか（2026-09-13 ユーザ判断）。**まだ読んでいなければ null**
+    /// （unitypackage の無い zip も null のまま）。取り込みの裏で1度だけ読んで書く——中身はハッシュが同じなら変わらない。
+    ///
+    /// 全部のパスはここに書かず、別の控え（<c>unitypackages/&lt;ハッシュ&gt;.json</c>）に置く。1つで千本を超える物があり
+    /// （手元の最多 1,766 本）、ここに書くと全商品を読む検索のメモリと、人が読める形を損なう。
+    /// 入り先は計算で出せる値だが、zip を消した後も「どこに入れた物か」として役に立つので、<see cref="Contents"/> と同じく記録にする
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<UnityPackageSummary>? UnityPackages { get; init; }
 
     /// <summary>
     /// 「この商品から外した」印（ユーザ判断 2026-09-12）。**外しても行は消さない。**

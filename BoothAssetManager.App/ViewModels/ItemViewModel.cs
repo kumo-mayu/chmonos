@@ -1792,7 +1792,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             // 編集画面では「使う」操作を出さないので、zipを開いて数えることもしない（1件進むたびに開くことになる）。
             // 外したファイルも使う対象ではない
             var usable = ShowsUseActions && !file.Detached;
-            var packages = usable ? FindUnityPackages(file.Paths) : [];
+            var packages = usable ? FindUnityPackages(file) : [];
 
             // 外した後で別の商品へ紐付けてあれば戻せない（同じファイルが2つの商品の持ち物になる）
             var owner = file.Detached ? _main.Search.FindFileOwner(file.Hash, Item.Id) : null;
@@ -1841,11 +1841,13 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// **1箇所目だけ見る。**同じ中身が複数箇所にあっても中身は同じなので、
     /// 全部開くのは無駄。zip以外（展開済みのフォルダやpdf）は対象外。
     /// </summary>
-    private static IReadOnlyList<Core.Services.UnityPackageEntry> FindUnityPackages(IReadOnlyList<string> paths)
+    private static IReadOnlyList<Core.Services.UnityPackageEntry> FindUnityPackages(Core.Models.LocalFileRecord file)
     {
-        var path = paths.FirstOrDefault(File.Exists);
+        var path = file.Paths.FirstOrDefault(File.Exists);
+
+        // zip のハッシュを持たせる。入り先を取り込みの裏で読んだ控えから引ける（zip を解き直さない）
         return path is not null && Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase)
-            ? Core.Services.UnityHandoff.FindPackages(path)
+            ? Core.Services.UnityHandoff.FindPackages(path).Select(package => package with { ZipHash = file.Hash }).ToList()
             : [];
     }
 
