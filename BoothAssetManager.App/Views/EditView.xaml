@@ -731,7 +731,16 @@
                                 </Style>
                             </Expander.Style>
                             <Expander.Header>
-                                <TextBlock TextWrapping="Wrap"><Run Text="ファイルの種類分け" FontWeight="Bold" FontSize="13" /><Run Text="{Binding FileSortHeaderNote, Mode=OneWay}" FontSize="11" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                <DockPanel>
+                                    <!-- 種類を選んでいないファイルがあれば、畳んでいても見出しで分かるようにする（「購入した種類」と同じ・ユーザ指示 2026-09-13） -->
+                                    <Border DockPanel.Dock="Right" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                            BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            ToolTip="種類を選んでいないファイルがあります。開いて、ファイルごとに種類を選んでください。"
+                                            Visibility="{Binding IsFileSortUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="未選択" FontSize="11" Foreground="{StaticResource Warn}" />
+                                    </Border>
+                                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="ファイルの種類分け" FontWeight="Bold" FontSize="13" /><Run Text="{Binding FileSortHeaderNote, Mode=OneWay}" FontSize="11" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                </DockPanel>
                             </Expander.Header>
                             <StackPanel Margin="0,6,0,0">
                                 <DockPanel Margin="0,0,0,8">

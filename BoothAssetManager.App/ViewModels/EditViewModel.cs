@@ -1704,6 +1704,12 @@ public sealed class EditViewModel : ViewModelBase
         ? $"（{_files.Count} ファイル・未指定 {FileSortRows.Count(row => row.IsUnassigned)}）"
         : "　複数の種類を購入するか、複数のファイルがこの商品に付いている場合にだけ開けます";
 
+    /// <summary>
+    /// 種類を選んでいないファイルがあるか。「購入した種類」と同じく、欄を畳んでいても見出しの札で分かるようにする
+    /// （ユーザ指示 2026-09-13）。数え方は見出しの「未指定 n」と同じ。開けない欄（種類分けの要らない商品）では出さない
+    /// </summary>
+    public bool IsFileSortUnselected => CanSortFiles && FileSortRows.Any(row => row.IsUnassigned);
+
     public bool HasNoFilesToSort => _files.Count == 0;
 
     /// <summary>
@@ -1866,6 +1872,7 @@ public sealed class EditViewModel : ViewModelBase
         foreach (var name in new[]
         {
             nameof(CanSortFiles), nameof(IsFileSortExpanded), nameof(FileSortHeaderNote), nameof(HasNoFilesToSort),
+            nameof(IsFileSortUnselected),
         })
         {
             OnPropertyChanged(name);
