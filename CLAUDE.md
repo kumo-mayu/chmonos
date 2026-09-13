@@ -56,6 +56,9 @@ powershell -Command "$env:BOOTH_ASSET_MANAGER_HOME='$env:LOCALAPPDATA\BoothAsset
 | `BoothAssetManager-stress-realcat` | 作った2000件（分類5種類） | 速さとメモリの計測 |
 | `BoothAssetManager-stress` | 作った2000件（**分類が2000種類に偏っている**） | 使わない。分類の数で遅くなり、実際の使い方と違う数字が出る（2026-09-13 の夜の調査） |
 | `BoothAssetManager-eval` | 友人のデータと正解（対応アバター） | 検出の評価（`experiments/AvatarEvalBench`） |
+| `BoothAssetManager-d1check` | 本番の写し＋試験用の改変「試験用（unity-import-test）」 | 改変の画面・Unityへ送る確認（送り先は捨ててよい試験用プロジェクト） |
+| `BoothAssetManager-heavycheck` | 本番の写し＋未確定に 1GB 級の作り物の zip 2件 | 重い unitypackage の確認・フォルダビューの未確定 |
+| `BoothAssetManager-unitypkg` | 本番の写し（取り込み元を空のフォルダにしてある） | 取り込みの裏で unitypackage を読む確認（BOOTHへは問い合わせない） |
 
 ### 5. 友人のデータは第三者のもの
 
@@ -211,6 +214,11 @@ UIAで届かない所（カードのクリックなど）だけ実入力（`mous
 - PowerShellの自作の関数に `Where`・`Measure`・`Clear` のような名前を付けると、既にある別名（`Where-Object`・`Measure-Object`・`Clear-Host`）と
   ぶつかり、**黙って別の物が動く**（3回踏んだ）。`Loc`・`ClearBox` のように被らない名前にする。
   配列の中の `$x - 6, 1` は `$x - (6, 1)` と読まれるので、計算は括弧で囲む
+- PowerShellで配列の配列を作ると、**要素が1つのときにほどけて文字列になる**（`,(...)` で包んでも、関数の戻りや `@()` でほどける）。
+  文字の1つずつに `.ToUpperInvariant()` を呼んで落ちた。`[System.Collections.Generic.List[string[]]]` で持つ
+- **UI Automation で仮想化した一覧（`ListBox` など）は、画面に見えている行しか数えない。**畳んだら行が減るはず、と数で確かめると
+  下の行が見えて逆に増える。畳んだ中の行が在るか無いかで確かめる
+- 持ち主付きの窓（`ShowDialog` の窓・`MessageBox`）は、UI Automation では**主の窓の子として出る**（デスクトップの直下を探しても見つからない）
 - PowerShellで `$env:X = ''` としても、変数が空文字のまま子のプロセスに渡ることがある。
   消したい変数は、起動する側の環境（`ProcessStartInfo.Environment`）から取り除く
 - JMdictは実体参照を大量に使う。`XmlReaderSettings.MaxCharactersFromEntities` を
