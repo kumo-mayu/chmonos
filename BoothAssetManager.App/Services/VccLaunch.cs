@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using Microsoft.Win32;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.Services;
 
@@ -17,7 +17,7 @@ public enum VccOpenResult
     /// <summary>既に開いているが、Windows に手前へ出すのを断られた。</summary>
     AlreadyOpenNotFront,
 
-    /// <summary>入っていない（アンインストール情報に無い）。</summary>
+    /// <summary>入っていない（どの記録にも場所が無い）。</summary>
     NotInstalled,
 
     /// <summary>起動そのものに失敗した。</summary>
@@ -31,6 +31,7 @@ public enum VccOpenResult
 /// </summary>
 public static class VccLaunch
 {
+    /// <summary>VCC の実行ファイルとプロセスの名前（手元の 2.4.5）。</summary>
     private const string ProcessName = "CreatorCompanion";
 
     private const string ExeName = "CreatorCompanion.exe";
@@ -45,44 +46,33 @@ public static class VccLaunch
     private static extern bool ShowWindow(IntPtr window, int command);
 
     /// <summary>
-    /// 実行ファイルの場所。**決め打ちせず、アンインストール情報の <c>InstallLocation</c> から引く**
-    /// （利用者ごとの場所 <c>%LOCALAPPDATA%\Programs\…</c> に入る）。無ければ null。
+    /// 実行ファイルの場所。**決め打ちせず、Windows に残る記録から引く**（利用者ごとの場所に入る物なので・ユーザ指示）。無ければ null。
+    ///
+    /// 1. アンインストール情報の <c>InstallLocation</c>（手元ではここにある）
+    /// 2. 同じ項目のアイコンの欄
+    /// 3. <c>vcc://</c> の関連付け（VCC はリポジトリを足すリンクのために登録する）。VCC の代わりのツールがこのリンクを
+    ///    引き受けていればそちらが開く——利用者が VCC の代わりに選んだものなので、それでよい
     /// </summary>
     public static string? FindExe()
     {
-        foreach (var hive in new[] { Registry.CurrentUser, Registry.LocalMachine })
+        foreach (var entry in InstalledApps.Uninstall()
+            .Where(entry => entry.DisplayName.StartsWith("VRChat Creator Companion", StringComparison.OrdinalIgnoreCase)))
         {
-            foreach (var path in new[]
+            if (!string.IsNullOrWhiteSpace(entry.InstallLocation)
+                && Path.Combine(entry.InstallLocation, ExeName) is var inFolder && Exists(inFolder))
             {
-                @"Software\Microsoft\Windows\CurrentVersion\Uninstall",
-                @"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
-            })
-            {
-                using var root = hive.OpenSubKey(path);
-                if (root is null)
-                {
-                    continue;
-                }
+                return inFolder;
+            }
 
-                foreach (var name in root.GetSubKeyNames())
-                {
-                    using var key = root.OpenSubKey(name);
-                    if (key?.GetValue("DisplayName") is string display
-                        && display.StartsWith("VRChat Creator Companion", StringComparison.OrdinalIgnoreCase)
-                        && key.GetValue("InstallLocation") is string location
-                        && location.Length > 0)
-                    {
-                        var exe = Path.Combine(location, ExeName);
-                        if (File.Exists(exe))
-                        {
-                            return exe;
-                        }
-                    }
-                }
+            if (UnityEditorLocator.ExeFromCommand(entry.DisplayIcon) is { } icon && Exists(icon))
+            {
+                return icon;
             }
         }
 
-        return null;
+        return UnityEditorLocator.ExeFromCommand(InstalledApps.OpenCommand("vcc")) is { } linked && Exists(linked)
+            ? linked
+            : null;
     }
 
     /// <summary>
@@ -93,32 +83,44 @@ public static class VccLaunch
     /// </summary>
     public static VccOpenResult Open()
     {
-        try
-        {
-            foreach (var process in Process.GetProcessesByName(ProcessName))
-            {
-                using (process)
-                {
-                    var window = process.MainWindowHandle;
-                    if (window == IntPtr.Zero)
-                    {
-                        continue;
-                    }
+        var exe = FindExe();
 
-                    ShowWindow(window, Restore);
-                    return SetForegroundWindow(window)
-                        ? VccOpenResult.BroughtToFront
-                        : VccOpenResult.AlreadyOpenNotFront;
+        // 起動中かは、見つけた実行ファイルの名前でも見る（リンクの引き受け手が別の名前のこともある）
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ProcessName };
+        if (exe is not null)
+        {
+            names.Add(Path.GetFileNameWithoutExtension(exe));
+        }
+
+        foreach (var name in names)
+        {
+            try
+            {
+                foreach (var process in Process.GetProcessesByName(name))
+                {
+                    using (process)
+                    {
+                        var window = process.MainWindowHandle;
+                        if (window == IntPtr.Zero)
+                        {
+                            continue;
+                        }
+
+                        ShowWindow(window, Restore);
+                        return SetForegroundWindow(window)
+                            ? VccOpenResult.BroughtToFront
+                            : VccOpenResult.AlreadyOpenNotFront;
+                    }
                 }
             }
-        }
-        catch (Exception exception)
-            when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            // 数えられなくても起動は試せる
+            catch (Exception exception)
+                when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // 数えられなくても起動は試せる
+            }
         }
 
-        if (FindExe() is not { } exe)
+        if (exe is null)
         {
             return VccOpenResult.NotInstalled;
         }
@@ -132,6 +134,18 @@ public static class VccLaunch
             when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             return VccOpenResult.Failed;
+        }
+    }
+
+    private static bool Exists(string path)
+    {
+        try
+        {
+            return File.Exists(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
         }
     }
 }

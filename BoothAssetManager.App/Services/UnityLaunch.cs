@@ -92,7 +92,7 @@ public static class UnityLaunch
         }
     }
 
-    /// <summary>そのバージョンのエディタの実行ファイル。無ければ null。</summary>
+    /// <summary>そのバージョンのエディタの実行ファイル。無ければ null（そのときは Hub に渡す）。</summary>
     public static string? FindEditor(string? version)
     {
         if (string.IsNullOrWhiteSpace(version))
@@ -100,22 +100,151 @@ public static class UnityLaunch
             return null;
         }
 
-        foreach (var root in EditorRoots())
+        foreach (var (_, exe) in EditorCandidates(version))
         {
-            var exe = Path.Combine(root, version, "Editor", "Unity.exe");
-            try
+            if (Exists(exe))
             {
-                if (File.Exists(exe))
-                {
-                    return exe;
-                }
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
+                return exe;
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// そのバージョンのエディタがありそうな場所を、記録ごとに順に出す（どの記録から来たかも添える）。
+    ///
+    /// **利用者の PC の置き場所に頼らない**（ユーザ指示 2026-09-13：配布するので）。エディタは Hub の既定の場所に入っているとは
+    /// 限らない——Hub で置き場所を変えた人、Hub を使わずに入れた人、Hub の「場所を指定」で足した人がいる。どれも Windows か
+    /// Hub のどこかに場所が残るので、全部を見る：
+    ///
+    /// 1. Hub の置き場所（既定と <c>secondaryInstallPath.json</c>）
+    /// 2. Hub の「場所を指定」で足した一覧（<c>editors-v2.json</c>・古い版は <c>editors.json</c>）
+    /// 3. Unity の登録（<c>Software\Unity Technologies\Installer\Unity &lt;版&gt;</c> の <c>Location x64</c>）
+    /// 4. アンインストール情報の「Unity &lt;版&gt;」（アイコンの欄・場所の欄）
+    /// 5. 起動中のエディタ、6. <c>.unitypackage</c> の関連付け——この2つは場所だけで版が分からないので、実行ファイルの版の欄で見分ける
+    /// </summary>
+    internal static IEnumerable<(string Source, string Path)> EditorCandidates(string version)
+    {
+        foreach (var root in EditorRoots())
+        {
+            yield return ("Hub の置き場所", Path.Combine(root, version, "Editor", "Unity.exe"));
+        }
+
+        foreach (var file in new[] { "editors-v2.json", "editors.json" })
+        {
+            if (ReadText(Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UnityHub", file)) is not { } json)
+            {
+                continue;
+            }
+
+            foreach (var entry in UnityEditorLocator.EditorsFromHubJson(json)
+                .Where(entry => string.Equals(entry.Version, version, StringComparison.OrdinalIgnoreCase)))
+            {
+                yield return ($"Hub の一覧（{file}）", entry.ExePath);
+            }
+        }
+
+        foreach (var location in InstalledApps.UnityInstallerLocations(version))
+        {
+            yield return ("Unity の登録", UnityEditorLocator.ExeFromLocation(location));
+        }
+
+        foreach (var entry in InstalledApps.Uninstall()
+            .Where(entry => UnityEditorLocator.VersionFromUninstallName(entry.DisplayName) == version))
+        {
+            if (UnityEditorLocator.ExeFromCommand(entry.DisplayIcon) is { } icon)
+            {
+                yield return ("アンインストール情報", icon);
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.InstallLocation))
+            {
+                yield return ("アンインストール情報", UnityEditorLocator.ExeFromLocation(entry.InstallLocation));
+            }
+        }
+
+        foreach (var running in RunningEditorPaths().Where(path => HasVersion(path, version)))
+        {
+            yield return ("起動中のエディタ", running);
+        }
+
+        if (UnityEditorLocator.ExeFromCommand(InstalledApps.FileAssociationCommand(".unitypackage")) is { } associated
+            && HasVersion(associated, version))
+        {
+            yield return (".unitypackage の関連付け", associated);
+        }
+    }
+
+    /// <summary>起動中のエディタの実行ファイル。窓を持たない裏の Unity.exe（取り込みの作業用）も同じ実行ファイルなので区別しない。</summary>
+    private static IReadOnlyList<string> RunningEditorPaths()
+    {
+        var paths = new List<string>();
+        try
+        {
+            foreach (var process in Process.GetProcessesByName("Unity"))
+            {
+                using (process)
+                {
+                    try
+                    {
+                        if (process.MainModule?.FileName is { } path)
+                        {
+                            paths.Add(path);
+                        }
+                    }
+                    catch (Exception exception)
+                        when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+                    {
+                        // 権限の違うプロセスは覗けない。ほかの記録から探せる
+                    }
+                }
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>実行ファイルの版の欄（<c>2022.3.22f1_887be4894c44</c>）が、その版か。</summary>
+    private static bool HasVersion(string exe, string version)
+    {
+        try
+        {
+            return File.Exists(exe)
+                && UnityEditorLocator.IsVersion(FileVersionInfo.GetVersionInfo(exe).ProductVersion, version);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static bool Exists(string path)
+    {
+        try
+        {
+            return File.Exists(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static string? ReadText(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
