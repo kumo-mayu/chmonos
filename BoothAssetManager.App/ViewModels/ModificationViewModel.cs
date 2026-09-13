@@ -193,6 +193,7 @@ public sealed class ModificationViewModel : ViewModelBase
         AddCandidateCommand = new RelayCommand(
             parameter => _ = AddCandidateAsync(parameter as ProjectCandidateRowViewModel),
             parameter => parameter is ProjectCandidateRowViewModel);
+        DeleteCommand = new RelayCommand(() => _ = DeleteAsync());
 
         _ = ReloadAsync();
     }
@@ -203,6 +204,37 @@ public sealed class ModificationViewModel : ViewModelBase
 
     /// <summary>戻るの文言。他の画面と同じ「← {行き先}に戻る」に揃える（以前はここだけ「に戻る」が無かった・U23）。</summary>
     public string BackText => _main.BackButtonText;
+
+    /// <summary>
+    /// 改変の画面（<see cref="ModificationHubViewModel"/>）の右側に組み込んだか。
+    /// 組み込んだときは戻るを出さず（左の一覧が行き来の役をする）、「この改変を消す」を出す（ユーザ判断 2026-09-13）
+    /// </summary>
+    public bool IsEmbedded { get; init; }
+
+    public bool ShowsBack => !IsEmbedded;
+
+    /// <summary>
+    /// 組み込んだときは左右の列を幅に合わせる。右側は窓より狭いので、単独の画面と同じ固定の 660px では
+    /// 横に送るしかなくなる
+    /// </summary>
+    public double BodyMinWidth => IsEmbedded ? 0 : 1060;
+
+    /// <remarks>
+    /// 組み込んだときは左（写真・使ったもの）に残りを全部渡す。右は最低幅（320px）で足りるが、
+    /// 左の「使ったもの」は名前と操作のボタンが1行に並ぶので、半々だと名前が「【...」まで縮んだ
+    /// </remarks>
+    public System.Windows.GridLength LeftColumnWidth => IsEmbedded
+        ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star)
+        : new System.Windows.GridLength(660);
+
+    /// <summary>改変を消す。組み込んだときだけ出す（単独の画面ではアバターの管理の一覧から消す）。</summary>
+    public RelayCommand DeleteCommand { get; }
+
+    /// <summary>消し終えた。組み込んだ側が一覧を読み直して右側を空ける。</summary>
+    public event Action? Deleted;
+
+    /// <summary>記録を読み直した（名前・メモ・使ったもの・紐付けが変わったかもしれない）。組み込んだ側が左の一覧を合わせる。</summary>
+    public event Action? Changed;
 
     public RelayCommand SaveNameCommand { get; }
 
@@ -513,7 +545,7 @@ public sealed class ModificationViewModel : ViewModelBase
     /// ——版まで同じにするため（1年後に組み直すとき v1.01 と v1.06 は別物）。
     /// 手で足した分は、どのファイルを使ったかが分からないので、今ある zip の中身を zip の順に送る。
     /// </summary>
-    private static IReadOnlyList<UnityPackageEntry> PackagesFor(ItemRecord item, ModificationMember member)
+    internal static IReadOnlyList<UnityPackageEntry> PackagesFor(ItemRecord item, ModificationMember member)
     {
         if (member.FileHash is { } hash && member.Package is { } package
             && item.Local.OwnedFiles
@@ -716,6 +748,7 @@ public sealed class ModificationViewModel : ViewModelBase
         }
 
         RelayCommand.RaiseCanExecuteChanged();
+        Changed?.Invoke();
     }
 
     /// <summary>
@@ -783,7 +816,7 @@ public sealed class ModificationViewModel : ViewModelBase
     }
 
     /// <summary>記録に残した種類の番号を、人が読める名前に直す。</summary>
-    private static string VariationLabel(ModificationMember member, ItemRecord? item)
+    internal static string VariationLabel(ModificationMember member, ItemRecord? item)
     {
         if (member.VariationId is not { } id)
         {
@@ -828,6 +861,37 @@ public sealed class ModificationViewModel : ViewModelBase
 
         Status = result is CommandResult.Failed failed ? failed.Message : "メモを保存しました。";
         await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 改変を消す（改変の画面の右側から）。**取り返しがつかないので、何が消えるかを数で書く**
+    /// （アバターの管理の一覧から消すときと同じ文面）。
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        var images = Record.Images.Count;
+        var answer = System.Windows.MessageBox.Show(
+            $"改変「{Record.Name}」を消します。\n\n"
+            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
+            + "元には戻せません。使った商品そのものは消えません。",
+            "改変を消す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteModification(Record.Id));
+        if (result is CommandResult.Failed failed)
+        {
+            Status = failed.Message;
+            return;
+        }
+
+        Deleted?.Invoke();
     }
 
     // ---- 構成物 ----

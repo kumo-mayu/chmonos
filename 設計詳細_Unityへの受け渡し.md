@@ -640,4 +640,7 @@ ALCOM（VCC の代わりのツール）はこの PC に無く、見ていない�
 2. 起動中の VCC があれば、窓を元に戻して手前に出す（Windows に断られたら言い分ける。`UnityOpenResult.AlreadyOpenNotFront` と同じ）
 3. 起動していなければ `CreatorCompanion.exe` を起動する
 
+**作った（2026-09-13）：**`App/Services/VccLaunch.cs`。改変の画面（Unityプロジェクトの見方）の「VCCを開く」から呼ぶ。
+アプリから押して VCC が起動する（0個→1個）ことを確かめ、閉じた。起動中に押して手前に出る所は、アプリからはまだ押していない。
+
 試しの記録：`scratchpad` の `vcc-launch.ps1`（リポジトリ外）。起動は計3回（うち2回は画面を撮る部分の不具合で撮り直し）で、どれも最後に閉じた。

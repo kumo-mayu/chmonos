@@ -15,9 +15,12 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 改変の画面の右側に組み込んだときは出さない。左の一覧が行き来の役をする -->
                     <Button Content="{Binding BackText}" Command="{Binding BackCommand}"
-                            BorderThickness="0" Background="Transparent" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                            BorderThickness="0" Background="Transparent"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 押すとアバターの管理でこのアバターを開く（動線の点検 D6） -->
                     <Button Command="{Binding OpenAvatarCommand}" BorderThickness="0" Background="Transparent"
                             Cursor="Hand" VerticalAlignment="Center"
@@ -35,6 +38,11 @@
                     <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource Mono}" FontSize="11"
                                VerticalAlignment="Center" Margin="12,0,0,0"
                                Foreground="{StaticResource TextMuted}" />
+                    <!-- 改変の画面の右側では、ここで消す（ユーザ判断 2026-09-13：作るのはアバターの行、消すのは右のビュー） -->
+                    <Button Content="この改変を消す" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
+                            Command="{Binding DeleteCommand}"
+                            ToolTip="記録を消します。元に戻せません。使った商品とUnityプロジェクトはそのまま残ります。"
+                            Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -45,11 +53,12 @@
         -->
         <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto">
             <!-- 幅を窓に合わせる理由は商品ページと同じ（無限幅で測ると折り返さない） -->
-            <Border Padding="20" MinWidth="1060"
+            <!-- 改変の画面の右側に組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth・LeftColumnWidth） -->
+            <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
                     Width="{Binding ViewportWidth, ElementName=Body}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="660" />
+                    <ColumnDefinition Width="{Binding LeftColumnWidth}" />
                     <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
 

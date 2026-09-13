@@ -66,6 +66,7 @@ public sealed class MainViewModel : ViewModelBase
         ShowShopsCommand = new RelayCommand(ShowShops);
         ShowStatsCommand = new RelayCommand(ShowStats);
         ShowAvatarsCommand = new RelayCommand(ShowAvatars);
+        ShowModificationsCommand = new RelayCommand(() => ShowModifications());
         ShowSettingsCommand = new RelayCommand(ShowSettings);
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
@@ -407,6 +408,17 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public void ShowAvatar(string itemId) => CurrentViewModel = new AvatarsViewModel(_services, this, itemId);
 
+    public RelayCommand ShowModificationsCommand { get; }
+
+    public bool IsModificationsActive => CurrentViewModel is ModificationHubViewModel;
+
+    /// <summary>
+    /// 改変の画面（Unityプロジェクト・アバター・改変の3つの見方）。記録は他の画面でも変わるので、開くたびに読み直す。
+    /// 見方と右側に出していたものを渡すと、その状態で開く（戻るで戻ったとき）。
+    /// </summary>
+    public void ShowModifications(ModificationHubLevel? level = null, ModificationHubSelection? selection = null)
+        => CurrentViewModel = new ModificationHubViewModel(_services, this, Thumbnails, level, selection);
+
     public RelayCommand ShowSettingsCommand { get; }
 
     public bool IsSettingsActive => CurrentViewModel is SettingsViewModel;
@@ -466,7 +478,13 @@ public sealed class MainViewModel : ViewModelBase
     public ItemViewModel? CurrentItemPage
         => CurrentViewModel as ItemViewModel ?? (CurrentViewModel as EditViewModel)?.ItemPage;
 
-    public void NoteWindowActivated() => (CurrentViewModel as ItemViewModel)?.NoteUnityChanged();
+    public void NoteWindowActivated()
+    {
+        (CurrentViewModel as ItemViewModel)?.NoteUnityChanged();
+
+        // 改変の画面はプロジェクトが開いているかを出しているので、Unity を開いて戻ってきたら読み直す
+        (CurrentViewModel as ModificationHubViewModel)?.NoteUnityChanged();
+    }
 
     public object? CurrentViewModel
     {
@@ -515,6 +533,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsShopsActive));
                 OnPropertyChanged(nameof(IsStatsActive));
                 OnPropertyChanged(nameof(IsAvatarsActive));
+                OnPropertyChanged(nameof(IsModificationsActive));
                 OnPropertyChanged(nameof(IsSettingsActive));
                 OnPropertyChanged(nameof(IsTagManageActive));
                 OnPropertyChanged(nameof(IsAttributeManageActive));
@@ -619,6 +638,8 @@ public sealed class MainViewModel : ViewModelBase
         ModificationViewModel modification => new HistoryEntry(
             Shorten(modification.Record.Name), () => ShowModification(modification.Record)),
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
+        ModificationHubViewModel hub => new HistoryEntry(
+            "改変", () => ShowModifications(hub.Level, hub.Selection)),
         ShopsViewModel => new HistoryEntry("ショップ一覧", ShowShops),
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
