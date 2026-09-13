@@ -777,8 +777,12 @@ public sealed class ItemService : IItemService
             return ItemIdChangeOutcome.SourceMissing;
         }
 
-        var target = await _store.Items.LoadAsync(toId, cancellationToken)
-            ?? await FetchNewItemAsync(toId, cancellationToken)
+        var prepared = await _store.Items.LoadAsync(toId, cancellationToken)
+            ?? await FetchNewItemAsync(toId, cancellationToken);
+
+        // **合わせる直前に読み直す**（技術的負債 1-5）。BOOTH から取って作ると数秒かかり、その間に取り込みが
+        // 同じ商品へファイルを足すことがある。前は取る前の写しと合わせて丸ごと書いたので、足された物が消えていた
+        var target = (prepared is null ? null : await _store.Items.LoadAsync(toId, cancellationToken) ?? prepared)
             ?? EmptyItem(toId);
 
         var merged = ItemIdChange.Merge(source.Local, target.Local, skippedPurchases ?? new HashSet<int>());
@@ -787,7 +791,16 @@ public sealed class ItemService : IItemService
         // 支出にはそのまま数えられる
         merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, target.Booth.Variations) };
 
-        await _store.Items.SaveAsync(target with { Local = merged }, cancellationToken);
+        if (prepared is null)
+        {
+            // 手元にも BOOTH にも無い＝新しく作る。Items.SaveAsync を使ってよいのはここだけ
+            await _store.Items.SaveAsync(target with { Local = merged }, cancellationToken);
+        }
+        else
+        {
+            // 移すのは手元の記録の全部なので、全項目の持ち主として書く
+            await _store.Items.SaveLocalAsync(toId, merged, Enum.GetValues<LocalField>(), cancellationToken: cancellationToken);
+        }
 
         // 元の商品を消すのは最後。ここまでで落ちても、中身は移した先に残っている
         // （両方に出るのは二重に見えるが、消えてしまうよりはるかによい）
