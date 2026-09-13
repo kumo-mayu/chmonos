@@ -1,25 +1,39 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.Services;
 
-/// <summary>「Unityで選択」の結果。<paramref name="Where"/> はどのタブで開いたか（状態の1行に出す）。</summary>
-public sealed record UnityTabOutcome(string? Problem, string Where);
+/// <summary>
+/// 「Unityで選択」の結果。
+/// </summary>
+/// <param name="Where">どのタブで探したか（状態の1行に出す）。</param>
+/// <param name="StopReason">
+/// 開かずに止めた理由（「似た名前のフォルダが 2 個あるので」など）。開いたときは null。
+/// </param>
+/// <param name="Searched">Unity で探したか。探しても出ないと分かっている所（Packages の下）は探さずに場所の名前だけを伝える。</param>
+public sealed record UnityTabOutcome(string? Problem, string Where, string? StopReason = null, bool Searched = true)
+{
+    public bool Stopped => StopReason is not null;
+}
 
 /// <summary>
 /// 開いている Unity のプロジェクトタブで、入り先のフォルダを開く（改変の画面の「Unityで選択」）。
 ///
 /// **座標を決め打ちしない**（ユーザ指示：配布するので画面の大きさや窓の並べ方に左右されないように）。
 /// **既定は、最後に選んでいたプロジェクトタブで開く**（ユーザ判断 2026-09-13。覚えるのは <see cref="UnityFocusWatch"/>）。
+/// **検索の結果が1件と言い切れないときは、結果を出したところで止める**（ユーザ指示：一番上を開くと、利用者には何が起きたか
+/// 分からないまま違うフォルダが開く）。Unity の画面の中の件数は外から読めないので、プロジェクトのフォルダをディスクで見て決める。
 ///
 /// 1. 最小化されていれば元に戻す（最小化したままでは当てにならなかった・§13-6）
 /// 2. 開くタブを決める：最後に選んでいたタブ → 見えているタブが1つならそれ → 複数なら全部 →
 ///    1つも見えなければメニュー「Window &gt; General &gt; Project」で Unity に出してもらう
 /// 3. タブごとに：中ボタンの押下をタブの窓へ送ってフォーカスを渡す（押す所は窓の四角から割合で出す。中ボタンは
 ///    プロジェクトタブでは何もしないので選択は変わらない）→ メニュー「Edit &gt; Find」→ フォーカスのある窓へ
-///    「glob:"入り先のパス" t:Folder」を文字で送る → ↓ で先頭を選び Enter で開く
+///    「a:assets glob:"入り先のパス" t:Folder」を文字で送る → 1件と言い切れるときだけ ↓ で先頭を選び Enter で開く
 /// 4. Unity を手前に出す
 ///
 /// 裏付けは <c>設計詳細_Unityへの受け渡し.md</c> §13。
@@ -31,6 +45,15 @@ public static class UnityProjectTab
     /// （シーンやプレハブなら編集の状態が変わる）
     /// </summary>
     private const string FolderFilter = " t:Folder";
+
+    /// <summary>
+    /// 検索の語の頭に必ず付ける範囲の指定。**検索の範囲はタブが覚えている**ので、前に Packages を探した後や、
+    /// 利用者が範囲を切り替えていると、Assets のパスが1件も出なかった（試験用で実機：Packages を探した次の <c>Assets/FUKA</c> が開かなかった）
+    /// </summary>
+    private const string AssetsScope = "a:assets ";
+
+    /// <summary>glob の記号。パスに入っていると別の意味に読まれる（<c>[作者名]</c> が文字の組に読まれる）</summary>
+    private static readonly char[] GlobSymbols = ['*', '?', '[', ']', '{', '}', '"'];
 
     /// <summary>前に入っていた文字を消すために送る BackSpace の数。検索欄に入れる語はこれより短い</summary>
     private const int ClearCount = 120;
@@ -79,7 +102,11 @@ public static class UnityProjectTab
     [DllImport("user32.dll")]
     private static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
 
-    [DllImport("user32.dll")]
+    /// <summary>
+    /// **Unicode 版で呼ぶ。**文字の指定が無いと ANSI 版（PostMessageA）に結び付き、日本語の文字が化けた
+    /// （<c>[試]重複</c> が <c>[f]^</c> になった・実機）。
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "PostMessageW")]
     private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
@@ -106,23 +133,88 @@ public static class UnityProjectTab
     [DllImport("user32.dll")]
     private static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr parameter);
 
+    private static string Normalize(string folderPath) => folderPath.Replace('\\', '/').Trim().TrimEnd('/');
+
+    private static bool UsesGlob(string path) => path.IndexOfAny(GlobSymbols) < 0;
+
+    private static bool IsInPackages(string path) => path.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
-    /// 検索欄に入れる語。**パスで絞る**（<c>glob:"Assets/FUKA" t:Folder</c>）。
+    /// 検索欄に入れる語と、開いてよいか（結果が1件と言い切れるか）。言い切れないときは止める理由を返す。
+    /// 語が null のときは、Unity の検索に出ないので探さない。
     ///
-    /// 名前だけで探すと、同じ名前のフォルダ（<c>Assets/FUKA</c> と <c>Assets/Addon/FUKA</c>）のうち先に出た方を開いた
-    /// （試験用プロジェクトで実機・§13-7）。プロジェクトタブの検索は <c>glob:</c> でパスを受け付け、そのフォルダ1件だけを出した。
-    /// パスに glob の記号が入っていると別の意味に読まれる（<c>[作者名]</c> が文字の組に読まれる）ので、そのときだけ名前で探す
+    /// - <c>Assets/</c> の下で glob の記号が無い：<c>a:assets glob:"Assets/FUKA" t:Folder</c>。そのフォルダが実在すれば1件
+    ///   （名前だけで探すと、同じ名前の <c>Assets/Addon/FUKA</c> を開いた・§13-7）
+    /// - glob の記号が入る（<c>[作者名]</c> が文字の組に読まれる）：名前で探し、名前の語をすべて含むフォルダを数える。1つなら開く
+    ///   （プロジェクトタブの名前の検索は語の一部で当たる・§13-3）
+    /// - <c>Packages/</c> の下：**Unity の検索に出なかった**（<c>a:packages</c>・<c>a:all</c>、表示名・フォルダの名前・glob の
+    ///   どれでも0件・kip01 と試験用で実機）。探しても空の結果を見せるだけなので、左の木で見つける名前を伝える
     /// </summary>
-    internal static string SearchQuery(string folderPath)
+    internal static (string? Query, string? StopReason) Plan(string projectPath, string folderPath)
     {
-        var path = folderPath.Replace('\\', '/').Trim().TrimEnd('/');
-        return path.IndexOfAny(['*', '?', '[', ']', '{', '}', '"']) >= 0
-            ? path.Split('/').Last() + FolderFilter
-            : $"glob:\"{path}\"{FolderFilter}";
+        var path = Normalize(folderPath);
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        try
+        {
+            if (IsInPackages(path))
+            {
+                var name = segments.Length >= 2 ? PackageDisplayName(projectPath, segments[1]) ?? segments[1] : "Packages";
+                return (null, $"Packages の中（プロジェクトタブの左の木では Packages の下の「{name}」）は Unity の検索に出ないので");
+            }
+
+            if (UsesGlob(path))
+            {
+                var byPath = $"{AssetsScope}glob:\"{path}\"{FolderFilter}";
+                return Directory.Exists(Path.Combine(projectPath, path.Replace('/', Path.DirectorySeparatorChar)))
+                    ? (byPath, null)
+                    : (byPath, "プロジェクトの中にそのフォルダが見つからないので");
+            }
+
+            var words = segments[^1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var count = Directory.EnumerateDirectories(Path.Combine(projectPath, "Assets"), "*", SearchOption.AllDirectories)
+                .Select(Path.GetFileName)
+                .Count(folder => folder is not null
+                    && words.All(word => folder.Contains(word, StringComparison.OrdinalIgnoreCase)));
+            var byName = AssetsScope + string.Join(' ', words) + FolderFilter;
+            return count == 1 ? (byName, null) : (byName, $"似た名前のフォルダが {Math.Max(count, 2)} 個あるので");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return (AssetsScope + (segments.Length > 0 ? segments[^1] : string.Empty) + FolderFilter,
+                "プロジェクトのフォルダを数えられなかったので");
+        }
     }
 
-    /// <summary>プロジェクトタブで <paramref name="folderPath"/>（<c>Assets/FUKA</c> のような Unity の中のパス）を開く。</summary>
-    public static async Task<UnityTabOutcome> SelectFolderAsync(int processId, string folderPath)
+    /// <summary>
+    /// パッケージの表示名（<c>package.json</c> の <c>displayName</c>）。プロジェクトタブの Packages の下には
+    /// フォルダの名前（<c>com.triturbo.blendshare</c>）ではなく表示名（BlendShare）で並ぶ。読めなければ null。
+    /// </summary>
+    private static string? PackageDisplayName(string projectPath, string packageId)
+    {
+        var file = Path.Combine(projectPath, "Packages", packageId, "package.json");
+        try
+        {
+            if (!File.Exists(file))
+            {
+                return null;
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(file));
+            return document.RootElement.TryGetProperty("displayName", out var display) && display.ValueKind == JsonValueKind.String
+                ? display.GetString()
+                : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// プロジェクトタブで <paramref name="folderPath"/>（<c>Assets/FUKA</c> のような Unity の中のパス）を開く。
+    /// <paramref name="projectPath"/> はそのプロジェクトのフォルダ（結果が1件になるかをディスクで見るのに使う）。
+    /// </summary>
+    public static async Task<UnityTabOutcome> SelectFolderAsync(int processId, string projectPath, string folderPath)
     {
         IntPtr main;
         try
@@ -152,7 +244,15 @@ public static class UnityProjectTab
             await Task.Delay(800);
         }
 
-        var query = SearchQuery(folderPath);
+        var (query, stopReason) = await Task.Run(() => Plan(projectPath, folderPath));
+        if (query is null)
+        {
+            // 探しても出ないので、タブには触らない。Unity だけ手前に出して、左の木で見つけてもらう
+            SetForegroundWindow(main);
+            return new(null, string.Empty, stopReason, Searched: false);
+        }
+
+        var choose = stopReason is null;
         string where;
 
         // こちらの押下で「最後に選んでいたタブ」が書き換わらないように止めておく
@@ -201,7 +301,7 @@ public static class UnityProjectTab
             var opened = new List<IntPtr>();
             foreach (var tab in targets)
             {
-                if (await OpenInAsync(main, tab, query, findCommand))
+                if (await OpenInAsync(main, tab, query, findCommand, choose))
                 {
                     opened.Add(tab);
                 }
@@ -223,11 +323,14 @@ public static class UnityProjectTab
         }
 
         SetForegroundWindow(main);
-        return new(null, where);
+        return new(null, where, stopReason);
     }
 
-    /// <summary>1つのタブで開く。フォーカスを渡せなければ false。</summary>
-    private static async Task<bool> OpenInAsync(IntPtr main, IntPtr tab, string query, uint findCommand)
+    /// <summary>
+    /// 1つのタブで検索する。<paramref name="choose"/> なら先頭を選んで開き、そうでなければ結果を出したところで止める。
+    /// フォーカスを渡せなければ false。
+    /// </summary>
+    private static async Task<bool> OpenInAsync(IntPtr main, IntPtr tab, string query, uint findCommand, bool choose)
     {
         if (!GetClientRect(tab, out var rect) || rect.Right <= 0 || rect.Bottom <= 0)
         {
@@ -261,6 +364,11 @@ public static class UnityProjectTab
         foreach (var character in query)
         {
             PostMessage(box, WmChar, character, 1);
+        }
+
+        if (!choose)
+        {
+            return true;
         }
 
         // 検索は打つたびに走る。結果が出てから先頭を選ぶ

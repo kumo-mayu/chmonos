@@ -1216,8 +1216,21 @@ public sealed class ModificationHubViewModel : ViewModelBase
             }
 
             // 名前ではなくパスで渡す。同じ名前のフォルダが別の場所にあると、名前では取り違える（§13-7）
-            var outcome = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, root);
-            Status = outcome.Problem ?? $"Unity の「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。";
+            var outcome = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, project, root);
+            Status = outcome switch
+            {
+                { Problem: { } problem } => problem,
+
+                // Packages の下は Unity の検索に出ないので探していない。見つける場所の名前を伝える
+                { Searched: false, StopReason: { } where } =>
+                    $"入り先は {root} です。{where}、Unity では探さずに手前に出しました。",
+
+                // 1件と言い切れないときは、一番上を開かずに検索の結果で止めている（ユーザ指示）。理由と、何をすればよいかを書く
+                { StopReason: { } reason } =>
+                    $"Unity の「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
+                    + $"入り先は {root} です。Unity で選んでください。",
+                _ => $"Unity の「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。",
+            };
             return;
         }
 
