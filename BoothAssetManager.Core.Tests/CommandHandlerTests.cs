@@ -141,6 +141,89 @@ public class CommandHandlerTests
         }
     }
 
+    /// <summary>アバターの登録簿の編集を覚えておく作り物。</summary>
+    private sealed class FakeAvatarEditor : IAvatarRegistryEditor
+    {
+        public List<string> Calls { get; } = [];
+
+        public bool RecheckSucceeds { get; set; } = true;
+
+        public Task SetDisplayNameAsync(string itemId, string name, CancellationToken cancellationToken = default) => Note($"name {itemId} {name}");
+
+        public Task SetMemoAsync(string itemId, string? memo, CancellationToken cancellationToken = default) => Note($"memo {itemId}");
+
+        public Task SetOwnedManuallyAsync(string itemId, bool owned, CancellationToken cancellationToken = default) => Note($"owned {itemId} {owned}");
+
+        public Task SetAvatarOverrideAsync(string itemId, bool? value, CancellationToken cancellationToken = default) => Note($"override {itemId}");
+
+        public Task SetBaseAsync(string itemId, string? baseName, CancellationToken cancellationToken = default) => Note($"base {itemId} {baseName}");
+
+        public Task SetInferClothingAsync(string name, bool infer, CancellationToken cancellationToken = default) => Note($"infer {name}");
+
+        public Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default) => Note($"baseItem {name}");
+
+        public Task<int> RenameBaseAsync(string oldName, string newName, CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"rename {oldName} {newName}");
+            return Task.FromResult(7);
+        }
+
+        public Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(3);
+
+        public Task AddAliasAsync(string itemId, string text, CancellationToken cancellationToken = default) => Note($"alias+ {itemId}");
+
+        public Task RemoveAliasAsync(string itemId, string text, CancellationToken cancellationToken = default) => Note($"alias- {itemId}");
+
+        public Task<bool> RecheckAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(RecheckSucceeds);
+
+        private Task Note(string call)
+        {
+            Calls.Add(call);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>画面がサービスを直に呼んでいた書き込みを UiCommand に寄せた（技術的負債 3-1）。振り分けを確かめる。</summary>
+    [Fact]
+    public async Task RoutesAvatarRegistryEditsAndReportsCounts()
+    {
+        var editor = new FakeAvatarEditor();
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatarEditor: editor);
+
+        Assert.IsType<CommandResult.Done>(await handler.ExecuteAsync(new UiCommand.SetAvatarBase("111", "素体A")));
+        var renamed = Assert.IsType<CommandResult.Counted>(await handler.ExecuteAsync(new UiCommand.RenameBase("素体A", "素体B")));
+
+        Assert.Equal(7, renamed.Count);
+        Assert.Equal(["base 111 素体A", "rename 素体A 素体B"], editor.Calls);
+    }
+
+    [Fact]
+    public async Task ReportsARecheckThatCouldNotReachBooth()
+    {
+        var editor = new FakeAvatarEditor { RecheckSucceeds = false };
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatarEditor: editor);
+
+        var failed = Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.RecheckAvatar("111")));
+
+        Assert.Contains("BOOTHに確認できませんでした", failed.Message);
+    }
+
+    [Fact]
+    public async Task FailsAvatarEditsWithoutAnEditor()
+    {
+        var (handler, _, _) = Create();
+
+        Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.SetAvatarMemo("111", "メモ")));
+    }
+
+    [Fact]
+    public async Task RoutesReconcileUnresolvedToItems()
+    {
+        var (handler, _, _) = Create();
+
+        Assert.Equal(0, Assert.IsType<CommandResult.Counted>(await handler.ExecuteAsync(new UiCommand.ReconcileUnresolved())).Count);
+    }
+
     private static (CommandHandler Handler, FakeImportPipeline Import, FakeItemService Items) Create()
     {
         var import = new FakeImportPipeline();

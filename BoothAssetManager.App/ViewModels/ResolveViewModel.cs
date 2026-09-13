@@ -656,7 +656,8 @@ public sealed class ResolveViewModel : ViewModelBase
 
         try
         {
-            healed = await _services.Items.ReconcileUnresolvedAsync();
+            healed = await _services.Commands.ExecuteAsync(new UiCommand.ReconcileUnresolved())
+                is CommandResult.Counted counted ? counted.Count : 0;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {

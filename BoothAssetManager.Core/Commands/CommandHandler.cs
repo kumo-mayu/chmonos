@@ -21,6 +21,7 @@ public sealed class CommandHandler
     private readonly IModificationService? _modifications;
     private readonly IAvatarService? _avatars;
     private readonly ISettingsService? _settings;
+    private readonly IAvatarRegistryEditor? _avatarEditor;
 
     public CommandHandler(
         IImportPipeline import,
@@ -34,9 +35,11 @@ public sealed class CommandHandler
         IModificationService? modifications = null,
         IAvatarService? avatars = null,
         UnityPackageCatalog? unityPackages = null,
-        ISettingsService? settings = null)
+        ISettingsService? settings = null,
+        IAvatarRegistryEditor? avatarEditor = null)
     {
         _settings = settings;
+        _avatarEditor = avatarEditor;
         _unityPackages = unityPackages;
         _import = import;
         _items = items;
@@ -70,6 +73,43 @@ public sealed class CommandHandler
                 return new CommandResult.SettingsChanged(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                         .UpdateAsync(change.Change, cancellationToken));
+
+            case UiCommand.SetAvatarName or UiCommand.SetAvatarMemo or UiCommand.SetAvatarOwned
+                or UiCommand.SetAvatarOverride or UiCommand.SetAvatarBase or UiCommand.SetBaseInferClothing
+                or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase
+                or UiCommand.AddAvatarAlias or UiCommand.RemoveAvatarAlias or UiCommand.RecheckAvatar:
+                return _avatarEditor is null
+                    ? new CommandResult.Failed("アバターの登録簿の編集手段が設定されていません。")
+                    : await EditAvatarRegistryAsync(_avatarEditor, command, cancellationToken);
+
+            case UiCommand.StartEditSession or UiCommand.AdvanceEditSession or UiCommand.NoteEditSaved
+                or UiCommand.ReplaceEditSessionItemId or UiCommand.ClearEditSession:
+                return _edit is null
+                    ? new CommandResult.Failed("編集の保存手段が設定されていません。")
+                    : await EditSessionAsync(_edit, command, cancellationToken);
+
+            case UiCommand.UnhideItem unhide:
+                await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                    .UnhideAsync(unhide.ItemId, cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.ForgetDetached forget:
+                await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                    .ForgetDetachedAsync(forget.Hash, forget.ItemId, cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.RestoreExcluded restore:
+                await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                    .RestoreExcludedAsync(restore.Hash, cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.ChangeSearchHistory history:
+                return new CommandResult.SearchHistoryChanged(
+                    await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                        .ChangeSearchHistoryAsync(history.Change, cancellationToken));
+
+            case UiCommand.ReconcileUnresolved:
+                return new CommandResult.Counted(await _items.ReconcileUnresolvedAsync(cancellationToken));
 
             case UiCommand.FetchItemImages fetchImages:
                 return new CommandResult.ImagesFetched(
@@ -563,6 +603,83 @@ public sealed class CommandHandler
     /// 手でファイルを付けた後、その商品の unitypackage を裏で読む（取り込みの裏で読むのと同じ・ユーザ判断 2026-09-13）。
     /// **確定の画面は待たせない。**読めなくても、使うときに zip を解くか、次の取り込みで読む
     /// </summary>
+    /// <summary>アバターの登録簿の編集。振り分けるだけ（ここに判断を書かない）。</summary>
+    private static async Task<CommandResult> EditAvatarRegistryAsync(
+        IAvatarRegistryEditor editor,
+        UiCommand command,
+        CancellationToken cancellationToken)
+    {
+        switch (command)
+        {
+            case UiCommand.SetAvatarName name:
+                await editor.SetDisplayNameAsync(name.ItemId, name.Name, cancellationToken);
+                break;
+            case UiCommand.SetAvatarMemo memo:
+                await editor.SetMemoAsync(memo.ItemId, memo.Memo, cancellationToken);
+                break;
+            case UiCommand.SetAvatarOwned owned:
+                await editor.SetOwnedManuallyAsync(owned.ItemId, owned.Owned, cancellationToken);
+                break;
+            case UiCommand.SetAvatarOverride overrideValue:
+                await editor.SetAvatarOverrideAsync(overrideValue.ItemId, overrideValue.Value, cancellationToken);
+                break;
+            case UiCommand.SetAvatarBase avatarBase:
+                await editor.SetBaseAsync(avatarBase.ItemId, avatarBase.BaseName, cancellationToken);
+                break;
+            case UiCommand.SetBaseInferClothing infer:
+                await editor.SetInferClothingAsync(infer.Name, infer.Infer, cancellationToken);
+                break;
+            case UiCommand.SetBaseItemId baseItem:
+                await editor.SetBaseItemIdAsync(baseItem.Name, baseItem.ItemId, cancellationToken);
+                break;
+            case UiCommand.RenameBase rename:
+                return new CommandResult.Counted(await editor.RenameBaseAsync(rename.OldName, rename.NewName, cancellationToken));
+            case UiCommand.DeleteBase delete:
+                return new CommandResult.Counted(await editor.DeleteBaseAsync(delete.Name, cancellationToken));
+            case UiCommand.AddAvatarAlias add:
+                await editor.AddAliasAsync(add.ItemId, add.Text, cancellationToken);
+                break;
+            case UiCommand.RemoveAvatarAlias remove:
+                await editor.RemoveAliasAsync(remove.ItemId, remove.Text, cancellationToken);
+                break;
+            case UiCommand.RecheckAvatar recheck:
+                // 原因は特定できないので、見当だけ並べて判断はユーザに残す
+                return await editor.RecheckAsync(recheck.ItemId, cancellationToken)
+                    ? new CommandResult.Done()
+                    : new CommandResult.Failed("BOOTHに確認できませんでした。通信が失敗したか、取得の設定が入っていないことがあります。");
+        }
+
+        return new CommandResult.Done();
+    }
+
+    /// <summary>編集キューの位置の記録。振り分けるだけ。</summary>
+    private static async Task<CommandResult> EditSessionAsync(
+        IEditService edit,
+        UiCommand command,
+        CancellationToken cancellationToken)
+    {
+        switch (command)
+        {
+            case UiCommand.StartEditSession start:
+                await edit.StartSessionAsync(start.ItemIds, cancellationToken);
+                break;
+            case UiCommand.AdvanceEditSession advance:
+                await edit.AdvanceSessionAsync(advance.Index, cancellationToken);
+                break;
+            case UiCommand.NoteEditSaved saved:
+                await edit.NoteSavedAsync(saved.ItemId, cancellationToken);
+                break;
+            case UiCommand.ReplaceEditSessionItemId replace:
+                await edit.ReplaceItemIdAsync(replace.FromId, replace.ToId, cancellationToken);
+                break;
+            case UiCommand.ClearEditSession:
+                await edit.ClearSessionAsync(cancellationToken);
+                break;
+        }
+
+        return new CommandResult.Done();
+    }
+
     private void FillUnityPackagesInBackground(string itemId)
     {
         if (_unityPackages is not { } catalog)

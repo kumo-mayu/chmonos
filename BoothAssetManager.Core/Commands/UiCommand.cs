@@ -42,6 +42,70 @@ public abstract record UiCommand
     /// </summary>
     public record ChangeSettings(Func<Models.AppSettings, Models.AppSettings> Change) : UiCommand;
 
+    // ---- アバターの登録簿（アバター画面）。前は画面がサービスを直に呼んでいた（技術的負債 3-1） ----
+
+    /// <summary>アバターに名前を付ける。空にすると自動の名前に戻る。</summary>
+    public record SetAvatarName(string ItemId, string Name) : UiCommand;
+
+    public record SetAvatarMemo(string ItemId, string? Memo) : UiCommand;
+
+    /// <summary>手で「持っている」にする（ファイルが無くても持っている扱い）。</summary>
+    public record SetAvatarOwned(string ItemId, bool Owned) : UiCommand;
+
+    /// <summary>アバターとして扱うかを手で決める。null で規則の判定に戻す。</summary>
+    public record SetAvatarOverride(string ItemId, bool? Value) : UiCommand;
+
+    /// <summary>アバターの共通素体を決める。null で所属を外す。</summary>
+    public record SetAvatarBase(string ItemId, string? BaseName) : UiCommand;
+
+    /// <summary>共通素体の一致から衣装の互換を広げるか。</summary>
+    public record SetBaseInferClothing(string Name, bool Infer) : UiCommand;
+
+    /// <summary>共通素体に配布商品を結ぶ。null で外す。</summary>
+    public record SetBaseItemId(string Name, string? ItemId) : UiCommand;
+
+    /// <summary>共通素体の名前を変える。商品の宣言も書き換える（結果は書き換えた商品の数）。</summary>
+    public record RenameBase(string OldName, string NewName) : UiCommand;
+
+    /// <summary>共通素体を消す。取り消せない（結果は書き換えた商品の数）。</summary>
+    public record DeleteBase(string Name) : UiCommand;
+
+    public record AddAvatarAlias(string ItemId, string Text) : UiCommand;
+
+    public record RemoveAvatarAlias(string ItemId, string Text) : UiCommand;
+
+    /// <summary>BOOTH に問い合わせてアバターかどうかを確かめ直す。</summary>
+    public record RecheckAvatar(string ItemId) : UiCommand;
+
+    // ---- 編集キューの位置（edit-session.json） ----
+
+    public record StartEditSession(IReadOnlyList<string> ItemIds) : UiCommand;
+
+    public record AdvanceEditSession(int Index) : UiCommand;
+
+    public record NoteEditSaved(string ItemId) : UiCommand;
+
+    /// <summary>商品番号を付け替えたので、編集キューの中の番号も付け替える。</summary>
+    public record ReplaceEditSessionItemId(string FromId, string ToId) : UiCommand;
+
+    public record ClearEditSession() : UiCommand;
+
+    // ---- 設定画面から戻す操作 ----
+
+    public record UnhideItem(string ItemId) : UiCommand;
+
+    /// <summary>「この商品のものではない」と外した記録を捨てる。</summary>
+    public record ForgetDetached(string Hash, string ItemId) : UiCommand;
+
+    /// <summary>管理から外したファイルを戻す（次の取り込みでまた未確定に出る）。</summary>
+    public record RestoreExcluded(string Hash) : UiCommand;
+
+    /// <summary>既にどこかの商品が持っているファイルを、未確定の一覧から取り除く（結果は取り除いた数）。</summary>
+    public record ReconcileUnresolved() : UiCommand;
+
+    /// <summary>検索の履歴を変える（積む・消す・全部消す）。変え方を関数で渡し、錠の中で今の履歴に当てる。</summary>
+    public record ChangeSearchHistory(Func<Services.SearchHistoryList, Services.SearchHistoryList> Change) : UiCommand;
+
     /// <summary>IDを変更したら何が起きるかの下見。書き込まない。</summary>
     public record PlanItemIdChange(string FromId, string ToId) : UiCommand;
 
@@ -288,6 +352,12 @@ public abstract record CommandResult
 
     /// <summary>設定を書いた。書いた後の設定を持つ。</summary>
     public record SettingsChanged(Models.AppSettings Settings) : CommandResult;
+
+    /// <summary>済んだ。数を持つ（書き換えた商品の数・取り除いた数など）。</summary>
+    public record Counted(int Count) : CommandResult;
+
+    /// <summary>検索の履歴を書いた。書いた後の履歴を持つ。</summary>
+    public record SearchHistoryChanged(Services.SearchHistoryList History) : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;

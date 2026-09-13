@@ -90,7 +90,7 @@ public sealed class AppServiceContainer : IDisposable
         Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
-            Modifications, Avatars, UnityPackages, SettingsStore);
+            Modifications, Avatars, UnityPackages, SettingsStore, Avatars);
     }
 
     /// <summary>unitypackage の中身を1度だけ読んで残す（取り込みの裏・手でファイルを付けた後）。</summary>

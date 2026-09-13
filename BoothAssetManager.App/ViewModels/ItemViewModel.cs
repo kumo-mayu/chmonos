@@ -1731,7 +1731,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
     /// </summary>
     private async Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns)
     {
-        await _services.Edit.SaveLocalAsync(Item.Id, local, owns);
+        await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(Item.Id, local, owns));
 
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)

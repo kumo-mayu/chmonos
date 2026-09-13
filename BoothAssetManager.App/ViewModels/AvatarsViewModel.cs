@@ -1059,7 +1059,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.SetBaseAsync(Selected.ItemId, BaseInput);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarBase(Selected.ItemId, BaseInput));
         await LoadAsync();
     }
 
@@ -1070,7 +1070,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.SetBaseAsync(Selected.ItemId, null);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarBase(Selected.ItemId, null));
         BaseInput = string.Empty;
         await LoadAsync();
     }
@@ -1085,7 +1085,7 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         if (trimmed.Length == 0)
         {
-            await _services.Avatars.SetBaseItemIdAsync(name, null);
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetBaseItemId(name, null));
             Status = $"「{name}」の配布商品との結び付きを外しました。";
             await LoadAsync();
             return;
@@ -1098,14 +1098,14 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.SetBaseItemIdAsync(name, itemId);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetBaseItemId(name, itemId));
         Status = $"「{name}」を商品 {itemId} に結び付けました。";
         await LoadAsync();
     }
 
     private async Task ToggleInferAsync(string name, bool infer)
     {
-        await _services.Avatars.SetInferClothingAsync(name, infer);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetBaseInferClothing(name, infer));
         Status = infer
             ? $"「{name}」の一致から衣装の互換を広げます。"
             : $"「{name}」の一致では衣装の互換を広げません。";
@@ -1129,7 +1129,8 @@ public sealed class AvatarsViewModel : ViewModelBase
 
     private async Task RenameBaseAsync(string oldName, string newName)
     {
-        var updated = await _services.Avatars.RenameBaseAsync(oldName, newName);
+        var updated = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RenameBase(oldName, newName))
+            is Core.Commands.CommandResult.Counted renamed ? renamed.Count : 0;
         Status = $"「{oldName}」を「{newName}」に変えました（商品 {updated} 件を書き換え）。";
         await LoadAsync();
     }
@@ -1161,7 +1162,8 @@ public sealed class AvatarsViewModel : ViewModelBase
 
     private async Task DeleteBaseAsync(string name)
     {
-        var updated = await _services.Avatars.DeleteBaseAsync(name);
+        var updated = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DeleteBase(name))
+            is Core.Commands.CommandResult.Counted deleted ? deleted.Count : 0;
         Status = $"「{name}」を消しました（商品 {updated} 件を書き換え）。";
         await LoadAsync();
     }
@@ -1192,7 +1194,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.SetDisplayNameAsync(Selected.ItemId, string.Empty);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, string.Empty));
         await LoadAsync();
     }
 
@@ -1203,7 +1205,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.SetDisplayNameAsync(Selected.ItemId, NameInput);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, NameInput));
         await LoadAsync();
     }
 
@@ -1214,7 +1216,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.SetMemoAsync(Selected.ItemId, MemoInput);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarMemo(Selected.ItemId, MemoInput));
         Status = MemoInput.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
         await LoadAsync();
     }
@@ -1226,7 +1228,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        await _services.Avatars.AddAliasAsync(Selected.ItemId, AliasInput);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddAvatarAlias(Selected.ItemId, AliasInput));
         AliasInput = string.Empty;
         await LoadAsync();
     }
@@ -1240,7 +1242,7 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         // 表示は「くうた（3）」の形なので、括弧より前を名前として扱う
         var text = display.Split('（')[0];
-        await _services.Avatars.RemoveAliasAsync(Selected.ItemId, text);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RemoveAvatarAlias(Selected.ItemId, text));
         await LoadAsync();
     }
 
@@ -1252,7 +1254,7 @@ public sealed class AvatarsViewModel : ViewModelBase
         }
 
         var next = !Selected.Summary.Entry.IsOwnedManually;
-        await _services.Avatars.SetOwnedManuallyAsync(Selected.ItemId, next);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarOwned(Selected.ItemId, next));
         await LoadAsync();
     }
 
@@ -1270,7 +1272,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             _ => null,
         };
 
-        await _services.Avatars.SetAvatarOverrideAsync(Selected.ItemId, value);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarOverride(Selected.ItemId, value));
         await LoadAsync();
     }
 
@@ -1282,11 +1284,8 @@ public sealed class AvatarsViewModel : ViewModelBase
         }
 
         Status = "BOOTHに問い合わせています…";
-        var ok = await _services.Avatars.RecheckAsync(Selected.ItemId);
-        // 原因は特定できないので、見当だけ並べて判断はユーザに残す
-        Status = ok
-            ? "確認し直しました。"
-            : "BOOTHに確認できませんでした。通信が失敗したか、取得の設定が入っていないことがあります。";
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RecheckAvatar(Selected.ItemId));
+        Status = result is Core.Commands.CommandResult.Failed failed ? failed.Message : "確認し直しました。";
         await LoadAsync();
     }
 

@@ -502,7 +502,17 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
-        _ = _services.Store.SearchHistory.SaveAsync(new Core.Services.SearchHistoryList());
+        _ = ClearSearchHistoryAsync();
+    }
+
+    /// <summary>
+    /// 検索の履歴を全部消す。**書き終えてから検索画面の履歴を読み直す。**
+    /// 前は書くのを待たずに読み直していて、消したはずの履歴が検索画面に残って見えることがあった。
+    /// </summary>
+    private async Task ClearSearchHistoryAsync()
+    {
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(
+            _ => new Core.Services.SearchHistoryList()));
         _main.Search.RestoreHistory();
     }
 
@@ -841,7 +851,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
     private async Task UnhideAsync(string itemId)
     {
-        await _services.SettingsStore.UnhideAsync(itemId);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UnhideItem(itemId));
         Status = "非表示を解除しました。検索に戻ります。";
         await LoadAsync();
         _ = _main.Search.ReloadAsync();
@@ -853,14 +863,14 @@ public sealed class SettingsViewModel : ViewModelBase
     /// </summary>
     private async Task ForgetDetachedAsync(string hash, string itemId)
     {
-        await _services.SettingsStore.ForgetDetachedAsync(hash, itemId);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetDetached(hash, itemId));
         Status = "外した記録を消しました。次の取り込みで、手掛かりが指すならまたその商品に紐付きます。";
         await LoadAsync();
     }
 
     private async Task RestoreAsync(string hash)
     {
-        await _services.SettingsStore.RestoreExcludedAsync(hash);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RestoreExcluded(hash));
         Status = "除外を解除しました。次の取り込みでまた未確定として出てきます。";
         await LoadAsync();
     }

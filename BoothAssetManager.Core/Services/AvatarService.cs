@@ -101,6 +101,40 @@ public interface IAvatarService
 }
 
 /// <summary>
+/// アバターの登録簿を人が直す操作（アバター画面）。画面からは <see cref="Commands.UiCommand"/> で呼ぶ（技術的負債 3-1）。
+/// 検出（<see cref="IAvatarService"/>）と口を分けるのは、検出だけを差し替える試験の作り物に、使わない操作まで持たせないため。
+/// </summary>
+public interface IAvatarRegistryEditor
+{
+    Task SetDisplayNameAsync(string itemId, string name, CancellationToken cancellationToken = default);
+
+    Task SetMemoAsync(string itemId, string? memo, CancellationToken cancellationToken = default);
+
+    Task SetOwnedManuallyAsync(string itemId, bool owned, CancellationToken cancellationToken = default);
+
+    Task SetAvatarOverrideAsync(string itemId, bool? value, CancellationToken cancellationToken = default);
+
+    Task SetBaseAsync(string itemId, string? baseName, CancellationToken cancellationToken = default);
+
+    Task SetInferClothingAsync(string name, bool infer, CancellationToken cancellationToken = default);
+
+    Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default);
+
+    /// <returns>書き換えた商品の数。</returns>
+    Task<int> RenameBaseAsync(string oldName, string newName, CancellationToken cancellationToken = default);
+
+    /// <returns>書き換えた商品の数。</returns>
+    Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default);
+
+    Task AddAliasAsync(string itemId, string text, CancellationToken cancellationToken = default);
+
+    Task RemoveAliasAsync(string itemId, string text, CancellationToken cancellationToken = default);
+
+    /// <returns>BOOTH に確かめられたか。</returns>
+    Task<bool> RecheckAsync(string itemId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// 対応アバターの検出と、登録簿の編集。
 ///
 /// 検出の材料は実データの計測で決めた（詳細は 設計詳細_grill結果3_アバター.md）：
@@ -111,7 +145,7 @@ public interface IAvatarService
 /// 保存済みの h2.html を読むので、取り込み済みの商品は通信ゼロで走る。
 /// BOOTHへ問い合わせるのは、まだcategoryを知らない商品IDだけ。
 /// </summary>
-public sealed partial class AvatarService : IAvatarService
+public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEditor
 {
     private readonly DataStore _store;
     private readonly Func<AppSettings> _currentSettings;

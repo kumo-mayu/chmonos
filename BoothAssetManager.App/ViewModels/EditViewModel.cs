@@ -492,7 +492,7 @@ public sealed class EditViewModel : ViewModelBase
     {
         if (_run is null)
         {
-            await _services.Edit.ReplaceItemIdAsync(fromId, toId);
+            await _services.Commands.ExecuteAsync(new UiCommand.ReplaceEditSessionItemId(fromId, toId));
         }
     }
 
@@ -777,7 +777,7 @@ public sealed class EditViewModel : ViewModelBase
             _queue = await BuildDefaultQueueAsync();
             _index = 0;
             _saved = new HashSet<string>(StringComparer.Ordinal);
-            await _services.Edit.StartSessionAsync(_queue);
+            await _services.Commands.ExecuteAsync(new UiCommand.StartEditSession(_queue));
         }
         else
         {
@@ -849,8 +849,8 @@ public sealed class EditViewModel : ViewModelBase
 
         if (kept.Count != session.ItemIds.Count || saved.Count > 0)
         {
-            await _services.Edit.StartSessionAsync(kept);
-            await _services.Edit.AdvanceSessionAsync(index);
+            await _services.Commands.ExecuteAsync(new UiCommand.StartEditSession(kept));
+            await _services.Commands.ExecuteAsync(new UiCommand.AdvanceEditSession(index));
         }
 
         _queue = kept;
@@ -897,7 +897,7 @@ public sealed class EditViewModel : ViewModelBase
             return Task.CompletedTask;
         }
 
-        return _services.Edit.AdvanceSessionAsync(_index);
+        return _services.Commands.ExecuteAsync(new UiCommand.AdvanceEditSession(_index));
     }
 
     // ---- 書きかけ（ユーザ判断 2026-09-12） ----
@@ -2058,7 +2058,7 @@ public sealed class EditViewModel : ViewModelBase
             _saved.Add(_item.Id);
             if (_run is null)
             {
-                await _services.Edit.NoteSavedAsync(_item.Id);
+                await _services.Commands.ExecuteAsync(new UiCommand.NoteEditSaved(_item.Id));
             }
 
             // 保存したので書きかけではない。次へ進むときに控え直さないよう、消してから進む
@@ -2170,7 +2170,7 @@ public sealed class EditViewModel : ViewModelBase
         // 捨てるのは未編集の順番の記録だけ。指定して入った順番は履歴に預けてあり、ファイルには無い
         if (_run is null)
         {
-            await _services.Edit.ClearSessionAsync();
+            await _services.Commands.ExecuteAsync(new UiCommand.ClearEditSession());
         }
 
         await _main.ReloadLibraryAsync();

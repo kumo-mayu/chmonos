@@ -635,14 +635,15 @@ public sealed class SearchViewModel : ViewModelBase
             return;
         }
 
-        var stored = _services.Store.SearchHistory.Load();
-        var updated = Core.Services.SearchHistory.Add(
-            stored.Entries,
-            entry,
-            _services.Store.Settings.Load().SearchHistoryCount);
+        // 読んで足して書く間を錠の中で行う（技術的負債 3-1）。前は画面が読んだ写しを丸ごと書いていた
+        var keep = _services.Settings.SearchHistoryCount;
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(stored =>
+            new Core.Services.SearchHistoryList { Entries = Core.Services.SearchHistory.Add(stored.Entries, entry, keep) }));
 
-        await _services.Store.SearchHistory.SaveAsync(new Core.Services.SearchHistoryList { Entries = updated });
-        LoadHistory(updated);
+        if (result is Core.Commands.CommandResult.SearchHistoryChanged changed)
+        {
+            LoadHistory(changed.History.Entries);
+        }
     }
 
     /// <summary>スロットを組み直す。</summary>
@@ -663,10 +664,13 @@ public sealed class SearchViewModel : ViewModelBase
 
     private async Task RemoveHistoryAsync(Core.Models.SearchHistoryEntry entry)
     {
-        var stored = _services.Store.SearchHistory.Load();
-        var updated = Core.Services.SearchHistory.Remove(stored.Entries, entry.Fingerprint);
-        await _services.Store.SearchHistory.SaveAsync(new Core.Services.SearchHistoryList { Entries = updated });
-        LoadHistory(updated);
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(stored =>
+            new Core.Services.SearchHistoryList { Entries = Core.Services.SearchHistory.Remove(stored.Entries, entry.Fingerprint) }));
+
+        if (result is Core.Commands.CommandResult.SearchHistoryChanged changed)
+        {
+            LoadHistory(changed.History.Entries);
+        }
     }
 
     /// <summary>
@@ -871,10 +875,10 @@ public sealed class SearchViewModel : ViewModelBase
 
         // カードが抱えているのは前回の読み込み時の写しなので、非表示だけを名指しして書く。
         // 丸ごと書き戻すと、その間に取り込みや検出が入れた項目まで古い値に戻る
-        await _services.Edit.SaveLocalAsync(
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
             card.Item.Id,
             card.Item.Local with { IsHidden = true },
-            LocalOwners.Visibility);
+            LocalOwners.Visibility));
 
         await ReloadAsync();
     }

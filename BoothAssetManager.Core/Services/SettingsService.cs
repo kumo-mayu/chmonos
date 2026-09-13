@@ -61,6 +61,11 @@ public interface ISettingsService
     /// <summary>今の設定を変える。変え方を関数で渡す。</summary>
     Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default);
 
+    /// <summary>検索の履歴を変える。変え方を関数で渡す。</summary>
+    Task<SearchHistoryList> ChangeSearchHistoryAsync(
+        Func<SearchHistoryList, SearchHistoryList> change,
+        CancellationToken cancellationToken = default);
+
     Task<StorageUsage> LoadUsageAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<HiddenItem>> LoadHiddenAsync(CancellationToken cancellationToken = default);
@@ -112,6 +117,15 @@ public sealed class SettingsService : ISettingsService
         Current = updated;
         return updated;
     }
+
+    /// <summary>
+    /// 検索の履歴を変える。前は検索画面と設定画面が読んだ写しを丸ごと書いていた（技術的負債 3-1）。
+    /// 錠の中で今の履歴に当てる。画面からは <see cref="Commands.UiCommand.ChangeSearchHistory"/> で呼ぶ。
+    /// </summary>
+    public Task<SearchHistoryList> ChangeSearchHistoryAsync(
+        Func<SearchHistoryList, SearchHistoryList> change,
+        CancellationToken cancellationToken = default)
+        => _store.SearchHistory.UpdateAsync(change, cancellationToken);
 
     /// <summary>保存先が何をどれだけ使っているか。画像は実ファイルを数える。</summary>
     public Task<StorageUsage> LoadUsageAsync(CancellationToken cancellationToken = default)
