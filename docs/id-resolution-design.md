@@ -29,7 +29,7 @@
 | **ブラウザ履歴DBの配布CDN URL** | `History` の `downloads` + `downloads_url_chains` | 不要（ローカル） | 履歴が残る 2026-03 以降の 11 行すべてに商品ID。ローカル18本中 **10本** をファイル名＋バイト数で確定。2025-12〜2026-01 取得分（Milfy, Milsy, SDN, FREYSIA, Tori）は履歴が既に無い |
 | Zone.Identifier `HostUrl` | NTFS 代替データストリーム | 不要 | 18/18 に存在。**Brave はオリジンのみ**（`accounts.booth.pm` / `booth.pm` / `hox3.booth.pm`）。Chrome/Edge は CDN のフルURL（=商品ID入り）を書く |
 | ZIP内テキストのBOOTH商品URL | `.url` / readme | 不要 | 自己参照あり（hotogiya）。**依存ツール lilToon (3087170) を指す偽陽性**（Milfy, Wendy）→ 既知依存の除外か裏取り必須 |
-| `.unitypackage` 名前空間 `Assets/<作者>/<商品>` | tar.gz をメモリ上で読む | 不要 | 12本中8本で作者名がショップsubdomainと一致（Kaerimichi, FREYSIA, SHOP HEILON, hotogiya, Piyo_crafts, BekoShop, FUKA, TinmeshiTei） |
+| `.unitypackage` 名前空間 `Assets/<作者>/<商品>` | tar.gz を展開せずに流して読む（本体は写さない。1GB の物で確保 1MB。2026-09-13 までは本体まで写していて約2GB確保した） | 不要 | 12本中8本で作者名がショップsubdomainと一致（Kaerimichi, FREYSIA, SHOP HEILON, hotogiya, Piyo_crafts, BekoShop, FUKA, TinmeshiTei） |
 | `.unitypackage` 内の Readme 本文URL | 同上（`<guid>/asset` を pathname と突き合わせ） | 不要 | 1/18（HeartBeat: 本体 5316535 ＋関連 4792153 ＋作者サイト shop.beko.ooo）。他は URL なし |
 | PDF本文（利用規約・説明書） | PdfPig で本文抽出（Codex `research/PdfProbe`） | 不要 | 7/18 にPDF。ショップURL: `hotogiya.booth.pm`, **`mk22.booth.pm`（Milfy：名前空間PLUSONEでは辿れない）**, `kaerimichi.booth.pm`。固有名: Kuuta/くうた, Milfy/ミルフィ, Wendy/ウェンディ, HEILON, タマクラゲ+Piyo。ショップ共通規約だけの場合はショップ絞り込みにのみ使う |
 | サムネイル dHash（64bit） | `main.png`, `BOOTH_thumbnail_*.png` ↔ JSON `images` | 不要 | 一致 0〜2 / 不一致 21〜37。同梱率 2/18 |

@@ -126,8 +126,54 @@ public static class UnityHandoff
     /// 完了の行だけでは誰の物か分からない。
     ///
     /// 読めないときは空を返す。投げない。
+    ///
+    /// **一度読んだ結果は覚えておく。**unitypackage は最後まで展開しないとパスが揃わず、4K テクスチャを大量に同梱した物では
+    /// 1GB あたり約2.8秒かかる（実測）。商品ページ・改変の画面・「Unityで選択」・プロジェクトの中を調べる・連続送りの前、と
+    /// 同じ物を何度も読むので、zip の場所・中の名前・大きさ・更新時刻が同じなら読み直さない。覚えるのはパスの一覧だけで小さい
     /// </summary>
     public static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package)
+    {
+        FileInfo? zip = null;
+        try
+        {
+            zip = new FileInfo(package.ZipPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or UnauthorizedAccessException
+                                              or PathTooLongException)
+        {
+        }
+
+        var key = (Zip: package.ZipPath.ToUpperInvariant(), Entry: package.EntryPath);
+        if (zip is { Exists: true }
+            && PathCache.TryGetValue(key, out var cached)
+            && cached.Length == zip.Length
+            && cached.Written == zip.LastWriteTimeUtc)
+        {
+            return cached.Paths;
+        }
+
+        var paths = ReadAssetPathsFromDisk(package);
+        if (zip is { Exists: true } && paths.Count > 0)
+        {
+            // 覚えすぎない。手元の商品の数を大きく超えたら一度忘れる（読み直せば戻る）
+            if (PathCache.Count >= MaxCachedPackages)
+            {
+                PathCache.Clear();
+            }
+
+            PathCache[key] = (zip.Length, zip.LastWriteTimeUtc, paths);
+        }
+
+        return paths;
+    }
+
+    /// <summary>読んだパスの一覧。キーは zip の場所（大文字小文字をそろえる）と中の名前。</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Zip, string Entry), (long Length, DateTime Written, IReadOnlyList<string> Paths)>
+        PathCache = new();
+
+    private const int MaxCachedPackages = 5000;
+
+    private static IReadOnlyList<string> ReadAssetPathsFromDisk(UnityPackageEntry package)
     {
         try
         {

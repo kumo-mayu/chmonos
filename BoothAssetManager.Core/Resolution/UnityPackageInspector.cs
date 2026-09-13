@@ -95,7 +95,10 @@ public static class UnityPackageInspector
             using var gzip = new GZipStream(entryStream, CompressionMode.Decompress);
             using var tar = new TarReader(gzip);
 
-            while (tar.GetNextEntry(copyData: true) is { } tarEntry)
+            // **中身を写さずに流して読む**（copyData: false）。写す指定だと、4K テクスチャのような大きな本体まで
+            // 1件ずつ丸ごとメモリに写してから次へ進み、1GB の unitypackage で約2GBを確保して作業セットが約0.9GB増えた（実測）。
+            // 欲しいのは pathname と小さな文章だけで、どちらもその場で読み切るので、写す必要は無い
+            while (tar.GetNextEntry(copyData: false) is { } tarEntry)
             {
                 var parts = tarEntry.Name.TrimStart('.', '/').Split('/');
                 if (parts.Length < 2)

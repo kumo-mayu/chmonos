@@ -181,6 +181,20 @@ public sealed class UnityHandoffTests : IDisposable
     }
 
     [Fact]
+    public void 同じ場所のzipでも中身が変わったら読み直す()
+    {
+        // 読んだ結果は覚えておくが、差し替えた zip の古い一覧を返してはいけない
+        var before = MakeZipWithPackage("Item/Item.unitypackage", MakeUnityPackage("Assets/Old/a.prefab"));
+        Assert.Equal(["Assets/Old/a.prefab"], UnityHandoff.ReadAssetPaths(before));
+
+        var after = MakeZipWithPackage(
+            "Item/Item.unitypackage",
+            MakeUnityPackage("Assets/New/a.prefab", "Assets/New/Textures/base.png"));
+
+        Assert.Equal(["Assets/New/a.prefab", "Assets/New/Textures/base.png"], UnityHandoff.ReadAssetPaths(after));
+    }
+
+    [Fact]
     public void 壊れたunitypackageでは入る先を空で返す()
     {
         var package = MakeZipWithPackage("broken.unitypackage", Encoding.UTF8.GetBytes("tar.gzではない"));

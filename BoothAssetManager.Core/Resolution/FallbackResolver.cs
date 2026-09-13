@@ -219,8 +219,10 @@ public sealed class FallbackResolver
         // 大きいzipだとここだけで数秒かかるので、何をしているかは伝える
         progress?.Report(new ResolveProgress("アーカイブの中を調べています", 0, 0));
 
+        // **裏で読む。**unitypackage は最後まで展開しないと中身のパスが揃わず、1GB で約3秒かかる（実測）。
+        // ここは最初の await より前なので、そのまま呼ぶと呼んだ側（未確定の画面）のスレッドで走り、その間画面が止まる
         var hints = Path.GetExtension(filePath).Equals(".zip", StringComparison.OrdinalIgnoreCase)
-            ? UnityPackageInspector.Inspect(filePath)
+            ? await Task.Run(() => UnityPackageInspector.Inspect(filePath), cancellationToken)
             : new UnityPackageHints();
 
         // unitypackage 内のテキストに商品URLが直接書かれていれば、検索するまでもない
