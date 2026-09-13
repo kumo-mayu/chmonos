@@ -187,8 +187,11 @@
                     </StackPanel>
                 </DockPanel>
                 <!-- 畳んだ中身の字下げは、ユーザ指示（2026-09-13「少しだけ深く」）で見出しの下 14→22、改変の下 28→36 にした -->
-                <ItemsControl ItemsSource="{Binding Members}" Margin="36,4,0,4"
-                              Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!-- 縦線は改変の三角の真下（三角の幅 18 の半分 = 9）。中身の位置は線が無かったときと同じ 36 -->
+                <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
+                        Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <ItemsControl ItemsSource="{Binding Members}" />
+                </Border>
             </StackPanel>
         </DataTemplate>
 
@@ -225,8 +228,14 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ItemsControl ItemsSource="{Binding Modifications}" Margin="22,2,0,0"
-                              Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!--
+                    畳んだ中身の左に縦線を下ろし、どの見出しの中身かを分かりやすくする（ユーザ指示 2026-09-13）。
+                    線は三角の真下（見出しの枠の左の余白 4 ＋ 三角の幅 18 の半分 = 13）。中身の位置は線が無かったときと同じ 22
+                -->
+                <Border Margin="13,2,0,0" Padding="8,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
+                        Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <ItemsControl ItemsSource="{Binding Modifications}" />
+                </Border>
             </StackPanel>
         </DataTemplate>
 
@@ -276,8 +285,14 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ItemsControl ItemsSource="{Binding Modifications}" Margin="22,2,0,0"
-                              Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!--
+                    畳んだ中身の左に縦線を下ろし、どの見出しの中身かを分かりやすくする（ユーザ指示 2026-09-13）。
+                    線は三角の真下（見出しの枠の左の余白 4 ＋ 三角の幅 18 の半分 = 13）。中身の位置は線が無かったときと同じ 22
+                -->
+                <Border Margin="13,2,0,0" Padding="8,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
+                        Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <ItemsControl ItemsSource="{Binding Modifications}" />
+                </Border>
             </StackPanel>
         </DataTemplate>
 
