@@ -79,6 +79,9 @@ public abstract class HubExpandable : ViewModelBase
     /// <summary>畳む印。中身が無い行は出さない（押しても何も起きない印は嘘になる）。</summary>
     public string ExpandGlyph => !CanExpand ? string.Empty : IsExpanded ? "▾" : "▸";
 
+    /// <summary>畳む印（図形）を出すか。中身が無い行は出さない。</summary>
+    public bool HasGlyph => CanExpand;
+
     protected abstract bool CanExpand { get; }
 }
 

@@ -38,11 +38,22 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
+                        <!--
+                            三角は文字（▸▾）ではなく図形で描く。文字は小さく描かれる字形で、字を 11 → 14 に上げても見た目がほとんど変わらなかった
+                            （ユーザ指摘 2026-09-13「折り畳みの三角が少し小さいかも」）。幅18の枠の真ん中に置くのは同じ（縦線を三角の真下に下ろしている）
+                        -->
                         <Border Background="Transparent">
-                            <!-- 11 では小さかった（ユーザ指摘 2026-09-13）。幅は18のまま（縦線を三角の真下に置いているので） -->
-                            <TextBlock Text="{Binding ExpandGlyph}" FontSize="14" Foreground="{StaticResource TextMuted}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Visibility="{Binding HasGlyph, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L9,0 L4.5,6 Z" />
+                                <Setter TargetName="Mark" Property="Width" Value="9" />
+                                <Setter TargetName="Mark" Property="Height" Value="6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

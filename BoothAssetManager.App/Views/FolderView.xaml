@@ -20,10 +20,19 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
+                        <!-- 三角は図形で描く（改変の画面と同じ。文字の ▸▾ は字を大きくしても小さく見えた） -->
                         <Border Background="Transparent">
-                            <TextBlock Text="{TemplateBinding Content}" FontSize="14" Foreground="{StaticResource TextMuted}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Visibility="{Binding CanExpand, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L9,0 L4.5,6 Z" />
+                                <Setter TargetName="Mark" Property="Width" Value="9" />
+                                <Setter TargetName="Mark" Property="Height" Value="6" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
