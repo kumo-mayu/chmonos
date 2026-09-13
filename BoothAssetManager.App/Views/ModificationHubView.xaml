@@ -107,9 +107,26 @@
                         ToolTip="改変に紐付けたプロジェクトに入っていれば、Unity のプロジェクトタブの検索欄に入り先のフォルダ名を入れて示します。入っていなければ、取り込むか聞きます。" />
                 <!-- 絵も名前と同じリンク（ユーザ指示 2026-09-13）。小さな名前だけを狙って押させない -->
                 <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,8,0"
-                        AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Name}"
+                        AutomationProperties.Name="{Binding Name}"
+                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
                         Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}">
+                    <!-- ホバーで大きめの絵を出す（ユーザ指示 2026-09-13）。編集画面の上の帯と同じ形。
+                         はじめ 240px にしたら「大きすぎるかも。少し小さくして」と言われて 180px にした -->
+
+                    <Button.ToolTip>
+                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                            <StackPanel Width="180">
+                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
+                                        Margin="0,0,0,8"
+                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{StaticResource Text}" />
+                            </StackPanel>
+                        </ToolTip>
+                    </Button.ToolTip>
                     <Border Width="34" Height="34" CornerRadius="4"
                             Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
                         <Grid>
@@ -145,9 +162,24 @@
                     <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
                                   Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
                     <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
-                            AutomationProperties.Name="{Binding Name}" ToolTip="この改変を右に出します"
+                            AutomationProperties.Name="{Binding Name}"
+                            ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
                             Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             CommandParameter="{Binding}">
+                        <Button.ToolTip>
+                            <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                <StackPanel Width="180">
+                                    <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
+                                            Margin="0,0,0,8"
+                                            Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Text}" />
+                                    <TextBlock Text="押すと、この改変を右に出します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </ToolTip>
+                        </Button.ToolTip>
                         <Border Width="38" Height="38" CornerRadius="5"
                                 Background="{StaticResource AccentSoft}" ClipToBounds="True">
                             <Grid>
@@ -247,9 +279,24 @@
                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
                         <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0"
-                                AutomationProperties.Name="{Binding Title}" ToolTip="このアバターを右に出します"
+                                AutomationProperties.Name="{Binding Title}"
+                                ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
                                 Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding AvatarItemId}">
+                            <Button.ToolTip>
+                                <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                    <StackPanel Width="180">
+                                        <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
+                                                Margin="0,0,0,8"
+                                                Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource Text}" />
+                                        <TextBlock Text="押すと、このアバターを右に出します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </ToolTip>
+                            </Button.ToolTip>
                             <Border Width="34" Height="34" CornerRadius="17"
                                     Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
                                 <Grid>

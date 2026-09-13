@@ -7,7 +7,8 @@ using BoothAssetManager.App.ViewModels;
 namespace BoothAssetManager.App.Views;
 
 /// <summary>
-/// 商品の画像の欄。商品ページと編集画面で同じ部品を使う（ユーザ判断：画像の追加などの編集は両方で同等にする）。
+/// 画像の欄（ギャラリー）。商品ページと編集画面で同じ部品を使う（ユーザ判断：画像の追加などの編集は両方で同等にする）。
+/// 改変の写真もこの部品で出す（ユーザ指示 2026-09-13）。DataContext は <see cref="IGalleryHost"/>
 /// </summary>
 public partial class ItemGalleryPanel : UserControl
 {
@@ -31,7 +32,7 @@ public partial class ItemGalleryPanel : UserControl
     private void OnThumbnailMouseEnter(object sender, MouseEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: GalleryImage image }
-            || DataContext is not ItemViewModel item
+            || DataContext is not IGalleryHost item
             || !item.SwitchOnHover)
         {
             return;
@@ -69,7 +70,7 @@ public partial class ItemGalleryPanel : UserControl
 
     private void Apply()
     {
-        if (_pending is not null && DataContext is ItemViewModel item)
+        if (_pending is not null && DataContext is IGalleryHost item)
         {
             item.HoverImage(_pending);
         }

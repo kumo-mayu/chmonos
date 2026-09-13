@@ -991,6 +991,12 @@ public sealed class EditViewModel : ViewModelBase
     /// <summary>見出しに添える種類の数。畳んでいても何件あるかは分かるように。</summary>
     public string PurchasesCountText => Variations.Count > 0 ? $"（{Variations.Count} 種類）" : string.Empty;
 
+    /// <summary>
+    /// 買った種類にまだ1つも印が付いていないか。欄を畳んでいても見出しで分かるようにする（ユーザ指示 2026-09-13）。
+    /// 種類の一覧が無い商品では出さない
+    /// </summary>
+    public bool IsPurchaseUnselected => Variations.Count > 0 && !Variations.Any(row => row.IsPurchased);
+
     /// <summary>上の帯を出すか。要らない人もいるので設定で消せる（ユーザ指示）。</summary>
     public bool ShowsQueueStrip => _services.Settings.ShowEditQueueStrip;
 
@@ -1661,6 +1667,7 @@ public sealed class EditViewModel : ViewModelBase
     private void OnPurchasedChanged()
     {
         _purchasedCount = PurchasedVariationCount();
+        OnPropertyChanged(nameof(IsPurchaseUnselected));
 
         // 勝手には開かない（案A・ユーザ判断）。印を付けるたびに下の欄が開いたり閉じたりすると、画面が動いて分かりにくい。
         // 残りがあることは見出しの「未指定 n」で知らせる
@@ -2204,6 +2211,7 @@ public sealed class EditViewModel : ViewModelBase
         RebuildQueueTiles();
 
         OnPropertyChanged(nameof(PurchasesCountText));
+        OnPropertyChanged(nameof(IsPurchaseUnselected));
         OnPropertyChanged(nameof(Item));
         OnPropertyChanged(nameof(HasItem));
         OnPropertyChanged(nameof(IsFinished));

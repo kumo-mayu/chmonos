@@ -130,7 +130,7 @@ public sealed class ProjectCandidateRowViewModel
 /// （アバター詳細の中で展開すると縦に伸び続ける）。決めた理由は
 /// <c>設計詳細_改変の記録.md</c>。
 /// </summary>
-public sealed class ModificationViewModel : ViewModelBase
+public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -157,15 +157,19 @@ public sealed class ModificationViewModel : ViewModelBase
         SaveNameCommand = new RelayCommand(() => _ = SaveNameAsync(), () => NameChanged);
         SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => MemoChanged);
         AddImageCommand = new RelayCommand(() => _ = AddImageAsync());
+        // ギャラリーの右クリックは引数なしで呼ぶ（いま出ている1枚が相手）。商品のギャラリーと同じ
         RemoveImageCommand = new RelayCommand(
-            parameter => _ = RemoveImageAsync(parameter as ModificationImageViewModel),
-            parameter => parameter is ModificationImageViewModel);
+            parameter => _ = RemoveImageAsync(ImageFor(parameter)),
+            parameter => ImageFor(parameter) is not null);
         MoveImageBackCommand = new RelayCommand(
-            parameter => _ = MoveImageAsync(parameter as ModificationImageViewModel, -1),
-            parameter => parameter is ModificationImageViewModel);
+            parameter => _ = MoveImageAsync(ImageFor(parameter), -1),
+            parameter => ImageFor(parameter) is { CanMoveBack: true });
         MoveImageForwardCommand = new RelayCommand(
-            parameter => _ = MoveImageAsync(parameter as ModificationImageViewModel, 1),
-            parameter => parameter is ModificationImageViewModel);
+            parameter => _ = MoveImageAsync(ImageFor(parameter), 1),
+            parameter => ImageFor(parameter) is { CanMoveForward: true });
+        PreviousImageCommand = new RelayCommand(() => GoToImage(-1), () => CanGoPreviousImage);
+        NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
+        SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         RemoveMemberCommand = new RelayCommand(
             parameter => _ = RemoveMemberAsync(parameter as ModificationMemberRowViewModel),
             parameter => parameter is ModificationMemberRowViewModel);
@@ -634,7 +638,162 @@ public sealed class ModificationViewModel : ViewModelBase
     public bool HasImages => Images.Count > 0;
 
     public string ImagesEmptyText =>
-        "改変後の姿を貼れます。何枚でも入ります（まとめて選ぶか、ここへ落としてください）。";
+        "この改変の写真を貼れます。何枚でも入ります（「＋」でまとめて選ぶか、ここへ落とすか、Ctrl+Vで貼ってください）。";
+
+    // ---- ギャラリー（商品と同じ部品 ItemGalleryPanel・ユーザ指示 2026-09-13） ----
+    //
+    // 前は写真を横に並べる独自の欄（「改変後の姿」）だった。ほかの箇所のギャラリーと同じにし、
+    // 大きく1枚＋サムネイル一覧＋右クリックの操作（前へ・後ろへ・消す・足す）にする
+
+    private readonly List<GalleryImage> _gallery = [];
+    private int _selectedIndex;
+
+    /// <summary>サムネイル一覧。末尾に「＋」（足す枠）を混ぜる（商品のギャラリーと同じ並べ方）。</summary>
+    public ObservableCollection<GalleryImage> GalleryTiles { get; } = [];
+
+    public RelayCommand PreviousImageCommand { get; }
+
+    public RelayCommand NextImageCommand { get; }
+
+    public RelayCommand SelectImageCommand { get; }
+
+    /// <summary>大きく出す1枚。保存された大きさで読む（キャッシュに乗る）。</summary>
+    public BitmapSource? SelectedImage => _gallery.Count == 0 ? null : _thumbnails.Load(_gallery[_selectedIndex].Path);
+
+    public string GalleryCounter => _gallery.Count == 0 ? string.Empty : $"{_selectedIndex + 1} / {_gallery.Count}";
+
+    public bool CanGoPreviousImage => _gallery.Count > 1;
+
+    public bool CanGoNextImage => _gallery.Count > 1;
+
+    /// <summary>改変の写真は全部自分で貼ったもの。並べ替えと削除は、いま出ている1枚があれば出す。</summary>
+    public bool CurrentIsUserAdded => _gallery.Count > 0;
+
+    public bool CurrentIsPinned => false;
+
+    public bool ShowsPinThumbnail => false;
+
+    public bool ShowsUnpinThumbnail => false;
+
+    public bool ShowsImageRoles => false;
+
+    public string AddImageTip => "この改変に写真を足す（ここへ落としても、Ctrl+Vで貼っても入ります）";
+
+    // 商品の画像にだけある案内（BOOTH からの取得・削除された画像・自分で足した枚数）は出さない
+    public bool HasUserImages => false;
+
+    public bool HasOrphanedImages => false;
+
+    public bool HasMissingImages => false;
+
+    public bool IsFetchingImages => false;
+
+    public bool HasUnavailableImages => false;
+
+    public bool HasImageFetchNotice => false;
+
+    public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
+
+    public int HoverDelayMs => Math.Max(0, _services.Settings.GalleryHoverDelayMs);
+
+    public void HoverImage(GalleryImage image)
+    {
+        if (SwitchOnHover)
+        {
+            SelectImage(image);
+        }
+    }
+
+    private void SelectImage(object? parameter)
+    {
+        if (parameter is GalleryImage image && _gallery.IndexOf(image) is var index and >= 0)
+        {
+            Select(index);
+        }
+    }
+
+    /// <summary>端で止めず、最初と最後をつなぐ（商品のギャラリーと同じ）。</summary>
+    private void GoToImage(int delta)
+    {
+        if (_gallery.Count > 1)
+        {
+            Select(((_selectedIndex + delta) % _gallery.Count + _gallery.Count) % _gallery.Count);
+        }
+    }
+
+    private void Select(int index)
+    {
+        if (index == _selectedIndex || index < 0 || index >= _gallery.Count)
+        {
+            return;
+        }
+
+        _gallery[_selectedIndex].IsSelected = false;
+        _selectedIndex = index;
+        _gallery[_selectedIndex].IsSelected = true;
+        NoteGalleryChanged();
+    }
+
+    /// <summary>右クリックの相手。引数が無ければ、いま出ている1枚。</summary>
+    private ModificationImageViewModel? ImageFor(object? parameter)
+        => parameter as ModificationImageViewModel
+            ?? (_gallery.Count > _selectedIndex
+                ? Images.FirstOrDefault(image => image.FileName == _gallery[_selectedIndex].FileName)
+                : null);
+
+    /// <summary>
+    /// 写真の一覧を作り直す。**見ていた1枚を選んだままにする**（並べ替えた後に動かした先を目で追えるように。
+    /// 消した後は同じ位置の1枚）。
+    /// </summary>
+    private void RebuildGallery()
+    {
+        var previous = _gallery.Count > _selectedIndex ? _gallery[_selectedIndex].FileName : null;
+        var previousIndex = _selectedIndex;
+
+        _gallery.Clear();
+        GalleryTiles.Clear();
+        var directory = _services.Paths.ModificationImagesDir(Record.Id);
+        foreach (var image in Record.Images)
+        {
+            var path = Path.Combine(directory, image.FileName);
+            _gallery.Add(new GalleryImage
+            {
+                Path = path,
+                FileName = image.FileName,
+                Image = File.Exists(path) ? _thumbnails.LoadForTile(path) : null,
+            });
+        }
+
+        foreach (var tile in _gallery)
+        {
+            GalleryTiles.Add(tile);
+        }
+
+        GalleryTiles.Add(new GalleryImage { Path = string.Empty, FileName = string.Empty, Image = null, IsAddTile = true });
+
+        var found = previous is null ? -1 : _gallery.FindIndex(tile => tile.FileName == previous);
+        _selectedIndex = _gallery.Count == 0 ? 0 : found >= 0 ? found : Math.Min(previousIndex, _gallery.Count - 1);
+        if (_gallery.Count > 0)
+        {
+            _gallery[_selectedIndex].IsSelected = true;
+        }
+
+        NoteGalleryChanged();
+    }
+
+    private void NoteGalleryChanged()
+    {
+        foreach (var name in new[]
+        {
+            nameof(SelectedImage), nameof(GalleryCounter), nameof(CanGoPreviousImage), nameof(CanGoNextImage),
+            nameof(CurrentIsUserAdded),
+        })
+        {
+            OnPropertyChanged(name);
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
     /// <summary>足す商品の候補。手元にある商品の名前。</summary>
     public ObservableCollection<string> ItemSuggestions { get; } = [];
@@ -785,11 +944,14 @@ public sealed class ModificationViewModel : ViewModelBase
             Images.Add(new ModificationImageViewModel
             {
                 FileName = image.FileName,
-                Image = File.Exists(path) ? _thumbnails.Load(path) : null,
+                // 大きく出すのはギャラリーの方（RebuildGallery）。ここで全部を原寸で読むと、使わない絵でメモリを食う
+                Image = null,
                 Index = index,
                 Total = Record.Images.Count,
             });
         }
+
+        RebuildGallery();
 
         await LoadSuggestionsAsync();
         await LoadProjectsAsync();

@@ -613,7 +613,16 @@
                         -->
                         <Expander IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
                             <Expander.Header>
-                                <TextBlock FontWeight="Bold" FontSize="13"><Run Text="購入した種類" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontWeight="Bold" FontSize="13" VerticalAlignment="Center"><Run Text="購入した種類" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                    <!-- 印が1つも無ければ、畳んでいても見出しで分かるようにする（ユーザ指示 2026-09-13） -->
+                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                                            CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            ToolTip="買った種類にまだ印が付いていません。開いて、買った種類に印を付けてください。"
+                                            Visibility="{Binding IsPurchaseUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="未選択" FontSize="11" Foreground="{StaticResource Warn}" />
+                                    </Border>
+                                </StackPanel>
                             </Expander.Header>
                             <StackPanel>
                                 <TextBlock Text="買った種類に印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"

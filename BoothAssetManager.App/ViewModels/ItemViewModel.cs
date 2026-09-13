@@ -238,7 +238,7 @@ public sealed class LocalFileRow
 /// 商品ページ。BOOTHの商品ページを参考にしつつ、ローカルの情報から組み立てる。
 /// 閲覧専用にしているのは決定事項（編集はEdit画面へ一本化し、保存経路を1つに保つ）。
 /// </summary>
-public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
+public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGalleryHost
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -2233,6 +2233,15 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
     /// <summary>いま出ている1枚がサムネイルに指名されているか。</summary>
     public bool CurrentIsPinned => CurrentImage is { IsPinned: true };
 
+    // ギャラリーの部品を改変と分け合うための値（改変の写真にはサムネイルの指名も役割も無い）
+    public bool ShowsPinThumbnail => !CurrentIsPinned;
+
+    public bool ShowsUnpinThumbnail => CurrentIsPinned;
+
+    public bool ShowsImageRoles => true;
+
+    public string AddImageTip => "この商品に画像を足す";
+
     // ---- 画像の役割 ----
 
     /// <summary>メニューの見出し。いま何が付いているかを見出しに出す。</summary>
@@ -2520,6 +2529,7 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator
             nameof(SelectedImage), nameof(GalleryCounter), nameof(CurrentImage),
             nameof(CanGoPreviousImage), nameof(CanGoNextImage),
             nameof(CurrentIsUserAdded), nameof(CurrentIsPinned),
+            nameof(ShowsPinThumbnail), nameof(ShowsUnpinThumbnail),
             nameof(CurrentRoleHeader), nameof(CurrentIsRoleBooth),
             nameof(CurrentIsRoleModified), nameof(CurrentIsRoleOther),
             nameof(CanMoveImageBack), nameof(CanMoveImageForward),

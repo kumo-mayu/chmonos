@@ -10,7 +10,8 @@
     <!--
         商品の画像の欄（大きい絵・矢印・右クリックの操作・一覧・足す枠・取得の案内）。
         商品ページと編集画面で同じ部品を使う（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
-        DataContext は ItemViewModel（編集画面では、今開いている商品の分）
+        DataContext は ItemViewModel（編集画面では、今開いている商品の分）か ModificationViewModel（改変の写真・ユーザ指示 2026-09-13）。
+        どちらも IGalleryHost と、同じ名前の値・コマンドを持つ。商品にしか無い物（サムネイルの指名・役割・取得の案内）は、改変では false の値で隠す
     -->
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <StackPanel>
@@ -93,12 +94,13 @@
                                                   Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <Separator Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                                        <!-- サムネイルの指名と役割は商品の画像だけ（改変の写真には無い・ShowsImageRoles） -->
                                         <MenuItem Header="この画像をサムネイルにする" Command="{Binding PinThumbnailCommand}"
-                                                  Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                  Visibility="{Binding ShowsPinThumbnail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <MenuItem Header="サムネイルの指名を外す" Command="{Binding UnpinThumbnailCommand}"
-                                                  Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                  Visibility="{Binding ShowsUnpinThumbnail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                        <Separator />
+                                        <Separator Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                         <!--
                                             画像の役割。3つで固定。
@@ -111,7 +113,8 @@
                                             設定で「サムネイルに出す画像」に役割を選ぶと、
                                             一覧のサムネイルがその役割の画像に切り替わる
                                         -->
-                                        <MenuItem Header="{Binding CurrentRoleHeader}">
+                                        <MenuItem Header="{Binding CurrentRoleHeader}"
+                                                  Visibility="{Binding ShowsImageRoles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <MenuItem Header="BOOTH" IsCheckable="True"
                                                       IsChecked="{Binding CurrentIsRoleBooth, Mode=OneWay}"
                                                       Command="{Binding SetRoleBoothCommand}" />
@@ -177,7 +180,7 @@
                                             <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
                                                     Content="＋" FontSize="18" Cursor="Hand"
                                                     Background="{StaticResource SurfaceAlt}"
-                                                    ToolTip="この商品に画像を足す"
+                                                    ToolTip="{Binding DataContext.AddImageTip, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     Visibility="{Binding IsAddTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                     Command="{Binding DataContext.AddImageCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" />

@@ -115,6 +115,16 @@ public sealed class HubMemberRow : ViewModelBase
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
         : null;
 
+    /// <summary>
+    /// ホバーで出す大きめの絵（ユーザ指示 2026-09-13）。一覧の絵は小さく縮めて読んでいて、引き伸ばすとぼやけるので、カードの大きさで読み直す。
+    /// **窓が開いたときに初めて読む**（行を作るたびに全部読むとメモリを食う）
+    /// </summary>
+    public BitmapSource? HoverImage => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => ThumbnailPath is not null;
+
     public string Initial => AvatarText.InitialOf(Name);
 }
 
@@ -161,6 +171,13 @@ public sealed class HubModificationRow(string key, bool openByDefault, bool forc
     public BitmapSource? Icon => IconPath is { } path
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
+
+    /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
+    public BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => IconPath is not null;
 
     public string Initial => AvatarText.InitialOf(Name);
 
@@ -219,6 +236,13 @@ public sealed class HubAvatarGroup(string key, bool openByDefault, bool forceOpe
     public BitmapSource? Icon => IconPath is { } path
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
+
+    /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
+    public BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => IconPath is not null;
 
     public string Initial => AvatarText.InitialOf(Title);
 
@@ -291,6 +315,13 @@ public sealed class HubAvatarDetail : ViewModelBase
     public BitmapSource? Icon => IconPath is { } path
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
+
+    /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
+    public BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => IconPath is not null;
 
     public string Initial => AvatarText.InitialOf(Name);
 
