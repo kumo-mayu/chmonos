@@ -735,9 +735,9 @@ public sealed class SettingsViewModel : ViewModelBase
         Watched.Remove(row);
         OnPropertyChanged(nameof(HasWatched));
 
-        var next = _services.Settings with { WatchedFolders = Watched.Select(entry => entry.Path).ToList() };
-        _services.ReplaceSettings(next);
-        await _services.Store.Settings.SaveAsync(next);
+        var watched = Watched.Select(entry => entry.Path).ToList();
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
+            settings => settings with { WatchedFolders = watched }));
     }
 
     private void Save()
@@ -747,7 +747,11 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
-        var updated = _services.Settings with
+        // 画面が持つ項目だけを、ディスクの今の設定に当てる。画面を開いた後に別の所が書いた項目（画面の状態・監視など）を消さない。
+        // 一覧と組み合わせは画面のスレッドでここで写しておく（当てるのは錠の中で、別のスレッドのことがある）
+        var folders = Folders.Select(row => row.Path).ToList();
+        var shortcuts = BuildShortcuts();
+        _ = SaveAsync(current => current with
         {
             TagsAtTop = TagsAtTop,
             ShowSubTagsInList = ShowSubTagsInList,
@@ -771,21 +775,18 @@ public sealed class SettingsViewModel : ViewModelBase
             ImageQuality = ImageQuality,
             ModificationImageMaxEdgePixels = ModificationImageMaxEdgePixels,
             SaveModificationImagesAtOriginalSize = SaveModificationImagesAtOriginalSize,
-            ImportFolders = Folders.Select(row => row.Path).ToList(),
-            Shortcuts = BuildShortcuts(),
+            ImportFolders = folders,
+            Shortcuts = shortcuts,
             StartImportOnDrop = StartImportOnDrop,
             StartImportOnLaunch = StartImportOnLaunch,
-        };
-
-        _ = SaveAsync(updated);
+        });
     }
 
-    private async Task SaveAsync(AppSettings settings)
+    private async Task SaveAsync(Func<AppSettings, AppSettings> change)
     {
         try
         {
-            await _services.SettingsStore.SaveAsync(settings);
-            _services.ReplaceSettings(settings);
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(change));
             Status = "保存しました。";
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

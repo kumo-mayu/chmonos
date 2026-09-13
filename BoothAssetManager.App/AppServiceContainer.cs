@@ -41,8 +41,8 @@ public sealed class AppServiceContainer : IDisposable
         {
             new TemporaryUnpacker().CleanUp();
         }
-        // 以前の版は取得の間隔を500msまで保存できた。約束（1.5秒以上）の範囲に戻してから使う
-        Settings = Store.Settings.Load().Normalized();
+        // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
+        SettingsStore = new SettingsService(Store);
 
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても
@@ -83,12 +83,11 @@ public sealed class AppServiceContainer : IDisposable
         Attributes = new AttributeService(Store);
         Shops = new ShopService(Store, () => Settings, Client);
         Stats = new StatsService(Store);
-        SettingsStore = new SettingsService(Store);
-        Recent = new Services.RecentTracker(Store);
+        Recent =new Services.RecentTracker(Store);
         Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
-            Modifications, Avatars, UnityPackages);
+            Modifications, Avatars, UnityPackages, SettingsStore);
     }
 
     /// <summary>unitypackage の中身を1度だけ読んで残す（取り込みの裏・手でファイルを付けた後）。</summary>
@@ -134,11 +133,11 @@ public sealed class AppServiceContainer : IDisposable
     public Services.RecentTracker Recent { get; }
 
     /// <summary>
-    /// 現在の設定。設定画面から差し替わる。
+    /// 現在の設定（<see cref="SettingsService.Current"/>）。書くと差し替わる。
     /// サービスには値ではなく「今の設定を読む関数」を渡しているので、差し替えはすぐ効く。
     /// サムネイルの保持上限だけは起動時に決まる（読み込み器を作り直すと復号し直しになるため）。
     /// </summary>
-    public AppSettings Settings { get; private set; }
+    public AppSettings Settings => SettingsStore.Current;
 
     public IBoothClient Client { get; }
 
@@ -187,8 +186,6 @@ public sealed class AppServiceContainer : IDisposable
 
     public SettingsService SettingsStore { get; }
 
-    /// <summary>設定画面が保存した内容に差し替える。以後に作る画面はこちらを読む。</summary>
-    public void ReplaceSettings(AppSettings settings) => Settings = settings;
 
     /// <summary>
     /// 多重起動のロックを放す。引越しのときだけ使う。

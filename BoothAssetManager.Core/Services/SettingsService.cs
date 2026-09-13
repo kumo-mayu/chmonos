@@ -55,7 +55,11 @@ public sealed record DetachedRecord
 
 public interface ISettingsService
 {
-    Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default);
+    /// <summary>今の設定。書くたびに差し替わる。</summary>
+    AppSettings Current { get; }
+
+    /// <summary>今の設定を変える。変え方を関数で渡す。</summary>
+    Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default);
 
     Task<StorageUsage> LoadUsageAsync(CancellationToken cancellationToken = default);
 
@@ -85,10 +89,29 @@ public sealed class SettingsService : ISettingsService
     public SettingsService(DataStore store)
     {
         _store = store;
+
+        // 以前の版は取得の間隔を500msまで保存できた。約束（1.5秒以上）の範囲に戻してから使う
+        Current = store.Settings.Load().Normalized();
     }
 
-    public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
-        => _store.Settings.SaveAsync(settings, cancellationToken);
+    /// <summary>
+    /// 今の設定。サービスには値ではなく「今の設定を読む関数」を渡しているので、書けばすぐ効く。
+    /// **設定を持つのはここだけ**（技術的負債 1-1）。前は画面ごとに写しを持ち、取り込み画面だけディスクから読んで書いていたので、
+    /// 取り込み画面で足した取り込み元が、別の画面の保存（古い写し）で消えていた。
+    /// </summary>
+    public AppSettings Current { get; private set; }
+
+    /// <summary>
+    /// 設定を変える。**丸ごと書かず、変え方を関数で渡す。**錠の中でディスクの今の設定に当てるので、
+    /// 別の画面が同時に別の項目を書いても消し合わない（同じファイルへの書き込みも重ならない・技術的負債 1-4）。
+    /// 画面からは <see cref="Commands.UiCommand.ChangeSettings"/> で呼ぶ。
+    /// </summary>
+    public async Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default)
+    {
+        var updated = await _store.Settings.UpdateAsync(current => change(current).Normalized(), cancellationToken);
+        Current = updated;
+        return updated;
+    }
 
     /// <summary>保存先が何をどれだけ使っているか。画像は実ファイルを数える。</summary>
     public Task<StorageUsage> LoadUsageAsync(CancellationToken cancellationToken = default)

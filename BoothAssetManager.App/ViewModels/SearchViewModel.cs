@@ -152,9 +152,9 @@ public sealed class SearchViewModel : ViewModelBase
     private void ToggleFilterPanel()
     {
         IsFilterPanelCollapsed = !IsFilterPanelCollapsed;
-        var next = _services.Settings with { FilterPanelCollapsed = IsFilterPanelCollapsed };
-        _services.ReplaceSettings(next);
-        _ = _services.SettingsStore.SaveAsync(next);
+        var collapsed = IsFilterPanelCollapsed;
+        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
+            settings => settings with { FilterPanelCollapsed = collapsed }));
     }
 
     /// <summary>
@@ -506,15 +506,15 @@ public sealed class SearchViewModel : ViewModelBase
     /// </summary>
     private async Task AddImportFolderAsync(string path)
     {
-        var settings = _services.Settings;
-        if (settings.ImportFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
+        if (_services.Settings.ImportFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
         {
             return;
         }
 
-        var next = settings with { ImportFolders = [.. settings.ImportFolders, path] };
-        _services.ReplaceSettings(next);
-        await _services.SettingsStore.SaveAsync(next);
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings =>
+            settings.ImportFolders.Contains(path, StringComparer.OrdinalIgnoreCase)
+                ? settings
+                : settings with { ImportFolders = [.. settings.ImportFolders, path] }));
 
         ImportFolderNotice = $"「{path}」を取り込み元に足しました。次の取り込みから、このフォルダも見ます。";
         OnPropertyChanged(nameof(ImportFolderNotice));
@@ -535,9 +535,8 @@ public sealed class SearchViewModel : ViewModelBase
     private void SaveExtraFilterKinds()
     {
         var kinds = ExtraFilters.Select(filter => filter.Kind.ToString()).ToList();
-        var next = _services.Settings with { SearchExtraFilters = kinds };
-        _services.ReplaceSettings(next);
-        _ = _services.SettingsStore.SaveAsync(next);
+        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
+            settings => settings with { SearchExtraFilters = kinds }));
     }
 
     /// <summary>画面遷移のために親を後から渡す（生成順の都合でコンストラクタでは受け取れない）。</summary>

@@ -80,7 +80,7 @@ public class SettingsServiceTests : IDisposable
     [Fact]
     public async Task SavesAndReloadsSettings()
     {
-        await _service.SaveAsync(new AppSettings { ShowAdult = false, RefreshIntervalDays = 21 });
+        await _service.UpdateAsync(current => current with { ShowAdult = false, RefreshIntervalDays = 21 });
 
         var reloaded = _store.Settings.Load();
 

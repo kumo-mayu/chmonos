@@ -36,6 +36,12 @@ public abstract record UiCommand
     /// </summary>
     public record RegisterLocalItem(string Hash, string DisplayName) : UiCommand;
 
+    /// <summary>
+    /// 設定を変える。変え方を関数で渡し、ディスクの今の設定に錠の中で当てる（技術的負債 1-1・1-4）。
+    /// 画面は自分の写しを丸ごと書かない——別の画面が書いた項目を古い値で消してしまう。
+    /// </summary>
+    public record ChangeSettings(Func<Models.AppSettings, Models.AppSettings> Change) : UiCommand;
+
     /// <summary>IDを変更したら何が起きるかの下見。書き込まない。</summary>
     public record PlanItemIdChange(string FromId, string ToId) : UiCommand;
 
@@ -279,6 +285,9 @@ public abstract record CommandResult
 
     /// <summary>改変の一覧が変わった（作った・消した）</summary>
     public record ModificationsChanged() : CommandResult;
+
+    /// <summary>設定を書いた。書いた後の設定を持つ。</summary>
+    public record SettingsChanged(Models.AppSettings Settings) : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;

@@ -324,15 +324,10 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>
     /// 画面が覚えている状態（ナビの畳み方・ウィンドウの位置）を書き戻す。
-    /// 設定画面が別に読み書きしているので、こちらの変更も同じ経路を通して
-    /// 開いているAppSettingsを取り替えておく。
+    /// 設定の書き込みは1本（UiCommand.ChangeSettings）なので、変え方だけを渡す。
     /// </summary>
-    public async Task SaveUiStateAsync(Func<AppSettings, AppSettings> update)
-    {
-        var next = update(_services.Settings);
-        _services.ReplaceSettings(next);
-        await _services.SettingsStore.SaveAsync(next);
-    }
+    public Task SaveUiStateAsync(Func<AppSettings, AppSettings> update)
+        => _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(update));
 
     public ThumbnailLoader Thumbnails { get; }
 

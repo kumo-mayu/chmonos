@@ -1098,12 +1098,10 @@ public sealed class FolderViewModel : ViewModelBase
             return;
         }
 
-        var settings = _services.Settings;
-        var next = watch
-            ? settings with { WatchedFolders = [.. settings.WatchedFolders, detail.Path] }
-            : settings with { ImportFolders = [.. settings.ImportFolders, detail.Path] };
-        _services.ReplaceSettings(next);
-        await _services.SettingsStore.SaveAsync(next);
+        var path = detail.Path;
+        await _services.Commands.ExecuteAsync(new UiCommand.ChangeSettings(settings => watch
+            ? settings with { WatchedFolders = [.. settings.WatchedFolders, path] }
+            : settings with { ImportFolders = [.. settings.ImportFolders, path] }));
 
         Status = watch
             ? $"「{detail.Path}」を監視に足しました。次に起動したとき、この中の新しいファイルを見ます。"

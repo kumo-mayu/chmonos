@@ -581,9 +581,9 @@ public sealed class ImportViewModel : ViewModelBase
 
     private async Task SaveWatchedAsync()
     {
-        var next = _services.Settings with { WatchedFolders = Watched.ToList() };
-        _services.ReplaceSettings(next);
-        await _services.Store.Settings.SaveAsync(next);
+        var watched = Watched.ToList();
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
+            settings => settings with { WatchedFolders = watched }));
     }
 
     private void AddFolder()
@@ -729,8 +729,11 @@ public sealed class ImportViewModel : ViewModelBase
     /// </summary>
     private async Task SaveFoldersAsync()
     {
-        var current = _services.Store.Settings.Load();
-        await _services.Store.Settings.SaveAsync(current with { ImportFolders = Folders.ToList() });
+        // 前はディスクから読んで書き、メモリの設定を直していなかった。そのため別の画面の保存（メモリの古い写し）で、
+        // ここで足した取り込み元が消えていた（技術的負債 1-1）
+        var folders = Folders.ToList();
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
+            settings => settings with { ImportFolders = folders }));
     }
 
     /// <summary>

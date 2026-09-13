@@ -20,6 +20,7 @@ public sealed class CommandHandler
     private readonly IAttributeService? _attributes;
     private readonly IModificationService? _modifications;
     private readonly IAvatarService? _avatars;
+    private readonly ISettingsService? _settings;
 
     public CommandHandler(
         IImportPipeline import,
@@ -32,8 +33,10 @@ public sealed class CommandHandler
         IAttributeService? attributes = null,
         IModificationService? modifications = null,
         IAvatarService? avatars = null,
-        UnityPackageCatalog? unityPackages = null)
+        UnityPackageCatalog? unityPackages = null,
+        ISettingsService? settings = null)
     {
+        _settings = settings;
         _unityPackages = unityPackages;
         _import = import;
         _items = items;
@@ -62,6 +65,11 @@ public sealed class CommandHandler
             case UiCommand.ScanFolders scan:
                 return new CommandResult.Imported(
                     await _import.RunAsync(scan.Work, progress, cancellationToken));
+
+            case UiCommand.ChangeSettings change:
+                return new CommandResult.SettingsChanged(
+                    await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                        .UpdateAsync(change.Change, cancellationToken));
 
             case UiCommand.FetchItemImages fetchImages:
                 return new CommandResult.ImagesFetched(
