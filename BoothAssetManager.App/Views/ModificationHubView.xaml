@@ -64,14 +64,20 @@
                         Command="{Binding DataContext.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}"
                         ToolTip="改変に紐付けたプロジェクトに入っていれば、Unity のプロジェクトタブの検索欄に入り先のフォルダ名を入れて示します。入っていなければ、取り込むか聞きます。" />
-                <Border DockPanel.Dock="Left" Width="34" Height="34" CornerRadius="4" Margin="0,0,8,0"
-                        Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
-                    <Grid>
-                        <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
-                    </Grid>
-                </Border>
+                <!-- 絵も名前と同じリンク（ユーザ指示 2026-09-13）。小さな名前だけを狙って押させない -->
+                <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,8,0"
+                        AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Name}"
+                        Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}">
+                    <Border Width="34" Height="34" CornerRadius="4"
+                            Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                        </Grid>
+                    </Border>
+                </Button>
                 <StackPanel VerticalAlignment="Center">
                     <Button Style="{StaticResource HubLink}" ToolTip="{Binding Name}"
                             Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -97,14 +103,19 @@
                 <DockPanel>
                     <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
                                   Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                    <Border DockPanel.Dock="Left" Width="38" Height="38" CornerRadius="5" Margin="0,0,9,0"
-                            Background="{StaticResource AccentSoft}" ClipToBounds="True" VerticalAlignment="Top">
-                        <Grid>
-                            <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{StaticResource Accent}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <Image Source="{Binding Icon}" Stretch="UniformToFill" />
-                        </Grid>
-                    </Border>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
+                            AutomationProperties.Name="{Binding Name}" ToolTip="この改変を右に出します"
+                            Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}">
+                        <Border Width="38" Height="38" CornerRadius="5"
+                                Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                            <Grid>
+                                <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{StaticResource Accent}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                            </Grid>
+                        </Border>
+                    </Button>
                     <StackPanel VerticalAlignment="Center">
                         <Button Style="{StaticResource HubLink}" ToolTip="この改変を右に出します"
                                 Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -184,18 +195,23 @@
                     <DockPanel>
                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                        <Border DockPanel.Dock="Left" Width="34" Height="34" CornerRadius="17" Margin="0,0,9,0"
-                                Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
-                            <Grid>
-                                <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <Image Source="{Binding Icon}" Stretch="UniformToFill">
-                                    <Image.Clip>
-                                        <EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
-                                    </Image.Clip>
-                                </Image>
-                            </Grid>
-                        </Border>
+                        <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0"
+                                AutomationProperties.Name="{Binding Title}" ToolTip="このアバターを右に出します"
+                                Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding AvatarItemId}">
+                            <Border Width="34" Height="34" CornerRadius="17"
+                                    Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
+                                <Grid>
+                                    <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Image Source="{Binding Icon}" Stretch="UniformToFill">
+                                        <Image.Clip>
+                                            <EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+                                        </Image.Clip>
+                                    </Image>
+                                </Grid>
+                            </Border>
+                        </Button>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                     Command="{Binding DataContext.StartCreateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -443,9 +459,18 @@
                         </Grid>
                     </DockPanel>
 
-                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
-                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
+
+                <!--
+                    状態の1行は左の欄のいちばん下に置く（ユーザ指示 2026-09-13）。一覧の上に置いていたときは、
+                    「Unityで選択」の「…の中を調べています」から結果の文（2〜3行）に変わるたびに一覧が押し下げられ、
+                    押したボタンがカーソルの下から逃げた。下なら文が出ても消えても長さが変わっても、行は動かない
+                -->
+                <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0"
+                        Background="{StaticResource Bg}" Padding="16,8"
+                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                </Border>
 
                 <TextBlock DockPanel.Dock="Top" Text="{Binding EmptyText}" Style="{StaticResource Caption}"
                            TextWrapping="Wrap" Margin="18,10,18,0"
