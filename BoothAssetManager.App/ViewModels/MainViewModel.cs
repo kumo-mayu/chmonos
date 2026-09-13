@@ -96,8 +96,9 @@ public sealed class MainViewModel : ViewModelBase
     /// **⑤を先にするのは、見た目の穴の方が先に目に入るから。**
     /// どちらも取り込みが始まれば優先順位で自然に譲るので、待たせる必要はない。
     ///
-    /// 失敗しても黙って終える。ユーザが頼んだ作業ではないので、
-    /// 邪魔をしてまで知らせる価値がない（どちらも次の起動でまた試す）。
+    /// 失敗は画面に出さない。ユーザが頼んだ作業ではないので、
+    /// 邪魔をしてまで知らせる価値がない（どちらも次の起動でまた試す）。**ログには残す。**
+    /// **段ごとに受け止める。**前は1つの try でつないでいて、⑤で落ちると⑦まで何も言わずに止まっていた（技術的負債 2-3）。
     /// </summary>
     private void StartBacklogResume()
     {
@@ -124,26 +125,38 @@ public sealed class MainViewModel : ViewModelBase
         {
             try
             {
-                await _services.Backlog.ResumeAsync(images, token);
-                BoothActivity.EndWork(WorkSource.Background);
+                await RunBackgroundStageAsync("前の取り込みで残った画像", () => _services.Backlog.ResumeAsync(images, token));
 
                 // 持っていないアバターの1枚目（U18）。商品の画像の穴の方が先に目に入るので⑤の後
-                await _services.AvatarImages.SyncAsync(avatars, token);
-                BoothActivity.EndWork(WorkSource.Background);
+                await RunBackgroundStageAsync("持っていないアバターの画像", () => _services.AvatarImages.SyncAsync(avatars, token));
 
-                await _services.Due.RunAsync(due, token);
+                await RunBackgroundStageAsync("期限の来た商品の取り直し", () => _services.Due.RunAsync(due, token));
 
                 // ⑦で商品ページが変わっていれば要確認が増える。件数を出し直す
                 RunOnUiThread(RefreshCounts);
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+            catch (OperationCanceledException)
             {
-            }
-            finally
-            {
-                BoothActivity.EndWork(WorkSource.Background);
+                // 閉じたときに止めた
             }
         }, token);
+    }
+
+    /// <summary>裏の作業の1段。落ちてもログに残して次の段へ進む。止まるのは閉じたとき（取り消し）だけ。</summary>
+    private async Task RunBackgroundStageAsync(string name, Func<Task> stage)
+    {
+        try
+        {
+            await stage();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Core.Diagnostics.AppLog.Error($"起動時の裏の作業：{name}", exception);
+        }
+        finally
+        {
+            BoothActivity.EndWork(WorkSource.Background);
+        }
     }
 
     /// <summary>
@@ -167,6 +180,7 @@ public sealed class MainViewModel : ViewModelBase
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 // 取れなくても次の起動でまた試す。頼まれた作業ではないので邪魔をしない
+                Core.Diagnostics.AppLog.Error("取り込みの後のアバターの画像", exception);
             }
             finally
             {
@@ -235,6 +249,7 @@ public sealed class MainViewModel : ViewModelBase
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 // 見に行けなくても起動は妨げない。次の起動でまた見る
+                Core.Diagnostics.AppLog.Error("監視フォルダの新着を見る", exception);
             }
         }, token);
     }

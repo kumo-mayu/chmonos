@@ -75,6 +75,9 @@ public sealed class AppPaths
     /// <summary>ドライブ文字と、そこに見えたボリュームの通し番号の組。外付けの文字が変わっても同じボリュームと分かるため</summary>
     public string VolumesFile => Path.Combine(Root, "volumes.json");
 
+    /// <summary>失敗の書き残し（<see cref="Diagnostics.AppLog"/>）。消してよい</summary>
+    public string LogFile => Path.Combine(Root, "logs", "app.log");
+
     public string EditSessionFile => Path.Combine(Root, "edit-session.json");
 
     public string ScanCacheFile => Path.Combine(Root, "scan-cache.json");

@@ -338,6 +338,7 @@ public sealed class ImportPipeline : IImportPipeline
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                               or System.Text.Json.JsonException)
         {
+            Diagnostics.AppLog.Error("取り込みの裏の作業", exception);
         }
     }
 
@@ -352,6 +353,7 @@ public sealed class ImportPipeline : IImportPipeline
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                               or System.Text.Json.JsonException)
         {
+            Diagnostics.AppLog.Error("取り込みの裏の作業", exception);
         }
     }
 

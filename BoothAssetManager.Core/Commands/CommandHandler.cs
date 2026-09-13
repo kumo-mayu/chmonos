@@ -102,6 +102,7 @@ public sealed class CommandHandler
                             catch (Exception exception) when (exception is not OperationCanceledException)
                             {
                                 // 拾えなくても、次の取り込みかアバター画面のボタンで拾われる
+                                Diagnostics.AppLog.Error("手で紐付けた後の対応アバターの検出", exception);
                             }
                         });
                     }
@@ -578,6 +579,7 @@ public sealed class CommandHandler
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                                   or System.Text.Json.JsonException)
             {
+                Diagnostics.AppLog.Error("ファイルを付けた後の unitypackage の読み込み", exception);
             }
         });
     }

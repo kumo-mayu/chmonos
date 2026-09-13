@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Diagnostics;
 using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
@@ -531,6 +532,7 @@ public sealed class FolderViewModel : ViewModelBase
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                                   or System.Text.Json.JsonException)
             {
+                AppLog.Error("フォルダビュー：ドライブ文字の組を確かめる", exception);
                 found = new Dictionary<string, string>();
             }
 

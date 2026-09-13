@@ -1525,6 +1525,7 @@ public sealed class SearchViewModel : ViewModelBase
                 catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException
                                                       or System.Text.Json.JsonException)
                 {
+                    Core.Diagnostics.AppLog.Error("検索：ドライブ文字の読み替えを確かめる", exception);
                 }
 
                 var sortedItems = loaded.Items

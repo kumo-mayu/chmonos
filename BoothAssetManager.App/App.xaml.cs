@@ -25,9 +25,26 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
+            Core.Diagnostics.AppLog.Error("画面の処理", args.Exception);
             MessageBox.Show($"予期しないエラーが発生しました。\n\n{args.Exception.Message}",
                 "BOOTH Asset Manager", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
+        };
+
+        // 投げっぱなしの作業（_ = 〜Async()）の中の失敗は、上では拾えず、どこにも出ずに消えていた（技術的負債 2-2）。
+        // 拾えるのは片付けられるときなので遅れて書かれるが、残らないよりよい。画面には出さない（頼まれた操作の失敗は各画面が出す）
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Core.Diagnostics.AppLog.Error("投げっぱなしの作業", args.Exception);
+            args.SetObserved();
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception exception)
+            {
+                Core.Diagnostics.AppLog.Error("アプリが止まった", exception);
+            }
         };
 
         if (!EnsureStoreReachable())
@@ -148,9 +165,10 @@ public partial class App : Application
                 .GetAwaiter()
                 .GetResult();
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // 位置を覚えられなくても終了は妨げない
+            Core.Diagnostics.AppLog.Error("閉じるときの窓の位置の保存", exception);
         }
     }
 

@@ -26,6 +26,9 @@ public sealed class AppServiceContainer : IDisposable
         Paths = AppPaths.Default;
         Paths.EnsureCreated();
 
+        // 裏の作業で黙って飛ばした失敗も、後から追えるように書き残す（技術的負債 2-1）
+        Core.Diagnostics.AppLog.Use(new Core.Diagnostics.LogFile(Paths.LogFile));
+
         _instanceLock = SingleInstanceLock.TryAcquire(Paths);
         IsSingleInstance = _instanceLock is not null;
 
