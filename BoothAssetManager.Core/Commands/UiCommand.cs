@@ -163,6 +163,12 @@ public abstract record UiCommand
 
     public record MoveModificationMember(string Id, int Index, int Delta) : UiCommand;
 
+    /// <summary>
+    /// 手で足した使ったもの（どのファイルか分からない行）に、Unityへ送るときに選んだファイルを記録する。
+    /// 2つ選べば、その位置に2行並ぶ
+    /// </summary>
+    public record RecordModificationMemberFiles(string Id, int Index, IReadOnlyList<Models.ModificationMember> Members) : UiCommand;
+
     /// <summary>改変に画像を足す。商品と同じ圧縮を通す</summary>
     public record AddModificationImage(string Id, byte[] Bytes) : UiCommand;
 

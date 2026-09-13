@@ -60,6 +60,17 @@ public interface IModificationService
         int delta,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 手で足した行（どのファイルか分からない行）を、Unityへ送るときに選んだファイルの行に置き換える。
+    /// 2つ選べば、その位置に2行並ぶ（同じ商品を別のファイルの行で持つ形）。
+    /// **その行がまだファイルの記録の無い同じ商品のときだけ書く**——選んでいる間に並びが変わっていたら、別の行を書き換えてしまう。
+    /// </summary>
+    Task<bool> ReplaceMemberAsync(
+        string id,
+        int index,
+        IReadOnlyList<ModificationMember> members,
+        CancellationToken cancellationToken = default);
+
     // ---- 画像 ----
 
     /// <summary>画像を足す。商品と同じ圧縮を通す。読めなければ null。</summary>
@@ -245,6 +256,46 @@ public sealed class ModificationService : IModificationService
                 return record with { Members = members };
             },
             cancellationToken);
+
+    public async Task<bool> ReplaceMemberAsync(
+        string id,
+        int index,
+        IReadOnlyList<ModificationMember> members,
+        CancellationToken cancellationToken = default)
+    {
+        if (members.Count == 0)
+        {
+            return false;
+        }
+
+        var replaced = false;
+        var saved = await UpdateAsync(
+            id,
+            record =>
+            {
+                if (index < 0 || index >= record.Members.Count)
+                {
+                    return record;
+                }
+
+                var current = record.Members[index];
+                if (current.FileHash is not null
+                    || members.Any(member => !string.Equals(member.ItemId, current.ItemId, StringComparison.Ordinal)))
+                {
+                    return record;
+                }
+
+                // 足した日時は元の行のまま（いつから使っていたかは変わらない）。並びが導入の順なので、同じ位置に入れる
+                var list = record.Members.ToList();
+                list.RemoveAt(index);
+                list.InsertRange(index, members.Select(member => member with { AddedAt = current.AddedAt }));
+                replaced = true;
+                return record with { Members = list };
+            },
+            cancellationToken);
+
+        return saved && replaced;
+    }
 
     // ---- 画像 ----
 

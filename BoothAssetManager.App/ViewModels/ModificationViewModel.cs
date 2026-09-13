@@ -448,7 +448,10 @@ public sealed class ModificationViewModel : ViewModelBase
     private async Task SendAllToUnityAsync()
     {
         const string title = "使ったものを順にUnityへ送る";
-        var queue = new List<(string ItemId, UnityPackageEntry Package)>();
+
+        // 使ったものの並び（導入の順）に積む。どのファイルか記録の無い行で、送れる物が2つ以上ある商品は、
+        // 送り先を決めた後に選ばせる（ユーザ判断 2026-09-13。前は全部送っていて、古い版や別の種類まで入った）
+        var steps = new List<(int Index, string ItemId, IReadOnlyList<UnityPackageEntry> Fixed, PackageChoiceSection? Choice)>();
         var nothing = new List<string>();
 
         foreach (var row in Members)
@@ -461,10 +464,13 @@ public sealed class ModificationViewModel : ViewModelBase
                 continue;
             }
 
-            queue.AddRange(packages.Select(package => (row.Member.ItemId, package)));
+            var choice = row.Member.FileHash is null && packages.Count > 1
+                ? PackageChoiceSection.Build(item!, row.Index)
+                : null;
+            steps.Add((row.Index, row.Member.ItemId, choice is null ? packages : [], choice));
         }
 
-        if (queue.Count == 0)
+        if (steps.Count == 0)
         {
             System.Windows.MessageBox.Show(
                 "使ったものの中に、Unityへ送れるもの（手元の zip の中の .unitypackage）がありませんでした。",
@@ -493,19 +499,65 @@ public sealed class ModificationViewModel : ViewModelBase
         var elsewhere = linkedName is not null
             && !string.Equals(editor.ProjectName, linkedName, StringComparison.OrdinalIgnoreCase);
 
-        var confirm = System.Windows.MessageBox.Show(
-            (elsewhere
-                ? $"紐付けたプロジェクト「{linkedName}」は開いていません。代わりに「{target}」へ送ります。\n\n"
-                : $"Unityの「{target}」へ送ります。\n\n")
-            + $"使ったもの {queue.Count} 件を、上から順に送ります。1件ずつ取り込み画面が出るので、"
-            + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が出ます。"
-            + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
-            title,
-            System.Windows.MessageBoxButton.OKCancel,
-            elsewhere ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Question,
-            elsewhere ? System.Windows.MessageBoxResult.Cancel : System.Windows.MessageBoxResult.OK);
+        var where = elsewhere
+            ? $"紐付けたプロジェクト「{linkedName}」は開いていません。代わりに「{target}」へ送ります。"
+            : $"Unityの「{target}」へ送ります。";
+        var choices = steps.Where(step => step.Choice is not null).Select(step => step.Choice!).ToList();
+        var fixedCount = steps.Sum(step => step.Fixed.Count);
 
-        if (confirm != System.Windows.MessageBoxResult.OK)
+        if (choices.Count > 0)
+        {
+            var model = new PickPackagesDialogViewModel(
+                title,
+                where + (nothing.Count > 0 ? $"（手元に送れるものが無い {nothing.Count} 件は飛ばします）" : string.Empty),
+                choices,
+                fixedCount,
+                records: true);
+            if (!Views.PickPackagesDialog.Ask(model))
+            {
+                return;
+            }
+        }
+        else
+        {
+            // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
+            var confirm = System.Windows.MessageBox.Show(
+                where + "\n\n"
+                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ取り込み画面が出るので、"
+                + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が出ます。"
+                + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
+                title,
+                System.Windows.MessageBoxButton.OKCancel,
+                elsewhere ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Question,
+                elsewhere ? System.Windows.MessageBoxResult.Cancel : System.Windows.MessageBoxResult.OK);
+
+            if (confirm != System.Windows.MessageBoxResult.OK)
+            {
+                return;
+            }
+        }
+
+        // **記録してから送る**（商品ページの「改変に足して送る」と同じ。送るのは取り込み画面を待つので長く、途中で閉じられることもある）。
+        // 後ろの行から置き換えると、2行に増えても前の行の位置がずれない
+        var recorded = false;
+        foreach (var step in steps.Where(step => step.Choice is { Checked.Count: > 0 }).OrderByDescending(step => step.Index))
+        {
+            var result = await _services.Commands.ExecuteAsync(
+                new UiCommand.RecordModificationMemberFiles(Record.Id, step.Index, step.Choice!.CheckedMembers));
+            if (result is CommandResult.Failed failed)
+            {
+                Status = failed.Message;
+            }
+            else
+            {
+                recorded = true;
+            }
+        }
+
+        var queue = steps
+            .SelectMany(step => (step.Choice?.CheckedPackages ?? step.Fixed).Select(package => (step.ItemId, Package: package)))
+            .ToList();
+        if (queue.Count == 0)
         {
             return;
         }
@@ -537,6 +589,12 @@ public sealed class ModificationViewModel : ViewModelBase
         finally
         {
             IsSendingToUnity = false;
+        }
+
+        // 記録した行（どのファイルを使ったか）を並びに出す
+        if (recorded)
+        {
+            await ReloadAsync();
         }
     }
 

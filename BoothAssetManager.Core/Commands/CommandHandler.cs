@@ -352,6 +352,12 @@ public sealed class CommandHandler
                     () => _modifications!.MoveMemberAsync(
                         moveMember.Id, moveMember.Index, moveMember.Delta, cancellationToken));
 
+            case UiCommand.RecordModificationMemberFiles recordFiles:
+                return await RunModificationAsync(
+                    () => _modifications!.ReplaceMemberAsync(
+                        recordFiles.Id, recordFiles.Index, recordFiles.Members, cancellationToken),
+                    "使ったファイルを記録できませんでした。選んでいる間に、改変の使ったものが変わったかもしれません。");
+
             case UiCommand.AddModificationImage addImage2:
                 if (_modifications is null)
                 {

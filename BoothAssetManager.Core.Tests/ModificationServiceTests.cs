@@ -303,6 +303,66 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task 手で足した行を選んだファイルの行に置き換える()
+    {
+        // Unityへ送るときに選んだ物を記録する（ユーザ判断 2026-09-13）。2つ選べばその位置に2行並び、前後の並びは変えない
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("前"));
+        await _service.AddMemberAsync(id, Member("クラゲ"));
+        await _service.AddMemberAsync(id, Member("後"));
+        var addedAt = (await _service.LoadAsync(id))!.Members[1].AddedAt;
+
+        var replaced = await _service.ReplaceMemberAsync(id, 1,
+        [
+            new ModificationMember { ItemId = "クラゲ", FileHash = "AAA", Package = "Bracelet.v1.01/Bracelet.v1.01.unitypackage" },
+            new ModificationMember { ItemId = "クラゲ", FileHash = "BBB", Package = "fullset.v1.06/fullset.v1.06.unitypackage" },
+        ]);
+
+        var members = (await _service.LoadAsync(id))!.Members;
+        Assert.True(replaced);
+        Assert.Equal(["前", "クラゲ", "クラゲ", "後"], members.Select(member => member.ItemId));
+        Assert.Equal(["AAA", "BBB"], members.Skip(1).Take(2).Select(member => member.FileHash));
+        Assert.All(members.Skip(1).Take(2), member => Assert.Equal(addedAt, member.AddedAt));
+    }
+
+    [Fact]
+    public async Task ファイルの記録がある行は置き換えない()
+    {
+        // 選んでいる間に別の送り方で記録された行を、古い選択で上書きしない
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("クラゲ", "AAA"));
+
+        var replaced = await _service.ReplaceMemberAsync(id, 0, [Member("クラゲ", "BBB")]);
+
+        Assert.False(replaced);
+        Assert.Equal("AAA", Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
+    }
+
+    [Fact]
+    public async Task 別の商品の行は置き換えない()
+    {
+        // 選んでいる間に並びが変わると、同じ位置に別の商品が来ている
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("本体"));
+
+        var replaced = await _service.ReplaceMemberAsync(id, 0, [Member("クラゲ", "AAA")]);
+
+        Assert.False(replaced);
+        Assert.Null(Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
+    }
+
+    [Fact]
+    public async Task 置き換えで範囲外の位置を指しても壊さない()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("1"));
+
+        Assert.False(await _service.ReplaceMemberAsync(id, 3, [Member("1", "AAA")]));
+        Assert.False(await _service.ReplaceMemberAsync(id, -1, [Member("1", "AAA")]));
+        Assert.Null(Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
+    }
+
+    [Fact]
     public async Task 範囲外の位置を指しても壊さない()
     {
         var id = await NewAsync();

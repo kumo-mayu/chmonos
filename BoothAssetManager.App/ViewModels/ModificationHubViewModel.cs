@@ -1302,22 +1302,48 @@ public sealed class ModificationHubViewModel : ViewModelBase
             return;
         }
 
-        var answer = System.Windows.MessageBox.Show(
-            $"「{row.Name}」（{row.FileText}）は、Unityの「{projectName}」にまだ入っていません。取り込みますか？\n\n"
-            + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
-            title,
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.OK);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
+        IReadOnlyList<UnityPackageEntry> toSend = packages;
+        var recorded = false;
+        if (row.Member.FileHash is null && packages.Count > 1 && PackageChoiceSection.Build(item, row.Index) is { } choice)
         {
-            Status = string.Empty;
-            return;
+            // どのファイルを使ったか記録が無く、送れる物が2つ以上ある。全部送ると古い版や別の種類まで入るので選ばせ、
+            // 選んだ物をこの行に記録する（ユーザ判断 2026-09-13）
+            var model = new PickPackagesDialogViewModel(
+                title,
+                $"「{row.Name}」は、Unityの「{projectName}」にまだ入っていません。取り込む物を選んでください。",
+                [choice],
+                othersCount: 0,
+                records: true);
+            if (!Views.PickPackagesDialog.Ask(model))
+            {
+                Status = string.Empty;
+                return;
+            }
+
+            toSend = choice.CheckedPackages;
+            var result = await _services.Commands.ExecuteAsync(
+                new UiCommand.RecordModificationMemberFiles(row.Record.Id, row.Index, choice.CheckedMembers));
+            recorded = result is not CommandResult.Failed;
+        }
+        else
+        {
+            var answer = System.Windows.MessageBox.Show(
+                $"「{row.Name}」（{row.FileText}）は、Unityの「{projectName}」にまだ入っていません。取り込みますか？\n\n"
+                + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
+                title,
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.OK);
+
+            if (answer != System.Windows.MessageBoxResult.OK)
+            {
+                Status = string.Empty;
+                return;
+            }
         }
 
         var outcomes = await UnityImportQueue.RunAsync(
-            editor.ProcessId, packages, new Progress<UnityQueueProgress>(report => Status = report.Text), CancellationToken.None);
+            editor.ProcessId, toSend, new Progress<UnityQueueProgress>(report => Status = report.Text), CancellationToken.None);
 
         // 「使った」の足跡。Cancel された物は入っていないので付けない（ほかの送り方と同じ）
         if (outcomes.Any(outcome => outcome.Opened && !outcome.Cancelled))
@@ -1331,6 +1357,12 @@ public sealed class ModificationHubViewModel : ViewModelBase
             : outcomes.All(outcome => outcome.Cancelled)
                 ? "Cancel されたので、入っていません。"
                 : $"「{projectName}」に取り込み画面を出しました。入った後にもう一度押すと、プロジェクトタブで示します。";
+
+        // 記録した行（どのファイルを使ったか）を一覧に出す
+        if (recorded)
+        {
+            await RefreshRecordsAsync();
+        }
     }
 
     // ---- 作る・開く ----
