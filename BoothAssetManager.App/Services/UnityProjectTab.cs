@@ -1,44 +1,47 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.Services;
 
 /// <summary>
-/// 開いている Unity のプロジェクトタブの検索欄に文字を入れる（改変の画面の「Unityで選択」）。
+/// 開いている Unity のプロジェクトタブで、入り先のフォルダを選ぶ（改変の画面の「Unityで選択」）。
 ///
-/// **どのフォルダがそのアセットかを示せれば十分**（ユーザ判断 2026-09-13）なので、入り先のルートフォルダの名前を
-/// 検索欄に入れて止める。ダブルクリックで開くところまではしない。
+/// **座標を使わない**（ユーザ指示 2026-09-13：配布するので、画面の大きさや窓の並べ方に左右されないように）。
+/// 以前は検索欄の位置を決め打ちで押していて、プロジェクトタブが2つ開いていると、見ていない方のタブに入っていた（実機）。
+/// 今の道は、メニューとフォーカスだけでたどる（2026-09-13 Unity 2022.3.22f1 で確かめた）：
 ///
-/// 道は <c>設計詳細_Unityへの受け渡し.md</c> §8-2：タブの窓（窓の名前が <c>UnityEditor.ProjectBrowser</c>）へ、
-/// マウスと文字のメッセージを直接送る。**前面は奪わない。**Unity の画面は自前で描いていて中の部品は見えないので、
-/// 検索欄の位置は決め打ち（タブの右上）。版・レイアウト・表示倍率で外れうるが、外れても違う所を押すだけで壊しはしない。
+/// 1. メニュー「Window &gt; General &gt; Project」を送る → プロジェクトタブにフォーカスが移る（複数あれば Unity が選んだ1つ）
+/// 2. メニュー「Edit &gt; Find」（Ctrl+F と同じ）を送る → そのタブの検索欄にフォーカスが移る
+/// 3. フォーカスのある窓を OS に聞き（<c>GetGUIThreadInfo</c>）、そこへ「名前 t:Folder」を文字で送る → フォルダだけが出る
+/// 4. ↓ で先頭を選び、Enter で開く → そのフォルダが開き、左の木でも選ばれ、検索欄は空に戻る
+///
+/// メニューの番号は版やスクリプトの取り込みで変わる（§9-4b）ので、毎回文字でたどる。
+/// Unity Search（Edit &gt; Search All）も試したが、<c>dir:</c> で出るのはフォルダの中身で、フォルダそのものは出なかった。
 /// </summary>
 public static class UnityProjectTab
 {
     private const string ProjectBrowserName = "UnityEditor.ProjectBrowser";
 
     /// <summary>
-    /// 検索欄を押す位置（100% 表示のときの px）。§8-2 の実測で、検索欄はタブの右上から約 320px の幅。
-    /// 右端には絞り込みのアイコンが並ぶので、欄の中ほどを押す
+    /// 検索の語に足す絞り込み。**フォルダだけを出す。**先頭がファイルだと、Enter がそのファイルを開いてしまう
+    /// （シーンやプレハブなら編集の状態が変わる）
     /// </summary>
-    private const int SearchFromRight = 200;
-
-    private const int SearchFromTop = 10;
+    private const string FolderFilter = " t:Folder";
 
     /// <summary>前に入っていた文字を消すために送る BackSpace の数。検索欄に入れる語はこれより短い</summary>
     private const int ClearCount = 80;
 
+    private const uint WmCommand = 0x0111;
     private const uint WmKeyDown = 0x0100;
     private const uint WmKeyUp = 0x0101;
     private const uint WmChar = 0x0102;
-    private const uint WmLButtonDown = 0x0201;
-    private const uint WmLButtonUp = 0x0202;
-    private const int MkLButton = 0x0001;
     private const uint VkBack = 0x08;
+    private const uint VkReturn = 0x0D;
     private const uint VkEnd = 0x23;
-
-    private delegate bool EnumProc(IntPtr window, IntPtr parameter);
+    private const uint VkDown = 0x28;
+    private const int SwRestore = 9;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -49,26 +52,28 @@ public static class UnityProjectTab
         public int Bottom;
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumProc callback, IntPtr parameter);
-
-    [DllImport("user32.dll")]
-    private static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr parameter);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GuiThreadInfo
+    {
+        public int Size;
+        public int Flags;
+        public IntPtr Active;
+        public IntPtr Focus;
+        public IntPtr Capture;
+        public IntPtr MenuOwner;
+        public IntPtr MoveSize;
+        public IntPtr Caret;
+        public Rect CaretRect;
+    }
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
+    [DllImport("user32.dll")]
+    private static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
-
-    [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr window);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetClientRect(IntPtr window, out Rect rect);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr window);
 
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
@@ -76,48 +81,95 @@ public static class UnityProjectTab
     [DllImport("user32.dll")]
     private static extern uint MapVirtualKey(uint code, uint mapType);
 
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr window);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr window, int command);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr window);
+
     /// <summary>
-    /// 検索欄に <paramref name="text"/> を入れる。入れられなければ理由を返す（入れたら null）。
+    /// プロジェクトタブで <paramref name="folderName"/> のフォルダを選ぶ。選べなければ理由を返す（選んだら null）。
+    /// 最後に Unity を手前に出す（押した人は Unity で見たい）。
     /// </summary>
-    public static async Task<string?> SearchAsync(int processId, string text)
+    public static async Task<string?> SelectFolderAsync(int processId, string folderName)
     {
-        var tab = FindProjectBrowser(processId);
-        if (tab == IntPtr.Zero)
+        IntPtr main;
+        try
         {
-            return "Unity のプロジェクトタブが見つかりませんでした。タブが隠れているか閉じていたら、"
-                + "Unity で Project タブを表に出してから、もう一度押してください。";
+            using var process = Process.GetProcessById(processId);
+            main = process.MainWindowHandle;
+        }
+        catch (ArgumentException)
+        {
+            return "Unity が閉じられたようです。";
         }
 
-        GetClientRect(tab, out var rect);
-        var dpi = GetDpiForWindow(tab);
-        var scale = dpi > 0 ? dpi / 96.0 : 1.0;
-        var x = (int)(rect.Right - SearchFromRight * scale);
-        var y = (int)(SearchFromTop * scale);
-        if (x <= 0)
+        if (main == IntPtr.Zero)
         {
-            return "Unity のプロジェクトタブが狭すぎて、検索欄を押せませんでした。タブを広げてから、もう一度押してください。";
+            return "Unity の窓が見つかりませんでした。";
         }
 
-        var point = (IntPtr)((y << 16) | (x & 0xFFFF));
-        PostMessage(tab, WmLButtonDown, MkLButton, point);
-        PostMessage(tab, WmLButtonUp, IntPtr.Zero, point);
+        if (UnityImportQueue.FindMenuCommand(main, UnityHandoff.ProjectWindowMenuPath) is not { } projectCommand
+            || UnityImportQueue.FindMenuCommand(main, UnityHandoff.FindMenuPath) is not { } findCommand)
+        {
+            return "Unity のメニューに「Window > General > Project」か「Edit > Find」が見つかりませんでした。";
+        }
 
-        // 押した結果（検索欄に入る）を Unity が処理してから文字を送る
-        await Task.Delay(150);
+        // メニューは Unity が順に処理する。前の操作が済んでから次を送る（待たないと、検索欄に移る前に文字が届く）
+        PostMessage(main, WmCommand, (IntPtr)projectCommand, IntPtr.Zero);
+        await Task.Delay(600);
+        PostMessage(main, WmCommand, (IntPtr)findCommand, IntPtr.Zero);
+        await Task.Delay(600);
+
+        var box = FocusOf(main);
+        if (box == IntPtr.Zero || NameOf(box) != ProjectBrowserName)
+        {
+            return "Unity のプロジェクトタブにフォーカスを移せませんでした。Unity で Project タブを開いてから、もう一度押してください。";
+        }
 
         // 前の語が残っていると混ざるので、末尾へ行ってから消す
-        Key(tab, VkEnd);
+        Key(box, VkEnd);
         for (var index = 0; index < ClearCount; index++)
         {
-            Key(tab, VkBack);
+            Key(box, VkBack);
         }
 
-        foreach (var character in text)
+        foreach (var character in folderName + FolderFilter)
         {
-            PostMessage(tab, WmChar, character, 1);
+            PostMessage(box, WmChar, character, 1);
         }
 
+        // 検索は打つたびに走る。結果が出てから先頭を選ぶ
+        await Task.Delay(1200);
+        Key(box, VkDown);
+        await Task.Delay(400);
+        Key(box, VkReturn);
+
+        if (IsIconic(main))
+        {
+            ShowWindow(main, SwRestore);
+        }
+
+        SetForegroundWindow(main);
         return null;
+    }
+
+    /// <summary>Unity の画面のスレッドで、いまフォーカスを持っている窓。別のプロセスでも OS が答える。</summary>
+    private static IntPtr FocusOf(IntPtr window)
+    {
+        var thread = GetWindowThreadProcessId(window, out _);
+        var info = new GuiThreadInfo { Size = Marshal.SizeOf<GuiThreadInfo>() };
+        return GetGUIThreadInfo(thread, ref info) ? info.Focus : IntPtr.Zero;
+    }
+
+    private static string NameOf(IntPtr window)
+    {
+        var text = new StringBuilder(128);
+        GetWindowText(window, text, text.Capacity);
+        return text.ToString();
     }
 
     private static void Key(IntPtr window, uint virtualKey)
@@ -125,45 +177,5 @@ public static class UnityProjectTab
         var scan = (long)MapVirtualKey(virtualKey, 0) << 16;
         PostMessage(window, WmKeyDown, (IntPtr)virtualKey, (IntPtr)(1 | scan));
         PostMessage(window, WmKeyUp, (IntPtr)virtualKey, (IntPtr)(1 | scan | 0xC0000000L));
-    }
-
-    /// <summary>
-    /// そのプロセスのプロジェクトタブの窓。**切り離した窓にある場合もある**ので、本体の子だけでなく
-    /// そのプロセスの窓を全部見る。複数あれば見えていて一番大きいもの。
-    /// </summary>
-    private static IntPtr FindProjectBrowser(int processId)
-    {
-        var found = new List<IntPtr>();
-        var name = new StringBuilder(128);
-
-        bool Check(IntPtr window, IntPtr _)
-        {
-            name.Clear();
-            GetWindowText(window, name, name.Capacity);
-            if (name.ToString() == ProjectBrowserName && IsWindowVisible(window))
-            {
-                found.Add(window);
-            }
-
-            return true;
-        }
-
-        EnumWindows((window, _) =>
-        {
-            GetWindowThreadProcessId(window, out var owner);
-            if (owner == processId)
-            {
-                Check(window, IntPtr.Zero);
-                EnumChildWindows(window, Check, IntPtr.Zero);
-            }
-
-            return true;
-        }, IntPtr.Zero);
-
-        return found
-            .Select(window => (Window: window, Area: GetClientRect(window, out var rect) ? (long)rect.Right * rect.Bottom : 0))
-            .OrderByDescending(entry => entry.Area)
-            .Select(entry => entry.Window)
-            .FirstOrDefault();
     }
 }

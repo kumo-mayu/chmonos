@@ -227,6 +227,21 @@ public static class UnityHandoff
         ["Custom Package...", "カスタムパッケージ..."],
     ];
 
+    /// <summary>「Window &gt; General &gt; Project」。プロジェクトタブにフォーカスを移す（改変の画面の「Unityで選択」）。</summary>
+    public static readonly IReadOnlyList<IReadOnlyList<string>> ProjectWindowMenuPath =
+    [
+        ["Window", "ウィンドウ"],
+        ["General", "一般"],
+        ["Project", "プロジェクト"],
+    ];
+
+    /// <summary>「Edit &gt; Find」（Ctrl+F と同じ）。フォーカスのあるタブの検索欄にフォーカスを移す。</summary>
+    public static readonly IReadOnlyList<IReadOnlyList<string>> FindMenuPath =
+    [
+        ["Edit", "編集"],
+        ["Find", "検索"],
+    ];
+
     /// <summary>
     /// Unityエディタの窓のタイトルからプロジェクト名を取る。
     ///

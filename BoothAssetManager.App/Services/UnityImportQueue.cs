@@ -322,8 +322,11 @@ public static class UnityImportQueue
         }
     }
 
-    /// <summary>メニューを文字でたどって項目の番号を得る。段ごとに候補の名前のどれかに合えばよい。</summary>
-    private static uint? FindMenuCommand(IntPtr window, IReadOnlyList<IReadOnlyList<string>> path)
+    /// <summary>
+    /// メニューを文字でたどって項目の番号を得る。段ごとに候補の名前のどれかに合えばよい。
+    /// 改変の画面の「Unityで選択」（<see cref="UnityProjectTab"/>）でも使う。
+    /// </summary>
+    internal static uint? FindMenuCommand(IntPtr window, IReadOnlyList<IReadOnlyList<string>> path)
     {
         var menu = GetMenu(window);
         for (var depth = 0; depth < path.Count && menu != IntPtr.Zero; depth++)

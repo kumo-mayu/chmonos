@@ -1215,8 +1215,8 @@ public sealed class ModificationHubViewModel : ViewModelBase
                 return;
             }
 
-            var problem = await UnityProjectTab.SearchAsync(editor.ProcessId, folder);
-            Status = problem ?? $"Unity の「{projectName}」のプロジェクトタブで「{folder}」を検索しました（入り先 {root}）。";
+            var problem = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, folder);
+            Status = problem ?? $"Unity の「{projectName}」のプロジェクトタブで「{folder}」を開きました（入り先 {root}）。";
             return;
         }
 
