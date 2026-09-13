@@ -231,6 +231,12 @@ public sealed class ExtraFilter : ViewModelBase
     /// <summary>降りた・上がったので、出す行を作り直してほしい。</summary>
     public event Action? Descended;
 
+    /// <summary>
+    /// フォルダの条件で、記録のパスを今の場所に読み替える（外付けのドライブ文字が変わったとき・ユーザ指示 2026-09-14）。
+    /// 木も選んだフォルダも今の場所で持つので、照らし合わせる商品の側も同じ読み替えを通す。検索側が入れる
+    /// </summary>
+    public Func<string, string>? PathMap { get; set; }
+
     /// <summary>今いる階層の行。検索側が作って入れる。</summary>
     public System.Collections.ObjectModel.ObservableCollection<FolderRow> Rows { get; } = [];
 
@@ -392,7 +398,7 @@ public sealed class ExtraFilter : ViewModelBase
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。
         // 複数選んだ場合はOR（userTagと揃える）
         ExtraFilterKind.Folder => Selected.Count == 0
-            || Selected.Any(folder => FolderTree.IsUnder(item, folder)),
+            || Selected.Any(folder => FolderTree.IsUnder(item, folder, PathMap)),
         _ => true,
     };
 
@@ -479,6 +485,18 @@ public sealed class FolderRow : ViewModelBase
     public required bool IsOffline { get; init; }
 
     public string CountText => IsOffline ? $"{Count}・今つながっていません" : Count.ToString();
+
+    /// <summary>この下の物を記録したときのドライブ文字（外付けの文字が変わって、今の文字に読み替えた物だけ）。</summary>
+    public IReadOnlyList<string> RecordedLetters { get; init; } = [];
+
+    /// <summary>読み替えた結果だと分かるようにする（ユーザ指示 2026-09-14）。</summary>
+    public bool IsRemapped => RecordedLetters.Count > 0;
+
+    public string RemapText => IsRemapped ? $"記録では {string.Join("・", RecordedLetters)}" : string.Empty;
+
+    public string RemapTip => IsRemapped
+        ? $"外付けのドライブ文字が変わったので、{string.Join("・", RecordedLetters)} として記録した物を、今つながっている {Path[..2]} の場所で出しています。"
+        : string.Empty;
 
     public bool IsEmpty => Count == 0;
 

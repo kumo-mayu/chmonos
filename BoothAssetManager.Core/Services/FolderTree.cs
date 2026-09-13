@@ -18,6 +18,12 @@ public sealed record FolderNode
 
     /// <summary>降りられるか。商品が1件しかないフォルダはここで止める。</summary>
     public required bool CanDescend { get; init; }
+
+    /// <summary>
+    /// この下の物を記録したときのドライブ文字（外付けの文字が変わって、今の文字に読み替えた物だけ）。
+    /// 読み替えた結果だと画面で分かるようにするため（ユーザ指示 2026-09-14）。
+    /// </summary>
+    public IReadOnlyList<string> RecordedLetters { get; init; } = [];
 }
 
 /// <summary>
@@ -45,24 +51,32 @@ public static class FolderTree
     /// <paramref name="parent"/> の直下に出す行を作る。
     /// <paramref name="parent"/> が null なら根を返す。
     /// </summary>
-    public static IReadOnlyList<FolderNode> Children(IReadOnlyList<ItemRecord> items, string? parent)
+    /// <param name="map">記録のパスを今の場所に読み替える（外付けのドライブ文字が変わったとき・<see cref="VolumeTable"/>）。</param>
+    public static IReadOnlyList<FolderNode> Children(
+        IReadOnlyList<ItemRecord> items,
+        string? parent,
+        Func<string, string>? map = null)
     {
         // フォルダごとに、そこにファイルを持つ商品を集める。
         // 同じ商品が同じフォルダに複数ファイルを持っていても1回だけ数える
-        var byFolder = new Dictionary<string, (string Display, HashSet<string> Items)>(StringComparer.Ordinal);
+        var byFolder = new Dictionary<string, (string Display, HashSet<string> Items, SortedSet<string> From)>(StringComparer.Ordinal);
 
         foreach (var item in items)
         {
-            foreach (var folder in FoldersOf(item))
+            foreach (var (folder, from) in FoldersOf(item, map))
             {
                 var key = Normalize(folder);
                 if (!byFolder.TryGetValue(key, out var entry))
                 {
-                    entry = (folder, new HashSet<string>(StringComparer.Ordinal));
+                    entry = (folder, new HashSet<string>(StringComparer.Ordinal), new SortedSet<string>(StringComparer.Ordinal));
                     byFolder[key] = entry;
                 }
 
                 entry.Items.Add(item.Id);
+                if (from is not null)
+                {
+                    entry.From.Add(from);
+                }
             }
         }
 
@@ -91,26 +105,30 @@ public static class FolderTree
             .ToList();
     }
 
-    /// <summary>この商品がファイルを持つフォルダ（祖先を全部含む）。</summary>
-    private static IEnumerable<string> FoldersOf(ItemRecord item)
+    /// <summary>この商品がファイルを持つフォルダ（祖先を全部含む・今の場所で）と、読み替えたなら記録の文字。</summary>
+    private static IEnumerable<(string Folder, string? From)> FoldersOf(ItemRecord item, Func<string, string>? map)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var paths = item.Local.OwnedFiles.SelectMany(file => file.Paths)
             .Concat(item.Local.LocalFolders.Select(folder => folder.Path));
 
-        foreach (var path in paths)
+        foreach (var recorded in paths)
         {
-            var directory = ParentOf(path.Replace('/', Separator));
+            var path = recorded.Replace('/', Separator);
+            var current = map?.Invoke(path) ?? path;
+            var from = string.Equals(current, path, StringComparison.OrdinalIgnoreCase) ? null : VolumeTable.LetterOf(path);
+            var directory = ParentOf(current);
 
             while (directory is not null)
             {
-                if (!seen.Add(directory))
+                // 同じフォルダでも、読み替えた物とそうでない物は別に数える（記録の文字を取りこぼさない）
+                if (!seen.Add(directory + "|" + from))
                 {
                     break;
                 }
 
-                yield return directory;
+                yield return (directory, from);
                 directory = ParentOf(directory);
             }
         }
@@ -144,7 +162,7 @@ public static class FolderTree
     /// 散らばって管理している人の根がすぐ見えるようにするため。
     /// </summary>
     private static FolderNode Collapse(
-        Dictionary<string, (string Display, HashSet<string> Items)> byFolder,
+        Dictionary<string, (string Display, HashSet<string> Items, SortedSet<string> From)> byFolder,
         string key,
         string display,
         int count)
@@ -170,6 +188,7 @@ public static class FolderTree
                     Name = LastSegment(display),
                     ItemCount = count,
                     CanDescend = count > 1 && children.Count > 0,
+                    RecordedLetters = byFolder[key].From.ToList(),
                 };
             }
 
@@ -186,7 +205,9 @@ public static class FolderTree
     }
 
     /// <summary>この商品が、指定したフォルダの下にファイルを持つか（子孫を含む）。</summary>
-    public static bool IsUnder(ItemRecord item, string folder)
+    /// <param name="folder">今の場所のパス（木に出したもの）。</param>
+    /// <param name="map">記録のパスを今の場所に読み替える。木と同じ物を渡す。</param>
+    public static bool IsUnder(ItemRecord item, string folder, Func<string, string>? map = null)
     {
         var target = Normalize(folder);
 
@@ -194,7 +215,8 @@ public static class FolderTree
             .Concat(item.Local.LocalFolders.Select(f => f.Path))
             .Any(path =>
             {
-                var normalized = Normalize(path.Replace('/', Separator));
+                var slashed = path.Replace('/', Separator);
+                var normalized = Normalize(map?.Invoke(slashed) ?? slashed);
                 return normalized.StartsWith(target + Separator, StringComparison.Ordinal);
             });
     }

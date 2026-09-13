@@ -22,6 +22,28 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
     /// <summary>取り込みとフォルダビューが同時に書くことがあるので、読んで足して書く間を1本にする。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    private IReadOnlyDictionary<string, string> _latest = new Dictionary<string, string>();
+
+    /// <summary>
+    /// 最後に確かめた読み替え。検索の画面は絞り込むたびに画面のスレッドで使うので、
+    /// 通し番号を読み直さず、ここに置いた物を読む（読み直すのは <see cref="RefreshRemap"/> と <see cref="ObserveAsync"/>）。
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Latest => Volatile.Read(ref _latest);
+
+    /// <summary>記録のパスを、最後に確かめた読み替えで今の場所にする。</summary>
+    public string Current(string path) => Apply(path, Latest);
+
+    /// <summary>
+    /// 読み替えだけを確かめ直す（表は書かない。控えるのは取り込みとフォルダビューを開いた時・ユーザ判断）。
+    /// 通し番号を読むので画面のスレッドの外で呼ぶ。
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RefreshRemap()
+    {
+        var remap = Remap(store.Volumes.Load(), reader.Mounted());
+        Volatile.Write(ref _latest, remap);
+        return remap;
+    }
+
     /// <summary>取り込みで記録したパスのドライブ文字について、今見えているボリュームを控える。</summary>
     public async Task RecordAsync(IEnumerable<string> paths, CancellationToken cancellationToken = default)
     {
@@ -46,6 +68,7 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
         var mounted = reader.Mounted();
         var known = store.Volumes.Load();
         var remap = Remap(known, mounted);
+        Volatile.Write(ref _latest, remap);
 
         var confirmed = new List<MountedVolume>();
         foreach (var group in recordedPaths.Where(path => LetterOf(path) is not null)

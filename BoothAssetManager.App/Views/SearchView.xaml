@@ -709,8 +709,14 @@
                                                                           FontSize="12" Foreground="{StaticResource Text}"
                                                                           ToolTip="{Binding Path}"
                                                                           AutomationProperties.Name="{Binding Name}">
-                                                                    <TextBlock Text="{Binding Name}" FontSize="12"
-                                                                               Foreground="{StaticResource Text}" />
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding Name}" FontSize="12"
+                                                                                   Foreground="{StaticResource Text}" />
+                                                                        <!-- 外付けのドライブ文字が変わって読み替えた物（ユーザ指示：読み替えた結果だと分かるように） -->
+                                                                        <TextBlock Text="{Binding RemapText}" FontSize="10.5"
+                                                                                   Foreground="{StaticResource TextMuted}" ToolTip="{Binding RemapTip}"
+                                                                                   Visibility="{Binding IsRemapped, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    </StackPanel>
                                                                     <CheckBox.ContextMenu>
                                                                         <ContextMenu>
                                                                             <MenuItem Header="エクスプローラで開く" Command="{Binding OpenCommand}" />

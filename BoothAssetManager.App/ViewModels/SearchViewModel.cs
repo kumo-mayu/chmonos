@@ -374,6 +374,7 @@ public sealed class SearchViewModel : ViewModelBase
         if (kind == ExtraFilterKind.Folder)
         {
             filter.Descended += () => RebuildFolderRows(filter);
+            filter.PathMap = _services.Volumes.Current;
         }
 
         ExtraFilters.Add(filter);
@@ -458,7 +459,8 @@ public sealed class SearchViewModel : ViewModelBase
             }
         }
 
-        foreach (var node in Core.Services.FolderTree.Children(_allItems, filter.CurrentPath))
+        // 外付けのドライブ文字が変わった物は今の文字の下に出す（フォルダビューと同じ読み替え・ユーザ指示 2026-09-14）
+        foreach (var node in Core.Services.FolderTree.Children(_allItems, filter.CurrentPath, _services.Volumes.Current))
         {
             var path = node.Path;
 
@@ -468,6 +470,7 @@ public sealed class SearchViewModel : ViewModelBase
                 Name = node.Name,
                 Count = node.ItemCount,
                 CanDescend = node.CanDescend,
+                RecordedLetters = node.RecordedLetters,
 
                 // 記録にはあるが今その場所が無い。外付けを外したときなど。
                 // 消さずに残す：「どこに置いたっけ」を一番知りたいのがこの状況
@@ -1514,6 +1517,17 @@ public sealed class SearchViewModel : ViewModelBase
             // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
             var (sorted, built, unreadIds) = await Task.Run(() =>
             {
+                // 外付けのドライブ文字が変わっていないかを読み直す（通し番号を読むので、ここで）。
+                // 表は書かない：控えるのは取り込みとフォルダビューを開いた時（ユーザ判断 2026-09-14）
+                try
+                {
+                    _services.Volumes.RefreshRemap();
+                }
+                catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException
+                                                      or System.Text.Json.JsonException)
+                {
+                }
+
                 var sortedItems = loaded.Items
                     .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
                     .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)

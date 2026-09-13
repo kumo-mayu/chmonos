@@ -43,6 +43,9 @@ public sealed class FolderViewEntry
 
     public bool IsMissing { get; set; }
 
+    /// <summary>外付けのドライブ文字が変わって今の文字に読み替えた物なら、記録したときの文字（<see cref="Path"/> は今の場所）。</summary>
+    public string? RecordedLetter { get; init; }
+
     /// <summary>zip の横にある、展開したフォルダ（ユーザ判断：zip の下に薄く出す）。</summary>
     public string? ExtractedFolder { get; set; }
 
@@ -134,6 +137,9 @@ internal sealed class FolderViewRootModel
     public required FolderViewNode Node { get; init; }
 
     public required string Label { get; init; }
+
+    /// <summary>この根の下に、読み替えた物を記録したときの文字（読み替えた結果だと分かるように・ユーザ指示 2026-09-14）。</summary>
+    public SortedSet<string> RecordedLetters { get; } = new(StringComparer.Ordinal);
 }
 
 internal sealed class FolderViewVolume
@@ -143,6 +149,9 @@ internal sealed class FolderViewVolume
     public required string Label { get; init; }
 
     public required bool IsOnline { get; init; }
+
+    /// <summary>このボリュームに読み替えた物を、記録したときの文字。</summary>
+    public SortedSet<string> RecordedLetters { get; } = new(StringComparer.Ordinal);
 
     public List<FolderViewRootModel> Roots { get; } = [];
 
@@ -323,9 +332,6 @@ public sealed class FolderViewModel : ViewModelBase
     private string? _pendingSelect;
     private int _lastResolveCount = -1;
 
-    /// <summary>ドライブ文字が変わった外付けの読み替え（記録の文字 → 今の文字）。木は今の文字で出す。</summary>
-    private IReadOnlyDictionary<string, string> _remap = new Dictionary<string, string>();
-
     public FolderViewModel(AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails, string? selectKey = null)
     {
         _services = services;
@@ -340,8 +346,8 @@ public sealed class FolderViewModel : ViewModelBase
         {
             if (parameter is FolderViewDetail detail)
             {
-                // 検索は記録のパスで絞り込むので、今の文字から記録の文字へ戻して渡す
-                _main.ShowItemsInFolder(Recorded(detail.Path));
+                // 検索のフォルダの条件も同じ読み替えを通すので、今の場所のまま渡す
+                _main.ShowItemsInFolder(detail.Path);
             }
         });
         RevealCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewDetail)?.Path));
@@ -512,7 +518,7 @@ public sealed class FolderViewModel : ViewModelBase
         }
 
         var unresolved = _services.Store.Unresolved.Load();
-        var (built, remap) = await Task.Run(async () =>
+        var built = await Task.Run(async () =>
         {
             // 開くたびにドライブ文字と通し番号の組を確かめ直す（ユーザ判断 2026-09-14：取り込みとフォルダビューを開いた時）。
             // ファイルが在るかを見るので裏で
@@ -528,11 +534,10 @@ public sealed class FolderViewModel : ViewModelBase
                 found = new Dictionary<string, string>();
             }
 
-            return (Build(items, unresolved, found), found);
+            return Build(items, unresolved, found);
         });
 
         _volumes = built;
-        _remap = remap;
         _isLoading = false;
 
         if (_pendingSelect is { } pending)
@@ -555,13 +560,6 @@ public sealed class FolderViewModel : ViewModelBase
             .Concat(unresolved.SelectMany(file => file.Paths))
             .ToList();
 
-    /// <summary>今の文字のパスを、記録の文字に戻す。同じボリュームを2つの文字で記録していれば、先に見つかった方。</summary>
-    private string Recorded(string path)
-        => VolumeTable.LetterOf(path) is { } letter
-           && _remap.FirstOrDefault(pair => string.Equals(pair.Value, letter, StringComparison.OrdinalIgnoreCase)) is { Key: { } from }
-            ? from + path[2..]
-            : path;
-
     /// <summary>
     /// 記録から木を組む（裏のスレッドで）。在るかどうかと、zip の横の展開したフォルダもここで見る。
     /// ドライブ文字が変わった外付けの物は、今の文字の下に置く（<paramref name="remap"/>・記録は書き換えない）。
@@ -572,6 +570,7 @@ public sealed class FolderViewModel : ViewModelBase
         IReadOnlyDictionary<string, string> remap)
     {
         string Current(string path) => VolumeTable.Apply(path, remap);
+        string? Moved(string path) => Same(Current(path), path) ? null : VolumeTable.LetterOf(path);
 
         var entries = new List<FolderViewEntry>();
         foreach (var item in items)
@@ -583,6 +582,7 @@ public sealed class FolderViewModel : ViewModelBase
                     entries.Add(new FolderViewEntry
                     {
                         Path = Current(path),
+                        RecordedLetter = Moved(path),
                         Kind = FolderViewRowKind.File,
                         Item = item,
                         Others = file.Paths.Where(other => !Same(other, path)).Select(Current).ToList(),
@@ -592,7 +592,13 @@ public sealed class FolderViewModel : ViewModelBase
 
             foreach (var folder in item.Local.LocalFolders)
             {
-                entries.Add(new FolderViewEntry { Path = Current(folder.Path), Kind = FolderViewRowKind.ItemFolder, Item = item });
+                entries.Add(new FolderViewEntry
+                {
+                    Path = Current(folder.Path),
+                    RecordedLetter = Moved(folder.Path),
+                    Kind = FolderViewRowKind.ItemFolder,
+                    Item = item,
+                });
             }
         }
 
@@ -603,6 +609,7 @@ public sealed class FolderViewModel : ViewModelBase
                 entries.Add(new FolderViewEntry
                 {
                     Path = Current(path),
+                    RecordedLetter = Moved(path),
                     Kind = FolderViewRowKind.Unresolved,
                     Unresolved = file,
                     Others = file.Paths.Where(other => !Same(other, path)).Select(Current).ToList(),
@@ -670,6 +677,12 @@ public sealed class FolderViewModel : ViewModelBase
             }
 
             node.Entries.Add(entry);
+
+            if (entry.RecordedLetter is { } from)
+            {
+                root.RecordedLetters.Add(from);
+                volume.RecordedLetters.Add(from);
+            }
         }
 
         foreach (var volume in volumes)
@@ -775,7 +788,8 @@ public sealed class FolderViewModel : ViewModelBase
             {
                 foreach (var root in volume.Roots)
                 {
-                    AddFolder(root.Node, root.Label, FolderViewRowKind.Root, 1, !volume.IsOnline, children, textHit: false);
+                    AddFolder(root.Node, root.Label, FolderViewRowKind.Root, 1, !volume.IsOnline, children, textHit: false,
+                        subText: root.RecordedLetters.Count > 0 ? $"記録では {string.Join("・", root.RecordedLetters)}" : string.Empty);
                 }
 
                 if (IsFiltering && children.Count == 0)
@@ -794,6 +808,11 @@ public sealed class FolderViewModel : ViewModelBase
                 CanExpand = volume.Roots.Count > 0,
                 IsExpanded = expanded,
                 IsDim = !volume.IsOnline,
+
+                // 読み替えた結果だと分かるように（ユーザ指示 2026-09-14）
+                SubText = volume.RecordedLetters.Count > 0
+                    ? $"{string.Join("・", volume.RecordedLetters)} として記録した物を {volume.Volume} で出しています"
+                    : string.Empty,
                 CountText = $"商品 {volume.Summary.Items.Count}",
                 UnresolvedCount = volume.Summary.Unresolved.Count,
                 Node = volume.Summary,
@@ -827,7 +846,8 @@ public sealed class FolderViewModel : ViewModelBase
         int depth,
         bool offline,
         List<FolderViewRow> output,
-        bool textHit)
+        bool textHit,
+        string subText = "")
     {
         // 1本道の段は1行に畳む（今の FolderTree と同じ）。畳んだ段は名前に「 › 」で残すので、経路は消えない
         var name = label;
@@ -847,6 +867,7 @@ public sealed class FolderViewModel : ViewModelBase
             Depth = depth,
             Name = name,
             Path = node.Path,
+            SubText = subText,
             CanExpand = node.Children.Count + node.Entries.Count > 0,
             IsExpanded = expanded,
             IsDim = offline,

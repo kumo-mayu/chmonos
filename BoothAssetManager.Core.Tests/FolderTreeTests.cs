@@ -44,6 +44,42 @@ public class FolderTreeTests
         Assert.Equal(2, root.ItemCount);
     }
 
+    /// <summary>外付けのドライブ文字が変わった物は今の文字の下に入れ、記録の文字を添える（ユーザ指示 2026-09-14）。</summary>
+    [Fact]
+    public void 読み替えた物は今の文字の下に入り記録の文字を添える()
+    {
+        var items = new[]
+        {
+            Item("1", @"X:\storage\VRChat_model\a.zip"),
+            Item("2", @"D:\storage\VRChat_model\b.zip"),
+        };
+
+        static string Map(string path) => path.StartsWith("X:", StringComparison.OrdinalIgnoreCase) ? "D:" + path[2..] : path;
+
+        var root = Assert.Single(FolderTree.Children(items, null, Map));
+
+        Assert.Equal(@"D:\storage\VRChat_model", root.Path);
+        Assert.Equal(2, root.ItemCount);
+        Assert.Equal(["X:"], root.RecordedLetters);
+    }
+
+    [Fact]
+    public void 読み替えの無い木には記録の文字を添えない()
+    {
+        var items = new[] { Item("1", @"D:\a\b.zip"), Item("2", @"D:\a\c.zip") };
+
+        Assert.Empty(Assert.Single(FolderTree.Children(items, null)).RecordedLetters);
+    }
+
+    [Fact]
+    public void 読み替えた今の場所で絞り込める()
+    {
+        var item = Item("1", @"X:\storage\a.zip");
+
+        Assert.True(FolderTree.IsUnder(item, @"D:\storage", path => "D:" + path[2..]));
+        Assert.False(FolderTree.IsUnder(item, @"D:\storage"));
+    }
+
     /// <summary>枝分かれするところで畳むのをやめる。</summary>
     [Fact]
     public void StopsCollapsingWhereItBranches()

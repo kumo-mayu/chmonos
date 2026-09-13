@@ -126,4 +126,18 @@ public sealed class VolumeTableTests : IDisposable
         // 元の文字の控えは消さない（記録のパスはまだ E: のまま）
         Assert.Equal("AAAA0001", Assert.Single(_store.Volumes.Load(), record => record.Letter == "E:").Serial);
     }
+
+    [Fact]
+    public async Task 検索の画面は表を書かずに読み替えだけを確かめ直す()
+    {
+        await _store.Volumes.SaveAsync([Known("E:", "AAAA0001")]);
+        var before = File.GetLastWriteTimeUtc(_store.Volumes.Path);
+        var table = new VolumeTable(_store, new FakeReader(new MountedVolume("F:", "AAAA0001", null)));
+
+        Assert.Equal(@"E:\a.zip", table.Current(@"E:\a.zip"));
+        table.RefreshRemap();
+
+        Assert.Equal(@"F:\a.zip", table.Current(@"E:\a.zip"));
+        Assert.Equal(before, File.GetLastWriteTimeUtc(_store.Volumes.Path));
+    }
 }
