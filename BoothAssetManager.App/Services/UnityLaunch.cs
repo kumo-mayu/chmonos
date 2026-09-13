@@ -29,6 +29,12 @@ public enum UnityOpenResult
     /// <summary>そのバージョンが入っていないのでUnity Hubに渡した。</summary>
     HandedToHub,
 
+    /// <summary>バージョンが読めなかったので、バージョンを添えずに Unity Hub を開いた。</summary>
+    HandedToHubWithoutVersion,
+
+    /// <summary>そのバージョンが入っておらず、渡す先の Unity Hub も入っていない。</summary>
+    NoEditorNoHub,
+
     /// <summary>フォルダが見つからない。</summary>
     Missing,
 
@@ -346,12 +352,27 @@ public static class UnityLaunch
                 : UnityOpenResult.Failed;
         }
 
-        // 入れる面倒はHubに渡す。バージョンを添えると、そのバージョンの話として開く
-        var link = string.IsNullOrWhiteSpace(wanted) ? "unityhub://" : $"unityhub://{wanted}";
-        return Start(new ProcessStartInfo(link) { UseShellExecute = true })
-            ? UnityOpenResult.HandedToHub
-            : UnityOpenResult.Failed;
+        // 入れる面倒はHubに渡す。バージョンを添えると、そのバージョンの話として開く。
+        // **Hub が入っていなければ渡さない。**受け手の無いリンクを開くと、Windows が「このリンクを開くアプリを探す」を出すだけで、
+        // こちらは「Hubに渡しました」と言ってしまう
+        if (!HasHub())
+        {
+            return UnityOpenResult.NoEditorNoHub;
+        }
+
+        var hasVersion = !string.IsNullOrWhiteSpace(wanted);
+        var link = hasVersion ? $"unityhub://{wanted}" : "unityhub://";
+        return !Start(new ProcessStartInfo(link) { UseShellExecute = true })
+            ? UnityOpenResult.Failed
+            : hasVersion ? UnityOpenResult.HandedToHub : UnityOpenResult.HandedToHubWithoutVersion;
     }
+
+    /// <summary>
+    /// Unity Hub が入っているか。<c>unityhub://</c> の受け手（Hub が入るときに登録する）か、アンインストール情報の「Unity Hub」で見る。
+    /// </summary>
+    public static bool HasHub()
+        => InstalledApps.OpenCommand("unityhub") is not null
+            || InstalledApps.Uninstall().Any(entry => entry.DisplayName.StartsWith("Unity Hub", StringComparison.OrdinalIgnoreCase));
 
     private static bool Start(ProcessStartInfo startInfo)
     {

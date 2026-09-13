@@ -474,8 +474,9 @@
                             切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）
                         -->
                         <Button DockPanel.Dock="Right" Content="VCCを開く" Margin="8,0,0,0" VerticalAlignment="Center"
-                                Command="{Binding OpenVccCommand}"
-                                ToolTip="VRChat Creator Companion を起動します。開いていれば手前に出します。"
+                                Command="{Binding OpenVccCommand}" IsEnabled="{Binding CanOpenVcc}"
+                                ToolTip="{Binding VccHint}" ToolTipService.ShowOnDisabled="True"
+                                AutomationProperties.HelpText="{Binding VccHint}"
                                 Visibility="{Binding IsProjectLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <Border HorizontalAlignment="Left" VerticalAlignment="Center" Background="{StaticResource Surface}"
                                 BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
@@ -504,11 +505,8 @@
                         </Border>
                     </DockPanel>
 
+                    <!-- 「読み直す」のボタンは置かない。窓が手前に戻るたびに読み直す（ユーザ判断 2026-09-13） -->
                     <DockPanel Margin="0,12,0,0">
-                        <Button DockPanel.Dock="Right" Content="読み直す" Style="{StaticResource SmallButton}"
-                                Margin="8,0,0,0" VerticalAlignment="Center"
-                                Command="{Binding RefreshCommand}"
-                                ToolTip="改変の記録と、Unity Hub・VCC のプロジェクトの一覧を読み直します。" />
                         <Grid>
                             <TextBox Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
                                      VerticalContentAlignment="Center" Padding="7,0"

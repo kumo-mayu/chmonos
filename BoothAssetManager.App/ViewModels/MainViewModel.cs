@@ -482,8 +482,9 @@ public sealed class MainViewModel : ViewModelBase
     {
         (CurrentViewModel as ItemViewModel)?.NoteUnityChanged();
 
-        // 改変の画面はプロジェクトが開いているかを出しているので、Unity を開いて戻ってきたら読み直す
-        (CurrentViewModel as ModificationHubViewModel)?.NoteUnityChanged();
+        // 改変の画面は「読み直す」のボタンを持たない代わりに、戻ってくるたびに読み直す
+        // （Unity を開いて戻る・Hub や VCC でプロジェクトを作って戻る・外で記録を直して戻る）
+        (CurrentViewModel as ModificationHubViewModel)?.NoteWindowActivated();
     }
 
     public object? CurrentViewModel

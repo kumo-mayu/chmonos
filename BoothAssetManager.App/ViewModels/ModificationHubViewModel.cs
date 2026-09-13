@@ -390,6 +390,8 @@ public sealed class ModificationHubViewModel : ViewModelBase
     private string _status = string.Empty;
     private bool _isLoading = true;
     private ModificationHubSelection? _pendingSelection;
+    private bool _isRefreshing;
+    private UnityTools _tools = UnityTools.Unknown;
 
     private IReadOnlyList<ModificationRecord> _records = [];
     private IReadOnlyList<UnityProjectCandidate> _projects = [];
@@ -409,7 +411,6 @@ public sealed class ModificationHubViewModel : ViewModelBase
         _level = level ?? s_lastLevel;
         _pendingSelection = selection;
 
-        RefreshCommand = new RelayCommand(() => _ = LoadAsync());
         OpenVccCommand = new RelayCommand(OpenVcc);
         OpenProjectCommand = new RelayCommand(parameter => OpenProject(PathOf(parameter)));
         OpenProjectFolderCommand = new RelayCommand(parameter => Shell.Reveal(PathOf(parameter)));
@@ -548,8 +549,7 @@ public sealed class ModificationHubViewModel : ViewModelBase
             ? $"「{Query.Trim()}」に当てはまるものはありません。"
             : Level switch
             {
-                ModificationHubLevel.Project =>
-                    "Unity Hub と VCC の一覧にプロジェクトが見つかりませんでした。一度 Unity で開いたプロジェクトなら出ます。",
+                ModificationHubLevel.Project => ProjectEmptyText(Tools),
                 ModificationHubLevel.Avatar =>
                     "持っているアバターがまだありません。アバターの管理で検出するか、アバターの商品を取り込むと出ます。",
                 _ => "改変はまだありません。「アバター」の見方で、アバターの行の「改変を作る」から作れます。",
@@ -597,9 +597,49 @@ public sealed class ModificationHubViewModel : ViewModelBase
 
     public bool HasStatus => Status.Length > 0;
 
-    // ---- 操作 ----
+    /// <summary>
+    /// Unityプロジェクトの見方で一覧が空のとき。**Hub・VCC が見つからないのか、あるがプロジェクトが無いのかを言い分ける**
+    /// （ユーザ判断 2026-09-13）。前は同じ文で、入れれば済むのか作れば済むのか分からなかった
+    /// </summary>
+    internal static string ProjectEmptyText(UnityTools tools) => tools switch
+    {
+        { HasHub: false, HasVcc: false } =>
+            "Unity Hub も VCC も見つかりませんでした。どちらかを入れてプロジェクトを作るか開くと、ここに並びます。",
+        { HasHub: true, HasVcc: false } =>
+            "Unity Hub の一覧にプロジェクトがありません（VCC は見つかりませんでした）。Hub でプロジェクトを作るか開くと、ここに並びます。",
+        { HasHub: false, HasVcc: true } =>
+            "VCC の一覧にプロジェクトがありません（Unity Hub は見つかりませんでした）。VCC でプロジェクトを作るか開くと、ここに並びます。",
+        _ => "Unity Hub と VCC の一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
+    };
 
-    public RelayCommand RefreshCommand { get; }
+    // ---- Unity Hub と VCC ----
+
+    private const string VccMissingText =
+        "VCC（VRChat Creator Companion）が見つかりませんでした。VRChat の公式サイトから VCC を入れると、ここから開けます。";
+
+    /// <summary>Unity Hub と VCC が手元にあるか。窓が手前に戻るたびに調べ直す。</summary>
+    public UnityTools Tools
+    {
+        get => _tools;
+        private set
+        {
+            if (SetField(ref _tools, value))
+            {
+                OnPropertyChanged(nameof(CanOpenVcc));
+                OnPropertyChanged(nameof(VccHint));
+                OnPropertyChanged(nameof(EmptyText));
+            }
+        }
+    }
+
+    /// <summary>VCC が見つからなければ「VCCを開く」は押せない状態で出す（押してから見つからないと言わない・ユーザ判断 2026-09-13）。</summary>
+    public bool CanOpenVcc => Tools.HasVcc;
+
+    public string VccHint => Tools.HasVcc
+        ? "VRChat Creator Companion を起動します。開いていれば手前に出します。"
+        : VccMissingText;
+
+    // ---- 操作 ----
 
     public RelayCommand OpenVccCommand { get; }
 
@@ -630,8 +670,8 @@ public sealed class ModificationHubViewModel : ViewModelBase
 
     public RelayCommand OpenItemPageCommand { get; }
 
-    /// <summary>窓が手前に戻ったとき。Unity を開いて戻ってきたら、開いているかの印を読み直す。</summary>
-    public void NoteUnityChanged() => _ = RefreshProjectsAsync();
+    /// <summary>窓が手前に戻ったとき。記録・アバター・プロジェクト（開いているかの印も）・Hub と VCC の有無を読み直す。</summary>
+    public void NoteWindowActivated() => _ = RefreshAllAsync();
 
     // ---- 読み込み ----
 
@@ -643,7 +683,9 @@ public sealed class ModificationHubViewModel : ViewModelBase
         var modifications = _services.Modifications.LoadAllAsync();
         var avatars = Task.Run(() => _services.Avatars.LoadAsync());
         var projects = Task.Run(() => UnityProjects.Discover());
-        await Task.WhenAll(modifications, avatars, projects);
+        var tools = Task.Run(() => UnityTools.Detect());
+        await Task.WhenAll(modifications, avatars, projects, tools);
+        Tools = tools.Result;
 
         // 商品は検索画面が持っている写しから引く（全商品の JSON を読み直さない。ショップ一覧と同じ扱い）
         var snapshot = _main.Search.SnapshotItems();
@@ -708,20 +750,46 @@ public sealed class ModificationHubViewModel : ViewModelBase
         Rebuild();
     }
 
-    private async Task RefreshProjectsAsync()
+    /// <summary>
+    /// 窓が手前に戻ったときに、記録・アバター・プロジェクト・Hub と VCC の有無を読み直す。
+    ///
+    /// **「読み直す」のボタンの代わり**（ユーザ判断 2026-09-13）。ボタンでしか拾えなかったのは、アプリの外で改変の JSON や
+    /// アバターの登録簿が書き換わったときだけで、それを直しに行けば窓は必ず一度離れる。Unity Hub や VCC でプロジェクトを
+    /// 作ったり、Hub や VCC を入れたりして戻ってきたときも、ここで拾う。
+    /// 右に出しているものは作り直さない（改変の入力中や、新しい改変の名前の入力中を消さない）。プロジェクトだけは「開いている」の印を出し直す
+    /// </summary>
+    private async Task RefreshAllAsync()
     {
-        if (_isLoading)
+        if (_isLoading || _isRefreshing)
         {
             return;
         }
 
-        var found = await Task.Run(() => UnityProjects.Discover());
-        _projects = await WithLinkedProjectsAsync(found);
-        Rebuild();
-
-        if (Detail is HubProjectDetail project)
+        _isRefreshing = true;
+        try
         {
-            ShowProject(project.Path);
+            var modifications = _services.Modifications.LoadAllAsync();
+            var avatars = Task.Run(() => _services.Avatars.LoadAsync());
+            var projects = Task.Run(() => UnityProjects.Discover());
+            var tools = Task.Run(() => UnityTools.Detect());
+            await Task.WhenAll(modifications, avatars, projects, tools);
+
+            _records = modifications.Result.Modifications;
+            _avatars = avatars.Result
+                .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            _projects = await WithLinkedProjectsAsync(projects.Result);
+            Tools = tools.Result;
+            Rebuild();
+
+            if (Detail is HubProjectDetail project)
+            {
+                ShowProject(project.Path);
+            }
+        }
+        finally
+        {
+            _isRefreshing = false;
         }
     }
 
@@ -1106,8 +1174,7 @@ public sealed class ModificationHubViewModel : ViewModelBase
             VccOpenResult.BroughtToFront => "VCC は開いていたので、手前に出しました。",
             VccOpenResult.AlreadyOpenNotFront =>
                 "VCC は開いています。手前に出せなかったので、タスクバーの VCC を押して切り替えてください。",
-            VccOpenResult.NotInstalled =>
-                "VCC（VRChat Creator Companion）が見つかりませんでした（Windows のアプリの一覧に載っていません）。",
+            VccOpenResult.NotInstalled => VccMissingText,
             _ => "VCC を起動できませんでした。スタートメニューから開いてみてください。",
         };
     }
@@ -1120,20 +1187,7 @@ public sealed class ModificationHubViewModel : ViewModelBase
             return;
         }
 
-        var name = ProjectNameOf(path);
-        Status = UnityLaunch.OpenProject(path) switch
-        {
-            UnityOpenResult.BroughtToFront => $"「{name}」は既に開いています。そのUnityを手前に出しました。",
-            UnityOpenResult.AlreadyOpenNotFront =>
-                $"「{name}」は既に開いています。手前に出せなかったので、タスクバーのUnityを押して切り替えてください。",
-            UnityOpenResult.AlreadyOpenUnknownWindow =>
-                $"「{name}」は既に開いています（読み込み中のようです）。読み込みが終わったら、タスクバーのUnityから切り替えてください。",
-            UnityOpenResult.Launched => $"「{name}」をUnityで開いています。少し時間がかかります。",
-            UnityOpenResult.HandedToHub =>
-                "このプロジェクトのUnityが手元に無いので、Unity Hubに渡しました。Hubが入れるか聞いてくれます。",
-            UnityOpenResult.Missing => $"「{name}」のフォルダが見つかりません。",
-            _ => "Unityを開けませんでした。Unity Hubから開いてみてください。",
-        };
+        Status = UnityOpenText.For(UnityLaunch.OpenProject(path), ProjectNameOf(path));
     }
 
     /// <summary>

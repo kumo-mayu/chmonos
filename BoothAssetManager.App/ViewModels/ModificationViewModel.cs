@@ -799,20 +799,11 @@ public sealed class ModificationViewModel : ViewModelBase
     {
         var name = ProjectName;
 
-        Status = UnityLaunch.OpenProject(Record.UnityProject) switch
-        {
-            UnityOpenResult.BroughtToFront => $"「{name}」は既に開いています。そのUnityを手前に出しました。",
-            UnityOpenResult.AlreadyOpenNotFront =>
-                $"「{name}」は既に開いています。手前に出せなかったので、タスクバーのUnityを押して切り替えてください。",
-            UnityOpenResult.AlreadyOpenUnknownWindow =>
-                $"「{name}」は既に開いています（読み込み中のようです）。読み込みが終わったら、タスクバーのUnityから切り替えてください。",
-            UnityOpenResult.Launched => $"「{name}」をUnityで開いています。少し時間がかかります。",
-            UnityOpenResult.HandedToHub =>
-                $"このプロジェクトのUnityが手元に無いので、Unity Hubに渡しました。Hubが入れるか聞いてくれます。",
-            UnityOpenResult.Missing =>
-                $"「{name}」が見つかりません。移したのなら、下の一覧から指し直せます。",
-            _ => "Unityを開けませんでした。Unity Hubから開いてみてください。",
-        };
+        // 文は改変の画面の「Unityで開く」と同じ。フォルダが無いときだけ、ここでは指し直せることを言う
+        var result = UnityLaunch.OpenProject(Record.UnityProject);
+        Status = result == UnityOpenResult.Missing
+            ? $"「{name}」が見つかりません。移したのなら、下の一覧から指し直せます。"
+            : UnityOpenText.For(result, name);
     }
 
     /// <summary>記録に残した種類の番号を、人が読める名前に直す。</summary>

@@ -137,6 +137,31 @@ public static class VccLaunch
         }
     }
 
+    /// <summary>
+    /// 開けるか。入っている（場所が分かる）か、今起動している。「VCCを開く」を押せる状態にするかに使う
+    /// （押してから「見つかりませんでした」と言うより、押す前に分かる方がよい・ユーザ判断 2026-09-13）。
+    /// </summary>
+    public static bool IsAvailable() => FindExe() is not null || IsRunning();
+
+    private static bool IsRunning()
+    {
+        try
+        {
+            var processes = Process.GetProcessesByName(ProcessName);
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
+
+            return processes.Length > 0;
+        }
+        catch (Exception exception)
+            when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
     private static bool Exists(string path)
     {
         try
