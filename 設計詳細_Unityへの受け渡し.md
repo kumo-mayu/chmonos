@@ -600,3 +600,44 @@ zip の中は BlendShare（Packages/・スクリプト入り）→ Kuuta_Shapeke
 - **取り込みと関係のない行も出る**（Cancel の直後に `<RI> Initialized touch support.` `TrimDiskCacheJob`）。何でも「動き」と数えると Cancel を Import と取り違え、来ない完了の行を待ち続けた。取り込みの行だけを数える
 - **パッケージ自身が確認を出すことがある**（VRCHeartRate の VPM 自動インストーラが「Confirm：次のパッケージを入れます」を出した。これも `#32770`）。
   利用者が答えるまで次へ進めないのが正しいが、アプリの1行で「Unity 側で確認が出ています」と言わないと、止まったように見える
+
+## 12. VCC を起動する（2026-09-13 実機で確かめた・未実装）
+
+ユーザの問い：「VCC を立ち上げる機能は実現可能か。内部設定などの管理は想定せず、ただ起動することは」。
+改変まわりの画面を作り直す案を練るのに要った実験（検索に出す項目を確定するための刷新）。
+
+**できる。**VCC の中身（設定・プロジェクト・VPM）には触らず、実行ファイルを起動するだけで済む。
+VCC 2.4.5 で試した。
+
+### 12-1. 場所の見つけ方
+
+| 手掛かり | 値（この PC） |
+|---|---|
+| アンインストール情報（`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall` の `VRChat Creator Companion…`）の `InstallLocation` | `%LOCALAPPDATA%\Programs\VRChat Creator Companion\` |
+| 実行ファイル | その下の `CreatorCompanion.exe` |
+| `vcc://` の関連付け（`HKCU\Software\Classes\vcc`） | 開く先は `CreatorCompanion.exe "%1"` |
+
+**場所は決め打ちせず、アンインストール情報から引く**（利用者ごとの場所に入る）。無ければ「VCC が見つかりません」と言う。
+`vcc://` はリポジトリを足す入口（`vcc://vpm/addRepo?url=…`）なので、起動だけのために中身の無い `vcc://` を渡すことはしない（渡したときの振る舞いは試していない）。
+ALCOM（VCC の代わりのツール）はこの PC に無く、見ていない。
+
+### 12-2. 起動した結果
+
+| 試したこと | 結果 |
+|---|---|
+| 閉じている状態で `CreatorCompanion.exe` を起動（`UseShellExecute`） | **1.1秒で窓が出て前面に来た。**プロジェクトの一覧まで普通に描かれた |
+| 開いている窓を最小化してから、もう一度起動 | 新しいプロセスは窓を出さずにすぐ終わった（終了コード 0）。VCC は1つのまま——**二重には開かない** |
+| 同上の後の元の窓 | **最小化のまま・前面にも来なかった** |
+| 窓を閉じる（`CloseMainWindow`） | プロセスは残らず終わった |
+
+**2回目の起動は、見た目には何も起きない。**VCC が既存の窓へ知らせて自分は終わるが、その窓を手前に出さない。
+押しても何も起きなかったように見えるので、**アプリの側で起動中の VCC（プロセス名 `CreatorCompanion`）の窓を探し、元に戻して手前に出す。**
+「Unityで開く」（`UnityLaunch.OpenProject`）が既に開いているエディタにしているのと同じ扱い。
+
+### 12-3. 作るなら
+
+1. アンインストール情報から場所を引く。無ければ「VCC が見つかりません」
+2. 起動中の VCC があれば、窓を元に戻して手前に出す（Windows に断られたら言い分ける。`UnityOpenResult.AlreadyOpenNotFront` と同じ）
+3. 起動していなければ `CreatorCompanion.exe` を起動する
+
+試しの記録：`scratchpad` の `vcc-launch.ps1`（リポジトリ外）。起動は計3回（うち2回は画面を撮る部分の不具合で撮り直し）で、どれも最後に閉じた。
