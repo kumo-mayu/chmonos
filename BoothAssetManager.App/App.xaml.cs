@@ -83,6 +83,10 @@ public partial class App : Application
         };
 
         mainWindow.Show();
+
+        // Unity で最後に選んでいたプロジェクトタブを覚え始める（「Unityで選択」の既定・ユーザ判断）。
+        // 画面のスレッドで付ける——知らせはこのスレッドのメッセージとして届く
+        Services.UnityFocusWatch.Start();
     }
 
     /// <summary>
@@ -158,6 +162,7 @@ public partial class App : Application
             new Core.Services.TemporaryUnpacker().CleanUp();
         }
 
+        Services.UnityFocusWatch.Stop();
         _services?.Dispose();
         base.OnExit(e);
     }

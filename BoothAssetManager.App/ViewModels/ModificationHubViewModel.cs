@@ -1215,8 +1215,9 @@ public sealed class ModificationHubViewModel : ViewModelBase
                 return;
             }
 
-            var problem = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, folder);
-            Status = problem ?? $"Unity の「{projectName}」のプロジェクトタブで「{folder}」を開きました（入り先 {root}）。";
+            // 名前ではなくパスで渡す。同じ名前のフォルダが別の場所にあると、名前では取り違える（§13-7）
+            var outcome = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, root);
+            Status = outcome.Problem ?? $"Unity の「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。";
             return;
         }
 
