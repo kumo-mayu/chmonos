@@ -47,6 +47,47 @@
             </Setter>
         </Style>
 
+        <!--
+            見方の切り替え（ユーザ指示 2026-09-13：「繋がった一つの四角で3つに分かれていて、それぞれの領域を押すとそれが選択される」）。
+            選べるのは1つだけ、という意味は RadioButton のままで、見た目だけ区切りの付いた1つの枠にする。
+            WPF の ClipToBounds は角丸で切らないので、塗りの角丸は両端の区画にだけ Tag で渡す。
+            選んだ区画の字を太らせると幅が変わって隣が動くので、太字の幅を見えない字で先に取っておく
+        -->
+        <Style x:Key="HubSegment" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="HubLevel" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Root" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                           FontWeight="SemiBold" Visibility="Hidden" />
+                                <ContentPresenter HorizontalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                            </Trigger>
+                            <!-- 白字を色地に載せると細い字画が沈むので、PrimaryButton と同じく少し太らせる -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource Accent}" />
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="HubBadge" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
             <Setter Property="BorderBrush" Value="{StaticResource Border}" />
@@ -145,7 +186,8 @@
                                    Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </StackPanel>
                 </DockPanel>
-                <ItemsControl ItemsSource="{Binding Members}" Margin="28,4,0,4"
+                <!-- 畳んだ中身の字下げは、ユーザ指示（2026-09-13「少しだけ深く」）で見出しの下 14→22、改変の下 28→36 にした -->
+                <ItemsControl ItemsSource="{Binding Members}" Margin="36,4,0,4"
                               Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
         </DataTemplate>
@@ -183,7 +225,7 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ItemsControl ItemsSource="{Binding Modifications}" Margin="14,2,0,0"
+                <ItemsControl ItemsSource="{Binding Modifications}" Margin="22,2,0,0"
                               Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
         </DataTemplate>
@@ -234,7 +276,7 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ItemsControl ItemsSource="{Binding Modifications}" Margin="14,2,0,0"
+                <ItemsControl ItemsSource="{Binding Modifications}" Margin="22,2,0,0"
                               Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
         </DataTemplate>
@@ -426,25 +468,43 @@
                 BorderThickness="0,0,1,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="16,14,16,8">
-                    <!-- 編集画面の「ファイルごと／種類ごと」と同じ切り替え（ユーザ指定） -->
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton Content="Unityプロジェクト" GroupName="HubLevel" FontSize="12.5"
-                                     Foreground="{StaticResource Text}"
-                                     IsChecked="{Binding IsProjectLevel, Mode=TwoWay}" />
-                        <RadioButton Content="アバター" GroupName="HubLevel" FontSize="12.5" Margin="16,0,0,0"
-                                     Foreground="{StaticResource Text}"
-                                     IsChecked="{Binding IsAvatarLevel, Mode=TwoWay}" />
-                        <RadioButton Content="改変" GroupName="HubLevel" FontSize="12.5" Margin="16,0,0,0"
-                                     Foreground="{StaticResource Text}"
-                                     IsChecked="{Binding IsModificationLevel, Mode=TwoWay}" />
-                    </StackPanel>
-
-                    <DockPanel Margin="0,12,0,0">
-                        <!-- VCC は起動するだけ（中身の管理はしない・ユーザ仕様） -->
-                        <Button DockPanel.Dock="Left" Content="VCCを開く" Margin="0,0,8,0" Height="30"
+                    <DockPanel>
+                        <!--
+                            VCC は起動するだけ（中身の管理はしない・ユーザ仕様）。Unityプロジェクトの見方の時だけ、
+                            切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）
+                        -->
+                        <Button DockPanel.Dock="Right" Content="VCCを開く" Margin="8,0,0,0" VerticalAlignment="Center"
                                 Command="{Binding OpenVccCommand}"
                                 ToolTip="VRChat Creator Companion を起動します。開いていれば手前に出します。"
                                 Visibility="{Binding IsProjectLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <Border HorizontalAlignment="Left" VerticalAlignment="Center" Background="{StaticResource Surface}"
+                                BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Content="Unityプロジェクト" Style="{StaticResource HubSegment}"
+                                             IsChecked="{Binding IsProjectLevel, Mode=TwoWay}">
+                                    <RadioButton.Tag>
+                                        <CornerRadius>5,0,0,5</CornerRadius>
+                                    </RadioButton.Tag>
+                                </RadioButton>
+                                <Border Width="1" Background="{StaticResource BorderStrong}" />
+                                <RadioButton Content="アバター" Style="{StaticResource HubSegment}"
+                                             IsChecked="{Binding IsAvatarLevel, Mode=TwoWay}">
+                                    <RadioButton.Tag>
+                                        <CornerRadius>0</CornerRadius>
+                                    </RadioButton.Tag>
+                                </RadioButton>
+                                <Border Width="1" Background="{StaticResource BorderStrong}" />
+                                <RadioButton Content="改変" Style="{StaticResource HubSegment}"
+                                             IsChecked="{Binding IsModificationLevel, Mode=TwoWay}">
+                                    <RadioButton.Tag>
+                                        <CornerRadius>0,5,5,0</CornerRadius>
+                                    </RadioButton.Tag>
+                                </RadioButton>
+                            </StackPanel>
+                        </Border>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,12,0,0">
                         <Button DockPanel.Dock="Right" Content="読み直す" Style="{StaticResource SmallButton}"
                                 Margin="8,0,0,0" VerticalAlignment="Center"
                                 Command="{Binding RefreshCommand}"
