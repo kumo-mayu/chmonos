@@ -323,6 +323,9 @@ public sealed class FolderViewModel : ViewModelBase
     private string? _pendingSelect;
     private int _lastResolveCount = -1;
 
+    /// <summary>ドライブ文字が変わった外付けの読み替え（記録の文字 → 今の文字）。木は今の文字で出す。</summary>
+    private IReadOnlyDictionary<string, string> _remap = new Dictionary<string, string>();
+
     public FolderViewModel(AppServiceContainer services, MainViewModel main, ThumbnailLoader thumbnails, string? selectKey = null)
     {
         _services = services;
@@ -337,7 +340,8 @@ public sealed class FolderViewModel : ViewModelBase
         {
             if (parameter is FolderViewDetail detail)
             {
-                _main.ShowItemsInFolder(detail.Path);
+                // 検索は記録のパスで絞り込むので、今の文字から記録の文字へ戻して渡す
+                _main.ShowItemsInFolder(Recorded(detail.Path));
             }
         });
         RevealCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewDetail)?.Path));
@@ -508,9 +512,27 @@ public sealed class FolderViewModel : ViewModelBase
         }
 
         var unresolved = _services.Store.Unresolved.Load();
-        var built = await Task.Run(() => Build(items, unresolved));
+        var (built, remap) = await Task.Run(async () =>
+        {
+            // 開くたびにドライブ文字と通し番号の組を確かめ直す（ユーザ判断 2026-09-14：取り込みとフォルダビューを開いた時）。
+            // ファイルが在るかを見るので裏で
+            var recorded = RecordedPaths(items, unresolved);
+            IReadOnlyDictionary<string, string> found;
+            try
+            {
+                found = await _services.Volumes.ObserveAsync(recorded);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                                  or System.Text.Json.JsonException)
+            {
+                found = new Dictionary<string, string>();
+            }
+
+            return (Build(items, unresolved, found), found);
+        });
 
         _volumes = built;
+        _remap = remap;
         _isLoading = false;
 
         if (_pendingSelect is { } pending)
@@ -526,9 +548,31 @@ public sealed class FolderViewModel : ViewModelBase
         }
     }
 
-    /// <summary>記録から木を組む（裏のスレッドで）。在るかどうかと、zip の横の展開したフォルダもここで見る。</summary>
-    private static List<FolderViewVolume> Build(IReadOnlyList<ItemRecord> items, IReadOnlyList<UnresolvedFile> unresolved)
+    /// <summary>木に置く記録のパス全部（ドライブ文字の組を確かめる材料）。</summary>
+    private static List<string> RecordedPaths(IReadOnlyList<ItemRecord> items, IReadOnlyList<UnresolvedFile> unresolved)
+        => items.SelectMany(item => item.Local.OwnedFiles.SelectMany(file => file.Paths)
+                .Concat(item.Local.LocalFolders.Select(folder => folder.Path)))
+            .Concat(unresolved.SelectMany(file => file.Paths))
+            .ToList();
+
+    /// <summary>今の文字のパスを、記録の文字に戻す。同じボリュームを2つの文字で記録していれば、先に見つかった方。</summary>
+    private string Recorded(string path)
+        => VolumeTable.LetterOf(path) is { } letter
+           && _remap.FirstOrDefault(pair => string.Equals(pair.Value, letter, StringComparison.OrdinalIgnoreCase)) is { Key: { } from }
+            ? from + path[2..]
+            : path;
+
+    /// <summary>
+    /// 記録から木を組む（裏のスレッドで）。在るかどうかと、zip の横の展開したフォルダもここで見る。
+    /// ドライブ文字が変わった外付けの物は、今の文字の下に置く（<paramref name="remap"/>・記録は書き換えない）。
+    /// </summary>
+    private static List<FolderViewVolume> Build(
+        IReadOnlyList<ItemRecord> items,
+        IReadOnlyList<UnresolvedFile> unresolved,
+        IReadOnlyDictionary<string, string> remap)
     {
+        string Current(string path) => VolumeTable.Apply(path, remap);
+
         var entries = new List<FolderViewEntry>();
         foreach (var item in items)
         {
@@ -538,17 +582,17 @@ public sealed class FolderViewModel : ViewModelBase
                 {
                     entries.Add(new FolderViewEntry
                     {
-                        Path = path,
+                        Path = Current(path),
                         Kind = FolderViewRowKind.File,
                         Item = item,
-                        Others = file.Paths.Where(other => !Same(other, path)).ToList(),
+                        Others = file.Paths.Where(other => !Same(other, path)).Select(Current).ToList(),
                     });
                 }
             }
 
             foreach (var folder in item.Local.LocalFolders)
             {
-                entries.Add(new FolderViewEntry { Path = folder.Path, Kind = FolderViewRowKind.ItemFolder, Item = item });
+                entries.Add(new FolderViewEntry { Path = Current(folder.Path), Kind = FolderViewRowKind.ItemFolder, Item = item });
             }
         }
 
@@ -558,10 +602,10 @@ public sealed class FolderViewModel : ViewModelBase
             {
                 entries.Add(new FolderViewEntry
                 {
-                    Path = path,
+                    Path = Current(path),
                     Kind = FolderViewRowKind.Unresolved,
                     Unresolved = file,
-                    Others = file.Paths.Where(other => !Same(other, path)).ToList(),
+                    Others = file.Paths.Where(other => !Same(other, path)).Select(Current).ToList(),
                 });
             }
         }

@@ -148,6 +148,9 @@ public sealed class ImportPipeline : IImportPipeline
     /// <summary>unitypackage の中身を裏で読む。渡されなければ読まない（使うときに zip を解く）。</summary>
     private readonly Services.UnityPackageCatalog? _unityPackages;
 
+    /// <summary>ドライブ文字と通し番号の組を控える。渡されなければ控えない。</summary>
+    private readonly Services.VolumeTable? _volumes;
+
     public ImportPipeline(
         DataStore store,
         IBoothClient client,
@@ -166,7 +169,8 @@ public sealed class ImportPipeline : IImportPipeline
         ImagePipeline images,
         Func<AppSettings> currentSettings,
         Services.IAvatarService? avatars = null,
-        Services.UnityPackageCatalog? unityPackages = null)
+        Services.UnityPackageCatalog? unityPackages = null,
+        Services.VolumeTable? volumes = null)
     {
         _store = store;
         _client = client;
@@ -174,6 +178,7 @@ public sealed class ImportPipeline : IImportPipeline
         _currentSettings = currentSettings;
         _avatars = avatars;
         _unityPackages = unityPackages;
+        _volumes = volumes;
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
@@ -238,6 +243,9 @@ public sealed class ImportPipeline : IImportPipeline
             // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
             var (registered, owned, detached) = await LoadOwnedAsync(cancellationToken);
 
+            // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
+            await RecordVolumesAsync(folders, cancellationToken);
+
             var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
             var resolution = await ResolveAsync(
                 scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
@@ -297,6 +305,24 @@ public sealed class ImportPipeline : IImportPipeline
         await _store.ImportState.SaveAsync(new ImportState(), cancellationToken);
 
         return totals.ToSummary();
+    }
+
+    /// <summary>控えられなくても取り込みは止めない（次に開いたフォルダビューで控え直す）。</summary>
+    private async Task RecordVolumesAsync(IReadOnlyList<string> folders, CancellationToken cancellationToken)
+    {
+        if (_volumes is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _volumes.RecordAsync(folders, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or System.Text.Json.JsonException)
+        {
+        }
     }
 
     /// <summary>読み終わるのを待って、入り先を item に写す。読めなくても取り込みは止めない（次の取り込みで読み直す）。</summary>

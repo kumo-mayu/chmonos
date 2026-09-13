@@ -59,6 +59,7 @@ powershell -Command "$env:BOOTH_ASSET_MANAGER_HOME='$env:LOCALAPPDATA\BoothAsset
 | `BoothAssetManager-d1check` | 本番の写し＋試験用の改変「試験用（unity-import-test）」 | 改変の画面・Unityへ送る確認（送り先は捨ててよい試験用プロジェクト） |
 | `BoothAssetManager-heavycheck` | 本番の写し＋未確定に 1GB 級の作り物の zip 2件 | 重い unitypackage の確認・フォルダビューの未確定 |
 | `BoothAssetManager-unitypkg` | 本番の写し（取り込み元を空のフォルダにしてある） | 取り込みの裏で unitypackage を読む確認（BOOTHへは問い合わせない） |
+| `BoothAssetManager-volcheck` | `-ui` の写しで、記録のパスを D: から X:（無いドライブ）に書き換え、`volumes.json` に「X: は D: の通し番号」 | ドライブ文字が変わった外付けの読み替え（フォルダビューで D: の下に出れば正しい） |
 
 ### 5. 友人のデータは第三者のもの
 

@@ -58,7 +58,10 @@ public sealed class AppServiceContainer : IDisposable
         var unityPackagePaths = new UnityPackagePathStore(Paths);
         UnityHandoff.UsePathStore(unityPackagePaths);
         UnityPackages = new UnityPackageCatalog(Store, unityPackagePaths);
-        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages);
+
+        // 外付けはドライブ文字が変わる。取り込みとフォルダビューを開いた時に文字と通し番号の組を控える（2026-09-14 ユーザ判断）
+        Volumes = new VolumeTable(Store, new Services.VolumeReader());
+        Import = new ImportPipeline(Store, Client, Images, () => Settings, Avatars, UnityPackages, Volumes);
         Items = new ItemService(Store, Client, Images, () => Settings);
         Backlog = new ImageBacklog(Store, Images);
         AvatarImages = new AvatarImageSync(Store, Client, Images);
@@ -90,6 +93,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>unitypackage の中身を1度だけ読んで残す（取り込みの裏・手でファイルを付けた後）。</summary>
     public UnityPackageCatalog UnityPackages { get; }
+
+    /// <summary>ドライブ文字と通し番号の組。フォルダビューが、文字の変わった外付けを今の文字で出すのに使う。</summary>
+    public VolumeTable Volumes { get; }
 
     /// <summary>
     /// フォルダをごみ箱へ送る。完全削除にしないのは、判定を誤ったときに取り返しがつくようにするため。

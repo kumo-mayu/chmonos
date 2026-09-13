@@ -70,6 +70,7 @@ public sealed class DataStore
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
+        Volumes = new JsonFileStore<List<VolumeRecord>>(paths.VolumesFile);
     }
 
     public AppPaths Paths { get; }
@@ -109,4 +110,7 @@ public sealed class DataStore
 
     /// <summary>編集キューの位置。中断して次回続きから再開するために持つ。</summary>
     public JsonFileStore<EditSession> EditSession { get; }
+
+    /// <summary>ドライブ文字と通し番号の組（<see cref="Services.VolumeTable"/>）。</summary>
+    public JsonFileStore<List<VolumeRecord>> Volumes { get; }
 }
