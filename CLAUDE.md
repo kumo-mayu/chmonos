@@ -208,6 +208,9 @@ UIAで届かない所（カードのクリックなど）だけ実入力（`mous
   保持は画素で持ち、WPFの絵は画面に出す分だけ作る（`ThumbnailLoader`）
 - `ContentControl` に見た目（`ContentTemplate`）を当てる前に中身を渡すと、型の名前を出す文字の部品が作られて見える
 - `@($null).Count` はPowerShellでは **1**。JSONの件数を数えるのに使うと嘘をつく
+- PowerShellの自作の関数に `Where`・`Measure`・`Clear` のような名前を付けると、既にある別名（`Where-Object`・`Measure-Object`・`Clear-Host`）と
+  ぶつかり、**黙って別の物が動く**（3回踏んだ）。`Loc`・`ClearBox` のように被らない名前にする。
+  配列の中の `$x - 6, 1` は `$x - (6, 1)` と読まれるので、計算は括弧で囲む
 - PowerShellで `$env:X = ''` としても、変数が空文字のまま子のプロセスに渡ることがある。
   消したい変数は、起動する側の環境（`ProcessStartInfo.Environment`）から取り除く
 - JMdictは実体参照を大量に使う。`XmlReaderSettings.MaxCharactersFromEntities` を
