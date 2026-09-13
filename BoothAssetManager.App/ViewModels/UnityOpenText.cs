@@ -3,7 +3,7 @@ using BoothAssetManager.App.Services;
 namespace BoothAssetManager.App.ViewModels;
 
 /// <summary>
-/// プロジェクトを開いた結果の文。改変の画面と改変の右側の「Unityで開く」で同じことを言う。
+/// プロジェクトを開いた結果の文。改変の画面と改変の右側の「Unityを開く」で同じことを言う。
 /// **結果を必ず言う**（開いていたら手前に出るだけで、何も起きなかったように見える）。
 /// </summary>
 internal static class UnityOpenText

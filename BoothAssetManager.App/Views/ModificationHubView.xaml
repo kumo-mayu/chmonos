@@ -39,7 +39,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Border Background="Transparent">
-                            <TextBlock Text="{Binding ExpandGlyph}" FontSize="11" Foreground="{StaticResource TextMuted}"
+                            <!-- 11 では小さかった（ユーザ指摘 2026-09-13）。幅は18のまま（縦線を三角の真下に置いているので） -->
+                            <TextBlock Text="{Binding ExpandGlyph}" FontSize="14" Foreground="{StaticResource TextMuted}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </ControlTemplate>
@@ -234,7 +235,8 @@
                     <DockPanel>
                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                        <Button DockPanel.Dock="Right" Content="Unityで開く" Style="{StaticResource SmallButton}"
+                        <!-- 文言はユーザ指摘（2026-09-13「「Unityで開く」は「Unityを開く」ですね」） -->
+                        <Button DockPanel.Dock="Right" Content="Unityを開く" Style="{StaticResource SmallButton}"
                                 VerticalAlignment="Center" Margin="6,0,0,0"
                                 IsEnabled="{Binding CanOpen}"
                                 Visibility="{Binding IsProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
@@ -369,7 +371,7 @@
                     </WrapPanel>
                     <TextBlock Text="{Binding LastWriteText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
                     <WrapPanel Margin="0,14,0,0">
-                        <Button Content="Unityで開く" Style="{StaticResource PrimaryButton}" IsEnabled="{Binding Exists}"
+                        <Button Content="Unityを開く" Style="{StaticResource PrimaryButton}" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}"
                                 ToolTip="既に開いていれば、そのUnityを手前に出します。" />

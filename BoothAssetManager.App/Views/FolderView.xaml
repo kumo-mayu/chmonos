@@ -21,7 +21,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="Transparent">
-                            <TextBlock Text="{TemplateBinding Content}" FontSize="11" Foreground="{StaticResource TextMuted}"
+                            <TextBlock Text="{TemplateBinding Content}" FontSize="14" Foreground="{StaticResource TextMuted}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </ControlTemplate>

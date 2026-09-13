@@ -77,6 +77,25 @@ internal sealed class FolderViewNode
         return child;
     }
 
+    /// <summary>名前の順（数字は数として比べる）に並べた子。木を組むとき（裏のスレッド）に1度だけ並べる。</summary>
+    public List<FolderViewNode> OrderedChildren { get; private set; } = [];
+
+    public List<FolderViewEntry> OrderedEntries { get; private set; } = [];
+
+    /// <summary>
+    /// 並べておく。**開け閉めのたびに並べない**——数字を数として比べる並べ方は1文字ずつ比べるので重く、
+    /// 1つのフォルダに1000本あると、開くたびに1万回ほど比べることになる
+    /// </summary>
+    public void Order()
+    {
+        OrderedChildren = Children.Values.OrderBy(child => child.Name, NaturalComparer.Instance).ToList();
+        OrderedEntries = Entries.OrderBy(entry => entry.Name, NaturalComparer.Instance).ToList();
+        foreach (var child in OrderedChildren)
+        {
+            child.Order();
+        }
+    }
+
     public void Aggregate()
     {
         foreach (var child in Children.Values)
@@ -187,7 +206,28 @@ public sealed class FolderViewRow : ViewModelBase
 
     public bool HasExtracted => Entry?.ExtractedFolder is not null;
 
-    public string? ThumbnailPath { get; init; }
+    /// <summary>
+    /// 絵の場所を探す手順。**行が画面に出たときに初めて探す**（行を作るたびに探すと、画像のフォルダの一覧と並べ替えが
+    /// 行の数だけ走る。一覧は見えている行しか作らないので、画面に出た分だけで済む）。
+    /// </summary>
+    internal Func<string?>? ThumbnailPathFactory { get; init; }
+
+    private string? _thumbnailPath;
+    private bool _thumbnailResolved;
+
+    private string? ThumbnailPath
+    {
+        get
+        {
+            if (!_thumbnailResolved)
+            {
+                _thumbnailPath = ThumbnailPathFactory?.Invoke();
+                _thumbnailResolved = true;
+            }
+
+            return _thumbnailPath;
+        }
+    }
 
     public ThumbnailLoader? Thumbnails { get; init; }
 
@@ -323,7 +363,11 @@ public sealed class FolderViewModel : ViewModelBase
         _ = LoadAsync();
     }
 
-    public ObservableCollection<FolderViewRow> Rows { get; } = [];
+    /// <summary>見えている行。組み直すときはまとめて差し替える（知らせを1回にする）。</summary>
+    public RangeObservableCollection<FolderViewRow> Rows { get; } = [];
+
+    /// <summary>絞り込みの語。組み直しの最初に1度だけ整える（行ごとに Trim しない）。</summary>
+    private string _needle = string.Empty;
 
     public FolderViewRow? Selected
     {
@@ -589,6 +633,7 @@ public sealed class FolderViewModel : ViewModelBase
             foreach (var root in volume.Roots)
             {
                 root.Node.Aggregate();
+                root.Node.Order();
                 foreach (var (id, item) in root.Node.Items)
                 {
                     volume.Summary.Items[id] = item;
@@ -672,24 +717,30 @@ public sealed class FolderViewModel : ViewModelBase
     private void Rebuild()
     {
         var keep = _selected?.Key;
-        Rows.Clear();
+        _needle = Filter.Trim();
+        var rows = new List<FolderViewRow>();
 
         foreach (var volume in _volumes)
         {
-            var children = new List<FolderViewRow>();
-            foreach (var root in volume.Roots)
-            {
-                AddFolder(root.Node, root.Label, FolderViewRowKind.Root, 1, !volume.IsOnline, children, textHit: false);
-            }
-
-            if (IsFiltering && children.Count == 0)
-            {
-                continue;
-            }
-
             var key = $"Volume:{volume.Volume}";
             var expanded = IsExpanded(key, byDefault: true);
-            Rows.Add(new FolderViewRow
+
+            // 畳んだボリュームの中は作らない。絞り込み中は、当てはまる物があるかを見るために作る
+            var children = new List<FolderViewRow>();
+            if (expanded || IsFiltering)
+            {
+                foreach (var root in volume.Roots)
+                {
+                    AddFolder(root.Node, root.Label, FolderViewRowKind.Root, 1, !volume.IsOnline, children, textHit: false);
+                }
+
+                if (IsFiltering && children.Count == 0)
+                {
+                    continue;
+                }
+            }
+
+            rows.Add(new FolderViewRow
             {
                 Key = key,
                 Kind = FolderViewRowKind.Volume,
@@ -706,17 +757,17 @@ public sealed class FolderViewModel : ViewModelBase
 
             if (expanded)
             {
-                foreach (var row in children)
-                {
-                    Rows.Add(row);
-                }
+                rows.AddRange(children);
             }
         }
+
+        // まとめて差し替える（1行ずつ足すと、1000行で1000回の知らせになる）
+        Rows.ReplaceAll(rows);
 
         // 選んでいた行を選び直す。**右は作り直さない**（開き直すたびに商品ページの読み込みが走り、見ていた所が戻る）
         if (keep is not null)
         {
-            _selected = Rows.FirstOrDefault(row => row.Key == keep);
+            _selected = rows.FirstOrDefault(row => row.Key == keep);
             OnPropertyChanged(nameof(Selected));
         }
 
@@ -738,34 +789,14 @@ public sealed class FolderViewModel : ViewModelBase
         var name = label;
         while (node.Entries.Count == 0 && node.Children.Count == 1)
         {
-            var only = node.Children.Values.First();
+            var only = node.OrderedChildren[0];
             name = $"{name} › {only.Name}";
             node = only;
         }
 
-        var hit = textHit || TextHits(name);
-        var children = new List<FolderViewRow>();
-        foreach (var child in node.Children.Values.OrderBy(child => child.Name, NaturalComparer.Instance))
-        {
-            AddFolder(child, child.Name, FolderViewRowKind.Folder, depth + 1, offline, children, hit);
-        }
-
-        foreach (var entry in node.Entries.OrderBy(entry => entry.Name, NaturalComparer.Instance))
-        {
-            if (ModeHits(entry) && (hit || TextHits(entry.Name) || TextHits(entry.Item?.DisplayName)))
-            {
-                children.Add(EntryRow(entry, depth + 1, offline));
-            }
-        }
-
-        if (IsFiltering && children.Count == 0)
-        {
-            return false;
-        }
-
         var key = $"{kind}:{node.Path}";
         var expanded = IsExpanded(key, byDefault: kind == FolderViewRowKind.Root);
-        output.Add(new FolderViewRow
+        var row = new FolderViewRow
         {
             Key = key,
             Kind = kind,
@@ -778,14 +809,47 @@ public sealed class FolderViewModel : ViewModelBase
             CountText = $"商品 {node.Items.Count}",
             UnresolvedCount = node.Unresolved.Count,
             Node = node,
-        });
+        };
 
-        if (expanded)
+        // 絞っていないときは、**畳んだフォルダの中の行を作らない**（前は毎回、木の全部の行を作ってから捨てていた）
+        if (!IsFiltering)
         {
-            output.AddRange(children);
+            output.Add(row);
+            if (expanded)
+            {
+                AddChildren(node, depth, offline, output, hit: false);
+            }
+
+            return true;
         }
 
+        // 絞り込み中は、中に当てはまる物があるかを先に見る。無ければこのフォルダも出さない
+        var children = new List<FolderViewRow>();
+        AddChildren(node, depth, offline, children, textHit || TextHits(name));
+        if (children.Count == 0)
+        {
+            return false;
+        }
+
+        output.Add(row);
+        output.AddRange(children);
         return true;
+    }
+
+    private void AddChildren(FolderViewNode node, int depth, bool offline, List<FolderViewRow> output, bool hit)
+    {
+        foreach (var child in node.OrderedChildren)
+        {
+            AddFolder(child, child.Name, FolderViewRowKind.Folder, depth + 1, offline, output, hit);
+        }
+
+        foreach (var entry in node.OrderedEntries)
+        {
+            if (ModeHits(entry) && (hit || TextHits(entry.Name) || TextHits(entry.Item?.DisplayName)))
+            {
+                output.Add(EntryRow(entry, depth + 1, offline));
+            }
+        }
     }
 
     private FolderViewRow EntryRow(FolderViewEntry entry, int depth, bool offline) => new()
@@ -804,7 +868,7 @@ public sealed class FolderViewModel : ViewModelBase
         IsDim = offline || entry.IsMissing,
         MissingText = !entry.IsMissing ? null : offline ? "取り外しているドライブ" : "見つかりません",
         Entry = entry,
-        ThumbnailPath = entry.Item is { } item ? ItemThumbnailPath(item) : null,
+        ThumbnailPathFactory = entry.Item is { } item ? () => ItemThumbnailPath(item) : null,
         Thumbnails = _thumbnails,
     };
 
@@ -816,7 +880,7 @@ public sealed class FolderViewModel : ViewModelBase
     };
 
     private bool TextHits(string? text)
-        => Filter.Trim().Length == 0 || (text is not null && text.Contains(Filter.Trim(), StringComparison.CurrentCultureIgnoreCase));
+        => _needle.Length == 0 || (text is not null && text.Contains(_needle, StringComparison.CurrentCultureIgnoreCase));
 
     private bool IsExpanded(string key, bool byDefault)
         => IsFiltering || s_expanded.Contains(key) || (byDefault && !s_collapsed.Contains(key));

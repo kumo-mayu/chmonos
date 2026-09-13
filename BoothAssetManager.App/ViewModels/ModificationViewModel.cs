@@ -1019,7 +1019,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     {
         var name = ProjectName;
 
-        // 文は改変の画面の「Unityで開く」と同じ。フォルダが無いときだけ、ここでは指し直せることを言う
+        // 文は改変の画面の「Unityを開く」と同じ。フォルダが無いときだけ、ここでは指し直せることを言う
         var result = UnityLaunch.OpenProject(Record.UnityProject);
         Status = result == UnityOpenResult.Missing
             ? $"「{name}」が見つかりません。移したのなら、下の一覧から指し直せます。"

@@ -1296,7 +1296,7 @@ public sealed class ModificationHubViewModel : ViewModelBase
             if (editor is null)
             {
                 Status = $"「{projectName}」の {root} に入っています。プロジェクトが開いていないので、"
-                    + "「Unityで開く」で開いてからもう一度押すと、Unity のプロジェクトタブで示します。";
+                    + "「Unityを開く」で開いてからもう一度押すと、Unity のプロジェクトタブで示します。";
                 return;
             }
 
@@ -1321,7 +1321,7 @@ public sealed class ModificationHubViewModel : ViewModelBase
 
         if (editor is null)
         {
-            Status = $"「{row.Name}」は「{projectName}」にまだ入っていません。取り込むには、先に「Unityで開く」でプロジェクトを開いてください。";
+            Status = $"「{row.Name}」は「{projectName}」にまだ入っていません。取り込むには、先に「Unityを開く」でプロジェクトを開いてください。";
             return;
         }
 
