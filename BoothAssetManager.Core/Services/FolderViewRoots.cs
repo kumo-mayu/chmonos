@@ -15,7 +15,7 @@ namespace BoothAssetManager.Core.Services;
 public sealed record FolderViewRoot(string Volume, string Path, bool IsLooseBucket, IReadOnlyList<string> LooseFolders);
 
 /// <summary>
-/// フォルダビューの根を決める（<c>設計詳細_フォルダビュー.md</c> §2・ユーザ判断 2026-09-13）。
+/// フォルダビューの根を決める（<c>docs/history/folder-view.md</c> §2・ユーザ判断 2026-09-13）。
 ///
 /// **同じボリュームにあり、共通の祖先が「境目のフォルダ」より下にあれば1つの根。**
 /// 祖先が境目になるときだけ1段下で分け、分けた先で繰り返す。見出しの数に上限は持たない——

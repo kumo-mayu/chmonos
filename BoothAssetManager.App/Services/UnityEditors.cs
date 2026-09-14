@@ -15,7 +15,7 @@ public sealed record OpenUnityEditor(int ProcessId, string? ProjectName);
 /// 開いていなければ何も起きず、Unity Hubの窓だけが出る。
 /// 押してから「何も起きなかった」と気付くのは最悪なので、先に見て言い分ける。
 ///
-/// 裏付けは <c>設計詳細_Unityへの受け渡し.md</c>。
+/// 裏付けは <c>docs/history/unity-handoff.md</c>。
 /// </summary>
 public static class UnityEditors
 {

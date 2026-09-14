@@ -22,7 +22,7 @@ C#の `AppTag*` → `UserTag*`（541箇所）。
 これは「既存のデータが無い状態から作り直す」と決めた上での判断。
 作業前の実データは `%LOCALAPPDATA%\BoothAssetManager-backup-20260909-181217` に控えてある。
 
-これより前の設計文書（`設計詳細_grill結果*.md`）は書かれた時点の記録なので `appTag` のまま。
+これより前の設計文書（`docs/history/` の grill の文書）は書かれた時点の記録なので `appTag` のまま。
 
 ---
 

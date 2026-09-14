@@ -9,7 +9,7 @@ namespace BoothAssetManager.App.Services;
 ///
 /// 改変の画面の「Unityで選択」は、**最後に選んでいたプロジェクトタブで開く**（ユーザ判断 2026-09-13）。
 /// Unity 自身もこれを覚えているが（<c>s_LastInteractedProjectBrowser</c>）、外からは読めず、メニューで開くときにも使われない
-/// （<c>設計詳細_Unityへの受け渡し.md</c> §13-5）。そこで OS の知らせ（アクセシビリティ用の WinEvent）を見張って、こちらで覚える。
+/// （<c>docs/history/unity-handoff.md</c> §13-5）。そこで OS の知らせ（アクセシビリティ用の WinEvent）を見張って、こちらで覚える。
 ///
 /// **何を「選んだ」と数えるか**（2026-09-13 実機で確かめた・§13-7）：
 /// - **マウスをつかんだ知らせ**（<c>EVENT_SYSTEM_CAPTURESTART</c>）がプロジェクトタブで出たら覚える。Unity の画面の部品は

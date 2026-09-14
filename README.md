@@ -140,8 +140,8 @@ dotnet publish experiments/BoothIdResolverCli/BoothIdResolverCli.csproj -c Relea
 
 ## 紐付け方式の調査資料
 
-- [設計書: ZIP→BOOTH商品ID 特定](docs/id-resolution-design.md): 実ZIP 18本で検証した手法・パイプライン v2・Zone.Identifier と `items/{id}.json` の仕様
+- [設計書: ZIP→BOOTH商品ID 特定](docs/research/id-resolution.md): 実ZIP 18本で検証した手法・パイプライン v2・Zone.Identifier と `items/{id}.json` の仕様
 - [experiments/](experiments/README.md): `.unitypackage` 名前空間抽出、サムネイル dHash 照合、ローマ字→日本語ブリッジの検証ツール（本体とは別プロジェクト）
-- [初回調査](research/BOOTH_ZIP_LINKING_RESEARCH.md): 18 ZIPの候補一覧とローカル証拠の分析
-- [追補調査](research/BOOTH_ZIP_LINKING_FOLLOWUP.md): 公開商品JSON、PDF、BOOTH Library Manager、AssetConnectを含む実装案
+- [初回調査](docs/research/zip-linking.md): 18 ZIPの候補一覧とローカル証拠の分析
+- [追補調査](docs/research/zip-linking-followup.md): 公開商品JSON、PDF、BOOTH Library Manager、AssetConnectを含む実装案
 - `research/Compare-CatalogEvidence.ps1`: 公開配布名、任意のAssetConnect CSV、SHA-256を証拠として結合する読み取り専用プローブ

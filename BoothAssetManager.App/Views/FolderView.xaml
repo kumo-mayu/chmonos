@@ -9,7 +9,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:FolderViewModel}">
     <!--
-        フォルダビュー（ユーザ仕様 2026-09-13・設計詳細_フォルダビュー.md）。左はフォルダの木（ファイルまで・未確定も印付きで）、
+        フォルダビュー（ユーザ仕様 2026-09-13・docs/history/folder-view.md）。左はフォルダの木（ファイルまで・未確定も印付きで）、
         右は選んだ物の詳細（管理しているファイルは商品ページ、未確定は未確定の画面の右側、フォルダは場所と操作）。
     -->
     <UserControl.Resources>

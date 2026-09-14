@@ -27,7 +27,7 @@ public enum VccOpenResult
 /// <summary>
 /// VRChat Creator Companion を開く。**起動するだけで、中身（設定・プロジェクト・VPM）には触らない。**
 ///
-/// 裏付けは <c>設計詳細_Unityへの受け渡し.md</c> §12（2026-09-13 実機で確かめた）。
+/// 裏付けは <c>docs/history/unity-handoff.md</c> §12（2026-09-13 実機で確かめた）。
 /// </summary>
 public static class VccLaunch
 {

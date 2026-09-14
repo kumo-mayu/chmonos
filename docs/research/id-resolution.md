@@ -2,7 +2,7 @@
 
 調査日: 2026-09-06 ／ 対象: `D:\storage\VRChat_*` 配下の実ZIP 18本（1.77 GiB）＋ 購入ライブラリの正解データ
 共有ページ版: https://claude.ai/code/artifact/0c2fe20f-2df8-44f8-8fda-7f8bdecf153d
-関連: `research/BOOTH_ZIP_LINKING_RESEARCH.md` / `research/BOOTH_ZIP_LINKING_FOLLOWUP.md`（Codex による並行調査。18本の商品IDは本書の結果と全件一致。PDF本文解析・AssetConnect CSV・BOOTH Library Manager の経路はそちらが詳しい）
+関連: `docs/research/zip-linking.md` / `docs/research/zip-linking-followup.md`（Codex による並行調査。18本の商品IDは本書の結果と全件一致。PDF本文解析・AssetConnect CSV・BOOTH Library Manager の経路はそちらが詳しい）
 
 ## 0. 結論（先に読む）
 

@@ -51,7 +51,7 @@ public sealed record UnityProjectCandidate
 /// Unityプロジェクトを探す。
 ///
 /// **依存を増やさない。**必要な材料は全部、素のJSONとファイルで手に入る
-/// （調べた結果は <c>設計詳細_改変の記録.md</c> の5章）。
+/// （調べた結果は <c>docs/history/modifications.md</c> の5章）。
 /// </summary>
 public static class UnityProjects
 {

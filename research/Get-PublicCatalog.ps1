@@ -1,7 +1,7 @@
 # Fetch only the finite set of public candidates already identified in the report.
 # No login, browser profile, cookies, or asset downloads.
 $ErrorActionPreference = 'Stop'
-$report = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'BOOTH_ZIP_LINKING_RESEARCH.md') -Raw
+$report = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\docs\research\zip-linking.md') -Raw
 $ids = @([regex]::Matches($report, '(?m)^\| VRChat_[^\r\n]+\| \[(\d+)\]') |
     ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 # Include known dependency/related products to expose possible false matches.

@@ -47,7 +47,7 @@ public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long Si
 ///
 /// **実際に渡すのはWindowsの仕事。**こちらは「何を渡せるか」を数え、
 /// 渡すためのパスを組み、Unityが開いているかを読むだけ。
-/// 経路の裏付けは <c>設計詳細_Unityへの受け渡し.md</c> にある。
+/// 経路の裏付けは <c>docs/history/unity-handoff.md</c> にある。
 /// </summary>
 public static class UnityHandoff
 {

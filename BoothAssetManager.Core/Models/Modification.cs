@@ -59,7 +59,7 @@ public sealed record ModificationImage
 /// 「Wendyの普段着」「Wendyの制服」が別の改変になる。
 /// 1体に1つだと着替えるたびに上書きになり、記録の意味が薄れる。
 ///
-/// 決めた理由は <c>設計詳細_改変の記録.md</c> にある。
+/// 決めた理由は <c>docs/history/modifications.md</c> にある。
 /// </summary>
 public sealed record ModificationRecord
 {

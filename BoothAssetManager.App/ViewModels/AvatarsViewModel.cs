@@ -8,7 +8,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// <summary>
 /// 改変の一覧の1行。
 ///
-/// **同じ名前を許してあるので、日付が見分けの手掛かり**（`設計詳細_改変の記録.md` Q27）。
+/// **同じ名前を許してあるので、日付が見分けの手掛かり**（`docs/history/modifications.md` Q27）。
 /// </summary>
 public sealed class ModificationRowViewModel(ModificationRecord record)
 {

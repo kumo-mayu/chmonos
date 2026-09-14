@@ -36,7 +36,7 @@ public sealed record UnityTabOutcome(string? Problem, string Where, string? Stop
 ///    「a:assets glob:"入り先のパス" t:Folder」を文字で送る → 1件と言い切れるときだけ ↓ で先頭を選び Enter で開く
 /// 4. Unity を手前に出す
 ///
-/// 裏付けは <c>設計詳細_Unityへの受け渡し.md</c> §13。
+/// 裏付けは <c>docs/history/unity-handoff.md</c> §13。
 /// </summary>
 public static class UnityProjectTab
 {

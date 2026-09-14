@@ -7,8 +7,7 @@ https://creativecommons.org/licenses/by/4.0/
 
 対象：
 
-- `設計詳細_*.md`
-- `docs/` 配下の `.md`
+- `docs/` 配下の `.md`（`spec/`・`history/`・`research/`・`feedback/`・`features.md`）
 - `research/` 配下の `.md`
 - `モック用画面メモ.md`
 

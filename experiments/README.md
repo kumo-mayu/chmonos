@@ -3,7 +3,7 @@
 `BoothZipInspector` 本体の方針（外部NuGet原則不使用・BOOTHへ通信しない）とは切り離した、
 「ZIPファイルからBOOTH商品IDを特定する」ための検証用ツール群です。
 本体には含めず、手法の有効性を実測するために使います。詳細な調査結果は
-[docs/id-resolution-design.md](../docs/id-resolution-design.md) を参照してください。
+[docs/research/id-resolution.md](../docs/research/id-resolution.md) を参照してください。
 
 いずれも **ZIPをディスクへ展開しません**（メモリ上で読み取り）。
 

@@ -98,7 +98,7 @@ public interface IModificationService
 /// <summary>
 /// 改変の記録を作る・消す・読む。
 ///
-/// 決めた理由は <c>設計詳細_改変の記録.md</c>。要点だけ：
+/// 決めた理由は <c>docs/history/modifications.md</c>。要点だけ：
 /// **アバター1体＋名前で1つ**（1体に複数持てる）、**同じ名前も許す**
 /// （「普段着」を作り直したいとき、古い方を消す前に新しい方を作れないと困る）。
 /// </summary>

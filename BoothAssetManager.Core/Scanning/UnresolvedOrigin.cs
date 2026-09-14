@@ -13,7 +13,7 @@ public sealed record ArchiveOrigin(string ArchiveName, string ArchivePath);
 ///
 /// エクスプローラーの「すべて展開」は、中のファイル1つずつの Zone.Identifier に
 /// **元のzipの絶対パス**を ReferrerUrl として書く。zipを消した後も、展開先を別のドライブへ
-/// 移した後も残る（id-resolution-design.md、2026-09-11 に実物のバイト列で確認）。
+/// 移した後も残る（docs/research/id-resolution.md、2026-09-11 に実物のバイト列で確認）。
 /// フォルダで束ねると、展開の仕方次第で1つのzipが何か所にも割れる——友人のデータでは
 /// 元zip 12 本のうち 6 本が複数のフォルダに割れていた。zipは配布された単位そのものなので、
 /// こちらで束ねる。

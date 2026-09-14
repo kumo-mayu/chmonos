@@ -19,7 +19,7 @@ public sealed record UnityQueueOutcome(UnityPackageEntry Package, bool Opened, s
 /// <summary>
 /// 開いている Unity へ、unitypackage を1件ずつ積んで取り込ませる（#69）。
 ///
-/// やり方は <c>設計詳細_Unityへの受け渡し.md</c> §9-4b（実機で3件を約10秒）：
+/// やり方は <c>docs/history/unity-handoff.md</c> §9-4b（実機で3件を約10秒）：
 /// **エディタの窓を名指しして**メニュー「Assets &gt; Import Package &gt; Custom Package...」を送り、
 /// 出てきたファイル選択にパスを入れて「開く」を送る。取り込み画面は利用者に見せ、
 /// 閉じられて（Import でも Cancel でも）後処理まで終わったら次の1件を出す。

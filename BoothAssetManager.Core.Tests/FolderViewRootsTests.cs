@@ -2,7 +2,7 @@ using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.Core.Tests;
 
-/// <summary>フォルダビューの根の決め方（設計詳細_フォルダビュー.md §2）。置き方は作り物。</summary>
+/// <summary>フォルダビューの根の決め方（docs/history/folder-view.md §2）。置き方は作り物。</summary>
 public sealed class FolderViewRootsTests
 {
     /// <summary>根の場所を文字コードの順に並べて返す（並べ方を文化圏の順に左右させない）。</summary>

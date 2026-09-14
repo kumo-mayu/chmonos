@@ -128,7 +128,7 @@ public sealed class ProjectCandidateRowViewModel
 ///
 /// 構成物・写真・Unityプロジェクト・メモが入るので、商品ページと同じ格の画面にした
 /// （アバター詳細の中で展開すると縦に伸び続ける）。決めた理由は
-/// <c>設計詳細_改変の記録.md</c>。
+/// <c>docs/history/modifications.md</c>。
 /// </summary>
 public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
 {

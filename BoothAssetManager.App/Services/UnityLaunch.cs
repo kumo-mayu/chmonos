@@ -45,7 +45,7 @@ public enum UnityOpenResult
 /// <summary>
 /// Unityプロジェクトを開く。
 ///
-/// **3通りに言い分ける**（<c>設計詳細_改変の記録.md</c> の4-5）。
+/// **3通りに言い分ける**（<c>docs/history/modifications.md</c> の4-5）。
 /// 既に開いているものに <c>-projectPath</c> を投げると弾かれる（exit 21）ので、
 /// そのときは窓を手前に出すのが正しい応答になる。
 /// 入っていないバージョンをこちらで入れにはいかない——Hubの仕事に渡す。
