@@ -39,6 +39,20 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         // 右側は窓より狭いので、既定と最小を小さくする。最小は絵と名前が読める幅
         ["folder.item.left"] = new(520, 360, 1000),
         ["modifications.modification.left"] = new(560, 360, 1000),
+
+        // 商品をリストで出すときの列（ユーザ指示 2026-09-14：列の幅もドラッグで変え、その画面の一覧で共通にする）。
+        // 画面ごと（検索・フォルダビュー）に覚える。名前は長い物が多いので広く、札は「見つからない・未編集・所持」が並ぶ幅
+        ["search.col.select"] = new(36, 28, 60),
+        ["search.col.icon"] = new(56, 44, 120),
+        ["search.col.fav"] = new(36, 28, 60),
+        ["search.col.name"] = new(460, 160, 1000),
+        ["search.col.shop"] = new(200, 80, 500),
+        ["search.col.chips"] = new(220, 100, 420),
+        ["folder.col.icon"] = new(56, 44, 120),
+        ["folder.col.fav"] = new(36, 28, 60),
+        ["folder.col.name"] = new(420, 160, 1000),
+        ["folder.col.shop"] = new(260, 80, 600),
+        ["folder.col.chips"] = new(220, 100, 420),
     };
 
     private readonly object _gate = new();

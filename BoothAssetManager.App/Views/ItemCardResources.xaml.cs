@@ -72,6 +72,25 @@ public partial class ItemCardResources : ResourceDictionary
         HostOf(sender)?.OpenItem(card);
     }
 
+    /// <summary>
+    /// リストの行のクリック（ユーザ指示 2026-09-14）。商品の行はカードと同じ（選んでいる最中は選択の切り替え、ほかは商品ページ）。
+    /// フォルダの行（フォルダビュー）はそのフォルダへ移る
+    /// </summary>
+    private void OnListRowClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: FolderBrowserFolderCard folder })
+        {
+            if (HostOf(sender) is FolderViewDetail detail)
+            {
+                detail.OpenFolderCommand.Execute(folder);
+            }
+
+            return;
+        }
+
+        OnCardClick(sender, e);
+    }
+
     /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>
     private void OnFavoriteClick(object sender, MouseButtonEventArgs e)
     {

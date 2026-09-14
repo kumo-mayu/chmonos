@@ -846,7 +846,19 @@
                     列数をViewModel側で決めて結果を行に切り、その行をListBoxに並べている。
                     画面外の行のカードは実体化されないので、サムネイルの復号も走らない。
                 -->
+                <!--
+                    リスト（ユーザ指示 2026-09-14）。1行ずつ、絵・星・名前・ショップ・札を並べる。
+                    列の幅は見出しの境目をドラッグで変え、全部の行で共通（ListColumns）。行の操作はカードと同じ
+                -->
+                <ListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+                          ItemContainerStyle="{StaticResource ItemListRowStyle}"
+                          ScrollViewer.ScrollChanged="OnResultsScrollChanged"
+                          BorderThickness="0" Background="Transparent" Margin="18,4,18,18"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
                 <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+                         Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                          ScrollViewer.ScrollChanged="OnResultsScrollChanged"
                          Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -892,6 +904,10 @@
                     <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource Caption}"
                                HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" />
                 </StackPanel>
+
+                <!-- カード／リストの切り替え。右下の空いた所に重ねる（ユーザ指示 2026-09-14） -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,30,18" Panel.ZIndex="3" />
             </Grid>
         </DockPanel>
     </Grid>

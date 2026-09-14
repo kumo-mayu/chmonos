@@ -168,18 +168,33 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// 覚え込まないのは、画像が後から届く場合があるため
     /// （届いた時点で出せるようにしておく）。
     /// </summary>
-    private BitmapSource? FirstImage()
+    /// <summary>止まっているときに出す1枚の場所。指名があればそれ、無ければ並びの1枚目（役割の指定があればそちらが勝つ）。</summary>
+    private string? RestingImagePath()
     {
-        // 指名があればそれをカードに出す。無ければ並びの1枚目
         var ordered = BoothAssetManager.Core.Images.ItemImageOrder.Arrange(
             _imageDirectory,
             Item.Booth.Images,
             _thumbnails.ListFiles(_imageDirectory),
             Item.Local.UserImages);
 
-        // 役割の指定があればそちらが勝つ。無指定（デフォルト）のときだけ★が効く
-        var path = BoothAssetManager.Core.Images.ItemImageOrder
+        return BoothAssetManager.Core.Images.ItemImageOrder
             .Thumbnail(ordered, Item.Local.ThumbnailImage, ThumbnailRole, Item.Local.ImageRoles);
+    }
+
+    /// <summary>
+    /// リストの行の小さな絵（ユーザ指示 2026-09-14）。小さい一覧用の大きさで読む（カードの大きさで読むと、行の数だけ大きな絵を持つ）。
+    /// 乗せたときに出す大きな絵は <see cref="Thumbnail"/>（カードと同じ）
+    /// </summary>
+    public BitmapSource? TileThumbnail => RestingImagePath() is { } path
+        ? _thumbnails.PeekForTile(path, () => OnPropertyChanged(nameof(TileThumbnail)))
+        : null;
+
+    /// <summary>リストで、フォルダの行と商品の行を見分ける（フォルダビューの右側は両方を1つの一覧に並べる）。</summary>
+    public bool IsFolder => false;
+
+    private BitmapSource? FirstImage()
+    {
+        var path = RestingImagePath();
 
         // 手元に無ければ裏で読み、その間は枠の薄い灰色のまま描く（U12）。
         // 画面のスレッドで読むと、速いスクロールで新しい行が出るたびに止まった。

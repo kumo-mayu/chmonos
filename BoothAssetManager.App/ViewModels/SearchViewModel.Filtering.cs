@@ -302,6 +302,9 @@ public sealed partial class SearchViewModel
     /// </summary>
     private void RebuildRows()
     {
+        // リストで出しているときは、同じ並び（_matches）をそのまま渡す
+        OnPropertyChanged(nameof(ListItems));
+
         var needed = (_matches.Count + _columns - 1) / _columns;
 
         while (Rows.Count > needed)

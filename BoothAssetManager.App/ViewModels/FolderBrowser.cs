@@ -42,6 +42,11 @@ public sealed class FolderBrowserFolderCard
     public bool HasUnresolved => UnresolvedCount > 0;
 
     internal FolderViewNode? Node { get; init; }
+
+    // ---- リストの行で使う（商品の行と同じ列に並べる・ユーザ指示 2026-09-14） ----
+
+    /// <summary>フォルダの行。絵の代わりにフォルダの印、ショップの列に場所、札の列に数を出す。</summary>
+    public bool IsFolder => true;
 }
 
 /// <summary>
@@ -88,6 +93,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         _directItems = directItems.DistinctBy(item => item.Id).OrderBy(item => item.DisplayName, NaturalComparer.Instance).ToList();
         _allItems = allItems.DistinctBy(item => item.Id).OrderBy(item => item.DisplayName, NaturalComparer.Instance).ToList();
 
+        _isListMode = ItemListMode.IsList(services, "folder");
         OpenFolderCommand = new RelayCommand(parameter => Owner.OpenFolder(parameter as FolderBrowserFolderCard));
         HideItemCommand = new RelayCommand(parameter =>
         {
@@ -166,6 +172,36 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
 
     public ObservableCollection<FolderBrowserRow> Rows { get; } = [];
 
+    // ---- カードかリストか（ユーザ指示 2026-09-14。検索画面と同じ作り。どちらで出すかはフォルダビューとして覚える） ----
+
+    private bool _isListMode;
+    private ItemListColumns? _listColumns;
+    private IReadOnlyList<object> _listItems = [];
+
+    public bool IsListMode
+    {
+        get => _isListMode;
+        set
+        {
+            if (SetField(ref _isListMode, value))
+            {
+                OnPropertyChanged(nameof(IsCardMode));
+                ItemListMode.Save(_services, "folder", value);
+            }
+        }
+    }
+
+    public bool IsCardMode
+    {
+        get => !_isListMode;
+        set => IsListMode = !value;
+    }
+
+    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "folder", hasSelect: false, shopHeader: "ショップ・場所");
+
+    /// <summary>リストに並べる物（先に子フォルダ、続けて商品。カードと同じ並び）。</summary>
+    public IReadOnlyList<object> ListItems => _listItems;
+
     public bool IsEmpty { get; private set; }
 
     public string EmptyText { get; private set; } = string.Empty;
@@ -207,6 +243,8 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         _excluded = candidates.Count - visible.Count;
 
         var cards = folders.Cast<object>().Concat(visible.Select(CardFor)).ToList();
+        _listItems = cards;
+        OnPropertyChanged(nameof(ListItems));
         Rows.Clear();
         for (var start = 0; start < cards.Count; start += _columns)
         {

@@ -42,4 +42,10 @@ public sealed record UiState
     /// 動かせる範囲はアプリの <c>PaneWidths</c> にあり、手で書き換えた値もそこで範囲に収める。
     /// </summary>
     public IReadOnlyDictionary<string, double> PaneWidths { get; init; } = new Dictionary<string, double>();
+
+    /// <summary>
+    /// 商品をカードではなくリストで出している画面（<c>"search"</c>・<c>"folder"</c>）。無ければカード（ユーザ指示 2026-09-14）。
+    /// リストの列の幅は <see cref="PaneWidths"/> に <c>"search.col.name"</c> のような鍵で入る。
+    /// </summary>
+    public IReadOnlyList<string> ItemListScreens { get; init; } = [];
 }

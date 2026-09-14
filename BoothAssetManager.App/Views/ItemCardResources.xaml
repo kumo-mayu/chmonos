@@ -293,4 +293,193 @@
                                 </controls:DeferredCardHost>
                               </Grid>
                             </DataTemplate>
+
+    <!-- ===== リスト（ユーザ指示 2026-09-14：カードの代わりに1行ずつ並べる。列の幅はドラッグで変え、その画面の一覧で共通） ===== -->
+
+    <!-- カード／リストの切り替えの1区画。一覧の右下に重ねて置く（ユーザ指示「右下が空いているので一旦そこに」） -->
+    <Style x:Key="ItemViewModeSegment" TargetType="RadioButton">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Root" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Accent}" />
+                            <Setter Property="Foreground" Value="White" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 切り替え。入れ物の画面の IsCardMode・IsListMode に結ぶ -->
+    <DataTemplate x:Key="ItemViewModeSwitch">
+        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.18" />
+            </Border.Effect>
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=TwoWay}"
+                             ToolTip="絵の大きなカードで並べます">
+                    <RadioButton.Tag>
+                        <CornerRadius>5,0,0,5</CornerRadius>
+                    </RadioButton.Tag>
+                </RadioButton>
+                <Border Width="1" Background="{StaticResource BorderStrong}" />
+                <RadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=TwoWay}"
+                             ToolTip="1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます">
+                    <RadioButton.Tag>
+                        <CornerRadius>0,5,5,0</CornerRadius>
+                    </RadioButton.Tag>
+                </RadioButton>
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
+    <!--
+        リストの行。押す・右クリック・中クリックはカードと同じ（入れ物の画面は Tag から引く）。
+        フォルダの行（フォルダビュー）は押すとそのフォルダへ移り、右クリックのメニューは出さない
+    -->
+    <Style x:Key="ItemListRowStyle" TargetType="ListViewItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="MinHeight" Value="50" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
+        <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+        <EventSetter Event="MouseLeftButtonUp" Handler="OnListRowClick" />
+        <EventSetter Event="MouseDown" Handler="OnCardMouseDown" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                <Setter Property="ContextMenu" Value="{x:Null}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 選ぶ（まとめて編集・お気に入り・改変に足す・Unityへ送る）。カードの左上のチェックと同じ -->
+    <DataTemplate x:Key="ItemListSelectCell">
+        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
+                  ToolTip="選ぶと、下の帯からまとめて操作できます" />
+    </DataTemplate>
+
+    <!-- 小さな絵。乗せると大きな絵を出す（カードと同じ1枚） -->
+    <DataTemplate x:Key="ItemListIconCell">
+        <Grid Width="40" Height="40" HorizontalAlignment="Left">
+            <Border CornerRadius="4" Background="#e9edf4" ClipToBounds="True" ToolTipService.InitialShowDelay="250"
+                    ToolTipService.Placement="Right"
+                    Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                <Image Source="{Binding TileThumbnail}" Stretch="UniformToFill" />
+                <Border.ToolTip>
+                    <ToolTip Padding="4">
+                        <Image Source="{Binding Thumbnail}" Width="220" Height="220" Stretch="Uniform" />
+                    </ToolTip>
+                </Border.ToolTip>
+            </Border>
+            <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2" Fill="#f7f8fa"
+                  Stretch="Uniform" Width="30" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- お気に入りの星。行のクリックへは流さない（OnFavoriteClick） -->
+    <DataTemplate x:Key="ItemListFavCell">
+        <Border Background="Transparent" Cursor="Hand" HorizontalAlignment="Center" Padding="4,2"
+                ToolTip="{Binding FavoriteTip}" MouseLeftButtonUp="OnFavoriteClick"
+                Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                <Setter Property="Foreground" Value="#d99a00" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ItemListNameCell">
+        <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" ToolTip="{Binding Name}" />
+    </DataTemplate>
+
+    <!-- ショップ。フォルダの行は場所 -->
+    <DataTemplate x:Key="ItemListShopCell">
+        <Grid VerticalAlignment="Center">
+            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                       Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+            <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="10.5" Foreground="{StaticResource TextMuted}"
+                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"
+                       Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- 札。カードの下の段と同じ物（未所持はカードの襷の代わりに札で）。フォルダの行は数 -->
+    <DataTemplate x:Key="ItemListChipsCell">
+        <Grid VerticalAlignment="Center">
+            <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと付け直します"
+                        Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
+                </Border>
+                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"
+                        Visibility="{Binding IsAwaitingDetection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="取り込み中" FontSize="10" Foreground="{StaticResource Accent}" />
+                </Border>
+                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだ分類していません"
+                        Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未編集" FontSize="10" Foreground="{StaticResource Warn}" />
+                </Border>
+                <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="所持" FontSize="10" Foreground="{StaticResource Good}" />
+                </Border>
+                <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
+                        ToolTip="手元にファイルがありません"
+                        Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未所持" FontSize="10" Foreground="{StaticResource Bad}" />
+                </Border>
+            </WrapPanel>
+            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}"
+                       Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+        </Grid>
+    </DataTemplate>
+
+    <!--
+        リストの列。幅は入れ物の画面の ListColumns に結び、見出しの境目のドラッグで全部の行が同じ幅で変わる。
+        1つの GridView は1つの一覧にしか付けられないので、使うたびに作る（x:Shared="False"）
+    -->
+    <GridView x:Key="ItemListGridView" x:Shared="False" AllowsColumnReorder="False">
+        <GridViewColumn Width="{Binding ListColumns.SelectWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListSelectCell}" />
+        <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListIconCell}" />
+        <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListFavCell}" />
+        <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListNameCell}" />
+        <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}"
+                        CellTemplate="{StaticResource ItemListShopCell}" />
+        <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListChipsCell}" />
+    </GridView>
 </ResourceDictionary>

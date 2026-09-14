@@ -109,6 +109,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         ClearAvatarFilterCommand = new RelayCommand(ClearAvatarFilter);
         ClearShopFilterCommand = new RelayCommand(ClearShopFilter);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
+        _isListMode = ItemListMode.IsList(services, "search");
 
         // 前回積んでいた条件の種類だけを戻す。値は戻さない
         foreach (var name in services.UiState.SearchExtraFilters)
