@@ -178,15 +178,9 @@ dotnet test BoothAssetManager.Core.Tests
 レイアウトを壊しても気付けないので、**必ず画像で確認する**
 （`DockPanel` の子は既定で `Dock="Left"` に落ちる、という壊し方を実際にやっている）。
 
-```powershell
-# ウィンドウの中身を撮る（前面でなくても撮れる）
-PrintWindow(hwnd, dc, 2)
-```
-
-操作は **UI Automation で行う**（ボタンは InvokePattern、一覧は ScrollPattern、入力欄は ValuePattern）。
-UIAで届かない所（カードのクリックなど）だけ実入力（`mouse_event`）を使い、
-**使う前にユーザへ告げ、窓が前面にあることを確かめてから送る**。`SendMessage` 系の合成クリックは届かない。
-モーダルの `MessageBox` が開くと以降の `SendKeys` が全部詰まる（ボタンは `WM_COMMAND` で押せる）。
+**手順と道具は `ui-check` スキル**（`.claude/skills/ui-check/`。起動・操作・撮影・本番の照らし合わせを1つの道具にまとめ、本番と friendtest での起動を断るようにしてある）。
+操作は **UI Automation で行う**。UIAで届かない所（カードのクリックなど）だけ実入力（`mouse_event`）を使い、
+**使う前にユーザへ告げ、窓が前面にあり座標が窓の中にあることを確かめてから送る**。UI Automation のつまずきもスキルに書いてある。
 
 ### 判断の前に測る
 
@@ -241,17 +235,35 @@ UIAで届かない所（カードのクリックなど）だけ実入力（`mous
   配列の中の `$x - 6, 1` は `$x - (6, 1)` と読まれるので、計算は括弧で囲む
 - PowerShellで配列の配列を作ると、**要素が1つのときにほどけて文字列になる**（`,(...)` で包んでも、関数の戻りや `@()` でほどける）。
   文字の1つずつに `.ToUpperInvariant()` を呼んで落ちた。`[System.Collections.Generic.List[string[]]]` で持つ
-- **UI Automation で仮想化した一覧（`ListBox` など）は、画面に見えている行しか数えない。**畳んだら行が減るはず、と数で確かめると
-  下の行が見えて逆に増える。畳んだ中の行が在るか無いかで確かめる
-- 持ち主付きの窓（`ShowDialog` の窓・`MessageBox`）は、UI Automation では**主の窓の子として出る**（デスクトップの直下を探しても見つからない）
 - PowerShellで `$env:X = ''` としても、変数が空文字のまま子のプロセスに渡ることがある。
   消したい変数は、起動する側の環境（`ProcessStartInfo.Environment`）から取り除く
 - JMdictは実体参照を大量に使う。`XmlReaderSettings.MaxCharactersFromEntities` を
   0（上限なし）にしないと途中で落ちる
 - `ReadElementContentAsString` は終了タグの先まで進む。そのあと `Read()` を呼ぶと1つ飛ばす
-- **実入力（`mouse_event`）の座標は、送る前に窓の中にあるかを確かめ、外なら止める。**UI Automation で要素が見つからないと四角が空になり、
-  画面の左上（0,0）＝デスクトップを押し、ドラッグし、ダブルクリックしてしまった（2026-09-14）。
-  GridSplitter を継いだ部品は、UI Automation ではクラス名が `GridSplitter` のまま出る（継いだクラスの名前では見つからない）
+- UI Automation と実入力のつまずき（GridView の行は `DataItem`・仮想化した一覧は見えている行しか数えない・持ち主付きの窓は主の窓の子・
+  実入力で (0,0) を押した事故）は `ui-check` スキルに移した
+
+---
+
+## 読み方（文脈を節約する）
+
+1回の会話で読んだ量が窓の2倍（約210万トークン）を超え、うち約62万は丸ごと読み直した分だった（2026-09-14 の `/context`）。
+**大きいファイルを丸ごと読まない。**
+
+- 読む前に `Grep` で場所を絞り、`Read` の `offset`/`limit` でその前後だけ読む。見出しの一覧は `Grep` の `^#{2,3} ` で出す
+- **編集した直後に読み直さない**（`Edit` が失敗しなければ当たっている）。一度読んだ範囲は、変わっていなければ読み直さない
+- ビルド・テスト・git の出力は末尾や `--stat` だけ出す（`wrap-up` スキル）
+- 撮った画像は見たい所だけ切る（`Save-ChmonosShot -Region`）。同じ状態を撮り直さない
+
+特に大きいもの（2026-09-14 時点。1行が長い表は行数より重い）：
+
+| ファイル | 大きさ | 読み方 |
+|---|---|---|
+| `docs/feedback/done-2026-09.md` | 185KB | 見出しを Grep して節だけ。足すときも近くだけ読む |
+| `docs/history/unity-handoff.md`・`ui-revision.md`・`avatars.md` | 50〜90KB | 経緯を辿るときだけ。今の決め事は `docs/spec/` |
+| `docs/features.md` | 44KB（1行が長い） | 行を Grep して直す |
+| `Views/EditView.xaml`・`SearchView.xaml`・`StatsView.xaml`・`ModificationView.xaml`・`ModificationHubView.xaml`・`AvatarsView.xaml`・`ItemCardResources.xaml` | 45〜77KB | 部品の名前・`x:Name`・コメントで Grep |
+| `ViewModels/ModificationViewModel.cs`・`AvatarsViewModel.cs`・`FolderViewModel.cs`・`SettingsViewModel.cs`、`Core/Services/ItemService.cs`・`AvatarDetector.cs`、`Core/Scanning/ImportPipeline.cs` | 45〜58KB・1,200行超 | 関数名で Grep |
 
 ---
 
@@ -265,3 +277,13 @@ UIAで届かない所（カードのクリックなど）だけ実入力（`mous
 - **画面への意見は `docs/feedback/open.md` に積むだけで、実装しない。**ユーザの言葉のまま残し、調べた事実（画面・コードの場所）を添える。
   実装するのは、ユーザが番号を指して頼んだものだけ（意見を出す速さに実装と確認が追いつかないため）。
   直したら `open.md` から外し、その月の `done-YYYY-MM.md` に何をどう確かめたかと一緒に移す
+
+### スキル（`.claude/skills/`）
+
+繰り返す手順はスキルにしてある。当てはまる作業のときは先に読む。
+
+| スキル | 使うとき |
+|---|---|
+| `ui-check` | 画面を確かめる（写しで起動・UI Automation・撮影・本番の照らし合わせ） |
+| `feedback-log` | 「メモ:」の意見を `open.md` に記録する・直したものを `done-YYYY-MM.md` へ移す |
+| `wrap-up` | ビルド・テスト・文書・入れてはいけない物の点検・コミット・（言われたら）プッシュ |
