@@ -1,0 +1,403 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
+using System.Windows.Media.Imaging;
+using BoothAssetManager.App.Services;
+using BoothAssetManager.Core.Commands;
+using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
+
+namespace BoothAssetManager.App.ViewModels;
+
+// ModificationHubViewModel の画面に並べる行と小さな入れ物（技術的負債 4-1：画面のクラスのファイルから分けた。中身は変えていない）
+
+// 改変の画面（2026-09-13 ユーザ仕様「改変周りの刷新」）。
+//
+// 画面の構成をユーザの認識の単位に合わせる。改変を「Unityプロジェクト」「アバター」「改変」の3つの文脈から見る。
+// **新しいデータは持たない。**今の改変の記録（ModificationRecord）をそのまま3通りに並べ直す見せ方だけ（ユーザ指示）。
+// 左で見方を切り替えて探し、右に押したもののビューを出す。
+
+/// <summary>左の一覧の見方。</summary>
+public enum ModificationHubLevel
+{
+    Project,
+    Avatar,
+    Modification,
+}
+
+public enum ModificationHubSelectionKind
+{
+    Project,
+    Avatar,
+    Modification,
+    Member,
+}
+
+/// <summary>右側に何を出していたか。戻るで戻ったときに同じものを出し直すために履歴へ預ける。</summary>
+/// <param name="Key">プロジェクトならパス、アバターなら商品ID、改変と使ったものなら改変のID。</param>
+/// <param name="Index">使ったものの位置（並びが導入の順なので位置で指す）。</param>
+public sealed record ModificationHubSelection(ModificationHubSelectionKind Kind, string Key, int Index = 0);
+
+/// <summary>
+/// 畳んだ・開いたの状態。画面は開くたびに作り直すので、アプリを閉じるまでここに持つ（アバターの管理の見出しと同じ扱い）。
+/// </summary>
+internal static class HubExpansion
+{
+    private static readonly Dictionary<string, bool> States = new(StringComparer.OrdinalIgnoreCase);
+
+    public static bool Get(string key, bool fallback) => States.TryGetValue(key, out var value) ? value : fallback;
+
+    public static void Set(string key, bool value) => States[key] = value;
+}
+
+/// <summary>畳める行。</summary>
+public abstract class HubExpandable : ViewModelBase
+{
+    private readonly string _key;
+    private bool _isExpanded;
+
+    /// <param name="forceOpen">
+    /// 探している間は開いて出す（覚えた状態は変えない）。畳んだままだと、当たった改変が見えない
+    /// </param>
+    protected HubExpandable(string key, bool openByDefault, bool forceOpen)
+    {
+        _key = key;
+        _isExpanded = forceOpen || HubExpansion.Get(key, openByDefault);
+    }
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetField(ref _isExpanded, value))
+            {
+                HubExpansion.Set(_key, value);
+                OnPropertyChanged(nameof(ExpandGlyph));
+            }
+        }
+    }
+
+    /// <summary>畳む印。中身が無い行は出さない（押しても何も起きない印は嘘になる）。</summary>
+    public string ExpandGlyph => !CanExpand ? string.Empty : IsExpanded ? "▾" : "▸";
+
+    /// <summary>畳む印（図形）を出すか。中身が無い行は出さない。</summary>
+    public bool HasGlyph => CanExpand;
+
+    protected abstract bool CanExpand { get; }
+}
+
+/// <summary>
+/// 改変に使ったもの1件。**ファイル単位**（ユーザ指摘 2026-09-13）——Unityへ送って足した分は、
+/// どの zip のどの unitypackage かまで記録にある。手で足した分は分からないまま出す（推定で埋めない）。
+/// </summary>
+public sealed class HubMemberRow : ViewModelBase
+{
+    public required ModificationRecord Record { get; init; }
+
+    /// <summary>改変の中の位置。同じ商品を別の版で2回足せるので、位置で指す。</summary>
+    public required int Index { get; init; }
+
+    public required ModificationMember Member { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string FileText { get; init; }
+
+    public required bool IsMissing { get; init; }
+
+    public string ItemId => Member.ItemId;
+
+    /// <summary>「Unityで選択」の相手。改変に紐付けたプロジェクト。</summary>
+    public string? ProjectPath => Record.UnityProject;
+
+    public string? ThumbnailPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>裏で読み、届いたら描き直す（アバターの管理の頭の絵と同じ扱い）。</summary>
+    public BitmapSource? Thumbnail => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        : null;
+
+    /// <summary>
+    /// ホバーで出す大きめの絵（ユーザ指示 2026-09-13）。一覧の絵は小さく縮めて読んでいて、引き伸ばすとぼやけるので、カードの大きさで読み直す。
+    /// **窓が開いたときに初めて読む**（行を作るたびに全部読むとメモリを食う）
+    /// </summary>
+    public BitmapSource? HoverImage => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => ThumbnailPath is not null;
+
+    public string Initial => AvatarText.InitialOf(Name);
+}
+
+/// <summary>改変1件の行。3つの見方すべてで同じ形を使い、見方ごとに出す繋がり（アバター・プロジェクト）を変える。</summary>
+public sealed class HubModificationRow(string key, bool openByDefault, bool forceOpen)
+    : HubExpandable(key, openByDefault, forceOpen)
+{
+    public required ModificationRecord Record { get; init; }
+
+    public string Name => Record.Name;
+
+    public required string AvatarName { get; init; }
+
+    public string AvatarItemId => Record.AvatarItemId;
+
+    public string? ProjectPath => Record.UnityProject;
+
+    public string ProjectName => ModificationHubViewModel.ProjectNameOf(Record.UnityProject);
+
+    /// <summary>アバターの見方の中では出さない（見出しがそのアバター）。</summary>
+    public bool ShowsAvatar { get; init; }
+
+    /// <summary>プロジェクトの見方の中では出さない（見出しがそのプロジェクト）。</summary>
+    public bool ShowsProject { get; init; }
+
+    public bool ShowsProjectLink => ShowsProject && Record.HasUnityProject;
+
+    /// <summary>メモの1行目。一覧では長いメモを全部出さない。</summary>
+    public string MemoText => (Record.Memo ?? string.Empty)
+        .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+        .FirstOrDefault() ?? string.Empty;
+
+    public bool HasMemo => MemoText.Length > 0;
+
+    public required IReadOnlyList<HubMemberRow> Members { get; init; }
+
+    public string CountText => Members.Count == 0 ? "使ったものはまだありません" : $"使ったもの {Members.Count}";
+
+    public string? IconPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>頭の絵。改変に貼った写真の1枚目、無ければアバターの絵。</summary>
+    public BitmapSource? Icon => IconPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
+
+    /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
+    public BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => IconPath is not null;
+
+    public string Initial => AvatarText.InitialOf(Name);
+
+    protected override bool CanExpand => Members.Count > 0;
+}
+
+/// <summary>プロジェクトの見方の見出し1つ。紐付けていない改変も1つの見出しにまとめる（Candidate が null）。</summary>
+public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOpen)
+    : HubExpandable(key, openByDefault, forceOpen)
+{
+    public UnityProjectCandidate? Candidate { get; init; }
+
+    public bool IsProject => Candidate is not null;
+
+    public string Title => Candidate?.Name ?? "Unityプロジェクトに紐付けていない改変";
+
+    public string? Path => Candidate?.Path;
+
+    public bool IsOpen => Candidate?.IsOpen == true;
+
+    public bool IsMissing => Candidate is { Exists: false };
+
+    public bool CanOpen => Candidate is { Exists: true };
+
+    public string DetailText => Candidate is null
+        ? "改変の右側でプロジェクトを紐付けると、そのプロジェクトの下に並びます"
+        : IsMissing ? "フォルダが見つかりません" : Candidate.Version ?? "バージョンが読めません";
+
+    public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
+
+    public string CountText => Modifications.Count == 0 ? string.Empty : $"改変 {Modifications.Count}";
+
+    protected override bool CanExpand => Modifications.Count > 0;
+}
+
+/// <summary>アバターの見方の見出し1つ。</summary>
+public sealed class HubAvatarGroup(string key, bool openByDefault, bool forceOpen)
+    : HubExpandable(key, openByDefault, forceOpen)
+{
+    public required string AvatarItemId { get; init; }
+
+    public required string Title { get; init; }
+
+    public required bool IsOwned { get; init; }
+
+    public string OwnedText => IsOwned ? "所有" : "所有していない";
+
+    public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
+
+    public string CountText => Modifications.Count == 0 ? "改変なし" : $"改変 {Modifications.Count}";
+
+    public string? IconPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    public BitmapSource? Icon => IconPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
+
+    /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
+    public BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => IconPath is not null;
+
+    public string Initial => AvatarText.InitialOf(Title);
+
+    protected override bool CanExpand => Modifications.Count > 0;
+}
+
+/// <summary>右側：Unityプロジェクト。</summary>
+public sealed class HubProjectDetail
+{
+    public required UnityProjectCandidate Candidate { get; init; }
+
+    public string Name => Candidate.Name;
+
+    public string Path => Candidate.Path;
+
+    public bool Exists => Candidate.Exists;
+
+    public bool IsMissing => !Candidate.Exists;
+
+    public bool IsOpen => Candidate.IsOpen;
+
+    public string VersionText => Candidate.Version is { } version ? $"Unity {version}" : "バージョンが読めません";
+
+    public string SourceText => Candidate.Source switch
+    {
+        UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity Hub と VCC の一覧",
+        UnityProjectSource.Hub => "Unity Hub の一覧",
+        UnityProjectSource.Vcc => "VCC の一覧",
+        _ => "どちらの一覧にも無い（改変から紐付けたもの）",
+    };
+
+    public string OpenText => IsOpen ? "開いています" : "閉じています";
+
+    public string LastWriteText => Candidate.LastWrite is { } time ? $"最後に触った日 {time.ToLocalTime():yyyy-MM-dd}" : string.Empty;
+
+    public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
+
+    public bool HasModifications => Modifications.Count > 0;
+
+    public string EmptyText =>
+        "このプロジェクトに紐付けた改変はまだありません。改変の右側の「Unityプロジェクト」で紐付けると、ここに並びます。";
+}
+
+/// <summary>右側：アバター。改変に関係する所だけ（名前・所有・改変・作る）。ほかの設定はアバターの管理へ。</summary>
+public sealed class HubAvatarDetail : ViewModelBase
+{
+    public required string AvatarItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string BoothName { get; init; }
+
+    public bool HasBoothName => BoothName.Length > 0 && BoothName != Name;
+
+    public required bool IsOwned { get; init; }
+
+    public string OwnedText => IsOwned ? "所有しているアバター" : "所有していないアバター";
+
+    public required string BaseText { get; init; }
+
+    public bool HasBase => BaseText.Length > 0;
+
+    /// <summary>商品として手元にあるか（あれば商品ページを開ける）。</summary>
+    public required bool HasItem { get; init; }
+
+    public string? IconPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    public BitmapSource? Icon => IconPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
+
+    /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
+    public BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => IconPath is not null;
+
+    public string Initial => AvatarText.InitialOf(Name);
+
+    public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
+
+    public bool HasModifications => Modifications.Count > 0;
+
+    private string _nameInput = string.Empty;
+
+    /// <summary>新しく作る改変の名前。</summary>
+    public string NameInput
+    {
+        get => _nameInput;
+        set
+        {
+            if (SetField(ref _nameInput, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+}
+
+/// <summary>右側：使ったもの1件（商品の要約）。全部の操作は商品ページで。</summary>
+public sealed class HubItemDetail : ViewModelBase
+{
+    public required HubMemberRow Row { get; init; }
+
+    public ItemRecord? Item { get; init; }
+
+    public string Name => Row.Name;
+
+    public string ItemId => Row.ItemId;
+
+    public bool CanOpenItem => Item is not null;
+
+    public string ShopText => Item?.Booth.Shop?.Name ?? string.Empty;
+
+    public bool HasShop => ShopText.Length > 0;
+
+    public string ModificationName => Row.Record.Name;
+
+    public string FileText => Row.FileText;
+
+    public required string VariationText { get; init; }
+
+    public bool HasVariation => VariationText.Length > 0;
+
+    public bool IsMissing => Row.IsMissing;
+
+    public string ProjectText => Row.ProjectPath is { } path
+        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{ModificationHubViewModel.ProjectNameOf(path)}」を相手にします。"
+        : "この改変はUnityプロジェクトに紐付いていないので、「Unityで選択」は使えません。改変を開いて紐付けてください。";
+
+    public string? ThumbnailPath { get; init; }
+
+    public ThumbnailLoader? Thumbnails { get; init; }
+
+    public BitmapSource? Thumbnail => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        : null;
+
+    private string _destinationText = "Unityのどこに入るかを読んでいます…";
+
+    /// <summary>Unity のどこに入るか（商品ページの「Assets/〇〇 に入ります」と同じ読み方）。</summary>
+    public string DestinationText
+    {
+        get => _destinationText;
+        set => SetField(ref _destinationText, value);
+    }
+
+    /// <summary>この商品を使ったほかの改変も含めた一覧。</summary>
+    public required IReadOnlyList<HubModificationRow> UsedIn { get; init; }
+}
