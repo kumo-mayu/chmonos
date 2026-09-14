@@ -22,3 +22,4 @@
 | 試験データの作り方 | `-stress` の作り方（リポジトリの外の `make-stress-store.ps1`）は分類の名前に通し番号を付けるので、分類が2000種類になる。直すなら通し番号を付けない（今は `-stress-realcat` を使っている） | done-2026-09.md「夜の調査」§4 |
 | Hub・VCC の無い PC | 「VCCを開く」が押せない状態の説明、Hub が無いときに渡さない文、一覧が空のときの言い分けは、入っている PC でしか見ていない | docs/history/modifications.md §9-1 |
 | 「Unityで選択」の取り込む側 | 入っていないプロジェクトへ取り込む側はまだ押していない | docs/history/modifications.md §9-5 |
+| アプリの名前（公開前） | ユーザ：「名前は私も気になっていました。既存ツールと完全に同名なんですよね」（2026-09-14）。pixiv の登録商標のガイドラインは、公式と混同されかねない名前を避け、pixiv が作成・配布していない旨を併せて書くよう求める。公式の「BOOTH Library Manager」があり、「BOOTH ○○ Manager」は取り違えられやすい。**公開前に名前を決め直し、アプリの中と配布ページに「ピクシブ株式会社が作成・配布しているものではありません」と書く。**名前が変わると、保存先（`%LOCALAPPDATA%\BoothAssetManager`）・環境変数・名乗り（`BoothClient.UserAgent`）・リポジトリ名も関わる | docs/research/booth-terms.md §3 |
