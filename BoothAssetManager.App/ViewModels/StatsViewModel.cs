@@ -125,7 +125,7 @@ public sealed class StatsViewModel : ViewModelBase
         _main = main;
         _range = Ranges[0];
 
-        _ = LoadAsync();
+        LoadAsync().Forget();
     }
 
     public static IReadOnlyList<StatsRangeOption> Ranges { get; } =
@@ -454,7 +454,7 @@ public sealed class StatsViewModel : ViewModelBase
                 ValueText = $"¥{bar.SpentYen:N0}",
                 SubText = $"{bar.ItemCount} 件",
                 Ratio = shopMax == 0 ? 0 : bar.SpentYen / (double)shopMax,
-                OpenCommand = new RelayCommand(() => _ = _main.ShowShopAsync(subdomain)),
+                OpenCommand = new RelayCommand(() => _main.ShowShopAsync(subdomain).Forget()),
                 Tooltip = "このショップの画面を開きます。",
             });
         }
@@ -660,7 +660,7 @@ public sealed class StatsViewModel : ViewModelBase
                 Label = "ユーザータグ 未設定（要編集）",
                 Count = _snapshot.Backlog.NeedsUserTagCount,
                 Severity = "Plain",
-                OpenCommand = new RelayCommand(() => _ = _main.ShowEditAsync()),
+                OpenCommand = new RelayCommand(() => _main.ShowEditAsync().Forget()),
             });
         }
 

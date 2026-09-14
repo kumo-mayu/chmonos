@@ -208,10 +208,10 @@ public sealed partial class ItemViewModel
                 SourceText = SourceLabel(link.Source),
                 IsUnconfirmed = !link.Confirmed,
                 IsOwned = ownedIds.Contains(link.AvatarItemId) || manuallyOwned.Contains(link.AvatarItemId),
-                RejectCommand = new RelayCommand(() => _ = RejectAvatarAsync(link.AvatarItemId), () => !IsEditLocked),
+                RejectCommand = new RelayCommand(() => RejectAvatarAsync(link.AvatarItemId).Forget(), () => !IsEditLocked),
                 // ツールチップに出す絵（R3）。乗せたときに初めて読む——248体の商品で全部を先に読むと開くのが遅れる
                 IconFactory = () => AvatarIcon(link.AvatarItemId, _thumbnails.LoadForCard),
-                OpenCommand = new RelayCommand(() => _ = OpenAvatarAsync(link.AvatarItemId)),
+                OpenCommand = new RelayCommand(() => OpenAvatarAsync(link.AvatarItemId).Forget()),
             })
             .OrderByDescending(row => row.IsOwned)
             .ToList();
@@ -237,7 +237,7 @@ public sealed partial class ItemViewModel
             .Select(link => new RejectedAvatarRow
             {
                 Name = NameOf(link.AvatarItemId, link.Name),
-                RestoreCommand = new RelayCommand(() => _ = RestoreAvatarAsync(link.AvatarItemId), () => !IsEditLocked),
+                RestoreCommand = new RelayCommand(() => RestoreAvatarAsync(link.AvatarItemId).Forget(), () => !IsEditLocked),
             })
             .ToList();
 

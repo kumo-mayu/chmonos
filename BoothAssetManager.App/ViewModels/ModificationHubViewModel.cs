@@ -76,7 +76,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
             parameter => ShowMember(parameter as HubMemberRow),
             parameter => parameter is HubMemberRow);
         SelectInUnityCommand = new RelayCommand(
-            parameter => _ = SelectInUnityAsync(parameter as HubMemberRow ?? (parameter as HubItemDetail)?.Row),
+            parameter => SelectInUnityAsync(parameter as HubMemberRow ?? (parameter as HubItemDetail)?.Row).Forget(),
             parameter => parameter is HubMemberRow or HubItemDetail);
         OpenAvatarManageCommand = new RelayCommand(parameter =>
         {
@@ -94,11 +94,11 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
             }
         });
         CreateModificationCommand = new RelayCommand(
-            () => _ = CreateModificationAsync(),
+            () => CreateModificationAsync().Forget(),
             () => Detail is HubAvatarDetail avatar && avatar.NameInput.Trim().Length > 0);
-        OpenItemPageCommand = new RelayCommand(parameter => _ = OpenItemPageAsync(parameter as string));
+        OpenItemPageCommand = new RelayCommand(parameter => OpenItemPageAsync(parameter as string).Forget());
 
-        _ = LoadAsync();
+        LoadAsync().Forget();
     }
 
     // ---- 見方 ----
@@ -314,7 +314,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
     public RelayCommand OpenItemPageCommand { get; }
 
     /// <summary>窓が手前に戻ったとき。記録・アバター・プロジェクト（開いているかの印も）・Hub と VCC の有無を読み直す。</summary>
-    public void NoteWindowActivated() => _ = RefreshAllAsync();
+    public void NoteWindowActivated() => RefreshAllAsync().Forget();
 
     // ---- 読み込み ----
 
@@ -499,13 +499,13 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
                 return;
             }
 
-            _ = RefreshRecordsAsync();
+            RefreshRecordsAsync().Forget();
         };
         modification.Deleted += () =>
         {
             Detail = null;
             Status = $"改変「{modification.Record.Name}」を消しました。";
-            _ = RefreshRecordsAsync();
+            RefreshRecordsAsync().Forget();
         };
 
         Detail = modification;
@@ -555,7 +555,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
         };
 
         Detail = detail;
-        _ = FillDestinationAsync(detail, item);
+        FillDestinationAsync(detail, item).Forget();
     }
 
     /// <summary>Unity のどこに入るか。unitypackage を解くのは重い（大きな物は1件0.2秒ほど）ので裏で読む。</summary>

@@ -104,7 +104,7 @@ public sealed partial class ItemViewModel
             });
         }
 
-        _ = MarkUnpackableFilesAsync();
+        MarkUnpackableFilesAsync().Forget();
     }
 
     /// <summary>
@@ -200,7 +200,7 @@ public sealed partial class ItemViewModel
 
         if (LocalFolders.Count > 0)
         {
-            _ = FillLocalFolderStateAsync();
+            FillLocalFolderStateAsync().Forget();
         }
     }
 
@@ -265,7 +265,7 @@ public sealed partial class ItemViewModel
     {
         if (parameter is string path)
         {
-            _ = OpenInExplorerAsync(path);
+            OpenInExplorerAsync(path).Forget();
         }
     }
 

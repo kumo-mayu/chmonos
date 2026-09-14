@@ -190,9 +190,9 @@ public sealed class ShopsViewModel : ViewModelBase
 
         // 「読み直す」は全商品を読み直してから数える。普段は写しから数えるので、
         // 手でJSONを直したときなどに最新にする道がここ
-        RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
+        RefreshCommand = new RelayCommand(() => RefreshAsync().Forget());
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     /// <summary>行に切った一覧。見えている行のカードだけが作られる。</summary>

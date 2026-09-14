@@ -97,7 +97,7 @@ public sealed partial class MainViewModel
     private HistoryEntry? EntryFor(object screen) => screen switch
     {
         SearchViewModel => new HistoryEntry("検索", ShowSearch),
-        ItemViewModel item => new HistoryEntry(Shorten(item.Name), () => _ = RestoreItemAsync(item.Item.Id)),
+        ItemViewModel item => new HistoryEntry(Shorten(item.Name), () => RestoreItemAsync(item.Item.Id).Forget()),
         ShopViewModel shop => new HistoryEntry(Shorten(shop.Shop.Name), () => ShowShop(shop.Shop)),
         ModificationViewModel modification => new HistoryEntry(
             Shorten(modification.Record.Name), () => ShowModification(modification.Record)),
@@ -140,7 +140,7 @@ public sealed partial class MainViewModel
         // 位置ではなく商品で覚える。編集画面に入り直すと保存した商品が外れて順番が詰まるので、位置はずれる
         var itemId = edit.CurrentItemId;
         var label = edit.HasItem ? $"編集（{Shorten(edit.Name)}）" : "編集";
-        return new HistoryEntry(label, () => _ = RestoreEditAsync(run, itemId, index), IsEdit: true);
+        return new HistoryEntry(label, () => RestoreEditAsync(run, itemId, index).Forget(), IsEdit: true);
     }
 
     private async Task RestoreEditAsync(EditRun? run, string? itemId, int index)

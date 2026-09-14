@@ -58,7 +58,7 @@ public sealed partial class SearchViewModel
         // 一度きりの読みにしておくと、条件を積んだ直後だけ0件に見える
         if (NeedsModifications() && _modificationUsage is null)
         {
-            _ = LoadModificationUsageAsync();
+            LoadModificationUsageAsync().Forget();
         }
 
         _matches = SortItems(_allItems.Where(item => Matches(item)))
@@ -111,7 +111,7 @@ public sealed partial class SearchViewModel
 
         var token = ++_widenToken;
 
-        _ = Task.Run(() =>
+        Task.Run(() =>
         {
             var used = new Dictionary<string, List<Core.Search.BridgeCandidate>>(StringComparer.Ordinal);
             var widened = _services.Bridge.Widen(node, used);
@@ -155,7 +155,7 @@ public sealed partial class SearchViewModel
                 OnPropertyChanged(nameof(HasWidened));
                 OnPropertyChanged(nameof(EmptyHint));
             });
-        });
+        }).Forget();
     }
 
     private int _widenToken;

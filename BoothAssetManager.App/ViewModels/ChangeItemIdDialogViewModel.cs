@@ -52,7 +52,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
         FromId = fromId;
         CurrentName = currentName;
 
-        CheckCommand = new RelayCommand(() => _ = CheckAsync(), () => CanCheck && !IsBusy);
+        CheckCommand = new RelayCommand(() => CheckAsync().Forget(), () => CanCheck && !IsBusy);
     }
 
     public string FromId { get; }

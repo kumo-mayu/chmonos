@@ -102,10 +102,10 @@ public sealed class InboxViewModel : ViewModelBase
         _services = services;
         _main = main;
 
-        MarkAllReadCommand = new RelayCommand(() => _ = MarkAllReadAsync(), () => UnreadCount > 0);
-        RefreshCommand = new RelayCommand(() => _ = ReloadAsync());
+        MarkAllReadCommand = new RelayCommand(() => MarkAllReadAsync().Forget(), () => UnreadCount > 0);
+        RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     public ObservableCollection<NotificationGroup> Groups { get; } = [];
@@ -211,14 +211,14 @@ public sealed class InboxViewModel : ViewModelBase
 
         row.ReadChanged += OnRowReadChanged;
         row.ToggleReadCommand = new RelayCommand(() => row.IsRead = !row.IsRead);
-        row.OpenItemCommand = new RelayCommand(() => _ = OpenItemAsync(row.ItemId), () => row.HasItem);
+        row.OpenItemCommand = new RelayCommand(() => OpenItemAsync(row.ItemId).Forget(), () => row.HasItem);
 
         return row;
     }
 
     private void OnRowReadChanged(NotificationRow row)
     {
-        _ = _services.Commands.ExecuteAsync(new UiCommand.SetNotificationRead(row.Record.Id, row.IsRead));
+        _services.Commands.ExecuteAsync(new UiCommand.SetNotificationRead(row.Record.Id, row.IsRead)).Forget();
 
         OnPropertyChanged(nameof(UnreadCount));
         OnPropertyChanged(nameof(HeaderText));

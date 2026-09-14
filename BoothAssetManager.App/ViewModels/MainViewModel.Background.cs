@@ -44,7 +44,7 @@ public sealed partial class MainViewModel
         var avatars = ReportAs("アバターの画像を取得中");
         var due = ReportAs("商品の更新を確認中");
 
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             try
             {
@@ -62,7 +62,7 @@ public sealed partial class MainViewModel
             {
                 // 閉じたときに止めた
             }
-        }, token);
+        }, token).Forget();
     }
 
     /// <summary>裏の作業の1段。落ちてもログに残して次の段へ進む。止まるのは閉じたとき（取り消し）だけ。</summary>
@@ -94,7 +94,7 @@ public sealed partial class MainViewModel
         IProgress<(int Done, int Total)> progress = new Progress<(int Done, int Total)>(
             report => BoothActivity.ReportWork(WorkSource.Background, "アバターの画像を取得中", report.Done, report.Total));
 
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             try
             {
@@ -109,7 +109,7 @@ public sealed partial class MainViewModel
             {
                 BoothActivity.EndWork(WorkSource.Background);
             }
-        }, token);
+        }, token).Forget();
     }
 
     /// <summary>閉じるときに背景の取得を止める。</summary>
@@ -145,7 +145,7 @@ public sealed partial class MainViewModel
         _watch = new CancellationTokenSource();
         var token = _watch.Token;
 
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             try
             {
@@ -174,7 +174,7 @@ public sealed partial class MainViewModel
                 // 見に行けなくても起動は妨げない。次の起動でまた見る
                 Core.Diagnostics.AppLog.Error("監視フォルダの新着を見る", exception);
             }
-        }, token);
+        }, token).Forget();
     }
 
     /// <summary>監視対象で見つかった、まだ見ていないファイル。</summary>

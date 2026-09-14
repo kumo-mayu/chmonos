@@ -18,7 +18,7 @@ public partial class AttributeManageView : UserControl
         {
             if (Model is not null && moved is AttributeMasterRow from && target is AttributeMasterRow to)
             {
-                _ = Model.MoveAsync(from, to, after);
+                Model.MoveAsync(from, to, after).Forget();
             }
         };
     }

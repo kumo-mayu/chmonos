@@ -39,7 +39,7 @@ public sealed partial class ItemViewModel
         return Services.UnityTargetPicker.Pick(title);
     }
 
-    private void SendToUnity(object? parameter) => _ = SendToUnityAsync(parameter);
+    private void SendToUnity(object? parameter) => SendToUnityAsync(parameter).Forget();
 
     private async Task SendToUnityAsync(object? parameter)
     {
@@ -96,7 +96,7 @@ public sealed partial class ItemViewModel
         // 取り込み画面で Cancel された物は入っていないので付けない（検索の複数選択と同じ扱い）
         if (!outcome.Cancelled)
         {
-            _ = _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used);
+            _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used).Forget();
         }
 
         return true;

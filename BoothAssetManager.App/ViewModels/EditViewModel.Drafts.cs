@@ -60,7 +60,7 @@ public sealed partial class EditViewModel
         () =>
         {
             CaptureDraft();
-            _ = _main.ShowEditAsync(_main.Drafts.ItemIds);
+            _main.ShowEditAsync(_main.Drafts.ItemIds).Forget();
         },
         () => _main.Drafts.HasAny);
 }

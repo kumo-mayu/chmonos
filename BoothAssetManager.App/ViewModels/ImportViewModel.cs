@@ -78,14 +78,14 @@ public sealed class ImportViewModel : ViewModelBase
         // 終わるのを待たせない。押した先は同じ取り込みで、2本目は起こさない
         AddFolderCommand = new RelayCommand(AddFolder);
         RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => parameter is string);
-        StartCommand = new RelayCommand(() => _ = StartOrStackAsync(), () => Folders.Count > 0);
+        StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
-        RemoveUnpackedCommand = new RelayCommand(() => _ = RemoveUnpackedAsync(), () => !IsRunning && HasUnpackedSelection);
-        RemoveWatchedCommand = new RelayCommand(parameter => _ = RemoveWatchedAsync(parameter as string), parameter => parameter is string);
+        RemoveUnpackedCommand = new RelayCommand(() => RemoveUnpackedAsync().Forget(), () => !IsRunning && HasUnpackedSelection);
+        RemoveWatchedCommand = new RelayCommand(parameter => RemoveWatchedAsync(parameter as string).Forget(), parameter => parameter is string);
         TakeWatchedNewCommand = new RelayCommand(() => _main.TakeWatchedNew());
         OpenResolveCommand = new RelayCommand(() => _main.ShowResolve());
-        ShowAddedCommand = new RelayCommand(() => _ = ShowAddedAsync());
+        ShowAddedCommand = new RelayCommand(() => ShowAddedAsync().Forget());
     }
 
     public ObservableCollection<string> Folders { get; } = [];
@@ -485,7 +485,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 「フォルダを足す」で選んだときは false——続けて他も足してから始めたいことがある。
     /// </param>
     public void AddDroppedPaths(IEnumerable<string> paths, bool startImmediately = false)
-        => _ = AddDroppedPathsAsync(paths.ToList(), startImmediately);
+        => AddDroppedPathsAsync(paths.ToList(), startImmediately).Forget();
 
     /// <summary>
     /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落とされた物・監視の新着は外付けやネットワークにもあり、
@@ -516,13 +516,13 @@ public sealed class ImportViewModel : ViewModelBase
 
         if (addedFolders.Count > 0)
         {
-            _ = OfferToWatchAsync(addedFolders);
+            OfferToWatchAsync(addedFolders).Forget();
         }
 
         // 走っていれば今の取り込みに積む。2本目は起こさない（StartOrStackAsync の決まり）
         if (startImmediately && Folders.Count > 0)
         {
-            _ = StartOrStackAsync();
+            StartOrStackAsync().Forget();
         }
     }
 

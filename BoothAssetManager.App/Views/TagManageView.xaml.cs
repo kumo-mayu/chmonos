@@ -26,11 +26,11 @@ public partial class TagManageView : UserControl
 
             if (moved is TagTopRow movedTop && target is TagTopRow targetTop)
             {
-                _ = Model.MoveTopAsync(movedTop, targetTop, after);
+                Model.MoveTopAsync(movedTop, targetTop, after).Forget();
             }
             else if (moved is TagSubRow movedSub && target is TagSubRow targetSub)
             {
-                _ = Model.MoveSubAsync(movedSub, targetSub, after);
+                Model.MoveSubAsync(movedSub, targetSub, after).Forget();
             }
         };
     }

@@ -81,7 +81,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        _ = ReloadLibraryAsync();
+        ReloadLibraryAsync().Forget();
     }
 
     /// <summary>

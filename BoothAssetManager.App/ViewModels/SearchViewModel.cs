@@ -88,21 +88,21 @@ public sealed partial class SearchViewModel : ViewModelBase
     {
         _services = services;
         _thumbnails = thumbnails;
-        ClearFiltersCommand = new RelayCommand(() => _ = ClearFiltersKeepingHistoryAsync());
+        ClearFiltersCommand = new RelayCommand(() => ClearFiltersKeepingHistoryAsync().Forget());
         AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
         AddBoothTagFilterCommand = new RelayCommand(parameter => AddBoothTagFilter(parameter as string));
         SelectAllCommand = new RelayCommand(SelectAllMatches);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
-        AddSelectionToFavoritesCommand = new RelayCommand(() => _ = AddSelectionToFavoritesAsync(), () => SelectedCount > 0);
-        AddSelectionToModificationCommand = new RelayCommand(() => _ = AddSelectionToModificationAsync(), () => SelectedCount > 0);
-        SendSelectionToUnityCommand = new RelayCommand(() => _ = SendSelectionToUnityAsync(), () => SelectedCount > 0 && !IsSendingToUnity);
+        AddSelectionToFavoritesCommand = new RelayCommand(() => AddSelectionToFavoritesAsync().Forget(), () => SelectedCount > 0);
+        AddSelectionToModificationCommand = new RelayCommand(() => AddSelectionToModificationAsync().Forget(), () => SelectedCount > 0);
+        SendSelectionToUnityCommand = new RelayCommand(() => SendSelectionToUnityAsync().Forget(), () => SelectedCount > 0 && !IsSendingToUnity);
         OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter as ItemCardViewModel));
         OpenShopCommand = new RelayCommand(parameter => OpenShop(parameter as ItemCardViewModel));
         CopyLinkCommand = new RelayCommand(parameter => CopyLink(parameter as ItemCardViewModel));
-        EditItemCommand = new RelayCommand(parameter => _ = EditItemAsync(parameter as ItemCardViewModel));
+        EditItemCommand = new RelayCommand(parameter => EditItemAsync(parameter as ItemCardViewModel).Forget());
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
-        HideItemCommand = new RelayCommand(parameter => _ = HideItemAsync(parameter as ItemCardViewModel));
+        HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
         AddExtraFilterCommand = new RelayCommand(parameter => AddExtraFilter(parameter as string));
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
         SetAvatarFilterCommand = new RelayCommand(parameter => SetAvatarFilter(parameter as string));
@@ -123,7 +123,7 @@ public sealed partial class SearchViewModel : ViewModelBase
         // 一度も作られず**、「条件を追加」を触っても何も出なかった（1つ足すと出るようになっていた）
         RefreshAvailableExtraFilters();
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     /// <summary>
@@ -153,8 +153,8 @@ public sealed partial class SearchViewModel : ViewModelBase
     {
         IsFilterPanelCollapsed = !IsFilterPanelCollapsed;
         var collapsed = IsFilterPanelCollapsed;
-        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
-            state => state with { FilterPanelCollapsed = collapsed }));
+        _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
+            state => state with { FilterPanelCollapsed = collapsed })).Forget();
     }
 
     /// <summary>画面遷移のために親を後から渡す（生成順の都合でコンストラクタでは受け取れない）。</summary>
@@ -180,7 +180,7 @@ public sealed partial class SearchViewModel : ViewModelBase
 
     public void OpenItem(ItemCardViewModel card)
     {
-        _ = RecordHistoryAsync();
+        RecordHistoryAsync().Forget();
         _main?.ShowItem(card.Item);
     }
 

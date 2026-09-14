@@ -63,14 +63,14 @@ public sealed partial class EditViewModel : ViewModelBase
         _main = main;
         _thumbnails = thumbnails;
 
-        SaveAndNextCommand = new RelayCommand(() => _ = SaveAndAdvanceAsync(), () => HasItem && !IsSaving);
-        SkipCommand = new RelayCommand(() => _ = SkipAsync(), () => HasItem && !IsSaving);
+        SaveAndNextCommand = new RelayCommand(() => SaveAndAdvanceAsync().Forget(), () => HasItem && !IsSaving);
+        SkipCommand = new RelayCommand(() => SkipAsync().Forget(), () => HasItem && !IsSaving);
         BackCommand = new RelayCommand(GoBack, () => _index > 0);
-        FinishCommand = new RelayCommand(() => _ = FinishAsync());
+        FinishCommand = new RelayCommand(() => FinishAsync().Forget());
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem && !IsLocalOnly);
-        AddTagCommand = new RelayCommand(parameter => _ = AddTagAsync(parameter as string));
-        AddAttributeCommand = new RelayCommand(parameter => _ = AddAttributeAsync(parameter as string));
+        AddTagCommand = new RelayCommand(parameter => AddTagAsync(parameter as string).Forget());
+        AddAttributeCommand = new RelayCommand(parameter => AddAttributeAsync(parameter as string).Forget());
         UseCategoryCommand = new RelayCommand(
             parameter => { if (parameter is string name) { CategoryInput = name; } },
             parameter => parameter is string);
@@ -214,10 +214,10 @@ public sealed partial class EditViewModel : ViewModelBase
                 _saved.Add(updated.Id);
             }
 
-            _ = ReplaceInSessionAsync(previousId, updated.Id);
+            ReplaceInSessionAsync(previousId, updated.Id).Forget();
         }
 
-        _ = LoadCurrentAsync();
+        LoadCurrentAsync().Forget();
     }
 
     /// <summary>
@@ -914,8 +914,8 @@ public sealed partial class EditViewModel : ViewModelBase
         StopReturnTimer();
         CaptureDraft();
         _index--;
-        _ = SavePositionAsync();
-        _ = LoadCurrentAsync();
+        SavePositionAsync().Forget();
+        LoadCurrentAsync().Forget();
     }
 
     /// <summary>
@@ -952,7 +952,7 @@ public sealed partial class EditViewModel : ViewModelBase
         // 待っている間に他の画面へ移っていたら、そこから引きはがさない
         if (ReferenceEquals(_main.CurrentViewModel, this))
         {
-            _ = FinishAsync();
+            FinishAsync().Forget();
         }
     }
 

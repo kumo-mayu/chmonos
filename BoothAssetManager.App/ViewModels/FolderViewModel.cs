@@ -353,9 +353,9 @@ public sealed class FolderViewModel : ViewModelBase
             }
         });
         RevealCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewDetail)?.Path));
-        AddImportCommand = new RelayCommand(parameter => _ = AddFolderAsync(parameter as FolderViewDetail, watch: false));
-        AddWatchCommand = new RelayCommand(parameter => _ = AddFolderAsync(parameter as FolderViewDetail, watch: true));
-        ExcludeUnresolvedCommand = new RelayCommand(parameter => _ = ExcludeUnresolvedAsync(parameter as FolderViewDetail));
+        AddImportCommand = new RelayCommand(parameter => AddFolderAsync(parameter as FolderViewDetail, watch: false).Forget());
+        AddWatchCommand = new RelayCommand(parameter => AddFolderAsync(parameter as FolderViewDetail, watch: true).Forget());
+        ExcludeUnresolvedCommand = new RelayCommand(parameter => ExcludeUnresolvedAsync(parameter as FolderViewDetail).Forget());
         OpenUnresolvedCommand = new RelayCommand(parameter =>
         {
             if (parameter is FolderViewDetail detail)
@@ -372,7 +372,7 @@ public sealed class FolderViewModel : ViewModelBase
             }
         });
 
-        _ = LoadAsync();
+        LoadAsync().Forget();
     }
 
     /// <summary>見えている行。組み直すときはまとめて差し替える（知らせを1回にする）。</summary>
@@ -507,7 +507,7 @@ public sealed class FolderViewModel : ViewModelBase
     public RelayCommand ShowItemCommand { get; }
 
     /// <summary>窓が手前に戻ったとき。取り込み・未確定の片付けを別の画面でした後に、木を読み直す。右に出している物は作り直さない。</summary>
-    public void NoteWindowActivated() => _ = LoadAsync();
+    public void NoteWindowActivated() => LoadAsync().Forget();
 
     // ---- 読み込み ----
 
@@ -1064,7 +1064,7 @@ public sealed class FolderViewModel : ViewModelBase
                 ShowItem(updated);
             }
 
-            _ = LoadAsync();
+            LoadAsync().Forget();
         };
         Detail = page;
     }
@@ -1084,7 +1084,7 @@ public sealed class FolderViewModel : ViewModelBase
             var count = resolve.RemainingCount;
             if (_lastResolveCount >= 0 && count < _lastResolveCount)
             {
-                _ = LoadAsync();
+                LoadAsync().Forget();
             }
 
             _lastResolveCount = count;

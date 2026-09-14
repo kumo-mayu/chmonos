@@ -60,7 +60,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
         ShowSearchCommand = new RelayCommand(ShowSearch);
         ShowImportCommand = new RelayCommand(ShowImport);
-        ShowEditCommand = new RelayCommand(() => _ = ShowEditAsync());
+        ShowEditCommand = new RelayCommand(() => ShowEditAsync().Forget());
         ShowResolveCommand = new RelayCommand(ShowResolve);
         ShowInboxCommand = new RelayCommand(ShowInbox);
         ShowShopsCommand = new RelayCommand(ShowShops);
@@ -72,7 +72,7 @@ public sealed partial class MainViewModel : ViewModelBase
         ShowTagManageCommand = new RelayCommand(ShowTagManage);
         ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
         ToggleNavCommand = new RelayCommand(ToggleNav);
-        ApplyPendingCommand = new RelayCommand(() => _ = ReloadLibraryAsync());
+        ApplyPendingCommand = new RelayCommand(() => ReloadLibraryAsync().Forget());
 
         _isNavCollapsed = services.UiState.NavCollapsed;
 
@@ -138,7 +138,7 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         IsNavCollapsed = !IsNavCollapsed;
         var collapsed = IsNavCollapsed;
-        _ = SaveUiStateAsync(state => state with { NavCollapsed = collapsed });
+        SaveUiStateAsync(state => state with { NavCollapsed = collapsed }).Forget();
     }
 
     /// <summary>
@@ -353,7 +353,7 @@ public sealed partial class MainViewModel : ViewModelBase
             // 離れた時点で黙って最新にしてよい
             if (HasPendingItems && !ReferenceEquals(_currentViewModel, value))
             {
-                _ = ReloadLibraryAsync();
+                ReloadLibraryAsync().Forget();
             }
 
             if (SetField(ref _currentViewModel, value))
@@ -447,7 +447,7 @@ public sealed partial class MainViewModel : ViewModelBase
         switch (answer)
         {
             case Views.ChoiceDialogResult.First:
-                _ = ShowEditAsync(Drafts.ItemIds);
+                ShowEditAsync(Drafts.ItemIds).Forget();
                 return true;
 
             case Views.ChoiceDialogResult.Second:
@@ -470,7 +470,7 @@ public sealed partial class MainViewModel : ViewModelBase
     public void ShowItem(Core.Models.ItemRecord item)
     {
         // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い
-        _ = _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed);
+        _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed).Forget();
         CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails);
     }
 
@@ -640,7 +640,7 @@ public sealed partial class MainViewModel : ViewModelBase
                     OnEditGateChanged();
                     if (hadAwaiting)
                     {
-                        _ = ReloadLibraryAsync();
+                        ReloadLibraryAsync().Forget();
                     }
                 }
             }

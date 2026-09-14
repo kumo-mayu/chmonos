@@ -120,8 +120,8 @@ public sealed class SettingsViewModel : ViewModelBase
         OpenRootCommand = new RelayCommand(OpenRoot);
         ChangeRootCommand = new RelayCommand(ChangeRoot, () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
-        ExportBackupCommand = new RelayCommand(() => _ = ExportBackupAsync(), () => !IsBackingUp);
-        RestoreBackupCommand = new RelayCommand(() => _ = RestoreBackupAsync(), () => !IsBackingUp && CanChangeRoot);
+        ExportBackupCommand = new RelayCommand(() => ExportBackupAsync().Forget(), () => !IsBackingUp);
+        RestoreBackupCommand = new RelayCommand(() => RestoreBackupAsync().Forget(), () => !IsBackingUp && CanChangeRoot);
         ClearSearchHistoryCommand = new RelayCommand(ClearSearchHistory);
 
         var settings = services.Settings;
@@ -159,7 +159,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         _suppressSave = false;
 
-        _ = LoadAsync();
+        LoadAsync().Forget();
     }
 
     public RelayCommand AddFolderCommand { get; }
@@ -332,7 +332,7 @@ public sealed class SettingsViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(SelectedThumbnailRole));
                 Save();
-                _ = _main.ReloadLibraryAsync();
+                _main.ReloadLibraryAsync().Forget();
             }
         }
     }
@@ -502,7 +502,7 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
-        _ = ClearSearchHistoryAsync();
+        ClearSearchHistoryAsync().Forget();
     }
 
     /// <summary>
@@ -674,7 +674,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 {
                     Path = path,
                     Exists = exists.GetValueOrDefault(path),
-                    RemoveCommand = new RelayCommand(() => _ = RemoveWatchedAsync(captured)),
+                    RemoveCommand = new RelayCommand(() => RemoveWatchedAsync(captured).Forget()),
                 });
             }
 
@@ -688,8 +688,8 @@ public sealed class SettingsViewModel : ViewModelBase
                 {
                     Key = item.ItemId,
                     Label = item.Name,
-                    RestoreCommand = new RelayCommand(() => _ = UnhideAsync(captured)),
-                    OpenCommand = new RelayCommand(() => _ = OpenHiddenAsync(captured)),
+                    RestoreCommand = new RelayCommand(() => UnhideAsync(captured).Forget()),
+                    OpenCommand = new RelayCommand(() => OpenHiddenAsync(captured).Forget()),
                 });
             }
 
@@ -702,7 +702,7 @@ public sealed class SettingsViewModel : ViewModelBase
                     Key = file.Hash,
                     Label = file.Path,
                     SubText = file.Reason ?? string.Empty,
-                    RestoreCommand = new RelayCommand(() => _ = RestoreAsync(captured)),
+                    RestoreCommand = new RelayCommand(() => RestoreAsync(captured).Forget()),
                 });
             }
 
@@ -716,7 +716,7 @@ public sealed class SettingsViewModel : ViewModelBase
                     Key = hash + ":" + itemId,
                     Label = record.Path,
                     SubText = $"「{record.ItemName}」から外しました",
-                    RestoreCommand = new RelayCommand(() => _ = ForgetDetachedAsync(hash, itemId)),
+                    RestoreCommand = new RelayCommand(() => ForgetDetachedAsync(hash, itemId).Forget()),
                 });
             }
 
@@ -767,7 +767,7 @@ public sealed class SettingsViewModel : ViewModelBase
         // 一覧と組み合わせは画面のスレッドでここで写しておく（当てるのは錠の中で、別のスレッドのことがある）
         var folders = Folders.Select(row => row.Path).ToList();
         var shortcuts = BuildShortcuts();
-        _ = SaveAsync(current => current with
+        SaveAsync(current => current with
         {
             TagsAtTop = TagsAtTop,
             ShowSubTagsInList = ShowSubTagsInList,
@@ -795,7 +795,7 @@ public sealed class SettingsViewModel : ViewModelBase
             Shortcuts = shortcuts,
             StartImportOnDrop = StartImportOnDrop,
             StartImportOnLaunch = StartImportOnLaunch,
-        });
+        }).Forget();
     }
 
     private async Task SaveAsync(Func<AppSettings, AppSettings> change)
@@ -809,6 +809,7 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             // 原因はこちらでは分からないので、断定も指示もしない。
             // 見当だけ添えて、判断はユーザに残す
+            Core.Diagnostics.AppLog.Error("設定画面：設定の保存", exception);
             Status = $"保存できませんでした：{exception.Message}（保存先が読み取り専用になっていることがあります）";
         }
     }
@@ -860,7 +861,7 @@ public sealed class SettingsViewModel : ViewModelBase
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UnhideItem(itemId));
         Status = "非表示を解除しました。検索に戻ります。";
         await LoadAsync();
-        _ = _main.Search.ReloadAsync();
+        _main.Search.ReloadAsync().Forget();
     }
 
     /// <summary>

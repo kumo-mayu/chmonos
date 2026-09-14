@@ -48,7 +48,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // 仮IDの商品はBOOTHに存在しない。押せてしまうと「取り直したのに何も変わらない」
         // という説明の付かない結果になるので、押せなくして理由をツールチップに置く
         RefreshCommand = new RelayCommand(
-            () => _ = RefreshAsync(),
+            () => RefreshAsync().Forget(),
             () => !IsRefreshing && !item.IsLocalOnly);
 
         // 作者名からはアプリ内のショップ画面へ送る（BOOTHへは「BOOTHで開く」がある）。
@@ -56,7 +56,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         // 自分で入れたショップにも飛べる。ショップ画面は鍵で束ねているので、
         // 手元だけの鍵でもその1店として開ける
         OpenShopCommand = new RelayCommand(
-            () => _ = main.ShowShopAsync(item.ShopSubdomain!),
+            () => main.ShowShopAsync(item.ShopSubdomain!).Forget(),
             () => item.ShopSubdomain is not null);
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => !item.IsLocalOnly);
@@ -65,38 +65,38 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
         // 商品ページの中でその場で直す操作は、取り込みの③が済むまで塞ぐ（U8・U10・ユーザ判断）。
         // 見る・Unityへ送る・改変に足す・お気に入りは塞がない（対応アバターの書き込みと取り合わない）
-        MoveImageBackCommand = new RelayCommand(() => _ = MoveImageAsync(-1), () => CanMoveImageBack && !IsEditLocked);
-        MoveImageForwardCommand = new RelayCommand(() => _ = MoveImageAsync(1), () => CanMoveImageForward && !IsEditLocked);
-        PinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(true), () => CurrentImage is not null && !CurrentIsPinned && !IsEditLocked);
-        UnpinThumbnailCommand = new RelayCommand(() => _ = PinThumbnailAsync(false), () => CurrentIsPinned && !IsEditLocked);
-        RemoveImageCommand = new RelayCommand(() => _ = RemoveImageAsync(), () => CurrentIsUserAdded && !IsEditLocked);
-        AddImageCommand = new RelayCommand(() => _ = AddImageAsync(), () => !IsEditLocked);
-        ChangeIdCommand = new RelayCommand(() => _ = ChangeIdAsync(), () => !IsEditLocked);
+        MoveImageBackCommand = new RelayCommand(() => MoveImageAsync(-1).Forget(), () => CanMoveImageBack && !IsEditLocked);
+        MoveImageForwardCommand = new RelayCommand(() => MoveImageAsync(1).Forget(), () => CanMoveImageForward && !IsEditLocked);
+        PinThumbnailCommand = new RelayCommand(() => PinThumbnailAsync(true).Forget(), () => CurrentImage is not null && !CurrentIsPinned && !IsEditLocked);
+        UnpinThumbnailCommand = new RelayCommand(() => PinThumbnailAsync(false).Forget(), () => CurrentIsPinned && !IsEditLocked);
+        RemoveImageCommand = new RelayCommand(() => RemoveImageAsync().Forget(), () => CurrentIsUserAdded && !IsEditLocked);
+        AddImageCommand = new RelayCommand(() => AddImageAsync().Forget(), () => !IsEditLocked);
+        ChangeIdCommand = new RelayCommand(() => ChangeIdAsync().Forget(), () => !IsEditLocked);
         // 一度userTagを付けたitemは既定の編集キューに載らないので、ここから開く経路が要る
-        EditCommand = new RelayCommand(() => _ = main.ShowEditAsync([item.Id]), () => !IsEditLocked);
+        EditCommand = new RelayCommand(() => main.ShowEditAsync([item.Id]).Forget(), () => !IsEditLocked);
         OpenInExplorerCommand = new RelayCommand(OpenInExplorer, parameter => parameter is string);
         UnpackCommand = new RelayCommand(
-            parameter => _ = UnpackAsync(parameter as LocalFileRow),
+            parameter => UnpackAsync(parameter as LocalFileRow).Forget(),
             parameter => parameter is LocalFileRow { CanUnpack: true });
         UnregisterFolderCommand = new RelayCommand(
-            parameter => _ = UnregisterFolderAsync(parameter as string),
+            parameter => UnregisterFolderAsync(parameter as string).Forget(),
             parameter => parameter is string && !IsEditLocked);
         DetachFileCommand = new RelayCommand(
-            parameter => _ = DetachFileAsync(parameter as LocalFileRow),
+            parameter => DetachFileAsync(parameter as LocalFileRow).Forget(),
             parameter => parameter is LocalFileRow { IsDetached: false } && !IsEditLocked);
         ReattachFileCommand = new RelayCommand(
-            parameter => _ = ReattachFileAsync(parameter as LocalFileRow),
+            parameter => ReattachFileAsync(parameter as LocalFileRow).Forget(),
             parameter => parameter is LocalFileRow { CanReattach: true } && !IsEditLocked);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
-        FetchImagesCommand = new RelayCommand(() => _ = FetchImagesAsync(), () => HasMissingImages);
-        AddAvatarCommand = new RelayCommand(parameter => _ = AddAvatarAsync(parameter as string), _ => !IsEditLocked);
+        FetchImagesCommand = new RelayCommand(() => FetchImagesAsync().Forget(), () => HasMissingImages);
+        AddAvatarCommand = new RelayCommand(parameter => AddAvatarAsync(parameter as string).Forget(), _ => !IsEditLocked);
         SendToUnityCommand = new RelayCommand(
             SendToUnity,
             parameter => parameter is Core.Services.UnityPackageEntry);
         SendToUnityWithRecordCommand = new RelayCommand(
-            parameter => _ = SendToUnityWithRecordAsync(parameter),
+            parameter => SendToUnityWithRecordAsync(parameter).Forget(),
             parameter => parameter is Core.Services.UnityPackageEntry);
-        AddToModificationCommand = new RelayCommand(() => _ = AddToModificationAsync());
+        AddToModificationCommand = new RelayCommand(() => AddToModificationAsync().Forget());
         OpenModificationCommand = new RelayCommand(
             parameter => OpenModification(parameter as UsedInModificationRowViewModel),
             parameter => parameter is UsedInModificationRowViewModel);
@@ -112,13 +112,13 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             parameter => parameter is SectionRow);
         ToggleAllSectionsCommand = new RelayCommand(ToggleAllSections, () => Sections.Count > 0);
         SetRoleBoothCommand = new RelayCommand(
-            () => _ = SetRoleAsync(Core.Models.ImageRole.Booth),
+            () => SetRoleAsync(Core.Models.ImageRole.Booth).Forget(),
             () => CurrentImage is { IsImage: true } && !IsEditLocked);
         SetRoleModifiedCommand = new RelayCommand(
-            () => _ = SetRoleAsync(Core.Models.ImageRole.Modified),
+            () => SetRoleAsync(Core.Models.ImageRole.Modified).Forget(),
             () => CurrentImage is { IsImage: true } && !IsEditLocked);
         SetRoleOtherCommand = new RelayCommand(
-            () => _ = SetRoleAsync(Core.Models.ImageRole.Other),
+            () => SetRoleAsync(Core.Models.ImageRole.Other).Forget(),
             () => CurrentImage is { IsImage: true } && !IsEditLocked);
 
         Sections = item.Booth.H2Sections.Select(section => new SectionRow(section)).ToList();
@@ -134,10 +134,10 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         }
 
         // zip の中の unitypackage と、Unityのどこに入るかは読むのに時間が掛かるので待たない。行を出してから埋まる
-        _ = LoadUnityPackagesAsync();
+        LoadUnityPackagesAsync().Forget();
 
         // 改変はファイルを読むので待たない。空で描いてから埋まる
-        _ = LoadModificationsAsync();
+        LoadModificationsAsync().Forget();
     }
 
     public ItemRecord Item { get; private set; }
@@ -406,7 +406,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     private RelayCommand? _toggleFavoriteCommand;
 
-    public RelayCommand ToggleFavoriteCommand => _toggleFavoriteCommand ??= new RelayCommand(() => _ = ToggleFavoriteAsync());
+    public RelayCommand ToggleFavoriteCommand => _toggleFavoriteCommand ??= new RelayCommand(() => ToggleFavoriteAsync().Forget());
 
     private async Task ToggleFavoriteAsync()
     {
@@ -942,7 +942,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         var itemId = BoothUrlExtractor.TryExtractItemId(uri.AbsoluteUri);
         if (itemId is not null)
         {
-            _ = OpenLinkedItemAsync(itemId);
+            OpenLinkedItemAsync(itemId).Forget();
         }
     }
 

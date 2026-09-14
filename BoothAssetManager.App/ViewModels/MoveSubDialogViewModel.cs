@@ -26,7 +26,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
         Sub = sub;
         Targets = targets;
 
-        PickTargetCommand = new RelayCommand(parameter => _ = PickAsync(parameter as string));
+        PickTargetCommand = new RelayCommand(parameter => PickAsync(parameter as string).Forget());
     }
 
     public string FromTop { get; }

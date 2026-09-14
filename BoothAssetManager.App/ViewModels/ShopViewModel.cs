@@ -39,7 +39,7 @@ public sealed class ShopViewModel : ViewModelBase
 
         // ショップ画面に絞り込みを作り直さず、検索の絞り込みをそのまま使う（#55・ユーザ判断）
         ShowInSearchCommand = new RelayCommand(() => main.ShowItemsOfShop(Shop.Subdomain, Shop.Name));
-        RefreshImagesCommand = new RelayCommand(() => _ = RefreshImagesAsync(), () => !IsRefreshingImages);
+        RefreshImagesCommand = new RelayCommand(() => RefreshImagesAsync().Forget(), () => !IsRefreshingImages);
 
         // 有無が分からない店だけ、開いた瞬間から場所を空けて待つ。
         // 確かめ直す時期が来た店も「分からない」に含まれる（結果が変わり得るため）
@@ -48,7 +48,7 @@ public sealed class ShopViewModel : ViewModelBase
 
         _icon = shop.IconPath is null ? null : thumbnails.Load(shop.IconPath);
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     public ShopSummary Shop { get; }

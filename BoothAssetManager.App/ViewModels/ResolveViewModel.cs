@@ -49,20 +49,20 @@ public sealed partial class ResolveViewModel : ViewModelBase
         // 候補を出す・候補を確認する・ブラウザで開くは読み取りだけなので、
         // 確定を待っている間も次のファイルを調べられる
         // （確定処理は開始時に対象を控えるので、途中でプレビューが変わっても安全）
-        ProposeCommand = new RelayCommand(() => _ = ProposeAsync(), () => HasSelection);
+        ProposeCommand = new RelayCommand(() => ProposeAsync().Forget(), () => HasSelection);
         // 取得中は押せないようにする。他のボタンには入っていて、ここだけ抜けていた
-        PreviewCommand = new RelayCommand(() => _ = PreviewAsync(ItemIdInput), () => CanPreview && !IsBusy);
-        UseCandidateCommand = new RelayCommand(parameter => _ = UseCandidateAsync(parameter), parameter => parameter is CandidateRow);
-        AssignCommand = new RelayCommand(() => _ = AssignAsync(), () => HasPreview && HasSelection && !IsBusy);
-        ExcludeCommand = new RelayCommand(() => _ = ExcludeAsync(), () => HasSelection && !IsBusy);
+        PreviewCommand = new RelayCommand(() => PreviewAsync(ItemIdInput).Forget(), () => CanPreview && !IsBusy);
+        UseCandidateCommand = new RelayCommand(parameter => UseCandidateAsync(parameter).Forget(), parameter => parameter is CandidateRow);
+        AssignCommand = new RelayCommand(() => AssignAsync().Forget(), () => HasPreview && HasSelection && !IsBusy);
+        ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => HasSelection && !IsBusy);
         UseLocalNameCommand = new RelayCommand(
             parameter => { if (parameter is string name) { LocalNameInput = name; } },
             parameter => parameter is string);
         RegisterLocalCommand = new RelayCommand(
-            () => _ = RegisterLocalAsync(),
+            () => RegisterLocalAsync().Forget(),
             () => HasSelection && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
-        OpenLastSettledCommand = new RelayCommand(() => _ = OpenLastSettledAsync(), () => _settledItemIds.Count > 0);
+        OpenLastSettledCommand = new RelayCommand(() => OpenLastSettledAsync().Forget(), () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
@@ -72,12 +72,12 @@ public sealed partial class ResolveViewModel : ViewModelBase
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
         SelectArchiveContentCommand = new RelayCommand(SelectArchiveContent, () => HasArchiveContent);
-        RegisterFolderCommand = new RelayCommand(() => _ = RegisterFolderAsync(), () => CanRegisterFolder);
+        RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
-        ExcludeCheckedCommand = new RelayCommand(() => _ = ExcludeCheckedAsync(), () => HasChecked && !IsBusy);
-        AssignCheckedCommand = new RelayCommand(() => _ = AssignCheckedAsync(), () => HasChecked && HasPreview && !IsBusy);
+        ExcludeCheckedCommand = new RelayCommand(() => ExcludeCheckedAsync().Forget(), () => HasChecked && !IsBusy);
+        AssignCheckedCommand = new RelayCommand(() => AssignCheckedAsync().Forget(), () => HasChecked && HasPreview && !IsBusy);
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     public RelayCommand SelectFolderCommand { get; }
@@ -361,6 +361,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {
             // 均せなくても一覧は出す。黙って空にする方がずっと悪い
+            Core.Diagnostics.AppLog.Error("未確定の画面：突き合わせ", exception);
             failure = $"未確定の突き合わせに失敗しました: {exception.Message}";
         }
 
@@ -734,7 +735,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
         var ids = _settledItemIds.ToList();
         _settledItemIds.Clear();
-        _ = _main.ShowEditAsync(ids);
+        _main.ShowEditAsync(ids).Forget();
     }
 
     private async Task OpenLastSettledAsync()

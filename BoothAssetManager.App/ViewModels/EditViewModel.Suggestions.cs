@@ -22,7 +22,7 @@ public sealed partial class EditViewModel
             RefreshSuggestions();
         });
 
-        row.AddSubCommand = new RelayCommand(parameter => _ = AddSubAsync(row, parameter as string));
+        row.AddSubCommand = new RelayCommand(parameter => AddSubAsync(row, parameter as string).Forget());
 
         row.RemoveSubCommand = new RelayCommand(parameter =>
         {

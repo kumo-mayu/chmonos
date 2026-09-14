@@ -37,7 +37,7 @@ public partial class ModificationView : UserControl
         }
 
         e.Handled = true;
-        _ = view.AddImageFilesAsync(paths);
+        view.AddImageFilesAsync(paths).Forget();
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public partial class ModificationView : UserControl
         }
 
         e.Handled = true;
-        _ = view.PasteImageAsync(bytes);
+        view.PasteImageAsync(bytes).Forget();
     }
 
     /// <summary>クリップボードの絵をPNGの生データにする。商品ページと同じ扱い。</summary>

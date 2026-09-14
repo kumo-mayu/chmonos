@@ -77,17 +77,17 @@ public sealed class AttributeManageViewModel : ViewModelBase
         _services = services;
         _main = main;
 
-        AddCommand = new RelayCommand(parameter => _ = AddAsync(parameter as string));
-        RenameCommand = new RelayCommand(parameter => _ = RenameAsync(parameter as string), _ => Selected is not null);
-        DeleteCommand = new RelayCommand(() => _ = DeleteAsync(), () => Selected is not null);
-        SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => Selected is not null && MemoChanged);
-        ToggleDefaultCommand = new RelayCommand(() => _ = ToggleDefaultAsync(), () => Selected is not null);
-        RefreshCommand = new RelayCommand(() => _ = ReloadAsync());
+        AddCommand = new RelayCommand(parameter => AddAsync(parameter as string).Forget());
+        RenameCommand = new RelayCommand(parameter => RenameAsync(parameter as string).Forget(), _ => Selected is not null);
+        DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
+        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget(), () => Selected is not null && MemoChanged);
+        ToggleDefaultCommand = new RelayCommand(() => ToggleDefaultAsync().Forget(), () => Selected is not null);
+        RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
             () => _main.ShowItemsWithAttribute(Selected!.Name),
             () => Selected is { ItemCount: > 0 });
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     public ObservableCollection<AttributeMasterRow> Rows { get; } = [];
@@ -292,9 +292,9 @@ public sealed class AttributeManageViewModel : ViewModelBase
     {
         var row = new OrphanAttributeRow { Name = orphan.Name, ItemCount = orphan.ItemCount };
 
-        row.AddToMasterCommand = new RelayCommand(() => _ = AddOrphanToMasterAsync(row));
-        row.MergeCommand = new RelayCommand(parameter => _ = MergeOrphanAsync(row, parameter as string));
-        row.RemoveCommand = new RelayCommand(() => _ = RemoveOrphanAsync(row));
+        row.AddToMasterCommand = new RelayCommand(() => AddOrphanToMasterAsync(row).Forget());
+        row.MergeCommand = new RelayCommand(parameter => MergeOrphanAsync(row, parameter as string).Forget());
+        row.RemoveCommand = new RelayCommand(() => RemoveOrphanAsync(row).Forget());
 
         return row;
     }

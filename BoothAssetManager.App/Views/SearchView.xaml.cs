@@ -129,7 +129,7 @@ public partial class SearchView : UserControl
         if (sender is FrameworkElement { DataContext: ItemCardViewModel card }
             && DataContext is SearchViewModel search)
         {
-            _ = search.ToggleFavoriteAsync(card);
+            search.ToggleFavoriteAsync(card).Forget();
             e.Handled = true;
         }
     }

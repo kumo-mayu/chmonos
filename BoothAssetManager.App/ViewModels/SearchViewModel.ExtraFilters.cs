@@ -149,7 +149,7 @@ public sealed partial class SearchViewModel
 
             row.DescendCommand = new RelayCommand(() => filter.CurrentPath = path);
             row.OpenCommand = new RelayCommand(() => Shell.Reveal(path));
-            row.AddToImportCommand = new RelayCommand(() => _ = AddImportFolderAsync(path));
+            row.AddToImportCommand = new RelayCommand(() => AddImportFolderAsync(path).Forget());
             row.Changed += () =>
             {
                 if (row.IsSelected)
@@ -165,7 +165,7 @@ public sealed partial class SearchViewModel
             filter.Rows.Add(row);
         }
 
-        _ = MarkOfflineFolderRowsAsync(filter.Rows.ToList());
+        MarkOfflineFolderRowsAsync(filter.Rows.ToList()).Forget();
     }
 
     /// <summary>
@@ -221,7 +221,7 @@ public sealed partial class SearchViewModel
     private void SaveExtraFilterKinds()
     {
         var kinds = ExtraFilters.Select(filter => filter.Kind.ToString()).ToList();
-        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
-            state => state with { SearchExtraFilters = kinds }));
+        _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
+            state => state with { SearchExtraFilters = kinds })).Forget();
     }
 }

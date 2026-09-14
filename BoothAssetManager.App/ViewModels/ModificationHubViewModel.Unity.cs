@@ -196,7 +196,7 @@ public sealed partial class ModificationHubViewModel
         // 「使った」の足跡。Cancel された物は入っていないので付けない（ほかの送り方と同じ）
         if (outcomes.Any(outcome => outcome.Opened && !outcome.Cancelled))
         {
-            _ = _services.Recent.TouchAsync(item.Id, RecentKind.Used);
+            _services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
         }
 
         var failed = outcomes.Where(outcome => !outcome.Opened).ToList();

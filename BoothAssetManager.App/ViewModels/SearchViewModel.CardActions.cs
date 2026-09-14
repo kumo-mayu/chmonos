@@ -73,7 +73,7 @@ public sealed partial class SearchViewModel
         var subdomain = card?.Item.Booth.Shop?.Subdomain;
         if (!string.IsNullOrWhiteSpace(subdomain) && _main is not null)
         {
-            _ = _main.ShowShopAsync(subdomain);
+            _main.ShowShopAsync(subdomain).Forget();
         }
     }
 

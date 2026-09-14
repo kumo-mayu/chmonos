@@ -189,24 +189,24 @@ public sealed class AvatarsViewModel : ViewModelBase
         _main = main;
         _openWith = selectItemId;
 
-        DetectCommand = new RelayCommand(() => _ = DetectAsync(), () => !IsDetecting);
-        SetBaseCommand = new RelayCommand(() => _ = SetBaseAsync());
-        ClearBaseCommand = new RelayCommand(() => _ = ClearBaseAsync());
-        AddAliasCommand = new RelayCommand(() => _ = AddAliasAsync());
-        SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync());
-        RenameCommand = new RelayCommand(() => _ = RenameAsync());
+        DetectCommand = new RelayCommand(() => DetectAsync().Forget(), () => !IsDetecting);
+        SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
+        ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget());
+        AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
+        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget());
+        RenameCommand = new RelayCommand(() => RenameAsync().Forget());
         UseNameSuggestionCommand = new RelayCommand(
             parameter => { if (parameter is string name) { NameInput = name; } },
             parameter => parameter is string);
-        RemoveAliasCommand = new RelayCommand(parameter => _ = RemoveAliasAsync(parameter as string));
-        ToggleOwnedCommand = new RelayCommand(() => _ = ToggleOwnedAsync());
-        OpenItemCommand = new RelayCommand(() => _ = OpenItemAsync());
-        RecheckCommand = new RelayCommand(() => _ = RecheckAsync());
-        TreatAsAvatarCommand = new RelayCommand(parameter => _ = SetOverrideAsync(parameter as string));
+        RemoveAliasCommand = new RelayCommand(parameter => RemoveAliasAsync(parameter as string).Forget());
+        ToggleOwnedCommand = new RelayCommand(() => ToggleOwnedAsync().Forget());
+        OpenItemCommand = new RelayCommand(() => OpenItemAsync().Forget());
+        RecheckCommand = new RelayCommand(() => RecheckAsync().Forget());
+        TreatAsAvatarCommand = new RelayCommand(parameter => SetOverrideAsync(parameter as string).Forget());
         OpenBoothCommand = new RelayCommand(OpenBooth);
         ShowItemsCommand = new RelayCommand(ShowItems);
         CreateModificationCommand = new RelayCommand(
-            () => _ = CreateModificationAsync(),
+            () => CreateModificationAsync().Forget(),
             () => Selected is not null && ModificationNameInput.Trim().Length > 0);
         OpenModificationCommand = new RelayCommand(
             parameter =>
@@ -219,14 +219,14 @@ public sealed class AvatarsViewModel : ViewModelBase
             },
             parameter => parameter is ModificationRowViewModel);
         DeleteModificationCommand = new RelayCommand(
-            parameter => _ = DeleteModificationAsync(parameter as ModificationRowViewModel),
+            parameter => DeleteModificationAsync(parameter as ModificationRowViewModel).Forget(),
             parameter => parameter is ModificationRowViewModel);
 
         // 既定のビューに見出しを付ける。ListBoxはこのビューを通して並べる
         System.Windows.Data.CollectionViewSource.GetDefaultView(Rows).GroupDescriptions.Add(
             new System.Windows.Data.PropertyGroupDescription(nameof(AvatarRowViewModel.GroupName)));
 
-        _ = LoadAsync();
+        LoadAsync().Forget();
     }
 
     /// <summary>
@@ -640,7 +640,7 @@ public sealed class AvatarsViewModel : ViewModelBase
 
                 // 選んだアバターの改変を読み直す。待たせないので投げっぱなしにする
                 ModificationNameInput = string.Empty;
-                _ = LoadModificationsAsync();
+                LoadModificationsAsync().Forget();
             }
         }
     }
@@ -909,11 +909,11 @@ public sealed class AvatarsViewModel : ViewModelBase
                 {
                     Summary = summary,
                     ItemIdInput = summary.Group.ItemId ?? string.Empty,
-                    ToggleInferCommand = new RelayCommand(() => _ = ToggleInferAsync(name, !summary.Group.InferClothing)),
+                    ToggleInferCommand = new RelayCommand(() => ToggleInferAsync(name, !summary.Group.InferClothing).Forget()),
                     RenameCommand = new RelayCommand(() => RenameBase(name)),
-                    DeleteCommand = new RelayCommand(() => _ = ConfirmDeleteBaseAsync(name)),
+                    DeleteCommand = new RelayCommand(() => ConfirmDeleteBaseAsync(name).Forget()),
                 };
-                baseRow.SetItemIdCommand = new RelayCommand(() => _ = SetBaseItemIdAsync(name, baseRow.ItemIdInput));
+                baseRow.SetItemIdCommand = new RelayCommand(() => SetBaseItemIdAsync(name, baseRow.ItemIdInput).Forget());
                 Bases.Add(baseRow);
                 BaseNames.Add(name);
             }
@@ -1044,6 +1044,7 @@ public sealed class AvatarsViewModel : ViewModelBase
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // 検出は途中まで進んでいることがあり、もう一度押せば続きから走る
+            Core.Diagnostics.AppLog.Error("アバターの画面：対応アバターの検出", exception);
             Status = $"検出の途中で止まりました：{exception.Message}　もう一度押すと続きから試します。";
         }
         finally
@@ -1124,7 +1125,7 @@ public sealed class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        _ = RenameBaseAsync(name, input);
+        RenameBaseAsync(name, input).Forget();
     }
 
     private async Task RenameBaseAsync(string oldName, string newName)
@@ -1184,7 +1185,7 @@ public sealed class AvatarsViewModel : ViewModelBase
     /// 戻す操作を名乗るボタンにする。
     /// </summary>
     public RelayCommand ResetNameCommand => _resetNameCommand ??= new RelayCommand(
-        () => _ = ResetNameAsync(),
+        () => ResetNameAsync().Forget(),
         () => HasManualName);
 
     private async Task ResetNameAsync()

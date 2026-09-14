@@ -64,7 +64,7 @@ public sealed partial class EditViewModel
 
     /// <summary>1件目へ戻る（ユーザ指示）。いま開いている商品の入力は保存しない（スキップと同じ）。</summary>
     public RelayCommand GoFirstCommand => _goFirstCommand ??= new RelayCommand(
-        () => _ = JumpAsync(0),
+        () => JumpAsync(0).Forget(),
         () => _queue.Count > 0 && _index != 0 && !IsSaving);
 
     private RelayCommand? _goFirstUnsavedCommand;
@@ -78,7 +78,7 @@ public sealed partial class EditViewModel
         {
             if (FirstUnsavedIndex() is { } index)
             {
-                _ = JumpAsync(index);
+                JumpAsync(index).Forget();
             }
         },
         () => !IsSaving && FirstUnsavedIndex() is { } index && index != _index);
@@ -104,7 +104,7 @@ public sealed partial class EditViewModel
         {
             if (parameter is EditQueueTile tile)
             {
-                _ = JumpAsync(tile.Index);
+                JumpAsync(tile.Index).Forget();
             }
         },
         parameter => parameter is EditQueueTile && !IsSaving);

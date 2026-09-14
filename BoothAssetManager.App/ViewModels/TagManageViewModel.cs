@@ -152,17 +152,17 @@ public sealed class TagManageViewModel : ViewModelBase
         _services = services;
         _main = main;
 
-        AddTopCommand = new RelayCommand(parameter => _ = AddTopAsync(parameter as string));
-        AddSubCommand = new RelayCommand(parameter => _ = AddSubAsync(parameter as string), _ => Selected is not null);
-        RenameTopCommand = new RelayCommand(parameter => _ = RenameTopAsync(parameter as string), _ => Selected is not null);
-        DeleteTopCommand = new RelayCommand(() => _ = DeleteTopAsync(), () => Selected is not null);
-        SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => Selected is not null && MemoChanged);
-        RefreshCommand = new RelayCommand(() => _ = ReloadAsync());
+        AddTopCommand = new RelayCommand(parameter => AddTopAsync(parameter as string).Forget());
+        AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
+        RenameTopCommand = new RelayCommand(parameter => RenameTopAsync(parameter as string).Forget(), _ => Selected is not null);
+        DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
+        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget(), () => Selected is not null && MemoChanged);
+        RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
             () => _main.ShowItemsWithTag(Selected!.Name),
             () => Selected is { ItemCount: > 0 });
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     public ObservableCollection<TagTopRow> Tops { get; } = [];
@@ -410,12 +410,12 @@ public sealed class TagManageViewModel : ViewModelBase
                 ItemCount = usage?.SubCounts.GetValueOrDefault(sub.Name) ?? 0,
             };
 
-            row.RenameCommand = new RelayCommand(parameter => _ = RenameSubAsync(row, parameter as string));
-            row.DeleteCommand = new RelayCommand(() => _ = DeleteSubAsync(row));
+            row.RenameCommand = new RelayCommand(parameter => RenameSubAsync(row, parameter as string).Forget());
+            row.DeleteCommand = new RelayCommand(() => DeleteSubAsync(row).Forget());
             row.ShowItemsCommand = new RelayCommand(
                 () => _main.ShowItemsWithTag(row.Top, row.Name),
                 () => row.IsUsed);
-            row.MoveCommand = new RelayCommand(() => _ = MoveSubToTopAsync(row), () => _allTops.Count > 1);
+            row.MoveCommand = new RelayCommand(() => MoveSubToTopAsync(row).Forget(), () => _allTops.Count > 1);
             row.MoveTargets = _allTops
                 .Where(entry => !string.Equals(entry.Name, top.Name, StringComparison.CurrentCultureIgnoreCase))
                 .Select(entry => entry.Name)
@@ -465,9 +465,9 @@ public sealed class TagManageViewModel : ViewModelBase
                 : SubNamesOf(orphan.Top),
         };
 
-        row.AddToMasterCommand = new RelayCommand(() => _ = AddOrphanToMasterAsync(row));
-        row.MergeCommand = new RelayCommand(parameter => _ = MergeOrphanAsync(row, parameter as string));
-        row.RemoveCommand = new RelayCommand(() => _ = RemoveOrphanAsync(row));
+        row.AddToMasterCommand = new RelayCommand(() => AddOrphanToMasterAsync(row).Forget());
+        row.MergeCommand = new RelayCommand(parameter => MergeOrphanAsync(row, parameter as string).Forget());
+        row.RemoveCommand = new RelayCommand(() => RemoveOrphanAsync(row).Forget());
 
         return row;
     }

@@ -154,52 +154,52 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
 
         // 戻るは画面の履歴を遡る（U23）
         BackCommand = new RelayCommand(main.GoBack);
-        SaveNameCommand = new RelayCommand(() => _ = SaveNameAsync(), () => NameChanged);
-        SaveMemoCommand = new RelayCommand(() => _ = SaveMemoAsync(), () => MemoChanged);
-        AddImageCommand = new RelayCommand(() => _ = AddImageAsync());
+        SaveNameCommand = new RelayCommand(() => SaveNameAsync().Forget(), () => NameChanged);
+        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget(), () => MemoChanged);
+        AddImageCommand = new RelayCommand(() => AddImageAsync().Forget());
         // ギャラリーの右クリックは引数なしで呼ぶ（いま出ている1枚が相手）。商品のギャラリーと同じ
         RemoveImageCommand = new RelayCommand(
-            parameter => _ = RemoveImageAsync(ImageFor(parameter)),
+            parameter => RemoveImageAsync(ImageFor(parameter)).Forget(),
             parameter => ImageFor(parameter) is not null);
         MoveImageBackCommand = new RelayCommand(
-            parameter => _ = MoveImageAsync(ImageFor(parameter), -1),
+            parameter => MoveImageAsync(ImageFor(parameter), -1).Forget(),
             parameter => ImageFor(parameter) is { CanMoveBack: true });
         MoveImageForwardCommand = new RelayCommand(
-            parameter => _ = MoveImageAsync(ImageFor(parameter), 1),
+            parameter => MoveImageAsync(ImageFor(parameter), 1).Forget(),
             parameter => ImageFor(parameter) is { CanMoveForward: true });
         PreviousImageCommand = new RelayCommand(() => GoToImage(-1), () => CanGoPreviousImage);
         NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         RemoveMemberCommand = new RelayCommand(
-            parameter => _ = RemoveMemberAsync(parameter as ModificationMemberRowViewModel),
+            parameter => RemoveMemberAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         MoveMemberBackCommand = new RelayCommand(
-            parameter => _ = MoveMemberAsync(parameter as ModificationMemberRowViewModel, -1),
+            parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, -1).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         MoveMemberForwardCommand = new RelayCommand(
-            parameter => _ = MoveMemberAsync(parameter as ModificationMemberRowViewModel, 1),
+            parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, 1).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         OpenItemCommand = new RelayCommand(
-            parameter => _ = OpenItemAsync(parameter as ModificationMemberRowViewModel),
+            parameter => OpenItemAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
-        AddMemberCommand = new RelayCommand(parameter => _ = AddMemberAsync(parameter as string));
+        AddMemberCommand = new RelayCommand(parameter => AddMemberAsync(parameter as string).Forget());
         OpenAvatarCommand = new RelayCommand(() => _main.ShowAvatar(AvatarItemId));
         OpenProjectCommand = new RelayCommand(() => OpenProject(), () => HasProject);
         LinkProjectCommand = new RelayCommand(
-            parameter => _ = LinkProjectAsync(parameter as UnityProjectRowViewModel),
+            parameter => LinkProjectAsync(parameter as UnityProjectRowViewModel).Forget(),
             parameter => parameter is UnityProjectRowViewModel);
-        UnlinkProjectCommand = new RelayCommand(() => _ = LinkProjectAsync(null), () => HasProject);
-        RefreshProjectsCommand = new RelayCommand(() => _ = LoadProjectsAsync());
+        UnlinkProjectCommand = new RelayCommand(() => LinkProjectAsync(null).Forget(), () => HasProject);
+        RefreshProjectsCommand = new RelayCommand(() => LoadProjectsAsync().Forget());
         OpenProjectFolderCommand = new RelayCommand(
             () => Shell.Reveal(Record.UnityProject), () => HasProject);
-        SendAllToUnityCommand = new RelayCommand(() => _ = SendAllToUnityAsync(), () => HasMembers && !IsSendingToUnity);
-        FindInProjectCommand = new RelayCommand(() => _ = FindInProjectAsync(), () => HasProject && !IsFindingInProject);
+        SendAllToUnityCommand = new RelayCommand(() => SendAllToUnityAsync().Forget(), () => HasMembers && !IsSendingToUnity);
+        FindInProjectCommand = new RelayCommand(() => FindInProjectAsync().Forget(), () => HasProject && !IsFindingInProject);
         AddCandidateCommand = new RelayCommand(
-            parameter => _ = AddCandidateAsync(parameter as ProjectCandidateRowViewModel),
+            parameter => AddCandidateAsync(parameter as ProjectCandidateRowViewModel).Forget(),
             parameter => parameter is ProjectCandidateRowViewModel);
-        DeleteCommand = new RelayCommand(() => _ = DeleteAsync());
+        DeleteCommand = new RelayCommand(() => DeleteAsync().Forget());
 
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     public ModificationRecord Record { get; private set; }
@@ -578,7 +578,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
             var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
             foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.ItemId).Distinct())
             {
-                _ = _services.Recent.TouchAsync(itemId, RecentKind.Used);
+                _services.Recent.TouchAsync(itemId, RecentKind.Used).Forget();
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();

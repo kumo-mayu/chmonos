@@ -162,7 +162,7 @@ public sealed partial class SearchViewModel
             var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
             foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.Card.Item.Id).Distinct())
             {
-                _ = _services.Recent.TouchAsync(itemId, Core.Services.RecentKind.Used);
+                _services.Recent.TouchAsync(itemId, Core.Services.RecentKind.Used).Forget();
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
@@ -330,7 +330,7 @@ public sealed partial class SearchViewModel
         }
 
         ClearSelection();
-        _ = _main.ShowEditAsync(ids);
+        _main.ShowEditAsync(ids).Forget();
     }
 
     /// <summary>
