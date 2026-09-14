@@ -643,40 +643,15 @@ public sealed partial class SearchViewModel
     {
         var sort = _sort;
 
+        // 値が無い商品（属性を付けていない・足跡が無い・入手日が無い）を後ろにまとめる決まりは Core の ItemOrder にある（試験付き）
         if (sort.Kind == SortKind.Attribute && sort.AttributeName is { } attributeName)
         {
-            var rated = items
-                .Where(item => item.Local.Attributes.ContainsKey(attributeName))
-                .ToList();
-            var unrated = items
-                .Where(item => !item.Local.Attributes.ContainsKey(attributeName))
-                .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture);
-
-            var ordered = sort.Descending
-                ? rated.OrderByDescending(item => item.Local.Attributes[attributeName])
-                : rated.OrderBy(item => item.Local.Attributes[attributeName]);
-
-            return ordered.Concat(unrated);
+            return Core.Services.ItemOrder.ByAttribute(items, attributeName, sort.Descending);
         }
 
-        // ---- 「最近」の3種 ----
-        //
-        // **足跡が無い商品は後ろにまとめる。**時刻を MinValue で代えると
-        // 「まだ無い」が「一番古い」に化けて、昇順にしたときに先頭へ来てしまう。
         if (RecentKindOf(sort.Kind) is { } recentKind)
         {
-            var times = _services.Recent.Times(recentKind);
-
-            var stamped = items.Where(item => times.ContainsKey(item.Id)).ToList();
-            var untouched = items
-                .Where(item => !times.ContainsKey(item.Id))
-                .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture);
-
-            var byTime = sort.Descending
-                ? stamped.OrderByDescending(item => times[item.Id])
-                : stamped.OrderBy(item => times[item.Id]);
-
-            return byTime.Concat(untouched);
+            return Core.Services.ItemOrder.ByTime(items, _services.Recent.Times(recentKind), sort.Descending);
         }
 
         return sort.Kind switch
@@ -690,11 +665,7 @@ public sealed partial class SearchViewModel
             SortKind.WishList => sort.Descending
                 ? items.OrderByDescending(item => item.Booth.WishListsCount)
                 : items.OrderBy(item => item.Booth.WishListsCount),
-            _ => sort.Descending
-                ? items.OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
-                    .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
-                : items.OrderBy(item => item.Local.AcquiredAt ?? DateOnly.MaxValue)
-                    .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture),
+            _ => Core.Services.ItemOrder.ByAcquired(items, sort.Descending),
         };
     }
 

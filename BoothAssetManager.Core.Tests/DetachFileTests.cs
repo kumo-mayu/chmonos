@@ -237,6 +237,6 @@ public class DetachFileTests : IDisposable
             .Where(path => path.Contains("111", StringComparison.Ordinal))
             .Select(File.ReadAllText));
 
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(json, "\"detached\"").Count);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"detached\""));
     }
 }
