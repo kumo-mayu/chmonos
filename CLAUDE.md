@@ -71,10 +71,16 @@ powershell -Command "$env:BOOTH_ASSET_MANAGER_HOME='$env:LOCALAPPDATA\BoothAsset
 
 ## 作りの決め事
 
-### 画面と処理の境目は `UiCommand` 1本
+### 画面からの書き込みと BOOTH への問い合わせは `UiCommand` 1本
 
-画面から処理を呼ぶ道は `UiCommand` と `CommandHandler` の switch だけ。
+画面から**書き込む**処理と、**BOOTH へ問い合わせる**処理を呼ぶ道は `UiCommand` と `CommandHandler` の switch だけ。
 **別の道を作らない。**新しい操作は `UiCommand` に足す。
+**読むだけの処理（手元の JSON を読む・数える）は画面から直に呼んでよい**（ユーザ判断 2026-09-14）。
+
+- 書き込みを通すのは、古い写しで丸ごと上書きする事故を1か所で防ぐため（取り込み元・未確定の一覧が消えていた。`設計詳細_技術的負債.md` 1-1・1-2）。
+  変え方を関数で渡し、錠の中で今の値に当てる（`UiCommand.ChangeSettings` など）
+- BOOTH への問い合わせを通すのは、人が押した操作を取り込みより先に通す優先度（`BoothClient.Prioritize`）を入口で掛けるため
+- 読みまで通すと、結果が全部 `CommandResult` になり型で守れなくなる。読みは何も壊さないので通さない
 
 ### itemの書き込みは `ItemRepository.SaveLocalAsync` を通す
 
