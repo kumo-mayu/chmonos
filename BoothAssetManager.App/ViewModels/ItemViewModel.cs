@@ -366,17 +366,15 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     private PaneColumn? _leftPane;
 
     /// <summary>
-    /// 左の列（ギャラリーと説明）。単独の画面ではドラッグで幅を変えられる（ユーザ判断 2026-09-14）。
-    /// 組み込んだときは右側が窓より狭いので、決め打ちの割合にして動かさない。
+    /// 左の列（ギャラリーと説明）。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。
+    /// フォルダビューに組み込んだときも動かせる（ユーザ指示 2026-09-14：前は決め打ちの割合で動かせなかった）。
+    /// 右側は窓より狭いので、組み込んだときは別の鍵（既定と範囲が小さい）で覚える
     /// </summary>
     public PaneColumn LeftPane => _leftPane ??= CreateLeftPane();
 
     private PaneColumn CreateLeftPane()
     {
-        var pane = new PaneColumn(_services.PaneWidths, "item.left")
-        {
-            Fixed = IsEmbedded ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star) : null,
-        };
+        var pane = new PaneColumn(_services.PaneWidths, IsEmbedded ? "folder.item.left" : "item.left");
         pane.PropertyChanged += (_, _) => OnPropertyChanged(nameof(BodyMinWidth));
         return pane;
     }

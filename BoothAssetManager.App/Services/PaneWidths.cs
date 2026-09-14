@@ -34,6 +34,11 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["item.left"] = new(660, 460, 1100),
         ["modification.left"] = new(660, 460, 1100),
         ["edit.right"] = new(480, 380, 800),
+
+        // 組み込んだとき（フォルダビューの右の商品ページ・改変の画面の右の改変）。単独の画面とは別に覚える（画面ごとに覚える決め事）。
+        // 右側は窓より狭いので、既定と最小を小さくする。最小は絵と名前が読める幅
+        ["folder.item.left"] = new(520, 360, 1000),
+        ["modifications.modification.left"] = new(560, 360, 1000),
     };
 
     private readonly object _gate = new();

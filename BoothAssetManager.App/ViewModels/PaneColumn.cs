@@ -8,7 +8,8 @@ namespace BoothAssetManager.App.ViewModels;
 /// 境目（<see cref="Controls.PaneSplitter"/>）の ResetCommand を <see cref="ResetCommand"/> へ結ぶ。
 ///
 /// 畳める列（ナビ・検索の絞り込み）は、畳んだ幅は変えずに開いたときの幅だけを変える。
-/// 組み込んだとき（フォルダビューの右側など）は幅を決め打ちにして、境目を出さない（<see cref="Fixed"/>）。
+/// 決め打ちの幅にして境目を出さないこともできる（<see cref="Fixed"/>。今は未確定を組み込んだときの、隠した一覧だけ）。
+/// 商品ページ・改変を組み込んだときは動かせる（ユーザ指示 2026-09-14）。そのときは単独の画面とは別の鍵で覚える。
 /// </summary>
 public sealed class PaneColumn : ViewModelBase
 {

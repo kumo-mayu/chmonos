@@ -98,7 +98,7 @@
                     <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 左の列の幅を変える境目（ユーザ判断 2026-09-14）。列の間の余白（右20）の中に置く。組み込んだときは出さない -->
+                <!-- 左の列の幅を変える境目（ユーザ判断 2026-09-14）。列の間の余白（右20）の中に置く。フォルダビューに組み込んだときも出す（ユーザ指示 2026-09-14） -->
                 <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Margin="0,0,7,0" Panel.ZIndex="2"
                                        ResetCommand="{Binding LeftPane.ResetCommand}"
                                        Visibility="{Binding LeftPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

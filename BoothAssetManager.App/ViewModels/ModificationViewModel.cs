@@ -229,15 +229,15 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     /// </remarks>
     private PaneColumn? _leftPane;
 
-    /// <summary>左の列（ギャラリーと使ったもの）。単独の画面ではドラッグで幅を変えられる（ユーザ判断 2026-09-14）。組み込んだときは決め打ち。</summary>
+    /// <summary>
+    /// 左の列（ギャラリーと使ったもの）。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。
+    /// 改変の画面に組み込んだときも動かせる（ユーザ指示 2026-09-14）。組み込んだときは別の鍵（既定と範囲が小さい）で覚える
+    /// </summary>
     public PaneColumn LeftPane => _leftPane ??= CreateLeftPane();
 
     private PaneColumn CreateLeftPane()
     {
-        var pane = new PaneColumn(_services.PaneWidths, "modification.left")
-        {
-            Fixed = IsEmbedded ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star) : null,
-        };
+        var pane = new PaneColumn(_services.PaneWidths, IsEmbedded ? "modifications.modification.left" : "modification.left");
         pane.PropertyChanged += (_, _) => OnPropertyChanged(nameof(BodyMinWidth));
         return pane;
     }
