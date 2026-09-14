@@ -16,7 +16,20 @@
                 <views:ItemCardResources />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- 使ったもののリストの行。見た目は検索のリストと同じ（境目の線・乗せると薄い灰）。押す操作は各列のボタンに置く -->
+            <!-- 使ったもののリストの名前。押すと商品ページ（「開く」ボタンの代わり・ユーザ指示 2026-09-14）。乗せると青い下線 -->
+            <Style x:Key="MemberNameLink" TargetType="Button">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 使ったもののリストの行。見た目は検索のリストと同じ（境目の線・乗せると薄い灰）。押す操作は名前と右端のボタンに置く -->
             <Style x:Key="MemberListRowStyle" TargetType="ListViewItem">
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
@@ -51,14 +64,7 @@
                     <Button Content="{Binding BackText}" Command="{Binding BackCommand}"
                             BorderThickness="0" Background="Transparent"
                             Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0"
-                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <!-- 押すとアバターの管理でこのアバターを開く（動線の点検 D6） -->
-                    <Button Command="{Binding OpenAvatarCommand}" BorderThickness="0" Background="Transparent"
-                            Cursor="Hand" VerticalAlignment="Center"
-                            ToolTip="このアバターをアバターの管理で開きます。同じアバターのほかの改変も見られます。">
-                        <TextBlock Text="{Binding AvatarText}" Style="{StaticResource Caption}" TextDecorations="Underline" />
-                    </Button>
+                    <!-- アバターは右の列の「改変の名前」の上へ移した（ユーザ指示 2026-09-14） -->
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -202,7 +208,20 @@
                                                             IsEnabled="{Binding CanMoveForward}"
                                                             Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="外す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                    <!-- Unity へのインポートと選択の2択（ユーザ指示 2026-09-14。「開く」はやめ、商品ページはカードを押すと開く） -->
+                                                    <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
+                                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            ToolTip="Unity へインポートするか、Unity のプロジェクトタブで選択します">
+                                                        <Button.ContextMenu>
+                                                            <ContextMenu>
+                                                                <MenuItem Header="インポート（Unity へ取り込む）" CommandParameter="{Binding}"
+                                                                          Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding}"
+                                                                          Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                            </ContextMenu>
+                                                        </Button.ContextMenu>
+                                                    </Button>
+                                                    <Button Content="外す" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
                                                             ToolTip="この記録から外します。商品そのものは消えません。"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
@@ -230,35 +249,6 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <!--
-                                                並べ替えは順番の番号の隣に置く。左の列は狭く（500px ほど）、いちばん右に置くと画面の外に押し出されて
-                                                横に送らないと並べ替えられなかった（2026-09-14 撮って確かめた）
-                                            -->
-                                            <GridViewColumn Header="操作" Width="186">
-                                                <GridViewColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border Style="{StaticResource ItemListCellFrame}">
-                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="先に入れる"
-                                                                        IsEnabled="{Binding CanMoveBack}"
-                                                                        Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}" />
-                                                                <Button Content="▼" Style="{StaticResource SmallButton}" Margin="4,0,0,0" ToolTip="後に入れる"
-                                                                        IsEnabled="{Binding CanMoveForward}"
-                                                                        Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}" />
-                                                                <Button Content="開く" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                                                        Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}" />
-                                                                <Button Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
-                                                                        ToolTip="この記録から外します。商品そのものは消えません。"
-                                                                        Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}" />
-                                                            </StackPanel>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </GridViewColumn.CellTemplate>
-                                            </GridViewColumn>
                                             <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
@@ -278,8 +268,27 @@
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">
                                                             <StackPanel VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
-                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                                <!-- 名前を押すと商品ページ（「開く」ボタンの代わり） -->
+                                                                <Button Style="{StaticResource MemberNameLink}" ToolTip="{Binding Name}"
+                                                                        Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}">
+                                                                    <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                                                        <Setter Property="TextDecorations" Value="Underline" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </Button>
+                                                                <!-- 使ったファイル。列にすると狭い左の列からはみ出すので、名前の下に置く（改変の画面の行と同じ形） -->
+                                                                <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                                 <WrapPanel Margin="0,3,0,0">
                                                                     <!-- 手元に無くても記録は残す。そのとき使ったのは事実 -->
                                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
@@ -296,12 +305,37 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn Header="使ったファイル" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}">
+                                            <!-- 操作は右端にまとめる（ユーザ指示 2026-09-14）。並べ替え・Unity へのインポートと選択・外す -->
+                                            <GridViewColumn Header="操作" Width="200">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">
-                                                            <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="先に入れる"
+                                                                        IsEnabled="{Binding CanMoveBack}"
+                                                                        Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="▼" Style="{StaticResource SmallButton}" Margin="4,0,0,0" ToolTip="後に入れる"
+                                                                        IsEnabled="{Binding CanMoveForward}"
+                                                                        Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
+                                                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        ToolTip="Unity へインポートするか、Unity のプロジェクトタブで選択します">
+                                                                    <Button.ContextMenu>
+                                                                        <ContextMenu>
+                                                                            <MenuItem Header="インポート（Unity へ取り込む）" CommandParameter="{Binding}"
+                                                                                      Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                            <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding}"
+                                                                                      Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                        </ContextMenu>
+                                                                    </Button.ContextMenu>
+                                                                </Button>
+                                                                <Button Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
+                                                                        ToolTip="この記録から外します。商品そのものは消えません。"
+                                                                        Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </StackPanel>
                                                         </Border>
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
@@ -366,7 +400,40 @@
 
                 <!-- 右：名前とメモ -->
                 <StackPanel Grid.Column="1">
+                    <!--
+                        この改変のアバター（ユーザ指示 2026-09-14：左上に置いていたのを、「改変の名前」の上にアバターとして置く）。
+                        押すとアバターの管理でこのアバターを開く（動線の点検 D6。同じアバターのほかの改変も見られる）
+                    -->
                     <Border Style="{StaticResource Card}" Padding="20,18">
+                        <StackPanel>
+                            <TextBlock Text="アバター" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
+                            <Button Style="{StaticResource MemberNameLink}" Command="{Binding OpenAvatarCommand}"
+                                    ToolTip="このアバターをアバターの管理で開きます。同じアバターのほかの改変も見られます。">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Left" Width="48" Height="48" CornerRadius="6" Margin="0,0,12,0"
+                                            Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                                        <Image Source="{Binding AvatarIcon}" Stretch="UniformToFill" />
+                                    </Border>
+                                    <TextBlock Text="{Binding AvatarText}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                        <Setter Property="TextDecorations" Value="Underline" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DockPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Padding="20,18" Margin="0,14,0,0">
                         <StackPanel>
                             <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
                             <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"

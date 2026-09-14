@@ -203,7 +203,18 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         RefreshProjectsCommand = new RelayCommand(() => LoadProjectsAsync().Forget());
         OpenProjectFolderCommand = new RelayCommand(
             () => Shell.Reveal(Record.UnityProject), () => HasProject);
-        SendAllToUnityCommand = new RelayCommand(() => SendAllToUnityAsync().Forget(), () => HasMembers && !IsSendingToUnity);
+        SendAllToUnityCommand = new RelayCommand(
+            () => SendToUnityAsync(Members.ToList(), "使ったものを順にUnityへ送る").Forget(), () => HasMembers && !IsSendingToUnity);
+
+        // 1件ごとの「Unity ▾」（ユーザ指示 2026-09-14：「開く」がエクスプローラなのか Unity なのか分かりにくい。インポートと選択の2択にする）
+        ImportMemberCommand = new RelayCommand(
+            parameter => SendToUnityAsync(
+                parameter is ModificationMemberRowViewModel row ? new[] { row } : Array.Empty<ModificationMemberRowViewModel>(),
+                "Unityへインポート").Forget(),
+            parameter => parameter is ModificationMemberRowViewModel && !IsSendingToUnity);
+        SelectMemberInUnityCommand = new RelayCommand(
+            parameter => SelectMemberInUnityAsync(parameter as ModificationMemberRowViewModel).Forget(),
+            parameter => parameter is ModificationMemberRowViewModel);
         FindInProjectCommand = new RelayCommand(() => FindInProjectAsync().Forget(), () => HasProject && !IsFindingInProject);
         AddCandidateCommand = new RelayCommand(
             parameter => AddCandidateAsync(parameter as ProjectCandidateRowViewModel).Forget(),
@@ -302,6 +313,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>使ったものを、並びの順に Unity へ送る（#69）。</summary>
     public RelayCommand SendAllToUnityCommand { get; }
+
+    /// <summary>使ったもの1件を Unity へ取り込む（「Unity ▾」の「インポート」）。全件を順に送るのと同じ道で、その1件だけを送る。</summary>
+    public RelayCommand ImportMemberCommand { get; }
+
+    /// <summary>使ったもの1件を Unity のプロジェクトタブで示す（「Unity ▾」の「選択」。改変の画面の「Unityで選択」と同じ）。</summary>
+    public RelayCommand SelectMemberInUnityCommand { get; }
 
     // ---- 紐付けたプロジェクトの中から探す（#72） ----
 
@@ -471,16 +488,15 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// 送り先は、紐付けたプロジェクトが開いていればそこ。開いていなければ選ばせ、
     /// 紐付けと違うプロジェクトへ送るときは一度聞く（別のプロジェクトに入れてしまうと剥がすのが手間）。
     /// </summary>
-    private async Task SendAllToUnityAsync()
+    /// <param name="rows">送る行。全件を順に送るときは全行、「Unity ▾」の「インポート」ではその1行（ユーザ指示 2026-09-14）。</param>
+    private async Task SendToUnityAsync(IReadOnlyList<ModificationMemberRowViewModel> rows, string title)
     {
-        const string title = "使ったものを順にUnityへ送る";
-
         // 使ったものの並び（導入の順）に積む。どのファイルか記録の無い行で、送れる物が2つ以上ある商品は、
         // 送り先を決めた後に選ばせる（ユーザ判断 2026-09-13。前は全部送っていて、古い版や別の種類まで入った）
         var steps = new List<(int Index, string ItemId, IReadOnlyList<UnityPackageEntry> Fixed, PackageChoiceSection? Choice)>();
         var nothing = new List<string>();
 
-        foreach (var row in Members)
+        foreach (var row in rows)
         {
             var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
             var packages = item is null ? [] : PackagesFor(item, row.Member);
@@ -640,6 +656,21 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         return UnityImportQueue.PackagesOf(item);
+    }
+
+    /// <summary>使ったもの1件を Unity のプロジェクトタブで示す（改変の画面の「Unityで選択」と同じ道・<see cref="UnityMemberSelect"/>）。</summary>
+    private async Task SelectMemberInUnityAsync(ModificationMemberRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
+        if (await UnityMemberSelect.RunAsync(_services, Record, row.Index, row.Member, row.Name, row.SourceText, item, text => Status = text))
+        {
+            await ReloadAsync();
+        }
     }
 
     /// <summary>使ったもの。**並びが導入の順。**</summary>
@@ -883,6 +914,14 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public string AvatarItemId => Record.AvatarItemId;
 
+    /// <summary>
+    /// アバターの絵（アバターの管理と同じ1枚）。右の列の「アバター」の欄に出す（ユーザ指示 2026-09-14：左上ではなく、
+    /// 「改変の名前」の上にアバターとして置く）。持っていないアバターは取った1枚目、無ければ出さない
+    /// </summary>
+    public BitmapSource? AvatarIcon => AvatarImageSync.IconPath(_services.Paths, AvatarItemId, _main.Search.FindItem(AvatarItemId)) is { } path
+        ? _thumbnails.PeekForTile(path, () => OnPropertyChanged(nameof(AvatarIcon)))
+        : null;
+
     // ---- 名前 ----
 
     private string _nameInput;
@@ -1041,7 +1080,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         foreach (var name in new[]
         {
-            nameof(Record), nameof(AvatarText), nameof(HasMembers), nameof(HasImages),
+            nameof(Record), nameof(AvatarText), nameof(AvatarIcon), nameof(HasMembers), nameof(HasImages),
             nameof(CreatedText), nameof(UpdatedText), nameof(NameChanged), nameof(MemoChanged),
             nameof(HasProject), nameof(ProjectName), nameof(ProjectPath), nameof(ProjectMissing),
             nameof(HasProjectCandidates),

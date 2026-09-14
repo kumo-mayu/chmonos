@@ -58,12 +58,11 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["folder.col.shop"] = new(260, 80, 600),
         ["folder.col.chips"] = new(220, 100, 420),
 
-        // 改変のページの使ったもの（ユーザ指示 2026-09-14）。左の列の中なので名前と使ったファイルは狭め。「ショップ」の列を使ったファイルに使う
+        // 改変のページの使ったもの（ユーザ指示 2026-09-14）。左の列の中（既定 560 で中身は 500 ほど）なので名前は狭め。
+        // 順・絵・星・名前・操作（右端 200）が、既定の幅で横に送らずに収まるようにする。使ったファイルは名前の下に置く（列にしない）
         ["modification.col.icon"] = new(56, 44, 120),
         ["modification.col.fav"] = new(36, 28, 60),
-        ["modification.col.name"] = new(220, 120, 800),
-        ["modification.col.shop"] = new(180, 80, 500),
-        ["modification.col.chips"] = new(160, 100, 420),
+        ["modification.col.name"] = new(160, 100, 800),
     };
 
     private readonly object _gate = new();
