@@ -45,13 +45,15 @@ BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプ�
 
 ### 4. 本番のデータを触らない
 
-保存先の既定は `%LOCALAPPDATA%\Chmonos`（2026-09-14 に改名。**本番のデータは、ユーザがフォルダ名を変えるまで `%LOCALAPPDATA%\BoothAssetManager` にある**。
-古い名前は読み替えないので、どちらのフォルダにも触らない）。**画面の確認はサンドボックスで行う。**
+本番の保存先は `%LOCALAPPDATA%\Chmonos`（2026-09-14 に `BoothAssetManager` から改名し、ユーザがフォルダ名を変えた）。**画面の確認はサンドボックスで行う。**
+
+**本番の `location.json` は `BoothAssetManager-friendtest` を指している（ユーザの意図：件数が多くて考えやすいので普段はこちらを使う）。**
+環境変数を付けずに起動すると友人のデータの写しが開くので、**確かめの起動では必ず `CHMONOS_HOME` を付ける。**`location.json` は書き換えない。
 サンドボックスのフォルダ名（下の表）は改名前のまま。場所は環境変数で渡すだけなので、名前は関係ない。
 
 ```bash
 # 実データを複製してサンドボックスを作る
-powershell -Command "Copy-Item \"$env:LOCALAPPDATA\BoothAssetManager\" \"$env:LOCALAPPDATA\BoothAssetManager-ui\" -Recurse"
+powershell -Command "Copy-Item \"$env:LOCALAPPDATA\Chmonos\" \"$env:LOCALAPPDATA\BoothAssetManager-ui\" -Recurse"
 
 # 環境変数で保存先を差し替えて起動する（環境変数も 2026-09-14 に BOOTH_ASSET_MANAGER_HOME から改名）
 powershell -Command "$env:CHMONOS_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui'; Start-Process .\BoothAssetManager.App\bin\Debug\net9.0-windows\BoothAssetManager.App.exe"
@@ -65,7 +67,7 @@ powershell -Command "$env:CHMONOS_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui';
 | 保存先（`%LOCALAPPDATA%\` の下） | 中身 | 使い道 |
 |---|---|---|
 | `BoothAssetManager-ui` | 本番の写し（15件） | 画面の確認 |
-| `BoothAssetManager-friendtest` | 友人のライブラリの写し（約200件） | 件数・対応アバターの多い商品での確認（**5. を守る**） |
+| `BoothAssetManager-friendtest` | 友人のライブラリの写し（約200件）。**普段の起動（環境変数なし）で開く、ユーザの作業用の写し** | 件数・対応アバターの多い商品での確認（**5. を守る**）。ユーザが使っているので、本番と同じく書き込む確認には使わない |
 | `BoothAssetManager-stress-realcat` | 作った2000件（分類5種類） | 速さとメモリの計測 |
 | `BoothAssetManager-stress` | 作った2000件（**分類が2000種類に偏っている**） | 使わない。分類の数で遅くなり、実際の使い方と違う数字が出る（2026-09-13 の夜の調査） |
 | `BoothAssetManager-eval` | 友人のデータと正解（対応アバター） | 検出の評価（`experiments/AvatarEvalBench`） |
