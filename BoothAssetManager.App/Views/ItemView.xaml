@@ -201,7 +201,12 @@
                             <ItemsControl ItemsSource="{Binding Videos}" Margin="0,12,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
+                                        <!--
+                                            高さは中身に合わせる。アプリ全体のボタンの既定の高さ（32）が効くと、90px の絵が上だけ残して切れる
+                                            （2026-09-14・ユーザ指摘「サムネの縦幅が足りていない」。編集画面の帯で踏んだのと同じ）
+                                        -->
                                         <Button Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,0,10" ToolTip="{Binding Url}"
+                                                Height="Auto" MinHeight="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                 AutomationProperties.Name="{Binding TitleText}">
                                             <Button.Template>
                                                 <ControlTemplate TargetType="Button">

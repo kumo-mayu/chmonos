@@ -454,13 +454,18 @@
                   ToolTip="選ぶと、下の帯からまとめて操作できます" />
     </DataTemplate>
 
-    <!-- 小さな絵。乗せると大きな絵を出す（カードと同じ1枚） -->
+    <!--
+        絵。乗せると大きな絵を出す（カードと同じ1枚）。大きさは絵の列の幅に合わせ、行の高さもそれで決まる
+        （ユーザ指示 2026-09-14：絵の欄を大きくしたら縦の幅も変える）。絵はカードと同じ大きさで読む（列を広げてもぼやけない）
+    -->
     <DataTemplate x:Key="ItemListIconCell">
-        <Grid Width="40" Height="40" HorizontalAlignment="Left">
+        <Grid Width="{Binding DataContext.ListColumns.IconSize, RelativeSource={RelativeSource AncestorType=ListView}}"
+              Height="{Binding DataContext.ListColumns.IconSize, RelativeSource={RelativeSource AncestorType=ListView}}"
+              HorizontalAlignment="Left">
             <Border CornerRadius="4" Background="#e9edf4" ClipToBounds="True" ToolTipService.InitialShowDelay="250"
                     ToolTipService.Placement="Right"
                     Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                <Image Source="{Binding TileThumbnail}" Stretch="UniformToFill" />
+                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                 <Border.ToolTip>
                     <ToolTip Padding="4">
                         <Image Source="{Binding Thumbnail}" Width="220" Height="220" Stretch="Uniform" />
@@ -468,14 +473,15 @@
                 </Border.ToolTip>
             </Border>
             <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2" Fill="#f7f8fa"
-                  Stretch="Uniform" Width="30" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center"
                   Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </Grid>
     </DataTemplate>
 
-    <!-- お気に入りの星。行のクリックへは流さない（OnFavoriteClick） -->
+    <!-- お気に入りの星。行のクリックへは流さない（OnFavoriteClick）。絵との間にも区切りを置く（ユーザ指示 2026-09-14） -->
     <DataTemplate x:Key="ItemListFavCell">
-        <Border Background="Transparent" Cursor="Hand" HorizontalAlignment="Center" Padding="4,2"
+        <Border Style="{StaticResource ItemListCellFrame}" Padding="0">
+        <Border Background="Transparent" Cursor="Hand" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="4,2"
                 ToolTip="{Binding FavoriteTip}" MouseLeftButtonUp="OnFavoriteClick"
                 Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
             <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
@@ -490,6 +496,7 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
+        </Border>
         </Border>
     </DataTemplate>
 

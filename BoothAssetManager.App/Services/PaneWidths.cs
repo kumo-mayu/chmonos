@@ -48,6 +48,7 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["search.col.name"] = new(460, 160, 1000),
         ["search.col.shop"] = new(200, 80, 500),
         ["search.col.chips"] = new(220, 100, 420),
+        ["folder.col.select"] = new(36, 28, 60),
         ["folder.col.icon"] = new(56, 44, 120),
         ["folder.col.fav"] = new(36, 28, 60),
         ["folder.col.name"] = new(420, 160, 1000),

@@ -59,8 +59,18 @@ public sealed class ItemListColumns : ViewModelBase
     public double IconWidth
     {
         get => Get("icon");
-        set => Set("icon", value);
+        set
+        {
+            Set("icon", value);
+            OnPropertyChanged(nameof(IconSize));
+        }
     }
+
+    /// <summary>
+    /// 絵の大きさ。絵の列の幅から余白を引いた正方形で、行の高さもこれで決まる
+    /// （ユーザ指示 2026-09-14：絵の欄を大きくしたら縦の幅も変える）。既定の列56で40px
+    /// </summary>
+    public double IconSize => Math.Max(28, IconWidth - 16);
 
     public double FavWidth
     {

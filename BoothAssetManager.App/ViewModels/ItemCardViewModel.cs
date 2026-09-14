@@ -181,14 +181,6 @@ public sealed class ItemCardViewModel : ViewModelBase
             .Thumbnail(ordered, Item.Local.ThumbnailImage, ThumbnailRole, Item.Local.ImageRoles);
     }
 
-    /// <summary>
-    /// リストの行の小さな絵（ユーザ指示 2026-09-14）。小さい一覧用の大きさで読む（カードの大きさで読むと、行の数だけ大きな絵を持つ）。
-    /// 乗せたときに出す大きな絵は <see cref="Thumbnail"/>（カードと同じ）
-    /// </summary>
-    public BitmapSource? TileThumbnail => RestingImagePath() is { } path
-        ? _thumbnails.PeekForTile(path, () => OnPropertyChanged(nameof(TileThumbnail)))
-        : null;
-
     /// <summary>リストで、フォルダの行と商品の行を見分ける（フォルダビューの右側は両方を1つの一覧に並べる）。</summary>
     public bool IsFolder => false;
 
