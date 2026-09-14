@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using static BoothAssetManager.Core.Services.PathText;
 
 namespace BoothAssetManager.Core.Services;
 
@@ -128,7 +129,6 @@ public static class FolderViewRoots
 
     private static int Depth(string path) => path.Split('\\').Length;
 
-    private static bool Same(string left, string right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
     private static string Trim(string path) => path.Replace('/', '\\').TrimEnd('\\');
 }

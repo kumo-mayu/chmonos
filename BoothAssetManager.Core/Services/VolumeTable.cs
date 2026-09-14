@@ -1,5 +1,6 @@
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Storage;
+using static BoothAssetManager.Core.Services.PathText;
 
 namespace BoothAssetManager.Core.Services;
 
@@ -182,6 +183,4 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
             return false;
         }
     }
-
-    private static bool Same(string left, string right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }

@@ -1074,10 +1074,9 @@ public sealed class MainViewModel : ViewModelBase
         // 人が押した操作なので他の取得より先に出る
         if (imageUrl is not null)
         {
-            using var priority = Core.Booth.BoothClient.Prioritize(Core.Booth.BoothPriority.PinnedImage);
-
-            var fetched = await _services.Client.GetBinaryAsync(imageUrl);
-            if (!fetched.IsSuccess || fetched.Value is null)
+            // 優先度（指名された画像）は CommandHandler の中で掛ける
+            var fetched = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FetchBoothImage(imageUrl));
+            if (fetched is not Core.Commands.CommandResult.ImageFetched { Bytes: var bytesFromBooth })
             {
                 System.Windows.MessageBox.Show(
                     "BOOTHから画像を取れませんでした。",
@@ -1087,7 +1086,7 @@ public sealed class MainViewModel : ViewModelBase
                 return;
             }
 
-            await item.AddImageBytesAsync(fetched.Value);
+            await item.AddImageBytesAsync(bytesFromBooth);
             await item.ReloadGalleryAsync();
         }
     }

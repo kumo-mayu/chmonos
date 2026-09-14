@@ -319,9 +319,8 @@ public sealed class ShopsViewModel : ViewModelBase
         {
             var done = 0;
 
-            await _services.Shops.SyncIconsAsync(
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SyncShopIcons(
                 needing,
-                _services.Images,
                 (subdomain, path) =>
                 {
                     done++;
@@ -341,8 +340,8 @@ public sealed class ShopsViewModel : ViewModelBase
                     });
 
                     return Task.CompletedTask;
-                },
-                _iconFetch.Token);
+                }),
+                cancellationToken: _iconFetch.Token);
         }
         catch (OperationCanceledException)
         {

@@ -81,6 +81,8 @@ powershell -Command "$env:BOOTH_ASSET_MANAGER_HOME='$env:LOCALAPPDATA\BoothAsset
   変え方を関数で渡し、錠の中で今の値に当てる（`UiCommand.ChangeSettings` など）
 - BOOTH への問い合わせを通すのは、人が押した操作を取り込みより先に通す優先度（`BoothClient.Prioritize`）を入口で掛けるため
 - 読みまで通すと、結果が全部 `CommandResult` になり型で守れなくなる。読みは何も壊さないので通さない
+- 例外：起動時の裏の作業（残りの画像・持っていないアバターの画像・期限の来た商品）は画面が始めるが、人の操作ではないので通さない。
+  梯子の低い段で走らせるためで、入口の「人が押した」優先度を掛けてはいけない
 
 ### itemの書き込みは `ItemRepository.SaveLocalAsync` を通す
 

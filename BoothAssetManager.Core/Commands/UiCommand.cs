@@ -103,6 +103,22 @@ public abstract record UiCommand
     /// <summary>既にどこかの商品が持っているファイルを、未確定の一覧から取り除く（結果は取り除いた数）。</summary>
     public record ReconcileUnresolved() : UiCommand;
 
+    // ---- BOOTH への問い合わせ（画面が BoothClient・ShopService を直に呼んでいた。優先度は CommandHandler の中で決める） ----
+
+    /// <summary>手元に無い店のアイコンを順に取る（ショップの一覧を開いたとき・梯子の⑥）。<paramref name="OnFetched"/> は1件ごとに呼ぶ。</summary>
+    public record SyncShopIcons(
+        IReadOnlyList<Services.ShopSummary> Shops,
+        Func<string, string, Task>? OnFetched = null) : UiCommand;
+
+    /// <summary>ショップの画面を開いたときに、バナーが手元に無ければ取る。</summary>
+    public record EnsureShopBanner(string Subdomain) : UiCommand;
+
+    /// <summary>ショップのバナーとアイコンを取り直す（人が押した）。</summary>
+    public record RefreshShopImages(string Subdomain) : UiCommand;
+
+    /// <summary>ブラウザから落とされた BOOTH の画像を取る（画像置き場の URL だけ。確かめるのは DropRouting）。</summary>
+    public record FetchBoothImage(string Url) : UiCommand;
+
     /// <summary>検索の履歴を変える（積む・消す・全部消す）。変え方を関数で渡し、錠の中で今の履歴に当てる。</summary>
     public record ChangeSearchHistory(Func<Services.SearchHistoryList, Services.SearchHistoryList> Change) : UiCommand;
 
@@ -355,6 +371,15 @@ public abstract record CommandResult
 
     /// <summary>済んだ。数を持つ（書き換えた商品の数・取り除いた数など）。</summary>
     public record Counted(int Count) : CommandResult;
+
+    /// <summary>ショップのバナーを確かめた。手元に無く BOOTH にも無ければ null。</summary>
+    public record ShopBannerEnsured(string? Path) : CommandResult;
+
+    /// <summary>ショップの画像を取り直した。</summary>
+    public record ShopImagesRefreshed(Services.ShopImageRefresh Result) : CommandResult;
+
+    /// <summary>BOOTH から画像を取った。</summary>
+    public record ImageFetched(byte[] Bytes) : CommandResult;
 
     /// <summary>検索の履歴を書いた。書いた後の履歴を持つ。</summary>
     public record SearchHistoryChanged(Services.SearchHistoryList History) : CommandResult;

@@ -22,6 +22,9 @@ public sealed class CommandHandler
     private readonly IAvatarService? _avatars;
     private readonly ISettingsService? _settings;
     private readonly IAvatarRegistryEditor? _avatarEditor;
+    private readonly IShopService? _shops;
+    private readonly Images.ImagePipeline? _images;
+    private readonly Booth.IBoothClient? _client;
 
     public CommandHandler(
         IImportPipeline import,
@@ -36,10 +39,16 @@ public sealed class CommandHandler
         IAvatarService? avatars = null,
         UnityPackageCatalog? unityPackages = null,
         ISettingsService? settings = null,
-        IAvatarRegistryEditor? avatarEditor = null)
+        IAvatarRegistryEditor? avatarEditor = null,
+        IShopService? shops = null,
+        Images.ImagePipeline? images = null,
+        Booth.IBoothClient? client = null)
     {
         _settings = settings;
         _avatarEditor = avatarEditor;
+        _shops = shops;
+        _images = images;
+        _client = client;
         _unityPackages = unityPackages;
         _import = import;
         _items = items;
@@ -102,6 +111,51 @@ public sealed class CommandHandler
                 await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                     .RestoreExcludedAsync(restore.Hash, cancellationToken);
                 return new CommandResult.Done();
+
+            // ---- BOOTH への問い合わせ。入口の「人が押した」優先度のままだと、開いただけで取る物まで取り込みより先に出るので、
+            //      人が押していない物は梯子の段に下げる（内側の指定が勝つ） ----
+
+            case UiCommand.SyncShopIcons sync:
+                if (_shops is null || _images is null)
+                {
+                    return new CommandResult.Failed("ショップの画像の取得手段が設定されていません。");
+                }
+
+                using (Booth.BoothClient.Prioritize(Booth.BoothPriority.ShopIcon))
+                {
+                    return new CommandResult.Counted(await _shops.SyncIconsAsync(sync.Shops, _images, sync.OnFetched, cancellationToken));
+                }
+
+            case UiCommand.EnsureShopBanner banner:
+                if (_shops is null || _images is null)
+                {
+                    return new CommandResult.Failed("ショップの画像の取得手段が設定されていません。");
+                }
+
+                // 開いた画面に出す1枚なので、指名された画像と同じ段
+                using (Booth.BoothClient.Prioritize(Booth.BoothPriority.PinnedImage))
+                {
+                    return new CommandResult.ShopBannerEnsured(await _shops.EnsureBannerAsync(banner.Subdomain, _images, cancellationToken));
+                }
+
+            case UiCommand.RefreshShopImages refresh:
+                return _shops is null || _images is null
+                    ? new CommandResult.Failed("ショップの画像の取得手段が設定されていません。")
+                    : new CommandResult.ShopImagesRefreshed(await _shops.RefreshImagesAsync(refresh.Subdomain, _images, cancellationToken));
+
+            case UiCommand.FetchBoothImage fetch:
+                if (_client is null)
+                {
+                    return new CommandResult.Failed("BOOTHへの問い合わせ手段が設定されていません。");
+                }
+
+                using (Booth.BoothClient.Prioritize(Booth.BoothPriority.PinnedImage))
+                {
+                    var fetched = await _client.GetBinaryAsync(fetch.Url, cancellationToken);
+                    return fetched.IsSuccess && fetched.Value is { } bytes
+                        ? new CommandResult.ImageFetched(bytes)
+                        : new CommandResult.Failed("BOOTHから画像を取れませんでした。");
+                }
 
             case UiCommand.ChangeSearchHistory history:
                 return new CommandResult.SearchHistoryChanged(

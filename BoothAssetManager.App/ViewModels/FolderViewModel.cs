@@ -7,6 +7,7 @@ using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Diagnostics;
 using BoothAssetManager.Core.Services;
+using static BoothAssetManager.Core.Services.PathText;
 
 namespace BoothAssetManager.App.ViewModels;
 
@@ -1169,7 +1170,4 @@ public sealed class FolderViewModel : ViewModelBase
             ? null
             : parent;
     }
-
-    private static bool Same(string left, string right) => string.Equals(
-        left.TrimEnd('\\'), right.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
 }

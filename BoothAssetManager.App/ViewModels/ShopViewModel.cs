@@ -152,7 +152,8 @@ public sealed class ShopViewModel : ViewModelBase
 
         try
         {
-            var result = await _services.Shops.RefreshImagesAsync(Shop.Subdomain, _services.Images);
+            var refreshed = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RefreshShopImages(Shop.Subdomain));
+            var result = (refreshed as Core.Commands.CommandResult.ShopImagesRefreshed)?.Result ?? new ShopImageRefresh();
 
             RunOnUiThread(() =>
             {
@@ -429,7 +430,8 @@ public sealed class ShopViewModel : ViewModelBase
 
         try
         {
-            var path = await _services.Shops.EnsureBannerAsync(Shop.Subdomain, _services.Images);
+            var path = (await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.EnsureShopBanner(Shop.Subdomain))
+                as Core.Commands.CommandResult.ShopBannerEnsured)?.Path;
 
             RunOnUiThread(() =>
             {
