@@ -1,5 +1,14 @@
 # ZIP → BOOTH 商品ID 特定 設計書
 
+> **要約（2026-09-14 に足した。中身は書かれた時点のまま）**
+> - **目的**：手元の zip から BOOTH の商品IDを当てる手掛かりと、その強さを知る。
+> - **方法**：手元の実 zip 18本（2026-09-06）で手掛かりを1つずつ当てた。のちに友人の正解の分かる zip 319本と、本体と同じ候補検索で測り直した（§15）。道具は `experiments/` の各 Probe。
+> - **結果**：cookie 無しで 18/18 を特定。Chrome/Edge の Zone.Identifier は配布URL（商品ID入り）を持つが、Brave はオリジンだけ。
+>   ファイル名からの検索は、上位3件に正解が 54% → 76%。画面の1位が正解は 13/30 → 19/30 になった（検索語の整え方・60件の並べ直し・引き直し）。
+> - **結論**：手掛かり（zip 内 URL・配布URL・名前空間）→ 自動検索と点数付け、の順。ログインは使わない（§11）。展開物は元 zip で束ねる（§6-1）。
+> - **今の決め事**：`docs/spec/id-resolution.md`
+> - **節**：§0 結論／§1 問題の分解／§2 シグナルの強さ／§3 18本の成績／§4 検索の特性（アバターのIDで引く）／§5 日本語の橋渡し／§6 Zone.Identifier（6-1 元zipで束ねる）／§7 履歴DB／§8 商品JSON／§9 検証の順／§10 .NET 8 の zip の不具合／§11 ログインの判断／§12 パイプライン／§13 注意／§14 experiments／「§7 候補検索に表記の橋渡し」（10本の実測）／§15 319本での測り直しと登録簿の候補
+
 調査日: 2026-09-06 ／ 対象: `D:\storage\VRChat_*` 配下の実ZIP 18本（1.77 GiB）＋ 購入ライブラリの正解データ
 共有ページ版: https://claude.ai/code/artifact/0c2fe20f-2df8-44f8-8fda-7f8bdecf153d
 関連: `docs/research/zip-linking.md` / `docs/research/zip-linking-followup.md`（Codex による並行調査。18本の商品IDは本書の結果と全件一致。PDF本文解析・AssetConnect CSV・BOOTH Library Manager の経路はそちらが詳しい）

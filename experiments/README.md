@@ -16,6 +16,24 @@
 | `BoothIdResolverCli` | ZIPを落とすと商品URLを表示してクリップボードへ写す。中身は `BoothIdResolver`（ライブラリ）で、ここは入口だけ（#46） | なし |
 | `BrowserHistoryProbe` | Chromium系ブラウザ（Brave/Chrome/Edge）の History DB のダウンロード履歴から、配布CDN URL `s{n}.booth.pm/<shop-uuid>/f/<商品ID>/<配布ID>/<ファイル名>` を読み、ローカルZIPとファイル名＋バイト数で照合する。DBは必ずスナップショットにコピーしてReadOnlyで開き、終了時に削除。署名付きURLのクエリは表示しない | Microsoft.Data.Sqlite |
 
+## ZIP 以外も含めた一覧（2026-09-14 に足した）
+
+後から増えた計測の道具。何を測るかと、結果を書いた文書。
+
+| プロジェクト | 何を測るか | 結果の文書 |
+|---|---|---|
+| `AvatarEvalBench` | 対応アバター検出の今の版と案を、正解付きの試験データ（友人のデータ・リポジトリ外）に当てて適合率と再現率を比べる。`--store` で写しを選ぶ | `docs/history/avatars.md`「正解付きの試験データでの比較」 |
+| `AvatarNameBench` | 登録簿の表示名の付け方を、人が付け直した正解の名前と比べる（#54） | `docs/history/avatars.md`「表示名の付け方を変えた」 |
+| `CategoryFetch` | BOOTH のカテゴリ表を1度だけ取り、同梱できる形に落とす（計測ではなく取得の道具） | `docs/history/private-items.md` §8 |
+| `FallbackSearchProbe` | 候補検索を別の表記で引き直す価値があるか（正解の分かる10ファイル） | `docs/research/id-resolution.md`「§7 候補検索に表記の橋渡し」 |
+| `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位） | `docs/research/id-resolution.md` §15 |
+| `QueryVariantProbe` | 上位3件に正解が出なかったファイルで、検索語の変え方ごとの当たりを比べる | `docs/research/id-resolution.md` §15 |
+| `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
+| `ThesaurusBridgeProbe` | 類義語辞書2つに表記の橋渡しを重ねたときの広がりと、関係の無い物の割合 | `docs/research/fuzzy-search.md` §8・§9 |
+| `VRoidProbe` | BOOTH の VRoid カテゴリをアバターとして扱うべきか | `docs/history/avatars.md` §1-3 |
+
+友人のデータを使う道具は、結果の名前の出る物を試験データの置き場所にだけ書く（リポジトリに入れない）。
+
 ## 実行例
 
 ```powershell

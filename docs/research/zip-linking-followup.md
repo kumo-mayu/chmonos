@@ -1,5 +1,13 @@
 # BOOTH ZIP紐付け調査・追補
 
+> **要約（2026-09-14 に足した。中身は書かれた時点のまま。`zip-linking.md` の続き）**
+> - **目的**：前回の18本を、公開情報とローカルの解析だけでどこまで自動で結べるか。
+> - **方法**：公開商品JSON（16商品）・PDF本文（`research/PdfProbe`・PdfPig）・SHA-256 を集め、`research/Compare-CatalogEvidence.ps1` でオフライン照合した。
+> - **結果**：自動で候補を付けられたのは 18本中3本。競合0・自動確定0。PDF は 7/18 にあり、商品固有名の証拠になる（直接の商品URLは0件）。有料商品の配布ファイル名は、未ログインの JSON では取れない。
+> - **結論**：既存 zip を無人で100%確定する方式は無い。証拠を役割付きで保存し、confirmed／likely／candidate／unresolved／conflict に分ける。取り込み経路の候補は、BOOTH Library Manager のローカルDB（読み取り専用）と AssetConnect の CSV（利用者が出した物）。
+> - **今の決め事**：`docs/spec/id-resolution.md`
+> - **節**：結論／今回増えた証拠／有望な取り込み経路（1 BLM・2 AssetConnect・3 利用者主導のエクスポート・4 公開JSON）／ローカル解析の改善（PDF・.NET 8 の zip）／判定ルール／データモデル案／実装順序／追加した再現物
+
 調査日: 2026-09-06。前回と同じ `D:/storage/VRChat_*` 配下18 ZIPを読み取り専用で再調査した。
 
 ## 結論
