@@ -84,7 +84,7 @@ public partial class App : Application
         var main = new MainViewModel(_services);
         var mainWindow = new MainWindow { DataContext = main };
 
-        mainWindow.RestorePlacement(_services.Settings.Window);
+        mainWindow.RestorePlacement(_services.UiState.Window);
 
         // 閉じる直前に採る。Closed だと既に位置を失っている
         mainWindow.Closing += (_, e) =>
@@ -161,7 +161,7 @@ public partial class App : Application
 
         try
         {
-            Task.Run(() => main.SaveUiStateAsync(settings => settings with { Window = placement }))
+            Task.Run(() => main.SaveUiStateAsync(state => state with { Window = placement }))
                 .GetAwaiter()
                 .GetResult();
         }

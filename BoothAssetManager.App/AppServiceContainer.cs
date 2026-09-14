@@ -142,6 +142,9 @@ public sealed class AppServiceContainer : IDisposable
     /// </summary>
     public AppSettings Settings => SettingsStore.Current;
 
+    /// <summary>画面が覚えている状態（ui-state.json）。書くのは UiCommand.ChangeUiState。</summary>
+    public UiState UiState => SettingsStore.UiState;
+
     public IBoothClient Client { get; }
 
     public ImagePipeline Images { get; }

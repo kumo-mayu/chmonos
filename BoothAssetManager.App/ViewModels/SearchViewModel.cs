@@ -108,10 +108,10 @@ public sealed class SearchViewModel : ViewModelBase
         SetAvatarFilterCommand = new RelayCommand(parameter => SetAvatarFilter(parameter as string));
         ClearAvatarFilterCommand = new RelayCommand(ClearAvatarFilter);
         ClearShopFilterCommand = new RelayCommand(ClearShopFilter);
-        _isFilterPanelCollapsed = services.Settings.FilterPanelCollapsed;
+        _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
 
         // 前回積んでいた条件の種類だけを戻す。値は戻さない
-        foreach (var name in services.Settings.SearchExtraFilters)
+        foreach (var name in services.UiState.SearchExtraFilters)
         {
             if (Enum.TryParse<ExtraFilterKind>(name, out var kind))
             {
@@ -153,8 +153,8 @@ public sealed class SearchViewModel : ViewModelBase
     {
         IsFilterPanelCollapsed = !IsFilterPanelCollapsed;
         var collapsed = IsFilterPanelCollapsed;
-        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
-            settings => settings with { FilterPanelCollapsed = collapsed }));
+        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
+            state => state with { FilterPanelCollapsed = collapsed }));
     }
 
     /// <summary>
@@ -535,8 +535,8 @@ public sealed class SearchViewModel : ViewModelBase
     private void SaveExtraFilterKinds()
     {
         var kinds = ExtraFilters.Select(filter => filter.Kind.ToString()).ToList();
-        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
-            settings => settings with { SearchExtraFilters = kinds }));
+        _ = _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
+            state => state with { SearchExtraFilters = kinds }));
     }
 
     /// <summary>画面遷移のために親を後から渡す（生成順の都合でコンストラクタでは受け取れない）。</summary>

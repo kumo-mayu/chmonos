@@ -41,6 +41,9 @@ notifications.json           要確認レコード（既読フラグ付き）
 edit-session.json            編集キューのスナップショットと位置
 scan-cache.json              パス → サイズ・更新日時・ハッシュ
 settings.json                設定
+ui-state.json                画面が覚えている状態（ナビ・絞り込み欄の畳み方・積んだ条件・窓の位置。2026-09-14 に settings.json から分けた）
+volumes.json                 ドライブ文字と、そこに見えたボリュームの通し番号の組（外付けの文字が変わったときの読み替え）
+logs/app.log                 失敗の書き残し（1MB で app.old.log へ回す。消してよい）
 ```
 
 * item は 1 BoothID につき 1 ファイル。全件を1ファイルにまとめない（破損時の被害・差分バックアップ・直接編集のしやすさのため）。

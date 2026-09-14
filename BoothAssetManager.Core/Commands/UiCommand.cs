@@ -42,6 +42,9 @@ public abstract record UiCommand
     /// </summary>
     public record ChangeSettings(Func<Models.AppSettings, Models.AppSettings> Change) : UiCommand;
 
+    /// <summary>画面が覚えている状態（ui-state.json）を変える。設定と同じく変え方を関数で渡す。</summary>
+    public record ChangeUiState(Func<Models.UiState, Models.UiState> Change) : UiCommand;
+
     // ---- アバターの登録簿（アバター画面）。前は画面がサービスを直に呼んでいた（技術的負債 3-1） ----
 
     /// <summary>アバターに名前を付ける。空にすると自動の名前に戻る。</summary>

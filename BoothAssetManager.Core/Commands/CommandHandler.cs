@@ -78,6 +78,11 @@ public sealed class CommandHandler
                 return new CommandResult.Imported(
                     await _import.RunAsync(scan.Work, progress, cancellationToken));
 
+            case UiCommand.ChangeUiState uiState:
+                await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
+                    .UpdateUiStateAsync(uiState.Change, cancellationToken);
+                return new CommandResult.Done();
+
             case UiCommand.ChangeSettings change:
                 return new CommandResult.SettingsChanged(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))

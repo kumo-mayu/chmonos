@@ -312,37 +312,7 @@ public sealed record AppSettings
     /// <summary>対応アバターを検出し直すまでの日数。</summary>
     public int AvatarDetectRecheckDays { get; init; } = 90;
 
-    // --- 画面が覚えている状態 ---
-    //
-    // 以下は設定画面には出さない。ユーザが決める設定ではなく、
-    // 前回の続きから始めるためにアプリが覚えているだけの値なので、
-    // 設定の一覧に混ぜると「触るところ」に見えてしまう。
-
-    /// <summary>ナビを畳んでいるか。</summary>
-    public bool NavCollapsed { get; init; }
-
-    /// <summary>
-    /// 検索の絞り込みパネルを畳んでいるか。
-    ///
-    /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。
-    /// 「なぜか商品が少ない」の原因が畳んだパネルの中にあると、探す場所が無くなる。
-    /// </summary>
-    public bool FilterPanelCollapsed { get; init; }
-
-    /// <summary>
-    /// 検索の絞り込みに積んでいる条件の種類。
-    ///
-    /// 種類だけを覚えて値は覚えない。値まで戻すと「なぜか商品が少ない」状態で始まり、
-    /// 原因が畳まれた条件の中にあると気付けない。
-    /// 起動したときにまず全件が見えている方が安全。
-    /// </summary>
-    public IReadOnlyList<string> SearchExtraFilters { get; init; } = [];
-
-    /// <summary>
-    /// 終了時のウィンドウの位置と大きさ。未保存（初回）は null。
-    /// 復元時に、今あるモニタのどれとも重ならなければ捨てて中央に開く。
-    /// </summary>
-    public WindowPlacement? Window { get; init; }
+    // 画面が覚えている状態（ナビ・絞り込み欄の畳み方・積んだ条件・窓の位置）は ui-state.json（UiState）へ分けた（技術的負債 3-2）
 }
 
 /// <summary>

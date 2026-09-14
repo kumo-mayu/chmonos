@@ -74,7 +74,7 @@ public sealed class MainViewModel : ViewModelBase
         ToggleNavCommand = new RelayCommand(ToggleNav);
         ApplyPendingCommand = new RelayCommand(() => _ = ReloadLibraryAsync());
 
-        _isNavCollapsed = services.Settings.NavCollapsed;
+        _isNavCollapsed = services.UiState.NavCollapsed;
 
         RefreshCounts();
         ShowStartScreen();
@@ -334,15 +334,16 @@ public sealed class MainViewModel : ViewModelBase
     private void ToggleNav()
     {
         IsNavCollapsed = !IsNavCollapsed;
-        _ = SaveUiStateAsync(settings => settings with { NavCollapsed = IsNavCollapsed });
+        var collapsed = IsNavCollapsed;
+        _ = SaveUiStateAsync(state => state with { NavCollapsed = collapsed });
     }
 
     /// <summary>
     /// 画面が覚えている状態（ナビの畳み方・ウィンドウの位置）を書き戻す。
-    /// 設定の書き込みは1本（UiCommand.ChangeSettings）なので、変え方だけを渡す。
+    /// 設定とは別のファイル（ui-state.json・技術的負債 3-2）。書き込みは UiCommand.ChangeUiState で、変え方だけを渡す。
     /// </summary>
-    public Task SaveUiStateAsync(Func<AppSettings, AppSettings> update)
-        => _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(update));
+    public Task SaveUiStateAsync(Func<Core.Models.UiState, Core.Models.UiState> update)
+        => _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(update));
 
     public ThumbnailLoader Thumbnails { get; }
 

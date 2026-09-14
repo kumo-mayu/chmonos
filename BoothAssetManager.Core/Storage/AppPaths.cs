@@ -75,6 +75,9 @@ public sealed class AppPaths
     /// <summary>ドライブ文字と、そこに見えたボリュームの通し番号の組。外付けの文字が変わっても同じボリュームと分かるため</summary>
     public string VolumesFile => Path.Combine(Root, "volumes.json");
 
+    /// <summary>画面が覚えている状態（<see cref="Models.UiState"/>）。消してよい（次の起動が既定の見た目で始まるだけ）</summary>
+    public string UiStateFile => Path.Combine(Root, "ui-state.json");
+
     /// <summary>失敗の書き残し（<see cref="Diagnostics.AppLog"/>）。消してよい</summary>
     public string LogFile => Path.Combine(Root, "logs", "app.log");
 

@@ -39,11 +39,11 @@ public sealed class SettingsChangeTests : IDisposable
         var settings = new SettingsService(_store);
 
         await settings.UpdateAsync(current => current with { ImportFolders = [@"D:\BOOTH"] });
-        await settings.UpdateAsync(current => current with { FilterPanelCollapsed = true });
+        await settings.UpdateAsync(current => current with { ShowAdult = false });
 
         var saved = _store.Settings.Load();
         Assert.Equal([@"D:\BOOTH"], saved.ImportFolders);
-        Assert.True(saved.FilterPanelCollapsed);
+        Assert.False(saved.ShowAdult);
         Assert.Equal(saved.ImportFolders, settings.Current.ImportFolders);
     }
 
@@ -54,14 +54,29 @@ public sealed class SettingsChangeTests : IDisposable
         var settings = new SettingsService(_store);
 
         await Task.WhenAll(
-            Task.Run(() => settings.UpdateAsync(current => current with { NavCollapsed = true })),
-            Task.Run(() => settings.UpdateAsync(current => current with { FilterPanelCollapsed = true })),
-            Task.Run(() => settings.UpdateAsync(current => current with { SearchExtraFilters = ["Folder"] })));
+            Task.Run(() => settings.UpdateAsync(current => current with { TagsAtTop = false })),
+            Task.Run(() => settings.UpdateAsync(current => current with { ShowSubTagsInList = true })),
+            Task.Run(() => settings.UpdateAsync(current => current with { WatchedFolders = [@"D:\DL"] })));
 
         var saved = _store.Settings.Load();
+        Assert.False(saved.TagsAtTop);
+        Assert.True(saved.ShowSubTagsInList);
+        Assert.Equal([@"D:\DL"], saved.WatchedFolders);
+    }
+
+    /// <summary>画面の状態は設定とは別のファイルに書き、設定ファイルを書き直さない（技術的負債 3-2）。</summary>
+    [Fact]
+    public async Task 画面の状態は設定とは別のファイルに書く()
+    {
+        var settings = new SettingsService(_store);
+
+        await settings.UpdateUiStateAsync(state => state with { NavCollapsed = true, SearchExtraFilters = ["Folder"] });
+
+        Assert.False(File.Exists(_store.Settings.Path));
+        var saved = _store.UiState.Load();
         Assert.True(saved.NavCollapsed);
-        Assert.True(saved.FilterPanelCollapsed);
         Assert.Equal(["Folder"], saved.SearchExtraFilters);
+        Assert.True(settings.UiState.NavCollapsed);
     }
 
     [Fact]

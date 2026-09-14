@@ -71,6 +71,7 @@ public sealed class DataStore
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
         Volumes = new JsonFileStore<List<VolumeRecord>>(paths.VolumesFile);
+        UiState = new JsonFileStore<UiState>(paths.UiStateFile);
     }
 
     public AppPaths Paths { get; }
@@ -113,4 +114,7 @@ public sealed class DataStore
 
     /// <summary>ドライブ文字と通し番号の組（<see cref="Services.VolumeTable"/>）。</summary>
     public JsonFileStore<List<VolumeRecord>> Volumes { get; }
+
+    /// <summary>画面が覚えている状態。設定とは別のファイル（技術的負債 3-2）。</summary>
+    public JsonFileStore<UiState> UiState { get; }
 }

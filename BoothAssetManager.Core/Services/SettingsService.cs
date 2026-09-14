@@ -61,6 +61,12 @@ public interface ISettingsService
     /// <summary>今の設定を変える。変え方を関数で渡す。</summary>
     Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default);
 
+    /// <summary>画面が覚えている状態。書くたびに差し替わる。</summary>
+    UiState UiState { get; }
+
+    /// <summary>画面が覚えている状態を変える。変え方を関数で渡す。</summary>
+    Task<UiState> UpdateUiStateAsync(Func<UiState, UiState> change, CancellationToken cancellationToken = default);
+
     /// <summary>検索の履歴を変える。変え方を関数で渡す。</summary>
     Task<SearchHistoryList> ChangeSearchHistoryAsync(
         Func<SearchHistoryList, SearchHistoryList> change,
@@ -97,6 +103,18 @@ public sealed class SettingsService : ISettingsService
 
         // 以前の版は取得の間隔を500msまで保存できた。約束（1.5秒以上）の範囲に戻してから使う
         Current = store.Settings.Load().Normalized();
+        UiState = store.UiState.Load();
+    }
+
+    /// <summary>画面が覚えている状態（ui-state.json）。設定と同じく、持つのはここだけ。</summary>
+    public UiState UiState { get; private set; }
+
+    /// <summary>画面が覚えている状態を変える。設定と同じく、錠の中で今の値に当てる。</summary>
+    public async Task<UiState> UpdateUiStateAsync(Func<UiState, UiState> change, CancellationToken cancellationToken = default)
+    {
+        var updated = await _store.UiState.UpdateAsync(change, cancellationToken);
+        UiState = updated;
+        return updated;
     }
 
     /// <summary>
