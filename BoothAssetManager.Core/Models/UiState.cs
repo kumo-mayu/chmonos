@@ -35,4 +35,11 @@ public sealed record UiState
     /// 復元時に、今あるモニタのどれとも重ならなければ捨てて中央に開く。
     /// </summary>
     public WindowPlacement? Window { get; init; }
+
+    /// <summary>
+    /// ドラッグで変えた画面の幅（px）。鍵は画面と場所（<c>"folder.list"</c>・<c>"edit.right"</c> など）。
+    /// 無い物は既定の幅（ユーザ判断 2026-09-14：画面ごとに覚える。境目のダブルクリックと設定画面で戻す）。
+    /// 動かせる範囲はアプリの <c>PaneWidths</c> にあり、手で書き換えた値もそこで範囲に収める。
+    /// </summary>
+    public IReadOnlyDictionary<string, double> PaneWidths { get; init; } = new Dictionary<string, double>();
 }

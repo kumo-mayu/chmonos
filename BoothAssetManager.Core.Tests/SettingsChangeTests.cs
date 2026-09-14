@@ -64,6 +64,23 @@ public sealed class SettingsChangeTests : IDisposable
         Assert.Equal([@"D:\DL"], saved.WatchedFolders);
     }
 
+    /// <summary>ドラッグで変えた画面の幅は、画面の状態のファイルに人が読める形で残る（ユーザ判断 2026-09-14）。</summary>
+    [Fact]
+    public async Task 画面の幅を場所ごとに残す()
+    {
+        var settings = new SettingsService(_store);
+
+        await settings.UpdateUiStateAsync(state => state with
+        {
+            PaneWidths = new Dictionary<string, double> { ["folder.list"] = 480, ["edit.right"] = 520 },
+        });
+
+        var saved = _store.UiState.Load();
+        Assert.Equal(480, saved.PaneWidths["folder.list"]);
+        Assert.Equal(520, saved.PaneWidths["edit.right"]);
+        Assert.Contains("\"folder.list\": 480", File.ReadAllText(_store.UiState.Path));
+    }
+
     /// <summary>画面の状態は設定とは別のファイルに書き、設定ファイルを書き直さない（技術的負債 3-2）。</summary>
     [Fact]
     public async Task 画面の状態は設定とは別のファイルに書く()

@@ -30,9 +30,14 @@
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="340" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
+                                  MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
+                <ColumnDefinition Width="*" MinWidth="360" />
             </Grid.ColumnDefinitions>
+
+            <!-- 左の一覧の幅を変える境目（ユーザ判断 2026-09-14） -->
+            <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="2"
+                                   ResetCommand="{Binding ListPane.ResetCommand}" />
 
             <!-- 左：トップレベルの一覧。件数を並べるのは、消す前に影響が見えるように -->
             <Border Grid.Column="0" Background="{StaticResource Surface}"

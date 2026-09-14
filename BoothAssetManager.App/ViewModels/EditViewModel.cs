@@ -22,6 +22,10 @@ namespace BoothAssetManager.App.ViewModels;
 public sealed partial class EditViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
+    private PaneColumn? _rightPane;
+
+    /// <summary>右の入力欄の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
+    public PaneColumn RightPane => _rightPane ??= new PaneColumn(_services.PaneWidths, "edit.right");
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
     private readonly DispatcherTimer _returnTimer = new() { Interval = TimeSpan.FromSeconds(1) };

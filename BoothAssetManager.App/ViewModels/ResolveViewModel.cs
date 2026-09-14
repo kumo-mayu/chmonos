@@ -310,9 +310,13 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     public bool ShowsChrome => !IsEmbedded;
 
-    public System.Windows.GridLength ListColumnWidth => IsEmbedded
-        ? new System.Windows.GridLength(0)
-        : new System.Windows.GridLength(330);
+    private PaneColumn? _listPane;
+
+    /// <summary>左の一覧の列。単独の画面ではドラッグで幅を変えられる（ユーザ判断 2026-09-14）。組み込んだときは一覧を出さない（幅0）。</summary>
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "resolve.list")
+    {
+        Fixed = IsEmbedded ? new System.Windows.GridLength(0) : null,
+    };
 
     public string RemainingText => $"未確定 {Files.Count} 件";
 

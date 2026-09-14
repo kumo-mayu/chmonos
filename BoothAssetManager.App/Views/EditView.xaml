@@ -207,9 +207,14 @@
 
         <Grid Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="480" />
+                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="{Binding RightPane.Width, Mode=TwoWay}"
+                                  MinWidth="{Binding RightPane.MinWidth}" MaxWidth="{Binding RightPane.MaxWidth}" />
             </Grid.ColumnDefinitions>
+
+            <!-- 右の入力欄の幅を変える境目（ユーザ判断 2026-09-14）。右の列の左端に置く -->
+            <controls:PaneSplitter Grid.Column="1" HorizontalAlignment="Left" Panel.ZIndex="2"
+                                   ResetCommand="{Binding RightPane.ResetCommand}" />
 
             <!-- 左：何を編集しているかが分かるだけの控えめな表示 -->
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="20">

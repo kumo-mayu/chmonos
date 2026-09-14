@@ -138,6 +138,10 @@ public sealed class OrphanTagRow : ViewModelBase
 public sealed class TagManageViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
+    private PaneColumn? _listPane;
+
+    /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "tags.list");
     private readonly MainViewModel _main;
 
     private List<TagTopRow> _allTops = [];

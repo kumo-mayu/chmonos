@@ -124,13 +124,21 @@ public sealed partial class MainViewModel : ViewModelBase
         {
             if (SetField(ref _isNavCollapsed, value))
             {
-                OnPropertyChanged(nameof(NavWidth));
+                NavPane.IsCollapsed = value;
             }
         }
     }
 
-    /// <summary>畳んだときの幅は、アイコン16pxに左右の余白を足した値。</summary>
-    public double NavWidth => IsNavCollapsed ? 56 : 208;
+    private PaneColumn? _navPane;
+
+    /// <summary>
+    /// ナビの列。開いたときの幅はドラッグで変えられる（ユーザ判断 2026-09-14）。
+    /// 畳んだときの幅（56）は、アイコン16pxに左右の余白を足した値で変えない。
+    /// </summary>
+    public PaneColumn NavPane => _navPane ??= new PaneColumn(_services.PaneWidths, "nav", collapsedWidth: 56, followsResetAll: true)
+    {
+        IsCollapsed = IsNavCollapsed,
+    };
 
     public RelayCommand ToggleNavCommand { get; }
 

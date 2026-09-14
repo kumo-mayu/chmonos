@@ -139,13 +139,21 @@ public sealed partial class SearchViewModel : ViewModelBase
         {
             if (SetField(ref _isFilterPanelCollapsed, value))
             {
-                OnPropertyChanged(nameof(FilterPanelWidth));
+                FilterPane.IsCollapsed = value;
             }
         }
     }
 
-    /// <summary>畳んだときの幅は、開くボタンと縦書きの見出しが通る分だけ。</summary>
-    public double FilterPanelWidth => IsFilterPanelCollapsed ? 34 : 286;
+    private PaneColumn? _filterPane;
+
+    /// <summary>
+    /// 絞り込み欄の列。開いたときの幅はドラッグで変えられる（ユーザ判断 2026-09-14）。
+    /// 畳んだときの幅（34）は、開くボタンと縦書きの見出しが通る分だけで変えない。
+    /// </summary>
+    public PaneColumn FilterPane => _filterPane ??= new PaneColumn(_services.PaneWidths, "search.filter", collapsedWidth: 34, followsResetAll: true)
+    {
+        IsCollapsed = IsFilterPanelCollapsed,
+    };
 
     public RelayCommand ToggleFilterPanelCommand { get; }
 

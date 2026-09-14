@@ -321,6 +321,10 @@ public sealed class FolderViewModel : ViewModelBase
     private static readonly HashSet<string> s_collapsed = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly AppServiceContainer _services;
+    private PaneColumn? _listPane;
+
+    /// <summary>左の木の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "folder.list");
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
 

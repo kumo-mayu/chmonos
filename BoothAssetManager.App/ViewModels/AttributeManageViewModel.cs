@@ -64,6 +64,10 @@ public sealed class OrphanAttributeRow : ViewModelBase
 public sealed class AttributeManageViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
+    private PaneColumn? _listPane;
+
+    /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "attributes.list");
     private readonly MainViewModel _main;
 
     private List<AttributeMasterRow> _all = [];

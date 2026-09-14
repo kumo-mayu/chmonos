@@ -59,9 +59,15 @@
                     Width="{Binding ViewportWidth, ElementName=Body}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding LeftColumnWidth}" />
+                    <ColumnDefinition Width="{Binding LeftPane.Width, Mode=TwoWay}"
+                                      MinWidth="{Binding LeftPane.MinWidth}" MaxWidth="{Binding LeftPane.MaxWidth}" />
                     <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
+
+                <!-- 左の列の幅を変える境目（ユーザ判断 2026-09-14）。組み込んだときは出さない -->
+                <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Margin="0,0,7,0" Panel.ZIndex="2"
+                                       ResetCommand="{Binding LeftPane.ResetCommand}"
+                                       Visibility="{Binding LeftPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <!--
                     左：ギャラリー。商品のギャラリーと同じ部品（ユーザ指示 2026-09-13：「改変後の姿」という文言ではなく、

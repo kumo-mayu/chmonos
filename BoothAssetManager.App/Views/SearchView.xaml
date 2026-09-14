@@ -204,9 +204,15 @@
 
     <Grid Background="{StaticResource Bg}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="{Binding FilterPanelWidth}" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{Binding FilterPane.Width, Mode=TwoWay}"
+                              MinWidth="{Binding FilterPane.MinWidth}" MaxWidth="{Binding FilterPane.MaxWidth}" />
+            <ColumnDefinition Width="*" MinWidth="360" />
         </Grid.ColumnDefinitions>
+
+        <!-- 絞り込み欄の幅を変える境目（ユーザ判断 2026-09-14）。畳んでいる間は出さない。開け閉めのつまみ（ZIndex 1）より下に置く -->
+        <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="0"
+                               ResetCommand="{Binding FilterPane.ResetCommand}"
+                               Visibility="{Binding FilterPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <!--
             絞り込みを畳む／開くつまみ。パネルと結果の境の線に半分はみ出させて置く（U3・ユーザ判断）。

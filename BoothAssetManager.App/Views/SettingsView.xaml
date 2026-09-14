@@ -100,6 +100,15 @@
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="「デフォルト」のとき、商品ページで★を付けた1枚が優先されます。役割を選ぶとそちらが優先され、その役割の画像が無い商品は今まで通りの1枚になります。" />
+
+                        <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />
+                            <Button Content="全部を元の幅に戻す" Style="{StaticResource SmallButton}"
+                                    Command="{Binding ResetPaneWidthsCommand}" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                   Text="一覧と詳細の境目などをドラッグして変えた幅を、全部元に戻します。1か所だけ戻すときは、その境目をダブルクリックします。" />
                     </StackPanel>
                 </Border>
 

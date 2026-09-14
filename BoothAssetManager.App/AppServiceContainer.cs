@@ -91,7 +91,13 @@ public sealed class AppServiceContainer : IDisposable
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
             Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client);
+
+        // ドラッグで変えた画面の幅（ユーザ判断 2026-09-14）。書くのは UiCommand.ChangeUiState
+        PaneWidths = new Services.PaneWidths(SettingsStore, Commands);
     }
+
+    /// <summary>ドラッグで変えられる画面の幅。</summary>
+    public Services.PaneWidths PaneWidths { get; }
 
     /// <summary>unitypackage の中身を1度だけ読んで残す（取り込みの裏・手でファイルを付けた後）。</summary>
     public UnityPackageCatalog UnityPackages { get; }

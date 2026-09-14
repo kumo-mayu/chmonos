@@ -221,15 +221,26 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     /// 組み込んだときは左右の列を幅に合わせる。右側は窓より狭いので、単独の画面と同じ固定の 660px では
     /// 横に送るしかなくなる
     /// </summary>
-    public double BodyMinWidth => IsEmbedded ? 0 : 1060;
+    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.Pixels + 400;
 
     /// <remarks>
     /// 組み込んだときは左（写真・使ったもの）に残りを全部渡す。右は最低幅（320px）で足りるが、
     /// 左の「使ったもの」は名前と操作のボタンが1行に並ぶので、半々だと名前が「【...」まで縮んだ
     /// </remarks>
-    public System.Windows.GridLength LeftColumnWidth => IsEmbedded
-        ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star)
-        : new System.Windows.GridLength(660);
+    private PaneColumn? _leftPane;
+
+    /// <summary>左の列（ギャラリーと使ったもの）。単独の画面ではドラッグで幅を変えられる（ユーザ判断 2026-09-14）。組み込んだときは決め打ち。</summary>
+    public PaneColumn LeftPane => _leftPane ??= CreateLeftPane();
+
+    private PaneColumn CreateLeftPane()
+    {
+        var pane = new PaneColumn(_services.PaneWidths, "modification.left")
+        {
+            Fixed = IsEmbedded ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star) : null,
+        };
+        pane.PropertyChanged += (_, _) => OnPropertyChanged(nameof(BodyMinWidth));
+        return pane;
+    }
 
     /// <summary>改変を消す。組み込んだときだけ出す（単独の画面ではアバターの管理の一覧から消す）。</summary>
     public RelayCommand DeleteCommand { get; }

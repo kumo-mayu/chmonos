@@ -360,11 +360,26 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public bool ShowsBack => !IsEmbedded;
 
     /// <summary>組み込んだときは右側が窓より狭いので、単独の画面の最小幅（1060px）では横にはみ出す。</summary>
-    public double BodyMinWidth => IsEmbedded ? 0 : 1060;
+    /// <remarks>単独の画面では、左の列の幅（既定660）＋右の列の最小320＋余白と内側の余白80。左の列はドラッグで変わる。</remarks>
+    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.Pixels + 400;
 
-    public System.Windows.GridLength LeftColumnWidth => IsEmbedded
-        ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star)
-        : new System.Windows.GridLength(660);
+    private PaneColumn? _leftPane;
+
+    /// <summary>
+    /// 左の列（ギャラリーと説明）。単独の画面ではドラッグで幅を変えられる（ユーザ判断 2026-09-14）。
+    /// 組み込んだときは右側が窓より狭いので、決め打ちの割合にして動かさない。
+    /// </summary>
+    public PaneColumn LeftPane => _leftPane ??= CreateLeftPane();
+
+    private PaneColumn CreateLeftPane()
+    {
+        var pane = new PaneColumn(_services.PaneWidths, "item.left")
+        {
+            Fixed = IsEmbedded ? new System.Windows.GridLength(3, System.Windows.GridUnitType.Star) : null,
+        };
+        pane.PropertyChanged += (_, _) => OnPropertyChanged(nameof(BodyMinWidth));
+        return pane;
+    }
 
     /// <summary>開き直す。編集画面に入っていれば持ち主に任せ、商品ページなら画面ごと作り直す。</summary>
     private void ReplaceSelf(ItemRecord? updated)

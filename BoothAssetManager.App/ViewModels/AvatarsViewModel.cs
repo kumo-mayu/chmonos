@@ -165,6 +165,10 @@ public sealed class AvatarsViewModel : ViewModelBase
     private const int MaxNameSuggestions = 5;
 
     private readonly AppServiceContainer _services;
+    private PaneColumn? _listPane;
+
+    /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "avatars.list");
     private readonly MainViewModel _main;
 
     private AvatarRowViewModel? _selected;

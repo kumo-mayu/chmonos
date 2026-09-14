@@ -856,6 +856,15 @@ public sealed class SettingsViewModel : ViewModelBase
         Save();
     }
 
+    private RelayCommand? _resetPaneWidthsCommand;
+
+    /// <summary>ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14）。1か所だけなら境目のダブルクリックで戻せる。</summary>
+    public RelayCommand ResetPaneWidthsCommand => _resetPaneWidthsCommand ??= new RelayCommand(() =>
+    {
+        _services.PaneWidths.ResetAll();
+        Status = "画面の幅を全部元に戻しました。";
+    });
+
     private async Task UnhideAsync(string itemId)
     {
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UnhideItem(itemId));
