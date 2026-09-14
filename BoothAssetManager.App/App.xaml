@@ -22,6 +22,8 @@
         <SolidColorBrush x:Key="Accent" Color="#3767a6" />
         <SolidColorBrush x:Key="AccentSoft" Color="#eaf0f9" />
         <SolidColorBrush x:Key="AccentBorder" Color="#c6d6ec" />
+        <!-- 重要なボタンに乗せたときの青。Accent より一段濃くして、白い文字が読めるままにする -->
+        <SolidColorBrush x:Key="AccentHover" Color="#2b5487" />
         <SolidColorBrush x:Key="Rail" Color="#22262e" />
         <SolidColorBrush x:Key="RailActive" Color="#313745" />
         <SolidColorBrush x:Key="RailText" Color="#cfd4dd" />
@@ -117,8 +119,19 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="6">
+                            <!--
+                                ボタンの文字はボタンの Foreground に従わせる。アプリ全体の暗黙の TextBlock スタイル（色 Text）が
+                                ボタンの作る文字にも効き、重要なボタンの白が濃い色に上書きされていた（ユーザ指摘 2026-09-14「青地に黒文字」）。
+                                ContentPresenter の中に置くと、それが作る文字だけに効く
+                            -->
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              Margin="{TemplateBinding Padding}" />
+                                              Margin="{TemplateBinding Padding}">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -147,6 +160,39 @@
             <Setter Property="Foreground" Value="White" />
             <!-- 白文字を色地に載せると細い字画が沈むので、少し太らせる -->
             <Setter Property="FontWeight" Value="SemiBold" />
+            <!--
+                乗せたときは青を濃くする。土台のボタンは乗せると地を薄い灰にするので、そのままだと青が消えて
+                白い文字が読めなくなっていた（ユーザ指摘 2026-09-14）。文字の決まり・押せないときの見た目は土台と同じ
+            -->
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentHover}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentHover}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.75" />
+                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Border}" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!--

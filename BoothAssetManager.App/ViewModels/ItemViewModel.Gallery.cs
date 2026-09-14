@@ -51,7 +51,11 @@ public sealed partial class ItemViewModel
         ? null
         : _thumbnails.Load(selected.Path);
 
-    public string GalleryCounter => Images.Count == 0 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
+    /// <summary>何枚目か。**2枚以上のときだけ出す**（空なら丸ごと隠す。1枚の「1 / 1」や、0枚の文字の無い黒い丸は要らない・U11 と同じ決まり）。</summary>
+    public string GalleryCounter => Images.Count <= 1 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
+
+    /// <summary>画像が1枚も無いとき、大きい絵の所に出す（ユーザ指示 2026-09-14：無いことが分かるようにする）。</summary>
+    public string GalleryEmptyText => Images.Count > 0 ? string.Empty : "この商品の画像はまだありません。\n「＋」で自分の画像を足せます。";
 
     /// <summary>サムネイル一覧にマウスを乗せるだけで切り替えるか。設定で変えられる。</summary>
     public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
@@ -580,7 +584,7 @@ public sealed partial class ItemViewModel
     {
         foreach (var name in new[]
         {
-            nameof(SelectedImage), nameof(GalleryCounter), nameof(CurrentImage),
+            nameof(SelectedImage), nameof(GalleryCounter), nameof(GalleryEmptyText), nameof(CurrentImage),
             nameof(CanGoPreviousImage), nameof(CanGoNextImage),
             nameof(CurrentIsUserAdded), nameof(CurrentIsPinned),
             nameof(ShowsPinThumbnail), nameof(ShowsUnpinThumbnail),

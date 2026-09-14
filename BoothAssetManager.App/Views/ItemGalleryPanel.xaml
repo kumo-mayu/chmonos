@@ -136,9 +136,28 @@
 
                                 <Image Source="{Binding SelectedImage}" Stretch="Uniform" />
 
+                                <!--
+                                    1枚も無いとき、大きい絵の所で無いと分かるようにする（ユーザ指示 2026-09-14：何なのか分からない黒い丸はストレス）。
+                                    文言は持ち主（商品・改変）が決める。画像があれば空で、何も描かない
+                                -->
+                                <TextBlock Text="{Binding GalleryEmptyText}" Foreground="{StaticResource TextMuted}" FontSize="13"
+                                           TextWrapping="Wrap" TextAlignment="Center" LineHeight="20"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" MaxWidth="380"
+                                           IsHitTestVisible="False" />
+
                                 <Border Background="#99000000" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
                                     <TextBlock Text="{Binding GalleryCounter}" Foreground="White" FontSize="11" />
+                                    <!-- 2枚以上のときだけ出す（0枚は文字の無い黒い丸、1枚は「1 / 1」が常に出ていた・U11 と同じ決まり） -->
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding GalleryCounter}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                 </Border>
 
                                 <!-- いまサムネイルに使っている1枚。検索カードに出る絵がどれか分かるように -->

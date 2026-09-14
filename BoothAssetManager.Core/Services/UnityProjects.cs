@@ -178,8 +178,21 @@ public static class UnityProjects
     /// 「開いている」の断定には使わない——手前に出そうとして見つからなければ、
     /// そのとき開き直せばよい（<see cref="UnityHandoff"/> 側の判断）。
     /// </summary>
-    public static bool IsProjectOpen(string projectPath)
+    public static bool IsProjectOpen(string projectPath) => IsProjectOpen(projectPath, IsAnyEditorRunning());
+
+    /// <summary>
+    /// 印（<c>Temp/UnityLockfile</c>）があり、**Unity が1つでも起動しているときだけ**開いているとみる。
+    /// 落ちて残った印だけで「開いています」と出し、開いてもいないのに開けなくしていた
+    /// （ユーザ指摘 2026-09-14。Unity が1つも起動していないのに kip01 に印が残っていた）。
+    /// 別のプロジェクトの Unity が起動していて印も残っている場合は見分けられないが、それは稀
+    /// </summary>
+    public static bool IsProjectOpen(string projectPath, bool anyEditorRunning)
     {
+        if (!anyEditorRunning)
+        {
+            return false;
+        }
+
         try
         {
             return File.Exists(Path.Combine(projectPath, "Temp", "UnityLockfile"));
@@ -187,6 +200,23 @@ public static class UnityProjects
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return false;
+        }
+    }
+
+    /// <summary>Unity のエディタが1つでも起動しているか。</summary>
+    public static bool IsAnyEditorRunning()
+    {
+        var processes = System.Diagnostics.Process.GetProcessesByName("Unity");
+        try
+        {
+            return processes.Length > 0;
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
         }
     }
 
@@ -205,7 +235,8 @@ public static class UnityProjects
     }
 
     /// <summary>1件を、画面に出せる形にする。ディスクを読むのはここだけ。</summary>
-    public static UnityProjectCandidate Describe(string projectPath, UnityProjectSource source)
+    /// <param name="anyEditorRunning">Unity が起動しているか。まとめて作るときは呼ぶ側が1回だけ調べて渡す（省けばここで調べる）。</param>
+    public static UnityProjectCandidate Describe(string projectPath, UnityProjectSource source, bool? anyEditorRunning = null)
     {
         var path = projectPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var exists = false;
@@ -238,7 +269,7 @@ public static class UnityProjects
             Folder = Path.GetDirectoryName(path) ?? string.Empty,
             Version = version,
             Exists = exists,
-            IsOpen = exists && IsProjectOpen(path),
+            IsOpen = exists && IsProjectOpen(path, anyEditorRunning ?? IsAnyEditorRunning()),
             Source = source,
             LastWrite = lastWrite,
         };
@@ -263,8 +294,9 @@ public static class UnityProjects
         static string Or(string? given, string fallback) =>
             string.IsNullOrWhiteSpace(given) ? fallback : given;
 
+        var running = IsAnyEditorRunning();
         return [.. sources
-            .Select(pair => Describe(pair.Key, pair.Value))
+            .Select(pair => Describe(pair.Key, pair.Value, running))
             .OrderByDescending(candidate => candidate.IsOpen)
             .ThenByDescending(candidate => candidate.LastWrite ?? DateTimeOffset.MinValue)
             .ThenBy(candidate => candidate.Name, StringComparer.CurrentCultureIgnoreCase)];

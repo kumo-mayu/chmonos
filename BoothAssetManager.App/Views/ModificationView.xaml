@@ -9,6 +9,37 @@
              mc:Ignorable="d"
              AllowDrop="True"
              d:DataContext="{d:DesignInstance Type=vm:ModificationViewModel}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <!-- 使ったものは検索と同じカード・リストで出す（Views/ItemCardResources.xaml・ユーザ指示 2026-09-14） -->
+            <ResourceDictionary.MergedDictionaries>
+                <views:ItemCardResources />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 使ったもののリストの行。見た目は検索のリストと同じ（境目の線・乗せると薄い灰）。押す操作は各列のボタンに置く -->
+            <Style x:Key="MemberListRowStyle" TargetType="ListViewItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="MinHeight" Value="52" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Border x:Name="Row" Background="Transparent" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                                    Padding="0,5">
+                                <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
+                                                      VerticalAlignment="Stretch" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <DockPanel Background="{StaticResource Bg}">
 
         <!-- 上部バー。商品ページと同じ格の画面なので、戻る導線も同じ形にする -->
@@ -75,10 +106,8 @@
                     落とす・Ctrl+V で貼るのはこの画面全体（ModificationView.xaml.cs）で受けるので、そのまま使える
                 -->
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                    <!-- 写真が無いときの案内は、大きい絵の所に出す（GalleryEmptyText・ユーザ指示 2026-09-14） -->
                     <views:ItemGalleryPanel />
-                    <TextBlock Text="{Binding ImagesEmptyText}" Style="{StaticResource Caption}"
-                               TextWrapping="Wrap" Margin="2,8,0,0"
-                               Visibility="{Binding HasImages, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                     <!--
                         使ったもの
@@ -90,14 +119,20 @@
                         <StackPanel>
                             <Grid Margin="0,0,0,4">
                                 <TextBlock Text="使ったもの" FontWeight="Bold" VerticalAlignment="Center" />
-                                <!--
-                                    並びの順（＝導入の順）に Unity へ1件ずつ送る（#69・ユーザ判断）。
-                                    改変を作り直すとき、記録した順に入れ直せば同じものが組める
-                                -->
-                                <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
-                                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                                        Command="{Binding SendAllToUnityCommand}"
-                                        ToolTip="上から順に1件ずつ取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <!-- カード／リストの切り替え（検索と同じ部品。どちらで出すかはこの画面で覚える） -->
+                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                                                    Margin="0,0,10,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <!--
+                                        並びの順（＝導入の順）に Unity へ1件ずつ送る（#69・ユーザ判断）。
+                                        改変を作り直すとき、記録した順に入れ直せば同じものが組める
+                                    -->
+                                    <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding SendAllToUnityCommand}"
+                                            ToolTip="上から順に1件ずつ取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                                </StackPanel>
                             </Grid>
                             <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
                                        TextWrapping="Wrap" Margin="0,2,0,6"
@@ -109,98 +144,171 @@
                                        TextWrapping="Wrap" Margin="0,0,0,10"
                                        Visibility="{Binding HasMembers, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                            <ItemsControl ItemsSource="{Binding Members}"
-                                          Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:ModificationMemberRowViewModel}">
-                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,9">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
+                            <!--
+                                使ったものは検索と同じカード・リストで出す（ユーザ指示 2026-09-14：リストだけなのは違和感。検索と同等の機能に、
+                                ここ独自の物を足して成り立たせる）。押す・星・右クリック・中クリックは検索のカードと同じ（この画面が IItemCardHost）。
+                                この画面独自の物：導入の順の番号・使ったファイル・▲▼（並べ替え）・外す。
+                                **並びが導入の順。**依存物を先に入れないと本体が通らないことがあるので、番号を出して並べ替えられるようにする。
+                                手元に無い商品はカードが作れないので、名前だけの枠で出す（そのとき使ったのは事実なので記録は残す）
+                            -->
+                            <Grid Tag="{Binding}" Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <!-- カード -->
+                                <ItemsControl ItemsSource="{Binding Members}" Focusable="False"
+                                              Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ModificationMemberRowViewModel}">
+                                            <StackPanel Width="242" Margin="0,0,0,14">
+                                                <!-- 導入の順（人が読む番号なので1から）と、使ったファイル（空欄の意味を言い分ける。推定で埋めない） -->
+                                                <DockPanel Width="228" HorizontalAlignment="Left" Margin="0,0,0,6">
+                                                    <Border DockPanel.Dock="Left" MinWidth="24" Height="24" CornerRadius="6" Padding="6,0"
+                                                            Background="{StaticResource AccentSoft}" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="#4a5160"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                </DockPanel>
 
-                                                <!-- 導入の順。人が読む番号なので1から -->
-                                                <Border Grid.Column="0" Width="24" Height="24" CornerRadius="6"
-                                                        Background="{StaticResource AccentSoft}" Margin="0,0,10,0"
-                                                        VerticalAlignment="Top">
-                                                    <TextBlock Text="{Binding OrderText}" FontSize="11"
-                                                               Foreground="#4a5160"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
+                                                                HorizontalAlignment="Left" Margin="0,0,0,-8"
+                                                                Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                                                <!-- 手元に無い商品（記録だけ残る）。カードが作れないので名前と状態だけ -->
+                                                <Border Style="{StaticResource Card}" Width="228" HorizontalAlignment="Left" Padding="12,10"
+                                                        Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextWrapping="Wrap" />
+                                                        <TextBlock Text="手元に無い（記録は残っています）" FontSize="11" Foreground="{StaticResource Warn}"
+                                                                   Margin="0,6,0,0" />
+                                                    </StackPanel>
                                                 </Border>
 
-                                                <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                                                    <!-- **札を潰さない。**横並びに積むと商品名が幅を全部取り、
-                                                         「手元に無い」や種類の名前が「ペ」まで削られる。
-                                                         削られてよいのは名前の方（長いのが普通） -->
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}" Width="228"
+                                                           HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
+                                                           Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12.5"
-                                                                   VerticalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis" />
-
-                                                        <!-- 手元に無くても記録は残す。そのとき使ったのは事実 -->
-                                                        <Border Grid.Column="1" Background="{StaticResource WarnSoft}"
-                                                                BorderBrush="{StaticResource WarnBorder}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="6,1"
-                                                                Margin="8,0,0,0"
-                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <TextBlock Text="手元に無い" FontSize="10"
-                                                                       Foreground="{StaticResource Warn}" />
-                                                        </Border>
-
-                                                        <Border Grid.Column="2" Background="{StaticResource SurfaceAlt}"
-                                                                BorderBrush="{StaticResource Border}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="6,1"
-                                                                Margin="8,0,0,0"
-                                                                Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <TextBlock Text="{Binding VariationText}" FontSize="10"
-                                                                       Foreground="{StaticResource TextMuted}" />
-                                                        </Border>
-                                                    </Grid>
-
-                                                    <!-- 空欄の意味を言い分ける。推定で埋めない -->
-                                                    <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}"
-                                                               Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                            VerticalAlignment="Top">
-                                                    <Button Content="▲" Style="{StaticResource SmallButton}"
-                                                            ToolTip="先に入れる"
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="先に入れる"
                                                             IsEnabled="{Binding CanMoveBack}"
-                                                            Command="{Binding DataContext.MoveMemberBackCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="▼" Style="{StaticResource SmallButton}"
-                                                            Margin="5,0,0,0" ToolTip="後に入れる"
+                                                    <Button Content="▼" Style="{StaticResource SmallButton}" Margin="5,0,0,0" ToolTip="後に入れる"
                                                             IsEnabled="{Binding CanMoveForward}"
-                                                            Command="{Binding DataContext.MoveMemberForwardCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="開く" Style="{StaticResource SmallButton}"
-                                                            Margin="10,0,0,0"
-                                                            Command="{Binding DataContext.OpenItemCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}" />
-                                                    <Button Content="外す" Style="{StaticResource SmallButton}"
-                                                            Margin="5,0,0,0"
+                                                    <Button Content="外す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                             ToolTip="この記録から外します。商品そのものは消えません。"
-                                                            Command="{Binding DataContext.RemoveMemberCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                 </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- リスト。絵・星は検索のリストと同じ部品。列の幅は見出しの境目をドラッグで変え、この画面で覚える -->
+                                <ListView ItemsSource="{Binding Members}" Tag="{Binding}" BorderThickness="0" Background="Transparent"
+                                          ItemContainerStyle="{StaticResource MemberListRowStyle}"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                          Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ListView.View>
+                                        <GridView AllowsColumnReorder="False">
+                                            <GridViewColumn Header="順" Width="44">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border MinWidth="24" Height="24" CornerRadius="6" Padding="6,0"
+                                                                Background="{StaticResource AccentSoft}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="#4a5160"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <!--
+                                                並べ替えは順番の番号の隣に置く。左の列は狭く（500px ほど）、いちばん右に置くと画面の外に押し出されて
+                                                横に送らないと並べ替えられなかった（2026-09-14 撮って確かめた）
+                                            -->
+                                            <GridViewColumn Header="操作" Width="186">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border Style="{StaticResource ItemListCellFrame}">
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="先に入れる"
+                                                                        IsEnabled="{Binding CanMoveBack}"
+                                                                        Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="▼" Style="{StaticResource SmallButton}" Margin="4,0,0,0" ToolTip="後に入れる"
+                                                                        IsEnabled="{Binding CanMoveForward}"
+                                                                        Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="開く" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                        Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
+                                                                        ToolTip="この記録から外します。商品そのものは消えません。"
+                                                                        Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListIconCell}" Focusable="False" />
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListFavCell}" Focusable="False" />
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border Style="{StaticResource ItemListCellFrame}">
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
+                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                                <WrapPanel Margin="0,3,0,0">
+                                                                    <!-- 手元に無くても記録は残す。そのとき使ったのは事実 -->
+                                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
+                                                                            Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <TextBlock Text="手元に無い" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                                    </Border>
+                                                                    <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                </WrapPanel>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Header="使ったファイル" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border Style="{StaticResource ItemListCellFrame}">
+                                                            <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Grid>
 
                             <!-- 手で足す入口。手元にある商品だけを候補に出す -->
                             <controls:SuggestBox Source="{Binding ItemSuggestions}" AllowNew="False"

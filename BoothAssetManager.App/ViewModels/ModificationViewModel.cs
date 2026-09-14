@@ -55,6 +55,11 @@ public sealed class ModificationMemberRowViewModel
 
     public bool HasVariation => VariationText.Length > 0;
 
+    /// <summary>検索と同じカード（ユーザ指示 2026-09-14）。手元に無い商品は作れないので null。</summary>
+    public ItemCardViewModel? Card { get; init; }
+
+    public bool HasCard => Card is not null;
+
     // **端では矢印を押せなくする。**押せるのに何も起きないボタンは嘘になる
     public bool CanMoveBack => Index > 0;
 
@@ -130,7 +135,7 @@ public sealed class ProjectCandidateRowViewModel
 /// （アバター詳細の中で展開すると縦に伸び続ける）。決めた理由は
 /// <c>docs/history/modifications.md</c>。
 /// </summary>
-public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
+public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -151,6 +156,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
 
         _nameInput = record.Name;
         _memoInput = record.Memo ?? string.Empty;
+
+        // 使ったものは検索と同じカード・リストで出す（ユーザ指示 2026-09-14）。どちらで出すかと列の幅は、この画面で覚える
+        ListColumns = new ItemListColumns(services.PaneWidths, "modification", hasSelect: false, shopHeader: "使ったファイル");
+        _isListMode = ItemListMode.IsList(services, "modification");
+        ShowCardsCommand = new RelayCommand(() => SetListMode(false));
+        ShowListCommand = new RelayCommand(() => SetListMode(true));
 
         // 戻るは画面の履歴を遡る（U23）
         BackCommand = new RelayCommand(main.GoBack);
@@ -634,6 +645,57 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     /// <summary>使ったもの。**並びが導入の順。**</summary>
     public ObservableCollection<ModificationMemberRowViewModel> Members { get; } = [];
 
+    // ---- 使ったものの見せ方（検索と同じカード・リスト・ユーザ指示 2026-09-14） ----
+    //
+    // 前は名前の行だけのリストだった。検索と同じカード（絵・星・押すと商品ページ・右クリック・中クリック）にし、
+    // この画面にしか無い物（導入の順・並べ替え・外す・使ったファイル）を足す
+
+    private bool _isListMode;
+
+    /// <summary>リストの列の幅（この画面で覚える）。「ショップ」の列は使ったファイルに使う。</summary>
+    public ItemListColumns ListColumns { get; }
+
+    public bool IsListMode => _isListMode;
+
+    public bool IsCardMode => !_isListMode;
+
+    public RelayCommand ShowCardsCommand { get; }
+
+    public RelayCommand ShowListCommand { get; }
+
+    private void SetListMode(bool list)
+    {
+        if (_isListMode == list)
+        {
+            return;
+        }
+
+        _isListMode = list;
+        OnPropertyChanged(nameof(IsListMode));
+        OnPropertyChanged(nameof(IsCardMode));
+        ItemListMode.Save(_services, "modification", list);
+    }
+
+    // カードの操作は検索と同じ（フォルダビューと同じく検索の画面の操作を借りる）
+    public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+
+    public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
+
+    public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
+
+    // カードの右クリックのメニュー（ItemCardResources の CardMenu が Tag から名前で引く）
+    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+
+    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+
+    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
+
+    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
+
+    public RelayCommand RevealCommand => _main.Search.RevealCommand;
+
+    public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
+
     public bool HasMembers => Members.Count > 0;
 
     /// <summary>
@@ -648,8 +710,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
 
     public bool HasImages => Images.Count > 0;
 
-    public string ImagesEmptyText =>
-        "この改変の写真を貼れます。何枚でも入ります（「＋」でまとめて選ぶか、ここへ落とすか、Ctrl+Vで貼ってください）。";
+    /// <summary>
+    /// 写真が1枚も無いとき、大きい絵の所に出す（ユーザ指示 2026-09-14：0枚なら写真が無いことをギャラリーで分かるようにする）。
+    /// 前は大きい絵の所が空で、下に案内が出ていた。**次にやることを書く**（空欄だけだと足し方が分からない）
+    /// </summary>
+    public string GalleryEmptyText => _gallery.Count > 0
+        ? string.Empty
+        : "この改変の写真はまだありません。\n「＋」でまとめて選ぶか、ここへ落とすか、Ctrl+V で貼ってください。";
 
     // ---- ギャラリー（商品と同じ部品 ItemGalleryPanel・ユーザ指示 2026-09-13） ----
     //
@@ -671,7 +738,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     /// <summary>大きく出す1枚。保存された大きさで読む（キャッシュに乗る）。</summary>
     public BitmapSource? SelectedImage => _gallery.Count == 0 ? null : _thumbnails.Load(_gallery[_selectedIndex].Path);
 
-    public string GalleryCounter => _gallery.Count == 0 ? string.Empty : $"{_selectedIndex + 1} / {_gallery.Count}";
+    /// <summary>何枚目か。**2枚以上のときだけ出す**（商品の写真の欄と同じ・U11 と同じ決まり）。</summary>
+    public string GalleryCounter => _gallery.Count <= 1 ? string.Empty : $"{_selectedIndex + 1} / {_gallery.Count}";
 
     public bool CanGoPreviousImage => _gallery.Count > 1;
 
@@ -796,7 +864,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     {
         foreach (var name in new[]
         {
-            nameof(SelectedImage), nameof(GalleryCounter), nameof(CanGoPreviousImage), nameof(CanGoNextImage),
+            nameof(SelectedImage), nameof(GalleryCounter), nameof(GalleryEmptyText), nameof(CanGoPreviousImage), nameof(CanGoNextImage),
             nameof(CurrentIsUserAdded),
         })
         {
@@ -944,6 +1012,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
                 IsMissing = item is null || !item.IsDownloaded,
 
                 VariationText = VariationLabel(member, item),
+
+                Card = item is null ? null : _main.Search.CreateCard(item),
             });
         }
 

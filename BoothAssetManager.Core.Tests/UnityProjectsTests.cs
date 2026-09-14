@@ -145,12 +145,21 @@ public sealed class UnityProjectsTests : IDisposable
     }
 
     [Fact]
-    public void ロックファイルがあれば開いていると見る()
+    public void ロックファイルがありUnityが起動していれば開いていると見る()
     {
         var path = MakeProject("opened", locked: true);
 
-        Assert.True(UnityProjects.IsProjectOpen(path));
-        Assert.True(UnityProjects.Describe(path, UnityProjectSource.Vcc).IsOpen);
+        Assert.True(UnityProjects.IsProjectOpen(path, anyEditorRunning: true));
+        Assert.True(UnityProjects.Describe(path, UnityProjectSource.Vcc, anyEditorRunning: true).IsOpen);
+    }
+
+    [Fact]
+    public void Unityが1つも起動していなければ残った印があっても開いていない()
+    {
+        var path = MakeProject("stale", locked: true);
+
+        Assert.False(UnityProjects.IsProjectOpen(path, anyEditorRunning: false));
+        Assert.False(UnityProjects.Describe(path, UnityProjectSource.Vcc, anyEditorRunning: false).IsOpen);
     }
 
     [Fact]

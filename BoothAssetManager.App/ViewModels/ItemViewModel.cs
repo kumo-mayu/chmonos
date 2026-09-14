@@ -372,9 +372,12 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </summary>
     public PaneColumn LeftPane => _leftPane ??= CreateLeftPane();
 
+    /// <summary>組み込んだときに左の列の幅を覚える鍵。組み込む画面ごとに広さが違うので分ける（既定はフォルダビュー）。</summary>
+    public string EmbeddedPaneKey { get; init; } = "folder.item.left";
+
     private PaneColumn CreateLeftPane()
     {
-        var pane = new PaneColumn(_services.PaneWidths, IsEmbedded ? "folder.item.left" : "item.left");
+        var pane = new PaneColumn(_services.PaneWidths, IsEmbedded ? EmbeddedPaneKey : "item.left");
         pane.PropertyChanged += (_, _) => OnPropertyChanged(nameof(BodyMinWidth));
         return pane;
     }

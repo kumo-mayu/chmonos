@@ -75,6 +75,7 @@ powershell -Command "$env:CHMONOS_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui';
 | `BoothAssetManager-heavycheck` | 本番の写し＋未確定に 1GB 級の作り物の zip 2件 | 重い unitypackage の確認・フォルダビューの未確定 |
 | `BoothAssetManager-unitypkg` | 本番の写し（取り込み元を空のフォルダにしてある） | 取り込みの裏で unitypackage を読む確認（BOOTHへは問い合わせない） |
 | `BoothAssetManager-volcheck` | `-ui` の写しで、記録のパスを D: から X:（無いドライブ）に書き換え、`volumes.json` に「X: は D: の通し番号」 | ドライブ文字が変わった外付けの読み替え（フォルダビューで D: の下に出れば正しい） |
+| `BoothAssetManager-friendcheck` | `-friendtest` の複製（作り物の改変12件入り・2026-09-14） | 友人のデータで画面を確かめる用（**5. を守る**）。書き込んでよい。`-friendtest` はユーザが普段開くので、確かめはこちらで行う |
 
 ### 5. 友人のデータは第三者のもの
 

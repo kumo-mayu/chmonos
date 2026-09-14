@@ -40,6 +40,9 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["folder.item.left"] = new(520, 360, 1000),
         ["modifications.modification.left"] = new(560, 360, 1000),
 
+        // 改変の画面に組み込んだ商品ページの左の列（使ったものを選んだとき・ユーザ指示 2026-09-14）
+        ["modifications.item.left"] = new(480, 360, 1000),
+
         // 商品をリストで出すときの列（ユーザ指示 2026-09-14：列の幅もドラッグで変え、その画面の一覧で共通にする）。
         // 画面ごと（検索・フォルダビュー）に覚える。名前は長い物が多いので広く、札は「見つからない・未編集・所持」が並ぶ幅
         ["search.col.select"] = new(36, 28, 60),
@@ -54,6 +57,13 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["folder.col.name"] = new(420, 160, 1000),
         ["folder.col.shop"] = new(260, 80, 600),
         ["folder.col.chips"] = new(220, 100, 420),
+
+        // 改変のページの使ったもの（ユーザ指示 2026-09-14）。左の列の中なので名前と使ったファイルは狭め。「ショップ」の列を使ったファイルに使う
+        ["modification.col.icon"] = new(56, 44, 120),
+        ["modification.col.fav"] = new(36, 28, 60),
+        ["modification.col.name"] = new(220, 120, 800),
+        ["modification.col.shop"] = new(180, 80, 500),
+        ["modification.col.chips"] = new(160, 100, 420),
     };
 
     private readonly object _gate = new();

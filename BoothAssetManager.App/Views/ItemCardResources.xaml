@@ -487,9 +487,25 @@
                     </ToolTip>
                 </Border.ToolTip>
             </Border>
-            <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2" Fill="#f7f8fa"
-                  Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center"
-                  Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            <!--
+                フォルダの行。乗せると名前・場所・件数を出す（ユーザ指摘 2026-09-14：フォルダのアイコンにホバーが無い。
+                商品の行は絵に乗せると大きな絵が出るので、同じ出し方でフォルダの中身を言う）
+            -->
+            <Border Background="Transparent" ToolTipService.InitialShowDelay="250" ToolTipService.Placement="Right"
+                    Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2" Fill="#f7f8fa"
+                      Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border.ToolTip>
+                    <ToolTip Padding="10,8">
+                        <StackPanel MaxWidth="380">
+                            <TextBlock Text="フォルダ" Style="{StaticResource SectionLabel}" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </ToolTip>
+                </Border.ToolTip>
+            </Border>
         </Grid>
         </Grid>
     </DataTemplate>

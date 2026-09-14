@@ -350,12 +350,23 @@ public sealed class HubAvatarDetail : ViewModelBase
     }
 }
 
-/// <summary>右側：使ったもの1件（商品の要約）。全部の操作は商品ページで。</summary>
+/// <summary>
+/// 右側：使ったもの1件。**手元にある商品は商品ページをそのまま組み込み**（ユーザ指示 2026-09-14：ほかの画面と同じ商品ページを右に出す。
+/// 3つの見方すべて）、この改変に固有の物（使ったファイル・Unity のどこに入るか・「Unityで選択」・この商品を使った改変）は上の帯に出す。
+/// 手元に無い商品は商品ページが無いので、これまでの要約を出す
+/// </summary>
 public sealed class HubItemDetail : ViewModelBase
 {
     public required HubMemberRow Row { get; init; }
 
     public ItemRecord? Item { get; init; }
+
+    /// <summary>組み込んだ商品ページ。手元に無い商品では null。</summary>
+    public ItemViewModel? Page { get; init; }
+
+    public bool HasPage => Page is not null;
+
+    public string UsedInHeader => $"この商品を使った改変（{UsedIn.Count}）";
 
     public string Name => Row.Name;
 

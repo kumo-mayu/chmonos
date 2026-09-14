@@ -544,10 +544,29 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
         }
 
         _items.TryGetValue(row.ItemId, out var item);
+
+        // 手元にある商品は、ほかの画面と同じ商品ページを組み込む（ユーザ指示 2026-09-14）。
+        // 取り直した・ファイルを外したなど、商品ページが自分を作り直すときは右側だけ作り直す（主画面ごと差し替えない）
+        var page = item is null ? null : new ItemViewModel(item, _services, _main, _thumbnails)
+        {
+            IsEmbedded = true,
+            EmbeddedPaneKey = "modifications.item.left",
+            Replaced = updated =>
+            {
+                if (updated is not null)
+                {
+                    _items[updated.Id] = updated;
+                }
+
+                ShowMember(row);
+            },
+        };
+
         var detail = new HubItemDetail
         {
             Row = row,
             Item = item,
+            Page = page,
             VariationText = ModificationViewModel.VariationLabel(row.Member, item),
             ThumbnailPath = row.ThumbnailPath,
             Thumbnails = _thumbnails,

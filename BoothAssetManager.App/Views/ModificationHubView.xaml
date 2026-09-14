@@ -473,8 +473,45 @@
         </DataTemplate>
 
         <!-- 右側：使ったもの1件（商品の要約）。全部の操作は商品ページで -->
+        <!--
+            右側：使ったもの1件。手元にある商品は商品ページをそのまま組み込み（ユーザ指示 2026-09-14：ほかの画面と同じ商品ページを右に出す。
+            3つの見方すべて）、この改変に固有の物は上の帯に出す。手元に無い商品は商品ページが無いので、下のこれまでの要約
+        -->
         <DataTemplate DataType="{x:Type vm:HubItemDetail}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <Grid>
+            <DockPanel Visibility="{Binding HasPage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                        BorderThickness="0,0,0,1" Padding="20,10">
+                    <StackPanel>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Unityで選択" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                    Command="{Binding DataContext.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}" ToolTip="{Binding ProjectText}" />
+                            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0">
+                                <Run Text="「" /><Run Text="{Binding ModificationName, Mode=OneWay}" FontWeight="Bold" /><Run Text="」で使ったファイル：" />
+                                <Run Text="{Binding FileText, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" FontSize="12" />
+                            </TextBlock>
+                        </DockPanel>
+                        <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
+                                   Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <Expander Header="{Binding UsedInHeader}" Margin="0,6,0,0" FontSize="12">
+                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                                <ItemsControl ItemsSource="{Binding UsedIn}" />
+                            </ScrollViewer>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+                <ContentControl Content="{Binding Page}" Focusable="False">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate>
+                            <views:ItemView />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </DockPanel>
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasPage, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <StackPanel Margin="28,22" MaxWidth="860" HorizontalAlignment="Left">
                     <TextBlock Text="使ったもの" Style="{StaticResource SectionLabel}" />
                     <DockPanel Margin="0,8,0,0">
@@ -525,6 +562,7 @@
                     </Border>
                 </StackPanel>
             </ScrollViewer>
+            </Grid>
         </DataTemplate>
 
         <!-- 右側：改変。これまでの改変の画面をそのまま組み込む（戻るを隠し、消すを出す） -->
