@@ -365,23 +365,64 @@
                     <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" Margin="0,4,0,0" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
                                Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
-                    <WrapPanel Margin="0,10,0,0">
-                        <Border Style="{StaticResource HubBadge}">
-                            <TextBlock Text="{Binding VersionText}" FontSize="11" />
-                        </Border>
-                        <Border Style="{StaticResource HubBadge}">
-                            <TextBlock Text="{Binding OpenText}" FontSize="11" />
-                        </Border>
-                        <Border Style="{StaticResource HubBadge}">
-                            <TextBlock Text="{Binding SourceText}" FontSize="11" />
-                        </Border>
-                        <Border Style="{StaticResource HubBadge}" Background="{StaticResource WarnSoft}"
-                                BorderBrush="{StaticResource WarnBorder}"
-                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBlock Text="フォルダが見つかりません" FontSize="11" Foreground="{StaticResource Warn}" />
-                        </Border>
-                    </WrapPanel>
-                    <TextBlock Text="{Binding LastWriteText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                    <!--
+                        「項目：値」の行で並べる（ユーザ指示 2026-09-14：版・開いているか・一覧の名前が、見出しの無い札で
+                        「Unity 2022.3.22f1」「閉じています」「VCC の一覧」と内部の言い方のまま並んでいた）
+                    -->
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.Resources>
+                            <Style x:Key="ProjectInfoLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                <Setter Property="Margin" Value="0,3,16,3" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                            </Style>
+                            <Style x:Key="ProjectInfoValue" TargetType="TextBlock">
+                                <Setter Property="FontSize" Value="12.5" />
+                                <Setter Property="Margin" Value="0,3,0,3" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="TextWrapping" Value="Wrap" />
+                            </Style>
+                        </Grid.Resources>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="状態" Style="{StaticResource ProjectInfoLabel}" />
+                        <!-- 開いていれば緑、フォルダが無ければ注意の色 -->
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StateValue}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource ProjectInfoValue}">
+                                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Good}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Warn}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="バージョン" Style="{StaticResource ProjectInfoLabel}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VersionValue}" Style="{StaticResource ProjectInfoValue}" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="情報元" Style="{StaticResource ProjectInfoLabel}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SourceValue}" Style="{StaticResource ProjectInfoValue}" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="最後に触った日" Style="{StaticResource ProjectInfoLabel}"
+                                   Visibility="{Binding HasLastWrite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastWriteValue}" Style="{StaticResource ProjectInfoValue}"
+                                   Visibility="{Binding HasLastWrite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </Grid>
                     <WrapPanel Margin="0,14,0,0">
                         <Button Content="Unityを開く" Style="{StaticResource PrimaryButton}" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

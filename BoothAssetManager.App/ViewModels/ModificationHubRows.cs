@@ -283,6 +283,26 @@ public sealed class HubProjectDetail
 
     public string LastWriteText => Candidate.LastWrite is { } time ? $"最後に触った日 {time.ToLocalTime():yyyy-MM-dd}" : string.Empty;
 
+    // ---- 右ビューの「項目：値」の行（ユーザ指示 2026-09-14：版・開いているか・一覧の名前が、内部の言い方のまま札で並んでいた） ----
+
+    /// <summary>状態の値。フォルダが無ければそれを言う（開いている・閉じているより先に困ること）。</summary>
+    public string StateValue => IsMissing ? "フォルダが見つかりません" : IsOpen ? "開いている" : "閉じている";
+
+    public string VersionValue => Candidate.Version ?? "読めません";
+
+    /// <summary>どこで見つけたか（Unity Hub・VCC の一覧）。どちらにも無いのは、改変から紐付けたものだけ。</summary>
+    public string SourceValue => Candidate.Source switch
+    {
+        UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity Hub・VCC",
+        UnityProjectSource.Hub => "Unity Hub",
+        UnityProjectSource.Vcc => "VCC",
+        _ => "改変から紐付けたもの（どちらの一覧にも無い）",
+    };
+
+    public string LastWriteValue => Candidate.LastWrite is { } time ? $"{time.ToLocalTime():yyyy-MM-dd}" : string.Empty;
+
+    public bool HasLastWrite => Candidate.LastWrite is not null;
+
     public required IReadOnlyList<HubModificationRow> Modifications { get; init; }
 
     public bool HasModifications => Modifications.Count > 0;

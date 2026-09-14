@@ -252,7 +252,13 @@
                                             <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListIconCell}" Focusable="False" />
+                                                        <!-- 絵を押しても商品ページ（ユーザ指摘 2026-09-14：カードでは飛べるのにリストでは飛べない。名前と同じ） -->
+                                                        <Button Style="{StaticResource MemberNameLink}" HorizontalAlignment="Stretch"
+                                                                AutomationProperties.Name="{Binding Name}"
+                                                                Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListIconCell}" Focusable="False" />
+                                                        </Button>
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
