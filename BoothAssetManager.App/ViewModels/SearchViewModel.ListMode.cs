@@ -29,6 +29,14 @@ public sealed partial class SearchViewModel
         set => IsListMode = !value;
     }
 
+    /// <summary>切り替えを押したときだけ変える（点いているかは読むだけ。ItemCardResources の ItemViewModeSwitch）。</summary>
+    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => IsListMode = false);
+
+    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => IsListMode = true);
+
+    private RelayCommand? _showCards;
+    private RelayCommand? _showList;
+
     public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "search", hasSelect: true, shopHeader: "ショップ");
 
     /// <summary>リストに並べる物。カードと同じ物を同じ並びで（カードの ViewModel を使い回すので、星や選択も同じ）。</summary>

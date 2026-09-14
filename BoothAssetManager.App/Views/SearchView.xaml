@@ -796,38 +796,8 @@
                 選択中だけ出る操作バー。下端に重ねて出す。
                 上に差し込むと結果の位置がずれて、選んでいる最中に操作が途切れる。
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,10"
-                    Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <Grid>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
-                                   Foreground="#28507f" VerticalAlignment="Center" />
-                        <!-- Unityへ順に送っている最中の進み具合（#69）。取り込み画面は Unity 側に出る -->
-                        <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Margin="14,0,0,0"
-                                   Foreground="#28507f" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
-                                   Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="表示中を全て選択" Style="{StaticResource SmallButton}"
-                                Command="{Binding SelectAllCommand}" />
-                        <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                Command="{Binding ClearSelectionCommand}" />
-                        <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
-                        <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
-                                Command="{Binding AddSelectionToFavoritesCommand}"
-                                ToolTip="選んだ商品に星を付けます。付いている物はそのままです。" />
-                        <Button Content="改変に足す…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                Command="{Binding AddSelectionToModificationCommand}"
-                                ToolTip="どの改変に足すかを選んでから、選んだ商品をまとめて足します。" />
-                        <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                Command="{Binding SendSelectionToUnityCommand}"
-                                ToolTip="選んだ商品の unitypackage を、開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次の1件が出ます。" />
-                        <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
-                                Command="{Binding SendSelectionToEditCommand}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+            <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
+                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <!--
                 取り込み中に増えたぶんは、押されるまで一覧へ入れない。

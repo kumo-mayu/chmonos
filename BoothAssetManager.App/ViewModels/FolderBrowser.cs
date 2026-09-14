@@ -197,7 +197,15 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         set => IsListMode = !value;
     }
 
-    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "folder", hasSelect: false, shopHeader: "ショップ・場所");
+    /// <summary>切り替えを押したときだけ変える（点いているかは読むだけ。検索画面と同じ）。</summary>
+    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => IsListMode = false);
+
+    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => IsListMode = true);
+
+    private RelayCommand? _showCards;
+    private RelayCommand? _showList;
+
+    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "folder", hasSelect: true, shopHeader: "ショップ・場所");
 
     /// <summary>リストに並べる物（先に子フォルダ、続けて商品。カードと同じ並び）。</summary>
     public IReadOnlyList<object> ListItems => _listItems;
@@ -275,6 +283,8 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         if (!_cards.TryGetValue(item.Id, out var card))
         {
             card = _main.Search.CreateCard(item);
+            card.SelectionChanged += OnCardSelectionChanged;
+            card.IsSelectionMode = HasSelection;
             _cards[item.Id] = card;
         }
 
@@ -289,6 +299,121 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
 
     private static bool Hits(string? text, string needle)
         => text is not null && CultureInfo.CurrentCulture.CompareInfo.IndexOf(text, needle, Views.FindInPage.Options) >= 0;
+
+    // ---- まとめて操作（検索画面と同じ・ユーザ指示 2026-09-14：フォルダも検索と同等の発見手段なので同等にする） ----
+
+    private bool _isSendingToUnity;
+    private string _unityQueueText = string.Empty;
+
+    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(() =>
+    {
+        foreach (var card in _listItems.OfType<ItemCardViewModel>())
+        {
+            card.IsSelected = true;
+        }
+    });
+
+    public RelayCommand ClearSelectionCommand => _clearSelection ??= new RelayCommand(ClearSelection);
+
+    public RelayCommand SendSelectionToEditCommand => _sendToEdit ??= new RelayCommand(() =>
+    {
+        var ids = SelectedCards().Select(card => card.Item.Id).ToList();
+        if (ids.Count > 0)
+        {
+            ClearSelection();
+            _main.ShowEditAsync(ids).Forget();
+        }
+    });
+
+    public RelayCommand AddSelectionToFavoritesCommand => _addToFavorites ??= new RelayCommand(() => AddSelectionToFavoritesAsync().Forget());
+
+    public RelayCommand AddSelectionToModificationCommand => _addToModification ??= new RelayCommand(
+        () => ItemSelectionActions.AddToModificationAsync(_services, SelectedCards()).Forget());
+
+    public RelayCommand SendSelectionToUnityCommand => _sendToUnity ??= new RelayCommand(
+        () => ItemSelectionActions.SendToUnityAsync(
+            _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text).Forget(),
+        () => !IsSendingToUnity);
+
+    private RelayCommand? _selectAll;
+    private RelayCommand? _clearSelection;
+    private RelayCommand? _sendToEdit;
+    private RelayCommand? _addToFavorites;
+    private RelayCommand? _addToModification;
+    private RelayCommand? _sendToUnity;
+
+    public bool IsSendingToUnity
+    {
+        get => _isSendingToUnity;
+        private set
+        {
+            if (SetField(ref _isSendingToUnity, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string UnityQueueText
+    {
+        get => _unityQueueText;
+        private set
+        {
+            if (SetField(ref _unityQueueText, value))
+            {
+                OnPropertyChanged(nameof(HasUnityQueueText));
+            }
+        }
+    }
+
+    public bool HasUnityQueueText => UnityQueueText.Length > 0;
+
+    public int SelectedCount => _cards.Values.Count(card => card.IsSelected);
+
+    public bool HasSelection => SelectedCount > 0;
+
+    public string SelectionText => $"{SelectedCount} 件を選択中";
+
+    /// <summary>選んだカード。表示中の並びを先に、探し直して見えなくなった物を後に（検索画面と同じ）。</summary>
+    private List<ItemCardViewModel> SelectedCards()
+    {
+        var cards = _listItems.OfType<ItemCardViewModel>().Where(card => card.IsSelected).ToList();
+        cards.AddRange(_cards.Values.Where(card => card.IsSelected && !cards.Contains(card)));
+        return cards;
+    }
+
+    private void ClearSelection()
+    {
+        foreach (var card in _cards.Values.Where(card => card.IsSelected))
+        {
+            card.IsSelected = false;
+        }
+    }
+
+    /// <summary>選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。</summary>
+    private async Task AddSelectionToFavoritesAsync()
+    {
+        foreach (var card in SelectedCards().Where(card => !card.IsFavorite))
+        {
+            await ToggleFavoriteAsync(card);
+        }
+    }
+
+    /// <summary>1件でも選ぶと、カード全体が選択の的になる（検索画面と同じ。中を見るのは専用のボタンへ）。</summary>
+    private void OnCardSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(SelectionText));
+
+        var selecting = HasSelection;
+        foreach (var card in _cards.Values)
+        {
+            card.IsSelectionMode = selecting;
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----
 

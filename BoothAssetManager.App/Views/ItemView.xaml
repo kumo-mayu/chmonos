@@ -107,20 +107,14 @@
                 <StackPanel Grid.Column="0" Margin="0,0,20,0">
                     <views:ItemGalleryPanel />
 
-                    <!-- 説明文 -->
+                    <!-- 説明文。欄ごと畳める（ユーザ指示 2026-09-14）。畳んだかどうかは商品を移っても保つ -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
-                        <StackPanel>
-                            <!--
-                                説明は長いことがある（1商品で画面6枚ぶん流れるものがある）。
-                                見出しだけ見て目当てを探せるように、まとめて畳めるようにした
-                            -->
-                            <Grid Margin="0,0,0,12">
+                        <Grid>
+                        <Expander IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}">
+                            <Expander.Header>
                                 <TextBlock Text="商品説明" FontWeight="Bold" VerticalAlignment="Center" />
-                                <Button Content="{Binding ToggleAllSectionsText}" Style="{StaticResource SmallButton}"
-                                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                                        Command="{Binding ToggleAllSectionsCommand}"
-                                        Visibility="{Binding HasSections, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            </Grid>
+                            </Expander.Header>
+                        <StackPanel Margin="0,12,0,0">
 
                             <!--
                                 説明文とh2は選択可能にし、含まれるURLはリンクにする。
@@ -167,6 +161,77 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
+                        </Expander>
+
+                        <!--
+                            説明は長いことがある（1商品で画面6枚ぶん流れるものがある）。見出しだけ見て目当てを探せるように、
+                            見出しごとにまとめて畳める。欄を開いているときだけ出す（欄の見出しの右に重ねる）
+                        -->
+                        <Button Content="{Binding ToggleAllSectionsText}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Command="{Binding ToggleAllSectionsCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasSections}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsDescriptionExpanded}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        </Grid>
+                    </Border>
+
+                    <!--
+                        動画（ユーザ指示 2026-09-14）。説明に載っている YouTube の動画を、絵とタイトル付きのリンクで出す。
+                        既定は畳み、開いたときだけ YouTube へ絵とタイトルを取りに行く。動画が無ければその旨を出し、開けない
+                    -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,14">
+                        <Expander IsExpanded="{Binding IsVideosExpanded, Mode=TwoWay}" IsEnabled="{Binding HasVideos}">
+                            <Expander.Header>
+                                <TextBlock VerticalAlignment="Center">
+                                    <Run Text="動画" FontWeight="Bold" /><Run Text="{Binding VideosHeaderText, Mode=OneWay}"
+                                                                           FontSize="12" Foreground="{StaticResource TextMuted}" />
+                                </TextBlock>
+                            </Expander.Header>
+                            <ItemsControl ItemsSource="{Binding Videos}" Margin="0,12,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,0,10" ToolTip="{Binding Url}"
+                                                AutomationProperties.Name="{Binding TitleText}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Face" Background="Transparent" CornerRadius="6" Padding="4">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Face" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Left" Width="160" Height="90" CornerRadius="4" ClipToBounds="True"
+                                                        Background="#e9edf4" Margin="0,0,12,0">
+                                                    <Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill" />
+                                                </Border>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding TitleText}" FontSize="13" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Accent}" TextDecorations="Underline" />
+                                                    <TextBlock Text="{Binding Url}" Style="{StaticResource Mono}" FontSize="10.5"
+                                                               Foreground="{StaticResource TextMuted}" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
                     </Border>
                 </StackPanel>
 

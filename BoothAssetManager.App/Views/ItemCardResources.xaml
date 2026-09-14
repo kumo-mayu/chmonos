@@ -325,22 +325,64 @@
         </Setter>
     </Style>
 
-    <!-- 切り替え。入れ物の画面の IsCardMode・IsListMode に結ぶ -->
+    <!--
+        選んでいる間だけ出す、まとめて操作の帯（検索画面から移した。中身は変えていない）。
+        検索画面とフォルダビューの右側で共通（ユーザ指示 2026-09-14：フォルダも検索と同等にする）。下端に重ねて出す
+    -->
+    <DataTemplate x:Key="ItemSelectionBar">
+        <Border Background="{StaticResource AccentSoft}"
+                BorderBrush="{StaticResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,10">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
+                               Foreground="#28507f" VerticalAlignment="Center" />
+                    <!-- Unityへ順に送っている最中の進み具合（#69）。取り込み画面は Unity 側に出る -->
+                    <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Margin="14,0,0,0"
+                               Foreground="#28507f" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
+                               Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="表示中を全て選択" Style="{StaticResource SmallButton}"
+                            Command="{Binding SelectAllCommand}" />
+                    <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            Command="{Binding ClearSelectionCommand}" />
+                    <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
+                    <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            Command="{Binding AddSelectionToFavoritesCommand}"
+                            ToolTip="選んだ商品に星を付けます。付いている物はそのままです。" />
+                    <Button Content="改変に足す…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            Command="{Binding AddSelectionToModificationCommand}"
+                            ToolTip="どの改変に足すかを選んでから、選んだ商品をまとめて足します。" />
+                    <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            Command="{Binding SendSelectionToUnityCommand}"
+                            ToolTip="選んだ商品の unitypackage を、開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次の1件が出ます。" />
+                    <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
+                            Command="{Binding SendSelectionToEditCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+    <!--
+        切り替え。点いているかは入れ物の画面の IsCardMode・IsListMode を読むだけ（OneWay）で、押したときだけコマンドで変える。
+        両方向に結ぶと、画面を作る・組み直すときに WPF が片方を外した拍子に「外れた」が書き戻され、
+        押していないのにカードへ戻って覚えてしまうことがあった（2026-09-14・起動し直すと検索がカードで始まった）
+    -->
     <DataTemplate x:Key="ItemViewModeSwitch">
         <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.18" />
             </Border.Effect>
             <StackPanel Orientation="Horizontal">
-                <RadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=TwoWay}"
-                             ToolTip="絵の大きなカードで並べます">
+                <RadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=OneWay}"
+                             Command="{Binding ShowCardsCommand}" ToolTip="絵の大きなカードで並べます">
                     <RadioButton.Tag>
                         <CornerRadius>5,0,0,5</CornerRadius>
                     </RadioButton.Tag>
                 </RadioButton>
                 <Border Width="1" Background="{StaticResource BorderStrong}" />
-                <RadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=TwoWay}"
-                             ToolTip="1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます">
+                <RadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=OneWay}"
+                             Command="{Binding ShowListCommand}" ToolTip="1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます">
                     <RadioButton.Tag>
                         <CornerRadius>0,5,5,0</CornerRadius>
                     </RadioButton.Tag>
@@ -353,13 +395,36 @@
         リストの行。押す・右クリック・中クリックはカードと同じ（入れ物の画面は Tag から引く）。
         フォルダの行（フォルダビュー）は押すとそのフォルダへ移り、右クリックのメニューは出さない
     -->
+    <!--
+        行の見た目は自前にする（ユーザ指摘 2026-09-14：既定の乗せたときの青い枠と塗りが強すぎた）。
+        行の境目に細い線を引き、乗せたときは薄い灰、選んだ行（まとめて操作）は薄い青
+    -->
     <Style x:Key="ItemListRowStyle" TargetType="ListViewItem">
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="MinHeight" Value="50" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="52" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
         <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="Row" Background="Transparent" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                            Padding="0,5">
+                        <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
+                                              VerticalAlignment="Stretch" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource AccentSoft}" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
         <EventSetter Event="MouseLeftButtonUp" Handler="OnListRowClick" />
         <EventSetter Event="MouseDown" Handler="OnCardMouseDown" />
         <Style.Triggers>
@@ -367,6 +432,19 @@
                 <Setter Property="ContextMenu" Value="{x:Null}" />
             </DataTrigger>
         </Style.Triggers>
+    </Style>
+
+    <!--
+        列の境目の細い縦線（ユーザ指摘 2026-09-14：要素の間に何も無くて境目が分からない。表まではしない）。
+        名前・ショップ・状態の中身を包み、左に線と余白を置く
+    -->
+    <Style x:Key="ItemListCellFrame" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+        <Setter Property="BorderThickness" Value="1,0,0,0" />
+        <Setter Property="Padding" Value="10,0,6,0" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Background" Value="Transparent" />
     </Style>
 
     <!-- 選ぶ（まとめて編集・お気に入り・改変に足す・Unityへ送る）。カードの左上のチェックと同じ -->
@@ -416,12 +494,15 @@
     </DataTemplate>
 
     <DataTemplate x:Key="ItemListNameCell">
-        <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
-                   VerticalAlignment="Center" ToolTip="{Binding Name}" />
+        <Border Style="{StaticResource ItemListCellFrame}">
+            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip="{Binding Name}" />
+        </Border>
     </DataTemplate>
 
     <!-- ショップ。フォルダの行は場所 -->
     <DataTemplate x:Key="ItemListShopCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
         <Grid VerticalAlignment="Center">
             <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                        Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -429,10 +510,12 @@
                        TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"
                        Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </Grid>
+        </Border>
     </DataTemplate>
 
     <!-- 札。カードの下の段と同じ物（未所持はカードの襷の代わりに札で）。フォルダの行は数 -->
     <DataTemplate x:Key="ItemListChipsCell">
+        <Border Style="{StaticResource ItemListCellFrame}">
         <Grid VerticalAlignment="Center">
             <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
@@ -467,6 +550,7 @@
             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}"
                        Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </Grid>
+        </Border>
     </DataTemplate>
 
     <!--

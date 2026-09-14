@@ -336,6 +336,9 @@ public static class SectionFolds
     public static bool BoothTagsExpanded { get; set; } = true;
 
     public static bool AvatarsExpanded { get; set; } = true;
+
+    /// <summary>商品ページの「商品説明」（ユーザ指示 2026-09-14：説明も畳めるように）。</summary>
+    public static bool DescriptionExpanded { get; set; } = true;
 }
 
 /// <summary>ユーザが消した対応アバターの1行（「消したもの」の欄）。</summary>
