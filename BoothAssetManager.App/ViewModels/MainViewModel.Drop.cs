@@ -1,0 +1,248 @@
+using System.IO;
+using BoothAssetManager.App.Services;
+using BoothAssetManager.Core.Models;
+
+namespace BoothAssetManager.App.ViewModels;
+
+/// <summary>主画面：落とされた物の振り分け（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
+public sealed partial class MainViewModel
+{
+    /// <summary>
+    /// ウィンドウに落とされた／貼り付けられたものを振り分ける。
+    ///
+    /// 受け口をウィンドウ1つにしているのは、**落ちてくるものが2種類しか無い**から。
+    /// 画面ごとに受けると、同じものを落としたのに画面によって結果が変わる。
+    ///
+    /// **勝手に処理を始めない。**ファイルは取り込みの対象に積むだけで、実行は押してから。
+    /// 持っていない商品のURLは、外部への通信を伴うので必ず尋ねる。
+    /// </summary>
+    public async Task HandleDropAsync(IReadOnlyList<string>? paths, string? text, bool hasBitmap = false)
+    {
+        // 判断は Core 側の規則に任せる。画面を立ち上げずに確かめられるようにするため。
+        //
+        // 商品ページを開いているときだけ規則が変わる。**足す先が決まっているから**——
+        // 決まっていない場所で「この商品の画像に足しますか」と聞いても答えられない
+        // 編集画面も同じ（ユーザ判断：画像の追加などは商品ページと同等。落とす・貼るも含む）
+        var decision = CurrentItemPage is not null
+            ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists)
+            : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
+
+        switch (decision.Action)
+        {
+            case Core.Services.DropAction.AddImageToItem:
+                await AddDroppedImagesAsync(paths, hasBitmap, decision.ImageUrl);
+                return;
+
+            case Core.Services.DropAction.AskImageOrItem:
+                await AskImageOrItemAsync(decision.ItemId!, paths, hasBitmap, decision.ImageUrl);
+                return;
+
+            case Core.Services.DropAction.Import:
+                ShowImport();
+
+                // 落としたらそのまま始める（#38。設定で切れる）
+                Import.AddDroppedPaths(paths!, startImmediately: _services.Settings.StartImportOnDrop);
+                return;
+
+            case Core.Services.DropAction.OpenItem:
+                if (await _services.Store.Items.LoadAsync(decision.ItemId!) is { } owned)
+                {
+                    ShowItem(owned);
+                }
+
+                return;
+
+            case Core.Services.DropAction.OfferToRegister:
+                await OfferToRegisterAsync(decision.ItemId!);
+                return;
+
+            case Core.Services.DropAction.OpenShop:
+                await ShowShopAsync(decision.Shop!);
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>
+    /// 落とした／貼った画像を、いま開いている商品に足す。
+    ///
+    /// ファイルとクリップボードの絵で、足したあとの流れは同じにしてある。
+    /// </summary>
+    private async Task AddDroppedImagesAsync(
+        IReadOnlyList<string>? paths,
+        bool hasBitmap,
+        string? imageUrl = null)
+    {
+        if (CurrentItemPage is not { } item)
+        {
+            return;
+        }
+
+        if (paths is { Count: > 0 })
+        {
+            await item.AddImageFilesAsync(paths.Where(Core.Services.DropRouting.LooksLikeImage).ToList());
+            return;
+        }
+
+        if (hasBitmap && ReadClipboardImage() is { } bytes)
+        {
+            await item.AddImageBytesAsync(bytes);
+            await item.ReloadGalleryAsync();
+            return;
+        }
+
+        // ブラウザからの絵はURLだけで落ちてくる。取りに行く。
+        // **BOOTHの画像置き場だけ**（DropRouting が確かめている）で、
+        // 人が押した操作なので他の取得より先に出る
+        if (imageUrl is not null)
+        {
+            // 優先度（指名された画像）は CommandHandler の中で掛ける
+            var fetched = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FetchBoothImage(imageUrl));
+            if (fetched is not Core.Commands.CommandResult.ImageFetched { Bytes: var bytesFromBooth })
+            {
+                System.Windows.MessageBox.Show(
+                    "BOOTHから画像を取れませんでした。",
+                    "画像を足す",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
+            await item.AddImageBytesAsync(bytesFromBooth);
+            await item.ReloadGalleryAsync();
+        }
+    }
+
+    /// <summary>
+    /// BOOTH由来の画像を受け取ったとき。
+    ///
+    /// **その商品を開きたいのか、この商品の画像に足したいのかは決まらない。**
+    /// BOOTHの商品ページから絵をドラッグすると、その絵のURLに商品IDが入っているので、
+    /// 落としたものだけからは意図が読めない。ここだけ人に聞く。
+    /// </summary>
+    private async Task AskImageOrItemAsync(
+        string itemId,
+        IReadOnlyList<string>? paths,
+        bool hasBitmap,
+        string? imageUrl = null)
+    {
+        if (CurrentItemPage is not { } item)
+        {
+            return;
+        }
+
+        var name = await _services.Store.Items.LoadAsync(itemId) is { } known
+            ? $"「{known.DisplayName}」"
+            : $" {itemId} ";
+
+        // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（#18・ユーザ指摘）
+        var answer = Views.ChoiceDialog.Ask(
+            "BOOTHの画像を受け取りました",
+            "この画像をどうしますか？",
+            $"商品を開く …… 商品{name}のページへ移ります\n"
+            + $"画像として足す …… いま開いている「{item.Name}」の画像に加えます",
+            "商品を開く",
+            "画像として足す");
+
+        switch (answer)
+        {
+            case Views.ChoiceDialogResult.First:
+                await OpenOrOfferAsync(itemId);
+                return;
+
+            case Views.ChoiceDialogResult.Second:
+                await AddDroppedImagesAsync(paths, hasBitmap, imageUrl);
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>手元にあれば開き、無ければ登録するか尋ねる。落としたURLと同じ扱い。</summary>
+    private async Task OpenOrOfferAsync(string itemId)
+    {
+        if (await _services.Store.Items.LoadAsync(itemId) is { } owned)
+        {
+            ShowItem(owned);
+            return;
+        }
+
+        await OfferToRegisterAsync(itemId);
+    }
+
+    /// <summary>
+    /// クリップボードの絵をPNGの生データにする。
+    ///
+    /// スクリーンショットは**ファイルではなく絵そのもの**で置かれるので、
+    /// パス経由では受け取れない。ここで一度PNGに固めてから、
+    /// 足す側でBOOTHと同じ圧縮を通す。
+    /// </summary>
+    private static byte[]? ReadClipboardImage()
+    {
+        try
+        {
+            if (System.Windows.Clipboard.GetImage() is not { } source)
+            {
+                return null;
+            }
+
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
+
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+        catch (Exception exception)
+            when (exception is System.Runtime.InteropServices.ExternalException or NotSupportedException)
+        {
+            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 手元に無い商品のURLを受けたとき。
+    ///
+    /// この経路が、**贈答品や気になっている未購入品を登録する道**にもなる。
+    /// ファイルが手元に来ないものは取り込みからは入らないので、ここが唯一の入口。
+    /// </summary>
+    private async Task OfferToRegisterAsync(string itemId)
+    {
+        var answer = System.Windows.MessageBox.Show(
+            $"商品 {itemId} はライブラリにありません。\n\n"
+                + "BOOTHから情報を取得して、ファイルを持たない商品として登録しますか？\n"
+                + "（贈った商品や、気になっている商品をここから登録できます）",
+            "BOOTHのURLを受け取りました",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (answer != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RegisterItem(itemId));
+
+        if (result is Core.Commands.CommandResult.Failed failure)
+        {
+            System.Windows.MessageBox.Show(
+                failure.Message,
+                "登録できませんでした",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+
+            return;
+        }
+
+        await ReloadLibraryAsync();
+
+        if (await _services.Store.Items.LoadAsync(itemId) is { } added)
+        {
+            ShowItem(added);
+        }
+    }
+}

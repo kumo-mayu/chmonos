@@ -1,0 +1,225 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using BoothAssetManager.Core.Commands;
+using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Resolution;
+using BoothAssetManager.Core.Scanning;
+using BoothAssetManager.Core.Services;
+
+namespace BoothAssetManager.App.ViewModels;
+
+/// <summary>未確定画面：チェックした物へのまとめた操作（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
+public sealed partial class ResolveViewModel
+{
+    public int CheckedCount => Files.Count(row => row.IsSelected);
+
+    public bool HasChecked => CheckedCount > 0;
+
+    public string CheckedText => $"{CheckedCount} 件を選択中";
+
+    public string AssignCheckedText => $"選択した {CheckedCount} 件をこのIDで確定";
+
+    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理から外す";
+
+    private void OnCheckedChanged()
+    {
+        OnPropertyChanged(nameof(CheckedCount));
+        OnPropertyChanged(nameof(HasChecked));
+        OnPropertyChanged(nameof(CheckedText));
+        OnPropertyChanged(nameof(AssignCheckedText));
+        OnPropertyChanged(nameof(ExcludeCheckedText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 同じフォルダのものをまとめて選ぶ。
+    /// 1つのアーカイブを展開した中身が並んでいることが多く、
+    /// それらは1件ずつ判断する必要がないため。
+    /// </summary>
+    private void SelectFolder(object? parameter)
+    {
+        if (parameter is not string directory)
+        {
+            return;
+        }
+
+        foreach (var row in Files.Where(row =>
+            string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase)))
+        {
+            row.IsSelected = true;
+        }
+    }
+
+    private string? _activeGroup;
+
+    /// <summary>
+    /// まとめて扱っている元zipの束。null なら選んだ1件だけを扱う。
+    /// 確定・管理から外すがこの束の全件に効く。元zipが単位の基本で、
+    /// 1件ずつ扱いたいときは束を開いて行を選ぶ（行を選ぶと束は外れる）。
+    /// </summary>
+    public string? ActiveGroup
+    {
+        get => _activeGroup;
+        private set
+        {
+            if (SetField(ref _activeGroup, value))
+            {
+                OnPropertyChanged(nameof(HasActiveGroup));
+                OnPropertyChanged(nameof(ActiveGroupText));
+                OnPropertyChanged(nameof(AssignOutcomeText));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasActiveGroup => ActiveGroup is not null;
+
+    public string ActiveGroupText => ActiveGroup is null
+        ? string.Empty
+        : $"元zip「{ActiveGroup}」の {ActiveRows.Count} 件をまとめて扱っています";
+
+    /// <summary>確定・管理から外すの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
+    private IReadOnlyList<UnresolvedRow> ActiveRows => ActiveGroup is { } key
+        ? Files.Where(row => row.HasOrigin && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList()
+        : Selected is null ? [] : [Selected];
+
+    private void SelectGroup(object? parameter)
+    {
+        if (parameter is not string key)
+        {
+            return;
+        }
+
+        var first = Files.FirstOrDefault(row =>
+            row.HasOrigin && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase));
+        if (first is null)
+        {
+            return;
+        }
+
+        // 行を選ぶと束は外れるので、先に代表の行を選んでから束を立てる。
+        // 代表の行は手掛かりの表示と検索の対象に使う（検索は元zipの名前で引くので、どの行でも同じ）
+        Selected = first;
+        ActiveGroup = key;
+    }
+
+    private void SelectAll()
+    {
+        foreach (var row in Files)
+        {
+            row.IsSelected = true;
+        }
+    }
+
+    private void ClearChecks()
+    {
+        foreach (var row in Files.Where(row => row.IsSelected))
+        {
+            row.IsSelected = false;
+        }
+    }
+
+    private async Task ExcludeCheckedAsync()
+    {
+        var targets = Files.Where(row => row.IsSelected).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var sample = string.Join("\n", targets.Take(8).Select(row => $"・{row.FileName}"));
+        if (targets.Count > 8)
+        {
+            sample += $"\n…ほか {targets.Count - 8} 件";
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"{targets.Count} 件を管理から外します。\n\n{sample}\n\n"
+            + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
+            "まとめて管理から外す",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            foreach (var row in targets)
+            {
+                await _services.Commands.ExecuteAsync(
+                    new UiCommand.ExcludeFile(row.File.Hash, row.File.Paths, "未確定画面からまとめて除外"));
+            }
+
+            RemoveRows(targets);
+            StatusText = $"{targets.Count} 件を管理から外しました。";
+        }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasStatus));
+        }
+    }
+
+    /// <summary>
+    /// 選んだ複数のファイルを同じ商品IDへ確定する。
+    /// 1商品に複数のファイル（本体zipと差分、psdなど）が付くことは普通にある。
+    /// 2件目以降はローカルのitemへ追加されるだけで、BOOTHへは行かない。
+    /// </summary>
+    private async Task AssignCheckedAsync()
+    {
+        var targets = Files.Where(row => row.IsSelected).ToList();
+        if (targets.Count == 0 || Preview is null)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"{targets.Count} 件を「{Preview.Name}」（ID {Preview.Id}）のファイルとして確定します。\n\n"
+            + "同じ商品のファイルであることを確認してください。",
+            "まとめて確定",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var settled = new List<UnresolvedRow>();
+            foreach (var row in targets)
+            {
+                var result = await _services.Commands.ExecuteAsync(
+                    new UiCommand.AssignItemId(row.File.Hash, Preview.Id));
+
+                if (result is not CommandResult.Failed)
+                {
+                    settled.Add(row);
+                }
+            }
+
+            if (!_settledItemIds.Contains(Preview.Id))
+            {
+                _settledItemIds.Add(Preview.Id);
+            }
+
+            RemoveRows(settled);
+            StatusText = settled.Count == targets.Count
+                ? $"{settled.Count} 件を確定しました。"
+                : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗）。";
+        }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasStatus));
+        }
+    }
+}
