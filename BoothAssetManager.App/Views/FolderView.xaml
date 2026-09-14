@@ -138,13 +138,30 @@
                 <!-- 三角の幅だけ空ける（フォルダの行と絵の位置を揃える。ファイルは開け閉めしない） -->
                 <FrameworkElement DockPanel.Dock="Left" Width="18" />
 
+                <!--
+                    商品の絵。乗せると大きめの絵と商品名を出す（ユーザ指摘 2026-09-14：フォルダビューの商品の絵にホバーが無い。
+                    改変の画面の使ったものの行と同じ出し方・180px）
+                -->
                 <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
-                        CornerRadius="4" Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
+                        CornerRadius="4" Background="{StaticResource SurfaceAlt}" ClipToBounds="True"
+                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
                     <Grid>
                         <TextBlock Text="{Binding Initial}" FontSize="10" Foreground="{StaticResource TextMuted}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                     </Grid>
+                    <Border.ToolTip>
+                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                            <StackPanel Width="180">
+                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                </Border>
+                                <TextBlock Text="{Binding ItemName}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{StaticResource Text}" />
+                            </StackPanel>
+                        </ToolTip>
+                    </Border.ToolTip>
                 </Border>
 
                 <StackPanel Style="{StaticResource FolderRowText}">

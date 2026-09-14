@@ -238,6 +238,20 @@ public sealed class FolderViewRow : ViewModelBase
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
         : null;
 
+    /// <summary>
+    /// 商品の絵に乗せたときに出す大きめの絵（ユーザ指摘 2026-09-14：フォルダビューの商品の絵に乗せても何も出なかった。
+    /// 改変の画面の使ったものと同じ 180px）。一覧の絵は小さく縮めて読んでいて引き伸ばすとぼやけるので、カードの大きさで読み直す。
+    /// **吹き出しが開いたときに初めて読む**（行を作るたびに全部読むとメモリを食う）
+    /// </summary>
+    public BitmapSource? HoverImage => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => ThumbnailPath is not null;
+
+    /// <summary>吹き出しに添える商品名。</summary>
+    public string ItemName => Entry?.Item?.DisplayName ?? Name;
+
     public string Initial => AvatarText.InitialOf(Entry?.Item?.DisplayName ?? Name);
 }
 
