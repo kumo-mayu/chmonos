@@ -1,5 +1,14 @@
 # Claude Code 実装指示書：BOOTH ZIP情報表示プロトタイプ
 
+> **要約（2026-09-14 に足した。中身は書かれた時点のまま）**
+> - **何の文書か**：最初期に作者が書いた、`BoothZipInspector`（zip を落とすと手掛かりを表示するコンソールアプリ）の実装指示書。
+>   目的は、商品IDを当てることではなく、手元の zip からどの程度の手掛かりが取れるかを確かめること。
+> - **後で変わった所**：
+>   - .NET 8 ではなく net9.0 になった（.NET 8 の zip の名前の不具合・`docs/research/id-resolution.md` §10）。
+>   - 本体はライブラリになり、コマンドの入口は `experiments/BoothZipInspectorCli` に分けた（配布物の exe を減らすため・`docs/research/antivirus.md`）。
+>   - 手掛かりの使い方は `docs/spec/id-resolution.md`。
+> - **節**：目的／技術条件／起動方法／表示する情報（A 基本情報・B Zone.Identifier・…）以降
+
 ## 目的
 
 Windows上で、BOOTHからダウンロードした可能性のあるZIPファイルをターミナルへドラッグ＆ドロップし、そのファイルに残っている情報を確認できる最小限のC#コンソールアプリを作成してください。
