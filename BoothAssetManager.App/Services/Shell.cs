@@ -22,28 +22,48 @@ public static class Shell
     }
 
     /// <summary>
-    /// エクスプローラで開く。ファイルなら、そのファイルを選択した状態にする。
-    /// 消えている場合は親フォルダを開く（何も起きないよりは辿れる）。
+    /// エクスプローラで開く（ユーザ指示 2026-09-14）。
+    /// <list type="bullet">
+    /// <item>フォルダは**そのフォルダ自体**を開く（中が見える状態）。A/B/C/D で B を開いたら C が見える。
+    /// 前は親を開いてフォルダを選んでいたので、開いたつもりの中身が見えなかった</item>
+    /// <item>zip は**中が見える状態**で開く。アーカイブでも、利用者の感覚ではフォルダなので</item>
+    /// <item>それ以外のファイルは、含んでいるフォルダを開いてそのファイルを選ぶ</item>
+    /// <item>消えている場合は親フォルダを開く（何も起きないよりは辿れる）</item>
+    /// </list>
+    /// 在るかは画面のスレッドの外で見る（技術的負債 4-2：外付けやネットワークだと確かめるだけで数秒かかる）。
     /// </summary>
     public static void Reveal(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (!string.IsNullOrWhiteSpace(path))
         {
+            Task.Run(() => RevealCore(path)).Forget();
+        }
+    }
+
+    private static void RevealCore(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            OpenInExplorer($"\"{path}\"");
             return;
         }
 
-        if (File.Exists(path) || Directory.Exists(path))
+        if (File.Exists(path))
         {
-            TryStart(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+            // zip は explorer に場所として渡すと、関連付け（7-Zip など）に関係なく中を開く
+            OpenInExplorer(path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? $"\"{path}\"" : $"/select,\"{path}\"");
             return;
         }
 
         var directory = Path.GetDirectoryName(path);
         if (Directory.Exists(directory))
         {
-            TryStart(new ProcessStartInfo { FileName = directory, UseShellExecute = true });
+            OpenInExplorer($"\"{directory}\"");
         }
     }
+
+    private static void OpenInExplorer(string arguments)
+        => TryStart(new ProcessStartInfo("explorer.exe", arguments) { UseShellExecute = true });
 
     private static void TryStart(ProcessStartInfo startInfo)
     {

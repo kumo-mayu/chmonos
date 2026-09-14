@@ -261,27 +261,15 @@ public sealed partial class ItemViewModel
         }
     }
 
+    /// <summary>
+    /// 開き方はアプリ全体で1つ（<see cref="Shell.Reveal"/>）。フォルダはその中を、zip は中を、ほかのファイルは含むフォルダを選んだ状態で開く
+    /// （ユーザ指示 2026-09-14）。前はここだけ自前の開き方を持っていた
+    /// </summary>
     private void OpenInExplorer(object? parameter)
     {
         if (parameter is string path)
         {
-            OpenInExplorerAsync(path).Forget();
-        }
-    }
-
-    /// <summary>在るかは画面のスレッドの外で見る（技術的負債 4-2）。外付け・ネットワークの物は確かめるだけで数秒かかることがある。</summary>
-    private static async Task OpenInExplorerAsync(string path)
-    {
-        if (await Core.Services.DiskCheck.FileExistsAsync(path))
-        {
-            TryStart(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
-            return;
-        }
-
-        var directory = Path.GetDirectoryName(path);
-        if (await Core.Services.DiskCheck.FolderExistsAsync(directory))
-        {
-            TryStart(new ProcessStartInfo { FileName = directory, UseShellExecute = true });
+            Shell.Reveal(path);
         }
     }
 
