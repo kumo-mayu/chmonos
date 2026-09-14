@@ -36,5 +36,6 @@ research/PdfProbe/*
 !research/PdfProbe/*.cs
 !research/PdfProbe/*.csproj
 
-# Claude Code local settings
-.claude/
+# Claude Code local settings. The project skills are shared (work procedures only - no friend data)
+.claude/*
+!.claude/skills/
