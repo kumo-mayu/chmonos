@@ -317,7 +317,9 @@
         <Border Grid.Column="0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
                 BorderThickness="0,0,1,0">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8">
+                <!-- 今どの画面にいるかを、ほかの画面の上の帯と同じく太字の名前で出す（ユーザ指示 2026-09-14） -->
+                <TextBlock DockPanel.Dock="Top" Text="フォルダ" FontWeight="Bold" Margin="14,16,14,0" />
+                <StackPanel DockPanel.Dock="Top" Margin="14,10,14,8">
                     <Grid>
                         <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged, Delay=250}" Height="30"
                                  VerticalContentAlignment="Center" Padding="7,0"
