@@ -30,7 +30,12 @@ public sealed partial class SearchViewModel
     /// 検索のカードと同じ中身のカードを作る（フォルダビューの右側で使う・ユーザ指示 2026-09-14「検索画面同等の UI」）。
     /// 札（所持・未編集・取り込み中・見つからない）の決め方を1か所に保つ
     /// </summary>
-    public ItemCardViewModel CreateCard(ItemRecord item) => ToCard(item);
+    /// <remarks>
+    /// 渡された記録ではなく、この画面の最新の写しから作る。フォルダビューは開いたときの写しを持っているので、
+    /// そのまま作るとその後に付けた星などが古いまま出る（ユーザ指摘 2026-09-14）
+    /// </remarks>
+    public ItemCardViewModel CreateCard(ItemRecord item)
+        => ToCard(_allItems.Find(current => current.Id == item.Id) ?? item);
 
     /// <summary>商品ページをブラウザで開く。中クリックからも呼ぶ。</summary>
     public void OpenBooth(ItemCardViewModel? card)
@@ -120,17 +125,9 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        // 絞り込みは読み込み時の一覧を見るので、そちらの写しも差し替える
-        var index = _allItems.FindIndex(item => item.Id == card.Item.Id);
-        if (index >= 0)
-        {
-            _allItems[index] = _allItems[index] with { Local = _allItems[index].Local with { IsFavorite = next } };
-        }
-
-        if (ExtraFilters.Any(filter => filter.Kind == ExtraFilterKind.Favorite))
-        {
-            ApplyFilters();
-        }
+        // 写し・この画面のカード・「お気に入り」の絞り込みをまとめて直す（商品ページの星と同じ道）。
+        // 押されたカードがフォルダビューの物だと、この画面のカードは別の物なので、前は検索に戻っても古い星が出ていた（ユーザ指摘 2026-09-14）
+        NoteFavoriteChanged(card.Item.Id, next);
     }
 
     private async Task HideItemAsync(ItemCardViewModel? card)
