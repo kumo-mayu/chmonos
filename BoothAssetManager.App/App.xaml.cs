@@ -27,7 +27,7 @@ public partial class App : Application
         {
             Core.Diagnostics.AppLog.Error("画面の処理", args.Exception);
             MessageBox.Show($"予期しないエラーが発生しました。\n\n{args.Exception.Message}",
-                "BOOTH Asset Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+                "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
 
@@ -76,7 +76,7 @@ public partial class App : Application
 
         if (!_services.IsSingleInstance)
         {
-            MessageBox.Show("既に起動しています。", "BOOTH Asset Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }

@@ -97,7 +97,7 @@ public sealed class BoothClient : IBoothClient
     // ブラウザを名乗らない。自動で取りに行く通信がブラウザの顔をしていると、
     // 通信を見る型のセキュリティソフトに「スクレイパー」と見られ得る（#46）。
     // 相手にとっても、誰が来ているかが名乗りだけで分かる方が行儀がよい
-    public const string UserAgent = "BoothAssetManager/0.1 (personal library manager)";
+    public const string UserAgent = "Chmonos/0.1 (personal library manager)";
 
     private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8)];
 

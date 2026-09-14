@@ -1,6 +1,8 @@
-# BOOTH Asset Manager — AIへの指示
+# Chmonos（クモノス）— AIへの指示
 
 BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 9）。**まだ公開していない。**
+名前は **Chmonos**（2026-09-14 に「BOOTH Asset Manager」から改名。`docs/research/booth-terms.md` §4）。
+画面の名前・BOOTH への名乗り・保存先・環境変数は新しい名前。**コードの名前空間・実行ファイル名・リポジトリ名はまだ古い名前**（公開の直前に変える）。
 
 このファイルは**守ってほしい決め事**を集めたもの。ほかの文書は `docs/` に種類ごとに置いてある（入口は `docs/README.md`）。
 **迷ったらそちらを読む。**
@@ -43,14 +45,16 @@ BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプ�
 
 ### 4. 本番のデータを触らない
 
-保存先は `%LOCALAPPDATA%\BoothAssetManager`。**画面の確認はサンドボックスで行う。**
+保存先の既定は `%LOCALAPPDATA%\Chmonos`（2026-09-14 に改名。**本番のデータは、ユーザがフォルダ名を変えるまで `%LOCALAPPDATA%\BoothAssetManager` にある**。
+古い名前は読み替えないので、どちらのフォルダにも触らない）。**画面の確認はサンドボックスで行う。**
+サンドボックスのフォルダ名（下の表）は改名前のまま。場所は環境変数で渡すだけなので、名前は関係ない。
 
 ```bash
 # 実データを複製してサンドボックスを作る
 powershell -Command "Copy-Item \"$env:LOCALAPPDATA\BoothAssetManager\" \"$env:LOCALAPPDATA\BoothAssetManager-ui\" -Recurse"
 
-# 環境変数で保存先を差し替えて起動する
-powershell -Command "$env:BOOTH_ASSET_MANAGER_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui'; Start-Process .\BoothAssetManager.App\bin\Debug\net9.0-windows\BoothAssetManager.App.exe"
+# 環境変数で保存先を差し替えて起動する（環境変数も 2026-09-14 に BOOTH_ASSET_MANAGER_HOME から改名）
+powershell -Command "$env:CHMONOS_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui'; Start-Process .\BoothAssetManager.App\bin\Debug\net9.0-windows\BoothAssetManager.App.exe"
 ```
 
 **確認が終わったら、本番の `settings.json` の更新日時と `items/*.json` の件数が

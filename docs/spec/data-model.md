@@ -9,7 +9,7 @@
 
 ## 保存先
 
-既定は `%LOCALAPPDATA%\BoothAssetManager`。環境変数 `BOOTH_ASSET_MANAGER_HOME` ＞ 設定した場所 ＞ 既定（`StoreLocation`）。多重起動はロックファイルで止める。
+既定は `%LOCALAPPDATA%\Chmonos`（2026-09-14 に `BoothAssetManager` から改名。古い名前は読み替えない）。環境変数 `CHMONOS_HOME` ＞ 設定した場所 ＞ 既定（`StoreLocation`）。多重起動はロックファイルで止める。
 
 | ファイル | 中身 | 書き手 |
 |---|---|---|

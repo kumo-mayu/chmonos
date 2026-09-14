@@ -75,7 +75,7 @@ public class BoothClientTests
 
         var sent = http.DefaultRequestHeaders.UserAgent.ToString();
 
-        Assert.StartsWith("BoothAssetManager/", sent);
+        Assert.StartsWith("Chmonos/", sent);
         Assert.DoesNotContain("Mozilla", sent);
     }
 

@@ -17,7 +17,7 @@ public sealed record BackupInfo
     public required int Files { get; init; }
 
     public string Note { get; init; } =
-        "BOOTH Asset Manager のバックアップです。設定画面の「バックアップから戻す」で、空のフォルダに展開してそこへ移れます。";
+        "Chmonos のバックアップです。設定画面の「バックアップから戻す」で、空のフォルダに展開してそこへ移れます。";
 }
 
 /// <summary>
@@ -135,7 +135,7 @@ public static class BackupArchive
     {
         if (!LooksLikeBackup(zipPath))
         {
-            throw new InvalidDataException("BOOTH Asset Manager のバックアップではありません（商品も設定も入っていません）。");
+            throw new InvalidDataException("Chmonos のバックアップではありません（商品も設定も入っていません）。");
         }
 
         if (!StoreLocation.IsEmpty(destinationRoot))

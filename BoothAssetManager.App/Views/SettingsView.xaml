@@ -217,6 +217,18 @@
                 </Border>
 
                 <!--
+                    非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
+                    docs/research/booth-terms.md §3）。初回の窓にも同じ旨を出す
+                -->
+                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Chmonos（クモノス）について" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Text="BOOTH で買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTH はピクシブ株式会社のサービスです。" />
+                    </StackPanel>
+                </Border>
+
+                <!--
                     同梱している辞書の出典。CC BY-SA 4.0 が求めているので必ず出す。
                     「この辞書を使った機能から辿れること」が条件なので、設定に1枚置いてある。
                 -->

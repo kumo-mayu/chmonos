@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
         xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
         xmlns:views="clr-namespace:BoothAssetManager.App.Views"
-        Title="BOOTH Asset Manager"
+        Title="Chmonos"
         Height="900" Width="1440"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Bg}"
@@ -286,11 +286,11 @@
                     -->
                     <Grid Margin="10,0,10,14">
                         <StackPanel Margin="8,0" Style="{StaticResource NavExpandedOnly}">
-                            <TextBlock Text="BOOTH Asset Manager" Foreground="White" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="Chmonos" Foreground="White" FontWeight="Bold" FontSize="13" />
                             <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
                         </StackPanel>
                         <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                 Style="{StaticResource NavCollapsedOnly}" ToolTip="BOOTH Asset Manager">
+                                 Style="{StaticResource NavCollapsedOnly}" ToolTip="Chmonos">
                             <Canvas Width="24" Height="24">
                                 <Path Data="{StaticResource IconApp}" Fill="{x:Null}" StrokeThickness="1.8"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"

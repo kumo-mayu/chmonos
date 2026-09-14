@@ -10,8 +10,8 @@ public sealed class AppPaths
         Root = root;
     }
 
-    /// <summary>保存先を差し替える環境変数。</summary>
-    public const string RootVariable = "BOOTH_ASSET_MANAGER_HOME";
+    /// <summary>保存先を差し替える環境変数（2026-09-14 にアプリの名前と一緒に BOOTH_ASSET_MANAGER_HOME から改名）。</summary>
+    public const string RootVariable = "CHMONOS_HOME";
 
     /// <summary>
     /// 今回の保存先。優先順位は 環境変数 &gt; 設定した場所 &gt; 既定

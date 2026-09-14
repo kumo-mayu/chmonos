@@ -238,7 +238,7 @@ public partial class MainWindow : Window
             Core.Diagnostics.AppLog.Error("落とされた物の振り分け", exception);
             MessageBox.Show(
                 $"受け取ったものを処理できませんでした。\n\n{exception.Message}",
-                "BOOTH Asset Manager",
+                "Chmonos",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }

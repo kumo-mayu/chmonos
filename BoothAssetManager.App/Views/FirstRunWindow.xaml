@@ -1,15 +1,21 @@
 <Window x:Class="BoothAssetManager.App.Views.FirstRunWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BOOTH Asset Manager" Height="440" Width="620"
+        Title="Chmonos" Height="468" Width="620"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{StaticResource Bg}">
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="{StaticResource Rail}" Padding="26,20">
             <StackPanel>
-                <TextBlock Text="BOOTH Asset Manager" Foreground="White" FontWeight="Bold" FontSize="16" />
+                <TextBlock Text="Chmonos（クモノス）" Foreground="White" FontWeight="Bold" FontSize="16" />
                 <TextBlock Text="はじめに2つだけ決めさせてください。どちらも後から設定で変えられます。"
                            Foreground="#a8b0be" FontSize="12" Margin="0,5,0,0" />
+                <!--
+                    非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
+                    docs/research/booth-terms.md §3）。設定画面にも同じ旨を出す
+                -->
+                <TextBlock Text="個人が作ったアプリです。ピクシブ株式会社（BOOTH の運営）が作成・配布しているものではありません。"
+                           Foreground="#767f8e" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 

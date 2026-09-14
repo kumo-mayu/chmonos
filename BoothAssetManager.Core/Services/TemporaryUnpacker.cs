@@ -17,7 +17,7 @@ namespace BoothAssetManager.Core.Services;
 public sealed class TemporaryUnpacker
 {
     /// <summary>既定の置き場所。取り込みの走査はここを見ない（<see cref="IsInsideDefaultRoot"/>）。</summary>
-    public static string DefaultRoot { get; } = Path.Combine(Path.GetTempPath(), "BoothAssetManager", "unpacked");
+    public static string DefaultRoot { get; } = Path.Combine(Path.GetTempPath(), "Chmonos", "unpacked");
 
     private readonly string _root;
 

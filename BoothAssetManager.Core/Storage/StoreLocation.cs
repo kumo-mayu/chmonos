@@ -14,7 +14,7 @@ public sealed record StoreLocationFile
 /// <summary>保存先がどこから来たか。見つからなかったときの出し方を変えるために持つ。</summary>
 public enum StoreRootSource
 {
-    /// <summary>既定（<c>%LOCALAPPDATA%\BoothAssetManager</c>）。</summary>
+    /// <summary>既定（<c>%LOCALAPPDATA%\Chmonos</c>）。</summary>
     Default,
 
     /// <summary>設定画面で選ばれた場所（<c>location.json</c>）。</summary>
@@ -31,16 +31,18 @@ public sealed record StoreRoot(string Path, StoreRootSource Source);
 ///
 /// この1件だけは保存先の中に置けない（場所を知るために場所を読む必要が出る）ので、
 /// 既定の場所に置く。データをDドライブへ移しても
-/// <c>%LOCALAPPDATA%\BoothAssetManager\</c> はこのファイルのためだけに残る。
+/// <c>%LOCALAPPDATA%\Chmonos\</c> はこのファイルのためだけに残る。
 ///
 /// レジストリを使わないのは「アプリを介さず開いて読める」方針に合わせるため。
 /// </summary>
 public static class StoreLocation
 {
     /// <summary>既定の保存先。<c>location.json</c> もここに置く。</summary>
+    // 2026-09-14 に BoothAssetManager から改名（公式の BOOTH Library Manager と取り違えられないよう・docs/research/booth-terms.md）。
+    // 公開前なので古い名前のフォルダは読み替えない。持っている人は手でフォルダ名を変える
     public static string DefaultRoot => System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "BoothAssetManager");
+        "Chmonos");
 
     public static string LocationFile => System.IO.Path.Combine(DefaultRoot, "location.json");
 
@@ -141,15 +143,15 @@ public static class StoreLocation
     }
 
     /// <summary>保存先を選んだときに、その中に作るフォルダの名前。</summary>
-    public const string FolderName = "BoothAssetManager";
+    public const string FolderName = "Chmonos";
 
     /// <summary>
     /// 選んだ場所から、実際に使う保存先を決める。
     ///
-    /// **選んだ場所そのものではなく、その中の「BoothAssetManager」を使う。**そのまま使うと、
+    /// **選んだ場所そのものではなく、その中の「Chmonos」を使う。**そのまま使うと、
     /// ドキュメントやドライブの直下を選んだとき、そこに十数個のフォルダとJSONが散らばる。
     /// 友人は「選んだフォルダの中に1階層作ってくれる」と思って選んでいた。
-    /// 既にライブラリがある場所と、名前が既に「BoothAssetManager」の場所は、そのまま使う。
+    /// 既にライブラリがある場所と、名前が既に「Chmonos」の場所は、そのまま使う。
     /// </summary>
     public static string RootFor(string picked)
     {
