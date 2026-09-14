@@ -125,6 +125,15 @@ public abstract record UiCommand
     /// <summary>検索の履歴を変える（積む・消す・全部消す）。変え方を関数で渡し、錠の中で今の履歴に当てる。</summary>
     public record ChangeSearchHistory(Func<Services.SearchHistoryList, Services.SearchHistoryList> Change) : UiCommand;
 
+    /// <summary>
+    /// 動画のタイトルを控える（video-titles.json）。<paramref name="Title"/> が null なら控えを消す（非公開・削除で取れなくなった）。
+    /// 書くついでに30日を過ぎた控えも落とす（YouTube の開発者ポリシー・<see cref="Services.VideoTitleBook"/>）。
+    /// </summary>
+    public record RememberVideoTitle(string VideoId, string? Title) : UiCommand;
+
+    /// <summary>30日を過ぎた動画のタイトルの控えを消す（起動時）。結果は消した数。</summary>
+    public record PruneVideoTitles() : UiCommand;
+
     /// <summary>IDを変更したら何が起きるかの下見。書き込まない。</summary>
     public record PlanItemIdChange(string FromId, string ToId) : UiCommand;
 

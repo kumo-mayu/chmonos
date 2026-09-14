@@ -54,4 +54,5 @@
 | [ui-wording.md](research/ui-wording.md) | UI 文言の総調査と用語 |
 | [memory-budget.md](research/memory-budget.md) | メモリの上限と測り方 |
 | [antivirus.md](research/antivirus.md) | セキュリティソフトに怪しまれない作り |
+| [youtube-terms.md](research/youtube-terms.md) | YouTube の絵とタイトルを手元に置いてよいか（絵は置かない・題は30日） |
 | [modification-canvas.md](research/modification-canvas.md) | 改変キャンバス（未実装） |

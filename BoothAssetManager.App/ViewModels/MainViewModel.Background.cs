@@ -65,6 +65,24 @@ public sealed partial class MainViewModel
         }, token).Forget();
     }
 
+    /// <summary>
+    /// 30日を過ぎた動画のタイトルの控えを消す（YouTube の開発者ポリシー：API で取ったデータは30日を過ぎたら取り直すか消す）。
+    /// 動画の欄を開いたときの取り直しだけでは、開かれないまま残る控えが30日を越える。
+    /// 通信しないので、裏の取得を設定で切っていても行う。
+    /// </summary>
+    private void PruneVideoTitles()
+        => Task.Run(async () =>
+        {
+            try
+            {
+                await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.PruneVideoTitles());
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Core.Diagnostics.AppLog.Error("起動時の裏の作業：動画のタイトルの控えの整理", exception);
+            }
+        }).Forget();
+
     /// <summary>裏の作業の1段。落ちてもログに残して次の段へ進む。止まるのは閉じたとき（取り消し）だけ。</summary>
     private async Task RunBackgroundStageAsync(string name, Func<Task> stage)
     {

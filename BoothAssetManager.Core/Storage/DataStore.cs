@@ -67,6 +67,7 @@ public sealed class DataStore
         Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile);
         Modifications = new ModificationRepository(paths);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
+        VideoTitles = new JsonFileStore<List<VideoTitleRecord>>(paths.VideoTitlesFile);
         ScanCache = new JsonFileStore<List<ScanCacheEntry>>(paths.ScanCacheFile);
         ImportState = new JsonFileStore<Scanning.ImportState>(paths.ImportStateFile);
         EditSession = new JsonFileStore<EditSession>(paths.EditSessionFile);
@@ -103,6 +104,9 @@ public sealed class DataStore
 
     /// <summary>ショップのバナーを調べた記録。無いショップを何度も探しに行かないため。</summary>
     public JsonFileStore<List<ShopBannerRecord>> ShopBanners { get; }
+
+    /// <summary>YouTube の動画のタイトルの控え。30日を過ぎたら取り直すか消す（<see cref="Services.VideoTitleBook"/>）。</summary>
+    public JsonFileStore<List<VideoTitleRecord>> VideoTitles { get; }
 
     public JsonFileStore<List<ScanCacheEntry>> ScanCache { get; }
 

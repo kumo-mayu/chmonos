@@ -27,6 +27,7 @@
 | `search-history.json` | 検索の履歴 | `UiCommand.ChangeSearchHistory` |
 | `recent.json` | 「最近」の足跡（追加・使った・閲覧） | 取り込み・Unityへ送る・商品ページ |
 | `shop-banners.json` | ショップのバナーを調べた記録 | ショップの画面 |
+| `video-titles.json` | YouTube の動画のタイトルの控え（動画ID・題・取った日時）。30日を過ぎたら取り直すか消す | 商品ページの動画の欄・起動時の整理 |
 | `scan-cache.json` | パス → サイズ・更新日時・ハッシュ（消してもよい） | 取り込み |
 | `import-state.json` | 中断した取り込みの3項目（済んだ数・全体・日時）。最後まで終われば消す | 取り込み |
 | `edit-session.json` | 編集キューの位置 | 編集画面 |

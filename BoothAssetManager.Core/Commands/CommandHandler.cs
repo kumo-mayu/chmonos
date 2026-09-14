@@ -25,6 +25,7 @@ public sealed class CommandHandler
     private readonly IShopService? _shops;
     private readonly Images.ImagePipeline? _images;
     private readonly Booth.IBoothClient? _client;
+    private readonly Storage.JsonFileStore<List<Models.VideoTitleRecord>>? _videoTitles;
 
     public CommandHandler(
         IImportPipeline import,
@@ -42,8 +43,10 @@ public sealed class CommandHandler
         IAvatarRegistryEditor? avatarEditor = null,
         IShopService? shops = null,
         Images.ImagePipeline? images = null,
-        Booth.IBoothClient? client = null)
+        Booth.IBoothClient? client = null,
+        Storage.JsonFileStore<List<Models.VideoTitleRecord>>? videoTitles = null)
     {
+        _videoTitles = videoTitles;
         _settings = settings;
         _avatarEditor = avatarEditor;
         _shops = shops;
@@ -166,6 +169,36 @@ public sealed class CommandHandler
                 return new CommandResult.SearchHistoryChanged(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                         .ChangeSearchHistoryAsync(history.Change, cancellationToken));
+
+            case UiCommand.RememberVideoTitle remember:
+                await (_videoTitles ?? throw new InvalidOperationException("動画のタイトルの控えの保存先が渡されていません。"))
+                    .UpdateAsync(
+                        records => VideoTitleBook.Remember(records, remember.VideoId, remember.Title, DateTimeOffset.Now),
+                        cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.PruneVideoTitles:
+            {
+                var store = _videoTitles ?? throw new InvalidOperationException("動画のタイトルの控えの保存先が渡されていません。");
+                var now = DateTimeOffset.Now;
+
+                // 起動のたびに書き直さない（古い物が無ければ触らない。ファイルがまだ無ければ作らない）
+                if (!VideoTitleBook.HasStale(store.Load(), now))
+                {
+                    return new CommandResult.Counted(0);
+                }
+
+                var removed = 0;
+                await store.UpdateAsync(
+                    records =>
+                    {
+                        var kept = VideoTitleBook.Prune(records, now);
+                        removed = records.Count - kept.Count;
+                        return kept;
+                    },
+                    cancellationToken);
+                return new CommandResult.Counted(removed);
+            }
 
             case UiCommand.ReconcileUnresolved:
                 return new CommandResult.Counted(await _items.ReconcileUnresolvedAsync(cancellationToken));

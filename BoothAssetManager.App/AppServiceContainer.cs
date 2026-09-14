@@ -90,7 +90,10 @@ public sealed class AppServiceContainer : IDisposable
         Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
-            Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client);
+            Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles);
+
+        // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）
+        YouTube = new Services.YouTubeInfo(Store.VideoTitles, Commands);
 
         // ドラッグで変えた画面の幅（ユーザ判断 2026-09-14）。書くのは UiCommand.ChangeUiState
         PaneWidths = new Services.PaneWidths(SettingsStore, Commands);
@@ -98,6 +101,9 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>ドラッグで変えられる画面の幅。</summary>
     public Services.PaneWidths PaneWidths { get; }
+
+    /// <summary>YouTube の動画のタイトル（商品ページの動画の欄）。</summary>
+    public Services.YouTubeInfo YouTube { get; }
 
     /// <summary>unitypackage の中身を1度だけ読んで残す（取り込みの裏・手でファイルを付けた後）。</summary>
     public UnityPackageCatalog UnityPackages { get; }

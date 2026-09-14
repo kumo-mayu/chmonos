@@ -19,9 +19,9 @@ public sealed class VideoRow : ViewModelBase
 
     public RelayCommand OpenCommand => new(() => Shell.OpenUrl(Url));
 
-    internal async Task LoadTitleAsync()
+    internal async Task LoadTitleAsync(YouTubeInfo youTube)
     {
-        _title = await YouTubeInfo.TitleAsync(Link.VideoId, Link.Url);
+        _title = await youTube.TitleAsync(Link.VideoId, Link.Url);
         _isLoading = false;
         OnPropertyChanged(nameof(TitleText));
     }
@@ -75,7 +75,7 @@ public sealed partial class ItemViewModel
             _videoTitlesRequested = true;
             foreach (var video in Videos)
             {
-                video.LoadTitleAsync().Forget();
+                video.LoadTitleAsync(_services.YouTube).Forget();
             }
         }
     }

@@ -79,6 +79,7 @@ public sealed partial class MainViewModel : ViewModelBase
         RefreshCounts();
         ShowStartScreen();
         StartBacklogResume();
+        PruneVideoTitles();
         StartWatchScan();
     }
 
