@@ -67,7 +67,7 @@ powershell -Command "$env:CHMONOS_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui';
 | 保存先（`%LOCALAPPDATA%\` の下） | 中身 | 使い道 |
 |---|---|---|
 | `BoothAssetManager-ui` | 本番の写し（15件） | 画面の確認 |
-| `BoothAssetManager-friendtest` | 友人のライブラリの写し（約200件）。**普段の起動（環境変数なし）で開く、ユーザの作業用の写し** | 件数・対応アバターの多い商品での確認（**5. を守る**）。ユーザが使っているので、本番と同じく書き込む確認には使わない |
+| `BoothAssetManager-friendtest` | 友人のライブラリの写し（約200件）。**普段の起動（環境変数なし）で開く、ユーザの作業用の写し** | 件数・対応アバターの多い商品での確認（**5. を守る**）。ユーザが使っているので、本番と同じく書き込む確認には使わない。**画面の確認用に作り物の改変を12件入れてある**（ユーザの頼み 2026-09-14。`modifications/` と `images/_mods/`。同じアバターに複数・同じプロジェクトに複数・消えたプロジェクト・紐付け無しを含む） |
 | `BoothAssetManager-stress-realcat` | 作った2000件（分類5種類） | 速さとメモリの計測 |
 | `BoothAssetManager-stress` | 作った2000件（**分類が2000種類に偏っている**） | 使わない。分類の数で遅くなり、実際の使い方と違う数字が出る（2026-09-13 の夜の調査） |
 | `BoothAssetManager-eval` | 友人のデータと正解（対応アバター） | 検出の評価（`experiments/AvatarEvalBench`） |
