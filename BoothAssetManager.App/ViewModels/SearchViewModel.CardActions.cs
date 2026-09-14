@@ -26,6 +26,12 @@ public sealed partial class SearchViewModel
 
     public RelayCommand HideItemCommand { get; }
 
+    /// <summary>
+    /// 検索のカードと同じ中身のカードを作る（フォルダビューの右側で使う・ユーザ指示 2026-09-14「検索画面同等の UI」）。
+    /// 札（所持・未編集・取り込み中・見つからない）の決め方を1か所に保つ
+    /// </summary>
+    public ItemCardViewModel CreateCard(ItemRecord item) => ToCard(item);
+
     /// <summary>商品ページをブラウザで開く。中クリックからも呼ぶ。</summary>
     public void OpenBooth(ItemCardViewModel? card)
     {

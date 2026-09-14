@@ -54,127 +54,9 @@
             </Setter>
         </Style>
 
-        <!-- ［すべて／管理している物／未確定］の切り替え。改変の画面の見方の切り替えと同じ形 -->
-        <Style x:Key="FolderSegment" TargetType="RadioButton">
-            <Setter Property="GroupName" Value="FolderMode" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="11,0" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Root" Background="Transparent" Padding="{TemplateBinding Padding}"
-                                CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
-                            <Grid VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
-                                           FontWeight="SemiBold" Visibility="Hidden" />
-                                <ContentPresenter HorizontalAlignment="Center" />
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource Accent}" />
-                                <Setter Property="Foreground" Value="White" />
-                                <Setter Property="FontWeight" Value="SemiBold" />
-                                <Setter Property="Cursor" Value="Arrow" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 右：フォルダ -->
+        <!-- 右：フォルダ。検索画面と同じカードで直下の商品と子フォルダを並べる（ユーザ指示 2026-09-14・FolderBrowserView） -->
         <DataTemplate DataType="{x:Type vm:FolderViewDetail}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="28,22" MaxWidth="860" HorizontalAlignment="Left">
-                    <TextBlock Text="フォルダ" Style="{StaticResource SectionLabel}" />
-                    <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold" Margin="0,4,0,0" TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
-                               Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
-                                CornerRadius="9" Padding="7,0" Margin="8,0,0,0"
-                                Visibility="{Binding IsOffline, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBlock Text="取り外しているか、見つかりません" FontSize="11" Foreground="{StaticResource Warn}" />
-                        </Border>
-                    </StackPanel>
-
-                    <WrapPanel Margin="0,14,0,0">
-                        <Button Content="このフォルダで絞り込んで検索" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
-                                Command="{Binding DataContext.SearchHereCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                ToolTip="検索の画面へ移り、このフォルダの下にファイルを持つ商品だけで絞り込みます。" />
-                        <Button Content="エクスプローラで開く" Margin="0,0,8,8" IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="取り込み元に足す" Margin="0,0,8,8" IsEnabled="{Binding CanAddImport}"
-                                Command="{Binding DataContext.AddImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                ToolTip="次の取り込みから、このフォルダも見ます（既に足してあれば押せません）。" />
-                        <Button Content="監視に足す" Margin="0,0,8,8" IsEnabled="{Binding CanAddWatch}"
-                                Command="{Binding DataContext.AddWatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                ToolTip="起動したときに、このフォルダの中の新しいファイルを見ます（既に足してあれば押せません）。" />
-                    </WrapPanel>
-
-                    <!-- 未確定（ユーザ指示：未確定のフォルダには管理から外すボタンなども付ける） -->
-                    <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="18,16"
-                            Visibility="{Binding HasUnresolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <StackPanel>
-                            <TextBlock Text="未確定" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
-                            <TextBlock Text="{Binding UnresolvedText}" FontSize="12" TextWrapping="Wrap" />
-                            <WrapPanel Margin="0,10,0,0">
-                                <Button Content="未確定として開く" Margin="0,0,8,0"
-                                        Command="{Binding DataContext.OpenUnresolvedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}"
-                                        ToolTip="この下の未確定だけを、未確定の画面と同じ形で右に出します（確定・フォルダの登録・管理から外す）。" />
-                                <Button Content="{Binding ExcludeText}"
-                                        Command="{Binding DataContext.ExcludeUnresolvedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}" />
-                            </WrapPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="18,16"
-                            Visibility="{Binding HasItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <StackPanel>
-                            <TextBlock Text="この下の商品" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
-                            <ItemsControl ItemsSource="{Binding Items}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:FolderViewItemRow}">
-                                        <Button Style="{StaticResource FolderLink}" Margin="0,3" HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="{Binding Name}"
-                                                Command="{Binding DataContext.ShowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}">
-                                            <DockPanel>
-                                                <Border DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="4" Margin="0,0,8,0"
-                                                        Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
-                                                    <Grid>
-                                                        <TextBlock Text="{Binding Initial}" FontSize="11" Foreground="{StaticResource TextMuted}"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
-                                                    </Grid>
-                                                </Border>
-                                                <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                            </DockPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="{Binding MoreItemsText}" Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                       Visibility="{Binding HasMoreItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
+            <views:FolderBrowserView />
         </DataTemplate>
 
         <!-- 右：管理しているファイル。商品ページをそのまま組み込む（戻るは隠す） -->
@@ -328,28 +210,18 @@
                                    VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextFaint}"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                     </Grid>
-                    <Border HorizontalAlignment="Left" Margin="0,8,0,0" Background="{StaticResource Surface}"
-                            BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Content="すべて" Style="{StaticResource FolderSegment}" IsChecked="{Binding IsAllMode, Mode=TwoWay}">
-                                <RadioButton.Tag>
-                                    <CornerRadius>5,0,0,5</CornerRadius>
-                                </RadioButton.Tag>
-                            </RadioButton>
-                            <Border Width="1" Background="{StaticResource BorderStrong}" />
-                            <RadioButton Content="管理している物" Style="{StaticResource FolderSegment}" IsChecked="{Binding IsManagedMode, Mode=TwoWay}">
-                                <RadioButton.Tag>
-                                    <CornerRadius>0</CornerRadius>
-                                </RadioButton.Tag>
-                            </RadioButton>
-                            <Border Width="1" Background="{StaticResource BorderStrong}" />
-                            <RadioButton Content="未確定" Style="{StaticResource FolderSegment}" IsChecked="{Binding IsUnresolvedMode, Mode=TwoWay}">
-                                <RadioButton.Tag>
-                                    <CornerRadius>0,5,5,0</CornerRadius>
-                                </RadioButton.Tag>
-                            </RadioButton>
-                        </StackPanel>
-                    </Border>
+                    <!--
+                        木に商品（ファイル）を出すかの切り替え（ユーザ指示 2026-09-14）。切ると純粋なフォルダの木になる。
+                        「管理対象」「未確定」は、商品を出すときだけ効く。商品は右の一覧（検索画面と同じカード）でも見られる
+                    -->
+                    <CheckBox Content="商品を表示する" IsChecked="{Binding ShowItems, Mode=TwoWay}" Margin="0,10,0,0"
+                              Foreground="{StaticResource Text}" />
+                    <StackPanel Orientation="Horizontal" Margin="22,6,0,0" IsEnabled="{Binding ShowItems}">
+                        <CheckBox Content="管理対象" IsChecked="{Binding ShowManaged, Mode=TwoWay}" Margin="0,0,14,0"
+                                  Foreground="{StaticResource Text}" ToolTip="商品に紐付いているファイル・フォルダを木に出します" />
+                        <CheckBox Content="未確定" IsChecked="{Binding ShowUnresolved, Mode=TwoWay}"
+                                  Foreground="{StaticResource Text}" ToolTip="商品が決まっていないファイルを「?」の印で木に出します" />
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- 状態の1行は下に置く（改変の画面と同じ理由：文が出ても一覧が動かない） -->

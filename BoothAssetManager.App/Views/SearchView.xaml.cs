@@ -1,10 +1,13 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using BoothAssetManager.App.ViewModels;
 
 namespace BoothAssetManager.App.Views;
 
+/// <summary>
+/// 検索画面。カードの上の操作（押す・星・中クリック・なぞる）は、フォルダビューの右側と共通の
+/// <see cref="ItemCardResources"/> にある（2026-09-14 にここから移した）。
+/// </summary>
 public partial class SearchView : UserControl
 {
     /// <summary>
@@ -79,94 +82,5 @@ public partial class SearchView : UserControl
 
         _settleTimer.Stop();
         _settleTimer.Start();
-    }
-
-    /// <summary>サムネイル上の横位置に応じて、そのitemのギャラリー画像を切り替える。</summary>
-    private void OnThumbnailMouseMove(object sender, MouseEventArgs e)
-    {
-        if (sender is not FrameworkElement element || element.DataContext is not ItemCardViewModel card)
-        {
-            return;
-        }
-
-        if (element.ActualWidth <= 0)
-        {
-            return;
-        }
-
-        card.ShowImageAt(e.GetPosition(element).X / element.ActualWidth, element.ActualWidth);
-    }
-
-    /// <summary>
-    /// カードのクリック。
-    ///
-    /// 何も選んでいないときは商品ページへ移る（普段の主操作）。
-    /// 1件でも選んでいるときは選択の切り替えにする。選んでいる最中に
-    /// 少しずれただけで別画面へ飛ばされると、操作が途切れてしまうため。
-    /// </summary>
-    private void OnCardClick(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: ItemCardViewModel card })
-        {
-            return;
-        }
-
-        if (card.IsSelectionMode)
-        {
-            card.IsSelected = !card.IsSelected;
-            return;
-        }
-
-        if (DataContext is SearchViewModel search)
-        {
-            search.OpenItem(card);
-        }
-    }
-
-    /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>
-    private void OnFavoriteClick(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: ItemCardViewModel card }
-            && DataContext is SearchViewModel search)
-        {
-            search.ToggleFavoriteAsync(card).Forget();
-            e.Handled = true;
-        }
-    }
-
-    /// <summary>選択中でも商品ページへ移れる出口。</summary>
-    private void OnOpenItemClick(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: ItemCardViewModel card }
-            && DataContext is SearchViewModel search)
-        {
-            search.OpenItem(card);
-            e.Handled = true;
-        }
-    }
-
-    /// <summary>
-    /// 中クリックでBOOTHを開く近道。
-    /// 知っている人だけが使うので、カードに出口を増やさずに済む（右クリックにも同じ項目がある）。
-    /// </summary>
-    private void OnCardMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton != MouseButton.Middle
-            || sender is not FrameworkElement { DataContext: ItemCardViewModel card }
-            || DataContext is not SearchViewModel search)
-        {
-            return;
-        }
-
-        search.OpenBooth(card);
-        e.Handled = true;
-    }
-
-    private void OnThumbnailMouseLeave(object sender, MouseEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: ItemCardViewModel card })
-        {
-            card.ResetImage();
-        }
     }
 }

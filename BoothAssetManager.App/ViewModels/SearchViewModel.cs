@@ -24,7 +24,7 @@ public sealed class CardRow
 /// 絞り込み（離散値）と文字列検索を分けているのは、
 /// 「なぜこの結果になったか」が分かるようにするため。
 /// </summary>
-public sealed partial class SearchViewModel : ViewModelBase
+public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
 {
     /// <summary>カード1枚が占める幅（カード228 + 右マージン14）。列数の計算に使う。</summary>
     private const double CardSlotWidth = 242;

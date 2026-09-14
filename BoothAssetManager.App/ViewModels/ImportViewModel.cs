@@ -484,14 +484,18 @@ public sealed class ImportViewModel : ViewModelBase
     /// 足したらそのまま取り込みを始めるか（#38）。落としたとき・起動時の自動開始で true。
     /// 「フォルダを足す」で選んだときは false——続けて他も足してから始めたいことがある。
     /// </param>
-    public void AddDroppedPaths(IEnumerable<string> paths, bool startImmediately = false)
-        => AddDroppedPathsAsync(paths.ToList(), startImmediately).Forget();
+    /// <param name="offerWatch">
+    /// フォルダを足したら監視対象に入れるか聞くか。フォルダビューの「このフォルダのアイテムを取り込む」では聞かない
+    /// （監視は隣の切り替えで決めるので、同じことを2か所で聞かない）。
+    /// </param>
+    public void AddDroppedPaths(IEnumerable<string> paths, bool startImmediately = false, bool offerWatch = true)
+        => AddDroppedPathsAsync(paths.ToList(), startImmediately, offerWatch).Forget();
 
     /// <summary>
     /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落とされた物・監視の新着は外付けやネットワークにもあり、
     /// 確かめるだけで数秒かかることがある。見終わってから画面のスレッドで一覧に足す。
     /// </summary>
-    private async Task AddDroppedPathsAsync(IReadOnlyList<string> paths, bool startImmediately)
+    private async Task AddDroppedPathsAsync(IReadOnlyList<string> paths, bool startImmediately, bool offerWatch)
     {
         var kinds = await Task.Run(() => paths
             .Select(path => (Path: path, IsFolder: Core.Services.DiskCheck.FolderExists(path), IsFile: Core.Services.DiskCheck.FileExists(path)))
@@ -514,7 +518,7 @@ public sealed class ImportViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasFolders));
         RelayCommand.RaiseCanExecuteChanged();
 
-        if (addedFolders.Count > 0)
+        if (offerWatch && addedFolders.Count > 0)
         {
             OfferToWatchAsync(addedFolders).Forget();
         }
@@ -554,14 +558,8 @@ public sealed class ImportViewModel : ViewModelBase
 
         foreach (var folder in folders)
         {
-            if (!Watched.Contains(folder, StringComparer.OrdinalIgnoreCase))
-            {
-                Watched.Add(folder);
-            }
+            await SetWatchedAsync(folder, watch: true);
         }
-
-        OnPropertyChanged(nameof(HasWatched));
-        await SaveWatchedAsync();
     }
 
     /// <summary>起動時に見つかった新しいファイルを出すために見る。</summary>
@@ -577,22 +575,36 @@ public sealed class ImportViewModel : ViewModelBase
     /// <summary>見つかったぶんを取り込み対象へ積む。ここを押して初めて通信が始まる。</summary>
     public RelayCommand TakeWatchedNewCommand { get; }
 
-    private async Task RemoveWatchedAsync(string? folder)
+    private Task RemoveWatchedAsync(string? folder)
+        => folder is null ? Task.CompletedTask : SetWatchedAsync(folder, watch: false);
+
+    /// <summary>
+    /// 監視対象に足す・外す。取り込み画面とフォルダビューの両方がここを通る（ユーザ指摘 2026-09-14：フォルダビューで足せるのに外せなかった）。
+    ///
+    /// **この画面の一覧（写し）を丸ごと書かない。**錠の中で、今の設定に1件だけ足し引きする。前は写しを丸ごと書いていたので、
+    /// フォルダビューが別に足した物を、ここで何かを外した瞬間に消していた（技術的負債 1-1 の取り込み元と同じ事故）
+    /// </summary>
+    public async Task SetWatchedAsync(string folder, bool watch)
     {
-        if (folder is null || !Watched.Remove(folder))
+        var existing = Watched.FirstOrDefault(candidate => string.Equals(candidate, folder, StringComparison.OrdinalIgnoreCase));
+        if (watch && existing is null)
         {
-            return;
+            Watched.Add(folder);
+        }
+        else if (!watch && existing is not null)
+        {
+            Watched.Remove(existing);
         }
 
         OnPropertyChanged(nameof(HasWatched));
-        await SaveWatchedAsync();
-    }
-
-    private async Task SaveWatchedAsync()
-    {
-        var watched = Watched.ToList();
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
-            settings => settings with { WatchedFolders = watched }));
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings => settings with
+        {
+            WatchedFolders = watch
+                ? settings.WatchedFolders.Contains(folder, StringComparer.OrdinalIgnoreCase)
+                    ? settings.WatchedFolders
+                    : [.. settings.WatchedFolders, folder]
+                : [.. settings.WatchedFolders.Where(candidate => !string.Equals(candidate, folder, StringComparison.OrdinalIgnoreCase))],
+        }));
     }
 
     private void AddFolder()

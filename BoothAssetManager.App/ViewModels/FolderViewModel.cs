@@ -21,14 +21,6 @@ public enum FolderViewRowKind
     ItemFolder,
 }
 
-/// <summary>木の中の絞り込み（ユーザ判断 2026-09-13）。</summary>
-public enum FolderViewMode
-{
-    All,
-    Managed,
-    Unresolved,
-}
-
 /// <summary>木に置く1件（管理しているファイル・未確定のファイル・フォルダごと登録した商品）。</summary>
 public sealed class FolderViewEntry
 {
@@ -249,64 +241,6 @@ public sealed class FolderViewRow : ViewModelBase
     public string Initial => AvatarText.InitialOf(Entry?.Item?.DisplayName ?? Name);
 }
 
-/// <summary>右に出す商品の小さな行（フォルダを選んだとき）。</summary>
-public sealed class FolderViewItemRow : ViewModelBase
-{
-    public required ItemRecord Item { get; init; }
-
-    public string Name => Item.DisplayName;
-
-    public string? ThumbnailPath { get; init; }
-
-    public ThumbnailLoader? Thumbnails { get; init; }
-
-    public BitmapSource? Thumbnail => ThumbnailPath is { } path
-        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
-        : null;
-
-    public string Initial => AvatarText.InitialOf(Name);
-}
-
-/// <summary>右に出すフォルダの詳細（ユーザ判断 2026-09-13：場所・数・操作・中の商品の一覧）。</summary>
-public sealed class FolderViewDetail
-{
-    /// <summary>一覧に出す商品の上限。これを超える分は「このフォルダで絞り込んで検索」で見る。</summary>
-    public const int MaxItems = 100;
-
-    public required string Path { get; init; }
-
-    public required string Title { get; init; }
-
-    public required IReadOnlyList<FolderViewItemRow> Items { get; init; }
-
-    public required int ItemCount { get; init; }
-
-    public required IReadOnlyList<UnresolvedFile> Unresolved { get; init; }
-
-    public bool IsOffline { get; init; }
-
-    public bool CanAddImport { get; init; }
-
-    public bool CanAddWatch { get; init; }
-
-    public string CountText => Unresolved.Count > 0
-        ? $"商品 {ItemCount} 件・未確定 {Unresolved.Count} 件"
-        : $"商品 {ItemCount} 件";
-
-    public bool HasItems => Items.Count > 0;
-
-    public bool HasMoreItems => ItemCount > Items.Count;
-
-    public string MoreItemsText => $"ほか {ItemCount - Items.Count} 件は「このフォルダで絞り込んで検索」で見られます。";
-
-    public bool HasUnresolved => Unresolved.Count > 0;
-
-    public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。確定・フォルダの登録は「未確定として開く」から、"
-        + "要らない物は「管理から外す」で片付けられます（ファイル自体は消しません）。";
-
-    public string ExcludeText => $"この下の未確定 {Unresolved.Count} 件を管理から外す";
-}
-
 /// <summary>
 /// フォルダビュー（ユーザ仕様 2026-09-13 <c>docs/history/folder-view.md</c>）。
 ///
@@ -320,6 +254,11 @@ public sealed class FolderViewModel : ViewModelBase
     private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> s_collapsed = new(StringComparer.OrdinalIgnoreCase);
 
+    // 木に商品を出すかの切り替え（ユーザ指示 2026-09-14）。開いた・畳んだと同じく、アプリを閉じるまで覚える
+    private static bool s_showItems = true;
+    private static bool s_showManaged = true;
+    private static bool s_showUnresolved = true;
+
     private readonly AppServiceContainer _services;
     private PaneColumn? _listPane;
 
@@ -332,7 +271,6 @@ public sealed class FolderViewModel : ViewModelBase
     private FolderViewRow? _selected;
     private object? _detail;
     private string _filter = string.Empty;
-    private FolderViewMode _mode = FolderViewMode.All;
     private string _status = string.Empty;
     private bool _isLoading = true;
     private string? _pendingSelect;
@@ -357,8 +295,8 @@ public sealed class FolderViewModel : ViewModelBase
             }
         });
         RevealCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewDetail)?.Path));
-        AddImportCommand = new RelayCommand(parameter => AddFolderAsync(parameter as FolderViewDetail, watch: false).Forget());
-        AddWatchCommand = new RelayCommand(parameter => AddFolderAsync(parameter as FolderViewDetail, watch: true).Forget());
+        ImportHereCommand = new RelayCommand(parameter => ImportHere(parameter as FolderViewDetail));
+        ToggleWatchCommand = new RelayCommand(parameter => ToggleWatchAsync(parameter as FolderViewDetail).Forget());
         ExcludeUnresolvedCommand = new RelayCommand(parameter => ExcludeUnresolvedAsync(parameter as FolderViewDetail).Forget());
         OpenUnresolvedCommand = new RelayCommand(parameter =>
         {
@@ -368,14 +306,6 @@ public sealed class FolderViewModel : ViewModelBase
                 ShowResolve(file => hashes.Contains(file.Hash));
             }
         });
-        ShowItemCommand = new RelayCommand(parameter =>
-        {
-            if (parameter is FolderViewItemRow row)
-            {
-                ShowItem(row.Item);
-            }
-        });
-
         LoadAsync().Forget();
     }
 
@@ -390,12 +320,21 @@ public sealed class FolderViewModel : ViewModelBase
         get => _selected;
         set
         {
+            // 行を差し替える間、一覧は選んでいた行を見失って「選択なし」を送ってくる。それを受けると右が消える
+            // （切り替え・絞り込みのたびに消えていた）。差し替えの後で同じ鍵の行を選び直す
+            if (_replacingRows && value is null)
+            {
+                return;
+            }
+
             if (SetField(ref _selected, value))
             {
                 ShowDetail(value);
             }
         }
     }
+
+    private bool _replacingRows;
 
     /// <summary>戻るで戻ったときに、同じ行を選び直すための鍵。</summary>
     public string? SelectedKey => _selected?.Key;
@@ -414,7 +353,7 @@ public sealed class FolderViewModel : ViewModelBase
 
     public bool HasDetail => Detail is not null;
 
-    // ---- 絞り込み（ユーザ判断：木全体を名前で絞る＋［すべて／管理している物／未確定］） ----
+    // ---- 絞り込み（ユーザ判断：木全体を名前で絞る＋商品を出すか・管理対象・未確定の切り替え） ----
 
     public string Filter
     {
@@ -431,39 +370,52 @@ public sealed class FolderViewModel : ViewModelBase
 
     public bool HasFilter => Filter.Length > 0;
 
-    public bool IsAllMode
+    /// <summary>
+    /// 木に商品（管理しているファイル・未確定のファイル）を出すか（ユーザ指示 2026-09-14）。切ると純粋なフォルダの木になる。
+    /// 商品は右の一覧で見られるので、木はフォルダだけで辿りたいときがある
+    /// </summary>
+    public bool ShowItems
     {
-        get => _mode == FolderViewMode.All;
-        set => SetMode(value, FolderViewMode.All);
+        get => s_showItems;
+        set => SetToggle(ref s_showItems, value);
     }
 
-    public bool IsManagedMode
+    /// <summary>管理しているファイルを出すか。<see cref="ShowItems"/> が入のときだけ効く。</summary>
+    public bool ShowManaged
     {
-        get => _mode == FolderViewMode.Managed;
-        set => SetMode(value, FolderViewMode.Managed);
+        get => s_showManaged;
+        set => SetToggle(ref s_showManaged, value);
     }
 
-    public bool IsUnresolvedMode
+    /// <summary>未確定のファイルを出すか。<see cref="ShowItems"/> が入のときだけ効く。</summary>
+    public bool ShowUnresolved
     {
-        get => _mode == FolderViewMode.Unresolved;
-        set => SetMode(value, FolderViewMode.Unresolved);
+        get => s_showUnresolved;
+        set => SetToggle(ref s_showUnresolved, value);
     }
 
-    private void SetMode(bool value, FolderViewMode mode)
+    private void SetToggle(ref bool field, bool value)
     {
-        if (!value || _mode == mode)
+        if (field == value)
         {
             return;
         }
 
-        _mode = mode;
-        OnPropertyChanged(nameof(IsAllMode));
-        OnPropertyChanged(nameof(IsManagedMode));
-        OnPropertyChanged(nameof(IsUnresolvedMode));
+        field = value;
+        OnPropertyChanged(nameof(ShowItems));
+        OnPropertyChanged(nameof(ShowManaged));
+        OnPropertyChanged(nameof(ShowUnresolved));
         Rebuild();
     }
 
-    private bool IsFiltering => Filter.Trim().Length > 0 || _mode != FolderViewMode.All;
+    /// <summary>木にファイルの行を出すか。</summary>
+    private bool ShowsEntries => ShowItems && (ShowManaged || ShowUnresolved);
+
+    /// <summary>
+    /// 絞っているか。文字があるとき、またはファイルを出していて片方（管理対象・未確定）を切ったとき（そのときは、当てはまる
+    /// ファイルのあるフォルダだけを開いて出す。前の［管理している物／未確定］と同じ）。フォルダだけの木は絞っていない
+    /// </summary>
+    private bool IsFiltering => Filter.Trim().Length > 0 || (ShowsEntries && !(ShowManaged && ShowUnresolved));
 
     public string Status
     {
@@ -500,15 +452,15 @@ public sealed class FolderViewModel : ViewModelBase
 
     public RelayCommand RevealCommand { get; }
 
-    public RelayCommand AddImportCommand { get; }
+    /// <summary>「このフォルダのアイテムを取り込む」（ユーザ指示 2026-09-14。「取り込み元に足す」は何が起きるか分かりにくかった）。</summary>
+    public RelayCommand ImportHereCommand { get; }
 
-    public RelayCommand AddWatchCommand { get; }
+    /// <summary>監視中かを出し、足す・外すの両方をできるようにする（ユーザ指示 2026-09-14。前は足すだけで外せなかった）。</summary>
+    public RelayCommand ToggleWatchCommand { get; }
 
     public RelayCommand ExcludeUnresolvedCommand { get; }
 
     public RelayCommand OpenUnresolvedCommand { get; }
-
-    public RelayCommand ShowItemCommand { get; }
 
     /// <summary>窓が手前に戻ったとき。取り込み・未確定の片付けを別の画面でした後に、木を読み直す。右に出している物は作り直さない。</summary>
     public void NoteWindowActivated() => LoadAsync().Forget();
@@ -832,7 +784,15 @@ public sealed class FolderViewModel : ViewModelBase
         }
 
         // まとめて差し替える（1行ずつ足すと、1000行で1000回の知らせになる）
-        Rows.ReplaceAll(rows);
+        _replacingRows = true;
+        try
+        {
+            Rows.ReplaceAll(rows);
+        }
+        finally
+        {
+            _replacingRows = false;
+        }
 
         // 選んでいた行を選び直す。**右は作り直さない**（開き直すたびに商品ページの読み込みが走り、見ていた所が戻る）
         if (keep is not null)
@@ -875,7 +835,7 @@ public sealed class FolderViewModel : ViewModelBase
             Name = name,
             Path = node.Path,
             SubText = subText,
-            CanExpand = node.Children.Count + node.Entries.Count > 0,
+            CanExpand = node.Children.Count + (ShowsEntries ? node.Entries.Count : 0) > 0,
             IsExpanded = expanded,
             IsDim = offline,
             CountText = $"商品 {node.Items.Count}",
@@ -898,7 +858,9 @@ public sealed class FolderViewModel : ViewModelBase
         // 絞り込み中は、中に当てはまる物があるかを先に見る。無ければこのフォルダも出さない
         var children = new List<FolderViewRow>();
         AddChildren(node, depth, offline, children, textHit || TextHits(name));
-        if (children.Count == 0)
+
+        // フォルダだけの木では、名前が当たったフォルダは中身が無くても出す（当てはまるファイルが出てこないので）
+        if (children.Count == 0 && (ShowsEntries || !TextHits(name)))
         {
             return false;
         }
@@ -917,7 +879,7 @@ public sealed class FolderViewModel : ViewModelBase
 
         foreach (var entry in node.OrderedEntries)
         {
-            if (ModeHits(entry) && (hit || TextHits(entry.Name) || TextHits(entry.Item?.DisplayName)))
+            if (EntryVisible(entry) && (hit || TextHits(entry.Name) || TextHits(entry.Item?.DisplayName)))
             {
                 output.Add(EntryRow(entry, depth + 1, offline));
             }
@@ -944,12 +906,8 @@ public sealed class FolderViewModel : ViewModelBase
         Thumbnails = _thumbnails,
     };
 
-    private bool ModeHits(FolderViewEntry entry) => _mode switch
-    {
-        FolderViewMode.Managed => entry.Kind != FolderViewRowKind.Unresolved,
-        FolderViewMode.Unresolved => entry.Kind == FolderViewRowKind.Unresolved,
-        _ => true,
-    };
+    private bool EntryVisible(FolderViewEntry entry)
+        => ShowsEntries && (entry.Kind == FolderViewRowKind.Unresolved ? ShowUnresolved : ShowManaged);
 
     private bool TextHits(string? text)
         => _needle.Length == 0 || (text is not null && text.Contains(_needle, StringComparison.CurrentCultureIgnoreCase));
@@ -1019,8 +977,12 @@ public sealed class FolderViewModel : ViewModelBase
             case null:
                 Detail = null;
                 break;
+            case { Kind: FolderViewRowKind.Volume }:
+                Detail = VolumeDetail(row);
+                break;
             case { IsFolderLike: true, Node: { } node }:
-                Detail = DetailFor(row, node);
+                // 見出しは名前だけ（パスはその下に出る・ユーザ指示 2026-09-14）
+                Detail = DetailFor(node, LeafName(node.Path), row.IsDim);
                 break;
             case { Entry.Item: { } item }:
                 ShowItem(item);
@@ -1031,24 +993,138 @@ public sealed class FolderViewModel : ViewModelBase
         }
     }
 
-    private FolderViewDetail DetailFor(FolderViewRow row, FolderViewNode node)
+    /// <summary>
+    /// フォルダを選んだときの右側（ユーザ指示 2026-09-14）。検索画面と同じカードで、直下の商品と子フォルダを並べる。
+    /// 文字で探すときは、この下の全部から探す。
+    /// </summary>
+    private FolderViewDetail DetailFor(FolderViewNode node, string title, bool offline)
     {
-        var items = node.Items.Values.OrderBy(item => item.DisplayName, NaturalComparer.Instance).ToList();
-        var settings = _services.Settings;
-        var offline = row.IsDim;
-        return new FolderViewDetail
+        var children = node.OrderedChildren.Select(child => FolderCard(child, child.Name, FolderViewRowKind.Folder, offline)).ToList();
+        var direct = node.Entries.Where(entry => entry.Item is not null).Select(entry => entry.Item!);
+        return NewDetail(node.Path, title, offline, children, Descendants(node, node.Path, offline), direct, node.Items.Values, node.Unresolved.Values);
+    }
+
+    /// <summary>ボリュームを選んだとき。直下に置き場所は無く、根が子フォルダになる。</summary>
+    private FolderViewDetail? VolumeDetail(FolderViewRow row)
+    {
+        var volume = _volumes.FirstOrDefault(candidate => string.Equals(candidate.Volume, row.Path, StringComparison.OrdinalIgnoreCase));
+        if (volume is null)
         {
-            Path = node.Path,
-            Title = row.Name,
+            return null;
+        }
+
+        var offline = !volume.IsOnline;
+        var roots = volume.Roots.Select(root => FolderCard(root.Node, root.Label, FolderViewRowKind.Root, offline)).ToList();
+        var all = volume.Roots.SelectMany(root => new[] { FolderCard(root.Node, root.Label, FolderViewRowKind.Root, offline) }
+            .Concat(Descendants(root.Node, volume.Volume, offline))).ToList();
+        return NewDetail(volume.Volume, row.Name, offline, roots, all, [], volume.Summary.Items.Values, volume.Summary.Unresolved.Values);
+    }
+
+    private FolderViewDetail NewDetail(
+        string path,
+        string title,
+        bool offline,
+        IReadOnlyList<FolderBrowserFolderCard> children,
+        IReadOnlyList<FolderBrowserFolderCard> all,
+        IEnumerable<ItemRecord> direct,
+        IEnumerable<ItemRecord> subtree,
+        IEnumerable<UnresolvedFile> unresolved)
+    {
+        var settings = _services.Settings;
+        var items = subtree.ToList();
+        var detail = new FolderViewDetail(this, _main, _services, children, all, direct, items)
+        {
+            Path = path,
+            Title = title,
             ItemCount = items.Count,
-            Items = items.Take(FolderViewDetail.MaxItems)
-                .Select(item => new FolderViewItemRow { Item = item, ThumbnailPath = ItemThumbnailPath(item), Thumbnails = _thumbnails })
-                .ToList(),
-            Unresolved = node.Unresolved.Values.ToList(),
+            Unresolved = unresolved.ToList(),
             IsOffline = offline,
-            CanAddImport = !offline && !settings.ImportFolders.Contains(node.Path, StringComparer.OrdinalIgnoreCase),
-            CanAddWatch = !offline && !settings.WatchedFolders.Contains(node.Path, StringComparer.OrdinalIgnoreCase),
+            IsWatched = settings.WatchedFolders.Contains(path, StringComparer.OrdinalIgnoreCase),
         };
+        detail.Rebuild();
+        return detail;
+    }
+
+    /// <summary>
+    /// 子フォルダのカード。1本道の段は木と同じく畳み、鍵も木の行と同じにする（押したら木のその行へ移れるように）。
+    /// 名前は畳んだ先のフォルダの名前だけにし、パスはカードの下に出す（ユーザ指示 2026-09-14：経路を「 › 」でつないだ名前は分かりにくい）
+    /// </summary>
+    private static FolderBrowserFolderCard FolderCard(FolderViewNode node, string label, FolderViewRowKind kind, bool offline, string subText = "")
+    {
+        while (node.Entries.Count == 0 && node.Children.Count == 1)
+        {
+            node = node.OrderedChildren[0];
+        }
+
+        return new FolderBrowserFolderCard
+        {
+            Key = $"{kind}:{node.Path}",
+            Path = node.Path,
+            Name = label.EndsWith("（直下など）", StringComparison.Ordinal) ? label : LeafName(node.Path),
+            ItemCount = node.Items.Count,
+            UnresolvedCount = node.Unresolved.Count,
+            IsDim = offline,
+            SubText = subText,
+            Node = node,
+        };
+    }
+
+    /// <summary>この下の全部のフォルダ（文字で探すとき用）。場所は、今のフォルダから見た経路で添える。</summary>
+    private static List<FolderBrowserFolderCard> Descendants(FolderViewNode node, string basePath, bool offline)
+    {
+        var output = new List<FolderBrowserFolderCard>();
+        var stack = new Stack<FolderViewNode>(node.OrderedChildren.AsEnumerable().Reverse());
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            var parent = ParentOf(current.Path) ?? current.Path;
+            var relative = parent.Length > basePath.Length ? parent[basePath.Length..].Trim('\\').Replace(@"\", " › ") : string.Empty;
+            output.Add(new FolderBrowserFolderCard
+            {
+                Key = $"{FolderViewRowKind.Folder}:{current.Path}",
+                Path = current.Path,
+                Name = current.Name,
+                ItemCount = current.Items.Count,
+                UnresolvedCount = current.Unresolved.Count,
+                IsDim = offline,
+                SubText = relative.Length > 0 ? relative : "このフォルダの直下",
+                Node = current,
+            });
+
+            foreach (var child in current.OrderedChildren.AsEnumerable().Reverse())
+            {
+                stack.Push(child);
+            }
+        }
+
+        return output;
+    }
+
+    /// <summary>
+    /// 右の子フォルダのカードを押した。木の中でそのフォルダまで開いて選ぶ（右も移る）。
+    /// 木の文字の絞り込みは外す（外さないと、移った先の行が絞り込みで隠れていることがある）。
+    /// 切り替えで隠れている・1本道の途中のフォルダで行が無いときは、木はそのままで右だけ移る
+    /// </summary>
+    internal void OpenFolder(FolderBrowserFolderCard? card)
+    {
+        if (card?.Node is not { } node)
+        {
+            return;
+        }
+
+        Filter = string.Empty;
+        ExpandTo(card.Path + @"\_");
+        Rebuild();
+        if (Rows.FirstOrDefault(row => row.Key == card.Key) is { } row)
+        {
+            Selected = row;
+        }
+        else
+        {
+            _selected = null;
+            OnPropertyChanged(nameof(Selected));
+            Detail = DetailFor(node, card.Name, card.IsDim);
+        }
     }
 
     /// <summary>商品ページをそのまま右に組み込む（ユーザ判断。改変の画面に改変の画面を組み込んだのと同じ形）。</summary>
@@ -1098,22 +1174,35 @@ public sealed class FolderViewModel : ViewModelBase
 
     // ---- フォルダの操作 ----
 
-    private async Task AddFolderAsync(FolderViewDetail? detail, bool watch)
+    /// <summary>
+    /// このフォルダを取り込みの対象に積んで、そのまま始める（フォルダを落としたときと同じ道）。取り込み画面へ移って進み具合を見せる。
+    /// 監視に入れるかは隣の切り替えで決めるので、ここでは聞かない
+    /// </summary>
+    private void ImportHere(FolderViewDetail? detail)
+    {
+        if (detail is null || detail.IsOffline)
+        {
+            return;
+        }
+
+        _main.Import.AddDroppedPaths([detail.Path], startImmediately: true, offerWatch: false);
+        _main.ShowImport();
+    }
+
+    /// <summary>監視対象に足す・外す。取り込み画面の一覧と同じ所を通す（別々に書くと、片方の写しがもう片方の変更を消す）。</summary>
+    private async Task ToggleWatchAsync(FolderViewDetail? detail)
     {
         if (detail is null)
         {
             return;
         }
 
-        var path = detail.Path;
-        await _services.Commands.ExecuteAsync(new UiCommand.ChangeSettings(settings => watch
-            ? settings with { WatchedFolders = [.. settings.WatchedFolders, path] }
-            : settings with { ImportFolders = [.. settings.ImportFolders, path] }));
-
+        var watch = !detail.IsWatched;
+        await _main.Import.SetWatchedAsync(detail.Path, watch);
+        detail.IsWatched = watch;
         Status = watch
-            ? $"「{detail.Path}」を監視に足しました。次に起動したとき、この中の新しいファイルを見ます。"
-            : $"「{detail.Path}」を取り込み元に足しました。次の取り込みから、このフォルダも見ます。";
-        ShowDetail(_selected);
+            ? $"「{detail.Path}」を監視しています。次に起動したとき、この中に新しいファイルが増えていないかを見ます。"
+            : $"「{detail.Path}」の監視をやめました。取り込んだ物はそのまま残ります。";
     }
 
     /// <summary>その下の未確定を全部（子のフォルダも含む）管理から外す（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>
@@ -1159,6 +1248,10 @@ public sealed class FolderViewModel : ViewModelBase
         return Core.Images.ItemImageOrder.Thumbnail(
             ordered, item.Local.ThumbnailImage, _services.Settings.ThumbnailRole, item.Local.ImageRoles);
     }
+
+    /// <summary>フォルダの名前だけ（ドライブの直下などで名前が無ければパスのまま）。</summary>
+    private static string LeafName(string path)
+        => System.IO.Path.GetFileName(path.TrimEnd('\\')) is { Length: > 0 } name ? name : path;
 
     private static string? ParentOf(string path)
     {
