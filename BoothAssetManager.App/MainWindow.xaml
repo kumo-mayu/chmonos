@@ -286,11 +286,17 @@
                     -->
                     <Grid Margin="10,0,10,14">
                         <StackPanel Margin="8,0" Style="{StaticResource NavExpandedOnly}">
-                            <TextBlock Text="Chmonos" Foreground="White" FontWeight="Bold" FontSize="13" />
+                            <!--
+                                読みを添える（ユーザ判断 2026-09-14）。綴りから「クモノス」とは読めない（ch をクと読むのはギリシャ語から来た綴りの約束）。
+                                行を増やすとナビの頭の高さが変わる（U2）ので、同じ行に小さく薄く続ける
+                            -->
+                            <TextBlock Foreground="White" FontSize="13">
+                                <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="#8a93a3" />
+                            </TextBlock>
                             <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
                         </StackPanel>
                         <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                 Style="{StaticResource NavCollapsedOnly}" ToolTip="Chmonos">
+                                 Style="{StaticResource NavCollapsedOnly}" ToolTip="Chmonos（クモノス）">
                             <Canvas Width="24" Height="24">
                                 <Path Data="{StaticResource IconApp}" Fill="{x:Null}" StrokeThickness="1.8"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
