@@ -472,9 +472,6 @@ public sealed class SearchViewModel : ViewModelBase
                 CanDescend = node.CanDescend,
                 RecordedLetters = node.RecordedLetters,
 
-                // 記録にはあるが今その場所が無い。外付けを外したときなど。
-                // 消さずに残す：「どこに置いたっけ」を一番知りたいのがこの状況
-                IsOffline = !Directory.Exists(path),
                 CanAddToImport = !_services.Settings.ImportFolders.Contains(path, StringComparer.OrdinalIgnoreCase),
                 IsSelected = filter.Selected.Contains(path, StringComparer.OrdinalIgnoreCase),
             };
@@ -495,6 +492,24 @@ public sealed class SearchViewModel : ViewModelBase
             };
 
             filter.Rows.Add(row);
+        }
+
+        _ = MarkOfflineFolderRowsAsync(filter.Rows.ToList());
+    }
+
+    /// <summary>
+    /// 記録にはあるが今その場所が無い行（外付けを外したときなど）に印を付ける。
+    /// 消さずに残す：「どこに置いたっけ」を一番知りたいのがこの状況。
+    ///
+    /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落ちたネットワークドライブは1回に数秒かかることがあり、
+    /// 前は行を作るたびに（降りるたびに）画面が止まりえた。
+    /// </summary>
+    private static async Task MarkOfflineFolderRowsAsync(IReadOnlyList<FolderRow> rows)
+    {
+        var missing = await Task.Run(() => rows.Select(row => !Core.Services.DiskCheck.FolderExists(row.Path)).ToList());
+        for (var i = 0; i < rows.Count; i++)
+        {
+            rows[i].IsOffline = missing[i];
         }
     }
 

@@ -171,7 +171,7 @@ public sealed class UnityPackageRow : ViewModelBase
     public bool HasDestination => DestinationText.Length > 0;
 }
 
-public sealed class LocalFileRow
+public sealed class LocalFileRow : ViewModelBase
 {
     /// <summary>このファイルの同一性。商品から外すときに指す。</summary>
     public required string Hash { get; init; }
@@ -208,19 +208,46 @@ public sealed class LocalFileRow
     /// <summary>「この商品に戻す」の説明。押せないときはその理由。</summary>
     public string ReattachTip { get; init; } = string.Empty;
 
+    private IReadOnlyList<Core.Services.UnityPackageEntry> _unityPackages = [];
+    private IReadOnlyList<UnityPackageRow> _unityPackageRows = [];
+
     /// <summary>
     /// このzipに入っている、Unityへ送れるもの。
-    /// zipを開いて数えるので、商品ページを組むときに1回だけ読む。
+    /// zipを開いて数えるので、**行を出した後で、画面のスレッドの外で読んで付ける**（技術的負債 4-2）。
     /// </summary>
-    public IReadOnlyList<Core.Services.UnityPackageEntry> UnityPackages { get; init; } = [];
+    public IReadOnlyList<Core.Services.UnityPackageEntry> UnityPackages
+    {
+        get => _unityPackages;
+        set
+        {
+            if (SetField(ref _unityPackages, value))
+            {
+                OnPropertyChanged(nameof(HasUnityPackages));
+                OnPropertyChanged(nameof(HasManyUnityPackages));
+            }
+        }
+    }
 
     public bool HasUnityPackages => UnityPackages.Count > 0;
 
-    /// <summary>一時フォルダへ展開できるか（手元にある zip のときだけ）。</summary>
-    public bool CanUnpack { get; init; }
+    private bool _canUnpack;
+
+    /// <summary>
+    /// 一時フォルダへ展開できるか（手元にある zip のときだけ）。
+    /// **在るかは行を出した後で、画面のスレッドの外で確かめて付ける**（技術的負債 4-2）。
+    /// </summary>
+    public bool CanUnpack
+    {
+        get => _canUnpack;
+        set => SetField(ref _canUnpack, value);
+    }
 
     /// <summary>画面に並べる行。入る先を後から埋めるので、中身とは別に持つ。</summary>
-    public IReadOnlyList<UnityPackageRow> UnityPackageRows { get; init; } = [];
+    public IReadOnlyList<UnityPackageRow> UnityPackageRows
+    {
+        get => _unityPackageRows;
+        set => SetField(ref _unityPackageRows, value);
+    }
 
     /// <summary>
     /// 複数入っているときの注意。
@@ -353,8 +380,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
             return;
         }
 
-        // Unityのどこに入るかは中を最後まで読むので待たない。行を出してから埋まる
-        _ = LoadUnityDestinationsAsync();
+        // zip の中の unitypackage と、Unityのどこに入るかは読むのに時間が掛かるので待たない。行を出してから埋まる
+        _ = LoadUnityPackagesAsync();
 
         // 改変はファイルを読むので待たない。空で描いてから埋まる
         _ = LoadModificationsAsync();
@@ -1804,10 +1831,8 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
             var variation = file.VariationId is null
                 ? null
                 : Item.Booth.Variations.FirstOrDefault(entry => entry.Id == file.VariationId)?.Name;
-            // 編集画面では「使う」操作を出さないので、zipを開いて数えることもしない（1件進むたびに開くことになる）。
-            // 外したファイルも使う対象ではない
-            var usable = ShowsUseActions && !file.Detached;
-            var packages = usable ? FindUnityPackages(file) : [];
+            // zip の中の unitypackage は、行を出した後で画面のスレッドの外で読む（LoadUnityPackagesAsync・技術的負債 4-2）
+            IReadOnlyList<Core.Services.UnityPackageEntry> packages = [];
 
             // 外した後で別の商品へ紐付けてあれば戻せない（同じファイルが2つの商品の持ち物になる）
             var owner = file.Detached ? _main.Search.FindFileOwner(file.Hash, Item.Id) : null;
@@ -1826,11 +1851,38 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
                 ReattachTip = owner is null
                     ? "このファイルをこの商品に戻します。未確定からは消えます。"
                     : $"外した後で「{owner.DisplayName}」に紐付けてあるので、戻せません。先にそちらの商品から外してください。",
-                CanUnpack = usable && file.Paths.Any(path =>
-                    path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path)),
                 UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
             });
         }
+
+        _ = MarkUnpackableFilesAsync();
+    }
+
+    /// <summary>
+    /// 手元にある zip の行に「展開して開く」を出す。
+    /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。前は商品ページを組むときに画面のスレッドで見ていて、
+    /// 外付け・ネットワークにある物は開くたびに画面が止まりえた。
+    /// </summary>
+    private async Task MarkUnpackableFilesAsync()
+    {
+        // 編集画面では「使う」操作を出さない。外したファイルも使う対象ではない
+        if (!ShowsUseActions)
+        {
+            return;
+        }
+
+        var rows = LocalFiles.Where(row => !row.IsDetached).ToList();
+        var unpackable = await Task.Run(() => rows
+            .Select(row => row.Paths.Any(path =>
+                path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Core.Services.DiskCheck.FileExists(path)))
+            .ToList());
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            rows[i].CanUnpack = unpackable[i];
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
     }
 
     /// <summary>
@@ -1856,6 +1908,28 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
     /// **1箇所目だけ見る。**同じ中身が複数箇所にあっても中身は同じなので、
     /// 全部開くのは無駄。zip以外（展開済みのフォルダやpdf）は対象外。
     /// </summary>
+    /// <summary>
+    /// zip の中の、Unityへ送れるものを読んで行に付け、続けて入る先を埋める。
+    /// **画面のスレッドの外で読む**（技術的負債 4-2）。前は商品ページを組むときに画面のスレッドで zip を開いていた。
+    /// 編集画面では「使う」操作を出さないので呼ばない（1件進むたびに開くことになる）。外したファイルも使う対象ではない。
+    /// </summary>
+    private async Task LoadUnityPackagesAsync()
+    {
+        var rows = LocalFiles.Where(row => !row.IsDetached).ToList();
+        var files = rows
+            .Select(row => Item.Local.LocalFiles.FirstOrDefault(file => string.Equals(file.Hash, row.Hash, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        var found = await Task.Run(() => files.Select(file => file is null ? [] : FindUnityPackages(file)).ToList());
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            rows[i].UnityPackages = found[i];
+            rows[i].UnityPackageRows = found[i].Select(package => new UnityPackageRow { Entry = package }).ToList();
+        }
+
+        await LoadUnityDestinationsAsync();
+    }
+
     private static IReadOnlyList<Core.Services.UnityPackageEntry> FindUnityPackages(Core.Models.LocalFileRecord file)
     {
         var path = file.Paths.FirstOrDefault(File.Exists);
@@ -2198,30 +2272,52 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
         }
     }
 
+    /// <summary>
+    /// フォルダごと登録した物の行。**先にディスクを見ずに出し、在るか・zip が入ったかは画面のスレッドの外で確かめてから差し替える**
+    /// （技術的負債 4-2）。前は商品ページを組むときに画面のスレッドで見ていた。
+    /// </summary>
     private void BuildLocalFolders()
     {
         LocalFolders = Item.Local.LocalFolders
-            .Select(folder =>
-            {
+            .Select(folder => ToFolderRow(folder.Path, folder.FileCount, folder.TotalBytes, isMissing: false, archive: null))
+            .ToList();
+
+        if (LocalFolders.Count > 0)
+        {
+            _ = FillLocalFolderStateAsync();
+        }
+    }
+
+    private async Task FillLocalFolderStateAsync()
+    {
+        var folders = Item.Local.LocalFolders.ToList();
+        var rows = await Task.Run(() => folders
+            .Select(folder => ToFolderRow(
+                folder.Path,
+                folder.FileCount,
+                folder.TotalBytes,
+                isMissing: !Core.Services.DiskCheck.FolderExists(folder.Path),
                 // zipが手に入っていればフォルダ登録は役目を終えている。
                 // 気付かずに置いておくと容量が二重に数えられる。
-                var archive = RegisteredFolderSet.FindArchiveFor(folder.Path);
+                archive: RegisteredFolderSet.FindArchiveFor(folder.Path)))
+            .ToList());
 
-                return new LocalFolderRow
-                {
-                    Path = folder.Path,
-                    Name = System.IO.Path.GetFileName(folder.Path),
-                    SummaryText = $"{folder.FileCount} ファイル / {Core.Models.DisplayText.Size(folder.TotalBytes)}",
-                    IsMissing = !Directory.Exists(folder.Path),
-                    HasArchive = archive is not null,
-                    ArchiveNoticeText = archive is null
-                        ? string.Empty
-                        : $"{System.IO.Path.GetFileName(archive)} が見つかりました。"
-                            + "そちらを取り込めば展開先は自動で対象から外れるので、この登録は解除してください。",
-                };
-            })
-            .ToList();
+        LocalFolders = rows;
+        OnPropertyChanged(nameof(LocalFolders));
     }
+
+    private static LocalFolderRow ToFolderRow(string path, int fileCount, long totalBytes, bool isMissing, string? archive) => new()
+    {
+        Path = path,
+        Name = System.IO.Path.GetFileName(path),
+        SummaryText = $"{fileCount} ファイル / {Core.Models.DisplayText.Size(totalBytes)}",
+        IsMissing = isMissing,
+        HasArchive = archive is not null,
+        ArchiveNoticeText = archive is null
+            ? string.Empty
+            : $"{System.IO.Path.GetFileName(archive)} が見つかりました。"
+                + "そちらを取り込めば展開先は自動で対象から外れるので、この登録は解除してください。",
+    };
 
 
     // ---- ギャラリーの操作 ----
@@ -2636,8 +2732,9 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
 
     private async Task UnpackAsync(LocalFileRow? row)
     {
-        var zip = row?.Paths.FirstOrDefault(path =>
-            path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(path));
+        // 在るかは画面のスレッドの外で見る（技術的負債 4-2）
+        var zip = row is null ? null : await Task.Run(() => row.Paths.FirstOrDefault(path =>
+            path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Core.Services.DiskCheck.FileExists(path)));
         if (zip is null)
         {
             return;
@@ -2657,22 +2754,25 @@ public sealed class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGallery
 
     private void OpenInExplorer(object? parameter)
     {
-        if (parameter is not string path)
+        if (parameter is string path)
         {
+            _ = OpenInExplorerAsync(path);
+        }
+    }
+
+    /// <summary>在るかは画面のスレッドの外で見る（技術的負債 4-2）。外付け・ネットワークの物は確かめるだけで数秒かかることがある。</summary>
+    private static async Task OpenInExplorerAsync(string path)
+    {
+        if (await Core.Services.DiskCheck.FileExistsAsync(path))
+        {
+            TryStart(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
             return;
         }
 
-        if (File.Exists(path))
+        var directory = Path.GetDirectoryName(path);
+        if (await Core.Services.DiskCheck.FolderExistsAsync(directory))
         {
-            TryStart(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
-        }
-        else
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (Directory.Exists(directory))
-            {
-                TryStart(new ProcessStartInfo { FileName = directory, UseShellExecute = true });
-            }
+            TryStart(new ProcessStartInfo { FileName = directory, UseShellExecute = true });
         }
     }
 

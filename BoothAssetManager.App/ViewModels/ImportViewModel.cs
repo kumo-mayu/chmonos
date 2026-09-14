@@ -485,17 +485,26 @@ public sealed class ImportViewModel : ViewModelBase
     /// 「フォルダを足す」で選んだときは false——続けて他も足してから始めたいことがある。
     /// </param>
     public void AddDroppedPaths(IEnumerable<string> paths, bool startImmediately = false)
+        => _ = AddDroppedPathsAsync(paths.ToList(), startImmediately);
+
+    /// <summary>
+    /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落とされた物・監視の新着は外付けやネットワークにもあり、
+    /// 確かめるだけで数秒かかることがある。見終わってから画面のスレッドで一覧に足す。
+    /// </summary>
+    private async Task AddDroppedPathsAsync(IReadOnlyList<string> paths, bool startImmediately)
     {
+        var kinds = await Task.Run(() => paths
+            .Select(path => (Path: path, IsFolder: Core.Services.DiskCheck.FolderExists(path), IsFile: Core.Services.DiskCheck.FileExists(path)))
+            .ToList());
         var addedFolders = new List<string>();
 
-        foreach (var path in paths)
+        foreach (var (path, isFolder, isFile) in kinds)
         {
-            if ((Directory.Exists(path) || File.Exists(path))
-                && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+            if ((isFolder || isFile) && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
             {
                 Folders.Add(path);
 
-                if (Directory.Exists(path) && !Watched.Contains(path, StringComparer.OrdinalIgnoreCase))
+                if (isFolder && !Watched.Contains(path, StringComparer.OrdinalIgnoreCase))
                 {
                     addedFolders.Add(path);
                 }

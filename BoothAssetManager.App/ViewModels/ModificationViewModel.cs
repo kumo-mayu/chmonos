@@ -334,7 +334,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     /// </summary>
     private async Task FindInProjectAsync()
     {
-        if (Record.UnityProject is not { } project || !Directory.Exists(project))
+        if (Record.UnityProject is not { } project || !await Core.Services.DiskCheck.FolderExistsAsync(project))
         {
             ProjectFindText = "紐付けたプロジェクトのフォルダが見つかりません。消したか移した場合は、下の「Unityプロジェクト」から紐付け直してください。";
             return;
@@ -862,7 +862,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
     /// **黙って外さない。**消したのか移しただけなのかはユーザにしか分からないので、
     /// 出すだけにして指し直す導線を残す。
     /// </summary>
-    public bool ProjectMissing => HasProject && !Directory.Exists(Record.UnityProject!);
+    /// <remarks>在るかは読み込むときに画面のスレッドの外で確かめて覚える（技術的負債 4-2）。前は画面が読むたびにディスクを見ていた。</remarks>
+    public bool ProjectMissing { get; private set; }
 
     public string ProjectEmptyText =>
         "Unityプロジェクトを紐付けると、ここから開けます。作業中のプロジェクトがあれば下に出ます。";
@@ -955,6 +956,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost
 
         await LoadSuggestionsAsync();
         await LoadProjectsAsync();
+        ProjectMissing = HasProject && !await Core.Services.DiskCheck.FolderExistsAsync(Record.UnityProject);
 
         foreach (var name in new[]
         {

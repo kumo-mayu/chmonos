@@ -644,6 +644,12 @@ public sealed class SettingsViewModel : ViewModelBase
         var excluded = _services.SettingsStore.LoadExcluded();
         var detached = await _services.SettingsStore.LoadDetachedAsync();
 
+        // 在るかは画面のスレッドの外で見る（技術的負債 4-2）。取り込み元・監視は外付けやネットワークにもある
+        var folderPaths = _services.Settings.ImportFolders.Concat(_services.Settings.WatchedFolders)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var exists = await Task.Run(() => folderPaths.ToDictionary(
+            path => path, Core.Services.DiskCheck.FolderExists, StringComparer.OrdinalIgnoreCase));
+
         RunOnUiThread(() =>
         {
             _usage = usage;
@@ -655,7 +661,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 Folders.Add(new ImportFolderRow
                 {
                     Path = path,
-                    Exists = Directory.Exists(path),
+                    Exists = exists.GetValueOrDefault(path),
                     RemoveCommand = new RelayCommand(() => RemoveFolder(captured)),
                 });
             }
@@ -667,7 +673,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 Watched.Add(new ImportFolderRow
                 {
                     Path = path,
-                    Exists = Directory.Exists(path),
+                    Exists = exists.GetValueOrDefault(path),
                     RemoveCommand = new RelayCommand(() => _ = RemoveWatchedAsync(captured)),
                 });
             }

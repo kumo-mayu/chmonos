@@ -1247,7 +1247,7 @@ public sealed class ModificationHubViewModel : ViewModelBase
         }
 
         var projectName = ProjectNameOf(project);
-        if (!Directory.Exists(project))
+        if (!await Core.Services.DiskCheck.FolderExistsAsync(project))
         {
             Status = $"紐付けたプロジェクト「{projectName}」のフォルダが見つかりません。";
             return;

@@ -481,8 +481,23 @@ public sealed class FolderRow : ViewModelBase
     /// <summary>降りられるか。商品が1件のフォルダにはシェブロンを出さない。</summary>
     public required bool CanDescend { get; init; }
 
-    /// <summary>記録上のフォルダが今つながっていない。外付けを外したときなど。</summary>
-    public required bool IsOffline { get; init; }
+    private bool _isOffline;
+
+    /// <summary>
+    /// 記録上のフォルダが今つながっていない。外付けを外したときなど。
+    /// **行を出した後で、画面のスレッドの外で確かめて付ける**（技術的負債 4-2）。
+    /// </summary>
+    public bool IsOffline
+    {
+        get => _isOffline;
+        set
+        {
+            if (SetField(ref _isOffline, value))
+            {
+                OnPropertyChanged(nameof(CountText));
+            }
+        }
+    }
 
     public string CountText => IsOffline ? $"{Count}・今つながっていません" : Count.ToString();
 
