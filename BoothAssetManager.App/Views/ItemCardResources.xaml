@@ -153,7 +153,7 @@
                                   まとめて作ると流すたびに画面が固まっていた。作るまでは白いカードの枠だけを出す。
                                   大きさと間隔はこの外側で決め、中身がまだ無くても行の高さと並びが崩れないようにする
                               -->
-                              <Grid Width="228" Height="336" Margin="0,0,14,14">
+                              <Grid Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}" Margin="0,0,14,14">
                                 <Border Style="{StaticResource Card}" />
                                 <controls:DeferredCardHost>
                                   <controls:DeferredCardHost.RealTemplate>
@@ -163,7 +163,7 @@
                                     Tag に検索画面を入れておく。ContextMenu は視覚ツリーの外に出るので、
                                     PlacementTarget 経由でないと画面側のコマンドに届かない。
                                 -->
-                                <Border Style="{StaticResource Card}" Width="228" Height="336"
+                                <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
                                         ClipToBounds="True"
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -174,7 +174,7 @@
                                             マウスの横位置でギャラリー画像を切り替える（BOOTHのサイトと同じ操作感）。
                                             正方形の画像が多いので、枠は正方形寄りにして Uniform で全体を見せる（切り取らない）。
                                         -->
-                                        <Grid DockPanel.Dock="Top" Height="200" Background="#e9edf4" Cursor="Hand"
+                                        <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="#e9edf4" Cursor="Hand"
                                               MouseMove="OnThumbnailMouseMove" MouseLeave="OnThumbnailMouseLeave">
                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
                                             <!-- 取り込みの途中で絵がまだ無いカード（U8）。灰色の枠だけだと壊れて見える -->

@@ -310,6 +310,9 @@ public sealed class SettingsViewModel : ViewModelBase
             if (SetField(ref _thumbnailSize, value))
             {
                 OnPropertyChanged(nameof(SelectedThumbnailSize));
+
+                // その場でカードの大きさを変える（前は保存されるだけで、どこにも効いていなかった。R2）
+                global::BoothAssetManager.App.Services.CardMetrics.Apply(value);
                 Save();
             }
         }

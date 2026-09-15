@@ -168,9 +168,9 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:ModificationMemberRowViewModel}">
-                                            <StackPanel Width="242" Margin="0,0,0,14">
+                                            <StackPanel Width="{DynamicResource CardSlotWidth}" Margin="0,0,0,14">
                                                 <!-- 導入の順（人が読む番号なので1から）と、使ったファイル（空欄の意味を言い分ける。推定で埋めない） -->
-                                                <DockPanel Width="228" HorizontalAlignment="Left" Margin="0,0,0,6">
+                                                <DockPanel Width="{DynamicResource CardWidth}" HorizontalAlignment="Left" Margin="0,0,0,6">
                                                     <Border DockPanel.Dock="Left" MinWidth="24" Height="24" CornerRadius="6" Padding="6,0"
                                                             Background="{StaticResource AccentSoft}" Margin="0,0,8,0">
                                                         <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="#4a5160"
@@ -185,7 +185,7 @@
                                                                 Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                                 <!-- 手元に無い商品（記録だけ残る）。カードが作れないので名前と状態だけ -->
-                                                <Border Style="{StaticResource Card}" Width="228" HorizontalAlignment="Left" Padding="12,10"
+                                                <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" HorizontalAlignment="Left" Padding="12,10"
                                                         Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextWrapping="Wrap" />
@@ -194,7 +194,7 @@
                                                     </StackPanel>
                                                 </Border>
 
-                                                <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}" Width="228"
+                                                <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}" Width="{DynamicResource CardWidth}"
                                                            HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
                                                            Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 

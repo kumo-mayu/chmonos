@@ -24,7 +24,7 @@
 
             <!-- 子フォルダ：商品のカードと同じ大きさ・同じ間隔（並びと行の高さを揃える） -->
             <DataTemplate DataType="{x:Type vm:FolderBrowserFolderCard}">
-                <Button Width="228" Height="336" Margin="0,0,14,14" Cursor="Hand"
+                <Button Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}" Margin="0,0,14,14" Cursor="Hand"
                         AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Path}"
                         Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}">
@@ -36,7 +36,7 @@
                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="10.5"
                                                Foreground="{StaticResource TextMuted}" Margin="11,0,11,11" TextWrapping="Wrap"
                                                MaxHeight="42" TextTrimming="CharacterEllipsis" />
-                                    <Grid DockPanel.Dock="Top" Height="200" Background="#e9edf4">
+                                    <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="#e9edf4">
                                         <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2"
                                               Fill="#f7f8fa" Stretch="Uniform" Width="96" Height="80"
                                               HorizontalAlignment="Center" VerticalAlignment="Center" />

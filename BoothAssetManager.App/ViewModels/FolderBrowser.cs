@@ -65,7 +65,7 @@ public sealed class FolderBrowserFolderCard
 public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
 {
     /// <summary>カード1枚ぶんの幅（カード228＋間14）。検索画面と同じ。</summary>
-    private const double CardSlotWidth = 242;
+    private static double CardSlotWidth => CardMetrics.SlotWidth;
 
     /// <summary>一覧の左右の余白（18×2）と縦のスクロールバーのぶん。</summary>
     private const double ListChrome = 36 + 18;

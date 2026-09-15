@@ -26,8 +26,11 @@ public sealed class CardRow
 /// </summary>
 public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
 {
-    /// <summary>カード1枚が占める幅（カード228 + 右マージン14）。列数の計算に使う。</summary>
-    private const double CardSlotWidth = 242;
+    /// <summary>カード1枚が占める幅（カードの幅 + 右の間。設定の「サムネイルの大きさ」で変わる）。列数の計算に使う。</summary>
+    private static double CardSlotWidth => global::BoothAssetManager.App.Services.CardMetrics.SlotWidth;
+
+    /// <summary>最後に知らされた一覧の幅。カードの大きさが変わったときに、幅の知らせを待たずに割り直すため。</summary>
+    private double _viewportWidth;
 
     /// <summary>結果一覧の左右の余白（ScrollViewerのPadding分）。</summary>
     private const double ResultsPadding = 36;
@@ -88,6 +91,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
     {
         _services = services;
         _thumbnails = thumbnails;
+        global::BoothAssetManager.App.Services.CardMetrics.Changed += RelayoutForCardSize;
         ClearFiltersCommand = new RelayCommand(() => ClearFiltersKeepingHistoryAsync().Forget());
         AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
         AddBoothTagFilterCommand = new RelayCommand(parameter => AddBoothTagFilter(parameter as string));
@@ -276,6 +280,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
     /// </summary>
     public void SetViewportWidth(double width)
     {
+        _viewportWidth = width;
         var columns = Math.Max(1, (int)((width - ResultsPadding) / CardSlotWidth));
         if (columns == _columns)
         {
@@ -284,6 +289,19 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
 
         _columns = columns;
         RebuildRows();
+    }
+
+    /// <summary>
+    /// カードの大きさが変わった。検索画面は使い回すので、設定から戻っても一覧の幅は変わらず知らせが来ない。
+    /// 覚えている幅で割り直す
+    /// </summary>
+    private void RelayoutForCardSize()
+    {
+        if (_viewportWidth > 0)
+        {
+            _columns = 0;
+            SetViewportWidth(_viewportWidth);
+        }
     }
 
     public async Task ReloadAsync()

@@ -55,7 +55,7 @@ public sealed class ThumbnailLoader
     /// 2000件を最後までスクロールしたとき、それが115個・115MB並んでいた。
     /// 240pxに縮めて作ると同じ100枚が112MB→42MBになり、1MiBの確保も消えた（画面なしの試験で実測）。
     /// </summary>
-    public const int CardEdgeDip = 240;
+    public static int CardEdgeDip => CardMetrics.EdgeDip;
 
     /// <summary>
     /// 商品ページ・編集画面の小さな一覧（68×54 / 58×46 DIP）に出すときの長辺。

@@ -77,8 +77,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
 
     private int _columns = 1;
 
-    /// <summary>カード1枚ぶんの幅（カード228＋間14）。ShopView.xaml のカードの Width と Margin に合わせる。</summary>
-    private const double CardStride = 242;
+    /// <summary>カード1枚ぶんの幅（カードの幅＋間。設定の「サムネイルの大きさ」で変わる）。</summary>
+    private static double CardStride => CardMetrics.SlotWidth;
 
     /// <summary>一覧の左右の余白（24×2）と縦のスクロールバーのぶん。</summary>
     private const double ListChrome = 48 + 18;

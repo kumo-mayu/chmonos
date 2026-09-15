@@ -22,6 +22,9 @@ public sealed partial class MainViewModel : ViewModelBase
         _services = services;
         Thumbnails = new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
 
+        // カードの大きさ（設定の「サムネイルの大きさ」）。検索画面が列を割る前に決めておく
+        CardMetrics.Apply(services.Settings.ThumbnailSize);
+
         // 検索画面は使い捨てにせず1つだけ持ち回る。
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
         // 通信の様子はアプリに1つ。常設の行も取り込み画面も、ここを見る

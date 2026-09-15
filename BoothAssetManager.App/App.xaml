@@ -1,8 +1,18 @@
 <Application x:Class="BoothAssetManager.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels">
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <Application.Resources>
+        <!--
+            商品カードの大きさ。起動時と設定の「サムネイルの大きさ」を変えたときに CardMetrics が書き換える
+            （ユーザ判断 2026-09-15）。ここの値は「中」＝前からの大きさ。カードは DynamicResource で読む
+        -->
+        <sys:Double x:Key="CardWidth">228</sys:Double>
+        <sys:Double x:Key="CardHeight">336</sys:Double>
+        <sys:Double x:Key="CardImageHeight">200</sys:Double>
+        <sys:Double x:Key="CardSlotWidth">242</sys:Double>
+
         <!--
             畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
             どちらか一方の画面ではなくここに置く。24×24の座標系。
