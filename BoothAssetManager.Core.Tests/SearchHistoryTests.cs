@@ -17,7 +17,7 @@ public sealed class SearchHistoryTests
     public void 探す範囲だけを変えても条件にはしない()
     {
         // 「本文も探す」を入れただけでは何も絞っていない。履歴に残すものではない
-        Assert.True(new SearchHistoryEntry { SearchBody = true }.IsEmpty);
+        Assert.True(new SearchHistoryEntry { Targets = ["main"] }.IsEmpty);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class SearchHistoryTests
     {
         // 結果が変わるので、同じ文字列でも別物
         var a = new SearchHistoryEntry { Text = "衣装" };
-        var b = new SearchHistoryEntry { Text = "衣装", SearchBody = true };
+        var b = new SearchHistoryEntry { Text = "衣装", Targets = ["main", "memo", "name", "shop"] };
 
         Assert.NotEqual(a.Fingerprint, b.Fingerprint);
     }
@@ -105,11 +105,11 @@ public sealed class SearchHistoryTests
             AvatarName = "くうた",
             BoothTags = ["夏"],
             Attributes = [new AttributeRange("かわいい", 60, 100)],
-            SearchBody = true,
+            Targets = ["main", "memo", "name", "shop"],
         };
 
         Assert.Equal(
-            "衣装 / 3D衣装 / 所持のみ / くうた / #夏 / かわいい 60〜100 / 本文も",
+            "衣装 / 3D衣装 / 所持のみ / くうた / #夏 / かわいい 60〜100 / 対象 main,memo,name,shop",
             entry.Summary);
     }
 

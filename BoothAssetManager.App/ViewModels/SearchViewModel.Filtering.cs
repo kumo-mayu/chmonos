@@ -65,10 +65,9 @@ public sealed partial class SearchViewModel
             .Select(item => _cards[item.Id])
             .ToList();
 
-        // 0件のときは自動で広げる。悪くなりようが無い（0件のままか、増えるか）。
-        // 「別の表記も探す」を入れているときは、当たっていても広げる——
-        // 0件のときしか使えないのはこちらの都合で、ユーザの都合ではない
-        if (_matches.Count == 0 || _searchAlternates)
+        // 別表記は「別表記でも検索」を入れているときだけ広げる。前は0件のときに自動で広げていたが、
+        // 切っているのに広げると切っている意味が無い（ユーザ判断 2026-09-16）。0件の所にボタンを出す
+        if (_searchAlternates)
         {
             TryWiden();
         }
@@ -83,6 +82,7 @@ public sealed partial class SearchViewModel
 
         OnPropertyChanged(nameof(ResultSummary));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ShowsWidenOffer));
         OnPropertyChanged(nameof(FilterSummary));
         OnPropertyChanged(nameof(ActiveFilterCount));
         OnPropertyChanged(nameof(HasActiveFilters));
@@ -110,21 +110,24 @@ public sealed partial class SearchViewModel
         }
 
         var token = ++_widenToken;
+        var options = _bridgeOptions;
+        var useCoined = _useCoined;
 
         Task.Run(() =>
         {
             var used = new Dictionary<string, List<Core.Search.BridgeCandidate>>(StringComparer.Ordinal);
-            var widened = _services.Bridge.Widen(node, used);
-            if (used.Count == 0)
+            var widened = options.Any ? _services.Bridge.Widen(node, used, options) : node;
+
+            // 造語変換は語を作らず、商品名の読みで照らすだけ。別表記が1つも作れなくても照らし直す
+            if (used.Count == 0 && !useCoined)
             {
                 return;
             }
 
             RunOnUiThread(() =>
             {
-                // 待っている間に打ち直されていたら捨てる。
-                // 当たっている検索を広げるのは、トグルを入れているときだけ
-                if (token != _widenToken || (_matches.Count > 0 && !_searchAlternates))
+                // 待っている間に打ち直されていたら捨てる
+                if (token != _widenToken || !_searchAlternates)
                 {
                     return;
                 }
@@ -136,6 +139,7 @@ public sealed partial class SearchViewModel
                     _widenedTerms[term] = candidates;
                 }
 
+                RefreshSearchOptions();
                 _matches = SortItems(_allItems.Where(item => Matches(item)))
                     .Select(item => _cards[item.Id])
                     .ToList();
@@ -151,6 +155,7 @@ public sealed partial class SearchViewModel
                 RebuildRows();
                 OnPropertyChanged(nameof(ResultSummary));
                 OnPropertyChanged(nameof(IsEmpty));
+                OnPropertyChanged(nameof(ShowsWidenOffer));
                 OnPropertyChanged(nameof(WidenedText));
                 OnPropertyChanged(nameof(HasWidened));
                 OnPropertyChanged(nameof(EmptyHint));
@@ -169,6 +174,7 @@ public sealed partial class SearchViewModel
 
         _widenedNode = null;
         _widenedTerms.Clear();
+        RefreshSearchOptions();
         OnPropertyChanged(nameof(WidenedText));
         OnPropertyChanged(nameof(HasWidened));
     }
@@ -570,15 +576,9 @@ public sealed partial class SearchViewModel
 
     private bool MatchesQuery(ItemRecord item)
         => !_haystacks.TryGetValue(item.Id, out var haystack)
-            || Core.Services.SearchQuery.Matches(
-                _widenedNode ?? _queryNode,
-                haystack,
-                _searchBody,
-                _searchPaths,
-
-                // 読みは広げるときだけ見る。組み立てた「あり得る読み」には外れも混じるので、
-                // 普段の検索から当たると「なぜこれが出たのか」が説明できなくなる
-                includeReadings: _widenedNode is not null);
+            // 読みは広げていて造語変換が入のときだけ見る（_searchOptions.IncludeReadings）。組み立てた「あり得る読み」には
+            // 外れも混じるので、普段の検索から当たると「なぜこれが出たのか」が説明できなくなる
+            || Core.Services.SearchQuery.Matches(_widenedNode ?? _queryNode, haystack, _searchOptions);
 
     /// <summary>
     /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。

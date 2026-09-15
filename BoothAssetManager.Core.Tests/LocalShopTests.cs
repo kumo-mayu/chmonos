@@ -205,8 +205,8 @@ public class LocalShopTests : IDisposable
 
         var haystack = SearchText.Build(item);
 
-        Assert.Contains("ほとぎやさん", haystack.Primary, StringComparison.Ordinal);
-        Assert.Contains("ほとぎ屋", haystack.Primary, StringComparison.Ordinal);
-        Assert.Contains("hotogiya", haystack.Primary, StringComparison.Ordinal);
+        Assert.Contains("ほとぎやさん", haystack.Folded(SearchField.Shop), StringComparison.Ordinal);
+        Assert.Contains("ほとぎ屋", haystack.Folded(SearchField.Shop), StringComparison.Ordinal);
+        Assert.Contains("hotogiya", haystack.Folded(SearchField.Subdomain), StringComparison.Ordinal);
     }
 }

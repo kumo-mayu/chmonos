@@ -100,12 +100,56 @@ public class SearchBridgeTests : IDisposable
         Assert.Contains("鳥", Texts("bird"));
     }
 
-    /// <summary>日本語で打たれた語には橋を架けない。そのまま当たるので要らない。</summary>
+    /// <summary>漢字を含む語には橋を架けない。そのまま当たるので要らない。</summary>
     [Fact]
-    public void DoesNothingForJapaneseInput()
+    public void DoesNothingForKanjiInput()
     {
         Assert.Empty(_bridge.Expand("鳥"));
-        Assert.Empty(_bridge.Expand("タマクラゲ"));
+        Assert.Empty(_bridge.Expand("撫で音"));
+    }
+
+    /// <summary>ひらがなで打った語から漢字へ（漢字変換・2026-09-16）。</summary>
+    [Fact]
+    public void ReachesKanjiFromHiragana()
+    {
+        if (!Available)
+        {
+            return;
+        }
+
+        Assert.Contains("鳥", Texts("とり"));
+        Assert.Contains("指輪", Texts("ゆびわ"));
+    }
+
+    /// <summary>カタカナで打った外来語から英語へ（日英変換・2026-09-16）。</summary>
+    [Fact]
+    public void ReachesEnglishFromKatakana()
+    {
+        if (!Available)
+        {
+            return;
+        }
+
+        Assert.Contains("shark", Texts("サメ"));
+        Assert.Contains("ribbon", Texts("リボン"));
+    }
+
+    /// <summary>道ごとに切れる（ユーザ案：別表記の中身をそれぞれトグル）。</summary>
+    [Fact]
+    public void RoutesCanBeTurnedOff()
+    {
+        if (!Available)
+        {
+            return;
+        }
+
+        var noKanji = _bridge.Expand("tori", new BridgeOptions(Kanji: false)).Select(c => c.Text).ToList();
+        Assert.Contains("とり", noKanji);
+        Assert.DoesNotContain("鳥", noKanji);
+
+        Assert.DoesNotContain("サメ", _bridge.Expand("shark", new BridgeOptions(EnglishToJapanese: false)).Select(c => c.Text));
+        Assert.Empty(_bridge.Expand("サメ", new BridgeOptions(JapaneseToEnglish: false)));
+        Assert.DoesNotContain("とり", _bridge.Expand("tori", new BridgeOptions(Romaji: false)).Select(c => c.Text));
     }
 
     /// <summary>1文字の入力には架けない。候補が多すぎて絞り込みにならない。</summary>

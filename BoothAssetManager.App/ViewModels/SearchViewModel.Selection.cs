@@ -197,55 +197,7 @@ public sealed partial class SearchViewModel
         }
     }
 
-    /// <summary>
-    /// 別の表記でも探すか。
-    ///
-    /// 切っていても**0件のときは自動で広げる**（何も出ないより出た方がよく、
-    /// 広げたことは結果の上に出るので誤解も生まない）。
-    /// 入にすると、当たっているときも一緒に広げる——
-    /// 「tori」で当たった商品があっても『鳥』の商品を見たい場面があるため。
-    /// </summary>
-    public bool SearchAlternates
-    {
-        get => _searchAlternates;
-        set
-        {
-            if (SetField(ref _searchAlternates, value))
-            {
-                ClearWidening();
-                ApplyFilters();
-            }
-        }
-    }
-
-    /// <summary>説明文とh2セクションも探すか。</summary>
-    public bool SearchBody
-    {
-        get => _searchBody;
-        set
-        {
-            if (SetField(ref _searchBody, value))
-            {
-                ApplyFilters();
-            }
-        }
-    }
-
-    /// <summary>
-    /// ファイルのパスも探すか。
-    /// 自分でリネームしたファイルは商品名と一致しないので、パスしか手掛かりが無い場合がある。
-    /// </summary>
-    public bool SearchPaths
-    {
-        get => _searchPaths;
-        set
-        {
-            if (SetField(ref _searchPaths, value))
-            {
-                ApplyFilters();
-            }
-        }
-    }
+    // 探す対象・区別の切り替え・別表記は SearchViewModel.TextOptions.cs
 
     public string? SelectedCategory
     {

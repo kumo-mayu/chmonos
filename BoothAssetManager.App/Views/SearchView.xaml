@@ -683,13 +683,19 @@
             <Border DockPanel.Dock="Top" Height="78" Background="{StaticResource Surface}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
                 <StackPanel Margin="18,9,18,0">
+                  <!-- 検索欄の右に「対象」と「オプション」（ユーザ案 2026-09-15）。どちらもトグルなので、開いたまま続けて切り替えられる -->
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <Border BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6"
                             Height="34" HorizontalAlignment="Stretch" Background="White">
                         <Grid>
                             <TextBox x:Name="QueryBox" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0"
                                      FontSize="13" Background="Transparent" />
-                            <TextBlock Text="商品名・ショップ・メモ・タグから探す" IsHitTestVisible="False"
+                            <TextBlock Text="{Binding QueryPlaceholder}" IsHitTestVisible="False"
                                        Foreground="{StaticResource TextFaint}" FontSize="13"
                                        VerticalAlignment="Center" Margin="12,0,0,0">
                                 <TextBlock.Style>
@@ -706,56 +712,69 @@
                         </Grid>
                     </Border>
 
-                    <!--
-                        書き方の見本と、探す範囲を広げるトグル。
-                        2つのトグルはどちらも「既定より広げる」という同じ性質なので1行に並べる。
-                    -->
-                    <!--
-                        **列に分けてある。**1つのセルに左寄せと右寄せを重ねると、
-                        窓を狭めたときに文字が重なって読めなくなる（1100pxで実測）。
-                        見本は削れてよいので `*` 側に置き、はみ出した分は切る。
-                        トグルは操作なので `Auto` で必ず残す
-                    -->
-                    <Grid Margin="2,5,2,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True">
-                            <TextBlock Style="{StaticResource Mono}" FontSize="11" Text="衣装 -無料 &quot;夏セット&quot;" />
-                            <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="衣装 (夏 OR 冬)" />
-                            <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" Foreground="{StaticResource TextFaint}"
-                                       Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり">
-                                <TextBlock.ToolTip>
-                                    <TextBlock>
-                                        スペースで区切ると、どちらも含むものを探します。<LineBreak />
-                                        -無料 のように書くと、その語を含むものを除きます。<LineBreak />
-                                        &quot;夏セット&quot; と囲むと、その並びのまま含むものだけを探します。<LineBreak />
-                                        <LineBreak />
-                                        括弧が無いと 衣装 夏 OR 冬 は「衣装かつ夏」または「冬」と読まれます。<LineBreak />
-                                        衣装 (夏 OR 冬) と書けば「衣装かつ、夏か冬」になります。
-                                    </TextBlock>
-                                </TextBlock.ToolTip>
-                            </TextBlock>
-                        </StackPanel>
+                    <Menu Grid.Column="1" Background="Transparent" VerticalAlignment="Center" Margin="8,0,0,0">
+                        <MenuItem Header="対象 ▾" ItemsSource="{Binding TargetOptions}" Height="34" Padding="10,0"
+                                  ToolTip="文字列で探す所を選びます。name: のように前置きを付けた語は、ここで切っていてもその所だけを探します。">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Header}" />
+                                    <Setter Property="IsCheckable" Value="True" />
+                                    <Setter Property="IsChecked" Value="{Binding IsOn, Mode=TwoWay}" />
+                                    <Setter Property="StaysOpenOnClick" Value="True" />
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <MenuItem Header="オプション ▾" Height="34" Padding="10,0">
+                            <MenuItem Header="大文字と小文字を区別する" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding CaseSensitive, Mode=TwoWay}" />
+                            <MenuItem Header="全角と半角を区別する" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding WidthSensitive, Mode=TwoWay}" />
+                            <MenuItem Header="ひらがなとカタカナを区別する" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding KanaSensitive, Mode=TwoWay}" />
+                            <Separator />
+                            <MenuItem Header="別表記でも検索" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding SearchAlternates, Mode=TwoWay}"
+                                      ToolTip="打った語を、読み・漢字・英語などの別の書き方でも探します。何で当たったかは結果の上に出ます。" />
+                            <MenuItem Header="　ローマ字変換（tori → とり・トリ）" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseRomaji, Mode=TwoWay}" />
+                            <MenuItem Header="　漢字変換（とり → 鳥）" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseKanji, Mode=TwoWay}" />
+                            <MenuItem Header="　英日変換（shark → サメ）" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseEnglishToJapanese, Mode=TwoWay}" />
+                            <MenuItem Header="　日英変換（リボン → ribbon）" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseJapaneseToEnglish, Mode=TwoWay}" />
+                            <MenuItem Header="　造語変換（nadeoto → 撫で音）" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseCoined, Mode=TwoWay}"
+                                      ToolTip="辞書に無い語は、商品名の漢字を1字ずつ読んで照らします。" />
+                        </MenuItem>
+                    </Menu>
+                  </Grid>
 
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
-                                    Margin="10,0,0,0">
-                            <CheckBox Content="本文も探す" IsChecked="{Binding SearchBody, Mode=TwoWay}" FontSize="11"
-                                      VerticalAlignment="Center"
-                                      ToolTip="説明文とセクションの本文も対象にします。当たる件数が増えます。" />
-                            <CheckBox Content="ファイルのパスも探す" IsChecked="{Binding SearchPaths, Mode=TwoWay}" FontSize="11"
-                                      VerticalAlignment="Center" Margin="14,0,0,0"
-                                      ToolTip="自分でリネームしたファイルは商品名と一致しないので、そのときに使います。" />
-                            <!--
-                                0件のときは切っていても自動で広げる。ここを入にすると、
-                                当たっているときも一緒に広げる。
-                            -->
-                            <CheckBox Content="別の表記も探す" IsChecked="{Binding SearchAlternates, Mode=TwoWay}" FontSize="11"
-                                      VerticalAlignment="Center" Margin="14,0,0,0"
-                                      ToolTip="tori で「鳥」、shark で「サメ」のように、読みや英語からも探します。&#10;0件のときは、ここを切っていても自動で探します。" />
-                        </StackPanel>
-                    </Grid>
+                    <!-- 書き方の見本。削れてよいので、はみ出した分は切る -->
+                    <StackPanel Orientation="Horizontal" ClipToBounds="True" Margin="2,5,2,0">
+                        <TextBlock Style="{StaticResource Mono}" FontSize="11" Text="衣装 -無料 &quot;夏セット&quot;" />
+                        <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="衣装 (夏 OR 冬)" />
+                        <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="path:ring" />
+                        <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" Foreground="{StaticResource TextFaint}"
+                                   Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり、name: で探す所を絞る">
+                            <TextBlock.ToolTip>
+                                <TextBlock>
+                                    スペースで区切ると、どちらも含むものを探します。<LineBreak />
+                                    -無料 のように書くと、その語を含むものを除きます。<LineBreak />
+                                    &quot;夏セット&quot; と囲むと、その並びのまま含むものだけを探します。<LineBreak />
+                                    <LineBreak />
+                                    括弧が無いと 衣装 夏 OR 冬 は「衣装かつ夏」または「冬」と読まれます。<LineBreak />
+                                    衣装 (夏 OR 冬) と書けば「衣装かつ、夏か冬」になります。<LineBreak />
+                                    <LineBreak />
+                                    前に付けると、その所だけを探します（「対象」で切っていても探します）：<LineBreak />
+                                    name: 商品名　shop: ショップ名　memo: メモ　subdomain: サブドメイン　main: 本文<LineBreak />
+                                    tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
+                                    file: ファイル名　path: ファイルの場所　content: zip の中のファイル名<LineBreak />
+                                    name:&quot;夏 セット&quot; や tag:(夏 OR 冬) のようにも書けます。&quot;…&quot; の中の name: はそのままの文字として探します。
+                                </TextBlock>
+                            </TextBlock.ToolTip>
+                        </TextBlock>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -873,6 +892,11 @@
                     -->
                     <TextBlock Text="{Binding EmptyHint}" Style="{StaticResource Caption}"
                                HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <!-- 0件でも自動では広げない（ユーザ判断 2026-09-16）。広げるかはここで選ばせる -->
+                    <Button Content="別表記でも検索する" Style="{StaticResource SmallButton}" HorizontalAlignment="Center"
+                            Margin="0,10,0,0" Command="{Binding WidenCommand}"
+                            ToolTip="tori で「鳥」、shark で「サメ」のように、読み・漢字・英語などの別の書き方でも探します。"
+                            Visibility="{Binding ShowsWidenOffer, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
                 <!-- カード／リストの切り替え。右下の空いた所に重ねる（ユーザ指示 2026-09-14） -->

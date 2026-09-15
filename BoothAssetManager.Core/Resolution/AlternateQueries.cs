@@ -51,7 +51,7 @@ public static class AlternateQueries
 
         // ① 読みの経路。漢字を含むものを先に——かなよりも商品名に使われている見込みが高い
         Add(tokens
-            .SelectMany(bridge.Expand)
+            .SelectMany(token => bridge.Expand(token))
             .Where(candidate => candidate.Via != BridgeRoute.English)
             .Select(candidate => candidate.Text)
             .OrderByDescending(HasKanji)
@@ -60,7 +60,7 @@ public static class AlternateQueries
         // ② 英語の経路。割る前の綴りで引く。
         //    日本語の表記を先に——ＳＩＧ のような全角ラテン文字は商品名に使われない
         Add(FileNameQuery.UndividedTokens(filePath)
-            .SelectMany(bridge.Expand)
+            .SelectMany(token => bridge.Expand(token))
             .Where(candidate => candidate.Via == BridgeRoute.English)
             .Select(candidate => candidate.Text)
             .OrderByDescending(IsJapanese)

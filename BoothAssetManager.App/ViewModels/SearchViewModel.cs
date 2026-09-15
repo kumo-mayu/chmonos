@@ -48,8 +48,6 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
     private List<ItemCardViewModel> _matches = [];
     private string _queryText = string.Empty;
     private Core.Services.SearchNode _queryNode = new Core.Services.SearchNode.All();
-    private bool _searchBody;
-    private bool _searchPaths;
     private bool _searchAlternates;
     private string? _selectedCategory;
     private bool _ownedOnly;

@@ -47,9 +47,18 @@ public sealed record SearchHistoryEntry
 
     // ---- 探す範囲 ----
 
-    public bool SearchBody { get; init; }
+    /// <summary>
+    /// 文字列で探した対象（前置きの名前：<c>name</c>・<c>main</c> など）。**既定のままなら空**
+    /// （既定の対象を後から変えても、古い履歴が既定に追従する）。
+    /// </summary>
+    public IReadOnlyList<string> Targets { get; init; } = [];
 
-    public bool SearchPaths { get; init; }
+    public bool CaseSensitive { get; init; }
+
+    public bool WidthSensitive { get; init; }
+
+    /// <summary>ひらがなとカタカナを区別しない。既定（区別する）を false にしておくため、否定の形で持つ。</summary>
+    public bool KanaInsensitive { get; init; }
 
     public bool SearchAlternates { get; init; }
 
@@ -106,7 +115,7 @@ public sealed record SearchHistoryEntry
     ///
     /// **同じ検索を2回しても2行にしない。**時刻と名前は含めない——
     /// 条件が同じなら同じ検索で、上に持ち上げるだけでよい。
-    /// 探す範囲（本文・パス・別表記）は結果を変えるので含める。
+    /// 探す対象・区別の切り替え・別表記は結果を変えるので含める。
     /// 表示順は結果の中身を変えないが、**戻したい状態の一部**なので含める。
     /// </summary>
     [JsonIgnore]
@@ -121,12 +130,14 @@ public sealed record SearchHistoryEntry
             text.Append(MissingOnly ? '1' : '0');
             text.Append(GivenOnly ? '1' : '0');
             text.Append(ReceivedOnly ? '1' : '0');
-            text.Append(SearchBody ? '1' : '0');
-            text.Append(SearchPaths ? '1' : '0');
+            text.Append(CaseSensitive ? '1' : '0');
+            text.Append(WidthSensitive ? '1' : '0');
+            text.Append(KanaInsensitive ? '1' : '0');
             text.Append(SearchAlternates ? '1' : '0');
             text.Append(AvatarHasBase ? '1' : '0').Append(Separator);
             text.Append(AvatarName).Append(Separator);
             text.Append(Sort).Append(Separator);
+            text.Append(string.Join(',', Targets.OrderBy(name => name, StringComparer.Ordinal))).Append(Separator);
 
             // 並べ替えてから繋ぐ。積んだ順が違うだけで別物にはしない
             text.Append(string.Join(',', UserTags.OrderBy(tag => tag, StringComparer.Ordinal))).Append(Separator);
@@ -199,14 +210,19 @@ public sealed record SearchHistoryEntry
             parts.AddRange(Attributes.Select(range => $"{range.Name} {range.Min}〜{range.Max}"));
 
             // 探す範囲は結果を変えるので出す。表示順は出さない（思い出す手掛かりにならない）
-            if (SearchBody)
+            if (Targets.Count > 0)
             {
-                parts.Add("本文も");
+                parts.Add("対象 " + string.Join(",", Targets));
             }
 
-            if (SearchPaths)
+            if (CaseSensitive || WidthSensitive || KanaInsensitive)
             {
-                parts.Add("パスも");
+                parts.Add(string.Join("・", new[]
+                {
+                    CaseSensitive ? "大小を区別" : null,
+                    WidthSensitive ? "全角半角を区別" : null,
+                    KanaInsensitive ? "かなを区別しない" : null,
+                }.OfType<string>()));
             }
 
             if (SearchAlternates)

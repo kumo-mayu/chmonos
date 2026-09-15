@@ -227,7 +227,7 @@ public class LocalItemTests : IDisposable
 
         var haystack = SearchText.Build(item);
 
-        Assert.Contains("とりさん", haystack.Primary, StringComparison.Ordinal);
-        Assert.Contains("bird", haystack.Primary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("とりさん", haystack.Folded(SearchField.Name), StringComparison.Ordinal);
+        Assert.Contains("bird", haystack.Folded(SearchField.Name), StringComparison.OrdinalIgnoreCase);
     }
 }

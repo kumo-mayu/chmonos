@@ -43,8 +43,10 @@ public sealed partial class SearchViewModel
             MissingOnly = _missingOnly,
             GivenOnly = _givenOnly,
             ReceivedOnly = _receivedOnly,
-            SearchBody = _searchBody,
-            SearchPaths = _searchPaths,
+            Targets = TargetsForHistory(),
+            CaseSensitive = _caseSensitive,
+            WidthSensitive = _widthSensitive,
+            KanaInsensitive = !_kanaSensitive,
             SearchAlternates = _searchAlternates,
             AvatarName = _avatarFilterName,
             AvatarId = long.TryParse(_avatarFilterId, out var avatarId) ? avatarId : null,
@@ -131,8 +133,7 @@ public sealed partial class SearchViewModel
         _missingOnly = entry.MissingOnly;
         _givenOnly = entry.GivenOnly;
         _receivedOnly = entry.ReceivedOnly;
-        _searchBody = entry.SearchBody;
-        _searchPaths = entry.SearchPaths;
+        RestoreTextOptions(entry.Targets, entry.CaseSensitive, entry.WidthSensitive, !entry.KanaInsensitive);
         _searchAlternates = entry.SearchAlternates;
 
         _avatarFilterName = entry.AvatarName;
@@ -179,8 +180,7 @@ public sealed partial class SearchViewModel
         foreach (var name in new[]
         {
             nameof(QueryText), nameof(SelectedCategory), nameof(OwnedOnly),
-            nameof(GivenOnly), nameof(ReceivedOnly), nameof(SearchBody),
-            nameof(SearchPaths), nameof(SearchAlternates), nameof(Sort),
+            nameof(GivenOnly), nameof(ReceivedOnly), nameof(SearchAlternates), nameof(Sort),
         })
         {
             OnPropertyChanged(name);

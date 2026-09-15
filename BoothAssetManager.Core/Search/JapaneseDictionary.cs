@@ -28,8 +28,14 @@ public sealed class JapaneseDictionary
     /// <summary>読み1つにつき返す表記の数。読みは英語ほど散らないので浅くてよい。</summary>
     private const int ReadingForms = 4;
 
-    /// <summary>組み上げた索引の形式。上げると古いキャッシュを作り直す。</summary>
-    private const int CacheVersion = 2;
+    /// <summary>
+    /// 読み1つにつき返す英語の数（日英変換・2026-09-16）。1番目の意味の語を先に並べるので、
+    /// 浅くても外しにくい。深くすると2番目以降の意味（サメ→「loan shark」）まで探して誤爆が増える
+    /// </summary>
+    private const int KanaEnglish = 3;
+
+    /// <summary>組み上げた索引の形式。上げると古いキャッシュを作り直す（3：読み→英語の索引を足した）。</summary>
+    private const int CacheVersion = 3;
 
     private readonly string _dictionaryPath;
     private readonly string _cachePath;
@@ -37,6 +43,7 @@ public sealed class JapaneseDictionary
 
     private Dictionary<string, string[]>? _byEnglish;
     private Dictionary<string, string[]>? _byReading;
+    private Dictionary<string, string[]>? _byKana;
     private bool _failed;
 
     public JapaneseDictionary(string dictionaryPath, string cachePath)
@@ -65,6 +72,16 @@ public sealed class JapaneseDictionary
     {
         EnsureLoaded();
         return _byReading is not null && _byReading.TryGetValue(reading, out var forms) ? forms : [];
+    }
+
+    /// <summary>
+    /// 読み（ひらがな）から英語を引く（日英変換・2026-09-16）。カタカナで打った外来語から、
+    /// 英語で名付けた商品に届くように。漢字を持たない語（サメ・リボン）も引ける。
+    /// </summary>
+    public IReadOnlyList<string> ByKana(string reading)
+    {
+        EnsureLoaded();
+        return _byKana is not null && _byKana.TryGetValue(reading, out var words) ? words : [];
     }
 
     /// <summary>
@@ -106,6 +123,7 @@ public sealed class JapaneseDictionary
                 _failed = true;
                 _byEnglish = null;
                 _byReading = null;
+                _byKana = null;
                 LoadError = exception.Message;
             }
         }
@@ -115,6 +133,7 @@ public sealed class JapaneseDictionary
     {
         var english = new Dictionary<string, List<Ranked>>(StringComparer.Ordinal);
         var reading = new Dictionary<string, List<Ranked>>(StringComparer.Ordinal);
+        var kanaToEnglish = new Dictionary<string, List<Ranked>>(StringComparer.Ordinal);
 
         using var file = File.OpenRead(_dictionaryPath);
         using var gzip = new GZipStream(file, CompressionMode.Decompress);
@@ -147,15 +166,32 @@ public sealed class JapaneseDictionary
             {
                 Add(reading, kana, entry.Forms, entry.FormRank);
             }
+
+            if (entry.EnglishForms.Length > 0)
+            {
+                foreach (var kana in entry.AllKana)
+                {
+                    Add(kanaToEnglish, kana, entry.EnglishForms, entry.FormRank);
+                }
+            }
         }
 
         _byEnglish = Pack(english, EnglishForms);
         _byReading = Pack(reading, ReadingForms);
+        _byKana = Pack(kanaToEnglish, KanaEnglish);
     }
 
     private sealed record Ranked(string[] Forms, int Rank);
 
-    private sealed record Entry(string[] Forms, int FormRank, List<(string Gloss, int Rank)> Glosses, List<string> Readings);
+    /// <param name="AllKana">漢字の有無を問わない全部の読み（ひらがな）。読み→英語の鍵。</param>
+    /// <param name="EnglishForms">英語の語義を意味の順に（1番目の意味の最初の語が先頭）。</param>
+    private sealed record Entry(
+        string[] Forms,
+        int FormRank,
+        List<(string Gloss, int Rank)> Glosses,
+        List<string> Readings,
+        List<string> AllKana,
+        string[] EnglishForms);
 
     /// <summary>
     /// 1項目を読む。使うのは表記・読み・語義・頻度の印だけで、品詞や用例は読み飛ばす。
@@ -311,11 +347,26 @@ public sealed class JapaneseDictionary
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
 
+        var allKana = kana
+            .Select(entry => ToHiragana(entry.Text))
+            .Where(IsKana)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var englishForms = glosses
+            .OrderByDescending(entry => entry.Rank)
+            .Select(entry => entry.Gloss)
+            .Distinct(StringComparer.Ordinal)
+            .Take(KanaEnglish)
+            .ToArray();
+
         return new Entry(
             forms,
             formRank,
             glosses.Select(entry => (entry.Gloss, entry.Rank + formRank)).ToList(),
-            readings);
+            readings,
+            allKana,
+            englishForms);
     }
 
     private static void Add(Dictionary<string, List<Ranked>> index, string key, string[] forms, int rank)
@@ -409,7 +460,7 @@ public sealed class JapaneseDictionary
 
     // ---- キャッシュ ----
     //
-    // 「鍵\t表記\t表記…」を1行ずつ。英語の索引と読みの索引を空行で区切る。
+    // 「鍵\t表記\t表記…」を1行ずつ。英語の索引・読みの索引・読み→英語の索引を空行で区切る。
     // 人が開いて読める形にしてあるのは、このツール全体の方針に合わせたもの。
 
     private bool TryLoadCache()
@@ -427,13 +478,17 @@ public sealed class JapaneseDictionary
 
         var english = new Dictionary<string, string[]>(StringComparer.Ordinal);
         var reading = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var kanaToEnglish = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var sections = new[] { english, reading, kanaToEnglish };
+        var section = 0;
         var target = english;
 
         while (reader.ReadLine() is { } line)
         {
             if (line.Length == 0)
             {
-                target = reading;
+                section = Math.Min(section + 1, sections.Length - 1);
+                target = sections[section];
                 continue;
             }
 
@@ -446,12 +501,13 @@ public sealed class JapaneseDictionary
 
         _byEnglish = english;
         _byReading = reading;
+        _byKana = kanaToEnglish;
         return true;
     }
 
     private void SaveCache()
     {
-        if (_byEnglish is null || _byReading is null)
+        if (_byEnglish is null || _byReading is null || _byKana is null)
         {
             return;
         }
@@ -469,6 +525,8 @@ public sealed class JapaneseDictionary
             WriteSection(writer, _byEnglish);
             writer.WriteLine();
             WriteSection(writer, _byReading);
+            writer.WriteLine();
+            WriteSection(writer, _byKana);
         }
 
         File.Move(temp, _cachePath, overwrite: true);

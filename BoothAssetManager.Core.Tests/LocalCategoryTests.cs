@@ -109,9 +109,12 @@ public class LocalCategoryTests
         Assert.False(item.HasUserCategory);
     }
 
-    /// <summary>入れた分類も検索対象。入れたのに探せないなら意味が無い。</summary>
+    /// <summary>
+    /// 入れた分類は文字列では探さない（ユーザ判断 2026-09-16「カテゴリは文字列の方には不要」）。
+    /// 分類は絞り込みの条件で選ぶ物で、文字列にも入れると「なぜこれが出たのか」が分かりにくくなる。
+    /// </summary>
     [Fact]
-    public void SearchesTheCategoryTheUserEntered()
+    public void CategoryIsNotATextTarget()
     {
         var item = new ItemRecord
         {
@@ -120,6 +123,10 @@ public class LocalCategoryTests
             Local = new LocalBlock { Category = "3Dキャラクター" },
         };
 
-        Assert.Contains("3dキャラクター", SearchText.Build(item).Primary, StringComparison.OrdinalIgnoreCase);
+        var haystack = SearchText.Build(item);
+        foreach (var field in Enum.GetValues<SearchField>())
+        {
+            Assert.DoesNotContain("3dキャラクター", haystack.Folded(field), StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

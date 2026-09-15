@@ -1,37 +1,124 @@
+using System.Globalization;
 using System.Text;
 
 namespace BoothAssetManager.Core.Services;
 
 /// <summary>
-/// 検索対象の文字列。3つに分けているのは、探す範囲をトグルで広げられるようにするため。
-///
-/// 1本に繋いでから渡す形にしないのは、繋ぐ処理が入力1文字ごとに全商品ぶん走るため。
-/// 分けたまま持って、項ごとに「どれかに含まれるか」を見る。
+/// 文字列で探す対象（ユーザ案 2026-09-15・`docs/history/search-redesign.md`）。
+/// 前置き（<c>name:</c> など）の名前は <see cref="SearchQuery.FieldNames"/>。
 /// </summary>
-public sealed record SearchHaystack
+public enum SearchField
 {
-    /// <summary>既定で探す範囲。商品名／ショップ名／サブドメイン／メモ／BOOTHタグ。</summary>
-    public required string Primary { get; init; }
+    /// <summary>商品名（自分で付けた名前と BOOTH の名前）。</summary>
+    Name,
 
-    /// <summary>「本文も探す」で加わる範囲。説明文とh2セクション。</summary>
-    public string Body { get; init; } = string.Empty;
+    /// <summary>ショップ名（自分で入れた名前と BOOTH の名前）。</summary>
+    Shop,
 
-    /// <summary>「ファイルのパスも探す」で加わる範囲。</summary>
-    public string Paths { get; init; } = string.Empty;
+    Subdomain,
+
+    Memo,
+
+    /// <summary>本文（説明文と h2 の見出し・本文）。</summary>
+    Main,
+
+    /// <summary>手元のファイル・フォルダの保存場所の全体。</summary>
+    Path,
+
+    /// <summary>商品ID（仮ID <c>local-</c> を含む）。</summary>
+    Id,
+
+    /// <summary>種類（バリエーション）の名前。BOOTH の今の名前と、購入記録に写した名前。</summary>
+    Variation,
+
+    /// <summary>手元のファイル自体の名前（フォルダで持つ物はフォルダの名前）。</summary>
+    File,
+
+    /// <summary>zip の中のファイル名。</summary>
+    Content,
+
+    /// <summary>BOOTHタグ。</summary>
+    Tag,
+}
+
+/// <summary>
+/// 文字列で探すときの切り替え（ユーザ案 2026-09-15）。既定は「商品名・ショップ名・メモ」を、
+/// 大文字と小文字・全角と半角を区別せず、ひらがなとカタカナは区別して探す。
+/// </summary>
+public sealed record SearchOptions
+{
+    public static IReadOnlySet<SearchField> DefaultTargets { get; } =
+        new HashSet<SearchField> { SearchField.Name, SearchField.Shop, SearchField.Memo };
+
+    public static SearchOptions Default { get; } = new();
+
+    /// <summary>前置きの無い語を探す対象。前置きのある語は、ここに無い対象でも探す（ユーザ判断 2026-09-16）。</summary>
+    public IReadOnlySet<SearchField> Targets { get; init; } = DefaultTargets;
+
+    public bool CaseSensitive { get; init; }
+
+    public bool WidthSensitive { get; init; }
+
+    public bool KanaSensitive { get; init; } = true;
 
     /// <summary>
-    /// 商品名の読み。**表記をまたいで探すときだけ**加わる範囲。
-    ///
-    /// 常に見ないのは、漢字1字ごとの音訓から組み立てた「あり得る読み」で、
-    /// 外れも混じっているため。0件のときに広げる場面でだけ効かせる。
+    /// 商品名の読み（漢字1字ごとの音訓から組んだ「あり得る読み」）も見る。**造語変換を入れたときだけ。**
+    /// 常に見ないのは、外れの読みも混じっていて「なぜこれが出たのか」を説明できないため。
     /// </summary>
-    public string Readings { get; init; } = string.Empty;
+    public bool IncludeReadings { get; init; }
+
+    /// <summary>大文字小文字と全角半角を区別しない（＝前もって畳んだ文字列で速く比べられる）か。</summary>
+    internal bool UsesFold => !CaseSensitive && !WidthSensitive;
+}
+
+/// <summary>
+/// 1商品の、文字列で探す材料。
+///
+/// **畳んだ文字列は、その対象を初めて探すときに作って持つ。**入力1文字ごとに全商品の説明文を畳むと重いので
+/// 1度だけ作るが、本文や zip の中身は既定で探さないので、使われるまで作らない（メモリを食わない）。
+/// 大文字と小文字・全角と半角を区別するときは、畳まずに元の文字列（商品の記録そのもの）と比べる。
+/// </summary>
+public sealed class SearchHaystack
+{
+    private static readonly int FieldCount = Enum.GetValues<SearchField>().Length;
+
+    private readonly Func<SearchField, IReadOnlyList<string>> _raw;
+    private readonly string?[] _folded = new string?[FieldCount];
+    private readonly string?[] _foldedKana = new string?[FieldCount];
+
+    /// <param name="raw">対象ごとの元の文字列。何度呼ばれてもよい（元の記録から作り直す）。</param>
+    /// <param name="readings">商品名の読み（畳み済み）。</param>
+    public SearchHaystack(Func<SearchField, IReadOnlyList<string>> raw, string readings = "")
+    {
+        _raw = raw;
+        Readings = readings;
+    }
+
+    /// <summary>商品名の読み（畳み済み・ひらがな）。造語変換のときだけ見る。</summary>
+    public string Readings { get; }
+
+    /// <summary>試験用：対象ごとの文字列から作る。</summary>
+    public static SearchHaystack FromValues(IReadOnlyDictionary<SearchField, string[]> values, string readings = "")
+        => new(field => values.TryGetValue(field, out var list) ? list : [], SearchQuery.Normalize(readings));
+
+    public IReadOnlyList<string> Raw(SearchField field) => _raw(field);
+
+    /// <summary>
+    /// 畳んだ文字列（NFKC＋小文字）。値ごとに改行で区切って繋ぐ——区切らずに繋ぐと、隣り合った値の末尾と先頭が
+    /// 1つの語のように見えて、打っていない組み合わせに当たってしまう。
+    /// </summary>
+    public string Folded(SearchField field)
+        => _folded[(int)field] ??= SearchQuery.Normalize(string.Join('\n', _raw(field).Where(value => value.Length > 0)));
+
+    /// <summary>畳んだうえで、カタカナをひらがなに寄せた文字列（「ひらがなとカタカナを区別しない」とき）。</summary>
+    public string FoldedIgnoringKana(SearchField field)
+        => _foldedKana[(int)field] ??= SearchQuery.ToHiragana(Folded(field));
 }
 
 /// <summary>
 /// 検索式の1ノード。
 ///
-/// スペース＝AND、<c>-語</c>＝除外、<c>"..."</c>＝フレーズ、<c>OR</c>、<c>( )</c> で優先順位。
+/// スペース＝AND、<c>-語</c>＝除外、<c>"..."</c>＝フレーズ、<c>OR</c>、<c>( )</c> で優先順位、<c>name:語</c>＝対象を絞る。
 /// 記号を基本にしたのは、日常の入力がスペース区切りだから。毎回 AND と打つのは負担で、
 /// NOT より <c>-</c> の方が短い。ORだけは記号に定訳がないので語句にする。
 /// </summary>
@@ -44,8 +131,16 @@ public abstract record SearchNode
     /// <summary>条件なし。空の入力はすべてに当たる。</summary>
     public sealed record All : SearchNode;
 
-    /// <summary>1つの語、またはフレーズ。<see cref="Text"/> は正規化済み。</summary>
-    public sealed record Term(string Text) : SearchNode;
+    /// <summary>1つの語、またはフレーズ。</summary>
+    /// <param name="Text">畳んだ語（NFKC＋小文字）。既定の比べ方と、別表記を作るときに使う。</param>
+    /// <param name="Raw">打ったままの語。大文字と小文字・全角と半角を区別するときに使う。</param>
+    /// <param name="Field">前置きで絞った対象。無ければ「対象」の切り替えに従う。</param>
+    /// <param name="WholeWord">
+    /// 英単語の区切りで当てる。日英変換で作った英語にだけ付ける——部分一致だと短い英語が別の単語の途中に当たり
+    /// （top が stop に当たる）、増えた当たりのうち関係のある目安は 32%。区切りで当てると 64% に上がった（2026-09-16・試験データで測定・
+    /// `experiments/KatakanaEnglishProbe`）。
+    /// </param>
+    public sealed record Term(string Text, string Raw, SearchField? Field = null, bool WholeWord = false) : SearchNode;
 
     public sealed record Not(SearchNode Inner) : SearchNode;
 
@@ -57,12 +152,38 @@ public abstract record SearchNode
 /// <summary>
 /// 検索文字列の解釈。
 ///
-/// 全角で入力されがちなので、先にNFKCで畳んでから読む。
-/// これで全角の括弧・引用符・ハイフン・空白がすべて半角と同じ扱いになる
-/// （日本語入力では全角のまま打たれる方が普通なので、ここを外すと構文が動かない）。
+/// **構文の記号は1字ずつ NFKC で畳んでから読む**（ユーザ判断 2026-09-16「記号も畳みましょう」）。
+/// 日本語入力では全角の括弧・引用符・ハイフン・空白・コロンのまま打たれるのが普通なので、畳まないと構文が動かない。
+/// 語の中身は打ったままも持ち、区別する切り替えのときはそちらで比べる。
 /// </summary>
 public static class SearchQuery
 {
+    /// <summary>
+    /// 前置きの名前（ユーザ案 2026-09-15）。**ここに無い語は前置きとして読まない**（ユーザ判断 2026-09-16）——
+    /// 「Re:Zero」や URL の「https:」を対象の指定と取り違えない。
+    /// </summary>
+    public static IReadOnlyDictionary<string, SearchField> FieldNames { get; } = new Dictionary<string, SearchField>(StringComparer.Ordinal)
+    {
+        ["name"] = SearchField.Name,
+        ["shop"] = SearchField.Shop,
+        ["subdomain"] = SearchField.Subdomain,
+        ["memo"] = SearchField.Memo,
+        ["main"] = SearchField.Main,
+        ["path"] = SearchField.Path,
+        ["id"] = SearchField.Id,
+        ["variation"] = SearchField.Variation,
+        ["file"] = SearchField.File,
+        ["content"] = SearchField.Content,
+        ["tag"] = SearchField.Tag,
+    };
+
+    public static string FieldName(SearchField field) => FieldNames.First(pair => pair.Value == field).Key;
+
+    /// <summary>
+    /// 区別する切り替えのときの比べ方。日本語の決まり（全角と半角・ひらがなとカタカナの対応）を知っている比べ方を使う。
+    /// </summary>
+    private static readonly CompareInfo JapaneseCompare = CultureInfo.GetCultureInfo("ja-JP").CompareInfo;
+
     /// <summary>
     /// 比較用に文字列を畳む。NFKC＋小文字化。
     /// 探す側と探される側の両方に同じものを掛けることで、
@@ -71,15 +192,26 @@ public static class SearchQuery
     public static string Normalize(string? text)
         => string.IsNullOrEmpty(text) ? string.Empty : text.Normalize(NormalizationForm.FormKC).ToLowerInvariant();
 
+    /// <summary>カタカナをひらがなに寄せる（長音・記号はそのまま）。</summary>
+    public static string ToHiragana(string text)
+    {
+        var builder = new StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            builder.Append(c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c);
+        }
+
+        return builder.ToString();
+    }
+
     public static SearchNode Parse(string? query)
     {
-        var normalized = Normalize(query);
-        if (normalized.Trim().Length == 0)
+        if (string.IsNullOrWhiteSpace(query))
         {
             return new SearchNode.All();
         }
 
-        var tokens = Tokenize(normalized);
+        var tokens = Tokenize(query);
         var index = 0;
         var node = ParseOr(tokens, ref index);
 
@@ -87,32 +219,111 @@ public static class SearchQuery
         return node ?? new SearchNode.All();
     }
 
-    public static bool Matches(
-        SearchNode node,
-        SearchHaystack haystack,
-        bool includeBody,
-        bool includePaths,
-        bool includeReadings = false)
+    public static bool Matches(SearchNode node, SearchHaystack haystack, SearchOptions options)
         => node switch
         {
             SearchNode.All => true,
-            SearchNode.Term term => Contains(term.Text, haystack, includeBody, includePaths, includeReadings),
-            SearchNode.Not not => !Matches(not.Inner, haystack, includeBody, includePaths, includeReadings),
-            SearchNode.And and => and.Parts.All(part => Matches(part, haystack, includeBody, includePaths, includeReadings)),
-            SearchNode.Or or => or.Parts.Any(part => Matches(part, haystack, includeBody, includePaths, includeReadings)),
+            SearchNode.Term term => Contains(term, haystack, options),
+            SearchNode.Not not => !Matches(not.Inner, haystack, options),
+            SearchNode.And and => and.Parts.All(part => Matches(part, haystack, options)),
+            SearchNode.Or or => or.Parts.Any(part => Matches(part, haystack, options)),
             _ => true,
         };
 
-    private static bool Contains(
-        string term,
-        SearchHaystack haystack,
-        bool includeBody,
-        bool includePaths,
-        bool includeReadings)
-        => haystack.Primary.Contains(term, StringComparison.Ordinal)
-            || (includeBody && haystack.Body.Contains(term, StringComparison.Ordinal))
-            || (includePaths && haystack.Paths.Contains(term, StringComparison.Ordinal))
-            || (includeReadings && haystack.Readings.Contains(term, StringComparison.Ordinal));
+    private static bool Contains(SearchNode.Term term, SearchHaystack haystack, SearchOptions options)
+    {
+        if (term.Field is { } field)
+        {
+            return InField(term, haystack, field, options)
+                || (field == SearchField.Name && InReadings(term, haystack, options));
+        }
+
+        foreach (var target in options.Targets)
+        {
+            if (InField(term, haystack, target, options))
+            {
+                return true;
+            }
+        }
+
+        // 読みは商品名の読みなので、商品名を探しているときだけ見る
+        return options.Targets.Contains(SearchField.Name) && InReadings(term, haystack, options);
+    }
+
+    private static bool InField(SearchNode.Term term, SearchHaystack haystack, SearchField field, SearchOptions options)
+    {
+        // 日英変換の英語。畳んだ語から作った候補なので、畳んだ文字列で区切りを見る
+        if (term.WholeWord)
+        {
+            return ContainsWholeWord(haystack.Folded(field), term.Text);
+        }
+
+        if (options.UsesFold)
+        {
+            return options.KanaSensitive
+                ? haystack.Folded(field).Contains(term.Text, StringComparison.Ordinal)
+                : haystack.FoldedIgnoringKana(field).Contains(ToHiragana(term.Text), StringComparison.Ordinal);
+        }
+
+        var compare = CompareOptions.None;
+        if (!options.CaseSensitive)
+        {
+            compare |= CompareOptions.IgnoreCase;
+        }
+
+        if (!options.WidthSensitive)
+        {
+            compare |= CompareOptions.IgnoreWidth;
+        }
+
+        if (!options.KanaSensitive)
+        {
+            compare |= CompareOptions.IgnoreKanaType;
+        }
+
+        foreach (var value in haystack.Raw(field))
+        {
+            var found = compare == CompareOptions.None
+                ? value.Contains(term.Raw, StringComparison.Ordinal)
+                : JapaneseCompare.IndexOf(value, term.Raw, compare) >= 0;
+            if (found)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>前後が英字・数字でない所に語があるか（英単語の区切り）。日本語の文字の隣は区切りとみなす。</summary>
+    private static bool ContainsWholeWord(string text, string word)
+    {
+        if (word.Length == 0)
+        {
+            return false;
+        }
+
+        for (var start = text.IndexOf(word, StringComparison.Ordinal); start >= 0;
+             start = text.IndexOf(word, start + 1, StringComparison.Ordinal))
+        {
+            var end = start + word.Length;
+            var before = start == 0 || !char.IsAsciiLetterOrDigit(text[start - 1]);
+            var after = end >= text.Length || !char.IsAsciiLetterOrDigit(text[end]);
+            if (before && after)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>読みはひらがなで組んであるので、畳んだ語で見る（区別の切り替えは効かせない）。</summary>
+    private static bool InReadings(SearchNode.Term term, SearchHaystack haystack, SearchOptions options)
+        => options.IncludeReadings
+            && haystack.Readings.Length > 0
+            && (haystack.Readings.Contains(term.Text, StringComparison.Ordinal)
+                || haystack.Readings.Contains(ToHiragana(term.Text), StringComparison.Ordinal));
 
     // --- 字句 ---
 
@@ -123,15 +334,32 @@ public static class SearchQuery
         Minus,
         Open,
         Close,
+
+        /// <summary>中身の無い前置き（<c>name:</c>）。続くフレーズ・括弧・語に対象を当てる。</summary>
+        Prefix,
     }
 
-    private readonly record struct Token(TokenKind Kind, string Text);
+    private readonly record struct Token(TokenKind Kind, string Raw, SearchField? Field = null);
+
+    /// <summary>1字を NFKC で畳む。構文の記号（全角の括弧・引用符・ハイフン・コロン）を見分けるため。</summary>
+    private static char FoldSymbol(char c)
+    {
+        if (c < 0x80)
+        {
+            return c;
+        }
+
+        var folded = c.ToString().Normalize(NormalizationForm.FormKC);
+        return folded.Length == 1 ? folded[0] : c;
+    }
 
     /// <summary>
     /// 引用符は <c>"</c> だけを見る。日本語の「」は商品名にそのまま出てくるので
     /// （『「タマクラゲ」』のように）、フレーズの印にすると打った通りに探せなくなる。
     /// </summary>
-    private static bool IsQuote(char c) => c is '"' or '“' or '”';
+    private static bool IsQuote(char folded) => folded is '"' or '“' or '”';
+
+    private static bool IsSpace(char c) => char.IsWhiteSpace(c) || char.IsWhiteSpace(FoldSymbol(c));
 
     private static List<Token> Tokenize(string text)
     {
@@ -140,9 +368,9 @@ public static class SearchQuery
 
         while (i < text.Length)
         {
-            var c = text[i];
+            var c = FoldSymbol(text[i]);
 
-            if (char.IsWhiteSpace(c))
+            if (IsSpace(text[i]))
             {
                 i++;
                 continue;
@@ -166,7 +394,7 @@ public static class SearchQuery
             // 下の語の読み取りにそのまま入る（ここには来ない）。
             if (c == '-')
             {
-                var hasTarget = i + 1 < text.Length && !char.IsWhiteSpace(text[i + 1]) && text[i + 1] != ')';
+                var hasTarget = i + 1 < text.Length && !IsSpace(text[i + 1]) && FoldSymbol(text[i + 1]) != ')';
 
                 // 打ちかけの「-」だけは落とす。語として扱うとどこにも当たらず0件になる
                 if (hasTarget)
@@ -182,7 +410,7 @@ public static class SearchQuery
             {
                 i++;
                 var start = i;
-                while (i < text.Length && !IsQuote(text[i]))
+                while (i < text.Length && !IsQuote(FoldSymbol(text[i])))
                 {
                     i++;
                 }
@@ -193,7 +421,7 @@ public static class SearchQuery
                     i++;
                 }
 
-                // 閉じ忘れでも、そこまでをフレーズとして扱う
+                // 閉じ忘れでも、そこまでをフレーズとして扱う。引用符の中の「name:」は前置きとして読まない（ユーザ判断）
                 if (phrase.Length > 0)
                 {
                     tokens.Add(new Token(TokenKind.Word, phrase));
@@ -203,23 +431,57 @@ public static class SearchQuery
             }
 
             var wordStart = i;
-            while (i < text.Length && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && !IsQuote(text[i]))
+            while (i < text.Length && !IsSpace(text[i]))
             {
+                var folded = FoldSymbol(text[i]);
+                if (folded is '(' or ')' || IsQuote(folded))
+                {
+                    break;
+                }
+
                 i++;
             }
 
-            var word = text[wordStart..i];
-            tokens.Add(word == "or" ? new Token(TokenKind.Or, word) : new Token(TokenKind.Word, word));
+            tokens.Add(ReadWord(text[wordStart..i]));
         }
 
         return tokens;
+    }
+
+    /// <summary>語を読む。「or」なら演算子、決まった名前＋「:」（全角の「：」も）で始まれば前置き。</summary>
+    private static Token ReadWord(string raw)
+    {
+        if (Normalize(raw) == "or")
+        {
+            return new Token(TokenKind.Or, raw);
+        }
+
+        for (var colon = 0; colon < raw.Length; colon++)
+        {
+            if (FoldSymbol(raw[colon]) != ':')
+            {
+                continue;
+            }
+
+            if (colon > 0 && FieldNames.TryGetValue(Normalize(raw[..colon]), out var field))
+            {
+                var rest = raw[(colon + 1)..];
+                return rest.Length == 0
+                    ? new Token(TokenKind.Prefix, raw, field)
+                    : new Token(TokenKind.Word, rest, field);
+            }
+
+            break;
+        }
+
+        return new Token(TokenKind.Word, raw);
     }
 
     // --- 構文 ---
     //
     // or   := and ( "OR" and )*
     // and  := unary+          （並べただけでAND）
-    // unary:= "-" unary | primary
+    // unary:= "-" unary | 前置き unary | primary
     // prim := "(" or ")" | 語
 
     private static SearchNode? ParseOr(List<Token> tokens, ref int index)
@@ -280,14 +542,23 @@ public static class SearchQuery
             return null;
         }
 
-        if (tokens[index].Kind == TokenKind.Minus)
+        var token = tokens[index];
+
+        if (token.Kind == TokenKind.Minus)
         {
             index++;
             var inner = ParseUnary(tokens, ref index);
             return inner is null ? null : new SearchNode.Not(inner);
         }
 
-        var token = tokens[index];
+        if (token.Kind == TokenKind.Prefix)
+        {
+            index++;
+            var inner = ParseUnary(tokens, ref index);
+
+            // 打ちかけの「name:」だけは落とす。語として探すとどこにも当たらず0件になる
+            return inner is null ? null : WithField(inner, token.Field!.Value);
+        }
 
         if (token.Kind == TokenKind.Open)
         {
@@ -305,9 +576,19 @@ public static class SearchQuery
         if (token.Kind == TokenKind.Word)
         {
             index++;
-            return new SearchNode.Term(token.Text);
+            return new SearchNode.Term(Normalize(token.Raw), token.Raw, token.Field);
         }
 
         return null;
     }
+
+    /// <summary>前置きを括弧やフレーズの中の語に当てる。中で別の前置きを書いた語はそちらを優先する。</summary>
+    private static SearchNode WithField(SearchNode node, SearchField field) => node switch
+    {
+        SearchNode.Term { Field: null } term => term with { Field = field },
+        SearchNode.Not not => new SearchNode.Not(WithField(not.Inner, field)),
+        SearchNode.And and => new SearchNode.And(and.Parts.Select(part => WithField(part, field)).ToList()),
+        SearchNode.Or or => new SearchNode.Or(or.Parts.Select(part => WithField(part, field)).ToList()),
+        _ => node,
+    };
 }
