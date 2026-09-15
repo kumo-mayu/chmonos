@@ -425,6 +425,24 @@
                 </Grid>
             </Border>
 
+            <!--
+                登録し終えた商品への入口（ユーザ指示 2026-09-15）。前は登録が終わると商品ページへ移り、検索を進めていた画面が勝手に替わっていた。
+                通信の帯のすぐ上に出し、開くかを選ばせる。通信が終わって通信の帯が畳まれても、押すか閉じるまでは残す
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasRegisteredNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissRegisteredCommand}" AutomationProperties.Name="登録の知らせを閉じる"
+                            ToolTip="この知らせを閉じます。登録した商品はそのまま残り、検索から開けます。" />
+                    <Button DockPanel.Dock="Right" Content="登録した商品を開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding OpenRegisteredCommand}" />
+                    <TextBlock Text="{Binding RegisteredNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                </DockPanel>
+            </Border>
+
             <!-- 画面内検索（U20）の帯を今の画面の上に重ねるため、同じ枠に置く -->
             <Grid>
                 <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" />

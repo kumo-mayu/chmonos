@@ -81,7 +81,14 @@
                             <Grid VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
                                            FontWeight="SemiBold" Visibility="Hidden" />
-                                <ContentPresenter HorizontalAlignment="Center" />
+                                <!-- 選んだ側の白字が暗黙の TextBlock の色に負けて黒く出ていた。中の文字に親の色を渡す（ItemViewModeSegment と同じ） -->
+                                <ContentPresenter HorizontalAlignment="Center">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>

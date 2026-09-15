@@ -1,24 +1,15 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using BoothAssetManager.App.ViewModels;
 
 namespace BoothAssetManager.App.Views;
 
+/// <summary>ショップ1件の画面。カードとリストの上の操作は <see cref="ItemCardResources"/> が持つ（検索画面と同じ）。</summary>
 public partial class ShopView : UserControl
 {
     public ShopView()
     {
         InitializeComponent();
-    }
-
-    private void OnCardClick(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: ItemCardViewModel card }
-            && DataContext is ShopViewModel shop)
-        {
-            shop.OpenItem(card);
-        }
     }
 
     /// <summary>一覧の幅が変わったら列数を決め直す（行を仮想化の単位にしているため）。</summary>

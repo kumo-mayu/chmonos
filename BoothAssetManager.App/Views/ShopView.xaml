@@ -2,10 +2,23 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:views="clr-namespace:BoothAssetManager.App.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ShopViewModel}">
+    <!--
+        商品は検索画面と同じカードとリストで並べる（ユーザ指示 2026-09-15：ショップ画面の item 閲覧も検索同等に）。
+        前はこの画面だけの小さなカードで、押して開く以外の操作（右クリック・星・リスト）が無かった
+    -->
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <views:ItemCardResources />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
     <DockPanel Background="{StaticResource Bg}">
 
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
@@ -27,7 +40,7 @@
                             Command="{Binding ShowInSearchCommand}"
                             ToolTip="検索画面へ移り、このショップの商品だけを出します。分類・対応アバター・タグなどで続けて絞れます。" />
                     <Button Content="BOOTHのショップページを開く" Style="{StaticResource SmallButton}"
-                            Command="{Binding OpenBoothCommand}" />
+                            Command="{Binding OpenShopPageCommand}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -135,11 +148,19 @@
                         Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
 
+            <!-- リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える） -->
+            <ListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+                      ItemContainerStyle="{StaticResource ItemListRowStyle}"
+                      BorderThickness="0" Background="Transparent" Margin="24,10,24,18"
+                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                      Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
             <!--
                 行を仮想化の単位にする（検索画面と同じ）。列数はViewModel側で幅から決める。
                 画面外の行のカードは作られないので、サムネイルの読み込みも走らない
             -->
             <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+                     Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                      Padding="24,14,24,24" HorizontalContentAlignment="Stretch"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -163,66 +184,20 @@
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                <ItemsControl ItemsSource="{Binding Cards}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Style="{StaticResource Card}" Width="228" Height="300" Margin="0,0,14,14"
-                                    Cursor="Hand" MouseLeftButtonUp="OnCardClick" ClipToBounds="True">
-                                <Grid>
-                                <DockPanel>
-                                    <Grid DockPanel.Dock="Top" Height="180" Background="#e9edf4">
-                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
-
-                                        <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
-                                                BorderThickness="1" CornerRadius="9" Padding="8,1"
-                                                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8"
-                                                Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="所持" FontSize="10" Foreground="{StaticResource Good}" />
-                                        </Border>
-                                    </Grid>
-
-                                    <StackPanel Margin="12,10,12,12">
-                                        <TextBlock Text="{Binding Name}" FontSize="12.5" TextWrapping="Wrap"
-                                                   MaxHeight="36" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding ShopName}" Style="{StaticResource Mono}"
-                                                   FontSize="11" Foreground="{StaticResource TextFaint}" Margin="0,6,0,0" />
-                                        <Border Height="1" Background="#f0f1f4" Margin="0,8,0,7" />
-                                        <Grid>
-                                            <!-- 未所持のときは左下の襷が同じことを言うので、重ねて出さない -->
-                                            <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}"
-                                                       FontSize="11" Foreground="{StaticResource TextMuted}"
-                                                       Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            <TextBlock Text="{Binding UserTagText}" Style="{StaticResource Caption}"
-                                                       HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
-                                                       MaxWidth="120" />
-                                        </Grid>
-                                    </StackPanel>
-                                </DockPanel>
-
-                                <!-- 未所持の襷。検索カードと同じ（理由は SearchView の同じ所） -->
-                                <Border Width="150" Height="22" Background="{StaticResource Bad}"
-                                        HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-45,0,0,19"
-                                        RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"
-                                        Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                                    <Border.RenderTransform>
-                                        <RotateTransform Angle="45" />
-                                    </Border.RenderTransform>
-                                    <TextBlock Text="未所持" Foreground="White" FontSize="11" FontWeight="Bold"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+
+            <!-- カード／リストの切り替え。右下の空いた所に重ねる（検索画面・フォルダビューと同じ） -->
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,36,18" Panel.ZIndex="3" />
         </Grid>
     </DockPanel>
 </UserControl>

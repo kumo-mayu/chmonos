@@ -222,7 +222,12 @@ function Save-ChmonosShot {
   $g = [System.Drawing.Graphics]::FromImage($bmp); $dc = $g.GetHdc()
   [void][ChmonosWin]::PrintWindow($h, $dc, 2)   # 2 = PW_RENDERFULLCONTENT（WPF の描画を撮るのに要る）
   $g.ReleaseHdc($dc); $g.Dispose()
-  if ($Region) { $crop = $bmp.Clone((New-Object System.Drawing.Rectangle $Region[0], $Region[1], $Region[2], $Region[3]), $bmp.PixelFormat); $bmp.Dispose(); $bmp = $crop }
+  if ($Region) {
+    # 要素の位置から枠を決めると窓の外へはみ出すことがある。はみ出すと Clone が落ちて何も撮れないので、窓の中に収める
+    $x = [Math]::Max(0, [Math]::Min($Region[0], $w - 1)); $y = [Math]::Max(0, [Math]::Min($Region[1], $hh - 1))
+    $cw = [Math]::Max(1, [Math]::Min($Region[2], $w - $x)); $ch = [Math]::Max(1, [Math]::Min($Region[3], $hh - $y))
+    $crop = $bmp.Clone((New-Object System.Drawing.Rectangle $x, $y, $cw, $ch), $bmp.PixelFormat); $bmp.Dispose(); $bmp = $crop
+  }
   New-Item -ItemType Directory -Force $ChmonosShotDir | Out-Null
   $path = Join-Path $ChmonosShotDir "$Name.png"
   $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()

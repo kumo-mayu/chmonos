@@ -37,9 +37,14 @@ public sealed class FolderBrowserFolderCard
 
     public bool HasSubText => SubText.Length > 0;
 
-    public string CountText => UnresolvedCount > 0 ? $"商品 {ItemCount}・未確定 {UnresolvedCount}" : $"商品 {ItemCount}";
+    public string CountText => UnresolvedCount > 0 && FolderViewModel.ShowsUnresolvedNow
+        ? $"商品 {ItemCount}・未確定 {UnresolvedCount}"
+        : $"商品 {ItemCount}";
 
     public bool HasUnresolved => UnresolvedCount > 0;
+
+    /// <summary>未確定を出していないときの小さな札。件数は出さず、あることだけ分かるように（ユーザ指示 2026-09-15）。</summary>
+    public bool HasUnresolvedMark => UnresolvedCount > 0 && !FolderViewModel.ShowsUnresolvedNow;
 
     internal FolderViewNode? Node { get; init; }
 
@@ -142,11 +147,26 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
 
     public string WatchButtonText => IsWatched ? "監視をやめる" : "監視対象にする";
 
-    public string CountText => Unresolved.Count > 0
+    public string CountText => Unresolved.Count > 0 && FolderViewModel.ShowsUnresolvedNow
         ? $"この下に 商品 {ItemCount} 件・未確定 {Unresolved.Count} 件"
         : $"この下に 商品 {ItemCount} 件";
 
-    public bool HasUnresolved => Unresolved.Count > 0;
+    /// <summary>未確定の案内と「管理から外す」を出すか。左の「未確定」を切っているときは出さない（ユーザ指示 2026-09-15）。</summary>
+    public bool HasUnresolved => Unresolved.Count > 0 && FolderViewModel.ShowsUnresolvedNow;
+
+    /// <summary>未確定を出していないときの小さな札（あることだけ分かるように）。</summary>
+    public bool HasUnresolvedMark => Unresolved.Count > 0 && !FolderViewModel.ShowsUnresolvedNow;
+
+    /// <summary>左の「未確定」を切り替えたとき。件数の出し方・案内・子フォルダのカードの件数を出し直す。</summary>
+    internal void RefreshUnresolvedShown()
+    {
+        OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(HasUnresolved));
+        OnPropertyChanged(nameof(HasUnresolvedMark));
+
+        // 行を作り直すと、子フォルダのカードの結び付けも読み直される
+        Rebuild();
+    }
 
     public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。確定・フォルダの登録は「未確定として開く」から、"
         + "要らない物は「管理から外す」で片付けられます（ファイル自体は消しません）。";
@@ -268,7 +288,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         IsEmpty = cards.Count == 0;
         EmptyText = needle.Length > 0
             ? $"この下に「{needle}」に当てはまる商品・フォルダはありません。"
-            : Unresolved.Count > 0
+            : HasUnresolved
                 ? "このフォルダの直下には、管理している商品も子フォルダもありません。未確定のファイルは上の「未確定として開く」から片付けられます。"
                 : "このフォルダの直下には、管理している商品も子フォルダもありません。";
         OnPropertyChanged(nameof(IsEmpty));

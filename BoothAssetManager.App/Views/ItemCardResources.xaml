@@ -308,7 +308,15 @@
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="Root" Background="Transparent" Padding="{TemplateBinding Padding}"
                             CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <!-- 選んだ側の白字は、アプリ全体の暗黙の TextBlock の色に負けて黒く出ていた（ユーザ指摘 2026-09-14）。
+                             重要なボタン（App.xaml）と同じく、中の文字に親の色を渡す -->
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -461,7 +469,9 @@
 
     <!-- 選ぶ（まとめて編集・お気に入り・改変に足す・Unityへ送る）。カードの左上のチェックと同じ -->
     <DataTemplate x:Key="ItemListSelectCell">
-        <Grid Style="{StaticResource ItemListCellFill}">
+        <!-- 選ぶ列を持たない画面（ショップ画面）では列の幅が 0 になるが、チェックははみ出して絵に重なって見えた。丸ごと隠す -->
+        <Grid Style="{StaticResource ItemListCellFill}"
+              Visibility="{Binding DataContext.ListColumns.HasSelect, RelativeSource={RelativeSource AncestorType=ListView}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                       ToolTip="選ぶと、下の帯からまとめて操作できます" />
@@ -586,8 +596,17 @@
                     <TextBlock Text="未所持" FontSize="10" Foreground="{StaticResource Bad}" />
                 </Border>
             </WrapPanel>
-            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}"
-                       Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
+                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                        CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
+                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が出ます。"
+                        Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
+                </Border>
+            </StackPanel>
         </Grid>
         </Border>
     </DataTemplate>

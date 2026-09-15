@@ -63,6 +63,13 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["modification.col.icon"] = new(56, 44, 120),
         ["modification.col.fav"] = new(36, 28, 60),
         ["modification.col.name"] = new(160, 100, 800),
+        // ショップ画面のリスト（ユーザ指示 2026-09-15）。ショップの列には入手日を出す
+        ["shop.col.select"] = new(36, 28, 60),
+        ["shop.col.icon"] = new(56, 44, 120),
+        ["shop.col.fav"] = new(36, 28, 60),
+        ["shop.col.name"] = new(420, 160, 1000),
+        ["shop.col.shop"] = new(200, 80, 600),
+        ["shop.col.chips"] = new(220, 100, 420),
     };
 
     private readonly object _gate = new();

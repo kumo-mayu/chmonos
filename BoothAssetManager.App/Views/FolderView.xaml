@@ -90,7 +90,7 @@
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,2,0">
                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
-                            CornerRadius="8" Padding="6,0" Margin="0,0,6,0"
+                            CornerRadius="8" Padding="6,0" Margin="0,0,6,0" ToolTip="{Binding UnresolvedBadgeTip}"
                             Visibility="{Binding HasUnresolvedBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <TextBlock Text="{Binding UnresolvedBadgeText}" FontSize="10" Foreground="{StaticResource Warn}" />
                     </Border>

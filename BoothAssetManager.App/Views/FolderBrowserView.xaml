@@ -50,6 +50,13 @@
                                                    Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <WrapPanel Margin="0,8,0,0">
                                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                            <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
+                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                                                    CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                    ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が出ます。"
+                                                    Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
+                                            </Border>
                                         </WrapPanel>
                                     </StackPanel>
                                 </DockPanel>
@@ -78,6 +85,13 @@
                        Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                <!-- 未確定を出していないとき：件数と案内は出さず、あることだけ（ユーザ指示 2026-09-15） -->
+                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                        CornerRadius="9" Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が出ます。"
+                        Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
+                </Border>
                 <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                         CornerRadius="9" Padding="7,0" Margin="8,0,0,0"
                         Visibility="{Binding IsOffline, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

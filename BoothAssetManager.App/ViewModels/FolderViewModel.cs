@@ -191,7 +191,15 @@ public sealed class FolderViewRow : ViewModelBase
 
     public bool HasUnresolvedBadge => UnresolvedCount > 0 && Kind is FolderViewRowKind.Volume or FolderViewRowKind.Root or FolderViewRowKind.Folder;
 
-    public string UnresolvedBadgeText => $"未確定 {UnresolvedCount}";
+    /// <summary>
+    /// 未確定を出していないときは件数を出さず、あることだけ分かる札にする（ユーザ指示 2026-09-15：完全に隠すと、
+    /// 片付けていない物があることを忘れる。件数まで出すと、出さない設定なのにうるさい）
+    /// </summary>
+    public string UnresolvedBadgeText => FolderViewModel.ShowsUnresolvedNow ? $"未確定 {UnresolvedCount}" : "未確定あり";
+
+    public string? UnresolvedBadgeTip => FolderViewModel.ShowsUnresolvedNow
+        ? null
+        : "この下に未確定のファイルがあります。左の「未確定」を入れると、件数と中身が出ます。";
 
     public bool IsFolderLike => Kind is FolderViewRowKind.Volume or FolderViewRowKind.Root or FolderViewRowKind.Folder;
 
@@ -272,6 +280,9 @@ public sealed class FolderViewModel : ViewModelBase
     private static bool s_showItems = true;
     private static bool s_showManaged = true;
     private static bool s_showUnresolved = true;
+
+    /// <summary>未確定を出しているか（木の行・右の子フォルダのカードが件数の出し方を決めるのに読む）。</summary>
+    internal static bool ShowsUnresolvedNow => s_showUnresolved;
 
     private readonly AppServiceContainer _services;
     private PaneColumn? _listPane;
@@ -420,6 +431,12 @@ public sealed class FolderViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowManaged));
         OnPropertyChanged(nameof(ShowUnresolved));
         Rebuild();
+
+        // 右に出しているフォルダも、未確定の件数と案内の出し方が変わる（ユーザ指示 2026-09-15）
+        if (Detail is FolderViewDetail detail)
+        {
+            detail.RefreshUnresolvedShown();
+        }
     }
 
     /// <summary>木にファイルの行を出すか。</summary>

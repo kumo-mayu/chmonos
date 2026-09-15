@@ -240,9 +240,11 @@ public sealed partial class MainViewModel
 
         await ReloadLibraryAsync();
 
+        // 登録は BOOTH の順番を待つので、終わる頃には別の画面を見ていることがある。そこで商品ページへ移ると、
+        // 検索を進めていた画面が勝手に替わる（ユーザ指摘 2026-09-15）。移らずに下の帯で開くかを聞く
         if (await _services.Store.Items.LoadAsync(itemId) is { } added)
         {
-            ShowItem(added);
+            NoteRegistered(added);
         }
     }
 }

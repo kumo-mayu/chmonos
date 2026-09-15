@@ -13,7 +13,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// BOOTHのショップにある全商品ではない。取りに行っていないものは存在自体を知らないので、
 /// その旨は画面に書いておく（件数を全商品数と誤解されると数字の意味が変わる）。
 /// </summary>
-public sealed class ShopViewModel : ViewModelBase
+public sealed class ShopViewModel : ViewModelBase, IItemCardHost
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -35,7 +35,20 @@ public sealed class ShopViewModel : ViewModelBase
 
         // 戻るは画面の履歴を遡る（U23）
         BackCommand = new RelayCommand(main.GoBack);
-        OpenBoothCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
+        OpenShopPageCommand = new RelayCommand(OpenBooth, () => !string.IsNullOrEmpty(Shop.Url));
+
+        // カードかリストか（ユーザ指示 2026-09-15：検索画面と同じ見方に）。どちらで出すかはショップ画面として覚える
+        _isListMode = ItemListMode.IsList(services, "shop");
+        HideItemCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is ItemCardViewModel card)
+            {
+                // 書くのは検索画面と同じ命令。この一覧からもその場で外す（外したのに残って見えないように）
+                _main.Search.HideItemCommand.Execute(card);
+                _all.Remove(card);
+                Rebuild();
+            }
+        });
 
         // ショップ画面に絞り込みを作り直さず、検索の絞り込みをそのまま使う（#55・ユーザ判断）
         ShowInSearchCommand = new RelayCommand(() => main.ShowItemsOfShop(Shop.Subdomain, Shop.Name));
@@ -105,7 +118,11 @@ public sealed class ShopViewModel : ViewModelBase
     /// <summary>戻るの文言。行き先は画面の履歴の直前の画面（U23）。</summary>
     public string BackText => _main.BackButtonText;
 
-    public RelayCommand OpenBoothCommand { get; }
+    /// <summary>
+    /// BOOTH のショップページを開く。カードの右クリックの「BOOTHで開く」（商品ページ）は同じ画面から
+    /// OpenBoothCommand の名前で引くので、名前を分けてある
+    /// </summary>
+    public RelayCommand OpenShopPageCommand { get; }
 
     /// <summary>このショップの商品で絞った検索画面へ移る。</summary>
     public RelayCommand ShowInSearchCommand { get; }
@@ -325,6 +342,60 @@ public sealed class ShopViewModel : ViewModelBase
     public void OpenItem(ItemCardViewModel card)
         => _main.ShowItem(card.Item);
 
+    public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
+
+    public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
+
+    // 右クリックのメニューはカードの Tag（＝この画面）から同じ名前で引く。中身は検索画面の物をそのまま使う
+    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+
+    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+
+    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
+
+    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
+
+    public RelayCommand RevealCommand => _main.Search.RevealCommand;
+
+    public RelayCommand HideItemCommand { get; }
+
+    // ---- カードかリストか（検索画面・フォルダビューと同じ作り） ----
+
+    private bool _isListMode;
+    private ItemListColumns? _listColumns;
+    private IReadOnlyList<object> _listItems = [];
+    private RelayCommand? _showCards;
+    private RelayCommand? _showList;
+
+    public bool IsListMode
+    {
+        get => _isListMode;
+        set
+        {
+            if (SetField(ref _isListMode, value))
+            {
+                OnPropertyChanged(nameof(IsCardMode));
+                ItemListMode.Save(_services, "shop", value);
+            }
+        }
+    }
+
+    public bool IsCardMode
+    {
+        get => !_isListMode;
+        set => IsListMode = !value;
+    }
+
+    /// <summary>切り替えを押したときだけ変える（点いているかは読むだけ。検索画面と同じ）。</summary>
+    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => IsListMode = false);
+
+    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => IsListMode = true);
+
+    /// <summary>ショップの列には入手日を出す（カードの2行目と同じ。店名は全部同じで意味が無い）。</summary>
+    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "shop", hasSelect: false, shopHeader: "入手日");
+
+    public IReadOnlyList<object> ListItems => _listItems;
+
     public string CountText => _all.Count == _matches.Count
         ? $"{_matches.Count} 件"
         : $"{_matches.Count} 件 / 全 {_all.Count} 件";
@@ -456,6 +527,8 @@ public sealed class ShopViewModel : ViewModelBase
     {
         _matches = _all.Where(card => !_ownedOnly || card.IsOwned).ToList();
         FillRows();
+        _listItems = _matches.Cast<object>().ToList();
+        OnPropertyChanged(nameof(ListItems));
 
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));

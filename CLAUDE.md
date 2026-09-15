@@ -69,7 +69,6 @@ powershell -Command "$env:CHMONOS_HOME='$env:LOCALAPPDATA\BoothAssetManager-ui';
 | `BoothAssetManager-ui` | 本番の写し（15件） | 画面の確認 |
 | `BoothAssetManager-friendtest` | 友人のライブラリの写し（約200件）。**普段の起動（環境変数なし）で開く、ユーザの作業用の写し** | 件数・対応アバターの多い商品での確認（**5. を守る**）。ユーザが使っているので、本番と同じく書き込む確認には使わない。**画面の確認用に作り物の改変を12件入れてある**（ユーザの頼み 2026-09-14。`modifications/` と `images/_mods/`。同じアバターに複数・同じプロジェクトに複数・消えたプロジェクト・紐付け無しを含む） |
 | `BoothAssetManager-stress-realcat` | 作った2000件（分類5種類） | 速さとメモリの計測 |
-| `BoothAssetManager-stress` | 作った2000件（**分類が2000種類に偏っている**） | 使わない。分類の数で遅くなり、実際の使い方と違う数字が出る（2026-09-13 の夜の調査） |
 | `BoothAssetManager-eval` | 友人のデータと正解（対応アバター） | 検出の評価（`experiments/AvatarEvalBench`） |
 | `BoothAssetManager-d1check` | 本番の写し＋試験用の改変「試験用（unity-import-test）」 | 改変の画面・Unityへ送る確認（送り先は捨ててよい試験用プロジェクト） |
 | `BoothAssetManager-heavycheck` | 本番の写し＋未確定に 1GB 級の作り物の zip 2件 | 重い unitypackage の確認・フォルダビューの未確定 |
@@ -197,8 +196,8 @@ dotnet test BoothAssetManager.Core.Tests
 ### 速さとメモリの測り方
 
 - 画面の速さは `-stress-realcat`（2000件・分類5種類）で、検索画面を端から端まで同じ歩みで流して測る。
-  `-stress` は分類の名前に通し番号が付いていて2000種類あり、分類の選択肢を並べるだけで起動が約5.5秒遅れる
-  （実際の分類は多くても数十。`docs/feedback/done-2026-09.md` の「夜の調査」）
+  前にあった `-stress` は分類の名前に通し番号が付いていて2000種類あり、分類の選択肢を並べるだけで起動が約5.5秒遅れた
+  （実際の分類は多くても数十。`docs/feedback/done-2026-09.md` の「夜の調査」）。使っていなかったので 2026-09-15 に消した（ユーザ判断）
 - 固まりは、流している間**ずっと**窓へ空のメッセージ（`WM_NULL`）を送り続け、33ms（2コマ）を超えた回数と合計で見る。
   1歩の直後に1回聞くだけだと、後回しにした作業の固まりを取りこぼす
 - メモリは作業セットとプライベートの最大、落ち着いた後の値
