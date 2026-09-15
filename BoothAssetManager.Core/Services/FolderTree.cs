@@ -105,6 +105,17 @@ public static class FolderTree
             .ToList();
     }
 
+    /// <summary>
+    /// 商品がファイルを持つフォルダを全部（祖先を含む・今の場所で）。検索の「ファイルの場所」の候補に使う。
+    /// 木（<see cref="Children"/>）と違って通過点を畳まない——候補は打って絞るので、どの階層でも選べた方がよい。
+    /// </summary>
+    public static IReadOnlyList<string> AllFolders(IReadOnlyList<ItemRecord> items, Func<string, string>? map = null)
+        => items
+            .SelectMany(item => FoldersOf(item, map).Select(entry => entry.Folder))
+            .DistinctBy(Normalize)
+            .OrderBy(path => path, NaturalComparer.Instance)
+            .ToList();
+
     /// <summary>この商品がファイルを持つフォルダ（祖先を全部含む・今の場所で）と、読み替えたなら記録の文字。</summary>
     private static IEnumerable<(string Folder, string? From)> FoldersOf(ItemRecord item, Func<string, string>? map)
     {

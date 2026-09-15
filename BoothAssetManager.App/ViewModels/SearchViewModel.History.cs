@@ -1,12 +1,8 @@
-using System.IO;
 using System.Collections.ObjectModel;
-using System.Windows.Media.Imaging;
-using BoothAssetManager.App.Services;
-using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.App.ViewModels;
 
-/// <summary>検索画面：検索の履歴（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
+/// <summary>検索画面：検索の履歴</summary>
 public sealed partial class SearchViewModel
 {
     /// <summary>
@@ -18,51 +14,25 @@ public sealed partial class SearchViewModel
 
     public bool HasHistory => History.Count > 0;
 
-    /// <summary>いまの画面の状態を1件の記録にする。</summary>
-    private Core.Models.SearchHistoryEntry CurrentSearch()
+    /// <summary>
+    /// いまの画面の状態を1件の記録にする。絞り込みは**効いている条件だけ**を持つ（何も絞っていない条件は戻す意味が無い）。
+    /// 非表示の条件は「両方」でも持つ——足していないと非表示の商品が隠れるので、「両方」も結果を変える。
+    /// </summary>
+    private Core.Models.SearchHistoryEntry CurrentSearch() => new()
     {
-        var tags = new List<string>();
-        foreach (var tag in TagFilters)
-        {
-            // 入れ子は「親/子」で持つ。親だけ選んでいる場合は親の名前だけ
-            if (tag.HasSelectedSubs)
-            {
-                tags.AddRange(tag.SelectedSubs.Select(sub => $"{tag.Name}/{sub}"));
-            }
-            else if (tag.IsSelected)
-            {
-                tags.Add(tag.Name);
-            }
-        }
-
-        return new Core.Models.SearchHistoryEntry
-        {
-            Text = _queryText,
-            Category = _selectedCategory == AllCategories ? null : _selectedCategory,
-            OwnedOnly = _ownedOnly,
-            MissingOnly = _missingOnly,
-            GivenOnly = _givenOnly,
-            ReceivedOnly = _receivedOnly,
-            Targets = TargetsForHistory(),
-            CaseSensitive = _caseSensitive,
-            WidthSensitive = _widthSensitive,
-            KanaInsensitive = !_kanaSensitive,
-            SearchAlternates = _searchAlternates,
-            AvatarName = _avatarFilterName,
-            AvatarId = long.TryParse(_avatarFilterId, out var avatarId) ? avatarId : null,
-            AvatarHasBase = _avatarFilterHasBase,
-            UserTags = tags,
-            BoothTags = BoothTagFilters.Select(tag => tag.Name).ToList(),
-
-            // 全開の軸は条件になっていないので持たない
-            Attributes = AttributeFilters
-                .Where(filter => filter.Min > 0 || filter.Max < 100)
-                .Select(filter => new Core.Models.AttributeRange(filter.Name, filter.Min, filter.Max))
-                .ToList(),
-            Sort = _sort.Label == DefaultSort.Label ? null : _sort.Label,
-            UsedAt = DateTimeOffset.Now,
-        };
-    }
+        Text = _queryText,
+        Targets = TargetsForHistory(),
+        CaseSensitive = _caseSensitive,
+        WidthSensitive = _widthSensitive,
+        KanaInsensitive = !_kanaSensitive,
+        SearchAlternates = _searchAlternates,
+        Modules = Modules
+            .Where(module => module.IsActive || (module.Kind == SearchModuleKind.Hidden && module.IsEnabled))
+            .Select(module => module.Save())
+            .ToList(),
+        Sort = _sort.Label == DefaultSort.Label ? null : _sort.Label,
+        UsedAt = DateTimeOffset.Now,
+    };
 
     /// <summary>
     /// 履歴を積んで保存する。
@@ -119,55 +89,23 @@ public sealed partial class SearchViewModel
     /// <summary>
     /// 履歴の条件に戻す。
     ///
-    /// **まず全部クリアしてから積む。**今の条件の上に重ねると、
-    /// 履歴に無い条件が残って「押したのに違う結果」になる。
+    /// **まず全部の値を戻してから当てる。**今の条件の上に重ねると、
+    /// 履歴に無い条件が残って「押したのに違う結果」になる。履歴にある条件がパネルに無ければ足す。
     /// </summary>
     private void ApplyHistory(Core.Models.SearchHistoryEntry entry)
     {
-        ClearFilters();
+        ClearFilters(apply: false);
 
         _queryText = entry.Text;
         _queryNode = Core.Services.SearchQuery.Parse(entry.Text);
-        _selectedCategory = entry.Category ?? AllCategories;
-        _ownedOnly = entry.OwnedOnly;
-        _missingOnly = entry.MissingOnly;
-        _givenOnly = entry.GivenOnly;
-        _receivedOnly = entry.ReceivedOnly;
         RestoreTextOptions(entry.Targets, entry.CaseSensitive, entry.WidthSensitive, !entry.KanaInsensitive);
         _searchAlternates = entry.SearchAlternates;
 
-        _avatarFilterName = entry.AvatarName;
-        _avatarFilterId = entry.AvatarId?.ToString();
-        _avatarFilterHasBase = entry.AvatarHasBase;
-        RaiseAvatarFilterChanged();
-
-        foreach (var tag in TagFilters)
+        foreach (var state in entry.Modules)
         {
-            // 親だけの指定と「親/子」の両方を受ける
-            if (entry.UserTags.Contains(tag.Name))
+            if (Enum.TryParse<SearchModuleKind>(state.Kind, out var kind))
             {
-                tag.SetSilently(true);
-            }
-
-            foreach (var sub in tag.Subs)
-            {
-                sub.SetSilently(entry.UserTags.Contains($"{tag.Name}/{sub.Name}"));
-            }
-        }
-
-        foreach (var tag in entry.BoothTags)
-        {
-            AddBoothTagFilter(tag);
-        }
-
-        foreach (var range in entry.Attributes)
-        {
-            AddAttributeFilter(range.Name);
-            if (AttributeFilters.FirstOrDefault(filter =>
-                    string.Equals(filter.Name, range.Name, StringComparison.CurrentCultureIgnoreCase)) is { } filter)
-            {
-                filter.Min = range.Min;
-                filter.Max = range.Max;
+                AddModule(kind, apply: false).Load(state);
             }
         }
 
@@ -177,15 +115,13 @@ public sealed partial class SearchViewModel
             _sort = sort;
         }
 
-        foreach (var name in new[]
-        {
-            nameof(QueryText), nameof(SelectedCategory), nameof(OwnedOnly),
-            nameof(GivenOnly), nameof(ReceivedOnly), nameof(SearchAlternates), nameof(Sort),
-        })
+        foreach (var name in new[] { nameof(QueryText), nameof(SearchAlternates), nameof(Sort) })
         {
             OnPropertyChanged(name);
         }
 
+        RefreshModuleMenu();
+        SaveModulesLater();
         ApplyFilters();
     }
 }

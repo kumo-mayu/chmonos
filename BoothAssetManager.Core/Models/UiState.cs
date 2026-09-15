@@ -22,13 +22,13 @@ public sealed record UiState
     public bool FilterPanelCollapsed { get; init; }
 
     /// <summary>
-    /// 検索の絞り込みに積んでいる条件の種類。
+    /// 検索の絞り込みに追加しているモジュールと、その値（ユーザ案 2026-09-15）。
     ///
-    /// 種類だけを覚えて値は覚えない。値まで戻すと「なぜか商品が少ない」状態で始まり、
-    /// 原因が畳まれた条件の中にあると気付けない。
-    /// 起動したときにまず全件が見えている方が安全。
+    /// **値まで覚える**（ユーザ判断 2026-09-16。前は「なぜか商品が少ない」状態で始まるのを避けて種類だけ覚えていたが、
+    /// 条件はパネルに並んで見えており、畳んでも効いている数を出すので、続きから始められる方を採った）。
+    /// null は一度も保存していない（最初の起動）＝最低限のモジュール（所持・ユーザタグ・対応アバター）で始める。
     /// </summary>
-    public IReadOnlyList<string> SearchExtraFilters { get; init; } = [];
+    public IReadOnlyList<SearchModuleState>? SearchModules { get; init; }
 
     /// <summary>
     /// 終了時のウィンドウの位置と大きさ。未保存（初回）は null。

@@ -87,12 +87,16 @@ public sealed class SettingsChangeTests : IDisposable
     {
         var settings = new SettingsService(_store);
 
-        await settings.UpdateUiStateAsync(state => state with { NavCollapsed = true, SearchExtraFilters = ["Folder"] });
+        await settings.UpdateUiStateAsync(state => state with
+        {
+            NavCollapsed = true,
+            SearchModules = [new SearchModuleState { Kind = "Path", Items = [@"D:\Assets"] }],
+        });
 
         Assert.False(File.Exists(_store.Settings.Path));
         var saved = _store.UiState.Load();
         Assert.True(saved.NavCollapsed);
-        Assert.Equal(["Folder"], saved.SearchExtraFilters);
+        Assert.Equal([@"D:\Assets"], Assert.Single(saved.SearchModules!).Items);
         Assert.True(settings.UiState.NavCollapsed);
     }
 

@@ -197,32 +197,7 @@ public sealed partial class SearchViewModel
         }
     }
 
-    // 探す対象・区別の切り替え・別表記は SearchViewModel.TextOptions.cs
-
-    public string? SelectedCategory
-    {
-        get => _selectedCategory;
-        set
-        {
-            if (SetField(ref _selectedCategory, value))
-            {
-                ApplyFilters();
-            }
-        }
-    }
-
-    /// <summary>ファイルを持っているものだけに絞る。</summary>
-    public bool OwnedOnly
-    {
-        get => _ownedOnly;
-        set
-        {
-            if (SetField(ref _ownedOnly, value))
-            {
-                ApplyFilters();
-            }
-        }
-    }
+    // 探す対象・区別の切り替え・別表記は SearchViewModel.TextOptions.cs、絞り込みの条件は SearchViewModel.Modules.cs
 
     public bool IsLoading
     {

@@ -1,50 +1,36 @@
-using System.IO;
-using System.Collections.ObjectModel;
-using System.Windows.Media.Imaging;
-using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.App.ViewModels;
 
-/// <summary>検索画面：ほかの画面から「これだけ出す」で入る口（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
+/// <summary>
+/// 検索画面：ほかの画面から「これだけ出す」で入る口。
+///
+/// どれも**他の条件の値を戻してから**絞る——前の条件が残っていると「このショップの商品」などに見えない。
+/// 渡す条件は絞り込みのモジュールそのもの（無ければ足す）なので、入った後もパネルでそのまま触れる。
+/// </summary>
 public sealed partial class SearchViewModel
 {
     /// <summary>
-    /// このuserTagだけで絞り込んだ状態にする。タグの管理から「この分類が付いているitem」を
+    /// このユーザタグだけで絞り込んだ状態にする。タグの管理から「この分類が付いている商品」を
     /// 見に来る導線。件数だけ見せられても、消していいか統合していいかは判断できない。
     /// </summary>
     public void ShowOnly(string top, string? sub = null)
     {
-        ClearFilters();
-
-        var filter = TagFilters.FirstOrDefault(entry =>
-            string.Equals(entry.Name, top, StringComparison.CurrentCultureIgnoreCase));
-
-        if (filter is null)
-        {
-            return;
-        }
-
-        filter.IsSelected = true;
-
-        if (sub is not null)
-        {
-            filter.Subs
-                .FirstOrDefault(entry => string.Equals(entry.Name, sub, StringComparison.CurrentCultureIgnoreCase))
-                ?.SetSilently(true);
-        }
-
-        ApplyFilters();
+        ClearFilters(apply: false);
+        EnsureModule<ListModule>(SearchModuleKind.UserTag)
+            .AddKey(sub is null ? top : $"{top}{UserTagSeparator}{sub}", notify: false);
+        FinishShowOnly();
     }
 
     /// <summary>
-    /// この属性で評価済みのitemだけを出す。軸を 0〜100 で足すと、
-    /// 「評価が入っているもの」がそのまま残る（未評価は軸を足した時点で外れる）。
+    /// この属性で評価済みの商品だけを出す。属性を 0〜100 で足すと、
+    /// 「評価が入っているもの」がそのまま残る（未評価は属性を足した時点で外れる）。
     /// </summary>
     public void ShowOnlyAttribute(string name)
     {
-        ClearFilters();
-        AddAttributeFilter(name);
+        ClearFilters(apply: false);
+        EnsureModule<AttributeModule>(SearchModuleKind.Attribute).AddRow(name, notify: false);
+        FinishShowOnly();
     }
 
     /// <summary>
@@ -53,86 +39,57 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void ShowOnlyAvatar(string avatarItemId, string displayName, bool includeViaBase = true)
     {
-        ClearFilters();
-        _avatarFilterId = avatarItemId;
-        _avatarFilterName = displayName;
-        _includeViaBase = includeViaBase;
-        _avatarFilterHasBase = HasBase(avatarItemId);
-        _compatibility = null;
-        RaiseAvatarFilterChanged();
-        OnPropertyChanged(nameof(IncludeViaBase));
-        ApplyFilters();
+        ClearFilters(apply: false);
+        var module = EnsureModule<ListModule>(SearchModuleKind.Avatar);
+        module.AddKey(AvatarKey + avatarItemId, notify: false, text: AvatarSuggestionText.Format(displayName, avatarItemId));
+        module.SetFlagQuietly(includeViaBase);
+        FinishShowOnly();
     }
 
-    /// <summary>
-    /// このショップの商品だけで絞り込む。ショップ画面からの導線（#55）。
-    /// 他の条件は外してから絞る——前の条件が残っていると「このショップの商品」に見えない。
-    /// </summary>
+    /// <summary>このショップの商品だけで絞り込む。ショップ画面からの導線（#55）。</summary>
     public void ShowOnlyShop(string shopKey, string shopName)
     {
-        ClearFilters();
-        _shopFilterKey = shopKey;
-        _shopFilterName = shopName;
-        RaiseShopFilterChanged();
-        ApplyFilters();
+        ClearFilters(apply: false);
+        EnsureModule<ListModule>(SearchModuleKind.Shop).AddKey(shopKey, notify: false, text: $"{shopName}（{shopKey}）");
+        FinishShowOnly();
     }
 
     /// <summary>
     /// このフォルダの下にファイルを持つ商品だけを出す。フォルダビューの「このフォルダで絞り込んで検索」からの導線
-    /// （ユーザ：「フォルダビューからそのフォルダで絞り込んで検索に入れても良いくらいだ」）。条件は検索の「フォルダ」と同じ物を使う
+    /// （ユーザ：「フォルダビューからそのフォルダで絞り込んで検索に入れても良いくらいだ」）。条件は検索の「ファイルの場所」と同じ物を使う
     /// </summary>
     public void ShowOnlyFolder(string path)
     {
-        ClearFilters();
-        AddExtraFilter(ExtraFilterKind.Folder);
-        if (ExtraFilters.FirstOrDefault(filter => filter.Kind == ExtraFilterKind.Folder) is not { } folder)
-        {
-            return;
-        }
-
-        folder.IsOn = true;
-        foreach (var existing in folder.Selected.ToList())
-        {
-            folder.Remove(existing);
-        }
-
-        folder.CurrentPath = System.IO.Path.GetDirectoryName(path.TrimEnd('\\'));
-        folder.Add(path);
-
-        // 選んだ印を行に出す。行は現在地を変えたところで作られていて、そのときはまだ選んでいなかった
-        // （絞り込めているのに、左の欄のチェックが外れて見えた）
-        RebuildFolderRows(folder);
-        ApplyFilters();
+        ClearFilters(apply: false);
+        EnsureModule<ListModule>(SearchModuleKind.Path).AddKey(path, notify: false, text: path);
+        FinishShowOnly();
     }
 
     /// <summary>このカテゴリだけで絞り込む。統計の容量内訳から中身を見に来る導線。</summary>
     public void ShowOnlyCategory(string category)
     {
-        ClearFilters();
-        _selectedCategory = category;
-        OnPropertyChanged(nameof(SelectedCategory));
-        ApplyFilters();
+        ClearFilters(apply: false);
+        EnsureModule<ListModule>(SearchModuleKind.Category).AddKey(category, notify: false, text: category);
+        FinishShowOnly();
     }
 
     /// <summary>
-    /// 記録はあるのに置き場所が分からなくなったitemだけを出す。統計の積み残しからの導線。
-    /// 消したのか移動しただけなのかはユーザにしか分からないので、判断できる形で並べる。
-    /// </summary>
-    public void ShowOnlyMissing()
-    {
-        ClearFilters();
-        _missingOnly = true;
-        ApplyFilters();
-    }
-
-    /// <summary>
-    /// 条件を外し、最近手元に入った順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
+    /// 条件の値を戻し、最近手元に入った順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
     /// 絞らずに並べるだけにするのは、取り込みの前からあった物も一緒に見えていた方が、何が増えたかが分かるため
     /// </summary>
     public void ShowRecentlyAddedFirst()
     {
-        ClearFilters();
-        Sort = SortOptions.FirstOrDefault(option => option.Kind == SortKind.RecentlyAdded) ?? Sort;
+        ClearFilters(apply: false);
+        _sort = SortOptions.FirstOrDefault(option => option.Kind == SortKind.RecentlyAdded) ?? _sort;
+        OnPropertyChanged(nameof(Sort));
+        ApplyFilters();
+    }
+
+    private void FinishShowOnly()
+    {
+        RefreshModuleMenu();
+        SaveModulesLater();
+        ApplyFilters();
     }
 
     /// <summary>
@@ -164,7 +121,7 @@ public sealed partial class SearchViewModel
             card.IsFavorite = isFavorite;
         }
 
-        if (ExtraFilters.Any(filter => filter.Kind == ExtraFilterKind.Favorite))
+        if (Modules.Any(module => module.Kind == SearchModuleKind.Favorite))
         {
             ApplyFilters();
         }

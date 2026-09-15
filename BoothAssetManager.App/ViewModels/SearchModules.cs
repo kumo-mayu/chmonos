@@ -1,0 +1,1254 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Text;
+using System.Windows.Media;
+using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
+
+namespace BoothAssetManager.App.ViewModels;
+
+/// <summary>
+/// 検索の絞り込みのモジュール（ユーザ案 2026-09-15・`docs/history/search-redesign.md`）。
+/// 名前は ui-state.json と検索の履歴に書くので、変えると古い状態が読めなくなる（読めなかった物は黙って飛ばす）。
+/// </summary>
+public enum SearchModuleKind
+{
+    Category,
+    BoothTag,
+    Shop,
+    WishList,
+    Price,
+    EndOfSale,
+    PublishedAt,
+    Adult,
+    Owned,
+    Gift,
+    FreePaid,
+    UserTag,
+    Attribute,
+    Avatar,
+    Favorite,
+    AcquiredAt,
+    Hidden,
+    Unedited,
+    Modification,
+    UnityProject,
+    Path,
+    Recent,
+}
+
+/// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, IReadOnlyList<string> Headings);
+
+/// <summary>モジュールの一覧。名前・説明・メニューの見出しをここだけで決める。</summary>
+public static class SearchModuleCatalog
+{
+    public const string BoothInfo = "BOOTHの情報";
+    public const string ItemInfo = "商品の情報";
+    public const string Calendar = "カレンダー";
+    public const string Slider = "スライダー";
+    public const string Usage = "利用状況";
+
+    public static IReadOnlyList<string> Headings { get; } = [BoothInfo, ItemInfo, Calendar, Slider, Usage];
+
+    /// <summary>最初の起動で出しておく最低限の条件（ユーザ判断 2026-09-16 Q9）。</summary>
+    public static IReadOnlyList<SearchModuleKind> Defaults { get; } =
+        [SearchModuleKind.Owned, SearchModuleKind.UserTag, SearchModuleKind.Avatar];
+
+    public static IReadOnlyList<SearchModuleInfo> All { get; } =
+    [
+        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れた分類を含む）で絞ります。", [BoothInfo]),
+        new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", [BoothInfo]),
+        new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。", [BoothInfo]),
+        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", [BoothInfo, Slider]),
+        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えると BOOTH の価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。",
+            [BoothInfo, Slider]),
+        new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品で絞ります。非公開・削除された商品は、既定では出しません。", [BoothInfo]),
+        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", [BoothInfo, Calendar]),
+        new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。", [BoothInfo, ItemInfo]),
+        new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。", [ItemInfo]),
+        new(SearchModuleKind.Gift, "ギフト", "購入記録の種類で絞ります。貰った物で、自分でも買った物は両方に出ます。", [ItemInfo]),
+        new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方がある物は両方に出ます。", [ItemInfo]),
+        new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。", [ItemInfo]),
+        new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。", [ItemInfo, Slider]),
+        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", [ItemInfo]),
+        new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。", [ItemInfo]),
+        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。", [ItemInfo, Calendar]),
+        new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を出します。この条件が無いときは、非表示の商品は出しません。", [ItemInfo]),
+        new(SearchModuleKind.Unedited, "未編集", "ユーザタグをまだ付けていない商品で絞ります。", [ItemInfo]),
+        new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。", [ItemInfo, Usage]),
+        new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", [ItemInfo, Usage]),
+        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下の全部を含む）。", [ItemInfo]),
+        new(SearchModuleKind.Recent, "最近", "最近使った（Unityへ送った）・見た・手元に入った商品で絞ります。記録が無い商品は外れます。", [ItemInfo, Usage]),
+    ];
+
+    public static SearchModuleInfo Of(SearchModuleKind kind) => All.First(entry => entry.Kind == kind);
+}
+
+/// <summary>
+/// 「最近」の足跡を、商品IDから引ける形にまとめたもの。
+///
+/// 絞り込みの1回ぶんで使い回す。1商品ごとにファイルを読み直さないため。
+/// </summary>
+public sealed record RecentTimes(
+    IReadOnlyDictionary<string, DateTimeOffset> Added,
+    IReadOnlyDictionary<string, DateTimeOffset> Used,
+    IReadOnlyDictionary<string, DateTimeOffset> Viewed)
+{
+    public static RecentTimes Empty { get; } = new(
+        new Dictionary<string, DateTimeOffset>(),
+        new Dictionary<string, DateTimeOffset>(),
+        new Dictionary<string, DateTimeOffset>());
+
+    public DateTimeOffset? Of(string itemId, RecentKind kind)
+    {
+        var source = kind switch
+        {
+            RecentKind.Added => Added,
+            RecentKind.Used => Used,
+            _ => Viewed,
+        };
+
+        return source.TryGetValue(itemId, out var at) ? at : null;
+    }
+}
+
+/// <summary>
+/// 改変から引いた「どの改変・アバター・プロジェクトにどの商品を使ったか」。
+///
+/// **絞り込みの1回ぶんで使い回す**（<see cref="RecentTimes"/> と同じ理由。1商品ごとに改変のファイルを読み直さないため）。
+/// </summary>
+public sealed record ModificationUsage(
+    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByAvatar,
+    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByModification,
+    IReadOnlyDictionary<string, IReadOnlySet<string>> ItemIdsByProject,
+    IReadOnlyList<ModificationRecord> Records)
+{
+    public static ModificationUsage Empty { get; } = new(
+        new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal),
+        new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal),
+        new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase),
+        []);
+
+    public static ModificationUsage From(IEnumerable<ModificationRecord> records)
+    {
+        var list = records.ToList();
+        var byAvatar = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var byProject = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var byModification = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
+
+        foreach (var record in list)
+        {
+            // 同じ商品が2回入っていても、絞り込みに要るのは「入っているか」だけ
+            var members = record.Members.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+            byModification[record.Id] = members;
+            Collect(byAvatar, record.AvatarItemId, members);
+
+            if (!string.IsNullOrWhiteSpace(record.UnityProject))
+            {
+                Collect(byProject, record.UnityProject!, members);
+            }
+        }
+
+        return new ModificationUsage(
+            byAvatar.ToDictionary(pair => pair.Key, pair => (IReadOnlySet<string>)pair.Value, StringComparer.Ordinal),
+            byModification,
+            byProject.ToDictionary(pair => pair.Key, pair => (IReadOnlySet<string>)pair.Value, StringComparer.OrdinalIgnoreCase),
+            list);
+
+        static void Collect(Dictionary<string, HashSet<string>> map, string key, IEnumerable<string> members)
+        {
+            if (!map.TryGetValue(key, out var set))
+            {
+                set = new HashSet<string>(StringComparer.Ordinal);
+                map[key] = set;
+            }
+
+            set.UnionWith(members);
+        }
+    }
+
+    public bool Used(string avatarItemId, string itemId)
+        => ItemIdsByAvatar.TryGetValue(avatarItemId, out var used) && used.Contains(itemId);
+
+    public bool InModification(string modificationId, string itemId)
+        => ItemIdsByModification.TryGetValue(modificationId, out var used) && used.Contains(itemId);
+
+    public bool InProject(string projectPath, string itemId)
+        => ItemIdsByProject.TryGetValue(projectPath, out var used) && used.Contains(itemId);
+}
+
+/// <summary>絞り込み1回ぶんの材料。モジュールが商品を照らすときに使う。</summary>
+public sealed class SearchModuleContext
+{
+    private readonly Func<AvatarCompatibilityIndex> _compatibility;
+    private AvatarCompatibilityIndex? _index;
+
+    public SearchModuleContext(
+        Func<AvatarCompatibilityIndex> compatibility,
+        ModificationUsage modifications,
+        RecentTimes recent,
+        Func<string, string>? pathMap,
+        DateTimeOffset now)
+    {
+        _compatibility = compatibility;
+        Modifications = modifications;
+        Recent = recent;
+        PathMap = pathMap;
+        Now = now;
+    }
+
+    /// <summary>素体経由の対応の索引。対応アバターで絞るときだけ作る。</summary>
+    public AvatarCompatibilityIndex Compatibility => _index ??= _compatibility();
+
+    public ModificationUsage Modifications { get; }
+
+    public RecentTimes Recent { get; }
+
+    /// <summary>外付けのドライブ文字が変わった記録を今の場所に読み替える（フォルダの条件）。</summary>
+    public Func<string, string>? PathMap { get; }
+
+    public DateTimeOffset Now { get; }
+}
+
+/// <summary>
+/// 絞り込みのモジュール1つ（ユーザ案 2026-09-15）。追加したまま切れる（<see cref="IsEnabled"/>）、右上の × で外す。
+/// 各モジュールは一度しか追加できない（検索画面が守る）。
+/// </summary>
+public abstract class SearchModule : ViewModelBase
+{
+    private bool _isEnabled = true;
+    private string? _disabledReason;
+
+    protected SearchModule(SearchModuleKind kind) => Kind = kind;
+
+    public SearchModuleKind Kind { get; }
+
+    public SearchModuleInfo Info => SearchModuleCatalog.Of(Kind);
+
+    public string Label => Info.Label;
+
+    public string Hint => Info.Hint;
+
+    /// <summary>条件が変わった（検索側が絞り直して、状態を書く）。</summary>
+    public event Action? Changed;
+
+    public RelayCommand? RemoveCommand { get; set; }
+
+    /// <summary>追加したまま効かせるか（ユーザ案：トグルで追加状態を保ったまま無効化できる）。</summary>
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set
+        {
+            if (SetField(ref _isEnabled, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>効かせられない理由（R-18 を設定で隠しているとき）。あれば条件として使わない。</summary>
+    public string? DisabledReason
+    {
+        get => _disabledReason;
+        set
+        {
+            if (SetField(ref _disabledReason, value))
+            {
+                OnPropertyChanged(nameof(HasDisabledReason));
+                OnPropertyChanged(nameof(IsActive));
+            }
+        }
+    }
+
+    public bool HasDisabledReason => _disabledReason is not null;
+
+    /// <summary>実際に絞っているか（効かせていて、理由が無く、何も絞らない値でない）。</summary>
+    public bool IsActive => IsEnabled && !HasDisabledReason && HasCondition;
+
+    protected abstract bool HasCondition { get; }
+
+    public abstract bool Matches(ItemRecord item, SearchModuleContext context);
+
+    /// <summary>効いている条件の1行（結果の上と、畳んだパネルと、検索の履歴に出す）。</summary>
+    public abstract string SummaryText { get; }
+
+    /// <summary>何も絞らない値に戻す（「条件をクリア」）。通知だけ出し、絞り直しは呼ぶ側がまとめて行う。</summary>
+    public abstract void Clear();
+
+    /// <summary>選択肢の横に出す件数を数え直す。<paramref name="items"/> はこのモジュールを除いた他の条件を当てた後の商品。</summary>
+    public virtual void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
+    {
+    }
+
+    public SearchModuleState Save()
+        => Write(new SearchModuleState { Kind = Kind.ToString(), Enabled = IsEnabled, Summary = IsActive ? SummaryText : null });
+
+    public void Load(SearchModuleState state)
+    {
+        _isEnabled = state.Enabled;
+        Read(state);
+        OnPropertyChanged(nameof(IsEnabled));
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    protected abstract SearchModuleState Write(SearchModuleState state);
+
+    protected abstract void Read(SearchModuleState state);
+
+    /// <summary>通知だけ出して切り替える。「条件をクリア」や他の画面からの条件で、1つずつ絞り直さない（呼ぶ側がまとめて1回）。</summary>
+    public void SetEnabledQuietly(bool value)
+    {
+        _isEnabled = value;
+        OnPropertyChanged(nameof(IsEnabled));
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    protected void NotifyChanged()
+    {
+        OnPropertyChanged(nameof(IsActive));
+        Changed?.Invoke();
+    }
+
+    /// <summary>全角の数字・カンマ・円記号が混ざっていても数として読む。読めなければ null。</summary>
+    protected static int? ParseNumber(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var folded = text.Normalize(NormalizationForm.FormKC).Replace(",", string.Empty).Replace("¥", string.Empty).Trim();
+        return int.TryParse(folded, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
+    }
+}
+
+/// <summary>三択などの選択肢1つ。件数は「選んだら何件になるか」。</summary>
+public sealed class ChoiceOption : ViewModelBase
+{
+    private int _count = -1;
+
+    public ChoiceOption(string key, string label)
+    {
+        Key = key;
+        Label = label;
+    }
+
+    public string Key { get; }
+
+    public string Label { get; }
+
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (SetField(ref _count, value))
+            {
+                OnPropertyChanged(nameof(Display));
+            }
+        }
+    }
+
+    public string Display => _count < 0 ? Label : $"{Label}（{_count}）";
+
+    public override string ToString() => Display;
+}
+
+/// <summary>
+/// プルダウンで選ぶ条件（ユーザ案「三項」）。
+///
+/// 何も絞らない選択肢（「両方」）を持つ物は、その選択肢で条件を残したまま無効にできる（トグル拡張）。
+/// 持たない物（ギフト）は、条件自体の切り替えで無効にする（純三項）。
+/// </summary>
+public sealed class ChoiceModule : SearchModule
+{
+    private readonly Func<ItemRecord, string, bool, bool> _matches;
+    private readonly string? _neutralKey;
+    private ChoiceOption _selected;
+    private bool _flag;
+
+    /// <param name="options">先頭が追加したときの既定（ユーザ案の def）。</param>
+    /// <param name="neutralKey">何も絞らない選択肢の鍵。純三項は null。</param>
+    /// <param name="matches">商品・選んだ鍵・補助の切り替え → 通すか。</param>
+    public ChoiceModule(
+        SearchModuleKind kind,
+        IReadOnlyList<ChoiceOption> options,
+        string? neutralKey,
+        Func<ItemRecord, string, bool, bool> matches,
+        string? flagLabel = null)
+        : base(kind)
+    {
+        Options = options;
+        _selected = options[0];
+        _neutralKey = neutralKey;
+        _matches = matches;
+        FlagLabel = flagLabel;
+    }
+
+    public IReadOnlyList<ChoiceOption> Options { get; }
+
+    public ChoiceOption Selected
+    {
+        get => _selected;
+        set
+        {
+            if (value is not null && SetField(ref _selected, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    public string SelectedKey => _selected.Key;
+
+    /// <summary>補助の切り替え（販売終了の「非公開・削除された商品も表示する」）。</summary>
+    public string? FlagLabel { get; }
+
+    public bool HasFlag => FlagLabel is not null;
+
+    public bool Flag
+    {
+        get => _flag;
+        set
+        {
+            if (SetField(ref _flag, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>補助の切り替えを切っていると隠す物がある（販売終了では非公開の物を隠す）ので、それも条件とみなす。</summary>
+    protected override bool HasCondition => _selected.Key != _neutralKey || (HasFlag && !_flag);
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context) => _matches(item, _selected.Key, _flag);
+
+    public override string SummaryText
+        => $"{Label}：{_selected.Label}" + (HasFlag && _flag ? $"・{FlagLabel}" : string.Empty);
+
+    public override void Clear()
+    {
+        if (_neutralKey is null)
+        {
+            // 純三項は「何も絞らない」選択肢を持たないので、条件ごと切る
+            SetEnabledQuietly(false);
+            return;
+        }
+
+        _selected = Options.First(option => option.Key == _neutralKey);
+        _flag = true;
+        OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(Flag));
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
+    {
+        foreach (var option in Options)
+        {
+            option.Count = items.Count(item => _matches(item, option.Key, _flag));
+        }
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state) => state with { Choice = _selected.Key, Flag = _flag };
+
+    protected override void Read(SearchModuleState state)
+    {
+        _selected = Options.FirstOrDefault(option => option.Key == state.Choice) ?? Options[0];
+        _flag = state.Flag;
+        OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(Flag));
+    }
+
+    /// <summary>選ぶ（他の画面から条件を渡すとき）。通知だけ出し、絞り直しは呼ぶ側。</summary>
+    public void Select(string key)
+    {
+        _selected = Options.FirstOrDefault(option => option.Key == key) ?? _selected;
+        OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(IsActive));
+    }
+}
+
+/// <summary>積んだ値1つ（チップ）。件数は「他の条件のもとで、この値に当てはまる件数」。</summary>
+public sealed class ListChip : ViewModelBase
+{
+    private int _count = -1;
+    private string _text;
+
+    public ListChip(string key, string text)
+    {
+        Key = key;
+        _text = text;
+    }
+
+    public string Key { get; }
+
+    public string Text
+    {
+        get => _text;
+        set => SetField(ref _text, value);
+    }
+
+    public int Count
+    {
+        get => _count;
+        set
+        {
+            if (SetField(ref _count, value))
+            {
+                OnPropertyChanged(nameof(CountText));
+            }
+        }
+    }
+
+    public string CountText => _count < 0 ? string.Empty : _count.ToString(CultureInfo.InvariantCulture);
+
+    public RelayCommand? RemoveCommand { get; set; }
+}
+
+/// <summary>
+/// 候補から選んで積む条件（ユーザ案「list」）。全部を満たす（AND）か、いずれか（OR）かを切り替えられる。
+/// 候補は必ず出す（ユーザ案「候補を出せるものに関しては必ず候補を出す」）。
+/// </summary>
+public sealed class ListModule : SearchModule
+{
+    private readonly Func<ItemRecord, SearchModuleContext, string, bool, bool> _matches;
+    private readonly List<(string Text, string Key)> _entries = [];
+    private readonly Dictionary<string, string> _keyOfText = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly Dictionary<string, string> _textOfKey = new(StringComparer.Ordinal);
+    private readonly bool _flagDefault;
+    private bool _matchAll;
+    private bool _flag;
+    private RelayCommand? _add;
+
+    /// <param name="allowsAnd">AND を選べるか（ショップは1商品に1つなので OR だけ）。</param>
+    /// <param name="matches">商品・材料・積んだ値の鍵・補助の切り替え → 当てはまるか。</param>
+    public ListModule(
+        SearchModuleKind kind,
+        bool allowsAnd,
+        string placeholder,
+        string emptyText,
+        Func<ItemRecord, SearchModuleContext, string, bool, bool> matches,
+        string? flagLabel = null,
+        bool flagDefault = false)
+        : base(kind)
+    {
+        AllowsAnd = allowsAnd;
+        Placeholder = placeholder;
+        EmptyText = emptyText;
+        _matches = matches;
+        FlagLabel = flagLabel;
+        _flagDefault = flagDefault;
+        _flag = flagDefault;
+    }
+
+    public ObservableCollection<string> Suggestions { get; } = [];
+
+    public bool HasSuggestions => Suggestions.Count > 0 || Chips.Count > 0 || _entries.Count > 0;
+
+    public ObservableCollection<ListChip> Chips { get; } = [];
+
+    public bool AllowsAnd { get; }
+
+    /// <summary>全部を満たす（AND）か。切っていればいずれか（OR）。</summary>
+    public bool MatchAll
+    {
+        get => _matchAll;
+        set
+        {
+            if (SetField(ref _matchAll, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>2つ以上積んだときだけ AND／OR を出す（1つなら結果が変わらない）。</summary>
+    public bool ShowsMatchMode => AllowsAnd && Chips.Count > 1;
+
+    public string Placeholder { get; }
+
+    public string EmptyText { get; }
+
+    /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
+    public string? FlagLabel { get; }
+
+    public bool HasFlag => FlagLabel is not null && Chips.Count > 0;
+
+    public bool Flag
+    {
+        get => _flag;
+        set
+        {
+            if (SetField(ref _flag, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>候補の頭に出す絵（対応アバター）。</summary>
+    public Func<string, ImageSource?>? IconSelector { get; set; }
+
+    public RelayCommand AddCommand => _add ??= new RelayCommand(parameter => Add(parameter as string));
+
+    /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>
+    public void SetSuggestions(IEnumerable<(string Text, string Key)> entries)
+    {
+        _entries.Clear();
+        _keyOfText.Clear();
+        _textOfKey.Clear();
+
+        foreach (var (text, key) in entries)
+        {
+            if (_keyOfText.TryAdd(text, key))
+            {
+                _entries.Add((text, key));
+                _textOfKey.TryAdd(key, text);
+            }
+        }
+
+        foreach (var chip in Chips)
+        {
+            if (_textOfKey.TryGetValue(chip.Key, out var text))
+            {
+                chip.Text = text;
+            }
+        }
+
+        RefreshSuggestions();
+    }
+
+    public void Add(string? text)
+    {
+        if (text is null || !_keyOfText.TryGetValue(text.Trim(), out var key))
+        {
+            return;
+        }
+
+        AddKey(key);
+    }
+
+    /// <summary>通知だけ出して補助の切り替えを変える（他の画面から条件を渡すとき。絞り直しは呼ぶ側）。</summary>
+    public void SetFlagQuietly(bool value)
+    {
+        _flag = value;
+        OnPropertyChanged(nameof(Flag));
+    }
+
+    /// <summary>鍵で積む（他の画面から条件を渡すとき・状態を戻すとき）。</summary>
+    /// <param name="text">候補にまだ無いときの見せ方（候補を読む前に渡されたとき）。候補が入ると候補の文字に揃う。</param>
+    public void AddKey(string key, bool notify = true, string? text = null)
+    {
+        if (Chips.Any(chip => chip.Key == key))
+        {
+            return;
+        }
+
+        var chip = new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
+        chip.RemoveCommand = new RelayCommand(() =>
+        {
+            Chips.Remove(chip);
+            RefreshSuggestions();
+            NotifyChanged();
+        });
+
+        Chips.Add(chip);
+        RefreshSuggestions();
+        if (notify)
+        {
+            NotifyChanged();
+        }
+    }
+
+    protected override bool HasCondition => Chips.Count > 0;
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context)
+        => Chips.Count == 0
+            || (_matchAll && AllowsAnd
+                ? Chips.All(chip => _matches(item, context, chip.Key, _flag))
+                : Chips.Any(chip => _matches(item, context, chip.Key, _flag)));
+
+    public override string SummaryText
+        => $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", Chips.Select(chip => chip.Text))}"
+            + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty);
+
+    public override void Clear()
+    {
+        Chips.Clear();
+        _matchAll = false;
+        _flag = _flagDefault;
+        OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(Flag));
+        RefreshSuggestions();
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
+    {
+        foreach (var chip in Chips)
+        {
+            chip.Count = items.Count(item => _matches(item, context, chip.Key, _flag));
+        }
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state)
+        => state with { Items = Chips.Select(chip => chip.Key).ToList(), MatchAll = _matchAll, Flag = _flag };
+
+    protected override void Read(SearchModuleState state)
+    {
+        Chips.Clear();
+        foreach (var key in state.Items)
+        {
+            AddKey(key, notify: false);
+        }
+
+        _matchAll = state.MatchAll;
+        _flag = FlagLabel is null ? _flagDefault : state.Flag;
+        OnPropertyChanged(nameof(MatchAll));
+        OnPropertyChanged(nameof(Flag));
+    }
+
+    /// <summary>候補から、積んだ物を除いて並べ直す（件数に比例して縦に伸びないよう、候補付きの欄から1件ずつ積む）。</summary>
+    private void RefreshSuggestions()
+    {
+        var chosen = Chips.Select(chip => chip.Key).ToHashSet(StringComparer.Ordinal);
+        Suggestions.Clear();
+        foreach (var (text, key) in _entries)
+        {
+            if (!chosen.Contains(key))
+            {
+                Suggestions.Add(text);
+            }
+        }
+
+        OnPropertyChanged(nameof(HasSuggestions));
+        OnPropertyChanged(nameof(ShowsMatchMode));
+        OnPropertyChanged(nameof(HasFlag));
+    }
+}
+
+/// <summary>
+/// 数の範囲（ユーザ案「上下指定・数値・単品」）。スライダ2本と数の欄。指定していない側は制限しない。
+/// </summary>
+public sealed class RangeModule : SearchModule
+{
+    private readonly Func<ItemRecord, string?, IReadOnlyList<int>> _values;
+    private string _minText = string.Empty;
+    private string _maxText = string.Empty;
+    private ChoiceOption? _source;
+    private double _sliderMaximum = 100;
+
+    /// <param name="values">商品と元（価格の「購入額／BOOTHの価格」）→ 照らす数（どれか1つでも範囲に入れば当たり）。</param>
+    /// <param name="sources">数の元の選択肢。先頭が既定。</param>
+    public RangeModule(
+        SearchModuleKind kind,
+        Func<ItemRecord, string?, IReadOnlyList<int>> values,
+        string unit,
+        IReadOnlyList<ChoiceOption>? sources = null)
+        : base(kind)
+    {
+        _values = values;
+        Unit = unit;
+        Sources = sources ?? [];
+        _source = Sources.FirstOrDefault();
+    }
+
+    public string Unit { get; }
+
+    public IReadOnlyList<ChoiceOption> Sources { get; }
+
+    public bool HasSources => Sources.Count > 0;
+
+    public ChoiceOption? Source
+    {
+        get => _source;
+        set
+        {
+            if (value is not null && SetField(ref _source, value))
+            {
+                RefreshMaximum();
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>元ごとの、手元の商品の最大値（スライダの右端）。検索側が入れる。</summary>
+    public Func<string?, int>? MaximumOf { get; set; }
+
+    public double SliderMaximum
+    {
+        get => _sliderMaximum;
+        private set => SetField(ref _sliderMaximum, value);
+    }
+
+    public string MinText
+    {
+        get => _minText;
+        set
+        {
+            if (SetField(ref _minText, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(LowPosition));
+                NotifyChanged();
+            }
+        }
+    }
+
+    public string MaxText
+    {
+        get => _maxText;
+        set
+        {
+            if (SetField(ref _maxText, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(HighPosition));
+                NotifyChanged();
+            }
+        }
+    }
+
+    public int? Min => ParseNumber(_minText);
+
+    public int? Max => ParseNumber(_maxText);
+
+    /// <summary>
+    /// 左のスライダの位置（0〜100）。左端は「下限なし」。
+    ///
+    /// スライダは位置で持ち、数には手元の最大値で割り戻す。スライダの右端を数に結ぶと、
+    /// 右端が決まる前に値が既定の右端（10）へ丸められ、それが上限として書き戻されうる。
+    /// </summary>
+    public double LowPosition
+    {
+        get => Min is { } min ? Math.Clamp(min * 100.0 / SliderMaximum, 0, 100) : 0;
+        set => MinText = value <= 0 ? string.Empty : ToNumber(value).ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>右のスライダの位置（0〜100）。右端は「上限なし」。</summary>
+    public double HighPosition
+    {
+        get => Max is { } max ? Math.Clamp(max * 100.0 / SliderMaximum, 0, 100) : 100;
+        set => MaxText = value >= 100 ? string.Empty : ToNumber(value).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private int ToNumber(double position) => (int)Math.Round(position / 100 * SliderMaximum);
+
+    public void RefreshMaximum()
+    {
+        SliderMaximum = Math.Max(1, MaximumOf?.Invoke(_source?.Key) ?? 100);
+        OnPropertyChanged(nameof(LowPosition));
+        OnPropertyChanged(nameof(HighPosition));
+    }
+
+    protected override bool HasCondition => Min is not null || Max is not null;
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context)
+    {
+        if (!HasCondition)
+        {
+            return true;
+        }
+
+        var (min, max) = (Min, Max);
+        return _values(item, _source?.Key).Any(value => (min is null || value >= min) && (max is null || value <= max));
+    }
+
+    public override string SummaryText
+        => $"{Label}{(HasSources ? $"（{_source?.Label}）" : string.Empty)} {Min?.ToString("N0")}〜{Max?.ToString("N0")}{Unit}";
+
+    public override void Clear()
+    {
+        _minText = string.Empty;
+        _maxText = string.Empty;
+        OnPropertyChanged(nameof(MinText));
+        OnPropertyChanged(nameof(MaxText));
+        OnPropertyChanged(nameof(LowPosition));
+        OnPropertyChanged(nameof(HighPosition));
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state)
+        => state with { Min = _minText, Max = _maxText, Choice = _source?.Key };
+
+    protected override void Read(SearchModuleState state)
+    {
+        _minText = state.Min ?? string.Empty;
+        _maxText = state.Max ?? string.Empty;
+        _source = Sources.FirstOrDefault(option => option.Key == state.Choice) ?? Sources.FirstOrDefault();
+        OnPropertyChanged(nameof(MinText));
+        OnPropertyChanged(nameof(MaxText));
+        OnPropertyChanged(nameof(Source));
+        RefreshMaximum();
+        OnPropertyChanged(nameof(LowPosition));
+    }
+}
+
+/// <summary>
+/// 日付の範囲（ユーザ案「カレンダー」）。欄に打つか、右のカレンダーで選ぶ。指定した日をまるまる含む。
+/// 打った文字の読み方は <see cref="DateText"/>（年の無い日付は今日以前で最も近い日、月だけなら月初め／月末）。
+/// </summary>
+public sealed class DateModule : SearchModule
+{
+    private readonly Func<ItemRecord, DateOnly?> _value;
+    private string _sinceText = string.Empty;
+    private string _tillText = string.Empty;
+
+    public DateModule(SearchModuleKind kind, Func<ItemRecord, DateOnly?> value)
+        : base(kind)
+        => _value = value;
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+
+    public string SinceText
+    {
+        get => _sinceText;
+        set
+        {
+            if (SetField(ref _sinceText, value ?? string.Empty))
+            {
+                RaiseSince();
+                NotifyChanged();
+            }
+        }
+    }
+
+    public string TillText
+    {
+        get => _tillText;
+        set
+        {
+            if (SetField(ref _tillText, value ?? string.Empty))
+            {
+                RaiseTill();
+                NotifyChanged();
+            }
+        }
+    }
+
+    public DateOnly? Since => DateText.Parse(_sinceText, isEnd: false, Today);
+
+    public DateOnly? Till => DateText.Parse(_tillText, isEnd: true, Today);
+
+    /// <summary>カレンダーで選んだ日（欄の文字と同じもの）。</summary>
+    public DateTime? SinceDate
+    {
+        get => Since?.ToDateTime(TimeOnly.MinValue);
+        set => SinceText = value is { } date ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
+    }
+
+    public DateTime? TillDate
+    {
+        get => Till?.ToDateTime(TimeOnly.MinValue);
+        set => TillText = value is { } date ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
+    }
+
+    /// <summary>どう読んだかを添える（「9/1」を去年と読んだ、などが分かるように）。読めなければ例を出す。</summary>
+    public string SinceNote => Note(_sinceText, Since, "から");
+
+    public string TillNote => Note(_tillText, Till, "まで");
+
+    protected override bool HasCondition => Since is not null || Till is not null;
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context)
+    {
+        if (!HasCondition)
+        {
+            return true;
+        }
+
+        // 日付が分からない商品は、日付で絞った時点で外す。「値が小さい」ではなく「値が無い」ので、範囲のどこにも当てはまらない
+        if (_value(item) is not { } date)
+        {
+            return false;
+        }
+
+        return (Since is not { } since || date >= since) && (Till is not { } till || date <= till);
+    }
+
+    public override string SummaryText => $"{Label} {Since:yyyy-MM-dd}〜{Till:yyyy-MM-dd}";
+
+    public override void Clear()
+    {
+        _sinceText = string.Empty;
+        _tillText = string.Empty;
+        OnPropertyChanged(nameof(SinceText));
+        OnPropertyChanged(nameof(TillText));
+        RaiseSince();
+        RaiseTill();
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state) => state with { Min = _sinceText, Max = _tillText };
+
+    protected override void Read(SearchModuleState state)
+    {
+        _sinceText = state.Min ?? string.Empty;
+        _tillText = state.Max ?? string.Empty;
+        OnPropertyChanged(nameof(SinceText));
+        OnPropertyChanged(nameof(TillText));
+        RaiseSince();
+        RaiseTill();
+    }
+
+    private static string Note(string text, DateOnly? parsed, string suffix)
+        => parsed is { } date
+            ? $"{date:yyyy年M月d日}{suffix}"
+            : text.Trim().Length > 0 ? "日付として読めません（例：2026/9/1・9/1・2026/9）" : string.Empty;
+
+    private void RaiseSince()
+    {
+        OnPropertyChanged(nameof(SinceDate));
+        OnPropertyChanged(nameof(SinceNote));
+    }
+
+    private void RaiseTill()
+    {
+        OnPropertyChanged(nameof(TillDate));
+        OnPropertyChanged(nameof(TillNote));
+    }
+}
+
+/// <summary>
+/// 属性の値（ユーザ案「上下指定・数値・AND OR」）。属性ごとにスライダ2本。複数の属性は AND（全部）か OR（どれか）。
+/// 属性を足すこと自体が「この属性で選ぶ」という意思表示なので、評価していない商品は 0〜100 のままでも外す。
+/// </summary>
+public sealed class AttributeModule : SearchModule
+{
+    private readonly List<string> _names = [];
+    private bool _matchAll = true;
+    private RelayCommand? _add;
+
+    public AttributeModule()
+        : base(SearchModuleKind.Attribute)
+    {
+    }
+
+    public ObservableCollection<AttributeFilter> Rows { get; } = [];
+
+    public ObservableCollection<string> Suggestions { get; } = [];
+
+    public bool HasSuggestions => _names.Count > 0;
+
+    public bool MatchAll
+    {
+        get => _matchAll;
+        set
+        {
+            if (SetField(ref _matchAll, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    public bool ShowsMatchMode => Rows.Count > 1;
+
+    public RelayCommand AddCommand => _add ??= new RelayCommand(parameter => AddRow(parameter as string));
+
+    /// <summary>属性の名前（マスタ）を入れる。消えた属性の行は外す。</summary>
+    public void SetNames(IEnumerable<string> names)
+    {
+        _names.Clear();
+        _names.AddRange(names);
+
+        foreach (var row in Rows.Where(row => !_names.Contains(row.Name, StringComparer.CurrentCultureIgnoreCase)).ToList())
+        {
+            Rows.Remove(row);
+        }
+
+        RefreshSuggestions();
+    }
+
+    public void AddRow(string? name, int min = 0, int max = 100, bool notify = true)
+    {
+        var known = _names.FirstOrDefault(entry => string.Equals(entry, name?.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            ?? (notify ? null : name?.Trim());
+        if (string.IsNullOrEmpty(known) || Rows.Any(row => string.Equals(row.Name, known, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return;
+        }
+
+        var row = new AttributeFilter { Name = known };
+        row.Min = min;
+        row.Max = max;
+        row.Changed += NotifyChanged;
+        row.RemoveCommand = new RelayCommand(() =>
+        {
+            Rows.Remove(row);
+            RefreshSuggestions();
+            NotifyChanged();
+        });
+
+        Rows.Add(row);
+        RefreshSuggestions();
+        if (notify)
+        {
+            NotifyChanged();
+        }
+    }
+
+    protected override bool HasCondition => Rows.Count > 0;
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context)
+        => Rows.Count == 0 || (_matchAll ? Rows.All(row => row.Matches(item)) : Rows.Any(row => row.Matches(item)));
+
+    public override string SummaryText
+        => $"{Label}：{string.Join(_matchAll ? " かつ " : "・", Rows.Select(row => $"{row.Name} {row.Min}〜{row.Max}"))}";
+
+    public override void Clear()
+    {
+        Rows.Clear();
+        _matchAll = true;
+        OnPropertyChanged(nameof(MatchAll));
+        RefreshSuggestions();
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state)
+        => state with { Ranges = Rows.Select(row => new AttributeRange(row.Name, row.Min, row.Max)).ToList(), MatchAll = _matchAll };
+
+    protected override void Read(SearchModuleState state)
+    {
+        Rows.Clear();
+        foreach (var range in state.Ranges)
+        {
+            AddRow(range.Name, range.Min, range.Max, notify: false);
+        }
+
+        _matchAll = state.MatchAll || state.Ranges.Count == 0;
+        OnPropertyChanged(nameof(MatchAll));
+    }
+
+    private void RefreshSuggestions()
+    {
+        Suggestions.Clear();
+        foreach (var name in _names.Where(name =>
+            !Rows.Any(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase))))
+        {
+            Suggestions.Add(name);
+        }
+
+        OnPropertyChanged(nameof(HasSuggestions));
+        OnPropertyChanged(nameof(ShowsMatchMode));
+    }
+}
+
+/// <summary>
+/// 最近（ユーザ判断 2026-09-16 Q1：プルダウンと日数）。使った（Unityへ送った）・見た（商品ページを開いた）・手元に入った。
+/// 記録が無い商品は、日数を入れた時点で外す（「値が小さい」ではなく「値が無い」）。
+/// </summary>
+public sealed class RecentModule : SearchModule
+{
+    private ChoiceOption _selected;
+    private string _daysText = string.Empty;
+
+    public RecentModule()
+        : base(SearchModuleKind.Recent)
+    {
+        Options =
+        [
+            new ChoiceOption("used", "使った（Unityへ送った）"),
+            new ChoiceOption("viewed", "見た（商品ページを開いた）"),
+            new ChoiceOption("added", "手元に入った"),
+        ];
+        _selected = Options[0];
+    }
+
+    public IReadOnlyList<ChoiceOption> Options { get; }
+
+    public ChoiceOption Selected
+    {
+        get => _selected;
+        set
+        {
+            if (value is not null && SetField(ref _selected, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    public string DaysText
+    {
+        get => _daysText;
+        set
+        {
+            if (SetField(ref _daysText, value ?? string.Empty))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    private int? Days => ParseNumber(_daysText) is > 0 and var days ? days : null;
+
+    public RecentKind SelectedKind => _selected.Key switch
+    {
+        "viewed" => RecentKind.Viewed,
+        "added" => RecentKind.Added,
+        _ => RecentKind.Used,
+    };
+
+    protected override bool HasCondition => Days is not null;
+
+    public override bool Matches(ItemRecord item, SearchModuleContext context)
+        => !HasCondition || RecentActivity.IsWithin(context.Recent.Of(item.Id, SelectedKind), Days ?? 0, context.Now);
+
+    public override string SummaryText => $"最近{_selected.Label.Split('（')[0]} {Days}日以内";
+
+    public override void Clear()
+    {
+        _daysText = string.Empty;
+        OnPropertyChanged(nameof(DaysText));
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state) => state with { Choice = _selected.Key, Min = _daysText };
+
+    protected override void Read(SearchModuleState state)
+    {
+        _selected = Options.FirstOrDefault(option => option.Key == state.Choice) ?? Options[0];
+        _daysText = state.Min ?? string.Empty;
+        OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(DaysText));
+    }
+}
+
+/// <summary>「条件を追加」のメニューの1行。追加済みはグレー（ユーザ案：一度しか追加できない）。</summary>
+public sealed class SearchModuleMenuEntry : ViewModelBase
+{
+    private bool _isAvailable = true;
+
+    public SearchModuleMenuEntry(SearchModuleInfo info, Action<SearchModuleKind> add)
+    {
+        Kind = info.Kind;
+        Label = info.Label;
+        Hint = info.Hint;
+        AddCommand = new RelayCommand(() => add(Kind), () => IsAvailable);
+    }
+
+    public SearchModuleKind Kind { get; }
+
+    public string Label { get; }
+
+    public string Hint { get; }
+
+    public bool IsAvailable
+    {
+        get => _isAvailable;
+        set
+        {
+            if (SetField(ref _isAvailable, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public RelayCommand AddCommand { get; }
+}
+
+/// <summary>「条件を追加」のメニューの見出し（ユーザ案：BOOTHの情報・商品の情報・カレンダー・スライダー・利用状況）。</summary>
+public sealed record SearchModuleMenuHeading(string Title, IReadOnlyList<SearchModuleMenuEntry> Entries);

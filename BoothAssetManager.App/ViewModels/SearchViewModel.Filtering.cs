@@ -1,51 +1,34 @@
 using System.IO;
-using System.Collections.ObjectModel;
-using System.Windows.Media.Imaging;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.App.ViewModels;
 
-/// <summary>検索画面：絞り込み・広げ・並べ替え・カードの組み立て（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
+/// <summary>検索画面：絞り込み・広げ・並べ替え・カードの組み立て</summary>
 public sealed partial class SearchViewModel
 {
-    private void ClearFilters()
+    /// <summary>
+    /// 「条件をクリア」。文字列を消し、条件の値を何も絞らない形に戻す。**追加した条件そのものは残す**
+    /// （どれを使うかは人が選んだ物で、クリアは値を戻すこと）。
+    /// </summary>
+    private void ClearFilters(bool apply = true)
     {
         _queryText = string.Empty;
-        _selectedCategory = AllCategories;
-        _ownedOnly = false;
-        _missingOnly = false;
-        _givenOnly = false;
-        _receivedOnly = false;
-        _avatarFilterId = null;
-        _avatarFilterName = null;
-        _avatarFilterHasBase = false;
-        RaiseAvatarFilterChanged();
-        _shopFilterKey = null;
-        _shopFilterName = null;
-        RaiseShopFilterChanged();
+        _queryNode = new Core.Services.SearchNode.All();
+        ClearWidening();
 
-        foreach (var tag in TagFilters)
+        foreach (var module in Modules)
         {
-            tag.Reset();
+            module.Clear();
         }
-
-        foreach (var attribute in AttributeFilters)
-        {
-            attribute.Min = 0;
-            attribute.Max = 100;
-        }
-
-        // 積んだタグは「条件をクリア」で外す。属性と違って幅を戻す概念が無いため
-        BoothTagFilters.Clear();
-        RefreshBoothTagSuggestions();
 
         OnPropertyChanged(nameof(QueryText));
-        OnPropertyChanged(nameof(SelectedCategory));
-        OnPropertyChanged(nameof(OwnedOnly));
-        OnPropertyChanged(nameof(GivenOnly));
-        OnPropertyChanged(nameof(ReceivedOnly));
-        ApplyFilters();
+        SaveModulesLater();
+
+        if (apply)
+        {
+            ApplyFilters();
+        }
     }
 
     private void ApplyFilters()
@@ -56,14 +39,12 @@ public sealed partial class SearchViewModel
 
         // 改変はファイルを読むので待てない。**読めたらもう一度絞り込む**——
         // 一度きりの読みにしておくと、条件を積んだ直後だけ0件に見える
-        if (NeedsModifications() && _modificationUsage is null)
+        if (NeedsModifications())
         {
-            LoadModificationUsageAsync().Forget();
+            EnsureModificationsLoaded();
         }
 
-        _matches = SortItems(_allItems.Where(item => Matches(item)))
-            .Select(item => _cards[item.Id])
-            .ToList();
+        _matches = FilterMatches();
 
         // 別表記は「別表記でも検索」を入れているときだけ広げる。前は0件のときに自動で広げていたが、
         // 切っているのに広げると切っている意味が無い（ユーザ判断 2026-09-16）。0件の所にボタンを出す
@@ -75,11 +56,6 @@ public sealed partial class SearchViewModel
         RefreshFacetCounts();
         RebuildRows();
 
-        foreach (var filter in ExtraFilters.Where(f => f.Kind == ExtraFilterKind.Folder && f.Rows.Count == 0))
-        {
-            RebuildFolderRows(filter);
-        }
-
         OnPropertyChanged(nameof(ResultSummary));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(ShowsWidenOffer));
@@ -87,6 +63,20 @@ public sealed partial class SearchViewModel
         OnPropertyChanged(nameof(ActiveFilterCount));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(EmptyHint));
+    }
+
+    /// <summary>今の条件で全商品を照らし、並べる。照らす材料（改変・足跡・素体の索引）はこの1回で使い回す。</summary>
+    private List<ItemCardViewModel> FilterMatches()
+    {
+        // 非表示は、非表示の条件を足して効かせていなければ隠す（今までどおり・ユーザ判断 Q12）
+        _allowsHidden = Modules.Any(module => module.Kind == SearchModuleKind.Hidden && module.IsEnabled);
+        _hiddenCount = _allowsHidden ? 0 : _allItems.Count(item => item.Local.IsHidden);
+        _moduleContext = CreateModuleContext();
+        _activeModules = Modules.Where(module => module.IsActive).ToList();
+
+        return SortItems(_allItems.Where(item => Matches(item)))
+            .Select(item => _cards[item.Id])
+            .ToList();
     }
 
     /// <summary>広げて探したときに使った別表記。0件でなければ空。</summary>
@@ -140,9 +130,7 @@ public sealed partial class SearchViewModel
                 }
 
                 RefreshSearchOptions();
-                _matches = SortItems(_allItems.Where(item => Matches(item)))
-                    .Select(item => _cards[item.Id])
-                    .ToList();
+                _matches = FilterMatches();
 
                 if (_matches.Count == 0)
                 {
@@ -215,76 +203,7 @@ public sealed partial class SearchViewModel
     public int ActiveFilterCount => FilterParts().Count;
 
     /// <summary>効いている条件を1つずつ文にする。要約にも件数にも同じものを使う。</summary>
-    private List<string> FilterParts()
-    {
-        var parts = new List<string>();
-
-        var tags = TagFilters.Where(filter => filter.IsSelected).ToList();
-        foreach (var tag in tags)
-        {
-            var subs = tag.SelectedSubs.ToList();
-            parts.Add(subs.Count == 0 ? tag.Name : $"{tag.Name}（{string.Join("・", subs)}）");
-        }
-
-        foreach (var attribute in AttributeFilters)
-        {
-            parts.Add($"{attribute.Name} {attribute.Min}〜{attribute.Max}%");
-        }
-
-        foreach (var tag in BoothTagFilters)
-        {
-            parts.Add($"タグ：{tag.Name}");
-        }
-
-        foreach (var extra in ExtraFilters.Where(filter => filter.IsActive))
-        {
-            parts.Add(extra.SummaryText);
-        }
-
-        if (_ownedOnly)
-        {
-            parts.Add("所持のみ");
-        }
-
-        if (_missingOnly)
-        {
-            parts.Add("ファイルが見つからない");
-        }
-
-        if (_givenOnly && _receivedOnly)
-        {
-            parts.Add("贈った・貰った");
-        }
-        else if (_givenOnly)
-        {
-            parts.Add("贈った");
-        }
-        else if (_receivedOnly)
-        {
-            parts.Add("貰った");
-        }
-
-        if (_shopFilterName is not null)
-        {
-            parts.Add($"ショップ：{_shopFilterName}");
-        }
-
-        if (_avatarFilterName is not null)
-        {
-            // 素体を持たないアバターに「素体経由を含む」と書かない。
-            // 経由する先が無いので、書いてあると効いていないのに効いたように読める
-            parts.Add(_includeViaBase && _avatarFilterHasBase
-                ? $"{_avatarFilterName}（素体経由を含む）"
-                : _avatarFilterName);
-        }
-
-        if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != AllCategories)
-        {
-            parts.Add(_selectedCategory);
-        }
-
-        return parts;
-    }
+    private List<string> FilterParts() => Modules.Where(module => module.IsActive).Select(module => module.SummaryText).ToList();
 
     public bool HasActiveFilters => ActiveFilterCount > 0;
 
@@ -369,107 +288,27 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 絞り込みの軸。ファセットの件数を数えるとき、自分の軸だけを外して数えるために使う。
-    /// 外さないと、userTagで「衣装」を選んだ瞬間に同じ欄の他のuserTagが全部0件になる。
+    /// 設定と非表示で、条件より先に外す商品。
+    /// **前は検索画面だけ外していなかった**（設定「R-18 の商品を表示する」を切っても、非表示にしても検索には出ていた）。
     /// </summary>
-    private enum FilterAxis
+    private bool PassesBase(ItemRecord item)
+        => (_allowsHidden || !item.Local.IsHidden) && (_services.Settings.ShowAdult || !item.Booth.IsAdult);
+
+    /// <param name="except">この条件だけ当てない。選択肢の件数を数えるときに指定する。</param>
+    private bool Matches(ItemRecord item, SearchModule? except = null)
     {
-        Owned,
-        Avatar,
-        Category,
-        UserTag,
-        BoothTag,
-        Attribute,
-        Extra,
-    }
-
-    /// <param name="except">この軸だけ適用しない。ファセットの件数を数えるときに指定する。</param>
-    private bool Matches(ItemRecord item, FilterAxis? except = null)
-    {
-        if (except != FilterAxis.Owned)
+        if (!PassesBase(item))
         {
-            if (_ownedOnly && !item.IsDownloaded)
+            return false;
+        }
+
+        var context = _moduleContext ??= CreateModuleContext();
+        foreach (var module in _activeModules)
+        {
+            if (!ReferenceEquals(module, except) && !module.Matches(item, context))
             {
                 return false;
             }
-
-            if (_missingOnly && !item.Local.OwnedFiles.Any(file => file.Paths.Count == 0))
-            {
-                return false;
-            }
-
-            // 贈った・貰ったは所持とは別の軸。貰ったものは手元にあり、贈ったものは手元に無いので、
-            // 同じ札に入れると読み違える。両方選んだ場合は「どちらかに当てはまるもの」
-            if (_givenOnly || _receivedOnly)
-            {
-                var matched = (_givenOnly && Core.Services.Purchases.WasGiven(item))
-                    || (_receivedOnly && Core.Services.Purchases.WasReceived(item));
-
-                if (!matched)
-                {
-                    return false;
-                }
-            }
-        }
-
-        // ショップでの絞り込み。束ねる鍵はショップ一覧と同じ（名前は変わり得るので鍵で見る）
-        if (_shopFilterKey is not null
-            && !string.Equals(item.ShopSubdomain, _shopFilterKey, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        // 対応アバターでの絞り込み。素体経由は推定なので、含めるかを選べるようにする
-        if (except != FilterAxis.Avatar && _avatarFilterId is not null)
-        {
-            var match = (_compatibility ??= Core.Services.AvatarCompatibilityIndex.Build(
-                _services.Store.Avatars.Load())).MatchFor(item.Local, _avatarFilterId);
-
-            var accepted = _includeViaBase
-                ? match is Core.Services.AvatarMatch.Direct or Core.Services.AvatarMatch.ViaBase
-                : match == Core.Services.AvatarMatch.Direct;
-
-            if (!accepted)
-            {
-                return false;
-            }
-        }
-
-        if (except != FilterAxis.Category
-            && !string.IsNullOrEmpty(_selectedCategory)
-            && _selectedCategory != AllCategories
-            && !string.Equals(item.CategoryName, _selectedCategory, StringComparison.CurrentCulture))
-        {
-            return false;
-        }
-
-        // 選ばれたトップのいずれかに当てはまればよい（別のトップ同士はORで扱う）
-        if (except != FilterAxis.UserTag)
-        {
-            var selectedTags = TagFilters.Where(filter => filter.IsSelected).ToList();
-            if (selectedTags.Count > 0 && !selectedTags.Any(filter => filter.Matches(item)))
-            {
-                return false;
-            }
-        }
-
-        // 属性は軸ごとにANDで積む。片側でも動かした軸では未評価が落ちる
-        if (except != FilterAxis.Attribute && AttributeFilters.Any(filter => !filter.Matches(item)))
-        {
-            return false;
-        }
-
-        // BOOTHタグも積んだものをANDで。積むこと自体が「このタグで絞る」という意思表示
-        if (except != FilterAxis.BoothTag && BoothTagFilters.Any(filter => !filter.Matches(item)))
-        {
-            return false;
-        }
-
-        // 積んだ条件は軸ごとにANDで積む。積むこと自体が「この軸で選ぶ」という意思表示
-        if (except != FilterAxis.Extra
-            && ExtraFilters.Any(filter => !filter.Matches(item, _unreadItemIds, _recentTimes, _modificationUsage)))
-        {
-            return false;
         }
 
         return MatchesQuery(item);
@@ -479,98 +318,15 @@ public sealed partial class SearchViewModel
     /// 選択肢の横に出す件数を数え直す。
     ///
     /// 数えるのは「今の他の条件を適用した後」の件数。全体の件数だと、押してから0件と分かる。
-    /// ただし自分の軸は自分を除いて数える（<see cref="FilterAxis"/> の説明を参照）。
-    /// 0件の選択肢は消さずに薄く出す。消えると「さっきあった項目が無い」と探すことになる。
+    /// ただし自分の条件は自分を除いて数える。含めて数えると、選んだ瞬間に同じ条件の他の選択肢が全部0件になる。
     /// </summary>
     private void RefreshFacetCounts()
     {
-        var forCategory = _allItems.Where(item => Matches(item, FilterAxis.Category)).ToList();
-        foreach (var option in Categories)
+        var context = _moduleContext ??= CreateModuleContext();
+        foreach (var module in Modules)
         {
-            option.Count = option.IsAll
-                ? forCategory.Count
-                : forCategory.Count(item =>
-                    string.Equals(item.CategoryName, option.Name, StringComparison.CurrentCulture));
-        }
-
-        var forTags = _allItems.Where(item => Matches(item, FilterAxis.UserTag)).ToList();
-        foreach (var filter in TagFilters)
-        {
-            filter.Count = forTags.Count(item => item.Local.UserTags.Any(entry =>
-                string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)));
-
-            foreach (var sub in filter.Subs)
-            {
-                sub.Count = forTags.Count(item => item.Local.UserTags.Any(entry =>
-                    string.Equals(entry.Top, filter.Name, StringComparison.CurrentCultureIgnoreCase)
-                    && entry.Subs.Contains(sub.Name, StringComparer.CurrentCultureIgnoreCase)));
-            }
-        }
-
-        // 積んだタグは自分の軸を除いて数える。含めて数えると、積んだ瞬間に
-        // 「今の結果と同じ件数」しか出ず、他のタグを足す判断ができない
-        var forBoothTags = _allItems.Where(item => Matches(item, FilterAxis.BoothTag)).ToList();
-        foreach (var filter in BoothTagFilters)
-        {
-            filter.Count = forBoothTags.Count(filter.Matches);
-        }
-
-        var forOwned = _allItems.Where(item => Matches(item, FilterAxis.Owned)).ToList();
-        OwnedCount = forOwned.Count(item => item.IsDownloaded);
-        MissingCount = forOwned.Count(item => item.Local.OwnedFiles.Any(file => file.Paths.Count == 0));
-        GivenCount = forOwned.Count(Core.Services.Purchases.WasGiven);
-        ReceivedCount = forOwned.Count(Core.Services.Purchases.WasReceived);
-
-        foreach (var name in new[]
-        {
-            nameof(OwnedCount), nameof(MissingCount), nameof(GivenCount), nameof(ReceivedCount),
-            nameof(HasGiftRecords),
-        })
-        {
-            OnPropertyChanged(name);
-        }
-    }
-
-    /// <summary>「ファイルを持っているものだけ」を押したときの件数。</summary>
-    public int OwnedCount { get; private set; }
-
-    /// <summary>「ファイルが見つからない」を押したときの件数。</summary>
-    public int MissingCount { get; private set; }
-
-    /// <summary>
-    /// 贈った・貰った商品の数。回数ではなく商品数（1つの商品を3人に贈っても1件）。
-    /// 統計側は「贈った回数」「贈答に使った額」と書き分ける。
-    /// </summary>
-    public int GivenCount { get; private set; }
-
-    public int ReceivedCount { get; private set; }
-
-    /// <summary>贈答の記録が1件も無ければ、この行ごと出さない。</summary>
-    public bool HasGiftRecords => GivenCount > 0 || ReceivedCount > 0;
-
-    /// <summary>贈った商品だけに絞る。</summary>
-    public bool GivenOnly
-    {
-        get => _givenOnly;
-        set
-        {
-            if (SetField(ref _givenOnly, value))
-            {
-                ApplyFilters();
-            }
-        }
-    }
-
-    /// <summary>貰った商品だけに絞る。</summary>
-    public bool ReceivedOnly
-    {
-        get => _receivedOnly;
-        set
-        {
-            if (SetField(ref _receivedOnly, value))
-            {
-                ApplyFilters();
-            }
+            var others = _allItems.Where(item => Matches(item, module)).ToList();
+            module.RefreshCounts(others, context);
         }
     }
 
@@ -581,25 +337,20 @@ public sealed partial class SearchViewModel
             || Core.Services.SearchQuery.Matches(_widenedNode ?? _queryNode, haystack, _searchOptions);
 
     /// <summary>
-    /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。
-    /// 未評価は「値が小さい」のではなく「値が無い」ので、0として混ぜると誤読させる。
-    /// </summary>
-    /// <summary>
     /// この絞り込みで足跡が要るか。
     ///
     /// 積んでいなければ読まない。関係の無い検索でファイルを開く理由が無い。
     /// </summary>
-    private bool NeedsRecent()
-        => ExtraFilters.Any(filter => filter.Shape == ExtraFilterShape.Days && filter.IsActive);
+    private bool NeedsRecent() => Modules.Any(module => module is RecentModule && module.IsActive);
 
     private RecentTimes LoadRecentTimes() => new(
         _services.Recent.Times(Core.Services.RecentKind.Added),
         _services.Recent.Times(Core.Services.RecentKind.Used),
         _services.Recent.Times(Core.Services.RecentKind.Viewed));
 
-    /// <summary>改変を読む必要があるか。積んでいなければ読まない。</summary>
+    /// <summary>改変を読む必要があるか。改変・Unityプロジェクトの条件を足していなければ読まない。</summary>
     private bool NeedsModifications()
-        => ExtraFilters.Any(filter => filter.Kind == ExtraFilterKind.UsedOn && filter.IsActive);
+        => Modules.Any(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject);
 
     private async Task LoadModificationUsageAsync()
     {
@@ -617,12 +368,19 @@ public sealed partial class SearchViewModel
         RunOnUiThread(() =>
         {
             _modificationUsage = usage;
+            _loadingModifications = false;
+
+            foreach (var module in Modules.Where(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject))
+            {
+                RefreshModuleSource(module);
+            }
+
             ApplyFilters();
         });
     }
 
     /// <summary>
-    /// 改変が変わったので、次の絞り込みで読み直す。
+    /// 改変が変わったので、読み直す。
     ///
     /// 改変は別の画面で増えたり減ったりする。持ち続けると
     /// 「作ったのに絞り込みに出ない」が起きる。
@@ -630,7 +388,10 @@ public sealed partial class SearchViewModel
     public void NoteModificationsChanged()
     {
         _modificationUsage = null;
-        RefreshExtraSuggestions();
+        if (NeedsModifications())
+        {
+            EnsureModificationsLoaded();
+        }
     }
 
     /// <summary>その並び順が「最近」の足跡を見るものなら、どの種類か。</summary>
@@ -642,6 +403,10 @@ public sealed partial class SearchViewModel
         _ => null,
     };
 
+    /// <summary>
+    /// 表示順を適用する。属性で並べたときは、未評価を昇順・降順どちらでも常に末尾に置く。
+    /// 未評価は「値が小さい」のではなく「値が無い」ので、0として混ぜると誤読させる。
+    /// </summary>
     private IEnumerable<ItemRecord> SortItems(IEnumerable<ItemRecord> items)
     {
         var sort = _sort;

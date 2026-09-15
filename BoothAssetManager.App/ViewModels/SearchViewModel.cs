@@ -49,18 +49,6 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
     private string _queryText = string.Empty;
     private Core.Services.SearchNode _queryNode = new Core.Services.SearchNode.All();
     private bool _searchAlternates;
-    private string? _selectedCategory;
-    private bool _ownedOnly;
-    private bool _missingOnly;
-    private bool _givenOnly;
-    private bool _receivedOnly;
-    private string? _avatarFilterId;
-    private string? _avatarFilterName;
-
-    /// <summary>ショップで絞っているときの鍵（サブドメイン、手元だけのショップは local: 付き）と見せる名前。</summary>
-    private string? _shopFilterKey;
-    private string? _shopFilterName;
-    private bool _includeViaBase = true;
     private Core.Services.AvatarCompatibilityIndex? _compatibility;
     private bool _isLoading;
     private bool _isFilterPanelCollapsed;
@@ -77,9 +65,6 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
     /// <summary>ライブラリにあるBOOTHタグの全種類。候補の元。</summary>
     private List<string> _boothTagNames = [];
 
-    /// <summary>要確認に未読の更新通知が残っている商品。「更新の有無」の条件で使う。</summary>
-    private HashSet<string> _unreadItemIds = [];
-
     private MainViewModel? _main;
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
@@ -91,8 +76,6 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         _thumbnails = thumbnails;
         global::BoothAssetManager.App.Services.CardMetrics.Changed += RelayoutForCardSize;
         ClearFiltersCommand = new RelayCommand(() => ClearFiltersKeepingHistoryAsync().Forget());
-        AddAttributeFilterCommand = new RelayCommand(parameter => AddAttributeFilter(parameter as string));
-        AddBoothTagFilterCommand = new RelayCommand(parameter => AddBoothTagFilter(parameter as string));
         SelectAllCommand = new RelayCommand(SelectAllMatches);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
@@ -105,26 +88,12 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         EditItemCommand = new RelayCommand(parameter => EditItemAsync(parameter as ItemCardViewModel).Forget());
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
         HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
-        AddExtraFilterCommand = new RelayCommand(parameter => AddExtraFilter(parameter as string));
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
-        SetAvatarFilterCommand = new RelayCommand(parameter => SetAvatarFilter(parameter as string));
-        ClearAvatarFilterCommand = new RelayCommand(ClearAvatarFilter);
-        ClearShopFilterCommand = new RelayCommand(ClearShopFilter);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
         _isListMode = ItemListMode.IsList(services, "search");
 
-        // 前回積んでいた条件の種類だけを戻す。値は戻さない
-        foreach (var name in services.UiState.SearchExtraFilters)
-        {
-            if (Enum.TryParse<ExtraFilterKind>(name, out var kind))
-            {
-                AddExtraFilter(kind, save: false);
-            }
-        }
-
-        // 候補は足す・外すのたびに作り直しているが、それだけだと**積んだ条件が1つも無い起動では
-        // 一度も作られず**、「条件を追加」を触っても何も出なかった（1つ足すと出るようになっていた）
-        RefreshAvailableExtraFilters();
+        // 前回の条件を値まで戻す（ユーザ判断 2026-09-16 Q10。前は種類だけ戻していた）
+        InitializeModules(services.UiState.SearchModules);
 
         ReloadAsync().Forget();
     }
@@ -269,7 +238,10 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         }
     }
 
-    public string ResultSummary => $"{_matches.Count} 件";
+    /// <summary>件数。設定「非表示にしている件数を検索結果に出す」が入っていれば、隠している数も添える。</summary>
+    public string ResultSummary => _hiddenCount > 0 && _services.Settings.ShowHiddenCountInSearch
+        ? $"{_matches.Count} 件（ほかに非表示 {_hiddenCount} 件）"
+        : $"{_matches.Count} 件";
 
     public bool IsEmpty => !IsLoading && _matches.Count == 0;
 
@@ -313,7 +285,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
             // await の続きは画面のスレッドに戻るので、ここにそのまま書くと画面のスレッドで走り、
             // 2000件で約0.5秒、読み込むたびに画面が止まっていた（起動・取り込みや編集の後の読み直し）。
             // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
-            var (sorted, built, unreadIds) = await Task.Run(() =>
+            var (sorted, built) = await Task.Run(() =>
             {
                 // 外付けのドライブ文字が変わっていないかを読み直す（通し番号を読むので、ここで）。
                 // 表は書かない：控えるのは取り込みとフォルダビューを開いた時（ユーザ判断 2026-09-14）
@@ -339,18 +311,11 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
                     item => Core.Services.SearchText.Build(item, _services.KanjiReadings),
                     StringComparer.Ordinal);
 
-                // 「更新の有無」は要確認の未読と同じものを指す。既読にすれば条件から外れる
-                var unread = _services.Notifications.Load()
-                    .Where(record => !record.IsRead && record.ItemId is not null)
-                    .Select(record => record.ItemId!)
-                    .ToHashSet(StringComparer.Ordinal);
-
-                return (sortedItems, haystacks, unread);
+                return (sortedItems, haystacks);
             });
 
             _allItems = sorted;
             _haystacks = built;
-            _unreadItemIds = unreadIds;
 
             RunOnUiThread(() =>
             {
@@ -366,23 +331,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
 
                 OnCardSelectionChanged();
 
-                Categories.Clear();
-                Categories.Add(new CategoryOption { Name = AllCategories, IsAll = true });
-                // ユーザが入れた分類も一覧に出す。入れられるのに絞り込みに出ないなら、
-                // 入れる意味が半分無くなる
-                foreach (var category in _allItems
-                    .Select(item => item.CategoryName)
-                    .Where(name => !string.IsNullOrEmpty(name))
-                    .Distinct(StringComparer.CurrentCulture)
-                    .OrderBy(name => name, StringComparer.CurrentCulture))
-                {
-                    Categories.Add(new CategoryOption { Name = category! });
-                }
-
+                // カテゴリ（自分で入れた分類を含む）・タグ・アバターなどの候補は、全商品から組み直す
                 BuildFacets();
-
-                _selectedCategory ??= AllCategories;
-                OnPropertyChanged(nameof(SelectedCategory));
                 ApplyFilters();
                 OnPropertyChanged(nameof(TotalCount));
                 OnPropertyChanged(nameof(ShopCount));

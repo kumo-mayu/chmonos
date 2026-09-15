@@ -5,6 +5,9 @@ namespace BoothAssetManager.Core.Tests;
 
 public sealed class SearchHistoryTests
 {
+    private static SearchModuleState Tags(params string[] tags)
+        => new() { Kind = "BoothTag", Items = tags, Summary = "BOOTHタグ：" + string.Join("・", tags) };
+
     [Fact]
     public void 何も絞っていなければ残す価値が無い()
         => Assert.True(new SearchHistoryEntry().IsEmpty);
@@ -25,10 +28,14 @@ public sealed class SearchHistoryTests
         => Assert.False(new SearchHistoryEntry { Text = "衣装" }.IsEmpty);
 
     [Fact]
+    public void 絞り込みのモジュールがあれば条件になる()
+        => Assert.False(new SearchHistoryEntry { Modules = [Tags("夏")] }.IsEmpty);
+
+    [Fact]
     public void 積んだ順が違うだけなら同じ検索とみなす()
     {
-        var a = new SearchHistoryEntry { Text = "衣装", BoothTags = ["夏", "冬"] };
-        var b = new SearchHistoryEntry { Text = "衣装", BoothTags = ["冬", "夏"] };
+        var a = new SearchHistoryEntry { Text = "衣装", Modules = [Tags("夏", "冬")] };
+        var b = new SearchHistoryEntry { Text = "衣装", Modules = [Tags("冬", "夏")] };
 
         Assert.Equal(a.Fingerprint, b.Fingerprint);
     }
@@ -70,17 +77,26 @@ public sealed class SearchHistoryTests
     [Fact]
     public void 属性の幅が違えば別の検索()
     {
-        var a = new SearchHistoryEntry { Attributes = [new AttributeRange("かわいい", 60, 100)] };
-        var b = new SearchHistoryEntry { Attributes = [new AttributeRange("かわいい", 40, 100)] };
+        var a = new SearchHistoryEntry { Modules = [new() { Kind = "Attribute", Ranges = [new AttributeRange("かわいい", 60, 100)] }] };
+        var b = new SearchHistoryEntry { Modules = [new() { Kind = "Attribute", Ranges = [new AttributeRange("かわいい", 40, 100)] }] };
 
         Assert.NotEqual(a.Fingerprint, b.Fingerprint);
     }
 
     [Fact]
-    public void 文字列とカテゴリの境目を取り違えない()
+    public void ANDとORが違えば別の検索()
+    {
+        var a = new SearchHistoryEntry { Modules = [Tags("夏", "冬")] };
+        var b = new SearchHistoryEntry { Modules = [Tags("夏", "冬") with { MatchAll = true }] };
+
+        Assert.NotEqual(a.Fingerprint, b.Fingerprint);
+    }
+
+    [Fact]
+    public void 文字列と絞り込みの境目を取り違えない()
     {
         // 区切りに使える字が本文にも入れられると、この2つが同じ指紋になりうる
-        var a = new SearchHistoryEntry { Text = "衣装", Category = "夏" };
+        var a = new SearchHistoryEntry { Text = "衣装", Modules = [Tags("夏")] };
         var b = new SearchHistoryEntry { Text = "衣装夏" };
 
         Assert.NotEqual(a.Fingerprint, b.Fingerprint);
@@ -100,31 +116,21 @@ public sealed class SearchHistoryTests
         var entry = new SearchHistoryEntry
         {
             Text = "衣装",
-            Category = "3D衣装",
-            OwnedOnly = true,
-            AvatarName = "くうた",
-            BoothTags = ["夏"],
-            Attributes = [new AttributeRange("かわいい", 60, 100)],
+            Modules =
+            [
+                new() { Kind = "Owned", Choice = "owned", Summary = "所持：所持している" },
+                Tags("夏"),
+            ],
             Targets = ["main", "memo", "name", "shop"],
         };
 
-        Assert.Equal(
-            "衣装 / 3D衣装 / 所持のみ / くうた / #夏 / かわいい 60〜100 / 対象 main,memo,name,shop",
-            entry.Summary);
-    }
-
-    [Fact]
-    public void 素体を含むアバターの絞り込みが分かる()
-    {
-        var entry = new SearchHistoryEntry { AvatarName = "くうた", AvatarHasBase = true };
-
-        Assert.Equal("くうた（素体を含む）", entry.Summary);
+        Assert.Equal("衣装 / 所持：所持している / BOOTHタグ：夏 / 対象 main,memo,name,shop", entry.Summary);
     }
 
     [Fact]
     public void 名前を付けたらそれを出す()
     {
-        var entry = new SearchHistoryEntry { Text = "衣装", OwnedOnly = true, Name = "夏物" };
+        var entry = new SearchHistoryEntry { Text = "衣装", Modules = [Tags("夏")], Name = "夏物" };
 
         Assert.Equal("夏物", entry.Summary);
         Assert.True(entry.IsNamed);
@@ -146,8 +152,14 @@ public sealed class SearchHistoryTests
 
 public sealed class SearchHistoryListTests
 {
-    private static SearchHistoryEntry Entry(string text, string? name = null, string? category = null)
-        => new() { Text = text, Name = name, Category = category, UsedAt = DateTimeOffset.Now };
+    private static SearchHistoryEntry Entry(string text, string? name = null, string? tag = null)
+        => new()
+        {
+            Text = text,
+            Name = name,
+            Modules = tag is null ? [] : [new SearchModuleState { Kind = "BoothTag", Items = [tag] }],
+            UsedAt = DateTimeOffset.Now,
+        };
 
     [Fact]
     public void 積んだものが先頭に来る()
@@ -174,7 +186,7 @@ public sealed class SearchHistoryListTests
     public void 条件が違えば別の行として積む()
     {
         var list = SearchHistory.Add([], Entry("衣装"));
-        list = SearchHistory.Add(list, Entry("衣装", category: "3D衣装"));
+        list = SearchHistory.Add(list, Entry("衣装", tag: "夏"));
 
         Assert.Equal(2, list.Count);
     }

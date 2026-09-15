@@ -17,9 +17,8 @@ public sealed record AttributeRange(string Name, int Min, int Max)
 /// 別々に覚えても復元できない——「衣装」と打ったときに
 /// カテゴリを絞っていたのか、所持だけに限っていたのかで結果が変わる。
 ///
-/// 画面の状態をそのまま写すので、項目は
-/// <c>SearchViewModel.ClearFilters</c> が戻すものと1対1に対応する。
-/// **片方に足してもう片方に足し忘れると、復元できない条件が静かに増える。**
+/// 絞り込みはモジュールの状態（<see cref="SearchModuleState"/>）をそのまま持つ（検索画面の刷新 2026-09-16。
+/// 前はカテゴリ・所持・タグ…を1つずつ欄にしていて、画面に条件を足すたびにここにも足す必要があった）。
 /// </summary>
 public sealed record SearchHistoryEntry
 {
@@ -29,23 +28,12 @@ public sealed record SearchHistoryEntry
     /// 入力に現れない字を使う。区切りに使える字が本文にも入れられると、
     /// 「衣装|夏」と「衣装」＋カテゴリ「夏」が同じ指紋になりうる。
     /// </summary>
-    private const char Separator = '\u001f';
+    private const char Separator = (char)0x1F;
 
     /// <summary>検索文字列。</summary>
     public string Text { get; init; } = string.Empty;
 
-    /// <summary>カテゴリ。すべてなら null。</summary>
-    public string? Category { get; init; }
-
-    public bool OwnedOnly { get; init; }
-
-    public bool MissingOnly { get; init; }
-
-    public bool GivenOnly { get; init; }
-
-    public bool ReceivedOnly { get; init; }
-
-    // ---- 探す範囲 ----
+    // ---- 文字列で探す対象と切り替え ----
 
     /// <summary>
     /// 文字列で探した対象（前置きの名前：<c>name</c>・<c>main</c> など）。**既定のままなら空**
@@ -62,24 +50,10 @@ public sealed record SearchHistoryEntry
 
     public bool SearchAlternates { get; init; }
 
-    // ---- アバター ----
+    // ---- 絞り込み ----
 
-    /// <summary>対応アバターの絞り込み。名前で持つ（IDだけだと後から読めない）。</summary>
-    public string? AvatarName { get; init; }
-
-    public long? AvatarId { get; init; }
-
-    public bool AvatarHasBase { get; init; }
-
-    // ---- 積んだ条件 ----
-
-    /// <summary>選んだユーザータグ。入れ子は <c>親/子</c> で持つ。</summary>
-    public IReadOnlyList<string> UserTags { get; init; } = [];
-
-    public IReadOnlyList<string> BoothTags { get; init; } = [];
-
-    /// <summary>幅を狭めた属性だけ。全開のものは条件ではないので持たない。</summary>
-    public IReadOnlyList<AttributeRange> Attributes { get; init; } = [];
+    /// <summary>効いていた絞り込みのモジュール（何も絞っていないモジュールは持たない）。</summary>
+    public IReadOnlyList<SearchModuleState> Modules { get; init; } = [];
 
     /// <summary>表示順。既定なら null。</summary>
     public string? Sort { get; init; }
@@ -99,16 +73,9 @@ public sealed record SearchHistoryEntry
     [JsonIgnore]
     public bool IsNamed => !string.IsNullOrWhiteSpace(Name);
 
-    /// <summary>何も絞っていない状態。残す価値が無い。</summary>
+    /// <summary>何も絞っていない状態。残す価値が無い（探す対象や区別を変えただけでは絞っていない）。</summary>
     [JsonIgnore]
-    public bool IsEmpty =>
-        Text.Trim().Length == 0
-        && Category is null
-        && !OwnedOnly && !MissingOnly && !GivenOnly && !ReceivedOnly
-        && AvatarName is null
-        && UserTags.Count == 0
-        && BoothTags.Count == 0
-        && Attributes.Count == 0;
+    public bool IsEmpty => Text.Trim().Length == 0 && Modules.Count == 0;
 
     /// <summary>
     /// 同じ条件かを見るための指紋。
@@ -125,29 +92,15 @@ public sealed record SearchHistoryEntry
         {
             var text = new StringBuilder();
             text.Append(Text.Trim()).Append(Separator);
-            text.Append(Category).Append(Separator);
-            text.Append(OwnedOnly ? '1' : '0');
-            text.Append(MissingOnly ? '1' : '0');
-            text.Append(GivenOnly ? '1' : '0');
-            text.Append(ReceivedOnly ? '1' : '0');
             text.Append(CaseSensitive ? '1' : '0');
             text.Append(WidthSensitive ? '1' : '0');
             text.Append(KanaInsensitive ? '1' : '0');
-            text.Append(SearchAlternates ? '1' : '0');
-            text.Append(AvatarHasBase ? '1' : '0').Append(Separator);
-            text.Append(AvatarName).Append(Separator);
+            text.Append(SearchAlternates ? '1' : '0').Append(Separator);
             text.Append(Sort).Append(Separator);
             text.Append(string.Join(',', Targets.OrderBy(name => name, StringComparer.Ordinal))).Append(Separator);
 
             // 並べ替えてから繋ぐ。積んだ順が違うだけで別物にはしない
-            text.Append(string.Join(',', UserTags.OrderBy(tag => tag, StringComparer.Ordinal))).Append(Separator);
-            text.Append(string.Join(',', BoothTags.OrderBy(tag => tag, StringComparer.Ordinal))).Append(Separator);
-            text.Append(string.Join(
-                ',',
-                Attributes
-                    .OrderBy(range => range.Name, StringComparer.Ordinal)
-                    .Select(range => $"{range.Name}:{range.Min}-{range.Max}")));
-
+            text.Append(string.Join((char)0x1D, Modules.Select(module => module.Fingerprint).OrderBy(print => print, StringComparer.Ordinal)));
             return text.ToString();
         }
     }
@@ -175,41 +128,9 @@ public sealed record SearchHistoryEntry
                 parts.Add(Text.Trim());
             }
 
-            if (Category is not null)
-            {
-                parts.Add(Category);
-            }
+            parts.AddRange(Modules.Select(module => module.Summary ?? module.Kind));
 
-            if (OwnedOnly)
-            {
-                parts.Add("所持のみ");
-            }
-
-            if (MissingOnly)
-            {
-                parts.Add("ファイルなし");
-            }
-
-            if (GivenOnly)
-            {
-                parts.Add("贈った");
-            }
-
-            if (ReceivedOnly)
-            {
-                parts.Add("貰った");
-            }
-
-            if (AvatarName is not null)
-            {
-                parts.Add(AvatarHasBase ? $"{AvatarName}（素体を含む）" : AvatarName);
-            }
-
-            parts.AddRange(UserTags);
-            parts.AddRange(BoothTags.Select(tag => $"#{tag}"));
-            parts.AddRange(Attributes.Select(range => $"{range.Name} {range.Min}〜{range.Max}"));
-
-            // 探す範囲は結果を変えるので出す。表示順は出さない（思い出す手掛かりにならない）
+            // 探す対象と区別は結果を変えるので出す。表示順は出さない（思い出す手掛かりにならない）
             if (Targets.Count > 0)
             {
                 parts.Add("対象 " + string.Join(",", Targets));

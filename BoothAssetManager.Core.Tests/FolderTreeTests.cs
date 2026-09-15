@@ -6,6 +6,21 @@ namespace BoothAssetManager.Core.Tests;
 
 public class FolderTreeTests
 {
+    /// <summary>検索の「ファイルの場所」の候補：祖先を全部含み、通過点を畳まず、大文字小文字の違いで割れない。</summary>
+    [Fact]
+    public void AllFoldersListsEveryAncestorOnce()
+    {
+        var items = new[]
+        {
+            Item("1", @"D:\Assets\Avatar\a.zip"),
+            Item("2", @"d:\assets\Cloth\b.zip"),
+        };
+
+        Assert.Equal(
+            [@"D:\Assets", @"D:\Assets\Avatar", @"d:\assets\Cloth"],
+            FolderTree.AllFolders(items));
+    }
+
     private static ItemRecord Item(string id, params string[] paths) => new()
     {
         Id = id,
