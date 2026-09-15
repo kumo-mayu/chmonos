@@ -42,6 +42,7 @@
 | [unity-handoff.md](history/unity-handoff.md) | Unity への受け渡しの実測（シェル・メニュー・ログ監視・プロジェクトタブ・VCC） |
 | [folder-view.md](history/folder-view.md) | フォルダビューの根の決め方の試しと速さ |
 | [tech-debt-2026-09-14.md](history/tech-debt-2026-09-14.md) | 技術的負債の洗い出しと直した記録 |
+| [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
 
 ## research（調査）
