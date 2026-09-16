@@ -945,6 +945,9 @@ public sealed class RangeModule : SearchModule
     private string _maxText = string.Empty;
     private bool _minEnabled = true;
     private bool _maxEnabled = true;
+    private bool _ignoreOutliers = true;
+    private int? _outlierFence;
+    private int _outlierCount;
     private bool _valuesFromState;
     private bool _defaultsApplied;
     private ChoiceOption? _source;
@@ -1024,6 +1027,56 @@ public sealed class RangeModule : SearchModule
     public IReadOnlyList<HistogramBar> Histogram { get; private set; } = [];
 
     public bool HasHistogram => Histogram.Count > 0;
+
+    /// <summary>「外れ値を無視」を出すか（価格だけ）。</summary>
+    public bool SupportsOutliers { get; init; }
+
+    /// <summary>
+    /// 桁違いに高い数を、目盛の幅と照合の両方から外すか（既定は外す・ユーザ判断 2026-09-16）。
+    ///
+    /// 支援用の種類（0円・150円の商品に 99,999円の種類がある）や、販売を止めるためのあり得ない高値は、値段ではなく目印。
+    /// **外すのは数だけで、商品は外さない**——その商品は他の種類の価格で照らす。止め値の種類しか無い商品は「価格が分からない」扱いになる。
+    /// 境は <see cref="Outliers"/>（95%の位置の5倍以上）。
+    /// </summary>
+    public bool IgnoreOutliers
+    {
+        get => _ignoreOutliers;
+        set
+        {
+            if (!SetField(ref _ignoreOutliers, value))
+            {
+                return;
+            }
+
+            // 右端に置いていた上限は、新しい右端へ付いていく（外れ値を戻せばその分まで、外せば手前まで）
+            var wasAtEnd = ParseNumber(_maxText) is not { } oldMax || oldMax >= (int)SliderMaximum;
+            RefreshBounds();
+
+            var end = (int)SliderMaximum;
+            if (wasAtEnd || ParseNumber(_maxText) > end)
+            {
+                _maxText = end.ToString(CultureInfo.InvariantCulture);
+                OnPropertyChanged(nameof(MaxText));
+            }
+
+            if (ParseNumber(_minText) > end)
+            {
+                _minText = end.ToString(CultureInfo.InvariantCulture);
+                OnPropertyChanged(nameof(MinText));
+            }
+
+            OnPropertyChanged(nameof(LowPosition));
+            OnPropertyChanged(nameof(HighPosition));
+            NotifyChanged();
+        }
+    }
+
+    /// <summary>何を外しているかを数で言う（境の数と、外れ値の数）。</summary>
+    public string OutlierLabel => _outlierFence is { } fence && _outlierCount > 0
+        ? $"外れ値を無視（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上の{_outlierCount}個）"
+        : "外れ値を無視（今は該当なし）";
+
+    private bool IgnoresOutliersNow => SupportsOutliers && _ignoreOutliers && _outlierFence is not null;
 
     public string MinText
     {
@@ -1233,7 +1286,14 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     public void RefreshBounds()
     {
-        var values = (AllValuesOf?.Invoke(_source?.Key) ?? []).ToList();
+        var all = (AllValuesOf?.Invoke(_source?.Key) ?? []).ToList();
+
+        // 外れ値の境は、外す前の数の全部から決める（元を変えれば取り直す）
+        _outlierFence = SupportsOutliers ? Outliers.UpperFence(all) : null;
+        _outlierCount = _outlierFence is { } fence ? all.Count(value => value >= fence) : 0;
+        var values = IgnoresOutliersNow ? all.Where(value => value < _outlierFence!.Value).ToList() : all;
+        OnPropertyChanged(nameof(OutlierLabel));
+
         // 左端はいつでも0。右端は手元の一番大きい数（1件も無ければ仮に100）
         SliderMaximum = values.Count == 0 ? 100 : Math.Max(1, values.Max());
         RefreshHistogram(values);
@@ -1301,7 +1361,15 @@ public sealed class RangeModule : SearchModule
         }
 
         var (min, max) = (Min, Max);
-        return _values(item, _source?.Key).Any(value => (min is null || value >= min) && (max is null || value <= max));
+        var values = _values(item, _source?.Key);
+        if (IgnoresOutliersNow)
+        {
+            // 外れ値の数だけを外す。商品は他の種類の価格で照らす
+            var fence = _outlierFence!.Value;
+            values = values.Where(value => value < fence).ToList();
+        }
+
+        return values.Any(value => (min is null || value >= min) && (max is null || value <= max));
     }
 
     public override string SummaryText
@@ -1315,7 +1383,8 @@ public sealed class RangeModule : SearchModule
                 Max is { } max ? $"{max.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以下" : null,
             }.OfType<string>().ToList();
 
-            return parts.Count == 0 ? head : $"{head} {string.Join(" ", parts)}";
+            var outliers = IgnoresOutliersNow && _outlierCount > 0 ? "（外れ値を除く）" : string.Empty;
+            return parts.Count == 0 ? head + outliers : $"{head} {string.Join(" ", parts)}{outliers}";
         }
     }
 
@@ -1324,10 +1393,12 @@ public sealed class RangeModule : SearchModule
     {
         _minEnabled = true;
         _maxEnabled = true;
+        _ignoreOutliers = true;
         _valuesFromState = false;
         _defaultsApplied = false;
         OnPropertyChanged(nameof(MinEnabled));
         OnPropertyChanged(nameof(MaxEnabled));
+        OnPropertyChanged(nameof(IgnoreOutliers));
         RefreshBounds();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -1340,6 +1411,7 @@ public sealed class RangeModule : SearchModule
             Max = _maxText,
             MinEnabled = _minEnabled,
             MaxEnabled = _maxEnabled,
+            IgnoreOutliers = _ignoreOutliers,
             Choice = _source?.Key,
         };
 
@@ -1349,6 +1421,8 @@ public sealed class RangeModule : SearchModule
         _maxText = state.Max ?? string.Empty;
         _minEnabled = state.MinEnabled;
         _maxEnabled = state.MaxEnabled;
+        _ignoreOutliers = state.IgnoreOutliers;
+        OnPropertyChanged(nameof(IgnoreOutliers));
 
         // 前に入れていた数があるなら、端から端までの既定で上書きしない。
         // 空で残っていたもの（端という意味）は、端の数を入れて見えるようにする

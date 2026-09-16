@@ -44,6 +44,12 @@ public sealed record SearchModuleState
 
     public bool MaxEnabled { get; init; } = true;
 
+    /// <summary>
+    /// 数の範囲（価格）で、桁違いに高い数を目盛と照合から外すか（既定は外す・ユーザ判断 2026-09-16）。
+    /// 境は <see cref="Services.Outliers"/>。
+    /// </summary>
+    public bool IgnoreOutliers { get; init; } = true;
+
     /// <summary>補助の切り替え（販売終了の「非公開も表示する」・対応アバターの「素体経由の対応も含める」）。</summary>
     public bool Flag { get; init; }
 
@@ -81,7 +87,8 @@ public sealed record SearchModuleState
             text.Append(Kind).Append(Separator);
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
-            text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0').Append(Separator);
+            text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
+            text.Append(IgnoreOutliers ? '1' : '0').Append(Separator);
             text.Append(string.Join((char)0x1E, Items.OrderBy(item => item, StringComparer.Ordinal))).Append(Separator);
             text.Append(Choice).Append(Separator).Append(Min).Append(Separator).Append(Max).Append(Separator);
             text.Append(string.Join(

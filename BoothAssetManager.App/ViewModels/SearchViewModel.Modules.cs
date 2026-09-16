@@ -380,6 +380,9 @@ public sealed partial class SearchViewModel
 
             // BOOTH の有料販売は100円から。1〜99円はあり得ないので、目盛を取らせない（ユーザ指摘 2026-09-16）
             Floor = 100,
+
+            // 支援用の種類や、販売を止めるためのあり得ない高値を外せるようにする（ユーザ判断 2026-09-16）
+            SupportsOutliers = true,
         },
 
         SearchModuleKind.EndOfSale => new ChoiceModule(kind,
