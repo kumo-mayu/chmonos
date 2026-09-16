@@ -1201,12 +1201,21 @@ public sealed class DateModule : SearchModule
     private readonly Func<ItemRecord, DateOnly?> _value;
     private string _sinceText = string.Empty;
     private string _tillText = string.Empty;
+    private bool _sinceEnabled = true;
+    private bool _tillEnabled = true;
+    private bool _valuesFromState;
+    private bool _defaultsApplied;
+    private DateOnly? _dataSince;
+    private DateOnly? _dataTill;
 
     public DateModule(SearchModuleKind kind, Func<ItemRecord, DateOnly?> value)
         : base(kind)
         => _value = value;
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>手元の商品の日付の全部。両端（足したときの既定）をここから出す。検索側が入れる。</summary>
+    public Func<IEnumerable<DateOnly>>? AllDatesOf { get; set; }
 
     public string SinceText
     {
@@ -1215,8 +1224,10 @@ public sealed class DateModule : SearchModule
         {
             if (SetField(ref _sinceText, value ?? string.Empty))
             {
+                // 始まりは終わりを越えられない（数の範囲と同じ作法）
+                FixCrossing(moveSince: true);
                 RaiseSince();
-                NotifyChanged();
+                NotifyChangedSoon();
             }
         }
     }
@@ -1228,15 +1239,103 @@ public sealed class DateModule : SearchModule
         {
             if (SetField(ref _tillText, value ?? string.Empty))
             {
+                FixCrossing(moveSince: false);
+                RaiseTill();
+                NotifyChangedSoon();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 始まり・終わりをそれぞれ効かせるか（既定は両方・ユーザ指示 2026-09-16「カレンダーにもトグルをつけた方がわかりやすい」）。
+    ///
+    /// 空欄を「制限なし」と読ませるより、切ってあることが見えた方が分かる。切った側は日付を残したまま効かない。
+    /// </summary>
+    public bool SinceEnabled
+    {
+        get => _sinceEnabled;
+        set
+        {
+            if (SetField(ref _sinceEnabled, value))
+            {
+                FixCrossing(moveSince: true);
+                RaiseSince();
+                NotifyChanged();
+            }
+        }
+    }
+
+    public bool TillEnabled
+    {
+        get => _tillEnabled;
+        set
+        {
+            if (SetField(ref _tillEnabled, value))
+            {
+                FixCrossing(moveSince: false);
                 RaiseTill();
                 NotifyChanged();
             }
         }
     }
 
-    public DateOnly? Since => DateText.Parse(_sinceText, isEnd: false, Today);
+    /// <summary>効いている始まりの日。切っていれば null。欄が空なら手元で一番古い日を境にする。</summary>
+    public DateOnly? Since => _sinceEnabled ? DateText.Parse(_sinceText, isEnd: false, Today) ?? _dataSince : null;
 
-    public DateOnly? Till => DateText.Parse(_tillText, isEnd: true, Today);
+    /// <summary>効いている終わりの日。切っていれば null。欄が空なら手元で一番新しい日を境にする。</summary>
+    public DateOnly? Till => _tillEnabled ? DateText.Parse(_tillText, isEnd: true, Today) ?? _dataTill : null;
+
+    /// <summary>
+    /// 両端を手元の商品から取り直す。**足したときの日付は一番古い日〜一番新しい日**（数の範囲と同じ）。
+    /// 日付の分かる商品が1件も無いときは、両方切って足す（足した瞬間に0件になるのを避ける）。
+    /// </summary>
+    public void RefreshBounds()
+    {
+        var dates = (AllDatesOf?.Invoke() ?? []).ToList();
+        _dataSince = dates.Count == 0 ? null : dates.Min();
+        _dataTill = dates.Count == 0 ? null : dates.Max();
+
+        if (!_valuesFromState && !_defaultsApplied)
+        {
+            _defaultsApplied = true;
+            _sinceText = DateTextOf(_dataSince);
+            _tillText = DateTextOf(_dataTill);
+            _sinceEnabled = dates.Count > 0;
+            _tillEnabled = dates.Count > 0;
+            OnPropertyChanged(nameof(SinceText));
+            OnPropertyChanged(nameof(TillText));
+            OnPropertyChanged(nameof(SinceEnabled));
+            OnPropertyChanged(nameof(TillEnabled));
+        }
+
+        RaiseSince();
+        RaiseTill();
+        OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
+    }
+
+    private static string DateTextOf(DateOnly? date)
+        => date is { } value ? value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
+
+    /// <summary>始まりが終わりより後になったら、いま触った側を相手に合わせる（数の範囲と同じ）。</summary>
+    private void FixCrossing(bool moveSince)
+    {
+        if (!_sinceEnabled || !_tillEnabled || Since is not { } since || Till is not { } till || since <= till)
+        {
+            return;
+        }
+
+        if (moveSince)
+        {
+            _sinceText = DateTextOf(till);
+            OnPropertyChanged(nameof(SinceText));
+        }
+        else
+        {
+            _tillText = DateTextOf(since);
+            OnPropertyChanged(nameof(TillText));
+        }
+    }
 
     /// <summary>カレンダーで選んだ日（欄の文字と同じもの）。</summary>
     public DateTime? SinceDate
@@ -1286,30 +1385,56 @@ public sealed class DateModule : SearchModule
         return (Since is not { } since || date >= since) && (Till is not { } till || date <= till);
     }
 
-    public override string SummaryText => $"{Label} {Since:yyyy-MM-dd}〜{Till:yyyy-MM-dd}";
-
-    public override void Clear()
+    public override string SummaryText
     {
-        _sinceText = string.Empty;
-        _tillText = string.Empty;
-        OnPropertyChanged(nameof(SinceText));
-        OnPropertyChanged(nameof(TillText));
-        RaiseSince();
-        RaiseTill();
-        OnPropertyChanged(nameof(IsActive));
-        OnPropertyChanged(nameof(CollapsedSummary));
+        get
+        {
+            var parts = new[]
+            {
+                Since is { } since ? $"{since:yyyy-MM-dd}から" : null,
+                Till is { } till ? $"{till:yyyy-MM-dd}まで" : null,
+            }.OfType<string>().ToList();
+
+            return parts.Count == 0 ? Label : $"{Label} {string.Join(" ", parts)}";
+        }
     }
 
-    protected override SearchModuleState Write(SearchModuleState state) => state with { Min = _sinceText, Max = _tillText };
+    /// <summary>足したときの姿に戻す（両方効かせ、一番古い日〜一番新しい日）。</summary>
+    public override void Clear()
+    {
+        _sinceEnabled = true;
+        _tillEnabled = true;
+        _valuesFromState = false;
+        _defaultsApplied = false;
+        OnPropertyChanged(nameof(SinceEnabled));
+        OnPropertyChanged(nameof(TillEnabled));
+        RefreshBounds();
+    }
+
+    protected override SearchModuleState Write(SearchModuleState state)
+        => state with
+        {
+            Min = _sinceText,
+            Max = _tillText,
+            MinEnabled = _sinceEnabled,
+            MaxEnabled = _tillEnabled,
+        };
 
     protected override void Read(SearchModuleState state)
     {
         _sinceText = state.Min ?? string.Empty;
         _tillText = state.Max ?? string.Empty;
+        _sinceEnabled = state.MinEnabled;
+        _tillEnabled = state.MaxEnabled;
+
+        // 前に入れていた日付があるなら、両端の既定で上書きしない
+        _valuesFromState = _sinceText.Length > 0 || _tillText.Length > 0;
+
         OnPropertyChanged(nameof(SinceText));
         OnPropertyChanged(nameof(TillText));
-        RaiseSince();
-        RaiseTill();
+        OnPropertyChanged(nameof(SinceEnabled));
+        OnPropertyChanged(nameof(TillEnabled));
+        RefreshBounds();
     }
 
     private static string Note(string text, DateOnly? parsed, string suffix)

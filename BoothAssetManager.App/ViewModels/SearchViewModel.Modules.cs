@@ -230,6 +230,9 @@ public sealed partial class SearchViewModel
             case RangeModule range:
                 range.RefreshBounds();
                 break;
+            case DateModule date:
+                date.RefreshBounds();
+                break;
         }
     }
 
@@ -381,7 +384,13 @@ public sealed partial class SearchViewModel
             "both", EndOfSaleMatches, "非公開・削除された商品も表示する"),
 
         SearchModuleKind.PublishedAt => new DateModule(kind,
-            item => item.Booth.PublishedAt is { } at ? DateOnly.FromDateTime(at.LocalDateTime) : null),
+            item => item.Booth.PublishedAt is { } at ? DateOnly.FromDateTime(at.LocalDateTime) : null)
+        {
+            AllDatesOf = () => _allItems
+                .Select(item => item.Booth.PublishedAt)
+                .Where(at => at is not null)
+                .Select(at => DateOnly.FromDateTime(at!.Value.LocalDateTime)),
+        },
 
         SearchModuleKind.Adult => new ChoiceModule(kind,
             [new("adult", "R-18のみ"), new("general", "R-18以外のみ"), new("both", "両方")],
@@ -439,7 +448,13 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
-        SearchModuleKind.AcquiredAt => new DateModule(kind, item => item.Local.AcquiredAt),
+        SearchModuleKind.AcquiredAt => new DateModule(kind, item => item.Local.AcquiredAt)
+        {
+            AllDatesOf = () => _allItems
+                .Select(item => item.Local.AcquiredAt)
+                .Where(date => date is not null)
+                .Select(date => date!.Value),
+        },
 
         SearchModuleKind.Hidden => new ChoiceModule(kind,
             [new("hidden", "非表示のみ"), new("both", "両方"), new("visible", "表示している商品のみ")],
