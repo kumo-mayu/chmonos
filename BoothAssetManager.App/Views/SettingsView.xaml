@@ -14,6 +14,13 @@
             <Setter Property="Foreground" Value="{StaticResource Text}" />
         </Style>
 
+        <!-- 枠の中の小見出し。同じ枠に入れた2つのまとまり（取り込み元と監視、更新と画像）を分ける -->
+        <Style x:Key="SubTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+        </Style>
+
         <!-- 設定1項目。左に見出しと説明、右に操作 -->
         <Style x:Key="RowLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12.5" />
@@ -56,27 +63,17 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
             <StackPanel MaxWidth="920" HorizontalAlignment="Left">
 
-                <!-- 表示 -->
+                <!--
+                    並びは「効く場所ごと」（ユーザ判断 2026-09-16）。前は「表示」に一覧・商品ページ・編集が混ざり、
+                    「更新」に検索の履歴の件数が入り、アプリの説明と辞書の出典が途中に挟まっていた
+                -->
+
+                <!-- 一覧と検索 -->
                 <Border Style="{StaticResource Card}" Padding="22,18">
                     <StackPanel>
-                        <TextBlock Text="表示" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
+                        <TextBlock Text="一覧と検索" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
-                        <CheckBox Content="一覧のカードに小分類のタグも出す" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
-                        <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding ShowAdult, Mode=TwoWay}"
-                                  ToolTip="オフにすると検索とショップの件数から外れます。統計の金額には含まれたままです。" />
-                        <CheckBox Content="非表示にしている件数を検索結果に出す" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding ShowHiddenCountInSearch, Mode=TwoWay}" />
-                        <CheckBox Content="ギャラリーをマウスを乗せたまま切り替える" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding GallerySwitchOnHover, Mode=TwoWay}" />
-                        <CheckBox Content="編集が終わったら検索に戻る" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding ReturnToSearchWhenEditDone, Mode=TwoWay}" />
-                        <CheckBox Content="編集画面の上に、続く商品を小さな絵で並べる" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding ShowEditQueueStrip, Mode=TwoWay}"
-                                  ToolTip="保存した商品には緑の印、飛ばした商品は薄く出ます。押すとその商品へ移れます。切ると帯を出しません（「1件目へ」「最初の未保存へ」は残ります）。" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <StackPanel Orientation="Horizontal">
                             <TextBlock Text="サムネイルの大きさ" Style="{StaticResource RowLabel}" Width="220" />
                             <ComboBox Width="120" ItemsSource="{x:Static vm:SettingsViewModel.ThumbnailSizes}"
                                       DisplayMemberPath="Label"
@@ -99,21 +96,62 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="「デフォルト」のとき、商品ページで★を付けた1枚が優先されます。役割を選ぶとそちらが優先され、その役割の画像が無い商品は今まで通りの1枚になります。" />
 
+                        <Border Height="1" Background="#f0f1f4" Margin="0,14,0,12" />
+                        <CheckBox Content="一覧のカードに小分類のタグも出す" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
+                        <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ShowAdult, Mode=TwoWay}"
+                                  ToolTip="オフにすると検索とショップの件数から外れます。統計の金額には含まれたままです。" />
+                        <CheckBox Content="非表示にしている件数を検索結果に出す" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ShowHiddenCountInSearch, Mode=TwoWay}" />
+
+                        <!--
+                            検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。
+                            名前を付けたものはこの件数では落とさない
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="検索の履歴に残す件数" Style="{StaticResource RowLabel}" Width="220" />
+                            <TextBox Style="{StaticResource NumberBox}"
+                                     Text="{Binding SearchHistoryCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <Button Content="履歴を消す" Command="{Binding ClearSearchHistoryCommand}" Margin="14,0,0,0"
+                                    ToolTip="検索の履歴を全部消します。いまの検索の条件は変わりません。" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                   Text="商品を開いたときに1件残ります。同じ条件は積み増しません。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 商品ページと編集 -->
+                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="商品ページと編集" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
+
+                        <CheckBox Content="ギャラリーをマウスを乗せたまま切り替える" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding GallerySwitchOnHover, Mode=TwoWay}" />
+                        <CheckBox Content="編集が終わったら検索に戻る" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ReturnToSearchWhenEditDone, Mode=TwoWay}" />
+                        <CheckBox Content="編集画面の上に、続く商品を小さな絵で並べる" Style="{StaticResource SettingCheck}"
+                                  IsChecked="{Binding ShowEditQueueStrip, Mode=TwoWay}"
+                                  ToolTip="保存した商品には緑の印、飛ばした商品は薄く出ます。押すとその商品へ移れます。切ると帯を出しません（「1件目へ」「最初の未保存へ」は残ります）。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 操作：画面の幅とショートカット（#43）。割り当ては利用者が変えられる（ユーザ判断） -->
+                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="操作" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
+
                         <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <StackPanel Orientation="Horizontal">
                             <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />
                             <Button Content="全部を元の幅に戻す" Style="{StaticResource SmallButton}"
                                     Command="{Binding ResetPaneWidthsCommand}" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="一覧と詳細の境目などをドラッグして変えた幅を、全部元に戻します。1か所だけ戻すときは、その境目をダブルクリックします。" />
-                    </StackPanel>
-                </Border>
 
-                <!-- ショートカット（#43）。割り当ては利用者が変えられる（ユーザ判断） -->
-                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="ショートカット" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
+                        <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="欄を選んでキーを押すと、そのキーが割り当てられます。Backspace で外せます。文字の欄にいるときは、文字を打つ・カーソルを動かすキー（矢印・Home・End など）の割り当ては働きません。" />
                         <ItemsControl ItemsSource="{Binding ShortcutRows}">
@@ -135,16 +173,10 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 取り込み元 -->
+                <!-- 取り込み -->
                 <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
                     <StackPanel>
-                        <Grid Margin="0,0,0,6">
-                            <TextBlock Text="取り込み元フォルダ" Style="{StaticResource GroupTitle}" />
-                            <Button Content="フォルダを足す" Style="{StaticResource SmallButton}"
-                                    HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
-                        </Grid>
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="取り込み画面で既定の対象になります。ここに無いフォルダも、取り込み画面から都度指定できます。" />
+                        <TextBlock Text="取り込み" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
                         <!-- 取り込みの自動開始（#38）。既定はユーザ判断：落としたら入、起動時は切 -->
                         <CheckBox Content="ファイルやフォルダを落としたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}"
@@ -153,7 +185,14 @@
                         <CheckBox Content="起動したとき、監視フォルダに新しいファイルがあれば取り込みを始める" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
                                   ToolTip="切っているときは、取り込み画面に件数を出して、押してから始めます。起動しただけでBOOTHへの通信が始まるのを避けたいときは切ってください。次に起動したときから効きます。" />
-                        <Border Height="1" Background="#f0f1f4" Margin="0,6,0,12" />
+
+                        <Grid Margin="0,8,0,6">
+                            <TextBlock Text="取り込み元フォルダ" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
+                            <Button Content="フォルダを足す" Style="{StaticResource SmallButton}"
+                                    HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Text="取り込み画面で既定の対象になります。ここに無いフォルダも、取り込み画面から都度指定できます。" />
 
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
@@ -176,17 +215,14 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </StackPanel>
-                </Border>
 
                 <!--
-                    監視対象。取り込み元（履歴）とは意味が違うので別の枠にする。
+                    監視対象。取り込み元（履歴）とは意味が違うので小見出しで分ける。
                     足すのは取り込み画面でフォルダを選んだ／落としたとき。
                 -->
-                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0"
-                        Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <StackPanel>
-                        <TextBlock Text="監視対象フォルダ" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
+                <StackPanel Margin="0,14,0,0"
+                            Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="監視対象フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込まず、取り込み画面に件数を出します。ここに無いフォルダは、押されるまで見に行きません。" />
 
@@ -211,41 +247,14 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!--
-                    非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
-                    docs/research/booth-terms.md §3）。初回の窓にも同じ旨を出す
-                -->
+                <!-- 取得と更新 -->
                 <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
                     <StackPanel>
-                        <TextBlock Text="Chmonos（クモノス）について" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="BOOTH で買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTH はピクシブ株式会社のサービスです。" />
-                    </StackPanel>
-                </Border>
-
-                <!--
-                    同梱している辞書の出典。CC BY-SA 4.0 が求めているので必ず出す。
-                    「この辞書を使った機能から辿れること」が条件なので、設定に1枚置いてある。
-                -->
-                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="表記をまたぐ検索" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="打った語の別表記でも探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に出ます。" />
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
-                                   Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                   Text="https://www.edrdg.org/edrdg/licence.html" />
-                    </StackPanel>
-                </Border>
-
-                <!-- 更新 -->
-                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="更新" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
+                        <TextBlock Text="取得と更新" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
                         <CheckBox Content="取り込んだ商品の更新を既定で知らせる" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding NotifyOnUpdateByDefault, Mode=TwoWay}" />
@@ -287,31 +296,12 @@
                             <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
 
-                        <!--
-                            検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。
-                            名前を付けたものはこの件数では落とさない
-                        -->
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="検索の履歴に残す件数" Style="{StaticResource RowLabel}" Width="220" />
-                            <TextBox Style="{StaticResource NumberBox}"
-                                     Text="{Binding SearchHistoryCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
-                            <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
-                            <Button Content="履歴を消す" Command="{Binding ClearSearchHistoryCommand}" Margin="14,0,0,0"
-                                    ToolTip="検索の履歴を全部消します。いまの検索の条件は変わりません。" />
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
-                                   Text="商品を開いたときに1件残ります。同じ条件は積み増しません。" />
-                    </StackPanel>
-                </Border>
-
                 <!--
                     取得と画像。**保存した直後の取得から効く**（サービスは今の設定を毎回読む。SettingsSource・#39）。
                     以前は「次に起動したときから効きます」と札を出していたが、それは直す前の作りの話。
                     今ある画像を作り直さないことだけは書いておく——長辺を変えたのに一覧が変わらない、と読まれないため
                 -->
-                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="取得と画像" Style="{StaticResource GroupTitle}" Margin="0,0,0,4" />
+                        <TextBlock Text="画像と通信" Style="{StaticResource SubTitle}" Margin="0,18,0,4" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                    Text="変えると、次に取る分から効きます。今ある画像は作り直しません（長辺や画質を変えても、新しく取る画像から変わります）。" />
 
@@ -531,6 +521,29 @@
 
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
                                    Text="中身はすべて普通のJSONです。アプリを介さずに開いて読んだり直したりできます。" />
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    このアプリについて。いちばん下に置く（設定ではなく、読めばよいもの）。
+                    非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
+                    docs/research/booth-terms.md §3）。初回の窓にも同じ旨を出す。
+                    同梱している辞書の出典は CC BY-SA 4.0 が求めているので必ず出す。「この辞書を使った機能から辿れること」が条件なので、
+                    使っている機能（表記をまたぐ検索）の説明と一緒に置く
+                -->
+                <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Chmonos（クモノス）について" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Text="BOOTH で買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTH はピクシブ株式会社のサービスです。" />
+
+                        <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Text="打った語の別表記でも探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に出ます。" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Text="https://www.edrdg.org/edrdg/licence.html" />
                     </StackPanel>
                 </Border>
             </StackPanel>
