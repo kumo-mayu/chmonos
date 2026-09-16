@@ -90,9 +90,11 @@
                         <DataTemplate>
                           <!--
                               カードのどこを押しても開く。前は枠をクリックしたときだけ開く作りで、キーボード・読み上げ・自動操作からは開けなかった
-                              （2026-09-16 の確かめで見つけた）。見た目は同じまま、ボタンにする
+                              （2026-09-16 の確かめで見つけた）。見た目は同じまま、ボタンにする。
+                              **アプリ全体のボタンの既定の見た目（高さ32・余白・文字の大きさ・背景）を当てない**——
+                              当てると高さ32でカードが切られ、中身が1つも見えなくなった（ユーザ指摘 2026-09-16「ショップ一覧の構築に失敗していそう」）
                           -->
-                          <Button Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,14,14"
+                          <Button Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,14,14"
                                   AutomationProperties.Name="{Binding Name}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
@@ -114,7 +116,11 @@
                                                        Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </Grid>
                                         </Border>
-                                        <StackPanel Margin="11,0,0,0" VerticalAlignment="Center" Width="220">
+                                        <!--
+                                            幅はカードの内側に収める（304 − 余白16×2 − アイコン56 − 間11 = 205）。前は220で右端が約15px切れていて、
+                                            名前の右に置いた★がちょうど切れる所に入り、見えなかった（2026-09-16）
+                                        -->
+                                        <StackPanel Margin="11,0,0,0" VerticalAlignment="Center" Width="204">
                                             <DockPanel>
                                                 <!-- お気に入りのショップ（ユーザ判断 2026-09-16）。一覧では見せるだけ、付け外しはショップ画面で -->
                                                 <TextBlock DockPanel.Dock="Right" Text="★" FontSize="13" Foreground="#d99a00"
