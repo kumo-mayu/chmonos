@@ -438,7 +438,7 @@ public sealed partial class SearchViewModel
         SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "アバター名・商品ID・共通素体で絞り込む",
             "アバターがまだ見つかっていません。アバターの管理から検出できます。", AvatarMatches,
             "素体経由の対応も含める", flagDefault: true,
-            secondFlagLabel: "対応の指定が無い商品も含める")
+            isUnspecified: IsUnspecifiedAvatar)
         {
             IconSelector = AvatarIconSelector,
         },
@@ -579,22 +579,24 @@ public sealed partial class SearchViewModel
             && (separator < 0 || assignment.Subs.Contains(key[(separator + 1)..], StringComparer.CurrentCultureIgnoreCase));
     }
 
-    private static bool AvatarMatches(ItemRecord item, SearchModuleContext context, string key, ListFlags flags)
+    /// <summary>
+    /// 対応アバターの**指定が無い**商品か（どのアバターにも使える扱いにするかたまり・ユーザ判断 2026-09-16）。
+    ///
+    /// 出品者の宣言（消していない分）と共通素体の宣言が両方とも無いこと。1つでも書いてあるものは書いてある内容どおりに照らす。
+    /// 要確認（説明文のリンク）は宣言に数えていない（絞り込みでも数えない）ので、それだけの商品は「指定が無い」側に入る。
+    /// </summary>
+    private static bool IsUnspecifiedAvatar(ItemRecord item, SearchModuleContext context)
+        => context.Compatibility.Resolve(item.Local).Count == 0
+            && item.Local.AvatarBases.All(link => link.Rejected);
+
+    private static bool AvatarMatches(ItemRecord item, SearchModuleContext context, string key, bool viaBase)
     {
         var resolved = context.Compatibility.Resolve(item.Local);
-
-        // **対応の指定が無い商品は、どのアバターにも使えるものとみなす**（ユーザ指示 2026-09-16。
-        // BOOTH には対応アバターを書かずに「どのアバターでも使える」商品がある）。
-        // 1つでも書いてあるものは書いてある内容どおり。要確認（説明文のリンク）は宣言に数えていないので、指定なしのまま
-        if (flags.SecondFlag && resolved.Count == 0 && item.Local.AvatarBases.All(link => link.Rejected))
-        {
-            return true;
-        }
 
         if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
         {
             return resolved.TryGetValue(key[AvatarKey.Length..], out var match)
-                && (match == AvatarMatch.Direct || (flags.Flag && match == AvatarMatch.ViaBase));
+                && (match == AvatarMatch.Direct || (viaBase && match == AvatarMatch.ViaBase));
         }
 
         if (!key.StartsWith(BaseKey, StringComparison.Ordinal))
@@ -610,7 +612,7 @@ public sealed partial class SearchViewModel
             return true;
         }
 
-        if (!flags.Flag)
+        if (!viaBase)
         {
             return false;
         }

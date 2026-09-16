@@ -587,33 +587,36 @@ public sealed class ListChip : ViewModelBase
 /// 候補から選んで積む条件（ユーザ案「list」）。全部を満たす（AND）か、いずれか（OR）かを切り替えられる。
 /// 候補は必ず出す（ユーザ案「候補を出せるものに関しては必ず候補を出す」）。
 /// </summary>
-/// <summary>候補から積む条件の補助の切り替え（対応アバターの「素体経由も含める」と「対応の指定が無い商品も含める」）。</summary>
-public readonly record struct ListFlags(bool Flag, bool SecondFlag);
-
 public sealed class ListModule : SearchModule
 {
-    private readonly Func<ItemRecord, SearchModuleContext, string, ListFlags, bool> _matches;
+    private readonly Func<ItemRecord, SearchModuleContext, string, bool, bool> _matches;
+    private readonly Func<ItemRecord, SearchModuleContext, bool>? _isUnspecified;
     private readonly List<(string Text, string Key)> _entries = [];
     private readonly Dictionary<string, string> _keyOfText = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly Dictionary<string, string> _textOfKey = new(StringComparer.Ordinal);
     private readonly bool _flagDefault;
     private bool _matchAll;
     private bool _flag;
-    private bool _secondFlag;
+    private bool _showMatched = true;
+    private bool _showUnspecified;
+    private int _matchedCount = -1;
+    private int _unspecifiedCount = -1;
     private RelayCommand? _add;
 
     /// <param name="allowsAnd">AND を選べるか（ショップは1商品に1つなので OR だけ）。</param>
     /// <param name="matches">商品・材料・積んだ値の鍵・補助の切り替え → 当てはまるか。</param>
-    /// <param name="secondFlagLabel">2つめの切り替え（対応アバターの「対応の指定が無い商品も含める」）。既定は切り。</param>
+    /// <param name="isUnspecified">
+    /// 商品が「指定が無い」かたまりに入るか（対応アバターだけ）。渡すと「出すもの」の2つのチェックが出る。
+    /// </param>
     public ListModule(
         SearchModuleKind kind,
         bool allowsAnd,
         string placeholder,
         string emptyText,
-        Func<ItemRecord, SearchModuleContext, string, ListFlags, bool> matches,
+        Func<ItemRecord, SearchModuleContext, string, bool, bool> matches,
         string? flagLabel = null,
         bool flagDefault = false,
-        string? secondFlagLabel = null)
+        Func<ItemRecord, SearchModuleContext, bool>? isUnspecified = null)
         : base(kind)
     {
         AllowsAnd = allowsAnd;
@@ -623,7 +626,7 @@ public sealed class ListModule : SearchModule
         FlagLabel = flagLabel;
         _flagDefault = flagDefault;
         _flag = flagDefault;
-        SecondFlagLabel = secondFlagLabel;
+        _isUnspecified = isUnspecified;
     }
 
     public ObservableCollection<string> Suggestions { get; } = [];
@@ -672,22 +675,53 @@ public sealed class ListModule : SearchModule
     }
 
     /// <summary>
-    /// 2つめの切り替え（対応アバターの「対応の指定が無い商品も含める」）。
-    /// BOOTH には対応アバターを書かずに、どのアバターにも使える商品がある（ユーザ指示 2026-09-16）。
+    /// 「出すもの」の2つのチェックを出すか（対応アバターだけ）。
+    ///
+    /// 商品を「対応が書いてある」と「対応の指定が無い」の2つのかたまりに分け、どちらを出すかを選ぶ
+    /// （ユーザ判断 2026-09-16・案C）。BOOTH には対応アバターを書かずに「どのアバターでも使える」商品があり、
+    /// 「含める」も「指定が無いものだけ見る」も要る。3つの意味がそのまま印の付け方になり、言い換えが要らない。
     /// </summary>
-    public string? SecondFlagLabel { get; }
+    public bool HasGroups => _isUnspecified is not null;
 
-    public bool HasSecondFlag => SecondFlagLabel is not null && Chips.Count > 0;
-
-    public bool SecondFlag
+    /// <summary>選んだアバターに対応している商品を出すか。切ると、アバターの欄は意味を持たない（薄くする）。</summary>
+    public bool ShowMatched
     {
-        get => _secondFlag;
-        set
+        get => _showMatched;
+        set => SetGroup(ref _showMatched, value, other: _showUnspecified);
+    }
+
+    /// <summary>対応の指定が無い商品（どのアバターにも使える扱い）を出すか。</summary>
+    public bool ShowUnspecified
+    {
+        get => _showUnspecified;
+        set => SetGroup(ref _showUnspecified, value, other: _showMatched);
+    }
+
+    public string MatchedLabel => _matchedCount < 0 ? "対応している商品" : $"対応している商品（{_matchedCount}）";
+
+    public string UnspecifiedLabel => _unspecifiedCount < 0 ? "対応の指定が無い商品" : $"対応の指定が無い商品（{_unspecifiedCount}）";
+
+    /// <summary>
+    /// **最後の1つは外させない。**両方を切ると何も出ない（数の範囲の「越えられない」と同じ考え方）。
+    /// 切ろうとした印は、画面に戻すために通知だけ出す。
+    /// </summary>
+    private void SetGroup(ref bool field, bool value, bool other)
+    {
+        if (field == value)
         {
-            if (SetField(ref _secondFlag, value))
-            {
-                NotifyChanged();
-            }
+            return;
+        }
+
+        if (value || other)
+        {
+            field = value;
+        }
+
+        OnPropertyChanged(nameof(ShowMatched));
+        OnPropertyChanged(nameof(ShowUnspecified));
+        if (field == value)
+        {
+            NotifyChanged();
         }
     }
 
@@ -765,30 +799,62 @@ public sealed class ListModule : SearchModule
         }
     }
 
-    protected override bool HasCondition => Chips.Count > 0;
+    /// <summary>
+    /// 何か絞っているか。
+    /// 「指定が無い商品だけ」はアバターを選んでいなくても絞る。それ以外は、アバターを選んで初めて絞る
+    /// （足した直後に、何も選んでいないのに「指定が無い商品」が消えるのを避ける）。
+    /// </summary>
+    protected override bool HasCondition
+        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified);
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
+    {
+        if (_isUnspecified is not null && _isUnspecified(item, context))
+        {
+            // 指定が無い商品は、選んだアバターと照らさない。出すかどうかだけ
+            return _showUnspecified;
+        }
+
+        if (HasGroups && !_showMatched)
+        {
+            return false;
+        }
+
+        return MatchesChips(item, context);
+    }
+
+    private bool MatchesChips(ItemRecord item, SearchModuleContext context)
         => Chips.Count == 0
             || (_matchAll && AllowsAnd
-                ? Chips.All(chip => _matches(item, context, chip.Key, Flags))
-                : Chips.Any(chip => _matches(item, context, chip.Key, Flags)));
-
-    private ListFlags Flags => new(_flag, _secondFlag);
+                ? Chips.All(chip => _matches(item, context, chip.Key, _flag))
+                : Chips.Any(chip => _matches(item, context, chip.Key, _flag)));
 
     public override string SummaryText
-        => $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", Chips.Select(chip => chip.Text))}"
-            + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
-            + (HasSecondFlag && _secondFlag ? $"（{SecondFlagLabel}）" : string.Empty);
+    {
+        get
+        {
+            if (HasGroups && !_showMatched)
+            {
+                return $"{Label}：対応の指定が無い商品だけ";
+            }
+
+            return $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", Chips.Select(chip => chip.Text))}"
+                + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
+                + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty);
+        }
+    }
 
     public override void Clear()
     {
         Chips.Clear();
         _matchAll = false;
         _flag = _flagDefault;
-        _secondFlag = false;
+        _showMatched = true;
+        _showUnspecified = false;
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
-        OnPropertyChanged(nameof(SecondFlag));
+        OnPropertyChanged(nameof(ShowMatched));
+        OnPropertyChanged(nameof(ShowUnspecified));
         RefreshSuggestions();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -798,8 +864,20 @@ public sealed class ListModule : SearchModule
     {
         foreach (var chip in Chips)
         {
-            chip.Count = items.Count(item => _matches(item, context, chip.Key, Flags));
+            chip.Count = items.Count(item => (_isUnspecified is null || !_isUnspecified(item, context))
+                && _matches(item, context, chip.Key, _flag));
         }
+
+        if (_isUnspecified is null)
+        {
+            return;
+        }
+
+        // 各かたまりが「他の条件を当てたうえで」何件か。どちらに印を付けるかの判断に使う
+        _unspecifiedCount = items.Count(item => _isUnspecified(item, context));
+        _matchedCount = items.Count(item => !_isUnspecified(item, context) && MatchesChips(item, context));
+        OnPropertyChanged(nameof(MatchedLabel));
+        OnPropertyChanged(nameof(UnspecifiedLabel));
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
@@ -808,7 +886,8 @@ public sealed class ListModule : SearchModule
             Items = Chips.Select(chip => chip.Key).ToList(),
             MatchAll = _matchAll,
             Flag = _flag,
-            IncludeUnspecified = _secondFlag,
+            ShowMatched = _showMatched,
+            ShowUnspecified = _showUnspecified,
         };
 
     protected override void Read(SearchModuleState state)
@@ -821,10 +900,14 @@ public sealed class ListModule : SearchModule
 
         _matchAll = state.MatchAll;
         _flag = FlagLabel is null ? _flagDefault : state.Flag;
-        _secondFlag = SecondFlagLabel is not null && state.IncludeUnspecified;
+
+        // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
+        _showUnspecified = HasGroups && state.ShowUnspecified;
+        _showMatched = !HasGroups || state.ShowMatched || !_showUnspecified;
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
-        OnPropertyChanged(nameof(SecondFlag));
+        OnPropertyChanged(nameof(ShowMatched));
+        OnPropertyChanged(nameof(ShowUnspecified));
     }
 
     /// <summary>候補から、積んだ物を除いて並べ直す（件数に比例して縦に伸びないよう、候補付きの欄から1件ずつ積む）。</summary>
@@ -843,7 +926,6 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(HasFlag));
-        OnPropertyChanged(nameof(HasSecondFlag));
     }
 }
 

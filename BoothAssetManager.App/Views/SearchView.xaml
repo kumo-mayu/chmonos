@@ -258,6 +258,20 @@
                                 -->
                                 <DataTemplate DataType="{x:Type vm:ListModule}">
                                     <StackPanel>
+                                      <!--
+                                          選んだ値に照らす部分。対応アバターで「指定が無い商品だけ」を出すときは、選んだアバターが意味を持たないので薄くする
+                                          （ユーザ判断 2026-09-16・案C）。ほかの条件では常に触れる（ShowMatched は既定で入）
+                                      -->
+                                      <StackPanel IsEnabled="{Binding ShowMatched}">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ShowMatched}" Value="False">
+                                                        <Setter Property="Opacity" Value="0.45" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding AddCommand}"
                                                              Placeholder="{Binding Placeholder}"
@@ -302,14 +316,28 @@
                                                   Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{StaticResource Text}" />
                                         </CheckBox>
-                                        <!-- 対応アバターを書かずに「どのアバターでも使える」商品がある（ユーザ指示 2026-09-16） -->
-                                        <CheckBox IsChecked="{Binding SecondFlag, Mode=TwoWay}" Margin="0,4,0,0"
-                                                  AutomationProperties.Name="{Binding SecondFlagLabel}"
-                                                  ToolTip="対応アバターが1つも書かれていない商品を、どのアバターにも使えるものとして出します。1つでも書いてある商品は、書いてあるとおりに絞ります。"
-                                                  Visibility="{Binding HasSecondFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="{Binding SecondFlagLabel}" FontSize="12" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource Text}" />
-                                        </CheckBox>
+                                      </StackPanel>
+
+                                      <!--
+                                          出すもの（対応アバターだけ・ユーザ判断 2026-09-16・案C）。商品を「対応が書いてある」と「対応の指定が無い」に分け、
+                                          どちらを出すかを印で選ぶ。BOOTH には対応アバターを書かずに「どのアバターでも使える」商品がある。
+                                          件数は他の条件を当てたうえでの数。最後の1つは外せない
+                                      -->
+                                      <StackPanel Margin="0,8,0,0"
+                                                  Visibility="{Binding HasGroups, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                          <TextBlock Text="出すもの" Style="{StaticResource Caption}" Margin="0,0,0,3" />
+                                          <CheckBox IsChecked="{Binding ShowMatched, Mode=TwoWay}"
+                                                    AutomationProperties.Name="対応している商品を出す"
+                                                    ToolTip="選んだアバターに対応している商品を出します。">
+                                              <TextBlock Text="{Binding MatchedLabel}" FontSize="12" Foreground="{StaticResource Text}" />
+                                          </CheckBox>
+                                          <CheckBox IsChecked="{Binding ShowUnspecified, Mode=TwoWay}" Margin="0,3,0,0"
+                                                    AutomationProperties.Name="対応の指定が無い商品を出す"
+                                                    ToolTip="対応アバターが1つも書かれていない商品を、どのアバターにも使えるものとして出します。1つでも書いてある商品は、書いてあるとおりに絞ります。">
+                                              <TextBlock Text="{Binding UnspecifiedLabel}" FontSize="12" TextWrapping="Wrap"
+                                                         Foreground="{StaticResource Text}" />
+                                          </CheckBox>
+                                      </StackPanel>
                                     </StackPanel>
                                 </DataTemplate>
 

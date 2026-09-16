@@ -48,10 +48,16 @@ public sealed record SearchModuleState
     public bool Flag { get; init; }
 
     /// <summary>
-    /// 対応アバターの2つめの切り替え：**対応の指定が無い商品を、どのアバターにも使えるものとみなす**
-    /// （ユーザ指示 2026-09-16。BOOTH には対応アバターを書かずに「どのアバターでも使える」商品がある）。
+    /// 対応アバターの「出すもの」：選んだアバターに**対応している商品**を出すか（既定は出す）。
+    ///
+    /// 商品を「対応が書いてある」と「対応の指定が無い」の2つのかたまりに分け、どちらを出すかを選ぶ
+    /// （ユーザ判断 2026-09-16・案C。BOOTH には対応アバターを書かずに「どのアバターでも使える」商品があり、
+    /// 「含める」も「指定なしだけ見る」も要る）。両方を切ることはできない。
     /// </summary>
-    public bool IncludeUnspecified { get; init; }
+    public bool ShowMatched { get; init; } = true;
+
+    /// <summary>対応アバターの「出すもの」：対応の**指定が無い商品**を出すか（既定は出さない）。</summary>
+    public bool ShowUnspecified { get; init; }
 
     /// <summary>属性の幅（属性だけ）。</summary>
     public IReadOnlyList<AttributeRange> Ranges { get; init; } = [];
@@ -75,7 +81,7 @@ public sealed record SearchModuleState
             text.Append(Kind).Append(Separator);
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
-            text.Append(IncludeUnspecified ? '1' : '0').Append(Separator);
+            text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0').Append(Separator);
             text.Append(string.Join((char)0x1E, Items.OrderBy(item => item, StringComparer.Ordinal))).Append(Separator);
             text.Append(Choice).Append(Separator).Append(Min).Append(Separator).Append(Max).Append(Separator);
             text.Append(string.Join(
