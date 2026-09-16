@@ -345,7 +345,7 @@
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
                                                       ToolTip="切ると下限を見ません（それ以下も出します）"
                                                       AutomationProperties.Name="下限を効かせる" />
-                                            <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay, Delay=250}"
+                                            <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False"
                                                     IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="下限" />
                                         </DockPanel>
@@ -354,7 +354,7 @@
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
                                                       ToolTip="切ると上限を見ません（それ以上も出します）"
                                                       AutomationProperties.Name="上限を効かせる" />
-                                            <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay, Delay=250}"
+                                            <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
                                                     IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="上限" />
                                         </DockPanel>
@@ -463,11 +463,11 @@
                                                                        Style="{StaticResource Caption}" VerticalAlignment="Center"
                                                                        Margin="0,0,6,0" />
                                                         </DockPanel>
-                                                        <Slider Minimum="0" Maximum="100" Value="{Binding Min, Mode=TwoWay, Delay=250}"
+                                                        <Slider Minimum="0" Maximum="100" Value="{Binding Min, Mode=TwoWay}"
                                                                 TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="True"
                                                                 Margin="0,3,0,0"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の下限}" />
-                                                        <Slider Minimum="0" Maximum="100" Value="{Binding Max, Mode=TwoWay, Delay=250}"
+                                                        <Slider Minimum="0" Maximum="100" Value="{Binding Max, Mode=TwoWay}"
                                                                 TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="True"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の上限}" />
                                                     </StackPanel>

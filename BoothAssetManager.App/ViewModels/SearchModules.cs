@@ -217,12 +217,26 @@ public sealed class SearchModuleContext
 /// </summary>
 public abstract class SearchModule : ReorderableRow
 {
+    /// <summary>
+    /// 動かし続けている間、絞り直しを待つ時間。
+    ///
+    /// スライダのドラッグは1秒に数十回値が変わる。2000件での絞り直しは実測でこれより短いので、
+    /// 止まってから1回で追いつく（`docs/feedback/done-2026-09.md` の計測）。
+    /// 長くすると結果が遅れて見え、短くするとドラッグ中に何度も走る。
+    /// </summary>
+    private static readonly TimeSpan FilterWait = TimeSpan.FromMilliseconds(150);
+
     private bool _isEnabled = true;
     private bool _isCollapsed;
     private string? _disabledReason;
     private RelayCommand? _toggleCollapse;
+    private readonly Debounced _changedSoon;
 
-    protected SearchModule(SearchModuleKind kind) => Kind = kind;
+    protected SearchModule(SearchModuleKind kind)
+    {
+        Kind = kind;
+        _changedSoon = new Debounced(FilterWait, () => Changed?.Invoke());
+    }
 
     public SearchModuleKind Kind { get; }
 
@@ -350,9 +364,21 @@ public abstract class SearchModule : ReorderableRow
 
     protected void NotifyChanged()
     {
+        _changedSoon.Cancel();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// 値が変わった。**表示はすぐ、絞り直しは止まってから1回。**
+    /// スライダを動かしている間に毎回絞り直すと、件数に比例した走査が追いつかない。
+    /// </summary>
+    protected void NotifyChangedSoon()
+    {
+        OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
+        _changedSoon.Request();
     }
 
     /// <summary>全角の数字・カンマ・円記号が混ざっていても数として読む。読めなければ null。</summary>
@@ -871,7 +897,9 @@ public sealed class RangeModule : SearchModule
             {
                 OnPropertyChanged(nameof(LowPosition));
                 OnPropertyChanged(nameof(HasMin));
-                NotifyChanged();
+
+                // ドラッグ中はここが1秒に数十回来る。数はすぐ出し、絞り直しは止まってから
+                NotifyChangedSoon();
             }
         }
     }
@@ -885,7 +913,7 @@ public sealed class RangeModule : SearchModule
             {
                 OnPropertyChanged(nameof(HighPosition));
                 OnPropertyChanged(nameof(HasMax));
-                NotifyChanged();
+                NotifyChangedSoon();
             }
         }
     }

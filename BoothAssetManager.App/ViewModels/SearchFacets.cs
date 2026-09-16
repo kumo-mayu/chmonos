@@ -14,6 +14,11 @@ public sealed class AttributeFilter : ViewModelBase
     private int _min;
     private int _max = 100;
 
+    /// <summary>ドラッグ中に毎回絞り直さない（値の表示はすぐ・<see cref="Debounced"/>）。</summary>
+    private readonly Debounced _changedSoon;
+
+    public AttributeFilter() => _changedSoon = new Debounced(TimeSpan.FromMilliseconds(150), () => Changed?.Invoke());
+
     public required string Name { get; init; }
 
     public event Action? Changed;
@@ -29,7 +34,7 @@ public sealed class AttributeFilter : ViewModelBase
             if (SetField(ref _min, Math.Clamp(value, 0, _max)))
             {
                 OnPropertyChanged(nameof(RangeText));
-                Changed?.Invoke();
+                _changedSoon.Request();
             }
         }
     }
@@ -42,7 +47,7 @@ public sealed class AttributeFilter : ViewModelBase
             if (SetField(ref _max, Math.Clamp(value, _min, 100)))
             {
                 OnPropertyChanged(nameof(RangeText));
-                Changed?.Invoke();
+                _changedSoon.Request();
             }
         }
     }
