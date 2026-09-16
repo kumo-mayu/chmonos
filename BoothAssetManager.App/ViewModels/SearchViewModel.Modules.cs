@@ -377,6 +377,9 @@ public sealed partial class SearchViewModel
             [new ChoiceOption(PaidSource, "購入額"), new ChoiceOption(BoothSource, "BOOTHの価格")])
         {
             AllValuesOf = source => _allItems.SelectMany(item => PriceValues(item, source)),
+
+            // BOOTH の有料販売は100円から。1〜99円はあり得ないので、目盛を取らせない（ユーザ指摘 2026-09-16）
+            Floor = 100,
         },
 
         SearchModuleKind.EndOfSale => new ChoiceModule(kind,

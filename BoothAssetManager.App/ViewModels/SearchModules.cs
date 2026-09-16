@@ -873,6 +873,21 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     public const double SliderMinimum = 0;
 
+    /// <summary>
+    /// 数が詰まっていない帯の上端（価格＝100円。BOOTH の有料販売は100円から）。
+    ///
+    /// 0 を含めた対数だと、この帯が目盛の大半を取ってしまう（価格・上限500円で 0〜100円が約74%・実測）。
+    /// **飛ばさず、左端の1目盛ぶんに畳む**：0〜ここは直線、ここから上限は対数（切れ目でつながるので、どの数も指せる）。
+    /// 0（無料）も 50円 も選べるままにする——ユーザ指示「0から100連続的に指定できるようにしたいが、この問題は解決したい」。
+    /// 小さい数にも意味がある条件（スキ数）は 0 のままにする（<see cref="Floor"/> を入れない）。
+    /// </summary>
+    public int Floor { get; init; }
+
+    /// <summary>0〜<see cref="Floor"/> に割り当てる左端の幅（%）。目盛の刻み（10%）に合わせて、切れ目が目盛の上に来るようにする。</summary>
+    private const double FloorBand = 10;
+
+    private bool UsesFloor => Floor > 0 && SliderMaximum > Floor;
+
     public double SliderMaximum
     {
         get => _sliderMaximum;
@@ -1004,6 +1019,11 @@ public sealed class RangeModule : SearchModule
     /// <summary>スライダの両端がいくつなのか（目盛だけでは数が読めないので、端の数を添える）。</summary>
     public string MinimumLabel => "0" + Unit;
 
+    /// <summary>目盛の配り方の説明（左端の1目盛に 0〜Floor を畳んでいることを、触る前に分かるように）。</summary>
+    public string ScaleHint => UsesFloor
+        ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数（多い所を広く）です。"
+        : "目盛は対数です（数の小さい所を広く取っています）。";
+
     public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
     /// <summary>効いている下限。切っていれば null（制限しない）。欄が空なら左端を下限とする。</summary>
@@ -1043,13 +1063,43 @@ public sealed class RangeModule : SearchModule
     /// </summary>
     private int ToNumber(double position)
     {
-        var ratio = Math.Clamp(position, 0, 100) / 100.0;
-        var value = SliderMinimum + Math.Exp(ratio * Math.Log(1 + Span)) - 1;
+        var at = Math.Clamp(position, 0, 100);
+
+        if (UsesFloor)
+        {
+            // 左端の1目盛は 0〜Floor を直線で（0も50円も指せる）。そこから先は Floor〜上限の対数
+            if (at <= FloorBand)
+            {
+                return (int)Math.Round(at / FloorBand * Floor);
+            }
+
+            var ratio = (at - FloorBand) / (100 - FloorBand);
+            var scaled = Math.Exp(Math.Log(Floor) + (ratio * (Math.Log(SliderMaximum) - Math.Log(Floor))));
+            return (int)Math.Round(Math.Clamp(scaled, Floor, SliderMaximum));
+        }
+
+        var value = SliderMinimum + Math.Exp(at / 100.0 * Math.Log(1 + Span)) - 1;
         return (int)Math.Round(Math.Clamp(value, SliderMinimum, SliderMaximum));
     }
 
     private double ToPosition(int value)
     {
+        if (UsesFloor)
+        {
+            if (value <= 0)
+            {
+                return 0;
+            }
+
+            if (value <= Floor)
+            {
+                return value / (double)Floor * FloorBand;
+            }
+
+            var ratio = Math.Log((double)value / Floor) / Math.Log(SliderMaximum / (double)Floor);
+            return Math.Clamp(FloorBand + (ratio * (100 - FloorBand)), FloorBand, 100);
+        }
+
         var offset = Math.Clamp(value - SliderMinimum, 0, Span);
         return Math.Clamp(100 * Math.Log(1 + offset) / Math.Log(1 + Span), 0, 100);
     }
@@ -1350,10 +1400,15 @@ public sealed class DateModule : SearchModule
         set => TillText = value is { } date ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
     }
 
-    /// <summary>どう読んだかを添える（「9/1」を去年と読んだ、などが分かるように）。読めなければ例を出す。</summary>
-    public string SinceNote => Note(_sinceText, Since, "から");
+    /// <summary>
+    /// どう読んだかを添える（「9/1」を去年と読んだ、などが分かるように）。読めなければ例を出す。
+    ///
+    /// **切っている側は「読めません」と言わない。**切ると値が無い扱いになるので、
+    /// 日付が入っているのに「日付として読めません」と出ていた（2026-09-16 の確かめで見つけた）。
+    /// </summary>
+    public string SinceNote => Note(_sinceEnabled, _sinceText, isEnd: false, _dataSince, "始まり", "から");
 
-    public string TillNote => Note(_tillText, Till, "まで");
+    public string TillNote => Note(_tillEnabled, _tillText, isEnd: true, _dataTill, "終わり", "まで");
 
     /// <summary>入れた日付を消す手段を出すか（ユーザ指示 2026-09-16）。</summary>
     public bool HasSince => _sinceText.Length > 0;
@@ -1437,10 +1492,22 @@ public sealed class DateModule : SearchModule
         RefreshBounds();
     }
 
-    private static string Note(string text, DateOnly? parsed, string suffix)
-        => parsed is { } date
+    private static string Note(bool enabled, string text, bool isEnd, DateOnly? fallback, string side, string suffix)
+    {
+        if (!enabled)
+        {
+            return $"{side}は見ていません（切っています）";
+        }
+
+        if (text.Trim().Length == 0)
+        {
+            return fallback is { } edge ? $"{edge:yyyy年M月d日}{suffix}（手元の端）" : string.Empty;
+        }
+
+        return DateText.Parse(text, isEnd, Today) is { } date
             ? $"{date:yyyy年M月d日}{suffix}"
-            : text.Trim().Length > 0 ? "日付として読めません（例：2026/9/1・9/1・2026/9）" : string.Empty;
+            : "日付として読めません（例：2026/9/1・9/1・2026/9）";
+    }
 
     private void RaiseSince()
     {

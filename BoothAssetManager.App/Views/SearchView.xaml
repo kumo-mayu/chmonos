@@ -347,7 +347,8 @@
                                                       AutomationProperties.Name="下限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False"
-                                                    IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="下限" />
+                                                    IsEnabled="{Binding MinEnabled}" ToolTip="{Binding ScaleHint}"
+                                                    AutomationProperties.Name="下限" />
                                         </DockPanel>
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MaxEnabled, Mode=TwoWay}"
@@ -356,7 +357,8 @@
                                                       AutomationProperties.Name="上限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
-                                                    IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="上限" />
+                                                    IsEnabled="{Binding MaxEnabled}" ToolTip="{Binding ScaleHint}"
+                                                    AutomationProperties.Name="上限" />
                                         </DockPanel>
                                         <DockPanel LastChildFill="False" Margin="24,2,0,0">
                                             <TextBlock DockPanel.Dock="Left" Text="{Binding MinimumLabel}" Style="{StaticResource Caption}" />
