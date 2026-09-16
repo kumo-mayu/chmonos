@@ -47,6 +47,12 @@ public sealed record SearchModuleState
     /// <summary>補助の切り替え（販売終了の「非公開も表示する」・対応アバターの「素体経由の対応も含める」）。</summary>
     public bool Flag { get; init; }
 
+    /// <summary>
+    /// 対応アバターの2つめの切り替え：**対応の指定が無い商品を、どのアバターにも使えるものとみなす**
+    /// （ユーザ指示 2026-09-16。BOOTH には対応アバターを書かずに「どのアバターでも使える」商品がある）。
+    /// </summary>
+    public bool IncludeUnspecified { get; init; }
+
     /// <summary>属性の幅（属性だけ）。</summary>
     public IReadOnlyList<AttributeRange> Ranges { get; init; } = [];
 
@@ -68,7 +74,8 @@ public sealed record SearchModuleState
             var text = new StringBuilder();
             text.Append(Kind).Append(Separator);
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
-            text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0').Append(Separator);
+            text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
+            text.Append(IncludeUnspecified ? '1' : '0').Append(Separator);
             text.Append(string.Join((char)0x1E, Items.OrderBy(item => item, StringComparer.Ordinal))).Append(Separator);
             text.Append(Choice).Append(Separator).Append(Min).Append(Separator).Append(Max).Append(Separator);
             text.Append(string.Join(

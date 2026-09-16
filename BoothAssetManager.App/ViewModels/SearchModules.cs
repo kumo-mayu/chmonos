@@ -587,27 +587,33 @@ public sealed class ListChip : ViewModelBase
 /// 候補から選んで積む条件（ユーザ案「list」）。全部を満たす（AND）か、いずれか（OR）かを切り替えられる。
 /// 候補は必ず出す（ユーザ案「候補を出せるものに関しては必ず候補を出す」）。
 /// </summary>
+/// <summary>候補から積む条件の補助の切り替え（対応アバターの「素体経由も含める」と「対応の指定が無い商品も含める」）。</summary>
+public readonly record struct ListFlags(bool Flag, bool SecondFlag);
+
 public sealed class ListModule : SearchModule
 {
-    private readonly Func<ItemRecord, SearchModuleContext, string, bool, bool> _matches;
+    private readonly Func<ItemRecord, SearchModuleContext, string, ListFlags, bool> _matches;
     private readonly List<(string Text, string Key)> _entries = [];
     private readonly Dictionary<string, string> _keyOfText = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly Dictionary<string, string> _textOfKey = new(StringComparer.Ordinal);
     private readonly bool _flagDefault;
     private bool _matchAll;
     private bool _flag;
+    private bool _secondFlag;
     private RelayCommand? _add;
 
     /// <param name="allowsAnd">AND を選べるか（ショップは1商品に1つなので OR だけ）。</param>
     /// <param name="matches">商品・材料・積んだ値の鍵・補助の切り替え → 当てはまるか。</param>
+    /// <param name="secondFlagLabel">2つめの切り替え（対応アバターの「対応の指定が無い商品も含める」）。既定は切り。</param>
     public ListModule(
         SearchModuleKind kind,
         bool allowsAnd,
         string placeholder,
         string emptyText,
-        Func<ItemRecord, SearchModuleContext, string, bool, bool> matches,
+        Func<ItemRecord, SearchModuleContext, string, ListFlags, bool> matches,
         string? flagLabel = null,
-        bool flagDefault = false)
+        bool flagDefault = false,
+        string? secondFlagLabel = null)
         : base(kind)
     {
         AllowsAnd = allowsAnd;
@@ -617,6 +623,7 @@ public sealed class ListModule : SearchModule
         FlagLabel = flagLabel;
         _flagDefault = flagDefault;
         _flag = flagDefault;
+        SecondFlagLabel = secondFlagLabel;
     }
 
     public ObservableCollection<string> Suggestions { get; } = [];
@@ -658,6 +665,26 @@ public sealed class ListModule : SearchModule
         set
         {
             if (SetField(ref _flag, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 2つめの切り替え（対応アバターの「対応の指定が無い商品も含める」）。
+    /// BOOTH には対応アバターを書かずに、どのアバターにも使える商品がある（ユーザ指示 2026-09-16）。
+    /// </summary>
+    public string? SecondFlagLabel { get; }
+
+    public bool HasSecondFlag => SecondFlagLabel is not null && Chips.Count > 0;
+
+    public bool SecondFlag
+    {
+        get => _secondFlag;
+        set
+        {
+            if (SetField(ref _secondFlag, value))
             {
                 NotifyChanged();
             }
@@ -743,20 +770,25 @@ public sealed class ListModule : SearchModule
     public override bool Matches(ItemRecord item, SearchModuleContext context)
         => Chips.Count == 0
             || (_matchAll && AllowsAnd
-                ? Chips.All(chip => _matches(item, context, chip.Key, _flag))
-                : Chips.Any(chip => _matches(item, context, chip.Key, _flag)));
+                ? Chips.All(chip => _matches(item, context, chip.Key, Flags))
+                : Chips.Any(chip => _matches(item, context, chip.Key, Flags)));
+
+    private ListFlags Flags => new(_flag, _secondFlag);
 
     public override string SummaryText
         => $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", Chips.Select(chip => chip.Text))}"
-            + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty);
+            + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
+            + (HasSecondFlag && _secondFlag ? $"（{SecondFlagLabel}）" : string.Empty);
 
     public override void Clear()
     {
         Chips.Clear();
         _matchAll = false;
         _flag = _flagDefault;
+        _secondFlag = false;
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
+        OnPropertyChanged(nameof(SecondFlag));
         RefreshSuggestions();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -766,12 +798,18 @@ public sealed class ListModule : SearchModule
     {
         foreach (var chip in Chips)
         {
-            chip.Count = items.Count(item => _matches(item, context, chip.Key, _flag));
+            chip.Count = items.Count(item => _matches(item, context, chip.Key, Flags));
         }
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
-        => state with { Items = Chips.Select(chip => chip.Key).ToList(), MatchAll = _matchAll, Flag = _flag };
+        => state with
+        {
+            Items = Chips.Select(chip => chip.Key).ToList(),
+            MatchAll = _matchAll,
+            Flag = _flag,
+            IncludeUnspecified = _secondFlag,
+        };
 
     protected override void Read(SearchModuleState state)
     {
@@ -783,8 +821,10 @@ public sealed class ListModule : SearchModule
 
         _matchAll = state.MatchAll;
         _flag = FlagLabel is null ? _flagDefault : state.Flag;
+        _secondFlag = SecondFlagLabel is not null && state.IncludeUnspecified;
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
+        OnPropertyChanged(nameof(SecondFlag));
     }
 
     /// <summary>候補から、積んだ物を除いて並べ直す（件数に比例して縦に伸びないよう、候補付きの欄から1件ずつ積む）。</summary>
@@ -803,6 +843,7 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(HasFlag));
+        OnPropertyChanged(nameof(HasSecondFlag));
     }
 }
 

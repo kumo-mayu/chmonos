@@ -437,7 +437,8 @@ public sealed partial class SearchViewModel
         // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針
         SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "アバター名・商品ID・共通素体で絞り込む",
             "アバターがまだ見つかっていません。アバターの管理から検出できます。", AvatarMatches,
-            "素体経由の対応も含める", flagDefault: true)
+            "素体経由の対応も含める", flagDefault: true,
+            secondFlagLabel: "対応の指定が無い商品も含める")
         {
             IconSelector = AvatarIconSelector,
         },
@@ -578,12 +579,22 @@ public sealed partial class SearchViewModel
             && (separator < 0 || assignment.Subs.Contains(key[(separator + 1)..], StringComparer.CurrentCultureIgnoreCase));
     }
 
-    private static bool AvatarMatches(ItemRecord item, SearchModuleContext context, string key, bool viaBase)
+    private static bool AvatarMatches(ItemRecord item, SearchModuleContext context, string key, ListFlags flags)
     {
+        var resolved = context.Compatibility.Resolve(item.Local);
+
+        // **対応の指定が無い商品は、どのアバターにも使えるものとみなす**（ユーザ指示 2026-09-16。
+        // BOOTH には対応アバターを書かずに「どのアバターでも使える」商品がある）。
+        // 1つでも書いてあるものは書いてある内容どおり。要確認（説明文のリンク）は宣言に数えていないので、指定なしのまま
+        if (flags.SecondFlag && resolved.Count == 0 && item.Local.AvatarBases.All(link => link.Rejected))
+        {
+            return true;
+        }
+
         if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
         {
-            var match = context.Compatibility.MatchFor(item.Local, key[AvatarKey.Length..]);
-            return match == AvatarMatch.Direct || (viaBase && match == AvatarMatch.ViaBase);
+            return resolved.TryGetValue(key[AvatarKey.Length..], out var match)
+                && (match == AvatarMatch.Direct || (flags.Flag && match == AvatarMatch.ViaBase));
         }
 
         if (!key.StartsWith(BaseKey, StringComparison.Ordinal))
@@ -599,19 +610,13 @@ public sealed partial class SearchViewModel
             return true;
         }
 
-        if (!viaBase)
+        if (!flags.Flag)
         {
             return false;
         }
 
         var members = context.Compatibility.MembersOf(baseName);
-        if (members.Count == 0)
-        {
-            return false;
-        }
-
-        var resolved = context.Compatibility.Resolve(item.Local);
-        return members.Any(member => resolved.ContainsKey(member));
+        return members.Count > 0 && members.Any(resolved.ContainsKey);
     }
 
     /// <summary>改変を読む（候補と「改変」「Unityプロジェクト」の条件に要る）。読めたら候補を入れ直し、絞り直す。</summary>

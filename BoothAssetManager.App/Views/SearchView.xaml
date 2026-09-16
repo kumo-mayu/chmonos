@@ -302,6 +302,14 @@
                                                   Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{StaticResource Text}" />
                                         </CheckBox>
+                                        <!-- 対応アバターを書かずに「どのアバターでも使える」商品がある（ユーザ指示 2026-09-16） -->
+                                        <CheckBox IsChecked="{Binding SecondFlag, Mode=TwoWay}" Margin="0,4,0,0"
+                                                  AutomationProperties.Name="{Binding SecondFlagLabel}"
+                                                  ToolTip="対応アバターが1つも書かれていない商品を、どのアバターにも使えるものとして出します。1つでも書いてある商品は、書いてあるとおりに絞ります。"
+                                                  Visibility="{Binding HasSecondFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding SecondFlagLabel}" FontSize="12" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Text}" />
+                                        </CheckBox>
                                     </StackPanel>
                                 </DataTemplate>
 
