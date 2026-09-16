@@ -167,12 +167,15 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
                         <!-- 押す前の条件は検索の履歴に積むので、押し間違えても履歴から戻せる（U3・ユーザ判断） -->
-                        <TextBlock Grid.Column="1" Text="条件をクリア" Foreground="{StaticResource Accent}" FontSize="12"
-                                   VerticalAlignment="Center" Cursor="Hand">
-                            <TextBlock.InputBindings>
-                                <MouseBinding MouseAction="LeftClick" Command="{Binding ClearFiltersCommand}" />
-                            </TextBlock.InputBindings>
-                        </TextBlock>
+                        <!--
+                            文字に押す動きを付けただけでは、キーボードと読み上げ・自動操作から押せない
+                            （実際に押せていなかった）。見た目は同じまま、ボタンにする
+                        -->
+                        <Button Grid.Column="1" Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
+                                Style="{StaticResource HistorySlotButton}" Foreground="{StaticResource Accent}"
+                                FontSize="12" VerticalAlignment="Center" Padding="4,2"
+                                AutomationProperties.Name="条件をクリア"
+                                ToolTip="打った文字と条件の値を戻します（足した条件は残ります）。押す前の条件は検索の履歴に積むので、履歴から戻せます。" />
                     </Grid>
                 </Border>
 
@@ -314,6 +317,26 @@
                                             つまみは割合（0〜100）で動かし、目盛の刻みだけでは数が読めないので両端の数を下に出す
                                         -->
                                         <!--
+                                            分布の帯（ユーザ判断 2026-09-16・案5）。商品がどこに集まっているかが見えると範囲を決められる。
+                                            つまみと同じ対数の配り方で数えているので、帯の位置とつまみの位置が合う。
+                                            左の余白はトグルの幅ぶん（スライダの左端に揃える）
+                                        -->
+                                        <controls:ContentItemsControl ItemsSource="{Binding Histogram}" Height="22" Margin="24,0,0,1"
+                                                                      Focusable="False" ToolTip="商品が多い所（範囲を決める目印）"
+                                                                      AutomationProperties.Name="商品の数の分布"
+                                                                      Visibility="{Binding HasHistogram, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:HistogramBar}">
+                                                    <Rectangle Height="{Binding Height}" VerticalAlignment="Bottom" Margin="0.5,0"
+                                                               Fill="{StaticResource AccentBorder}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
+
+                                        <!--
                                             端に寄せても効いたまま（ユーザ指示 2026-09-16）。片側を外すのは左のトグルで、既定は上下とも効く。
                                             前はつまみを端に置くと黙って「制限なし」になり、「0以上」と「下限なし」を言い分けられなかった
                                         -->
@@ -335,19 +358,19 @@
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
                                                     IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="上限" />
                                         </DockPanel>
-                                        <DockPanel LastChildFill="False" Margin="22,2,0,0">
-                                            <TextBlock DockPanel.Dock="Left" Text="0" Style="{StaticResource Caption}" />
+                                        <DockPanel LastChildFill="False" Margin="24,2,0,0">
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding MinimumLabel}" Style="{StaticResource Caption}" />
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding MaximumLabel}" Style="{StaticResource Caption}" />
                                         </DockPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                            <TextBox Text="{Binding MinText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                            <TextBox Text="{Binding MinText, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="76" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="下限" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMinCommand}"
                                                     ToolTip="下限を消す" AutomationProperties.Name="下限を消す"
                                                     Visibility="{Binding HasMin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBlock Text="〜" VerticalAlignment="Center" Margin="4,0" Style="{StaticResource Caption}" />
-                                            <TextBox Text="{Binding MaxText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                            <TextBox Text="{Binding MaxText, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="76" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="上限" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMaxCommand}"

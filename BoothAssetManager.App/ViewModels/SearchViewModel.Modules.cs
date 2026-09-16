@@ -228,7 +228,7 @@ public sealed partial class SearchViewModel
                 attribute.SetNames(_attributeNames);
                 break;
             case RangeModule range:
-                range.RefreshMaximum();
+                range.RefreshBounds();
                 break;
         }
     }
@@ -367,13 +367,13 @@ public sealed partial class SearchViewModel
 
         SearchModuleKind.WishList => new RangeModule(kind, (item, _) => [item.Booth.WishListsCount], string.Empty)
         {
-            MaximumOf = _ => _allItems.Select(item => item.Booth.WishListsCount).DefaultIfEmpty(0).Max(),
+            AllValuesOf = _ => _allItems.Select(item => item.Booth.WishListsCount),
         },
 
         SearchModuleKind.Price => new RangeModule(kind, PriceValues, "円",
             [new ChoiceOption(PaidSource, "購入額"), new ChoiceOption(BoothSource, "BOOTHの価格")])
         {
-            MaximumOf = source => _allItems.SelectMany(item => PriceValues(item, source)).DefaultIfEmpty(0).Max(),
+            AllValuesOf = source => _allItems.SelectMany(item => PriceValues(item, source)),
         },
 
         SearchModuleKind.EndOfSale => new ChoiceModule(kind,

@@ -309,7 +309,7 @@ public abstract class SearchModule : ReorderableRow
     /// <summary>何も絞らない値に戻す（「条件をクリア」）。通知だけ出し、絞り直しは呼ぶ側がまとめて行う。</summary>
     public abstract void Clear();
 
-    /// <summary>選択肢の横に出す件数を数え直す。<paramref name="items"/> はこのモジュールを除いた他の条件を当てた後の商品。</summary>
+        /// <summary>選択肢の横に出す件数を数え直す。<paramref name="items"/> はこのモジュールを除いた他の条件を当てた後の商品。</summary>
     public virtual void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
     {
     }
@@ -367,6 +367,9 @@ public abstract class SearchModule : ReorderableRow
         return int.TryParse(folded, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
     }
 }
+
+/// <summary>分布の帯の棒1本。高さは帯（<see cref="RangeModule.HistogramHeight"/>）に収めた px。</summary>
+public sealed record HistogramBar(double Height);
 
 /// <summary>三択などの選択肢1つ。件数は「選んだら何件になるか」。</summary>
 public sealed class ChoiceOption : ViewModelBase
@@ -783,11 +786,20 @@ public sealed class ListModule : SearchModule
 public sealed class RangeModule : SearchModule
 {
     private readonly Func<ItemRecord, string?, IReadOnlyList<int>> _values;
+    /// <summary>分布の帯の高さ（px）。棒の高さをここに収める。</summary>
+    public const double HistogramHeight = 22;
+
+    /// <summary>分布の帯の棒の数。多くしても細くて読めないので、目盛（10刻み）と噛み合う数にする。</summary>
+    private const int HistogramBuckets = 40;
+
     private string _minText = string.Empty;
     private string _maxText = string.Empty;
     private bool _minEnabled = true;
     private bool _maxEnabled = true;
+    private bool _valuesFromState;
+    private bool _defaultsApplied;
     private ChoiceOption? _source;
+    private double _sliderMinimum;
     private double _sliderMaximum = 100;
 
     /// <param name="values">商品と元（価格の「購入額／BOOTHの価格」）→ 照らす数（どれか1つでも範囲に入れば当たり）。</param>
@@ -818,20 +830,37 @@ public sealed class RangeModule : SearchModule
         {
             if (value is not null && SetField(ref _source, value))
             {
-                RefreshMaximum();
+                // 元を変えたら数の意味が変わる（購入額と BOOTH の価格）。幅も既定に取り直す
+                _valuesFromState = false;
+                _defaultsApplied = false;
+                RefreshBounds();
                 NotifyChanged();
             }
         }
     }
 
-    /// <summary>元ごとの、手元の商品の最大値（スライダの右端）。検索側が入れる。</summary>
-    public Func<string?, int>? MaximumOf { get; set; }
+    /// <summary>元ごとの、手元の商品の数の全部。両端・分布の帯をここから出す。検索側が入れる。</summary>
+    public Func<string?, IEnumerable<int>>? AllValuesOf { get; set; }
+
+    public double SliderMinimum
+    {
+        get => _sliderMinimum;
+        private set => SetField(ref _sliderMinimum, value);
+    }
 
     public double SliderMaximum
     {
         get => _sliderMaximum;
         private set => SetField(ref _sliderMaximum, value);
     }
+
+    /// <summary>
+    /// 分布の帯（ユーザ判断 2026-09-16・案5）。商品がどこに集まっているかが見えると、範囲を決められる。
+    /// スライダと同じ対数の配り方で数えるので、帯の位置とつまみの位置が合う。
+    /// </summary>
+    public IReadOnlyList<HistogramBar> Histogram { get; private set; } = [];
+
+    public bool HasHistogram => Histogram.Count > 0;
 
     public string MinText
     {
@@ -903,42 +932,116 @@ public sealed class RangeModule : SearchModule
     private RelayCommand? _clearMin;
     private RelayCommand? _clearMax;
 
-    /// <summary>スライダの右端がいくつなのか（目盛だけでは数が読めないので、両端の数を添える）。</summary>
+    /// <summary>スライダの両端がいくつなのか（目盛だけでは数が読めないので、端の数を添える）。</summary>
+    public string MinimumLabel => ((int)SliderMinimum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
+
     public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
-    /// <summary>効いている下限。切っていれば null（制限しない）。欄が空なら端（0）を下限とする。</summary>
-    public int? Min => _minEnabled ? ParseNumber(_minText) ?? 0 : null;
+    /// <summary>効いている下限。切っていれば null（制限しない）。欄が空なら左端を下限とする。</summary>
+    public int? Min => _minEnabled ? ParseNumber(_minText) ?? (int)SliderMinimum : null;
 
-    /// <summary>効いている上限。切っていれば null。欄が空なら端（手元の最大値）を上限とする。</summary>
+    /// <summary>効いている上限。切っていれば null。欄が空なら右端を上限とする。</summary>
     public int? Max => _maxEnabled ? ParseNumber(_maxText) ?? (int)SliderMaximum : null;
 
     /// <summary>
-    /// 左のスライダの位置（0〜100）。**端も値として受ける**（左端＝0以上）。切るのは左のトグル。
+    /// 左のスライダの位置（0〜100）。**端も値として受ける**（左端＝手元の最小値以上）。切るのは左のトグル。
     ///
-    /// スライダは位置で持ち、数には手元の最大値で割り戻す。スライダの右端を数に結ぶと、
+    /// スライダは位置で持ち、数には割り戻す。スライダの右端を数に結ぶと、
     /// 右端が決まる前に値が既定の右端（10）へ丸められ、それが上限として書き戻されうる。
     /// </summary>
     public double LowPosition
     {
-        get => Math.Clamp((ParseNumber(_minText) ?? 0) * 100.0 / SliderMaximum, 0, 100);
+        get => ToPosition(ParseNumber(_minText) ?? (int)SliderMinimum);
         set => MinText = ToNumber(value).ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>右のスライダの位置（0〜100）。**端も値として受ける**（右端＝手元の最大値以下）。</summary>
     public double HighPosition
     {
-        get => Math.Clamp((ParseNumber(_maxText) ?? (int)SliderMaximum) * 100.0 / SliderMaximum, 0, 100);
+        get => ToPosition(ParseNumber(_maxText) ?? (int)SliderMaximum);
         set => MaxText = ToNumber(value).ToString(CultureInfo.InvariantCulture);
     }
 
-    private int ToNumber(double position) => (int)Math.Round(position / 100 * SliderMaximum);
+    private double Span => Math.Max(1, SliderMaximum - SliderMinimum);
 
-    public void RefreshMaximum()
+    /// <summary>
+    /// つまみの位置を数にする。**対数で配る**（ユーザ判断 2026-09-16・案1）。
+    ///
+    /// 等間隔だと、1件だけ高い商品があるだけで実際に使う範囲が潰れる
+    /// （5万円の商品が1つあると、1目盛が500円になって2千円付近を指せない）。
+    /// 価格もスキ数も安い側・少ない側に集まっているので、そこを広く使う。
+    /// 0 を含められるよう、端からの差に 1 を足した対数で測る。
+    /// </summary>
+    private int ToNumber(double position)
     {
-        SliderMaximum = Math.Max(1, MaximumOf?.Invoke(_source?.Key) ?? 100);
+        var ratio = Math.Clamp(position, 0, 100) / 100.0;
+        var value = SliderMinimum + Math.Exp(ratio * Math.Log(1 + Span)) - 1;
+        return (int)Math.Round(Math.Clamp(value, SliderMinimum, SliderMaximum));
+    }
+
+    private double ToPosition(int value)
+    {
+        var offset = Math.Clamp(value - SliderMinimum, 0, Span);
+        return Math.Clamp(100 * Math.Log(1 + offset) / Math.Log(1 + Span), 0, 100);
+    }
+
+    /// <summary>
+    /// 両端と分布の帯を手元の商品から取り直す。
+    /// **足したときの値は端から端まで**にする（ユーザ指示 2026-09-16）。状態から戻した値は上書きしない。
+    /// </summary>
+    public void RefreshBounds()
+    {
+        var values = (AllValuesOf?.Invoke(_source?.Key) ?? []).ToList();
+        // 手元の数がみな同じなら、両端も同じ数にする（+1 して存在しない数を端に出さない）
+        SliderMinimum = values.Count == 0 ? 0 : values.Min();
+        SliderMaximum = values.Count == 0 ? 100 : values.Max();
+        RefreshHistogram(values);
+
+        if (!_valuesFromState && !_defaultsApplied)
+        {
+            _defaultsApplied = true;
+            _minText = ((int)SliderMinimum).ToString(CultureInfo.InvariantCulture);
+            _maxText = ((int)SliderMaximum).ToString(CultureInfo.InvariantCulture);
+
+            // **数が分かる商品が1件も無いときは、上下とも切って足す。**
+            // 手元に購入額を1件も入れていないのに「価格」を足すと、足した瞬間に0件になってしまう
+            _minEnabled = values.Count > 0;
+            _maxEnabled = values.Count > 0;
+
+            OnPropertyChanged(nameof(MinText));
+            OnPropertyChanged(nameof(MaxText));
+            OnPropertyChanged(nameof(HasMin));
+            OnPropertyChanged(nameof(HasMax));
+            OnPropertyChanged(nameof(MinEnabled));
+            OnPropertyChanged(nameof(MaxEnabled));
+            OnPropertyChanged(nameof(IsActive));
+        }
+
         OnPropertyChanged(nameof(LowPosition));
         OnPropertyChanged(nameof(HighPosition));
+        OnPropertyChanged(nameof(MinimumLabel));
         OnPropertyChanged(nameof(MaximumLabel));
+        OnPropertyChanged(nameof(CollapsedSummary));
+    }
+
+    private void RefreshHistogram(IReadOnlyList<int> values)
+    {
+        var counts = new int[HistogramBuckets];
+        foreach (var value in values)
+        {
+            var index = Math.Clamp((int)(ToPosition(value) / 100 * HistogramBuckets), 0, HistogramBuckets - 1);
+            counts[index]++;
+        }
+
+        var peak = counts.Max();
+
+        // 1件しかない所も見えるように、最低の高さを持たせる（0件の所は出さない）
+        Histogram = peak == 0
+            ? []
+            : counts.Select(count => new HistogramBar(count == 0 ? 0 : Math.Max(2, count * HistogramHeight / peak))).ToList();
+
+        OnPropertyChanged(nameof(Histogram));
+        OnPropertyChanged(nameof(HasHistogram));
     }
 
     /// <summary>
@@ -978,18 +1081,13 @@ public sealed class RangeModule : SearchModule
     /// <summary>足したときの姿に戻す（上下とも効かせ、幅は端から端まで）。</summary>
     public override void Clear()
     {
-        _minText = string.Empty;
-        _maxText = string.Empty;
         _minEnabled = true;
         _maxEnabled = true;
-        OnPropertyChanged(nameof(MinText));
-        OnPropertyChanged(nameof(MaxText));
+        _valuesFromState = false;
+        _defaultsApplied = false;
         OnPropertyChanged(nameof(MinEnabled));
         OnPropertyChanged(nameof(MaxEnabled));
-        OnPropertyChanged(nameof(HasMin));
-        OnPropertyChanged(nameof(HasMax));
-        OnPropertyChanged(nameof(LowPosition));
-        OnPropertyChanged(nameof(HighPosition));
+        RefreshBounds();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -1010,6 +1108,10 @@ public sealed class RangeModule : SearchModule
         _maxText = state.Max ?? string.Empty;
         _minEnabled = state.MinEnabled;
         _maxEnabled = state.MaxEnabled;
+
+        // 前に入れていた数があるなら、端から端までの既定で上書きしない。
+        // 空で残っていたもの（端という意味）は、端の数を入れて見えるようにする
+        _valuesFromState = _minText.Length > 0 || _maxText.Length > 0;
         _source = Sources.FirstOrDefault(option => option.Key == state.Choice) ?? Sources.FirstOrDefault();
         OnPropertyChanged(nameof(MinText));
         OnPropertyChanged(nameof(MaxText));
@@ -1018,8 +1120,7 @@ public sealed class RangeModule : SearchModule
         OnPropertyChanged(nameof(HasMin));
         OnPropertyChanged(nameof(HasMax));
         OnPropertyChanged(nameof(Source));
-        RefreshMaximum();
-        OnPropertyChanged(nameof(LowPosition));
+        RefreshBounds();
     }
 }
 
