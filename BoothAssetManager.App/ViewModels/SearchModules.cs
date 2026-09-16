@@ -71,7 +71,9 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方がある物は両方に出ます。", [ItemInfo]),
         new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。", [ItemInfo]),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。", [ItemInfo, Slider]),
-        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", [ItemInfo]),
+        // 対応アバターは出品者が BOOTH に書いたものを元にしているので、使う人には BOOTH の情報に見える（ユーザ指示 2026-09-16）。
+        // 自分で直せる商品の情報でもあるので、両方の見出しに出す
+        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", [BoothInfo, ItemInfo]),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。", [ItemInfo]),
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。", [ItemInfo, Calendar]),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を出します。この条件が無いときは、非表示の商品は出しません。", [ItemInfo]),
