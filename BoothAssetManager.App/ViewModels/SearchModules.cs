@@ -38,9 +38,12 @@ public enum SearchModuleKind
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
-public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, IReadOnlyList<string> Headings);
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint);
 
-/// <summary>モジュールの一覧。名前・説明・メニューの見出しをここだけで決める。</summary>
+/// <param name="Groups">見出しの中の、意味のまとまり。まとまりの間に区切り線を引く。</param>
+public sealed record SearchModuleMenuLayout(string Title, IReadOnlyList<IReadOnlyList<SearchModuleKind>> Groups);
+
+/// <summary>モジュールの一覧。名前・説明・メニューの見出しと並びをここだけで決める。</summary>
 public static class SearchModuleCatalog
 {
     public const string BoothInfo = "BOOTHの情報";
@@ -49,39 +52,68 @@ public static class SearchModuleCatalog
     public const string Slider = "スライダー";
     public const string Usage = "利用状況";
 
-    public static IReadOnlyList<string> Headings { get; } = [BoothInfo, ItemInfo, Calendar, Slider, Usage];
-
     /// <summary>最初の起動で出しておく最低限の条件（ユーザ判断 2026-09-16 Q9）。</summary>
     public static IReadOnlyList<SearchModuleKind> Defaults { get; } =
         [SearchModuleKind.Owned, SearchModuleKind.UserTag, SearchModuleKind.Avatar];
 
     public static IReadOnlyList<SearchModuleInfo> All { get; } =
     [
-        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れた分類を含む）で絞ります。", [BoothInfo]),
-        new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", [BoothInfo]),
-        new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。", [BoothInfo]),
-        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", [BoothInfo, Slider]),
-        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えると BOOTH の価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。",
-            [BoothInfo, Slider]),
-        new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品で絞ります。非公開・削除された商品は、既定では出しません。", [BoothInfo]),
-        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", [BoothInfo, Calendar]),
-        new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。", [BoothInfo, ItemInfo]),
-        new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。", [ItemInfo]),
-        new(SearchModuleKind.Gift, "ギフト", "購入記録の種類で絞ります。貰った物で、自分でも買った物は両方に出ます。", [ItemInfo]),
-        new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方がある物は両方に出ます。", [ItemInfo]),
-        new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。", [ItemInfo]),
-        new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。", [ItemInfo, Slider]),
-        // 対応アバターは出品者が BOOTH に書いたものを元にしているので、使う人には BOOTH の情報に見える（ユーザ指示 2026-09-16）。
-        // 自分で直せる商品の情報でもあるので、両方の見出しに出す
-        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", [BoothInfo, ItemInfo]),
-        new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。", [ItemInfo]),
-        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。", [ItemInfo, Calendar]),
-        new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を出します。この条件が無いときは、非表示の商品は出しません。", [ItemInfo]),
-        new(SearchModuleKind.Unedited, "未編集", "ユーザタグをまだ付けていない商品で絞ります。", [ItemInfo]),
-        new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。", [ItemInfo, Usage]),
-        new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", [ItemInfo, Usage]),
-        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下の全部を含む）。", [ItemInfo]),
-        new(SearchModuleKind.Recent, "最近", "最近使った（Unityへ送った）・見た・手元に入った商品で絞ります。記録が無い商品は外れます。", [ItemInfo, Usage]),
+        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れた分類を含む）で絞ります。"),
+        new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。"),
+        new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
+        new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。"),
+        new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えると BOOTH の価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。"),
+        new(SearchModuleKind.EndOfSale, "販売終了", "BOOTHで販売が終わった商品で絞ります。非公開・削除された商品は、既定では出しません。"),
+        new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。"),
+        new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
+        new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
+        new(SearchModuleKind.Gift, "ギフト", "購入記録の種類で絞ります。貰った物で、自分でも買った物は両方に出ます。"),
+        new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方がある物は両方に出ます。"),
+        new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。"),
+        new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
+        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。"),
+        new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
+        new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。"),
+        new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を出します。この条件が無いときは、非表示の商品は出しません。"),
+        new(SearchModuleKind.Unedited, "未編集", "ユーザタグをまだ付けていない商品で絞ります。"),
+        new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。"),
+        new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
+        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下の全部を含む）。"),
+        new(SearchModuleKind.Recent, "最近", "最近使った（Unityへ送った）・見た・手元に入った商品で絞ります。記録が無い商品は外れます。"),
+    ];
+
+    /// <summary>
+    /// 「条件を追加」の見出しと、見出しの中の並び（ユーザ判断 2026-09-16・案1）。
+    ///
+    /// **意味のまとまりで並べ、まとまりの間に区切り線を引く**：何の商品か → お金と入手 → 自分の整理 → 使い方。
+    /// 前は条件の一覧の順のまま全見出しに出していて、所持と入手日、改変とファイルの場所のように意味の近い物が離れていた。
+    /// 並びは見出しごとに決める（全体で1つの並びだと、ある見出しで良い並びが別の見出しで崩れる）。
+    /// 同じ条件が2つの見出しに出てよい（対応アバターは出品者が BOOTH に書いた物を元にするので BOOTH の情報に見え、自分で直せる商品の情報でもある）。
+    /// </summary>
+    public static IReadOnlyList<SearchModuleMenuLayout> Menu { get; } =
+    [
+        new(BoothInfo,
+        [
+            [SearchModuleKind.Category, SearchModuleKind.BoothTag, SearchModuleKind.Avatar, SearchModuleKind.Adult],
+            [SearchModuleKind.Shop, SearchModuleKind.Price],
+            [SearchModuleKind.PublishedAt, SearchModuleKind.EndOfSale, SearchModuleKind.WishList],
+        ]),
+        new(ItemInfo,
+        [
+            [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Avatar, SearchModuleKind.Adult],
+            [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
+            [SearchModuleKind.Favorite, SearchModuleKind.Unedited, SearchModuleKind.Hidden],
+            [SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.Path],
+        ]),
+
+        // BOOTH に出た日 → 自分が手に入れた日
+        new(Calendar, [[SearchModuleKind.PublishedAt, SearchModuleKind.AcquiredAt]]),
+
+        // BOOTH の数 → 自分の評価
+        new(Slider, [[SearchModuleKind.Price, SearchModuleKind.WishList, SearchModuleKind.Attribute]]),
+
+        // 広い → 狭い
+        new(Usage, [[SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject]]),
     ];
 
     public static SearchModuleInfo Of(SearchModuleKind kind) => All.First(entry => entry.Kind == kind);
@@ -2009,6 +2041,9 @@ public sealed class SearchModuleMenuEntry : ViewModelBase
 
     public string Hint { get; }
 
+    /// <summary>区切り線ではない（区切り線と同じ一覧に並ぶので、見た目を分ける印を揃えて持つ）。</summary>
+    public bool IsSeparator => false;
+
     public bool IsAvailable
     {
         get => _isAvailable;
@@ -2024,5 +2059,18 @@ public sealed class SearchModuleMenuEntry : ViewModelBase
     public RelayCommand AddCommand { get; }
 }
 
-/// <summary>「条件を追加」のメニューの見出し（ユーザ案：BOOTHの情報・商品の情報・カレンダー・スライダー・利用状況）。</summary>
-public sealed record SearchModuleMenuHeading(string Title, IReadOnlyList<SearchModuleMenuEntry> Entries);
+/// <summary>
+/// 「条件を追加」のメニューの見出し（ユーザ案：BOOTHの情報・商品の情報・カレンダー・スライダー・利用状況）。
+/// <paramref name="Entries"/> は <see cref="SearchModuleMenuEntry"/> と <see cref="SearchModuleMenuSeparator"/> が並ぶ。
+/// </summary>
+public sealed record SearchModuleMenuHeading(string Title, IReadOnlyList<object> Entries);
+
+/// <summary>
+/// 見出しの中の区切り線（意味のまとまりの間）。**区切りごとに別の物を作る**——同じ物を1つの一覧に何度も入れると、
+/// WPF の一覧は項目と部品の対応を取り違える。
+/// </summary>
+public sealed class SearchModuleMenuSeparator
+{
+    /// <summary>メニューの項目の見た目を、線に差し替える印。</summary>
+    public bool IsSeparator => true;
+}

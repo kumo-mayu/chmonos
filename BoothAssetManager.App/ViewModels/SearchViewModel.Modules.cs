@@ -43,12 +43,13 @@ public sealed partial class SearchViewModel
             _moduleMenuEntries[info.Kind] = new SearchModuleMenuEntry(info, kind => AddModule(kind));
         }
 
-        ModuleMenu = SearchModuleCatalog.Headings
-            .Select(title => new SearchModuleMenuHeading(
-                title,
-                SearchModuleCatalog.All
-                    .Where(info => info.Headings.Contains(title))
-                    .Select(info => _moduleMenuEntries[info.Kind])
+        // 見出しの中は意味のまとまりの順に並べ、まとまりの間に区切り線を入れる（ユーザ判断 2026-09-16・案1）
+        ModuleMenu = SearchModuleCatalog.Menu
+            .Select(layout => new SearchModuleMenuHeading(
+                layout.Title,
+                layout.Groups
+                    .SelectMany((group, index) => (index == 0 ? [] : new object[] { new SearchModuleMenuSeparator() })
+                        .Concat(group.Select(kind => (object)_moduleMenuEntries[kind])))
                     .ToList()))
             .ToList();
 

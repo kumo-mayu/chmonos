@@ -220,6 +220,24 @@
                                                         <Trigger Property="IsEnabled" Value="False">
                                                             <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                                                         </Trigger>
+                                                        <!--
+                                                            意味のまとまりの間の区切り線（ユーザ判断 2026-09-16・案1）。項目の見た目を線に差し替え、
+                                                            押せず・キーボードでも止まらないようにする。
+                                                            （項目の種類で部品を作り分ける仕組み〔UsesItemContainerTemplate〕は、ここでは作り方が見つからず中身が空になった）
+                                                        -->
+                                                        <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                                            <Setter Property="IsEnabled" Value="False" />
+                                                            <Setter Property="Focusable" Value="False" />
+                                                            <Setter Property="IsHitTestVisible" Value="False" />
+                                                            <Setter Property="AutomationProperties.Name" Value="区切り" />
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="MenuItem">
+                                                                        <Border Height="1" Margin="30,4,6,4" Background="{StaticResource Border}" />
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Setter.Value>
@@ -672,7 +690,18 @@
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
                     Padding="18,7"
                     Visibility="{Binding HasHistory, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <DockPanel>
+                <!--
+                    帯の左端に見出し（ユーザ指示 2026-09-16：上に履歴が溜まっていることが分かりにくい）。
+                    帯そのものが履歴のあるときだけ出るので、見出しも履歴のあるときだけ見える
+                -->
+                <TextBlock DockPanel.Dock="Left" Text="検索履歴" Style="{StaticResource SectionLabel}"
+                           VerticalAlignment="Center" Margin="0,0,12,0" />
+                <!--
+                    横に送れるが、バーは出さない（ユーザ指示 2026-09-16）。バーが無いとつまめないので、ホイールで横に送る
+                -->
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                              PreviewMouseWheel="OnHistoryMouseWheel">
                     <ItemsControl ItemsSource="{Binding History}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -706,6 +735,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+              </DockPanel>
             </Border>
 
             <Border DockPanel.Dock="Top" Height="78" Background="{StaticResource Surface}"

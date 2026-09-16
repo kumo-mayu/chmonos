@@ -67,6 +67,19 @@ public partial class SearchView : UserControl
 
     private void OnModulesDrop(object sender, DragEventArgs e) => _reorder.OnDrop(sender, e);
 
+    /// <summary>
+    /// 検索履歴の帯をホイールで横に送る。帯はバーを出さない（ユーザ指示 2026-09-16）ので、ほかに送る手段が無い。
+    /// 縦には送らない帯なので、縦のホイールをそのまま横に読み替える。
+    /// </summary>
+    private void OnHistoryMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer strip && strip.ScrollableWidth > 0)
+        {
+            strip.ScrollToHorizontalOffset(strip.HorizontalOffset - e.Delta);
+            e.Handled = true;
+        }
+    }
+
     /// <summary>検索欄へ入り、今の文字を選んだ状態にする（ショートカット「検索欄へ」#43）。そのまま打てば置き換わる。</summary>
     public void FocusQuery()
     {
