@@ -28,6 +28,9 @@ public sealed record ShopSummary
 
     public required string Name { get; init; }
 
+    /// <summary>BOOTH のショップの変わらない ID（取得した商品から）。星とメモの記録に、つなぎ直す手がかりとして控える。</summary>
+    public string? Uuid { get; init; }
+
     public string? Url { get; init; }
 
     public string? ThumbnailUrl { get; init; }
@@ -301,6 +304,7 @@ public sealed class ShopService : IShopService
         {
             Subdomain = subdomain,
             Name = name,
+            Uuid = observed?.Uuid,
             Url = observed?.Url,
             ThumbnailUrl = observed?.ThumbnailUrl,
             IconPath = _store.Paths.FindShopIcon(subdomain),

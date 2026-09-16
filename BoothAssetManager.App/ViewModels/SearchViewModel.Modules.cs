@@ -501,11 +501,39 @@ public sealed partial class SearchViewModel
 
         SearchModuleKind.Recent => new RecentModule(),
 
+        SearchModuleKind.FavoriteShop => new ChoiceModule(kind,
+            [new("favorite", "お気に入りのショップの商品のみ"), new("other", "それ以外のショップの商品のみ"), new("both", "両方")],
+            "both", (item, key, _) => key switch
+            {
+                "favorite" => IsFavoriteShop(item),
+                "other" => !IsFavoriteShop(item),
+                _ => true,
+            }),
+
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
     private const string PaidSource = "paid";
     private const string BoothSource = "booth";
+
+    /// <summary>
+    /// お気に入りのショップの鍵（shops.json の星）。読み込みのときと、ショップ画面で星を変えたときに入れ直す。
+    /// 1商品ごとにファイルを読まないよう、ここに持つ。
+    /// </summary>
+    private IReadOnlySet<string> _favoriteShops = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    private bool IsFavoriteShop(ItemRecord item)
+        => item.ShopSubdomain is { } key && _favoriteShops.Contains(key);
+
+    /// <summary>ショップ画面で星やメモを変えたことを知る。お気に入りのショップの条件を足していれば絞り直す。</summary>
+    public void NoteShopNotesChanged(IReadOnlyList<ShopNoteRecord> notes)
+    {
+        _favoriteShops = ShopNotes.FavoriteKeys(notes);
+        if (Modules.Any(module => module.Kind == SearchModuleKind.FavoriteShop))
+        {
+            ApplyFilters();
+        }
+    }
 
     /// <summary>所持＝ファイルかフォルダを1つ以上持つ。</summary>
     private static bool IsOwned(ItemRecord item) => item.Local.OwnedFiles.Count > 0 || item.Local.LocalFolders.Count > 0;

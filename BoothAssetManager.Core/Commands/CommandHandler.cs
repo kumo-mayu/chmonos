@@ -26,6 +26,7 @@ public sealed class CommandHandler
     private readonly Images.ImagePipeline? _images;
     private readonly Booth.IBoothClient? _client;
     private readonly Storage.JsonFileStore<List<Models.VideoTitleRecord>>? _videoTitles;
+    private readonly Storage.JsonFileStore<List<Models.ShopNoteRecord>>? _shopNotes;
 
     public CommandHandler(
         IImportPipeline import,
@@ -44,9 +45,11 @@ public sealed class CommandHandler
         IShopService? shops = null,
         Images.ImagePipeline? images = null,
         Booth.IBoothClient? client = null,
-        Storage.JsonFileStore<List<Models.VideoTitleRecord>>? videoTitles = null)
+        Storage.JsonFileStore<List<Models.VideoTitleRecord>>? videoTitles = null,
+        Storage.JsonFileStore<List<Models.ShopNoteRecord>>? shopNotes = null)
     {
         _videoTitles = videoTitles;
+        _shopNotes = shopNotes;
         _settings = settings;
         _avatarEditor = avatarEditor;
         _shops = shops;
@@ -169,6 +172,16 @@ public sealed class CommandHandler
                 return new CommandResult.SearchHistoryChanged(
                     await (_settings ?? throw new InvalidOperationException("設定の保存先が渡されていません。"))
                         .ChangeSearchHistoryAsync(history.Change, cancellationToken));
+
+            case UiCommand.ChangeShopNote shopNote:
+            {
+                var store = _shopNotes ?? throw new InvalidOperationException("ショップの星とメモの保存先が渡されていません。");
+                var notes = await store.UpdateAsync(
+                    records => Services.ShopNotes.Apply(
+                        records, shopNote.Subdomain, shopNote.NameHint, shopNote.Uuid, shopNote.Change, DateTimeOffset.Now),
+                    cancellationToken);
+                return new CommandResult.ShopNotesChanged(notes);
+            }
 
             case UiCommand.RememberVideoTitle remember:
                 await (_videoTitles ?? throw new InvalidOperationException("動画のタイトルの控えの保存先が渡されていません。"))

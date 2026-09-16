@@ -54,6 +54,9 @@ public sealed class ShopCardViewModel : ViewModelBase
 
     public string Name => Shop.Name;
 
+    /// <summary>お気に入りのショップか（shops.json）。一覧では見せるだけで、付け外しはショップ画面で行う。</summary>
+    public bool IsFavorite { get; init; }
+
     /// <summary>
     /// ショップのドメイン。**手元だけのショップには付けない**——
     /// BOOTHに無い鍵に .booth.pm を足すと、実在しないURLを名乗ることになる。
@@ -267,12 +270,13 @@ public sealed class ShopsViewModel : ViewModelBase
             // 写しは画面のスレッドで取り出し、数えるのは裏で（ショップ151店・商品2000件でも画面を止めない）
             var items = _main.Search.SnapshotItems();
             var shops = await Task.Run(() => _services.Shops.Summarize(items));
+            var favorites = Core.Services.ShopNotes.FavoriteKeys(_services.Store.ShopNotes.Load());
 
             RunOnUiThread(() =>
             {
                 _all = shops.Select(shop =>
                 {
-                    var card = new ShopCardViewModel { Shop = shop };
+                    var card = new ShopCardViewModel { Shop = shop, IsFavorite = favorites.Contains(shop.Subdomain) };
                     if (shop.IconPath is { } path)
                     {
                         card.IconFactory = onLoaded => _thumbnails.PeekForTile(path, onLoaded);

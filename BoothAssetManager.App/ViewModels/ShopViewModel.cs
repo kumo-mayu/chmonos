@@ -21,6 +21,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
 
     private bool _ownedOnly;
     private List<ItemCardViewModel> _all = [];
+    private bool _isFavorite;
+    private string _memo = string.Empty;
+    private readonly Debounced _saveMemo;
 
     public ShopViewModel(
         ShopSummary shop,
@@ -61,7 +64,77 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
 
         _icon = shop.IconPath is null ? null : thumbnails.Load(shop.IconPath);
 
+        // 星とメモ（shops.json・ユーザ判断 2026-09-16）。読むのは直に、書くのは UiCommand で
+        var note = Core.Services.ShopNotes.Of(services.Store.ShopNotes.Load(), shop.Subdomain);
+        _isFavorite = note?.IsFavorite == true;
+        _memo = note?.Memo ?? string.Empty;
+        ToggleFavoriteCommand = new RelayCommand(() => ToggleFavoriteAsync().Forget());
+
+        // 打つたびに書かず、止まってから1回（画面を離れても待ちは残るので、書き漏れない）
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
+
         ReloadAsync().Forget();
+    }
+
+    /// <summary>お気に入りのショップか。</summary>
+    public bool IsFavorite
+    {
+        get => _isFavorite;
+        private set
+        {
+            if (SetField(ref _isFavorite, value))
+            {
+                OnPropertyChanged(nameof(FavoriteGlyph));
+                OnPropertyChanged(nameof(FavoriteTip));
+            }
+        }
+    }
+
+    public string FavoriteGlyph => _isFavorite ? "★" : "☆";
+
+    public string FavoriteTip => _isFavorite ? "お気に入りのショップから外す" : "お気に入りのショップにする";
+
+    public RelayCommand ToggleFavoriteCommand { get; }
+
+    /// <summary>
+    /// ショップのメモ。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識を1か所に書く
+    /// （商品のメモに書くと、同じショップの商品が増えるたびに写すことになり、直すときに食い違う）。
+    /// </summary>
+    public string Memo
+    {
+        get => _memo;
+        set
+        {
+            if (SetField(ref _memo, value ?? string.Empty))
+            {
+                _saveMemo.Request();
+            }
+        }
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        var next = !_isFavorite;
+        IsFavorite = next;
+        await SaveNoteAsync(current => current with { IsFavorite = next });
+    }
+
+    private Task SaveMemoAsync()
+    {
+        var memo = _memo;
+        return SaveNoteAsync(current => current with { Memo = string.IsNullOrWhiteSpace(memo) ? null : memo });
+    }
+
+    private async Task SaveNoteAsync(Func<Core.Models.ShopNoteRecord, Core.Models.ShopNoteRecord> change)
+    {
+        var result = await _services.Commands.ExecuteAsync(
+            new Core.Commands.UiCommand.ChangeShopNote(Shop.Subdomain, Shop.Name, Shop.Uuid, change));
+
+        // 検索の「お気に入りのショップ」の条件が、今の星で絞れるように知らせる
+        if (result is Core.Commands.CommandResult.ShopNotesChanged changed)
+        {
+            _main.Search.NoteShopNotesChanged(changed.Notes);
+        }
     }
 
     public ShopSummary Shop { get; }

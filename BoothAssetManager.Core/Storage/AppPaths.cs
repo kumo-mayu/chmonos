@@ -72,6 +72,9 @@ public sealed class AppPaths
 
     public string ShopBannersFile => Path.Combine(Root, "shop-banners.json");
 
+    /// <summary>ショップに人が付けた星とメモ。バナーの取得の記録（機械が書く）とは分ける。</summary>
+    public string ShopNotesFile => Path.Combine(Root, "shops.json");
+
     /// <summary>YouTube の動画のタイトルの控え（30日で取り直す・<see cref="Models.VideoTitleRecord"/>）。</summary>
     public string VideoTitlesFile => Path.Combine(Root, "video-titles.json");
 

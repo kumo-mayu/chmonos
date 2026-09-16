@@ -126,6 +126,16 @@ public abstract record UiCommand
     public record ChangeSearchHistory(Func<Services.SearchHistoryList, Services.SearchHistoryList> Change) : UiCommand;
 
     /// <summary>
+    /// ショップの星・メモを変える（shops.json・ユーザ判断 2026-09-16）。変え方を関数で渡し、錠の中で今の値に当てる。
+    /// <paramref name="NameHint"/> は見分け用の名前の控え、<paramref name="Uuid"/> はサブドメインが変わったときの手がかり。
+    /// </summary>
+    public record ChangeShopNote(
+        string Subdomain,
+        string? NameHint,
+        string? Uuid,
+        Func<Models.ShopNoteRecord, Models.ShopNoteRecord> Change) : UiCommand;
+
+    /// <summary>
     /// 動画のタイトルを控える（video-titles.json）。<paramref name="Title"/> が null なら控えを消す（非公開・削除で取れなくなった）。
     /// 書くついでに30日を過ぎた控えも落とす（YouTube の開発者ポリシー・<see cref="Services.VideoTitleBook"/>）。
     /// </summary>
@@ -395,6 +405,9 @@ public abstract record CommandResult
 
     /// <summary>検索の履歴を書いた。書いた後の履歴を持つ。</summary>
     public record SearchHistoryChanged(Services.SearchHistoryList History) : CommandResult;
+
+    /// <summary>ショップの星・メモを変えた結果（書いた後の全店ぶん）。</summary>
+    public record ShopNotesChanged(IReadOnlyList<Models.ShopNoteRecord> Notes) : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;

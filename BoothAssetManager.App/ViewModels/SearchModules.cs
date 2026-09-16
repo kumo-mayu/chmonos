@@ -35,6 +35,9 @@ public enum SearchModuleKind
     UnityProject,
     Path,
     Recent,
+
+    /// <summary>お気に入りのショップの商品（shops.json の星・ユーザ判断 2026-09-16）。</summary>
+    FavoriteShop,
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
@@ -60,6 +63,9 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れた分類を含む）で絞ります。", [BoothInfo]),
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", [BoothInfo]),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。", [BoothInfo]),
+
+        // ショップ画面で付けた星で絞る。ショップの情報なので BOOTHの情報、自分で付けた印なので商品の情報にも出す
+        new(SearchModuleKind.FavoriteShop, "お気に入りのショップ", "ショップ画面で星を付けたショップの商品で絞ります。", [BoothInfo, ItemInfo]),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", [BoothInfo, Slider]),
         new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えると BOOTH の価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。",
             [BoothInfo, Slider]),

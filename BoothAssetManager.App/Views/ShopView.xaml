@@ -88,7 +88,36 @@
                         </Grid>
                     </Border>
                     <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" FontSize="21" FontWeight="Bold" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" FontSize="21" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <!--
+                                お気に入りのショップ（ユーザ判断 2026-09-16）。キーボードと読み上げから押せるようボタンにし、
+                                暗黙のボタンの枠と余白が付かないよう見た目は差し替える
+                            -->
+                            <Button Command="{Binding ToggleFavoriteCommand}" Margin="10,0,0,0" Cursor="Hand"
+                                    VerticalAlignment="Center" ToolTip="{Binding FavoriteTip}"
+                                    AutomationProperties.Name="{Binding FavoriteTip}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent" Padding="2,0">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="{Binding FavoriteGlyph}" FontSize="22">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                    <Setter Property="Foreground" Value="#d99a00" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                        </StackPanel>
                         <TextBlock Text="{Binding DomainText}" Style="{StaticResource Mono}" FontSize="12"
                                    Foreground="{StaticResource TextFaint}" Margin="0,5,0,0" />
                     </StackPanel>
@@ -117,6 +146,35 @@
                     </StackPanel>
                 </StackPanel>
             </Grid>
+        </Border>
+
+        <!--
+            ショップのメモ（ユーザ判断 2026-09-16）。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識。
+            止まってから書く（打つたびには書かない）
+        -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
+                <Grid>
+                    <TextBox Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                             TextWrapping="Wrap" MinHeight="40" MaxHeight="120" VerticalScrollBarVisibility="Auto"
+                             FontSize="12.5" Padding="6,4" AutomationProperties.Name="ショップのメモ" />
+                    <TextBlock Text="利用規約・問い合わせ先・作者の別名義など、このショップについて覚えておきたいこと"
+                               Margin="10,6,0,0" IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Memo}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </DockPanel>
         </Border>
 
         <Border DockPanel.Dock="Top" Padding="24,14,24,0">

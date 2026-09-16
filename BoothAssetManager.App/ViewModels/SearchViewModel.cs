@@ -316,6 +316,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
 
             _allItems = sorted;
             _haystacks = built;
+            _favoriteShops = Core.Services.ShopNotes.FavoriteKeys(_services.Store.ShopNotes.Load());
 
             RunOnUiThread(() =>
             {
