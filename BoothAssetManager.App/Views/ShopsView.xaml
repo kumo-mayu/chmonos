@@ -12,21 +12,63 @@
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="ショップ" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
-                    <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <!-- 数え方を隠さない。件数の意味が変わってしまう -->
+                <!-- 右の操作に幅を先に渡し、左の説明は残りに収める（操作が増えて重なっていた・2026-09-16） -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <TextBlock DockPanel.Dock="Left" Text="ショップ" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                    <!-- 数え方を隠さない。件数の意味が変わってしまう。狭いときは「…」で詰め、全文はツールチップで読む -->
                     <TextBlock Text="ファイルを持っている商品だけを数えています（非表示にしたものは除く）。最終購入の ※ はファイルの日付です。"
-                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
-                </StackPanel>
+                               ToolTip="ファイルを持っている商品だけを数えています（非表示にしたものは除く）。最終購入の ※ はファイルの日付です。"
+                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="ショップ名で検索" Style="{StaticResource Caption}"
-                               VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                             Width="180" Padding="9,5" BorderBrush="{StaticResource BorderStrong}"
-                             VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- ★だけ（ユーザ指示 2026-09-16）。星はカードの右上でも付けられる -->
+                    <CheckBox IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              AutomationProperties.Name="星を付けたショップだけ" ToolTip="星を付けたショップだけを出します。">
+                        <TextBlock FontSize="12.5" Foreground="{StaticResource Text}">
+                            <Run Text="★" Foreground="#d99a00" /><Run Text=" だけ" />
+                        </TextBlock>
+                    </CheckBox>
+                    <!-- 透かしにも今の対象を出す（打つ前にも、何で探すかが読める） -->
+                    <Grid VerticalAlignment="Center">
+                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="200" Padding="9,5" BorderBrush="{StaticResource BorderStrong}"
+                                 AutomationProperties.Name="ショップを探す" />
+                        <TextBlock Text="{Binding SearchPlaceholder}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                   IsHitTestVisible="False">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding FilterText}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <!--
+                        探す対象（ユーザ指示 2026-09-16：ショップ名とメモ）。最後の1つは外せない。
+                        **今の対象をボタンそのものに書く**（ユーザ指示「対象がどちらかが常にわかるようにする必要がある」）
+                    -->
+                    <Menu Background="Transparent" VerticalAlignment="Center" Margin="4,0,0,0">
+                        <MenuItem Header="{Binding TargetsText}" Height="30" Padding="8,0"
+                                  AutomationProperties.Name="{Binding TargetsText}"
+                                  ToolTip="打った文字を、ショップ名（とサブドメイン）とメモのどちらで探すかを選びます。">
+                            <MenuItem Header="ショップ名" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding SearchNames, Mode=TwoWay}" />
+                            <MenuItem Header="メモ" IsCheckable="True" StaysOpenOnClick="True"
+                                      IsChecked="{Binding SearchMemos, Mode=TwoWay}" />
+                        </MenuItem>
+                    </Menu>
                     <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
                               DisplayMemberPath="Label" Width="170" Margin="8,0,0,0" VerticalAlignment="Center" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
@@ -94,7 +136,8 @@
                               **アプリ全体のボタンの既定の見た目（高さ32・余白・文字の大きさ・背景）を当てない**——
                               当てると高さ32でカードが切られ、中身が1つも見えなくなった（ユーザ指摘 2026-09-16「ショップ一覧の構築に失敗していそう」）
                           -->
-                          <Button Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,14,14"
+                          <Grid Margin="0,0,14,14">
+                          <Button Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand"
                                   AutomationProperties.Name="{Binding Name}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
@@ -117,18 +160,12 @@
                                             </Grid>
                                         </Border>
                                         <!--
-                                            幅はカードの内側に収める（304 − 余白16×2 − アイコン56 − 間11 = 205）。前は220で右端が約15px切れていて、
-                                            名前の右に置いた★がちょうど切れる所に入り、見えなかった（2026-09-16）
+                                            幅はカードの内側に収め、右上に重ねた星のぶんを空ける（304 − 余白16×2 − アイコン56 − 間11 = 205、星に約20）。
+                                            前は220で右端が約15px切れていた（2026-09-16）
                                         -->
-                                        <StackPanel Margin="11,0,0,0" VerticalAlignment="Center" Width="204">
-                                            <DockPanel>
-                                                <!-- お気に入りのショップ（ユーザ判断 2026-09-16）。一覧では見せるだけ、付け外しはショップ画面で -->
-                                                <TextBlock DockPanel.Dock="Right" Text="★" FontSize="13" Foreground="#d99a00"
-                                                           Margin="4,0,0,0" ToolTip="お気に入りのショップ"
-                                                           Visibility="{Binding IsFavorite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </DockPanel>
+                                        <StackPanel Margin="11,0,0,0" VerticalAlignment="Center" Width="184">
+                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium"
+                                                       TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding DomainText}" Style="{StaticResource Mono}"
                                                        FontSize="10.5" Foreground="{StaticResource TextFaint}"
                                                        TextTrimming="CharacterEllipsis" Margin="0,3,0,0" />
@@ -176,6 +213,35 @@
                                 </StackPanel>
                             </Border>
                           </Button>
+                          <!--
+                              星（ユーザ指示 2026-09-16：一覧でも付けられるように）。カードを開くボタンの中に入れず、上に重ねる
+                              （ボタンの中にボタンを入れると、押したときにどちらが動くかが部品の作りに左右される）。
+                              既定のボタンの見た目は当てない（高さ32などが当たると形が崩れる）
+                          -->
+                          <Button Style="{x:Null}" Command="{Binding ToggleFavoriteCommand}" Cursor="Hand"
+                                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,10,0"
+                                  ToolTip="{Binding FavoriteTip}" AutomationProperties.Name="{Binding FavoriteTip}">
+                              <Button.Template>
+                                  <ControlTemplate TargetType="Button">
+                                      <Border Background="Transparent" Padding="4,0">
+                                          <ContentPresenter />
+                                      </Border>
+                                  </ControlTemplate>
+                              </Button.Template>
+                              <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17">
+                                  <TextBlock.Style>
+                                      <Style TargetType="TextBlock">
+                                          <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                          <Style.Triggers>
+                                              <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                  <Setter Property="Foreground" Value="#d99a00" />
+                                              </DataTrigger>
+                                          </Style.Triggers>
+                                      </Style>
+                                  </TextBlock.Style>
+                              </TextBlock>
+                          </Button>
+                          </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </controls:ContentItemsControl>

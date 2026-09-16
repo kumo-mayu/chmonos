@@ -54,8 +54,30 @@ public sealed class ShopCardViewModel : ViewModelBase
 
     public string Name => Shop.Name;
 
-    /// <summary>お気に入りのショップか（shops.json）。一覧では見せるだけで、付け外しはショップ画面で行う。</summary>
-    public bool IsFavorite { get; init; }
+    private bool _isFavorite;
+
+    /// <summary>お気に入りのショップか（shops.json）。一覧のカードの星でも付け外しできる（ユーザ指示 2026-09-16）。</summary>
+    public bool IsFavorite
+    {
+        get => _isFavorite;
+        set
+        {
+            if (SetField(ref _isFavorite, value))
+            {
+                OnPropertyChanged(nameof(FavoriteGlyph));
+                OnPropertyChanged(nameof(FavoriteTip));
+            }
+        }
+    }
+
+    public string FavoriteGlyph => _isFavorite ? "★" : "☆";
+
+    public string FavoriteTip => _isFavorite ? "お気に入りのショップから外す" : "お気に入りのショップにする";
+
+    public RelayCommand? ToggleFavoriteCommand { get; set; }
+
+    /// <summary>ショップのメモ（shops.json）。一覧の検索で、ショップ名と合わせて探す。</summary>
+    public string? Memo { get; init; }
 
     /// <summary>
     /// ショップのドメイン。**手元だけのショップには付けない**——
@@ -167,6 +189,9 @@ public sealed class ShopsViewModel : ViewModelBase
     private int _columns = 1;
     private string _iconStatus = string.Empty;
     private string _filterText = string.Empty;
+    private bool _searchNames = true;
+    private bool _searchMemos = true;
+    private bool _favoritesOnly;
     private ShopSortOption _sort;
     private bool _isLoading;
 
@@ -229,6 +254,87 @@ public sealed class ShopsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 打った文字をショップ名（とサブドメイン）で探すか（ユーザ指示 2026-09-16：探す対象を選べるように）。
+    /// 名前とメモの両方を切ると何も探せないので、最後の1つは外させない。
+    /// </summary>
+    public bool SearchNames
+    {
+        get => _searchNames;
+        set => SetTarget(ref _searchNames, value, other: _searchMemos);
+    }
+
+    /// <summary>打った文字をショップのメモで探すか。</summary>
+    public bool SearchMemos
+    {
+        get => _searchMemos;
+        set => SetTarget(ref _searchMemos, value, other: _searchNames);
+    }
+
+    /// <summary>星を付けたショップだけを出す（ユーザ指示 2026-09-16）。</summary>
+    public bool FavoritesOnly
+    {
+        get => _favoritesOnly;
+        set
+        {
+            if (SetField(ref _favoritesOnly, value))
+            {
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 今の探す対象を、対象のボタンそのものに書く（ユーザ指示 2026-09-16「対象がどちらかが常にわかるようにする必要がある」）。
+    /// メニューを開かないと分からない形だと、メモで探しているつもりで名前だけを探していても気付けない。
+    /// </summary>
+    public string TargetsText => $"対象：{TargetNames} ▾";
+
+    /// <summary>探す欄の透かし（打つ前にも、何で探すかが読める）。</summary>
+    public string SearchPlaceholder => $"{TargetNames}から探す";
+
+    private string TargetNames => string.Join("・", new[]
+    {
+        _searchNames ? "ショップ名" : null,
+        _searchMemos ? "メモ" : null,
+    }.OfType<string>());
+
+    private void SetTarget(ref bool field, bool value, bool other)
+    {
+        if (field != value && (value || other))
+        {
+            field = value;
+            Rebuild();
+        }
+
+        // 外せなかったときも、画面の印を今の値に戻す
+        OnPropertyChanged(nameof(SearchNames));
+        OnPropertyChanged(nameof(SearchMemos));
+        OnPropertyChanged(nameof(TargetsText));
+        OnPropertyChanged(nameof(SearchPlaceholder));
+    }
+
+    /// <summary>一覧のカードの星を切り替える。書くのはショップ画面と同じ命令で、検索の条件にも知らせる。</summary>
+    private async Task ToggleFavoriteAsync(ShopCardViewModel card)
+    {
+        var next = !card.IsFavorite;
+        card.IsFavorite = next;
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeShopNote(
+            card.Shop.Subdomain, card.Shop.Name, card.Shop.Uuid, note => note with { IsFavorite = next }));
+
+        if (result is Core.Commands.CommandResult.ShopNotesChanged changed)
+        {
+            _main.Search.NoteShopNotesChanged(changed.Notes);
+        }
+
+        // 「★だけ」のときに外したら、その場で一覧から消す
+        if (_favoritesOnly)
+        {
+            Rebuild();
+        }
+    }
+
     public bool IsLoading
     {
         get => _isLoading;
@@ -241,7 +347,9 @@ public sealed class ShopsViewModel : ViewModelBase
 
     public string EmptyText => _all.Count == 0
         ? "ショップがありません"
-        : "該当するショップがありません。検索語を短くしてみてください。";
+        : _favoritesOnly && !_all.Any(card => card.IsFavorite)
+            ? "星を付けたショップがまだありません。「★だけ」を外し、カードの☆を押すと付けられます。"
+            : "該当するショップがありません。検索語を短くするか、「★だけ」や探す対象を見直してください。";
 
     /// <summary>一覧の幅から列数を決める（WPFには仮想化するWrapPanelが無いので、行に切って並べる）。</summary>
     public void SetViewportWidth(double width)
@@ -270,13 +378,15 @@ public sealed class ShopsViewModel : ViewModelBase
             // 写しは画面のスレッドで取り出し、数えるのは裏で（ショップ151店・商品2000件でも画面を止めない）
             var items = _main.Search.SnapshotItems();
             var shops = await Task.Run(() => _services.Shops.Summarize(items));
-            var favorites = Core.Services.ShopNotes.FavoriteKeys(_services.Store.ShopNotes.Load());
+            var notes = _services.Store.ShopNotes.Load();
 
             RunOnUiThread(() =>
             {
                 _all = shops.Select(shop =>
                 {
-                    var card = new ShopCardViewModel { Shop = shop, IsFavorite = favorites.Contains(shop.Subdomain) };
+                    var note = Core.Services.ShopNotes.Of(notes, shop.Subdomain);
+                    var card = new ShopCardViewModel { Shop = shop, IsFavorite = note?.IsFavorite == true, Memo = note?.Memo };
+                    card.ToggleFavoriteCommand = new RelayCommand(() => ToggleFavoriteAsync(card).Forget());
                     if (shop.IconPath is { } path)
                     {
                         card.IconFactory = onLoaded => _thumbnails.PeekForTile(path, onLoaded);
@@ -378,9 +488,12 @@ public sealed class ShopsViewModel : ViewModelBase
     {
         var filter = _filterText.Trim();
 
-        var matches = _all.Where(card => filter.Length == 0
-            || card.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
-            || card.Shop.Subdomain.Contains(filter, StringComparison.OrdinalIgnoreCase));
+        var matches = _all.Where(card =>
+            (!_favoritesOnly || card.IsFavorite)
+            && (filter.Length == 0
+                || (_searchNames && (card.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
+                    || card.Shop.Subdomain.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+                || (_searchMemos && card.Memo is { } memo && memo.Contains(filter, StringComparison.CurrentCultureIgnoreCase))));
 
         var sorted = _sort.Descending
             ? matches.OrderByDescending(card => _sort.Key(card.Shop))
