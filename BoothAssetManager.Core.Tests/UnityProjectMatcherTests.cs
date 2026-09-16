@@ -73,4 +73,16 @@ public sealed class UnityProjectMatcherTests
     [Fact]
     public void パッケージを読めなかった商品は飛ばす()
         => Assert.Empty(UnityProjectMatcher.Match(Project, Items(("a", [])), Has("Assets/A/A.fbx")));
+
+    [Fact]
+    public void 入り先の頭の記号を消したプロジェクトでも入っていると数える()
+    {
+        // ショップが先頭に並べるために付けた記号（_FUKA）を、利用者が消していることがある
+        var items = Items(("a", ["Assets/_FUKA/Addon/Sound.wav", "Assets/_FUKA/Addon/Sound.mat"]));
+
+        var only = Assert.Single(UnityProjectMatcher.Match(Project, items,
+            Has("Assets/FUKA/Addon/Sound.wav"), _ => ["FUKA"]));
+
+        Assert.Equal((1, 2), (only.Present, only.Total));
+    }
 }

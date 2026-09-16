@@ -64,7 +64,10 @@ internal static class UnityMemberSelect
             var paths = packages.SelectMany(UnityHandoff.ReadAssetPaths).ToList();
             var matches = UnityProjectMatcher.Match(
                 project, new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [item.Id] = paths });
-            return (UnityHandoff.DestinationRoots(paths), matches.FirstOrDefault()?.Present ?? 0);
+            // 入り先の頭の記号（_FUKA）を利用者が消していれば、実際の名前（FUKA）で探す（UnityFolderNames）
+            var children = UnityFolderNames.DiskChildren(project);
+            var roots = UnityHandoff.DestinationRoots(paths).Select(root => UnityFolderNames.ResolveRoot(root, children)).ToList();
+            return (roots, matches.FirstOrDefault()?.Present ?? 0);
         });
 
         var editor = UnityEditors.Open().FirstOrDefault(candidate =>

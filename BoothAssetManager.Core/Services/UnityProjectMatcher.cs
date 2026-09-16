@@ -29,12 +29,21 @@ public static class UnityProjectMatcher
     /// <param name="projectPath">Unity プロジェクトのフォルダ（<c>Assets</c> を持つ所）。</param>
     /// <param name="items">商品ごとの、unitypackage に入っているパス（複数のパッケージはまとめて渡す）。</param>
     /// <param name="exists">ファイルがあるか。既定はディスクを見る。試験では差し替える。</param>
+    /// <param name="childDirectories">フォルダの直下のフォルダの名前。既定はディスクを見る。試験では差し替える。</param>
     public static IReadOnlyList<UnityProjectMatch> Match(
         string projectPath,
         IReadOnlyDictionary<string, IReadOnlyList<string>> items,
-        Func<string, bool>? exists = null)
+        Func<string, bool>? exists = null,
+        Func<string, IEnumerable<string>>? childDirectories = null)
     {
         exists ??= File.Exists;
+        // 直下の一覧は、読み替えるルートごとではなく1度だけ読む（プロジェクトを調べるときは商品の数だけルートがある）
+        var read = childDirectories ?? UnityFolderNames.DiskChildren(projectPath);
+        var listed = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        childDirectories = folder => listed.TryGetValue(folder, out var names) ? names : listed[folder] = read(folder).ToList();
+
+        // 利用者が入り先のフォルダの頭の記号を消していても、入っていると数える（UnityFolderNames）
+        var renamed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var files = items.ToDictionary(
             pair => pair.Key,
@@ -54,7 +63,9 @@ public static class UnityProjectMatcher
                 continue;
             }
 
-            var present = own.Count(path => exists(Path.Combine(projectPath, path.Replace('/', Path.DirectorySeparatorChar))));
+            var present = own
+                .Select(path => UnityFolderNames.ResolvePath(path, childDirectories, renamed))
+                .Count(path => exists(Path.Combine(projectPath, path.Replace('/', Path.DirectorySeparatorChar))));
             if (present > 0)
             {
                 matches.Add(new UnityProjectMatch(itemId, present, own.Count));
