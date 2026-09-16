@@ -35,9 +35,6 @@ public enum SearchModuleKind
     UnityProject,
     Path,
     Recent,
-
-    /// <summary>お気に入りのショップの商品（shops.json の星・ユーザ判断 2026-09-16）。</summary>
-    FavoriteShop,
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
@@ -62,10 +59,7 @@ public static class SearchModuleCatalog
     [
         new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れた分類を含む）で絞ります。", [BoothInfo]),
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", [BoothInfo]),
-        new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。", [BoothInfo]),
-
-        // ショップ画面で付けた星で絞る。ショップの情報なので BOOTHの情報、自分で付けた印なので商品の情報にも出す
-        new(SearchModuleKind.FavoriteShop, "お気に入りのショップ", "ショップ画面で星を付けたショップの商品で絞ります。", [BoothInfo, ItemInfo]),
+        new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。", [BoothInfo]),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。", [BoothInfo, Slider]),
         new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えると BOOTH の価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。",
             [BoothInfo, Slider]),
@@ -609,6 +603,10 @@ public sealed class ListModule : SearchModule
     private bool _showUnspecified;
     private int _matchedCount = -1;
     private int _unspecifiedCount = -1;
+    private readonly Func<ItemRecord, SearchModuleContext, bool>? _includeMatches;
+    private readonly string? _includeLabel;
+    private bool _includeOn;
+    private int _includeCount = -1;
     private RelayCommand? _add;
 
     /// <param name="allowsAnd">AND を選べるか（ショップは1商品に1つなので OR だけ）。</param>
@@ -616,6 +614,8 @@ public sealed class ListModule : SearchModule
     /// <param name="isUnspecified">
     /// 商品が「指定が無い」かたまりに入るか（対応アバターだけ）。渡すと「出すもの」の2つのチェックが出る。
     /// </param>
+    /// <param name="includeLabel">選んだ値に加えて当てるかたまりの名前（ショップの「お気に入りのショップの商品」）。</param>
+    /// <param name="includeMatches">そのかたまりに入る商品か。チェックを入れると、選んだ値のどれかと同じ扱いで当てる（OR）。</param>
     public ListModule(
         SearchModuleKind kind,
         bool allowsAnd,
@@ -624,9 +624,13 @@ public sealed class ListModule : SearchModule
         Func<ItemRecord, SearchModuleContext, string, bool, bool> matches,
         string? flagLabel = null,
         bool flagDefault = false,
-        Func<ItemRecord, SearchModuleContext, bool>? isUnspecified = null)
+        Func<ItemRecord, SearchModuleContext, bool>? isUnspecified = null,
+        string? includeLabel = null,
+        Func<ItemRecord, SearchModuleContext, bool>? includeMatches = null)
         : base(kind)
     {
+        _includeLabel = includeLabel;
+        _includeMatches = includeMatches;
         AllowsAnd = allowsAnd;
         Placeholder = placeholder;
         EmptyText = emptyText;
@@ -704,6 +708,27 @@ public sealed class ListModule : SearchModule
         get => _showUnspecified;
         set => SetGroup(ref _showUnspecified, value, other: _showMatched);
     }
+
+    /// <summary>
+    /// 選んだ値に加えて当てるかたまりのチェックを出すか（ショップの「お気に入りのショップの商品」）。
+    /// **別の条件にせず、ショップの条件の中に持つ**（ユーザ指示 2026-09-16）。ショップの条件は「選んだどれか」なので、
+    /// 入れるとお気に入りのショップを全部選んだのと同じに働く（選んだショップと合わせてどれか。選んでいなければお気に入りだけ）。
+    /// </summary>
+    public bool HasInclude => _includeMatches is not null;
+
+    public bool IncludeOn
+    {
+        get => _includeOn;
+        set
+        {
+            if (SetField(ref _includeOn, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    public string IncludeText => _includeCount < 0 ? _includeLabel ?? string.Empty : $"{_includeLabel}（{_includeCount}）";
 
     public string MatchedLabel => _matchedCount < 0 ? "対応している商品" : $"対応している商品（{_matchedCount}）";
 
@@ -813,7 +838,7 @@ public sealed class ListModule : SearchModule
     /// （足した直後に、何も選んでいないのに「指定が無い商品」が消えるのを避ける）。
     /// </summary>
     protected override bool HasCondition
-        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified);
+        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn);
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
     {
@@ -826,6 +851,12 @@ public sealed class ListModule : SearchModule
         if (HasGroups && !_showMatched)
         {
             return false;
+        }
+
+        if (HasInclude && _includeOn)
+        {
+            // 選んだ値のどれかと同じ扱い（OR）。何も選んでいなければ、このかたまりだけ
+            return _includeMatches!(item, context) || (Chips.Count > 0 && MatchesChips(item, context));
         }
 
         return MatchesChips(item, context);
@@ -846,7 +877,9 @@ public sealed class ListModule : SearchModule
                 return $"{Label}：対応の指定が無い商品だけ";
             }
 
-            return $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", Chips.Select(chip => chip.Text))}"
+            var values = Chips.Select(chip => chip.Text)
+                .Concat(HasInclude && _includeOn ? [_includeLabel!] : Array.Empty<string>());
+            return $"{Label}：{string.Join(_matchAll && AllowsAnd ? " かつ " : "・", values)}"
                 + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
                 + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty);
         }
@@ -859,10 +892,12 @@ public sealed class ListModule : SearchModule
         _flag = _flagDefault;
         _showMatched = true;
         _showUnspecified = false;
+        _includeOn = false;
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(ShowMatched));
         OnPropertyChanged(nameof(ShowUnspecified));
+        OnPropertyChanged(nameof(IncludeOn));
         RefreshSuggestions();
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -874,6 +909,12 @@ public sealed class ListModule : SearchModule
         {
             chip.Count = items.Count(item => (_isUnspecified is null || !_isUnspecified(item, context))
                 && _matches(item, context, chip.Key, _flag));
+        }
+
+        if (_includeMatches is not null)
+        {
+            _includeCount = items.Count(item => _includeMatches(item, context));
+            OnPropertyChanged(nameof(IncludeText));
         }
 
         if (_isUnspecified is null)
@@ -896,6 +937,7 @@ public sealed class ListModule : SearchModule
             Flag = _flag,
             ShowMatched = _showMatched,
             ShowUnspecified = _showUnspecified,
+            IncludeFavorites = _includeOn,
         };
 
     protected override void Read(SearchModuleState state)
@@ -912,6 +954,8 @@ public sealed class ListModule : SearchModule
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
         _showUnspecified = HasGroups && state.ShowUnspecified;
         _showMatched = !HasGroups || state.ShowMatched || !_showUnspecified;
+        _includeOn = HasInclude && state.IncludeFavorites;
+        OnPropertyChanged(nameof(IncludeOn));
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(ShowMatched));

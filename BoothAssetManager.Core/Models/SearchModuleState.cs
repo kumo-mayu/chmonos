@@ -65,6 +65,12 @@ public sealed record SearchModuleState
     /// <summary>対応アバターの「出すもの」：対応の**指定が無い商品**を出すか（既定は出さない）。</summary>
     public bool ShowUnspecified { get; init; }
 
+    /// <summary>
+    /// ショップの条件で、**お気に入りのショップを全部選んだのと同じに**扱うか（ユーザ指示 2026-09-16。
+    /// 別の条件にせず、ショップの条件の中に持つ）。
+    /// </summary>
+    public bool IncludeFavorites { get; init; }
+
     /// <summary>属性の幅（属性だけ）。</summary>
     public IReadOnlyList<AttributeRange> Ranges { get; init; } = [];
 
@@ -88,7 +94,7 @@ public sealed record SearchModuleState
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
             text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
-            text.Append(IgnoreOutliers ? '1' : '0').Append(Separator);
+            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0').Append(Separator);
             text.Append(string.Join((char)0x1E, Items.OrderBy(item => item, StringComparer.Ordinal))).Append(Separator);
             text.Append(Choice).Append(Separator).Append(Min).Append(Separator).Append(Max).Append(Separator);
             text.Append(string.Join(

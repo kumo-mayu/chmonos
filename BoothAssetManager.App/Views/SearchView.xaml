@@ -305,6 +305,18 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </controls:ContentItemsControl>
+                                        <!--
+                                            選んだ値に加えて当てるかたまり（ショップの「お気に入りのショップの商品」・ユーザ指示 2026-09-16）。
+                                            入れると、お気に入りのショップを全部選んだのと同じに働く。件数は他の条件を当てたうえでの数
+                                        -->
+                                        <CheckBox IsChecked="{Binding IncludeOn, Mode=TwoWay}" Margin="0,4,0,0"
+                                                  AutomationProperties.Name="お気に入りのショップの商品を含める"
+                                                  ToolTip="ショップ画面で星を付けたショップを、まとめて選んだのと同じに扱います。ほかに選んだショップがあれば、そのどれかに当てはまる商品を出します。"
+                                                  Visibility="{Binding HasInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock FontSize="12" Foreground="{StaticResource Text}">
+                                                <Run Text="★" Foreground="#d99a00" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </CheckBox>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
                                                   AutomationProperties.Name="すべてに当てはまる商品だけ"
                                                   ToolTip="切っているときは、どれか1つに当てはまる商品（OR）を出します。"

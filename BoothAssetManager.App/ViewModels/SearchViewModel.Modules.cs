@@ -364,9 +364,12 @@ public sealed partial class SearchViewModel
             (item, _, key, _) => item.Booth.Tags.Any(tag => string.Equals(tag, key, StringComparison.CurrentCultureIgnoreCase))),
 
         // 1商品に1つなので「すべて（AND）」は意味が無い
+        // お気に入りのショップ（ショップ画面の星）は、別の条件にせずここに持つ（ユーザ指示 2026-09-16）
         SearchModuleKind.Shop => new ListModule(kind, allowsAnd: false, "ショップ名で絞り込む",
             "ショップの分かる商品がまだありません。",
-            (item, _, key, _) => string.Equals(item.ShopSubdomain, key, StringComparison.OrdinalIgnoreCase)),
+            (item, _, key, _) => string.Equals(item.ShopSubdomain, key, StringComparison.OrdinalIgnoreCase),
+            includeLabel: "お気に入りのショップの商品",
+            includeMatches: (item, _) => IsFavoriteShop(item)),
 
         SearchModuleKind.WishList => new RangeModule(kind, (item, _) => [item.Booth.WishListsCount], string.Empty)
         {
@@ -501,15 +504,6 @@ public sealed partial class SearchViewModel
 
         SearchModuleKind.Recent => new RecentModule(),
 
-        SearchModuleKind.FavoriteShop => new ChoiceModule(kind,
-            [new("favorite", "お気に入りのショップの商品のみ"), new("other", "それ以外のショップの商品のみ"), new("both", "両方")],
-            "both", (item, key, _) => key switch
-            {
-                "favorite" => IsFavoriteShop(item),
-                "other" => !IsFavoriteShop(item),
-                _ => true,
-            }),
-
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
@@ -525,11 +519,11 @@ public sealed partial class SearchViewModel
     private bool IsFavoriteShop(ItemRecord item)
         => item.ShopSubdomain is { } key && _favoriteShops.Contains(key);
 
-    /// <summary>ショップ画面で星やメモを変えたことを知る。お気に入りのショップの条件を足していれば絞り直す。</summary>
+    /// <summary>ショップ画面で星やメモを変えたことを知る。ショップの条件を足していれば絞り直す（件数も変わる）。</summary>
     public void NoteShopNotesChanged(IReadOnlyList<ShopNoteRecord> notes)
     {
         _favoriteShops = ShopNotes.FavoriteKeys(notes);
-        if (Modules.Any(module => module.Kind == SearchModuleKind.FavoriteShop))
+        if (Modules.Any(module => module.Kind == SearchModuleKind.Shop))
         {
             ApplyFilters();
         }
