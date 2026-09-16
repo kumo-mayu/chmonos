@@ -215,14 +215,19 @@ public sealed class SearchModuleContext
 /// 絞り込みのモジュール1つ（ユーザ案 2026-09-15）。追加したまま切れる（<see cref="IsEnabled"/>）、右上の × で外す。
 /// 各モジュールは一度しか追加できない（検索画面が守る）。
 /// </summary>
-public abstract class SearchModule : ViewModelBase
+public abstract class SearchModule : ReorderableRow
 {
     private bool _isEnabled = true;
+    private bool _isCollapsed;
     private string? _disabledReason;
+    private RelayCommand? _toggleCollapse;
 
     protected SearchModule(SearchModuleKind kind) => Kind = kind;
 
     public SearchModuleKind Kind { get; }
+
+    /// <summary>条件はどれも同じ並びに混ざる（種類が違っても順番を入れ替えられる）。</summary>
+    public override object ReorderGroup => typeof(SearchModule);
 
     public SearchModuleInfo Info => SearchModuleCatalog.Of(Kind);
 
@@ -232,6 +237,9 @@ public abstract class SearchModule : ViewModelBase
 
     /// <summary>条件が変わった（検索側が絞り直して、状態を書く）。</summary>
     public event Action? Changed;
+
+    /// <summary>見た目だけが変わった（畳んだ・開いた）。絞り直さずに状態だけ書く。</summary>
+    public event Action? ViewChanged;
 
     public RelayCommand? RemoveCommand { get; set; }
 
@@ -247,6 +255,30 @@ public abstract class SearchModule : ViewModelBase
             }
         }
     }
+
+    /// <summary>
+    /// 畳んでいるか（ユーザ指示 2026-09-16）。条件が増えるとパネルが縦に伸びるので、決め終えた条件は畳めるようにする。
+    /// **畳んでも条件は効いたまま**なので、畳んだ姿に効いている中身を1行で出す。
+    /// </summary>
+    public bool IsCollapsed
+    {
+        get => _isCollapsed;
+        set
+        {
+            if (SetField(ref _isCollapsed, value))
+            {
+                OnPropertyChanged(nameof(IsExpanded));
+                ViewChanged?.Invoke();
+            }
+        }
+    }
+
+    public bool IsExpanded => !_isCollapsed;
+
+    public RelayCommand ToggleCollapseCommand => _toggleCollapse ??= new RelayCommand(() => IsCollapsed = !IsCollapsed);
+
+    /// <summary>畳んだ姿に出す1行。効かせていないときは、絞っていないことを言う。</summary>
+    public string CollapsedSummary => IsActive ? SummaryText : "絞っていません";
 
     /// <summary>効かせられない理由（R-18 を設定で隠しているとき）。あれば条件として使わない。</summary>
     public string? DisabledReason
@@ -283,14 +315,24 @@ public abstract class SearchModule : ViewModelBase
     }
 
     public SearchModuleState Save()
-        => Write(new SearchModuleState { Kind = Kind.ToString(), Enabled = IsEnabled, Summary = IsActive ? SummaryText : null });
+        => Write(new SearchModuleState
+        {
+            Kind = Kind.ToString(),
+            Enabled = IsEnabled,
+            Collapsed = IsCollapsed,
+            Summary = IsActive ? SummaryText : null,
+        });
 
     public void Load(SearchModuleState state)
     {
         _isEnabled = state.Enabled;
+        _isCollapsed = state.Collapsed;
         Read(state);
         OnPropertyChanged(nameof(IsEnabled));
+        OnPropertyChanged(nameof(IsCollapsed));
+        OnPropertyChanged(nameof(IsExpanded));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     protected abstract SearchModuleState Write(SearchModuleState state);
@@ -303,11 +345,13 @@ public abstract class SearchModule : ViewModelBase
         _isEnabled = value;
         OnPropertyChanged(nameof(IsEnabled));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     protected void NotifyChanged()
     {
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
         Changed?.Invoke();
     }
 
@@ -442,6 +486,7 @@ public sealed class ChoiceModule : SearchModule
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(Flag));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
@@ -468,6 +513,7 @@ public sealed class ChoiceModule : SearchModule
         _selected = Options.FirstOrDefault(option => option.Key == key) ?? _selected;
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 }
 
@@ -684,6 +730,7 @@ public sealed class ListModule : SearchModule
         OnPropertyChanged(nameof(Flag));
         RefreshSuggestions();
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     public override void RefreshCounts(IReadOnlyList<ItemRecord> items, SearchModuleContext context)
@@ -792,6 +839,7 @@ public sealed class RangeModule : SearchModule
             if (SetField(ref _minText, value ?? string.Empty))
             {
                 OnPropertyChanged(nameof(LowPosition));
+                OnPropertyChanged(nameof(HasMin));
                 NotifyChanged();
             }
         }
@@ -805,10 +853,26 @@ public sealed class RangeModule : SearchModule
             if (SetField(ref _maxText, value ?? string.Empty))
             {
                 OnPropertyChanged(nameof(HighPosition));
+                OnPropertyChanged(nameof(HasMax));
                 NotifyChanged();
             }
         }
     }
+
+    /// <summary>入れた値を消す手段を出すか（ユーザ指示 2026-09-16：入力が残る欄は、消せることが分かるようにする）。</summary>
+    public bool HasMin => _minText.Length > 0;
+
+    public bool HasMax => _maxText.Length > 0;
+
+    public RelayCommand ClearMinCommand => _clearMin ??= new RelayCommand(() => MinText = string.Empty);
+
+    public RelayCommand ClearMaxCommand => _clearMax ??= new RelayCommand(() => MaxText = string.Empty);
+
+    private RelayCommand? _clearMin;
+    private RelayCommand? _clearMax;
+
+    /// <summary>スライダの右端がいくつなのか（目盛だけでは数が読めないので、両端の数を添える）。</summary>
+    public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
     public int? Min => ParseNumber(_minText);
 
@@ -840,6 +904,7 @@ public sealed class RangeModule : SearchModule
         SliderMaximum = Math.Max(1, MaximumOf?.Invoke(_source?.Key) ?? 100);
         OnPropertyChanged(nameof(LowPosition));
         OnPropertyChanged(nameof(HighPosition));
+        OnPropertyChanged(nameof(MaximumLabel));
     }
 
     protected override bool HasCondition => Min is not null || Max is not null;
@@ -864,9 +929,12 @@ public sealed class RangeModule : SearchModule
         _maxText = string.Empty;
         OnPropertyChanged(nameof(MinText));
         OnPropertyChanged(nameof(MaxText));
+        OnPropertyChanged(nameof(HasMin));
+        OnPropertyChanged(nameof(HasMax));
         OnPropertyChanged(nameof(LowPosition));
         OnPropertyChanged(nameof(HighPosition));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
@@ -949,6 +1017,18 @@ public sealed class DateModule : SearchModule
 
     public string TillNote => Note(_tillText, Till, "まで");
 
+    /// <summary>入れた日付を消す手段を出すか（ユーザ指示 2026-09-16）。</summary>
+    public bool HasSince => _sinceText.Length > 0;
+
+    public bool HasTill => _tillText.Length > 0;
+
+    public RelayCommand ClearSinceCommand => _clearSince ??= new RelayCommand(() => SinceText = string.Empty);
+
+    public RelayCommand ClearTillCommand => _clearTill ??= new RelayCommand(() => TillText = string.Empty);
+
+    private RelayCommand? _clearSince;
+    private RelayCommand? _clearTill;
+
     protected override bool HasCondition => Since is not null || Till is not null;
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
@@ -978,6 +1058,7 @@ public sealed class DateModule : SearchModule
         RaiseSince();
         RaiseTill();
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     protected override SearchModuleState Write(SearchModuleState state) => state with { Min = _sinceText, Max = _tillText };
@@ -1001,12 +1082,14 @@ public sealed class DateModule : SearchModule
     {
         OnPropertyChanged(nameof(SinceDate));
         OnPropertyChanged(nameof(SinceNote));
+        OnPropertyChanged(nameof(HasSince));
     }
 
     private void RaiseTill()
     {
         OnPropertyChanged(nameof(TillDate));
         OnPropertyChanged(nameof(TillNote));
+        OnPropertyChanged(nameof(HasTill));
     }
 }
 
@@ -1104,6 +1187,7 @@ public sealed class AttributeModule : SearchModule
         OnPropertyChanged(nameof(MatchAll));
         RefreshSuggestions();
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
@@ -1177,10 +1261,18 @@ public sealed class RecentModule : SearchModule
         {
             if (SetField(ref _daysText, value ?? string.Empty))
             {
+                OnPropertyChanged(nameof(HasDays));
                 NotifyChanged();
             }
         }
     }
+
+    /// <summary>入れた日数を消す手段を出すか（ユーザ指示 2026-09-16）。</summary>
+    public bool HasDays => _daysText.Length > 0;
+
+    public RelayCommand ClearDaysCommand => _clearDays ??= new RelayCommand(() => DaysText = string.Empty);
+
+    private RelayCommand? _clearDays;
 
     private int? Days => ParseNumber(_daysText) is > 0 and var days ? days : null;
 
@@ -1202,7 +1294,9 @@ public sealed class RecentModule : SearchModule
     {
         _daysText = string.Empty;
         OnPropertyChanged(nameof(DaysText));
+        OnPropertyChanged(nameof(HasDays));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CollapsedSummary));
     }
 
     protected override SearchModuleState Write(SearchModuleState state) => state with { Choice = _selected.Key, Min = _daysText };

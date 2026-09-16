@@ -105,7 +105,7 @@ public sealed class RowReorder
 
     /// <summary>
     /// 落とす先の行と、その上か下かを返す。行の下半分なら「後ろ」。
-    /// 同じ種類どうしでしか動かせない（トップとサブは別の並び）。
+    /// 同じ並びのものどうしでしか動かせない（<see cref="ReorderableRow.ReorderGroup"/>。タグのトップとサブは別の並び）。
     /// </summary>
     private ReorderableRow? Resolve(object sender, DragEventArgs e, out bool after)
     {
@@ -121,7 +121,7 @@ public sealed class RowReorder
 
         if (target is null
             || dragged is null
-            || dragged.GetType() != target.GetType()
+            || !Equals(dragged.ReorderGroup, target.ReorderGroup)
             || ReferenceEquals(dragged, target))
         {
             return null;

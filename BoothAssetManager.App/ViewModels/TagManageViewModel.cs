@@ -32,6 +32,12 @@ public abstract class ReorderableRow : ViewModelBase
         DropBefore = false;
         DropAfter = false;
     }
+
+    /// <summary>
+    /// 一緒に並べ替えられる相手。既定は自分と同じ型（タグのトップとサブは別の並びなので、混ざらない）。
+    /// 型が違っても1つの並びに混ざるもの（検索の絞り込みの条件）は、これを揃える。
+    /// </summary>
+    public virtual object ReorderGroup => GetType();
 }
 
 /// <summary>トップレベル1件。件数を出すのは、消す前に影響が見えるようにするため。</summary>

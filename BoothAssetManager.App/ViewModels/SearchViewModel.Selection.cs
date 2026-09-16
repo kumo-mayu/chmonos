@@ -192,10 +192,19 @@ public sealed partial class SearchViewModel
                 // 打ち直したら、前の語で広げた式は捨てる。
                 // 残すと次の検索が前の語の別表記で当たってしまう
                 ClearWidening();
+                OnPropertyChanged(nameof(HasQueryText));
                 ApplyFilters();
             }
         }
     }
+
+    /// <summary>打った文字が残っているか。残る欄は消す手段を出す（ユーザ指示 2026-09-16）。</summary>
+    public bool HasQueryText => _queryText.Length > 0;
+
+    /// <summary>検索の文字だけを消す（絞り込みの条件は触らない。全部消すのは「条件をクリア」）。</summary>
+    public RelayCommand ClearQueryCommand => _clearQuery ??= new RelayCommand(() => QueryText = string.Empty);
+
+    private RelayCommand? _clearQuery;
 
     // 探す対象・区別の切り替え・別表記は SearchViewModel.TextOptions.cs、絞り込みの条件は SearchViewModel.Modules.cs
 

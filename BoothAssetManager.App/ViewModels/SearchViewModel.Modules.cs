@@ -88,6 +88,9 @@ public sealed partial class SearchViewModel
         }
 
         module.Changed += OnModuleChanged;
+
+        // 畳んだ・開いたは結果を変えないので、絞り直さずに状態だけ書く
+        module.ViewChanged += SaveModulesLater;
         module.RemoveCommand = new RelayCommand(() => RemoveModule(module));
         Modules.Add(module);
         RefreshModuleSource(module);
@@ -102,9 +105,38 @@ public sealed partial class SearchViewModel
         return module;
     }
 
+    /// <summary>
+    /// 条件の順番を入れ替える（ドラッグ・ユーザ指示 2026-09-16）。よく触る条件を上に置けるようにするため。
+    /// 結果は変わらないので絞り直さない。順番は状態に残る。
+    /// </summary>
+    public void MoveModule(SearchModule moved, SearchModule target, bool after)
+    {
+        var from = Modules.IndexOf(moved);
+        var to = Modules.IndexOf(target);
+        if (from < 0 || to < 0 || ReferenceEquals(moved, target))
+        {
+            return;
+        }
+
+        // 抜いた分だけ落とし先がずれる（自分より後ろへ動かすとき）
+        var destination = after ? to + 1 : to;
+        if (destination > from)
+        {
+            destination--;
+        }
+
+        if (destination != from)
+        {
+            Modules.Move(from, destination);
+            SaveModulesLater();
+            OnPropertyChanged(nameof(FilterSummary));
+        }
+    }
+
     private void RemoveModule(SearchModule module)
     {
         module.Changed -= OnModuleChanged;
+        module.ViewChanged -= SaveModulesLater;
         Modules.Remove(module);
         RefreshModuleMenu();
         SaveModulesLater();

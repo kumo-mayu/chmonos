@@ -66,6 +66,34 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- 条件を畳む・開く山形（ユーザ指示 2026-09-16。条件が増えるとパネルが縦に伸びる） -->
+        <PathGeometry x:Key="IconChevronUp" Figures="M7,15 L12,10 L17,15" />
+        <PathGeometry x:Key="IconChevronDown" Figures="M7,10 L12,15 L17,10" />
+
+        <Style x:Key="ModuleCollapseToggle" TargetType="Button" BasedOn="{StaticResource PanelToggle}">
+            <Setter Property="Content" Value="{StaticResource IconChevronUp}" />
+            <Setter Property="ToolTip" Value="この条件を畳む（条件は効いたまま）" />
+            <Setter Property="AutomationProperties.Name" Value="この条件を畳む" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                    <Setter Property="Content" Value="{StaticResource IconChevronDown}" />
+                    <Setter Property="ToolTip" Value="この条件を開く" />
+                    <Setter Property="AutomationProperties.Name" Value="この条件を開く" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 入力が残る欄を消す × （ユーザ指示 2026-09-16：消せることが分かるように） -->
+        <Style x:Key="ClearFieldButton" TargetType="Button">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
       </ResourceDictionary>
     </UserControl.Resources>
 
@@ -202,7 +230,10 @@
                                    TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding HasModules, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <controls:ContentItemsControl ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False">
+                        <!-- 順番はドラッグで変えられる（ユーザ指示 2026-09-16）。掴む所は見出しの左のつまみだけ -->
+                        <controls:ContentItemsControl ItemsSource="{Binding Modules}" Margin="0,10,0,0" Focusable="False"
+                                                      AllowDrop="True" DragOver="OnModulesDragOver"
+                                                      DragLeave="OnModulesDragLeave" Drop="OnModulesDrop">
                             <ItemsControl.Resources>
                                 <!-- 選ぶ条件（ユーザ案「三項」）。件数は「選んだら何件になるか」 -->
                                 <DataTemplate DataType="{x:Type vm:ChoiceModule}">
@@ -278,19 +309,35 @@
                                                   DisplayMemberPath="Label" Height="28" FontSize="12.5" Margin="0,0,0,6"
                                                   AutomationProperties.Name="何の数で絞るか"
                                                   Visibility="{Binding HasSources, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <!--
+                                            目盛を出す（ユーザ指示 2026-09-16：目盛が無いと指定しづらい）。
+                                            つまみは割合（0〜100）で動かし、目盛の刻みだけでは数が読めないので両端の数を下に出す
+                                        -->
                                         <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay, Delay=250}"
+                                                TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False"
                                                 AutomationProperties.Name="下限" />
                                         <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay, Delay=250}"
+                                                TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
                                                 AutomationProperties.Name="上限" />
+                                        <DockPanel LastChildFill="False" Margin="0,2,0,0">
+                                            <TextBlock DockPanel.Dock="Left" Text="0" Style="{StaticResource Caption}" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding MaximumLabel}" Style="{StaticResource Caption}" />
+                                        </DockPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <TextBox Text="{Binding MinText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
-                                                     Width="84" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
+                                                     Width="76" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      AutomationProperties.Name="下限" />
-                                            <TextBlock Text="〜" VerticalAlignment="Center" Margin="6,0" Style="{StaticResource Caption}" />
+                                            <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMinCommand}"
+                                                    ToolTip="下限を消す" AutomationProperties.Name="下限を消す"
+                                                    Visibility="{Binding HasMin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <TextBlock Text="〜" VerticalAlignment="Center" Margin="4,0" Style="{StaticResource Caption}" />
                                             <TextBox Text="{Binding MaxText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
-                                                     Width="84" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
+                                                     Width="76" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      AutomationProperties.Name="上限" />
-                                            <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Margin="6,0,0,0"
+                                            <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMaxCommand}"
+                                                    ToolTip="上限を消す" AutomationProperties.Name="上限を消す"
+                                                    Visibility="{Binding HasMax, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" Margin="4,0,0,0"
                                                        Style="{StaticResource Caption}" />
                                         </StackPanel>
                                     </StackPanel>
@@ -302,15 +349,20 @@
                                 -->
                                 <DataTemplate DataType="{x:Type vm:DateModule}">
                                     <StackPanel>
+                                        <!-- 「から」は欄の後ろに置く（ユーザ指示 2026-09-16。日本語では値のあとに付く） -->
                                         <DockPanel>
-                                            <TextBlock DockPanel.Dock="Left" Text="から" Width="30" VerticalAlignment="Center"
-                                                       Style="{StaticResource Caption}" />
                                             <ToggleButton x:Name="SinceCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           Margin="4,0,0,0" ToolTip="カレンダーで選ぶ" AutomationProperties.Name="開始の日をカレンダーで選ぶ">
                                                 <!-- 字形のアイコンは字体が無いと四角になる。ほかの画面と同じく線で描く -->
                                                 <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{StaticResource TextMuted}"
                                                       StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
                                             </ToggleButton>
+                                            <TextBlock DockPanel.Dock="Right" Text="から" VerticalAlignment="Center" Margin="4,0,0,0"
+                                                       Style="{StaticResource Caption}" />
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource ClearFieldButton}"
+                                                    Command="{Binding ClearSinceCommand}" ToolTip="開始の日を消す"
+                                                    AutomationProperties.Name="開始の日を消す"
+                                                    Visibility="{Binding HasSince, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBox Text="{Binding SinceText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      AutomationProperties.Name="開始の日" />
@@ -320,15 +372,19 @@
                                             <Calendar SelectedDate="{Binding SinceDate, Mode=TwoWay}" />
                                         </Popup>
                                         <TextBlock Text="{Binding SinceNote}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                                   Margin="30,2,0,6" />
+                                                   Margin="0,2,0,6" />
                                         <DockPanel>
-                                            <TextBlock DockPanel.Dock="Left" Text="まで" Width="30" VerticalAlignment="Center"
-                                                       Style="{StaticResource Caption}" />
                                             <ToggleButton x:Name="TillCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           Margin="4,0,0,0" ToolTip="カレンダーで選ぶ" AutomationProperties.Name="終わりの日をカレンダーで選ぶ">
                                                 <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{StaticResource TextMuted}"
                                                       StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
                                             </ToggleButton>
+                                            <TextBlock DockPanel.Dock="Right" Text="まで" VerticalAlignment="Center" Margin="4,0,0,0"
+                                                       Style="{StaticResource Caption}" />
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource ClearFieldButton}"
+                                                    Command="{Binding ClearTillCommand}" ToolTip="終わりの日を消す"
+                                                    AutomationProperties.Name="終わりの日を消す"
+                                                    Visibility="{Binding HasTill, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBox Text="{Binding TillText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      AutomationProperties.Name="終わりの日" />
@@ -338,7 +394,7 @@
                                             <Calendar SelectedDate="{Binding TillDate, Mode=TwoWay}" />
                                         </Popup>
                                         <TextBlock Text="{Binding TillNote}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                                   Margin="30,2,0,0" />
+                                                   Margin="0,2,0,0" />
                                     </StackPanel>
                                 </DataTemplate>
 
@@ -369,10 +425,11 @@
                                                                        Margin="0,0,6,0" />
                                                         </DockPanel>
                                                         <Slider Minimum="0" Maximum="100" Value="{Binding Min, Mode=TwoWay, Delay=250}"
-                                                                TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,3,0,0"
+                                                                TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="True"
+                                                                Margin="0,3,0,0"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の下限}" />
                                                         <Slider Minimum="0" Maximum="100" Value="{Binding Max, Mode=TwoWay, Delay=250}"
-                                                                TickFrequency="5" IsSnapToTickEnabled="True"
+                                                                TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="True"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}の上限}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -399,7 +456,10 @@
                                             <TextBox Text="{Binding DaysText, UpdateSourceTrigger=PropertyChanged, Delay=300}"
                                                      Width="64" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
                                                      AutomationProperties.Name="日数" />
-                                            <TextBlock Text="日以内" VerticalAlignment="Center" Margin="7,0,0,0" Style="{StaticResource Caption}" />
+                                            <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearDaysCommand}"
+                                                    ToolTip="日数を消す" AutomationProperties.Name="日数を消す"
+                                                    Visibility="{Binding HasDays, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <TextBlock Text="日以内" VerticalAlignment="Center" Margin="4,0,0,0" Style="{StaticResource Caption}" />
                                         </StackPanel>
                                     </StackPanel>
                                 </DataTemplate>
@@ -411,42 +471,67 @@
                             -->
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
-                                            Padding="10,8" Margin="0,0,0,8" Background="{StaticResource Surface}">
-                                        <StackPanel>
-                                            <DockPanel LastChildFill="True">
-                                                <Button DockPanel.Dock="Right" Content="×" FontSize="13" Padding="4,0" Cursor="Hand"
-                                                        Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
-                                                        Foreground="{StaticResource TextMuted}" ToolTip="この条件を外す"
-                                                        AutomationProperties.Name="{Binding Label, StringFormat={}{0}の条件を外す}"
-                                                        Command="{Binding RemoveCommand}" />
-                                                <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
-                                                          ToolTip="切ると、値を残したままこの条件を効かせません"
-                                                          AutomationProperties.Name="{Binding Label, StringFormat={}{0}の条件を効かせる}">
-                                                    <TextBlock Text="{Binding Label}" FontSize="12.5" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Text}" ToolTip="{Binding Hint}" />
-                                                </CheckBox>
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding DisabledReason}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                                       Margin="0,6,0,0"
-                                                       Visibility="{Binding HasDisabledReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            <ContentControl Content="{Binding}" Focusable="False" Margin="0,7,0,0">
-                                                <ContentControl.Style>
-                                                    <Style TargetType="ContentControl">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsEnabled}" Value="False">
-                                                                <Setter Property="Opacity" Value="0.45" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding HasDisabledReason}" Value="True">
-                                                                <Setter Property="IsEnabled" Value="False" />
-                                                                <Setter Property="Opacity" Value="0.45" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </ContentControl.Style>
-                                            </ContentControl>
-                                        </StackPanel>
-                                    </Border>
+                                    <StackPanel Margin="0,0,0,8">
+                                        <!-- 落とし先の線。Adorner ではなく行のプロパティで出す（タグ・属性の並べ替えと同じ作り） -->
+                                        <Border Height="2" Margin="0,0,0,2" Background="{StaticResource Accent}"
+                                                Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+                                                Padding="10,8" Background="{StaticResource Surface}">
+                                            <StackPanel>
+                                                <DockPanel LastChildFill="True">
+                                                    <!--
+                                                        つまんで動かす所。カードのどこでも掴めるようにすると、
+                                                        スライダを動かすたびに並べ替えが始まってしまう
+                                                    -->
+                                                    <TextBlock DockPanel.Dock="Left" Text="⋮⋮" FontSize="11" Margin="0,0,6,0"
+                                                               Cursor="SizeAll" VerticalAlignment="Center"
+                                                               Foreground="{StaticResource TextFaint}"
+                                                               ToolTip="ドラッグで順番を変えられます"
+                                                               AutomationProperties.Name="{Binding Label, StringFormat={}{0}の順番を変える}"
+                                                               PreviewMouseLeftButtonDown="OnModuleHandlePress"
+                                                               MouseMove="OnModuleHandleMove" />
+                                                    <Button DockPanel.Dock="Right" Content="×" FontSize="13" Padding="4,0" Cursor="Hand"
+                                                            Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
+                                                            Foreground="{StaticResource TextMuted}" ToolTip="この条件を外す"
+                                                            AutomationProperties.Name="{Binding Label, StringFormat={}{0}の条件を外す}"
+                                                            Command="{Binding RemoveCommand}" />
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource ModuleCollapseToggle}"
+                                                            Command="{Binding ToggleCollapseCommand}" Margin="0,0,2,0" />
+                                                    <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
+                                                              ToolTip="切ると、値を残したままこの条件を効かせません"
+                                                              AutomationProperties.Name="{Binding Label, StringFormat={}{0}の条件を効かせる}">
+                                                        <TextBlock Text="{Binding Label}" FontSize="12.5" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Text}" ToolTip="{Binding Hint}" />
+                                                    </CheckBox>
+                                                </DockPanel>
+                                                <!-- 畳んでも条件は効いたままなので、何で絞っているかを1行で出す -->
+                                                <TextBlock Text="{Binding CollapsedSummary}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="18,4,0,0"
+                                                           Visibility="{Binding IsCollapsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <TextBlock Text="{Binding DisabledReason}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                           Margin="0,6,0,0"
+                                                           Visibility="{Binding HasDisabledReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <ContentControl Content="{Binding}" Focusable="False" Margin="0,7,0,0"
+                                                                Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <ContentControl.Style>
+                                                        <Style TargetType="ContentControl">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                                    <Setter Property="Opacity" Value="0.45" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding HasDisabledReason}" Value="True">
+                                                                    <Setter Property="IsEnabled" Value="False" />
+                                                                    <Setter Property="Opacity" Value="0.45" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ContentControl.Style>
+                                                </ContentControl>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Accent}"
+                                                Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
@@ -523,8 +608,13 @@
                             Height="34" HorizontalAlignment="Stretch" Background="White">
                         <Grid>
                             <TextBox x:Name="QueryBox" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                     BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0"
+                                     BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0,34,0"
                                      FontSize="13" Background="Transparent" />
+                            <!-- 打った文字を消す（ユーザ指示 2026-09-16）。絞り込みの条件は消さない -->
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"
+                                    Style="{StaticResource ClearFieldButton}" Command="{Binding ClearQueryCommand}"
+                                    ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                                    Visibility="{Binding HasQueryText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <TextBlock Text="{Binding QueryPlaceholder}" IsHitTestVisible="False"
                                        Foreground="{StaticResource TextFaint}" FontSize="13"
                                        VerticalAlignment="Center" Margin="12,0,0,0">

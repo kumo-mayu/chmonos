@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using BoothAssetManager.App.Controls;
 using BoothAssetManager.App.ViewModels;
 
 namespace BoothAssetManager.App.Views;
@@ -22,9 +24,21 @@ public partial class SearchView : UserControl
     private readonly System.Windows.Threading.DispatcherTimer _settleTimer = new() { Interval = SettleDelay };
     private DateTime _lastScrollAt;
 
+    /// <summary>絞り込みの条件をドラッグで並べ替える。中身はタグ・属性の管理と共通（<see cref="RowReorder"/>）。</summary>
+    private readonly RowReorder _reorder;
+
     public SearchView()
     {
         InitializeComponent();
+
+        _reorder = new RowReorder(this, () => Model?.Modules ?? Enumerable.Empty<ReorderableRow>());
+        _reorder.Dropped += (moved, target, after) =>
+        {
+            if (Model is not null && moved is SearchModule from && target is SearchModule to)
+            {
+                Model.MoveModule(from, to, after);
+            }
+        };
 
         _settleTimer.Tick += (_, _) =>
         {
@@ -35,6 +49,23 @@ public partial class SearchView : UserControl
             }
         };
     }
+
+    private SearchViewModel? Model => DataContext as SearchViewModel;
+
+    /// <summary>
+    /// 条件を掴む。**見出しのつまみだけで掴める**ようにしてある——
+    /// カードのどこでも掴めると、スライダを動かすたびに並べ替えが始まってしまう。
+    /// </summary>
+    private void OnModuleHandlePress(object sender, MouseButtonEventArgs e)
+        => _reorder.OnPreviewMouseLeftButtonDown(sender, e);
+
+    private void OnModuleHandleMove(object sender, MouseEventArgs e) => _reorder.OnMouseMove(sender, e);
+
+    private void OnModulesDragOver(object sender, DragEventArgs e) => _reorder.OnDragOver(sender, e);
+
+    private void OnModulesDragLeave(object sender, DragEventArgs e) => _reorder.OnDragLeave(sender, e);
+
+    private void OnModulesDrop(object sender, DragEventArgs e) => _reorder.OnDrop(sender, e);
 
     /// <summary>検索欄へ入り、今の文字を選んだ状態にする（ショートカット「検索欄へ」#43）。そのまま打てば置き換わる。</summary>
     public void FocusQuery()

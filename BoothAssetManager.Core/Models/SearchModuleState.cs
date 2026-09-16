@@ -43,6 +43,12 @@ public sealed record SearchModuleState
     /// <summary>一覧に出す1行（検索の履歴の要約に使う・見るだけ）。</summary>
     public string? Summary { get; init; }
 
+    /// <summary>
+    /// 畳んでいるか（ユーザ指示 2026-09-16）。条件が増えるとパネルが縦に伸びるので、畳んだ姿も覚える。
+    /// 指紋には含めない——見た目の話で、結果は変わらない。
+    /// </summary>
+    public bool Collapsed { get; init; }
+
     /// <summary>同じ条件かを見るための指紋。要約は含めない（同じ条件なら言い方が違っても同じ）。</summary>
     [JsonIgnore]
     public string Fingerprint
