@@ -825,7 +825,6 @@ public sealed class RangeModule : SearchModule
     private bool _valuesFromState;
     private bool _defaultsApplied;
     private ChoiceOption? _source;
-    private double _sliderMinimum;
     private double _sliderMaximum = 100;
 
     /// <param name="values">商品と元（価格の「購入額／BOOTHの価格」）→ 照らす数（どれか1つでも範囲に入れば当たり）。</param>
@@ -868,11 +867,11 @@ public sealed class RangeModule : SearchModule
     /// <summary>元ごとの、手元の商品の数の全部。両端・分布の帯をここから出す。検索側が入れる。</summary>
     public Func<string?, IEnumerable<int>>? AllValuesOf { get; set; }
 
-    public double SliderMinimum
-    {
-        get => _sliderMinimum;
-        private set => SetField(ref _sliderMinimum, value);
-    }
+    /// <summary>
+    /// スライダの左端。**いつでも0**（ユーザ指示 2026-09-16）。
+    /// 手元の商品によって左端が動く方が分かりにくい（同じ位置が日によって違う数を指す）。
+    /// </summary>
+    public const double SliderMinimum = 0;
 
     public double SliderMaximum
     {
@@ -895,6 +894,8 @@ public sealed class RangeModule : SearchModule
         {
             if (SetField(ref _minText, value ?? string.Empty))
             {
+                // 下限は上限を越えられない（ユーザ判断 2026-09-16）。触った側を相手に合わせる
+                FixCrossing(moveMin: true);
                 OnPropertyChanged(nameof(LowPosition));
                 OnPropertyChanged(nameof(HasMin));
 
@@ -911,6 +912,7 @@ public sealed class RangeModule : SearchModule
         {
             if (SetField(ref _maxText, value ?? string.Empty))
             {
+                FixCrossing(moveMin: false);
                 OnPropertyChanged(nameof(HighPosition));
                 OnPropertyChanged(nameof(HasMax));
                 NotifyChangedSoon();
@@ -931,6 +933,8 @@ public sealed class RangeModule : SearchModule
         {
             if (SetField(ref _minEnabled, value))
             {
+                // 切っている間は相手を越えていてよい（止める相手がいない）。入れ直したときに合わせる
+                FixCrossing(moveMin: true);
                 NotifyChanged();
             }
         }
@@ -943,8 +947,45 @@ public sealed class RangeModule : SearchModule
         {
             if (SetField(ref _maxEnabled, value))
             {
+                FixCrossing(moveMin: false);
                 NotifyChanged();
             }
+        }
+    }
+
+    /// <summary>
+    /// 上下が入れ替わっていたら、**いま触った側**を相手に合わせる（ユーザ判断 2026-09-16：小さい方を下限と読むのではなく、越えられないようにする）。
+    ///
+    /// 上下のどちらかを切っているときは合わせない——止める相手がいないので、
+    /// 「上限を切って下限だけを上まで動かす」が普通にできる。同じ数は許す（ちょうどその数を指せる）。
+    /// 名前の付いた2つの行にしてあるので、小さい方を下限と読み替えると「下限」の行が上限として働き、
+    /// 行の名前と左のトグルが指すものが食い違う。属性のスライダも越えられない作りで揃えている。
+    /// </summary>
+    private void FixCrossing(bool moveMin)
+    {
+        if (!_minEnabled || !_maxEnabled)
+        {
+            return;
+        }
+
+        var min = ParseNumber(_minText) ?? (int)SliderMinimum;
+        var max = ParseNumber(_maxText) ?? (int)SliderMaximum;
+        if (min <= max)
+        {
+            return;
+        }
+
+        if (moveMin)
+        {
+            _minText = max.ToString(CultureInfo.InvariantCulture);
+            OnPropertyChanged(nameof(MinText));
+            OnPropertyChanged(nameof(LowPosition));
+        }
+        else
+        {
+            _maxText = min.ToString(CultureInfo.InvariantCulture);
+            OnPropertyChanged(nameof(MaxText));
+            OnPropertyChanged(nameof(HighPosition));
         }
     }
 
@@ -961,7 +1002,7 @@ public sealed class RangeModule : SearchModule
     private RelayCommand? _clearMax;
 
     /// <summary>スライダの両端がいくつなのか（目盛だけでは数が読めないので、端の数を添える）。</summary>
-    public string MinimumLabel => ((int)SliderMinimum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
+    public string MinimumLabel => "0" + Unit;
 
     public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
@@ -1020,15 +1061,14 @@ public sealed class RangeModule : SearchModule
     public void RefreshBounds()
     {
         var values = (AllValuesOf?.Invoke(_source?.Key) ?? []).ToList();
-        // 手元の数がみな同じなら、両端も同じ数にする（+1 して存在しない数を端に出さない）
-        SliderMinimum = values.Count == 0 ? 0 : values.Min();
-        SliderMaximum = values.Count == 0 ? 100 : values.Max();
+        // 左端はいつでも0。右端は手元の一番大きい数（1件も無ければ仮に100）
+        SliderMaximum = values.Count == 0 ? 100 : Math.Max(1, values.Max());
         RefreshHistogram(values);
 
         if (!_valuesFromState && !_defaultsApplied)
         {
             _defaultsApplied = true;
-            _minText = ((int)SliderMinimum).ToString(CultureInfo.InvariantCulture);
+            _minText = "0";
             _maxText = ((int)SliderMaximum).ToString(CultureInfo.InvariantCulture);
 
             // **数が分かる商品が1件も無いときは、上下とも切って足す。**
