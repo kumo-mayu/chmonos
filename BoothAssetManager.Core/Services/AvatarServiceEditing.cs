@@ -78,7 +78,7 @@ public sealed partial class AvatarService
                     groups.Add(new AvatarBaseGroup { Name = trimmed });
                 }
 
-                return Sorted(entries, groups);
+                return Sorted(registry, entries, groups);
             },
             cancellationToken);
     }
@@ -141,7 +141,7 @@ public sealed partial class AvatarService
                     groups.Add(renamed with { Name = trimmed });
                 }
 
-                return Sorted(entries, groups);
+                return Sorted(registry, entries, groups);
             },
             cancellationToken);
 
@@ -169,6 +169,7 @@ public sealed partial class AvatarService
     {
         await _store.Avatars.UpdateAsync(
             registry => Sorted(
+                registry,
                 registry.Entries.Select(entry => string.Equals(entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase)
                     ? entry with { BaseName = null }
                     : entry),
@@ -289,6 +290,7 @@ public sealed partial class AvatarService
         => await _store.Avatars.UpdateAsync(
             registry => registry.Entries.Any(entry => entry.ItemId == itemId)
                 ? Sorted(
+                    registry,
                     registry.Entries.Select(entry => entry.ItemId == itemId ? update(entry) : entry),
                     registry.BaseGroups)
                 : registry,
@@ -300,6 +302,7 @@ public sealed partial class AvatarService
         CancellationToken cancellationToken)
         => await _store.Avatars.UpdateAsync(
             registry => Sorted(
+                registry,
                 registry.Entries,
                 registry.BaseGroups.Select(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
                     ? update(group)
@@ -308,10 +311,12 @@ public sealed partial class AvatarService
 
     /// <summary>保存する形。人が開いて読むファイルなので、並びを毎回そろえる。</summary>
     private static AvatarRegistry Sorted(
+        AvatarRegistry registry,
         IEnumerable<AvatarRegistryEntry> entries,
         IEnumerable<AvatarBaseGroup> groups)
         => new()
         {
+            DetectedAt = registry.DetectedAt,
             Entries = entries.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
             BaseGroups = groups.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
         };

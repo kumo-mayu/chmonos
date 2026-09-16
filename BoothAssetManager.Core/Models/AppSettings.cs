@@ -15,9 +15,6 @@ public sealed record AppSettings
 {
     // --- 表示 ---
 
-    /// <summary>商品ページでタグを上部に置くか。BOOTHは下部だが、検索対象なので既定は上部。</summary>
-    public bool TagsAtTop { get; init; } = true;
-
     public bool ShowSubTagsInList { get; init; }
 
     /// <summary>R-18を表示するか。オフのときは検索・ショップ件数から除くが、統計の金額には含める。</summary>

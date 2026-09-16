@@ -54,12 +54,12 @@ public sealed class SettingsChangeTests : IDisposable
         var settings = new SettingsService(_store);
 
         await Task.WhenAll(
-            Task.Run(() => settings.UpdateAsync(current => current with { TagsAtTop = false })),
+            Task.Run(() => settings.UpdateAsync(current => current with { ShowAdult = false })),
             Task.Run(() => settings.UpdateAsync(current => current with { ShowSubTagsInList = true })),
             Task.Run(() => settings.UpdateAsync(current => current with { WatchedFolders = [@"D:\DL"] })));
 
         var saved = _store.Settings.Load();
-        Assert.False(saved.TagsAtTop);
+        Assert.False(saved.ShowAdult);
         Assert.True(saved.ShowSubTagsInList);
         Assert.Equal([@"D:\DL"], saved.WatchedFolders);
     }

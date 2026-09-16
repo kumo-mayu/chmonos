@@ -204,6 +204,7 @@ public sealed class AvatarImageSync
         await _store.Avatars.UpdateAsync(
             latest => new AvatarRegistry
             {
+                DetectedAt = latest.DetectedAt,
                 Entries = latest.Entries
                     .Select(entry => pending.TryGetValue(entry.ItemId, out var url) ? entry with { ImageUrl = url } : entry)
                     .ToList(),

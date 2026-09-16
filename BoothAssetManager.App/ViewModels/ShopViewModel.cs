@@ -537,7 +537,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
                 SizeText = entry.IsOwned ? Core.Models.DisplayText.Size(entry.SizeBytes) : "未取得",
                 IsOwned = entry.IsOwned,
                 NeedsEdit = entry.Item.Local.UserTags.Count == 0,
-                UserTagText = string.Join(" / ", entry.Item.Local.UserTags.Select(tag => tag.Top)),
+                UserTagText = ItemCardViewModel.UserTagLine(entry.Item.Local.UserTags, _services.Settings.ShowSubTagsInList),
             }).ToList();
 
             Rebuild();

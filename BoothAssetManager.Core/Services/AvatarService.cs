@@ -187,6 +187,18 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     private AppSettings _settings => _currentSettings();
 
     /// <summary>
+    /// 起動時に、ライブラリ全体を検出し直す時期か。
+    ///
+    /// 検出は取り込み・アバター画面のボタン・手で紐付けた後にしか走らない。取り込まない間も、⑦が取り直した説明文や、
+    /// 手で直した別名・素体の名前で拾える物は増えるので、間隔を過ぎたら裏で1度回す（設定「対応アバターを検出し直す間隔」）。
+    /// </summary>
+    public static bool IsRedetectDue(DateTimeOffset? detectedAt, int intervalDays, DateTimeOffset now)
+        => detectedAt is not { } last || now - last >= TimeSpan.FromDays(Math.Max(1, intervalDays));
+
+    /// <inheritdoc cref="IsRedetectDue(DateTimeOffset?, int, DateTimeOffset)"/>
+    public bool IsRedetectDue() => IsRedetectDue(_store.Avatars.Load().DetectedAt, _settings.AvatarDetectRecheckDays, DateTimeOffset.Now);
+
+    /// <summary>
     /// この登録簿の項目をアバターとして扱うか。
     ///
     /// 判定結果は保存せず毎回ここで決める。規則を直したときに、保存済みのJSONだけで
@@ -1005,6 +1017,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
         return new AvatarRegistry
         {
+            DetectedAt = DateTimeOffset.Now,
             Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
             BaseGroups = groups.Values.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
         };

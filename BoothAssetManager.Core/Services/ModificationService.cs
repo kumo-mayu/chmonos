@@ -473,6 +473,7 @@ public sealed class ModificationService : IModificationService
                 ? registry
                 : new AvatarRegistry
                 {
+                    DetectedAt = registry.DetectedAt,
                     Entries = registry.Entries
                         .Append(new AvatarRegistryEntry
                         {

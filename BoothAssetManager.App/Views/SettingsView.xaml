@@ -61,8 +61,6 @@
                     <StackPanel>
                         <TextBlock Text="表示" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
-                        <CheckBox Content="商品ページのタグを上に置く" Style="{StaticResource SettingCheck}"
-                                  IsChecked="{Binding TagsAtTop, Mode=TwoWay}" />
                         <CheckBox Content="一覧のカードに小分類のタグも出す" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
                         <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"

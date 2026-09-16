@@ -8,7 +8,9 @@ namespace BoothAssetManager.App.ViewModels;
 public sealed partial class MainViewModel
 {
     /// <summary>
-    /// 使っていない間に進める2つを背景で走らせる。
+    /// 使っていない間に進める作業を背景で走らせる。
+    ///
+    /// ③ 対応アバターの検出し直し。前に全体を検出してから設定の日数が過ぎていたときだけ（AvatarService.IsRedetectDue）。
     ///
     /// ⑤ 前の取り込みで取り切れなかった画像を取り直す。
     ///    対象は手元のJSONだけで決まる（<c>Booth.Images</c> の件数とディスクの差）ので、
@@ -43,11 +45,29 @@ public sealed partial class MainViewModel
         var images = ReportAs("画像を取得中");
         var avatars = ReportAs("アバターの画像を取得中");
         var due = ReportAs("商品の更新を確認中");
+        var detection = new Progress<Core.Services.AvatarDetectProgress>(
+            report => BoothActivity.ReportWork(WorkSource.Background, "対応アバターを検出中", report.Done, report.Total));
 
         Task.Run(async () =>
         {
             try
             {
+                // 対応アバターの検出し直し。梯子では③なので画像より先。手元の照合がほとんどで、問い合わせは知らないIDの分だけ
+                if (_services.Avatars.IsRedetectDue())
+                {
+                    await RunBackgroundStageAsync("対応アバターの検出し直し", async () =>
+                    {
+                        using var priority = Core.Booth.BoothClient.Prioritize(Core.Booth.BoothPriority.Detection);
+                        var result = await _services.Avatars.DetectAsync(detection, token);
+
+                        // 検索の絞り込みやカードは読み込んだ時の対応アバターで組んである。書き換えた商品があれば組み直す
+                        if (result.ItemsUpdated > 0)
+                        {
+                            RunOnUiThread(() => ReloadLibraryAsync().Forget());
+                        }
+                    });
+                }
+
                 await RunBackgroundStageAsync("前の取り込みで残った画像", () => _services.Backlog.ResumeAsync(images, token));
 
                 // 持っていないアバターの1枚目（U18）。商品の画像の穴の方が先に目に入るので⑤の後

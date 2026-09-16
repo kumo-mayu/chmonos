@@ -126,7 +126,6 @@ public sealed class SettingsViewModel : ViewModelBase
 
         var settings = services.Settings;
         _suppressSave = true;
-        _tagsAtTop = settings.TagsAtTop;
         _showSubTagsInList = settings.ShowSubTagsInList;
         _showAdult = settings.ShowAdult;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
@@ -273,18 +272,11 @@ public sealed class SettingsViewModel : ViewModelBase
 
     // ---- 表示 ----
 
-    private bool _tagsAtTop;
-    public bool TagsAtTop
-    {
-        get => _tagsAtTop;
-        set { if (SetField(ref _tagsAtTop, value)) { Save(); } }
-    }
-
     private bool _showSubTagsInList;
     public bool ShowSubTagsInList
     {
         get => _showSubTagsInList;
-        set { if (SetField(ref _showSubTagsInList, value)) { Save(); } }
+        set { if (SetField(ref _showSubTagsInList, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
     private bool _showAdult;
@@ -334,8 +326,7 @@ public sealed class SettingsViewModel : ViewModelBase
             if (SetField(ref _thumbnailRole, value))
             {
                 OnPropertyChanged(nameof(SelectedThumbnailRole));
-                Save();
-                _main.ReloadLibraryAsync().Forget();
+                Save(_main.ReloadLibraryAsync);
             }
         }
     }
@@ -759,7 +750,8 @@ public sealed class SettingsViewModel : ViewModelBase
             settings => settings with { WatchedFolders = watched }));
     }
 
-    private void Save()
+    /// <param name="then">保存が済んでから行うこと。一覧の組み直しは新しい設定を読むので、保存より先に走ると前の値で組んでしまう。</param>
+    private void Save(Func<Task>? then = null)
     {
         if (_suppressSave)
         {
@@ -770,9 +762,8 @@ public sealed class SettingsViewModel : ViewModelBase
         // 一覧と組み合わせは画面のスレッドでここで写しておく（当てるのは錠の中で、別のスレッドのことがある）
         var folders = Folders.Select(row => row.Path).ToList();
         var shortcuts = BuildShortcuts();
-        SaveAsync(current => current with
+        ThenAsync(SaveAsync(current => current with
         {
-            TagsAtTop = TagsAtTop,
             ShowSubTagsInList = ShowSubTagsInList,
             ShowAdult = ShowAdult,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
@@ -798,7 +789,16 @@ public sealed class SettingsViewModel : ViewModelBase
             Shortcuts = shortcuts,
             StartImportOnDrop = StartImportOnDrop,
             StartImportOnLaunch = StartImportOnLaunch,
-        }).Forget();
+        }), then).Forget();
+    }
+
+    private static async Task ThenAsync(Task saving, Func<Task>? then)
+    {
+        await saving;
+        if (then is not null)
+        {
+            await then();
+        }
     }
 
     private async Task SaveAsync(Func<AppSettings, AppSettings> change)

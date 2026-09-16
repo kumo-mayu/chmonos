@@ -463,7 +463,7 @@ public sealed partial class SearchViewModel
                 && item.Booth.Images.Count > 0
                 && !_thumbnails.ListFiles(_services.Paths.ItemImagesDir(item.Id)).Any(),
             HasMissingFile = missing,
-            UserTagText = string.Join(" / ", item.Local.UserTags.Select(tag => tag.Top)),
+            UserTagText = ItemCardViewModel.UserTagLine(item.Local.UserTags, _services.Settings.ShowSubTagsInList),
         };
     }
 }

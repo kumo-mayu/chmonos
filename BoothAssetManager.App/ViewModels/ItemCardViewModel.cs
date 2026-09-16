@@ -146,6 +146,15 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public string UserTagText { get; init; } = string.Empty;
 
+    /// <summary>
+    /// カードの下に出すユーザタグの1行。小分類を出すときは「大分類：小分類・小分類」にする（ユーザ判断 2026-09-16）——
+    /// 小分類だけだと、どの大分類の下の物かがカードから分からない。
+    /// </summary>
+    public static string UserTagLine(IEnumerable<UserTagAssignment> tags, bool withSubs)
+        => string.Join(" / ", tags.Select(tag => withSubs && tag.Subs.Count > 0
+            ? $"{tag.Top}：{string.Join("・", tag.Subs)}"
+            : tag.Top));
+
     public bool HasUserTag => UserTagText.Length > 0;
 
     /// <summary>

@@ -87,6 +87,13 @@ public sealed record ShopBannerRecord
 /// </summary>
 public sealed class AvatarRegistry
 {
+    /// <summary>
+    /// ライブラリ全体の検出を最後に終えた時刻（取り込み・アバター画面のボタン・起動時の検出し直しのどれでも）。
+    /// 起動時に、設定の「対応アバターを検出し直す間隔」を過ぎたかを見る。null は一度も検出していない。
+    /// **登録簿を書き直す所はこれを引き継ぐ**（落とすと、起動のたびに検出し直す）。
+    /// </summary>
+    public DateTimeOffset? DetectedAt { get; init; }
+
     public IReadOnlyList<AvatarRegistryEntry> Entries { get; init; } = [];
 
     /// <summary>共通素体のグループ。名前をキーにする（BOOTH商品とは限らないため）。</summary>
