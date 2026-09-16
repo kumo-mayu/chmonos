@@ -785,6 +785,8 @@ public sealed class RangeModule : SearchModule
     private readonly Func<ItemRecord, string?, IReadOnlyList<int>> _values;
     private string _minText = string.Empty;
     private string _maxText = string.Empty;
+    private bool _minEnabled = true;
+    private bool _maxEnabled = true;
     private ChoiceOption? _source;
     private double _sliderMaximum = 100;
 
@@ -859,6 +861,36 @@ public sealed class RangeModule : SearchModule
         }
     }
 
+    /// <summary>
+    /// 下限を効かせるか（既定は効かせる・ユーザ指示 2026-09-16）。
+    ///
+    /// **端に寄せても効いたまま**にするために要る。前はつまみを端に置くと黙って「制限なし」になり、
+    /// 「0以上」と「下限なし」を言い分けられなかった。片側を外したいときはここで切る。
+    /// </summary>
+    public bool MinEnabled
+    {
+        get => _minEnabled;
+        set
+        {
+            if (SetField(ref _minEnabled, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
+    public bool MaxEnabled
+    {
+        get => _maxEnabled;
+        set
+        {
+            if (SetField(ref _maxEnabled, value))
+            {
+                NotifyChanged();
+            }
+        }
+    }
+
     /// <summary>入れた値を消す手段を出すか（ユーザ指示 2026-09-16：入力が残る欄は、消せることが分かるようにする）。</summary>
     public bool HasMin => _minText.Length > 0;
 
@@ -874,27 +906,29 @@ public sealed class RangeModule : SearchModule
     /// <summary>スライダの右端がいくつなのか（目盛だけでは数が読めないので、両端の数を添える）。</summary>
     public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
-    public int? Min => ParseNumber(_minText);
+    /// <summary>効いている下限。切っていれば null（制限しない）。欄が空なら端（0）を下限とする。</summary>
+    public int? Min => _minEnabled ? ParseNumber(_minText) ?? 0 : null;
 
-    public int? Max => ParseNumber(_maxText);
+    /// <summary>効いている上限。切っていれば null。欄が空なら端（手元の最大値）を上限とする。</summary>
+    public int? Max => _maxEnabled ? ParseNumber(_maxText) ?? (int)SliderMaximum : null;
 
     /// <summary>
-    /// 左のスライダの位置（0〜100）。左端は「下限なし」。
+    /// 左のスライダの位置（0〜100）。**端も値として受ける**（左端＝0以上）。切るのは左のトグル。
     ///
     /// スライダは位置で持ち、数には手元の最大値で割り戻す。スライダの右端を数に結ぶと、
     /// 右端が決まる前に値が既定の右端（10）へ丸められ、それが上限として書き戻されうる。
     /// </summary>
     public double LowPosition
     {
-        get => Min is { } min ? Math.Clamp(min * 100.0 / SliderMaximum, 0, 100) : 0;
-        set => MinText = value <= 0 ? string.Empty : ToNumber(value).ToString(CultureInfo.InvariantCulture);
+        get => Math.Clamp((ParseNumber(_minText) ?? 0) * 100.0 / SliderMaximum, 0, 100);
+        set => MinText = ToNumber(value).ToString(CultureInfo.InvariantCulture);
     }
 
-    /// <summary>右のスライダの位置（0〜100）。右端は「上限なし」。</summary>
+    /// <summary>右のスライダの位置（0〜100）。**端も値として受ける**（右端＝手元の最大値以下）。</summary>
     public double HighPosition
     {
-        get => Max is { } max ? Math.Clamp(max * 100.0 / SliderMaximum, 0, 100) : 100;
-        set => MaxText = value >= 100 ? string.Empty : ToNumber(value).ToString(CultureInfo.InvariantCulture);
+        get => Math.Clamp((ParseNumber(_maxText) ?? (int)SliderMaximum) * 100.0 / SliderMaximum, 0, 100);
+        set => MaxText = ToNumber(value).ToString(CultureInfo.InvariantCulture);
     }
 
     private int ToNumber(double position) => (int)Math.Round(position / 100 * SliderMaximum);
@@ -907,7 +941,13 @@ public sealed class RangeModule : SearchModule
         OnPropertyChanged(nameof(MaximumLabel));
     }
 
-    protected override bool HasCondition => Min is not null || Max is not null;
+    /// <summary>
+    /// 片側でも効かせていれば条件になっている。
+    ///
+    /// **足した時点で（既定で両側が効いて）絞り始める。**数の分からない商品——値段を入れていない・
+    /// BOOTH に無い——は範囲のどこにも入らないので外れる。属性と同じ考え方で、足すこと自体が「この数で選ぶ」という意思表示。
+    /// </summary>
+    protected override bool HasCondition => _minEnabled || _maxEnabled;
 
     public override bool Matches(ItemRecord item, SearchModuleContext context)
     {
@@ -921,14 +961,31 @@ public sealed class RangeModule : SearchModule
     }
 
     public override string SummaryText
-        => $"{Label}{(HasSources ? $"（{_source?.Label}）" : string.Empty)} {Min?.ToString("N0")}〜{Max?.ToString("N0")}{Unit}";
+    {
+        get
+        {
+            var head = $"{Label}{(HasSources ? $"（{_source?.Label}）" : string.Empty)}";
+            var parts = new[]
+            {
+                Min is { } min ? $"{min.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上" : null,
+                Max is { } max ? $"{max.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以下" : null,
+            }.OfType<string>().ToList();
 
+            return parts.Count == 0 ? head : $"{head} {string.Join(" ", parts)}";
+        }
+    }
+
+    /// <summary>足したときの姿に戻す（上下とも効かせ、幅は端から端まで）。</summary>
     public override void Clear()
     {
         _minText = string.Empty;
         _maxText = string.Empty;
+        _minEnabled = true;
+        _maxEnabled = true;
         OnPropertyChanged(nameof(MinText));
         OnPropertyChanged(nameof(MaxText));
+        OnPropertyChanged(nameof(MinEnabled));
+        OnPropertyChanged(nameof(MaxEnabled));
         OnPropertyChanged(nameof(HasMin));
         OnPropertyChanged(nameof(HasMax));
         OnPropertyChanged(nameof(LowPosition));
@@ -938,15 +995,28 @@ public sealed class RangeModule : SearchModule
     }
 
     protected override SearchModuleState Write(SearchModuleState state)
-        => state with { Min = _minText, Max = _maxText, Choice = _source?.Key };
+        => state with
+        {
+            Min = _minText,
+            Max = _maxText,
+            MinEnabled = _minEnabled,
+            MaxEnabled = _maxEnabled,
+            Choice = _source?.Key,
+        };
 
     protected override void Read(SearchModuleState state)
     {
         _minText = state.Min ?? string.Empty;
         _maxText = state.Max ?? string.Empty;
+        _minEnabled = state.MinEnabled;
+        _maxEnabled = state.MaxEnabled;
         _source = Sources.FirstOrDefault(option => option.Key == state.Choice) ?? Sources.FirstOrDefault();
         OnPropertyChanged(nameof(MinText));
         OnPropertyChanged(nameof(MaxText));
+        OnPropertyChanged(nameof(MinEnabled));
+        OnPropertyChanged(nameof(MaxEnabled));
+        OnPropertyChanged(nameof(HasMin));
+        OnPropertyChanged(nameof(HasMax));
         OnPropertyChanged(nameof(Source));
         RefreshMaximum();
         OnPropertyChanged(nameof(LowPosition));

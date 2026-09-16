@@ -28,11 +28,21 @@ public sealed record SearchModuleState
     /// <summary>三択などで選んだもの・価格の元・最近の種類。</summary>
     public string? Choice { get; init; }
 
-    /// <summary>下限（数値か日付の文字）。空は「制限しない」。</summary>
+    /// <summary>下限（数値か日付の文字）。空は端（数の範囲なら0・日付なら制限しない）。</summary>
     public string? Min { get; init; }
 
-    /// <summary>上限（数値か日付の文字）。空は「制限しない」。</summary>
+    /// <summary>上限（数値か日付の文字）。空は端（数の範囲なら手元の最大値・日付なら制限しない）。</summary>
     public string? Max { get; init; }
+
+    /// <summary>
+    /// 下限・上限をそれぞれ効かせるか（数の範囲だけ。既定は両方 効かせる・ユーザ指示 2026-09-16）。
+    ///
+    /// **端に寄せても効いたまま**にするために要る。前はつまみを端に置くと黙って「制限なし」になり、
+    /// 「0以上」と「下限なし」を言い分けられなかった。
+    /// </summary>
+    public bool MinEnabled { get; init; } = true;
+
+    public bool MaxEnabled { get; init; } = true;
 
     /// <summary>補助の切り替え（販売終了の「非公開も表示する」・対応アバターの「素体経由の対応も含める」）。</summary>
     public bool Flag { get; init; }
@@ -57,7 +67,8 @@ public sealed record SearchModuleState
         {
             var text = new StringBuilder();
             text.Append(Kind).Append(Separator);
-            text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0').Append(Separator);
+            text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
+            text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0').Append(Separator);
             text.Append(string.Join((char)0x1E, Items.OrderBy(item => item, StringComparer.Ordinal))).Append(Separator);
             text.Append(Choice).Append(Separator).Append(Min).Append(Separator).Append(Max).Append(Separator);
             text.Append(string.Join(
