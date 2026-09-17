@@ -75,6 +75,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         SearchFolderInBrowserCommand = new RelayCommand(parameter => SearchFolderInBrowser(parameter), parameter => parameter is string);
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         ExcludeFolderCommand = new RelayCommand(parameter => ExcludeFolderAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
+        UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
         ExcludeCheckedCommand = new RelayCommand(() => ExcludeCheckedAsync().Forget(), () => HasChecked && !IsBusy);
@@ -103,6 +104,8 @@ public sealed partial class ResolveViewModel : ViewModelBase
     public RelayCommand RegisterFolderOfCommand { get; }
 
     public RelayCommand ExcludeFolderCommand { get; }
+
+    public RelayCommand UseOriginZipCommand { get; }
 
     public RelayCommand RegisterFolderCommand { get; }
 
@@ -358,6 +361,43 @@ public sealed partial class ResolveViewModel : ViewModelBase
     public bool HasSelectedOrigin => SelectedOriginText is not null;
 
     /// <summary>
+    /// 選んだファイルが展開した中身で、元のzipが今もディスクにあるか。あれば「元zipで登録」を出す（ユーザ指示 2026-09-17）。
+    /// zipで登録するのが一番きれい——配布された単位と一致し、展開したフォルダは自動で対象から外れる。
+    /// ディスクを見るのは選んだときの1回だけ（ボタンの可否は操作のたびに問い合わされる。外付けを外していると待たされる）。
+    /// </summary>
+    public bool CanUseOriginZip { get; private set; }
+
+    private static bool OriginZipRemains(UnresolvedRow? row)
+        => row?.Origin is { } origin
+           && !string.Equals(origin.ArchivePath, row.File.Paths.FirstOrDefault(), StringComparison.OrdinalIgnoreCase)
+           && File.Exists(origin.ArchivePath);
+
+    /// <summary>
+    /// 元のzipの行を選ぶ。そこから普通に商品IDを決めて登録できる。
+    /// zipが未確定の一覧に無いとき（既に商品に結び付いている・取り込んでいない）は、選ぶ先が無いので理由と次の一手を言う。
+    /// </summary>
+    private void UseOriginZip()
+    {
+        if (Selected?.Origin is not { } origin)
+        {
+            return;
+        }
+
+        var zipRow = Files.FirstOrDefault(row =>
+            string.Equals(row.File.Paths.FirstOrDefault(), origin.ArchivePath, StringComparison.OrdinalIgnoreCase));
+        if (zipRow is not null)
+        {
+            Selected = zipRow;
+            return;
+        }
+
+        StatusText = $"元のzip「{origin.ArchiveName}」は未確定の一覧にありません。既に商品に結び付いているか、まだ取り込んでいません。"
+            + "取り込み画面にzipを落とすと、商品に結び付くか未確定に出ます。";
+        OnPropertyChanged(nameof(HasStatus));
+        DecisionFocusRequested?.Invoke();
+    }
+
+    /// <summary>
     /// 開くたびに、既にitem側が持っているファイルを未確定から均してから読み直す。
     /// 確定の途中で落ちると両方に残るため。
     /// </summary>
@@ -492,6 +532,8 @@ public sealed partial class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasZone));
         OnPropertyChanged(nameof(SelectedOriginText));
         OnPropertyChanged(nameof(HasSelectedOrigin));
+        CanUseOriginZip = OriginZipRemains(Selected);
+        OnPropertyChanged(nameof(CanUseOriginZip));
         OnPropertyChanged(nameof(HasStatus));
         OnPropertyChanged(nameof(LocalIdPreview));
         OnPropertyChanged(nameof(HasLocalNameSuggestions));
