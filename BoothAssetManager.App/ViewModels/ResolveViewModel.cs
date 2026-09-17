@@ -55,21 +55,20 @@ public sealed partial class ResolveViewModel : ViewModelBase
         // 取得中は押せないようにする。他のボタンには入っていて、ここだけ抜けていた
         PreviewCommand = new RelayCommand(() => PreviewAsync(ItemIdInput).Forget(), () => CanPreview && !IsBusy);
         UseCandidateCommand = new RelayCommand(parameter => UseCandidateAsync(parameter).Forget(), parameter => parameter is CandidateRow);
-        AssignCommand = new RelayCommand(() => AssignAsync().Forget(), () => HasPreview && HasSelection && !IsBusy);
+        AssignCommand = new RelayCommand(() => AssignAsync().Forget(), () => HasPreview && HasSelection && !IsBusy && !IsBlockedByListedZip);
         ExcludeCommand = new RelayCommand(() => ExcludeAsync().Forget(), () => HasSelection && !IsBusy);
         UseLocalNameCommand = new RelayCommand(
             parameter => { if (parameter is string name) { LocalNameInput = name; } },
             parameter => parameter is string);
         RegisterLocalCommand = new RelayCommand(
             () => RegisterLocalAsync().Forget(),
-            () => HasSelection && !IsBusy && !string.IsNullOrWhiteSpace(LocalNameInput));
+            () => HasSelection && !IsBusy && !IsBlockedByListedZip && !string.IsNullOrWhiteSpace(LocalNameInput));
         SendSettledToEditCommand = new RelayCommand(SendSettledToEdit, () => _settledItemIds.Count > 0);
         OpenLastSettledCommand = new RelayCommand(() => OpenLastSettledAsync().Forget(), () => _settledItemIds.Count > 0);
         OpenBoothCommand = new RelayCommand(OpenBoothSearch, () => HasSelection);
 
         SelectFolderCommand = new RelayCommand(SelectFolder, parameter => parameter is string);
         SelectGroupCommand = new RelayCommand(SelectGroup, parameter => parameter is string);
-        ClearGroupCommand = new RelayCommand(() => ActiveGroup = null, () => HasActiveGroup);
         // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
@@ -89,9 +88,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     /// <summary>元zipの束をまとめて1つの対象にする。</summary>
     public RelayCommand SelectGroupCommand { get; }
-
-    /// <summary>束をやめて、選んでいる1件だけを扱う。</summary>
-    public RelayCommand ClearGroupCommand { get; }
 
     /// <summary>「取り込み中に n 件増えました」を押したときの読み直し。</summary>
     public RelayCommand ReloadCommand { get; }
@@ -447,6 +443,9 @@ public sealed partial class ResolveViewModel : ViewModelBase
         {
             healed = await _services.Commands.ExecuteAsync(new UiCommand.ReconcileUnresolved())
                 is CommandResult.Counted counted ? counted.Count : 0;
+
+            // 元のzipが登録済みの中身を出さないために、商品が持っているファイルの場所を読む
+            await LoadOwnedPathsAsync();
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {
@@ -512,9 +511,17 @@ public sealed partial class ResolveViewModel : ViewModelBase
             .ThenByDescending(entry => entry.File.SizeBytes)
             .ToList();
 
+        var hiddenByRegisteredZip = 0;
         foreach (var (file, origin) in withOrigin)
         {
             var path = file.Paths.Count > 0 ? file.Paths[0] : string.Empty;
+
+            // 元のzipが登録済みで今もあるなら、中身は出さない（同じ配布物の写し。zipを消せば戻ってくる）
+            if (IsCoveredByRegisteredZip(file, origin))
+            {
+                hiddenByRegisteredZip++;
+                continue;
+            }
 
             // 展開物の中身かどうかを見ておく。フォルダ単位で同じ結果になるので、
             // 1件ごとにディスクを叩き直さないようキャッシュする
@@ -540,6 +547,10 @@ public sealed partial class ResolveViewModel : ViewModelBase
             row.SelectionChanged += OnCheckedChanged;
             Files.Add(row);
         }
+
+        HiddenByRegisteredZipCount = hiddenByRegisteredZip;
+        OnPropertyChanged(nameof(HasHiddenByRegisteredZip));
+        OnPropertyChanged(nameof(HiddenByRegisteredZipText));
 
         Selected = Files.FirstOrDefault();
         OnPropertyChanged(nameof(RemainingCount));
@@ -592,6 +603,11 @@ public sealed partial class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedOriginText));
         OnPropertyChanged(nameof(HasSelectedOrigin));
         OnPropertyChanged(nameof(CanUseOriginZip));
+
+        // 選び直したら「このファイルだけで登録する」は切り、zipの単位を決め直す
+        _singleFileOnly = false;
+        OnPropertyChanged(nameof(SingleFileOnly));
+        ApplyZipUnit();
         OnPropertyChanged(nameof(HasStatus));
         OnPropertyChanged(nameof(LocalIdPreview));
         OnPropertyChanged(nameof(HasLocalNameSuggestions));
@@ -719,9 +735,12 @@ public sealed partial class ResolveViewModel : ViewModelBase
             return;
         }
 
+        // zipの中身の束を立てていれば、その全件を同じ仮の商品にする（1zip＝1商品）
+        var targets = ActiveRows;
         var name = LocalNameInput.Trim();
+        var what = targets.Count == 1 ? Selected.FileName : $"元zip「{ActiveGroup}」の中身 {targets.Count} 件";
         var answer = System.Windows.MessageBox.Show(
-            $"{Selected.FileName} を「{name}」として登録します。\n\n"
+            $"{what} を「{name}」として登録します。\n\n"
             + $"BOOTHには無い商品なので、仮のID（{LocalIdPreview}）を付けます。\n"
             + "この商品はBOOTHから情報を取り直しません（名前も画像も増えません）。\n\n"
             + "あとで本物の商品IDが分かったら、編集画面の「IDを変える」で移せます。",
@@ -739,7 +758,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.RegisterLocalItem(Selected.File.Hash, name));
+                new UiCommand.RegisterLocalItem(targets[0].File.Hash, name));
 
             if (result is CommandResult.Failed failed)
             {
@@ -754,7 +773,27 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 _settledItemIds.Add(saved.ItemId);
             }
 
-            AfterSettled();
+            if (targets.Count == 1 || result is not CommandResult.ItemSaved created)
+            {
+                AfterSettled();
+                return;
+            }
+
+            // 残りの中身は、できた仮の商品に加える（BOOTHへは行かない）
+            var settled = new List<UnresolvedRow> { targets[0] };
+            foreach (var row in targets.Skip(1))
+            {
+                if (await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, created.ItemId)) is not CommandResult.Failed)
+                {
+                    settled.Add(row);
+                }
+            }
+
+            RemoveRows(settled);
+            StatusText = settled.Count == targets.Count
+                ? $"{settled.Count} 件を登録しました。"
+                : $"{settled.Count} / {targets.Count} 件を登録しました（残りは失敗）。";
+            OnPropertyChanged(nameof(HasStatus));
         }
         finally
         {

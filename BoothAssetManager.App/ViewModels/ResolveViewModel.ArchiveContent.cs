@@ -87,6 +87,14 @@ public sealed partial class ResolveViewModel
         get
         {
             var row = Selected ?? Files.FirstOrDefault(entry => entry.IsArchiveContent);
+
+            // 元のzipが分かる中身は、同じzipの中身が共通して入っているフォルダを登録する（ユーザ判断 2026-09-17：元のzipが未確定にあってもフォルダでの登録はできる）。
+            // 取り込み元の直下まで広げると、別のzipを展開したフォルダまで巻き込む
+            if (row is { IsExpandedContent: true, ProductFolder: null } && CommonDirectoryOf(row.GroupKey) is { } common)
+            {
+                return common;
+            }
+
             if (row?.ProductFolder is not { } marker || row.File.Paths.Count == 0)
             {
                 return null;
@@ -146,6 +154,33 @@ public sealed partial class ResolveViewModel
         }
 
         return current;
+    }
+
+    /// <summary>同じ束（同じzipの中身）のファイルが共通して入っている、いちばん深いフォルダ。無ければ null。</summary>
+    private string? CommonDirectoryOf(string groupKey)
+    {
+        var directories = Files
+            .Where(row => row.IsExpandedContent && string.Equals(row.GroupKey, groupKey, StringComparison.OrdinalIgnoreCase)
+                && row.DirectoryText.Length > 0)
+            .Select(row => row.DirectoryText.Split(Path.DirectorySeparatorChar))
+            .ToList();
+        if (directories.Count == 0)
+        {
+            return null;
+        }
+
+        var common = directories[0].AsEnumerable();
+        foreach (var segments in directories.Skip(1))
+        {
+            common = common.Zip(segments).TakeWhile(pair => string.Equals(pair.First, pair.Second, StringComparison.OrdinalIgnoreCase))
+                .Select(pair => pair.First)
+                .ToList();
+        }
+
+        var joined = string.Join(Path.DirectorySeparatorChar, common);
+
+        // ドライブの直下（D:）まで遡ったものはフォルダの登録にしない（ドライブごと巻き込む）
+        return joined.Count(ch => ch == Path.DirectorySeparatorChar) >= 1 ? joined : null;
     }
 
     public string RegisterTargetName => Path.GetFileName(RegisterTargetFolder ?? string.Empty);

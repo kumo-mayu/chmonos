@@ -33,6 +33,10 @@
                     <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から外します。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                    <!-- 元のzipが登録済みなので出していない中身。黙って減らさない（ユーザ判断 2026-09-17） -->
+                    <TextBlock Text="{Binding HiddenByRegisteredZipText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0"
+                               ToolTip="元のzipを消すと、中身として一覧に戻ります。"
+                               Visibility="{Binding HasHiddenByRegisteredZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
                 <!-- 確定分はここで溜めて、まとめて編集へ渡す（ID確定と入力を分ける設計） -->
@@ -350,8 +354,6 @@
                                        Foreground="#28507f" TextWrapping="Wrap" />
                             <TextBlock Text="下の確定と管理対象から外すは、この中身すべてに効きます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                            <Button Content="1件ずつ扱う" Style="{StaticResource SmallButton}" Margin="0,9,0,0"
-                                    HorizontalAlignment="Left" Command="{Binding ClearGroupCommand}" />
                         </StackPanel>
                     </Border>
 
@@ -386,9 +388,15 @@
                             -->
                             <StackPanel Margin="0,8,0,0"
                                         Visibility="{Binding CanUseOriginZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <Button Content="元zipで登録" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
-                                        Command="{Binding UseOriginZipCommand}"
-                                        ToolTip="元のzipを選びます。そのまま商品IDを決めて登録できます。" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="元zipで登録" Style="{StaticResource SmallButton}"
+                                            Command="{Binding UseOriginZipCommand}"
+                                            ToolTip="元のzipを選びます。そのまま商品IDを決めて登録できます。" />
+                                    <!-- 元のzipが未確定にあっても、フォルダのままの登録はできる（ユーザ判断 2026-09-17） -->
+                                    <Button Content="フォルダのまま登録" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                            Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
+                                            ToolTip="このzipの中身が入っているフォルダを、商品として登録します。先に「商品IDを決める」で商品IDを確認してから押します。" />
+                                </StackPanel>
                                 <TextBlock Text="zipが残っているので、zipで登録するのがおすすめです。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
                             </StackPanel>
@@ -491,10 +499,18 @@
                                        TextWrapping="Wrap" Margin="0,14,0,0"
                                        Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                            <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す -->
+                            <TextBlock Text="{Binding BlockedByZipText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Warn}" Margin="0,10,0,0"
+                                       Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
                                 <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding AssignCommand}" />
                             </StackPanel>
+                            <!-- 例外（1つのzipに複数の商品が入っているなど）のために、zipの単位にしない。選び直すと切れる（ユーザ判断 2026-09-17） -->
+                            <CheckBox Content="このファイルだけで登録する" Margin="0,9,0,0" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
+                                      ToolTip="1つのzipに複数の商品が入っているときなど。切っている間は、zipの中身をまとめて登録します。"
+                                      Visibility="{Binding CanChooseSingleFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <!--
                                 選択中だけ出る一括操作。
@@ -650,6 +666,9 @@
 
                                     <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding RegisterLocalCommand}" />
+                                    <TextBlock Text="元のzipが未確定にあるので、zipで登録してください（「商品IDを決める」の「このファイルだけで登録する」で1件だけにもできます）。"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{StaticResource Warn}" Margin="0,6,0,0"
+                                               Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
 

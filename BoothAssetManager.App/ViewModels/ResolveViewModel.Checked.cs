@@ -220,8 +220,21 @@ public sealed partial class ResolveViewModel
     /// </summary>
     private async Task AssignCheckedAsync()
     {
-        var targets = Files.Where(row => row.IsSelected).ToList();
-        if (targets.Count == 0 || Preview is null)
+        if (Preview is null)
+        {
+            return;
+        }
+
+        // zipを展開した中身は、元のzipの単位に揃える（元のzipが未確定にあれば止め、無ければ同じzipの中身全件まで広げる）
+        var (targets, blocked) = ExpandToZipUnits(Files.Where(row => row.IsSelected).ToList());
+        if (blocked is not null)
+        {
+            StatusText = blocked;
+            OnPropertyChanged(nameof(HasStatus));
+            return;
+        }
+
+        if (targets.Count == 0)
         {
             return;
         }
