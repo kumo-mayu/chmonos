@@ -89,6 +89,15 @@ public sealed partial class ResolveViewModel
             ? $"フォルダ名「{Path.GetFileName(SearchTargetPath)}」で探します"
             : $"ファイル名「{Path.GetFileName(SearchTargetPath)}」で探します";
 
+    private bool _hasSearched;
+
+    /// <summary>選んだファイルで自動検索をしたか。するまでは「候補がありません」を出さない（ユーザ指示 2026-09-17：探す前から無いと言っていた）。</summary>
+    public bool HasSearched
+    {
+        get => _hasSearched;
+        private set => SetField(ref _hasSearched, value);
+    }
+
     private async Task ProposeAsync()
     {
         if (SearchTargetPath is not { } searchTarget)
@@ -124,6 +133,7 @@ public sealed partial class ResolveViewModel
                 }
 
                 SearchPhase = string.Empty;
+                HasSearched = true;
                 // 0件のときは候補の欄の「候補がありません…」が同じことを言うので、状態の1行には出さない（ユーザ指示 2026-09-17）
                 StatusText = proposed.Candidates.Count == 0
                     ? string.Empty

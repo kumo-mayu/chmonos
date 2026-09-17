@@ -187,6 +187,9 @@ public abstract record UiCommand
     /// <summary>ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。</summary>
     public record ExcludeFile(string Hash, IReadOnlyList<string> Paths, string? Reason = null) : UiCommand;
 
+    /// <summary>外した直後に戻す。除外の記録を消し、外す前の未確定の記録を戻す。</summary>
+    public record UndoExclude(IReadOnlyList<Models.UnresolvedFile> Files) : UiCommand;
+
     /// <summary>アーカイブの展開先フォルダを削除する。展開元のzipが残っていることを確かめてから消す。</summary>
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
 

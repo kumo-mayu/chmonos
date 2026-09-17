@@ -599,6 +599,12 @@ public sealed partial class MainViewModel : ViewModelBase
         ShowSearch();
     }
 
+    /// <summary>
+    /// 未確定の画面で確定して、まだ編集へ送っていない商品のID。画面は開くたびに作り直すので、主画面が持つ
+    /// （ユーザ判断 2026-09-17：「最後に確定した商品を開く」で確かめて戻ると、まとめて編集へ送る対象が消えていた）。
+    /// </summary>
+    public List<string> ResolveSettledItemIds { get; } = [];
+
     public void ShowImport()
     {
         // 設定画面で「起動時に取り込む」を変えて戻ってきたときに、監視対象の説明を合わせる（U7）

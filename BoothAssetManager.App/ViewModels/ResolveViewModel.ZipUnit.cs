@@ -44,6 +44,80 @@ public sealed partial class ResolveViewModel
            && _ownedPaths.Contains(origin.ArchivePath)
            && OriginExists(origin.ArchivePath);
 
+    /// <summary>
+    /// zipを確定・登録した直後に、そのzipの中身を一覧から外す。開いたときにしか見ていなかったので、zipの行が消えた後に
+    /// 残った中身が「zipが一覧に無い中身」として別の商品にも登録できてしまった（ユーザ判断 2026-09-17）。
+    /// </summary>
+    private async Task HideCoveredContentsAsync()
+    {
+        try
+        {
+            await LoadOwnedPathsAsync();
+        }
+        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+        {
+            Core.Diagnostics.AppLog.Error("未確定の画面：登録済みのzipの中身を外す", exception);
+            return;
+        }
+
+        var covered = Files.Where(row => IsCoveredByRegisteredZip(row.File, row.Origin)).ToList();
+        if (covered.Count == 0)
+        {
+            return;
+        }
+
+        var selectedWasCovered = Selected is not null && covered.Contains(Selected);
+        RemoveRows(covered);
+        HiddenByRegisteredZipCount += covered.Count;
+        OnPropertyChanged(nameof(HasHiddenByRegisteredZip));
+        OnPropertyChanged(nameof(HiddenByRegisteredZipText));
+
+        if (selectedWasCovered)
+        {
+            Selected = FilesView.Cast<UnresolvedRow>().FirstOrDefault();
+        }
+    }
+
+    // ---- 外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった） ----
+
+    private List<Core.Models.UnresolvedFile> _lastExcluded = [];
+
+    public bool HasUndoExclude => _lastExcluded.Count > 0;
+
+    public string UndoExcludeText => $"外した {_lastExcluded.Count} 件を戻す";
+
+    /// <summary>外した直後に呼ぶ。次に外すまで、上の帯に「戻す」を出す。</summary>
+    private void RememberExcluded(IEnumerable<UnresolvedRow> rows)
+    {
+        _lastExcluded = rows.Select(row => row.File).ToList();
+        OnPropertyChanged(nameof(HasUndoExclude));
+        OnPropertyChanged(nameof(UndoExcludeText));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    private async Task UndoExcludeAsync()
+    {
+        if (_lastExcluded.Count == 0)
+        {
+            return;
+        }
+
+        var files = _lastExcluded;
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UndoExclude(files));
+        _lastExcluded = [];
+        OnPropertyChanged(nameof(HasUndoExclude));
+        OnPropertyChanged(nameof(UndoExcludeText));
+
+        Reload();
+        var first = files[0].Hash;
+        Selected = Files.FirstOrDefault(row => string.Equals(row.File.Hash, first, StringComparison.OrdinalIgnoreCase)) ?? Selected;
+        StatusText = $"{files.Count} 件を未確定に戻しました。";
+        OnPropertyChanged(nameof(HasStatus));
+    }
+
+    /// <summary>選んだファイルの場所をエクスプローラで開く（画面をまたいで同じ開き方）。</summary>
+    private void RevealSelected() => Services.Shell.Reveal(Selected?.File.Paths.FirstOrDefault());
+
     private bool _singleFileOnly;
 
     /// <summary>「このファイルだけで登録する」。zipの単位にせず、選んだ1件だけを登録の対象にする。</summary>

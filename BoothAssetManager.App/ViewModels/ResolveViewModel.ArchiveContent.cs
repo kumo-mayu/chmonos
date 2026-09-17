@@ -89,8 +89,8 @@ public sealed partial class ResolveViewModel
             var row = Selected ?? Files.FirstOrDefault(entry => entry.IsArchiveContent);
 
             // 元のzipが分かる中身は、同じzipの中身が共通して入っているフォルダを登録する（ユーザ判断 2026-09-17：元のzipが未確定にあってもフォルダでの登録はできる）。
-            // 取り込み元の直下まで広げると、別のzipを展開したフォルダまで巻き込む
-            if (row is { IsExpandedContent: true, ProductFolder: null } && CommonDirectoryOf(row.GroupKey) is { } common)
+            // 取り込み元の直下や目印（.url など）から遡って決めると、別のzipを展開したフォルダまで巻き込む（作り物で「Temp」全体が対象になった）
+            if (row is { IsExpandedContent: true } && CommonDirectoryOf(row.GroupKey) is { } common)
             {
                 return common;
             }
@@ -188,8 +188,8 @@ public sealed partial class ResolveViewModel
     public bool CanRegisterFolder => RegisterTargetFolder is not null && HasPreview && !IsBusy;
 
     public string RegisterFolderText => RegisterTargetName.Length > 0
-        ? $"「{RegisterTargetName}」をこの商品として登録"
-        : "このフォルダをこの商品として登録";
+        ? $"「{RegisterTargetName}」を商品として登録"
+        : "このフォルダを商品として登録";
 
     /// <summary>
     /// フォルダを商品に紐付ける。zipを落とし直せない場合の受け皿。

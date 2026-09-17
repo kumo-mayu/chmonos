@@ -130,6 +130,9 @@ public class CommandHandlerTests
             return Task.FromResult(AssignSucceeds);
         }
 
+        public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task ExcludeAsync(
             string hash,
             IReadOnlyList<string> paths,

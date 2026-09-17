@@ -23,7 +23,8 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
     public MainViewModel Main => _main;
-    private readonly List<string> _settledItemIds = [];
+    /// <summary>確定して、まだ編集へ送っていない商品のID。画面を離れても残るよう主画面が持つ。</summary>
+    private List<string> _settledItemIds => _main.ResolveSettledItemIds;
 
     private UnresolvedRow? _selected;
     private string _itemIdInput = string.Empty;
@@ -75,7 +76,10 @@ public sealed partial class ResolveViewModel : ViewModelBase
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         ExcludeFolderCommand = new RelayCommand(parameter => ExcludeFolderAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
-        TreatAsOriginZipCommand = new RelayCommand(parameter => TreatAsOriginZipAsync(parameter).Forget(), parameter => !IsBusy && parameter is not null);
+        TreatAsOriginZipCommand = new RelayCommand(TreatAsOriginZip, parameter => parameter is not null);
+        UndoExcludeCommand = new RelayCommand(() => UndoExcludeAsync().Forget(), () => HasUndoExclude && !IsBusy);
+        RevealCommand = new RelayCommand(RevealSelected, () => HasSelection);
+        OpenImportCommand = new RelayCommand(_main.ShowImport);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
         ExcludeCheckedCommand = new RelayCommand(() => ExcludeCheckedAsync().Forget(), () => HasChecked && !IsBusy);
@@ -102,6 +106,12 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     public RelayCommand TreatAsOriginZipCommand { get; }
 
+    public RelayCommand UndoExcludeCommand { get; }
+
+    public RelayCommand RevealCommand { get; }
+
+    public RelayCommand OpenImportCommand { get; }
+
     // ---- 左の一覧を探す（ユーザ指示 2026-09-17：件数が多く、どこを見ればよいか分からなかった） ----
 
     private static readonly System.Globalization.CompareInfo Compare = System.Globalization.CultureInfo.CurrentCulture.CompareInfo;
@@ -122,6 +132,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
             {
                 FilesView.Refresh();
                 OnPropertyChanged(nameof(HasFilterText));
+                OnPropertyChanged(nameof(ActiveGroupText));
 
                 // 選んでいた行が隠れると一覧の選択が外れ、右側（まとめて操作する枠を含む）が消えて何もできなくなった。
                 // 見えている先頭の行を選ぶ（画面で確かめて見つけた 2026-09-17）
@@ -375,7 +386,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     public bool HasSettled => _settledItemIds.Count > 0;
 
-    public string SettledText => $"この画面で {_settledItemIds.Count} 件を確定しました";
+    public string SettledText => $"確定して、まだ編集へ送っていない商品 {_settledItemIds.Count} 件";
 
     // --- 選択中ファイルの手掛かり ---
 
@@ -559,6 +570,17 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     private void OnSelectionChanged()
     {
+        // 選んだ行が検索で隠れていれば検索を消す（「元zipで登録」などで隠れた行へ移ったとき、左で何を選んでいるか分からなかった）
+        if (Selected is not null && !MatchesFilter(Selected))
+        {
+            _filterText = string.Empty;
+            OnPropertyChanged(nameof(FilterText));
+            OnPropertyChanged(nameof(HasFilterText));
+            FilesView.Refresh();
+        }
+
+        HasSearched = false;
+
         // 行を選び直したら、束ではなくその1件を扱う。束は見出しのボタンからだけ立つ
         ActiveGroup = null;
 
@@ -710,6 +732,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 ? $"{settled.Count} 件を確定しました。"
                 : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗：{failure}）。";
             OnPropertyChanged(nameof(HasStatus));
+            HideCoveredContentsAsync().Forget();
         }
         finally
         {
@@ -794,6 +817,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 ? $"{settled.Count} 件を登録しました。"
                 : $"{settled.Count} / {targets.Count} 件を登録しました（残りは失敗）。";
             OnPropertyChanged(nameof(HasStatus));
+            HideCoveredContentsAsync().Forget();
         }
         finally
         {
@@ -832,9 +856,10 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFile(row.File.Hash, row.File.Paths, reason));
             }
 
+            RememberExcluded(targets);
             if (targets.Count == 1)
             {
-                AfterSettled();
+                AfterSettled(registered: false);
             }
             else
             {
@@ -850,12 +875,16 @@ public sealed partial class ResolveViewModel : ViewModelBase
     }
 
     /// <summary>1件片付いたら一覧から外し、次の1件へ自動で移る。</summary>
-    private void AfterSettled()
+    /// <param name="registered">商品に登録したか（管理対象から外したときは false）。登録したら、そのzipの中身も一覧から外す。</param>
+    private void AfterSettled(bool registered = true)
     {
-        var index = Selected is null ? -1 : Files.IndexOf(Selected);
-        if (index >= 0)
+        // 次に選ぶのは、検索で見えている行の中の次（隠れている行を選ぶと、左で何を選んでいるか分からない）
+        var visible = FilesView.Cast<UnresolvedRow>().ToList();
+        var index = Selected is null ? -1 : visible.IndexOf(Selected);
+        if (Selected is not null)
         {
-            Files.RemoveAt(index);
+            Files.Remove(Selected);
+            visible.Remove(Selected);
         }
 
         OnPropertyChanged(nameof(RemainingCount));
@@ -866,11 +895,16 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
         _main.RefreshBadges();
 
-        Selected = Files.Count == 0
-            ? null
-            : Files[Math.Min(index < 0 ? 0 : index, Files.Count - 1)];
+        Selected = visible.Count == 0
+            ? Files.FirstOrDefault()
+            : visible[Math.Min(index < 0 ? 0 : index, visible.Count - 1)];
 
         RelayCommand.RaiseCanExecuteChanged();
+
+        if (registered)
+        {
+            HideCoveredContentsAsync().Forget();
+        }
     }
 
     /// <summary>確定した分をまとめて編集へ送る。ID確定と入力を分ける設計の受け渡し口。</summary>

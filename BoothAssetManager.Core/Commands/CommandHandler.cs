@@ -356,6 +356,10 @@ public sealed class CommandHandler
                 await _items.ExcludeAsync(exclude.Hash, exclude.Paths, exclude.Reason, cancellationToken);
                 return new CommandResult.Done();
 
+            case UiCommand.UndoExclude undo:
+                await _items.UndoExcludeAsync(undo.Files, cancellationToken);
+                return new CommandResult.Done();
+
             case UiCommand.RemoveUnpackedFolders remove:
                 if (_unpackedRemover is null)
                 {

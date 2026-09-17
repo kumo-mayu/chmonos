@@ -16,12 +16,14 @@ public partial class ResolveView : UserControl
             if (_model is not null)
             {
                 _model.DecisionFocusRequested -= OnDecisionFocusRequested;
+                _model.PropertyChanged -= OnModelPropertyChanged;
             }
 
             _model = DataContext as ResolveViewModel;
             if (_model is not null)
             {
                 _model.DecisionFocusRequested += OnDecisionFocusRequested;
+                _model.PropertyChanged += OnModelPropertyChanged;
             }
         };
     }
@@ -46,6 +48,18 @@ public partial class ResolveView : UserControl
         {
             MainWindow.Handle(main, e.Data.GetData(DataFormats.FileDrop) as string[], MainWindow.ReadText(e.Data),
                 e.Data.GetDataPresent(DataFormats.Bitmap));
+        }
+    }
+
+    /// <summary>
+    /// 選んだ行まで一覧を送る。「元zipで登録」や確定の後に選ぶ行が画面の外だと、左で何を選んでいるか分からなかった（ユーザ判断 2026-09-17）。
+    /// 選択が変わった直後は検索を消した後の並べ直しが済んでいないことがあるので、描画の後に送る。
+    /// </summary>
+    private void OnModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ResolveViewModel.Selected) && _model?.Selected is { } selected)
+        {
+            Dispatcher.BeginInvoke(() => FilesList.ScrollIntoView(selected), System.Windows.Threading.DispatcherPriority.Loaded);
         }
     }
 

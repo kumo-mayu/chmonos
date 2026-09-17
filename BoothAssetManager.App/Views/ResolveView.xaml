@@ -39,8 +39,13 @@
                                Visibility="{Binding HasHiddenByRegisteredZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
-                <!-- 確定分はここで溜めて、まとめて編集へ渡す（ID確定と入力を分ける設計） -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- 外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった）。次に外すまで出す -->
+                <Button Content="{Binding UndoExcludeText}" Style="{StaticResource SmallButton}" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Command="{Binding UndoExcludeCommand}" ToolTip="直前に管理対象から外したファイルを、未確定に戻します。"
+                        Visibility="{Binding HasUndoExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!-- 確定分はここで溜めて、まとめて編集へ渡す（ID確定と入力を分ける設計）。画面を離れても残る -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                             Visibility="{Binding HasSettled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="{Binding SettledText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" Margin="0,0,10,0" />
@@ -50,6 +55,7 @@
                             ToolTip="最後に確定した商品のページを開きます。" />
                     <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}"
                             Command="{Binding SendSettledToEditCommand}" />
+                </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
@@ -82,6 +88,14 @@
             <TextBlock Text="未確定のファイルはありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
             <TextBlock Text="取り込みで手掛かりが得られなかったファイルがここに並びます。"
                        Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+            <!-- 次の一手（ユーザ判断 2026-09-17：空になったときに何をすればよいかが弱かった） -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
+                <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                        Command="{Binding SendSettledToEditCommand}"
+                        Visibility="{Binding HasSettled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Button Content="取り込みを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                        Command="{Binding OpenImportCommand}" />
+            </StackPanel>
         </StackPanel>
 
         <Grid>
@@ -144,7 +158,7 @@
                       </StackPanel>
                     </Border>
 
-                    <ListBox ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                    <ListBox x:Name="FilesList" ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                              BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -211,7 +225,7 @@
                                                                             Command="{Binding DataContext.TreatAsOriginZipCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
-                                                                            ToolTip="中身を管理対象から外し、元のzipを選びます（ファイル自体は消しません）"
+                                                                            ToolTip="元のzipを選びます。zipを登録すると、中身は一覧から消えます。"
                                                                             Visibility="{Binding Items[0].HasOriginZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
                                                                     <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
@@ -316,7 +330,7 @@
                                         <Button Content="元zipとして扱う" HorizontalAlignment="Left" Height="23" FontSize="10.5" Margin="0,4,0,0"
                                                 Command="{Binding DataContext.TreatAsOriginZipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                ToolTip="この中身を管理対象から外し、元のzipを選びます（ファイル自体は消しません）">
+                                                ToolTip="元のzipを選びます。zipを登録すると、中身は一覧から消えます。">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -362,7 +376,12 @@
                         <StackPanel>
                             <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" Margin="0,0,0,10" />
 
-                            <TextBlock Text="保存場所" Style="{StaticResource SectionLabel}" />
+                            <!-- 中身を見て判断したいときのために、場所を開ける（以前の動線の記録 C3） -->
+                            <Grid>
+                                <TextBlock Text="保存場所" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                                <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        Command="{Binding RevealCommand}" />
+                            </Grid>
                             <ItemsControl ItemsSource="{Binding SelectedPaths}" Margin="0,5,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -393,7 +412,7 @@
                                             Command="{Binding UseOriginZipCommand}"
                                             ToolTip="元のzipを選びます。そのまま商品IDを決めて登録できます。" />
                                     <!-- 元のzipが未確定にあっても、フォルダのままの登録はできる（ユーザ判断 2026-09-17） -->
-                                    <Button Content="フォルダのまま登録" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                    <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                             Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
                                             ToolTip="このzipの中身が入っているフォルダを、商品として登録します。先に「商品IDを決める」で商品IDを確認してから押します。" />
                                 </StackPanel>
@@ -438,7 +457,7 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
                                        Text="BOOTHからzipを落とし直すのがおすすめです（下の「候補」でどの商品か探せます）。落とし直せないときは、フォルダのまま登録するか外します。" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Content="このフォルダを商品として登録" Style="{StaticResource SmallButton}"
+                                <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}"
                                         Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
                                         ToolTip="先に「商品IDを決める」で商品IDを確認してから押します。場所で覚えるので、フォルダを動かすとつながりが切れます。" />
                                 <Button Content="このフォルダを管理対象から外す" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
@@ -458,6 +477,10 @@
                             <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
                             <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをこの画面に落とすと、その商品が下に出ます。確認してから確定してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+                            <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す。IDを入れる前（落とす前）から分かるよう欄の上に置く（ユーザ判断 2026-09-17） -->
+                            <TextBlock Text="{Binding BlockedByZipText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Warn}" Margin="0,0,0,10"
+                                       Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -499,10 +522,6 @@
                                        TextWrapping="Wrap" Margin="0,14,0,0"
                                        Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す -->
-                            <TextBlock Text="{Binding BlockedByZipText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       Foreground="{StaticResource Warn}" Margin="0,10,0,0"
-                                       Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
                                 <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding AssignCommand}" />
@@ -597,9 +616,14 @@
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Candidates.Count}" Value="0">
+                                            <!-- 探す前から「無い」と言わない（ユーザ指示 2026-09-17） -->
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding Candidates.Count}" Value="0" />
+                                                    <Condition Binding="{Binding HasSearched}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
                                                 <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>

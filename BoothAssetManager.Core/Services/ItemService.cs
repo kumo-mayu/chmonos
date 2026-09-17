@@ -132,6 +132,8 @@ public interface IItemService
     Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default);
 
     Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
+
+    Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default);
 }
 
 /// <summary>1件のitemに対する操作。UIに依存しないので、そのまま単体テストできる。</summary>
@@ -1322,6 +1324,37 @@ public sealed class ItemService : IItemService
             cancellationToken);
 
         await RemoveUnresolvedAsync(hash, cancellationToken);
+    }
+
+    /// <summary>
+    /// 未確定の画面で外した直後に戻す（ユーザ判断 2026-09-17：戻す場所が設定の「隠したもの」だけだった）。
+    /// 設定の「解除」は除外の記録を消すだけで、次の取り込みまで未確定に出ない。ここでは外す前の未確定の記録（候補・元zipの記録を含む）をそのまま戻す。
+    /// </summary>
+    public async Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
+    {
+        var hashes = files.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        await _store.Excluded.UpdateAsync(
+            excluded =>
+            {
+                excluded.RemoveAll(entry => hashes.Contains(entry.Hash));
+                return excluded;
+            },
+            cancellationToken);
+
+        await _store.Unresolved.UpdateAsync(
+            current =>
+            {
+                foreach (var file in files)
+                {
+                    if (!current.Any(entry => string.Equals(entry.Hash, file.Hash, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        current.Add(file);
+                    }
+                }
+
+                return current;
+            },
+            cancellationToken);
     }
 
     /// <summary>
