@@ -161,7 +161,7 @@ public partial class MainWindow : Window
     /// 置かれている形を順に見て、最初に読めたものを返す。
     /// 中身がURLか文章かはここでは判断しない（BOOTHのURLを探すのは Core の仕事）。
     /// </summary>
-    private static string? ReadText(IDataObject data)
+    internal static string? ReadText(IDataObject data)
     {
         foreach (var (format, isUnicode) in UrlFormats)
         {
@@ -223,7 +223,7 @@ public partial class MainWindow : Window
     /// 投げっぱなしにしないのは、**失敗すると何も起きないように見える**ため。
     /// 落としたのに無反応だと、受け付けていないのか壊れているのか分からない。
     /// </summary>
-    private static async void Handle(
+    internal static async void Handle(
         MainViewModel main,
         IReadOnlyList<string>? paths,
         string? text,

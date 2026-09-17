@@ -338,7 +338,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" AllowDrop="False" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox Grid.Column="0" PreviewDragOver="OnIdBoxPreviewDragOver" PreviewDrop="OnIdBoxPreviewDrop" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
                                          Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
                                 <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}" />
                             </Grid>
