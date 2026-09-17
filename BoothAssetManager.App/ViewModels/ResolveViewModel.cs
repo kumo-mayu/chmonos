@@ -748,7 +748,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 ? $"{settled.Count} 件を確定しました。"
                 : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗：{failure}）。";
             OnPropertyChanged(nameof(HasStatus));
-            HideCoveredContentsAsync().Forget();
+            HideCoveredContents(settled);
         }
         finally
         {
@@ -833,7 +833,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 ? $"{settled.Count} 件を登録しました。"
                 : $"{settled.Count} / {targets.Count} 件を登録しました（残りは失敗）。";
             OnPropertyChanged(nameof(HasStatus));
-            HideCoveredContentsAsync().Forget();
+            HideCoveredContents(settled);
         }
         finally
         {
@@ -897,6 +897,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         // 次に選ぶのは、検索で見えている行の中の次（隠れている行を選ぶと、左で何を選んでいるか分からない）
         var visible = FilesView.Cast<UnresolvedRow>().ToList();
         var index = Selected is null ? -1 : visible.IndexOf(Selected);
+        var settledRow = Selected;
         if (Selected is not null)
         {
             Files.Remove(Selected);
@@ -919,7 +920,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
         if (registered)
         {
-            HideCoveredContentsAsync().Forget();
+            HideCoveredContents(settledRow is null ? [] : [settledRow]);
         }
     }
 

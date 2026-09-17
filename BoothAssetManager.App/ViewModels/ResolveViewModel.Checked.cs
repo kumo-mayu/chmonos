@@ -265,7 +265,7 @@ public sealed partial class ResolveViewModel
             StatusText = settled.Count == targets.Count
                 ? $"{settled.Count} 件を確定しました。"
                 : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗）。";
-            HideCoveredContentsAsync().Forget();
+            HideCoveredContents(settled);
         }
         finally
         {

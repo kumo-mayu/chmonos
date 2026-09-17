@@ -27,11 +27,19 @@ public sealed partial class ResolveViewModel
     /// <summary>黙って減らさない（欠けや推定を隠さない）。</summary>
     public string HiddenByRegisteredZipText => $"登録済みのzipを展開したファイル {HiddenByRegisteredZipCount} 件は出していません";
 
-    /// <summary>商品が持っているファイルのパスを読む。画面のスレッドの外で呼ぶ。</summary>
+    /// <summary>
+    /// 商品が持っているファイルのパスを集める。主画面が読み込み済みの一覧を使い、まだ読み込んでいなければファイルから読む
+    /// （2000件で全商品を読むと約0.6秒。開くたびに整理の処理と合わせて2回読んでいた・2026-09-17 に測った）。
+    /// </summary>
     private async Task LoadOwnedPathsAsync()
     {
-        var loaded = await _services.Store.Items.LoadAllAsync();
-        _ownedPaths = loaded.Items
+        var items = _main.Search.SnapshotItems();
+        if (items.Count == 0)
+        {
+            items = (await _services.Store.Items.LoadAllAsync()).Items;
+        }
+
+        _ownedPaths = items
             .SelectMany(item => item.Local.OwnedFiles)
             .SelectMany(file => file.Paths)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -49,16 +57,12 @@ public sealed partial class ResolveViewModel
     /// zipを確定・登録した直後に、そのzipの中身を一覧から外す。開いたときにしか見ていなかったので、zipの行が消えた後に
     /// 残った中身が「zipが一覧に無い中身」として別の商品にも登録できてしまった（ユーザ判断 2026-09-17）。
     /// </summary>
-    private async Task HideCoveredContentsAsync()
+    /// <param name="registered">今登録した行。そのファイルの場所を登録済みに足すだけで、全商品は読み直さない（2000件で約0.6秒かかっていた）。</param>
+    private void HideCoveredContents(IEnumerable<UnresolvedRow> registered)
     {
-        try
+        foreach (var path in registered.SelectMany(row => row.File.Paths))
         {
-            await LoadOwnedPathsAsync();
-        }
-        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
-        {
-            Core.Diagnostics.AppLog.Error("未確定の画面：登録済みのzipの中身を外す", exception);
-            return;
+            _ownedPaths.Add(path);
         }
 
         var covered = Files.Where(row => IsCoveredByRegisteredZip(row.File, row.Origin)).ToList();
