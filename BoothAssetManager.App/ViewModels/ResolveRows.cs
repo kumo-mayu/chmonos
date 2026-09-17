@@ -66,7 +66,19 @@ public sealed class UnresolvedRow : ViewModelBase
     /// zipは配布された単位そのもので、中身はたいてい1商品。フォルダは展開の仕方次第で
     /// 1つのzipが何か所にも割れる（友人のデータで元zip 12 本のうち 6 本が複数のフォルダに割れていた）
     /// </summary>
-    public string GroupKey => Origin?.ArchiveName ?? DirectoryText;
+    public string GroupKey => IsOriginArchive
+        ? "zip|" + File.Paths[0]
+        : Origin?.ArchiveName ?? DirectoryText;
+
+    /// <summary>
+    /// このファイルが元のzipそのものか。**zip自身は束に入れない**——元zipの束の中にそのzipが入っていると、
+    /// 束が何をまとめているのか分かりにくかった（ユーザ指摘 2026-09-17）。zip自身は1件の束（畳まずに1行で出る）にし、
+    /// 並びでその直後に「そのzipを展開した中身」の束を置く。
+    /// 鍵の頭の「zip|」はパスに入らない文字で、中身の束の鍵（zipの名前）やフォルダの鍵とぶつからない。
+    /// </summary>
+    public bool IsOriginArchive => Origin is { } origin
+        && File.Paths.Count > 0
+        && string.Equals(origin.ArchivePath, File.Paths[0], StringComparison.OrdinalIgnoreCase);
 
     /// <summary>元zipの束は畳んでおく。基本はzip単位で扱い、1件ずつ見たいときだけ開く。</summary>
     public bool StartsExpanded => Origin is null;

@@ -145,7 +145,7 @@
                                                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
                                                                             VerticalAlignment="Center"
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="元zip" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                                        <TextBlock Text="zipの中身" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                                     </Border>
                                                                     <!-- 展開元のzipが無いフォルダ。畳んでいても分かるように見出しに出す -->
                                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
@@ -157,7 +157,7 @@
                                                                     <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
                                                                                Style="{StaticResource Mono}" FontSize="11"
                                                                                VerticalAlignment="Center" />
-                                                                    <Button Content="このzipを選ぶ" Style="{StaticResource SmallButton}"
+                                                                    <Button Content="まとめて扱う" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="8,0,0,0"
                                                                             Command="{Binding DataContext.SelectGroupCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -173,13 +173,33 @@
                                                                 </StackPanel>
                                                             </StackPanel>
                                                         </Expander.Header>
+                                                        <!-- 開いた中身は深く字下げし、左に線を引く。束と中身が同じ密度で並ぶと、どこを見ればよいか分からなかった（ユーザ指摘 2026-09-17） -->
                                                         <Border Background="{StaticResource Surface}">
-                                                            <ItemsPresenter />
+                                                            <Border Margin="22,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="2,0,0,0">
+                                                                <ItemsPresenter />
+                                                            </Border>
                                                         </Border>
                                                     </Expander>
                                                 </ControlTemplate>
                                             </Setter.Value>
                                         </Setter>
+                                        <!--
+                                            1件だけの束は畳まずに1行で出す。まとめる物が無いのに畳むと、全部が同じ見出しの並びになり、
+                                            何がまとまりなのか分からなかった（ユーザ指摘 2026-09-17）。まとめるのはフォルダ・zipを展開した中身で2件以上のときだけ
+                                        -->
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ItemCount}" Value="1">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="GroupItem">
+                                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+                                                                <ItemsPresenter />
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
                                     </Style>
                                 </GroupStyle.ContainerStyle>
                             </GroupStyle>

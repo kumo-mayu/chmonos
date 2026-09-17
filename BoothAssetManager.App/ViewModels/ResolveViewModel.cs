@@ -464,6 +464,9 @@ public sealed partial class ResolveViewModel : ViewModelBase
             .ThenBy(entry => entry.Origin?.ArchiveName
                 ?? (entry.File.Paths.Count > 0 ? Path.GetDirectoryName(entry.File.Paths[0]) : string.Empty),
                 StringComparer.OrdinalIgnoreCase)
+            // zip自身を、そのzipを展開した中身の束より先に置く（束はこの並びの順に出る）
+            .ThenBy(entry => entry.Origin is { } origin && entry.File.Paths.Count > 0
+                && string.Equals(origin.ArchivePath, entry.File.Paths[0], StringComparison.OrdinalIgnoreCase) ? 0 : 1)
             .ThenByDescending(entry => entry.File.SizeBytes)
             .ToList();
 

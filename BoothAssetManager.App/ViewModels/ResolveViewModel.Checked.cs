@@ -79,7 +79,7 @@ public sealed partial class ResolveViewModel
 
     public string ActiveGroupText => ActiveGroup is null
         ? string.Empty
-        : $"元zip「{ActiveGroup}」の {ActiveRows.Count} 件をまとめて扱っています";
+        : $"元zip「{ActiveGroup}」を展開した中身 {ActiveRows.Count} 件をまとめて扱っています";
 
     /// <summary>確定・管理から外すの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
     private IReadOnlyList<UnresolvedRow> ActiveRows => ActiveGroup is { } key
