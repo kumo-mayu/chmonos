@@ -260,7 +260,32 @@
                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                               VerticalAlignment="Top" Margin="0,2,8,0" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                        <!--
+                                            1行目：ファイル名と大きさ／2行目：札／（展開元）／3行目：ボタン（ユーザ指示 2026-09-17）。
+                                            大きさは最長でも「1023.9 MB」で幅が小さいので名前の右に置く。札まで横に並べると、真ん中くらいの長さの名前でも切れる
+                                        -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
+                                                       Margin="8,0,4,0" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <WrapPanel Margin="0,4,0,0">
+                                            <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない） -->
+                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0">
+                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
+                                            </Border>
+                                            <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
+                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource BorderStrong}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                                    Visibility="{Binding IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="展開" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                            </Border>
+                                        </WrapPanel>
                                         <!--
                                             zipを展開した中身が束にならず1行で出るとき（そのzipの中身が1件だけ）、どのzipの中身かが一覧で分からない。
                                             束の中では見出しに出ているので出さない（ユーザ判断 2026-09-17）
@@ -302,19 +327,6 @@
                                                 </Style>
                                             </Button.Style>
                                         </Button>
-                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                            <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
-                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0">
-                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
-                                            </Border>
-                                            <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
-                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource BorderStrong}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="5,0,0,0"
-                                                    Visibility="{Binding IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="展開物の中身" FontSize="10" Foreground="{StaticResource TextMuted}" />
-                                            </Border>
-                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>

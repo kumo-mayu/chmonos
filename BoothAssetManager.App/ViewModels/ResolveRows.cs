@@ -91,12 +91,11 @@ public sealed class UnresolvedRow : ViewModelBase
 
     public bool HasCandidates => CandidateCount > 0;
 
-    public string CandidateText => CandidateCount switch
-    {
-        0 => "手掛かりなし",
-        1 => "候補 1 件",
-        _ => $"候補 {CandidateCount} 件（曖昧）",
-    };
+    /// <summary>
+    /// 一覧の札。取り込んだときに手掛かりから見つかった商品IDの数で、右の「自動検索」の候補は数えない。
+    /// 0件も同じ形で出す（前は「手掛かりなし」「候補 n 件（曖昧）」と言い方が分かれていて、何の数か読めなかった・ユーザ指示 2026-09-17）。
+    /// </summary>
+    public string CandidateText => $"自動候補:{CandidateCount}件";
 }
 
 /// <summary>提示する候補1件。どこから来た候補なのかを添える。</summary>
