@@ -13,25 +13,6 @@ public sealed partial class AvatarsViewModel
 
     // ---- 共通素体 ----
 
-    /// <summary>
-    /// 一覧から選んだ素体。選んだらそのまま入れる（ユーザ判断 2026-09-17：基本は1つの素体にしか入らないので「この素体に入れる」ボタンは要らない）。
-    /// </summary>
-    public string? BaseSelection
-    {
-        get => Selected?.Summary.Entry.BaseName;
-        set
-        {
-            if (Selected is null || string.IsNullOrWhiteSpace(value)
-                || string.Equals(value, Selected.Summary.Entry.BaseName, StringComparison.CurrentCultureIgnoreCase))
-            {
-                return;
-            }
-
-            BaseInput = value;
-            SetBaseAsync().Forget();
-        }
-    }
-
     /// <summary>まだ無い名前を打ったときだけ、Enter で新しい素体を作ることを言う（黙ってグループを増やさない）。</summary>
     public string NewBaseHint
     {

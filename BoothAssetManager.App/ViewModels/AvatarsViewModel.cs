@@ -565,8 +565,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     public string NameInput
     {
         get => _nameInput;
-        set => SetField(ref _nameInput, value);
+        set
+        {
+            if (SetField(ref _nameInput, value))
+            {
+                OnPropertyChanged(nameof(HasNameChange));
+            }
+        }
     }
+
+    /// <summary>
+    /// 名前の欄を今の名前から変えたか。「名前を保存」はそのときだけ出す（ユーザ指示 2026-09-17：メモは押さずに残るのに、
+    /// 名前だけ保存のボタンが常に出ていて揃っていなかった）。名前は一覧の並びと見出しを変えるので、打っている途中では書かない
+    /// </summary>
+    public bool HasNameChange => Selected is not null && NameInput.Trim().Length > 0 && NameInput.Trim() != Selected.Name;
 
     private string _memoInput = string.Empty;
 
@@ -636,7 +648,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
                     nameof(IsOverrideAuto), nameof(IsForcedAvatar), nameof(IsForcedNotAvatar),
                     nameof(HasBaseInput), nameof(ShowsAvatarDetail),
                     nameof(IsOwnedByFile), nameof(ShowsOwnedToggle), nameof(RejectedAliases), nameof(HasRejectedAliases),
-                    nameof(AliasesTitle), nameof(JudgementText), nameof(NewBaseHint), nameof(HasNewBaseHint), nameof(BaseSelection),
+                    nameof(AliasesTitle), nameof(JudgementText), nameof(NewBaseHint), nameof(HasNewBaseHint), nameof(HasNameChange),
                 })
                 {
                     OnPropertyChanged(name);

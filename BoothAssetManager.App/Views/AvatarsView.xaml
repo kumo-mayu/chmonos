@@ -125,13 +125,20 @@
                             結ぶと素体のページへ行けるようになり、所有の判定にも使える。
                         -->
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <TextBox Width="230" Padding="7,4" VerticalAlignment="Center"
-                                     Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
+                            <!-- 空のままだと何を入れる欄か分からないので、内側に案内を出す（ユーザ指示 2026-09-17） -->
+                            <Grid Width="230" VerticalAlignment="Center">
+                                <TextBox Padding="7,4"
+                                         Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
+                                <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" IsHitTestVisible="False"
+                                           VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                           Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                            </Grid>
                             <Button Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
                         </StackPanel>
-                        <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}"
+                        <!-- 説明が無く何のことか分からず、実例も無いので隠す（ユーザ判断 2026-09-17）。仕組み（inferClothing）は残す -->
+                        <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}" Visibility="Collapsed"
                                   Command="{Binding ToggleInferCommand}" Margin="0,12,0,0"
                                   Foreground="{StaticResource Text}"
                                   ToolTip="同じ素体でも衣装が合わない組だけ外してください。外すと、この組の他のアバター向けの衣装が素体経由として出なくなります。" />
@@ -360,9 +367,15 @@
                                             <TextBox Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="520"
                                                      Padding="6,3" BorderThickness="0" Background="Transparent"
-                                                     VerticalAlignment="Center" />
+                                                     VerticalAlignment="Center">
+                                                <TextBox.InputBindings>
+                                                    <KeyBinding Key="Enter" Command="{Binding RenameCommand}" />
+                                                </TextBox.InputBindings>
+                                            </TextBox>
+                                            <!-- 名前を変えたときだけ出す（ユーザ指示 2026-09-17）。Enter でも保存する -->
                                             <Button Content="名前を保存" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                                    VerticalAlignment="Center" Command="{Binding RenameCommand}" />
+                                                    VerticalAlignment="Center" Command="{Binding RenameCommand}"
+                                                    Visibility="{Binding HasNameChange, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <!-- 付けた名前を消す操作は、欄を空にする形では分からないのでボタンで名乗る（ユーザ指示） -->
                                             <Button Content="BOOTHの名前に戻す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding ResetNameCommand}"
@@ -460,18 +473,15 @@
 
                                 <!--
                                     共通素体（U19）。説明は置かない（ユーザ判断 2026-09-17：使う人は分かっている）。
-                                    基本は1つの素体にしか入らないので、一覧から選べばそのまま入る。まだ無い名前は Enter で作る。外すボタンだけ残す
+                                    基本は1つの素体にしか入らないので、一覧をマウスで押せばそのまま入る。矢印キーで候補を見ているだけでは入れず、Enter で入れる
+                                    （ユーザ指示 2026-09-17：勝手に入らないように）。まだ無い名前も Enter で作る。外すボタンだけ残す
                                 -->
                                 <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
                                 <StackPanel Orientation="Horizontal">
                                     <Grid Width="240">
-                                        <ComboBox IsEditable="True" ItemsSource="{Binding BaseNames}"
+                                        <ComboBox x:Name="BaseCombo" IsEditable="True" ItemsSource="{Binding BaseNames}"
                                                   Text="{Binding BaseInput, UpdateSourceTrigger=PropertyChanged}"
-                                                  SelectedItem="{Binding BaseSelection, Mode=TwoWay}"
-                                                  ToolTip="既にある素体から選ぶとそのまま入ります。新しい名前は打って Enter。">
-                                            <ComboBox.InputBindings>
-                                                <KeyBinding Key="Enter" Command="{Binding SetBaseCommand}" />
-                                            </ComboBox.InputBindings>
+                                                  ToolTip="一覧から押すとそのまま入ります。キーで選んだときと新しい名前は Enter で入ります。">
                                         </ComboBox>
                                         <TextBlock Text="素体を選ぶか、名前を打って Enter" Style="{StaticResource Caption}"
                                                    Margin="8,0,24,0" VerticalAlignment="Center" IsHitTestVisible="False"
@@ -571,9 +581,15 @@
                                 <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
 
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBox Width="240" Height="26" Padding="7,0" VerticalContentAlignment="Center"
-                                             Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="「普段着」「制服」のように、着せ替えごとに名前を付けます。" />
+                                    <!-- 空のままだと何を入れる欄か分からないので、内側に案内を出す（ユーザ指示 2026-09-17） -->
+                                    <Grid Width="240">
+                                        <TextBox Height="26" Padding="7,0" VerticalContentAlignment="Center"
+                                                 Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="「普段着」「制服」のように、着せ替えごとに名前を付けます。" />
+                                        <TextBlock Text="新しい改変の名前（例：普段着）" Margin="10,0,0,0" IsHitTestVisible="False"
+                                                   VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                                   Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                    </Grid>
                                     <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding CreateModificationCommand}" />
                                 </StackPanel>
