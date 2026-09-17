@@ -432,3 +432,80 @@ public sealed class HubItemDetail : ViewModelBase
     /// <summary>この商品を使ったほかの改変も含めた一覧。</summary>
     public required IReadOnlyList<HubModificationRow> UsedIn { get; init; }
 }
+
+/// <summary>
+/// 改変1件の行（使ったものの行を含む）を作る。改変の画面とアバターの管理の「このアバターの改変」で同じ形を使う
+/// （ユーザ指示 2026-09-17：アバターの管理の改変を、改変の画面のアバターの項目と同じくアイコン・名前・Unityプロジェクト・畳んだ中身にする）。
+/// </summary>
+internal sealed class ModificationRowBuilder(
+    AppServiceContainer services,
+    ThumbnailLoader thumbnails,
+    IReadOnlyDictionary<string, ItemRecord> items)
+{
+    /// <param name="key">畳んだ・開いたを覚える鍵（画面ごとに分ける）。</param>
+    public HubModificationRow Build(ModificationRecord record, string key, bool openByDefault, string avatarName, bool showsAvatar, bool showsProject)
+        => new(key, openByDefault, forceOpen: false)
+        {
+            Record = record,
+            AvatarName = avatarName,
+            ShowsAvatar = showsAvatar,
+            ShowsProject = showsProject,
+            Members = record.Members.Select((member, index) => Member(record, member, index)).ToList(),
+            IconPath = ModificationIconPath(record),
+            Thumbnails = thumbnails,
+        };
+
+    public HubMemberRow Member(ModificationRecord record, ModificationMember member, int index)
+    {
+        items.TryGetValue(member.ItemId, out var item);
+        return new HubMemberRow
+        {
+            Record = record,
+            Index = index,
+            Member = member,
+            Name = item?.DisplayName ?? member.ItemId,
+            FileText = FileTextOf(member),
+
+            // 手元に無くても記録は残す。そのとき使ったのは事実
+            IsMissing = item is null || !item.IsDownloaded,
+            ThumbnailPath = item is null ? null : ItemThumbnailPath(item),
+            Thumbnails = thumbnails,
+        };
+    }
+
+    /// <summary>
+    /// どのファイルか。**空欄の意味を言い分ける**（改変の画面と同じ）。Unityへ送って足した分は unitypackage の名前、
+    /// 手で足した分は分からないと言う。
+    /// </summary>
+    public static string FileTextOf(ModificationMember member) => member.Package is { } package
+        ? Path.GetFileName(package)
+        : member.IsFromUnity ? "Unityへ送った記録あり" : "どのファイルを使ったかは分かりません";
+
+    public string? AvatarIconPath(string id)
+        => AvatarImageSync.IconPath(services.Paths, id, items.GetValueOrDefault(id));
+
+    /// <summary>頭の絵。改変に貼った写真の1枚目、無ければアバターの絵。</summary>
+    public string? ModificationIconPath(ModificationRecord record)
+    {
+        if (record.Images.Count > 0)
+        {
+            var path = Path.Combine(services.Paths.ModificationImagesDir(record.Id), record.Images[0].FileName);
+            if (File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        return AvatarIconPath(record.AvatarItemId);
+    }
+
+    /// <summary>商品の1枚目。検索のカードと同じ選び方（BOOTHの並び・★・役割の指定）。</summary>
+    public string? ItemThumbnailPath(ItemRecord item)
+    {
+        var directory = services.Paths.ItemImagesDir(item.Id);
+        var ordered = Core.Images.ItemImageOrder.Arrange(
+            directory, item.Booth.Images, thumbnails.ListFiles(directory), item.Local.UserImages);
+        return Core.Images.ItemImageOrder.Thumbnail(
+            ordered, item.Local.ThumbnailImage, services.Settings.ThumbnailRole, item.Local.ImageRoles);
+    }
+}

@@ -10,27 +10,6 @@ namespace BoothAssetManager.App.ViewModels;
 ///
 /// **同じ名前を許してあるので、日付が見分けの手掛かり**（`docs/history/modifications.md` Q27）。
 /// </summary>
-public sealed class ModificationRowViewModel(ModificationRecord record)
-{
-    public ModificationRecord Record { get; } = record;
-
-    public string Name { get; } = record.Name;
-
-    public string CreatedText { get; } = record.CreatedAt.ToString("yyyy-MM-dd");
-
-    /// <summary>使ったものの件数。0件でも「まだ足していない」と分かるように出す。</summary>
-    public string MemberText { get; } = record.Members.Count == 0
-        ? "まだ足していません"
-        : $"{record.Members.Count} 件";
-
-    public bool HasUnityProject { get; } = record.HasUnityProject;
-
-    /// <summary>紐付けたプロジェクトのフォルダ名。フルパスは詳細で出す。</summary>
-    public string ProjectText { get; } = record.UnityProject is { } path
-        ? System.IO.Path.GetFileName(path.TrimEnd('\\', '/'))
-        : string.Empty;
-}
-
 /// <summary>一覧の1行。</summary>
 public sealed class AvatarRowViewModel : ViewModelBase
 {
@@ -159,7 +138,7 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 /// 素体でグループ化した一覧にすると「素体の指定なし」に大半が落ちて読めなくなる
 /// （実データでは独自素体が大半）。素体の管理は別の欄に分ける。
 /// </summary>
-public sealed class AvatarsViewModel : ViewModelBase
+public sealed partial class AvatarsViewModel : ViewModelBase
 {
     /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
     private const int MaxNameSuggestions = 5;
@@ -212,19 +191,24 @@ public sealed class AvatarsViewModel : ViewModelBase
         CreateModificationCommand = new RelayCommand(
             () => CreateModificationAsync().Forget(),
             () => Selected is not null && ModificationNameInput.Trim().Length > 0);
+        // 改変の行（絵・名前）と使ったものの行は、どれも改変に入るだけ。ここには右のビューが無い（ユーザ判断 2026-09-17）
         OpenModificationCommand = new RelayCommand(
             parameter =>
             {
-                if (parameter is ModificationRowViewModel row)
+                var record = parameter switch
+                {
+                    HubModificationRow row => row.Record,
+                    HubMemberRow member => member.Record,
+                    _ => null,
+                };
+                if (record is not null)
                 {
                     // 戻り先をアバターの管理にしておく。改変からは必ずここへ帰る
-                    _main.ShowModification(row.Record);
+                    _main.ShowModification(record);
                 }
             },
-            parameter => parameter is ModificationRowViewModel);
-        DeleteModificationCommand = new RelayCommand(
-            parameter => DeleteModificationAsync(parameter as ModificationRowViewModel).Forget(),
-            parameter => parameter is ModificationRowViewModel);
+            parameter => parameter is HubModificationRow or HubMemberRow);
+        RestoreAliasCommand = new RelayCommand(parameter => RestoreAliasAsync(parameter as string).Forget(), parameter => parameter is string);
 
         // 既定のビューに見出しを付ける。ListBoxはこのビューを通して並べる
         System.Windows.Data.CollectionViewSource.GetDefaultView(Rows).GroupDescriptions.Add(
@@ -301,7 +285,7 @@ public sealed class AvatarsViewModel : ViewModelBase
     // ---- 改変の記録 ----
 
     /// <summary>選んでいるアバターの改変。新しく作った順。</summary>
-    public ObservableCollection<ModificationRowViewModel> Modifications { get; } = [];
+    public ObservableCollection<HubModificationRow> Modifications { get; } = [];
 
     public bool HasModifications => Modifications.Count > 0;
 
@@ -310,7 +294,7 @@ public sealed class AvatarsViewModel : ViewModelBase
     /// <summary>改変の詳細を開く。商品ページと同じ格の画面へ差し替える</summary>
     public RelayCommand OpenModificationCommand { get; }
 
-    public RelayCommand DeleteModificationCommand { get; }
+    public RelayCommand RestoreAliasCommand { get; }
 
     private string _modificationNameInput = string.Empty;
 
@@ -342,9 +326,13 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         if (Selected is { } row)
         {
+            // 改変の画面のアバターの項目と同じ行（絵・名前・Unityプロジェクト・畳んだ使ったもの）。絵の読み込みに商品が要る
+            var items = _main.Search.SnapshotItems().ToDictionary(item => item.Id, StringComparer.Ordinal);
+            var builder = new ModificationRowBuilder(_services, _main.Thumbnails, items);
             foreach (var record in await _services.Modifications.LoadForAvatarAsync(row.ItemId))
             {
-                Modifications.Add(new ModificationRowViewModel(record));
+                Modifications.Add(builder.Build(record, $"avatars:mod:{record.Id}", openByDefault: false,
+                    row.Name, showsAvatar: false, showsProject: true));
             }
         }
 
@@ -390,34 +378,6 @@ public sealed class AvatarsViewModel : ViewModelBase
 
         ModificationNameInput = string.Empty;
         Status = $"改変「{name}」を作りました。";
-        await LoadModificationsAsync();
-    }
-
-    private async Task DeleteModificationAsync(ModificationRowViewModel? row)
-    {
-        if (row is null)
-        {
-            return;
-        }
-
-        // **取り返しがつかないので、何が消えるかを数で書く**
-        var images = row.Record.Images.Count;
-        var answer = System.Windows.MessageBox.Show(
-            $"改変「{row.Name}」を消します。\n\n"
-            + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
-            + "元には戻せません。使った商品そのものは消えません。",
-            "改変を消す",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
-            System.Windows.MessageBoxResult.Cancel);
-
-        if (answer != System.Windows.MessageBoxResult.OK)
-        {
-            return;
-        }
-
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteModification(row.Record.Id));
-        Status = result is CommandResult.Failed failed ? failed.Message : $"改変「{row.Name}」を消しました。";
         await LoadModificationsAsync();
     }
 
@@ -581,7 +541,8 @@ public sealed class AvatarsViewModel : ViewModelBase
             if (SetField(ref _baseInput, value))
             {
                 // 打った名前が既にある素体かどうかで、ボタンの文字と置き文字が変わる（U19）
-                OnPropertyChanged(nameof(SetBaseButtonText));
+                OnPropertyChanged(nameof(NewBaseHint));
+                OnPropertyChanged(nameof(HasNewBaseHint));
                 OnPropertyChanged(nameof(HasBaseInput));
             }
         }
@@ -635,8 +596,10 @@ public sealed class AvatarsViewModel : ViewModelBase
                     nameof(NeedsName), nameof(NameSuggestions), nameof(HasNameSuggestions),
                     nameof(ReferencedByText), nameof(HasReferencedBy),
                     nameof(HasModifications),
-                    nameof(IsOverrideAuto), nameof(IsForcedAvatar), nameof(IsForcedNotAvatar), nameof(AutoJudgementText),
-                    nameof(SetBaseButtonText), nameof(HasBaseInput), nameof(ShowsAvatarDetail),
+                    nameof(IsOverrideAuto), nameof(IsForcedAvatar), nameof(IsForcedNotAvatar),
+                    nameof(HasBaseInput), nameof(ShowsAvatarDetail),
+                    nameof(IsOwnedByFile), nameof(ShowsOwnedToggle), nameof(RejectedAliases), nameof(HasRejectedAliases),
+                    nameof(AliasesTitle), nameof(JudgementText), nameof(NewBaseHint), nameof(HasNewBaseHint), nameof(BaseSelection),
                 })
                 {
                     OnPropertyChanged(name);
@@ -748,7 +711,12 @@ public sealed class AvatarsViewModel : ViewModelBase
         ? string.Empty
         : $"直接対応 {Selected.Summary.DirectCount} 件 / 素体経由 {Selected.Summary.ViaBaseCount} 件";
 
-    public string SelectedOwnedText => Selected?.Summary.IsOwned == true ? "所有している" : "所有していない";
+    /// <summary>所有の表示。取り込んだファイルで所有しているときは固定（ユーザ判断 2026-09-17）、していないときだけ手動で切り替えられる。</summary>
+    public string SelectedOwnedText => Selected is null
+        ? string.Empty
+        : IsOwnedByFile ? "所有している（取り込んだファイルがあります）"
+        : Selected.Summary.Entry.IsOwnedManually ? "所有している（手動で指定）"
+        : "所有していない";
 
     public string OwnedButtonText => Selected?.Summary.Entry.IsOwnedManually == true
         ? "手動の所有指定を外す"
@@ -785,39 +753,9 @@ public sealed class AvatarsViewModel : ViewModelBase
 
     public bool IsForcedNotAvatar => Selected?.Summary.Entry.AvatarOverride == false;
 
-    /// <summary>「自動」を選んだときに何になるかを書く。上書きを外した判定なので、上書き中でも先が読める。</summary>
-    public string AutoJudgementText
-    {
-        get
-        {
-            if (Selected is null)
-            {
-                return "自動";
-            }
-
-            var automatic = Core.Services.AvatarService.IsAvatar(Selected.Summary.Entry with { AvatarOverride = null });
-            return automatic ? "自動（今の判定：アバター）" : "自動（今の判定：アバターではない）";
-        }
-    }
-
     // ── 共通素体の欄（U19）──
 
     public bool HasBaseInput => BaseInput.Trim().Length > 0;
-
-    /// <summary>
-    /// 素体の欄のボタン。まだ無い名前を打ったときは、グループが1つ増えることをボタンの文字で言う
-    /// （以前の「設定」は何をするか読めず、新しい名前だと黙ってグループが増えていた）。
-    /// </summary>
-    public string SetBaseButtonText
-    {
-        get
-        {
-            var typed = BaseInput.Trim();
-            return typed.Length == 0 || BaseNames.Any(name => string.Equals(name, typed, StringComparison.CurrentCultureIgnoreCase))
-                ? "この素体に入れる"
-                : $"新しい素体『{typed}』を作って入れる";
-        }
-    }
 
     /// <summary>素体を指定したときに何が起きるかをその場に書く。推定が広がる操作なので。</summary>
     public string SelectedBaseNote

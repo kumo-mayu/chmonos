@@ -142,43 +142,14 @@ public sealed partial class ModificationHubViewModel
     /// 改変の行。プロジェクト・アバターの見方の中では畳んで出す（見出しの下が長くなりすぎないように）。
     /// 改変の見方では改変そのものが見出しなので開いて出す。
     /// </summary>
+    private ModificationRowBuilder Rows => new(_services, _thumbnails, _items);
+
     private HubModificationRow ModRow(ModificationRecord record, ModificationHubLevel level, bool forceOpen)
-        => new($"mod:{level}:{record.Id}", openByDefault: level == ModificationHubLevel.Modification, forceOpen: false)
-        {
-            Record = record,
-            AvatarName = AvatarNameOf(record.AvatarItemId),
-            ShowsAvatar = level != ModificationHubLevel.Avatar,
-            ShowsProject = level != ModificationHubLevel.Project,
-            Members = record.Members.Select((member, index) => MemberRow(record, member, index)).ToList(),
-            IconPath = ModificationIconPath(record),
-            Thumbnails = _thumbnails,
-        };
+        => Rows.Build(record, $"mod:{level}:{record.Id}", openByDefault: level == ModificationHubLevel.Modification,
+            AvatarNameOf(record.AvatarItemId), showsAvatar: level != ModificationHubLevel.Avatar, showsProject: level != ModificationHubLevel.Project);
 
     private HubMemberRow MemberRow(ModificationRecord record, ModificationMember member, int index)
-    {
-        _items.TryGetValue(member.ItemId, out var item);
-        return new HubMemberRow
-        {
-            Record = record,
-            Index = index,
-            Member = member,
-            Name = item?.DisplayName ?? member.ItemId,
-            FileText = FileTextOf(member),
-
-            // 手元に無くても記録は残す。そのとき使ったのは事実
-            IsMissing = item is null || !item.IsDownloaded,
-            ThumbnailPath = item is null ? null : ItemThumbnailPath(item),
-            Thumbnails = _thumbnails,
-        };
-    }
-
-    /// <summary>
-    /// どのファイルか。**空欄の意味を言い分ける**（改変の画面と同じ）。Unityへ送って足した分は unitypackage の名前、
-    /// 手で足した分は分からないと言う。
-    /// </summary>
-    private static string FileTextOf(ModificationMember member) => member.Package is { } package
-        ? Path.GetFileName(package)
-        : member.IsFromUnity ? "Unityへ送った記録あり" : "どのファイルを使ったかは分かりません";
+        => Rows.Member(record, member, index);
 
     private IReadOnlyList<ModificationRecord> RecordsOf(string projectPath) => _records
         .Where(record => ModificationService.SamePath(record.UnityProject, projectPath))
@@ -220,30 +191,5 @@ public sealed partial class ModificationHubViewModel
         ? string.Empty
         : Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
 
-    private string? AvatarIconPath(string id)
-        => AvatarImageSync.IconPath(_services.Paths, id, _items.GetValueOrDefault(id));
-
-    private string? ModificationIconPath(ModificationRecord record)
-    {
-        if (record.Images.Count > 0)
-        {
-            var path = Path.Combine(_services.Paths.ModificationImagesDir(record.Id), record.Images[0].FileName);
-            if (File.Exists(path))
-            {
-                return path;
-            }
-        }
-
-        return AvatarIconPath(record.AvatarItemId);
-    }
-
-    /// <summary>商品の1枚目。検索のカードと同じ選び方（BOOTHの並び・★・役割の指定）。</summary>
-    private string? ItemThumbnailPath(ItemRecord item)
-    {
-        var directory = _services.Paths.ItemImagesDir(item.Id);
-        var ordered = Core.Images.ItemImageOrder.Arrange(
-            directory, item.Booth.Images, _thumbnails.ListFiles(directory), item.Local.UserImages);
-        return Core.Images.ItemImageOrder.Thumbnail(
-            ordered, item.Local.ThumbnailImage, _services.Settings.ThumbnailRole, item.Local.ImageRoles);
-    }
+    private string? AvatarIconPath(string id) => Rows.AvatarIconPath(id);
 }

@@ -42,6 +42,53 @@
         </DataTemplate>
 
         <!-- 見る物の切り替えボタン（U16）。今見ている方を太字と色で示す -->
+        <!-- 改変の行の見た目は改変の画面と同じ（ユーザ指示 2026-09-17：アバターの管理の改変を改変の画面のアバターの項目に揃える） -->
+        <!--
+            文字だけのボタン。暗黙の Button スタイルは中央揃えと枠を持っていて上書きが効かないので、型ごと差し替える
+        -->
+        <Style x:Key="HubLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 畳む印。中身の無い行では印が空になる（ExpandGlyph） -->
+        <Style x:Key="HubToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <!--
+                            三角は文字（▸▾）ではなく図形で描く。文字は小さく描かれる字形で、字を 11 → 14 に上げても見た目がほとんど変わらなかった
+                            （ユーザ指摘 2026-09-13「折り畳みの三角が少し小さいかも」）。幅18の枠の真ん中に置くのは同じ（縦線を三角の真下に下ろしている）
+                        -->
+                        <Border Background="Transparent">
+                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                                  Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Visibility="{Binding HasGlyph, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L9,0 L4.5,6 Z" />
+                                <Setter TargetName="Mark" Property="Width" Value="9" />
+                                <Setter TargetName="Mark" Property="Height" Value="6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ModeButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
             <Setter Property="Padding" Value="12,4" />
         </Style>
@@ -373,9 +420,13 @@
                                                VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding SelectedOwnedText}" Style="{StaticResource Caption}" Margin="18,0,0,0"
                                                VerticalAlignment="Center" />
-                                    <!-- 所有の切り替えは、所有の表示の横（U17）。以前は下の「扱いの指定」に混ざっていた -->
+                                    <!--
+                                        所有の切り替えは、取り込んだファイルで持っていないときだけ（ユーザ判断 2026-09-17：持っていれば「所有している」で固定）。
+                                        本体を取り込んでいないアバターや、BOOTH外で入手したものを所有として扱うための逃げ道
+                                    -->
                                     <Button Content="{Binding OwnedButtonText}" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                             Command="{Binding ToggleOwnedCommand}"
+                                            Visibility="{Binding ShowsOwnedToggle, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                             ToolTip="本体を取り込んでいないアバターや、BOOTH外で入手したものを所有として扱えます。" />
                                 </StackPanel>
 
@@ -384,67 +435,104 @@
                                            TextWrapping="Wrap" />
 
                                 <!--
-                                    共通素体（U19・ユーザ判断）。以前は見出しと「設定」「外す」だけで、何を入れる欄か・
-                                    入れると何が起きるかが欄のそばに無かった（説明はツールチップと下の別の枠にだけあった）
+                                    共通素体（U19）。説明は置かない（ユーザ判断 2026-09-17：使う人は分かっている）。
+                                    基本は1つの素体にしか入らないので、一覧から選べばそのまま入る。まだ無い名前は Enter で作る。外すボタンだけ残す
                                 -->
-                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
-                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620"
-                                           HorizontalAlignment="Left"
-                                           Text="このアバターが他のアバターと同じ体（素体）を使っているとき、その素体の名前を選びます。選ぶと、同じ素体の他のアバター向けの衣装も『素体経由』として対応に出ます。" />
+                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
                                 <StackPanel Orientation="Horizontal">
                                     <Grid Width="240">
                                         <ComboBox IsEditable="True" ItemsSource="{Binding BaseNames}"
                                                   Text="{Binding BaseInput, UpdateSourceTrigger=PropertyChanged}"
-                                                  ToolTip="既にある素体から選ぶか、新しい名前を入れてください。" />
-                                        <TextBlock Text="例：〇〇素体（無ければ空のまま）" Style="{StaticResource Caption}"
+                                                  SelectedItem="{Binding BaseSelection, Mode=TwoWay}"
+                                                  ToolTip="既にある素体から選ぶとそのまま入ります。新しい名前は打って Enter。">
+                                            <ComboBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding SetBaseCommand}" />
+                                            </ComboBox.InputBindings>
+                                        </ComboBox>
+                                        <TextBlock Text="素体を選ぶか、名前を打って Enter" Style="{StaticResource Caption}"
                                                    Margin="8,0,24,0" VerticalAlignment="Center" IsHitTestVisible="False"
                                                    Visibility="{Binding HasBaseInput, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                     </Grid>
-                                    <Button Content="{Binding SetBaseButtonText}" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                            Command="{Binding SetBaseCommand}" />
-                                    <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                    <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
                                 </StackPanel>
+                                <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
+                                           Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
                                            Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#28507f"
                                            Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                <!-- 呼ばれ方の履歴 -->
-                                <TextBlock Text="呼ばれ方の履歴" Style="{StaticResource SectionLabel}" Margin="0,20,0,4" />
-                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                           Text="タグや種類の名前との照合に使う表記です。括弧内は最後の検出で見かけた商品数。" />
-                                <ItemsControl ItemsSource="{Binding Aliases}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                    BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
-                                                    <Button Content="×" Margin="7,0,0,0" Padding="2,0" FontSize="11"
-                                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                            Foreground="{StaticResource TextMuted}"
-                                                            Command="{Binding DataContext.RemoveAliasCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}"
-                                                            ToolTip="この表記を消します。誤って覚えた名前を落とすときに使います。" />
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBox Width="200" Padding="7,5"
-                                             Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="検出が拾えなかった表記を足せます。" />
-                                    <Button Content="表記を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                            Command="{Binding AddAliasCommand}" />
-                                </StackPanel>
+                                <!--
+                                    呼ばれ方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
+                                    消した表記は、商品の対応アバターと同じく末尾に出して1件ずつ戻せるようにする
+                                -->
+                                <Expander Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}">
+                                    <Expander.Header>
+                                        <TextBlock Text="{Binding AliasesTitle}" Style="{StaticResource SectionLabel}" />
+                                    </Expander.Header>
+                                    <StackPanel Margin="0,6,0,0">
+                                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620" HorizontalAlignment="Left"
+                                                   Text="タグや種類の名前と照らし合わせて、対応アバターを見つけるのに使います。明らかに間違っている物以外は、消さなくてかまいません。括弧内は最後の検出で見かけた商品数です。" />
+                                    <ItemsControl ItemsSource="{Binding Aliases}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                        BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
+                                                        <Button Content="×" Margin="7,0,0,0" Padding="2,0" FontSize="11"
+                                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                                Foreground="{StaticResource TextMuted}"
+                                                                Command="{Binding DataContext.RemoveAliasCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="この表記を消します。誤って覚えた名前を落とすときに使います。" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+    
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBox Width="200" Padding="7,5"
+                                                 Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="検出が拾えなかった表記を足せます。" />
+                                        <Button Content="表記を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                Command="{Binding AddAliasCommand}" />
+                                    </StackPanel>
+                                        <StackPanel Margin="0,10,0,0"
+                                                    Visibility="{Binding HasRejectedAliases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="消した表記（検出でも使いません）" Style="{StaticResource Caption}" Margin="0,0,0,5" />
+                                            <ItemsControl ItemsSource="{Binding RejectedAliases}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center"
+                                                                           Foreground="{StaticResource TextMuted}" TextDecorations="Strikethrough" />
+                                                                <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                        Command="{Binding DataContext.RestoreAliasCommand,
+                                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Expander>
 
                                 <!--
                                     このアバターの改変
@@ -467,51 +555,111 @@
                                 </StackPanel>
 
                                 <TextBlock Text="{Binding ModificationEmptyText}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,7,0,0" MaxWidth="480"
+                                           TextWrapping="Wrap" Margin="0,7,0,0" MaxWidth="480" HorizontalAlignment="Left"
                                            Visibility="{Binding HasModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                                <ItemsControl ItemsSource="{Binding Modifications}" Margin="0,7,0,0"
+                                <!--
+                                    改変の画面のアバターの項目と同じ行（ユーザ指示 2026-09-17）：絵・名前・Unityプロジェクト、畳んだ中身に使ったもの。
+                                    絵と名前にはホバーで大きめの絵。ここには右のビューが無いので、どれを押しても改変に入る
+                                -->
+                                <ItemsControl ItemsSource="{Binding Modifications}" Margin="0,7,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                               Visibility="{Binding HasModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.Resources>
+                                        <DataTemplate DataType="{x:Type vm:HubMemberRow}">
+                                            <DockPanel Margin="0,3">
+                                                <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,8,0"
+                                                        AutomationProperties.Name="{Binding Name}"
+                                                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
+                                                        Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Button.ToolTip>
+                                                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                                            <StackPanel Width="180">
+                                                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                                                </Border>
+                                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                                           Foreground="{StaticResource Text}" />
+                                                            </StackPanel>
+                                                        </ToolTip>
+                                                    </Button.ToolTip>
+                                                    <Border Width="34" Height="34" CornerRadius="4" Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
+                                                        <Grid>
+                                                            <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                        </Grid>
+                                                    </Border>
+                                                </Button>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <Button Style="{StaticResource HubLink}" ToolTip="{Binding Name}"
+                                                            Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
+                                                    </Button>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="手元にありません" FontSize="10.5" Margin="6,0,0,0"
+                                                                   Foreground="{StaticResource Warn}"
+                                                                   Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <TextBlock Text="{Binding FileText}" Style="{StaticResource Mono}" FontSize="10.5"
+                                                                   Foreground="{StaticResource TextMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileText}" />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.Resources>
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:ModificationRowViewModel}">
-                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                    BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,0,0,6"
-                                                    MaxWidth="480">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                                        <TextBlock Text="{Binding Name}" FontSize="12.5"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                                            <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}"
-                                                                       FontSize="10.5" />
-                                                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}"
-                                                                       Margin="10,0,0,0" />
-                                                            <TextBlock Text="{Binding ProjectText}" Style="{StaticResource Mono}"
-                                                                       FontSize="10.5" Margin="10,0,0,0"
-                                                                       Foreground="{StaticResource TextMuted}"
-                                                                       Visibility="{Binding HasUnityProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                        </StackPanel>
+                                        <DataTemplate DataType="{x:Type vm:HubModificationRow}">
+                                            <StackPanel Margin="0,4,0,2">
+                                                <DockPanel>
+                                                    <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
+                                                                  Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
+                                                    <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
+                                                            AutomationProperties.Name="{Binding Name}"
+                                                            ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
+                                                            Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}">
+                                                        <Button.ToolTip>
+                                                            <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                                                <StackPanel Width="180">
+                                                                    <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                                                            Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                                                    </Border>
+                                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                                               Foreground="{StaticResource Text}" />
+                                                                    <TextBlock Text="押すと、この改変を開きます" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                                </StackPanel>
+                                                            </ToolTip>
+                                                        </Button.ToolTip>
+                                                        <Border Width="38" Height="38" CornerRadius="5" Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                                                            <Grid>
+                                                                <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{StaticResource Accent}"
+                                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                                            </Grid>
+                                                        </Border>
+                                                    </Button>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <Button Style="{StaticResource HubLink}" ToolTip="この改変を開きます"
+                                                                Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
+                                                        </Button>
+                                                        <WrapPanel Margin="0,1,0,0">
+                                                            <TextBlock Text="{Binding ProjectName}" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,0,8,0"
+                                                                       Visibility="{Binding Record.HasUnityProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                                                        </WrapPanel>
                                                     </StackPanel>
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                                VerticalAlignment="Center">
-                                                        <Button Content="開く" Style="{StaticResource SmallButton}"
-                                                                ToolTip="使ったものや写真を見る／足す。"
-                                                                Command="{Binding DataContext.OpenModificationCommand,
-                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}" />
-                                                        <Button Content="消す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0"
-                                                                ToolTip="この改変の記録を消します。使った商品そのものは消えません。"
-                                                                Command="{Binding DataContext.DeleteModificationCommand,
-                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
+                                                </DockPanel>
+                                                <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
+                                                        Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <ItemsControl ItemsSource="{Binding Members}" />
+                                                </Border>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
@@ -529,58 +677,25 @@
                                 </StackPanel>
 
                                 <!--
-                                    アバターかどうか（判定の上書き）。以前の「扱いの指定」は、所有・判定の上書き・
-                                    BOOTHへの問い合わせ直しの3つが1行に混ざり、今どれが効いているかも見えなかった（U17・ユーザ判断）。
-                                    ここは3択だけにし、選ばれている物を太字と強調色で示す。
-                                    所有の切り替えは上の「所有している／していない」の横、
-                                    「BOOTHに確認し直す」は判定の根拠（カテゴリ・最終確認）の横へ移した
+                                    アバターかどうか（判定の上書き）。今の扱いは文で出し、ボタンは変える操作だけにする
+                                    （ユーザ指示 2026-09-17：「自動」のボタンが状態の表示も兼ねていて、押す物か読む物か分からなかった）。
+                                    今の扱いと同じボタンは押せなくする
                                 -->
-                                <TextBlock Text="アバターかどうか" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <TextBlock Text="アバターかどうか" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
+                                <TextBlock Text="{Binding JudgementText}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="{Binding AutoJudgementText}" Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"
-                                            ToolTip="カテゴリと、出品者が「対応アバター」に挙げているかで決めます。">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsOverrideAuto}" Value="True">
-                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
-                                    <Button Content="アバターとして扱う" Margin="6,0,0,0"
+                                    <Button Content="自動の判定に任せる" Style="{StaticResource SmallButton}"
+                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"
+                                            IsEnabled="{Binding IsOverrideAuto, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                                            ToolTip="カテゴリと、出品者が「対応アバター」に挙げているかで決めます。" />
+                                    <Button Content="アバターとして扱う" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                             Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
-                                            ToolTip="カテゴリで拾えないアバター（販売終了で確かめられない物など）を、アバターとして扱います。">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsForcedAvatar}" Value="True">
-                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
-                                    <Button Content="アバターではない" Margin="6,0,0,0"
+                                            IsEnabled="{Binding IsForcedAvatar, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                                            ToolTip="カテゴリで拾えないアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
+                                    <Button Content="アバターではないとして扱う" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                             Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
-                                            ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsForcedNotAvatar}" Value="True">
-                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
+                                            IsEnabled="{Binding IsForcedNotAvatar, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                                            ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
