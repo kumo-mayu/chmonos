@@ -23,9 +23,25 @@ public partial class FirstRunWindow : Window
     private FirstRunWindow()
     {
         InitializeComponent();
-        _root = StoreLocation.Resolve().Path;
+        var resolved = StoreLocation.Resolve();
+        _root = resolved.Path;
         RootText.Text = _root;
+        _fromEnvironment = resolved.Source == StoreRootSource.Environment;
+
+        // 環境変数で決まった保存先は選び直せない（選んでも環境変数が勝つ）。設定画面の「場所を変える」と同じく理由を出す
+        if (_fromEnvironment)
+        {
+            PickButton.IsEnabled = false;
+            Notice.Text = "環境変数 CHMONOS_HOME で保存先が指定されているため、ここからは変えられません。";
+        }
     }
+
+    /// <summary>
+    /// 保存先が環境変数から来たか。**そのときは location.json を書かない。**
+    /// 書くと、環境変数は確かめのための一時の逃げ道なのに、環境変数を外した普段の起動までその場所へ向いてしまう
+    /// （撮影用の空の保存先で「はじめる」を押し、普段の起動が消した撮影用フォルダを開こうとした・2026-09-17）。
+    /// </summary>
+    private readonly bool _fromEnvironment;
 
     /// <summary>
     /// 一度も起動していないか。
@@ -96,7 +112,7 @@ public partial class FirstRunWindow : Window
     {
         try
         {
-            if (!string.Equals(
+            if (!_fromEnvironment && !string.Equals(
                     Path.TrimEndingDirectorySeparator(_root),
                     Path.TrimEndingDirectorySeparator(StoreLocation.DefaultRoot),
                     StringComparison.OrdinalIgnoreCase))

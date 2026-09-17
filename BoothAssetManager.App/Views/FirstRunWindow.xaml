@@ -39,7 +39,7 @@
             <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
                     BorderThickness="1" CornerRadius="6" Padding="12,9">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="選び直す" Click="OnPickFolder" Margin="10,0,0,0" />
+                    <Button x:Name="PickButton" DockPanel.Dock="Right" Content="選び直す" Click="OnPickFolder" Margin="10,0,0,0" />
                     <TextBlock x:Name="RootText" Style="{StaticResource Mono}" FontSize="11.5"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
