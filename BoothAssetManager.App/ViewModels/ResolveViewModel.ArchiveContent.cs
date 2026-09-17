@@ -48,23 +48,6 @@ public sealed partial class ResolveViewModel
         return true;
     }
 
-    /// <summary>zipを落とし直すために、どの商品かを自動検索で調べる。</summary>
-    private void InvestigateFolder(object? parameter)
-    {
-        if (parameter is string directory && FocusFolder(directory))
-        {
-            ProposeAsync().Forget();
-        }
-    }
-
-    private void SearchFolderInBrowser(object? parameter)
-    {
-        if (parameter is string directory && FocusFolder(directory))
-        {
-            OpenBoothSearch();
-        }
-    }
-
     /// <summary>
     /// フォルダのまま商品として登録する。商品IDが要るので、まだ確かめていなければ確かめる欄へ案内する
     /// （押せない顔にすると、何をすれば押せるのかが分からない）。

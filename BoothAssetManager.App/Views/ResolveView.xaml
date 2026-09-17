@@ -421,34 +421,22 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16"
                             Visibility="{Binding Selected.IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="展開元のzipファイルが無いフォルダ" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <!--
+                                説明は1文にまとめ、補足はボタンのツールチップへ（ユーザ判断 2026-09-17 案A：枠が長かった）。
+                                「どの商品か調べる」「ブラウザで検索」は下の「候補」の枠と同じ動きなので置かない。判断の根拠は見出しのツールチップ
+                            -->
+                            <TextBlock Text="展開元のzipファイルが無いフォルダ" FontWeight="Bold" FontSize="13"
+                                       ToolTip="{Binding Selected.ContentReason}" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                       Text="元のzipが無く、展開した中身だけが残っているフォルダです。" />
-                            <TextBlock Text="{Binding Selected.ContentReason}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="0,3,0,0" />
-
-                            <TextBlock Text="まずはBOOTHからzipを落とし直す" Style="{StaticResource SectionLabel}" Margin="0,14,0,0" />
-                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                       Text="zipで持つと配布された単位で管理でき、フォルダを動かしても追えます。" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Content="どの商品か調べる" Style="{StaticResource SmallButton}"
-                                        Command="{Binding InvestigateFolderCommand}" CommandParameter="{Binding Selected.DirectoryText}" />
-                                <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                        Command="{Binding SearchFolderInBrowserCommand}" CommandParameter="{Binding Selected.DirectoryText}" />
-                            </StackPanel>
-
-                            <TextBlock Text="落とし直せないとき（非公開になった商品など）" Style="{StaticResource SectionLabel}" Margin="0,14,0,0" />
+                                       Text="BOOTHからzipを落とし直すのがおすすめです（下の「候補」でどの商品か探せます）。落とし直せないときは、フォルダのまま登録するか外します。" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="このフォルダを商品として登録" Style="{StaticResource SmallButton}"
                                         Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
-                                        ToolTip="先に「商品IDを決める」で、このフォルダの商品IDを確認してから押します。" />
+                                        ToolTip="先に「商品IDを決める」で商品IDを確認してから押します。場所で覚えるので、フォルダを動かすとつながりが切れます。" />
                                 <Button Content="このフォルダを管理対象から外す" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                        Command="{Binding ExcludeFolderCommand}" CommandParameter="{Binding Selected.DirectoryText}" />
+                                        Command="{Binding ExcludeFolderCommand}" CommandParameter="{Binding Selected.DirectoryText}"
+                                        ToolTip="その商品はライブラリに残りません。ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
                             </StackPanel>
-                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"
-                                       Text="商品として登録すると場所で覚えるので、フォルダを動かすとつながりが切れます。管理対象から外すと、その商品はライブラリに残りません（ファイル自体は消しません）。" />
                         </StackPanel>
                     </Border>
 

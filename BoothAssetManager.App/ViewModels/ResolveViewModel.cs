@@ -73,8 +73,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
         // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
-        InvestigateFolderCommand = new RelayCommand(parameter => InvestigateFolder(parameter), parameter => parameter is string && !IsBusy);
-        SearchFolderInBrowserCommand = new RelayCommand(parameter => SearchFolderInBrowser(parameter), parameter => parameter is string);
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         ExcludeFolderCommand = new RelayCommand(parameter => ExcludeFolderAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
@@ -99,10 +97,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
     public RelayCommand ReloadCommand { get; }
 
     public RelayCommand SelectAllCommand { get; }
-
-    public RelayCommand InvestigateFolderCommand { get; }
-
-    public RelayCommand SearchFolderInBrowserCommand { get; }
 
     public RelayCommand RegisterFolderOfCommand { get; }
 
