@@ -74,7 +74,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
-        ExcludeFolderCommand = new RelayCommand(parameter => ExcludeFolderAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
         TreatAsOriginZipCommand = new RelayCommand(TreatAsOriginZip, parameter => parameter is not null);
         UndoExcludeCommand = new RelayCommand(() => UndoExcludeAsync().Forget(), () => HasUndoExclude && !IsBusy);
@@ -99,8 +98,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
     public RelayCommand SelectAllCommand { get; }
 
     public RelayCommand RegisterFolderOfCommand { get; }
-
-    public RelayCommand ExcludeFolderCommand { get; }
 
     public RelayCommand UseOriginZipCommand { get; }
 
@@ -315,6 +312,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasAssignOutcome));
                 OnPropertyChanged(nameof(CanRegisterFolder));
                 OnPropertyChanged(nameof(RegisterFolderText));
+                OnPropertyChanged(nameof(RegisterTargetSummary));
                 OnPropertyChanged(nameof(RegisterTargetFolder));
                 RelayCommand.RaiseCanExecuteChanged();
             }
@@ -557,6 +555,9 @@ public sealed partial class ResolveViewModel : ViewModelBase
                 HasOriginZip = originRemains && !string.Equals(origin!.ArchivePath, path, StringComparison.OrdinalIgnoreCase),
                 ContentReason = judgement.Reason,
                 ProductFolder = judgement.ProductFolder,
+                UnpackRoot = judgement.IsContent && !originRemains && path.Length > 0
+                    ? UnpackRootFor(path, judgement.ProductFolder)
+                    : null,
                 Origin = origin,
             };
 
@@ -620,6 +621,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(SearchTargetPath));
         OnPropertyChanged(nameof(SearchTargetText));
         OnPropertyChanged(nameof(RegisterFolderText));
+        OnPropertyChanged(nameof(RegisterTargetSummary));
         OnPropertyChanged(nameof(CanRegisterFolder));
         OnPropertyChanged(nameof(SelectedPaths));
         OnPropertyChanged(nameof(SelectedContents));

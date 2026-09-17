@@ -413,7 +413,7 @@
                                             ToolTip="元のzipを選びます。そのまま商品IDを決めて登録できます。" />
                                     <!-- 元のzipが未確定にあっても、フォルダのままの登録はできる（ユーザ判断 2026-09-17） -->
                                     <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                            Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
+                                            Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
                                             ToolTip="このzipの中身が入っているフォルダを、商品として登録します。先に「商品IDを決める」で商品IDを確認してから押します。" />
                                 </StackPanel>
                                 <TextBlock Text="zipが残っているので、zipで登録するのがおすすめです。"
@@ -455,14 +455,17 @@
                             <TextBlock Text="展開元のzipファイルが無いフォルダ" FontWeight="Bold" FontSize="13"
                                        ToolTip="{Binding Selected.ContentReason}" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                       Text="BOOTHからzipを落とし直すのがおすすめです（下の「候補」でどの商品か探せます）。落とし直せないときは、フォルダのまま登録するか外します。" />
+                                       Text="BOOTHからzipを落とし直すのがおすすめです（下の「候補」でどの商品か探せます）。落とし直せないときは、フォルダのまま登録するか、「その他」から管理対象から外します。" />
+                            <!--
+                                対象は左の束・まとめて扱う単位と同じ展開物の根（ユーザ判断 2026-09-17 案A）。どこまで広いかを押す前に見せる。
+                                外すは「その他」の「管理対象から外す」が同じ対象に効くので、ここには置かない
+                            -->
+                            <TextBlock Text="{Binding RegisterTargetSummary}" Style="{StaticResource Mono}" FontSize="11"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}"
-                                        Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
+                                        Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
                                         ToolTip="先に「商品IDを決める」で商品IDを確認してから押します。場所で覚えるので、フォルダを動かすとつながりが切れます。" />
-                                <Button Content="このフォルダを管理対象から外す" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                        Command="{Binding ExcludeFolderCommand}" CommandParameter="{Binding Selected.DirectoryText}"
-                                        ToolTip="その商品はライブラリに残りません。ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
                             </StackPanel>
                         </StackPanel>
                     </Border>

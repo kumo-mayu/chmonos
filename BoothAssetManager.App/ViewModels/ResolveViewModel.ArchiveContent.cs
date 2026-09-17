@@ -31,14 +31,15 @@ public sealed partial class ResolveViewModel
     // ごちゃごちゃしたので、選んだファイルのフォルダの話として右に出す（ユーザ指示 2026-09-17）。押すとそのフォルダのファイルが対象。
 
     /// <summary>束のファイルのどれかを選ぶ。既にその束の行を選んでいれば選び直さない（選び直すと確かめた商品IDが消える）。</summary>
-    private bool FocusFolder(string directory)
+    /// <param name="groupKey">束の鍵（zipの名前・展開物の根・フォルダ）。</param>
+    private bool FocusFolder(string groupKey)
     {
-        if (Selected is { } current && string.Equals(current.DirectoryText, directory, StringComparison.OrdinalIgnoreCase))
+        if (Selected is { } current && string.Equals(current.GroupKey, groupKey, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        var first = Files.FirstOrDefault(row => string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase));
+        var first = Files.FirstOrDefault(row => string.Equals(row.GroupKey, groupKey, StringComparison.OrdinalIgnoreCase));
         if (first is null)
         {
             return false;
@@ -54,7 +55,7 @@ public sealed partial class ResolveViewModel
     /// </summary>
     private async Task RegisterFolderOfAsync(object? parameter)
     {
-        if (parameter is not string directory || !FocusFolder(directory))
+        if (parameter is not string groupKey || !FocusFolder(groupKey))
         {
             return;
         }
@@ -70,17 +71,52 @@ public sealed partial class ResolveViewModel
         await RegisterFolderAsync();
     }
 
-    private Task ExcludeFolderAsync(object? parameter)
-        => parameter is string directory
-            ? ExcludeRowsAsync(
-                Files.Where(row => string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase)).ToList(),
-                "このフォルダを管理対象から外す")
-            : Task.FromResult(false);
+    private readonly Dictionary<string, string> _unpackRoots = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 登録の対象にするフォルダ。
-    /// 取り込み元フォルダの直下の子を選ぶ（zipが展開されたときの単位と一致するため）。
-    /// 取り込み元が分からなければ、目印のあるフォルダをそのまま使う。
+    /// zipが無い展開物の根。目印（.unitypackage・.url）の見つかった一番外側から、中身がそのフォルダしか無い親を遡る
+    /// （zipを展開すると rurune_v1.1.3/rurune のように1段包まれることが多く、配布の単位は外側）。
+    /// **広くなりすぎないようにする**：ドライブの直下や取り込み元そのもの（またはその上）になったら、目印のフォルダ、
+    /// それも駄目ならファイルが入っているフォルダに戻す。取り込み元の直下まで広げる決め方はやめた（別の展開物まで巻き込む）。
+    /// </summary>
+    private string UnpackRootFor(string path, string? marker)
+    {
+        var directory = Path.GetDirectoryName(path) ?? string.Empty;
+        if (marker is null)
+        {
+            return directory;
+        }
+
+        if (!_unpackRoots.TryGetValue(marker, out var root))
+        {
+            var climbed = ClimbSingleChildFolders(marker);
+            root = !IsTooWide(climbed) ? climbed : !IsTooWide(marker) ? marker : string.Empty;
+            _unpackRoots[marker] = root;
+        }
+
+        return root.Length > 0 && (directory.Equals(root, StringComparison.OrdinalIgnoreCase)
+                || directory.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            ? root
+            : directory;
+    }
+
+    private bool IsTooWide(string folder)
+    {
+        var trimmed = Path.TrimEndingDirectorySeparator(folder);
+        if (string.Equals(trimmed, Path.TrimEndingDirectorySeparator(Path.GetPathRoot(folder) ?? string.Empty), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return _services.Settings.ImportFolders
+            .Select(Path.TrimEndingDirectorySeparator)
+            .Any(importRoot => string.Equals(importRoot, trimmed, StringComparison.OrdinalIgnoreCase)
+                || importRoot.StartsWith(trimmed + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// 登録の対象にするフォルダ。zipの中身は同じzipの中身が共通して入っているフォルダ、zipが無い展開物はその根
+    /// （左の束・まとめて扱う単位と同じ・ユーザ判断 2026-09-17 案A）。
     /// </summary>
     public string? RegisterTargetFolder
     {
@@ -88,36 +124,21 @@ public sealed partial class ResolveViewModel
         {
             var row = Selected ?? Files.FirstOrDefault(entry => entry.IsArchiveContent);
 
-            // 元のzipが分かる中身は、同じzipの中身が共通して入っているフォルダを登録する（ユーザ判断 2026-09-17：元のzipが未確定にあってもフォルダでの登録はできる）。
-            // 取り込み元の直下や目印（.url など）から遡って決めると、別のzipを展開したフォルダまで巻き込む（作り物で「Temp」全体が対象になった）
+            // 元のzipが分かる中身は、同じzipの中身が共通して入っているフォルダを登録する（元のzipが未確定にあってもフォルダでの登録はできる）。
+            // 目印（.url など）から遡って決めると、別のzipを展開したフォルダまで巻き込む（作り物で「Temp」全体が対象になった）
             if (row is { IsExpandedContent: true } && CommonDirectoryOf(row.GroupKey) is { } common)
             {
                 return common;
             }
 
-            if (row?.ProductFolder is not { } marker || row.File.Paths.Count == 0)
-            {
-                return null;
-            }
-
-            var path = row.File.Paths[0];
-
-            foreach (var root in _services.Settings.ImportFolders)
-            {
-                var normalizedRoot = Path.TrimEndingDirectorySeparator(root);
-                if (!path.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var rest = path[(normalizedRoot.Length + 1)..];
-                var firstSegment = rest.Split(Path.DirectorySeparatorChar)[0];
-                return Path.Combine(normalizedRoot, firstSegment);
-            }
-
-            return ClimbSingleChildFolders(marker);
+            return row?.UnpackRoot;
         }
     }
+
+    /// <summary>フォルダのまま登録するときの対象を、押す前に見せる（どこまで広いかをボタンの名前だけで判断させない）。</summary>
+    public string RegisterTargetSummary => RegisterTargetFolder is { } folder && Selected is { } row
+        ? $"対象：{folder}（未確定 {Files.Count(other => string.Equals(other.GroupKey, row.GroupKey, StringComparison.OrdinalIgnoreCase))} 件）"
+        : string.Empty;
 
     /// <summary>
     /// 取り込み元が分からないときの当て。

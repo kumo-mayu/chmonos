@@ -47,8 +47,15 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>そう判断した理由。押し付けにならないよう根拠を見せる。</summary>
     public string? ContentReason { get; init; }
 
-    /// <summary>展開物の根とみなしたフォルダ。まとめて扱う単位。</summary>
+    /// <summary>展開物の根とみなしたフォルダ（目印の見つかった一番外側）。</summary>
     public string? ProductFolder { get; init; }
+
+    /// <summary>
+    /// zipが無い展開物の根。左の束・まとめて扱う単位・フォルダのまま登録する先を、このフォルダ1つに揃える
+    /// （ユーザ判断 2026-09-17 案A：束はファイルが直接入っているフォルダ、登録先は目印から遡ったフォルダで食い違い、1つの展開物がサブフォルダごとに割れていた）。
+    /// zipが無い展開物でなければ null。
+    /// </summary>
+    public string? UnpackRoot { get; init; }
 
     /// <summary>
     /// 展開元のzip。エクスプローラーの「すべて展開」が中のファイルに残した記録から分かる
@@ -71,7 +78,7 @@ public sealed class UnresolvedRow : ViewModelBase
     /// </summary>
     public string GroupKey => IsOriginArchive
         ? "zip|" + File.Paths[0]
-        : Origin?.ArchiveName ?? DirectoryText;
+        : Origin?.ArchiveName ?? UnpackRoot ?? DirectoryText;
 
     /// <summary>
     /// このファイルが元のzipそのものか。**zip自身は束に入れない**——元zipの束の中にそのzipが入っていると、

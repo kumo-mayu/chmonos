@@ -44,7 +44,7 @@ public sealed partial class ResolveViewModel
         }
 
         foreach (var row in Files.Where(row =>
-            string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase)))
+            string.Equals(row.GroupKey, directory, StringComparison.OrdinalIgnoreCase)))
         {
             row.IsSelected = true;
         }
