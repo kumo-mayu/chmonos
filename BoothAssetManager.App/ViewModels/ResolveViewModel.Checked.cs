@@ -106,9 +106,10 @@ public sealed partial class ResolveViewModel
         ActiveGroup = key;
     }
 
+    /// <summary>見えている行だけを選ぶ。探して絞っているときに、見えない行までまとめて外したり確定したりしないため。</summary>
     private void SelectAll()
     {
-        foreach (var row in Files)
+        foreach (var row in Files.Where(MatchesFilter))
         {
             row.IsSelected = true;
         }

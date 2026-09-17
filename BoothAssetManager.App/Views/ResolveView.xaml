@@ -7,6 +7,19 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ResolveViewModel}">
+    <UserControl.Resources>
+        <!-- 入力が残る欄を消す ×（検索画面の ClearFieldButton と同じ見た目）。暗黙のボタンの見た目（高さ32など）を当てないため明示する -->
+        <Style x:Key="ClearFieldButton" TargetType="Button">
+            <Setter Property="Content" Value="×" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
     <DockPanel Background="{StaticResource Bg}">
 
         <!-- フォルダビューに組み込んだときは上の帯と左の一覧を隠す（ShowsChrome・ListColumnWidth） -->
@@ -95,11 +108,36 @@
                     Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
+                      <StackPanel>
+                        <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->
+                        <Grid Margin="0,0,0,8">
+                            <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                                     BorderBrush="{StaticResource BorderStrong}" AutomationProperties.Name="未確定を探す" />
+                            <TextBlock Text="ファイル名・フォルダ・zipの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FilterText}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <!-- 打った文字を消す（検索画面と同じ ×） -->
+                            <Button HorizontalAlignment="Right" Margin="0,0,6,0"
+                                    Style="{StaticResource ClearFieldButton}" Command="{Binding ClearFilterCommand}"
+                                    ToolTip="打った文字を消す" AutomationProperties.Name="打った文字を消す"
+                                    Visibility="{Binding HasFilterText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </Grid>
                         <StackPanel Orientation="Horizontal">
                             <Button Content="全て選択" Style="{StaticResource SmallButton}" Command="{Binding SelectAllCommand}" />
                             <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                     Command="{Binding ClearChecksCommand}" />
                         </StackPanel>
+                      </StackPanel>
                     </Border>
 
                     <ListBox ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
@@ -215,6 +253,27 @@
                                               VerticalAlignment="Top" Margin="0,2,8,0" />
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Text="{Binding FileName}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                        <!--
+                                            zipを展開した中身が束にならず1行で出るとき（そのzipの中身が1件だけ）、どのzipの中身かが一覧で分からない。
+                                            束の中では見出しに出ているので出さない（ユーザ判断 2026-09-17）
+                                        -->
+                                        <TextBlock Text="{Binding Origin.ArchiveName, StringFormat='展開元：{0}'}" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Origin.ArchivePath}" Margin="0,2,0,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsExpandedContent}" Value="True" />
+                                                                <Condition Binding="{Binding DataContext.ItemCount, RelativeSource={RelativeSource AncestorType=GroupItem}}" Value="1" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
                                             <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"

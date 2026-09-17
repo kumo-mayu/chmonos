@@ -61,6 +61,9 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>展開した中身で、元のzipが今もディスクにあるか（zip自身の行は false）。あれば「元zipで登録」を出す。</summary>
     public bool HasOriginZip { get; init; }
 
+    /// <summary>zipを展開した中身（zip自身ではない）か。束にならず1行で出るときに「展開元」を添える。</summary>
+    public bool IsExpandedContent => HasOrigin && !IsOriginArchive;
+
     /// <summary>
     /// 一覧で束ねる単位。元zipが分かれば元zip、分からなければフォルダ。
     /// zipは配布された単位そのもので、中身はたいてい1商品。フォルダは展開の仕方次第で

@@ -44,6 +44,8 @@ public sealed partial class ResolveViewModel : ViewModelBase
         FilesView = System.Windows.Data.CollectionViewSource.GetDefaultView(Files);
         FilesView.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(
             nameof(UnresolvedRow.GroupKey), null, StringComparison.OrdinalIgnoreCase));
+        FilesView.Filter = row => row is UnresolvedRow file && MatchesFilter(file);
+        ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty);
 
         // 走っている最中に止めるのは「書き込む操作」だけにする。
         // 候補を出す・候補を確認する・ブラウザで開くは読み取りだけなので、
@@ -106,6 +108,50 @@ public sealed partial class ResolveViewModel : ViewModelBase
     public RelayCommand ExcludeFolderCommand { get; }
 
     public RelayCommand UseOriginZipCommand { get; }
+
+    // ---- 左の一覧を探す（ユーザ指示 2026-09-17：件数が多く、どこを見ればよいか分からなかった） ----
+
+    private static readonly System.Globalization.CompareInfo Compare = System.Globalization.CultureInfo.CurrentCulture.CompareInfo;
+
+    /// <summary>探すときは大文字小文字・かなの種類・全角半角を区別しない（ほかの画面と同じ）。</summary>
+    private const System.Globalization.CompareOptions Loose = System.Globalization.CompareOptions.IgnoreCase
+        | System.Globalization.CompareOptions.IgnoreKanaType | System.Globalization.CompareOptions.IgnoreWidth;
+
+    private string _filterText = string.Empty;
+
+    /// <summary>一覧を探す語。空白で区切った語がすべて、ファイル名・フォルダ・展開元のzipの名前のどれかに入っている行だけを出す。</summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            if (SetField(ref _filterText, value))
+            {
+                FilesView.Refresh();
+                OnPropertyChanged(nameof(HasFilterText));
+
+                // 選んでいた行が隠れると一覧の選択が外れ、右側（まとめて操作する枠を含む）が消えて何もできなくなった。
+                // 見えている先頭の行を選ぶ（画面で確かめて見つけた 2026-09-17）
+                if (Selected is null || !MatchesFilter(Selected))
+                {
+                    Selected = FilesView.Cast<UnresolvedRow>().FirstOrDefault();
+                }
+            }
+        }
+    }
+
+    public bool HasFilterText => FilterText.Length > 0;
+
+    public RelayCommand ClearFilterCommand { get; }
+
+    private bool MatchesFilter(UnresolvedRow row)
+    {
+        var words = FilterText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return words.All(word =>
+            Compare.IndexOf(row.FileName, word, Loose) >= 0
+            || Compare.IndexOf(row.DirectoryText, word, Loose) >= 0
+            || (row.Origin is { } origin && Compare.IndexOf(origin.ArchiveName, word, Loose) >= 0));
+    }
 
     public RelayCommand RegisterFolderCommand { get; }
 
