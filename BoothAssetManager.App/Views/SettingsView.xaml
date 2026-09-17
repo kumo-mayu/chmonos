@@ -262,11 +262,15 @@
                         <!--
                             通信の様子は常設の1行に出るので、勝手に何かしていると見えるものには
                             止める手段が要る。従量制の回線や、静かにしておきたい場面がある。
+                            名前は中身に合わせる（ユーザ指示 2026-09-17）。前は「使っていない間も取得を続ける（前回取り切れなかった画像）」で、
+                            商品の取り直しと対応アバターの検出し直しも止まることが読めなかった。読むのは起動したときだけなので、それも書く
                         -->
                         <CheckBox Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ResumeFetchInBackground, Mode=TwoWay}">
-                            <TextBlock Text="使っていない間も取得を続ける（前回取り切れなかった画像）" />
+                            <TextBlock Text="起動したとき、裏で取得を始める" />
                         </CheckBox>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
+                                   Text="残った画像・持っていないアバターの画像・商品の更新の確認・対応アバターの検出し直しを、押さなくても進めます。切っても、押して始める取得や、取り込みの続きの取得は止まりません。変えると次に起動したときから効きます。" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
                             <TextBlock Text="商品情報を取り直す間隔" Style="{StaticResource RowLabel}" Width="220" />
