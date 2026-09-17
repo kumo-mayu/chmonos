@@ -113,7 +113,7 @@
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                             <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="460" />
-                                            <Button Content="この商品を結ぶ" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            <Button Content="素体の商品に設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     Command="{Binding UseCommand}" />
                                         </StackPanel>
                                     </DataTemplate>
@@ -128,7 +128,7 @@
                             <TextBox Width="230" Padding="7,4" VerticalAlignment="Center"
                                      Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
-                            <Button Content="配布商品を結ぶ" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            <Button Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
                         </StackPanel>
                         <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}"
@@ -187,7 +187,7 @@
                 <TextBlock Text="対応アバターがまだ見つかっていません" Foreground="{StaticResource TextMuted}"
                            HorizontalAlignment="Center" />
                 <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center"
-                           Text="「対応アバターを検出する」を押すと、取り込んである商品の説明文・タグ・種類の名前から読み取ります。ほとんどは手元のファイルだけで済み、まだカテゴリの分からない商品だけBOOTHに問い合わせます。" />
+                           Text="「対応アバターを検出する」を押すと、取り込んだ商品の説明文・タグ・種類の名前から読み取ります。" />
             </StackPanel>
 
             <Grid Visibility="{Binding IsLoading, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
@@ -243,9 +243,9 @@
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
                               Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="アバター名・商品ID・BOOTHでの正式名・別名で絞り込みます。" />
+                                     ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
-                            <TextBlock Text="名前かIDで探す" Margin="11,0,0,0" IsHitTestVisible="False"
+                            <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" IsHitTestVisible="False"
                                        VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                        Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                         </Grid>
@@ -364,7 +364,7 @@
                                             <Button Content="名前を保存" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding RenameCommand}" />
                                             <!-- 付けた名前を消す操作は、欄を空にする形では分からないのでボタンで名乗る（ユーザ指示） -->
-                                            <Button Content="自動の名前に戻す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                            <Button Content="BOOTHの名前に戻す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding ResetNameCommand}"
                                                     ToolTip="{Binding ResetNameTip}"
                                                     Visibility="{Binding HasManualName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -515,7 +515,7 @@
                                                                 Command="{Binding DataContext.RemoveAliasCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"
-                                                                ToolTip="この表記を消します。誤って覚えた名前を落とすときに使います。" />
+                                                                ToolTip="明らかに間違っている呼び方を消します。" />
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>
@@ -525,13 +525,13 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBox Width="200" Padding="7,5"
                                                  Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="検出が拾えなかった表記を足せます。" />
-                                        <Button Content="表記を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                 ToolTip="検出が拾えなかった呼び方を足せます。" />
+                                        <Button Content="呼び方を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                 Command="{Binding AddAliasCommand}" />
                                     </StackPanel>
                                         <StackPanel Margin="0,10,0,0"
                                                     Visibility="{Binding HasRejectedAliases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="消した表記（検出でも使いません）" Style="{StaticResource Caption}" Margin="0,0,0,5" />
+                                            <TextBlock Text="消した呼び方（検出に使いません）" Style="{StaticResource Caption}" Margin="0,0,0,5" />
                                             <ItemsControl ItemsSource="{Binding RejectedAliases}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -713,8 +713,8 @@
                                     <Button Content="アバターとして扱う" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                             Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
                                             IsEnabled="{Binding IsForcedAvatar, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                            ToolTip="カテゴリで拾えないアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
-                                    <Button Content="アバターではないとして扱う" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                            ToolTip="「3Dキャラクター」のカテゴリに無いアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
+                                    <Button Content="アバターとして扱わない" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                             Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
                                             IsEnabled="{Binding IsForcedNotAvatar, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                                             ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。" />

@@ -51,7 +51,7 @@ public sealed partial class AvatarsViewModel
     // ---- 呼ばれ方 ----
 
     /// <summary>畳んだ見出し。件数を添える。</summary>
-    public string AliasesTitle => $"呼ばれ方の履歴（{Aliases.Count}）";
+    public string AliasesTitle => $"呼ばれ方（{Aliases.Count}）";
 
     private static bool _aliasesExpanded;
 
@@ -109,10 +109,10 @@ public sealed partial class AvatarsViewModel
             return Selected.Summary.Entry.AvatarOverride switch
             {
                 true => "今の扱い：アバター（手動で指定）",
-                false => "今の扱い：アバターではない（手動で指定）",
+                false => "今の扱い：アバターとして扱わない（手動で指定）",
                 null => Core.Services.AvatarService.IsAvatar(Selected.Summary.Entry)
                     ? "今の扱い：アバター（自動の判定）"
-                    : "今の扱い：アバターではない（自動の判定）",
+                    : "今の扱い：アバターとして扱わない（自動の判定）",
             };
         }
     }

@@ -102,13 +102,13 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public string MemberText => $"アバター {Summary.MemberCount}（所有 {Summary.OwnedMemberCount}）";
 
-    public string ItemText => $"名指し {Summary.ItemCount} 件";
+    public string ItemText => $"この素体向けと書かれた商品 {Summary.ItemCount}件";
 
     public bool InferClothing => Summary.Group.InferClothing;
 
     public bool HasItemId => !string.IsNullOrWhiteSpace(Summary.Group.ItemId);
 
-    public string ItemIdText => HasItemId ? $"配布あり（{Summary.Group.ItemId}）" : "素体単体の配布なし";
+    public string ItemIdText => HasItemId ? $"素体の商品：{Summary.Group.ItemId}" : "素体の商品：なし";
 
     private string _itemIdInput = string.Empty;
 
@@ -746,17 +746,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     public string SelectedCountText => Selected is null
         ? string.Empty
-        : $"直接対応 {Selected.Summary.DirectCount} 件 / 素体経由 {Selected.Summary.ViaBaseCount} 件";
+        : $"対応している商品 {Selected.Summary.DirectCount}件（ほかに共通素体経由 {Selected.Summary.ViaBaseCount}件）";
 
     /// <summary>所有の表示。取り込んだファイルで所有しているときは固定（ユーザ判断 2026-09-17）、していないときだけ手動で切り替えられる。</summary>
     public string SelectedOwnedText => Selected is null
         ? string.Empty
-        : IsOwnedByFile ? "所有している（取り込んだファイルがあります）"
+        : IsOwnedByFile ? "所有している（ファイルあり）"
         : Selected.Summary.Entry.IsOwnedManually ? "所有している（手動で指定）"
         : "所有していない";
 
     public string OwnedButtonText => Selected?.Summary.Entry.IsOwnedManually == true
-        ? "手動の所有指定を外す"
+        ? "所有の指定を外す"
         : "所有しているものとして扱う";
 
     /// <summary>どの文脈で候補に挙がったか。判定の根拠なので隠さない。</summary>
@@ -771,14 +771,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
             var parts = Selected.Summary.Entry.SeenAs
                 .OrderByDescending(pair => pair.Value)
-                .Select(pair => $"{Label(pair.Key)} {pair.Value} 件");
+                .Select(pair => $"{Label(pair.Key)} {pair.Value}件");
 
-            return "見つかった経路：" + string.Join(" / ", parts);
+            return "見つかった場所：" + string.Join(" / ", parts);
         }
     }
 
     public string SelectedCheckedText => Selected?.Summary.Entry.CheckedAt is { } at
-        ? $"最終確認 {at:yyyy-MM-dd}"
+        ? $"BOOTHで確認した日 {at:yyyy-MM-dd}"
         : string.Empty;
 
     // ── アバターかどうか（判定の上書き）の3択（U17）──
@@ -852,7 +852,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     private static string Label(string source) => source switch
     {
-        "SupportSection" => "対応アバター節",
+        "SupportSection" => "説明文の「対応アバター」の見出し",
         "Tag" => "タグ",
         "Variation" => "種類の名前",
         "H2Link" => "説明文のリンク",
@@ -917,7 +917,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     private const string OwnedGroup = "所有しているアバター";
     private const string ExcludedGroup = "アバターとして扱わないもの";
-    private const string SeenGroup = "対応表記で見かけたアバター";
+    private const string SeenGroup = "対応商品で名前が挙がったアバター";
 
     /// <summary>
     /// 畳んだ見出し。この画面は開くたびに作り直されるので、アプリを閉じるまでここに持つ。
@@ -1007,7 +1007,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
             var parts = new List<string>
             {
-                $"{result.ItemsScanned} 件を見て、{result.ItemsUpdated} 件に対応アバターを書きました",
+                $"{result.ItemsScanned}件を調べ、{result.ItemsUpdated}件の対応アバターを更新しました",
                 $"アバター {result.AvatarsFound} 体",
             };
 
@@ -1157,13 +1157,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         await LoadAsync();
     }
 
-    /// <summary>このアバターに人が名前を付けているか。「自動の名前に戻す」はそのときだけ出す。</summary>
+    /// <summary>このアバターに人が名前を付けているか。「BOOTHの名前に戻す」はそのときだけ出す。</summary>
     public bool HasManualName => Selected is not null && AvatarNames.ManualName(Selected.Summary.Entry) is not null;
 
     /// <summary>戻したらどの名前になるかを、押す前に見せる。</summary>
     public string ResetNameTip => Selected is null
         ? string.Empty
-        : $"付けた名前を消して、BOOTHの商品名から作る名前（{AvatarNames.ShownName(Selected.Summary.Entry with { DisplayName = null })}）に戻します。あとからまた付け直せます。";
+        : $"「{AvatarNames.ShownName(Selected.Summary.Entry with { DisplayName = null })}」に戻します。あとから付け直せます。";
 
     private RelayCommand? _resetNameCommand;
 
