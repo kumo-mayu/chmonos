@@ -25,50 +25,74 @@ public sealed partial class ResolveViewModel
         return judgement;
     }
 
-    /// <summary>展開物とみなせるものの件数。0なら案内も出さない。</summary>
-    public int ArchiveContentCount => Files.Count(row => row.IsArchiveContent);
+    // ---- 「展開元のzipファイルが無い」フォルダの枠（左の一覧の束の中） ----
+    //
+    // 前は右側のいちばん上に1枚で出していたが、どのフォルダの話か分からず、何に使う枠かも読めなかった（ユーザ指示 2026-09-17）。
+    // 操作が要るフォルダの束の中に出し、押した束のファイルを対象にする。
 
-    public bool HasArchiveContent => ArchiveContentCount > 0;
-
-    public string ArchiveContentText
+    /// <summary>束のファイルのどれかを選ぶ。既にその束の行を選んでいれば選び直さない（選び直すと確かめた商品IDが消える）。</summary>
+    private bool FocusFolder(string directory)
     {
-        get
+        if (Selected is { } current && string.Equals(current.DirectoryText, directory, StringComparison.OrdinalIgnoreCase))
         {
-            var rows = Files.Where(row => row.IsArchiveContent).ToList();
-            if (rows.Count == 0)
-            {
-                return string.Empty;
-            }
+            return true;
+        }
 
-            var folders = rows
-                .Select(row => Path.GetFileName(row.ProductFolder ?? string.Empty))
-                .Where(name => name.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        var first = Files.FirstOrDefault(row => string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase));
+        if (first is null)
+        {
+            return false;
+        }
 
-            var where = folders.Count switch
-            {
-                0 => string.Empty,
-                1 => $"（{folders[0]} の中）",
-                _ => $"（{string.Join("・", folders.Take(3))}{(folders.Count > 3 ? " ほか" : string.Empty)} の中）",
-            };
+        Selected = first;
+        return true;
+    }
 
-            return $"配布物を展開した中身とみなせるものが {rows.Count} 件あります{where}。";
+    /// <summary>zipを落とし直すために、どの商品かを自動検索で調べる。</summary>
+    private void InvestigateFolder(object? parameter)
+    {
+        if (parameter is string directory && FocusFolder(directory))
+        {
+            ProposeAsync().Forget();
         }
     }
 
-    /// <summary>1件でも理由を見せる。まとめて外す前に何を根拠にしたかが分かるように。</summary>
-    public string ArchiveContentReason =>
-        Files.FirstOrDefault(row => row.IsArchiveContent)?.ContentReason ?? string.Empty;
-
-    /// <summary>展開物とみなしたものだけを選ぶ。外すかどうかは見てから決めてもらう。</summary>
-    private void SelectArchiveContent()
+    private void SearchFolderInBrowser(object? parameter)
     {
-        foreach (var row in Files.Where(row => row.IsArchiveContent))
+        if (parameter is string directory && FocusFolder(directory))
         {
-            row.IsSelected = true;
+            OpenBoothSearch();
         }
     }
+
+    /// <summary>
+    /// フォルダのまま商品として登録する。商品IDが要るので、まだ確かめていなければ確かめる欄へ案内する
+    /// （押せない顔にすると、何をすれば押せるのかが分からない）。
+    /// </summary>
+    private async Task RegisterFolderOfAsync(object? parameter)
+    {
+        if (parameter is not string directory || !FocusFolder(directory))
+        {
+            return;
+        }
+
+        if (!HasPreview)
+        {
+            StatusText = "このフォルダの商品IDを「商品IDを決める」で確かめてから、もう一度「このフォルダを商品として登録」を押してください。";
+            OnPropertyChanged(nameof(HasStatus));
+            DecisionFocusRequested?.Invoke();
+            return;
+        }
+
+        await RegisterFolderAsync();
+    }
+
+    private Task ExcludeFolderAsync(object? parameter)
+        => parameter is string directory
+            ? ExcludeRowsAsync(
+                Files.Where(row => string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase)).ToList(),
+                "このフォルダを管理対象から外す")
+            : Task.CompletedTask;
 
     /// <summary>
     /// 登録の対象にするフォルダ。

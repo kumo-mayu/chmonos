@@ -19,7 +19,7 @@ public sealed partial class ResolveViewModel
 
     public string AssignCheckedText => $"選択した {CheckedCount} 件をこのIDで確定";
 
-    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理から外す";
+    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理対象から外す";
 
     private void OnCheckedChanged()
     {
@@ -119,9 +119,11 @@ public sealed partial class ResolveViewModel
         }
     }
 
-    private async Task ExcludeCheckedAsync()
+    private Task ExcludeCheckedAsync() => ExcludeRowsAsync(Files.Where(row => row.IsSelected).ToList(), "まとめて管理対象から外す");
+
+    /// <summary>決めた行をまとめて管理対象から外す。外す前に件数と名前を見せて聞く。</summary>
+    private async Task ExcludeRowsAsync(List<UnresolvedRow> targets, string title)
     {
-        var targets = Files.Where(row => row.IsSelected).ToList();
         if (targets.Count == 0)
         {
             return;
@@ -134,9 +136,9 @@ public sealed partial class ResolveViewModel
         }
 
         var answer = System.Windows.MessageBox.Show(
-            $"{targets.Count} 件を管理から外します。\n\n{sample}\n\n"
+            $"{targets.Count} 件を管理対象から外します。\n\n{sample}\n\n"
             + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
-            "まとめて管理から外す",
+            title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
@@ -156,7 +158,7 @@ public sealed partial class ResolveViewModel
             }
 
             RemoveRows(targets);
-            StatusText = $"{targets.Count} 件を管理から外しました。";
+            StatusText = $"{targets.Count} 件を管理対象から外しました。";
         }
         finally
         {

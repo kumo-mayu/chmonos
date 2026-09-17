@@ -26,6 +26,9 @@ public enum DropAction
     /// 落としたものからは決まらない。**そこだけ人に聞く。
     /// </summary>
     AskImageOrItem,
+
+    /// <summary>未確定の画面で、選んでいるファイルの商品IDとして入れて確かめる（ユーザ指示 2026-09-17：画面のどこに落としても）。</summary>
+    UseAsItemId,
 }
 
 public readonly record struct DropDecision(
@@ -75,6 +78,24 @@ public static class DropRouting
         }
 
         return new DropDecision(DropAction.Ignore, null);
+    }
+
+    /// <summary>
+    /// 未確定の画面でファイルを選んでいるとき。商品ページは**開かずに、選んだファイルの商品IDとして入れる**——
+    /// この画面で商品ページを落とすのは「このファイルはこの商品」と言うためで、持っている商品でも開いて画面を移ると作業が途切れる。
+    /// ファイルは今まで通り取り込みに積む。ショップなど商品でない物も今まで通り。
+    /// </summary>
+    public static DropDecision DecideOnResolve(
+        IReadOnlyList<string>? paths,
+        string? text,
+        Func<string, bool> isKnown)
+    {
+        if (paths is not { Count: > 0 } && BoothItemId.Parse(text) is { } itemId)
+        {
+            return new DropDecision(DropAction.UseAsItemId, itemId);
+        }
+
+        return Decide(paths, text, isKnown);
     }
 
     /// <summary>画像として扱える拡張子。中身を読むのは足す側の仕事で、ここは振り分けだけ。</summary>

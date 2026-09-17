@@ -125,7 +125,7 @@ public sealed partial class ResolveViewModel
 
                 SearchPhase = string.Empty;
                 StatusText = proposed.Candidates.Count == 0
-                    ? "候補は見つかりませんでした。商品IDを直接入れるか、管理から外してください。"
+                    ? "候補は見つかりませんでした。「商品IDを決める」に商品IDを直接入れるか、「その他」の「管理対象から外す」を使ってください。"
                     : $"候補を {proposed.Candidates.Count} 件見つけました。";
             }
             else if (result is CommandResult.Failed failed)
@@ -233,12 +233,36 @@ public sealed partial class ResolveViewModel
         }
     }
 
+    /// <summary>
+    /// 「商品IDを決める」の欄を見せてほしいとき（候補の「これで確認」・商品ページを落としたとき）。
+    /// 候補は決める欄より下にあるので、押した結果が画面の外に出て、何も起きなかったように見える（ユーザ判断 2026-09-17）。
+    /// </summary>
+    public event Action? DecisionFocusRequested;
+
     private async Task UseCandidateAsync(object? parameter)
     {
         if (parameter is CandidateRow candidate)
         {
             ItemIdInput = candidate.ItemId;
+            DecisionFocusRequested?.Invoke();
             await PreviewAsync(candidate.ItemId);
         }
+    }
+
+    /// <summary>
+    /// 画面に落とされた BOOTH の商品ページを、選んでいるファイルの商品IDとして入れて確かめる。
+    /// ファイルを選んでいないときは入れる先が無いので false（呼んだ側が普段の扱いに回す）。
+    /// </summary>
+    public bool AcceptDroppedItemId(string itemId)
+    {
+        if (!HasSelection)
+        {
+            return false;
+        }
+
+        ItemIdInput = itemId;
+        DecisionFocusRequested?.Invoke();
+        PreviewAsync(itemId).Forget();
+        return true;
     }
 }

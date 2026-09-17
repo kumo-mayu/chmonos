@@ -71,7 +71,10 @@ public sealed partial class ResolveViewModel : ViewModelBase
         // 取り込みで未確定が増えたときに読み直す。画面ごと作り直すのが一番確実
         ReloadCommand = new RelayCommand(_main.ShowResolve);
         SelectAllCommand = new RelayCommand(SelectAll);
-        SelectArchiveContentCommand = new RelayCommand(SelectArchiveContent, () => HasArchiveContent);
+        InvestigateFolderCommand = new RelayCommand(parameter => InvestigateFolder(parameter), parameter => parameter is string && !IsBusy);
+        SearchFolderInBrowserCommand = new RelayCommand(parameter => SearchFolderInBrowser(parameter), parameter => parameter is string);
+        RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
+        ExcludeFolderCommand = new RelayCommand(parameter => ExcludeFolderAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
         ExcludeCheckedCommand = new RelayCommand(() => ExcludeCheckedAsync().Forget(), () => HasChecked && !IsBusy);
@@ -93,7 +96,13 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
     public RelayCommand SelectAllCommand { get; }
 
-    public RelayCommand SelectArchiveContentCommand { get; }
+    public RelayCommand InvestigateFolderCommand { get; }
+
+    public RelayCommand SearchFolderInBrowserCommand { get; }
+
+    public RelayCommand RegisterFolderOfCommand { get; }
+
+    public RelayCommand ExcludeFolderCommand { get; }
 
     public RelayCommand RegisterFolderCommand { get; }
 
@@ -436,10 +445,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
         Selected = Files.FirstOrDefault();
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
-        OnPropertyChanged(nameof(ArchiveContentCount));
-        OnPropertyChanged(nameof(HasArchiveContent));
-        OnPropertyChanged(nameof(ArchiveContentText));
-        OnPropertyChanged(nameof(ArchiveContentReason));
     }
 
     private void OnSelectionChanged()
@@ -667,9 +672,9 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
         var what = targets.Count == 1 ? targets[0].FileName : $"元zip「{ActiveGroup}」の {targets.Count} 件";
         var answer = System.Windows.MessageBox.Show(
-            $"{what} を管理から外します。\n\n"
+            $"{what} を管理対象から外します。\n\n"
             + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
-            "管理から外す",
+            "管理対象から外す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
@@ -695,7 +700,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
             else
             {
                 RemoveRows(targets);
-                StatusText = $"{targets.Count} 件を管理から外しました。";
+                StatusText = $"{targets.Count} 件を管理対象から外しました。";
                 OnPropertyChanged(nameof(HasStatus));
             }
         }

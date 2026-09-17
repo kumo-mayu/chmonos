@@ -23,12 +23,21 @@ public sealed partial class MainViewModel
         // 商品ページを開いているときだけ規則が変わる。**足す先が決まっているから**——
         // 決まっていない場所で「この商品の画像に足しますか」と聞いても答えられない
         // 編集画面も同じ（ユーザ判断：画像の追加などは商品ページと同等。落とす・貼るも含む）
+        // 未確定の画面でファイルを選んでいるときは、商品ページを「そのファイルの商品ID」として受ける（ユーザ指示 2026-09-17：
+        // 前は商品IDの入力欄の上でしか受けず、欄の外に落とすと商品ページへ移っていた）
+        var resolve = CurrentViewModel as ResolveViewModel;
         var decision = CurrentItemPage is not null
             ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists)
-            : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
+            : resolve is { HasSelection: true }
+                ? Core.Services.DropRouting.DecideOnResolve(paths, text, _services.Store.Items.Exists)
+                : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
 
         switch (decision.Action)
         {
+            case Core.Services.DropAction.UseAsItemId:
+                resolve?.AcceptDroppedItemId(decision.ItemId!);
+                return;
+
             case Core.Services.DropAction.AddImageToItem:
                 await AddDroppedImagesAsync(paths, hasBitmap, decision.ImageUrl);
                 return;

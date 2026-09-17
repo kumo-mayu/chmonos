@@ -295,4 +295,21 @@ public class DropRoutingTests
     [InlineData(null, false)]
     public void OnlyTreatsBoothsOwnImageHostAsAnImageUrl(string? text, bool expected)
         => Assert.Equal(expected, DropRouting.IsBoothImageUrl(text));
+
+    [Fact]
+    public void OnTheResolveScreenAnItemPageBecomesTheItemIdEvenWhenOwned()
+    {
+        // 持っている商品でも開かない。「このファイルはこの商品」と言うために落としている
+        var decision = DropRouting.DecideOnResolve(null, "https://booth.pm/ja/items/5813187", EverythingKnown);
+
+        Assert.Equal(DropAction.UseAsItemId, decision.Action);
+        Assert.Equal("5813187", decision.ItemId);
+    }
+
+    [Fact]
+    public void OnTheResolveScreenFilesAndShopsKeepTheUsualRoute()
+    {
+        Assert.Equal(DropAction.Import, DropRouting.DecideOnResolve([@"D:\storage\a.zip"], null, NothingKnown).Action);
+        Assert.Equal(DropAction.OpenShop, DropRouting.DecideOnResolve(null, "https://someshop.booth.pm/", NothingKnown).Action);
+    }
 }

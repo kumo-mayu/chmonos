@@ -18,7 +18,7 @@
                     <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="商品IDが決まらなかったファイルです。IDを決めるか、管理から外します。"
+                    <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から外します。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
 
@@ -147,6 +147,13 @@
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                         <TextBlock Text="元zip" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                                     </Border>
+                                                                    <!-- 展開元のzipが無いフォルダ。畳んでいても分かるように見出しに出す -->
+                                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                            BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
+                                                                            VerticalAlignment="Center"
+                                                                            Visibility="{Binding Items[0].IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <TextBlock Text="zipが無い" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                                    </Border>
                                                                     <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
                                                                                Style="{StaticResource Mono}" FontSize="11"
                                                                                VerticalAlignment="Center" />
@@ -166,9 +173,51 @@
                                                                 </StackPanel>
                                                             </StackPanel>
                                                         </Expander.Header>
-                                                        <Border Background="{StaticResource Surface}">
+                                                        <StackPanel Background="{StaticResource Surface}">
+                                                            <!--
+                                                                展開元のzipファイルが無いフォルダの片付け方（ユーザ指示 2026-09-17：右側から、この操作が要るフォルダの所へ移した）。
+                                                                何に使う枠かを先に書く。勝手には外さず、根拠を見せて選ばせる。
+                                                                zipを取り込む形が一番きれい（配布単位と一致し、移動にも強く、展開先は自動で対象外になる）なので、まずそれを勧める
+                                                            -->
+                                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                    BorderThickness="1" CornerRadius="6" Padding="10,9" Margin="8,6,8,6"
+                                                                    Visibility="{Binding Items[0].IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="展開元のzipファイルが無いフォルダ" FontWeight="Bold" FontSize="12"
+                                                                               Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+                                                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                                               Text="zipを展開した中身だけが残り、元のzipファイルが手元に無いときの片付け方です。" />
+                                                                    <TextBlock Text="{Binding Items[0].ContentReason}" Style="{StaticResource Caption}"
+                                                                               TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                                                                    <TextBlock Text="まずはBOOTHからzipを落とし直す" FontWeight="Bold" FontSize="11.5" Margin="0,9,0,0" />
+                                                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                                               Text="zipで持つのが一番きれいです。配布された単位と一致し、フォルダを動かしても追えて、展開したフォルダは自動で対象から外れます。" />
+                                                                    <WrapPanel Margin="0,6,0,0">
+                                                                        <Button Content="どの商品か調べる" Style="{StaticResource SmallButton}" Margin="0,0,6,4"
+                                                                                Command="{Binding DataContext.InvestigateFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding Name}" />
+                                                                        <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="0,0,6,4"
+                                                                                Command="{Binding DataContext.SearchFolderInBrowserCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding Name}" />
+                                                                    </WrapPanel>
+
+                                                                    <TextBlock Text="落とし直せないとき（非公開になった商品など）" FontWeight="Bold" FontSize="11.5" Margin="0,8,0,0" />
+                                                                    <WrapPanel Margin="0,5,0,0">
+                                                                        <Button Content="このフォルダを商品として登録" Style="{StaticResource SmallButton}" Margin="0,0,6,4"
+                                                                                Command="{Binding DataContext.RegisterFolderOfCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding Name}"
+                                                                                ToolTip="先に右の「商品IDを決める」で、このフォルダの商品IDを確かめてから押します。" />
+                                                                        <Button Content="このフォルダを管理対象から外す" Style="{StaticResource SmallButton}" Margin="0,0,6,4"
+                                                                                Command="{Binding DataContext.ExcludeFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding Name}" />
+                                                                    </WrapPanel>
+                                                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                                               Text="商品として登録すると場所で覚えるので、フォルダを動かすとつながりが切れます。管理対象から外すと、その商品はライブラリに残りません（ファイル自体は消しません）。" />
+                                                                </StackPanel>
+                                                            </Border>
                                                             <ItemsPresenter />
-                                                        </Border>
+                                                        </StackPanel>
                                                     </Expander>
                                                 </ControlTemplate>
                                             </Setter.Value>
@@ -214,67 +263,17 @@
                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
 
-                    <!-- 元zipの束を選んでいるとき。下の確定・管理から外すが全件に効くことを先に言う -->
+                    <!-- 元zipの束を選んでいるとき。下の確定・管理対象から外すが全件に効くことを先に言う -->
                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                             BorderThickness="1" CornerRadius="8" Padding="16,13" Margin="0,0,0,14"
                             Visibility="{Binding HasActiveGroup, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel>
                             <TextBlock Text="{Binding ActiveGroupText}" FontWeight="Bold" FontSize="12.5"
                                        Foreground="#28507f" TextWrapping="Wrap" />
-                            <TextBlock Text="展開したときに Windows が残した記録から、このzipの中身と分かったファイルです。下の「確定」と「管理から外す」は、この全件に効きます。"
+                            <TextBlock Text="展開したときに Windows が残した記録から、このzipの中身と分かったファイルです。下の「このIDで確定する」と「管理対象から外す」は、この全件に効きます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                             <Button Content="1件ずつ扱う" Style="{StaticResource SmallButton}" Margin="0,9,0,0"
                                     HorizontalAlignment="Left" Command="{Binding ClearGroupCommand}" />
-                        </StackPanel>
-                    </Border>
-
-                    <!--
-                        展開物の中身と判断できたものは、先にまとめて片付けられるようにする。
-                        勝手には外さず、根拠を見せて選択肢として出す。
-                    -->
-                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                            BorderThickness="1" CornerRadius="8" Padding="16,13" Margin="0,0,0,14"
-                            Visibility="{Binding HasArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <StackPanel>
-                            <TextBlock Text="{Binding ArchiveContentText}" FontWeight="Bold" FontSize="12.5"
-                                       Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding ArchiveContentReason}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="0,5,0,0" />
-
-                            <!--
-                                外すだけだと、zipが残っていない商品はライブラリから消えてしまう。
-                                まずzipを落とし直す道を勧め、それが無理な場合の受け皿を並べて出す。
-                            -->
-                            <!--
-                                zipを取り込む形が一番きれい（配布単位と一致し、移動にも強く、
-                                展開先は自動で対象外になる）。まずこれを勧める。
-                            -->
-                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Accent}"
-                                    BorderThickness="2" CornerRadius="8" Padding="15,13" Margin="0,11,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="まずはこちら：BOOTHからzipを落とし直す" FontWeight="Bold" FontSize="13"
-                                               Foreground="{StaticResource Accent}" />
-                                    <TextBlock Text="zipで持っておくのが一番きれいです。配布された単位と一致し、フォルダを移動しても追跡でき、展開先は自動で対象から外れます。まず「自動検索」でどの商品か調べ、BOOTHで開いて再ダウンロードしてください。"
-                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,11,0,0">
-                                        <Button Content="自動検索でこの商品を調べる" Style="{StaticResource PrimaryButton}"
-                                                Command="{Binding ProposeCommand}" />
-                                        <Button Content="ブラウザで検索" Margin="8,0,0,0"
-                                                Command="{Binding OpenBoothCommand}" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <TextBlock Text="どうしても落とし直せない場合（非公開になった商品など）だけ、下を使ってください。"
-                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,7" />
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}"
-                                        Command="{Binding RegisterFolderCommand}" />
-                                <Button Content="まとめて選択して外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                                        Command="{Binding SelectArchiveContentCommand}" />
-                            </StackPanel>
-                            <TextBlock Text="フォルダ登録は場所で覚えるので、フォルダを移動するとリンクが切れます（先に商品IDを確認してください）。管理から外すと、その商品はライブラリに残りません。"
-                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -319,6 +318,84 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </ScrollViewer>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!--
+                        並びは「分かっていること → 商品IDを決める → 候補 → その他」（ユーザ指示 2026-09-17）。
+                        前は候補が決める欄より上にあり、決める道が「確定」「管理から外す」「BOOTHに無い商品」と1枚の中に混ざっていた
+                    -->
+                    <!-- 決定 -->
+                    <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="商品IDか商品ページのURLを入れて「このIDで確認」を押すと、そのIDが何の商品かを取得して下に出します。BOOTHの商品ページ（アドレス欄やリンク）をこの画面のどこに落としても入ります。確かめてから確定してください。画像までは取りに行きません（名前とショップで判断できるため）。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" AllowDrop="False" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
+                                <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}" />
+                            </Grid>
+
+                            <!-- プレビュー -->
+                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,12,0,0"
+                                    Visibility="{Binding HasPreview, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}"
+                                                   VerticalAlignment="Center" />
+                                        <!-- 状態はチップにする。文で出すと「だから登録できない」に読める -->
+                                        <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                                                BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="8,0,0,0"
+                                                Visibility="{Binding IsPreviewOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding PreviewOwnedNote}" FontSize="10"
+                                                       Foreground="{StaticResource Good}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding PreviewDetail}" Style="{StaticResource Caption}"
+                                               TextWrapping="Wrap" Margin="0,5,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!-- 押したら何が起きるかを、ボタンのすぐ上に必ず出す -->
+                            <TextBlock Text="{Binding AssignOutcomeText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,14,0,0"
+                                       Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding AssignCommand}" />
+                            </StackPanel>
+
+                            <!--
+                                選択中だけ出る一括操作。
+                                展開先の中身が10件以上並ぶことがあり、1件ずつでは捌けない。
+                            -->
+                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,14,0,0"
+                                    Visibility="{Binding HasChecked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="#28507f" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" />
+                                        <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
+                                                Command="{Binding ExcludeCheckedCommand}" />
+                                    </StackPanel>
+                                    <TextBlock Text="まとめて確定するには、先に上で商品IDを確認してください。"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                               Visibility="{Binding HasPreview, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </Border>
@@ -381,7 +458,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <TextBlock Text="候補がありません。上のボタンで検索するか、商品IDを直接入れてください。" TextWrapping="Wrap">
+                            <TextBlock Text="候補がありません。上のボタンで検索するか、「商品IDを決める」に商品IDを直接入れてください。" TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -396,58 +473,12 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- 決定 -->
+                    <!-- その他：商品IDで確定できないときの出口（ユーザ指示 2026-09-17：確定の欄から分けた） -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
                         <StackPanel>
-                            <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="商品IDを入れて「このIDで確認」を押すと、そのIDが何の商品かを取得して下に出します。確かめてから確定してください。画像までは取りに行きません（名前とショップで判断できるため）。"
-                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
-
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
-                                         Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
-                                <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}" />
-                            </Grid>
-
-                            <!-- プレビュー -->
-                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,12,0,0"
-                                    Visibility="{Binding HasPreview, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}"
-                                                   VerticalAlignment="Center" />
-                                        <!-- 状態はチップにする。文で出すと「だから登録できない」に読める -->
-                                        <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
-                                                BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="8,0,0,0"
-                                                Visibility="{Binding IsPreviewOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="{Binding PreviewOwnedNote}" FontSize="10"
-                                                       Foreground="{StaticResource Good}" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding PreviewDetail}" Style="{StaticResource Caption}"
-                                               TextWrapping="Wrap" Margin="0,5,0,0" />
-                                </StackPanel>
-                            </Border>
-
-                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
-                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-                            <!-- 押したら何が起きるかを、ボタンのすぐ上に必ず出す -->
-                            <TextBlock Text="{Binding AssignOutcomeText}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="0,14,0,0"
-                                       Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
-                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-                                <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
-                                        Command="{Binding AssignCommand}" />
-                                <Button Content="管理から外す" Margin="9,0,0,0" Command="{Binding ExcludeCommand}" />
-                            </StackPanel>
+                            <TextBlock Text="その他" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="商品IDで確定できないときに使います。" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,0" />
 
                             <!--
                                 第三の出口。確定でも除外でもないものが実在する——
@@ -491,9 +522,7 @@
                                     </StackPanel>
 
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0">
-                                        <Run Text="仮のID" />
-                                        <Run Text="{Binding LocalIdPreview, Mode=OneWay}" FontFamily="Consolas" />
-                                        <Run Text="を付けます。" />
+                                        <Run Text="仮のID（" /><Run Text="{Binding LocalIdPreview, Mode=OneWay}" FontFamily="Consolas" /><Run Text="）として登録します。" />
                                     </TextBlock>
 
                                     <!-- 押す前に言う。商品ページにも常設で出す（半年後に理由を思い出せるように） -->
@@ -506,23 +535,15 @@
                                 </StackPanel>
                             </Border>
 
-                            <!--
-                                選択中だけ出る一括操作。
-                                展開先の中身が10件以上並ぶことがあり、1件ずつでは捌けない。
-                            -->
-                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,14,0,0"
-                                    Visibility="{Binding HasChecked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <!-- 除外。取り返しがつくことを押す前に書く（押した後の確認の窓にも同じ旨） -->
+                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="#28507f" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" />
-                                        <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
-                                                Command="{Binding ExcludeCheckedCommand}" />
-                                    </StackPanel>
-                                    <TextBlock Text="まとめて確定するには、先に上で商品IDを確認してください。"
-                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
-                                               Visibility="{Binding HasPreview, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                    <TextBlock Text="管理対象から外す" FontWeight="Bold" FontSize="12.5" />
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                               Text="BOOTHの商品ではないファイル（自分で作った物など）に使います。ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
+                                    <Button Content="管理対象から外す" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            Command="{Binding ExcludeCommand}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
