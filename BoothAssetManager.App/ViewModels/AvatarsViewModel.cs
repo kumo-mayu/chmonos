@@ -396,6 +396,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             if (SetField(ref _isLoading, value))
             {
                 OnPropertyChanged(nameof(IsEmpty));
+                OnPropertyChanged(nameof(HasNoItems));
+                OnPropertyChanged(nameof(CanDetectFromItems));
             }
         }
     }
@@ -431,6 +433,16 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     /// <summary>1体も見つかっていないとき。数字ではなく次にやることを出す。</summary>
     public bool IsEmpty => !IsLoading && Rows.Count == 0;
+
+    /// <summary>
+    /// 商品を1件も取り込んでいないか。そのときは検出を押しても何も見つからないので、先に取り込みへ案内する
+    /// （ユーザ判断 2026-09-17：空表示には次にやることを書く）
+    /// </summary>
+    public bool HasNoItems => IsEmpty && _main.Search.TotalCount == 0;
+
+    public bool CanDetectFromItems => IsEmpty && !HasNoItems;
+
+    public RelayCommand ShowImportCommand => _main.ShowImportCommand;
 
     public bool HasBases => Bases.Count > 0;
 
@@ -979,6 +991,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasBases));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasNoItems));
+        OnPropertyChanged(nameof(CanDetectFromItems));
         OnPropertyChanged(nameof(AvatarModeText));
         OnPropertyChanged(nameof(BaseModeText));
         OnPropertyChanged(nameof(ShowsNoBases));
@@ -1019,23 +1033,26 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
             var parts = new List<string>
             {
-                $"{result.ItemsScanned}件を調べ、{result.ItemsUpdated}件の対応アバターを更新しました",
-                $"アバター {result.AvatarsFound} 体",
+                // 数字は詰めて書く。更新が0件のときに「0件を更新しました」だと、何か起きたのか分かりにくい（ユーザ判断 2026-09-17）
+                result.ItemsUpdated > 0
+                    ? $"{result.ItemsScanned}件を調べ、{result.ItemsUpdated}件の対応アバターを更新しました"
+                    : $"{result.ItemsScanned}件を調べました。対応アバターに変わりはありませんでした",
+                $"アバター{result.AvatarsFound}体",
             };
 
             if (result.BaseGroupsFound > 0)
             {
-                parts.Add($"共通素体 {result.BaseGroupsFound} グループ");
+                parts.Add($"共通素体{result.BaseGroupsFound}グループ");
             }
 
             if (result.Requests > 0)
             {
-                parts.Add($"BOOTHへの問い合わせ {result.Requests} 回");
+                parts.Add($"BOOTHへの問い合わせ{result.Requests}回");
             }
 
             if (result.Unresolved > 0)
             {
-                parts.Add($"通信できず保留 {result.Unresolved} 件（次回もう一度試します）");
+                parts.Add($"通信できず保留{result.Unresolved}件（次回もう一度試します）");
             }
 
             Status = string.Join(" / ", parts);
