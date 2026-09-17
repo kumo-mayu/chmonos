@@ -129,7 +129,15 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
     public RelayCommand? DeleteCommand { get; set; }
 
     public RelayCommand? SetItemIdCommand { get; set; }
+
+    /// <summary>素体そのものの商品の候補（名前に素体名を含み、アバターではない登録簿の商品）。押すと結ぶ（自動では結ばない）。</summary>
+    public IReadOnlyList<BaseItemCandidate> ItemCandidates { get; init; } = [];
+
+    public bool ShowsItemCandidates => !HasItemId && ItemCandidates.Count > 0;
 }
+
+/// <summary>素体の商品の候補1件。</summary>
+public sealed record BaseItemCandidate(string ItemId, string Label, RelayCommand UseCommand);
 
 /// <summary>
 /// アバターの管理。
@@ -176,7 +184,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
         ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget());
         AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
-        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget());
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
         RenameCommand = new RelayCommand(() => RenameAsync().Forget());
         UseNameSuggestionCommand = new RelayCommand(
             parameter => { if (parameter is string name) { NameInput = name; } },
@@ -235,7 +243,6 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     public RelayCommand AddAliasCommand { get; }
 
-    public RelayCommand SaveMemoCommand { get; }
 
     public RelayCommand RenameCommand { get; }
 
@@ -570,20 +577,50 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     public string MemoInput
     {
         get => _memoInput;
-        set => SetField(ref _memoInput, value);
+        set
+        {
+            // 押さなくても残す（ユーザ指示 2026-09-17）。打っている間は待ち、止まってから1回書く。
+            // 選び直しで欄を入れ替えたときは書かない
+            if (SetField(ref _memoInput, value ?? string.Empty) && !_swappingMemo && Selected is { } row)
+            {
+                _memoItemId = row.ItemId;
+                _saveMemo.Request();
+            }
+        }
     }
+
+    private readonly Debounced _saveMemo;
+
+    /// <summary>書くのを待っているメモの持ち主。待ちの間に別のアバターへ移っても、元のアバターに書くため</summary>
+    private string? _memoItemId;
+
+    private bool _swappingMemo;
+
+    /// <summary>
+    /// このセッションで書いたメモ。保存のたびに一覧を読み直すと、打っている途中の欄が保存した時点の文に戻るので読み直さない。
+    /// そのかわり、選び直したときに読み込み時の古いメモが出ないよう、こちらを優先する
+    /// </summary>
+    private readonly Dictionary<string, string> _writtenMemos = new(StringComparer.Ordinal);
 
     public AvatarRowViewModel? Selected
     {
         get => _selected;
         set
         {
+            if (!ReferenceEquals(value, _selected))
+            {
+                FlushMemo();
+            }
+
             if (SetField(ref _selected, value))
             {
                 BaseInput = value?.Summary.Entry.BaseName ?? string.Empty;
                 AliasInput = string.Empty;
                 NameInput = value?.Name ?? string.Empty;
-                MemoInput = value?.Summary.Entry.Memo ?? string.Empty;
+                _swappingMemo = true;
+                MemoInput = value is null ? string.Empty
+                    : _writtenMemos.TryGetValue(value.ItemId, out var written) ? written : value.Summary.Entry.Memo ?? string.Empty;
+                _swappingMemo = false;
 
                 foreach (var name in new[]
                 {
@@ -847,9 +884,18 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             foreach (var summary in bases)
             {
                 var name = summary.Group.Name;
+                // 素体そのものの商品の候補（ユーザ指摘 2026-09-17：素体単体の配布を検知できていなかった）。押したら結ぶ
+                var candidates = Core.Services.AvatarBaseItemFinder.Candidates(summary.Group, avatars.Select(avatar => avatar.Entry))
+                    .Take(3)
+                    .Select(entry => new BaseItemCandidate(
+                        entry.ItemId,
+                        $"{entry.BoothName}（{entry.ItemId}）",
+                        new RelayCommand(() => SetBaseItemIdAsync(name, entry.ItemId).Forget())))
+                    .ToList();
                 var baseRow = new AvatarBaseRowViewModel
                 {
                     Summary = summary,
+                    ItemCandidates = candidates,
                     ItemIdInput = summary.Group.ItemId ?? string.Empty,
                     ToggleInferCommand = new RelayCommand(() => ToggleInferAsync(name, !summary.Group.InferClothing).Forget()),
                     RenameCommand = new RelayCommand(() => RenameBase(name)),
@@ -1152,16 +1198,30 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         await LoadAsync();
     }
 
-    private async Task SaveMemoAsync()
+    /// <summary>待っているメモを今書く。別のアバターへ移る前に呼ぶ（移ってからだと、移った先の欄の文になる）</summary>
+    private void FlushMemo()
     {
-        if (Selected is null)
+        if (_memoItemId is null)
         {
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarMemo(Selected.ItemId, MemoInput));
-        Status = MemoInput.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
-        await LoadAsync();
+        _saveMemo.Cancel();
+        SaveMemoAsync().Forget();
+    }
+
+    private async Task SaveMemoAsync()
+    {
+        if (_memoItemId is not { } itemId)
+        {
+            return;
+        }
+
+        _memoItemId = null;
+        var memo = _memoInput;
+        _writtenMemos[itemId] = memo;
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarMemo(itemId, memo));
+        Status = memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
     }
 
     private async Task AddAliasAsync()
