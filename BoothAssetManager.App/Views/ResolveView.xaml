@@ -43,7 +43,7 @@
                     <!-- 正しく結び付いたかを、その場で商品ページで確かめる（動線の点検 D3） -->
                     <Button Content="最後に確定した商品を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                             VerticalAlignment="Center" Command="{Binding OpenLastSettledCommand}"
-                            ToolTip="最後に確定した商品のページを開きます。「確定した分を編集へ送る」の対象は、この画面を離れると消えます（未編集のまま残るので、編集の順番には出てきます）。" />
+                            ToolTip="最後に確定した商品のページを開きます。" />
                     <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}"
                             Command="{Binding SendSettledToEditCommand}" />
                 </StackPanel>
@@ -348,7 +348,7 @@
                         <StackPanel>
                             <TextBlock Text="{Binding ActiveGroupText}" FontWeight="Bold" FontSize="12.5"
                                        Foreground="#28507f" TextWrapping="Wrap" />
-                            <TextBlock Text="展開したときに Windows が残した記録から、このzipの中身と分かったファイルです。下の「このIDで確定する」と「管理対象から外す」は、この全件に効きます。"
+                            <TextBlock Text="下の確定と管理対象から外すは、この中身すべてに効きます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                             <Button Content="1件ずつ扱う" Style="{StaticResource SmallButton}" Margin="0,9,0,0"
                                     HorizontalAlignment="Left" Command="{Binding ClearGroupCommand}" />
@@ -389,7 +389,7 @@
                                 <Button Content="元zipで登録" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
                                         Command="{Binding UseOriginZipCommand}"
                                         ToolTip="元のzipを選びます。そのまま商品IDを決めて登録できます。" />
-                                <TextBlock Text="このファイルは元のzipを展開した中身です。zipが残っているので、zipで登録するのがおすすめです。"
+                                <TextBlock Text="zipが残っているので、zipで登録するのがおすすめです。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
                             </StackPanel>
 
@@ -415,7 +415,7 @@
                     <!--
                         展開元のzipファイルが無いフォルダの片付け方。選んだファイルがそういうフォルダにあるときだけ出す。
                         前は左の束の中に出していたが、束ごとに大きな枠が並んでごちゃごちゃした（ユーザ指示 2026-09-17）。
-                        色は札と見出しだけに付ける（広い面を黄色くすると違和感があった）。
+                        色は付けない（広い面を黄色くすると違和感があった。見出しと重なる「zipが無い」の札も文言の見直しで外した）。
                         zipを取り込む形が一番きれい（配布単位と一致し、移動にも強く、展開先は自動で対象外になる）なので、まずそれを勧める
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16"
@@ -423,19 +423,15 @@
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="展開元のzipファイルが無いフォルダ" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                        BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="zipが無い" FontSize="10" Foreground="{StaticResource Warn}" />
-                                </Border>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                       Text="zipを展開した中身だけが残り、元のzipファイルが手元に無いときの片付け方です。" />
+                                       Text="元のzipが無く、展開した中身だけが残っているフォルダです。" />
                             <TextBlock Text="{Binding Selected.ContentReason}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,3,0,0" />
 
                             <TextBlock Text="まずはBOOTHからzipを落とし直す" Style="{StaticResource SectionLabel}" Margin="0,14,0,0" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                       Text="zipで持つのが一番きれいです。配布された単位と一致し、フォルダを動かしても追えて、展開したフォルダは自動で対象から外れます。" />
+                                       Text="zipで持つと配布された単位で管理でき、フォルダを動かしても追えます。" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="どの商品か調べる" Style="{StaticResource SmallButton}"
                                         Command="{Binding InvestigateFolderCommand}" CommandParameter="{Binding Selected.DirectoryText}" />
@@ -447,7 +443,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="このフォルダを商品として登録" Style="{StaticResource SmallButton}"
                                         Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.DirectoryText}"
-                                        ToolTip="先に「商品IDを決める」で、このフォルダの商品IDを確かめてから押します。" />
+                                        ToolTip="先に「商品IDを決める」で、このフォルダの商品IDを確認してから押します。" />
                                 <Button Content="このフォルダを管理対象から外す" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                         Command="{Binding ExcludeFolderCommand}" CommandParameter="{Binding Selected.DirectoryText}" />
                             </StackPanel>
@@ -464,7 +460,7 @@
                     <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="商品IDか商品ページのURLを入れて「このIDで確認」を押すと、そのIDが何の商品かを取得して下に出します。BOOTHの商品ページ（アドレス欄やリンク）をこの画面のどこに落としても入ります。確かめてから確定してください。画像までは取りに行きません（名前とショップで判断できるため）。"
+                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをこの画面に落とすと、その商品が下に出ます。確認してから確定してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
 
                             <Grid>
@@ -662,7 +658,7 @@
                                     <!-- 押す前に言う。商品ページにも常設で出す（半年後に理由を思い出せるように） -->
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
                                                Foreground="{StaticResource Warn}"
-                                               Text="この商品はBOOTHから情報を取り直しません。名前も画像も増えません。" />
+                                               Text="BOOTHから情報を取り直さないので、名前も画像も増えません。" />
 
                                     <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding RegisterLocalCommand}" />
@@ -673,9 +669,8 @@
                             <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="管理対象から外す" FontWeight="Bold" FontSize="12.5" />
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                               Text="BOOTHの商品ではないファイル（自分で作った物など）に使います。ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
+                                               Text="管理しないファイルを一覧から外します。ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
                                     <Button Content="管理対象から外す" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding ExcludeCommand}" />
                                 </StackPanel>

@@ -84,9 +84,9 @@ public sealed partial class ResolveViewModel
     public string SearchTargetText => SearchTargetPath is null
         ? string.Empty
         : SelectedOriginText is not null
-            ? $"元のzipの名前「{Selected!.Origin!.ArchiveName}」で探します（展開したときに Windows が残した記録から分かりました）"
+            ? $"元のzipの名前「{Selected!.Origin!.ArchiveName}」で探します"
         : Selected?.IsArchiveContent == true
-            ? $"フォルダ名「{Path.GetFileName(SearchTargetPath)}」で探します（ファイル名では商品に辿り着かないため）"
+            ? $"フォルダ名「{Path.GetFileName(SearchTargetPath)}」で探します"
             : $"ファイル名「{Path.GetFileName(SearchTargetPath)}」で探します";
 
     private async Task ProposeAsync()
@@ -124,8 +124,9 @@ public sealed partial class ResolveViewModel
                 }
 
                 SearchPhase = string.Empty;
+                // 0件のときは候補の欄の「候補がありません…」が同じことを言うので、状態の1行には出さない（ユーザ指示 2026-09-17）
                 StatusText = proposed.Candidates.Count == 0
-                    ? "候補は見つかりませんでした。「商品IDを決める」に商品IDを直接入れるか、「その他」の「管理対象から外す」を使ってください。"
+                    ? string.Empty
                     : $"候補を {proposed.Candidates.Count} 件見つけました。";
             }
             else if (result is CommandResult.Failed failed)

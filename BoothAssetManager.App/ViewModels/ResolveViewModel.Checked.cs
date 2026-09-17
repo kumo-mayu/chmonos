@@ -160,8 +160,7 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        StatusText = $"中身 {targets.Count} 件を管理対象から外しました。元のzip「{origin.ArchiveName}」は未確定の一覧にありません"
-            + "（既に商品に結び付いているか、まだ取り込んでいません）。取り込み画面にzipを落とすと、商品に結び付くか未確定に出ます。";
+        StatusText = $"中身 {targets.Count} 件を外しました。元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipを落としてください。";
         OnPropertyChanged(nameof(HasStatus));
     }
 
@@ -183,7 +182,7 @@ public sealed partial class ResolveViewModel
         var answer = System.Windows.MessageBox.Show(
             (lead is null ? string.Empty : lead + "\n\n")
             + $"{targets.Count} 件を管理対象から外します。\n\n{sample}\n\n"
-            + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
+            + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
             title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

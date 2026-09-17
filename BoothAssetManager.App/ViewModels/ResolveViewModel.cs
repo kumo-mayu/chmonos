@@ -355,7 +355,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
     /// <summary>束を選んでいるときは件数まで言う。1件のつもりで押して全件が動くことが無いように。</summary>
     private string OutcomeSubject => ActiveGroup is null
         ? "このファイル"
-        : $"元zip「{ActiveGroup}」の {ActiveRows.Count} 件";
+        : $"元zip「{ActiveGroup}」の中身 {ActiveRows.Count} 件";
 
     public bool HasAssignOutcome => Preview is not null;
 
@@ -435,8 +435,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
             return;
         }
 
-        StatusText = $"元のzip「{origin.ArchiveName}」は未確定の一覧にありません。既に商品に結び付いているか、まだ取り込んでいません。"
-            + "取り込み画面にzipを落とすと、商品に結び付くか未確定に出ます。";
+        StatusText = $"元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipを落としてください。";
         OnPropertyChanged(nameof(HasStatus));
         DecisionFocusRequested?.Invoke();
     }
@@ -731,7 +730,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
             $"{Selected.FileName} を「{name}」として登録します。\n\n"
             + $"BOOTHには無い商品なので、仮のID（{LocalIdPreview}）を付けます。\n"
             + "この商品はBOOTHから情報を取り直しません（名前も画像も増えません）。\n\n"
-            + "あとで本物の商品IDが分かったら、商品ページでファイルを外して付け直せます。",
+            + "あとで本物の商品IDが分かったら、編集画面の「IDを変える」で移せます。",
             "BOOTHに無い商品として登録する",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -777,10 +776,10 @@ public sealed partial class ResolveViewModel : ViewModelBase
             return;
         }
 
-        var what = targets.Count == 1 ? targets[0].FileName : $"元zip「{ActiveGroup}」の {targets.Count} 件";
+        var what = targets.Count == 1 ? targets[0].FileName : $"元zip「{ActiveGroup}」の中身 {targets.Count} 件";
         var answer = System.Windows.MessageBox.Show(
             $"{what} を管理対象から外します。\n\n"
-            + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
+            + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
             "管理対象から外す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

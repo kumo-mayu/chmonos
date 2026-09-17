@@ -78,7 +78,7 @@ public sealed partial class ResolveViewModel
 
         if (!HasPreview)
         {
-            StatusText = "このフォルダの商品IDを「商品IDを決める」で確かめてから、もう一度「このフォルダを商品として登録」を押してください。";
+            StatusText = "先に「商品IDを決める」で商品IDを確認してください。";
             OnPropertyChanged(nameof(HasStatus));
             DecisionFocusRequested?.Invoke();
             return;
@@ -189,8 +189,8 @@ public sealed partial class ResolveViewModel
         var answer = System.Windows.MessageBox.Show(
             $"次のフォルダを「{Preview.Name}」（ID {Preview.Id}）として登録します。\n\n"
             + $"{folder}\n{count} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
-            + "以降このフォルダの中はスキャンしなくなり、未確定にも出てこなくなります。\n"
-            + "フォルダを移動するとリンクが切れるので、その場合は登録し直してください。",
+            + "以降このフォルダの中は取り込みで読まなくなり、未確定にも出てこなくなります。\n"
+            + "フォルダを動かすとつながりが切れるので、そのときは登録し直してください。",
             "フォルダを商品として登録",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
