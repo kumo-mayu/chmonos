@@ -178,7 +178,7 @@
                                                                         </Style>
                                                                     </TextBlock.Style>
                                                                 </TextBlock>
-                                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                <WrapPanel Margin="0,4,0,0">
                                                                     <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
                                                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
                                                                             VerticalAlignment="Center"
@@ -201,6 +201,14 @@
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    <!-- 元のzipが残っているなら、中身は外してzipで登録すればよい（ユーザ判断 2026-09-17） -->
+                                                                    <Button Content="元zipとして扱う" Style="{StaticResource SmallButton}"
+                                                                            Height="23" FontSize="10.5" Margin="6,0,0,0"
+                                                                            Command="{Binding DataContext.TreatAsOriginZipCommand,
+                                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding Name}"
+                                                                            ToolTip="中身を管理対象から外し、元のzipを選びます（ファイル自体は消しません）"
+                                                                            Visibility="{Binding Items[0].HasOriginZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
                                                                     <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="8,0,0,0"
@@ -208,7 +216,7 @@
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                                                </StackPanel>
+                                                                </WrapPanel>
                                                             </StackPanel>
                                                         </Expander.Header>
                                                         <!-- 開いた中身は深く字下げし、左に線を引く。束と中身が同じ密度で並ぶと、どこを見ればよいか分からなかった（ユーザ指摘 2026-09-17） -->
@@ -274,6 +282,26 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
+                                        <!-- 1行で出ている中身にも「元zipとして扱う」（束の見出しと同じ動き） -->
+                                        <Button Content="元zipとして扱う" HorizontalAlignment="Left" Height="23" FontSize="10.5" Margin="0,4,0,0"
+                                                Command="{Binding DataContext.TreatAsOriginZipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="この中身を管理対象から外し、元のzipを選びます（ファイル自体は消しません）">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding HasOriginZip}" Value="True" />
+                                                                <Condition Binding="{Binding DataContext.ItemCount, RelativeSource={RelativeSource AncestorType=GroupItem}}" Value="1" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" />
                                             <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"

@@ -92,7 +92,7 @@ public sealed partial class ResolveViewModel
             ? ExcludeRowsAsync(
                 Files.Where(row => string.Equals(row.DirectoryText, directory, StringComparison.OrdinalIgnoreCase)).ToList(),
                 "このフォルダを管理対象から外す")
-            : Task.CompletedTask;
+            : Task.FromResult(false);
 
     /// <summary>
     /// 登録の対象にするフォルダ。

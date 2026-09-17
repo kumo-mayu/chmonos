@@ -78,6 +78,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         ExcludeFolderCommand = new RelayCommand(parameter => ExcludeFolderAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
+        TreatAsOriginZipCommand = new RelayCommand(parameter => TreatAsOriginZipAsync(parameter).Forget(), parameter => !IsBusy && parameter is not null);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
         ExcludeCheckedCommand = new RelayCommand(() => ExcludeCheckedAsync().Forget(), () => HasChecked && !IsBusy);
@@ -108,6 +109,8 @@ public sealed partial class ResolveViewModel : ViewModelBase
     public RelayCommand ExcludeFolderCommand { get; }
 
     public RelayCommand UseOriginZipCommand { get; }
+
+    public RelayCommand TreatAsOriginZipCommand { get; }
 
     // ---- 左の一覧を探す（ユーザ指示 2026-09-17：件数が多く、どこを見ればよいか分からなかった） ----
 

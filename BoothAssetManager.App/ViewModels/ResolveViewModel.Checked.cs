@@ -123,14 +123,55 @@ public sealed partial class ResolveViewModel
         }
     }
 
-    private Task ExcludeCheckedAsync() => ExcludeRowsAsync(Files.Where(row => row.IsSelected).ToList(), "まとめて管理対象から外す");
+    private Task<bool> ExcludeCheckedAsync() => ExcludeRowsAsync(Files.Where(row => row.IsSelected).ToList(), "まとめて管理対象から外す");
 
-    /// <summary>決めた行をまとめて管理対象から外す。外す前に件数と名前を見せて聞く。</summary>
-    private async Task ExcludeRowsAsync(List<UnresolvedRow> targets, string title)
+    /// <summary>
+    /// 元のzipが残っている中身を「元zipとして扱う」（ユーザ判断 2026-09-17）。中身（束なら全件）を管理対象から外し、元のzipの行を選ぶ。
+    /// zipで登録すれば中身は要らない——配布された単位と一致し、展開したフォルダを別に片付ける手間が無くなる。
+    /// zipが一覧に無い（既に商品に結び付いている・取り込んでいない）ときは外すだけにして、そう言う。
+    /// </summary>
+    /// <param name="parameter">中身の束の鍵（zipの名前）か、1行で出ている中身の行。</param>
+    private async Task TreatAsOriginZipAsync(object? parameter)
+    {
+        var targets = parameter switch
+        {
+            UnresolvedRow row when row.HasOriginZip => new List<UnresolvedRow> { row },
+            string key => Files.Where(row => row.HasOriginZip
+                && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList(),
+            _ => new List<UnresolvedRow>(),
+        };
+        if (targets.Count == 0 || targets[0].Origin is not { } origin)
+        {
+            return;
+        }
+
+        var excluded = await ExcludeRowsAsync(targets, "元zipとして扱う",
+            $"「{origin.ArchiveName}」を展開した中身です。元のzipが残っているので、中身は管理対象から外し、zipで登録します。");
+        if (!excluded)
+        {
+            return;
+        }
+
+        var zipRow = Files.FirstOrDefault(row =>
+            string.Equals(row.File.Paths.FirstOrDefault(), origin.ArchivePath, StringComparison.OrdinalIgnoreCase));
+        if (zipRow is not null)
+        {
+            Selected = zipRow;
+            return;
+        }
+
+        StatusText = $"中身 {targets.Count} 件を管理対象から外しました。元のzip「{origin.ArchiveName}」は未確定の一覧にありません"
+            + "（既に商品に結び付いているか、まだ取り込んでいません）。取り込み画面にzipを落とすと、商品に結び付くか未確定に出ます。";
+        OnPropertyChanged(nameof(HasStatus));
+    }
+
+    /// <summary>決めた行をまとめて管理対象から外す。外す前に件数と名前を見せて聞く。外したら true。</summary>
+    /// <param name="lead">確認の窓の頭に置く、なぜ外すのかの一文（無ければ出さない）。</param>
+    private async Task<bool> ExcludeRowsAsync(List<UnresolvedRow> targets, string title, string? lead = null)
     {
         if (targets.Count == 0)
         {
-            return;
+            return false;
         }
 
         var sample = string.Join("\n", targets.Take(8).Select(row => $"・{row.FileName}"));
@@ -140,7 +181,8 @@ public sealed partial class ResolveViewModel
         }
 
         var answer = System.Windows.MessageBox.Show(
-            $"{targets.Count} 件を管理対象から外します。\n\n{sample}\n\n"
+            (lead is null ? string.Empty : lead + "\n\n")
+            + $"{targets.Count} 件を管理対象から外します。\n\n{sample}\n\n"
             + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
             title,
             System.Windows.MessageBoxButton.OKCancel,
@@ -149,7 +191,7 @@ public sealed partial class ResolveViewModel
 
         if (answer != System.Windows.MessageBoxResult.OK)
         {
-            return;
+            return false;
         }
 
         IsBusy = true;
@@ -163,6 +205,7 @@ public sealed partial class ResolveViewModel
 
             RemoveRows(targets);
             StatusText = $"{targets.Count} 件を管理対象から外しました。";
+            return true;
         }
         finally
         {
