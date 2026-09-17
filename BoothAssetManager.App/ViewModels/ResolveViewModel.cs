@@ -525,6 +525,14 @@ public sealed partial class ResolveViewModel : ViewModelBase
             .ThenByDescending(entry => entry.File.SizeBytes)
             .ToList();
 
+        // 展開物の根が別の物まで巻き込んでいないかを見るための場所（zipの中身・zip自身・商品が持っているファイル）
+        _foreignPaths = withOrigin
+            .Where(entry => entry.Origin is not null && entry.File.Paths.Count > 0)
+            .Select(entry => entry.File.Paths[0])
+            .Concat(_ownedPaths)
+            .ToList();
+        _unpackRoots.Clear();
+
         var hiddenByRegisteredZip = 0;
         foreach (var (file, origin) in withOrigin)
         {
@@ -568,6 +576,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         HiddenByRegisteredZipCount = hiddenByRegisteredZip;
         OnPropertyChanged(nameof(HasHiddenByRegisteredZip));
         OnPropertyChanged(nameof(HiddenByRegisteredZipText));
+        OnPropertyChanged(nameof(ShowsInlineHidden));
 
         Selected = Files.FirstOrDefault();
         OnPropertyChanged(nameof(RemainingCount));

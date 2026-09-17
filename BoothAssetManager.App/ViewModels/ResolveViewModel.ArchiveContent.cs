@@ -90,7 +90,7 @@ public sealed partial class ResolveViewModel
         if (!_unpackRoots.TryGetValue(marker, out var root))
         {
             var climbed = ClimbSingleChildFolders(marker);
-            root = !IsTooWide(climbed) ? climbed : !IsTooWide(marker) ? marker : string.Empty;
+            root = IsUsableRoot(climbed) ? climbed : IsUsableRoot(marker) ? marker : string.Empty;
             _unpackRoots[marker] = root;
         }
 
@@ -99,6 +99,24 @@ public sealed partial class ResolveViewModel
             ? root
             : directory;
     }
+
+    /// <summary>
+    /// 根にしてよいか。広すぎず、**中に別の物が入っていない**こと——zipを展開した中身・zip自身・商品が持っているファイルが入っていれば、
+    /// 無関係なファイルまで1つの束・1つの登録にまとめてしまう（作り物を %TEMP% に置くと、元からある .url を目印に Temp 全体が根になった・2026-09-17）。
+    /// </summary>
+    private bool IsUsableRoot(string folder)
+    {
+        if (IsTooWide(folder))
+        {
+            return false;
+        }
+
+        var prefix = Path.TrimEndingDirectorySeparator(folder) + Path.DirectorySeparatorChar;
+        return !_foreignPaths.Any(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Reload のたびに作り直す。</summary>
+    private List<string> _foreignPaths = [];
 
     private bool IsTooWide(string folder)
     {

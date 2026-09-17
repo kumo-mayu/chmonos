@@ -72,6 +72,7 @@ public sealed partial class ResolveViewModel
         HiddenByRegisteredZipCount += covered.Count;
         OnPropertyChanged(nameof(HasHiddenByRegisteredZip));
         OnPropertyChanged(nameof(HiddenByRegisteredZipText));
+        OnPropertyChanged(nameof(ShowsInlineHidden));
 
         if (selectedWasCovered)
         {
@@ -87,12 +88,21 @@ public sealed partial class ResolveViewModel
 
     public string UndoExcludeText => $"外した {_lastExcluded.Count} 件を戻す";
 
+    /// <summary>
+    /// フォルダビューに組み込んだときは上の帯が隠れるので、「戻す」と出していない件数を右側の上に出す
+    /// （ユーザ判断 2026-09-17：組み込んだ側では外した直後に戻せず、減った理由も見えなかった）。
+    /// </summary>
+    public bool ShowsInlineUndo => IsEmbedded && HasUndoExclude;
+
+    public bool ShowsInlineHidden => IsEmbedded && HasHiddenByRegisteredZip;
+
     /// <summary>外した直後に呼ぶ。次に外すまで、上の帯に「戻す」を出す。</summary>
     private void RememberExcluded(IEnumerable<UnresolvedRow> rows)
     {
         _lastExcluded = rows.Select(row => row.File).ToList();
         OnPropertyChanged(nameof(HasUndoExclude));
         OnPropertyChanged(nameof(UndoExcludeText));
+        OnPropertyChanged(nameof(ShowsInlineUndo));
         RelayCommand.RaiseCanExecuteChanged();
     }
 
@@ -108,6 +118,7 @@ public sealed partial class ResolveViewModel
         _lastExcluded = [];
         OnPropertyChanged(nameof(HasUndoExclude));
         OnPropertyChanged(nameof(UndoExcludeText));
+        OnPropertyChanged(nameof(ShowsInlineUndo));
 
         Reload();
         var first = files[0].Hash;

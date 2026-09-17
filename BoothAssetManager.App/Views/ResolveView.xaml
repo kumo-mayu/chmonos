@@ -90,6 +90,10 @@
                        Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
             <!-- 次の一手（ユーザ判断 2026-09-17：空になったときに何をすればよいかが弱かった） -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
+                <!-- 外して空になった直後にも戻せるように（組み込んだ画面で1件だけを外すと、ここしか見えない） -->
+                <Button Content="{Binding UndoExcludeText}" Style="{StaticResource SmallButton}" Margin="0,0,8,0" VerticalAlignment="Center"
+                        Command="{Binding UndoExcludeCommand}"
+                        Visibility="{Binding HasUndoExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
                         Command="{Binding SendSettledToEditCommand}"
                         Visibility="{Binding HasSettled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -358,6 +362,16 @@
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20"
                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+
+                    <!-- 組み込んだとき（上の帯が無い）だけ、外した直後に戻すボタンと出していない件数をここに出す -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12"
+                                Visibility="{Binding ShowsInlineUndo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Button Content="{Binding UndoExcludeText}" Style="{StaticResource SmallButton}"
+                                Command="{Binding UndoExcludeCommand}" ToolTip="直前に管理対象から外したファイルを、未確定に戻します。" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding HiddenByRegisteredZipText}" Style="{StaticResource Caption}" Margin="0,0,0,12"
+                               ToolTip="元のzipを消すと、中身として一覧に戻ります。"
+                               Visibility="{Binding ShowsInlineHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                     <!-- 元zipの束を選んでいるとき。下の確定・管理対象から外すが全件に効くことを先に言う -->
                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
