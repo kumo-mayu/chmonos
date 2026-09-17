@@ -38,7 +38,10 @@ public sealed class UnresolvedRow : ViewModelBase
 
     public required string DirectoryText { get; init; }
 
-    /// <summary>配布物を展開した中身とみなせるか。多くの場合そのまま管理から外したい。</summary>
+    /// <summary>
+    /// 配布物を展開した中身で、元のzipが手元に無いとみなせるか（「展開元のzipファイルが無いフォルダ」）。
+    /// 元のzipが残っていれば false——zipで登録すればよく、フォルダで片付ける話ではない。
+    /// </summary>
     public bool IsArchiveContent { get; init; }
 
     /// <summary>そう判断した理由。押し付けにならないよう根拠を見せる。</summary>
@@ -54,6 +57,9 @@ public sealed class UnresolvedRow : ViewModelBase
     public ArchiveOrigin? Origin { get; init; }
 
     public bool HasOrigin => Origin is not null;
+
+    /// <summary>展開した中身で、元のzipが今もディスクにあるか（zip自身の行は false）。あれば「元zipで登録」を出す。</summary>
+    public bool HasOriginZip { get; init; }
 
     /// <summary>
     /// 一覧で束ねる単位。元zipが分かれば元zip、分からなければフォルダ。

@@ -363,14 +363,9 @@ public sealed partial class ResolveViewModel : ViewModelBase
     /// <summary>
     /// 選んだファイルが展開した中身で、元のzipが今もディスクにあるか。あれば「元zipで登録」を出す（ユーザ指示 2026-09-17）。
     /// zipで登録するのが一番きれい——配布された単位と一致し、展開したフォルダは自動で対象から外れる。
-    /// ディスクを見るのは選んだときの1回だけ（ボタンの可否は操作のたびに問い合わされる。外付けを外していると待たされる）。
+    /// zipがあるかは一覧を読むときにzipごとに1回だけ見てある（<see cref="UnresolvedRow.HasOriginZip"/>）。
     /// </summary>
-    public bool CanUseOriginZip { get; private set; }
-
-    private static bool OriginZipRemains(UnresolvedRow? row)
-        => row?.Origin is { } origin
-           && !string.Equals(origin.ArchivePath, row.File.Paths.FirstOrDefault(), StringComparison.OrdinalIgnoreCase)
-           && File.Exists(origin.ArchivePath);
+    public bool CanUseOriginZip => Selected?.HasOriginZip == true;
 
     /// <summary>
     /// 元のzipの行を選ぶ。そこから普通に商品IDを決めて登録できる。
@@ -439,10 +434,24 @@ public sealed partial class ResolveViewModel : ViewModelBase
     private readonly Dictionary<string, ArchiveContentJudgement> _judgements =
         new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly Dictionary<string, bool> _originExists = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool OriginExists(string archivePath)
+    {
+        if (!_originExists.TryGetValue(archivePath, out var exists))
+        {
+            exists = File.Exists(archivePath);
+            _originExists[archivePath] = exists;
+        }
+
+        return exists;
+    }
+
     public void Reload()
     {
         var unresolved = _services.Store.Unresolved.Load().Where(file => _scope?.Invoke(file) ?? true).ToList();
         _judgements.Clear();
+        _originExists.Clear();
 
         Files.Clear();
 
@@ -466,13 +475,18 @@ public sealed partial class ResolveViewModel : ViewModelBase
             // 1件ごとにディスクを叩き直さないようキャッシュする
             var judgement = path.Length > 0 ? JudgeCached(path) : ArchiveContentJudgement.NotContent;
 
+            // 元のzipが今もあるか（zipごとに1回だけ見る）。あれば「zipが無い展開物」ではない——
+            // フォルダの目印（.unitypackage・.url）だけで決めると、zipが残っていても「zipが無い」と出た（画面で確かめて見つけた 2026-09-17）
+            var originRemains = origin is not null && OriginExists(origin.ArchivePath);
+
             var row = new UnresolvedRow
             {
                 File = file,
                 FileName = path.Length > 0 ? Path.GetFileName(path) : file.Hash[..12],
                 DirectoryText = path.Length > 0 ? Path.GetDirectoryName(path) ?? string.Empty : string.Empty,
                 SizeText = Core.Models.DisplayText.Size(file.SizeBytes),
-                IsArchiveContent = judgement.IsContent,
+                IsArchiveContent = judgement.IsContent && !originRemains,
+                HasOriginZip = originRemains && !string.Equals(origin!.ArchivePath, path, StringComparison.OrdinalIgnoreCase),
                 ContentReason = judgement.Reason,
                 ProductFolder = judgement.ProductFolder,
                 Origin = origin,
@@ -532,7 +546,6 @@ public sealed partial class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasZone));
         OnPropertyChanged(nameof(SelectedOriginText));
         OnPropertyChanged(nameof(HasSelectedOrigin));
-        CanUseOriginZip = OriginZipRemains(Selected);
         OnPropertyChanged(nameof(CanUseOriginZip));
         OnPropertyChanged(nameof(HasStatus));
         OnPropertyChanged(nameof(LocalIdPreview));
