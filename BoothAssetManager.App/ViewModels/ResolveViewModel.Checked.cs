@@ -48,6 +48,9 @@ public sealed partial class ResolveViewModel
         {
             row.IsSelected = true;
         }
+
+        // 右にそのフォルダの話（展開元のzipが無いときの片付け方など）を出すため、フォルダのファイルを1つ選ぶ（ユーザ指示 2026-09-17）
+        FocusFolder(directory);
     }
 
     private string? _activeGroup;
