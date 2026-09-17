@@ -163,8 +163,8 @@
                                                               BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
                                                               Padding="0">
                                                         <Expander.Header>
-                                                            <!-- 列の幅は330で固定。見出しは伸びないので、長い名前は幅を決めて省略させる -->
-                                                            <StackPanel Margin="2,6,0,6" Width="270">
+                                                            <!-- 見出しは中身に合わせて縮まないので、束の幅（左の列の幅）から開け閉めの印の分を引いた幅にする。前は270で固定で、列を広げても長いパスが切れたままだった（ユーザ指示 2026-09-17） -->
+                                                            <StackPanel Margin="2,6,0,6" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=GroupItem}, Converter={x:Static vm:SubtractConverter.Instance}, ConverterParameter=40}">
                                                                 <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
                                                                            ToolTip="{Binding Name}">
                                                                     <TextBlock.Style>

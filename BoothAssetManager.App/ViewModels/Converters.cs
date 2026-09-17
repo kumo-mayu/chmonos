@@ -133,3 +133,20 @@ public sealed class ZeroToCollapsedConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// 幅から決まった量を引く（引数に引く量）。親の幅に追従させたいが、見出しの左の開け閉めの印などの分だけ狭くしたいとき。
+/// 0 より小さくはしない（狭めた窓で負の幅になると例外になる）。
+/// </summary>
+public sealed class SubtractConverter : IValueConverter
+{
+    public static readonly SubtractConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is double width && double.TryParse(parameter as string, NumberStyles.Float, CultureInfo.InvariantCulture, out var amount)
+            ? Math.Max(0, width - amount)
+            : DependencyProperty.UnsetValue;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
