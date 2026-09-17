@@ -295,9 +295,10 @@
                                             </TextBlock.Style>
                                         </TextBlock>
                                         <WrapPanel Margin="0,4,0,0">
-                                            <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない） -->
+                                            <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
                                             <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0">
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                                    Visibility="{Binding HasCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
                                             </Border>
                                             <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
