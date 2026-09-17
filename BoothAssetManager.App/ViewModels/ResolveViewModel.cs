@@ -356,7 +356,12 @@ public sealed partial class ResolveViewModel : ViewModelBase
     /// <summary>束を選んでいるときは件数まで言う。1件のつもりで押して全件が動くことが無いように。</summary>
     private string OutcomeSubject => ActiveGroup is null
         ? "このファイル"
-        : $"元zip「{ActiveGroup}」の中身 {ActiveRows.Count} 件";
+        : GroupSubject;
+
+    /// <summary>束を言う言い方。zipの中身かフォルダのファイルかで分ける。</summary>
+    private string GroupSubject => ActiveRows.FirstOrDefault()?.HasOrigin == true
+        ? $"元zip「{ActiveGroup}」の中身 {ActiveRows.Count} 件"
+        : $"フォルダ「{Path.GetFileName(ActiveGroup)}」のファイル {ActiveRows.Count} 件";
 
     public bool HasAssignOutcome => Preview is not null;
 
@@ -626,7 +631,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSelectedOrigin));
         OnPropertyChanged(nameof(CanUseOriginZip));
 
-        // 選び直したら「このファイルだけで登録する」は切り、zipの単位を決め直す
+        // 選び直したら「このファイルだけを扱う」は切り、zipの単位を決め直す
         _singleFileOnly = false;
         OnPropertyChanged(nameof(SingleFileOnly));
         ApplyZipUnit();
@@ -761,7 +766,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         // zipの中身の束を立てていれば、その全件を同じ仮の商品にする（1zip＝1商品）
         var targets = ActiveRows;
         var name = LocalNameInput.Trim();
-        var what = targets.Count == 1 ? Selected.FileName : $"元zip「{ActiveGroup}」の中身 {targets.Count} 件";
+        var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
         var answer = System.Windows.MessageBox.Show(
             $"{what} を「{name}」として登録します。\n\n"
             + $"BOOTHには無い商品なので、仮のID（{LocalIdPreview}）を付けます。\n"
@@ -833,7 +838,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
             return;
         }
 
-        var what = targets.Count == 1 ? targets[0].FileName : $"元zip「{ActiveGroup}」の中身 {targets.Count} 件";
+        var what = targets.Count == 1 ? targets[0].FileName : GroupSubject;
         var answer = System.Windows.MessageBox.Show(
             $"{what} を管理対象から外します。\n\n"
             + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",

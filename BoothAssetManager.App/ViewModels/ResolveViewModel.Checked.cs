@@ -79,12 +79,14 @@ public sealed partial class ResolveViewModel
 
     public string ActiveGroupText => ActiveGroup is null
         ? string.Empty
-        : $"元zip「{ActiveGroup}」を展開した中身 {ActiveRows.Count} 件をまとめて扱っています"
+        : (ActiveRows.FirstOrDefault()?.HasOrigin == true
+            ? $"元zip「{ActiveGroup}」を展開した中身 {ActiveRows.Count} 件をまとめて扱っています"
+            : $"フォルダ「{Path.GetFileName(ActiveGroup)}」のファイル {ActiveRows.Count} 件をまとめて扱っています")
           + (ActiveRows.Count(row => !MatchesFilter(row)) is var hidden && hidden > 0 ? $"（うち {hidden} 件は検索で隠れています）" : string.Empty);
 
     /// <summary>確定・管理から外すの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
     private IReadOnlyList<UnresolvedRow> ActiveRows => ActiveGroup is { } key
-        ? Files.Where(row => row.HasOrigin && string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList()
+        ? Files.Where(row => string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList()
         : Selected is null ? [] : [Selected];
 
     private void SelectGroup(object? parameter)

@@ -527,7 +527,7 @@
                                         Command="{Binding AssignCommand}" />
                             </StackPanel>
                             <!-- 例外（1つのzipに複数の商品が入っているなど）のために、zipの単位にしない。選び直すと切れる（ユーザ判断 2026-09-17） -->
-                            <CheckBox Content="このファイルだけで登録する" Margin="0,9,0,0" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
+                            <CheckBox Content="このファイルだけを扱う" Margin="0,9,0,0" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
                                       ToolTip="1つのzipに複数の商品が入っているときなど。切っている間は、zipの中身をまとめて登録します。"
                                       Visibility="{Binding CanChooseSingleFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -690,7 +690,7 @@
 
                                     <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding RegisterLocalCommand}" />
-                                    <TextBlock Text="元のzipが未確定にあるので、zipで登録してください（「商品IDを決める」の「このファイルだけで登録する」で1件だけにもできます）。"
+                                    <TextBlock Text="元のzipが未確定にあるので、zipで登録してください（「商品IDを決める」の「このファイルだけを扱う」で1件だけにもできます）。"
                                                Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{StaticResource Warn}" Margin="0,6,0,0"
                                                Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>

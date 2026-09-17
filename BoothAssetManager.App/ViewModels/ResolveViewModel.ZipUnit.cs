@@ -10,8 +10,9 @@ namespace BoothAssetManager.App.ViewModels;
 ///   zipを消せば、中身は「zipが無い中身」として戻ってくるので、後から紐付け直せる。記録には何も書かず、開くたびに決める
 /// - 元のzipが未確定にある：中身の確定・BOOTHに無い商品としての登録は押せず、「元zipで登録」へ案内する（フォルダのまま登録はできる）
 /// - 元のzipが一覧に無い（消した・取り込んでいない）：同じzipの中身全件を1つの単位にする
-/// - 例外（1つのzipに複数の商品が入っているなど）のために「このファイルだけで登録する」。選び直すと切れる
-/// 管理対象から外すは登録ではないので、1件ずつのまま。
+/// - 例外（1つのzipに複数の商品が入っているなど）のために「このファイルだけを扱う」。選び直すと切れる
+/// - zipが無いフォルダのファイルも同じく、同じフォルダのファイル全件を単位にする
+/// 単位は確定・BOOTHに無い商品としての登録・管理対象から外すのどれにも効く（ユーザ判断 2026-09-17）。
 /// </summary>
 public sealed partial class ResolveViewModel
 {
@@ -120,7 +121,7 @@ public sealed partial class ResolveViewModel
 
     private bool _singleFileOnly;
 
-    /// <summary>「このファイルだけで登録する」。zipの単位にせず、選んだ1件だけを登録の対象にする。</summary>
+    /// <summary>「このファイルだけを扱う」。zipやフォルダの単位にせず、選んだ1件だけを登録・管理対象から外すの対象にする。</summary>
     public bool SingleFileOnly
     {
         get => _singleFileOnly;
@@ -133,8 +134,11 @@ public sealed partial class ResolveViewModel
         }
     }
 
-    /// <summary>トグルを出すか。zipを展開した中身を選んでいるときだけ意味がある。</summary>
-    public bool CanChooseSingleFile => Selected?.IsExpandedContent == true;
+    /// <summary>
+    /// トグルを出すか。zipを展開した中身か、zipが無いフォルダのファイルを選んでいるときだけ意味がある
+    /// （どちらもまとまりが単位で、登録にも管理対象から外すにも効く・ユーザ判断 2026-09-17）。
+    /// </summary>
+    public bool CanChooseSingleFile => Selected is { IsExpandedContent: true } or { IsArchiveContent: true };
 
     private bool IsZipListed(UnresolvedRow row)
         => row.Origin is { } origin
@@ -146,7 +150,7 @@ public sealed partial class ResolveViewModel
 
     public string BlockedByZipText =>
         "元のzipが未確定にあります。「元zipで登録」でzipを登録してください（フォルダのまま登録もできます）。"
-        + "このファイルだけを登録するときは「このファイルだけで登録する」を入れてください。";
+        + "1件だけを扱うときは「このファイルだけを扱う」を入れてください。";
 
     /// <summary>
     /// 選んだ行とトグルから、登録の単位を決め直す。元のzipが一覧に無い中身なら同じzipの中身全件を束として立てる。
@@ -157,7 +161,15 @@ public sealed partial class ResolveViewModel
         {
             var mates = Files.Count(other => other.IsExpandedContent
                 && string.Equals(other.GroupKey, row.GroupKey, StringComparison.OrdinalIgnoreCase));
-            ActiveGroup = !SingleFileOnly && !IsZipListed(row) && mates > 1 ? row.GroupKey : null;
+            // 元のzipが未確定にあるときも束を立てる。登録は止めているが、管理対象から外すは中身全件に効かせる
+            ActiveGroup = !SingleFileOnly && mates > 1 ? row.GroupKey : null;
+        }
+        else if (Selected is { IsArchiveContent: true } folderRow)
+        {
+            // zipが無いフォルダのファイルは、同じフォルダのファイル全件を単位にする（確定・登録・管理対象から外すのどれも）
+            var mates = Files.Count(other => other.IsArchiveContent
+                && string.Equals(other.GroupKey, folderRow.GroupKey, StringComparison.OrdinalIgnoreCase));
+            ActiveGroup = !SingleFileOnly && mates > 1 ? folderRow.GroupKey : null;
         }
 
         OnPropertyChanged(nameof(CanChooseSingleFile));
@@ -177,11 +189,12 @@ public sealed partial class ResolveViewModel
             return (checkedRows, "元のzipが未確定にある中身が含まれています。「元zipで登録」でzipを登録してください。");
         }
 
-        var keys = checkedRows.Where(row => row.IsExpandedContent)
+        // zipの中身は同じzipの中身全件、zipが無いフォルダのファイルは同じフォルダのファイル全件まで広げる
+        var keys = checkedRows.Where(row => row.IsExpandedContent || row.IsArchiveContent)
             .Select(row => row.GroupKey)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var expanded = checkedRows
-            .Concat(Files.Where(row => row.IsExpandedContent && keys.Contains(row.GroupKey)))
+            .Concat(Files.Where(row => (row.IsExpandedContent || row.IsArchiveContent) && keys.Contains(row.GroupKey)))
             .Distinct()
             .ToList();
         return (expanded, null);
