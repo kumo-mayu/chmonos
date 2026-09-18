@@ -183,8 +183,11 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 「画像再取得」にしないのは狭すぎるため。実際に取り直すのは商品情報が主で、
     /// 名前・価格・バリエーション・タグ・販売状況・説明文が入れ替わる。画像はその後に続く。
     /// 「BOOTHから」と言うことで、**自分で入れたものは変わらない**ことも同時に伝わる。
+    ///
+    /// 「BOOTHから取り直す」だと**ファイルをダウンロードするように読めた**（ユーザ指摘 2026-09-18）。
+    /// 取り直すのは商品ページに載っている情報だけなので、そう名乗る
     /// </summary>
-    public string RefreshButtonText => IsRefreshing ? "取り直しています…" : "BOOTHから取り直す";
+    public string RefreshButtonText => IsRefreshing ? "取り直しています…" : "商品情報を取り直す";
 
     public string OpenBoothTip => Item.IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
@@ -192,8 +195,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public string RefreshButtonTip => Item.IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、取り直せません。"
-        : "商品名・価格・バリエーション・説明文・画像をBOOTHから取り直します。"
-            + "\nメモや分類など自分で入れたものは変わりません。";
+        : "BOOTHの商品ページに載っている情報（商品名・価格・バリエーション・説明文・画像）を取り直します。"
+            + "\n商品のファイルはダウンロードしません。メモや分類など自分で入れたものも変わりません。";
 
     public string RefreshStatus
     {

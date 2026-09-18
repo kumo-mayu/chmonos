@@ -178,8 +178,10 @@
                                                                 </StackPanel>
     
                                                                 <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                                                                    <Button Content="商品を見る" Style="{StaticResource SmallButton}"
+                                                                    <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
+                                                                    <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
                                                                             Command="{Binding OpenItemCommand}"
+                                                                            ToolTip="このアプリの商品ページを開きます（BOOTHのページは開きません）。"
                                                                             Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <Button Content="{Binding ReadButtonText}" Style="{StaticResource SmallButton}"
                                                                             Margin="0,6,0,0" Command="{Binding ToggleReadCommand}" />

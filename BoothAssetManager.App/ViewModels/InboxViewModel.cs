@@ -285,9 +285,9 @@ public sealed class InboxViewModel : ViewModelBase
     private static string ActionLabel(NotificationRecord record) => record.Kind switch
     {
         NotificationKind.OrphanTag => "タグの管理を開く",
-        NotificationKind.ArchiveFoundForFolder => "フォルダ登録を解除する",
+        NotificationKind.ArchiveFoundForFolder => "展開フォルダの登録を外す",
         NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
-            or NotificationKind.VariationBackOnBooth => "BOOTHから取り直す",
+            or NotificationKind.VariationBackOnBooth => "商品情報を取り直す",
         _ => string.Empty,
     };
 
@@ -304,7 +304,7 @@ public sealed class InboxViewModel : ViewModelBase
                 if (row.ItemId is { } itemId && row.Record.Id.Split(':', 2) is [_, { Length: > 0 } path])
                 {
                     await _services.Commands.ExecuteAsync(new UiCommand.UnregisterFolder(itemId, path));
-                    StatusText = "フォルダ登録を解除しました。zipから登録し直せます。";
+                    StatusText = "展開フォルダの登録を外しました。フォルダの中のファイルは消していません。zipを取り込むと、そちらがこの商品のファイルになります。";
                     await ReloadAsync();
                 }
 
@@ -315,9 +315,9 @@ public sealed class InboxViewModel : ViewModelBase
             case NotificationKind.VariationBackOnBooth:
                 if (row.ItemId is { } target)
                 {
-                    StatusText = "BOOTHから取り直しています…";
+                    StatusText = "商品情報を取り直しています…";
                     await _services.Commands.ExecuteAsync(new UiCommand.RefreshItem(target));
-                    StatusText = "BOOTHから取り直しました。";
+                    StatusText = "BOOTHの商品ページから情報を取り直しました。";
                     await ReloadAsync();
                 }
 
@@ -444,7 +444,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指すバリエーションが、BOOTH側から消えました。",
         NotificationKind.VariationBackOnBooth => "消えていたバリエーションが、BOOTHにまた出てきました。",
         NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
-        NotificationKind.ArchiveFoundForFolder => "フォルダ登録が役目を終えています。解除しないと容量が二重に数えられます。",
+        NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を持っています。登録を外すまで、同じ中身を二重に数えます（ファイルは消えません）。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         _ => string.Empty,
     };

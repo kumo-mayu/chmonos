@@ -455,7 +455,8 @@
                                                 Visibility="{Binding CanOpenItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                 ToolTip="このアバターの商品ページを開きます。手元のファイルや、このアバターの改変を見られます。" />
                                         <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}"
-                                                Command="{Binding OpenBoothCommand}" />
+                                                Command="{Binding OpenBoothCommand}"
+                                                ToolTip="ブラウザでBOOTHの商品ページを開きます（アプリの外へ出ます）。" />
                                     </WrapPanel>
                                 </Grid>
 

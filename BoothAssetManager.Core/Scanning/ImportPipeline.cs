@@ -560,9 +560,9 @@ public sealed class ImportPipeline : IImportPipeline
             Kind = NotificationKind.ArchiveFoundForFolder,
             ItemId = item.Id,
             Title = $"{item.DisplayName}：zipが手元に入りました",
-            Detail = $"フォルダ登録は不要になりました。{Path.GetFileName(archivePath)} を取り込めば、"
-                + $"展開先（{Path.GetFileName(folderPath)}）は自動で対象から外れます。"
-                + "商品ページからフォルダの登録を解除してください（このままだと容量が二重に数えられます）。",
+            Detail = $"この商品は展開したフォルダ（{Path.GetFileName(folderPath)}）を登録してあります。"
+                + $"{Path.GetFileName(archivePath)} を取り込むと、そちらがこの商品のファイルになります。"
+                + "展開フォルダの登録を外すまで、同じ中身を二重に数えます。フォルダの中のファイルは消えません。",
             CreatedAt = DateTimeOffset.Now,
             IsStrong = true,
         });
