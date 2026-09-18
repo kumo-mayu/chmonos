@@ -51,6 +51,12 @@ public interface IItemService
 
     Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default);
 
+    /// <summary>展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す。</summary>
+    Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
+        string itemId,
+        string folderPath,
+        CancellationToken cancellationToken = default);
+
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
 
     /// <summary>自分で足す画像を1枚入れる。BOOTHと同じ圧縮を通す。</summary>
@@ -726,6 +732,102 @@ public sealed class ItemService : IItemService
         PublishedAt = booth.PublishedAt,
         IsAlreadyOwned = isAlreadyOwned,
     };
+
+    /// <summary>
+    /// 展開フォルダで登録していた商品を、隣に現れたzipの方で登録し直す（ユーザ指示 2026-09-18）。
+    ///
+    /// フォルダ登録はzipが手元に無いときの受け皿で、zipが手に入ったら役目を終える。
+    /// 以前は「フォルダの登録を外す」だけで、zipは人が取り込み直すしかなかった——
+    /// **押した後に商品のファイルが1つも無くなる**ので、何が起きたのか分からなくなっていた。
+    ///
+    /// zipを1本だけハッシュして商品に付け、同時にフォルダの登録を外す。
+    /// 取り込み全体を回さないのは、親フォルダに何百件あっても数えるだけで時間がかかるため。
+    /// **ディスクのファイルには触らない。**
+    /// </summary>
+    public async Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(
+        string itemId,
+        string folderPath,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.ItemMissing, null);
+        }
+
+        var archivePath = Scanning.RegisteredFolderSet.FindArchiveFor(folderPath);
+        if (archivePath is null)
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.ArchiveMissing, null);
+        }
+
+        var name = Path.GetFileName(archivePath);
+        var already = item.Local.LocalFiles.Any(file => file.Paths.Any(
+            path => string.Equals(path, archivePath, StringComparison.OrdinalIgnoreCase)));
+
+        if (already)
+        {
+            // zipは既に付いている。あとはフォルダの登録を外すだけ
+            await UnregisterFolderAsync(itemId, folderPath, cancellationToken);
+            return new ArchiveSwapOutcome(ArchiveSwapResult.AlreadyRegistered, name);
+        }
+
+        string hash;
+        long size;
+        IReadOnlyList<string> contents = [];
+        try
+        {
+            size = new FileInfo(archivePath).Length;
+            hash = await Scanning.FileHasher.ComputeSha256Async(archivePath, cancellationToken);
+
+            // 中のファイル名は、欠落復旧の照合と動作環境の推測に使う。読めなければ空で進む
+            try
+            {
+                contents = BoothZipInspector.ZipInspector.Inspect(archivePath).Summary.Files
+                    .Select(entry => entry.RelativePath)
+                    .ToList();
+            }
+            catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                contents = [];
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return new ArchiveSwapOutcome(ArchiveSwapResult.ArchiveUnreadable, name);
+        }
+
+        var record = new LocalFileRecord
+        {
+            Hash = hash,
+            Paths = [archivePath],
+            SizeBytes = size,
+            Contents = contents,
+        };
+
+        var normalized = Path.TrimEndingDirectorySeparator(folderPath);
+        var folders = item.Local.LocalFolders
+            .Where(folder => !string.Equals(
+                Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // ファイルとフォルダを1回で書く。2回に分けると、間に人が触った入力が消える
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item.Local with
+            {
+                LocalFiles = Scanning.LocalFileMerger.Merge(item.Local.LocalFiles, [record]),
+                LocalFolders = folders,
+            },
+            LocalOwners.Import,
+            cancellationToken: cancellationToken);
+
+        // 未確定に同じzipが居たなら、行き先が決まったので外す
+        await RemoveUnresolvedAsync(hash, cancellationToken);
+        await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
+
+        return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name);
+    }
 
     public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
     {

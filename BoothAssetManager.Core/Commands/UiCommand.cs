@@ -343,6 +343,9 @@ public abstract record UiCommand
     /// <summary>バックアップの zip を空の場所へ展開する（#61）。そこへ移るのは呼ぶ側（保存先の切り替え）。</summary>
     public record RestoreBackup(string ZipPath, string DestinationRoot) : UiCommand;
 
+    /// <summary>展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。</summary>
+    public record SwapFolderForArchive(string ItemId, string FolderPath) : UiCommand;
+
     /// <summary>zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。</summary>
     public record UnpackToTemporary(string ZipPath) : UiCommand;
 
@@ -428,6 +431,9 @@ public abstract record CommandResult
 
     /// <summary>一時フォルダへ展開した。</summary>
     public record Unpacked(string Folder) : CommandResult;
+
+    /// <summary>展開フォルダをzipへ切り替えた結果。</summary>
+    public record ArchiveSwapped(Services.ArchiveSwapOutcome Outcome) : CommandResult;
 
     /// <summary>バックアップを書き出した。</summary>
     public record BackupExported(Storage.BackupResult Result) : CommandResult;

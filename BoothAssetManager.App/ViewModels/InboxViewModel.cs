@@ -26,6 +26,12 @@ public sealed class NotificationRow : ViewModelBase
 
     public bool HasDiffs => Record.Diffs.Count > 0;
 
+    /// <summary>
+    /// 要約の1行を出すか。差分の札が下に並ぶときは、同じことを2回書くことになるので出さない
+    /// （ユーザ指摘 2026-09-18）。差分を持たない知らせでは、ここだけが中身になる
+    /// </summary>
+    public bool ShowsDetail => !HasDiffs && Detail.Length > 0;
+
     /// <summary>更新履歴の変化など、注目度の高いもの。見落とすと困る側。</summary>
     public bool IsStrong => Record.IsStrong;
 
@@ -322,22 +328,28 @@ public sealed class InboxViewModel : ViewModelBase
                 // 通知のIDに、外したいフォルダの場所が入っている（archive-found:{パス}）
                 if (row.ItemId is { } itemId && row.Record.Id.Split(':', 2) is [_, { Length: > 0 } path])
                 {
-                    // zipを既に取り込んでいるかで、次にやることが変わる。
-                    // 取り込んでいなければ、外しただけではこの商品のファイルが無くなるので、そう言う
-                    var archive = Core.Scanning.RegisteredFolderSet.FindArchiveFor(path);
-                    var item = await _services.Store.Items.LoadAsync(itemId);
-                    var archiveRegistered = archive is not null
-                        && item is not null
-                        && item.Local.LocalFiles.Any(file => file.Paths.Any(
-                            filePath => string.Equals(filePath, archive, StringComparison.OrdinalIgnoreCase)));
+                    // zipを付けるところまでやる（ユーザ判断 2026-09-18）。大きいzipはハッシュに数秒かかる
+                    StatusText = "zipを読んで登録しています…";
+                    var outcome = await _services.Commands.ExecuteAsync(new UiCommand.SwapFolderForArchive(itemId, path));
 
-                    await _services.Commands.ExecuteAsync(new UiCommand.UnregisterFolder(itemId, path));
+                    StatusText = outcome is CommandResult.ArchiveSwapped { Outcome: { } swapped }
+                        ? swapped.Result switch
+                        {
+                            Core.Services.ArchiveSwapResult.Registered =>
+                                $"zipで登録しなおしました。これからは {swapped.ArchiveName} でこの商品を数えます。"
+                                + "展開したフォルダのファイルは消していません。",
+                            Core.Services.ArchiveSwapResult.AlreadyRegistered =>
+                                $"{swapped.ArchiveName} は既に登録してあったので、展開フォルダの登録だけ外しました。"
+                                + "フォルダのファイルは消していません。",
+                            Core.Services.ArchiveSwapResult.ArchiveMissing =>
+                                "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。"
+                                + "登録はそのままにしてあります。",
+                            Core.Services.ArchiveSwapResult.ArchiveUnreadable =>
+                                "zipが読めませんでした（ほかのアプリが開いているかもしれません）。登録はそのままにしてあります。",
+                            _ => "この商品はもうありません。",
+                        }
+                        : "登録しなおせませんでした。";
 
-                    StatusText = archiveRegistered
-                        ? $"zipで登録しなおしました。これからは {Path.GetFileName(archive)} でこの商品を数えます。"
-                            + "展開したフォルダのファイルは消していません。"
-                        : $"展開フォルダの登録を外しました。{(archive is null ? "zip" : Path.GetFileName(archive))} はまだ取り込んでいないので、"
-                            + "取り込みで登録してください。ファイルは消していません。";
                     await ReloadAsync();
                 }
 

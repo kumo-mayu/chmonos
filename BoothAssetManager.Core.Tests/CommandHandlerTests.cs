@@ -32,6 +32,9 @@ public class CommandHandlerTests
     {
         public Task<bool> UnregisterFolderAsync(string itemId, string folderPath, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
+        public Task<ArchiveSwapOutcome> SwapFolderForArchiveAsync(string itemId, string folderPath, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ArchiveSwapOutcome(ArchiveSwapResult.Registered, "x.zip"));
+
         public Task<DetachOutcome> DetachFileAsync(string itemId, string hash, bool deleteItemWhenEmpty, CancellationToken cancellationToken = default) => Task.FromResult(DetachOutcome.Detached);
 
         public Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default) => Task.FromResult(ReattachOutcome.Reattached);

@@ -131,13 +131,55 @@
                                                     <DataTemplate>
                                                         <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
                                                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
+                                                            <Border.Style>
+                                                                <!-- 読んだ行は薄くする。未読が浮き上がって、どこまで読んだかが分かる -->
+                                                                <Style TargetType="Border">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsRead}" Value="True">
+                                                                            <Setter Property="Opacity" Value="0.62" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
                                                                     <ColumnDefinition Width="*" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
-    
-                                                                <StackPanel Grid.Column="0" Margin="0,0,14,0">
+
+                                                                <!--
+                                                                    既読の印は「読んだ」という状態なので、右の「何かをする」ボタンとは分ける
+                                                                    （ユーザ判断 2026-09-18）。タイトルの左に置き、押すと既読・もう一度押すと未読
+                                                                -->
+                                                                <ToggleButton Grid.Column="0" Width="16" Height="16" Margin="0,2,11,0"
+                                                                              VerticalAlignment="Top" Cursor="Hand" Focusable="False"
+                                                                              AutomationProperties.Name="{Binding ReadButtonText}"
+                                                                              ToolTip="{Binding ReadButtonText}"
+                                                                              IsChecked="{Binding IsRead, Mode=TwoWay}">
+                                                                    <ToggleButton.Template>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Grid Background="Transparent">
+                                                                                <Ellipse x:Name="Ring" Width="14" Height="14"
+                                                                                         Stroke="{StaticResource BorderStrong}" StrokeThickness="1.4"
+                                                                                         Fill="Transparent" />
+                                                                                <Ellipse x:Name="Dot" Width="7" Height="7" Visibility="Collapsed"
+                                                                                         Fill="{StaticResource TextMuted}" />
+                                                                            </Grid>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsChecked" Value="True">
+                                                                                    <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Border}" />
+                                                                                </Trigger>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Unread}" />
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </ToggleButton.Template>
+                                                                </ToggleButton>
+
+                                                                <StackPanel Grid.Column="1" Margin="0,0,14,0">
                                                                     <StackPanel Orientation="Horizontal">
                                                                         <!-- 見落とすと困る側にだけ印を付ける -->
                                                                         <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
@@ -154,7 +196,8 @@
                                                                         <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
                                                                     </StackPanel>
                                                                     <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
-                                                                               TextWrapping="Wrap" Margin="0,5,0,0" />
+                                                                               TextWrapping="Wrap" Margin="0,5,0,0"
+                                                                               Visibility="{Binding ShowsDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
     
                                                                     <!-- 差分の要約。旧データは持たないので、取得時に書き出した分だけ -->
                                                                     <ItemsControl ItemsSource="{Binding Diffs}" Margin="0,7,0,0"
@@ -177,14 +220,12 @@
                                                                                FontSize="11" Margin="0,6,0,0" />
                                                                 </StackPanel>
     
-                                                                <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                                                <StackPanel Grid.Column="2" VerticalAlignment="Top">
                                                                     <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
                                                                     <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
                                                                             Command="{Binding OpenItemCommand}"
                                                                             ToolTip="このアプリの商品ページを開きます（BOOTHのページは開きません）。"
                                                                             Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                    <Button Content="{Binding ReadButtonText}" Style="{StaticResource SmallButton}"
-                                                                            Margin="0,6,0,0" Command="{Binding ToggleReadCommand}" />
                                                                     <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
                                                                     <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
                                                                             Margin="0,6,0,0" Command="{Binding ActionCommand}"

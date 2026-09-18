@@ -576,6 +576,10 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(register.ItemId)
                     : new CommandResult.Failed("フォルダを紐付けられませんでした。フォルダが存在するか、商品IDが正しいかを確認してください。");
 
+            case UiCommand.SwapFolderForArchive swap:
+                return new CommandResult.ArchiveSwapped(
+                    await _items.SwapFolderForArchiveAsync(swap.ItemId, swap.FolderPath, cancellationToken));
+
             case UiCommand.UnregisterFolder unregister:
                 return await _items.UnregisterFolderAsync(unregister.ItemId, unregister.FolderPath, cancellationToken)
                     ? new CommandResult.ItemSaved(unregister.ItemId)

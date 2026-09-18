@@ -170,4 +170,74 @@ public class FolderRegistrationTests : IDisposable
 
         Assert.False(await _service.UnregisterFolderAsync(itemId, Path.Combine(_root, "nope")));
     }
+
+    /// <summary>隣にzipが現れたら、それを商品に付けてフォルダの登録を外す（ユーザ指示 2026-09-18）。</summary>
+    [Fact]
+    public async Task SwapsTheFolderForTheArchiveNextToIt()
+    {
+        var itemId = await SaveItemAsync();
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+
+        var archive = folder + ".zip";
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, archive);
+
+        var outcome = await _service.SwapFolderForArchiveAsync(itemId, folder);
+
+        Assert.Equal(ArchiveSwapResult.Registered, outcome.Result);
+        Assert.Equal(Path.GetFileName(archive), outcome.ArchiveName);
+
+        var item = await _store.Items.LoadAsync(itemId);
+        Assert.Empty(item!.Local.LocalFolders);
+        var file = Assert.Single(item.Local.LocalFiles);
+        Assert.Equal(archive, Assert.Single(file.Paths));
+        Assert.NotEmpty(file.Contents);
+
+        // ディスクのファイルには触らない
+        Assert.True(Directory.Exists(folder));
+        Assert.True(File.Exists(archive));
+    }
+
+    /// <summary>zipが隣に無ければ、登録はそのままにして知らせる（外付けを外している場合など）。</summary>
+    [Fact]
+    public async Task KeepsTheFolderWhenThereIsNoArchive()
+    {
+        var itemId = await SaveItemAsync();
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+
+        var outcome = await _service.SwapFolderForArchiveAsync(itemId, folder);
+
+        Assert.Equal(ArchiveSwapResult.ArchiveMissing, outcome.Result);
+        var item = await _store.Items.LoadAsync(itemId);
+        Assert.Single(item!.Local.LocalFolders);
+    }
+
+    /// <summary>zipを既に取り込んであれば、フォルダの登録だけ外す（同じファイルを二重に持たない）。</summary>
+    [Fact]
+    public async Task OnlyDropsTheFolderWhenTheArchiveIsAlreadyRegistered()
+    {
+        var itemId = await SaveItemAsync();
+        var folder = CreateExtractedFolder();
+        await _service.RegisterFolderAsync(itemId, folder);
+
+        var archive = folder + ".zip";
+        System.IO.Compression.ZipFile.CreateFromDirectory(folder, archive);
+
+        var item = await _store.Items.LoadAsync(itemId);
+        await _store.Items.SaveLocalAsync(
+            itemId,
+            item!.Local with
+            {
+                LocalFiles = [new LocalFileRecord { Hash = "ABCD", Paths = [archive], SizeBytes = 10 }],
+            },
+            LocalOwners.Import);
+
+        var outcome = await _service.SwapFolderForArchiveAsync(itemId, folder);
+
+        Assert.Equal(ArchiveSwapResult.AlreadyRegistered, outcome.Result);
+        var after = await _store.Items.LoadAsync(itemId);
+        Assert.Empty(after!.Local.LocalFolders);
+        Assert.Single(after.Local.LocalFiles);
+    }
 }
