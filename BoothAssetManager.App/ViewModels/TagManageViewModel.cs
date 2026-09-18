@@ -10,6 +10,19 @@ namespace BoothAssetManager.App.ViewModels;
 /// 並べ替え中に、どこへ落ちるかを示す線。行の上か下かだけを持つ。
 /// Adornerを使わないのは、行のテンプレートに1本足すだけで済むため。
 /// </summary>
+/// <summary>タグの管理の並べ方（ユーザ指示 2026-09-18）。</summary>
+public enum TagSortMode
+{
+    /// <summary>名前順（既定）。</summary>
+    Name,
+
+    /// <summary>付いている商品の多い順。</summary>
+    Count,
+
+    /// <summary>手で並べた順（ドラッグで置いた並び＝ファイルの並びそのもの）。</summary>
+    Manual,
+}
+
 public abstract class ReorderableRow : ViewModelBase
 {
     private bool _dropBefore;
@@ -75,9 +88,47 @@ public sealed class TagSubRow : ReorderableRow
 
     public required int ItemCount { get; init; }
 
-    public string MemoText => string.IsNullOrEmpty(Memo) ? "メモなし" : Memo;
+    private string _memoDraft = string.Empty;
+    private bool _isExpanded;
 
-    public bool HasMemo => !string.IsNullOrEmpty(Memo);
+    /// <summary>
+    /// メモの入力欄（ユーザ指示 2026-09-18）。以前は「メモなし」と書いてあるだけで、
+    /// **書く場所がどこにも無かった**。何を書くかは、空のときに欄の中で言う
+    /// </summary>
+    public string MemoDraft
+    {
+        get => _memoDraft;
+        set
+        {
+            if (SetField(ref _memoDraft, value ?? string.Empty))
+            {
+                MemoEdited?.Invoke(this);
+            }
+        }
+    }
+
+    public event Action<TagSubRow>? MemoEdited;
+
+    /// <summary>
+    /// 中の商品を見られるように畳む（ユーザ指示 2026-09-18：改変とitemの関係と同じ形）。
+    /// 件数だけでは、何が入っているのか分からない
+    /// </summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetField(ref _isExpanded, value) && value)
+            {
+                ExpandRequested?.Invoke(this);
+            }
+        }
+    }
+
+    public event Action<TagSubRow>? ExpandRequested;
+
+    /// <summary>中に入っている商品。開いたときに詰める（全部の小分類で先に読むと重い）。</summary>
+    public ObservableCollection<TagItemRow> Items { get; } = [];
 
     public string ItemCountText => ItemCount == 0 ? "未使用" : $"{ItemCount}";
 
@@ -96,6 +147,32 @@ public sealed class TagSubRow : ReorderableRow
     public RelayCommand? MoveCommand { get; set; }
 
     public RelayCommand? DeleteCommand { get; set; }
+}
+
+/// <summary>
+/// 小分類の中に入っている商品1件（ユーザ指示 2026-09-18）。
+/// 改変の一覧と同じ形（絵・名前）で出し、押すと商品ページへ。
+/// </summary>
+public sealed class TagItemRow : ViewModelBase
+{
+    public required string ItemId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string ShopName { get; init; }
+
+    public string? ThumbnailPath { get; init; }
+
+    public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>裏で読み、届いたら描き直す（改変の一覧・アバターの管理と同じ扱い）。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Thumbnail => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        : null;
+
+    public string Initial => AvatarText.InitialOf(Name);
+
+    public RelayCommand? OpenCommand { get; set; }
 }
 
 /// <summary>マスタに無いのにitemが参照している名前。要確認は知らせるだけで、直せるのはここ。</summary>
@@ -156,6 +233,7 @@ public sealed class TagManageViewModel : ViewModelBase
     private string _memoDraft = string.Empty;
     private string _statusText = string.Empty;
     private bool _isBusy;
+    private bool _swappingMemo;
 
     public TagManageViewModel(AppServiceContainer services, MainViewModel main)
     {
@@ -166,14 +244,126 @@ public sealed class TagManageViewModel : ViewModelBase
         AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
         RenameTopCommand = new RelayCommand(parameter => RenameTopAsync(parameter as string).Forget(), _ => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
-        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget(), () => Selected is not null && MemoChanged);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
             () => _main.ShowItemsWithTag(Selected!.Name),
             () => Selected is { ItemCount: > 0 });
 
+        // メモは押さずに残す（ユーザ指示 2026-09-18。ショップ・アバターと同じ）
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
+        _saveSubMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveSubMemosAsync().Forget());
+
+        _sort = services.UiState.TagSort switch
+        {
+            "count" => TagSortMode.Count,
+            "manual" => TagSortMode.Manual,
+            _ => TagSortMode.Name,
+        };
+
         ReloadAsync().Forget();
     }
+
+    private readonly Debounced _saveMemo;
+    private readonly Debounced _saveSubMemo;
+
+    /// <summary>
+    /// 並べ方（ユーザ指示 2026-09-18）。既定は名前順。
+    /// 選ぶと `userTags.json` の並びも同じ順に書き換える——検索の候補もこの並びをそのまま使うので、
+    /// 画面だけ並べ替えると「画面と候補で順番が違う」状態になる
+    /// </summary>
+    private TagSortMode _sort;
+
+    public TagSortMode Sort
+    {
+        get => _sort;
+        set
+        {
+            if (!SetField(ref _sort, value))
+            {
+                return;
+            }
+
+            var saved = value switch
+            {
+                TagSortMode.Count => "count",
+                TagSortMode.Manual => "manual",
+                _ => "name",
+            };
+
+            _main.SaveUiStateAsync(state => state with { TagSort = saved }).Forget();
+            ApplySortAsync().Forget();
+        }
+    }
+
+    public bool SortsByName
+    {
+        get => Sort == TagSortMode.Name;
+        set { if (value) { Sort = TagSortMode.Name; } }
+    }
+
+    public bool SortsByCount
+    {
+        get => Sort == TagSortMode.Count;
+        set { if (value) { Sort = TagSortMode.Count; } }
+    }
+
+    public bool SortsManually
+    {
+        get => Sort == TagSortMode.Manual;
+        set { if (value) { Sort = TagSortMode.Manual; } }
+    }
+
+    /// <summary>
+    /// 今の並べ方で `userTags.json` を並べ替える。手で並べた順のときは何もしない
+    /// （人が置いた順がその並びそのものなので、触ると意味が変わる）
+    /// </summary>
+    private async Task ApplySortAsync()
+    {
+        foreach (var name in new[] { nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
+        {
+            OnPropertyChanged(name);
+        }
+
+        if (Sort == TagSortMode.Manual)
+        {
+            return;
+        }
+
+        var tops = SortNames(_allTops.Select(row => (row.Name, row.ItemCount)));
+        await _services.Commands.ExecuteAsync(new UiCommand.ReorderUserTags(tops));
+
+        // 小分類も同じ並べ方に揃える。大分類だけ並べても、開いた先がばらばらでは読めない
+        var master = _services.Store.UserTags.Load();
+        foreach (var top in master.Tops)
+        {
+            if (top.Subs.Count < 2)
+            {
+                continue;
+            }
+
+            _subCounts.TryGetValue(top.Name, out var usage);
+            var subs = SortNames(top.Subs.Select(sub =>
+                (sub.Name, usage?.SubCounts.GetValueOrDefault(sub.Name) ?? 0)));
+
+            await _services.Commands.ExecuteAsync(new UiCommand.ReorderUserTags(subs, top.Name));
+        }
+
+        await ReloadAsync();
+        _main.RefreshMasters();
+    }
+
+    private IReadOnlyList<string> SortNames(IEnumerable<(string Name, int Count)> entries) => Sort switch
+    {
+        TagSortMode.Count => entries
+            .OrderByDescending(entry => entry.Count)
+            .ThenBy(entry => entry.Name, StringComparer.CurrentCulture)
+            .Select(entry => entry.Name)
+            .ToList(),
+        _ => entries
+            .OrderBy(entry => entry.Name, StringComparer.CurrentCulture)
+            .Select(entry => entry.Name)
+            .ToList(),
+    };
 
     public ObservableCollection<TagTopRow> Tops { get; } = [];
 
@@ -232,7 +422,10 @@ public sealed class TagManageViewModel : ViewModelBase
                 _selected.IsSelected = true;
             }
 
+            // 選び直しで欄を入れ替えるときは、自動保存を走らせない
+            _swappingMemo = true;
             MemoDraft = _selected?.Memo ?? string.Empty;
+            _swappingMemo = false;
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelection));
@@ -281,7 +474,12 @@ public sealed class TagManageViewModel : ViewModelBase
             if (SetField(ref _memoDraft, value))
             {
                 OnPropertyChanged(nameof(MemoChanged));
-                RelayCommand.RaiseCanExecuteChanged();
+
+                // 押さずに残す（ユーザ指示 2026-09-18）。選び直しで欄を入れ替えたときは書かない
+                if (!_swappingMemo)
+                {
+                    _saveMemo.Request();
+                }
             }
         }
     }
@@ -418,7 +616,11 @@ public sealed class TagManageViewModel : ViewModelBase
                 Top = top.Name,
                 Memo = sub.Memo,
                 ItemCount = usage?.SubCounts.GetValueOrDefault(sub.Name) ?? 0,
+                MemoDraft = sub.Memo ?? string.Empty,
             };
+
+            row.MemoEdited += _ => _saveSubMemo.Request();
+            row.ExpandRequested += entry => FillSubItemsAsync(entry).Forget();
 
             row.RenameCommand = new RelayCommand(parameter => RenameSubAsync(row, parameter as string).Forget());
             row.DeleteCommand = new RelayCommand(() => DeleteSubAsync(row).Forget());
@@ -655,8 +857,14 @@ public sealed class TagManageViewModel : ViewModelBase
     ///
     /// 絞り込み中は見えている分しか動かせないため、隠れている行の位置は保つ。
     /// </summary>
+    /// <summary>
+    /// ドラッグで置き換える。置いた並びを残したいので、並べ方は「手で並べた順」に切り替える
+    /// （名前順のままだと、次の読み直しで元に戻って「動かなかった」ように見える）
+    /// </summary>
     public async Task MoveTopAsync(TagTopRow moved, TagTopRow target, bool after)
     {
+        SwitchToManual();
+
         var order = _allTops.Select(row => row.Name).ToList();
         if (!Reorder(order, moved.Name, target.Name, after))
         {
@@ -672,6 +880,8 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public async Task MoveSubAsync(TagSubRow moved, TagSubRow target, bool after)
     {
+        SwitchToManual();
+
         var order = Subs.Select(row => row.Name).ToList();
         if (!Reorder(order, moved.Name, target.Name, after))
         {
@@ -681,6 +891,23 @@ public sealed class TagManageViewModel : ViewModelBase
         await _services.Commands.ExecuteAsync(new UiCommand.ReorderUserTags(order, moved.Top));
         await ReloadAsync();
         _main.RefreshMasters();
+    }
+
+    /// <summary>ドラッグしたら「手で並べた順」にする。並べ方の選択も覚え直す。</summary>
+    private void SwitchToManual()
+    {
+        if (_sort == TagSortMode.Manual)
+        {
+            return;
+        }
+
+        _sort = TagSortMode.Manual;
+        _main.SaveUiStateAsync(state => state with { TagSort = "manual" }).Forget();
+
+        foreach (var name in new[] { nameof(Sort), nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
+        {
+            OnPropertyChanged(name);
+        }
     }
 
     /// <summary>抜いてから差し込む。落とす先の index は抜いた後で数え直す。</summary>
@@ -763,9 +990,69 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(Selected.Name, null, MemoDraft));
+        // 読み直すと打っている途中の欄が戻るので、ここでは読み直さない（ショップ・アバターと同じ）
+        var name = Selected.Name;
+        var memo = MemoDraft;
+        await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(name, null, memo));
+        StatusText = memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
+    }
+
+    /// <summary>小分類のメモを保存する。打つたびではなく、止まってから変わったものだけ書く。</summary>
+    private async Task SaveSubMemosAsync()
+    {
+        foreach (var row in Subs.ToList())
+        {
+            if (row.MemoDraft == (row.Memo ?? string.Empty))
+            {
+                continue;
+            }
+
+            await _services.Commands.ExecuteAsync(
+                new UiCommand.SetUserTagMemo(row.Top, row.Name, row.MemoDraft));
+        }
+
         StatusText = "メモを保存しました。";
-        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 小分類の中身（商品）を詰める。開いたときだけ読む——全部の小分類で先に読むと、
+    /// 商品のJSONを何度も読み直すことになる
+    /// </summary>
+    private async Task FillSubItemsAsync(TagSubRow row)
+    {
+        if (row.Items.Count > 0)
+        {
+            return;
+        }
+
+        var items = _main.Search.SnapshotItems()
+            .Where(item => item.Local.UserTags.Any(tag =>
+                string.Equals(tag.Top, row.Top, StringComparison.CurrentCultureIgnoreCase)
+                && tag.Subs.Any(sub => string.Equals(sub, row.Name, StringComparison.CurrentCultureIgnoreCase))))
+            .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
+            .ToList();
+
+        var builder = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>());
+
+        RunOnUiThread(() =>
+        {
+            foreach (var item in items)
+            {
+                var entry = new TagItemRow
+                {
+                    ItemId = item.Id,
+                    Name = item.DisplayName,
+                    ShopName = item.Booth.Shop?.Name ?? string.Empty,
+                    ThumbnailPath = builder.ItemThumbnailPath(item),
+                    Thumbnails = _main.Thumbnails,
+                };
+
+                entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
+                row.Items.Add(entry);
+            }
+        });
+
+        await Task.CompletedTask;
     }
 
     /// <summary>参照だけ残っている名前を、そのままマスタへ作る。名前が正しかった場合の直し方。</summary>

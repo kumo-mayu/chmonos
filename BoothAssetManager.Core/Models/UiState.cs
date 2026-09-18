@@ -20,6 +20,12 @@ public sealed record UiState
     public bool InboxUnreadOnly { get; init; } = true;
 
     /// <summary>
+    /// タグの管理の並べ方（ユーザ指示 2026-09-18）。"name" 名前順／"count" 件数の多い順／"manual" 手で並べた順。
+    /// 並べ方を選ぶと `userTags.json` の並びもその順に書き換える（検索の候補の並びも同じものを使うため）
+    /// </summary>
+    public string TagSort { get; init; } = "name";
+
+    /// <summary>
     /// 検索の絞り込みパネルを畳んでいるか。
     ///
     /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。

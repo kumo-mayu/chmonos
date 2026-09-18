@@ -559,6 +559,26 @@ public class UserTagServiceTests : IDisposable
         Assert.Equal(["制服"], Assert.Single(master.Tops).Subs.Select(sub => sub.Name));
     }
 
+    /// <summary>
+    /// 手で書いた JSON の `null` で落ちない（2026-09-18。`"subs": null` と書いた写しで
+    /// タグの管理も検索も落ちた）。JSONは人が直せる形を保つ方針なので、読む側が空として受ける。
+    /// </summary>
+    [Fact]
+    public void ReadsNullListsAsEmpty()
+    {
+        var master = System.Text.Json.JsonSerializer.Deserialize<UserTagMaster>(
+            """{ "tops": [ { "name": "衣装", "subs": null } ] }""",
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.Empty(Assert.Single(master!.Tops).Subs);
+
+        var assignment = System.Text.Json.JsonSerializer.Deserialize<UserTagAssignment>(
+            """{ "top": "衣装", "subs": null }""",
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.Empty(assignment!.Subs);
+    }
+
     [Fact]
     public async Task IgnoresARenameThatChangesNothing()
     {

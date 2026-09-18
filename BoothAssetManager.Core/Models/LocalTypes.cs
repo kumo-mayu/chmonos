@@ -7,9 +7,16 @@ namespace BoothAssetManager.Core.Models;
 /// </summary>
 public sealed record UserTagAssignment
 {
+    private readonly IReadOnlyList<string> _subs = [];
+
     public required string Top { get; init; }
 
-    public IReadOnlyList<string> Subs { get; init; } = [];
+    /// <summary>手で書いた JSON の <c>null</c> は空として受ける（<see cref="Models.UserTagMaster.Tops"/> と同じ理由）。</summary>
+    public IReadOnlyList<string> Subs
+    {
+        get => _subs;
+        init => _subs = value ?? [];
+    }
 }
 
 /// <summary>

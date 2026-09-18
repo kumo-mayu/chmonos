@@ -6,16 +6,34 @@ namespace BoothAssetManager.Core.Models;
 /// </summary>
 public sealed class UserTagMaster
 {
-    public IReadOnlyList<UserTagTop> Tops { get; init; } = [];
+    private readonly IReadOnlyList<UserTagTop> _tops = [];
+
+    /// <summary>
+    /// **手で書いた JSON の <c>null</c> で落ちないようにする**（2026-09-18。`"tops": null` や
+    /// `"subs": null` と書いた写しで、タグの管理も検索も落ちた）。JSONは人が直せる形を保つ方針なので、
+    /// 読む側が「書かれていない＝空」として受ける
+    /// </summary>
+    public IReadOnlyList<UserTagTop> Tops
+    {
+        get => _tops;
+        init => _tops = value ?? [];
+    }
 }
 
 public sealed class UserTagTop
 {
+    private readonly IReadOnlyList<UserTagSub> _subs = [];
+
     public required string Name { get; init; }
 
     public string? Memo { get; init; }
 
-    public IReadOnlyList<UserTagSub> Subs { get; init; } = [];
+    /// <summary>手で書いた JSON の <c>null</c> は空として受ける（<see cref="UserTagMaster.Tops"/> と同じ理由）。</summary>
+    public IReadOnlyList<UserTagSub> Subs
+    {
+        get => _subs;
+        init => _subs = value ?? [];
+    }
 }
 
 public sealed class UserTagSub
