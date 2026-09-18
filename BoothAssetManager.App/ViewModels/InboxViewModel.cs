@@ -38,6 +38,9 @@ public sealed class NotificationRow : ViewModelBase
     /// </summary>
     public string ActionText { get; init; } = string.Empty;
 
+    /// <summary>押す前に、何がどうなるかを言う（取り返しが付くかも書く）。</summary>
+    public string ActionTip { get; init; } = string.Empty;
+
     public bool HasAction => ActionText.Length > 0;
 
     public RelayCommand? ActionCommand { get; set; }
@@ -271,6 +274,7 @@ public sealed class InboxViewModel : ViewModelBase
             KindText = KindLabel(record.Kind),
             IsRead = record.IsRead,
             ActionText = ActionLabel(record),
+            ActionTip = ActionTip(record),
         };
 
         row.ReadChanged += OnRowReadChanged;
@@ -285,9 +289,24 @@ public sealed class InboxViewModel : ViewModelBase
     private static string ActionLabel(NotificationRecord record) => record.Kind switch
     {
         NotificationKind.OrphanTag => "タグの管理を開く",
-        NotificationKind.ArchiveFoundForFolder => "展開フォルダの登録を外す",
+        // 「展開フォルダの登録を外す」では押すまで何が起きるか想像が付かなかった（ユーザ指摘 2026-09-18）。
+        // 押した後どうなるか（zipの方でこの商品を数える）を名乗る
+        NotificationKind.ArchiveFoundForFolder => "zipで登録しなおす",
         NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
             or NotificationKind.VariationBackOnBooth => "商品情報を取り直す",
+        _ => string.Empty,
+    };
+
+    private static string ActionTip(NotificationRecord record) => record.Kind switch
+    {
+        NotificationKind.OrphanTag => "タグの管理を開きます。消えたタグを作り直すか、商品から外せます。",
+        NotificationKind.ArchiveFoundForFolder =>
+            "この商品のファイルを、展開したフォルダではなくzipの方で数えるようにします。"
+            + "\nディスクのファイルは消えません。あとから同じフォルダを登録し直せます。",
+        NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
+            or NotificationKind.VariationBackOnBooth =>
+            "BOOTHの商品ページに載っている情報（商品名・価格・バリエーション・説明文・画像）を取り直します。"
+            + "\n商品のファイルはダウンロードしません。",
         _ => string.Empty,
     };
 
@@ -300,11 +319,25 @@ public sealed class InboxViewModel : ViewModelBase
                 return;
 
             case NotificationKind.ArchiveFoundForFolder:
-                // 通知のIDに、解除したいフォルダの場所が入っている（archive-found:{パス}）
+                // 通知のIDに、外したいフォルダの場所が入っている（archive-found:{パス}）
                 if (row.ItemId is { } itemId && row.Record.Id.Split(':', 2) is [_, { Length: > 0 } path])
                 {
+                    // zipを既に取り込んでいるかで、次にやることが変わる。
+                    // 取り込んでいなければ、外しただけではこの商品のファイルが無くなるので、そう言う
+                    var archive = Core.Scanning.RegisteredFolderSet.FindArchiveFor(path);
+                    var item = await _services.Store.Items.LoadAsync(itemId);
+                    var archiveRegistered = archive is not null
+                        && item is not null
+                        && item.Local.LocalFiles.Any(file => file.Paths.Any(
+                            filePath => string.Equals(filePath, archive, StringComparison.OrdinalIgnoreCase)));
+
                     await _services.Commands.ExecuteAsync(new UiCommand.UnregisterFolder(itemId, path));
-                    StatusText = "展開フォルダの登録を外しました。フォルダの中のファイルは消していません。zipを取り込むと、そちらがこの商品のファイルになります。";
+
+                    StatusText = archiveRegistered
+                        ? $"zipで登録しなおしました。これからは {Path.GetFileName(archive)} でこの商品を数えます。"
+                            + "展開したフォルダのファイルは消していません。"
+                        : $"展開フォルダの登録を外しました。{(archive is null ? "zip" : Path.GetFileName(archive))} はまだ取り込んでいないので、"
+                            + "取り込みで登録してください。ファイルは消していません。";
                     await ReloadAsync();
                 }
 

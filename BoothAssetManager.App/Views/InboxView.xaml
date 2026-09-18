@@ -188,6 +188,7 @@
                                                                     <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
                                                                     <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
                                                                             Margin="0,6,0,0" Command="{Binding ActionCommand}"
+                                                                            ToolTip="{Binding ActionTip}"
                                                                             Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                 </StackPanel>
                                                             </Grid>
