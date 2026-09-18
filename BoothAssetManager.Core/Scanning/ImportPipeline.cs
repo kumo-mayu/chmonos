@@ -559,10 +559,8 @@ public sealed class ImportPipeline : IImportPipeline
             Id = id,
             Kind = NotificationKind.ArchiveFoundForFolder,
             ItemId = item.Id,
-            Title = $"{item.DisplayName}：zipが手元に入りました",
-            Detail = $"この商品は展開したフォルダ（{Path.GetFileName(folderPath)}）を登録してあります。"
-                + $"{Path.GetFileName(archivePath)} を取り込むと、そちらがこの商品のファイルになります。"
-                + "展開フォルダの登録を外すまで、同じ中身を二重に数えます。フォルダの中のファイルは消えません。",
+            Title = item.DisplayName,
+            Detail = $"展開先「{Path.GetFileName(folderPath)}」と {Path.GetFileName(archivePath)}",
             CreatedAt = DateTimeOffset.Now,
             IsStrong = true,
         });

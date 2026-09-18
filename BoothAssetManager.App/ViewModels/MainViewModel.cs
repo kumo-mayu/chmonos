@@ -703,7 +703,10 @@ public sealed partial class MainViewModel : ViewModelBase
         NeedsEditCount = Search.NeedsEditCount;
 
         var notifications = _services.Notifications.Load();
-        UnreadCount = notifications.Count(record => !record.IsRead);
+
+        // 解消済みは一覧（未読のみ）に出ないので、バッジにも乗せない。
+        // 乗せると「バッジは残っているのに画面に出ない」状態になる（ユーザ指摘 2026-09-18）
+        UnreadCount = notifications.Count(record => !record.IsRead && !record.IsResolved);
 
         // BOOTH側の作りが変わった疑いは、商品1件ごとの話と並べずにナビの帯で出す（ユーザ判断 2026-09-18）
         StructureAlert = notifications

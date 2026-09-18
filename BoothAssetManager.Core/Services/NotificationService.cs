@@ -134,16 +134,16 @@ public sealed class NotificationService : INotificationService
             var parts = new List<string>();
             if (missingTags.Count > 0)
             {
-                parts.Add($"userTag: {string.Join("・", missingTags)}");
+                parts.Add($"ユーザータグ：{string.Join("・", missingTags)}");
             }
 
             if (missingAttributes.Count > 0)
             {
-                parts.Add($"属性: {string.Join("・", missingAttributes)}");
+                parts.Add($"属性：{string.Join("・", missingAttributes)}");
             }
 
-            var detail = $"{string.Join(" / ", parts)}。"
-                + "マスタから消えたか、名前が変わった可能性があります。このままでは絞り込みに出てきません。";
+            // 「どの分類か」だけを書く。何が起きているかの説明は束の見出しに出る（ユーザ指示 2026-09-18）
+            var detail = string.Join(" / ", parts);
 
             // itemごとに1件だけ持つ。既読でも作り直さないのは、
             // 直さないまま画面を開くたびに同じ話が積み上がるのを避けるため
@@ -167,7 +167,7 @@ public sealed class NotificationService : INotificationService
                 Id = id,
                 Kind = NotificationKind.OrphanTag,
                 ItemId = item.Id,
-                Title = $"{item.DisplayName}：マスタに無い分類を参照しています",
+                Title = item.DisplayName,
                 Detail = detail,
                 CreatedAt = DateTimeOffset.Now,
             });

@@ -15,15 +15,16 @@
                     <TextBlock Text="要確認" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="今すぐ困らないが知っておきたいことです。確認しても消さず、既読にして残します。"
-                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                    <TextBlock Text="確認しても消えません" Style="{StaticResource Caption}"
+                               VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <CheckBox Content="未読のみ" IsChecked="{Binding UnreadOnly, Mode=TwoWay}"
                               VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{StaticResource Text}" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
-                    <Button Content="すべて既読にする" Margin="8,0,0,0" Command="{Binding MarkAllReadCommand}" />
+                    <Button Content="すべて既読にする" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            Command="{Binding MarkAllReadCommand}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -138,9 +139,34 @@
                                                                         <DataTrigger Binding="{Binding IsRead}" Value="True">
                                                                             <Setter Property="Opacity" Value="0.62" />
                                                                         </DataTrigger>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                                        </Trigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </Border.Style>
+                                                            <Border.Triggers>
+                                                                <EventTrigger RoutedEvent="MouseEnter">
+                                                                    <BeginStoryboard>
+                                                                        <Storyboard>
+                                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
+                                                                                                           Storyboard.TargetProperty="Visibility">
+                                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Visible}" />
+                                                                            </ObjectAnimationUsingKeyFrames>
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </EventTrigger>
+                                                                <EventTrigger RoutedEvent="MouseLeave">
+                                                                    <BeginStoryboard>
+                                                                        <Storyboard>
+                                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
+                                                                                                           Storyboard.TargetProperty="Visibility">
+                                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Hidden}" />
+                                                                            </ObjectAnimationUsingKeyFrames>
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </EventTrigger>
+                                                            </Border.Triggers>
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="Auto" />
@@ -208,7 +234,7 @@
                                                                                         BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
                                                                                     <StackPanel>
                                                                                         <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium" />
-                                                                                        <TextBlock Text="{Binding After}" Style="{StaticResource Caption}"
+                                                                                        <TextBlock Text="{Binding Text}" Style="{StaticResource Caption}"
                                                                                                    TextWrapping="Wrap" Margin="0,3,0,0" />
                                                                                     </StackPanel>
                                                                                 </Border>
@@ -216,11 +242,17 @@
                                                                         </ItemsControl.ItemTemplate>
                                                                     </ItemsControl>
     
-                                                                    <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}"
-                                                                               FontSize="11" Margin="0,6,0,0" />
+                                                                    <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Caption}"
+                                                                               FontSize="11" Margin="0,6,0,0" ToolTip="{Binding CreatedTip}" />
                                                                 </StackPanel>
     
-                                                                <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                                                                <!--
+                                                                    操作は行に重ねず、指した行にだけ出す（ユーザ同意 2026-09-18：
+                                                                    全行に同じボタンが2つ並ぶと、右端まで視線が往復する）。
+                                                                    場所は空けたままにして、出たり消えたりで行が動かないようにする
+                                                                -->
+                                                                <StackPanel x:Name="RowActions" Grid.Column="2" VerticalAlignment="Top"
+                                                                            Visibility="Hidden">
                                                                     <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
                                                                     <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
                                                                             Command="{Binding OpenItemCommand}"

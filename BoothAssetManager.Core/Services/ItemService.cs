@@ -292,7 +292,7 @@ public sealed class ItemService : IItemService
             Id = id,
             Kind = NotificationKind.ItemUpdated,
             ItemId = existing.Id,
-            Title = $"{booth.Name ?? existing.Id}：商品ページが変わりました",
+            Title = booth.Name ?? existing.Id,
             Detail = BoothChanges.Summarize(diffs),
             Diffs = diffs,
             CreatedAt = DateTimeOffset.Now,
@@ -340,9 +340,9 @@ public sealed class ItemService : IItemService
                     Id = goneId,
                     Kind = NotificationKind.OrphanVariationLink,
                     ItemId = existing.Id,
-                    Title = $"{name}：結び付けていたバリエーションが無くなりました",
-                    Detail = $"手元のファイルや購入の記録が指すバリエーション {missing.Count} 件が、BOOTHの商品ページから消えました。"
-                        + "別のバリエーションに結び直せます。",
+                    // 説明は束の見出しに出るので、行にはこの行だけの事実を書く（ユーザ指示 2026-09-18）
+                    Title = name,
+                    Detail = $"消えたバリエーション {missing.Count} 件",
                     CreatedAt = DateTimeOffset.Now,
                 });
 
@@ -358,8 +358,8 @@ public sealed class ItemService : IItemService
                 Id = $"variation-back:{existing.Id}:{DateTimeOffset.Now:yyyyMMddHHmmss}",
                 Kind = NotificationKind.VariationBackOnBooth,
                 ItemId = existing.Id,
-                Title = $"{name}：消えていたバリエーションが戻りました",
-                Detail = "結び付けていたバリエーションが、BOOTHの商品ページにまた出てきました。購入の記録も入れられます。",
+                Title = name,
+                Detail = $"戻ったバリエーション {linked.Count(id => present.Contains(id))} 件",
                 CreatedAt = DateTimeOffset.Now,
             });
 
@@ -408,7 +408,7 @@ public sealed class ItemService : IItemService
             Id = id,
             Kind = NotificationKind.ItemBackOnBooth,
             ItemId = existing.Id,
-            Title = $"{name ?? booth.Name ?? existing.Id}：BOOTHに現れました",
+            Title = name ?? booth.Name ?? existing.Id,
             Detail = detail,
             CreatedAt = DateTimeOffset.Now,
         });

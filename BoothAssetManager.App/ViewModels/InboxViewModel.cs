@@ -22,7 +22,19 @@ public sealed class NotificationRow : ViewModelBase
 
     public bool HasItem => !string.IsNullOrEmpty(Record.ItemId);
 
-    public IReadOnlyList<NotificationDiff> Diffs => Record.Diffs;
+    /// <summary>
+    /// 変わったところ1つ。**前の値も出す**（ユーザ指示 2026-09-18：価格・文言・バリエーション数は
+    /// 「変化」なので、後の値だけでは何が起きたか分からない）。前が無いもの（足された見出しなど）は後だけ
+    /// </summary>
+    public sealed record DiffRow(string Field, string Text);
+
+    public IReadOnlyList<DiffRow> Diffs => Record.Diffs
+        .Select(diff => new DiffRow(
+            diff.Field,
+            diff.Before is { Length: > 0 } before
+                ? $"{before} → {diff.After ?? "（無し）"}"
+                : diff.After ?? string.Empty))
+        .ToList();
 
     public bool HasDiffs => Record.Diffs.Count > 0;
 
@@ -51,7 +63,27 @@ public sealed class NotificationRow : ViewModelBase
 
     public RelayCommand? ActionCommand { get; set; }
 
-    public string CreatedText => Record.CreatedAt.ToString("yyyy-MM-dd HH:mm");
+    /// <summary>
+    /// 受信箱なので、いつ起きたかは「どれくらい前か」で読む（ユーザ指示 2026-09-18）。
+    /// 正確な日時はツールチップ（<see cref="CreatedTip"/>）に置く
+    /// </summary>
+    public string CreatedText
+    {
+        get
+        {
+            var span = DateTimeOffset.Now - Record.CreatedAt;
+            return span switch
+            {
+                { TotalMinutes: < 1 } => "たった今",
+                { TotalHours: < 1 } => $"{(int)span.TotalMinutes}分前",
+                { TotalDays: < 1 } => $"{(int)span.TotalHours}時間前",
+                { TotalDays: < 7 } => $"{(int)span.TotalDays}日前",
+                _ => Record.CreatedAt.ToString("yyyy-MM-dd"),
+            };
+        }
+    }
+
+    public string CreatedTip => Record.CreatedAt.ToString("yyyy-MM-dd HH:mm");
 
     public bool IsRead
     {
@@ -108,7 +140,7 @@ public sealed class NotificationGroup : ViewModelBase
 
     public required IReadOnlyList<NotificationRow> Rows { get; init; }
 
-    public int UnreadCount => Rows.Count(row => !row.IsRead);
+    public int UnreadCount => Rows.Count(row => !row.IsRead && !row.IsResolved);
 
     /// <summary>
     /// 束の件数は、行に出る札と同じ色・同じ言葉で出す（ユーザ指示 2026-09-18）。
@@ -166,13 +198,15 @@ public sealed class InboxViewModel : ViewModelBase
     public MainViewModel Main => _main;
 
     private List<NotificationRow> _all = [];
-    private bool _unreadOnly = true;
+    private bool _unreadOnly;
     private string _statusText = string.Empty;
 
     public InboxViewModel(AppServiceContainer services, MainViewModel main)
     {
         _services = services;
         _main = main;
+
+        _unreadOnly = services.UiState.InboxUnreadOnly;
 
         MarkAllReadCommand = new RelayCommand(() => MarkAllReadAsync().Forget(), () => UnreadCount > 0);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
@@ -188,7 +222,8 @@ public sealed class InboxViewModel : ViewModelBase
 
     public int TotalCount => _all.Count;
 
-    public int UnreadCount => _all.Count(row => !row.IsRead);
+    /// <summary>ナビのバッジと数え方を揃える（解消済みは一覧に出ないので数えない）。</summary>
+    public int UnreadCount => _all.Count(row => !row.IsRead && !row.IsResolved);
 
     public string HeaderText => UnreadCount > 0
         ? $"未読 {UnreadCount} 件 / 全 {TotalCount} 件"
@@ -209,6 +244,10 @@ public sealed class InboxViewModel : ViewModelBase
             if (SetField(ref _unreadOnly, value))
             {
                 Rebuild();
+
+                // 開き直すたびに既定へ戻るのが面倒だったので覚える（ユーザ判断 2026-09-18）
+                var unreadOnly = value;
+                _main.SaveUiStateAsync(state => state with { InboxUnreadOnly = unreadOnly }).Forget();
             }
         }
     }
@@ -372,11 +411,12 @@ public sealed class InboxViewModel : ViewModelBase
 
     private void OnRowReadChanged(NotificationRow row)
     {
-        _services.Commands.ExecuteAsync(new UiCommand.SetNotificationRead(row.Record.Id, row.IsRead)).Forget();
+        // **保存を待ってから数え直す。**待たずに数えると、ナビのバッジだけ1つ古い数が残った
+        // （ユーザ指摘 2026-09-18：バッジ12・画面11）
+        SaveReadAsync(row).Forget();
 
         OnPropertyChanged(nameof(UnreadCount));
         OnPropertyChanged(nameof(HeaderText));
-        _main.RefreshBadges();
         RelayCommand.RaiseCanExecuteChanged();
 
         // 未読のみ表示のときは、読んだものがその場で消えると気持ちよくないので、
@@ -386,6 +426,12 @@ public sealed class InboxViewModel : ViewModelBase
         {
             group.RefreshCount();
         }
+    }
+
+    private async Task SaveReadAsync(NotificationRow row)
+    {
+        await _services.Commands.ExecuteAsync(new UiCommand.SetNotificationRead(row.Record.Id, row.IsRead));
+        _main.RefreshBadges();
     }
 
     private async Task MarkAllReadAsync()

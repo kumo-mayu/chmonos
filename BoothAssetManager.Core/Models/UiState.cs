@@ -14,6 +14,12 @@ public sealed record UiState
     public bool NavCollapsed { get; init; }
 
     /// <summary>
+    /// 要確認で「未読のみ」を出しているか（ユーザ判断 2026-09-18：開き直すたびに戻るのが面倒）。
+    /// 既定は未読のみ（溜まった既読に埋もれると「新しく起きたこと」が読めない）。
+    /// </summary>
+    public bool InboxUnreadOnly { get; init; } = true;
+
+    /// <summary>
     /// 検索の絞り込みパネルを畳んでいるか。
     ///
     /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。
