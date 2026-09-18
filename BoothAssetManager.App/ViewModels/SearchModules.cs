@@ -31,6 +31,9 @@ public enum SearchModuleKind
     AcquiredAt,
     Hidden,
     Unedited,
+
+    /// <summary>対応アバターの推定に、まだ確かめていないものがあるか（ユーザ判断 2026-09-18）。</summary>
+    AvatarUnconfirmed,
     Modification,
     UnityProject,
     Path,
@@ -76,6 +79,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。"),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を出します。この条件が無いときは、非表示の商品は出しません。"),
         new(SearchModuleKind.Unedited, "未編集", "ユーザタグをまだ付けていない商品で絞ります。"),
+        new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。"),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下の全部を含む）。"),
@@ -102,7 +106,7 @@ public static class SearchModuleCatalog
         [
             [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Avatar, SearchModuleKind.Adult],
             [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
-            [SearchModuleKind.Favorite, SearchModuleKind.Unedited, SearchModuleKind.Hidden],
+            [SearchModuleKind.Favorite, SearchModuleKind.Unedited, SearchModuleKind.AvatarUnconfirmed, SearchModuleKind.Hidden],
             [SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.Path],
         ]),
 

@@ -86,6 +86,16 @@ public sealed partial class ItemViewModel
     public string AvatarsCountText => Avatars.Count == 0 ? string.Empty : $"（{Avatars.Count} 体）";
 
     /// <summary>
+    /// 説明文から読み取っただけで、まだ確かめていない推定の数（ユーザ判断 2026-09-18）。
+    /// 対応とは数えていないので、確かめるまで検索にも統計にも出てこない。畳んでいても気付けるように見出しに出す
+    /// </summary>
+    public int UnconfirmedAvatarCount => Avatars.Count(row => row.IsUnconfirmed);
+
+    public bool HasUnconfirmedAvatars => UnconfirmedAvatarCount > 0;
+
+    public string UnconfirmedAvatarText => $"確認待ち {UnconfirmedAvatarCount}";
+
+    /// <summary>
     /// 対応アバターの欄を開いているか（ユーザ指示 2026-09-12：200体を超える商品があるので畳める）。
     /// 商品ページと編集画面で共通で、商品を移っても保つ（アプリを閉じるまで）。
     /// </summary>
@@ -263,7 +273,8 @@ public sealed partial class ItemViewModel
             nameof(Avatars), nameof(HasAvatars), nameof(AvatarBases), nameof(HasAvatarBases),
             nameof(AvatarSectionNote), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
             nameof(RejectedAvatars), nameof(HasRejectedAvatars), nameof(RejectedAvatarsHeader),
-            nameof(AvatarsCountText),
+            nameof(AvatarsCountText), nameof(UnconfirmedAvatarCount), nameof(HasUnconfirmedAvatars),
+            nameof(UnconfirmedAvatarText),
         })
         {
             OnPropertyChanged(name);

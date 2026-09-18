@@ -22,7 +22,20 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
                         <Expander IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}">
                             <Expander.Header>
-                                <TextBlock FontWeight="Bold"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontWeight="Bold" VerticalAlignment="Center"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                    <!--
+                                        確かめていない推定の数（ユーザ判断 2026-09-18）。対応と数えていないので、
+                                        確かめるまで検索にも統計にも出てこない。畳んでいても気付けるよう見出しに出す
+                                    -->
+                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                            BorderThickness="1" CornerRadius="4" Padding="7,1" Margin="10,0,0,0"
+                                            VerticalAlignment="Center"
+                                            ToolTip="説明文の中のリンクから読み取った推定です。丸の付いた札を押して、合っていれば残し、違えば消してください。"
+                                            Visibility="{Binding HasUnconfirmedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="{Binding UnconfirmedAvatarText}" FontSize="11" Foreground="{StaticResource Warn}" />
+                                    </Border>
+                                </StackPanel>
                             </Expander.Header>
                             <StackPanel>
                                 <TextBlock Text="{Binding AvatarSectionNote}" Style="{StaticResource Caption}"
