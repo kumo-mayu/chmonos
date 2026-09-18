@@ -51,6 +51,11 @@
         <SolidColorBrush x:Key="GoodSoft" Color="#e7f2ec" />
         <SolidColorBrush x:Key="GoodBorder" Color="#c9e2d5" />
         <SolidColorBrush x:Key="Warn" Color="#8a5f1a" />
+
+        <!-- 未読の件数。ナビのバッジ（#8a3f6b）と同じ色で、要確認の束の件数にも使う（ユーザ指示 2026-09-18） -->
+        <SolidColorBrush x:Key="Unread" Color="#8a3f6b" />
+        <SolidColorBrush x:Key="UnreadSoft" Color="#f8edf4" />
+        <SolidColorBrush x:Key="UnreadBorder" Color="#e6cddd" />
         <SolidColorBrush x:Key="WarnSoft" Color="#fbf1de" />
         <SolidColorBrush x:Key="WarnBorder" Color="#eddcbb" />
         <!-- 「見つからない」のような、注意ではなく異常を示す色。Good/Warn と同じ彩度に揃える -->

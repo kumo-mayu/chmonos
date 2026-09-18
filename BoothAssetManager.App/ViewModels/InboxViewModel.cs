@@ -101,9 +101,28 @@ public sealed class NotificationGroup : ViewModelBase
 
     public int UnreadCount => Rows.Count(row => !row.IsRead);
 
-    public string CountText => UnreadCount > 0
-        ? $"{Rows.Count} 件（未読 {UnreadCount}）"
-        : $"{Rows.Count} 件";
+    /// <summary>
+    /// 束の件数は、行に出る札と同じ色・同じ言葉で出す（ユーザ指示 2026-09-18）。
+    /// 「4 件（未読 4）」の一続きの小さな文字では、何件あって何を先に読むのかが掴めなかった
+    /// </summary>
+    public string TotalText => $"{Rows.Count}件";
+
+    public bool HasUnread => UnreadCount > 0;
+
+    public string UnreadText => $"未読 {UnreadCount}";
+
+    /// <summary>まだ読んでいない重要（行の「重要」の札の数）。</summary>
+    public int StrongCount => Rows.Count(row => row.IsStrong && !row.IsRead);
+
+    public bool HasStrong => StrongCount > 0;
+
+    public string StrongText => $"重要 {StrongCount}";
+
+    public int ResolvedCount => Rows.Count(row => row.IsResolved);
+
+    public bool HasResolved => ResolvedCount > 0;
+
+    public string ResolvedText => $"解消済み {ResolvedCount}";
 
     /// <summary>
     /// 既読にしても行は消さない方針なので、束の側の件数は自分で数え直す必要がある。
@@ -111,8 +130,15 @@ public sealed class NotificationGroup : ViewModelBase
     /// </summary>
     public void RefreshCount()
     {
-        OnPropertyChanged(nameof(UnreadCount));
-        OnPropertyChanged(nameof(CountText));
+        foreach (var name in new[]
+        {
+            nameof(UnreadCount), nameof(HasUnread), nameof(UnreadText),
+            nameof(StrongCount), nameof(HasStrong), nameof(StrongText),
+            nameof(ResolvedCount), nameof(HasResolved), nameof(ResolvedText),
+        })
+        {
+            OnPropertyChanged(name);
+        }
     }
 }
 
