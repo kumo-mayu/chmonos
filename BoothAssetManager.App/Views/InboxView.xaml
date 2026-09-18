@@ -50,7 +50,8 @@
                         Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
-                    <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+                    <!-- 束の幅は中身の長さで変えない（畳むと札の幅が縮んで目が泳ぐ） -->
+                    <StackPanel MaxWidth="1000" HorizontalAlignment="Stretch">
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
     
@@ -60,19 +61,48 @@
                                 <DataTemplate>
                                     <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                                         <StackPanel>
-                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                                            <!--
+                                                見出しごと畳めるようにする（ユーザ指示 2026-09-18）。見出しのどこを押しても開閉できるよう、
+                                                ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）
+                                            -->
+                                            <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
+                                                          AutomationProperties.Name="{Binding KindText}"
+                                                          HorizontalContentAlignment="Stretch" Padding="0">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border x:Name="Back" Background="Transparent"
+                                                                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,13,18,13">
+                                                            <ContentPresenter />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Back" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
                                                 <Grid>
-                                                    <StackPanel Margin="0,0,90,0">
-                                                        <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13" />
-                                                        <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
-                                                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,90,0">
+                                                        <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                                                              Width="6" Height="9" Stretch="Fill" VerticalAlignment="Top" Margin="0,4,10,0"
+                                                              Visibility="{Binding IsExpanded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                        <Path Data="M0,0 L9,0 L4.5,6 Z" Fill="{StaticResource TextMuted}"
+                                                              Width="9" Height="6" Stretch="Fill" VerticalAlignment="Top" Margin="0,6,7,0"
+                                                              Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13"
+                                                                       Foreground="{StaticResource Text}" />
+                                                            <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
+                                                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                        </StackPanel>
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11"
                                                                HorizontalAlignment="Right" VerticalAlignment="Top" />
                                                 </Grid>
-                                            </Border>
-    
-                                            <ItemsControl ItemsSource="{Binding Rows}">
+                                            </ToggleButton>
+
+                                            <ItemsControl ItemsSource="{Binding Rows}"
+                                                          Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
                                                         <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,13">

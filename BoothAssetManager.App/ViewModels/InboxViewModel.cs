@@ -56,6 +56,30 @@ public sealed class NotificationRow : ViewModelBase
 /// <summary>種別ごとの束。何が起きた話なのかで分けて読む。</summary>
 public sealed class NotificationGroup : ViewModelBase
 {
+    /// <summary>種別ごとに畳んだかを覚える。読み直しや「未読のみ」の切り替えで束を作り直すので、行の側には置けない。</summary>
+    private static readonly Dictionary<NotificationKind, bool> Collapsed = [];
+
+    public required NotificationKind Kind { get; init; }
+
+    /// <summary>
+    /// 束を畳めるようにする（ユーザ指示 2026-09-18）。種類が8つあり、1種類が何十件にもなるので、
+    /// 開いたままだと他の種類が画面の外に出る
+    /// </summary>
+    public bool IsExpanded
+    {
+        get => !Collapsed.GetValueOrDefault(Kind);
+        set
+        {
+            if (IsExpanded == value)
+            {
+                return;
+            }
+
+            Collapsed[Kind] = !value;
+            OnPropertyChanged();
+        }
+    }
+
     public required string KindText { get; init; }
 
     public required string Description { get; init; }
@@ -276,6 +300,7 @@ public sealed class InboxViewModel : ViewModelBase
         {
             Groups.Add(new NotificationGroup
             {
+                Kind = group.Key,
                 KindText = KindLabel(group.Key),
                 Description = KindDescription(group.Key),
                 Rows = group.ToList(),
@@ -292,14 +317,15 @@ public sealed class InboxViewModel : ViewModelBase
 
     private static string KindLabel(NotificationKind kind) => kind switch
     {
-        NotificationKind.ItemUpdated => "商品ページが変わった",
-        NotificationKind.AvatarNeedsCheck => "対応アバターの確認",
-        NotificationKind.DuplicateFile => "同じ中身のファイル",
-        NotificationKind.OrphanTag => "一覧に無い分類",
+        // 見出しはユーザ指定（2026-09-18）。何が起きたかを名詞で言い切る
+        NotificationKind.ItemUpdated => "商品ページの変更",
+        NotificationKind.AvatarNeedsCheck => "対応アバター確認",
+        NotificationKind.DuplicateFile => "同じ内容のファイル",
+        NotificationKind.OrphanTag => "タグの参照切れ",
         NotificationKind.OrphanVariationLink => "消えた種類",
-        NotificationKind.PageStructureChanged => "BOOTHの構造変化",
-        NotificationKind.ArchiveFoundForFolder => "zipが手元に入った",
-        NotificationKind.ItemBackOnBooth => "BOOTHに戻ってきた",
+        NotificationKind.PageStructureChanged => "取得できる情報の形式の変化",
+        NotificationKind.ArchiveFoundForFolder => "zipを入手した",
+        NotificationKind.ItemBackOnBooth => "非公開商品の復活",
         _ => "その他",
     };
 
@@ -308,9 +334,9 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ItemUpdated => "取得し直したときに内容が変わっていたものです。",
         NotificationKind.AvatarNeedsCheck => "推定した対応アバターの確認待ちです。",
         NotificationKind.DuplicateFile => "同じ中身が複数の場所にありました。容量は1回だけ数えています。",
-        NotificationKind.OrphanTag => "一覧から消えたか名前が変わった分類を、商品がまだ参照しています。",
+        NotificationKind.OrphanTag => "タグの管理・属性の管理から消えたか名前が変わったものを、商品がまだ参照しています。",
         NotificationKind.OrphanVariationLink => "紐付けていた種類がBOOTH側から消えました。",
-        NotificationKind.PageStructureChanged => "説明文の読み取りが効かなくなっている可能性があります。",
+        NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
         NotificationKind.ArchiveFoundForFolder => "フォルダ登録が役目を終えています。解除しないと容量が二重に数えられます。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         _ => string.Empty,
