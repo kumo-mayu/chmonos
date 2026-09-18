@@ -317,14 +317,68 @@
                                                    Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                     </Grid>
 
-                                        <ToggleButton Content="＋ 小分類を足す" VerticalAlignment="Center" Margin="10,0,0,0"
-                                                      IsChecked="{Binding IsAddingSub, Mode=TwoWay}" Cursor="Hand"
-                                                      Foreground="{StaticResource Text}" Padding="10,5" FontSize="11.5"
-                                                      Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}" />
+                                        <!--
+                                            丸い＋を押すと、そのまま右へ伸びて入力欄になる（ユーザ指示 2026-09-18）。
+                                            隠れていた欄が別の場所に現れるより、押した物が育つ方が繋がりが分かる
+                                        -->
+                                        <Border Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="16" Height="32"
+                                                Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
+                                                BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton x:Name="AddSubToggle" Width="30" Height="30" Cursor="Hand"
+                                                              Focusable="False" IsChecked="{Binding IsAddingSub, Mode=TwoWay}"
+                                                              AutomationProperties.Name="小分類を足す"
+                                                              ToolTipService.InitialShowDelay="250"
+                                                              ToolTip="小分類を足す（押すと名前の入力欄が出ます）">
+                                                    <ToggleButton.Template>
+                                                        <ControlTemplate TargetType="ToggleButton">
+                                                            <Grid Background="Transparent">
+                                                                <Ellipse x:Name="Ring" Width="26" Height="26"
+                                                                         Fill="{StaticResource SurfaceAlt}" Stroke="{StaticResource Border}" />
+                                                                <Path x:Name="Mark" Data="M7,0 L7,14 M0,7 L14,7" Stroke="{StaticResource Text}"
+                                                                      StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                                      Width="14" Height="14" Stretch="Fill"
+                                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Grid>
+                                                            <ControlTemplate.Triggers>
+                                                                <!-- 開いている間は×（もう一度押すと閉じる、と分かるように） -->
+                                                                <Trigger Property="IsChecked" Value="True">
+                                                                    <Setter TargetName="Mark" Property="Data" Value="M0,0 L14,14 M14,0 L0,14" />
+                                                                    <Setter TargetName="Ring" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                                                </Trigger>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </ToggleButton.Template>
+                                                    <ToggleButton.Triggers>
+                                                        <EventTrigger RoutedEvent="ToggleButton.Checked">
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="AddSubBox"
+                                                                                     Storyboard.TargetProperty="Width"
+                                                                                     To="260" Duration="0:0:0.14" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                        <EventTrigger RoutedEvent="ToggleButton.Unchecked">
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="AddSubBox"
+                                                                                     Storyboard.TargetProperty="Width"
+                                                                                     To="0" Duration="0:0:0.12" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </ToggleButton.Triggers>
+                                                </ToggleButton>
 
-                                        <controls:SuggestBox CommitCommand="{Binding AddSubCommand}" Margin="10,0,0,0" Width="300"
-                                                             Placeholder="小分類を追加" VerticalAlignment="Center"
-                                                             Visibility="{Binding IsAddingSub, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <controls:SuggestBox x:Name="AddSubBox" Width="0" Margin="2,0,4,0"
+                                                                     CommitCommand="{Binding AddSubCommand}"
+                                                                     Placeholder="小分類の名前" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
 
                                     <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,6,0,0"
@@ -344,7 +398,7 @@
                                               Drop="OnRowsDrop">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <controls:ColumnsPanel MinColumnWidth="460" />
+                                            <controls:ColumnsPanel MinColumnWidth="540" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <!--
@@ -429,7 +483,8 @@
                                                             <Button Content="名前を変更" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,6,0" Command="{Binding RenameCommand}"
                                                                     ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。" />
-                                                            <Button Content="移す" Style="{StaticResource SmallButton}"
+                                                            <!-- 「移す」だけでは何が起きるか分からない（ユーザ指摘 2026-09-18） -->
+                                                            <Button Content="別の大分類へ移す" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,10,0" Command="{Binding MoveCommand}"
                                                                     ToolTipService.ShowOnDisabled="True"
                                                                     ToolTip="この小分類を、別の大分類の下へ移します。移せる先が無いときは押せません（大分類がもう1つ要ります）。" />
