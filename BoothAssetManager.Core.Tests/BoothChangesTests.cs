@@ -18,7 +18,8 @@ public class BoothChangesTests
         int wishLists = 100,
         string? description = "説明",
         int variations = 1,
-        int images = 2)
+        int images = 2,
+        IReadOnlyList<H2Section>? sections = null)
         => new()
         {
             FetchedAt = DateTimeOffset.Now,
@@ -33,7 +34,11 @@ public class BoothChangesTests
             Images = Enumerable.Range(1, images)
                 .Select(index => new BoothImage { OriginalUrl = $"https://booth.pximg.net/{index}.jpg" })
                 .ToList(),
+            H2Sections = sections ?? [],
         };
+
+    private static H2Section Section(string heading, string text)
+        => new() { Heading = heading, NormalizedHeading = heading, Text = text };
 
     [Fact]
     public void SaysNothingChangedWhenNothingDid()
@@ -49,13 +54,62 @@ public class BoothChangesTests
     }
 
     /// <summary>
-    /// **説明文の全文も見ない。**出品者が誤字を直しただけで出てしまう。
-    /// 構造が壊れた場合は別の枠（BOOTHの構造変化）が既にある。
+    /// 見出しがある商品では、説明文そのもの（見出しの外の短い説明）は見ない。
+    /// 見出しごとに比べれば「どこが変わったか」を名指しできるため。
     /// </summary>
     [Fact]
-    public void IgnoresEditsToTheDescriptionText()
+    public void IgnoresTheShortDescriptionWhenSectionsExist()
     {
-        Assert.Empty(BoothChanges.Describe(Block(description: "説明です"), Block(description: "説明でず")));
+        var sections = new[] { Section("使い方", "本文") };
+
+        Assert.Empty(BoothChanges.Describe(
+            Block(description: "説明です", sections: sections),
+            Block(description: "説明でず", sections: sections)));
+    }
+
+    /// <summary>
+    /// 見出しが取れない商品は、説明文しか手掛かりが無いのでそれを比べる（2026-09-18 に設計へ合わせた）。
+    /// </summary>
+    [Fact]
+    public void ReportsTheDescriptionWhenThereAreNoSections()
+    {
+        var diffs = BoothChanges.Describe(Block(description: "前の説明"), Block(description: "後の説明"));
+
+        Assert.Single(diffs);
+        Assert.Equal("説明文", diffs[0].Field);
+        Assert.Equal("後の説明", diffs[0].After);
+    }
+
+    /// <summary>見出しごとに名指しする。更新履歴の見出しだけを強い通知にする。</summary>
+    [Fact]
+    public void NamesTheChangedSectionAndMarksUpdateHistoryAsStrong()
+    {
+        var diffs = BoothChanges.Describe(
+            Block(sections: [Section("更新履歴", "v1.0"), Section("使い方", "本文")]),
+            Block(sections: [Section("更新履歴", "v1.1"), Section("使い方", "本文")]));
+
+        Assert.Single(diffs);
+        Assert.Equal("更新履歴", diffs[0].Field);
+        Assert.True(BoothChanges.HasStrongChange(diffs));
+    }
+
+    /// <summary>ほかの見出しの変化は、強い通知にしない。</summary>
+    [Fact]
+    public void DoesNotMarkOtherSectionsAsStrong()
+    {
+        var diffs = BoothChanges.Describe(
+            Block(sections: [Section("使い方", "前")]),
+            Block(sections: [Section("使い方", "後")]));
+
+        Assert.Single(diffs);
+        Assert.False(BoothChanges.HasStrongChange(diffs));
+    }
+
+    /// <summary>取り直しでHTMLが取れないと見出しは0件になる。全部消えたと知らせると嘘になる。</summary>
+    [Fact]
+    public void SaysNothingWhenTheHtmlCouldNotBeRead()
+    {
+        Assert.Empty(BoothChanges.Describe(Block(sections: [Section("使い方", "本文")]), Block()));
     }
 
     /// <summary>販売終了はいちばん知りたい。もう買えないため。</summary>

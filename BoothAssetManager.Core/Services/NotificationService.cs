@@ -12,6 +12,15 @@ public interface INotificationService
     Task<int> MarkAllReadAsync(CancellationToken cancellationToken = default);
 
     Task<int> DetectOrphanReferencesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>用が済んだ通知に「解消済み」の印を付ける。</summary>
+    Task<int> ResolveAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>説明文の見出しが取れなくなっていないかを調べる。取れていれば前の知らせを解消済みにする。</summary>
+    Task<bool> DetectPageStructureAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>上限を超えた分を落とす。起動時に1回呼ぶ（足すときは上限を見ていない）。</summary>
+    Task<int> PruneAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -52,7 +61,7 @@ public sealed class NotificationService : INotificationService
             return false;
         }
 
-        records[index] = Copy(records[index], isRead);
+        records[index] = records[index] with { IsRead = isRead };
         await SaveWithPruneAsync(records, cancellationToken);
         return true;
     }
@@ -66,7 +75,7 @@ public sealed class NotificationService : INotificationService
         {
             if (!records[index].IsRead)
             {
-                records[index] = Copy(records[index], isRead: true);
+                records[index] = records[index] with { IsRead = true };
                 changed++;
             }
         }
@@ -95,6 +104,14 @@ public sealed class NotificationService : INotificationService
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var records = _store.Notifications.Load();
         var added = 0;
+
+        // 今も食い違っている物の通知ID。ここに無い分は直したということなので「解消済み」にする
+        var stillBroken = new HashSet<string>(StringComparer.Ordinal);
+
+        // フォルダ登録が残っている場所。登録を解除したら「zipを入手した」の用は済んでいる
+        var registeredFolders = loaded.Items
+            .SelectMany(item => item.Local.LocalFolders.Select(folder => folder.Path))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in loaded.Items)
         {
@@ -132,6 +149,7 @@ public sealed class NotificationService : INotificationService
             // 直さないまま画面を開くたびに同じ話が積み上がるのを避けるため
             // （既読は「この食い違いは見た」という意思表示として扱う）。
             var id = $"orphan-tag:{item.Id}";
+            stillBroken.Add(id);
             var existing = records.FindIndex(record => record.Id == id);
             if (existing >= 0)
             {
@@ -157,7 +175,34 @@ public sealed class NotificationService : INotificationService
             added++;
         }
 
-        if (added > 0)
+        // 用が済んだ物に「解消済み」を付ける（ユーザ判断 2026-09-18）。
+        // 消さないのは、何が起きていたかを後から辿れるようにするため
+        var resolved = 0;
+        for (var index = 0; index < records.Count; index++)
+        {
+            var record = records[index];
+            if (record.IsResolved)
+            {
+                continue;
+            }
+
+            var isDone = record.Kind switch
+            {
+                NotificationKind.OrphanTag => !stillBroken.Contains(record.Id),
+                NotificationKind.ArchiveFoundForFolder =>
+                    record.Id.StartsWith("archive-found:", StringComparison.Ordinal)
+                        && !registeredFolders.Contains(record.Id["archive-found:".Length..]),
+                _ => false,
+            };
+
+            if (isDone)
+            {
+                records[index] = record with { IsResolved = true };
+                resolved++;
+            }
+        }
+
+        if (added > 0 || resolved > 0)
         {
             await SaveWithPruneAsync(records, cancellationToken);
         }
@@ -165,42 +210,159 @@ public sealed class NotificationService : INotificationService
         return added;
     }
 
+    /// <summary>見出しが取れているかを判断するのに必要な、最近取り直した商品の数。これ未満なら何も言わない。</summary>
+    private const int StructureSampleMinimum = 5;
+
+    /// <summary>説明文はあるのに見出しが0件の割合。これを超えたら、BOOTH側の作りが変わった疑い。</summary>
+    private const double StructureBrokenRatio = 0.8;
+
+    /// <summary>「本文がある」とみなす説明文の長さ。短い一言だけの商品は見出しを持たないのが普通。</summary>
+    private const int StructureBodyLength = 200;
+
+    /// <summary>最近取り直したとみなす日数。⑦の間隔（7日±3日）より少し長く取る。</summary>
+    private const int StructureRecentDays = 14;
+
     /// <summary>
-    /// 上限を超えた分を落としてから保存する。
-    /// 捨てるのは既読の古い方だけ。未読を落とすと、気付かないまま消えたことにも気付けない。
+    /// 説明文の見出しが取れなくなっていないかを調べる。
+    ///
+    /// BOOTH側のHTMLの作りが変わると、読み取りが静かに全滅する（対応アバターの検出も痩せる）。
+    /// **1商品の話ではなくアプリの話**なので、要確認の束には出さず、ナビの「設定」の上の帯で知らせる
+    /// （ユーザ判断 2026-09-18）。人が打てる手はアプリの更新を待つことなので、そう読める文にする。
     /// </summary>
-    private async Task SaveWithPruneAsync(List<NotificationRecord> records, CancellationToken cancellationToken)
+    public async Task<bool> DetectPageStructureAsync(CancellationToken cancellationToken = default)
     {
-        var limit = Math.Max(1, _settings.NotificationRetentionCount);
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var since = DateTimeOffset.Now.AddDays(-StructureRecentDays);
 
-        if (records.Count > limit)
+        var recent = loaded.Items
+            .Where(item => item.Booth.FetchedAt is { } at && at >= since)
+            .Where(item => (item.Booth.Description?.Length ?? 0) >= StructureBodyLength)
+            .ToList();
+
+        var broken = recent.Count(item => item.Booth.H2Sections.Count == 0);
+        var suspect = recent.Count >= StructureSampleMinimum
+            && broken >= (int)Math.Ceiling(recent.Count * StructureBrokenRatio);
+
+        var records = _store.Notifications.Load();
+        const string id = "page-structure";
+        var existing = records.FindIndex(record => record.Id == id);
+
+        if (suspect)
         {
-            var excess = records.Count - limit;
-            var droppable = records
-                .Where(record => record.IsRead)
-                .OrderBy(record => record.CreatedAt)
-                .Take(excess)
-                .ToList();
+            var detail = $"最近取り直した{recent.Count}件のうち{broken}件で、説明文の見出しを読み取れませんでした。"
+                + "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。";
 
-            foreach (var record in droppable)
+            if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
             {
-                records.Remove(record);
+                return true;
+            }
+
+            if (existing >= 0)
+            {
+                records.RemoveAt(existing);
+            }
+
+            records.Add(new NotificationRecord
+            {
+                Id = id,
+                Kind = NotificationKind.PageStructureChanged,
+                Title = "BOOTHから取得できる情報の形式が変化した可能性があります",
+                Detail = detail,
+                CreatedAt = DateTimeOffset.Now,
+                IsStrong = true,
+            });
+
+            await SaveWithPruneAsync(records, cancellationToken);
+            return true;
+        }
+
+        // 読み取りが戻ったら、帯は自分で消える
+        if (existing >= 0 && !records[existing].IsResolved)
+        {
+            records[existing] = records[existing] with { IsResolved = true };
+            await SaveWithPruneAsync(records, cancellationToken);
+        }
+
+        return false;
+    }
+
+    public async Task<int> ResolveAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
+    {
+        var wanted = ids.ToHashSet(StringComparer.Ordinal);
+        if (wanted.Count == 0)
+        {
+            return 0;
+        }
+
+        var records = _store.Notifications.Load();
+        var changed = 0;
+
+        for (var index = 0; index < records.Count; index++)
+        {
+            if (wanted.Contains(records[index].Id) && !records[index].IsResolved)
+            {
+                records[index] = records[index] with { IsResolved = true };
+                changed++;
             }
         }
 
+        if (changed > 0)
+        {
+            await SaveWithPruneAsync(records, cancellationToken);
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// 上限を超えた分を落とす。
+    ///
+    /// 足すときは上限を見ていない（足す側は `SaveAsync` を直に呼ぶ）ので、
+    /// 放っておくと上限を超えたまま増える。起動時に1回ここを通す（ユーザ判断 2026-09-18）
+    /// </summary>
+    public async Task<int> PruneAsync(CancellationToken cancellationToken = default)
+    {
+        var records = _store.Notifications.Load();
+        var before = records.Count;
+
+        Prune(records);
+        if (records.Count == before)
+        {
+            return 0;
+        }
+
+        await _store.Notifications.SaveAsync(records, cancellationToken);
+        return before - records.Count;
+    }
+
+    private async Task SaveWithPruneAsync(List<NotificationRecord> records, CancellationToken cancellationToken)
+    {
+        Prune(records);
         await _store.Notifications.SaveAsync(records, cancellationToken);
     }
 
-    private static NotificationRecord Copy(NotificationRecord record, bool isRead) => new()
+    /// <summary>
+    /// 上限を超えた分を落とす。
+    /// 捨てるのは既読か解消済みの古い方だけ。未読の宿題を落とすと、気付かないまま消えたことにも気付けない。
+    /// </summary>
+    private void Prune(List<NotificationRecord> records)
     {
-        Id = record.Id,
-        Kind = record.Kind,
-        ItemId = record.ItemId,
-        Title = record.Title,
-        Detail = record.Detail,
-        Diffs = record.Diffs,
-        CreatedAt = record.CreatedAt,
-        IsRead = isRead,
-        IsStrong = record.IsStrong,
-    };
+        var limit = Math.Max(1, _settings.NotificationRetentionCount);
+        if (records.Count <= limit)
+        {
+            return;
+        }
+
+        var excess = records.Count - limit;
+        var droppable = records
+            .Where(record => record.IsRead || record.IsResolved)
+            .OrderBy(record => record.CreatedAt)
+            .Take(excess)
+            .ToList();
+
+        foreach (var record in droppable)
+        {
+            records.Remove(record);
+        }
+    }
 }

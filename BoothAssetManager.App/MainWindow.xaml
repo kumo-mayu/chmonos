@@ -390,6 +390,36 @@
                         Command="{Binding ShowSettingsCommand}"
                         views:Nav.Label="設定" views:Nav.Icon="{StaticResource IconSettings}"
                         views:Nav.IsActive="{Binding IsSettingsActive}" />
+
+                <!--
+                    BOOTHから取れる情報の形が変わった疑い（ユーザ判断 2026-09-18）。商品1件ごとの話と
+                    同列に並べると埋もれるので、要確認の束ではなくここに出す。アプリ全体の話なので設定の上。
+                    **DockPanel の Bottom は先に書いた物が下に付く**ので、設定より後ろに置く
+                -->
+                <Button DockPanel.Dock="Bottom" Margin="10,0,10,10" Padding="9,8" FontSize="11.5"
+                        Height="Auto" HorizontalContentAlignment="Left" Cursor="Hand"
+                        Background="{StaticResource RailNoticeBack}" BorderBrush="{StaticResource RailNoticeFrame}"
+                        Foreground="{StaticResource RailNoticeText}"
+                        Command="{Binding ShowStructureAlertCommand}"
+                        ToolTip="{Binding StructureAlert}"
+                        Visibility="{Binding HasStructureAlert, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <!--
+                        注意の色は縦線と文字だけに使う（枠と地はナビと同系の暗い色）。
+                        畳んだナビ（56px）では文が入らないので、縦線と印だけにする
+                    -->
+                    <DockPanel>
+                        <Border DockPanel.Dock="Left" Width="3" CornerRadius="2" Margin="0,1,8,1"
+                                Background="{StaticResource RailNoticeEdge}" />
+                        <Grid>
+                            <TextBlock Text="BOOTHの情報の形式が変わったかもしれません" Width="150" TextWrapping="Wrap" LineHeight="16"
+                                       Foreground="{StaticResource RailNoticeText}"
+                                       Style="{StaticResource NavExpandedOnly}" />
+                            <TextBlock Text="!" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
+                                       Foreground="{StaticResource RailNoticeText}"
+                                       Style="{StaticResource NavCollapsedOnly}" />
+                        </Grid>
+                    </DockPanel>
+                </Button>
             </DockPanel>
         </Border>
 

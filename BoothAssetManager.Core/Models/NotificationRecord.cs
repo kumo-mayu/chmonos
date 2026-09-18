@@ -6,19 +6,21 @@ public enum NotificationKind
     /// <summary>商品ページの内容が変わった。</summary>
     ItemUpdated,
 
-    /// <summary>対応アバターの推定が確認待ち。</summary>
-    AvatarNeedsCheck,
-
-    /// <summary>同じ中身のファイルが複数箇所で見つかった。</summary>
-    DuplicateFile,
-
     /// <summary>マスタに存在しないuserTag/属性を参照しているitemがある。</summary>
     OrphanTag,
 
-    /// <summary>LocalFileが指すvariationがBOOTH側から消えた。</summary>
+    /// <summary>手元のファイル・購入の記録が指す種類がBOOTH側から消えた。</summary>
     OrphanVariationLink,
 
-    /// <summary>説明文のセクションが取れない商品が急増した（BOOTH側の構造変化の疑い）。</summary>
+    /// <summary>消えていた種類がBOOTHに戻ってきた（<see cref="OrphanVariationLink"/> の裏返し）。</summary>
+    VariationBackOnBooth,
+
+    /// <summary>
+    /// 説明文のセクションが取れない商品が急増した（BOOTH側の構造変化の疑い）。
+    ///
+    /// **要確認の束には出さない**（ユーザ判断 2026-09-18：商品1件ごとの話と同列に並べると埋もれる）。
+    /// アプリ全体の話なので、ナビの「設定」の上の帯で知らせる。
+    /// </summary>
     PageStructureChanged,
 
     /// <summary>フォルダとして登録した商品のzipが手元に入った。登録を解除できる。</summary>
@@ -32,7 +34,7 @@ public enum NotificationKind
 /// 要確認1件（<c>notifications.json</c>）。確認しても即削除せず既読にし、
 /// 上限を超えたら古い既読から捨てる。
 /// </summary>
-public sealed class NotificationRecord
+public sealed record NotificationRecord
 {
     public required string Id { get; init; }
 
@@ -54,6 +56,15 @@ public sealed class NotificationRecord
     public required DateTimeOffset CreatedAt { get; init; }
 
     public bool IsRead { get; init; }
+
+    /// <summary>
+    /// 知らせた状況がもう無くなっているか（ユーザ判断 2026-09-18）。
+    ///
+    /// タグを作り直した・種類を結び直した・フォルダ登録を解除した、のように用が済んでも
+    /// 通知は残る作りだったので、**消さずに「解消済み」と印を付ける**。何が起きていたかは
+    /// 後から辿れるようにし、上限を超えたときは既読と同じく古い方から捨てる
+    /// </summary>
+    public bool IsResolved { get; init; }
 
     /// <summary>更新履歴セクションの変化など、注目度の高い通知か。</summary>
     public bool IsStrong { get; init; }

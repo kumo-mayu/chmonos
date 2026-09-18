@@ -351,6 +351,9 @@ public abstract record UiCommand
 
     /// <summary>要確認をまとめて既読にする。</summary>
     public record MarkAllNotificationsRead : UiCommand;
+
+    /// <summary>用が済んだ要確認に「解消済み」の印を付ける（消さずに残す）。</summary>
+    public record ResolveNotifications(IReadOnlyList<string> Ids) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>

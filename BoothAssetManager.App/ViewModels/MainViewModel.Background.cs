@@ -68,6 +68,13 @@ public sealed partial class MainViewModel
                     });
                 }
 
+                // 足すときは上限を見ていないので、ここで1回だけ落とす（ユーザ判断 2026-09-18）
+                await _services.Notifications.PruneAsync(token);
+
+                // BOOTH側の作りが変わっていないか（説明文の見出しが読めているか）を見て、ナビの帯を出し入れする
+                await _services.Notifications.DetectPageStructureAsync(token);
+                RunOnUiThread(RefreshCounts);
+
                 await RunBackgroundStageAsync("前の取り込みで残った画像", () => _services.Backlog.ResumeAsync(images, token));
 
                 // 持っていないアバターの1枚目（U18）。商品の画像の穴の方が先に目に入るので⑤の後

@@ -701,6 +701,48 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         UnresolvedCount = _services.Store.Unresolved.Load().Count;
         NeedsEditCount = Search.NeedsEditCount;
-        UnreadCount = _services.Notifications.Load().Count(record => !record.IsRead);
+
+        var notifications = _services.Notifications.Load();
+        UnreadCount = notifications.Count(record => !record.IsRead);
+
+        // BOOTH側の作りが変わった疑いは、商品1件ごとの話と並べずにナビの帯で出す（ユーザ判断 2026-09-18）
+        StructureAlert = notifications
+            .Where(record => record.Kind == Core.Models.NotificationKind.PageStructureChanged && !record.IsResolved)
+            .OrderByDescending(record => record.CreatedAt)
+            .FirstOrDefault()
+            ?.Detail ?? string.Empty;
     }
+
+    private string _structureAlert = string.Empty;
+
+    /// <summary>
+    /// BOOTHから取れる情報の形が変わった疑いの知らせ（アプリ全体の話）。
+    /// 帯は知らせがあるときだけ出すので、押せるかどうかの判定は付けない（付けると、
+    /// 知らせが後から来たときに「押せない」が残る）。
+    /// 読み取りが戻れば自分で消える（`DetectPageStructureAsync` が解消済みにする）
+    /// </summary>
+    public string StructureAlert
+    {
+        get => _structureAlert;
+        private set
+        {
+            if (SetField(ref _structureAlert, value))
+            {
+                OnPropertyChanged(nameof(HasStructureAlert));
+            }
+        }
+    }
+
+    public bool HasStructureAlert => StructureAlert.Length > 0;
+
+    private RelayCommand? _showStructureAlertCommand;
+
+    public RelayCommand ShowStructureAlertCommand => _showStructureAlertCommand ??= new RelayCommand(
+        () => System.Windows.MessageBox.Show(
+            StructureAlert
+                + "\n\n手元のデータはそのままです。説明文の見出しから読み取る所（対応アバターの検出・検索の手掛かり）だけが痩せます。"
+                + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは自分で消えます。",
+            "BOOTHから取得できる情報の形式が変化した可能性があります",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information));
 }

@@ -38,6 +38,15 @@
         <SolidColorBrush x:Key="RailActive" Color="#313745" />
         <SolidColorBrush x:Key="RailText" Color="#cfd4dd" />
         <SolidColorBrush x:Key="RailLabel" Color="#5d6675" />
+
+        <!--
+            ナビの中の知らせ（BOOTHの形式の変化）。明るいクリーム色（WarnSoft）を置くと暗い帯から浮いたので、
+            背景はナビと同系の暗い色のまま少し持ち上げ、注意の色は文字と左の縁だけに使う（ユーザ指摘 2026-09-18）
+        -->
+        <SolidColorBrush x:Key="RailNoticeBack" Color="#2a2f3c" />
+        <SolidColorBrush x:Key="RailNoticeFrame" Color="#3b4354" />
+        <SolidColorBrush x:Key="RailNoticeEdge" Color="#c39a55" />
+        <SolidColorBrush x:Key="RailNoticeText" Color="#e2bd83" />
         <SolidColorBrush x:Key="Good" Color="#2f7d5a" />
         <SolidColorBrush x:Key="GoodSoft" Color="#e7f2ec" />
         <SolidColorBrush x:Key="GoodBorder" Color="#c9e2d5" />

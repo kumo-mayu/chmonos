@@ -29,6 +29,19 @@ public sealed class NotificationRow : ViewModelBase
     /// <summary>更新履歴の変化など、注目度の高いもの。見落とすと困る側。</summary>
     public bool IsStrong => Record.IsStrong;
 
+    /// <summary>知らせた状況がもう無いもの。用は済んでいるが、何が起きていたかは残す。</summary>
+    public bool IsResolved => Record.IsResolved;
+
+    /// <summary>
+    /// この通知を片付けるための操作（ユーザ指示 2026-09-18）。
+    /// 「確認した」では何も直らないので、種類ごとに直しに行ける道を1つ足す
+    /// </summary>
+    public string ActionText { get; init; } = string.Empty;
+
+    public bool HasAction => ActionText.Length > 0;
+
+    public RelayCommand? ActionCommand { get; set; }
+
     public string CreatedText => Record.CreatedAt.ToString("yyyy-MM-dd HH:mm");
 
     public bool IsRead
@@ -231,13 +244,59 @@ public sealed class InboxViewModel : ViewModelBase
             Record = record,
             KindText = KindLabel(record.Kind),
             IsRead = record.IsRead,
+            ActionText = ActionLabel(record),
         };
 
         row.ReadChanged += OnRowReadChanged;
         row.ToggleReadCommand = new RelayCommand(() => row.IsRead = !row.IsRead);
         row.OpenItemCommand = new RelayCommand(() => OpenItemAsync(row.ItemId).Forget(), () => row.HasItem);
+        row.ActionCommand = new RelayCommand(() => ActAsync(row).Forget(), () => row.HasAction);
 
         return row;
+    }
+
+    /// <summary>種類ごとの「ここを直す」。直す道が無い種類（商品ページの変更など）は空。</summary>
+    private static string ActionLabel(NotificationRecord record) => record.Kind switch
+    {
+        NotificationKind.OrphanTag => "タグの管理を開く",
+        NotificationKind.ArchiveFoundForFolder => "フォルダ登録を解除する",
+        NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
+            or NotificationKind.VariationBackOnBooth => "BOOTHから取り直す",
+        _ => string.Empty,
+    };
+
+    private async Task ActAsync(NotificationRow row)
+    {
+        switch (row.Record.Kind)
+        {
+            case NotificationKind.OrphanTag:
+                _main.ShowTagManage();
+                return;
+
+            case NotificationKind.ArchiveFoundForFolder:
+                // 通知のIDに、解除したいフォルダの場所が入っている（archive-found:{パス}）
+                if (row.ItemId is { } itemId && row.Record.Id.Split(':', 2) is [_, { Length: > 0 } path])
+                {
+                    await _services.Commands.ExecuteAsync(new UiCommand.UnregisterFolder(itemId, path));
+                    StatusText = "フォルダ登録を解除しました。zipから登録し直せます。";
+                    await ReloadAsync();
+                }
+
+                return;
+
+            case NotificationKind.ItemBackOnBooth:
+            case NotificationKind.OrphanVariationLink:
+            case NotificationKind.VariationBackOnBooth:
+                if (row.ItemId is { } target)
+                {
+                    StatusText = "BOOTHから取り直しています…";
+                    await _services.Commands.ExecuteAsync(new UiCommand.RefreshItem(target));
+                    StatusText = "BOOTHから取り直しました。";
+                    await ReloadAsync();
+                }
+
+                return;
+        }
     }
 
     private void OnRowReadChanged(NotificationRow row)
@@ -286,17 +345,41 @@ public sealed class InboxViewModel : ViewModelBase
         if (record is not null)
         {
             _main.ShowItem(record);
+            return;
         }
+
+        // 商品IDを付け替えたり商品を消しても通知は書き換えないので、宛先が無いことがある。
+        // 黙って何も起きないと壊れたように見えるので言う（ユーザ判断 2026-09-18）。
+        // 宛先が無い通知は、もう手当てのしようがないので解消済みにする
+        StatusText = "この商品はもうありません（商品IDを変えたか、管理から外したようです）。この知らせは解消済みにしました。";
+
+        var ids = _services.Notifications.Load()
+            .Where(notification => notification.ItemId == itemId && !notification.IsResolved)
+            .Select(notification => notification.Id)
+            .ToList();
+
+        await _services.Commands.ExecuteAsync(new UiCommand.ResolveNotifications(ids));
+        await ReloadAsync();
     }
 
     private void Rebuild()
     {
-        var rows = _unreadOnly ? _all.Where(row => !row.IsRead).ToList() : _all;
+        // 解消済みは用が済んでいるので、未読のみの表示には出さない
+        var rows = _unreadOnly
+            ? _all.Where(row => !row.IsRead && !row.IsResolved).ToList()
+            : _all;
 
         Groups.Clear();
         foreach (var group in rows
+            // アプリ全体の話（取得できる情報の形式の変化）は、商品1件ごとの話と並べない。
+            // ナビの「設定」の上の帯で知らせる（ユーザ判断 2026-09-18）
+            .Where(row => row.Record.Kind != NotificationKind.PageStructureChanged)
             .GroupBy(row => row.Record.Kind)
-            .OrderBy(group => group.Key))
+            // 重要が混ざっている種類を先に、その次は新しい知らせがある種類から（ユーザ判断 2026-09-18）。
+            // 種類の宣言順では、何から読めばよいかが伝わらなかった
+            .OrderByDescending(group => group.Any(row => row.IsStrong && !row.IsRead))
+            .ThenByDescending(group => group.Max(row => row.Record.CreatedAt))
+            .ThenBy(group => group.Key))
         {
             Groups.Add(new NotificationGroup
             {
@@ -319,10 +402,9 @@ public sealed class InboxViewModel : ViewModelBase
     {
         // 見出しはユーザ指定（2026-09-18）。何が起きたかを名詞で言い切る
         NotificationKind.ItemUpdated => "商品ページの変更",
-        NotificationKind.AvatarNeedsCheck => "対応アバター確認",
-        NotificationKind.DuplicateFile => "同じ内容のファイル",
         NotificationKind.OrphanTag => "タグの参照切れ",
         NotificationKind.OrphanVariationLink => "消えた種類",
+        NotificationKind.VariationBackOnBooth => "復活した種類",
         NotificationKind.PageStructureChanged => "取得できる情報の形式の変化",
         NotificationKind.ArchiveFoundForFolder => "zipを入手した",
         NotificationKind.ItemBackOnBooth => "非公開商品の復活",
@@ -332,10 +414,9 @@ public sealed class InboxViewModel : ViewModelBase
     private static string KindDescription(NotificationKind kind) => kind switch
     {
         NotificationKind.ItemUpdated => "取得し直したときに内容が変わっていたものです。",
-        NotificationKind.AvatarNeedsCheck => "推定した対応アバターの確認待ちです。",
-        NotificationKind.DuplicateFile => "同じ中身が複数の場所にありました。容量は1回だけ数えています。",
         NotificationKind.OrphanTag => "タグの管理・属性の管理から消えたか名前が変わったものを、商品がまだ参照しています。",
-        NotificationKind.OrphanVariationLink => "紐付けていた種類がBOOTH側から消えました。",
+        NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指す種類が、BOOTH側から消えました。",
+        NotificationKind.VariationBackOnBooth => "消えていた種類が、BOOTHにまた出てきました。",
         NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
         NotificationKind.ArchiveFoundForFolder => "フォルダ登録が役目を終えています。解除しないと容量が二重に数えられます。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",

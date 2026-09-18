@@ -120,6 +120,12 @@
                                                                                 Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                             <TextBlock Text="重要" FontSize="10" Foreground="{StaticResource Warn}" />
                                                                         </Border>
+                                                                        <!-- 用が済んだもの。消さずに印を付ける（ユーザ判断 2026-09-18） -->
+                                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
+                                                                                Visibility="{Binding IsResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                            <TextBlock Text="解消済み" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                                        </Border>
                                                                         <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
                                                                     </StackPanel>
                                                                     <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
@@ -152,6 +158,10 @@
                                                                             Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                     <Button Content="{Binding ReadButtonText}" Style="{StaticResource SmallButton}"
                                                                             Margin="0,6,0,0" Command="{Binding ToggleReadCommand}" />
+                                                                    <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
+                                                                    <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
+                                                                            Margin="0,6,0,0" Command="{Binding ActionCommand}"
+                                                                            Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                 </StackPanel>
                                                             </Grid>
                                                         </Border>

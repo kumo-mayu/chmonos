@@ -246,6 +246,7 @@ public sealed class ItemService : IItemService
         _images.ClearMissingMarkers(itemId);
 
         await NoteBackOnBoothAsync(existing, booth, cancellationToken);
+        await NoteVariationLinksAsync(existing, booth, cancellationToken);
         await NoteChangesAsync(existing, booth, cancellationToken);
 
         // **画像はここで落とさない。**梯子の規則をここだけ破らないため。
@@ -289,9 +290,80 @@ public sealed class ItemService : IItemService
             Detail = BoothChanges.Summarize(diffs),
             Diffs = diffs,
             CreatedAt = DateTimeOffset.Now,
+            IsStrong = BoothChanges.HasStrongChange(diffs),
         });
 
         await _store.Notifications.SaveAsync(notifications, cancellationToken);
+    }
+
+    /// <summary>
+    /// 手元のファイル・購入の記録が指す種類が、BOOTH側から消えた／戻ったことを要確認に出す
+    /// （ユーザ判断 2026-09-18：どちらも一度きりの出来事で、商品ごとに結び直しの手当てができる）。
+    ///
+    /// 種類ごとの販売終了は普通の商品でも起こるので、消えたままだと
+    /// 「買ったのに記録を入れる行が無い」状態に気付けない。
+    /// </summary>
+    private async Task NoteVariationLinksAsync(ItemRecord existing, BoothBlock booth, CancellationToken cancellationToken)
+    {
+        var linked = existing.Local.LocalFiles.Select(file => file.VariationId)
+            .Concat(existing.Local.Purchases.Select(purchase => purchase.VariationId))
+            .OfType<long>()
+            .Distinct()
+            .ToList();
+
+        if (linked.Count == 0)
+        {
+            return;
+        }
+
+        var present = booth.Variations.Select(variation => variation.Id).ToHashSet();
+        var missing = linked.Where(id => !present.Contains(id)).ToList();
+
+        var notifications = _store.Notifications.Load();
+        var goneId = $"variation-gone:{existing.Id}";
+        var wasGone = notifications.FindIndex(entry => entry.Id == goneId && !entry.IsResolved);
+        var name = booth.Name ?? existing.Id;
+        var changed = false;
+
+        if (missing.Count > 0)
+        {
+            if (wasGone < 0)
+            {
+                notifications.Add(new NotificationRecord
+                {
+                    Id = goneId,
+                    Kind = NotificationKind.OrphanVariationLink,
+                    ItemId = existing.Id,
+                    Title = $"{name}：結び付けていた種類が無くなりました",
+                    Detail = $"手元のファイルや購入の記録が指す種類 {missing.Count} 件が、BOOTHの商品ページから消えました。"
+                        + "別の種類に結び直せます。",
+                    CreatedAt = DateTimeOffset.Now,
+                });
+
+                changed = true;
+            }
+        }
+        else if (wasGone >= 0)
+        {
+            // 消えていた種類が戻った。前の知らせは用が済んだので解消済みにし、戻ったことを1件出す
+            notifications[wasGone] = notifications[wasGone] with { IsResolved = true };
+            notifications.Add(new NotificationRecord
+            {
+                Id = $"variation-back:{existing.Id}:{DateTimeOffset.Now:yyyyMMddHHmmss}",
+                Kind = NotificationKind.VariationBackOnBooth,
+                ItemId = existing.Id,
+                Title = $"{name}：消えていた種類が戻りました",
+                Detail = "結び付けていた種類が、BOOTHの商品ページにまた出てきました。購入の記録も入れられます。",
+                CreatedAt = DateTimeOffset.Now,
+            });
+
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await _store.Notifications.SaveAsync(notifications, cancellationToken);
+        }
     }
 
     /// <summary>

@@ -12,12 +12,18 @@ namespace BoothAssetManager.Core.Services;
 /// </summary>
 public static class BoothChanges
 {
+    /// <summary>説明文の中身を出すときの長さ。1行に収めたいので、これを超えたら切って「…」を付ける。</summary>
+    private const int ExcerptLength = 70;
+
     /// <summary>
     /// 変わったところを並べる。何も変わっていなければ空。
     ///
     /// **スキ数は見ない。**必ず動くので、毎週全商品が「変わった」になる。
-    /// **説明文の全文も見ない。**出品者が誤字を直しただけで出てしまう。
-    /// 説明文の構造が壊れた場合は別の枠（<see cref="NotificationKind.PageStructureChanged"/>）が既にある。
+    ///
+    /// 説明文は**見出し（セクション）ごとに**比べる（2026-09-18 に設計へ合わせた）。
+    /// 全文で比べると誤字直しでも出てしまうが、見出し単位なら「どこが変わったか」を名指しできる。
+    /// 更新履歴の見出しの変化は強い通知にする（<see cref="HasStrongChange"/>）。
+    /// 見出しが取れない商品だけ、説明文そのものを比べる（それしか手掛かりが無いので）。
     /// </summary>
     public static IReadOnlyList<NotificationDiff> Describe(BoothBlock before, BoothBlock after)
     {
@@ -64,8 +70,93 @@ public static class BoothChanges
             });
         }
 
+        diffs.AddRange(DescribeDescription(before, after));
+
         return diffs;
     }
+
+    /// <summary>
+    /// 説明文の変化。見出しごとに比べ、見出しが片方にしか無ければ足された／消えたとして出す。
+    ///
+    /// 取り直しでHTMLが取れなかったときは見出しが0件になる。**そのときは何も言わない**
+    /// （取れなかっただけで「全部消えた」と知らせると嘘になる）。
+    /// </summary>
+    private static IEnumerable<NotificationDiff> DescribeDescription(BoothBlock before, BoothBlock after)
+    {
+        if (before.H2Sections.Count == 0 && after.H2Sections.Count == 0)
+        {
+            // 見出しを持たない商品。手掛かりが説明文しかないので、そのまま比べる
+            var beforeText = Normalize(before.Description);
+            var afterText = Normalize(after.Description);
+            if (!string.Equals(beforeText, afterText, StringComparison.Ordinal))
+            {
+                yield return new NotificationDiff
+                {
+                    Field = "説明文",
+                    Before = Excerpt(beforeText),
+                    After = Excerpt(afterText),
+                };
+            }
+
+            yield break;
+        }
+
+        if (after.H2Sections.Count == 0)
+        {
+            yield break;
+        }
+
+        var beforeSections = Group(before.H2Sections);
+        var afterSections = Group(after.H2Sections);
+
+        foreach (var (heading, text) in afterSections)
+        {
+            if (!beforeSections.TryGetValue(heading, out var previous))
+            {
+                yield return new NotificationDiff { Field = heading, After = Excerpt(text) };
+            }
+            else if (!string.Equals(previous, text, StringComparison.Ordinal))
+            {
+                yield return new NotificationDiff { Field = heading, Before = Excerpt(previous), After = Excerpt(text) };
+            }
+        }
+
+        // 消えた見出し。before に見出しがあるのは、前回HTMLが取れていたということ
+        foreach (var (heading, text) in beforeSections)
+        {
+            if (!afterSections.ContainsKey(heading))
+            {
+                yield return new NotificationDiff { Field = heading, Before = Excerpt(text) };
+            }
+        }
+    }
+
+    /// <summary>
+    /// 更新履歴の見出しが動いたか。**強い通知にするのはここだけ**
+    /// （新しい版が出たのに気付かないと、古いファイルを使い続けることになる）。
+    /// </summary>
+    public static bool HasStrongChange(IReadOnlyList<NotificationDiff> diffs)
+        => diffs.Any(diff => Booth.H2SectionExtractor.IsUpdateHistoryHeading(diff.Field));
+
+    /// <summary>見出しの原文は装飾記号付きなので、正規化した見出しで突き合わせる（同じ見出しが2つあれば後ろを足す）。</summary>
+    private static Dictionary<string, string> Group(IReadOnlyList<H2Section> sections)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var section in sections)
+        {
+            var heading = section.NormalizedHeading.Length > 0 ? section.NormalizedHeading : "説明文";
+            var text = Normalize(section.Text);
+            map[heading] = map.TryGetValue(heading, out var existing) ? $"{existing}\n{text}" : text;
+        }
+
+        return map;
+    }
+
+    private static string Normalize(string? text)
+        => string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static string Excerpt(string text)
+        => text.Length <= ExcerptLength ? text : text[..ExcerptLength] + "…";
 
     /// <summary>要確認の1行にする。開かなくても判断できるように、変わったところを並べる。</summary>
     public static string Summarize(IReadOnlyList<NotificationDiff> diffs)
