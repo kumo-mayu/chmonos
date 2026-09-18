@@ -1,0 +1,52 @@
+# 写しの保存先（サンドボックス）
+
+どれも `%LOCALAPPDATA%\` の下。フォルダ名は改名前（`BoothAssetManager-`）のまま。場所は `CHMONOS_HOME` で渡すだけなので名前は関係ない。
+`Start-ChmonosApp -Store <-の後ろ>` で起動する（例：`-Store tagcheck`）。
+
+## 画面ごとの既定
+
+ビルドが通ったら、直した画面を確かめられる写しで**起動したままにする**（ユーザ指示 2026-09-18「ビルドしたらとりあえず確認できるデータで起動するようにしてほしい」）。
+
+| 直した画面 | 写し |
+|---|---|
+| 要確認 | `noticheck` |
+| タグの管理 | `tagcheck` |
+| BOOTH の形式の変化の帯 | `structcheck` |
+| アバター・一般の画面 | `friendcheck` |
+| 本番と同じ少ない件数で見たいとき | `ui` |
+| 改変・Unity へ送る | `d1check` |
+| フォルダビュー・重い unitypackage | `heavycheck` |
+
+見るべきデータが無ければ、写しを作って作り物を入れる（下の「作り物の作り方」）。
+
+## 一覧
+
+| 名前 | 中身 | 使い道 |
+|---|---|---|
+| `ui` | 本番の写し（15件） | 画面の確認。書き込んでよい |
+| `friendtest` | 友人のライブラリの写し（約200件）＋作り物の改変12件。**本番の `location.json` が指す、ユーザが普段開く写し** | **起動しない・書き込まない**（道具が断る）。見たいときは `friendcheck` |
+| `friendcheck` | `friendtest` の複製（2026-09-14） | 友人のデータで画面を確かめる。書き込んでよい |
+| `noticheck` | 友人のデータの写し＋作り物の `notifications.json`（要確認の種類がそろう） | 要確認の画面 |
+| `structcheck` | 友人のデータの写し。「形式の変化」が出るように、最近取った説明を節の無い形にしてある（14日以内・5件以上・8割） | ナビの「形式の変化」の帯 |
+| `tagcheck` | 友人のデータの写し＋分類の多い作り物の `userTags.json` | タグの管理 |
+| `stress-realcat` | 作った2000件（分類5種類） | 速さとメモリの計測（`perf-measure` スキル） |
+| `eval` | 友人のデータと対応アバターの正解 | 検出の評価（`experiments/AvatarEvalBench`） |
+| `d1check` | 本番の写し＋試験用の改変「試験用（unity-import-test）」 | 改変の画面・Unity へ送る（送り先は捨ててよい試験用プロジェクト。**Unity を動かすのはユーザが「試して」と言ったときだけ**） |
+| `heavycheck` | 本番の写し＋未確定に 1GB 級の作り物の zip 2件 | 重い unitypackage・フォルダビューの未確定 |
+| `unitypkg` | 本番の写し（取り込み元を空のフォルダにしてある） | 取り込みの裏で unitypackage を読む（BOOTH へは問い合わせない） |
+| `volcheck` | `ui` の写しで記録のパスを D: から X:（無いドライブ）に書き換え、`volumes.json` に「X: は D: の通し番号」 | ドライブ文字の読み替え（フォルダビューで D: の下に出れば正しい） |
+
+ほかに `flowcheck`（205件）・`perfdemo`・`stresscheck`・`stress-nodesc`（2000件）・`resolvecheck`（2件）・`ui60`・`fresh`（空）・`friendtest-before-zone`・`backup-20260909-181217` がある。
+使い道の記録が残っていないので、新しい確かめには使わない（消すかはユーザに聞く）。
+`history-backup` は履歴を書き換える前の控え。**触らない・消さない。**
+
+友人のデータから作った写し（`friendtest` `friendcheck` `flowcheck` `eval` `noticheck` `structcheck` `tagcheck`）は第三者のもの。
+画像はどこへも送らず、文書・コミット・ログには数と傾向だけ書く（CLAUDE.md の 5.）。
+
+## 作り物の作り方
+
+1. `New-ChmonosSandbox -From <元> -Name <新しい名前>` で写しを作る（**先にフォルダを作る**。無いフォルダで起動すると「保存先が見つかりません」が出て、「はい」は本番を開く）。
+2. 作り物は写しの中だけに置く。本番・`friendtest` には入れない。
+3. JSON は PowerShell の `ConvertTo-Json` で作らない。**空の配列が `null` になり**、読み込みで落ちる（`userTags.json` で 0件表示になった）。文字列を組み立てるか、既にある JSON を写して書き換える。
+4. 値はアプリが書く形に合わせる。購入の種類は日本語（`自分用`・`貰った`・`贈った`）。`self` と書くと取り直しが黙って失敗した。
+5. 作り物を入れたら、この表に1行足す。

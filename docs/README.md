@@ -2,11 +2,30 @@
 
 守ってほしい決め事は `CLAUDE.md`。ここはそれ以外の文書の索引。
 
+## リポジトリの地図
+
+| 置き場 | 中身 |
+|---|---|
+| `BoothAssetManager.App/` | 画面（WPF）。`Views/`・`ViewModels/`・`Controls/`（`SuggestBox`・`ColumnsPanel` など共通の部品）・`Services/` |
+| `BoothAssetManager.Core/` | 画面に依存しない本体。`Booth/`（通信のゲート）・`Commands/`（`UiCommand`）・`Models/`・`Storage/`・`Scanning/`（取り込み）・`Resolution/`（商品IDの特定）・`Search/`・`Services/`・`Images/` |
+| `BoothAssetManager.Core.Tests/` | 既定のテスト一式（通信しない） |
+| `BoothAssetManager.Cli/` | データ層を実データで試す足場。配布物ではない |
+| `BoothZipInspector/`・`BoothIdResolver/`（と `.Tests`） | zip の手掛かり読み・商品IDの特定のライブラリ（本体が使う） |
+| `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
+| `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
+| `mock/` | 画面のモック（Claude Design のキャンバス。`*.dc.html` が1画面ずつ）。今の画面とは違う所がある |
+| `tools/wording.mjs` | 画面に出る文字列を XAML と C# から集める（文言の総点検に使う） |
+| `.claude/skills/` | 繰り返す手順（`ui-check`・`perf-measure`・`feedback-log`・`wrap-up`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
+| 直下の `作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt` | 作者のメモ。読むだけ |
+
+## 文書の種類
+
 - **`spec/`** — 話題ごとの**今の決め事**。1ファイル200行まで。冒頭に要点・コードの場所・経緯へのリンクがある。**作業の前にまず読む。**
+- **`dev/`** — 作るときの落とし穴（[wpf.md](dev/wpf.md)：XAML・一覧・絵のメモリ・XML／[powershell.md](dev/powershell.md)：確かめと作り物のデータのスクリプト）。書く前に読む。
 - **`history/`** — 決めたときの経緯（grill・当時の数字・訂正）。書かれた時点の記録なので、今の決め事と食い違う所がある（そのときは spec が正）。
 - **`research/`** — 調査と計測の記録。
-- **`feedback/`** — 画面への意見。`open.md` が未対応・記録のみ、`done-2026-09.md` が直した記録（U番号・D番号）、`ui-flows-2026-09-15.md` が画面と状態ごとの操作の動線と、意図と違う動き・その画面に無い機能の一覧（UI 案を練るときの材料）。
-- **`features.md`** — 機能の一覧（何・なぜ・状態・出典）。
+- **`feedback/`** — 画面への意見。`open.md` が未対応・記録のみ、`done-2026-09.md` が直した記録（U番号・D番号。約300KB なので見出しを Grep して節だけ読む）、`ui-flows-2026-09-15.md` が画面と状態ごとの操作の動線と、意図と違う動き・その画面に無い機能の一覧（UI 案を練るときの材料）。
+- **`features.md`** — 機能の一覧（何・なぜ・状態・出典）。1行が長いので行を Grep して直す。
 
 ## spec（今の決め事）
 
@@ -44,6 +63,7 @@
 | [tech-debt-2026-09-14.md](history/tech-debt-2026-09-14.md) | 技術的負債の洗い出しと直した記録 |
 | [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
+| [zip-inspector-readme.md](history/zip-inspector-readme.md) | その試作（BoothZipInspector・BoothIdResolver）の使い方。元は直下の README（2026-09-18 に移した） |
 
 ## research（調査）
 

@@ -18,7 +18,7 @@ dotnet test BoothAssetManager.Core.Tests --nologo 2>&1 | Select-Object -Last 4  
 
 ## 2. 画面を変えたなら撮って見る
 
-`ui-check` スキル。本番が変わっていないかを照らすまでが確かめ。
+`ui-check` スキル。本番が変わっていないかを照らすまでが確かめ。終わったら、その画面の写しで起動したままにしておく。
 
 ## 3. 文書（コードだけ直して置き去りにしない）
 
@@ -63,7 +63,14 @@ git commit -F "<作業用フォルダ>\commit-msg.txt"
 $env:GIT_TERMINAL_PROMPT='1'; $env:GCM_INTERACTIVE='auto'; git push origin master
 ```
 
-認証の画面が出たらユーザに任せる。**資格情報を入れない。**ユーザが席を外すと言っているときは画面を出さない指定にする（メモリの push-auth）。
+この環境のシェルは最初から `GIT_TERMINAL_PROMPT=0`・`GCM_INTERACTIVE=never` なので、上のように**コマンドの中だけ**上書きする（そのままだと席にいても「terminal prompts disabled」で落ちる）。
+認証の画面が出たらユーザに任せる。**資格情報を入れない・探さない。**
+
+ユーザが「席を外す」「寝る」と言っているときだけ、画面を出さない指定にする（誰もいない画面に窓が出たまま止まるのを避ける）。落ちたらユーザに頼む：
+
+```powershell
+$env:GIT_TERMINAL_PROMPT='0'; $env:GCM_INTERACTIVE='never'; git push origin master
+```
 
 ## 7. 報告（日本語）
 
