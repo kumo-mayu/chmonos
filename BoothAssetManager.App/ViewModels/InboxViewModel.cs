@@ -28,21 +28,40 @@ public sealed class NotificationRow : ViewModelBase
     /// </summary>
     public sealed record DiffRow(string Field, string Text);
 
-    public IReadOnlyList<DiffRow> Diffs => Record.Diffs
-        .Select(diff => new DiffRow(
-            diff.Field,
-            diff.Before is { Length: > 0 } before
-                ? $"{before} → {diff.After ?? "（無し）"}"
-                : diff.After ?? string.Empty))
-        .ToList();
-
-    public bool HasDiffs => Record.Diffs.Count > 0;
-
     /// <summary>
-    /// 要約の1行を出すか。差分の札が下に並ぶときは、同じことを2回書くことになるので出さない
-    /// （ユーザ指摘 2026-09-18）。差分を持たない知らせでは、ここだけが中身になる
+    /// 行の中身。**どの種別も同じ札で出す**（ユーザ指示 2026-09-18：商品ページの変更だけが札で、
+    /// ほかの束は薄い1行だった）。変化を持つ知らせは変わったところを1つずつ、
+    /// 持たない知らせは「見出し：中身」を1枚の札にする
     /// </summary>
-    public bool ShowsDetail => !HasDiffs && Detail.Length > 0;
+    public IReadOnlyList<DiffRow> Cards
+    {
+        get
+        {
+            if (Record.Diffs.Count > 0)
+            {
+                return Record.Diffs
+                    .Select(diff => new DiffRow(
+                        diff.Field,
+                        diff.Before is { Length: > 0 } before
+                            ? $"{before} → {diff.After ?? "（無し）"}"
+                            : diff.After ?? string.Empty))
+                    .ToList();
+            }
+
+            if (Detail.Length == 0)
+            {
+                return [];
+            }
+
+            // 「消えたバリエーション：支援版（旧）」のように、見出しと中身に分けて書いてある
+            var separator = Detail.IndexOf('：');
+            return separator > 0
+                ? [new DiffRow(Detail[..separator], Detail[(separator + 1)..])]
+                : [new DiffRow(string.Empty, Detail)];
+        }
+    }
+
+    public bool HasCards => Cards.Count > 0;
 
     /// <summary>更新履歴の変化など、注目度の高いもの。見落とすと困る側。</summary>
     public bool IsStrong => Record.IsStrong;
