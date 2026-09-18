@@ -134,6 +134,15 @@ public sealed class TagSubRow : ReorderableRow
 
     public bool IsUsed => ItemCount > 0;
 
+    private bool _isHidden;
+
+    /// <summary>商品名で絞っているとき、当たりが無い小分類は出さない（ユーザ指示 2026-09-18）。</summary>
+    public bool IsHidden
+    {
+        get => _isHidden;
+        set => SetField(ref _isHidden, value);
+    }
+
     /// <summary>寄せ先の候補。自分自身は外す（自分に改名しても何も起きない）。</summary>
     public IReadOnlyList<string> OtherNames { get; set; } = [];
 
@@ -635,6 +644,42 @@ public sealed class TagManageViewModel : ViewModelBase
                 string.Equals(tag.Top, row.Name, StringComparison.CurrentCultureIgnoreCase)));
     }
 
+    private bool _isAddingSub;
+    private string _itemFilter = string.Empty;
+
+    /// <summary>小分類を足す欄を出しているか（普段は隠す。ユーザ指示 2026-09-18：入力欄が並ぶと読みづらい）。</summary>
+    public bool IsAddingSub
+    {
+        get => _isAddingSub;
+        set => SetField(ref _isAddingSub, value);
+    }
+
+    /// <summary>
+    /// この大分類の中を商品名で探す（ユーザ指示 2026-09-18）。
+    /// 当たった商品を持つ小分類だけを開いて出す——どの小分類に入れたか分からない物を辿るため
+    /// </summary>
+    public string ItemFilter
+    {
+        get => _itemFilter;
+        set
+        {
+            if (SetField(ref _itemFilter, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(HasItemFilter));
+                RebuildSubs();
+                OnPropertyChanged(nameof(ItemFilterResultText));
+            }
+        }
+    }
+
+    public bool HasItemFilter => _itemFilter.Trim().Length > 0;
+
+    private int _itemFilterHits;
+
+    public string ItemFilterResultText => HasItemFilter
+        ? $"「{_itemFilter.Trim()}」に当たる商品 {_itemFilterHits} 件（当たった小分類だけを開いています）"
+        : string.Empty;
+
     /// <summary>絞り込んでいるか。絞っている間は、右の小分類と中の商品も同じ語で絞る。</summary>
     public bool HasFilter => _filterText.Trim().Length > 0;
 
@@ -725,7 +770,59 @@ public sealed class TagManageViewModel : ViewModelBase
             row.OtherNames = SubNames.Where(name => name != row.Name).ToList();
         }
 
+        ApplyItemFilter();
         OnPropertyChanged(nameof(HasSubs));
+    }
+
+    /// <summary>
+    /// 商品名で絞る（ユーザ指示 2026-09-18）。当たった商品を持つ小分類だけを開いて出し、
+    /// 中身も当たった商品だけにする。空にしたら元の（覚えている）開き方に戻す
+    /// </summary>
+    private void ApplyItemFilter()
+    {
+        var filter = _itemFilter.Trim();
+        _itemFilterHits = 0;
+
+        if (filter.Length == 0)
+        {
+            foreach (var row in Subs)
+            {
+                row.IsHidden = false;
+                row.Items.Clear();
+                row.IsExpanded = row.IsUsed && ExpandedSubs.Contains(SubKey(row));
+
+                if (row.IsExpanded)
+                {
+                    FillSubItemsAsync(row).Forget();
+                }
+            }
+
+            return;
+        }
+
+        var items = _main.Search.SnapshotItems()
+            .Where(item => item.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
+            .ToList();
+
+        foreach (var row in Subs)
+        {
+            var matched = items
+                .Where(item => item.Local.UserTags.Any(tag =>
+                    string.Equals(tag.Top, row.Top, StringComparison.CurrentCultureIgnoreCase)
+                    && tag.Subs.Any(sub => string.Equals(sub, row.Name, StringComparison.CurrentCultureIgnoreCase))))
+                .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
+                .ToList();
+
+            row.Items.Clear();
+            foreach (var item in matched)
+            {
+                row.Items.Add(CreateItemRow(item));
+            }
+
+            _itemFilterHits += matched.Count;
+            row.IsHidden = matched.Count == 0;
+            row.IsExpanded = matched.Count > 0;
+        }
     }
 
     /// <summary>マスタに載っているサブレベル名。寄せ先の候補に使う。</summary>
@@ -1145,27 +1242,33 @@ public sealed class TagManageViewModel : ViewModelBase
             .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
             .ToList();
 
-        var builder = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>());
-
         RunOnUiThread(() =>
         {
             foreach (var item in items)
             {
-                var entry = new TagItemRow
-                {
-                    ItemId = item.Id,
-                    Name = item.DisplayName,
-                    ShopName = item.Booth.Shop?.Name ?? string.Empty,
-                    ThumbnailPath = builder.ItemThumbnailPath(item),
-                    Thumbnails = _main.Thumbnails,
-                };
-
-                entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
-                row.Items.Add(entry);
+                row.Items.Add(CreateItemRow(item));
             }
         });
 
         await Task.CompletedTask;
+    }
+
+    /// <summary>小分類の中に出す商品1件。絵の引き方は改変の一覧と同じものを使う。</summary>
+    private TagItemRow CreateItemRow(ItemRecord item)
+    {
+        var builder = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>());
+
+        var entry = new TagItemRow
+        {
+            ItemId = item.Id,
+            Name = item.DisplayName,
+            ShopName = item.Booth.Shop?.Name ?? string.Empty,
+            ThumbnailPath = builder.ItemThumbnailPath(item),
+            Thumbnails = _main.Thumbnails,
+        };
+
+        entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
+        return entry;
     }
 
     /// <summary>参照だけ残っている名前を、そのままマスタへ作る。名前が正しかった場合の直し方。</summary>
