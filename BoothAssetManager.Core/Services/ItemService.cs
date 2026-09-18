@@ -342,7 +342,7 @@ public sealed class ItemService : IItemService
                     ItemId = existing.Id,
                     // 説明は束の見出しに出るので、行にはこの行だけの事実を書く（ユーザ指示 2026-09-18）
                     Title = name,
-                    Detail = $"消えたバリエーション {missing.Count} 件",
+                    Detail = $"消えたバリエーション：{NameVariations(missing, existing)}",
                     CreatedAt = DateTimeOffset.Now,
                 });
 
@@ -359,7 +359,7 @@ public sealed class ItemService : IItemService
                 Kind = NotificationKind.VariationBackOnBooth,
                 ItemId = existing.Id,
                 Title = name,
-                Detail = $"戻ったバリエーション {linked.Count(id => present.Contains(id))} 件",
+                Detail = $"戻ったバリエーション：{NameVariations(linked.Where(present.Contains).ToList(), existing, booth)}",
                 CreatedAt = DateTimeOffset.Now,
             });
 
@@ -370,6 +370,42 @@ public sealed class ItemService : IItemService
         {
             await _store.Notifications.SaveAsync(notifications, cancellationToken);
         }
+    }
+
+    /// <summary>行に出すバリエーションの名前を並べる（ユーザ要望 2026-09-18：件数だけでは何が消えたか分からない）。</summary>
+    /// <remarks>
+    /// 消えたバリエーションの名前は**BOOTHにはもう無い**。
+    /// 取り直す前の <c>booth</c> ブロックと、購入時に写し取った名前（<see cref="Purchase.NameSnapshot"/>）から引く。
+    /// どちらも無ければIDで言う（黙って落とすと、どれのことか辿れなくなる）。
+    /// </remarks>
+    private static string NameVariations(IReadOnlyList<long> ids, ItemRecord existing, BoothBlock? booth = null)
+    {
+        const int shown = 3;
+
+        var names = new Dictionary<long, string>();
+        foreach (var variation in (booth ?? existing.Booth).Variations.Concat(existing.Booth.Variations))
+        {
+            if (variation.Name is { Length: > 0 } text)
+            {
+                names.TryAdd(variation.Id, text);
+            }
+        }
+
+        foreach (var purchase in existing.Local.Purchases)
+        {
+            if (purchase.VariationId is { } id && purchase.NameSnapshot is { Length: > 0 } text)
+            {
+                names.TryAdd(id, text);
+            }
+        }
+
+        var labels = ids
+            .Select(id => names.TryGetValue(id, out var text) ? text : $"ID {id}")
+            .ToList();
+
+        return labels.Count <= shown
+            ? string.Join("・", labels)
+            : string.Join("・", labels.Take(shown)) + $"　ほか {labels.Count - shown} 件";
     }
 
     /// <summary>

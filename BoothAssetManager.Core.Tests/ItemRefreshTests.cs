@@ -291,6 +291,38 @@ public class ItemRefreshTests : IDisposable
         Assert.Contains("真・アバターペンシステム", entry.Detail);
     }
 
+    /// <summary>
+    /// 消えたバリエーションは**名前で言う**（ユーザ要望 2026-09-18：件数だけでは何が消えたか分からない）。
+    /// 名前はBOOTHにもう無いので、取り直す前の記録と、購入時に写した名前から引く。
+    /// </summary>
+    [Fact]
+    public async Task NamesTheVariationsThatDisappeared()
+    {
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = ItemId,
+            Booth = new BoothBlock
+            {
+                Name = "取り直す前の名前",
+                FetchedAt = DateTimeOffset.Now,
+                Variations = [new BoothVariation { Id = 99999999, Name = "旧・支援版" }],
+            },
+            Local = new LocalBlock
+            {
+                // 手元のファイルは取り直す前の記録から、購入は写した名前から引く
+                LocalFiles = [new LocalFileRecord { Hash = "AAAA", Paths = ["x.zip"], SizeBytes = 1, VariationId = 99999999 }],
+                Purchases = [new Purchase { VariationId = 88888888, NameSnapshot = "旧・通常版", Price = 500 }],
+            },
+        });
+
+        await _service.RefreshAsync(ItemId);
+
+        var gone = Assert.Single(_store.Notifications.Load()
+            .Where(entry => entry.Kind == NotificationKind.OrphanVariationLink));
+
+        Assert.Equal("旧・支援版・旧・通常版", gone.Detail["消えたバリエーション：".Length..]);
+    }
+
     /// <summary>「知らせる」を切ってある商品には出さない。</summary>
     [Fact]
     public async Task StaysQuietForAnItemTheUserMuted()

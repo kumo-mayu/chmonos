@@ -171,7 +171,6 @@
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="Auto" />
                                                                     <ColumnDefinition Width="*" />
-                                                                    <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
 
                                                                 <!--
@@ -242,27 +241,27 @@
                                                                         </ItemsControl.ItemTemplate>
                                                                     </ItemsControl>
     
+                                                                    <!--
+                                                                        操作は本文のすぐ下に置く（ユーザ判断 2026-09-18：右端に置くと、
+                                                                        行を読んでから押すまでに視線が900px往復する）。
+                                                                        指した行にだけ出し、場所は空けたままにして行が動かないようにする
+                                                                    -->
+                                                                    <StackPanel x:Name="RowActions" Orientation="Horizontal" Margin="0,8,0,0"
+                                                                                Visibility="Hidden">
+                                                                        <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
+                                                                        <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
+                                                                                Command="{Binding OpenItemCommand}"
+                                                                                ToolTip="このアプリの商品ページを開きます（BOOTHのページは開きません）。"
+                                                                                Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                        <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
+                                                                        <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
+                                                                                Margin="8,0,0,0" Command="{Binding ActionCommand}"
+                                                                                ToolTip="{Binding ActionTip}"
+                                                                                Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    </StackPanel>
+
                                                                     <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Caption}"
-                                                                               FontSize="11" Margin="0,6,0,0" ToolTip="{Binding CreatedTip}" />
-                                                                </StackPanel>
-    
-                                                                <!--
-                                                                    操作は行に重ねず、指した行にだけ出す（ユーザ同意 2026-09-18：
-                                                                    全行に同じボタンが2つ並ぶと、右端まで視線が往復する）。
-                                                                    場所は空けたままにして、出たり消えたりで行が動かないようにする
-                                                                -->
-                                                                <StackPanel x:Name="RowActions" Grid.Column="2" VerticalAlignment="Top"
-                                                                            Visibility="Hidden">
-                                                                    <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
-                                                                    <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
-                                                                            Command="{Binding OpenItemCommand}"
-                                                                            ToolTip="このアプリの商品ページを開きます（BOOTHのページは開きません）。"
-                                                                            Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                    <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
-                                                                    <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
-                                                                            Margin="0,6,0,0" Command="{Binding ActionCommand}"
-                                                                            ToolTip="{Binding ActionTip}"
-                                                                            Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                               FontSize="11" Margin="0,8,0,0" ToolTip="{Binding CreatedTip}" />
                                                                 </StackPanel>
                                                             </Grid>
                                                         </Border>
