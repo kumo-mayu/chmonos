@@ -1,0 +1,35 @@
+<Window x:Class="BoothAssetManager.App.Views.RenameTagDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+        xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:RenameTagDialogViewModel}"
+        Title="名前を変更"
+        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Surface}">
+    <StackPanel Margin="22,20">
+
+        <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" Margin="0,7,0,0" />
+
+        <TextBlock Text="新しい名前" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
+
+        <!-- 既にある名前を選ぶと統合になる。打ち間違いで新しい分類が増えるのを防ぐため候補を出す -->
+        <controls:SuggestBox Source="{Binding Candidates}" CommitCommand="{Binding PickCommand}"
+                             AllowNew="True" Placeholder="新しい名前（既にある名前を選ぶと統合）" />
+
+        <TextBlock Text="{Binding TargetText}" Style="{StaticResource Mono}" FontSize="11.5" Margin="0,8,0,0" />
+        <TextBlock Text="{Binding ImpactText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="やめる" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="OnCancel" />
+            <Button Content="{Binding CommitText}" Style="{StaticResource PrimaryButton}" Click="OnCommit"
+                    IsEnabled="{Binding HasTarget}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

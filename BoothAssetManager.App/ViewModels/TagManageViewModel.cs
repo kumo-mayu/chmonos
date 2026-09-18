@@ -170,6 +170,13 @@ public sealed class TagItemRow : ViewModelBase
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
         : null;
 
+    /// <summary>ホバーで出す大きめの絵（ユーザ指示 2026-09-18。ほかの一覧と同じ）。窓が開いたときに初めて読む。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? HoverImage => ThumbnailPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    public bool HasHoverImage => ThumbnailPath is not null;
+
     public string Initial => AvatarText.InitialOf(Name);
 
     public RelayCommand? OpenCommand { get; set; }
@@ -227,6 +234,18 @@ public sealed class TagManageViewModel : ViewModelBase
     public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "tags.list");
     private readonly MainViewModel _main;
 
+    /// <summary>
+    /// 選んでいた大分類と、開いていた小分類を覚える（ユーザ指示 2026-09-18：商品ページから戻ると
+    /// 先頭に戻ってしまい、どこを見ていたか分からなくなる）。画面は開くたびに作り直すので、型の側で持つ。
+    /// アプリを閉じるまでの記憶でよい（次の起動で開き直すほどの話ではない）
+    /// </summary>
+    private static string? _lastSelectedTop;
+
+    private static readonly HashSet<string> ExpandedSubs = new(StringComparer.Ordinal);
+
+    /// <summary>大分類と小分類の組を1つの鍵にする。名前には入らない改行で区切る。</summary>
+    private static string SubKey(TagSubRow row) => row.Top + "\n" + row.Name;
+
     private List<TagTopRow> _allTops = [];
     private TagTopRow? _selected;
     private string _filterText = string.Empty;
@@ -242,7 +261,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
         AddTopCommand = new RelayCommand(parameter => AddTopAsync(parameter as string).Forget());
         AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
-        RenameTopCommand = new RelayCommand(parameter => RenameTopAsync(parameter as string).Forget(), _ => Selected is not null);
+        RenameTopCommand = new RelayCommand(() => AskRenameTopAsync().Forget(), () => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
@@ -420,6 +439,7 @@ public sealed class TagManageViewModel : ViewModelBase
             if (_selected is not null)
             {
                 _selected.IsSelected = true;
+                _lastSelectedTop = _selected.Name;
             }
 
             // 選び直しで欄を入れ替えるときは、自動保存を走らせない
@@ -559,8 +579,10 @@ public sealed class TagManageViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HeaderText));
                 OnPropertyChanged(nameof(HasOrphans));
 
-                // 選び直す。改名した直後は名前が変わっているので、無ければ先頭に落とす
-                Selected = _allTops.FirstOrDefault(row => row.Name == keep) ?? Tops.FirstOrDefault();
+                // 選び直す。改名した直後は名前が変わっているので、無ければ先頭に落とす。
+                // 開き直したとき（keep が無いとき）は、前に見ていた大分類に戻る
+                Selected = _allTops.FirstOrDefault(row => row.Name == (keep ?? _lastSelectedTop))
+                    ?? Tops.FirstOrDefault();
             });
         }
         finally
@@ -572,17 +594,53 @@ public sealed class TagManageViewModel : ViewModelBase
     private IReadOnlyDictionary<string, UserTagUsage> _subCounts =
         new Dictionary<string, UserTagUsage>(StringComparer.CurrentCultureIgnoreCase);
 
+    /// <summary>
+    /// 探すのは大分類の名前だけでなく、**小分類の名前と商品名**も（ユーザ指示 2026-09-18）。
+    /// どこに入れたか忘れた分類は、中の商品名からしか辿れないことがある
+    /// </summary>
     private void RebuildTops()
     {
         var filter = _filterText.Trim();
 
         Tops.Clear();
-        foreach (var row in _allTops.Where(row => filter.Length == 0
-            || row.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
+        foreach (var row in _allTops.Where(row => filter.Length == 0 || MatchesFilter(row, filter)))
         {
             Tops.Add(row);
         }
+
+        OnPropertyChanged(nameof(HasFilter));
+        OnPropertyChanged(nameof(FilterResultText));
     }
+
+    private bool MatchesFilter(TagTopRow row, string filter)
+    {
+        if (row.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
+        {
+            return true;
+        }
+
+        var top = _services.Store.UserTags.Load().Tops.FirstOrDefault(entry =>
+            string.Equals(entry.Name, row.Name, StringComparison.CurrentCultureIgnoreCase));
+
+        if (top is not null
+            && top.Subs.Any(sub => sub.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return true;
+        }
+
+        // 商品名でも引く。探している物がどの分類に入っているか分からないときの逃げ道
+        return _main.Search.SnapshotItems().Any(item =>
+            item.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
+            && item.Local.UserTags.Any(tag =>
+                string.Equals(tag.Top, row.Name, StringComparison.CurrentCultureIgnoreCase)));
+    }
+
+    /// <summary>絞り込んでいるか。絞っている間は、右の小分類と中の商品も同じ語で絞る。</summary>
+    public bool HasFilter => _filterText.Trim().Length > 0;
+
+    public string FilterResultText => HasFilter
+        ? $"「{_filterText.Trim()}」に当たる大分類 {Tops.Count} 件（小分類名・商品名も探しています）"
+        : string.Empty;
 
     public bool HasSubs => Subs.Count > 0;
 
@@ -622,7 +680,32 @@ public sealed class TagManageViewModel : ViewModelBase
             row.MemoEdited += _ => _saveSubMemo.Request();
             row.ExpandRequested += entry => FillSubItemsAsync(entry).Forget();
 
-            row.RenameCommand = new RelayCommand(parameter => RenameSubAsync(row, parameter as string).Forget());
+            // 開いていた小分類は、商品ページから戻ってきたときも開いたままにする（ユーザ指示 2026-09-18）
+            var key = SubKey(row);
+            row.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName != nameof(TagSubRow.IsExpanded))
+                {
+                    return;
+                }
+
+                if (row.IsExpanded)
+                {
+                    ExpandedSubs.Add(key);
+                }
+                else
+                {
+                    ExpandedSubs.Remove(key);
+                }
+            };
+
+            if (row.IsUsed && ExpandedSubs.Contains(key))
+            {
+                row.IsExpanded = true;
+            }
+
+            // 名前の変更は窓で聞く（ユーザ指示 2026-09-18：行に入力欄を常設せず、ボタンから）
+            row.RenameCommand = new RelayCommand(() => AskRenameSubAsync(row).Forget());
             row.DeleteCommand = new RelayCommand(() => DeleteSubAsync(row).Forget());
             row.ShowItemsCommand = new RelayCommand(
                 () => _main.ShowItemsWithTag(row.Top, row.Name),
@@ -794,6 +877,36 @@ public sealed class TagManageViewModel : ViewModelBase
         Selected = null;
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
+    }
+
+    /// <summary>名前を変える窓を出してから実行する。既にある名前を選ぶと統合になる。</summary>
+    private async Task AskRenameSubAsync(TagSubRow row)
+    {
+        var model = new RenameTagDialogViewModel("小分類", row.Name, row.ItemCount, row.OtherNames);
+        if (new Views.RenameTagDialog(model).ShowDialog() != true)
+        {
+            return;
+        }
+
+        await RenameSubAsync(row, model.Target);
+    }
+
+    /// <summary>大分類の名前を変える窓。</summary>
+    private async Task AskRenameTopAsync()
+    {
+        if (Selected is null)
+        {
+            return;
+        }
+
+        var others = _allTops.Where(row => row.Name != Selected.Name).Select(row => row.Name).ToList();
+        var model = new RenameTagDialogViewModel("大分類", Selected.Name, Selected.ItemCount, others);
+        if (new Views.RenameTagDialog(model).ShowDialog() != true)
+        {
+            return;
+        }
+
+        await RenameTopAsync(model.Target);
     }
 
     private async Task RenameSubAsync(TagSubRow row, string? newName)

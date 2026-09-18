@@ -33,60 +33,77 @@ public sealed class ColumnsPanel : Panel
             ? 1
             : Math.Max(1, (int)(width / Math.Max(1, MinColumnWidth)));
 
-    protected override Size MeasureOverride(Size available)
-    {
-        var columns = ColumnsFor(available.Width);
-        var columnWidth = double.IsInfinity(available.Width) ? MinColumnWidth : available.Width / columns;
+    public static readonly DependencyProperty FullWidthProperty = DependencyProperty.RegisterAttached(
+        "FullWidth",
+        typeof(bool),
+        typeof(ColumnsPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsParentMeasure));
 
-        // 列ごとの高さを持ち、いちばん低い列へ順に積む（行の高さがそろっていないため）
-        var heights = new double[columns];
+    /// <summary>その項目だけ幅いっぱいを使う（畳みを開いた行など）。</summary>
+    public static void SetFullWidth(UIElement element, bool value) => element.SetValue(FullWidthProperty, value);
+
+    public static bool GetFullWidth(UIElement element) => (bool)element.GetValue(FullWidthProperty);
+
+    /// <summary>
+    /// 左から右へ、はみ出したら次の段へ置く（**読む順を素直にする**。ユーザ指摘 2026-09-18：
+    /// いちばん低い列へ積む形だと、開いた行の高さで並びが飛んで順番が読めなかった）。
+    /// 段の高さは、その段でいちばん高い項目に合わせる。
+    /// </summary>
+    private double Layout(double width, bool arrange)
+    {
+        var columns = ColumnsFor(width);
+        var columnWidth = double.IsInfinity(width) ? MinColumnWidth : width / columns;
+
+        var top = 0d;
+        var column = 0;
+        var rowHeight = 0d;
+
         foreach (UIElement child in InternalChildren)
         {
-            child.Measure(new Size(columnWidth, double.PositiveInfinity));
-
-            var shortest = 0;
-            for (var index = 1; index < columns; index++)
+            // 幅いっぱいを使う項目は、段の先頭から始めて1つで段を占める
+            var full = GetFullWidth(child);
+            if (full && column > 0)
             {
-                if (heights[index] < heights[shortest])
-                {
-                    shortest = index;
-                }
+                top += rowHeight;
+                column = 0;
+                rowHeight = 0;
             }
 
-            heights[shortest] += child.DesiredSize.Height;
+            var childWidth = full ? columnWidth * columns : columnWidth;
+            child.Measure(new Size(childWidth, double.PositiveInfinity));
+
+            if (arrange)
+            {
+                child.Arrange(new Rect(column * columnWidth, top, childWidth, child.DesiredSize.Height));
+            }
+
+            rowHeight = Math.Max(rowHeight, child.DesiredSize.Height);
+            column += full ? columns : 1;
+
+            if (column >= columns)
+            {
+                top += rowHeight;
+                column = 0;
+                rowHeight = 0;
+            }
         }
 
+        return top + rowHeight;
+    }
+
+    protected override Size MeasureOverride(Size available)
+    {
+        var height = Layout(available.Width, arrange: false);
+        var columns = ColumnsFor(available.Width);
+
         return new Size(
-            double.IsInfinity(available.Width) ? columnWidth * columns : available.Width,
-            heights.Length == 0 ? 0 : heights.Max());
+            double.IsInfinity(available.Width) ? MinColumnWidth * columns : available.Width,
+            height);
     }
 
     protected override Size ArrangeOverride(Size final)
     {
-        var columns = ColumnsFor(final.Width);
-        var columnWidth = final.Width / columns;
-        var heights = new double[columns];
-
-        foreach (UIElement child in InternalChildren)
-        {
-            var shortest = 0;
-            for (var index = 1; index < columns; index++)
-            {
-                if (heights[index] < heights[shortest])
-                {
-                    shortest = index;
-                }
-            }
-
-            child.Arrange(new Rect(
-                shortest * columnWidth,
-                heights[shortest],
-                columnWidth,
-                child.DesiredSize.Height));
-
-            heights[shortest] += child.DesiredSize.Height;
-        }
-
+        Layout(final.Width, arrange: true);
         return final;
     }
 }

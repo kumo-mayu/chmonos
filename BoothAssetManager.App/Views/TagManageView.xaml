@@ -99,7 +99,11 @@
                     <StackPanel DockPanel.Dock="Top" Margin="16,14" >
                         <TextBlock Text="タグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
+                                 Padding="9,6" BorderBrush="{StaticResource BorderStrong}"
+                                 ToolTip="大分類の名前だけでなく、小分類の名前と商品名でも探します。" />
+                        <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                         <controls:SuggestBox CommitCommand="{Binding AddTopCommand}" Margin="0,12,0,0"
                                              Placeholder="大分類を追加（例：衣装）" />
@@ -262,11 +266,12 @@
 
                                 <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
 
-                                <TextBlock Text="名前を変更 / 統合" Style="{StaticResource SectionLabel}" />
+                                <!-- 名前の変更は窓で聞く（ユーザ指示 2026-09-18：小分類と同じ形に揃える） -->
                                 <TextBlock Text="{Binding RenameImpactText}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,5,0,7" />
-                                <controls:SuggestBox Source="{Binding OtherTopNames}" CommitCommand="{Binding RenameTopCommand}"
-                                                     Placeholder="新しい名前（既存を選ぶと統合）" HorizontalAlignment="Left" Width="360" />
+                                           TextWrapping="Wrap" Margin="0,0,0,7" />
+                                <Button Content="名前を変更" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
+                                        Command="{Binding RenameTopCommand}"
+                                        ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。" />
 
                                 <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
 
@@ -306,9 +311,21 @@
                                             <controls:ColumnsPanel MinColumnWidth="460" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
+                                    <!--
+                                        開いた行は幅いっぱい（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）。
+                                        ItemsControl は項目を ContentPresenter で包むので、指定は容れ物側に付ける
+                                    -->
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="controls:ColumnsPanel.FullWidth" Value="{Binding IsExpanded}" />
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる -->
+                                            <!--
+                                                Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる。
+                                                開いた行は幅いっぱいを使う（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）
+                                            -->
                                             <Border BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Padding="20,13"
                                                     Background="Transparent">
                                                 <Grid>
@@ -317,6 +334,7 @@
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="Auto" />
                                                     </Grid.RowDefinitions>
@@ -343,8 +361,10 @@
                                                                        FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" />
                                                         </StackPanel>
 
-                                                        <!-- メモは書く場所が無かったので、欄そのものを置く（ユーザ指示 2026-09-18）。打ち終えると残る -->
-                                                        <Grid Margin="0,6,0,0">
+                                                    </StackPanel>
+
+                                                    <!-- メモは書く場所が無かったので、欄そのものを置く（ユーザ指示 2026-09-18）。打ち終えると残る -->
+                                                    <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="23,7,0,0">
                                                             <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                                                      Padding="8,5" FontSize="11.5"
                                                                      BorderBrush="{StaticResource Border}" />
@@ -352,8 +372,7 @@
                                                                        IsHitTestVisible="False" VerticalAlignment="Center"
                                                                        Foreground="{StaticResource TextFaint}" FontSize="11.5"
                                                                        Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
-                                                        </Grid>
-                                                    </StackPanel>
+                                                    </Grid>
 
                                                     <StackPanel Grid.Column="1">
                                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -369,15 +388,15 @@
                                                             <Button Content="削除" Style="{StaticResource SmallButton}"
                                                                     Foreground="#9a3232"
                                                                     Command="{Binding DeleteCommand}" />
+                                                            <!-- 名前の変更は窓で聞く（ユーザ指示 2026-09-18：行に入力欄を常設しない） -->
+                                                            <Button Content="名前を変更" Style="{StaticResource SmallButton}"
+                                                                    Margin="6,0,0,0" Command="{Binding RenameCommand}"
+                                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。" />
                                                         </StackPanel>
-                                                        <controls:SuggestBox Width="240" Margin="0,7,0,0"
-                                                                             Placeholder="名前を変更 / 統合"
-                                                                             Source="{Binding OtherNames}"
-                                                                             CommitCommand="{Binding RenameCommand}" />
                                                     </StackPanel>
 
                                                     <!-- 畳みを開いたときの中身。押すと商品ページへ（改変の一覧と同じ） -->
-                                                    <ItemsControl Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding Items}"
+                                                    <ItemsControl Grid.Row="2" Grid.ColumnSpan="2" ItemsSource="{Binding Items}"
                                                                   Margin="23,10,0,0"
                                                                   Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemsPanel>
@@ -388,7 +407,21 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Button Style="{StaticResource TagItemLink}" Margin="0,0,10,8"
-                                                                        Command="{Binding OpenCommand}" ToolTip="{Binding Name}">
+                                                                        Command="{Binding OpenCommand}"
+                                                                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
+                                                                    <Button.ToolTip>
+                                                                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                                                            <StackPanel Width="180">
+                                                                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                                                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                                                                </Border>
+                                                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                                                                           Foreground="{StaticResource Text}" />
+                                                                                <TextBlock Text="押すと、この商品のページを開きます" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                                            </StackPanel>
+                                                                        </ToolTip>
+                                                                    </Button.ToolTip>
                                                                     <StackPanel Orientation="Horizontal" Width="230">
                                                                         <Border Width="30" Height="30" CornerRadius="4" ClipToBounds="True"
                                                                                 Background="{StaticResource SurfaceAlt}">
