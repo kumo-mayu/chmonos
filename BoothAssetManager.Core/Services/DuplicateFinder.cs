@@ -59,7 +59,8 @@ public sealed record DuplicateGroup
 /// <list type="bullet">
 /// <item>商品をまたいだ同一ハッシュ。<c>StatsService.LogicalSizeOf</c> の
 /// <c>DistinctBy(Hash)</c> は1商品の中だけなので、別商品に同じファイルがあると
-/// 2回数えられ、しかも重複として出ない</item>
+/// 2回数えられる。**これは直さない**（ユーザ判断 2026-09-18：同じファイルを別の商品として
+/// 持つことは、ほとんど起きない）。重複の一覧（<see cref="Find"/>）には商品をまたいでも出る</item>
 /// <item>zipと展開済フォルダの両方持ち。フォルダは <c>TotalBytes</c> を
 /// 丸ごと足すだけで、対応するzipと突き合わせていない</item>
 /// </list>
