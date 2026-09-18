@@ -676,6 +676,15 @@ public sealed class CommandHandler
                 await _notifications.MarkAllReadAsync(cancellationToken);
                 return new CommandResult.Done();
 
+            case UiCommand.MarkNotificationsRead markSome:
+                if (_notifications is null)
+                {
+                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                }
+
+                await _notifications.MarkReadAsync(markSome.Ids, cancellationToken);
+                return new CommandResult.Done();
+
             case UiCommand.ResolveNotifications resolve:
                 if (_notifications is null)
                 {

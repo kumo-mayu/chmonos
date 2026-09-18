@@ -184,6 +184,9 @@ public sealed class NotificationGroup : ViewModelBase
 
     public string ResolvedText => $"解消済み {ResolvedCount}";
 
+    /// <summary>この束だけをまとめて既読にする（ユーザ判断 2026-09-18：束ごとにあれば十分）。</summary>
+    public RelayCommand? MarkGroupReadCommand { get; set; }
+
     /// <summary>
     /// 既読にしても行は消さない方針なので、束の側の件数は自分で数え直す必要がある。
     /// ここが黙って古いままだと「未読 1」と出たまま未読が無い、という嘘になる。
@@ -453,6 +456,31 @@ public sealed class InboxViewModel : ViewModelBase
         _main.RefreshBadges();
     }
 
+    /// <summary>束の中の未読だけを既読にする。全部既読にするより、読んだ範囲を素直に言える</summary>
+    private async Task MarkGroupReadAsync(NotificationGroup group)
+    {
+        var ids = group.Rows.Where(row => !row.IsRead).Select(row => row.Record.Id).ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(new UiCommand.MarkNotificationsRead(ids));
+
+        foreach (var row in group.Rows.Where(row => !row.IsRead))
+        {
+            row.ReadChanged -= OnRowReadChanged;
+            row.IsRead = true;
+            row.ReadChanged += OnRowReadChanged;
+        }
+
+        group.RefreshCount();
+        OnPropertyChanged(nameof(UnreadCount));
+        OnPropertyChanged(nameof(HeaderText));
+        _main.RefreshBadges();
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
     private async Task MarkAllReadAsync()
     {
         await _services.Commands.ExecuteAsync(new UiCommand.MarkAllNotificationsRead());
@@ -517,13 +545,19 @@ public sealed class InboxViewModel : ViewModelBase
             .ThenByDescending(group => group.Max(row => row.Record.CreatedAt))
             .ThenBy(group => group.Key))
         {
-            Groups.Add(new NotificationGroup
+            var built = new NotificationGroup
             {
                 Kind = group.Key,
                 KindText = KindLabel(group.Key),
                 Description = KindDescription(group.Key),
                 Rows = group.ToList(),
-            });
+            };
+
+            built.MarkGroupReadCommand = new RelayCommand(
+                () => MarkGroupReadAsync(built).Forget(),
+                () => built.UnreadCount > 0);
+
+            Groups.Add(built);
         }
 
         OnPropertyChanged(nameof(TotalCount));

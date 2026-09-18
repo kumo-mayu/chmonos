@@ -13,6 +13,9 @@ public interface INotificationService
 
     Task<int> DetectOrphanReferencesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>指したものだけをまとめて既読にする。</summary>
+    Task<int> MarkReadAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default);
+
     /// <summary>用が済んだ通知に「解消済み」の印を付ける。</summary>
     Task<int> ResolveAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default);
 
@@ -284,6 +287,34 @@ public sealed class NotificationService : INotificationService
         }
 
         return false;
+    }
+
+    public async Task<int> MarkReadAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
+    {
+        var wanted = ids.ToHashSet(StringComparer.Ordinal);
+        if (wanted.Count == 0)
+        {
+            return 0;
+        }
+
+        var records = _store.Notifications.Load();
+        var changed = 0;
+
+        for (var index = 0; index < records.Count; index++)
+        {
+            if (wanted.Contains(records[index].Id) && !records[index].IsRead)
+            {
+                records[index] = records[index] with { IsRead = true };
+                changed++;
+            }
+        }
+
+        if (changed > 0)
+        {
+            await SaveWithPruneAsync(records, cancellationToken);
+        }
+
+        return changed;
     }
 
     public async Task<int> ResolveAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
