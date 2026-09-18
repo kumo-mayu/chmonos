@@ -334,9 +334,9 @@ public sealed class ItemService : IItemService
                     Id = goneId,
                     Kind = NotificationKind.OrphanVariationLink,
                     ItemId = existing.Id,
-                    Title = $"{name}：結び付けていた種類が無くなりました",
-                    Detail = $"手元のファイルや購入の記録が指す種類 {missing.Count} 件が、BOOTHの商品ページから消えました。"
-                        + "別の種類に結び直せます。",
+                    Title = $"{name}：結び付けていたバリエーションが無くなりました",
+                    Detail = $"手元のファイルや購入の記録が指すバリエーション {missing.Count} 件が、BOOTHの商品ページから消えました。"
+                        + "別のバリエーションに結び直せます。",
                     CreatedAt = DateTimeOffset.Now,
                 });
 
@@ -352,8 +352,8 @@ public sealed class ItemService : IItemService
                 Id = $"variation-back:{existing.Id}:{DateTimeOffset.Now:yyyyMMddHHmmss}",
                 Kind = NotificationKind.VariationBackOnBooth,
                 ItemId = existing.Id,
-                Title = $"{name}：消えていた種類が戻りました",
-                Detail = "結び付けていた種類が、BOOTHの商品ページにまた出てきました。購入の記録も入れられます。",
+                Title = $"{name}：消えていたバリエーションが戻りました",
+                Detail = "結び付けていたバリエーションが、BOOTHの商品ページにまた出てきました。購入の記録も入れられます。",
                 CreatedAt = DateTimeOffset.Now,
             });
 

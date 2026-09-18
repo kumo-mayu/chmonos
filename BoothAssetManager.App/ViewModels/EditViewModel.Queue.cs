@@ -49,7 +49,7 @@ public sealed partial class EditViewModel
     }
 
     /// <summary>見出しに添える種類の数。畳んでいても何件あるかは分かるように。</summary>
-    public string PurchasesCountText => Variations.Count > 0 ? $"（{Variations.Count} 種類）" : string.Empty;
+    public string PurchasesCountText => Variations.Count > 0 ? $"（バリエーション {Variations.Count} 件）" : string.Empty;
 
     /// <summary>
     /// 買った種類にまだ1つも印が付いていないか。欄を畳んでいても見出しで分かるようにする（ユーザ指示 2026-09-13）。

@@ -30,7 +30,7 @@ public sealed partial class EditViewModel
             var row = new OrderedVariationInput
             {
                 VariationId = variation.Id,
-                Name = variation.Name ?? "（1種類のみ）",
+                Name = variation.Name ?? "（バリエーションは1件のみ）",
                 ListPrice = variation.Price,
                 ListPriceText = $"¥{variation.Price:N0}",
                 IsPurchased = first is not null,
@@ -148,7 +148,7 @@ public sealed partial class EditViewModel
     /// <summary>この商品で種類を選べるか（BOOTHの種類が2つ以上で、手元にファイルがある）。</summary>
     private bool _canLinkAny;
 
-    /// <summary>買った種類の数（「種類を選ばない購入」は数えない。付け先の種類が無い）。</summary>
+    /// <summary>買った種類の数（「バリエーションを選ばない購入」は数えない。付け先の種類が無い）。</summary>
     private int _purchasedCount;
 
     private bool _isFileSortExpanded;
@@ -205,7 +205,7 @@ public sealed partial class EditViewModel
     /// </summary>
     public string FileSortHeaderNote => CanSortFiles
         ? $"（{_files.Count} ファイル・未指定 {FileSortRows.Count(row => row.IsUnassigned)}）"
-        : "　複数の種類を購入するか、複数のファイルがこの商品に付いている場合にだけ開けます";
+        : "　複数のバリエーションを購入するか、複数のファイルがこの商品に付いている場合にだけ開けます";
 
     /// <summary>
     /// 種類を選んでいないファイルがあるか。「購入した種類」と同じく、欄を畳んでいても見出しの札で分かるようにする
@@ -298,7 +298,7 @@ public sealed partial class EditViewModel
             row.LinkedFiles.Clear();
             row.FileChoices.Clear();
 
-            // 「種類を選ばない購入」の行には付けない（付け先の種類が無い）。
+            // 「バリエーションを選ばない購入」の行には付けない（付け先の種類が無い）。
             // 買った種類が1つのときは全部その種類として見せるので、選ぶ欄は出さない
             // 結び付けられるのは買った種類だけ（ユーザ指示）。買っていない種類のファイルは手元に無いはず
             row.CanLinkFiles = auto is null && _canLinkAny && row.VariationId is not null && row.IsPurchased;

@@ -192,7 +192,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public string RefreshButtonTip => Item.IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、取り直せません。"
-        : "商品名・価格・種類・説明文・画像をBOOTHから取り直します。"
+        : "商品名・価格・バリエーション・説明文・画像をBOOTHから取り直します。"
             + "\nメモや分類など自分で入れたものは変わりません。";
 
     public string RefreshStatus

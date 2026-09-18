@@ -274,7 +274,7 @@ public sealed partial class ItemViewModel
     {
         AvatarLinkSource.SupportSection => "対応アバター節",
         AvatarLinkSource.Tag => "タグ",
-        AvatarLinkSource.Variation => "種類の名前",
+        AvatarLinkSource.Variation => "バリエーションの名前",
         AvatarLinkSource.H2Link => "説明文のリンク",
         AvatarLinkSource.SupportList => "説明文の対応一覧",
         AvatarLinkSource.Manual => "手入力",

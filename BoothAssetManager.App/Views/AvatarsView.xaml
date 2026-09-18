@@ -178,7 +178,7 @@
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <Button Content="{Binding DetectButtonText}" Style="{StaticResource PrimaryButton}"
                             Command="{Binding DetectCommand}"
-                            ToolTip="保存済みの説明文・タグ・種類の名前から対応アバターを読み取ります。まだカテゴリの分からない商品だけBOOTHに問い合わせます。" />
+                            ToolTip="保存済みの説明文・タグ・バリエーションの名前から対応アバターを読み取ります。まだカテゴリの分からない商品だけBOOTHに問い合わせます。" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -194,7 +194,7 @@
                 <TextBlock Text="対応アバターがまだ見つかっていません" Foreground="{StaticResource TextMuted}"
                            HorizontalAlignment="Center" />
                 <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center"
-                           Text="「対応アバターを検出する」を押すと、取り込んだ商品の説明文・タグ・種類の名前から読み取ります。"
+                           Text="「対応アバターを検出する」を押すと、取り込んだ商品の説明文・タグ・バリエーションの名前から読み取ります。"
                            Visibility="{Binding CanDetectFromItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <!-- 商品が0件だと検出しても何も見つからないので、先に取り込みへ（ユーザ判断 2026-09-17） -->
                 <StackPanel HorizontalAlignment="Center"
@@ -515,7 +515,7 @@
                                     </Expander.Header>
                                     <StackPanel Margin="0,6,0,0">
                                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620" HorizontalAlignment="Left"
-                                                   Text="タグや種類の名前と照らし合わせて、対応アバターを見つけるのに使います。明らかに間違っている物以外は、消さなくてかまいません。括弧内は最後の検出で見かけた商品数です。" />
+                                                   Text="タグやバリエーションの名前と照らし合わせて、対応アバターを見つけるのに使います。明らかに間違っている物以外は、消さなくてかまいません。括弧内は最後の検出で見かけた商品数です。" />
                                     <ItemsControl ItemsSource="{Binding Aliases}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>

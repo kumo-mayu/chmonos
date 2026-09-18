@@ -379,12 +379,12 @@
                                                   AutomationProperties.Name="何の数で絞るか"
                                                   Visibility="{Binding HasSources, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <!--
-                                            外れ値を無視（価格だけ・ユーザ判断 2026-09-16）。支援用の種類や販売を止めるための高値は値段ではなく目印なので、
+                                            外れ値を無視（価格だけ・ユーザ判断 2026-09-16）。支援用のバリエーションや販売を止めるための高値は値段ではなく目印なので、
                                             目盛と照合から外す。何円以上を何個外しているかを数で出す
                                         -->
                                         <CheckBox IsChecked="{Binding IgnoreOutliers, Mode=TwoWay}" Margin="0,0,0,6"
                                                   AutomationProperties.Name="外れ値を無視"
-                                                  ToolTip="普通の価格の上の方（95%の位置）の5倍以上を外れ値として、目盛の幅と照合から外します。支援用の種類や、販売を止めるためのあり得ない高値が当たります。商品そのものは外さず、ほかの種類の価格で照らします。"
+                                                  ToolTip="普通の価格の上の方（95%の位置）の5倍以上を外れ値として、目盛の幅と照合から外します。支援用のバリエーションや、販売を止めるためのあり得ない高値が当たります。商品そのものは外さず、ほかのバリエーションの価格で照らします。"
                                                   Visibility="{Binding SupportsOutliers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding OutlierLabel}" FontSize="12" TextWrapping="Wrap"
                                                        Foreground="{StaticResource Text}" />

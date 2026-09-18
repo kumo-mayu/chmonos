@@ -67,7 +67,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。"),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
-        new(SearchModuleKind.Gift, "ギフト", "購入記録の種類で絞ります。貰った物で、自分でも買った物は両方に出ます。"),
+        new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰った物で、自分でも買った物は両方に出ます。"),
         new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方がある物は両方に出ます。"),
         new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。"),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),

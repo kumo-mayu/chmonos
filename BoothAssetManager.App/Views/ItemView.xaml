@@ -382,7 +382,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0">
                         <StackPanel>
                             <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
-                                <TextBlock Text="種類" FontWeight="Bold" />
+                                <TextBlock Text="バリエーション" FontWeight="Bold" />
                             </Border>
                             <ItemsControl ItemsSource="{Binding Variations}">
                                 <ItemsControl.ItemTemplate>

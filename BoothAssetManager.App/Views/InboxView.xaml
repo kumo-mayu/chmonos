@@ -129,7 +129,8 @@
                                                           Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,13">
+                                                        <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
+                                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="*" />

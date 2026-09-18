@@ -124,7 +124,7 @@ public static class ItemIdChange
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.VariationLink,
-                Text = $"ファイル {linkedFiles} 件の「どの種類か」の指定",
+                Text = $"ファイル {linkedFiles} 件の「どのバリエーションか」の指定",
             });
         }
 
@@ -134,7 +134,7 @@ public static class ItemIdChange
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.VariationLink,
-                Text = $"購入記録 {linkedPurchases} 件の「どの種類か」の指定（金額は残ります）",
+                Text = $"購入記録 {linkedPurchases} 件の「どのバリエーションか」の指定（金額は残ります）",
             });
         }
 

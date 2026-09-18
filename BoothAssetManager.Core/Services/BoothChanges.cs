@@ -54,7 +54,7 @@ public static class BoothChanges
         {
             diffs.Add(new NotificationDiff
             {
-                Field = "種類",
+                Field = "バリエーション",
                 Before = $"{before.Variations.Count}件",
                 After = $"{after.Variations.Count}件",
             });

@@ -619,20 +619,20 @@
                         <Expander IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontWeight="Bold" FontSize="13" VerticalAlignment="Center"><Run Text="購入した種類" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                    <TextBlock FontWeight="Bold" FontSize="13" VerticalAlignment="Center"><Run Text="購入したバリエーション" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
                                     <!-- 印が1つも無ければ、畳んでいても見出しで分かるようにする（ユーザ指示 2026-09-13） -->
                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                                             CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
-                                            ToolTip="買った種類にまだ印が付いていません。開いて、買った種類に印を付けてください。"
+                                            ToolTip="買ったバリエーションにまだ印が付いていません。開いて、買ったバリエーションに印を付けてください。"
                                             Visibility="{Binding IsPurchaseUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="未選択" FontSize="11" Foreground="{StaticResource Warn}" />
                                     </Border>
                                 </StackPanel>
                             </Expander.Header>
                             <StackPanel>
-                                <TextBlock Text="買った種類に印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
+                                <TextBlock Text="買ったバリエーションに印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
-                                           ToolTip="空欄は未入力（支出に数えない）、0は無料配布です。同じ種類を2回買った（自分用に1つ、ギフトに1つなど）ときは［＋］で記録を足します。" />
+                                           ToolTip="空欄は未入力（支出に数えない）、0は無料配布です。同じバリエーションを2回買った（自分用に1つ、ギフトに1つなど）ときは［＋］で記録を足します。" />
 
                                 <ItemsControl ItemsSource="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
@@ -642,7 +642,7 @@
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
                                                                    VerticalAlignment="Center" Margin="8,0,0,0"
-                                                                   ToolTip="この種類に付いたファイルの数です。付け分けは下の「ファイルの種類分け」で行います。" />
+                                                                   ToolTip="このバリエーションに付いたファイルの数です。付け分けは下の「バリエーション分け」で行います。" />
                                                         <StackPanel Orientation="Horizontal">
                                                             <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
                                                             <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
@@ -740,11 +740,11 @@
                                     <!-- 種類を選んでいないファイルがあれば、畳んでいても見出しで分かるようにする（「購入した種類」と同じ・ユーザ指示 2026-09-13） -->
                                     <Border DockPanel.Dock="Right" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
-                                            ToolTip="種類を選んでいないファイルがあります。開いて、ファイルごとに種類を選んでください。"
+                                            ToolTip="バリエーションを選んでいないファイルがあります。開いて、ファイルごとにバリエーションを選んでください。"
                                             Visibility="{Binding IsFileSortUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="未選択" FontSize="11" Foreground="{StaticResource Warn}" />
                                     </Border>
-                                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="ファイルの種類分け" FontWeight="Bold" FontSize="13" /><Run Text="{Binding FileSortHeaderNote, Mode=OneWay}" FontSize="11" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="バリエーション分け" FontWeight="Bold" FontSize="13" /><Run Text="{Binding FileSortHeaderNote, Mode=OneWay}" FontSize="11" Foreground="{StaticResource TextFaint}" /></TextBlock>
                                 </DockPanel>
                             </Expander.Header>
                             <StackPanel Margin="0,6,0,0">
@@ -752,14 +752,14 @@
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                         <RadioButton Content="ファイルごと" FontSize="11.5" Foreground="{StaticResource Text}"
                                                      IsChecked="{Binding IsByFileView, Mode=TwoWay}" />
-                                        <RadioButton Content="種類ごと" FontSize="11.5" Foreground="{StaticResource Text}" Margin="12,0,0,0"
+                                        <RadioButton Content="バリエーションごと" FontSize="11.5" Foreground="{StaticResource Text}" Margin="12,0,0,0"
                                                      IsChecked="{Binding IsByVariationView, Mode=TwoWay}" />
                                     </StackPanel>
-                                    <TextBlock Text="どの種類のファイルかを選びます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                               ToolTip="「保存して次へ」で保存します。買った種類が1つのときは、すべてのファイルをその種類として扱います（選ぶ必要はありません）。結び付けられるのは買った種類だけです。" />
+                                    <TextBlock Text="どのバリエーションのファイルかを選びます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                               ToolTip="「保存して次へ」で保存します。買ったバリエーションが1つのときは、すべてのファイルをそのバリエーションとして扱います（選ぶ必要はありません）。結び付けられるのは買ったバリエーションだけです。" />
                                 </DockPanel>
 
-                                <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここで種類を選べます。"
+                                <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここでバリエーションを選べます。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap"
                                            Visibility="{Binding HasNoFilesToSort, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -774,7 +774,7 @@
                                                               VerticalAlignment="Top" ItemsSource="{Binding Choices}"
                                                               SelectedItem="{Binding Selected, Mode=TwoWay}" DisplayMemberPath="Name"
                                                               IsEnabled="{Binding IsAuto, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                                              ToolTip="このファイルがどの種類のものかを選びます。" />
+                                                              ToolTip="このファイルがどのバリエーションのものかを選びます。" />
                                                     <!-- まだどの種類にも付いていないファイル。残りが一目で分かるように -->
                                                     <Border DockPanel.Dock="Left" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,2,7,0" VerticalAlignment="Top"
@@ -803,7 +803,7 @@
                                                             <ComboBox x:Name="FileChoiceBox" ItemsSource="{Binding FileChoices}"
                                                                       SelectedItem="{Binding SelectedFileChoice, Mode=TwoWay}"
                                                                       DisplayMemberPath="Display" Height="26" FontSize="11.5"
-                                                                      ToolTip="この種類のファイルを選びます。同じ種類に複数付けられます。" />
+                                                                      ToolTip="このバリエーションのファイルを選びます。同じバリエーションに複数付けられます。" />
                                                             <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
                                                             <TextBlock Text="ファイルを足す…" IsHitTestVisible="False" FontSize="11.5"
                                                                        Foreground="{StaticResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
@@ -827,7 +827,7 @@
                                                                         <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
                                                                                    MaxWidth="360" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                                                         <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                                   Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="この種類から外す"
+                                                                                   Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="このバリエーションから外す"
                                                                                    Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                             <TextBlock.InputBindings>
                                                                                 <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />

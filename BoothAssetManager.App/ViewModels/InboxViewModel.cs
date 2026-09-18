@@ -429,8 +429,8 @@ public sealed class InboxViewModel : ViewModelBase
         // 見出しはユーザ指定（2026-09-18）。何が起きたかを名詞で言い切る
         NotificationKind.ItemUpdated => "商品ページの変更",
         NotificationKind.OrphanTag => "タグの参照切れ",
-        NotificationKind.OrphanVariationLink => "消えた種類",
-        NotificationKind.VariationBackOnBooth => "復活した種類",
+        NotificationKind.OrphanVariationLink => "消えたバリエーション",
+        NotificationKind.VariationBackOnBooth => "復活したバリエーション",
         NotificationKind.PageStructureChanged => "取得できる情報の形式の変化",
         NotificationKind.ArchiveFoundForFolder => "zipを入手した",
         NotificationKind.ItemBackOnBooth => "非公開商品の復活",
@@ -441,8 +441,8 @@ public sealed class InboxViewModel : ViewModelBase
     {
         NotificationKind.ItemUpdated => "取得し直したときに内容が変わっていたものです。",
         NotificationKind.OrphanTag => "タグの管理・属性の管理から消えたか名前が変わったものを、商品がまだ参照しています。",
-        NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指す種類が、BOOTH側から消えました。",
-        NotificationKind.VariationBackOnBooth => "消えていた種類が、BOOTHにまた出てきました。",
+        NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指すバリエーションが、BOOTH側から消えました。",
+        NotificationKind.VariationBackOnBooth => "消えていたバリエーションが、BOOTHにまた出てきました。",
         NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
         NotificationKind.ArchiveFoundForFolder => "フォルダ登録が役目を終えています。解除しないと容量が二重に数えられます。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",

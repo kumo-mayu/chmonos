@@ -69,7 +69,7 @@ public static class DisplayText
     /// 名前が引けないことだけを言う（BOOTH側から消えた種類がこれになる）。
     /// </summary>
     public static string VariationLabel(long? variationId)
-        => variationId is not null ? "名前の分からない種類" : "種類を選ばない購入";
+        => variationId is not null ? "名前の分からないバリエーション" : "バリエーションを選ばない購入";
 
     /// <summary>
     /// **ユーザが入れたものを優先する**という決まり。名前・ショップ・分類で共通。
