@@ -182,6 +182,11 @@ public sealed class TagItemRow : ViewModelBase
 
     public required string ShopName { get; init; }
 
+    /// <summary>名前の右に出す札（属性の管理の「85 %」）。タグの管理では出さない。</summary>
+    public string? ValueText { get; init; }
+
+    public bool HasValue => ValueText is not null;
+
     public string? ThumbnailPath { get; init; }
 
     public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
@@ -274,6 +279,7 @@ public sealed class TagManageViewModel : ViewModelBase
     private string _statusText = string.Empty;
     private bool _isBusy;
     private bool _swappingMemo;
+    private bool _rebuildingList;
 
     public TagManageViewModel(AppServiceContainer services, MainViewModel main)
     {
@@ -443,7 +449,7 @@ public sealed class TagManageViewModel : ViewModelBase
         get => _selected;
         set
         {
-            if (_selected == value)
+            if (_selected == value || (_rebuildingList && value is null))
             {
                 return;
             }
@@ -624,39 +630,52 @@ public sealed class TagManageViewModel : ViewModelBase
     /// </summary>
     private void RebuildTops()
     {
-        var filter = _filterText.Trim();
+        // 書き方は検索画面と同じ（ユーザ指示 2026-09-19）。大分類・小分類の名前にも同じ式を当てる
+        var filter = ItemTextFilter.Create(_filterText);
+        var master = filter is null ? null : _services.Store.UserTags.Load();
+        var items = filter is null ? [] : _main.Search.SnapshotItems();
 
-        Tops.Clear();
-        foreach (var row in _allTops.Where(row => filter.Length == 0 || MatchesFilter(row, filter)))
+        // 作り直す間は、一覧が書き戻す「選択なし」を受けない。受けると、探すたびに右が空になっていた。
+        // 当たりから外れても右は今見ている物のまま残す（見ている物が勝手に消えると、何を探していたか分からなくなる）
+        _rebuildingList = true;
+        try
         {
-            Tops.Add(row);
+            Tops.Clear();
+            foreach (var row in _allTops.Where(row => filter is null || MatchesFilter(row, filter, master!, items)))
+            {
+                Tops.Add(row);
+            }
+        }
+        finally
+        {
+            _rebuildingList = false;
         }
 
+        OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(HasFilter));
         OnPropertyChanged(nameof(FilterResultText));
     }
 
-    private bool MatchesFilter(TagTopRow row, string filter)
+    private static bool MatchesFilter(
+        TagTopRow row, ItemTextFilter filter, UserTagMaster master, IReadOnlyList<ItemRecord> items)
     {
-        if (row.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
+        if (filter.MatchesName(row.Name))
         {
             return true;
         }
 
-        var top = _services.Store.UserTags.Load().Tops.FirstOrDefault(entry =>
+        var top = master.Tops.FirstOrDefault(entry =>
             string.Equals(entry.Name, row.Name, StringComparison.CurrentCultureIgnoreCase));
 
-        if (top is not null
-            && top.Subs.Any(sub => sub.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
+        if (top is not null && top.Subs.Any(sub => filter.MatchesName(sub.Name)))
         {
             return true;
         }
 
-        // 商品名でも引く。探している物がどの分類に入っているか分からないときの逃げ道
-        return _main.Search.SnapshotItems().Any(item =>
-            item.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
-            && item.Local.UserTags.Any(tag =>
-                string.Equals(tag.Top, row.Name, StringComparison.CurrentCultureIgnoreCase)));
+        // 商品でも引く。探している物がどの分類に入っているか分からないときの逃げ道
+        return items.Any(item =>
+            item.Local.UserTags.Any(tag => string.Equals(tag.Top, row.Name, StringComparison.CurrentCultureIgnoreCase))
+            && filter.Matches(item));
     }
 
     private bool _isAddingSub;
@@ -700,7 +719,7 @@ public sealed class TagManageViewModel : ViewModelBase
     public bool HasFilter => _filterText.Trim().Length > 0;
 
     public string FilterResultText => HasFilter
-        ? $"「{_filterText.Trim()}」に当たる大分類 {Tops.Count} 件（小分類名・商品名も探しています）"
+        ? $"「{_filterText.Trim()}」に当たる大分類 {Tops.Count} 件（小分類名・商品も探しています）"
         : string.Empty;
 
     public bool HasSubs => Subs.Count > 0;
@@ -800,10 +819,11 @@ public sealed class TagManageViewModel : ViewModelBase
     /// </summary>
     private void ApplyItemFilter()
     {
-        var filter = _itemFilter.Trim();
+        // 書き方は検索画面と同じ（ユーザ指示 2026-09-19）
+        var filter = ItemTextFilter.Create(_itemFilter);
         _itemFilterHits = 0;
 
-        if (filter.Length == 0)
+        if (filter is null)
         {
             foreach (var row in Subs)
             {
@@ -827,13 +847,13 @@ public sealed class TagManageViewModel : ViewModelBase
         {
             // 小分類の名前で当たったら、中の商品は全部出す（ユーザ指示 2026-09-19：
             // 名前で探した人は、その小分類の中身を見たい。商品名でさらに削ると探した物が隠れる）
-            var nameHit = row.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
+            var nameHit = filter.MatchesName(row.Name);
 
             var matched = all
                 .Where(item => item.Local.UserTags.Any(tag =>
                     string.Equals(tag.Top, row.Top, StringComparison.CurrentCultureIgnoreCase)
                     && tag.Subs.Any(sub => string.Equals(sub, row.Name, StringComparison.CurrentCultureIgnoreCase))))
-                .Where(item => nameHit || item.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
+                .Where(item => nameHit || filter.Matches(item))
                 .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
                 .ToList();
 

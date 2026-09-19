@@ -7,68 +7,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:TagManageViewModel}">
+    <!-- 商品の行・畳む印・文字だけのボタンは属性の管理と共用（ユーザ指示 2026-09-19：操作感を揃える） -->
     <UserControl.Resources>
-        <!-- 文字だけのボタン（改変の一覧と同じ）。暗黙の Button スタイルは中央揃えと枠を持つので型ごと差し替える -->
-        <Style x:Key="TagItemLink" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="Transparent" CornerRadius="5" Padding="4">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!--
-            畳む印。三角は文字ではなく図形で描く（文字だと小さい字形になる）。
-            小さくて押しにくかったので丸で囲み、当たり判定も丸の大きさにした（ユーザ指摘 2026-09-18）
-        -->
-        <Style x:Key="TagToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="22" />
-            <Setter Property="Height" Value="22" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Grid Background="Transparent">
-                            <Ellipse x:Name="Ring" Width="22" Height="22" Fill="{StaticResource SurfaceAlt}"
-                                     Stroke="{StaticResource Border}" StrokeThickness="1" />
-                            <Path x:Name="Mark" Data="M0,0 L8,6 L0,12 Z" Fill="{StaticResource TextMuted}"
-                                  Width="8" Height="12" Stretch="Fill" Margin="2,0,0,0"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L12,0 L6,8 Z" />
-                                <Setter TargetName="Mark" Property="Width" Value="12" />
-                                <Setter TargetName="Mark" Property="Height" Value="8" />
-                                <Setter TargetName="Mark" Property="Margin" Value="0" />
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
-                                <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Accent}" />
-                            </Trigger>
-                            <!-- 中身の無い小分類。消さずに薄くして、押せないことを見せる（ユーザ指示 2026-09-19） -->
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Ring" Property="Opacity" Value="0.5" />
-                                <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Border}" />
-                                <Setter Property="Cursor" Value="Arrow" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary Source="ManageResources.xaml" />
     </UserControl.Resources>
 
     <DockPanel Background="{StaticResource Bg}">
@@ -118,7 +59,8 @@
                         <TextBlock Text="タグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                  Padding="9,6" BorderBrush="{StaticResource BorderStrong}"
-                                 ToolTip="大分類の名前だけでなく、小分類の名前と商品名でも探します。" />
+                                 ToolTip="大分類の名前だけでなく、小分類の名前と、商品（商品名・ショップ名・メモ）でも探します。" />
+                        <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -326,7 +268,7 @@
                                     <Grid Width="360">
                                         <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
                                                  Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
-                                        <TextBlock Text="この大分類の中を小分類名・商品名で探す" Margin="11,0,0,0" IsHitTestVisible="False"
+                                        <TextBlock Text="この大分類の中を小分類名・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
                                                    VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                                    Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                     </Grid>
@@ -407,7 +349,8 @@
                                         </Border>
                                     </StackPanel>
 
-                                    <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,6,0,0"
+                                    <controls:SearchSyntaxHint Margin="2,6,0,0" />
+                                    <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,4,0,0"
                                                Visibility="{Binding HasItemFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
 
@@ -531,50 +474,12 @@
                                                     <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="23,10,0,0" Padding="16,0,0,0"
                                                             BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
                                                             Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <ItemsControl ItemsSource="{Binding Items}">
+                                                    <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
                                                                 <WrapPanel />
                                                             </ItemsPanelTemplate>
                                                         </ItemsControl.ItemsPanel>
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Button Style="{StaticResource TagItemLink}" Margin="0,0,10,8"
-                                                                        Command="{Binding OpenCommand}"
-                                                                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
-                                                                    <Button.ToolTip>
-                                                                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
-                                                                            <StackPanel Width="180">
-                                                                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
-                                                                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
-                                                                                </Border>
-                                                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                                                                           Foreground="{StaticResource Text}" />
-                                                                                <TextBlock Text="押すと、この商品のページを開きます" Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                                                            </StackPanel>
-                                                                        </ToolTip>
-                                                                    </Button.ToolTip>
-                                                                    <StackPanel Orientation="Horizontal" Width="230">
-                                                                        <Border Width="30" Height="30" CornerRadius="4" ClipToBounds="True"
-                                                                                Background="{StaticResource SurfaceAlt}">
-                                                                            <Grid>
-                                                                                <TextBlock Text="{Binding Initial}" FontSize="11"
-                                                                                           Foreground="{StaticResource TextMuted}"
-                                                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
-                                                                            </Grid>
-                                                                        </Border>
-                                                                        <StackPanel Margin="8,0,0,0" VerticalAlignment="Center" Width="184">
-                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5"
-                                                                                       TextTrimming="CharacterEllipsis" />
-                                                                            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}"
-                                                                                       FontSize="10.5" TextTrimming="CharacterEllipsis" />
-                                                                        </StackPanel>
-                                                                    </StackPanel>
-                                                                </Button>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                     </Border>
                                                 </Grid>

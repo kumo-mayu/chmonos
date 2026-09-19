@@ -26,6 +26,13 @@ public sealed record UiState
     public string TagSort { get; init; } = "name";
 
     /// <summary>
+    /// 属性の管理の並べ方（ユーザ指示 2026-09-19：タグの管理と揃える）。値はタグと同じ。
+    /// 既定は手で並べた順——それまで並べ方はドラッグしか無く、`attributes.json` の並びは人が置いた順なので、
+    /// 名前順を既定にすると表示の順と「名前順」の印が食い違う
+    /// </summary>
+    public string AttributeSort { get; init; } = "manual";
+
+    /// <summary>
     /// 検索の絞り込みパネルを畳んでいるか。
     ///
     /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。

@@ -11,6 +11,7 @@
 |---|---|
 | 要確認 | `noticheck` |
 | タグの管理 | `tagcheck` |
+| 属性の管理 | `attrcheck` |
 | BOOTH の形式の変化の帯 | `structcheck` |
 | アバター・一般の画面 | `friendcheck` |
 | 本番と同じ少ない件数で見たいとき | `ui` |
@@ -29,6 +30,7 @@
 | `noticheck` | 友人のデータの写し＋作り物の `notifications.json`（要確認の種類がそろう） | 要確認の画面 |
 | `structcheck` | 友人のデータの写し。「形式の変化」が出るように、最近取った説明を節の無い形にしてある（14日以内・5件以上・8割） | ナビの「形式の変化」の帯 |
 | `tagcheck` | 友人のデータの写し＋分類の多い作り物の `userTags.json` | タグの管理 |
+| `attrcheck` | `tagcheck` の写し（2026-09-19）＋作り物の属性12種類（未使用2・メモつき・最初から並べる2）。195件に値を入れ、5件は一覧に無い属性「ふわふわ」を参照 | 属性の管理 |
 | `stress-realcat` | 作った2000件（分類5種類） | 速さとメモリの計測（`perf-measure` スキル） |
 | `eval` | 友人のデータと対応アバターの正解 | 検出の評価（`experiments/AvatarEvalBench`） |
 | `d1check` | 本番の写し＋試験用の改変「試験用（unity-import-test）」 | 改変の画面・Unity へ送る（送り先は捨ててよい試験用プロジェクト。**Unity を動かすのはユーザが「試して」と言ったときだけ**） |
@@ -40,7 +42,7 @@
 使い道の記録が残っていないので、新しい確かめには使わない（消すかはユーザに聞く）。
 `history-backup` は履歴を書き換える前の控え。**触らない・消さない。**
 
-友人のデータから作った写し（`friendtest` `friendcheck` `flowcheck` `eval` `noticheck` `structcheck` `tagcheck`）は第三者のもの。
+友人のデータから作った写し（`friendtest` `friendcheck` `flowcheck` `eval` `noticheck` `structcheck` `tagcheck` `attrcheck`）は第三者のもの。
 画像はどこへも送らず、文書・コミット・ログには数と傾向だけ書く（CLAUDE.md の 5.）。
 
 ## 作り物の作り方

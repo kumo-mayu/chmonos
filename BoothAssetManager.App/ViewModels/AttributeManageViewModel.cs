@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using BoothAssetManager.Core.Commands;
+using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
@@ -94,7 +95,229 @@ public sealed class AttributeManageViewModel : ViewModelBase
             () => _main.ShowItemsWithAttribute(Selected!.Name),
             () => Selected is { ItemCount: > 0 });
 
+        _sort = services.UiState.AttributeSort switch
+        {
+            "name" => TagSortMode.Name,
+            "count" => TagSortMode.Count,
+            _ => TagSortMode.Manual,
+        };
+
         ReloadAsync().Forget();
+    }
+
+    /// <summary>
+    /// 選んでいた属性と、評価した商品を開いていたかを覚える（タグの管理と同じ。商品ページから戻ると先頭に戻ってしまう）。
+    /// 画面は開くたびに作り直すので、型の側で持つ。アプリを閉じるまでの記憶でよい
+    /// </summary>
+    private static string? _lastSelected;
+
+    private static bool _lastItemsExpanded;
+
+    private TagSortMode _sort;
+
+    /// <summary>
+    /// 並べ方（ユーザ指示 2026-09-19：タグの管理と揃える）。選ぶと `attributes.json` の並びも同じ順に書き換える
+    /// ——検索と編集の候補がこの並びをそのまま使うので、画面だけ並べ替えると食い違う
+    /// </summary>
+    public TagSortMode Sort
+    {
+        get => _sort;
+        set
+        {
+            if (!SetField(ref _sort, value))
+            {
+                return;
+            }
+
+            var saved = value switch
+            {
+                TagSortMode.Name => "name",
+                TagSortMode.Count => "count",
+                _ => "manual",
+            };
+
+            _main.SaveUiStateAsync(state => state with { AttributeSort = saved }).Forget();
+            ApplySortAsync().Forget();
+        }
+    }
+
+    public bool SortsByName
+    {
+        get => Sort == TagSortMode.Name;
+        set { if (value) { Sort = TagSortMode.Name; } }
+    }
+
+    public bool SortsByCount
+    {
+        get => Sort == TagSortMode.Count;
+        set { if (value) { Sort = TagSortMode.Count; } }
+    }
+
+    public bool SortsManually
+    {
+        get => Sort == TagSortMode.Manual;
+        set { if (value) { Sort = TagSortMode.Manual; } }
+    }
+
+    /// <summary>今の並べ方で `attributes.json` を並べ替える。手で並べた順のときは、人が置いた順を触らない。</summary>
+    private async Task ApplySortAsync()
+    {
+        foreach (var name in new[] { nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
+        {
+            OnPropertyChanged(name);
+        }
+
+        if (Sort == TagSortMode.Manual)
+        {
+            return;
+        }
+
+        var order = (Sort == TagSortMode.Count
+                ? _all.OrderByDescending(row => row.ItemCount).ThenBy(row => row.Name, StringComparer.CurrentCulture)
+                : _all.OrderBy(row => row.Name, StringComparer.CurrentCulture))
+            .Select(row => row.Name)
+            .ToList();
+
+        await _services.Commands.ExecuteAsync(new UiCommand.ReorderAttributes(order));
+        await ReloadAsync();
+        _main.RefreshMasters();
+    }
+
+    /// <summary>ドラッグしたら「手で並べた順」にする（タグの管理と同じ）。</summary>
+    private void SwitchToManual()
+    {
+        if (_sort == TagSortMode.Manual)
+        {
+            return;
+        }
+
+        _sort = TagSortMode.Manual;
+        _main.SaveUiStateAsync(state => state with { AttributeSort = "manual" }).Forget();
+
+        foreach (var name in new[] { nameof(Sort), nameof(SortsByName), nameof(SortsByCount), nameof(SortsManually) })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    /// <summary>
+    /// この属性で評価した商品（ユーザ指示 2026-09-19：タグの管理の小分類の中身と揃える）。
+    /// 開いたときだけ作る——全部の属性で先に作ると、絵の読み込みが件数ぶん走る
+    /// </summary>
+    public ObservableCollection<TagItemRow> Items { get; } = [];
+
+    private bool _isItemsExpanded;
+
+    public bool IsItemsExpanded
+    {
+        get => _isItemsExpanded;
+        set
+        {
+            if (SetField(ref _isItemsExpanded, value))
+            {
+                if (!HasItemFilter)
+                {
+                    _lastItemsExpanded = value;
+                }
+
+                RebuildItems();
+            }
+        }
+    }
+
+    public string ItemsHeaderText => Selected is { ItemCount: > 0 } row
+        ? $"評価した商品 {row.ItemCount} 件（値の高い順）"
+        : "評価した商品";
+
+    public string ExpandToolTip => SelectedIsUsed
+        ? "開くと、この属性で評価した商品が値の高い順に並びます。"
+        : "この属性はまだどの商品も評価していないので、開いても中身がありません。";
+
+    private string _itemFilter = string.Empty;
+
+    /// <summary>評価した商品の中を探す。書き方は検索画面と同じ（ユーザ指示 2026-09-19）。</summary>
+    public string ItemFilter
+    {
+        get => _itemFilter;
+        set
+        {
+            if (SetField(ref _itemFilter, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(HasItemFilter));
+
+                // 探している間は開いて見せる。空にしたら、覚えている開き方に戻す
+                _isItemsExpanded = HasItemFilter || _lastItemsExpanded;
+                OnPropertyChanged(nameof(IsItemsExpanded));
+                RebuildItems();
+            }
+        }
+    }
+
+    public bool HasItemFilter => _itemFilter.Trim().Length > 0;
+
+    private int _itemFilterHits;
+
+    public string ItemFilterResultText => HasItemFilter
+        ? $"「{_itemFilter.Trim()}」に当たる商品 {_itemFilterHits} 件"
+        : string.Empty;
+
+    private void RebuildItems()
+    {
+        Items.Clear();
+        _itemFilterHits = 0;
+
+        if (Selected is { ItemCount: > 0 } row && _isItemsExpanded)
+        {
+            var filter = ItemTextFilter.Create(_itemFilter);
+            var rated = _main.Search.SnapshotItems()
+                .Select(item => (Item: item, Value: ValueOf(item, row.Name)))
+                .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)))
+                .OrderByDescending(entry => entry.Value)
+                .ThenBy(entry => entry.Item.DisplayName, StringComparer.CurrentCulture)
+                .ToList();
+
+            foreach (var (item, value) in rated)
+            {
+                Items.Add(CreateItemRow(item, value!.Value));
+            }
+
+            _itemFilterHits = rated.Count;
+        }
+
+        OnPropertyChanged(nameof(ItemFilterResultText));
+    }
+
+    /// <summary>属性の値。名前は大文字小文字を区別しない（一覧の件数の数え方と同じ）。</summary>
+    private static int? ValueOf(ItemRecord item, string name)
+    {
+        foreach (var (key, value) in item.Local.Attributes)
+        {
+            if (string.Equals(key, name, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>中に出す商品1件。絵の引き方はタグの管理（改変の一覧）と同じ。</summary>
+    private TagItemRow CreateItemRow(ItemRecord item, int value)
+    {
+        var builder = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>());
+
+        var entry = new TagItemRow
+        {
+            ItemId = item.Id,
+            Name = item.DisplayName,
+            ShopName = item.Booth.Shop?.Name ?? string.Empty,
+            ValueText = $"{value} %",
+            ThumbnailPath = builder.ItemThumbnailPath(item),
+            Thumbnails = _main.Thumbnails,
+        };
+
+        entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
+        return entry;
     }
 
     public ObservableCollection<AttributeMasterRow> Rows { get; } = [];
@@ -117,6 +340,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     private readonly Debounced _saveMemo;
     private bool _memoPending;
     private bool _swappingMemo;
+    private bool _rebuildingList;
 
     /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
     public RelayCommand ToggleDefaultCommand { get; }
@@ -134,7 +358,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         get => _selected;
         set
         {
-            if (_selected == value)
+            if (_selected == value || (_rebuildingList && value is null))
             {
                 return;
             }
@@ -152,6 +376,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
             if (_selected is not null)
             {
                 _selected.IsSelected = true;
+                _lastSelected = _selected.Name;
             }
 
             // 選び直しで欄を入れ替えるときは、自動保存を走らせない
@@ -165,7 +390,14 @@ public sealed class AttributeManageViewModel : ViewModelBase
             OnPropertyChanged(nameof(SelectedUsageText));
             OnPropertyChanged(nameof(SelectedIsUsed));
             OnPropertyChanged(nameof(ShowItemsToolTip));
+            OnPropertyChanged(nameof(ItemsHeaderText));
+            OnPropertyChanged(nameof(ExpandToolTip));
             OnPropertyChanged(nameof(ToggleDefaultText));
+
+            // 開き方は属性をまたいで持つ（小分類を開いたまま見比べるのと同じ）。探している語もそのまま当てる
+            _isItemsExpanded = SelectedIsUsed && (HasItemFilter || _lastItemsExpanded);
+            OnPropertyChanged(nameof(IsItemsExpanded));
+            RebuildItems();
             OnPropertyChanged(nameof(SelectedIsDefault));
             OnPropertyChanged(nameof(DefaultNote));
             RebuildOtherNames();
@@ -289,21 +521,46 @@ public sealed class AttributeManageViewModel : ViewModelBase
             OnPropertyChanged(nameof(HeaderText));
             OnPropertyChanged(nameof(HasOrphans));
 
-            Selected = _all.FirstOrDefault(row => row.Name == keep) ?? Rows.FirstOrDefault();
+            Selected = _all.FirstOrDefault(row => row.Name == (keep ?? _lastSelected)) ?? Rows.FirstOrDefault();
         });
     }
 
+    /// <summary>
+    /// 左の一覧を絞る。属性の名前だけでなく、評価した商品でも引く（タグの管理と揃える。ユーザ指示 2026-09-19）。
+    /// 書き方は検索画面と同じ
+    /// </summary>
     private void Rebuild()
     {
-        var filter = _filterText.Trim();
+        var filter = ItemTextFilter.Create(_filterText);
+        var items = filter is null ? [] : _main.Search.SnapshotItems();
 
-        Rows.Clear();
-        foreach (var row in _all.Where(row => filter.Length == 0
-            || row.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
+        // 作り直す間は、一覧が書き戻す「選択なし」を受けない（タグの管理と同じ。探すたびに右が空になっていた）
+        _rebuildingList = true;
+        try
         {
-            Rows.Add(row);
+            Rows.Clear();
+            foreach (var row in _all.Where(row => filter is null
+                || filter.MatchesName(row.Name)
+                || items.Any(item => ValueOf(item, row.Name) is not null && filter.Matches(item))))
+            {
+                Rows.Add(row);
+            }
         }
+        finally
+        {
+            _rebuildingList = false;
+        }
+
+        OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(HasFilter));
+        OnPropertyChanged(nameof(FilterResultText));
     }
+
+    public bool HasFilter => _filterText.Trim().Length > 0;
+
+    public string FilterResultText => HasFilter
+        ? $"「{_filterText.Trim()}」に当たる属性 {Rows.Count} 件（評価した商品も探しています）"
+        : string.Empty;
 
     private void RebuildOtherNames()
     {
@@ -352,6 +609,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
         order.Insert(to, moved.Name);
 
+        SwitchToManual();
         await _services.Commands.ExecuteAsync(new UiCommand.ReorderAttributes(order));
         await ReloadAsync();
         _main.RefreshMasters();
