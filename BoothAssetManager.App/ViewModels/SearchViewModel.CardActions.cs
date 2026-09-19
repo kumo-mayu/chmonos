@@ -144,7 +144,8 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        System.Windows.MessageBox.Show(text, title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+        // 選択の結果は Unity を手前に出した後に来るので、主の窓を戻してから言う（Unity の後ろに隠れていた）
+        FrontNotice.Show(text, title);
     }
 
     /// <summary>

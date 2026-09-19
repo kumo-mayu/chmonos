@@ -145,7 +145,9 @@ internal static class UnityMemberSelect
             ? $"Unityへ送れませんでした（{failed[0].Problem}）。"
             : outcomes.All(outcome => outcome.Cancelled)
                 ? "Cancel されたので、入っていません。"
-                : $"「{projectName}」に取り込み画面を出しました。入った後にもう一度押すと、プロジェクトタブで示します。");
+                : outcomes.All(outcome => outcome.AlreadyPresent)
+                    ? $"「{projectName}」には既に全部入っていました。もう一度押すと、プロジェクトタブで示します。"
+                    : $"「{projectName}」に取り込み画面を出しました。入った後にもう一度押すと、プロジェクトタブで示します。");
 
         return recorded;
     }

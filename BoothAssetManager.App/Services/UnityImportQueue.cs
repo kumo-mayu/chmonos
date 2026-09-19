@@ -13,8 +13,34 @@ public sealed record UnityQueueProgress(int Index, int Total, string Text);
 /// <summary>
 /// 1件ぶんの結果。開けなかったときは理由を持つ。
 /// <paramref name="Cancelled"/> は、取り込み画面で Cancel された（何も入っていない）と分かったとき。
+/// <paramref name="AlreadyPresent"/> は、取り込み画面が「Nothing to import!」だった（既に全部入っている）とき。
+/// Cancel ではないので、使った足跡などは入ったときと同じに扱う
 /// </summary>
-public sealed record UnityQueueOutcome(UnityPackageEntry Package, bool Opened, string? Problem, bool Cancelled = false);
+public sealed record UnityQueueOutcome(
+    UnityPackageEntry Package, bool Opened, string? Problem, bool Cancelled = false, bool AlreadyPresent = false)
+{
+    /// <summary>
+    /// 何件の取り込み画面を出したかの1文。複数を順に送った後の知らせ（検索の複数選択・改変の「使ったものを順にUnityへ送る」）で共用する。
+    /// </summary>
+    public static string DescribeShown(IReadOnlyList<UnityQueueOutcome> outcomes)
+    {
+        var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).Distinct().Count();
+        var notes = new List<string>();
+        if (outcomes.Count(outcome => outcome.AlreadyPresent) is > 0 and var present)
+        {
+            notes.Add($"{present} 件は既に全部入っていました");
+        }
+
+        if (outcomes.Count(outcome => outcome.Cancelled) is > 0 and var cancelled)
+        {
+            notes.Add($"{cancelled} 件は Cancel されたので入っていません");
+        }
+
+        return notes.Count == 0
+            ? $"{opened} 件の取り込み画面を順に出しました。"
+            : $"{opened} 件の取り込み画面を順に出しました（うち {string.Join("、", notes)}）。";
+    }
+}
 
 /// <summary>
 /// 開いている Unity へ、unitypackage を1件ずつ積んで取り込ませる（#69）。
@@ -47,6 +73,11 @@ public static class UnityImportQueue
 
     /// <summary>利用者が取り込み画面を眺めて考える時間は待つ。これを超えたら残りは送らない。</summary>
     private static readonly TimeSpan ImportTimeout = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// 取り込み画面の絵を見直す間隔。1回は数十ミリ秒。人が OK を押すまで数秒はかかるので、1秒ごとで取りこぼさない
+    /// </summary>
+    private static readonly TimeSpan LookInterval = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Unity 自身の進捗の窓の題（実機で見た物）。これ以外の <c>#32770</c> が出ていたら、
@@ -230,6 +261,9 @@ public static class UnityImportQueue
                 case UnityImportState.Cancelled:
                     outcomes.Add(new UnityQueueOutcome(package, true, null, Cancelled: true));
                     break;
+                case UnityImportState.AlreadyPresent:
+                    outcomes.Add(new UnityQueueOutcome(package, true, null, AlreadyPresent: true));
+                    break;
                 default:
                     outcomes.Add(new UnityQueueOutcome(package, true, "取り込みが終わるのを待ちきれませんでした"));
                     stop = "前の取り込みが終わらないので、残りは送っていません";
@@ -259,6 +293,8 @@ public static class UnityImportQueue
         var watch = new UnityImportWatch(expected);
         var until = DateTime.UtcNow + ImportTimeout;
         string? askedTitle = null;
+        var nothingToImport = false;
+        var lookedAt = DateTime.MinValue;
 
         while (DateTime.UtcNow < until)
         {
@@ -271,6 +307,21 @@ public static class UnityImportQueue
             if (importWindow == IntPtr.Zero || !IsWindow(importWindow) || !IsWindowVisible(importWindow))
             {
                 watch.DialogClosed(now);
+            }
+            else if (!nothingToImport && now - lookedAt >= LookInterval)
+            {
+                // 「Nothing to import!」は閉じても何も書かれないので、開いている間に絵で見分ける（ユーザ指示 2026-09-19）。
+                // 出てすぐは描き終えていないことがあるので、閉じるまで見直す
+                lookedAt = now;
+                var window = importWindow;
+                nothingToImport = await Task.Run(() => WindowPicture.Capture(window) is { } picture
+                    && UnityImportWindowLook.IsNothingToImport(picture.Width, picture.Height, picture.Pixels), cancellationToken);
+                if (nothingToImport)
+                {
+                    watch.NothingToImportShown();
+                    progress?.Report(new UnityQueueProgress(index + 1, total,
+                        $"{index + 1}/{total}：「{package.Name}」は既に全部入っています。Unity で「OK」を押すと次に進みます"));
+                }
             }
 
             foreach (var line in tail.ReadNewLines())

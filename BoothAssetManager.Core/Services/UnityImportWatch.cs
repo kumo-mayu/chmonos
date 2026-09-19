@@ -13,6 +13,12 @@ public enum UnityImportState
 
     /// <summary>Cancel が押された（または閉じられた）。何も入っていない。次を出してよい。</summary>
     Cancelled,
+
+    /// <summary>
+    /// 取り込み画面が「Nothing to import!」だった。送った物は既に全部入っている。次を出してよい。
+    /// 送ることの目的（プロジェクトに入っていること）は果たせているので、Cancel ではなく送れたと数える（ユーザ判断 2026-09-19）
+    /// </summary>
+    AlreadyPresent,
 }
 
 /// <summary>
@@ -44,6 +50,13 @@ public sealed class UnityImportWatch
     /// </summary>
     public static readonly TimeSpan CancelQuiet = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// 「Nothing to import!」と見た窓が閉じてから、既に入っていたと決めるまで。
+    /// その窓に Import は無いので本来は待たなくてよいが、絵の見分けを外していたときに、後から来る取り込みの行を拾えるように
+    /// Import で何かが動くまでの最長（1.4秒・実測）より少し長く待つ
+    /// </summary>
+    public static readonly TimeSpan NothingQuiet = TimeSpan.FromSeconds(2);
+
     /// <summary>完了の行の後、進捗の窓が消えてから次を出すまで。完了の行の直後に「Hold on」が一瞬出るため。</summary>
     public static readonly TimeSpan CalmAfterDone = TimeSpan.FromSeconds(1);
 
@@ -66,6 +79,7 @@ public sealed class UnityImportWatch
     private DateTime? _doneAt;
     private DateTime? _calmSince;
     private bool _sawLogLine;
+    private bool _nothingToImport;
 
     /// <param name="expectedAssetPaths">送った物の中身のパス（<see cref="UnityHandoff.ReadAssetPaths"/>）。</param>
     public UnityImportWatch(IEnumerable<string> expectedAssetPaths)
@@ -78,6 +92,13 @@ public sealed class UnityImportWatch
 
     /// <summary>取り込み画面が閉じた。それより前の出来事は数えない（利用者が画面を眺めている間）。</summary>
     public void DialogClosed(DateTime at) => _closedAt ??= at;
+
+    /// <summary>
+    /// 取り込み画面が「Nothing to import!」だと分かった（<see cref="UnityImportWindowLook"/>）。
+    /// その窓には OK しかなく、閉じても Unity は何も書かないので、Cancel と見分けるための <see cref="CancelQuiet"/> を待たずに
+    /// <see cref="NothingQuiet"/> で次へ進む
+    /// </summary>
+    public void NothingToImportShown() => _nothingToImport = true;
 
     /// <summary>Editor.log に増えた1行。</summary>
     public void LogLine(string line, DateTime at)
@@ -127,6 +148,11 @@ public sealed class UnityImportWatch
 
         if (_movedAt is null)
         {
+            if (_nothingToImport)
+            {
+                return now - closed >= NothingQuiet ? UnityImportState.AlreadyPresent : UnityImportState.Waiting;
+            }
+
             return now - closed >= CancelQuiet ? UnityImportState.Cancelled : UnityImportState.Waiting;
         }
 

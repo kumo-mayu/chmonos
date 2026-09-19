@@ -128,7 +128,6 @@ internal static class ItemSelectionActions
 
             // 「使った」の足跡。Unityへ送ったことが一番強い証拠（Unityへ送る と同じ扱い）。
             // 取り込み画面で Cancel された物は入っていないので付けない
-            var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).ToHashSet();
             var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
             foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.Card.Item.Id).Distinct())
             {
@@ -136,12 +135,10 @@ internal static class ItemSelectionActions
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
-            var skipped = outcomes.Count(outcome => outcome.Cancelled);
-            var shown = skipped == 0
-                ? $"{opened.Count} 件の取り込み画面を順に出しました。"
-                : $"{opened.Count} 件の取り込み画面を順に出しました（うち {skipped} 件は Cancel されたので入っていません）。";
+            var shown = UnityQueueOutcome.DescribeShown(outcomes);
             setQueueText(string.Empty);
-            System.Windows.MessageBox.Show(
+            // 送っている間は Unity が手前にいるので、主の窓を戻してから言う
+            FrontNotice.Show(
                 failed.Count == 0
                     ? shown
                     : $"{shown}{failed.Count} 件は送れませんでした：\n\n"

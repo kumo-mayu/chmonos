@@ -635,7 +635,6 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             var outcomes = await UnityImportQueue.RunAsync(
                 editor.ProcessId, queue.Select(entry => entry.Package).ToList(), progress, CancellationToken.None);
 
-            var opened = outcomes.Where(outcome => outcome.Opened).Select(outcome => outcome.Package).ToHashSet();
             // 取り込み画面で Cancel された物は入っていないので、「使った」の足跡を付けない
             var taken = outcomes.Where(outcome => outcome.Opened && !outcome.Cancelled).Select(outcome => outcome.Package).ToHashSet();
             foreach (var itemId in queue.Where(entry => taken.Contains(entry.Package)).Select(entry => entry.ItemId).Distinct())
@@ -644,10 +643,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
-            var skipped = outcomes.Count(outcome => outcome.Cancelled);
-            var shown = skipped == 0
-                ? $"{opened.Count} 件の取り込み画面を順に出しました。"
-                : $"{opened.Count} 件の取り込み画面を順に出しました（うち {skipped} 件は Cancel されたので入っていません）。";
+            var shown = UnityQueueOutcome.DescribeShown(outcomes);
             UnityQueueText = failed.Count == 0
                 ? shown
                 : $"{shown}{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";

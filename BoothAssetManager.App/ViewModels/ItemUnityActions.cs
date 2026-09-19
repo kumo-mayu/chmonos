@@ -84,7 +84,7 @@ internal static class ItemUnityActions
 
         if (outcome is null || !outcome.Opened)
         {
-            System.Windows.MessageBox.Show(
+            FrontNotice.Show(
                 $"「{package.Name}」をUnityへ送れませんでした。\n\n{outcome?.Problem ?? "理由が分かりませんでした。"}",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
             return false;
