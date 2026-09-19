@@ -96,6 +96,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         SendToUnityWithRecordCommand = new RelayCommand(
             parameter => SendToUnityWithRecordAsync(parameter).Forget(),
             parameter => parameter is Core.Services.UnityPackageEntry);
+        SelectInUnityCommand = new RelayCommand(
+            parameter => SelectInUnityAsync(parameter).Forget(),
+            parameter => parameter is Core.Services.UnityPackageEntry);
         AddToModificationCommand = new RelayCommand(() => AddToModificationAsync().Forget());
         OpenModificationCommand = new RelayCommand(
             parameter => OpenModification(parameter as UsedInModificationRowViewModel),
@@ -475,6 +478,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public RelayCommand SendToUnityCommand { get; }
 
     public RelayCommand SendToUnityWithRecordCommand { get; }
+
+    /// <summary>unitypackage の入り先を、いま開いている Unity のプロジェクトタブで示す（入っていなければ言うだけ）。</summary>
+    public RelayCommand SelectInUnityCommand { get; }
 
     public RelayCommand AddToModificationCommand { get; }
 

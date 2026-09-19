@@ -316,7 +316,7 @@
                                                                 <Border BorderBrush="{StaticResource AccentBorder}" BorderThickness="2,0,0,0"
                                                                         Padding="10,3" Margin="0,0,0,4">
                                                                     <!--
-                                                                        名前のすぐ横に「Unityへ送る ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した）。
+                                                                        名前のすぐ横に「Unity ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した。「Unityへ送る」は選択も入るので「Unity」に改めた）。
                                                                         **送り方は2つに分けたまま選ばせる。**送る前に「記録しますか」と聞くと、記録を使っていない人の邪魔になる。
                                                                         分ければ選んだ人だけが記録の話に入る
                                                                     -->
@@ -324,10 +324,10 @@
                                                                         <StackPanel Orientation="Horizontal">
                                                                             <TextBlock Text="{Binding Name}" FontSize="11.5" MaxWidth="560"
                                                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                                            <Button Content="Unityへ送る ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                                            <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                                                     VerticalAlignment="Center" Click="OnMenuButtonClick"
                                                                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    ToolTip="開いているUnityへ取り込みを始めます。改変に記録するかを選べます。">
+                                                                                    ToolTip="開いているUnityへ送るか、Unity のプロジェクトタブで入り先を示します。">
                                                                                 <Button.ContextMenu>
                                                                                     <ContextMenu>
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
@@ -336,6 +336,10 @@
                                                                                         <MenuItem Header="改変に足して送る" CommandParameter="{Binding Entry}"
                                                                                                   ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                        <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
+                                                                                        <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding Entry}"
+                                                                                                  ToolTip="いま開いている Unity で、この unitypackage が入った場所をプロジェクトタブで示します。まだ入っていなければ、そう言うだけです。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                     </ContextMenu>
                                                                                 </Button.ContextMenu>
                                                                             </Button>

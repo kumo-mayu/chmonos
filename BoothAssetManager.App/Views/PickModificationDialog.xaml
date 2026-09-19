@@ -82,9 +82,13 @@
                 Visibility="{Binding MakingNew, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <StackPanel>
                 <TextBlock Text="どのアバターの改変か" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
+                <!-- 選んだ名前は欄にそのまま出す（ユーザ指摘 2026-09-19）。下の1行は選んでいない間だけ -->
                 <controls:SuggestBox Source="{Binding AvatarNames}" CommitCommand="{Binding PickAvatarCommand}"
-                                     AllowNew="False" Placeholder="アバターの名前で探す" />
-                <TextBlock Text="{Binding NewAvatarLabel}" Style="{StaticResource Caption}" Margin="0,7,0,0" />
+                                     AllowNew="False" KeepsCommittedText="True"
+                                     Text="{Binding NewAvatarQuery, Mode=TwoWay}"
+                                     Placeholder="アバターの名前で探す" />
+                <TextBlock Text="{Binding NewAvatarLabel}" Style="{StaticResource Caption}" Margin="0,7,0,0"
+                           Visibility="{Binding HasNewAvatar, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                 <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,12,0,6" />
                 <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"

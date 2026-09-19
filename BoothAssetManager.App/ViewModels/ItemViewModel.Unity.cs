@@ -41,6 +41,56 @@ public sealed partial class ItemViewModel
 
     private void SendToUnity(object? parameter) => SendToUnityAsync(parameter).Forget();
 
+    /// <summary>
+    /// 「Unity ▾」の「選択」（ユーザ指示 2026-09-19：改変の画面でできる「Unity のプロジェクトタブで示す」を商品ページにも）。
+    /// 相手は送り先と同じ、いま開いている Unity。**入っていなければ言うだけで、取り込みには進まない**——
+    /// 「示す」つもりで押した物が「取り込む」話にすり替わると意図と違う（動線の洗い出し A1 と同じ種類）。入れるなら「Unityへ送る」を選ぶ
+    /// </summary>
+    private async Task SelectInUnityAsync(object? parameter)
+    {
+        if (parameter is not Core.Services.UnityPackageEntry package)
+        {
+            return;
+        }
+
+        const string title = "Unityで選択";
+
+        // 選ぶ門は「送れません」と言うので、開いていないときはこちらで「示せない」と言う
+        if (Services.UnityEditors.Open().Count == 0)
+        {
+            UnityRecordNotice = "Unityが開いていないので、示せません。プロジェクトを開いてから、もう一度選んでください。";
+            return;
+        }
+
+        // 送るのではないので、連続送りの最中でも止めない（PickUnityTarget は送る用の門）
+        if (Services.UnityTargetPicker.Pick(title) is not { } editor)
+        {
+            return;
+        }
+
+        // 窓の題の名前から、プロジェクトのフォルダを引く（「改変に足して送る」と同じ引き方）
+        var projectPath = editor.ProjectName is { } name
+            ? await Task.Run(() => Core.Services.UnityProjects.Discover()
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
+            : null;
+
+        if (projectPath is null)
+        {
+            UnityRecordNotice = $"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の場所が分からないので、中を調べられません"
+                + "（Unity Hub にも VRChat Creator Companion にも載っていないプロジェクトです）。";
+            return;
+        }
+
+        var projectName = editor.ProjectName!;
+        if (!await UnityMemberSelect.ShowIfPresentAsync(projectPath, projectName, editor, [package], Item.Id,
+                text => UnityRecordNotice = text))
+        {
+            UnityRecordNotice = $"「{package.Name}」は、Unityの「{projectName}」にまだ入っていません。"
+                + "入れるには「Unity ▾」の「Unityへ送る」を選んでください。";
+        }
+    }
+
     private async Task SendToUnityAsync(object? parameter)
     {
         if (parameter is not Core.Services.UnityPackageEntry package)
@@ -251,10 +301,10 @@ public sealed partial class ItemViewModel
     private string? _unityRecordNotice;
 
     /// <summary>
-    /// 直前に改変へ積んだ結果。
+    /// 直前の Unity まわりの結果（改変へ積んだ・Unity で選択した）。
     ///
     /// **積んだことは画面のどこにも出ない。**Unityへ渡した先の反応は
-    /// こちらに返ってこないので、記録が入ったことだけは言っておく。
+    /// こちらに返ってこないので、記録が入ったことだけは言っておく。「選択」の結果（示した・まだ入っていない）もここで言う
     /// </summary>
     public string? UnityRecordNotice
     {

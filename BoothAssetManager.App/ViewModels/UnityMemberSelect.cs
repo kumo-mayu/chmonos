@@ -58,18 +58,6 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        setStatus($"「{projectName}」の中を調べています…");
-        var (roots, present) = await Task.Run(() =>
-        {
-            var paths = packages.SelectMany(UnityHandoff.ReadAssetPaths).ToList();
-            var matches = UnityProjectMatcher.Match(
-                project, new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [item.Id] = paths });
-            // 入り先の頭の記号（_FUKA）を利用者が消していれば、実際の名前（FUKA）で探す（UnityFolderNames）
-            var children = UnityFolderNames.DiskChildren(project);
-            var roots = UnityHandoff.DestinationRoots(paths).Select(root => UnityFolderNames.ResolveRoot(root, children)).ToList();
-            return (roots, matches.FirstOrDefault()?.Present ?? 0);
-        });
-
         var editor = UnityEditors.Open().FirstOrDefault(candidate =>
             string.Equals(candidate.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
 
@@ -80,39 +68,8 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        if (present > 0)
+        if (await ShowIfPresentAsync(project, projectName, editor, packages, item.Id, setStatus))
         {
-            if (roots.Count == 0)
-            {
-                setStatus("入り先のフォルダを読めませんでした。");
-                return false;
-            }
-
-            var root = roots[0];
-            var folder = root.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
-            if (editor is null)
-            {
-                setStatus($"「{projectName}」の {root} に入っています。プロジェクトが開いていないので、"
-                    + "「Unityを開く」で開いてからもう一度押すと、Unity のプロジェクトタブで示します。");
-                return false;
-            }
-
-            // 名前ではなくパスで渡す。同じ名前のフォルダが別の場所にあると、名前では取り違える（§13-7）
-            var outcome = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, project, root);
-            setStatus(outcome switch
-            {
-                { Problem: { } problem } => problem,
-
-                // Packages の下は Unity の検索に出ないので探していない。見つける場所の名前を伝える
-                { Searched: false, StopReason: { } where } =>
-                    $"入り先は {root} です。{where}、Unity では探さずに手前に出しました。",
-
-                // 1件と言い切れないときは、一番上を開かずに検索の結果で止めている（ユーザ指示）。理由と、何をすればよいかを書く
-                { StopReason: { } reason } =>
-                    $"Unity の「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
-                    + $"入り先は {root} です。Unity で選んでください。",
-                _ => $"Unity の「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。",
-            });
             return false;
         }
 
@@ -187,5 +144,70 @@ internal static class UnityMemberSelect
                 : $"「{projectName}」に取り込み画面を出しました。入った後にもう一度押すと、プロジェクトタブで示します。");
 
         return recorded;
+    }
+
+    /// <summary>
+    /// プロジェクトの中を調べ、**入っていれば**入り先のフォルダを Unity のプロジェクトタブで示して true を返す（結果は <paramref name="setStatus"/> へ）。
+    /// 入っていなければ何も言わずに false——入っていないときにどうするか（取り込むか聞く・言うだけ）は呼ぶ側で決める。
+    /// 改変の「選択」と商品ページの「Unity ▾」の「選択」（ユーザ指示 2026-09-19）で同じ道を通す
+    /// </summary>
+    public static async Task<bool> ShowIfPresentAsync(
+        string project,
+        string projectName,
+        OpenUnityEditor? editor,
+        IReadOnlyList<UnityPackageEntry> packages,
+        string itemId,
+        Action<string> setStatus)
+    {
+        setStatus($"「{projectName}」の中を調べています…");
+        var (roots, present) = await Task.Run(() =>
+        {
+            var paths = packages.SelectMany(UnityHandoff.ReadAssetPaths).ToList();
+            var matches = UnityProjectMatcher.Match(
+                project, new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [itemId] = paths });
+            // 入り先の頭の記号（_FUKA）を利用者が消していれば、実際の名前（FUKA）で探す（UnityFolderNames）
+            var children = UnityFolderNames.DiskChildren(project);
+            var roots = UnityHandoff.DestinationRoots(paths).Select(root => UnityFolderNames.ResolveRoot(root, children)).ToList();
+            return (roots, matches.FirstOrDefault()?.Present ?? 0);
+        });
+
+        if (present == 0)
+        {
+            setStatus(string.Empty);
+            return false;
+        }
+
+        if (roots.Count == 0)
+        {
+            setStatus("入り先のフォルダを読めませんでした。");
+            return true;
+        }
+
+        var root = roots[0];
+        var folder = root.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
+        if (editor is null)
+        {
+            setStatus($"「{projectName}」の {root} に入っています。プロジェクトが開いていないので、"
+                + "「Unityを開く」で開いてからもう一度押すと、Unity のプロジェクトタブで示します。");
+            return true;
+        }
+
+        // 名前ではなくパスで渡す。同じ名前のフォルダが別の場所にあると、名前では取り違える（§13-7）
+        var outcome = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, project, root);
+        setStatus(outcome switch
+        {
+            { Problem: { } problem } => problem,
+
+            // Packages の下は Unity の検索に出ないので探していない。見つける場所の名前を伝える
+            { Searched: false, StopReason: { } where } =>
+                $"入り先は {root} です。{where}、Unity では探さずに手前に出しました。",
+
+            // 1件と言い切れないときは、一番上を開かずに検索の結果で止めている（ユーザ指示）。理由と、何をすればよいかを書く
+            { StopReason: { } reason } =>
+                $"Unity の「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
+                + $"入り先は {root} です。Unity で選んでください。",
+            _ => $"Unity の「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。",
+        });
+        return true;
     }
 }

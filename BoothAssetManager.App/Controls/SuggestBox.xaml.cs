@@ -86,6 +86,56 @@ public partial class SuggestBox : UserControl
     }
 
     /// <summary>
+    /// 確定した語を欄に残す（ユーザ指摘 2026-09-19：新しい改変のアバターを選んだのに欄が空に戻り、
+    /// 下に「アバター：」と出るだけで、何を選んだのか分かりにくかった）。
+    /// 既定は消す——タグのように1件ずつ積む欄では、続けて次の語を打つため
+    /// </summary>
+    public static readonly DependencyProperty KeepsCommittedTextProperty =
+        DependencyProperty.Register(nameof(KeepsCommittedText), typeof(bool), typeof(SuggestBox),
+            new PropertyMetadata(false));
+
+    public bool KeepsCommittedText
+    {
+        get => (bool)GetValue(KeepsCommittedTextProperty);
+        set => SetValue(KeepsCommittedTextProperty, value);
+    }
+
+    /// <summary>
+    /// 欄の今の文字（双方向）。選んだ後に打ち直したら、画面の側が「選んだ物」を外せるようにするため
+    /// （欄には別の名前、中では前の選択、という食い違いを残さない）
+    /// </summary>
+    public static readonly DependencyProperty TextProperty =
+        DependencyProperty.Register(nameof(Text), typeof(string), typeof(SuggestBox),
+            new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnTextPropertyChanged));
+
+    public string Text
+    {
+        get => (string)GetValue(TextProperty);
+        set => SetValue(TextProperty, value);
+    }
+
+    private static void OnTextPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var box = (SuggestBox)d;
+        var text = e.NewValue as string ?? string.Empty;
+        if (box.Input.Text == text)
+        {
+            return;
+        }
+
+        // 外から入れた文字で候補を開かない（人が打ったわけではない）
+        box._isCommitting = true;
+        try
+        {
+            box.Input.Text = text;
+        }
+        finally
+        {
+            box._isCommitting = false;
+        }
+    }
+
+    /// <summary>
     /// 欄の枠と地を消し、外側の枠に溶け込ませる。丸い枠の中に置くと、
     /// 既定の四角い枠だけが浮いて見えた（ユーザ指摘 2026-09-18：タグの管理の小分類を足す欄）
     /// </summary>
@@ -158,6 +208,11 @@ public partial class SuggestBox : UserControl
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
         Watermark.Visibility = Input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (Text != Input.Text)
+        {
+            Text = Input.Text;
+        }
 
         if (_isCommitting)
         {
@@ -311,8 +366,17 @@ public partial class SuggestBox : UserControl
         try
         {
             DropDown.IsOpen = false;
-            Input.Clear();
-            Watermark.Visibility = Visibility.Visible;
+            if (KeepsCommittedText)
+            {
+                // 選んだ語をそのまま見せる（打ちかけの語ではなく、候補の表記で）
+                Input.Text = value;
+                Input.CaretIndex = value.Length;
+            }
+            else
+            {
+                Input.Clear();
+                Watermark.Visibility = Visibility.Visible;
+            }
         }
         finally
         {

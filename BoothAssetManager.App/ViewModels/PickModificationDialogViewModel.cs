@@ -169,9 +169,34 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         private set => SetField(ref _newAvatarText, value);
     }
 
-    public string NewAvatarLabel => NewAvatarItemId is null
-        ? "アバターをまだ選んでいません"
-        : $"アバター： {NewAvatarText}";
+    private string _newAvatarQuery = string.Empty;
+
+    /// <summary>
+    /// アバターの欄の文字。選んだ名前はこの欄にそのまま出す（ユーザ指摘 2026-09-19：欄が空に戻って、下に「アバター：」と
+    /// 出るだけでは何を選んだか分かりにくかった）。選んだ後に打ち直したら、選んだアバターは外す（欄と中身を食い違わせない）
+    /// </summary>
+    public string NewAvatarQuery
+    {
+        get => _newAvatarQuery;
+        set
+        {
+            if (!SetField(ref _newAvatarQuery, value ?? string.Empty))
+            {
+                return;
+            }
+
+            if (NewAvatarItemId is not null && _newAvatarQuery.Trim() != NewAvatarText)
+            {
+                NewAvatarItemId = null;
+                OnPropertyChanged(nameof(HasNewAvatar));
+            }
+        }
+    }
+
+    public bool HasNewAvatar => NewAvatarItemId is not null;
+
+    /// <summary>選んでいない間だけ、欄の下で何をすればよいかを言う（選んだら欄が名前を見せる）。</summary>
+    public string NewAvatarLabel => "候補から選んでください（まだ選んでいません）";
 
     /// <summary>押せるか。**選んでいないのに押せると、何が起きるか分からない。**</summary>
     public bool CanCommit => MakingNew
@@ -199,9 +224,10 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
         if (ResolveAvatar(trimmed) is { } itemId)
         {
-            NewAvatarItemId = itemId;
             NewAvatarText = trimmed;
-            OnPropertyChanged(nameof(NewAvatarLabel));
+            NewAvatarItemId = itemId;
+            NewAvatarQuery = trimmed;
+            OnPropertyChanged(nameof(HasNewAvatar));
         }
     }
 }
