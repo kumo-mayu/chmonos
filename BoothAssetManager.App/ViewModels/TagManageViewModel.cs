@@ -291,6 +291,7 @@ public sealed class TagManageViewModel : ViewModelBase
         RenameTopCommand = new RelayCommand(() => AskRenameTopAsync().Forget(), () => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
+        ToggleAllCommand = new RelayCommand(ToggleAll);
         ShowItemsCommand = new RelayCommand(
             () => _main.ShowItemsWithTag(Selected!.Name),
             () => Selected is { ItemCount: > 0 });
@@ -724,6 +725,30 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public bool HasSubs => Subs.Count > 0;
 
+    /// <summary>
+    /// 小分類をまとめて開く・畳む（ユーザ指示 2026-09-19）。1つずつ三角を押して回るのは、小分類の多い大分類で手間。
+    /// 開けるのは中身のある小分類だけ（中身の無い物は三角も押せない）。探している間は、出ている物だけが相手
+    /// </summary>
+    public RelayCommand ToggleAllCommand { get; }
+
+    private IEnumerable<TagSubRow> OpenableSubs => Subs.Where(row => row.IsUsed && !row.IsHidden);
+
+    /// <summary>開ける物が全部開いていれば「すべて畳む」、1つでも畳んでいれば「すべて開く」。</summary>
+    public bool AllSubsExpanded => OpenableSubs.Any() && OpenableSubs.All(row => row.IsExpanded);
+
+    public string ToggleAllText => AllSubsExpanded ? "すべて畳む" : "すべて開く";
+
+    private void ToggleAll()
+    {
+        var expand = !AllSubsExpanded;
+        foreach (var row in OpenableSubs.ToList())
+        {
+            row.IsExpanded = expand;
+        }
+
+        OnPropertyChanged(nameof(ToggleAllText));
+    }
+
     private void RebuildSubs()
     {
         Subs.Clear();
@@ -781,6 +806,9 @@ public sealed class TagManageViewModel : ViewModelBase
                 {
                     ExpandedSubs.Remove(key);
                 }
+
+                // 1つずつ開け閉めしても、「すべて開く／すべて畳む」の言い方を合わせる
+                OnPropertyChanged(nameof(ToggleAllText));
             };
 
             if (row.IsUsed && ExpandedSubs.Contains(key))
@@ -811,6 +839,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
         ApplyItemFilter();
         OnPropertyChanged(nameof(HasSubs));
+        OnPropertyChanged(nameof(ToggleAllText));
     }
 
     /// <summary>

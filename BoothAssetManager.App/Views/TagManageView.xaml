@@ -357,6 +357,15 @@
                                                 </controls:SuggestBox>
                                             </StackPanel>
                                         </Border>
+
+                                        <!--
+                                            小分類をまとめて開く・畳む（ユーザ指示 2026-09-19）。全部開いている間は「すべて畳む」になる。
+                                            開くのは中身のある小分類だけ（中身の無い物は三角も押せない）
+                                        -->
+                                        <Button Content="{Binding ToggleAllText}" Style="{StaticResource SmallButton}"
+                                                Margin="16,0,0,0" VerticalAlignment="Center"
+                                                Command="{Binding ToggleAllCommand}"
+                                                ToolTip="中身のある小分類を、まとめて開くか畳みます。探している間は、出ている小分類だけが相手です。" />
                                     </StackPanel>
 
                                     <controls:SearchSyntaxHint Margin="2,6,0,0" />
