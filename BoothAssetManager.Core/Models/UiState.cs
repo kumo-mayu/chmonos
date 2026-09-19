@@ -33,6 +33,12 @@ public sealed record UiState
     public string AttributeSort { get; init; } = "manual";
 
     /// <summary>
+    /// タグの管理・属性の管理で、中の商品を縦に流すか（ユーザ指示 2026-09-19：横固定だと、縦に読む人には並びが追いにくい）。
+    /// false なら左から右へ、true なら上から下へ。2つの画面で1つの選択にする（画面ごとに向きが違うと読み違える）
+    /// </summary>
+    public bool ManageItemsVertical { get; init; }
+
+    /// <summary>
     /// 検索の絞り込みパネルを畳んでいるか。
     ///
     /// 畳んでも条件は生きたままなので、畳んだ姿には**効いている条件の数**を出す。

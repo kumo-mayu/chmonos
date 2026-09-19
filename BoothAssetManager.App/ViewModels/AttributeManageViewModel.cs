@@ -261,6 +261,35 @@ public sealed class AttributeManageViewModel : ViewModelBase
         set => ItemsDescending = !value;
     }
 
+    private bool? _itemsVertical;
+
+    /// <summary>
+    /// 中の商品を上から下へ流すか（ユーザ指示 2026-09-19：横固定だと縦に読む人には並びが追いにくい）。
+    /// タグの管理と1つの選択（`ui-state.json` の `manageItemsVertical`）
+    /// </summary>
+    public bool ItemsFlowVertical
+    {
+        get => _itemsVertical ??= _services.UiState.ManageItemsVertical;
+        set
+        {
+            if (value == ItemsFlowVertical)
+            {
+                return;
+            }
+
+            _itemsVertical = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ItemsFlowHorizontal));
+            _main.SaveUiStateAsync(state => state with { ManageItemsVertical = value }).Forget();
+        }
+    }
+
+    public bool ItemsFlowHorizontal
+    {
+        get => !ItemsFlowVertical;
+        set => ItemsFlowVertical = !value;
+    }
+
     private string _itemFilter = string.Empty;
 
     /// <summary>この属性を持つ商品の中を探す。書き方は検索画面と同じ（ユーザ指示 2026-09-19）。</summary>

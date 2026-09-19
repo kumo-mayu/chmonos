@@ -135,12 +135,13 @@
 
     <!--
         中に入っている商品1件（小分類の中・属性を持つ商品）。押すと商品ページへ（改変の一覧と同じ）。
+        大きな絵は左に出す（ユーザ指摘 2026-09-19：右に出すと、小さな絵に乗せたマウスから行の幅ぶん離れて遠い）。
         属性では値の札を名前の右に出す（どのくらいと評価したかが、並びの理由なので）
     -->
     <DataTemplate x:Key="ManageItemTemplate" DataType="{x:Type vm:TagItemRow}">
         <Button Style="{StaticResource TagItemLink}" Margin="0,0,10,8"
                 Command="{Binding OpenCommand}"
-                ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
+                ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Left">
             <Button.ToolTip>
                 <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
                     <StackPanel Width="180">

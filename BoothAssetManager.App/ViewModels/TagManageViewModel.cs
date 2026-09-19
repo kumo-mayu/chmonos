@@ -708,6 +708,35 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public bool HasItemFilter => _itemFilter.Trim().Length > 0;
 
+    private bool? _itemsVertical;
+
+    /// <summary>
+    /// 小分類の中の商品を上から下へ流すか（ユーザ指示 2026-09-19：横固定だと縦に読む人には並びが追いにくい）。
+    /// 属性の管理と1つの選択（`ui-state.json` の `manageItemsVertical`）
+    /// </summary>
+    public bool ItemsFlowVertical
+    {
+        get => _itemsVertical ??= _services.UiState.ManageItemsVertical;
+        set
+        {
+            if (value == ItemsFlowVertical)
+            {
+                return;
+            }
+
+            _itemsVertical = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ItemsFlowHorizontal));
+            _main.SaveUiStateAsync(state => state with { ManageItemsVertical = value }).Forget();
+        }
+    }
+
+    public bool ItemsFlowHorizontal
+    {
+        get => !ItemsFlowVertical;
+        set => ItemsFlowVertical = !value;
+    }
+
     private int _itemFilterHits;
     private int _subFilterHits;
 

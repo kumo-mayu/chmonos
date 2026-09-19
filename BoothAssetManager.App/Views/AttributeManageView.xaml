@@ -257,6 +257,17 @@
                                     <RadioButton Content="値の低い順" GroupName="AttributeItemsOrder" Style="{StaticResource SegmentLast}"
                                                  IsChecked="{Binding ItemsAscending, Mode=TwoWay}" />
                                 </StackPanel>
+
+                                <!-- 並ぶ向き（ユーザ指示 2026-09-19：横固定だと縦に読む人には並びが追いにくい） -->
+                                <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
+                                            IsEnabled="{Binding SelectedIsUsed}">
+                                    <RadioButton Content="横に並べる" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentFirst}"
+                                                 IsChecked="{Binding ItemsFlowHorizontal, Mode=TwoWay}"
+                                                 ToolTip="左から右へ並べ、端まで来たら次の段へ。タグの管理と同じ向きになります。" />
+                                    <RadioButton Content="縦に並べる" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentLast}"
+                                                 IsChecked="{Binding ItemsFlowVertical, Mode=TwoWay}"
+                                                 ToolTip="上から下へ並べ、下まで来たら次の列へ。タグの管理と同じ向きになります。" />
+                                </StackPanel>
                             </StackPanel>
 
                             <Grid Width="360" HorizontalAlignment="Left" Margin="30,10,0,0">
@@ -278,7 +289,8 @@
                                 <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <WrapPanel />
+                                            <!-- 左から右か上から下か（ユーザ指示 2026-09-19）。タグの管理と1つの選択 -->
+                                            <controls:FlowGridPanel FlowsVertically="{Binding ItemsFlowVertical}" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>

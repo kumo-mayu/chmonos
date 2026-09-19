@@ -357,6 +357,16 @@
                                                 </controls:SuggestBox>
                                             </StackPanel>
                                         </Border>
+
+                                        <!-- 中の商品の並ぶ向き（ユーザ指示 2026-09-19）。属性の管理と1つの選択 -->
+                                        <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
+                                            <RadioButton Content="横に並べる" GroupName="TagItemsFlow" Style="{StaticResource SegmentFirst}"
+                                                         IsChecked="{Binding ItemsFlowHorizontal, Mode=TwoWay}"
+                                                         ToolTip="小分類の中の商品を左から右へ並べ、端まで来たら次の段へ。属性の管理と同じ向きになります。" />
+                                            <RadioButton Content="縦に並べる" GroupName="TagItemsFlow" Style="{StaticResource SegmentLast}"
+                                                         IsChecked="{Binding ItemsFlowVertical, Mode=TwoWay}"
+                                                         ToolTip="小分類の中の商品を上から下へ並べ、下まで来たら次の列へ。属性の管理と同じ向きになります。" />
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <controls:SearchSyntaxHint Margin="2,6,0,0" />
@@ -487,7 +497,8 @@
                                                     <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
-                                                                <WrapPanel />
+                                                                <!-- 左から右か上から下か（ユーザ指示 2026-09-19）。行の DataContext は小分類なので、画面の選択を引く -->
+                                                                <controls:FlowGridPanel FlowsVertically="{Binding DataContext.ItemsFlowVertical, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                                             </ItemsPanelTemplate>
                                                         </ItemsControl.ItemsPanel>
                                                     </ItemsControl>
