@@ -33,7 +33,7 @@
                 Visibility="{Binding AsksAboutEmptySourceTop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <StackPanel>
                 <TextBlock Text="{Binding EmptySourceTopText}" FontSize="12.5" TextWrapping="Wrap" />
-                <TextBlock Text="サブなしでトップだけ付いている状態にも意味があるので、どちらにするか選んでください。"
+                <TextBlock Text="小分類なしで大分類だけが付いている状態にも意味があるので、どちらにするか選んでください。"
                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,9" />
 
                 <RadioButton Content="{Binding KeepSourceTopText}" IsChecked="{Binding KeepEmptySourceTop, Mode=TwoWay}"

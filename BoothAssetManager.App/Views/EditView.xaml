@@ -558,7 +558,7 @@
                                             </ItemsControl>
 
                                             <controls:SuggestBox Source="{Binding SubCandidates}" CommitCommand="{Binding AddSubCommand}"
-                                                                 Placeholder="サブを追加" Margin="0,6,0,0" />
+                                                                 Placeholder="小分類を追加" Margin="0,6,0,0" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

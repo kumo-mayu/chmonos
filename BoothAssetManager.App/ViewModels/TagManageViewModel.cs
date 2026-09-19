@@ -60,13 +60,15 @@ public sealed class TagTopRow : ReorderableRow
 
     public required string Name { get; init; }
 
-    public string? Memo { get; init; }
+    /// <summary>保存したら書き換える。読み込み時の値のままだと、選び直したときに古いメモが出る。</summary>
+    public string? Memo { get; set; }
 
     public required int SubCount { get; init; }
 
     public required int ItemCount { get; init; }
 
-    public string SubCountText => SubCount == 0 ? "サブなし" : $"サブ {SubCount} 件";
+    // 画面の言葉は「大分類／小分類」に揃える（ユーザ指示 2026-09-19：「サブ」「トップ」と混ざっていた）
+    public string SubCountText => SubCount == 0 ? "小分類なし" : $"小分類 {SubCount} 件";
 
     public string ItemCountText => ItemCount == 0 ? "未使用" : $"{ItemCount}";
 
@@ -84,7 +86,8 @@ public sealed class TagSubRow : ReorderableRow
 
     public required string Top { get; init; }
 
-    public string? Memo { get; init; }
+    /// <summary>保存したら書き換える（次に保存するとき、変わった行だけを書くため）。</summary>
+    public string? Memo { get; set; }
 
     public required int ItemCount { get; init; }
 
@@ -133,6 +136,15 @@ public sealed class TagSubRow : ReorderableRow
     public string ItemCountText => ItemCount == 0 ? "未使用" : $"{ItemCount}";
 
     public bool IsUsed => ItemCount > 0;
+
+    // 押せないときは理由を言う（押しても何も起きないように見える物を作らない）
+    public string ExpandToolTip => IsUsed
+        ? "開くと、この小分類が付いている商品が並びます。"
+        : "この小分類はまだどの商品にも付いていないので、開いても中身がありません。";
+
+    public string ShowItemsToolTip => IsUsed
+        ? "この小分類が付いている商品を、検索で開きます。"
+        : "この小分類はまだどの商品にも付いていません。編集画面で付けると開けます。";
 
     private bool _isHidden;
 
@@ -213,8 +225,8 @@ public sealed class OrphanTagRow : ViewModelBase
     public string ItemCountText => $"{ItemCount} 件の商品が参照";
 
     public string MergePlaceholder => IsSub
-        ? $"「{Top}」の既存サブへ寄せる"
-        : "既存の分類へ寄せる";
+        ? $"「{Top}」の既にある小分類へ寄せる"
+        : "既にある大分類へ寄せる";
 
     /// <summary>寄せ先の候補。トップならトップ一覧、サブなら同じトップの既存サブ。</summary>
     public IReadOnlyList<string> MergeCandidates { get; set; } = [];
@@ -419,8 +431,6 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public RelayCommand DeleteTopCommand { get; }
 
-    public RelayCommand SaveMemoCommand { get; }
-
     public RelayCommand RefreshCommand { get; }
 
     /// <summary>この分類が付いているitemを検索で見せる。消す・統合するの判断は中身を見ないとできない。</summary>
@@ -437,6 +447,9 @@ public sealed class TagManageViewModel : ViewModelBase
             {
                 return;
             }
+
+            // 待っているメモは、移る前に今の対象へ書き切る。移ってからだと、移った先の欄の文と名前で書いてしまう
+            FlushMemos();
 
             if (_selected is not null)
             {
@@ -461,7 +474,7 @@ public sealed class TagManageViewModel : ViewModelBase
             OnPropertyChanged(nameof(SelectedName));
             OnPropertyChanged(nameof(SelectedUsageText));
             OnPropertyChanged(nameof(SelectedIsUsed));
-            OnPropertyChanged(nameof(RenameImpactText));
+            OnPropertyChanged(nameof(ShowItemsToolTip));
             RebuildSubs();
             RebuildOtherNames();
             RelayCommand.RaiseCanExecuteChanged();
@@ -478,10 +491,9 @@ public sealed class TagManageViewModel : ViewModelBase
             ? "まだどの商品にも付いていません。編集画面で付けると、ここに件数が出ます。"
             : $"{Selected.ItemCount} 件の商品に付いています";
 
-    /// <summary>改名すると何件が書き換わるか。押す前に見えていないと判断できない。</summary>
-    public string RenameImpactText => Selected is null || Selected.ItemCount == 0
-        ? "既にある名前を選ぶと統合します。"
-        : $"既にある名前を選ぶと統合します。{Selected.ItemCount} 件の商品を書き換えます。";
+    public string ShowItemsToolTip => SelectedIsUsed
+        ? "この大分類が付いている商品を、検索で開きます。"
+        : "この大分類はまだどの商品にも付いていません。編集画面で付けると開けます。";
 
     public string FilterText
     {
@@ -507,6 +519,7 @@ public sealed class TagManageViewModel : ViewModelBase
                 // 押さずに残す（ユーザ指示 2026-09-18）。選び直しで欄を入れ替えたときは書かない
                 if (!_swappingMemo)
                 {
+                    _memoPending = true;
                     _saveMemo.Request();
                 }
             }
@@ -549,6 +562,8 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public async Task ReloadAsync()
     {
+        await FlushMemosAsync();
+
         IsBusy = true;
         try
         {
@@ -675,9 +690,10 @@ public sealed class TagManageViewModel : ViewModelBase
     public bool HasItemFilter => _itemFilter.Trim().Length > 0;
 
     private int _itemFilterHits;
+    private int _subFilterHits;
 
     public string ItemFilterResultText => HasItemFilter
-        ? $"「{_itemFilter.Trim()}」に当たる商品 {_itemFilterHits} 件（当たった小分類だけを開いています）"
+        ? $"「{_itemFilter.Trim()}」に当たる小分類 {_subFilterHits} 件・商品 {_itemFilterHits} 件（当たった所だけを出しています）"
         : string.Empty;
 
     /// <summary>絞り込んでいるか。絞っている間は、右の小分類と中の商品も同じ語で絞る。</summary>
@@ -722,7 +738,11 @@ public sealed class TagManageViewModel : ViewModelBase
                 MemoDraft = sub.Memo ?? string.Empty,
             };
 
-            row.MemoEdited += _ => _saveSubMemo.Request();
+            row.MemoEdited += _ =>
+            {
+                _subMemoPending = true;
+                _saveSubMemo.Request();
+            };
             row.ExpandRequested += entry => FillSubItemsAsync(entry).Forget();
 
             // 開いていた小分類は、商品ページから戻ってきたときも開いたままにする（ユーザ指示 2026-09-18）
@@ -800,16 +820,20 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        var items = _main.Search.SnapshotItems()
-            .Where(item => item.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
-            .ToList();
+        var all = _main.Search.SnapshotItems();
+        _subFilterHits = 0;
 
         foreach (var row in Subs)
         {
-            var matched = items
+            // 小分類の名前で当たったら、中の商品は全部出す（ユーザ指示 2026-09-19：
+            // 名前で探した人は、その小分類の中身を見たい。商品名でさらに削ると探した物が隠れる）
+            var nameHit = row.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
+
+            var matched = all
                 .Where(item => item.Local.UserTags.Any(tag =>
                     string.Equals(tag.Top, row.Top, StringComparison.CurrentCultureIgnoreCase)
                     && tag.Subs.Any(sub => string.Equals(sub, row.Name, StringComparison.CurrentCultureIgnoreCase))))
+                .Where(item => nameHit || item.DisplayName.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
                 .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
                 .ToList();
 
@@ -819,8 +843,17 @@ public sealed class TagManageViewModel : ViewModelBase
                 row.Items.Add(CreateItemRow(item));
             }
 
-            _itemFilterHits += matched.Count;
-            row.IsHidden = matched.Count == 0;
+            if (nameHit)
+            {
+                _subFilterHits++;
+            }
+            else
+            {
+                _itemFilterHits += matched.Count;
+            }
+
+            // 名前で当たった小分類は、中身が無くても出す（使っていない小分類を名前で探すこともある）
+            row.IsHidden = !nameHit && matched.Count == 0;
             row.IsExpanded = matched.Count > 0;
         }
     }
@@ -954,8 +987,7 @@ public sealed class TagManageViewModel : ViewModelBase
             ? $"「{Selected.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
             : $"「{Selected.Name}」を削除します。\n\n"
                 + $"{Selected.ItemCount} 件の商品からこの分類が外れます（小分類も一緒に外れます）。\n"
-                + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。\n"
-                + "この操作は元に戻せません。";
+                + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。";
 
         if (!Confirm(message, "分類を削除する"))
         {
@@ -1193,35 +1225,65 @@ public sealed class TagManageViewModel : ViewModelBase
         await _main.ReloadLibraryAsync();
     }
 
+    private bool _memoPending;
+    private bool _subMemoPending;
+
+    /// <summary>
+    /// 待っているメモを今書く。選び直す・読み直す前に呼ぶ——800ms の待ちの間に移ると、
+    /// 待ちが明けたときには欄も小分類の行も移った先の物になっていて、打った文が消えていた
+    /// </summary>
+    private void FlushMemos() => FlushMemosAsync().Forget();
+
+    /// <summary>
+    /// 書く値は最初の await より前に控えるので、待たずに選び直しても控えた方が書かれる。
+    /// 読み直すときは、古いファイルを読まないよう書き終わるまで待つ
+    /// </summary>
+    private async Task FlushMemosAsync()
+    {
+        var top = _memoPending ? SaveMemoAsync() : Task.CompletedTask;
+        var subs = _subMemoPending ? SaveSubMemosAsync() : Task.CompletedTask;
+        _saveMemo.Cancel();
+        _saveSubMemo.Cancel();
+        await Task.WhenAll(top, subs);
+    }
+
     private async Task SaveMemoAsync()
     {
-        if (Selected is null)
+        _memoPending = false;
+        if (Selected is not { } row)
         {
             return;
         }
 
-        // 読み直すと打っている途中の欄が戻るので、ここでは読み直さない（ショップ・アバターと同じ）
-        var name = Selected.Name;
+        // 読み直すと打っている途中の欄が戻るので、ここでは読み直さない（ショップ・アバターと同じ）。
+        // 代わりに行の値を書き換えて、選び直したときに古いメモが出ないようにする
         var memo = MemoDraft;
-        await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(name, null, memo));
+        row.Memo = memo;
+        await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(row.Name, null, memo));
         StatusText = memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
     }
 
     /// <summary>小分類のメモを保存する。打つたびではなく、止まってから変わったものだけ書く。</summary>
     private async Task SaveSubMemosAsync()
     {
-        foreach (var row in Subs.ToList())
-        {
-            if (row.MemoDraft == (row.Memo ?? string.Empty))
-            {
-                continue;
-            }
+        _subMemoPending = false;
 
-            await _services.Commands.ExecuteAsync(
-                new UiCommand.SetUserTagMemo(row.Top, row.Name, row.MemoDraft));
+        // 変わった行と文を先に控える。書く間に選び直されて行が入れ替わっても、控えた方を書く
+        var changed = Subs
+            .Where(row => row.MemoDraft != (row.Memo ?? string.Empty))
+            .Select(row => (Row: row, Memo: row.MemoDraft))
+            .ToList();
+
+        foreach (var (row, memo) in changed)
+        {
+            row.Memo = memo;
+            await _services.Commands.ExecuteAsync(new UiCommand.SetUserTagMemo(row.Top, row.Name, memo));
         }
 
-        StatusText = "メモを保存しました。";
+        if (changed.Count > 0)
+        {
+            StatusText = "メモを保存しました。";
+        }
     }
 
     /// <summary>

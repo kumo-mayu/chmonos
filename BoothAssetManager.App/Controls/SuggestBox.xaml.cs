@@ -85,6 +85,35 @@ public partial class SuggestBox : UserControl
         set => SetValue(IconSelectorProperty, value);
     }
 
+    /// <summary>
+    /// 欄の枠と地を消し、外側の枠に溶け込ませる。丸い枠の中に置くと、
+    /// 既定の四角い枠だけが浮いて見えた（ユーザ指摘 2026-09-18：タグの管理の小分類を足す欄）
+    /// </summary>
+    public static readonly DependencyProperty IsFramelessProperty =
+        DependencyProperty.Register(nameof(IsFrameless), typeof(bool), typeof(SuggestBox),
+            new PropertyMetadata(false, OnIsFramelessChanged));
+
+    public bool IsFrameless
+    {
+        get => (bool)GetValue(IsFramelessProperty);
+        set => SetValue(IsFramelessProperty, value);
+    }
+
+    private static void OnIsFramelessChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var box = (SuggestBox)d;
+        if ((bool)e.NewValue)
+        {
+            box.Input.BorderThickness = new Thickness(0);
+            box.Input.Background = Brushes.Transparent;
+        }
+        else
+        {
+            box.Input.ClearValue(Control.BorderThicknessProperty);
+            box.Input.ClearValue(Control.BackgroundProperty);
+        }
+    }
+
     private bool _isCommitting;
     private bool _skipNextFocusOpen;
 

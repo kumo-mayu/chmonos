@@ -20,9 +20,8 @@
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
 
+                <!-- 保存先のファイル名は出さない（内部の名前。タグの管理と揃える。ユーザ指示 2026-09-19） -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="attributes.json" Style="{StaticResource Mono}" Foreground="{StaticResource TextFaint}"
-                               FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
                 </StackPanel>
             </Grid>
@@ -110,7 +109,8 @@
 
             <!-- 右：選んだ属性の中身 -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
-                <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                <!-- 使える幅いっぱいを使う（タグの管理と揃える。ユーザ指示 2026-09-19） -->
+                <StackPanel HorizontalAlignment="Stretch">
 
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -122,7 +122,7 @@
                         <StackPanel Margin="18,15">
                             <TextBlock Text="一覧に無い属性" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
                             <!-- 分類側と同じ理由。通常の流れに手動追加の手順があるように読ませない -->
-                            <TextBlock Text="編集画面で付けた属性は、その場で一覧に入ります。ここに出ているのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合です。"
+                            <TextBlock Text="編集画面で付けた属性は、その場で一覧に入ります。ここに出ているのは、アプリの外で保存先のファイルを直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                             <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既存へ寄せ、もう使わないなら消してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
@@ -171,39 +171,39 @@
                             <Grid>
                                 <StackPanel Margin="0,0,120,0">
                                     <TextBlock Text="属性" Style="{StaticResource SectionLabel}" />
-                                    <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
-                                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                                    <!-- 名前の変更は名前の横に置き、窓で聞く（タグの管理と揃える。ユーザ指示 2026-09-19） -->
+                                    <WrapPanel Margin="0,6,0,0">
+                                        <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <Button Content="名前を変更" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                                Command="{Binding AskRenameCommand}"
+                                                ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。評価した商品はまとめて書き換わります。" />
+                                    </WrapPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                                         <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"
                                                    VerticalAlignment="Center" />
+                                        <!-- 使っていないときも消さずに押せない形で残す（タグの管理と揃える） -->
                                         <Button Content="検索で開く" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                 Command="{Binding ShowItemsCommand}"
-                                                Visibility="{Binding SelectedIsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                IsEnabled="{Binding SelectedIsUsed}"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                ToolTip="{Binding ShowItemsToolTip}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <Button Content="この属性を削除" Style="{StaticResource SmallButton}"
-                                        Foreground="#9a3232" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Foreground="#9a3232" BorderBrush="#e2bcbc"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top"
                                         Command="{Binding DeleteCommand}" />
                             </Grid>
 
                             <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
 
-                            <TextBlock Text="名前を変更 / 統合" Style="{StaticResource SectionLabel}" />
-                            <TextBlock Text="{Binding RenameImpactText}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="0,5,0,7" />
-                            <controls:SuggestBox Source="{Binding OtherNames}" CommitCommand="{Binding RenameCommand}"
-                                                 Placeholder="新しい名前（既存を選ぶと統合）" HorizontalAlignment="Left" Width="360" />
-
-                            <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
-
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
-                            <TextBlock Text="どのくらいで何%にするかの基準。主観的な尺度なので、書いておかないとぶれます。"
+                            <TextBlock Text="どのくらいで何%にするかの基準。主観的な尺度なので、書いておかないとぶれます。打ち終えると残ります。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
                             <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Padding="10,8"
                                      VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource BorderStrong}" />
-                            <Button Content="メモを保存" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
-                                    Margin="0,8,0,0" Command="{Binding SaveMemoCommand}" />
                         </StackPanel>
                     </Border>
 

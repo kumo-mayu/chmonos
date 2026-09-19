@@ -12,7 +12,7 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
 {
     private string _target = string.Empty;
 
-    /// <param name="kindText">「大分類」か「小分類」。</param>
+    /// <param name="kindText">「大分類」「小分類」「属性」（属性の管理も同じ窓を使う。操作感を揃えるため）。</param>
     /// <param name="itemCount">その分類が付いている商品の数。</param>
     /// <param name="candidates">統合先の候補（自分以外の、同じ階層の名前）。</param>
     public RenameTagDialogViewModel(string kindText, string name, int itemCount, IReadOnlyList<string> candidates)

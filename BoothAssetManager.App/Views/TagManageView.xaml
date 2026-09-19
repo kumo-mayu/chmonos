@@ -58,6 +58,12 @@
                                 <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
                                 <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Accent}" />
                             </Trigger>
+                            <!-- 中身の無い小分類。消さずに薄くして、押せないことを見せる（ユーザ指示 2026-09-19） -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Ring" Property="Opacity" Value="0.5" />
+                                <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Border}" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -181,8 +187,11 @@
             <!-- 右：選んだトップレベルの中身 -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
                 <!-- Leftにすると、状況表示の文の長さでカードの幅が動いてしまう -->
-                <!-- 小分類を2列に流せるよう、右は幅いっぱいまで使う（ユーザ指示 2026-09-18） -->
-                <StackPanel MaxWidth="1400" HorizontalAlignment="Stretch">
+                <!--
+                    右は使える幅いっぱいを使う（ユーザ指示 2026-09-19）。上限を付けると広い画面で中央に寄り、
+                    左の一覧との間に大きな空白ができていた。小分類はその分だけ列が増える
+                -->
+                <StackPanel HorizontalAlignment="Stretch">
 
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -198,7 +207,7 @@
                                 ここに出るのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合だけ。
                                 通常の流れに手動追加の手順があるように読ませない。
                             -->
-                            <TextBlock Text="編集画面で付けた分類は、その場で一覧に入ります。ここに出ているのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合です。"
+                            <TextBlock Text="編集画面で付けた分類は、その場で一覧に入ります。ここに出ているのは、アプリの外で保存先のファイルを直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                             <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既存へ寄せ、もう使わないなら外してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
@@ -258,15 +267,29 @@
                                 <Grid>
                                     <StackPanel Margin="0,0,120,0">
                                         <TextBlock Text="大分類" Style="{StaticResource SectionLabel}" />
-                                        <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
-                                                   TextWrapping="Wrap" Margin="0,6,0,0" />
+                                        <!--
+                                            名前の変更は名前の横に置く（ユーザ指示 2026-09-19）。専用の段を設けると、
+                                            ボタン1つのために説明と区切り線が1段ずつ増えていた。何件が書き換わるかは窓が言う
+                                        -->
+                                        <WrapPanel Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding SelectedName}" FontSize="22" FontWeight="Bold"
+                                                       TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <Button Content="名前を変更" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                                    Command="{Binding RenameTopCommand}"
+                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。付いている商品はまとめて書き換わります。" />
+                                        </WrapPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"
                                                        VerticalAlignment="Center" />
-                                            <!-- 件数だけでは消していいか統合していいか判断できないので、中身へ行けるようにする -->
+                                            <!--
+                                                件数だけでは消していいか統合していいか判断できないので、中身へ行けるようにする。
+                                                使っていないときも消さずに押せない形で残す（ユーザ指示 2026-09-19：行ごとにボタンの有無が変わると揃わない）
+                                            -->
                                             <Button Content="検索で開く" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                     Command="{Binding ShowItemsCommand}"
-                                                    Visibility="{Binding SelectedIsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                    IsEnabled="{Binding SelectedIsUsed}"
+                                                    ToolTipService.ShowOnDisabled="True"
+                                                    ToolTip="{Binding ShowItemsToolTip}" />
                                         </StackPanel>
                                     </StackPanel>
                                     <!-- 大分類の削除は小分類も商品の付け替えも伴うので、色で重さを出す（ユーザ指摘 2026-09-18） -->
@@ -275,15 +298,6 @@
                                             HorizontalAlignment="Right" VerticalAlignment="Top"
                                             Command="{Binding DeleteTopCommand}" />
                                 </Grid>
-
-                                <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
-
-                                <!-- 名前の変更は窓で聞く（ユーザ指示 2026-09-18：小分類と同じ形に揃える） -->
-                                <TextBlock Text="{Binding RenameImpactText}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,0,0,7" />
-                                <Button Content="名前を変更" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
-                                        Command="{Binding RenameTopCommand}"
-                                        ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。" />
 
                                 <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
 
@@ -301,7 +315,7 @@
                             <StackPanel>
                                 <StackPanel Margin="20,16,20,14">
                                     <TextBlock Text="小分類" FontWeight="Bold" FontSize="13" />
-                                    <TextBlock Text="トップに従属します。トップを外すとサブも一緒に外れます。"
+                                    <TextBlock Text="大分類の下に入ります。商品から大分類を外すと、その下の小分類も一緒に外れます。"
                                                Style="{StaticResource Caption}" Margin="0,4,0,0" />
 
                                     <!--
@@ -312,7 +326,7 @@
                                     <Grid Width="360">
                                         <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
                                                  Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
-                                        <TextBlock Text="この大分類の中を商品名で探す" Margin="11,0,0,0" IsHitTestVisible="False"
+                                        <TextBlock Text="この大分類の中を小分類名・商品名で探す" Margin="11,0,0,0" IsHitTestVisible="False"
                                                    VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                                    Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                     </Grid>
@@ -352,31 +366,43 @@
                                                             </ControlTemplate.Triggers>
                                                         </ControlTemplate>
                                                     </ToggleButton.Template>
-                                                    <ToggleButton.Triggers>
-                                                        <EventTrigger RoutedEvent="ToggleButton.Checked">
-                                                            <BeginStoryboard>
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetName="AddSubBox"
-                                                                                     Storyboard.TargetProperty="Width"
-                                                                                     To="260" Duration="0:0:0.14" />
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </EventTrigger>
-                                                        <EventTrigger RoutedEvent="ToggleButton.Unchecked">
-                                                            <BeginStoryboard>
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetName="AddSubBox"
-                                                                                     Storyboard.TargetProperty="Width"
-                                                                                     To="0" Duration="0:0:0.12" />
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </EventTrigger>
-                                                    </ToggleButton.Triggers>
                                                 </ToggleButton>
 
-                                                <controls:SuggestBox x:Name="AddSubBox" Width="0" Margin="2,0,4,0"
+                                                <!--
+                                                    丸い枠そのものを入力欄に見せる（四角い欄が中で浮いていた。ユーザ指摘 2026-09-18）。
+                                                    伸び縮みは欄の側の Style で持つ。ボタンの側から名前で欄を指すと、開いたまま
+                                                    別の画面へ移ったときに合図だけが流れて欄が見つからず、例外で画面の切り替えが止まった（2026-09-19）
+                                                -->
+                                                <controls:SuggestBox Margin="2,0,10,0"
+                                                                     IsFrameless="True"
                                                                      CommitCommand="{Binding AddSubCommand}"
-                                                                     Placeholder="小分類の名前" VerticalAlignment="Center" />
+                                                                     Placeholder="小分類の名前" VerticalAlignment="Center">
+                                                    <controls:SuggestBox.Style>
+                                                        <Style TargetType="controls:SuggestBox">
+                                                            <Setter Property="Width" Value="0" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsAddingSub}" Value="True">
+                                                                    <DataTrigger.EnterActions>
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                                                                 To="260" Duration="0:0:0.14" />
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </DataTrigger.EnterActions>
+                                                                    <DataTrigger.ExitActions>
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                                                                 To="0" Duration="0:0:0.12" />
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </DataTrigger.ExitActions>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </controls:SuggestBox.Style>
+                                                </controls:SuggestBox>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -446,11 +472,14 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <!--
                                                                 中の商品を見られるように畳む（ユーザ指示 2026-09-18：
-                                                                改変とitemの関係と同じ形）。商品を持つ小分類にだけ印を出す
+                                                                改変とitemの関係と同じ形）。商品の無い小分類でも印は消さずに押せない形で置く
+                                                                （ユーザ指示 2026-09-19：消すと名前の頭が行ごとにずれた）
                                                             -->
                                                             <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center"
                                                                           Margin="0,0,7,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
-                                                                          Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                          IsEnabled="{Binding IsUsed}"
+                                                                          ToolTipService.ShowOnDisabled="True"
+                                                                          ToolTip="{Binding ExpandToolTip}" />
                                                             <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" />
                                                             <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}"
                                                                        FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" />
@@ -477,9 +506,9 @@
                                                             -->
                                                             <Button Content="検索で開く" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,6,0" Command="{Binding ShowItemsCommand}"
+                                                                    IsEnabled="{Binding IsUsed}"
                                                                     ToolTipService.ShowOnDisabled="True"
-                                                                    ToolTip="この小分類が付いている商品を、検索で開きます。"
-                                                                    Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    ToolTip="{Binding ShowItemsToolTip}" />
                                                             <Button Content="名前を変更" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,6,0" Command="{Binding RenameCommand}"
                                                                     ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。" />

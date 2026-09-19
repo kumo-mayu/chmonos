@@ -12,7 +12,8 @@ public sealed class AttributeMasterRow : ReorderableRow
 
     public required string Name { get; init; }
 
-    public string? Memo { get; init; }
+    /// <summary>保存したら書き換える。読み込み時の値のままだと、選び直したときに古いメモが出る。</summary>
+    public string? Memo { get; set; }
 
     public required int ItemCount { get; init; }
 
@@ -82,9 +83,11 @@ public sealed class AttributeManageViewModel : ViewModelBase
         _main = main;
 
         AddCommand = new RelayCommand(parameter => AddAsync(parameter as string).Forget());
-        RenameCommand = new RelayCommand(parameter => RenameAsync(parameter as string).Forget(), _ => Selected is not null);
+        AskRenameCommand = new RelayCommand(() => AskRenameAsync().Forget(), () => Selected is not null);
         DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
-        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget(), () => Selected is not null && MemoChanged);
+
+        // メモは押さずに残す（タグの管理・ショップ・アバターと揃える。ユーザ指示 2026-09-19）
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
         ToggleDefaultCommand = new RelayCommand(() => ToggleDefaultAsync().Forget(), () => Selected is not null);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
@@ -106,11 +109,14 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
     public RelayCommand AddCommand { get; }
 
-    public RelayCommand RenameCommand { get; }
+    /// <summary>名前を変える窓を出す（タグの管理と同じ窓。既にある名前を選ぶと統合）。</summary>
+    public RelayCommand AskRenameCommand { get; }
 
     public RelayCommand DeleteCommand { get; }
 
-    public RelayCommand SaveMemoCommand { get; }
+    private readonly Debounced _saveMemo;
+    private bool _memoPending;
+    private bool _swappingMemo;
 
     /// <summary>編集画面で最初から並べる属性かを切り替える</summary>
     public RelayCommand ToggleDefaultCommand { get; }
@@ -133,6 +139,9 @@ public sealed class AttributeManageViewModel : ViewModelBase
                 return;
             }
 
+            // 待っているメモは、移る前に今の属性へ書き切る。移ってからだと、移った先の名前で書いてしまう
+            FlushMemo();
+
             if (_selected is not null)
             {
                 _selected.IsSelected = false;
@@ -145,14 +154,17 @@ public sealed class AttributeManageViewModel : ViewModelBase
                 _selected.IsSelected = true;
             }
 
+            // 選び直しで欄を入れ替えるときは、自動保存を走らせない
+            _swappingMemo = true;
             MemoDraft = _selected?.Memo ?? string.Empty;
+            _swappingMemo = false;
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelection));
             OnPropertyChanged(nameof(SelectedName));
             OnPropertyChanged(nameof(SelectedUsageText));
             OnPropertyChanged(nameof(SelectedIsUsed));
-            OnPropertyChanged(nameof(RenameImpactText));
+            OnPropertyChanged(nameof(ShowItemsToolTip));
             OnPropertyChanged(nameof(ToggleDefaultText));
             OnPropertyChanged(nameof(SelectedIsDefault));
             OnPropertyChanged(nameof(DefaultNote));
@@ -180,9 +192,9 @@ public sealed class AttributeManageViewModel : ViewModelBase
             ? "まだどの商品も評価していません。編集画面で値を入れると、ここに件数が出ます。"
             : $"{Selected.ItemCount} 件の商品で評価済み（{Selected.AverageText}）";
 
-    public string RenameImpactText => Selected is null || Selected.ItemCount == 0
-        ? "既にある属性を指定することで統合できます。"
-        : $"既にある属性を指定することで統合できます。{Selected.ItemCount} 件の商品を書き換えます。";
+    public string ShowItemsToolTip => SelectedIsUsed
+        ? "この属性で評価した商品を、検索で開きます。"
+        : "この属性はまだどの商品も評価していません。編集画面で値を入れると開けます。";
 
     public string FilterText
     {
@@ -204,7 +216,12 @@ public sealed class AttributeManageViewModel : ViewModelBase
             if (SetField(ref _memoDraft, value))
             {
                 OnPropertyChanged(nameof(MemoChanged));
-                RelayCommand.RaiseCanExecuteChanged();
+
+                if (!_swappingMemo)
+                {
+                    _memoPending = true;
+                    _saveMemo.Request();
+                }
             }
         }
     }
@@ -231,6 +248,13 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
     public async Task ReloadAsync()
     {
+        // 古いファイルを読まないよう、待っているメモを書き終えてから読む
+        if (_memoPending)
+        {
+            _saveMemo.Cancel();
+            await SaveMemoAsync();
+        }
+
         var master = _services.Store.Attributes.Load();
         var usage = await _services.Attributes.LoadUsageAsync();
         var orphans = await _services.Attributes.LoadOrphansAsync();
@@ -439,16 +463,48 @@ public sealed class AttributeManageViewModel : ViewModelBase
         await _main.ReloadLibraryAsync();
     }
 
+    /// <summary>待っているメモを今書く。選び直す前に呼ぶ。</summary>
+    private void FlushMemo()
+    {
+        if (!_memoPending)
+        {
+            return;
+        }
+
+        _saveMemo.Cancel();
+        SaveMemoAsync().Forget();
+    }
+
     private async Task SaveMemoAsync()
+    {
+        _memoPending = false;
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        // 読み直すと打っている途中の欄が戻るので読み直さず、行の値だけ書き換える（タグの管理と同じ）
+        var memo = MemoDraft;
+        row.Memo = memo;
+        await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeMemo(row.Name, memo));
+        StatusText = memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
+    }
+
+    /// <summary>名前を変える窓を出してから実行する。既にある名前を選ぶと統合になる。</summary>
+    private async Task AskRenameAsync()
     {
         if (Selected is null)
         {
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new UiCommand.SetAttributeMemo(Selected.Name, MemoDraft));
-        StatusText = "メモを保存しました。";
-        await ReloadAsync();
+        var model = new RenameTagDialogViewModel("属性", Selected.Name, Selected.ItemCount, OtherNames.ToList());
+        if (new Views.RenameTagDialog(model).ShowDialog() != true)
+        {
+            return;
+        }
+
+        await RenameAsync(model.Target);
     }
 
     /// <summary>

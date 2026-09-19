@@ -37,7 +37,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
     public RelayCommand PickTargetCommand { get; }
 
-    public string HeadingText => $"「{Sub}」を「{FromTop}」から別のトップへ移します。";
+    public string HeadingText => $"「{Sub}」を「{FromTop}」から別の大分類へ移します。";
 
     public string? Target
     {
@@ -88,7 +88,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
     public string EmptySourceTopText => _preview is null
         ? string.Empty
-        : $"{_preview.ItemsLeavingEmptyTop} 件の商品では、「{FromTop}」にサブが残りません。";
+        : $"{_preview.ItemsLeavingEmptyTop} 件の商品では、「{FromTop}」の小分類が1つも残りません。";
 
     public string KeepSourceTopText => $"「{FromTop}」はそのまま残す";
 
