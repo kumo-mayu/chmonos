@@ -202,7 +202,8 @@ public sealed class LocalFileRow : ViewModelBase
     /// <summary>同じ中身が複数箇所にある状態。容量は1回しか数えない。</summary>
     public bool HasMultiplePaths => Paths.Count > 1;
 
-    public string DuplicateNote => $"{Paths.Count}箇所に同じ実体";
+    // 「実体」は内部の言葉に読めた（ユーザ指摘 2026-09-19）。ほかの場所の見出し・ツールチップと同じ「同じ中身」で言う
+    public string DuplicateNote => $"同じ中身が {Paths.Count} 箇所に";
 
     public bool IsMissing => Paths.Count == 0;
 
