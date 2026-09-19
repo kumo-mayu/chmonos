@@ -263,10 +263,10 @@
                                             IsEnabled="{Binding SelectedIsUsed}">
                                     <RadioButton Content="横に並べる" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentFirst}"
                                                  IsChecked="{Binding ItemsFlowHorizontal, Mode=TwoWay}"
-                                                 ToolTip="左から右へ並べ、端まで来たら次の段へ。タグの管理と同じ向きになります。" />
+                                                 ToolTip="左から右へ並べ、端まで来たら次の段へ。" />
                                     <RadioButton Content="縦に並べる" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentLast}"
                                                  IsChecked="{Binding ItemsFlowVertical, Mode=TwoWay}"
-                                                 ToolTip="上から下へ並べ、下まで来たら次の列へ。タグの管理と同じ向きになります。" />
+                                                 ToolTip="上から下へ並べ、下まで来たら次の列へ。" />
                                 </StackPanel>
                             </StackPanel>
 
@@ -289,7 +289,7 @@
                                 <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <!-- 左から右か上から下か（ユーザ指示 2026-09-19）。タグの管理と1つの選択 -->
+                                            <!-- 左から右か上から下か（ユーザ指示 2026-09-19）。値の順に並ぶ属性だけが持つ（タグは名前順なので要らない） -->
                                             <controls:FlowGridPanel FlowsVertically="{Binding ItemsFlowVertical}" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>

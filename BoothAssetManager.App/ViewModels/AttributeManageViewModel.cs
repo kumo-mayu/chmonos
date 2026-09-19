@@ -265,11 +265,11 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
     /// <summary>
     /// 中の商品を上から下へ流すか（ユーザ指示 2026-09-19：横固定だと縦に読む人には並びが追いにくい）。
-    /// タグの管理と1つの選択（`ui-state.json` の `manageItemsVertical`）
+    /// `ui-state.json` の `attributeItemsVertical` に覚える（タグの管理は名前順なので持たない。ユーザ判断 同日）
     /// </summary>
     public bool ItemsFlowVertical
     {
-        get => _itemsVertical ??= _services.UiState.ManageItemsVertical;
+        get => _itemsVertical ??= _services.UiState.AttributeItemsVertical;
         set
         {
             if (value == ItemsFlowVertical)
@@ -280,7 +280,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
             _itemsVertical = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(ItemsFlowHorizontal));
-            _main.SaveUiStateAsync(state => state with { ManageItemsVertical = value }).Forget();
+            _main.SaveUiStateAsync(state => state with { AttributeItemsVertical = value }).Forget();
         }
     }
 
@@ -318,34 +318,110 @@ public sealed class AttributeManageViewModel : ViewModelBase
         ? $"「{_itemFilter.Trim()}」に当たる商品 {_itemFilterHits} 件"
         : string.Empty;
 
+    /// <summary>
+    /// 今の <see cref="Items"/> が何を出しているか（属性・探す語・向き）。同じなら作り直さない。
+    /// null は「まだ何も出していない」
+    /// </summary>
+    private string? _builtKey;
+
+    /// <summary>
+    /// 行は商品と属性ごとに1つ作って、画面を移るまで使い回す（ユーザ指摘 2026-09-19：開くたびに作り直していて、
+    /// 113件で開くまでに 0.2〜0.3 秒固まっていた）。行を使い回せば、一覧の部品も並べ替え・出し入れで済む
+    /// </summary>
+    private readonly Dictionary<string, TagItemRow> _rowCache = new(StringComparer.Ordinal);
+
     private void RebuildItems()
     {
-        Items.Clear();
-        _itemFilterHits = 0;
-
-        if (Selected is { ItemCount: > 0 } row && _isItemsExpanded)
+        // 畳んでいる間は触らない。畳むたびに消すと、開き直すたびに部品を全部作り直すことになる
+        if (!_isItemsExpanded || Selected is not { ItemCount: > 0 } row)
         {
-            var filter = ItemTextFilter.Create(_itemFilter);
-            var found = _main.Search.SnapshotItems()
-                .Select(item => (Item: item, Value: ValueOf(item, row.Name)))
-                .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)));
-
-            // 同じ値の中は名前順（向きを変えても、同じ値の並びは動かさない）
-            var rated = (_itemsAscending
-                    ? found.OrderBy(entry => entry.Value)
-                    : found.OrderByDescending(entry => entry.Value))
-                .ThenBy(entry => entry.Item.DisplayName, StringComparer.CurrentCulture)
-                .ToList();
-
-            foreach (var (item, value) in rated)
-            {
-                Items.Add(CreateItemRow(item, value!.Value));
-            }
-
-            _itemFilterHits = rated.Count;
+            return;
         }
 
+        var key = $"{row.Name}\n{_itemFilter.Trim()}\n{_itemsAscending}";
+        if (key == _builtKey)
+        {
+            return;
+        }
+
+        _builtKey = key;
+
+        var filter = ItemTextFilter.Create(_itemFilter);
+        var found = _main.Search.SnapshotItems()
+            .Select(item => (Item: item, Value: ValueOf(item, row.Name)))
+            .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)));
+
+        // 同じ値の中は名前順（向きを変えても、同じ値の並びは動かさない）
+        var rated = (_itemsAscending
+                ? found.OrderBy(entry => entry.Value)
+                : found.OrderByDescending(entry => entry.Value))
+            .ThenBy(entry => entry.Item.DisplayName, StringComparer.CurrentCulture)
+            .Select(entry => RowFor(row.Name, entry.Item, entry.Value!.Value))
+            .ToList();
+
+        SyncItems(rated);
+        _itemFilterHits = rated.Count;
         OnPropertyChanged(nameof(ItemFilterResultText));
+    }
+
+    /// <summary>
+    /// <see cref="Items"/> を目当ての並びに寄せる。**消して足し直さず、要らない行を抜き・動かし・足りない行を差す**——
+    /// 一覧は残った行の部品をそのまま使うので、向きを変える・探す語を足すだけなら作り直しが起きない
+    /// </summary>
+    private void SyncItems(IReadOnlyList<TagItemRow> target)
+    {
+        var keep = new HashSet<TagItemRow>(target);
+        for (var i = Items.Count - 1; i >= 0; i--)
+        {
+            if (!keep.Contains(Items[i]))
+            {
+                Items.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < target.Count; i++)
+        {
+            var at = IndexFrom(target[i], i);
+            if (at == i)
+            {
+                continue;
+            }
+
+            if (at > i)
+            {
+                Items.Move(at, i);
+            }
+            else
+            {
+                Items.Insert(i, target[i]);
+            }
+        }
+    }
+
+    private int IndexFrom(TagItemRow row, int start)
+    {
+        for (var i = start; i < Items.Count; i++)
+        {
+            if (ReferenceEquals(Items[i], row))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private TagItemRow RowFor(string attribute, ItemRecord item, int value)
+    {
+        // 値は属性ごとに違うので、鍵に属性も入れる
+        var key = attribute + "\n" + item.Id;
+        if (!_rowCache.TryGetValue(key, out var entry))
+        {
+            entry = CreateItemRow(item, value);
+            _rowCache[key] = entry;
+        }
+
+        return entry;
     }
 
     /// <summary>属性の値。名前は大文字小文字を区別しない（一覧の件数の数え方と同じ）。</summary>
@@ -547,6 +623,10 @@ public sealed class AttributeManageViewModel : ViewModelBase
             _saveMemo.Cancel();
             await SaveMemoAsync();
         }
+
+        // 名前の変更・統合・削除の後は、行の名前や値が変わっているかもしれないので、使い回しの控えを捨てる
+        _rowCache.Clear();
+        _builtKey = null;
 
         var master = _services.Store.Attributes.Load();
         var usage = await _services.Attributes.LoadUsageAsync();
