@@ -68,12 +68,12 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        // 窓の題の名前から、プロジェクトのフォルダを引く（「改変に足して送る」と同じ引き方）
-        var projectPath = editor.ProjectName is { } name
+        // 窓の題から一覧で言い当てた場所を先に使う。一覧で当てられなかったときだけ、名前から引く（「改変に足して送る」と同じ）
+        var projectPath = editor.ProjectPath ?? (editor.ProjectName is { } name
             ? await Task.Run(() => Core.Services.UnityProjects.Discover()
                 .FirstOrDefault(candidate =>
                     string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
-            : null;
+            : null);
 
         if (projectPath is null)
         {
@@ -176,11 +176,11 @@ public sealed partial class ItemViewModel
         // 送り先のプロジェクトを、窓のタイトルの名前から実体のパスに直す。
         // HubにもVCCにも載っていないプロジェクトだと引けない——そのときは
         // 候補を絞らずに全部出す（**推定で絞ると、正しい改変が消える**）
-        var projectPath = editor.ProjectName is { } name
+        var projectPath = editor.ProjectPath ?? (editor.ProjectName is { } name
             ? await Task.Run(() => Core.Services.UnityProjects.Discover()
                 .FirstOrDefault(candidate =>
                     string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
-            : null;
+            : null);
 
         var records = projectPath is not null
             ? await _services.Modifications.LoadForProjectAsync(projectPath)

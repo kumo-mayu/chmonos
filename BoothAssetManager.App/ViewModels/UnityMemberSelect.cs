@@ -58,8 +58,10 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        var editor = UnityEditors.Open().FirstOrDefault(candidate =>
-            string.Equals(candidate.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+        // 場所が分かるエディタは場所で照らす（名前だけだと「cleanTest - コピー」と「cleanTest」を取り違えた。2026-09-19）
+        var editor = UnityEditors.Open().FirstOrDefault(candidate => candidate.ProjectPath is { } path
+            ? PathText.Same(path, project.TrimEnd('\\', '/'))
+            : string.Equals(candidate.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
 
         // 開いている印はあるのに窓が特定できない（起動中・コンパイル中で題が読めない）
         if (editor is null && UnityProjects.IsProjectOpen(project))

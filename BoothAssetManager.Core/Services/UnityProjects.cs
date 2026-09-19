@@ -178,6 +178,35 @@ public static class UnityProjects
     /// 「開いている」の断定には使わない——手前に出そうとして見つからなければ、
     /// そのとき開き直せばよい（<see cref="UnityHandoff"/> 側の判断）。
     /// </summary>
+    /// <summary>
+    /// Hub と VCC の一覧に載っているプロジェクトの場所だけを返す（<see cref="Discover"/> と違い、中のファイルは見ない）。
+    /// 開いている Unity の窓の題から、どのプロジェクトかを言い当てるのに使う（呼ばれる回数が多いので軽くしておく）
+    /// </summary>
+    public static IReadOnlyList<string> KnownPaths(string? hubProjectsFile = null, string? vccSettingsFile = null)
+    {
+        var paths = new List<string>();
+        Read(string.IsNullOrWhiteSpace(hubProjectsFile) ? HubProjectsFile : hubProjectsFile, PathsFromHubJson);
+        Read(string.IsNullOrWhiteSpace(vccSettingsFile) ? VccSettingsFile : vccSettingsFile, PathsFromVccSettings);
+        return [.. paths
+            .Select(path => path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        void Read(string file, Func<string, IReadOnlyList<string>> parse)
+        {
+            try
+            {
+                if (File.Exists(file))
+                {
+                    paths.AddRange(parse(File.ReadAllText(file)));
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 読めない一覧は無いものとして扱う（題の先頭で読む元の方法に戻るだけ）
+            }
+        }
+    }
+
     public static bool IsProjectOpen(string projectPath) => IsProjectOpen(projectPath, IsAnyEditorRunning());
 
     /// <summary>

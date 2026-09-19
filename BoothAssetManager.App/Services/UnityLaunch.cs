@@ -269,25 +269,26 @@ public static class UnityLaunch
             return null;
         }
 
+        // 場所が分かるエディタは場所で照らす。題の名前だけで見ると、「cleanTest - コピー」を開いているのに
+        // 「cleanTest」と読んで、開いていないと思い込んでいた（2026-09-19）
+        var editor = UnityEditors.Open().FirstOrDefault(candidate => candidate.ProjectPath is { } path
+            ? PathText.Same(path, projectPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            : string.Equals(candidate.ProjectName, name, StringComparison.OrdinalIgnoreCase));
+
+        if (editor is null)
+        {
+            return null;
+        }
+
         try
         {
-            foreach (var process in Process.GetProcessesByName("Unity"))
-            {
-                var title = UnityHandoff.ProjectNameFromWindowTitle(process.MainWindowTitle);
-                if (string.Equals(title, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    return process;
-                }
-
-                process.Dispose();
-            }
+            return Process.GetProcessById(editor.ProcessId);
         }
-        catch (Exception exception)
-            when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        catch (ArgumentException)
         {
+            // 数えた後に閉じられた
+            return null;
         }
-
-        return null;
     }
 
     /// <summary>

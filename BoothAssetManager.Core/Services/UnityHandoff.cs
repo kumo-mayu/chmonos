@@ -337,8 +337,8 @@ public static class UnityHandoff
     /// 他プロセスの引数を読むにはWMIが要る（依存が1つ増える）。
     /// 見せたいのはプロジェクト名そのもので、タイトルの先頭がまさにそれ。
     ///
-    /// プロジェクト名に <c>" - "</c> が入っていると先頭だけを拾って短くなる。
-    /// 名前を言い当てられないより、短い方がまだ役に立つ。
+    /// プロジェクト名に <c>" - "</c> が入っていると先頭だけを拾って短くなる。短い名前が別のプロジェクトと重なると取り違えるので、
+    /// 一覧（Hub・VCC）に載っているプロジェクトは <see cref="ProjectFromWindowTitle"/> で言い当てる。これはその控え。
     ///
     /// **<c>" - "</c> を含まない題はプロジェクト名として読まない。**起動中やコンパイル中の題は
     /// 「Compiling Scripts」「Reloading Domain」のような作業の名前で、これを名前として読むと
@@ -359,6 +359,35 @@ public static class UnityHandoff
 
         var name = title[..cut].Trim();
         return name.Length == 0 ? null : name;
+    }
+
+    /// <summary>
+    /// 窓の題から、知っているプロジェクト（Hub・VCC の一覧）のどれかを言い当てる。場所も返す。
+    ///
+    /// **題の先頭で切るだけだと、名前に <c>" - "</c> を含むプロジェクトを取り違える**（2026-09-19 実機：
+    /// 「cleanTest - コピー」を開いているのに「cleanTest」と読み、同じ名前の別のプロジェクトを調べて「まだ入っていません」と言っていた）。
+    /// 題が「名前 + <c>" - "</c>」で始まる一覧の名前を探し、開いている（<paramref name="isOpen"/>）方を先に、次に長い名前を選ぶ
+    /// ——短い方は長い方の頭と重なるので、両方当たったら長い方が本物のことが多い。一覧に無ければ、先頭で切る元の読み方に戻る（場所は分からない）
+    /// </summary>
+    public static (string? Name, string? Path) ProjectFromWindowTitle(
+        string? title, IEnumerable<string> knownProjectPaths, Func<string, bool> isOpen)
+    {
+        if (ProjectNameFromWindowTitle(title) is null)
+        {
+            return (null, null);
+        }
+
+        var best = knownProjectPaths
+            .Select(path => (Path: path, Name: System.IO.Path.GetFileName(path.TrimEnd('\\', '/'))))
+            .Where(candidate => candidate.Name.Length > 0
+                && title!.StartsWith(candidate.Name + " - ", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(candidate => isOpen(candidate.Path))
+            .ThenByDescending(candidate => candidate.Name.Length)
+            .FirstOrDefault();
+
+        return best.Path is null
+            ? (ProjectNameFromWindowTitle(title), null)
+            : (best.Name, best.Path);
     }
 
     /// <summary>

@@ -5,7 +5,11 @@ namespace BoothAssetManager.App.Services;
 
 /// <summary>いま開いているUnityエディタ1つ。</summary>
 /// <param name="ProjectName">プロジェクト名。窓のタイトルから読めなければ null。</param>
-public sealed record OpenUnityEditor(int ProcessId, string? ProjectName);
+/// <param name="ProjectPath">
+/// プロジェクトのフォルダ。Hub・VCC の一覧で言い当てられたときだけ入る。名前から場所を引き直すと、
+/// 同じ名前のフォルダが2つあるときに取り違えるので、分かっているならこちらを使う（2026-09-19）
+/// </param>
+public sealed record OpenUnityEditor(int ProcessId, string? ProjectName, string? ProjectPath = null);
 
 /// <summary>
 /// 開いているUnityエディタを数える。
@@ -39,16 +43,27 @@ public static class UnityEditors
     {
         try
         {
-            return Process.GetProcessesByName(EditorProcessName)
+            var processes = Process.GetProcessesByName(EditorProcessName);
+
+            // 一覧は窓を持つエディタがあるときだけ読む（何も開いていないときに毎回ファイルを読まない）
+            IReadOnlyList<string>? known = null;
+
+            return processes
                 .Select(process =>
                 {
                     using (process)
                     {
-                        return process.MainWindowHandle == IntPtr.Zero
-                            ? null
-                            : new OpenUnityEditor(
-                                process.Id,
-                                UnityHandoff.ProjectNameFromWindowTitle(process.MainWindowTitle));
+                        if (process.MainWindowHandle == IntPtr.Zero)
+                        {
+                            return null;
+                        }
+
+                        // 題の先頭で切るだけだと、名前に " - " を含むプロジェクト（「cleanTest - コピー」）を
+                        // 同じ頭の別のプロジェクトと取り違えた。一覧の名前と照らして言い当てる（2026-09-19）
+                        known ??= UnityProjects.KnownPaths();
+                        var (name, path) = UnityHandoff.ProjectFromWindowTitle(
+                            process.MainWindowTitle, known, candidate => UnityProjects.IsProjectOpen(candidate, anyEditorRunning: true));
+                        return new OpenUnityEditor(process.Id, name, path);
                     }
                 })
                 .OfType<OpenUnityEditor>()

@@ -246,6 +246,50 @@ public sealed class UnityHandoffTests : IDisposable
     public void 窓のタイトルからプロジェクト名を取る(string? title, string? expected)
         => Assert.Equal(expected, UnityHandoff.ProjectNameFromWindowTitle(title));
 
+    private static readonly string[] KnownProjects =
+    [
+        @"D:\VRChatProjects\cleanTest",
+        @"D:\VRChatProjects\cleanTest - コピー",
+        @"D:\VRChatProjects\kip01",
+    ];
+
+    [Fact]
+    public void 名前にハイフンを含むプロジェクトを一覧で言い当てる()
+    {
+        // 2026-09-19 実機：先頭で切ると「cleanTest」になり、同じ名前の別のプロジェクトを調べていた
+        var (name, path) = UnityHandoff.ProjectFromWindowTitle(
+            "cleanTest - コピー - test - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", KnownProjects, _ => false);
+
+        Assert.Equal("cleanTest - コピー", name);
+        Assert.Equal(@"D:\VRChatProjects\cleanTest - コピー", path);
+    }
+
+    [Fact]
+    public void 題の頭が両方に当たるなら開いている方を選ぶ()
+    {
+        // 「cleanTest」をシーン「コピー」で開いている。長さだけで選ぶと取り違える
+        var (name, path) = UnityHandoff.ProjectFromWindowTitle(
+            "cleanTest - コピー - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", KnownProjects,
+            candidate => candidate == @"D:\VRChatProjects\cleanTest");
+
+        Assert.Equal("cleanTest", name);
+        Assert.Equal(@"D:\VRChatProjects\cleanTest", path);
+    }
+
+    [Fact]
+    public void 一覧に無ければ先頭で切った名前だけを返す()
+    {
+        var (name, path) = UnityHandoff.ProjectFromWindowTitle(
+            "other - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", KnownProjects, _ => true);
+
+        Assert.Equal("other", name);
+        Assert.Null(path);
+    }
+
+    [Fact]
+    public void 作業中の題は名前にしない()
+        => Assert.Equal((null, null), UnityHandoff.ProjectFromWindowTitle("Compiling Scripts", KnownProjects, _ => true));
+
     [Theory]
     [InlineData(
         @"""C:\Program Files\Unity\Hub\Editor\2022.3.22f1\Editor\Unity.exe"" -projectPath ""D:\work\vrchat\VRChatProjects\kip01"" -accept-apiupdate",
