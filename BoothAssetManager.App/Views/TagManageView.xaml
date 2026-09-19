@@ -26,15 +26,6 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <!-- 並べ方（ユーザ指示 2026-09-18）。選ぶとファイルの並びも同じ順に書き換える -->
-                    <TextBlock Text="並び" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <RadioButton Content="名前順" GroupName="TagSort" VerticalAlignment="Center" Margin="0,0,10,0"
-                                 Foreground="{StaticResource Text}" IsChecked="{Binding SortsByName, Mode=TwoWay}" />
-                    <RadioButton Content="件数順" GroupName="TagSort" VerticalAlignment="Center" Margin="0,0,10,0"
-                                 Foreground="{StaticResource Text}" IsChecked="{Binding SortsByCount, Mode=TwoWay}" />
-                    <RadioButton Content="手で並べた順" GroupName="TagSort" VerticalAlignment="Center" Margin="0,0,14,0"
-                                 Foreground="{StaticResource Text}" IsChecked="{Binding SortsManually, Mode=TwoWay}"
-                                 ToolTip="ドラッグで並べ替えると、自動でこれになります。" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
                 </StackPanel>
             </Grid>
@@ -67,6 +58,25 @@
 
                         <controls:SuggestBox CommitCommand="{Binding AddTopCommand}" Margin="0,12,0,0"
                                              Placeholder="大分類を追加（例：衣装）" />
+
+                        <!--
+                            並べ方は並べる一覧のすぐ上に、つながったボタンで置く（ユーザ指示 2026-09-19：頭の右端では
+                            どの一覧の並びか分かりにくかった）。選ぶとファイルの並びも同じ順に書き換える（2026-09-18）
+                        -->
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <RadioButton Grid.Column="0" Content="名前順" GroupName="TagSort" Style="{StaticResource SegmentFirst}"
+                                         IsChecked="{Binding SortsByName, Mode=TwoWay}" />
+                            <RadioButton Grid.Column="1" Content="件数順" GroupName="TagSort" Style="{StaticResource SegmentMiddle}"
+                                         IsChecked="{Binding SortsByCount, Mode=TwoWay}" />
+                            <RadioButton Grid.Column="2" Content="手で並べた順" GroupName="TagSort" Style="{StaticResource SegmentLast}"
+                                         IsChecked="{Binding SortsManually, Mode=TwoWay}"
+                                         ToolTip="ドラッグで並べ替えると、自動でこれになります。" />
+                        </Grid>
                     </StackPanel>
 
                     <!-- 並びは検索の絞り込みにも編集の候補にも出るので、ドラッグで変えられる -->

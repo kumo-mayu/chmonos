@@ -69,7 +69,72 @@
     </Style>
 
     <!--
-        中に入っている商品1件（小分類の中・属性で評価した商品）。押すと商品ページへ（改変の一覧と同じ）。
+        つながったボタン（並べ方の切り替え）。ユーザ指示 2026-09-19：頭の右端のラジオボタンは、
+        どの一覧の並びなのかが離れていて分かりにくい。並べる一覧のすぐ上に、1つの部品として置く。
+        端のボタンだけ外側の角を丸め、間の線は1本にする（隣と枠を重ねる）
+    -->
+    <Style x:Key="SegmentButton" TargetType="RadioButton">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+        <Setter Property="Background" Value="{StaticResource Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderStrong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Margin" Value="-1,0,0,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                        </Trigger>
+                        <!-- 選んでいる物は色で埋め、上に重ねて枠の色が隣に隠れないようにする -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentSoft}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Panel.ZIndex" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentFirst" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>6,0,0,6</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentMiddle" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>0</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentLast" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>0,6,6,0</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        中に入っている商品1件（小分類の中・属性を持つ商品）。押すと商品ページへ（改変の一覧と同じ）。
         属性では値の札を名前の右に出す（どのくらいと評価したかが、並びの理由なので）
     -->
     <DataTemplate x:Key="ManageItemTemplate" DataType="{x:Type vm:TagItemRow}">

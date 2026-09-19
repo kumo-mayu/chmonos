@@ -106,7 +106,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 選んでいた属性と、評価した商品を開いていたかを覚える（タグの管理と同じ。商品ページから戻ると先頭に戻ってしまう）。
+    /// 選んでいた属性と、この属性を持つ商品を開いていたかを覚える（タグの管理と同じ。商品ページから戻ると先頭に戻ってしまう）。
     /// 画面は開くたびに作り直すので、型の側で持つ。アプリを閉じるまでの記憶でよい
     /// </summary>
     private static string? _lastSelected;
@@ -201,7 +201,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// この属性で評価した商品（ユーザ指示 2026-09-19：タグの管理の小分類の中身と揃える）。
+    /// この属性を持つ商品（ユーザ指示 2026-09-19：タグの管理の小分類の中身と揃える）。
     /// 開いたときだけ作る——全部の属性で先に作ると、絵の読み込みが件数ぶん走る
     /// </summary>
     public ObservableCollection<TagItemRow> Items { get; } = [];
@@ -225,17 +225,45 @@ public sealed class AttributeManageViewModel : ViewModelBase
         }
     }
 
+    // 「評価した商品」ではなく「この属性を持つ商品」（ユーザ指示 2026-09-19）
     public string ItemsHeaderText => Selected is { ItemCount: > 0 } row
-        ? $"評価した商品 {row.ItemCount} 件（値の高い順）"
-        : "評価した商品";
+        ? $"この属性を持つ商品 {row.ItemCount} 件"
+        : "この属性を持つ商品";
 
     public string ExpandToolTip => SelectedIsUsed
-        ? "開くと、この属性で評価した商品が値の高い順に並びます。"
-        : "この属性はまだどの商品も評価していないので、開いても中身がありません。";
+        ? "開くと、この属性を持つ商品が値の順に並びます。"
+        : "この属性を持つ商品はまだありません。編集画面で値を入れると、ここに並びます。";
+
+    /// <summary>
+    /// 値の高い順か低い順か（ユーザ指示 2026-09-19）。既定は高い順——その属性の「らしい」物から見たいことが多い。
+    /// 低い順は、付けたけれど弱い物を見直すときに使う。属性をまたいで、アプリを閉じるまで覚える
+    /// </summary>
+    private static bool _itemsAscending;
+
+    public bool ItemsDescending
+    {
+        get => !_itemsAscending;
+        set
+        {
+            if (value == _itemsAscending)
+            {
+                _itemsAscending = !value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ItemsAscending));
+                RebuildItems();
+            }
+        }
+    }
+
+    public bool ItemsAscending
+    {
+        get => _itemsAscending;
+        set => ItemsDescending = !value;
+    }
 
     private string _itemFilter = string.Empty;
 
-    /// <summary>評価した商品の中を探す。書き方は検索画面と同じ（ユーザ指示 2026-09-19）。</summary>
+    /// <summary>この属性を持つ商品の中を探す。書き方は検索画面と同じ（ユーザ指示 2026-09-19）。</summary>
     public string ItemFilter
     {
         get => _itemFilter;
@@ -269,10 +297,14 @@ public sealed class AttributeManageViewModel : ViewModelBase
         if (Selected is { ItemCount: > 0 } row && _isItemsExpanded)
         {
             var filter = ItemTextFilter.Create(_itemFilter);
-            var rated = _main.Search.SnapshotItems()
+            var found = _main.Search.SnapshotItems()
                 .Select(item => (Item: item, Value: ValueOf(item, row.Name)))
-                .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)))
-                .OrderByDescending(entry => entry.Value)
+                .Where(entry => entry.Value is not null && (filter is null || filter.Matches(entry.Item)));
+
+            // 同じ値の中は名前順（向きを変えても、同じ値の並びは動かさない）
+            var rated = (_itemsAscending
+                    ? found.OrderBy(entry => entry.Value)
+                    : found.OrderByDescending(entry => entry.Value))
                 .ThenBy(entry => entry.Item.DisplayName, StringComparer.CurrentCulture)
                 .ToList();
 
@@ -421,12 +453,12 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public string SelectedUsageText => Selected is null
         ? string.Empty
         : Selected.ItemCount == 0
-            ? "まだどの商品も評価していません。編集画面で値を入れると、ここに件数が出ます。"
-            : $"{Selected.ItemCount} 件の商品で評価済み（{Selected.AverageText}）";
+            ? "まだどの商品にも付いていません。編集画面で値を入れると、ここに件数が出ます。"
+            : $"{Selected.ItemCount} 件の商品に付いています（{Selected.AverageText}）";
 
     public string ShowItemsToolTip => SelectedIsUsed
-        ? "この属性で評価した商品を、検索で開きます。"
-        : "この属性はまだどの商品も評価していません。編集画面で値を入れると開けます。";
+        ? "この属性を持つ商品を、検索で開きます。"
+        : "この属性はまだどの商品にも付いていません。編集画面で値を入れると開けます。";
 
     public string FilterText
     {
@@ -526,7 +558,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 左の一覧を絞る。属性の名前だけでなく、評価した商品でも引く（タグの管理と揃える。ユーザ指示 2026-09-19）。
+    /// 左の一覧を絞る。属性の名前だけでなく、この属性を持つ商品でも引く（タグの管理と揃える。ユーザ指示 2026-09-19）。
     /// 書き方は検索画面と同じ
     /// </summary>
     private void Rebuild()
@@ -559,7 +591,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public bool HasFilter => _filterText.Trim().Length > 0;
 
     public string FilterResultText => HasFilter
-        ? $"「{_filterText.Trim()}」に当たる属性 {Rows.Count} 件（評価した商品も探しています）"
+        ? $"「{_filterText.Trim()}」に当たる属性 {Rows.Count} 件（この属性を持つ商品も探しています）"
         : string.Empty;
 
     private void RebuildOtherNames()
