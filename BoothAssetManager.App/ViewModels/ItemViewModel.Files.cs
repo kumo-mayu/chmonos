@@ -235,7 +235,25 @@ public sealed partial class ItemViewModel
                 + "そちらを取り込めば展開先は自動で対象から外れるので、この登録は解除してください。",
     };
 
-    /// <summary>エクスプローラで開いて、そのファイルを選択した状態にする。</summary>
+    private static bool s_filesExpanded = true;
+
+    /// <summary>
+    /// ローカルファイルの欄を開いているか（ユーザ指示 2026-09-19：畳めるように）。既定は開く——商品ページで
+    /// ファイルを見に来ることが多い。商品を移っても保つ（アプリを閉じるまで。ほかの欄の畳み方と同じ）
+    /// </summary>
+    public bool IsFilesExpanded
+    {
+        get => s_filesExpanded;
+        set
+        {
+            if (s_filesExpanded != value)
+            {
+                s_filesExpanded = value;
+                OnPropertyChanged(nameof(IsFilesExpanded));
+            }
+        }
+    }
+
     /// <summary>zip を一時フォルダへ展開してエクスプローラで開く（#56）。</summary>
     public RelayCommand UnpackCommand { get; }
 

@@ -129,6 +129,14 @@ public sealed class LocalFolderRow
     public bool HasArchive { get; init; }
 
     public string ArchiveNoticeText { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 名前に乗せたときに出す場所（ユーザ指示 2026-09-19：名前の下に場所の行が続くと、同じ名前が2回並んで読みにくい）。
+    /// 名前を押すとエクスプローラで開く
+    /// </summary>
+    public string PathToolTip => IsMissing
+        ? $"{Path}\n記録にある場所にフォルダがありません。押すと、近くの残っているフォルダを開きます。"
+        : $"{Path}\n押すと、エクスプローラでこのフォルダを開きます。";
 }
 
 /// <summary>この商品を使った改変1件。</summary>
@@ -197,6 +205,26 @@ public sealed class LocalFileRow : ViewModelBase
     public string DuplicateNote => $"{Paths.Count}箇所に同じ実体";
 
     public bool IsMissing => Paths.Count == 0;
+
+    /// <summary>名前を押したときに開く場所（1つめ）。見つからないファイルには無い。</summary>
+    public string? FirstPath => Paths.Count > 0 ? Paths[0] : null;
+
+    public bool CanReveal => Paths.Count > 0;
+
+    /// <summary>
+    /// 名前に乗せたときに出す場所（ユーザ指示 2026-09-19：名前の下に場所の行が続くと、同じ名前が2回並んで読みにくい）。
+    /// 場所が2つ以上あるときは全部を並べ、ほかの場所は下の行から開けることを言う
+    /// </summary>
+    public string PathToolTip => Paths.Count switch
+    {
+        0 => "記録にある場所にファイルがありません。",
+        1 => $"{Paths[0]}\n押すと、エクスプローラでこのファイルの場所を開きます。",
+        _ => $"同じ中身が {Paths.Count} 箇所にあります：\n{string.Join("\n", Paths)}\n"
+            + "押すと、1つめの場所をエクスプローラで開きます。ほかの場所は下の行から開けます。",
+    };
+
+    /// <summary>ほかの場所（2つめ以降）。1つめは名前を押せば開くので、行にしない。</summary>
+    public IReadOnlyList<string> OtherPaths => Paths.Count > 1 ? Paths.Skip(1).ToList() : [];
 
     /// <summary>この商品から外したファイル（ユーザ判断 2026-09-12：消さずに灰色で残す）。</summary>
     public bool IsDetached { get; init; }

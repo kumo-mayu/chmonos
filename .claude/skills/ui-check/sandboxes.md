@@ -14,6 +14,7 @@
 | 属性の管理 | `attrcheck` |
 | BOOTH の形式の変化の帯 | `structcheck` |
 | アバター・一般の画面 | `friendcheck` |
+| 商品ページ | `ui`（同じ中身が複数の場所にある行は `filecheck`） |
 | 本番と同じ少ない件数で見たいとき | `ui` |
 | 改変・Unity へ送る | `d1check` |
 | フォルダビュー・重い unitypackage | `heavycheck` |
@@ -36,6 +37,7 @@
 | `d1check` | 本番の写し＋試験用の改変「試験用（unity-import-test）」 | 改変の画面・Unity へ送る（送り先は捨ててよい試験用プロジェクト。**Unity を動かすのはユーザが「試して」と言ったときだけ**） |
 | `heavycheck` | 本番の写し＋未確定に 1GB 級の作り物の zip 2件 | 重い unitypackage・フォルダビューの未確定 |
 | `unitypkg` | 本番の写し（取り込み元を空のフォルダにしてある） | 取り込みの裏で unitypackage を読む（BOOTH へは問い合わせない） |
+| `filecheck` | `ui` の写し（2026-09-19）。Kipfel のファイルに作り物の2つめの場所（`E:backup…`・無いドライブ）を足してある | 商品ページのローカルファイルで、同じ中身が複数の場所にある行 |
 | `volcheck` | `ui` の写しで記録のパスを D: から X:（無いドライブ）に書き換え、`volumes.json` に「X: は D: の通し番号」 | ドライブ文字の読み替え（フォルダビューで D: の下に出れば正しい） |
 
 ほかに `flowcheck`（205件）・`perfdemo`・`stresscheck`・`stress-nodesc`（2000件）・`resolvecheck`（2件）・`ui60`・`fresh`（空）・`friendtest-before-zone`・`backup-20260909-181217` がある。

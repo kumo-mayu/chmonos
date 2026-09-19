@@ -8,6 +8,38 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
     <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む三角はタグの管理と同じ物（操作感を揃える） -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+
+        <!--
+            ファイル・フォルダの名前。押すとエクスプローラで開く（ユーザ指示 2026-09-19）。
+            押せることが分かるよう、乗せると色と下線が付く。場所は乗せたときに出す
+        -->
+        <Style x:Key="FileNameLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock x:Name="Label" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontSize="12.5"
+                                   Foreground="{TemplateBinding Foreground}" TextTrimming="CharacterEllipsis" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Accent}" />
+                                <Setter TargetName="Label" Property="TextDecorations" Value="Underline" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!--
             この商品から外したファイルは、行を消さずに薄くして残す（ユーザ判断 2026-09-12）。
             薄くするのは名前と保存場所だけ。「この商品に戻す」まで薄いと押せないように見える
@@ -33,6 +65,7 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        </ResourceDictionary>
     </UserControl.Resources>
     <!--
         手元のファイル（フォルダ・ファイル・保存場所・Unityへ送れるもの）の欄。
@@ -42,13 +75,21 @@
                     <!-- ローカルファイル -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0">
                         <StackPanel>
-                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                            <!-- 畳める（ユーザ指示 2026-09-19）。件数と容量は畳んでも見出しに出す -->
+                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
                                 <Grid>
-                                    <TextBlock Text="ローカルファイル" FontWeight="Bold" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                      IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
+                                                      AutomationProperties.Name="ローカルファイルを開く"
+                                                      ToolTip="ローカルファイルの欄を開く・畳む（ほかの商品に移っても同じ開き方のままです）" />
+                                        <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding FileSummary}" Style="{StaticResource Mono}" FontSize="11"
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
+                            <StackPanel Visibility="{Binding IsFilesExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <!-- フォルダとして所有しているもの。zipが残っていない展開済みの配布物 -->
                             <ItemsControl ItemsSource="{Binding LocalFolders}"
                                           Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -66,7 +107,12 @@
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0">
                                                             <TextBlock Text="フォルダ" FontSize="10" Foreground="#28507f" />
                                                         </Border>
-                                                        <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center" />
+                                                        <!-- 名前を押すとエクスプローラで開く。場所は乗せたときに出す（ユーザ指示 2026-09-19） -->
+                                                        <Button Content="{Binding Name}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center"
+                                                                ToolTip="{Binding PathToolTip}"
+                                                                Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding Path}" />
                                                         <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
                                                                    Margin="8,0,0,0" VerticalAlignment="Center" />
                                                         <!--
@@ -85,8 +131,6 @@
                                                                        ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">取り込みを開く</Hyperlink>
                                                         </TextBlock>
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11"
-                                                               Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
                                                     <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,7,0,0"
@@ -96,12 +140,8 @@
                                                     </Border>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
-                                                            Command="{Binding DataContext.OpenInExplorerCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding Path}" />
                                                     <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
-                                                    <Button Content="登録を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                                    <Button Content="登録を解除" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.UnregisterFolderCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding Path}" />
@@ -123,7 +163,17 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Style="{StaticResource DetachedDim}">
-                                                    <TextBlock Text="{Binding FileName}" FontSize="12.5" />
+                                                    <!--
+                                                        名前を押すとエクスプローラで開く（1つめの場所）。場所は乗せたときに出す
+                                                        （ユーザ指示 2026-09-19：名前の下に場所の行が続き、同じ名前が2回並んで読みにくかった）。
+                                                        見つからないファイルは開く先が無いので押せない（理由はツールチップ）
+                                                    -->
+                                                    <Button Content="{Binding FileName}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center"
+                                                            IsEnabled="{Binding CanReveal}"
+                                                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding PathToolTip}"
+                                                            Command="{Binding DataContext.OpenInExplorerCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding FirstPath}" />
                                                     <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             ToolTip="この商品から外したファイルです。所持や容量には数えず、取り込みでこの商品に戻ることもありません。"
@@ -135,7 +185,7 @@
                                                             Visibility="{Binding HasVariationLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="#28507f" />
                                                     </Border>
-                                                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" Margin="8,0,0,0" />
+                                                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
                                                     <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -188,8 +238,13 @@
                                                 </StackPanel>
                                               </Grid>
 
-                                                <!-- 保存場所ごとに開ける（削除も場所ごとに選べるようにする予定） -->
-                                                <ItemsControl ItemsSource="{Binding Paths}" Margin="10,7,0,0">
+                                                <!--
+                                                    同じ中身が別の場所にもあるときだけ、2つめ以降の場所を行にして開けるようにする
+                                                    （1つめは名前を押せば開く。ツールチップは押せないので、ほかの場所の入口が要る）
+                                                -->
+                                                <TextBlock Text="同じ中身がある、ほかの場所" Style="{StaticResource Caption}" Margin="10,8,0,4"
+                                                           Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <ItemsControl ItemsSource="{Binding OtherPaths}" Margin="10,0,0,0">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
@@ -289,6 +344,7 @@
                                        TextWrapping="Wrap" Margin="18,0,18,14"
                                        Foreground="{StaticResource Accent}"
                                        Visibility="{Binding HasUnityRecordNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 </UserControl>
