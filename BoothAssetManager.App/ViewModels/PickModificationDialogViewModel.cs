@@ -13,9 +13,9 @@ public sealed class PickModificationRowViewModel
     public string Name => Record.Name;
 
     /// <summary>どのアバターの、何が何件入っているか。同じ名前を見分けるために出す。</summary>
-    public string Detail => Record.Members.Count == 0
+    public string Detail => Record.UsedMembers.Count == 0
         ? $"{AvatarText}　まだ何も入っていません"
-        : $"{AvatarText}　{Record.Members.Count} 件入っています";
+        : $"{AvatarText}　{Record.UsedMembers.Count} 件入っています";
 }
 
 /// <summary>

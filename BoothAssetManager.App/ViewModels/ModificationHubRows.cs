@@ -450,7 +450,12 @@ internal sealed class ModificationRowBuilder(
             AvatarName = avatarName,
             ShowsAvatar = showsAvatar,
             ShowsProject = showsProject,
-            Members = record.Members.Select((member, index) => Member(record, member, index)).ToList(),
+            // 外した行は改変の画面の一覧には出さない（使っている物だけ）。位置は記録の中の位置のまま渡す（外した行を除くとずれる）
+            Members = record.Members
+                .Select((member, index) => (member, index))
+                .Where(entry => !entry.member.Detached)
+                .Select(entry => Member(record, entry.member, entry.index))
+                .ToList(),
             IconPath = ModificationIconPath(record),
             Thumbnails = thumbnails,
         };

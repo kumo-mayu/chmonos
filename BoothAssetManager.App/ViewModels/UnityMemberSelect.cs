@@ -70,14 +70,16 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        if (await ShowIfPresentAsync(project, projectName, editor, packages, item.Id, setStatus))
+        // 開いていなければ、中を調べずにそれだけを言う（ユーザ判断 2026-09-19：入っているかどうかより先に、開いていないことが要る。
+        // 改変に入っている時点で使う・使ったと分かっているので、入っていないときに取り込むか聞くのは今のままでよい）
+        if (editor is null)
         {
+            setStatus($"プロジェクト「{projectName}」がまだ開かれていません。");
             return false;
         }
 
-        if (editor is null)
+        if (await ShowIfPresentAsync(project, projectName, editor, packages, item.Id, setStatus))
         {
-            setStatus($"「{name}」は「{projectName}」にまだ入っていません。取り込むには、先に「Unityを開く」でプロジェクトを開いてください。");
             return false;
         }
 

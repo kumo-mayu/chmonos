@@ -178,7 +178,7 @@ internal static class ItemSelectionActions
             return false;
         }
 
-        var present = record.Members.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+        var present = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
         var added = 0;
         foreach (var card in cards.Where(card => !present.Contains(card.Item.Id)))
         {

@@ -178,7 +178,7 @@ public sealed record ModificationUsage(
         foreach (var record in list)
         {
             // 同じ商品が2回入っていても、絞り込みに要るのは「入っているか」だけ
-            var members = record.Members.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+            var members = record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
             byModification[record.Id] = members;
             Collect(byAvatar, record.AvatarItemId, members);
 

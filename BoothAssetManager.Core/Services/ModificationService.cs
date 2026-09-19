@@ -36,6 +36,9 @@ public interface IModificationService
 
     Task<bool> SetMemoAsync(string id, string? memo, CancellationToken cancellationToken = default);
 
+    /// <summary>VRChat の blueprint ID（<c>avtr_…</c>）。空なら外す。</summary>
+    Task<bool> SetBlueprintIdAsync(string id, string? blueprintId, CancellationToken cancellationToken = default);
+
     /// <summary>Unityプロジェクトを紐付ける。null で外す。</summary>
     Task<bool> SetProjectAsync(string id, string? path, CancellationToken cancellationToken = default);
 
@@ -52,6 +55,9 @@ public interface IModificationService
 
     /// <summary>位置で外す。並びが意味を持つので、商品IDではなく位置で指す。</summary>
     Task<bool> RemoveMemberAsync(string id, int index, CancellationToken cancellationToken = default);
+
+    /// <summary>外す・戻す。行と記録は残し、印だけを付け外しする（完全に消すのは <see cref="RemoveMemberAsync"/>）。</summary>
+    Task<bool> SetMemberDetachedAsync(string id, int index, bool detached, CancellationToken cancellationToken = default);
 
     /// <summary>位置を動かす。依存物を後から思い出したときに直せるようにする。</summary>
     Task<bool> MoveMemberAsync(
@@ -200,6 +206,12 @@ public sealed class ModificationService : IModificationService
             record => record with { Memo = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim() },
             cancellationToken);
 
+    public Task<bool> SetBlueprintIdAsync(string id, string? blueprintId, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record => record with { BlueprintId = string.IsNullOrWhiteSpace(blueprintId) ? null : blueprintId.Trim() },
+            cancellationToken);
+
     public Task<bool> SetProjectAsync(string id, string? path, CancellationToken cancellationToken = default)
         => UpdateAsync(
             id,
@@ -230,6 +242,26 @@ public sealed class ModificationService : IModificationService
 
                 var members = record.Members.ToList();
                 members.RemoveAt(index);
+                return record with { Members = members };
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// 外す・戻す（ユーザ指示 2026-09-19）。行も記録（どのファイル・どの unitypackage）も残し、印だけを付け外しする。
+    /// 並びの位置も変えない（戻したときに導入の順が崩れない）
+    /// </summary>
+    public Task<bool> SetMemberDetachedAsync(string id, int index, bool detached, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record =>
+            {
+                if (index < 0 || index >= record.Members.Count || record.Members[index].Detached == detached)
+                {
+                    return record;
+                }
+
+                var members = record.Members.ToList();
+                members[index] = members[index] with { Detached = detached };
                 return record with { Members = members };
             },
             cancellationToken);
@@ -393,7 +425,7 @@ public sealed class ModificationService : IModificationService
     {
         var all = await _store.Modifications.LoadAllAsync(cancellationToken);
         return all.Modifications
-            .Where(record => record.Members.Any(member =>
+            .Where(record => record.UsedMembers.Any(member =>
                 string.Equals(member.ItemId, itemId, StringComparison.Ordinal)))
             .ToList();
     }

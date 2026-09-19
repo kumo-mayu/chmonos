@@ -263,13 +263,19 @@ public abstract record UiCommand
 
     public record SetModificationMemo(string Id, string? Memo) : UiCommand;
 
+    /// <summary>VRChat の blueprint ID（<c>avtr_…</c>）。空で外す（ユーザ指示 2026-09-19）</summary>
+    public record SetModificationBlueprintId(string Id, string? BlueprintId) : UiCommand;
+
     /// <summary>Unityプロジェクトを紐付ける。null で外す</summary>
     public record SetModificationProject(string Id, string? Path) : UiCommand;
 
     /// <summary>使ったものを足す。**末尾に付く**（並びが導入の順）</summary>
     public record AddModificationMember(string Id, Models.ModificationMember Member) : UiCommand;
 
-    /// <summary>位置で外す。並びが意味を持つので商品IDでは指さない</summary>
+    /// <summary>外す・戻す（行と記録は残す。ユーザ指示 2026-09-19）。位置で指す</summary>
+    public record SetModificationMemberDetached(string Id, int Index, bool Detached) : UiCommand;
+
+    /// <summary>位置で完全に消す（外した行の「削除」から。記録も残らない）。並びが意味を持つので商品IDでは指さない</summary>
     public record RemoveModificationMember(string Id, int Index) : UiCommand;
 
     public record MoveModificationMember(string Id, int Index, int Delta) : UiCommand;

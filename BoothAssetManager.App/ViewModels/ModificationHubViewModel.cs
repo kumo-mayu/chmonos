@@ -571,7 +571,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
             ThumbnailPath = row.ThumbnailPath,
             Thumbnails = _thumbnails,
             UsedIn = _records
-                .Where(record => record.Members.Any(member => string.Equals(member.ItemId, row.ItemId, StringComparison.Ordinal)))
+                .Where(record => record.UsedMembers.Any(member => string.Equals(member.ItemId, row.ItemId, StringComparison.Ordinal)))
                 .OrderByDescending(record => record.UpdatedAt)
                 .Select(record => ModRow(record, ModificationHubLevel.Modification, false))
                 .ToList(),

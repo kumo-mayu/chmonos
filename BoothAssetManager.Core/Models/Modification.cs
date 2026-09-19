@@ -38,6 +38,15 @@ public sealed record ModificationMember
 
     public DateTimeOffset AddedAt { get; init; }
 
+    /// <summary>
+    /// 外した構成物（ユーザ指示 2026-09-19：商品の手元のファイルと同じく、外しても行と記録を残して戻せるようにする）。
+    /// 前は外すと行ごと消え、どのファイル・どの unitypackage を使ったかの記録も戻らなかった（足し直しても送るまで埋まらない）。
+    /// 使った数・送る・絞り込みには数えない。完全に消すのは、外した行の「削除」から。
+    /// 外していなければ書き出さない（全部の行に false が並ぶと読みにくい。手元のファイルの印と同じ）
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Detached { get; init; }
+
     /// <summary>Unityへ送ったときに自動で入った分か。空欄の意味を画面で言い分けるために見る。</summary>
     [JsonIgnore]
     public bool IsFromUnity => FileHash is not null;
@@ -92,6 +101,13 @@ public sealed record ModificationRecord
     public string? Memo { get; init; }
 
     /// <summary>
+    /// VRChat にアップロードしたアバターの blueprint ID（<c>avtr_…</c>）。無ければ null（ユーザ指示 2026-09-19）。
+    /// VRChat の OSC に <c>/avatar/change</c> で送ると、その改変のアバターに着替えられる。
+    /// 1つの改変＝1つのアップロードなので改変に持つ（同じアバターでも改変ごとに別の ID になる）
+    /// </summary>
+    public string? BlueprintId { get; init; }
+
+    /// <summary>
     /// 改変専用の画像。
     ///
     /// 商品に付けた <see cref="ImageRole.Modified"/> の画像とは別物——
@@ -100,8 +116,15 @@ public sealed record ModificationRecord
     /// </summary>
     public IReadOnlyList<ModificationImage> Images { get; init; } = [];
 
-    /// <summary>使ったもの。**並びが導入の順。**</summary>
+    /// <summary>使ったもの。**並びが導入の順。**外した行（<see cref="ModificationMember.Detached"/>）も並びの中に残す。</summary>
     public IReadOnlyList<ModificationMember> Members { get; init; } = [];
+
+    /// <summary>
+    /// 今使っているもの（外した行を除く）。使った数・送る・絞り込み・「この商品を使った改変」はこちらで見る。
+    /// 位置（何件目か）が要る所は <see cref="Members"/> の位置を使う（外した行を除くと位置がずれる）
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<ModificationMember> UsedMembers => [.. Members.Where(member => !member.Detached)];
 
     [JsonIgnore]
     public bool HasUnityProject => !string.IsNullOrWhiteSpace(UnityProject);

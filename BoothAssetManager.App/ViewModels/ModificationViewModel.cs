@@ -60,6 +60,14 @@ public sealed class ModificationMemberRowViewModel
 
     public bool HasCard => Card is not null;
 
+    /// <summary>
+    /// 外した行（ユーザ指示 2026-09-19）。行と記録は残し、薄くして「外した」の札を出す。
+    /// 「戻す」で戻せ、「削除」で完全に消す（商品の手元のファイルと同じ二段）
+    /// </summary>
+    public bool IsDetached => Member.Detached;
+
+    public bool IsUsed => !Member.Detached;
+
     // **端では矢印を押せなくする。**押せるのに何も起きないボタンは嘘になる
     public bool CanMoveBack => Index > 0;
 
@@ -156,6 +164,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         _nameInput = record.Name;
         _memoInput = record.Memo ?? string.Empty;
+        _blueprintInput = record.BlueprintId ?? string.Empty;
+        _saveName = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveNameAsync().Forget());
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
+        _saveBlueprint = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveBlueprintAsync().Forget());
+        ChangeAvatarCommand = new RelayCommand(() => ChangeAvatarAsync().Forget());
 
         // 使ったものは検索と同じカード・リストで出す（ユーザ指示 2026-09-14）。どちらで出すかと列の幅は、この画面で覚える
         ListColumns = new ItemListColumns(services.PaneWidths, "modification", hasSelect: false, shopHeader: "使ったファイル");
@@ -165,8 +178,6 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         // 戻るは画面の履歴を遡る（U23）
         BackCommand = new RelayCommand(main.GoBack);
-        SaveNameCommand = new RelayCommand(() => SaveNameAsync().Forget(), () => NameChanged);
-        SaveMemoCommand = new RelayCommand(() => SaveMemoAsync().Forget(), () => MemoChanged);
         AddImageCommand = new RelayCommand(() => AddImageAsync().Forget());
         // ギャラリーの右クリックは引数なしで呼ぶ（いま出ている1枚が相手）。商品のギャラリーと同じ
         RemoveImageCommand = new RelayCommand(
@@ -182,7 +193,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         NextImageCommand = new RelayCommand(() => GoToImage(1), () => CanGoNextImage);
         SelectImageCommand = new RelayCommand(SelectImage, parameter => parameter is GalleryImage);
         RemoveMemberCommand = new RelayCommand(
-            parameter => RemoveMemberAsync(parameter as ModificationMemberRowViewModel).Forget(),
+            parameter => SetMemberDetachedAsync(parameter as ModificationMemberRowViewModel, detached: true).Forget(),
+            parameter => parameter is ModificationMemberRowViewModel);
+        RestoreMemberCommand = new RelayCommand(
+            parameter => SetMemberDetachedAsync(parameter as ModificationMemberRowViewModel, detached: false).Forget(),
+            parameter => parameter is ModificationMemberRowViewModel);
+        DeleteMemberCommand = new RelayCommand(
+            parameter => DeleteMemberAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
         MoveMemberBackCommand = new RelayCommand(
             parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, -1).Forget(),
@@ -204,7 +221,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         OpenProjectFolderCommand = new RelayCommand(
             () => Shell.Reveal(Record.UnityProject), () => HasProject);
         SendAllToUnityCommand = new RelayCommand(
-            () => SendToUnityAsync(Members.ToList(), "使ったものを順にUnityへ送る").Forget(), () => HasMembers && !IsSendingToUnity);
+            // 外した行は送らない（今は使っていない物）
+            () => SendToUnityAsync(Members.Where(row => row.IsUsed).ToList(), "使ったものを順にUnityへ送る").Forget(),
+            () => HasMembers && !IsSendingToUnity);
 
         // 1件ごとの「Unity ▾」（ユーザ指示 2026-09-14：「開く」がエクスプローラなのか Unity なのか分かりにくい。インポートと選択の2択にする）
         ImportMemberCommand = new RelayCommand(
@@ -273,9 +292,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>記録を読み直した（名前・メモ・使ったもの・紐付けが変わったかもしれない）。組み込んだ側が左の一覧を合わせる。</summary>
     public event Action? Changed;
 
-    public RelayCommand SaveNameCommand { get; }
 
-    public RelayCommand SaveMemoCommand { get; }
 
     public RelayCommand AddImageCommand { get; }
 
@@ -285,7 +302,14 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public RelayCommand MoveImageForwardCommand { get; }
 
+    /// <summary>外す（印だけ。行と記録は残り、戻せる）。</summary>
     public RelayCommand RemoveMemberCommand { get; }
+
+    /// <summary>外した行を戻す。</summary>
+    public RelayCommand RestoreMemberCommand { get; }
+
+    /// <summary>外した行を完全に消す（聞いてから。元に戻せない）。</summary>
+    public RelayCommand DeleteMemberCommand { get; }
 
     public RelayCommand MoveMemberBackCommand { get; }
 
@@ -403,7 +427,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 return UnityProjectMatcher.Match(project, paths);
             });
 
-            var members = Record.Members.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
+            var members = Record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
             var names = items.ToDictionary(item => item.Id, item => item.DisplayName, StringComparer.Ordinal);
             foreach (var match in matches.Where(match => !members.Contains(match.ItemId)))
             {
@@ -940,6 +964,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     private string _nameInput;
 
+    // 名前・メモ・blueprint ID は押さずに残す（ユーザ指示 2026-09-19：タグ・属性・アバター・ショップのメモと揃える）。
+    // 打ち止めてから 0.8 秒で書く。待ちの間に別の改変へ移っても、この画面の値とこの改変の ID で書くので取り違えない
+    private readonly Debounced _saveName;
+    private readonly Debounced _saveMemo;
+    private readonly Debounced _saveBlueprint;
+
     public string NameInput
     {
         get => _nameInput;
@@ -948,7 +978,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             if (SetField(ref _nameInput, value))
             {
                 OnPropertyChanged(nameof(NameChanged));
-                RelayCommand.RaiseCanExecuteChanged();
+                _saveName.Request();
             }
         }
     }
@@ -967,12 +997,78 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             if (SetField(ref _memoInput, value))
             {
                 OnPropertyChanged(nameof(MemoChanged));
-                RelayCommand.RaiseCanExecuteChanged();
+                _saveMemo.Request();
             }
         }
     }
 
     public bool MemoChanged => MemoInput != (Record.Memo ?? string.Empty);
+
+    // ---- VRChat の blueprint ID（ユーザ指示 2026-09-19） ----
+
+    private string _blueprintInput;
+
+    /// <summary>VRChat にアップロードしたアバターの ID（<c>avtr_…</c>）。「VRChatで着替える」で OSC に送る。</summary>
+    public string BlueprintInput
+    {
+        get => _blueprintInput;
+        set
+        {
+            if (SetField(ref _blueprintInput, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(BlueprintHint));
+                OnPropertyChanged(nameof(HasBlueprintHint));
+                OnPropertyChanged(nameof(CanChangeAvatar));
+                _saveBlueprint.Request();
+            }
+        }
+    }
+
+    /// <summary>形が違うときだけ言う（保存は止めない。書き間違いに気付けるように）。</summary>
+    public string BlueprintHint => BlueprintInput.Trim().Length > 0 && !VrcOsc.LooksLikeAvatarId(BlueprintInput)
+        ? "「avtr_」で始まる ID の形ではありません。VRChat のアバターの詳細（Web のアバターのページの URL など）からコピーしてください。"
+        : string.Empty;
+
+    public bool HasBlueprintHint => BlueprintHint.Length > 0;
+
+    public bool CanChangeAvatar => BlueprintInput.Trim().Length > 0;
+
+    /// <summary>VRChat の OSC（手元の 9000 番）へ /avatar/change を送り、この改変のアバターに着替える。</summary>
+    public RelayCommand ChangeAvatarCommand { get; }
+
+    private async Task ChangeAvatarAsync()
+    {
+        var id = BlueprintInput.Trim();
+        if (id.Length == 0)
+        {
+            return;
+        }
+
+        // 送りっぱなしの UDP なので、着替えたかはこちらでは分からない。送ったことと、効かないときの確かめ方を言う
+        Status = await VrcOsc.SendAvatarChangeAsync(id) is { } problem
+            ? $"VRChat へ送れませんでした（{problem}）。"
+            : "VRChat に着替えを送りました。着替わらなければ、VRChat の設定で OSC を有効にしているか、"
+                + "このアバターを着られるか（自分でアップロードした・お気に入りにしている）を確かめてください。";
+    }
+
+    /// <summary>
+    /// 改変の記録だけを読み直し、改変の画面の一覧に知らせる。名前・メモを押さずに残すときに使う
+    /// （全部を組み直すと、打っている間に使ったものの一覧がちらつく。入力欄は触らない）
+    /// </summary>
+    private async Task RefreshRecordAsync()
+    {
+        if (await _services.Modifications.LoadAsync(Record.Id) is { } fresh)
+        {
+            Record = fresh;
+        }
+
+        foreach (var name in new[] { nameof(Record), nameof(UpdatedText), nameof(NameChanged), nameof(MemoChanged) })
+        {
+            OnPropertyChanged(name);
+        }
+
+        Changed?.Invoke();
+    }
 
     // ---- Unityプロジェクト ----
 
@@ -1191,23 +1287,53 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
     }
 
+    /// <summary>名前を書く。空のときは書かない（改変の名前は要る。消している途中で空の名前が保存されないように）。</summary>
     private async Task SaveNameAsync()
     {
+        if (!NameChanged)
+        {
+            return;
+        }
+
         var result = await _services.Commands.ExecuteAsync(
             new UiCommand.RenameModification(Record.Id, NameInput));
 
         Status = result is CommandResult.Failed failed ? failed.Message : "名前を変えました。";
-        await ReloadAsync();
-        NameInput = Record.Name;
+        await RefreshRecordAsync();
     }
 
     private async Task SaveMemoAsync()
     {
-        var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.SetModificationMemo(Record.Id, MemoInput));
+        if (!MemoChanged)
+        {
+            return;
+        }
 
-        Status = result is CommandResult.Failed failed ? failed.Message : "メモを保存しました。";
-        await ReloadAsync();
+        var memo = MemoInput;
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.SetModificationMemo(Record.Id, memo));
+
+        Status = result is CommandResult.Failed failed
+            ? failed.Message
+            : memo.Trim().Length == 0 ? "メモを消しました。" : "メモを保存しました。";
+        await RefreshRecordAsync();
+    }
+
+    private async Task SaveBlueprintAsync()
+    {
+        var id = BlueprintInput.Trim();
+        if (id == (Record.BlueprintId ?? string.Empty))
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(
+            new UiCommand.SetModificationBlueprintId(Record.Id, id));
+
+        Status = result is CommandResult.Failed failed
+            ? failed.Message
+            : id.Length == 0 ? "blueprint ID を消しました。" : "blueprint ID を保存しました。";
+        await RefreshRecordAsync();
     }
 
     /// <summary>
@@ -1277,7 +1403,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         await ReloadAsync();
     }
 
-    private async Task RemoveMemberAsync(ModificationMemberRowViewModel? row)
+    /// <summary>
+    /// 外す・戻す（ユーザ指示 2026-09-19：商品の手元のファイルと同じく戻せるように）。
+    /// 前は外すと確かめずに行ごと消え、どのファイル・どの unitypackage を使ったかの記録も戻らなかった（動線の洗い出し B1）。
+    /// 印を付けるだけなので確かめない（戻せる）
+    /// </summary>
+    private async Task SetMemberDetachedAsync(ModificationMemberRowViewModel? row, bool detached)
     {
         if (row is null)
         {
@@ -1285,9 +1416,45 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         await _services.Commands.ExecuteAsync(
+            new UiCommand.SetModificationMemberDetached(Record.Id, row.Index, detached));
+
+        Status = detached
+            ? $"「{row.Name}」を外しました。行は薄く残るので、「戻す」で戻せます。"
+            : $"「{row.Name}」を戻しました。";
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 外した行を完全に消す（ユーザ指示 2026-09-19：改変ではもう一段、紐付けを完全に解く削除を置く）。
+    /// **取り返しがつかないので聞く。**使ったファイルの記録も消え、足し直しても Unity へ送るまで戻らない
+    /// </summary>
+    private async Task DeleteMemberAsync(ModificationMemberRowViewModel? row)
+    {
+        if (row is null || !row.IsDetached)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            $"「{row.Name}」をこの改変から完全に消します。\n\n"
+            + (row.IsFromUnity
+                ? $"使ったファイル（{row.SourceText}）の記録も消えます。足し直しても、Unity へ送るまで記録は戻りません。\n\n"
+                : string.Empty)
+            + "この操作は元に戻せません。",
+            "使ったものを削除",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(
             new UiCommand.RemoveModificationMember(Record.Id, row.Index));
 
-        Status = $"「{row.Name}」を外しました。";
+        Status = $"「{row.Name}」を削除しました。";
         await ReloadAsync();
     }
 

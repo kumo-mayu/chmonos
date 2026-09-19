@@ -502,6 +502,10 @@ public sealed class CommandHandler
                 return await RunModificationAsync(
                     () => _modifications!.SetMemoAsync(memo.Id, memo.Memo, cancellationToken));
 
+            case UiCommand.SetModificationBlueprintId blueprint:
+                return await RunModificationAsync(
+                    () => _modifications!.SetBlueprintIdAsync(blueprint.Id, blueprint.BlueprintId, cancellationToken));
+
             case UiCommand.SetModificationProject project:
                 return await RunModificationAsync(
                     () => _modifications!.SetProjectAsync(project.Id, project.Path, cancellationToken));
@@ -509,6 +513,11 @@ public sealed class CommandHandler
             case UiCommand.AddModificationMember addMember:
                 return await RunModificationAsync(
                     () => _modifications!.AddMemberAsync(addMember.Id, addMember.Member, cancellationToken));
+
+            case UiCommand.SetModificationMemberDetached detachMember:
+                return await RunModificationAsync(
+                    () => _modifications!.SetMemberDetachedAsync(
+                        detachMember.Id, detachMember.Index, detachMember.Detached, cancellationToken));
 
             case UiCommand.RemoveModificationMember removeMember:
                 return await RunModificationAsync(

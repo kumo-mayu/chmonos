@@ -143,7 +143,7 @@ public sealed partial class ItemViewModel
                             : record.AvatarItemId,
 
                     // 同じ商品を別のバージョンで2回足せるので、何回入っているかを出す
-                    UseCount = record.Members.Count(member =>
+                    UseCount = record.UsedMembers.Count(member =>
                         string.Equals(member.ItemId, Item.Id, StringComparison.Ordinal)),
                 });
             }

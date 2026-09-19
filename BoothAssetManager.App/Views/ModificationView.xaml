@@ -17,6 +17,18 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!-- 使ったもののリストの名前。押すと商品ページ（「開く」ボタンの代わり・ユーザ指示 2026-09-14）。乗せると青い下線 -->
+            <!--
+                外した使ったもの（ユーザ指示 2026-09-19：商品の手元のファイルと同じく、消さずに薄く残して戻せるように）。
+                薄くするのは絵と名前だけ。「戻す」「削除」まで薄いと押せないように見える
+            -->
+            <Style x:Key="DetachedMemberDim" TargetType="FrameworkElement">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                        <Setter Property="Opacity" Value="0.45" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
             <Style x:Key="MemberNameLink" TargetType="Button">
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalAlignment" Value="Left" />
@@ -176,12 +188,19 @@
                                                         <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="#4a5160"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                     </Border>
+                                                    <!-- 外した行の印（ユーザ指示 2026-09-19：消していない物と外した物を見分けられるように） -->
+                                                    <Border DockPanel.Dock="Left" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                            ToolTip="この改変から外した物です。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                    </Border>
                                                     <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                 </DockPanel>
 
                                                 <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
-                                                                HorizontalAlignment="Left" Margin="0,0,0,-8"
+                                                                HorizontalAlignment="Left" Margin="0,0,0,-8" Style="{StaticResource DetachedMemberDim}"
                                                                 Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                                 <!-- 手元に無い商品（記録だけ残る）。カードが作れないので名前と状態だけ -->
@@ -210,6 +229,7 @@
                                                             CommandParameter="{Binding}" />
                                                     <!-- Unity へのインポートと選択の2択（ユーザ指示 2026-09-14。「開く」はやめ、商品ページはカードを押すと開く） -->
                                                     <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
+                                                            Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             ToolTip="Unity へインポートするか、Unity のプロジェクトタブで選択します">
                                                         <Button.ContextMenu>
@@ -222,8 +242,21 @@
                                                         </Button.ContextMenu>
                                                     </Button>
                                                     <Button Content="外す" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
-                                                            ToolTip="この記録から外します。商品そのものは消えません。"
+                                                            ToolTip="この改変から外します。行と、使ったファイルの記録は薄く残り、「戻す」で戻せます。商品そのものは消えません。"
+                                                            Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <!-- 外した行だけ：戻す／完全に消す（ユーザ指示 2026-09-19：改変ではもう一段、紐付けを完全に解く削除を置く） -->
+                                                    <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                            ToolTip="この改変の使ったものに戻します。"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="削除" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
+                                                            Foreground="#9a3232" BorderBrush="#e2bcbc"
+                                                            ToolTip="この改変から完全に消します。使ったファイルの記録も消え、元に戻せません（押すと確かめます）。"
+                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                 </StackPanel>
                                             </StackPanel>
@@ -257,7 +290,8 @@
                                                                 AutomationProperties.Name="{Binding Name}"
                                                                 Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}">
-                                                            <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListIconCell}" Focusable="False" />
+                                                            <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListIconCell}" Focusable="False"
+                                                                            Style="{StaticResource DetachedMemberDim}" />
                                                         </Button>
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
@@ -273,7 +307,7 @@
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">
-                                                            <StackPanel VerticalAlignment="Center">
+                                                            <StackPanel VerticalAlignment="Center" Style="{StaticResource DetachedMemberDim}">
                                                                 <!-- 名前を押すと商品ページ（「開く」ボタンの代わり） -->
                                                                 <Button Style="{StaticResource MemberNameLink}" ToolTip="{Binding Name}"
                                                                         Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -296,6 +330,13 @@
                                                                 <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
                                                                            TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                                 <WrapPanel Margin="0,3,0,0">
+                                                                    <!-- 外した行の印（カードと同じ） -->
+                                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
+                                                                            ToolTip="この改変から外した物です。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
+                                                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                        <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                                    </Border>
                                                                     <!-- 手元に無くても記録は残す。そのとき使ったのは事実 -->
                                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
@@ -326,6 +367,7 @@
                                                                         Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
                                                                 <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
+                                                                        Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         ToolTip="Unity へインポートするか、Unity のプロジェクトタブで選択します">
                                                                     <Button.ContextMenu>
@@ -338,8 +380,20 @@
                                                                     </Button.ContextMenu>
                                                                 </Button>
                                                                 <Button Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
-                                                                        ToolTip="この記録から外します。商品そのものは消えません。"
+                                                                        ToolTip="この改変から外します。行と、使ったファイルの記録は薄く残り、「戻す」で戻せます。商品そのものは消えません。"
+                                                                        Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                        ToolTip="この改変の使ったものに戻します。"
+                                                                        Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                        Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="削除" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
+                                                                        Foreground="#9a3232" BorderBrush="#e2bcbc"
+                                                                        ToolTip="この改変から完全に消します。使ったファイルの記録も消え、元に戻せません（押すと確かめます）。"
+                                                                        Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                        Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
                                                             </StackPanel>
                                                         </Border>
@@ -441,12 +495,29 @@
 
                     <Border Style="{StaticResource Card}" Padding="20,18" Margin="0,14,0,0">
                         <StackPanel>
+                            <!-- 押さずに残す（ユーザ指示 2026-09-19：タグ・属性・アバターのメモと揃える） -->
                             <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
                             <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"
                                      Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="「普段着」「制服」のような呼び分けです。" />
-                            <Button Content="名前を保存" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
-                                    Margin="0,8,0,0" Command="{Binding SaveNameCommand}" />
+                                     ToolTip="「普段着」「制服」のような呼び分けです。打ち終えると残ります。" />
+
+                            <!--
+                                VRChat の blueprint ID（ユーザ指示 2026-09-19：改変の名前の下に）。
+                                VRChat の OSC に /avatar/change で送ると、このアバターに着替えられる
+                            -->
+                            <TextBlock Text="VRChat の blueprint ID" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
+                            <TextBlock Text="アップロードしたアバターの ID（avtr_…）。入れておくと、VRChat をこのアバターに着替えられます。打ち終えると残ります。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="VRChatで着替える" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                        VerticalAlignment="Center" Command="{Binding ChangeAvatarCommand}"
+                                        IsEnabled="{Binding CanChangeAvatar}" ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="VRChat の OSC（この PC の 9000 番）へ、このアバターに着替える合図を送ります。VRChat で OSC を有効にしておく必要があります。ID が空のときは押せません。" />
+                                <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center" FontFamily="Consolas"
+                                         Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding BlueprintHint}" FontSize="11" Foreground="{StaticResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Visibility="{Binding HasBlueprintHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </Border>
 
@@ -595,9 +666,7 @@
                             <TextBox Height="120" Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                      Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="貫通の直し方やシェイプキーの値など、次に同じものを作るときに要ることを残せます。" />
-                            <Button Content="メモを保存" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
-                                    Margin="0,8,0,0" Command="{Binding SaveMemoCommand}" />
+                                     ToolTip="貫通の直し方やシェイプキーの値など、次に同じものを作るときに要ることを残せます。打ち終えると残ります。" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

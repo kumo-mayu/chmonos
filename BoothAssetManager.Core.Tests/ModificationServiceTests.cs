@@ -303,6 +303,53 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task 外しても行と記録と位置は残り戻せる()
+    {
+        // 商品の手元のファイルと同じく戻せるようにする（ユーザ指示 2026-09-19）。前は外すと使ったファイルの記録ごと消えた
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("1"));
+        await _service.AddMemberAsync(id, Member("2", hash: "ZIP2") with { Package = "a/b.unitypackage" });
+        await _service.AddMemberAsync(id, Member("3"));
+
+        await _service.SetMemberDetachedAsync(id, 1, detached: true);
+        var detached = (await _service.LoadAsync(id))!;
+
+        Assert.Equal(["1", "2", "3"], detached.Members.Select(member => member.ItemId));
+        Assert.True(detached.Members[1].Detached);
+        Assert.Equal("ZIP2", detached.Members[1].FileHash);
+        Assert.Equal("a/b.unitypackage", detached.Members[1].Package);
+        Assert.Equal(["1", "3"], detached.UsedMembers.Select(member => member.ItemId));
+
+        await _service.SetMemberDetachedAsync(id, 1, detached: false);
+        var restored = (await _service.LoadAsync(id))!;
+
+        Assert.False(restored.Members[1].Detached);
+        Assert.Equal(["1", "2", "3"], restored.UsedMembers.Select(member => member.ItemId));
+    }
+
+    [Fact]
+    public async Task 外した商品はこの商品を使った改変に数えない()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("5901276"));
+        await _service.SetMemberDetachedAsync(id, 0, detached: true);
+
+        Assert.Empty(await _service.LoadUsingItemAsync("5901276"));
+    }
+
+    [Fact]
+    public async Task blueprintIDを持てて空で外せる()
+    {
+        var id = await NewAsync();
+
+        await _service.SetBlueprintIdAsync(id, "  avtr_0123abcd-4567-89ab-cdef-0123456789ab ");
+        Assert.Equal("avtr_0123abcd-4567-89ab-cdef-0123456789ab", (await _service.LoadAsync(id))!.BlueprintId);
+
+        await _service.SetBlueprintIdAsync(id, " ");
+        Assert.Null((await _service.LoadAsync(id))!.BlueprintId);
+    }
+
+    [Fact]
     public async Task 手で足した行を選んだファイルの行に置き換える()
     {
         // Unityへ送るときに選んだ物を記録する（ユーザ判断 2026-09-13）。2つ選べばその位置に2行並び、前後の並びは変えない
