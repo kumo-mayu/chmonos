@@ -39,42 +39,15 @@ public static class UnityTargetPicker
     /// <summary>複数開いているとき、どれへ送るかを選ばせる。選べなければ null。</summary>
     private static OpenUnityEditor? Choose(string title, IReadOnlyList<OpenUnityEditor> editors)
     {
-        var list = new ListBox { Margin = new Thickness(0, 10, 0, 12), MinHeight = 90 };
-        foreach (var editor in editors)
-        {
-            list.Items.Add(editor.ProjectName ?? $"名前の分からないプロジェクト（プロセス {editor.ProcessId}）");
-        }
+        // 一覧から選ばせる窓はファイル・unitypackage を選ぶのと共用（ListChoice）
+        var picked = ListChoice.Ask(
+            title,
+            $"Unityが {editors.Count} つ開いています。どれを相手にしますか？\n選んだUnityの窓にだけ働くので、ほかのプロジェクトには入りません。",
+            [.. editors.Select(editor => new ListChoiceItem(
+                editor.ProjectName ?? $"名前の分からないプロジェクト（プロセス {editor.ProcessId}）",
+                editor.ProjectPath))],
+            "このUnityにする");
 
-        list.SelectedIndex = 0;
-
-        var window = new Window
-        {
-            Title = title,
-            Width = 420,
-            SizeToContent = SizeToContent.Height,
-            ResizeMode = ResizeMode.NoResize,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Owner = Application.Current?.MainWindow,
-        };
-
-        var ok = new Button { Content = "このUnityへ送る", IsDefault = true, Padding = new Thickness(12, 3, 12, 3) };
-        var cancel = new Button { Content = "やめる", IsCancel = true, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(12, 3, 12, 3) };
-        ok.Click += (_, _) => window.DialogResult = true;
-
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        buttons.Children.Add(ok);
-        buttons.Children.Add(cancel);
-
-        var body = new StackPanel { Margin = new Thickness(18) };
-        body.Children.Add(new TextBlock
-        {
-            Text = $"Unityが {editors.Count} つ開いています。どれへ送りますか？\n選んだUnityの窓にだけ送るので、ほかのプロジェクトには入りません。",
-            TextWrapping = TextWrapping.Wrap,
-        });
-        body.Children.Add(list);
-        body.Children.Add(buttons);
-        window.Content = body;
-
-        return window.ShowDialog() == true && list.SelectedIndex >= 0 ? editors[list.SelectedIndex] : null;
+        return picked is { } index ? editors[index] : null;
     }
 }

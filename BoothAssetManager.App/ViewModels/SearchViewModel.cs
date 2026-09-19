@@ -87,6 +87,24 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         CopyLinkCommand = new RelayCommand(parameter => CopyLink(parameter as ItemCardViewModel));
         EditItemCommand = new RelayCommand(parameter => EditItemAsync(parameter as ItemCardViewModel).Forget());
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
+        CardUnpackCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is ItemCardViewModel card)
+            {
+                ItemFileActions.UnpackAsync(_services, card.Item).Forget();
+            }
+        });
+        CardSendToUnityCommand = new RelayCommand(parameter => CardUnityAsync(
+            parameter as ItemCardViewModel, "Unityへ送る", "これを送る",
+            package => ItemUnityActions.SendAsync(_services, ((ItemCardViewModel)parameter!).Item, package)).Forget());
+        CardSendToUnityWithRecordCommand = new RelayCommand(parameter => CardUnityAsync(
+            parameter as ItemCardViewModel, "改変に足して送る", "これを送る",
+            package => ItemUnityActions.SendWithRecordAsync(_services, ((ItemCardViewModel)parameter!).Item, package,
+                text => Tell("改変に足して送る", text))).Forget());
+        CardSelectInUnityCommand = new RelayCommand(parameter => CardUnityAsync(
+            parameter as ItemCardViewModel, "Unityで選択", "これを示す",
+            package => ItemUnityActions.SelectAsync(((ItemCardViewModel)parameter!).Item, package,
+                text => Tell("Unityで選択", text))).Forget());
         HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;

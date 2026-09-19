@@ -725,6 +725,20 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public RelayCommand RevealCommand => _main.Search.RevealCommand;
 
+
+    // 右クリックの「開く」「Unity」は検索画面と同じ命令を借りる（ユーザ指示 2026-09-19）
+
+    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
+
+
+    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
+
+
+    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
+
+
+    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
+
     public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
 
     public bool HasMembers => Members.Count > 0;

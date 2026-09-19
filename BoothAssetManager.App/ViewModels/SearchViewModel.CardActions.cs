@@ -96,9 +96,56 @@ public sealed partial class SearchViewModel
         }
     }
 
-    /// <summary>手元のファイルをエクスプローラで開く。最初の1件を的にする。</summary>
-    private void Reveal(ItemCardViewModel? card)
-        => Shell.Reveal(card?.Item.Local.OwnedFiles.SelectMany(file => file.Paths).FirstOrDefault());
+    /// <summary>
+    /// 手元のファイルをエクスプローラで開く。**2つ以上あれば選ばせる**（ユーザ指示 2026-09-19：
+    /// 前は最初の1件を黙って開いていて、別のファイルが開いても気付けなかった）
+    /// </summary>
+    private static void Reveal(ItemCardViewModel? card)
+    {
+        if (card is not null)
+        {
+            ItemFileActions.RevealAsync(card.Item).Forget();
+        }
+    }
+
+    // ---- 右クリックの「開く」「Unity」（ユーザ指示 2026-09-19：Unity が無く、一時展開も見えなかった） ----
+    // 中身は商品ページの「開く ▾」「Unity ▾」と同じ道（ItemFileActions・ItemUnityActions）。
+    // ファイルや unitypackage が2つ以上あれば、どれにするかを先に選ばせる
+
+    /// <summary>zip を選んで一時フォルダへ展開して開く。</summary>
+    public RelayCommand CardUnpackCommand { get; }
+
+    public RelayCommand CardSendToUnityCommand { get; }
+
+    public RelayCommand CardSendToUnityWithRecordCommand { get; }
+
+    public RelayCommand CardSelectInUnityCommand { get; }
+
+    private async Task CardUnityAsync(ItemCardViewModel? card, string title, string okText,
+        Func<Core.Services.UnityPackageEntry, Task> run)
+    {
+        if (card is null)
+        {
+            return;
+        }
+
+        if (await ItemFileActions.PickPackageAsync(card.Item, title, okText) is { } package)
+        {
+            await run(package);
+        }
+    }
+
+    /// <summary>カードには結果を出す行が無いので、選択・改変に足した結果は窓で言う。</summary>
+    private static void Tell(string title, string text)
+    {
+        // 「調べています…」のような途中の文と、空の文（入っていなかった・続きを言う合図）は窓にしない
+        if (text.Length == 0 || text.EndsWith('…'))
+        {
+            return;
+        }
+
+        System.Windows.MessageBox.Show(text, title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+    }
 
     /// <summary>
     /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。

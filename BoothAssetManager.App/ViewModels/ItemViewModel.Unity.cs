@@ -17,207 +17,31 @@ namespace BoothAssetManager.App.ViewModels;
 /// <summary>商品ページ：Unityへ送る・改変に足す・使った改変（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
 public sealed partial class ItemViewModel
 {
-    /// <summary>
-    /// 送り先のUnityを1つに絞る。絞れなければ理由を出して null を返す。
-    ///
-    /// **「改変に足して送る」と共通の門。**どちらのボタンでも同じ条件で
-    /// 送れる／送れないが決まるべきで、片方だけ通ると挙動が読めなくなる。
-    /// </summary>
-    private Services.OpenUnityEditor? PickUnityTarget(string title)
-    {
-        // 連続送りの最中は混ぜない。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
-        if (Services.UnityImportQueue.IsRunning)
-        {
-            System.Windows.MessageBox.Show(
-                Services.UnityImportQueue.BusyMessage, title,
-                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-            return null;
-        }
+    // 送る・改変に足して送る・選択の中身は ItemUnityActions（カードの右クリックと共用。ユーザ指示 2026-09-19）。
+    // ここは商品ページの欄の下の1行へ結果を出すだけ
 
-        // 窓を名指しして送る道なので、複数開いていても選べば送れる（U14・ユーザ判断）。
-        // 以前はファイルの関連付けに渡していて、どれに入るかを指名できず、2つ以上開いていると断っていた
-        return Services.UnityTargetPicker.Pick(title);
+    private void SendToUnity(object? parameter)
+    {
+        if (parameter is Core.Services.UnityPackageEntry package)
+        {
+            ItemUnityActions.SendAsync(_services, Item, package).Forget();
+        }
     }
 
-    private void SendToUnity(object? parameter) => SendToUnityAsync(parameter).Forget();
-
-    /// <summary>
-    /// 「Unity ▾」の「選択」（ユーザ指示 2026-09-19：改変の画面でできる「Unity のプロジェクトタブで示す」を商品ページにも）。
-    /// 相手は送り先と同じ、いま開いている Unity。**入っていなければ言うだけで、取り込みには進まない**——
-    /// 「示す」つもりで押した物が「取り込む」話にすり替わると意図と違う（動線の洗い出し A1 と同じ種類）。入れるなら「Unityへ送る」を選ぶ
-    /// </summary>
     private async Task SelectInUnityAsync(object? parameter)
     {
-        if (parameter is not Core.Services.UnityPackageEntry package)
+        if (parameter is Core.Services.UnityPackageEntry package)
         {
-            return;
-        }
-
-        const string title = "Unityで選択";
-
-        // 選ぶ門は「送れません」と言うので、開いていないときはこちらで「示せない」と言う
-        if (Services.UnityEditors.Open().Count == 0)
-        {
-            UnityRecordNotice = "Unityが開いていないので、示せません。プロジェクトを開いてから、もう一度選んでください。";
-            return;
-        }
-
-        // 送るのではないので、連続送りの最中でも止めない（PickUnityTarget は送る用の門）
-        if (Services.UnityTargetPicker.Pick(title) is not { } editor)
-        {
-            return;
-        }
-
-        // 窓の題から一覧で言い当てた場所を先に使う。一覧で当てられなかったときだけ、名前から引く（「改変に足して送る」と同じ）
-        var projectPath = editor.ProjectPath ?? (editor.ProjectName is { } name
-            ? await Task.Run(() => Core.Services.UnityProjects.Discover()
-                .FirstOrDefault(candidate =>
-                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
-            : null);
-
-        if (projectPath is null)
-        {
-            UnityRecordNotice = $"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の場所が分からないので、中を調べられません"
-                + "（Unity Hub にも VRChat Creator Companion にも載っていないプロジェクトです）。";
-            return;
-        }
-
-        var projectName = editor.ProjectName!;
-        if (!await UnityMemberSelect.ShowIfPresentAsync(projectPath, projectName, editor, [package], Item.Id,
-                text => UnityRecordNotice = text))
-        {
-            UnityRecordNotice = $"「{package.Name}」は、Unityの「{projectName}」にまだ入っていません。"
-                + "入れるには「Unity ▾」の「Unityへ送る」を選んでください。";
+            await ItemUnityActions.SelectAsync(Item, package, text => UnityRecordNotice = text);
         }
     }
 
-    private async Task SendToUnityAsync(object? parameter)
-    {
-        if (parameter is not Core.Services.UnityPackageEntry package)
-        {
-            return;
-        }
-
-        const string title = "Unityへ送る";
-
-        if (PickUnityTarget(title) is not { } editor)
-        {
-            return;
-        }
-
-        var target = editor.ProjectName ?? "名前の分からないプロジェクト";
-        var answer = System.Windows.MessageBox.Show(
-            $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
-            + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
-            title,
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question,
-            System.Windows.MessageBoxResult.OK);
-
-        if (answer == System.Windows.MessageBoxResult.OK)
-        {
-            await SendOneToUnityAsync(editor, package, title);
-        }
-    }
-
-    /// <summary>
-    /// 1件を、選んだ Unity の窓へ名指しで送る（U14）。検索の複数選択・改変と同じ道（1件だけの列）。
-    /// 取り込みの終わりをログで見るので、Cancel されたかも分かる。
-    /// </summary>
-    /// <returns>取り込み画面を出せたか。</returns>
-    private async Task<bool> SendOneToUnityAsync(
-        Services.OpenUnityEditor editor,
-        Core.Services.UnityPackageEntry package,
-        string title)
-    {
-        var outcomes = await Services.UnityImportQueue.RunAsync(
-            editor.ProcessId, [package], progress: null, CancellationToken.None);
-        var outcome = outcomes.FirstOrDefault();
-
-        if (outcome is null || !outcome.Opened)
-        {
-            System.Windows.MessageBox.Show(
-                $"「{package.Name}」をUnityへ送れませんでした。\n\n{outcome?.Problem ?? "理由が分かりませんでした。"}",
-                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-            return false;
-        }
-
-        // 「使った」の足跡。Unityへ送ったことが一番強い証拠（ユーザ判断）。
-        // 取り込み画面で Cancel された物は入っていないので付けない（検索の複数選択と同じ扱い）
-        if (!outcome.Cancelled)
-        {
-            _services.Recent.TouchAsync(Item.Id, Core.Services.RecentKind.Used).Forget();
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// 改変に足して送る。
-    ///
-    /// **「送る」と別のボタンにしてある**（ユーザ判断）。送る前に「記録しますか」と
-    /// 聞くと、記録を使っていない人の邪魔になる。ボタンで分ければ、
-    /// **押した人だけが記録の話に入る。**
-    /// </summary>
     private async Task SendToUnityWithRecordAsync(object? parameter)
     {
-        if (parameter is not Core.Services.UnityPackageEntry package)
+        if (parameter is Core.Services.UnityPackageEntry package)
         {
-            return;
+            await ItemUnityActions.SendWithRecordAsync(_services, Item, package, text => UnityRecordNotice = text);
         }
-
-        const string title = "改変に足して送る";
-
-        if (PickUnityTarget(title) is not { } editor)
-        {
-            return;
-        }
-
-        // 送り先のプロジェクトを、窓のタイトルの名前から実体のパスに直す。
-        // HubにもVCCにも載っていないプロジェクトだと引けない——そのときは
-        // 候補を絞らずに全部出す（**推定で絞ると、正しい改変が消える**）
-        var projectPath = editor.ProjectPath ?? (editor.ProjectName is { } name
-            ? await Task.Run(() => Core.Services.UnityProjects.Discover()
-                .FirstOrDefault(candidate =>
-                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
-            : null);
-
-        var records = projectPath is not null
-            ? await _services.Modifications.LoadForProjectAsync(projectPath)
-            : (await _services.Modifications.LoadAllAsync()).Modifications;
-
-        var model = await BuildPickModificationAsync(
-            title,
-            $"「{package.Name}」を送って、改変に足します。",
-            projectPath is not null
-                ? $"送り先：Unityの「{editor.ProjectName}」"
-                : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
-                    + "（一覧に無いプロジェクトなので、改変は全部出しています）",
-            records,
-            existingLabel: "このプロジェクトの改変に足す",
-            commitLabel: "足して送る",
-            emptyText: "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに足せます。");
-
-        if (new Views.PickModificationDialog(model).ShowDialog() != true)
-        {
-            return;
-        }
-
-        // **記録してから送る。**送るのは Unity 側の取り込み画面を待つので時間がかかり、
-        // 途中で窓を閉じられることもある。先に記録を確定させておく方が失うものが少ない
-        var owner = LocalFiles.FirstOrDefault(file => file.UnityPackages.Contains(package));
-        if (await CommitPickedModificationAsync(model, title, projectPath, owner, package.EntryPath)
-            is not { } record)
-        {
-            return;
-        }
-
-        // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
-        var sent = await SendOneToUnityAsync(editor, package, title);
-
-        UnityRecordNotice = sent
-            ? $"「{record.Name}」に足して、Unityへ送りました。"
-            : $"「{record.Name}」に足しました。Unityへは送れませんでした。";
     }
 
     /// <summary>
@@ -230,7 +54,8 @@ public sealed partial class ItemViewModel
     {
         const string title = "改変に足す";
 
-        var model = await BuildPickModificationAsync(
+        var model = ModificationPicking.BuildDialog(
+            _services,
             title,
             $"「{Item.DisplayName}」を改変に足します。",
             // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
@@ -245,7 +70,7 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        if (await CommitPickedModificationAsync(model, title, project: null, owner: null, package: null)
+        if (await ItemUnityActions.CommitPickedAsync(_services, Item, model, title, project: null, owner: null, package: null)
             is not { } record)
         {
             return;
@@ -254,50 +79,6 @@ public sealed partial class ItemViewModel
         UnityRecordNotice = $"「{record.Name}」に足しました。";
         await LoadModificationsAsync();
     }
-
-    /// <summary>ダイアログの中身を組む。送るときと足すだけのときで文言だけ変える（組み方は検索画面と共通）。</summary>
-    private Task<PickModificationDialogViewModel> BuildPickModificationAsync(
-        string title,
-        string headingText,
-        string contextText,
-        IReadOnlyList<Core.Models.ModificationRecord> records,
-        string existingLabel,
-        string commitLabel,
-        string emptyText)
-        => Task.FromResult(ModificationPicking.BuildDialog(
-            _services, title, headingText, contextText, records, existingLabel, commitLabel, emptyText));
-
-    /// <summary>
-    /// ダイアログの答えを記録に落とす。作る側なら先に作る。
-    /// 作れなかったときは理由を出して null を返す。
-    /// </summary>
-    private async Task<Core.Models.ModificationRecord?> CommitPickedModificationAsync(
-        PickModificationDialogViewModel model,
-        string title,
-        string? project,
-        LocalFileRow? owner,
-        string? package)
-    {
-        if (await ModificationPicking.ResolvePickedAsync(_services, model, title, project) is not { } record)
-        {
-            return null;
-        }
-
-        await _services.Commands.ExecuteAsync(
-            new Core.Commands.UiCommand.AddModificationMember(
-                record.Id,
-                new Core.Models.ModificationMember
-                {
-                    ItemId = Item.Id,
-                    VariationId = owner?.VariationId,
-                    FileHash = owner?.Hash,
-                    Package = package,
-                    AddedAt = DateTimeOffset.Now,
-                }));
-
-        return record;
-    }
-
     private string? _unityRecordNotice;
 
     /// <summary>

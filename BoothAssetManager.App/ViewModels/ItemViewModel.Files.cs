@@ -267,16 +267,8 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.UnpackToTemporary(zip));
-        if (result is CommandResult.Unpacked unpacked)
-        {
-            TryStart(new ProcessStartInfo { FileName = unpacked.Folder, UseShellExecute = true });
-        }
-        else if (result is CommandResult.Failed failed)
-        {
-            System.Windows.MessageBox.Show(failed.Message, "展開して開く",
-                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-        }
+        // 展開して開く処理はカードの右クリックと共用（ItemFileActions）
+        await ItemFileActions.UnpackAndOpenAsync(_services, zip);
     }
 
     /// <summary>
