@@ -23,18 +23,7 @@ public partial class ModificationView : UserControl
     /// 使ったものの「Unity ▾」。押すと、インポートと選択の2択を下に出す（ユーザ指示 2026-09-14：「開く」がエクスプローラなのか
     /// Unity なのか分かりにくかった）。項目はボタンの ContextMenu に置き、左クリックでも開く（右クリックでも同じ物が出る）
     /// </summary>
-    private void OnUnityMenuClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { ContextMenu: { } menu } button)
-        {
-            return;
-        }
-
-        menu.PlacementTarget = button;
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-        menu.DataContext = button.DataContext;
-        menu.IsOpen = true;
-    }
+    private void OnUnityMenuClick(object sender, RoutedEventArgs e) => Controls.MenuButton.OpenBelow(sender, e);
 
     private static void OnDragOver(object sender, DragEventArgs e)
     {

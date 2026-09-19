@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 
 namespace BoothAssetManager.App.Views;
@@ -12,4 +13,7 @@ public partial class ItemFilesPanel : UserControl
     {
         InitializeComponent();
     }
+
+    /// <summary>「開く ▾」「Unityへ送る ▾」（ユーザ判断 2026-09-19：右端に並んだボタンをまとめ、名前のすぐ横に置く）。</summary>
+    private void OnMenuButtonClick(object sender, RoutedEventArgs e) => Controls.MenuButton.OpenBelow(sender, e);
 }

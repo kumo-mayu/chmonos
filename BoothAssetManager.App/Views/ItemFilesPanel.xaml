@@ -115,6 +115,18 @@
                                                                 CommandParameter="{Binding Path}" />
                                                         <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
                                                                    Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                        <!-- 開く操作は名前のすぐ横に（ファイルの行と同じ形。ユーザ判断 2026-09-19） -->
+                                                        <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                                VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                ToolTip="このフォルダの開き方を選びます">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding Path}"
+                                                                              Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                        </Button>
                                                         <!--
                                                             見つからないファイル。直し方を言う（動線の点検 D7）。取り込みで読み直せば
                                                             置き場所を付け直す仕組みはあるのに、札が「見つかりません」だけで伝わっていなかった
@@ -162,7 +174,8 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Style="{StaticResource DetachedDim}">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                <StackPanel Orientation="Horizontal" Style="{StaticResource DetachedDim}">
                                                     <!--
                                                         名前を押すとエクスプローラで開く（1つめの場所）。場所は乗せたときに出す
                                                         （ユーザ指示 2026-09-19：名前の下に場所の行が続き、同じ名前が2回並んで読みにくかった）。
@@ -207,22 +220,41 @@
                                                                    ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">取り込みを開く</Hyperlink>
                                                     </TextBlock>
                                                 </StackPanel>
+                                                    <!--
+                                                        開く操作は名前のすぐ横に、1つのボタンにまとめる（ユーザ判断 2026-09-19：右端に並ぶと、名前を読んでから
+                                                        押すまでに視線が画面の幅ぶん往復した）。外したファイルでも開けるので、薄くする枠の外に置く（薄いと押せないように見えた・ユーザ指摘）。
+                                                        見つからないファイルは開く先が無いので出さない
+                                                    -->
+                                                    <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                            VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                            Visibility="{Binding CanReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            ToolTip="このファイルの開き方を選びます">
+                                                        <Button.ContextMenu>
+                                                            <ContextMenu>
+                                                                <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding FirstPath}"
+                                                                          ToolTip="このファイルのある場所を開きます。zip は中を見る形で開きます（取り出しはしません）。"
+                                                                          Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                <!--
+                                                                    unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れにくい（#56）。
+                                                                    一時フォルダに展開して開き、アプリを閉じると消す。「一時的に」は、元の zip の横に広げると読まれないように
+                                                                    （ユーザ指示 2026-09-19）
+                                                                -->
+                                                                <MenuItem Header="一時的に展開して開く" CommandParameter="{Binding}"
+                                                                          ToolTip="中身を一時フォルダに展開して、エクスプローラで開きます。アプリを閉じると消えます。元のzipはそのままです。"
+                                                                          Visibility="{Binding CanUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                          Command="{Binding PlacementTarget.Tag.UnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                            </ContextMenu>
+                                                        </Button.ContextMenu>
+                                                    </Button>
+                                                </StackPanel>
 
                                                 <!--
                                                     間違って紐付いたファイルを直す入口。1商品に複数ファイルがあり得るので、
                                                     商品単位ではなくファイル単位に置く（zipだけが誤りのことがある）
                                                 -->
+                                                <!-- 商品の中身を変える操作だけは右端に離す（開く・送るの隣で押し間違えないように） -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <!--
-                                                        unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れられない（#56）。
-                                                        一時フォルダに展開して開き、アプリを閉じると消す
-                                                    -->
-                                                    <Button Content="展開して開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
-                                                            ToolTip="中身を一時フォルダに展開して、エクスプローラで開きます。アプリを閉じると消えます。元のzipはそのままです。"
-                                                            Visibility="{Binding CanUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                            Command="{Binding DataContext.UnpackCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}" />
                                                     <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
                                                             ToolTip="このファイルを未確定に戻します。ファイルは消しません。この欄には灰色で残り、戻すこともできます。"
                                                             Visibility="{Binding IsAttached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
@@ -247,19 +279,17 @@
                                                 <ItemsControl ItemsSource="{Binding OtherPaths}" Margin="10,0,0,0">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
+                                                            <!-- ボタンは場所のすぐ横に（右端に寄せない。ユーザ判断 2026-09-19） -->
                                                             <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
-                                                                <Grid>
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="Auto" />
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <TextBlock Grid.Column="0" Text="{Binding}" Style="{StaticResource DetachedDimPath}" FontSize="11"
-                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
-                                                                    <Button Grid.Column="1" Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding}" Style="{StaticResource DetachedDimPath}" FontSize="11" MaxWidth="640"
+                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"
+                                                                               ToolTip="{Binding}" />
+                                                                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                                                             Command="{Binding DataContext.OpenInExplorerCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding}" />
-                                                                </Grid>
+                                                                </StackPanel>
                                                             </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
@@ -285,43 +315,41 @@
                                                             <DataTemplate>
                                                                 <Border BorderBrush="{StaticResource AccentBorder}" BorderThickness="2,0,0,0"
                                                                         Padding="10,3" Margin="0,0,0,4">
-                                                                    <Grid>
-                                                                        <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="*" />
-                                                                            <ColumnDefinition Width="Auto" />
-                                                                        </Grid.ColumnDefinitions>
+                                                                    <!--
+                                                                        名前のすぐ横に「Unityへ送る ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した）。
+                                                                        **送り方は2つに分けたまま選ばせる。**送る前に「記録しますか」と聞くと、記録を使っていない人の邪魔になる。
+                                                                        分ければ選んだ人だけが記録の話に入る
+                                                                    -->
+                                                                    <StackPanel VerticalAlignment="Center">
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5" MaxWidth="560"
+                                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                                            <Button Content="Unityへ送る ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                                                    VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    ToolTip="開いているUnityへ取り込みを始めます。改変に記録するかを選べます。">
+                                                                                <Button.ContextMenu>
+                                                                                    <ContextMenu>
+                                                                                        <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
+                                                                                                  ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                        <MenuItem Header="改変に足して送る" CommandParameter="{Binding Entry}"
+                                                                                                  ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
+                                                                                                  Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                                                    </ContextMenu>
+                                                                                </Button.ContextMenu>
+                                                                            </Button>
+                                                                        </StackPanel>
                                                                         <!--
                                                                             Unityのどこに入るか。**取り込んだ後に何という名前で
                                                                             入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
                                                                         -->
-                                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                                                                            <TextBlock Text="{Binding Name}" FontSize="11.5"
-                                                                                       TextTrimming="CharacterEllipsis" />
-                                                                            <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
-                                                                                       FontSize="10.5" Foreground="{StaticResource TextMuted}"
-                                                                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
-                                                                                       ToolTip="{Binding DestinationText}"
-                                                                                       Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                        </StackPanel>
-                                                                        <!--
-                                                                            **ボタンを2つに分ける。**送る前に「記録しますか」と
-                                                                            聞くと、記録を使っていない人の邪魔になる。
-                                                                            分ければ押した人だけが記録の話に入る
-                                                                        -->
-                                                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                                                            <Button Content="Unityへ送る" Style="{StaticResource SmallButton}"
-                                                                                    ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
-                                                                                    Command="{Binding DataContext.SendToUnityCommand,
-                                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding Entry}" />
-                                                                            <Button Content="改変に足して送る" Style="{StaticResource SmallButton}"
-                                                                                    Margin="6,0,0,0"
-                                                                                    ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
-                                                                                    Command="{Binding DataContext.SendToUnityWithRecordCommand,
-                                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding Entry}" />
-                                                                        </StackPanel>
-                                                                    </Grid>
+                                                                        <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
+                                                                                   FontSize="10.5" Foreground="{StaticResource TextMuted}"
+                                                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                                                   ToolTip="{Binding DestinationText}"
+                                                                                   Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    </StackPanel>
                                                                 </Border>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
