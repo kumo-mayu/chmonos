@@ -21,21 +21,20 @@ internal static class ItemSelectionActions
         Action<string> setQueueText)
     {
         const string title = "Unityへ順に送る";
-        var steps = new List<(ItemCardViewModel Card, IReadOnlyList<Core.Services.UnityPackageEntry> Fixed, PackageChoiceSection? Choice)>();
+        var steps = new List<(ItemCardViewModel Card, IReadOnlyList<Core.Services.UnityPackageEntry> Packages)>();
         var nothing = new List<string>();
 
-        foreach (var card in cards)
+        // zip を開いて数えるので、画面のスレッドの外で読む
+        var found = await Task.Run(() => cards.Select(card => (Card: card, Packages: Services.UnityImportQueue.PackagesOf(card.Item))).ToList());
+        foreach (var (card, packages) in found)
         {
-            var packages = Services.UnityImportQueue.PackagesOf(card.Item);
             if (packages.Count == 0)
             {
                 nothing.Add(card.Name);
                 continue;
             }
 
-            // 送れる物が2つ以上ある商品は、送り先を決めた後に選ばせる（ユーザ判断 2026-09-13。前は全部送っていた）
-            var choice = packages.Count > 1 ? PackageChoiceSection.Build(card.Item) : null;
-            steps.Add((card, choice is null ? packages : [], choice));
+            steps.Add((card, packages));
         }
 
         if (steps.Count == 0)
@@ -60,46 +59,62 @@ internal static class ItemSelectionActions
         }
 
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
-        var choices = steps.Where(step => step.Choice is not null).Select(step => step.Choice!).ToList();
-        var fixedCount = steps.Sum(step => step.Fixed.Count);
 
-        if (choices.Count > 0)
+        // 送れる物が2つ以上ある商品は、右クリックと同じ一覧から選ぶ窓で、1件ずつ「2/5」のように番号を付けて順に聞く
+        // （ユーザ指示 2026-09-19。前はまとめて1つの窓にチェックで並べていた）。
+        // 1つの zip に依存物と本体が入っている商品は両方要るので、一覧の最後に「全部」を置く
+        var choosing = steps.Where(step => step.Packages.Count > 1).ToList();
+        var picked = new Dictionary<ItemCardViewModel, IReadOnlyList<Core.Services.UnityPackageEntry>>();
+        var notSending = new List<string>();
+        for (var i = 0; i < choosing.Count; i++)
         {
-            var model = new PickPackagesDialogViewModel(
-                title,
-                $"Unityの「{target}」へ順に送ります。"
-                    + (nothing.Count > 0 ? $"（送れるものが無い {nothing.Count} 件は飛ばします）" : string.Empty),
-                choices,
-                fixedCount,
-                records: false);
-            if (!Views.PickPackagesDialog.Ask(model))
+            var (card, packages) = choosing[i];
+            var labels = ItemFileActions.PackageLabels(packages);
+            labels.Add(new ListChoiceItem($"全部（{packages.Count} 件を zip に入っている順に）", "依存するものが同じ zip に入っているときは、こちらを選びます"));
+
+            var answer = ListChoice.Ask(
+                $"{title}（{i + 1}/{choosing.Count}）",
+                $"「{card.Name}」には unitypackage が {packages.Count} 件あります。Unityの「{target}」へどれを送りますか？\n"
+                    + $"（選ぶ必要がある商品 {choosing.Count} 件のうち {i + 1} 件目）",
+                labels,
+                "これを送る",
+                skipText: "この商品は送らない");
+
+            if (answer is not { } index)
             {
                 return;
             }
-        }
-        else
-        {
-            // 数えているのは unitypackage の数（選んだ商品の数ではない）
-            var confirm = System.Windows.MessageBox.Show(
-                $"unitypackage {fixedCount} 件を、Unityの「{target}」へ順に送ります。\n\n"
-                + "1件ずつ取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。\n"
-                + "1つの zip に依存するものが入っていれば、zip に入っている順に送ります。"
-                + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
-                title,
-                System.Windows.MessageBoxButton.OKCancel,
-                System.Windows.MessageBoxImage.Question,
-                System.Windows.MessageBoxResult.OK);
 
-            if (confirm != System.Windows.MessageBoxResult.OK)
+            if (index == ListChoice.Skipped)
             {
-                return;
+                notSending.Add(card.Name);
+                continue;
             }
+
+            picked[card] = index == packages.Count ? packages : [packages[index]];
         }
 
         var queue = steps
-            .SelectMany(step => (step.Choice?.CheckedPackages ?? step.Fixed).Select(package => (step.Card, Package: package)))
+            .Where(step => step.Packages.Count == 1 || picked.ContainsKey(step.Card))
+            .SelectMany(step => (step.Packages.Count == 1 ? step.Packages : picked[step.Card]).Select(package => (step.Card, Package: package)))
             .ToList();
         if (queue.Count == 0)
+        {
+            return;
+        }
+
+        // 数えているのは unitypackage の数（選んだ商品の数ではない）。選び終えた後に、全体で何を送るかを1回だけ確かめる
+        var confirm = System.Windows.MessageBox.Show(
+            $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
+            + "1件ずつ取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。"
+            + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
+            + (notSending.Count > 0 ? $"\n送らないと選んだ {notSending.Count} 件は飛ばします。" : string.Empty),
+            title,
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.OK);
+
+        if (confirm != System.Windows.MessageBoxResult.OK)
         {
             return;
         }

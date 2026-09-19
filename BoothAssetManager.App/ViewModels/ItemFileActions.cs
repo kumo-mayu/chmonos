@@ -125,13 +125,17 @@ internal static class ItemFileActions
         var picked = ListChoice.Ask(
             title,
             $"「{item.DisplayName}」には unitypackage が {packages.Count} 件あります。どれにしますか？",
-            [.. packages.Select(package => new ListChoiceItem(
-                package.Name,
-                package.Folder.Length > 0 ? $"{Path.GetFileName(package.ZipPath)} の中の {package.Folder}" : Path.GetFileName(package.ZipPath)))],
+            PackageLabels(packages),
             okText);
 
         return picked is { } index ? packages[index] : null;
     }
+
+    /// <summary>unitypackage を選ぶ一覧の行。名前と、どの zip のどこに入っているか（右クリックと検索の複数選択で共用）。</summary>
+    public static List<ListChoiceItem> PackageLabels(IReadOnlyList<UnityPackageEntry> packages)
+        => [.. packages.Select(package => new ListChoiceItem(
+            package.Name,
+            package.Folder.Length > 0 ? $"{Path.GetFileName(package.ZipPath)} の中の {package.Folder}" : Path.GetFileName(package.ZipPath)))];
 
     private static Target? Choose(string title, string message, IReadOnlyList<Target> targets, string okText)
     {

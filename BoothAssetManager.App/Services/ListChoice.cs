@@ -15,9 +15,17 @@ public sealed record ListChoiceItem(string Label, string? Detail = null);
 /// </summary>
 public static class ListChoice
 {
-    /// <returns>選んだ位置。やめたら null。</returns>
-    public static int? Ask(string title, string message, IReadOnlyList<ListChoiceItem> items, string okText)
+    /// <summary>「飛ばす」を押したときに返す値（順に聞いている途中で、この1件だけを見送る）。</summary>
+    public const int Skipped = -1;
+
+    /// <param name="skipText">
+    /// 順に聞くとき（検索で複数選んで送る）に、この1件だけを見送るボタンの名前。null なら出さない。
+    /// 「やめる」は全体をやめる意味になる
+    /// </param>
+    /// <returns>選んだ位置。飛ばしたら <see cref="Skipped"/>。やめたら null。</returns>
+    public static int? Ask(string title, string message, IReadOnlyList<ListChoiceItem> items, string okText, string? skipText = null)
     {
+        var skipped = false;
         var list = new ListBox { Margin = new Thickness(0, 10, 0, 12), MinHeight = 90, MaxHeight = 360 };
         foreach (var item in items)
         {
@@ -70,6 +78,17 @@ public static class ListChoice
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         buttons.Children.Add(ok);
+        if (skipText is not null)
+        {
+            var skip = new Button { Content = skipText, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(12, 3, 12, 3) };
+            skip.Click += (_, _) =>
+            {
+                skipped = true;
+                window.DialogResult = true;
+            };
+            buttons.Children.Add(skip);
+        }
+
         buttons.Children.Add(cancel);
 
         var body = new StackPanel { Margin = new Thickness(18) };
@@ -78,6 +97,11 @@ public static class ListChoice
         body.Children.Add(buttons);
         window.Content = body;
 
-        return window.ShowDialog() == true && list.SelectedIndex >= 0 ? list.SelectedIndex : null;
+        if (window.ShowDialog() != true)
+        {
+            return null;
+        }
+
+        return skipped ? Skipped : list.SelectedIndex >= 0 ? list.SelectedIndex : null;
     }
 }
