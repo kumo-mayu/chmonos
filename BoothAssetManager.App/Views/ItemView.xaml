@@ -469,7 +469,7 @@
                             </DockPanel>
 
                             <!-- ここで書ける。押さなくても残る（I9。ほかのメモと同じ作法） -->
-                            <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="240"
                                      VerticalScrollBarVisibility="Auto" Padding="10,8"
                                      Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

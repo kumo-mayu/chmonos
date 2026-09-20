@@ -249,6 +249,16 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         DetectCommand = new RelayCommand(() => DetectAsync().Forget(), () => !IsDetecting);
         ClearQueryCommand = new RelayCommand(() => Query = string.Empty);
         SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
+
+        // 候補付きの欄から決める（I6）。候補を押しても、打った新しい名前を Enter で決めても、ここへ来る
+        PickBaseCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is string name)
+            {
+                BaseInput = name;
+                SetBaseAsync().Forget();
+            }
+        });
         ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget());
         AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
         _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
@@ -305,6 +315,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     public RelayCommand DetectCommand { get; }
 
     public RelayCommand SetBaseCommand { get; }
+
+    /// <summary>候補付きの欄から共通素体を決める（I6）。</summary>
+    public RelayCommand PickBaseCommand { get; }
 
     public RelayCommand ClearBaseCommand { get; }
 
@@ -1190,6 +1203,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             return;
         }
 
+        if (Core.Services.NameText.IsTooLong(BaseInput))
+        {
+            Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarBase(Selected.ItemId, BaseInput));
         _drafts.Remove(Selected.ItemId);
         await LoadAsync();
@@ -1250,12 +1269,18 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     /// </summary>
     private void RenameBase(string oldName, string input)
     {
-        var newName = input.Trim();
+        var newName = Core.Services.NameText.Normalize(input);
 
         // 空のまま押したときに黙って終わらない（I1）
         if (newName.Length == 0)
         {
             Status = "新しい素体の名前を入れてから押してください。";
+            return;
+        }
+
+        if (Core.Services.NameText.IsTooLong(newName))
+        {
+            Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
             return;
         }
 
@@ -1346,13 +1371,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             return;
         }
 
-        if (NameInput.Trim().Length == 0)
+        var newName = Core.Services.NameText.Normalize(NameInput);
+        if (newName.Length == 0)
         {
             Status = "名前を入れてから押してください。";
             return;
         }
 
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, NameInput));
+        if (Core.Services.NameText.IsTooLong(newName))
+        {
+            Status = Core.Services.NameText.TooLongMessage("アバターの名前");
+            return;
+        }
+
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, newName));
         _drafts.Remove(Selected.ItemId);
         await LoadAsync();
     }
@@ -1387,6 +1419,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     {
         if (Selected is null)
         {
+            return;
+        }
+
+        if (Core.Services.NameText.IsTooLong(AliasInput))
+        {
+            Status = Core.Services.NameText.TooLongMessage("呼び方");
             return;
         }
 

@@ -24,9 +24,11 @@
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
-                <Button Content="{Binding BackText}" Style="{StaticResource SmallButton}"
+                <!-- 戻るの見た目はどの画面でも同じ（枠なし・透明。V2）。ここだけ枠付きの小さいボタンだった -->
+                <Button Content="{Binding BackText}" Command="{Binding BackCommand}"
+                        BorderThickness="0" Background="Transparent"
                         HorizontalAlignment="Left" VerticalAlignment="Center"
-                        Command="{Binding BackCommand}" />
+                        Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                Margin="0,0,10,0" MaxWidth="360" TextTrimming="CharacterEllipsis"
@@ -158,7 +160,7 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
                 <Grid>
-                    <TextBox Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                    <TextBox MaxLength="10000" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
                              TextWrapping="Wrap" MinHeight="40" MaxHeight="120" VerticalScrollBarVisibility="Auto"
                              FontSize="12.5" Padding="6,4" AutomationProperties.Name="ショップのメモ" />
                     <!-- 使い道を決めつけない（ユーザ指示 2026-09-16） -->

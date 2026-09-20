@@ -232,6 +232,21 @@
         </Style>
 
         <!--
+            **取り返しのつかない操作のボタン**（ユーザ判断 2026-09-20・V4）。
+            赤系にするのは改変の「削除」だけで、同じ強さの操作が普通の顔で並んでいた。
+            色は「見つからない」と同じ異常の色（`Bad`）に揃える
+        -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
+            <Setter Property="Foreground" Value="#9a3232" />
+            <Setter Property="BorderBrush" Value="#e2bcbc" />
+        </Style>
+
+        <!-- 右クリックの中の、取り返しのつかない項目（V4）。ボタンと同じ色にする -->
+        <Style x:Key="DangerMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Foreground" Value="#9a3232" />
+        </Style>
+
+        <!--
             札の並び（BOOTHのタグ・対応アバター）に混ぜる札。商品ページと編集画面で同じ見た目にするのでここに置く。
             作った札は隠すだけで捨てない（ChipStrip・ユーザ判断 2026-09-12）ので、見えるかどうかは札の IsShown で決める
         -->

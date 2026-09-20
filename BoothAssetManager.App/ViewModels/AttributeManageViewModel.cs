@@ -495,6 +495,9 @@ public sealed class AttributeManageViewModel : ViewModelBase
     /// <summary>マスタにある全属性。マスタに無い参照の寄せ先はこちらを候補にする。</summary>
     public ObservableCollection<string> AllNames { get; } = [];
 
+    /// <summary>戻る（V2・V3）。ナビから入っても直前の画面へ戻れる。</summary>
+    public MainViewModel Main => _main;
+
     public RelayCommand AddCommand { get; }
 
     /// <summary>名前を変える窓を出す（タグの管理と同じ窓。既にある名前を選ぶと統合）。</summary>
@@ -799,12 +802,19 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
     private async Task AddAsync(string? name)
     {
-        var trimmed = name?.Trim();
+        // 改行やタブは空白に寄せて1行にする（I13）
+        var trimmed = NameText.Normalize(name);
 
         // 空のまま押したときに黙って終わらない（I1）
-        if (string.IsNullOrEmpty(trimmed))
+        if (trimmed.Length == 0)
         {
             StatusText = "属性の名前を入れてから押してください。";
+            return;
+        }
+
+        if (NameText.IsTooLong(trimmed))
+        {
+            StatusText = NameText.TooLongMessage("属性の名前");
             return;
         }
 

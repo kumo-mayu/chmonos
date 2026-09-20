@@ -458,6 +458,12 @@ public sealed class TagManageViewModel : ViewModelBase
     /// <summary>サブレベルの改名の寄せ先候補。同じトップの中だけを候補にする。</summary>
     public ObservableCollection<string> SubNames { get; } = [];
 
+    /// <summary>
+    /// 戻る（ユーザ判断 2026-09-20・V2・V3）。**ナビから入っても直前の画面へ戻れる。**
+    /// 出し方・見た目はどの画面でも同じにする（履歴が無いときだけ出さない）。
+    /// </summary>
+    public MainViewModel Main => _main;
+
     public RelayCommand AddTopCommand { get; }
 
     public RelayCommand AddSubCommand { get; }
@@ -988,12 +994,20 @@ public sealed class TagManageViewModel : ViewModelBase
 
     private async Task AddTopAsync(string? name)
     {
-        var trimmed = name?.Trim();
+        // 改行やタブは空白に寄せて1行にする（I13）
+        var trimmed = NameText.Normalize(name);
 
         // 空のまま押したときに黙って終わらない（I1）。押した人は「やった」と思っている
-        if (string.IsNullOrEmpty(trimmed))
+        if (trimmed.Length == 0)
         {
             StatusText = "大分類の名前を入れてから押してください。";
+            return;
+        }
+
+        // 長すぎるものは**切らずに断る**（切ると打った名前と食い違う・I13）
+        if (NameText.IsTooLong(trimmed))
+        {
+            StatusText = NameText.TooLongMessage("大分類の名前");
             return;
         }
 
@@ -1021,10 +1035,16 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
-        var trimmed = name?.Trim();
-        if (string.IsNullOrEmpty(trimmed))
+        var trimmed = NameText.Normalize(name);
+        if (trimmed.Length == 0)
         {
             StatusText = "小分類の名前を入れてから押してください。";
+            return;
+        }
+
+        if (NameText.IsTooLong(trimmed))
+        {
+            StatusText = NameText.TooLongMessage("小分類の名前");
             return;
         }
 

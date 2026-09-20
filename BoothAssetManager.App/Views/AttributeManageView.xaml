@@ -25,6 +25,13 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 戻る（V3）。ほかの画面と同じ見た目・同じ出し方 -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
+                                BorderThickness="0" Background="Transparent" />
+                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    </StackPanel>
                     <TextBlock Text="属性の管理" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
@@ -64,7 +71,9 @@
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                        <!-- 候補には既にある属性を出す（I7。候補の元を結んでいない欄だった） -->
                         <controls:SuggestBox CommitCommand="{Binding AddCommand}" Margin="0,12,0,0"
+                                             Source="{Binding AllNames}" MaxLength="60"
                                              Placeholder="属性を追加（例：かっこいい）" />
 
                         <!-- 並べ方は一覧のすぐ上に、つながったボタンで（タグの管理と同じ。ユーザ指示 2026-09-19） -->
@@ -231,8 +240,7 @@
                                                 ToolTip="{Binding ShowItemsToolTip}" />
                                     </StackPanel>
                                 </StackPanel>
-                                <Button Content="この属性を削除" Style="{StaticResource SmallButton}"
-                                        Foreground="#9a3232" BorderBrush="#e2bcbc"
+                                <Button Content="この属性を削除" Style="{StaticResource DangerButton}"
                                         HorizontalAlignment="Right" VerticalAlignment="Top"
                                         Command="{Binding DeleteCommand}" />
                             </Grid>
@@ -242,7 +250,7 @@
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
                             <TextBlock Text="どのくらいで何%にするかの基準。主観的な尺度なので、書いておかないとぶれます。打ち終えると残ります。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
-                            <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Padding="10,8"
                                      VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource BorderStrong}" />
                         </StackPanel>

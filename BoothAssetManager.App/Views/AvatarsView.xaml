@@ -168,7 +168,7 @@
                     <StackPanel>
                         <!-- 名前は欄の中で変える（B10）。アバターの名前と同じ形：Enter でも「名前を保存」でも保存し、変えたときだけボタンを出す -->
                         <StackPanel Orientation="Horizontal">
-                            <TextBox Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="460"
                                      Padding="6,3" BorderThickness="0" Background="Transparent"
                                      VerticalAlignment="Center"
@@ -233,7 +233,9 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                        <Button Content="削除" Style="{StaticResource SmallButton}"
+                        <!-- 取り返しがつかないので、そうと分かる顔にする（V4） -->
+                        <Button Content="削除" Style="{StaticResource DangerButton}"
+                                ToolTip="この共通素体を削除します。元に戻せません（押すと確かめます）。"
                                 Command="{Binding DeleteCommand}" />
                     </StackPanel>
                 </Grid>
@@ -481,7 +483,7 @@
                                     <StackPanel Grid.Column="1">
                                         <!-- 表示名は短くしてある。編集できるようにし、正式名は下に添える -->
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBox Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
+                                            <TextBox MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="520"
                                                      Padding="6,3" BorderThickness="0" Background="Transparent"
                                                      VerticalAlignment="Center">
@@ -591,19 +593,20 @@
 
                                 <!--
                                     共通素体（U19）。説明は置かない（ユーザ判断 2026-09-17：使う人は分かっている）。
-                                    基本は1つの素体にしか入らないので、一覧をマウスで押せばそのまま入る。矢印キーで候補を見ているだけでは入れず、Enter で入れる
-                                    （ユーザ指示 2026-09-17：勝手に入らないように）。まだ無い名前も Enter で作る。外すボタンだけ残す
+                                    基本は1つの素体にしか入らないので、候補を押せばそのまま入る。矢印キーで候補を見ているだけでは入れず、Enter で入れる
+                                    （ユーザ指示 2026-09-17：勝手に入らないように）。まだ無い名前も Enter で作る。外すボタンだけ残す。
+
+                                    **欄はほかの画面と同じ候補付きの欄**（ユーザ判断 2026-09-20・I6）。
+                                    ここだけ編集できるプルダウンで、同じ「名前を選ぶ」操作の作法が3つに割れていた
                                 -->
                                 <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
                                 <StackPanel Orientation="Horizontal">
                                     <Grid Width="240">
-                                        <ComboBox x:Name="BaseCombo" IsEditable="True" ItemsSource="{Binding BaseNames}"
-                                                  Text="{Binding BaseInput, UpdateSourceTrigger=PropertyChanged}"
-                                                  ToolTip="一覧から押すとそのまま入ります。キーで選んだときと新しい名前は Enter で入ります。">
-                                        </ComboBox>
-                                        <TextBlock Text="素体を選ぶか、名前を打って Enter" Style="{StaticResource Caption}"
-                                                   Margin="8,0,24,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                                                   Visibility="{Binding HasBaseInput, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                        <controls:SuggestBox Source="{Binding BaseNames}" CommitCommand="{Binding PickBaseCommand}"
+                                                             Text="{Binding BaseInput, Mode=TwoWay}"
+                                                             AllowNew="True" KeepsCommittedText="True"
+                                                             MaxLength="60"
+                                                             Placeholder="素体を選ぶか、名前を打って Enter" />
                                     </Grid>
                                     <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
@@ -652,7 +655,7 @@
     
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBox Width="200" Padding="7,5"
-                                                 Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="60" Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
                                                  ToolTip="検出が拾えなかった呼び方を足せます。">
                                             <!-- Enter で決められるように揃える（I12） -->
                                             <TextBox.InputBindings>
@@ -707,7 +710,7 @@
                                     <!-- 空のままだと何を入れる欄か分からないので、内側に案内を出す（ユーザ指示 2026-09-17） -->
                                     <Grid Width="240">
                                         <TextBox Height="26" Padding="7,0" VerticalContentAlignment="Center"
-                                                 Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="60" Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
                                                  ToolTip="「普段着」「制服」のように、着せ替えごとに名前を付けます。">
                                             <!-- Enter で決められるように揃える（I12） -->
                                             <TextBox.InputBindings>
@@ -838,7 +841,7 @@
                                     <TextBox Width="420" Height="56" Padding="7,5"
                                              TextWrapping="Wrap" AcceptsReturn="True"
                                              VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
-                                             Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
+                                             MaxLength="10000" Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
                                              ToolTip="素体は同じだが体型が違う、といった検出では分からないことを残せます。" />
                                 </StackPanel>
 

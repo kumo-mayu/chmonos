@@ -64,6 +64,14 @@ public partial class SuggestBox : UserControl
         DependencyProperty.Register(nameof(Placeholder), typeof(string), typeof(SuggestBox),
             new PropertyMetadata(string.Empty, OnPlaceholderChanged));
 
+    /// <summary>
+    /// 打てる長さの上限（ユーザ判断 2026-09-20・I13）。名前の類は 60 文字。
+    /// 0 なら上限なし（`TextBox.MaxLength` と同じ決まり）。
+    /// </summary>
+    public static readonly DependencyProperty MaxLengthProperty =
+        DependencyProperty.Register(nameof(MaxLength), typeof(int), typeof(SuggestBox),
+            new PropertyMetadata(0, OnMaxLengthChanged));
+
     /// <summary>候補に無い語をそのまま確定できるか。マスタへの新規追加を兼ねる入力欄で使う。</summary>
     public static readonly DependencyProperty AllowNewProperty =
         DependencyProperty.Register(nameof(AllowNew), typeof(bool), typeof(SuggestBox),
@@ -184,6 +192,12 @@ public partial class SuggestBox : UserControl
         set => SetValue(PlaceholderProperty, value);
     }
 
+    public int MaxLength
+    {
+        get => (int)GetValue(MaxLengthProperty);
+        set => SetValue(MaxLengthProperty, value);
+    }
+
     public bool AllowNew
     {
         get => (bool)GetValue(AllowNewProperty);
@@ -204,6 +218,9 @@ public partial class SuggestBox : UserControl
 
     private static void OnPlaceholderChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
         => ((SuggestBox)element).Watermark.Text = args.NewValue as string ?? string.Empty;
+
+    private static void OnMaxLengthChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
+        => ((SuggestBox)element).Input.MaxLength = (int)args.NewValue;
 
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {

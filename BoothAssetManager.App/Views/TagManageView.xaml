@@ -25,6 +25,13 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 戻る（V3）。要確認などから飛んで来られるのに、戻る道が無かった -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
+                                BorderThickness="0" Background="Transparent" />
+                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    </StackPanel>
                     <TextBlock Text="ユーザータグの管理" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
@@ -63,7 +70,13 @@
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                        <!--
+                            候補には**既にある大分類**を出す（ユーザ判断 2026-09-20・I7）。
+                            候補付きの見た目なのに候補の元を結んでおらず、一度も候補が出ない欄だった
+                            （既にある名前を打っても、押すまで気付けなかった）
+                        -->
                         <controls:SuggestBox CommitCommand="{Binding AddTopCommand}" Margin="0,12,0,0"
+                                             Source="{Binding AllTopNames}" MaxLength="60"
                                              Placeholder="大分類を追加（例：衣装）" />
 
                         <!--
@@ -260,8 +273,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                     <!-- 大分類の削除は小分類も商品の付け替えも伴うので、色で重さを出す（ユーザ指摘 2026-09-18） -->
-                                    <Button Content="この大分類を削除" Style="{StaticResource SmallButton}"
-                                            Foreground="#9a3232" BorderBrush="#e2bcbc"
+                                    <Button Content="この大分類を削除" Style="{StaticResource DangerButton}"
                                             HorizontalAlignment="Right" VerticalAlignment="Top"
                                             Command="{Binding DeleteTopCommand}" />
                                 </Grid>
@@ -271,7 +283,7 @@
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="何をここに入れるかの基準。分け方に迷ったときに読み返す場所です。打ち終えると残ります。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
-                                <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Padding="10,8"
                                          VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource BorderStrong}" />
                             </StackPanel>
@@ -354,6 +366,8 @@
                                                 <controls:SuggestBox Margin="2,0,10,0"
                                                                      IsFrameless="True"
                                                                      CommitCommand="{Binding AddSubCommand}"
+                                                                     Source="{Binding DataContext.SubNames, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                     MaxLength="60"
                                                                      Placeholder="小分類の名前" VerticalAlignment="Center">
                                                     <controls:SuggestBox.Style>
                                                         <Style TargetType="controls:SuggestBox">
@@ -477,7 +491,7 @@
 
                                                     <!-- メモは書く場所が無かったので、欄そのものを置く（ユーザ指示 2026-09-18）。打ち終えると残る -->
                                                     <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="23,7,0,0">
-                                                            <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                                                            <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                                                      Padding="8,5" FontSize="11.5"
                                                                      BorderBrush="{StaticResource Border}" />
                                                             <TextBlock Text="メモ（何をここに入れるかの基準）" Margin="10,0,0,0"
@@ -505,8 +519,7 @@
                                                                     Margin="0,0,10,0" Command="{Binding MoveCommand}"
                                                                     ToolTipService.ShowOnDisabled="True"
                                                                     ToolTip="この小分類を、別の大分類の下へ移します。移せる先が無いときは押せません（大分類がもう1つ要ります）。" />
-                                                            <Button Content="削除" Style="{StaticResource SmallButton}"
-                                                                    Foreground="#9a3232" BorderBrush="#e2bcbc"
+                                                            <Button Content="削除" Style="{StaticResource DangerButton}"
                                                                     Command="{Binding DeleteCommand}"
                                                                     ToolTip="この小分類を削除します。付いている商品からも外れます。" />
                                                         </StackPanel>

@@ -367,7 +367,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </summary>
     public bool IsEmbedded { get; init; }
 
-    public bool ShowsBack => !IsEmbedded;
+    /// <summary>戻るを出すか（V2）。組み込みのときと、戻る先が無いときは出さない。</summary>
+    public bool ShowsBack => !IsEmbedded && _main.CanGoBack;
 
     /// <summary>組み込んだときは右側が窓より狭いので、単独の画面の最小幅（1060px）では横にはみ出す。</summary>
     /// <remarks>単独の画面では、左の列の幅（既定660）＋右の列の最小320＋余白と内側の余白80。左の列はドラッグで変わる。</remarks>

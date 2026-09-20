@@ -191,6 +191,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
     /// <summary>戻るの文言。行き先は画面の履歴の直前の画面（U23）。</summary>
     public string BackText => _main.BackButtonText;
 
+    /// <summary>戻るを出すか（V2）。履歴が無いときだけ出さない。見た目はほかの画面と同じ枠なし。</summary>
+    public bool ShowsBack => _main.CanGoBack;
+
     /// <summary>
     /// BOOTH のショップページを開く。カードの右クリックの「BOOTHで開く」（商品ページ）は同じ画面から
     /// OpenBoothCommand の名前で引くので、名前を分けてある

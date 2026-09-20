@@ -29,7 +29,10 @@ public sealed class ItemListColumns : ViewModelBase
     private readonly string _screen;
 
     /// <param name="screen">画面の名前（幅を覚える鍵の頭）。</param>
-    /// <param name="hasSelect">選ぶチェックの列を出すか（まとめて操作できる画面だけ。フォルダビューには無い）。</param>
+    /// <param name="hasSelect">
+    /// 選ぶチェックの列を出すか（まとめて操作できる画面だけ）。**出すのは検索とフォルダビュー**で、
+    /// ショップ画面と改変の使ったものには無い（2026-09-20 に注釈を実装へ合わせた・V6：前は逆に書いてあった）。
+    /// </param>
     /// <param name="shopHeader">ショップの列の見出し（フォルダビューはフォルダの場所も出すので名前を変える）。</param>
     public ItemListColumns(PaneWidths widths, string screen, bool hasSelect, string shopHeader)
     {

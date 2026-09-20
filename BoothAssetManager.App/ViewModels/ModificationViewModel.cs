@@ -261,7 +261,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     public bool IsEmbedded { get; init; }
 
-    public bool ShowsBack => !IsEmbedded;
+    /// <summary>戻るを出すか（V2）。組み込みのときと、戻る先が無いときは出さない。</summary>
+    public bool ShowsBack => !IsEmbedded && _main.CanGoBack;
 
     /// <summary>
     /// 組み込んだときは左右の列を幅に合わせる。右側は窓より狭いので、単独の画面と同じ固定の 660px では

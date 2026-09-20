@@ -25,8 +25,9 @@
                 <TextBlock DockPanel.Dock="Left" x:Name="Notice" Style="{StaticResource Caption}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="380" />
                 <!-- Enter で始められる（D2）。Esc は code-behind で受けて、×と同じに閉じる（D1） -->
+                <!-- 主のボタンはアプリ共通の顔にする（V5）。ここだけ既定のボタンに太字を足した別物だった -->
                 <Button DockPanel.Dock="Right" Content="はじめる" Click="OnStart" IsDefault="True"
-                        Padding="22,6" FontWeight="Bold" />
+                        Style="{StaticResource PrimaryButton}" Padding="22,6" />
             </DockPanel>
         </Border>
 

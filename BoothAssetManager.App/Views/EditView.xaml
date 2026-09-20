@@ -723,7 +723,8 @@
                                                                         <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
                                                                     </ComboBox>
                                                                     <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
-                                                                    <Button Content="この記録を削除" Style="{StaticResource SmallButton}"
+                                                                    <Button Content="この記録を削除" Style="{StaticResource DangerButton}"
+                                                                            ToolTip="この購入記録を消します。元に戻せません。"
                                                                             Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
                                                                 </StackPanel>
                                                             </DataTemplate>
@@ -873,7 +874,7 @@
 
                         <!-- メモ・入手日・その他 -->
                         <TextBlock Text="メモ" FontWeight="Bold" FontSize="13" Margin="0,0,0,8" />
-                        <TextBox Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                        <TextBox MaxLength="10000" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
                                  TextWrapping="Wrap" MinHeight="72" Padding="9,7" VerticalScrollBarVisibility="Auto" />
 
                         <TextBlock Text="入手日" FontWeight="Bold" FontSize="13" Margin="0,18,0,8" />
@@ -889,7 +890,22 @@
                         <CheckBox Content="非表示にする（統計には含めます）" IsChecked="{Binding IsHidden, Mode=TwoWay}"
                                   Margin="0,9,0,0" Foreground="{StaticResource Text}" />
 
-                        <TextBlock Text="{Binding StatusText}" Foreground="#9a3232" TextWrapping="Wrap" Margin="0,14,0,20" />
+                        <!--
+                            保存できたこと（I8）と、読めなかった欄（I3）を同じ行に出す。
+                            **困りごとのときだけ赤**にする——「保存しました。」まで赤いと、できたのか失敗したのか読めない
+                        -->
+                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,14,0,20">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StatusIsProblem}" Value="True">
+                                            <Setter Property="Foreground" Value="#9a3232" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
 
                         <!--
                             **埋め終わった所にも進む道を置く。**上から下へ埋めていく画面なので、

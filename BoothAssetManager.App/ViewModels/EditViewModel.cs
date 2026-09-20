@@ -325,7 +325,25 @@ public sealed partial class EditViewModel : ViewModelBase
     public string StatusText
     {
         get => _statusText;
-        private set => SetField(ref _statusText, value);
+        private set
+        {
+            if (SetField(ref _statusText, value))
+            {
+                OnPropertyChanged(nameof(StatusIsProblem));
+            }
+        }
+    }
+
+    private bool _statusIsProblem;
+
+    /// <summary>
+    /// 今の1行が困りごとか（I8）。**できたことまで赤くしない**——
+    /// 保存できたのか失敗したのかが色で読めなくなる。
+    /// </summary>
+    public bool StatusIsProblem
+    {
+        get => _statusIsProblem;
+        private set => SetField(ref _statusIsProblem, value);
     }
 
     public bool IsSaving
@@ -906,6 +924,7 @@ public sealed partial class EditViewModel : ViewModelBase
 
             if (result is CommandResult.Failed failed)
             {
+                StatusIsProblem = true;
                 StatusText = failed.Message;
                 return;
             }
@@ -916,15 +935,19 @@ public sealed partial class EditViewModel : ViewModelBase
                 && await _services.Commands.ExecuteAsync(new UiCommand.SetFileVariations(_item.Id, changedFiles))
                     is CommandResult.Failed fileFailed)
             {
+                StatusIsProblem = true;
                 StatusText = fileFailed.Message;
                 return;
             }
 
             RememberShopName(BuildShop()?.Name);
 
-            // **読めなかった欄は止めずに言う**（ユーザ判断 2026-09-20・I3）。
-            // 黙って空にすると、打った本人は保存できたと思ったまま、支出の統計から静かに落ちる
-            StatusText = UnreadableNotice();
+            // **保存できたことを文でも言う**（ユーザ判断 2026-09-20・I8）。
+            // 合図は上の帯の緑の印だけで、その帯は設定で消せる——消していると保存できたか分からなかった。
+            // 読めなかった欄があるときは、そちらを先に言う（止めずに知らせる・I3）
+            var unreadable = UnreadableNotice();
+            StatusIsProblem = unreadable.Length > 0;
+            StatusText = unreadable.Length > 0 ? unreadable : "保存しました。";
 
             // ナビの「未:」をその場で減らす（ユーザ指示 2026-09-12）。検索画面の写しの1件を差し替えると数え直しが走る。
             // 帯には緑の印で残し、編集画面を離れて入り直すまでは戻れる（入り直したら出さない・ResumeAsync）
