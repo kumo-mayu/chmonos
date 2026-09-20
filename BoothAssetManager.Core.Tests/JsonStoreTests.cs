@@ -123,7 +123,68 @@ public class JsonStoreTests : IDisposable
         JsonStore.Write(FilePath, updated);
 
         Assert.Equal("更新後", JsonStore.Read<ItemRecord>(FilePath)!.Booth.Name);
-        Assert.False(File.Exists(FilePath + ".tmp"));
+        Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
+    }
+
+    /// <summary>
+    /// 一時ファイルの名前は毎回違う。固定だと、同じ商品へ2本が同時に書いたときに
+    /// 後から来た方が弾かれて保存ごと落ちていた（書き込み中のファイルは共有しない設定のため）。
+    /// </summary>
+    [Fact]
+    public async Task WritesTheSameFileFromSeveralTasksWithoutFailing()
+    {
+        Directory.CreateDirectory(_directory);
+
+        await Task.WhenAll(Enumerable.Range(0, 24).Select(_ => Task.Run(() => JsonStore.WriteAsync(FilePath, CreateItem()))));
+
+        Assert.Equal("フリルニットセット", JsonStore.Read<ItemRecord>(FilePath)!.Booth.Name);
+        Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
+    }
+
+    /// <summary>
+    /// 手で書いた <c>null</c> の配列は空として受ける（読んだ瞬間ではなく、後から画面が触って落ちていた）。
+    /// </summary>
+    [Fact]
+    public void ReadsNullArraysAsEmpty()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, """
+            {
+              "id": "123",
+              "booth": { "fetchedAt": "2026-09-05T10:00:00+00:00", "name": "テスト", "tags": null, "images": null },
+              "local": { "userTags": null, "attributes": null, "localFiles": null, "avatars": null }
+            }
+            """);
+
+        var loaded = JsonStore.Read<ItemRecord>(FilePath);
+
+        Assert.NotNull(loaded);
+        Assert.Empty(loaded.Booth.Tags);
+        Assert.Empty(loaded.Booth.Images);
+        Assert.Empty(loaded.Local.UserTags);
+        Assert.Empty(loaded.Local.Attributes);
+        Assert.Empty(loaded.Local.LocalFiles);
+        Assert.Empty(loaded.Local.Avatars);
+    }
+
+    /// <summary>
+    /// <c>?</c> を付けた欄は別。「まだ調べていない」と「調べて0件だった」を区別している。
+    /// </summary>
+    [Fact]
+    public void KeepsNullForFieldsThatAllowIt()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, """
+            {
+              "id": "123",
+              "booth": { "fetchedAt": "2026-09-05T10:00:00+00:00", "name": "テスト" },
+              "local": { "localFiles": [ { "hash": "abc", "sizeBytes": 12, "paths": ["a.zip"], "unityPackages": null } ] }
+            }
+            """);
+
+        var loaded = JsonStore.Read<ItemRecord>(FilePath);
+
+        Assert.Null(loaded!.Local.LocalFiles[0].UnityPackages);
     }
 
     [Fact]

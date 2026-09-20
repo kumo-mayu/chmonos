@@ -10,6 +10,16 @@ public sealed class ItemRepository
 {
     private readonly AppPaths _paths;
 
+    /// <summary>
+    /// 商品1件ごとの錠。**同じ商品のJSONへ同時に書かせない。**
+    ///
+    /// 書き手は取り込み・検出・再取得・画面の5系統以上あり、どれも「読む→組み直す→書く」。
+    /// 錠が無いと、読んでから書くまでの間に入った相手の変更を消すか、
+    /// 一時ファイルの取り合いで保存そのものが落ちる（落ちた保存はほとんど投げっぱなしなので画面には出ない）。
+    /// 商品IDで分けているので、別の商品どうしは待たない。
+    /// </summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _itemLocks = new(StringComparer.Ordinal);
+
     public ItemRepository(AppPaths paths)
     {
         _paths = paths;
@@ -24,8 +34,25 @@ public sealed class ItemRepository
     public Task<ItemRecord?> LoadAsync(string itemId, CancellationToken cancellationToken = default)
         => JsonStore.ReadAsync<ItemRecord>(_paths.ItemFile(itemId), cancellationToken);
 
-    public Task SaveAsync(ItemRecord item, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(ItemRecord item, CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(item.Id);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await WriteAsync(item, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private Task WriteAsync(ItemRecord item, CancellationToken cancellationToken)
         => JsonStore.WriteAsync(_paths.ItemFile(item.Id), item, cancellationToken);
+
+    private SemaphoreSlim LockFor(string itemId)
+        => _itemLocks.GetOrAdd(itemId, static _ => new SemaphoreSlim(1, 1));
 
     /// <summary>
     /// <c>local</c> のうち、<paramref name="owns"/> で名指しした項目だけを書く。
@@ -48,22 +75,70 @@ public sealed class ItemRepository
         BoothBlock? booth = null,
         CancellationToken cancellationToken = default)
     {
-        var existing = await LoadAsync(itemId, cancellationToken);
-        if (existing is null)
+        // 読み直してから書き終えるまでを錠の中に入れる。読んだ後に別の書き手が入ると、
+        // 名指ししなかった項目を守るための読み直しそのものが無駄になる
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
         {
-            return false;
+            var existing = await LoadAsync(itemId, cancellationToken);
+            if (existing is null)
+            {
+                return false;
+            }
+
+            var merged = LocalFields.Merge(existing.Local, local, owns);
+
+            // ExistsOnBooth は導ける値なので、どの経路から保存しても同じ式で入れ直す。
+            // booth を入れ替えるときは、当然そちらの新しい一覧が正
+            var variations = (booth ?? existing.Booth).Variations;
+            merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, variations) };
+
+            await WriteAsync(
+                existing with { Booth = booth ?? existing.Booth, Local = merged },
+                cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
         }
 
-        var merged = LocalFields.Merge(existing.Local, local, owns);
+        return true;
+    }
 
-        // ExistsOnBooth は導ける値なので、どの経路から保存しても同じ式で入れ直す。
-        // booth を入れ替えるときは、当然そちらの新しい一覧が正
-        var variations = (booth ?? existing.Booth).Variations;
-        merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, variations) };
+    /// <summary>
+    /// 読み直した今の値に、渡された変え方を当てて書く（<c>UiCommand.ChangeSettings</c> と同じ形）。
+    ///
+    /// 「開始時に全件を読み、時間のかかる処理の後にその古い写しで丸ごと書き戻す」経路
+    /// （検出・一括書き換え・取り込み）が、その項目自体を古い値で潰していた。
+    /// <paramref name="owns"/> は他の項目を守るだけで、名指しした項目そのものは守らないため、
+    /// **名指しした項目を古い写しから作る側が、今の値を見て組み直す**必要がある。
+    /// </summary>
+    public async Task<bool> ChangeLocalAsync(
+        string itemId,
+        Func<LocalBlock, LocalBlock> change,
+        IReadOnlyCollection<LocalField> owns,
+        CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var existing = await LoadAsync(itemId, cancellationToken);
+            if (existing is null)
+            {
+                return false;
+            }
 
-        await SaveAsync(
-            existing with { Booth = booth ?? existing.Booth, Local = merged },
-            cancellationToken);
+            var merged = LocalFields.Merge(existing.Local, change(existing.Local), owns);
+            merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
+
+            await WriteAsync(existing with { Local = merged }, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
 
         return true;
     }

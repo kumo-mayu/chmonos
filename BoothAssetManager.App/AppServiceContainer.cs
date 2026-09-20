@@ -34,9 +34,9 @@ public sealed class AppServiceContainer : IDisposable
 
         Store = new DataStore(Paths);
 
-        // 書き込みの途中で落ちると .tmp が残る。本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い
-        JsonStore.DeleteStaleTemporaryFiles(Paths.Root);
-        JsonStore.DeleteStaleTemporaryFiles(Paths.ItemsDir);
+        // 書き込みの途中で落ちると .tmp が残る。本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い。
+        // 直下と items/ だけを見ていたので、images/<商品>/ や modifications/ に残った分が永久に消えなかった
+        JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
 
         // 前回閉じたときに消し残った一時展開（#56）。二重に起動した側が消すと、
         // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
