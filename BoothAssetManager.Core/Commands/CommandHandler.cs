@@ -73,6 +73,23 @@ public sealed class CommandHandler
         IProgress<ImportProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // 確かめ用の足跡（環境変数を付けたときだけ。Services.UiTrace）。何を押すと何が起きたかを1行で追えるようにする
+        if (!Services.UiTrace.IsOn)
+        {
+            return await ExecuteCoreAsync(command, progress, cancellationToken);
+        }
+
+        var traced = await ExecuteCoreAsync(command, progress, cancellationToken);
+        Services.UiTrace.Write("命令", $"{command.GetType().Name} → {traced.GetType().Name}"
+            + (traced is CommandResult.Failed failure ? $"：{failure.Message}" : string.Empty));
+        return traced;
+    }
+
+    private async Task<CommandResult> ExecuteCoreAsync(
+        UiCommand command,
+        IProgress<ImportProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         // 人が押した操作は、取り込みより先に通す。押した人は画面の前で結果を待っている。
         // 取り込み自体（ScanFolders）は中で段ごとの優先度に切り替わるので、ここでは
         // まとめて上げてよい——内側の指定が勝つ。

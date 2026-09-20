@@ -85,7 +85,7 @@ public partial class FirstRunWindow : Window
         // 黙って混ざるより、選び直す機会を出す
         if (StoreLocation.LooksLikeStore(picked))
         {
-            var answer = MessageBox.Show(
+            var answer = Services.Notice.Show(
                 $"選んだ場所には既にライブラリがあります。\n\n{picked}\n\n"
                 + "そのまま開くと、そのライブラリの続きから始まります。",
                 "既にライブラリがあります",
@@ -129,7 +129,7 @@ public partial class FirstRunWindow : Window
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(
+            Services.Notice.Show(
                 $"設定を書けませんでした。\n\n{exception.Message}\n\n"
                 + "書き込める場所を選び直してください。",
                 "保存先に書けません",

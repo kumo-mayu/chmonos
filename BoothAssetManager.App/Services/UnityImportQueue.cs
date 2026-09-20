@@ -269,8 +269,12 @@ public static class UnityImportQueue
                 Report($"{index + 1}/{packages.Count}：「{package.Name}」は既に全部入っています。Unity で「OK」を押すと次に進みます");
             }
 
+            UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」の取り込み画面を出した"
+                + (alreadyThere ? "（既に全部入っている）" : string.Empty));
+
             var (state, closed) = await WatchUntilDoneAsync(
                 processId, baseline, importWindow, tail, expected, alreadyThere, index, packages.Count, package, progress, cancellationToken);
+            UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」→ {state}{(closed ? "（Unity が閉じた）" : string.Empty)}");
             if (closed)
             {
                 stop = "Unity が閉じられました";

@@ -108,7 +108,9 @@
                     BorderThickness="1" CornerRadius="5" Padding="7"
                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7">
                 <!-- カード全体でも切り替わるが、状態を示す印としても要る -->
-                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                          AutomationProperties.AutomationId="ItemCardSelect"
+                          AutomationProperties.Name="{Binding Name, StringFormat='{}{0} を選ぶ'}">
                     <CheckBox.LayoutTransform>
                         <ScaleTransform ScaleX="1.3" ScaleY="1.3" />
                     </CheckBox.LayoutTransform>
@@ -185,9 +187,15 @@
                                     Tag に検索画面を入れておく。ContextMenu は視覚ツリーの外に出るので、
                                     PlacementTarget 経由でないと画面側のコマンドに届かない。
                                 -->
+                                <!--
+                                    カードは Border なので、名前を付けないと確かめから掴めない（商品名の文字も見えなかった。2026-09-20）。
+                                    付けるのは AutomationProperties なので、画面の見た目は変わらない
+                                -->
                                 <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
                                         ClipToBounds="True"
+                                        AutomationProperties.AutomationId="ItemCard"
+                                        AutomationProperties.Name="{Binding Name}"
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         ContextMenu="{StaticResource CardMenu}">
                                     <Grid>

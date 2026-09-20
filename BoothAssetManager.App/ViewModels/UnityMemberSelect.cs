@@ -86,7 +86,7 @@ internal static class UnityMemberSelect
         // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
         if (UnityImportQueue.IsRunning)
         {
-            System.Windows.MessageBox.Show(UnityImportQueue.BusyMessage, title,
+            Services.Notice.Show(UnityImportQueue.BusyMessage, title,
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return false;
         }
@@ -116,7 +116,7 @@ internal static class UnityMemberSelect
         }
         else
         {
-            var answer = System.Windows.MessageBox.Show(
+            var answer = Services.Notice.Show(
                 $"「{name}」（{fileText}）は、Unityの「{projectName}」にまだ入っていません。取り込みますか？\n\n"
                 + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
                 title,

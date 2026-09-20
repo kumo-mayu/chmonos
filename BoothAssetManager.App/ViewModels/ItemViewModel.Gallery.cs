@@ -426,7 +426,7 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             "この画像を消します。\n\n"
             + "ライブラリから消えるので、元に戻せません。\n"
             + "（元のファイルが手元にあれば、もう一度足せます）",

@@ -26,7 +26,7 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             Core.Diagnostics.AppLog.Error("画面の処理", args.Exception);
-            MessageBox.Show($"予期しないエラーが発生しました。\n\n{args.Exception.Message}",
+            Services.Notice.Show($"予期しないエラーが発生しました。\n\n{args.Exception.Message}",
                 "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
@@ -76,7 +76,7 @@ public partial class App : Application
 
         if (!_services.IsSingleInstance)
         {
-            MessageBox.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
+            Services.Notice.Show("既に起動しています。", "Chmonos", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
@@ -124,7 +124,7 @@ public partial class App : Application
             return true;
         }
 
-        var answer = MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"データの保存先が見つかりません。\n\n{root.Path}\n\n"
             + "外付けドライブを外している場合は、つないでからもう一度開いてください。\n\n"
             + "［はい］既定の場所（%LOCALAPPDATA%）で開きます。保存先の設定はそちらに変わります。\n"

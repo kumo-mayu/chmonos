@@ -99,7 +99,7 @@ public static class ModificationPicking
 
         if (record is null)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 "改変を作れませんでした。名前を変えて、もう一度試してください。",
                 title,
                 System.Windows.MessageBoxButton.OK,

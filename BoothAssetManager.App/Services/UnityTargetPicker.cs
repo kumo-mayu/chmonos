@@ -20,7 +20,7 @@ public static class UnityTargetPicker
         var editors = UnityEditors.Open();
         if (editors.Count == 0)
         {
-            MessageBox.Show(
+            Notice.Show(
                 "送り先は、開いているUnityになります。\n\nいまUnityが開いていないので送れません。プロジェクトを開いてから、もう一度押してください。",
                 title, MessageBoxButton.OK, MessageBoxImage.Information);
             return null;

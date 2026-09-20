@@ -988,7 +988,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
 
     /// <summary>既定はキャンセル。Enterを押しただけで消えないようにする。</summary>
     private static bool Confirm(string message, string caption)
-        => MessageBox.Show(
+        => Services.Notice.Show(
             message,
             caption,
             MessageBoxButton.OKCancel,

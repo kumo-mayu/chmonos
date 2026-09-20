@@ -1,3 +1,4 @@
+using BoothAssetManager.Core.Services;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -97,11 +98,14 @@ public static class ListChoice
         body.Children.Add(buttons);
         window.Content = body;
 
-        if (window.ShowDialog() != true)
+        var answered = window.ShowDialog() == true;
+        int? picked = !answered ? null : skipped ? Skipped : list.SelectedIndex >= 0 ? list.SelectedIndex : null;
+        if (UiTrace.IsOn)
         {
-            return null;
+            var chose = picked is null ? "やめた" : picked == Skipped ? "飛ばした" : $"{picked}番目「{items[picked.Value].Label}」";
+            UiTrace.Write("選ぶ", $"「{title}」{message}｜候補 {items.Count} 件 → {chose}");
         }
 
-        return skipped ? Skipped : list.SelectedIndex >= 0 ? list.SelectedIndex : null;
+        return picked;
     }
 }

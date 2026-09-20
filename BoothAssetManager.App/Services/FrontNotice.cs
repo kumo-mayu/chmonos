@@ -27,11 +27,11 @@ internal static class FrontNotice
     {
         if (Application.Current?.MainWindow is not { IsLoaded: true } owner)
         {
-            return MessageBox.Show(text, title, buttons, image);
+            return Notice.Show(text, title, buttons, image);
         }
 
         BringToFront(owner);
-        return MessageBox.Show(owner, text, title, buttons, image);
+        return Notice.Show(owner, text, title, buttons, image);
     }
 
     /// <summary>

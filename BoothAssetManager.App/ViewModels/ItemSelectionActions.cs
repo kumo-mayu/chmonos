@@ -39,7 +39,7 @@ internal static class ItemSelectionActions
 
         if (steps.Count == 0)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 "選んだ商品には、Unityへ送れるもの（zip の中の .unitypackage）が入っていませんでした。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
@@ -48,7 +48,7 @@ internal static class ItemSelectionActions
         // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
         if (Services.UnityImportQueue.IsRunning)
         {
-            System.Windows.MessageBox.Show(Services.UnityImportQueue.BusyMessage, title,
+            Services.Notice.Show(Services.UnityImportQueue.BusyMessage, title,
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -104,7 +104,7 @@ internal static class ItemSelectionActions
         }
 
         // 数えているのは unitypackage の数（選んだ商品の数ではない）。選び終えた後に、全体で何を送るかを1回だけ確かめる
-        var confirm = System.Windows.MessageBox.Show(
+        var confirm = Services.Notice.Show(
             $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
             + "1件ずつ取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。"
             + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
@@ -201,7 +201,7 @@ internal static class ItemSelectionActions
         }
 
         var skipped = cards.Count - added;
-        System.Windows.MessageBox.Show(
+        Services.Notice.Show(
             skipped == 0
                 ? $"「{record.Name}」に {added} 件を足しました。"
                 : $"「{record.Name}」に {added} 件を足しました。{skipped} 件は既に入っていたので、重ねて足していません。",

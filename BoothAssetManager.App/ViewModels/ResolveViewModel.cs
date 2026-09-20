@@ -778,7 +778,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         var targets = ActiveRows;
         var name = LocalNameInput.Trim();
         var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"{what} を「{name}」として登録します。\n\n"
             + $"BOOTHには無い商品なので、仮のID（{LocalIdPreview}）を付けます。\n"
             + "この商品はBOOTHから情報を取り直しません（名前も画像も増えません）。\n\n"
@@ -850,7 +850,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
         }
 
         var what = targets.Count == 1 ? targets[0].FileName : GroupSubject;
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"{what} を管理対象から外します。\n\n"
             + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
             "管理対象から外す",

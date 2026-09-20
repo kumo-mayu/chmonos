@@ -359,7 +359,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         // 作り直したいのか、間違えて2つ目を作ろうとしているのかは人にしか分からない
         if (await _services.Modifications.HasSameNameAsync(row.ItemId, name))
         {
-            var answer = System.Windows.MessageBox.Show(
+            var answer = Services.Notice.Show(
                 $"「{name}」という改変が既にあります。\n\n"
                 + "同じ名前で作れます（作り直したいときのため）。\n"
                 + "一覧では作った日付で見分けられます。",
@@ -1162,7 +1162,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         var members = Bases.FirstOrDefault(row => row.Name == name)?.Summary.MemberCount ?? 0;
         var items = await Task.Run(() => _services.Avatars.CountItemsUsingBaseAsync(name));
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"共通素体「{name}」を消します。\n\n"
             + $"アバター {members} 体が所属無しに戻り、商品 {items} 件から素体の宣言が消えます。\n"
             + "素体経由で出ていた対応も出なくなります。\n\n"

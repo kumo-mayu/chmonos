@@ -542,7 +542,7 @@ public sealed class ImportViewModel : ViewModelBase
     {
         var names = string.Join("\n", folders.Select(folder => "・" + folder));
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n"
             + "入れておくと、次に開いたときに新しいファイルが増えていないかを見ます。\n"
             + "見つかっても勝手には取り込まず、件数を出すだけです。",
@@ -690,7 +690,7 @@ public sealed class ImportViewModel : ViewModelBase
             names += $"\n…ほか {targets.Count - 10} フォルダ";
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"次の {targets.Count} フォルダをごみ箱へ移動します。\n\n{names}\n\n"
             + "いずれも展開元のアーカイブが手元に残っているものです。削除しますか？",
             "展開先フォルダの削除",
@@ -781,7 +781,7 @@ public sealed class ImportViewModel : ViewModelBase
             sample += $"\n…ほか {origins.Count - 5} 件";
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"指定されたファイルのうち {origins.Count} 件が、zipを展開したフォルダの中にあります。\n\n{sample}\n\n"
             + "元のzipの方を取り込みますか？\n"
             + "「はい」でzipに差し替え、「いいえ」で指定されたファイルをそのまま取り込みます。",

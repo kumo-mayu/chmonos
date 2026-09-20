@@ -31,6 +31,34 @@ description: Chmonos の画面を確かめる（写しの保存先で起動し�
 | `Save-ChmonosShot -Name x [-Region x,y,w,h] [-Element $window]` | 窓を撮って `%TEMP%\chmonos-shots\x.png` に置き、パスを返す。**Read で開いて見る** |
 | `Get-ChmonosCenter $el` / `Invoke-ChmonosRealClick -X -Y -UserWasTold` | 実入力（下の決まりを守る） |
 
+**座標を目分量で決めない・秒数で待たない**（2026-09-20 に足した。押す位置を絵から読んで外す・早すぎる確認で取りこぼす、が確かめの遅さの大半だった）：
+
+| 関数 | 何をするか |
+|---|---|
+| `Invoke-ChmonosClick -Name/-Like [-Type Button] [-Element $el] [-Right] -UserWasTold` | **名前で探して、その中心を実クリック**。UI Automation の Invoke が効かない部品（クリックでコマンドを呼ぶ切り替えボタン・`ItemsControl` の中・小窓のボタン）はこちら |
+| `Invoke-ChmonosMenuItem -Like 'Unityへ送る*' [-Expand] -UserWasTold` | 右クリックや「開く ▾」のメニューの項目（窓の外の別窓に出るので主の窓からは探せない）。`-Expand` は下の段を開くだけ |
+| `Wait-ChmonosText -Like '*件*' [-TimeoutSeconds 15]` | 文言が出るまで待つ（出た瞬間に返る。`Start-Sleep` をやめる） |
+| `Wait-ChmonosElement -Type Button -Name '送る'` / `Wait-ChmonosDialog [-Like]` | 要素・小窓が出るまで待つ |
+| `Get-ChmonosDialog` / `Get-ChmonosDialogText $dialog` | 持ち主付きの小窓（MessageBox・選ぶ窓）と、その中の文字 |
+| `Close-ChmonosDialog -Button 'OK' [-Like '題'] -UserWasTold` | 小窓を閉じる。**閉じたかを確かめ**、駄目ならもう一度押し、最後に Enter |
+| `Get-ChmonosTrace [-Kind 知らせ] [-Like '*入っていました*']` / `Wait-ChmonosTrace -Like '…'` | **確かめ用の足跡**（下） |
+
+`scripts/unity-kit.ps1`（Unity を相手にするとき。ui-kit を読んだ後にドットで読み込む）：
+`Get-UnityEditors` / `Get-UnityWindows [-Title]` / `Wait-UnityImportWindow` / `Save-UnityShot -Window $w -Name x`（隠れていても中身が撮れる）/
+`Close-UnityImport -Button Import|Cancel|OK -UserWasTold`（閉じたかを確かめて押し直す。Unity は1回目のクリックが窓を前に出すだけに使われる）。
+
+## 確かめ用の足跡（撮らずに文言を確かめる）
+
+`Start-ChmonosApp` は既定で `CHMONOS_UITRACE=%TEMP%\chmonos-uitrace.log` を付けて起動する（`-NoTrace` で切る）。アプリはこの変数があるときだけ、
+**出した窓の文言と押されたボタン・選ぶ窓の答え・実行した `UiCommand` と結果・Unity の取り込みの結果**を1行ずつ書く（`Core/Services/UiTrace.cs`）。
+
+```powershell
+Get-ChmonosTrace -Kind 知らせ -Last 5
+Wait-ChmonosTrace -Like '*既に全部入っていました*'   # 出るまで待つ
+```
+
+Win32 の MessageBox は中身が UI Automation に出ないので、**文言の確かめは足跡で行う**（撮って読むのは、並びや色を見るときだけ）。
+
 ## 流れ
 
 1. **ビルド**（`dotnet build`）。自分で起動したアプリが開いていると実行ファイルが掴まれて失敗するので、先に `Stop-ChmonosApp`。
@@ -38,8 +66,10 @@ description: Chmonos の画面を確かめる（写しの保存先で起動し�
    ユーザが「画面はまだ使わないで」と言っているときは、アプリを閉じずに脇へビルドする（`dotnet build BoothAssetManager.App -o <作業用フォルダ>\buildcheck`）。
 2. `Save-ProductionBaseline`
 3. `Start-ChmonosApp -Store <写し>`。**どの写しを使うかは [sandboxes.md](sandboxes.md)**（画面ごとの既定・一覧・作り物の作り方）。
-4. UI Automation で操作する（ボタンは Invoke、一覧は Scroll、入力欄は Value）。
+4. UI Automation で操作する（ボタンは Invoke、一覧は Scroll、入力欄は Value）。**押す位置を絵から目分量で決めない**——
+   `Invoke-ChmonosClick`・`Invoke-ChmonosMenuItem` で名前から押す。待つときは `Wait-*`（固定の `Start-Sleep` を並べない）。
 5. `Save-ChmonosShot` で撮り、Read で見る。**見たい所だけ `-Region` で切る**（窓全体の画像は重い）。同じ状態を撮り直さない。
+   **文言が出たかは足跡（`Get-ChmonosTrace`）で確かめる**。撮るのは並び・色・大きさを見るときだけ。
 6. `Stop-ChmonosApp` → `Test-ProductionUntouched`。**結果をユーザへの報告に書く**（「本番は変わっていない」まで）。
 7. **その画面の写しでもう一度起動し、開いたまま渡す**（ユーザは直後に自分で触る。「起動してくれ」と言わせない）。
    見て決めてほしいことを聞くときも、開いた状態で聞く。
@@ -70,6 +100,9 @@ UI Automation で届かない所（カードのクリック・ホバー・境目
 - 窓が最大化されていると、窓の四角は (-8,-8) から始まる
 - ポップアップ・メニュー・ツールチップは窓の外の別の窓に出るので、窓を撮っても写らない。デスクトップごと撮る（`CopyFromScreen`）
 - `ItemsControl` の中の部品は UI Automation に出ないことが多い（タグの管理の小分類の行など）。そこは実入力で押す
+  （素の `ItemsControl` は中身を隠してしまう。画面側を `Controls/ContentItemsControl` に替えると出る。検索のカードは 2026-09-20 にそうした）
+- **Alt を単独で押さない**（`keybd_event` で前面に出すときの小細工など）。離した瞬間に窓のシステムメニューが開き、以降のキーが飲まれる。前面に出すのは `[ChmonosWin]::Bring`
+- 小窓が開いているときに**主の窓を前に出すと、小窓がその下に隠れて押せなくなる**（`Invoke-ChmonosRealClick` は小窓の方を前に出すようにした。2026-09-20）
 
 ## Unity
 

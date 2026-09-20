@@ -35,7 +35,7 @@ internal static class ItemFileActions
 
         if (targets.Count == 0)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 $"「{item.DisplayName}」のファイルが、記録にある場所に見つかりません。\n\n"
                 + "移した場合は、移した先のフォルダを取り込むと付け直します。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
@@ -63,7 +63,7 @@ internal static class ItemFileActions
 
         if (zips.Count == 0)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 $"「{item.DisplayName}」には、一時的に展開できる zip が手元にありません。\n\n"
                 + "zip 以外のファイルやフォルダは、「エクスプローラで開く」でそのまま開けます。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
@@ -97,7 +97,7 @@ internal static class ItemFileActions
         }
         else if (result is CommandResult.Failed failed)
         {
-            System.Windows.MessageBox.Show(failed.Message, "一時的に展開して開く",
+            Services.Notice.Show(failed.Message, "一時的に展開して開く",
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         }
     }
@@ -111,7 +111,7 @@ internal static class ItemFileActions
         var packages = await Task.Run(() => UnityImportQueue.PackagesOf(item));
         if (packages.Count == 0)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 $"「{item.DisplayName}」には、Unityに入れられるもの（zip の中の .unitypackage）が手元にありません。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return null;

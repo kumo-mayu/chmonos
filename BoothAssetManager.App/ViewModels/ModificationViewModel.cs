@@ -538,7 +538,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         if (steps.Count == 0)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 "使ったものの中に、Unityへ送れるもの（手元の zip の中の .unitypackage）がありませんでした。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
@@ -551,7 +551,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
         if (UnityImportQueue.IsRunning)
         {
-            System.Windows.MessageBox.Show(UnityImportQueue.BusyMessage, title,
+            Services.Notice.Show(UnityImportQueue.BusyMessage, title,
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -587,7 +587,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         else
         {
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
-            var confirm = System.Windows.MessageBox.Show(
+            var confirm = Services.Notice.Show(
                 where + "\n\n"
                 + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ取り込み画面が出るので、"
                 + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が出ます。"
@@ -1339,7 +1339,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     private async Task DeleteAsync()
     {
         var images = Record.Images.Count;
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"改変「{Record.Name}」を消します。\n\n"
             + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
             + "元には戻せません。使った商品そのものは消えません。",
@@ -1431,7 +1431,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"「{row.Name}」をこの改変から完全に消します。\n\n"
             + (row.IsFromUnity
                 ? $"使ったファイル（{row.SourceText}）の記録も消えます。足し直しても、Unity へ送るまで記録は戻りません。\n\n"
@@ -1570,7 +1570,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         // **取り返しがつかない。**ファイルごと消える
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             "この写真を消します。\n\n元には戻せません。",
             "写真を消す",
             System.Windows.MessageBoxButton.OKCancel,

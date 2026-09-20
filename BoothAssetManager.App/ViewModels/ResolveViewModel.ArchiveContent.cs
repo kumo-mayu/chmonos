@@ -243,7 +243,7 @@ public sealed partial class ResolveViewModel
 
         var (count, bytes) = RegisteredFolderSet.Measure(folder);
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"次のフォルダを「{Preview.Name}」（ID {Preview.Id}）として登録します。\n\n"
             + $"{folder}\n{count} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
             + "以降このフォルダの中は取り込みで読まなくなり、未確定にも出てこなくなります。\n"

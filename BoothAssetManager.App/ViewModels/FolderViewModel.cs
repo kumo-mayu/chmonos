@@ -1244,7 +1244,7 @@ public sealed class FolderViewModel : ViewModelBase
             return;
         }
 
-        var answer = MessageBox.Show(
+        var answer = Notice.Show(
             $"「{detail.Title}」の下の未確定 {detail.Unresolved.Count} 件を管理から外します。\n\n"
             + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
             "管理から外す",

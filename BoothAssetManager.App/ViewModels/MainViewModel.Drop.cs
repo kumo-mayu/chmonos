@@ -111,7 +111,7 @@ public sealed partial class MainViewModel
             var fetched = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FetchBoothImage(imageUrl));
             if (fetched is not Core.Commands.CommandResult.ImageFetched { Bytes: var bytesFromBooth })
             {
-                System.Windows.MessageBox.Show(
+                Services.Notice.Show(
                     "BOOTHから画像を取れませんでした。",
                     "画像を足す",
                     System.Windows.MessageBoxButton.OK,
@@ -221,7 +221,7 @@ public sealed partial class MainViewModel
     /// </summary>
     private async Task OfferToRegisterAsync(string itemId)
     {
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"商品 {itemId} はライブラリにありません。\n\n"
                 + "BOOTHから情報を取得して、ファイルを持たない商品として登録しますか？\n"
                 + "（贈った商品や、気になっている商品をここから登録できます）",
@@ -238,7 +238,7 @@ public sealed partial class MainViewModel
 
         if (result is Core.Commands.CommandResult.Failed failure)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 failure.Message,
                 "登録できませんでした",
                 System.Windows.MessageBoxButton.OK,

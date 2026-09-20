@@ -613,7 +613,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
         // **同じ名前を許すが、黙って2つ並べない**（アバターの管理と同じ）
         if (await _services.Modifications.HasSameNameAsync(avatar.AvatarItemId, name))
         {
-            var answer = System.Windows.MessageBox.Show(
+            var answer = Services.Notice.Show(
                 $"「{name}」という改変が既にあります。\n\n"
                 + "同じ名前で作れます（作り直したいときのため）。\n"
                 + "一覧では作った日付で見分けられます。",

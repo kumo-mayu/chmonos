@@ -406,7 +406,7 @@ public sealed partial class MainViewModel : ViewModelBase
             var allowed = itemIds.Where(id => !IsAwaitingDetection(id)).ToList();
             if (allowed.Count == 0)
             {
-                System.Windows.MessageBox.Show(
+                Services.Notice.Show(
                     "選んだ商品は取り込みの途中です。対応アバターの検出が終わると編集できます。\n検索や商品ページで見ることは今でもできます。",
                     "まだ編集できません",
                     System.Windows.MessageBoxButton.OK,
@@ -741,7 +741,7 @@ public sealed partial class MainViewModel : ViewModelBase
     private RelayCommand? _showStructureAlertCommand;
 
     public RelayCommand ShowStructureAlertCommand => _showStructureAlertCommand ??= new RelayCommand(
-        () => System.Windows.MessageBox.Show(
+        () => Services.Notice.Show(
             StructureAlert
                 + "\n\n手元のデータはそのままです。説明文の見出しから読み取る所（対応アバターの検出・検索の手掛かり）だけが痩せます。"
                 + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは自分で消えます。",

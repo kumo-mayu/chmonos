@@ -167,7 +167,7 @@ public sealed partial class ResolveViewModel
             sample += $"\n…ほか {targets.Count - 8} 件";
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             (lead is null ? string.Empty : lead + "\n\n")
             + $"{targets.Count} 件を管理対象から外します。\n\n{sample}\n\n"
             + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
@@ -228,7 +228,7 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"{targets.Count} 件を「{Preview.Name}」（ID {Preview.Id}）のファイルとして確定します。\n\n"
             + "同じ商品のファイルであることを確認してください。",
             "まとめて確定",

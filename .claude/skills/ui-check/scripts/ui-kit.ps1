@@ -5,7 +5,7 @@
 # - 本番（%LOCALAPPDATA%\Chmonos）と friendtest（ユーザの作業用の写し）では起動しない
 # - 閉じるのは、この道具で起動したアプリだけ（ユーザが開いているアプリを巻き込まない。前の道具は名前で全部落としていた）
 # - 実入力は、窓が前面にあり、座標が窓の中にあるときだけ送る（要素が見つからず (0,0)＝デスクトップを押した事故がある）
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 if (-not ('ChmonosWin' -as [type])) { Add-Type @"
 using System; using System.Runtime.InteropServices;
 public static class ChmonosWin {
@@ -23,9 +23,16 @@ public static class ChmonosWin {
   [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool attach);
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetLastActivePopup(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   // 別のプロセスの窓は SetForegroundWindow だけでは前に出ない。前面の窓の入力に一時的につなぐ
+  // 主の窓の上に出ている小窓（MessageBox・選ぶ窓）。主の窓を前に出すとその下に隠れるので、前に出すのはこちら
+  public static IntPtr ActivePopup(IntPtr owner) {
+    var popup = GetLastActivePopup(owner);
+    return popup != IntPtr.Zero && IsWindow(popup) ? popup : owner;
+  }
   public static bool Bring(IntPtr target) {
     var fg = GetForegroundWindow(); uint t = GetWindowThreadProcessId(fg, IntPtr.Zero), me = GetCurrentThreadId();
     AttachThreadInput(me, t, true); if (IsIconic(target)) ShowWindow(target, 9); BringWindowToTop(target);
@@ -47,6 +54,7 @@ $ChmonosForbidden = @(
 $ChmonosShotDir = Join-Path $env:TEMP 'chmonos-shots'
 $ChmonosPidFile = Join-Path $env:TEMP 'chmonos-ui-check.json'
 $ChmonosBaselineFile = Join-Path $env:TEMP 'chmonos-prod-baseline.json'
+$ChmonosTraceFile = Join-Path $env:TEMP 'chmonos-uitrace.log'
 $A_ = [System.Windows.Automation.AutomationElement]
 $TS_ = [System.Windows.Automation.TreeScope]
 
@@ -80,7 +88,7 @@ function New-ChmonosSandbox {
 # ---- 起動と終了 ----
 
 function Start-ChmonosApp {
-  param([Parameter(Mandatory)][string]$Store, [switch]$AllowNew, [int]$SettleSeconds = 6)
+  param([Parameter(Mandatory)][string]$Store, [switch]$AllowNew, [int]$SettleSeconds = 6, [switch]$NoTrace)
   $root = Resolve-ChmonosStore $Store
   Assert-ChmonosSandbox $root
   if (-not $AllowNew -and -not (Test-Path $root)) { throw "保存先が無い: $root（初回の窓を見るなら -AllowNew）" }
@@ -92,6 +100,12 @@ function Start-ChmonosApp {
   # BAM_* と DOTNET_GC* は速さ・メモリの計測で使った変数で、残ると別の条件で動く
   foreach ($n in @($psi.Environment.Keys | Where-Object { $_ -like 'BAM_*' -or $_ -like 'DOTNET_GC*' -or $_ -eq 'BOOTH_ASSET_MANAGER_HOME' })) { [void]$psi.Environment.Remove($n) }
   $psi.Environment['CHMONOS_HOME'] = $root
+  # 確かめ用の足跡（出した窓の文言・押されたボタン・実行した命令・Unity の取り込み）。
+  # 文言の確かめを撮らずに済む。前の分は消しておく（今回の起動の分だけを読む）
+  if (-not $NoTrace) {
+    if (Test-Path $ChmonosTraceFile) { Remove-Item $ChmonosTraceFile -Force }
+    $psi.Environment['CHMONOS_UITRACE'] = $ChmonosTraceFile
+  }
   $p = [Diagnostics.Process]::Start($psi)
   for ($i = 0; $i -lt 120 -and $p.MainWindowHandle -eq 0 -and -not $p.HasExited; $i++) { Start-Sleep -Milliseconds 250; $p.Refresh() }
   if ($p.HasExited -or $p.MainWindowHandle -eq 0) { throw "窓が出なかった（pid=$($p.Id)）" }
@@ -243,10 +257,12 @@ function Invoke-ChmonosRealClick {
   param([Parameter(Mandatory)][int]$X, [Parameter(Mandatory)][int]$Y, [Parameter(Mandatory)][switch]$UserWasTold, [switch]$Right)
   if (-not $UserWasTold) { throw '実入力の前にユーザへ告げる（CLAUDE.md「確かめ方」）' }
   $h = (Get-ChmonosApp).MainWindowHandle
-  [void][ChmonosWin]::Bring($h); Start-Sleep -Milliseconds 500
+  # 前に出すのは、開いていれば小窓の方（主の窓を前に出すと MessageBox がその下に隠れ、押しても届かなかった。2026-09-19）
+  [void][ChmonosWin]::Bring([ChmonosWin]::ActivePopup($h)); Start-Sleep -Milliseconds 500
   $fgRoot = [ChmonosWin]::GetAncestor([ChmonosWin]::GetForegroundWindow(), 3)   # 3 = GA_ROOTOWNER（ダイアログなら主の窓）
   if ($fgRoot -ne $h) { return '実入力をやめた：アプリが前面に無い' }
-  $r = New-Object ChmonosWin+RECT; [void][ChmonosWin]::GetWindowRect($h, [ref]$r)
+  # 窓の中かを見るのは、いま前に出ている窓（小窓なら小窓の四角）で見る
+  $r = New-Object ChmonosWin+RECT; [void][ChmonosWin]::GetWindowRect([ChmonosWin]::ActivePopup($h), [ref]$r)
   if ($X -le $r.L -or $X -ge $r.R -or $Y -le $r.T -or $Y -ge $r.B) { return "実入力をやめた：($X,$Y) は窓（$($r.L),$($r.T)〜$($r.R),$($r.B)）の外" }
   $pt = New-Object ChmonosWin+POINT; $pt.X = $X; $pt.Y = $Y
   if ([ChmonosWin]::GetAncestor([ChmonosWin]::WindowFromPoint($pt), 3) -ne $h) { return "実入力をやめた：($X,$Y) の上に別の窓がある" }
@@ -255,6 +271,162 @@ function Invoke-ChmonosRealClick {
   else { [ChmonosWin]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero); [ChmonosWin]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero) }
   Start-Sleep -Milliseconds 600
   "実クリック: ($X,$Y)"
+}
+
+# ---- 待つ（固定の Start-Sleep をやめる） ----
+#
+# 秒数を決め打ちすると、早すぎて取りこぼす（まだ出ていない文言を「無い」と読む）か、遅すぎて待ち損になる。
+# ここは 300ms ごとに見に行き、**出た瞬間に返す**。見つからなければ $null を返す（投げない。呼ぶ側で言い分けたいので）
+
+function Wait-ChmonosCondition {
+  param([Parameter(Mandatory)][scriptblock]$Until, [double]$TimeoutSeconds = 15, [int]$PollMs = 300)
+  $end = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ($true) {
+    $got = & $Until
+    if ($got) { return $got }
+    if ((Get-Date) -gt $end) { return $null }
+    Start-Sleep -Milliseconds $PollMs
+  }
+}
+
+# 文言が出るまで待つ（「1/2：…」「既に全部入っています」など）。戻りは最初に合った文字
+function Wait-ChmonosText {
+  param([Parameter(Mandatory)][string]$Like, [double]$TimeoutSeconds = 15)
+  Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { Get-ChmonosTexts -Like $Like | Select-Object -First 1 }
+}
+
+# 要素が出るまで待つ。戻りは要素
+function Wait-ChmonosElement {
+  param([Parameter(Mandatory)][string]$Type, [string]$Name, [string]$Like, [double]$TimeoutSeconds = 15)
+  Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until {
+    Get-ChmonosElements -Type $Type -Name $Name -Like $Like | Select-Object -First 1
+  }
+}
+
+# 持ち主付きの小窓（MessageBox・ListChoice の窓）。主の窓の子として出るので、デスクトップからは探さない
+function Get-ChmonosDialog {
+  param([string]$Like = '*')
+  $cond = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Window)
+  foreach ($w in $(Get-ChmonosRoot).FindAll($TS_::Children, $cond)) {
+    if ($w.Current.Name -like $Like) { $w }
+  }
+}
+
+function Wait-ChmonosDialog {
+  param([string]$Like = '*', [double]$TimeoutSeconds = 15)
+  Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { Get-ChmonosDialog -Like $Like | Select-Object -First 1 }
+}
+
+# 小窓の中の文字（知らせの文言を確かめる）。-Like で絞る
+function Get-ChmonosDialogText {
+  param($Dialog, [string]$Like = '*')
+  if (-not $Dialog) { return }
+  foreach ($e in $Dialog.FindAll($TS_::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) {
+    $n = $e.Current.Name
+    if ($n -and $n -like $Like -and $n.Length -gt 1) { $n }
+  }
+}
+
+# ---- 名前で押す（座標を目分量で決めない） ----
+
+# 名前・文字・要素のどれかで押す。UI Automation の Invoke が効かない部品（コマンドをクリックで呼ぶ切り替えボタン・
+# ItemsControl の中の部品・小窓のボタン）でも、中心を実入力で押せる。-UserWasTold は実入力の決まり
+function Invoke-ChmonosClick {
+  param(
+    [string]$Name, [string]$Like, [string]$Type = 'Button', $Element, $Scope,
+    [int]$Index = 0, [Parameter(Mandatory)][switch]$UserWasTold, [switch]$Right, [double]$TimeoutSeconds = 10)
+
+  $el = $Element
+  if (-not $el) {
+    $el = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until {
+      $found = @(Get-ChmonosElements -Type $Type -Name $Name -Like $Like -Scope $Scope)
+      if ($found.Count -gt $Index) { $found[$Index] } else { $null }
+    }
+  }
+  if (-not $el) { return "無い: $Type「$Name$Like」" }
+
+  $c = Get-ChmonosCenter $el
+  $what = if ($el.Current.Name) { $el.Current.Name } else { $el.Current.ControlType.ProgrammaticName }
+  "$(Invoke-ChmonosRealClick -X $c.X -Y $c.Y -UserWasTold:$UserWasTold -Right:$Right)（「$what」）"
+}
+
+# メニューの項目（右クリックのメニュー・「開く ▾」）。ポップアップは窓の外の別の窓に出るので、主の窓からは探せない。
+# 自分のアプリの物だけを拾う（Unity や Windows のメニューを掴まない）
+function Get-ChmonosMenuItem {
+  param([string]$Name, [string]$Like = '*')
+  $pid_ = (Get-ChmonosApp).Id
+  $cond = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::MenuItem)
+  foreach ($e in $A_::RootElement.FindAll($TS_::Descendants, $cond)) {
+    if ($e.Current.ProcessId -ne $pid_) { continue }
+    $n = $e.Current.Name
+    if ($Name -and $n -ne $Name) { continue }
+    if ($n -notlike $Like) { continue }
+    $e
+  }
+}
+
+# メニューの項目を押す。-Expand なら下の段を開くだけ（「開く ▸」「Unity ▸」）
+function Invoke-ChmonosMenuItem {
+  param([string]$Name, [string]$Like = '*', [switch]$Expand, [Parameter(Mandatory)][switch]$UserWasTold, [double]$TimeoutSeconds = 10)
+  $item = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { Get-ChmonosMenuItem -Name $Name -Like $Like | Select-Object -First 1 }
+  if (-not $item) { return "メニューに無い: 「$Name$Like」" }
+  if ($Expand) {
+    $item.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    Start-Sleep -Milliseconds 400
+    return "開いた: メニュー「$($item.Current.Name)」"
+  }
+  Invoke-ChmonosClick -Element $item -UserWasTold:$UserWasTold
+}
+
+# 小窓を、その中のボタンを押して閉じる。**閉じたことを確かめ**、閉じなければもう一度押す
+# （1回目のクリックが窓を選ぶだけに使われることがある）。それでも閉じなければ、既定のボタンを Enter で押す
+function Close-ChmonosDialog {
+  param([string]$Button = 'OK', [string]$Like = '*', [Parameter(Mandatory)][switch]$UserWasTold, [double]$TimeoutSeconds = 10)
+  $dialog = Wait-ChmonosDialog -Like $Like -TimeoutSeconds $TimeoutSeconds
+  if (-not $dialog) { return "小窓が出ていない（$Like）" }
+
+  $handle = [IntPtr]$dialog.Current.NativeWindowHandle
+  $title = $dialog.Current.Name
+  $target = $dialog.FindFirst($TS_::Descendants, (New-Object System.Windows.Automation.PropertyCondition($A_::NameProperty, $Button)))
+  if (-not $target) { return "「$title」に「$Button」が無い" }
+
+  for ($try = 1; $try -le 2; $try++) {
+    $c = Get-ChmonosCenter $target
+    [void](Invoke-ChmonosRealClick -X $c.X -Y $c.Y -UserWasTold:$UserWasTold)
+    if (-not (Wait-ChmonosCondition -TimeoutSeconds 3 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($handle) })) { continue }
+    return "閉じた: 「$title」の「$Button」（$try 回目）"
+  }
+
+  # 最後の手。Enter は既定のボタン（OK・これを送る）を押す
+  [void][ChmonosWin]::Bring($handle); Start-Sleep -Milliseconds 300
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  if (Wait-ChmonosCondition -TimeoutSeconds 3 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($handle) }) {
+    return "閉じた: 「$title」（Enter・クリックでは閉じなかった）"
+  }
+
+  "閉じられない: 「$title」の「$Button」"
+}
+
+# ---- 確かめ用の足跡（Start-ChmonosApp が付ける。出した窓の文言・押されたボタン・命令・Unity） ----
+
+# 足跡を読む。-Kind で種類を絞る（知らせ・選ぶ・命令・Unity）、-Last で末尾だけ。
+# 「この文言が出たか」は、撮って読むより速くて確かに分かる
+function Get-ChmonosTrace {
+  param([string]$Kind = '*', [string]$Like = '*', [int]$Last = 40)
+  if (-not (Test-Path $ChmonosTraceFile)) { return '足跡が無い（-NoTrace で起動した？）' }
+  Get-Content $ChmonosTraceFile | Where-Object {
+    $parts = $_ -split "`t", 3
+    $parts.Count -ge 3 -and $parts[1] -like $Kind -and $parts[2] -like $Like
+  } | Select-Object -Last $Last
+}
+
+# 足跡に文言が出るまで待つ（窓を撮らずに「出たか」を確かめる）
+function Wait-ChmonosTrace {
+  param([Parameter(Mandatory)][string]$Like, [string]$Kind = '*', [double]$TimeoutSeconds = 30)
+  Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until {
+    $hit = @(Get-ChmonosTrace -Kind $Kind -Like $Like -Last 200)
+    if ($hit.Count -gt 0 -and $hit[0] -notlike '足跡が無い*') { $hit[-1] } else { $null }
+  }
 }
 
 # ---- 本番が変わっていないか（確かめの前に控え、後で照らす） ----

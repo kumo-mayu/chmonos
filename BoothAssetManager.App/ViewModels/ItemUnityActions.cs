@@ -24,7 +24,7 @@ internal static class ItemUnityActions
         // 連続送りの最中は混ぜない。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
         if (UnityImportQueue.IsRunning)
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 UnityImportQueue.BusyMessage, title,
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return null;
@@ -53,7 +53,7 @@ internal static class ItemUnityActions
         }
 
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
             + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
             title,

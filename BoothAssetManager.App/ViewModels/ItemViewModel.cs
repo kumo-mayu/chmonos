@@ -505,7 +505,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             return;
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"次のフォルダの紐付けを解除します。\n\n{folderPath}\n\n"
             + "ファイルは消しません。以降このフォルダの中もスキャン対象に戻ります。",
             "フォルダの登録を解除",
@@ -608,7 +608,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             return;
         }
 
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             $"{row.FileName} をこの商品から外します。\n\n"
             + "ファイルは消しません。未確定に戻るので、そこで正しい商品を選び直せます。\n"
             + "次の取り込みでこの商品に戻ることもありません。\n"

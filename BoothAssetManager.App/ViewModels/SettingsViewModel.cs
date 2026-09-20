@@ -416,7 +416,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 return;
             }
 
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 value
                     ? "これから取る商品から、画像も取ります。\n\n"
                         + "今ある商品の画像は、次に開いたときから、使っていない間に少しずつ取りに行きます。"
@@ -482,7 +482,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
     private void ClearSearchHistory()
     {
-        var answer = System.Windows.MessageBox.Show(
+        var answer = Services.Notice.Show(
             "検索の履歴を全部消します。\n\n"
             + "名前を付けたものも一緒に消えます。元には戻せません。\n"
             + "いまの検索の条件は変わりません。",
@@ -982,7 +982,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
             if (!replaced.Succeeded)
             {
-                System.Windows.MessageBox.Show(
+                Services.Notice.Show(
                     $"置き換えられませんでした。\n\n{replaced.Error}\n\n"
                     + "保存先は元のままです。データは失われていません。"
                     + (replaced.ParkedAt is null
@@ -1005,7 +1005,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         if (!StoreLocation.IsEmpty(picked))
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 $"選んだ場所には別のファイルが入っています。\n\n{picked}\n\n"
                 + "取り違えると中身が混ざるので、空のフォルダか、このアプリのデータが入っている場所を選んでください。",
                 "この場所は使えません",
@@ -1040,7 +1040,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
             if (!result.Succeeded)
             {
-                System.Windows.MessageBox.Show(
+                Services.Notice.Show(
                     $"引越しできませんでした。\n\n{result.Error}\n\n"
                     + "保存先は元のままです。データは失われていません。",
                     "引越しに失敗しました",
@@ -1169,7 +1169,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         if (!Core.Storage.BackupArchive.LooksLikeBackup(open.FileName))
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 "このアプリのバックアップではないようです（商品も設定も入っていません）。\n\n"
                 + "設定画面の「バックアップを書き出す」で作った zip を選んでください。",
                 "バックアップから戻す",
@@ -1187,7 +1187,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         if (!StoreLocation.IsEmpty(destination))
         {
-            System.Windows.MessageBox.Show(
+            Services.Notice.Show(
                 $"戻す先には既にファイルがあります。\n\n{destination}\n\n"
                 + "混ざらないよう、空のフォルダを選んでください（その中に「BoothAssetManager」を作って戻します）。",
                 "この場所には戻せません",
