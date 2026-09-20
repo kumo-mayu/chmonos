@@ -66,6 +66,26 @@ public sealed class OrphanAttributeRow : ViewModelBase
 public sealed class AttributeManageViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
+
+    private ManageItemView? _itemView;
+
+    /// <summary>商品をカードで出すかリストで出すか（M4）。ほかの画面と同じ切り替え。</summary>
+    private ManageItemView ItemView => _itemView ??= new ManageItemView(_services, "attribute", () =>
+    {
+        OnPropertyChanged(nameof(IsCardMode));
+        OnPropertyChanged(nameof(IsListMode));
+    });
+
+    public bool IsCardMode => ItemView.IsCardMode;
+
+    public bool IsListMode => ItemView.IsListMode;
+
+    private RelayCommand? _showCards;
+    private RelayCommand? _showList;
+
+    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => ItemView.Set(false));
+
+    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => ItemView.Set(true));
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
@@ -451,6 +471,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
             ValueText = $"{value} %",
             ThumbnailPath = builder.ItemThumbnailPath(item),
             Thumbnails = _main.Thumbnails,
+            CardFactory = () => _main.Search.CardFor(item.Id),
         };
 
         entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));

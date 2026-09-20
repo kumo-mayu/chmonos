@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:views="clr-namespace:BoothAssetManager.App.Views"
              xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -9,7 +10,13 @@
              d:DataContext="{d:DesignInstance Type=vm:AttributeManageViewModel}">
     <!-- 商品の行・畳む印はタグの管理と共用（ユーザ指示 2026-09-19：操作感を揃える） -->
     <UserControl.Resources>
-        <ResourceDictionary Source="ManageResources.xaml" />
+      <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+            <!-- カード表示は検索と同じカード（ユーザ指示 2026-09-20・M4） -->
+            <views:ItemCardResources />
+        </ResourceDictionary.MergedDictionaries>
+      </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{StaticResource Bg}">
@@ -251,6 +258,17 @@
                                               ToolTip="{Binding ExpandToolTip}" />
                                 <TextBlock Text="{Binding ItemsHeaderText}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
 
+                                <!-- カードで見るかリストで見るか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ形 -->
+                                <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"
+                                            IsEnabled="{Binding SelectedIsUsed}">
+                                    <RadioButton Content="カード" GroupName="AttributeItemsView" Style="{StaticResource SegmentFirst}"
+                                                 IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
+                                                 ToolTip="絵の大きなカードで並べます" />
+                                    <RadioButton Content="リスト" GroupName="AttributeItemsView" Style="{StaticResource SegmentLast}"
+                                                 IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
+                                                 ToolTip="名前が読める詰まった行で並べます" />
+                                </StackPanel>
+
                                 <!-- 値の向き（ユーザ指示 2026-09-19）。並べ方と同じつながったボタンで、見出しのすぐ横に -->
                                 <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"
                                             IsEnabled="{Binding SelectedIsUsed}">
@@ -288,7 +306,10 @@
                             <Border Margin="11,12,0,0" Padding="19,0,0,0"
                                     BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
                                     Visibility="{Binding IsItemsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}">
+                                <StackPanel>
+                                <!-- リスト（詰まった行）とカードを選べる（ユーザ指示 2026-09-20・M4） -->
+                                <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}"
+                                              Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <!-- 左から右か上から下か（ユーザ指示 2026-09-19）。値の順に並ぶ属性だけが持つ（タグは名前順なので要らない） -->
@@ -296,6 +317,21 @@
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>
+
+                                <controls:ContentItemsControl ItemsSource="{Binding Items}"
+                                                              Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </Border>

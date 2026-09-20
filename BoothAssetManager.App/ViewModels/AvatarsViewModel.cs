@@ -23,8 +23,8 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
 
     private ItemCardViewModel? _card;
 
-    /// <summary>右クリックで使うカード。**押されたときに初めて作る**（一覧は数百行並ぶ）。</summary>
-    ItemCardViewModel? IHasItemCard.Card
+    /// <summary>右クリックとカード表示で使うカード。**要るときに初めて作る**（一覧は数百行並ぶ）。</summary>
+    public ItemCardViewModel? Card
     {
         get
         {
@@ -188,6 +188,26 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
     public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "avatars.list");
     private readonly MainViewModel _main;
+
+    private ManageItemView? _itemView;
+
+    /// <summary>一覧をカードで出すかリストで出すか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ切り替え。</summary>
+    private ManageItemView ItemView => _itemView ??= new ManageItemView(_services, "avatar", () =>
+    {
+        OnPropertyChanged(nameof(IsCardMode));
+        OnPropertyChanged(nameof(IsListMode));
+    });
+
+    public bool IsCardMode => ItemView.IsCardMode;
+
+    public bool IsListMode => ItemView.IsListMode;
+
+    private RelayCommand? _showCards;
+    private RelayCommand? _showList;
+
+    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => ItemView.Set(false));
+
+    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => ItemView.Set(true));
 
     private AvatarRowViewModel? _selected;
     private bool _isLoading = true;

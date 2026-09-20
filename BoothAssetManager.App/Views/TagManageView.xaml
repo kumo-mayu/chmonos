@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:views="clr-namespace:BoothAssetManager.App.Views"
              xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -9,7 +10,13 @@
              d:DataContext="{d:DesignInstance Type=vm:TagManageViewModel}">
     <!-- 商品の行・畳む印・文字だけのボタンは属性の管理と共用（ユーザ指示 2026-09-19：操作感を揃える） -->
     <UserControl.Resources>
-        <ResourceDictionary Source="ManageResources.xaml" />
+      <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+            <!-- カード表示は検索と同じカード（ユーザ指示 2026-09-20・M4） -->
+            <views:ItemCardResources />
+        </ResourceDictionary.MergedDictionaries>
+      </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{StaticResource Bg}">
@@ -268,7 +275,18 @@
                         <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                             <StackPanel>
                                 <StackPanel Margin="20,16,20,14">
-                                    <TextBlock Text="小分類" FontWeight="Bold" FontSize="13" />
+                                    <DockPanel>
+                                        <!-- 中の商品をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ形 -->
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <RadioButton Content="カード" GroupName="TagItemsView" Style="{StaticResource SegmentFirst}"
+                                                         IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
+                                                         ToolTip="小分類を開いたとき、中の商品を絵の大きなカードで並べます" />
+                                            <RadioButton Content="リスト" GroupName="TagItemsView" Style="{StaticResource SegmentLast}"
+                                                         IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
+                                                         ToolTip="名前が読める詰まった行で並べます" />
+                                        </StackPanel>
+                                        <TextBlock Text="小分類" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                    </DockPanel>
                                     <TextBlock Text="大分類の下に入ります。商品から大分類を外すと、その下の小分類も一緒に外れます。"
                                                Style="{StaticResource Caption}" Margin="0,4,0,0" />
 
@@ -495,7 +513,10 @@
                                                     <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="23,10,0,0" Padding="16,0,0,0"
                                                             BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
                                                             Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}">
+                                                    <StackPanel>
+                                                    <!-- リストとカードを選べる（ユーザ指示 2026-09-20・M4） -->
+                                                    <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}"
+                                                                  Visibility="{Binding DataContext.IsListMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
                                                                 <!-- 小分類の中は名前順なので、並ぶ向きは選ばせない（ユーザ判断 2026-09-19：タグに縦横の概念は要らない） -->
@@ -503,6 +524,21 @@
                                                             </ItemsPanelTemplate>
                                                         </ItemsControl.ItemsPanel>
                                                     </ItemsControl>
+
+                                                    <controls:ContentItemsControl ItemsSource="{Binding Items}"
+                                                                                  Visibility="{Binding DataContext.IsCardMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </controls:ContentItemsControl>
+                                                    </StackPanel>
                                                     </Border>
                                                 </Grid>
                                             </Border>

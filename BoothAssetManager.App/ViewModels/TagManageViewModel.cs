@@ -206,6 +206,14 @@ public sealed class TagItemRow : ViewModelBase
     public string Initial => AvatarText.InitialOf(Name);
 
     public RelayCommand? OpenCommand { get; set; }
+
+    /// <summary>カード表示（ユーザ指示 2026-09-20・M4）で使う、検索と同じカード。作るのに要る物をまとめて受け取る。</summary>
+    public Func<ItemCardViewModel?>? CardFactory { get; init; }
+
+    private ItemCardViewModel? _card;
+
+    /// <summary>**カード表示に切り替えたときに初めて作る**（1つの分類に数百件入ることがある）。</summary>
+    public ItemCardViewModel? Card => _card ??= CardFactory?.Invoke();
 }
 
 /// <summary>マスタに無いのにitemが参照している名前。要確認は知らせるだけで、直せるのはここ。</summary>
@@ -254,6 +262,26 @@ public sealed class OrphanTagRow : ViewModelBase
 public sealed class TagManageViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
+
+    private ManageItemView? _itemView;
+
+    /// <summary>商品をカードで出すかリストで出すか（M4）。ほかの画面と同じ切り替え。</summary>
+    private ManageItemView ItemView => _itemView ??= new ManageItemView(_services, "tag", () =>
+    {
+        OnPropertyChanged(nameof(IsCardMode));
+        OnPropertyChanged(nameof(IsListMode));
+    });
+
+    public bool IsCardMode => ItemView.IsCardMode;
+
+    public bool IsListMode => ItemView.IsListMode;
+
+    private RelayCommand? _showCards;
+    private RelayCommand? _showList;
+
+    public RelayCommand ShowCardsCommand => _showCards ??= new RelayCommand(() => ItemView.Set(false));
+
+    public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => ItemView.Set(true));
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
@@ -1376,6 +1404,7 @@ public sealed class TagManageViewModel : ViewModelBase
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
             ThumbnailPath = builder.ItemThumbnailPath(item),
             Thumbnails = _main.Thumbnails,
+            CardFactory = () => _main.Search.CardFor(item.Id),
         };
 
         entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));

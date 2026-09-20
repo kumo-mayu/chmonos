@@ -13,6 +13,8 @@
         <!-- 一覧の行の右クリックは、カードと同じメニュー（ユーザ指示 2026-09-20・M2） -->
         <ResourceDictionary.MergedDictionaries>
             <views:ItemCardResources />
+            <!-- 繋がったボタン（タグ・属性の管理と同じ部品・M4） -->
+            <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
 
         <!-- 行の右クリック。アバターは商品でもあるので、カードと同じ操作ができる -->
@@ -49,6 +51,21 @@
 
                 <TextBlock Grid.Column="2" Text="{Binding CountText}" Style="{StaticResource Mono}"
                            FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <!--
+            一覧の1件の見た目。リスト（詰まった行）とカード（検索と同じ）を選べる（ユーザ指示 2026-09-20・M4）。
+            選ぶ・右に詳細を出すはどちらでも同じに効く（同じ一覧のまま、中身の絵だけを替えている）
+        -->
+        <DataTemplate x:Key="AvatarRowOrCard" DataType="{x:Type vm:AvatarRowViewModel}">
+            <Grid>
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AvatarRow}" Focusable="False"
+                                Visibility="{Binding DataContext.IsListMode, RelativeSource={RelativeSource AncestorType=UserControl},
+                                             Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
+                                Visibility="{Binding DataContext.IsCardMode, RelativeSource={RelativeSource AncestorType=UserControl},
+                                             Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </Grid>
         </DataTemplate>
 
@@ -268,6 +285,17 @@
                             </Button>
                         </StackPanel>
 
+                        <!-- 一覧をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4） -->
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,4,14,0"
+                                    Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                            <RadioButton Content="カード" GroupName="AvatarsView" Style="{StaticResource SegmentFirst}"
+                                         IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
+                                         ToolTip="絵の大きなカードで並べます" />
+                            <RadioButton Content="リスト" GroupName="AvatarsView" Style="{StaticResource SegmentLast}"
+                                         IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
+                                         ToolTip="名前が読める詰まった行で並べます" />
+                        </StackPanel>
+
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
                               Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
@@ -292,7 +320,7 @@
                                      SelectionChanged="AvatarList_SelectionChanged"
                                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                                      VirtualizingPanel.VirtualizationMode="Recycling"
-                                     ItemTemplate="{StaticResource AvatarRow}"
+                                     ItemTemplate="{StaticResource AvatarRowOrCard}"
                                      ItemContainerStyle="{StaticResource AvatarRowStyle}" Tag="{Binding}"
                                      BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
                                      HorizontalContentAlignment="Stretch"
