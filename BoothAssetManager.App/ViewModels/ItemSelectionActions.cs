@@ -100,6 +100,10 @@ internal static class ItemSelectionActions
             .ToList();
         if (queue.Count == 0)
         {
+            // 全部飛ばしたときに黙って終わらない（I1 と同じ理由。2026-09-20 に実機で見た）
+            Services.Notice.Show(
+                "送るものが無くなりました（選んだ商品を全部飛ばしました）。",
+                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
 
