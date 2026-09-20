@@ -48,6 +48,13 @@ public sealed class ResolutionCandidate
 ///
 /// 発見（検索）は多少雑でよく、精度は検証側で担保する。
 /// </summary>
+/// <summary>
+/// 候補と、**BOOTH に届いたかどうか**（ユーザ判断 2026-09-20・E3）。
+/// 届かなかったのを「候補がありません」と同じ文で出すと、次の一手（商品IDを直接入れる）が
+/// 誤った前提に立つ——実際は待ってもう一度押せばよい。
+/// </summary>
+public sealed record ResolutionProposal(IReadOnlyList<ResolutionCandidate> Candidates, bool BoothUnreachable);
+
 public sealed class FallbackResolver
 {
     private const int MaxCandidates = 3;
@@ -205,7 +212,7 @@ public sealed class FallbackResolver
         return ids;
     }
 
-    public async Task<IReadOnlyList<ResolutionCandidate>> ProposeAsync(
+    public async Task<ResolutionProposal> ProposeAsync(
         string filePath,
         CancellationToken cancellationToken = default,
         IProgress<ResolveProgress>? progress = null)
@@ -213,7 +220,7 @@ public sealed class FallbackResolver
         var query = FileNameQuery.ToSearchQuery(filePath);
         if (query.Length == 0)
         {
-            return [];
+            return new ResolutionProposal([], false);
         }
 
         // 大きいzipだとここだけで数秒かかるので、何をしているかは伝える
@@ -234,7 +241,7 @@ public sealed class FallbackResolver
 
         progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
-        var searchIds = await SearchIdsAsync(query, filePath, cancellationToken);
+        var (searchIds, searched) = await SearchIdsAsync(query, filePath, cancellationToken);
 
         var orderedIds = direct
             .Concat(searchIds)
@@ -281,7 +288,7 @@ public sealed class FallbackResolver
 
                 progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
-                var extraIds = (await SearchIdsAsync(alternate, filePath, cancellationToken))
+                var extraIds = (await SearchIdsAsync(alternate, filePath, cancellationToken)).Ids
                     .Where(id => seen.Add(id))
                     .Take(MaxCandidates)
                     .ToList();
@@ -308,22 +315,29 @@ public sealed class FallbackResolver
             }
         }
 
-        return candidates.OrderByDescending(candidate => candidate.Score).ToList();
+        // 検索そのものが届かなかったときは、候補が0件でも「無い」と言わせない（E3）
+        return new ResolutionProposal(
+            candidates.OrderByDescending(candidate => candidate.Score).ToList(),
+            BoothUnreachable: !searched && direct.Count == 0);
     }
 
-    /// <summary>検索して、ファイル名との近さで並べ直したIDを返す。カードが読めなければBOOTHの並びのまま。</summary>
-    private async Task<IReadOnlyList<string>> SearchIdsAsync(string query, string filePath, CancellationToken cancellationToken)
+    /// <summary>
+    /// 検索して、ファイル名との近さで並べ直したIDを返す。カードが読めなければBOOTHの並びのまま。
+    /// **届いたかどうかも返す**（E3：届かなかったのを0件と同じに扱っていた）。
+    /// </summary>
+    private async Task<(IReadOnlyList<string> Ids, bool Searched)> SearchIdsAsync(
+        string query, string filePath, CancellationToken cancellationToken)
     {
         var result = await _client.SearchAsync(query, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
-            return [];
+            return ([], false);
         }
 
         var cards = ExtractSearchCards(result.Value);
-        return cards.Count > 0
+        return (cards.Count > 0
             ? Rerank(cards, filePath).Select(card => card.ItemId).ToList()
-            : ExtractSearchResultIds(result.Value);
+            : ExtractSearchResultIds(result.Value), true);
     }
 
     /// <summary>候補1件を取って点数を付ける。取れなければ null。</summary>

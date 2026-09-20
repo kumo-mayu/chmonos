@@ -243,11 +243,12 @@ public sealed partial class AvatarService
     /// この項目をもう一度BOOTHに問い合わせる。
     /// 販売終了から復活した場合や、こちらの判定を疑うときの逃げ道。
     /// </summary>
-    public async Task<bool> RecheckAsync(string itemId, CancellationToken cancellationToken = default)
+    public async Task<Booth.BoothFetchStatus> RecheckAsync(string itemId, CancellationToken cancellationToken = default)
     {
+        // 問い合わせ先が無いのは組み立ての話（画面からは起こらない）。この型はテストでも作るので落とさず、届かなかった扱いにする
         if (_client is null)
         {
-            return false;
+            return Booth.BoothFetchStatus.TemporaryFailure;
         }
 
         var fetched = await _client.GetItemJsonAsync(itemId, cancellationToken);
@@ -258,12 +259,13 @@ public sealed partial class AvatarService
                 itemId,
                 entry => entry with { Category = null, CheckedAt = DateTimeOffset.Now },
                 cancellationToken);
-            return true;
+            return Booth.BoothFetchStatus.NotFound;
         }
 
         if (!fetched.IsSuccess || fetched.Value is null)
         {
-            return false;
+            // **届かなかったことをそのまま返す**（E3）。画面は「確認できませんでした」の一言で片付けていた
+            return Booth.BoothFetchStatus.TemporaryFailure;
         }
 
         var booth = Booth.BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
@@ -280,7 +282,7 @@ public sealed partial class AvatarService
             },
             cancellationToken);
 
-        return true;
+        return Booth.BoothFetchStatus.Success;
     }
 
     private async Task UpdateEntryAsync(

@@ -369,10 +369,19 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         {
             if (SetField(ref _isSendingToUnity, value))
             {
+                OnPropertyChanged(nameof(ShowsSelectionBar));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
     }
+
+    /// <summary>帯を出すか。選んでいる間と、Unity へ送っている間（E10：1件でも進み具合を出す）。</summary>
+    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity;
+
+    /// <summary>送るのをやめる（E7）。</summary>
+    public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
+
+    private RelayCommand? _stopUnity;
 
     public string UnityQueueText
     {
@@ -424,6 +433,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
 
         var selecting = HasSelection;

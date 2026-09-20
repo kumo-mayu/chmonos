@@ -432,7 +432,9 @@ public abstract record CommandResult
 
     public record PreviewLoaded(Services.ItemPreview Preview) : CommandResult;
 
-    public record CandidatesProposed(IReadOnlyList<Resolution.ResolutionCandidate> Candidates) : CommandResult;
+    /// <param name="BoothUnreachable">BOOTH に届かなかったか（E3）。0件でも「無い」と言い切らないため。</param>
+    public record CandidatesProposed(
+        IReadOnlyList<Resolution.ResolutionCandidate> Candidates, bool BoothUnreachable = false) : CommandResult;
 
     public record AvatarsDetected(Services.AvatarDetectResult Result) : CommandResult;
 

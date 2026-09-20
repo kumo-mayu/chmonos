@@ -158,9 +158,17 @@
                                             ToolTip="上から順に1件ずつ Unity の取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
                                 </StackPanel>
                             </Grid>
-                            <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
-                                       TextWrapping="Wrap" Margin="0,2,0,6"
-                                       Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
+                            <DockPanel Margin="0,2,0,6"
+                                       Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding StopUnityCommand}"
+                                        Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        ToolTip="送るのをやめます。Unity の取り込み画面が残っていたら、Unity 側で「Cancel」を押してください。" />
+                                <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                        Text="上から順に入れた記録です。依存するものが先に来るように並べ替えられます。" />
 

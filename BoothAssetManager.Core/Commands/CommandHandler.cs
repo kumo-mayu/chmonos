@@ -191,9 +191,15 @@ public sealed class CommandHandler
                 using (Booth.BoothClient.Prioritize(Booth.BoothPriority.PinnedImage))
                 {
                     var fetched = await _client.GetBinaryAsync(fetch.Url, cancellationToken);
-                    return fetched.IsSuccess && fetched.Value is { } bytes
-                        ? new CommandResult.ImageFetched(bytes)
-                        : new CommandResult.Failed("BOOTHから画像を取れませんでした。");
+                    if (fetched.IsSuccess && fetched.Value is { } bytes)
+                    {
+                        return new CommandResult.ImageFetched(bytes);
+                    }
+
+                    // 届かなかったのと、BOOTH にもう無いのとで次の一手が違う（E3）
+                    return new CommandResult.Failed(fetched.Status == Booth.BoothFetchStatus.NotFound
+                        ? "この画像はBOOTHにありませんでした。商品ページから消えた画像かもしれません。"
+                        : "BOOTHから画像を取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。");
                 }
 
             case UiCommand.ChangeSearchHistory history:
@@ -250,9 +256,15 @@ public sealed class CommandHandler
                     await _items.FetchImagesAsync(fetchImages.ItemId, cancellationToken));
 
             case UiCommand.RegisterItem register:
-                return await _items.RegisterItemAsync(register.ItemId, cancellationToken)
-                    ? new CommandResult.ItemSaved(register.ItemId)
-                    : new CommandResult.Failed($"商品 {register.ItemId} をBOOTHから取得できませんでした。");
+                // 失敗の種類で文を分ける（E3）。待てば直るのか、待っても無いのかで次の一手が違う
+                return await _items.RegisterItemAsync(register.ItemId, cancellationToken) switch
+                {
+                    Booth.BoothFetchStatus.Success => new CommandResult.ItemSaved(register.ItemId),
+                    Booth.BoothFetchStatus.NotFound => new CommandResult.Failed(
+                        $"商品 {register.ItemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。"),
+                    _ => new CommandResult.Failed(
+                        $"商品 {register.ItemId} をBOOTHから取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。"),
+                };
 
             case UiCommand.AssignItemId assign:
                 if (await _items.AssignItemIdAsync(assign.Hash, assign.ItemId, cancellationToken))
@@ -751,8 +763,8 @@ public sealed class CommandHandler
                 // 1件ずつ間隔を空けるので待ちがそのまま目に見える
                 using (Booth.BoothClient.Prioritize(Booth.BoothPriority.Foreground))
                 {
-                    return new CommandResult.CandidatesProposed(
-                        await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress));
+                    var proposal = await _resolver.ProposeAsync(propose.FilePath, cancellationToken, propose.Progress);
+                    return new CommandResult.CandidatesProposed(proposal.Candidates, proposal.BoothUnreachable);
                 }
 
             default:
@@ -811,10 +823,13 @@ public sealed class CommandHandler
                 await editor.RemoveAliasAsync(remove.ItemId, remove.Text, cancellationToken);
                 break;
             case UiCommand.RecheckAvatar recheck:
-                // 原因は特定できないので、見当だけ並べて判断はユーザに残す
-                return await editor.RecheckAsync(recheck.ItemId, cancellationToken)
-                    ? new CommandResult.Done()
-                    : new CommandResult.Failed("BOOTHに確認できませんでした。通信が失敗したか、取得の設定が入っていないことがあります。");
+                // 届かなかったのか、BOOTH に無かったのかで言い分ける（E3）。404 は「非公開になっていた」として書き込むので成功扱い
+                return await editor.RecheckAsync(recheck.ItemId, cancellationToken) switch
+                {
+                    Booth.BoothFetchStatus.TemporaryFailure => new CommandResult.Failed(
+                        "BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度押してください。"),
+                    _ => new CommandResult.Done(),
+                };
         }
 
         return new CommandResult.Done();

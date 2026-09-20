@@ -20,11 +20,34 @@ public sealed partial class ItemViewModel
     // 送る・改変に足して送る・選択の中身は ItemUnityActions（カードの右クリックと共用。ユーザ指示 2026-09-19）。
     // ここは商品ページの欄の下の1行へ結果を出すだけ
 
+    /// <summary>
+    /// 送っている間の進み具合と「中止」を、この欄の1行に出す（E7・E10）。
+    /// Unity 側の読み込みが長いと、押してから窓が出るまで何も起きていないように見えていた。
+    /// </summary>
+    private UnitySendUi? _sendUi;
+
+    private UnitySendUi SendUi => _sendUi ??= new UnitySendUi(
+        sending => IsSendingToUnity = sending,
+        text => UnityRecordNotice = text);
+
+    private bool _isSendingToUnity;
+
+    public bool IsSendingToUnity
+    {
+        get => _isSendingToUnity;
+        private set => SetField(ref _isSendingToUnity, value);
+    }
+
+    /// <summary>送るのをやめる（`UnityImportQueue.Stop`）。送信は1本ずつなので、どの画面から押しても同じ物が止まる。</summary>
+    public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
+
+    private RelayCommand? _stopUnity;
+
     private void SendToUnity(object? parameter)
     {
         if (parameter is Core.Services.UnityPackageEntry package)
         {
-            ItemUnityActions.SendAsync(_services, Item, package).Forget();
+            ItemUnityActions.SendAsync(_services, Item, package, SendUi).Forget();
         }
     }
 
@@ -40,7 +63,8 @@ public sealed partial class ItemViewModel
     {
         if (parameter is Core.Services.UnityPackageEntry package)
         {
-            await ItemUnityActions.SendWithRecordAsync(_services, Item, package, Notices.LineOrWindow("改変に足して送る", text => UnityRecordNotice = text));
+            await ItemUnityActions.SendWithRecordAsync(
+                _services, Item, package, Notices.LineOrWindow("改変に足して送る", text => UnityRecordNotice = text), SendUi);
         }
     }
 

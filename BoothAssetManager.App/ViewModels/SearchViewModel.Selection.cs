@@ -36,6 +36,7 @@ public sealed partial class SearchViewModel
         {
             if (SetField(ref _isSendingToUnity, value))
             {
+                OnPropertyChanged(nameof(ShowsSelectionBar));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -57,6 +58,24 @@ public sealed partial class SearchViewModel
     }
 
     public bool HasUnityQueueText => UnityQueueText.Length > 0;
+
+    private UnitySendUi? _sendUi;
+
+    /// <summary>
+    /// カードの右クリックから1件送るときも、同じ帯に進み具合を出す（E10）。
+    /// 帯は選んでいる間だけ出ていたので、送っている間も出すようにした（<see cref="ShowsSelectionBar"/>）。
+    /// </summary>
+    internal UnitySendUi SendUi => _sendUi ??= new UnitySendUi(
+        sending => IsSendingToUnity = sending,
+        text => UnityQueueText = text);
+
+    /// <summary>帯を出すか。選んでいる間と、Unity へ送っている間。</summary>
+    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity;
+
+    /// <summary>送るのをやめる（E7）。送信は1本ずつなので、どの画面から押しても同じ物が止まる。</summary>
+    public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
+
+    private RelayCommand? _stopUnity;
 
     /// <summary>
     /// 選んだ商品の unitypackage を、選んだ順（表示中の並び）に1件ずつ Unity へ積む（#69・ユーザ追加要望）。
@@ -115,6 +134,7 @@ public sealed partial class SearchViewModel
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
 
         // 1件でも選ぶと「選ぶ操作」が主になる。カード全体が選択の的になり、

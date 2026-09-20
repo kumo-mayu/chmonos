@@ -224,10 +224,11 @@ public static class Program
             Console.WriteLine($"■ {Path.GetFileName(file)}");
             Console.WriteLine($"  検索語: {query}");
 
-            var candidates = await resolver.ProposeAsync(file);
+            var proposal = await resolver.ProposeAsync(file);
+            var candidates = proposal.Candidates;
             if (candidates.Count == 0)
             {
-                Console.WriteLine("  候補なし");
+                Console.WriteLine(proposal.BoothUnreachable ? "  BOOTHに届かなかった" : "  候補なし");
                 Console.WriteLine();
                 continue;
             }

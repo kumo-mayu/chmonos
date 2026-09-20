@@ -106,6 +106,23 @@ public static class UnityImportQueue
     public const string BusyMessage =
         "Unityへの送信がまだ続いています。\n\nいま出ている取り込み画面を閉じ終えてから、もう一度押してください。";
 
+    /// <summary>今走っている送信を止める合図。送信は1本ずつなので1つでよい（<see cref="IsRunning"/>）。</summary>
+    private static CancellationTokenSource? _stop;
+
+    /// <summary>
+    /// 送るのをやめる（ユーザ判断 2026-09-20・E7）。**止められるのは待っている間**——
+    /// いちばん長いのは、人が Unity の取り込み画面を見ている時間（上限30分）で、そこが止まる。
+    /// zip の取り出しやプロジェクトの走査は、始まってしまえば最後まで走る（割り込む手段が無い）。
+    ///
+    /// **止めても Unity の取り込み画面は残る。**閉じる手段をこちらは持たないので、
+    /// Unity 側で Import を押せば実際に入る（こちらは見ていないので記録には残らない）。言い方もそう書く。
+    /// </summary>
+    public static void Stop() => _stop?.Cancel();
+
+    /// <summary>止めたときの言い方（画面と記録で同じ文を使う）。</summary>
+    public const string StoppedMessage = "送るのをやめました。Unity の取り込み画面が残っていたら、"
+        + "Unity 側で「Cancel」を押してください（「Import」を押すと入りますが、こちらの記録には残りません）。";
+
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
     [DllImport("user32.dll")] private static extern IntPtr GetMenu(IntPtr window);
@@ -151,12 +168,16 @@ public static class UnityImportQueue
             return packages.Select(package => new UnityQueueOutcome(package, false, "前の送信がまだ続いていました")).ToList();
         }
 
+        // 画面の「中止」から止められるように、この送信のトークンを預かる（E7）
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _stop = stop;
         try
         {
-            return await RunCoreAsync(processId, packages, progress, cancellationToken);
+            return await RunCoreAsync(processId, packages, progress, stop.Token);
         }
         finally
         {
+            _stop = null;
             Volatile.Write(ref _running, 0);
         }
     }
@@ -174,6 +195,27 @@ public static class UnityImportQueue
         // 送り先のプロジェクトの場所。「既に全部入っているか」を調べるのに使う（引けなければ調べない）
         var project = await Task.Run(() => UnityEditors.PathOf(processId), cancellationToken);
 
+        try
+        {
+            await RunLoopAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // 止めたときは待ちの中（`Task.Delay`）から例外で出てくる。**そのまま上へ投げない**——
+            // 「残りは理由を付けて返す」という約束が果たせず、呼んだ側は結果を受け取れない（E7）
+            stop = StoppedMessage;
+        }
+
+        // まだ結果を積んでいない分（止めた分）を理由付きで埋める
+        for (var rest = outcomes.Count; rest < packages.Count; rest++)
+        {
+            outcomes.Add(new UnityQueueOutcome(packages[rest], false, stop ?? StoppedMessage));
+        }
+
+        return outcomes;
+
+        async Task RunLoopAsync()
+        {
         for (var index = 0; index < packages.Count; index++)
         {
             var package = packages[index];
@@ -299,8 +341,7 @@ public static class UnityImportQueue
                     break;
             }
         }
-
-        return outcomes;
+        }
     }
 
     /// <summary>

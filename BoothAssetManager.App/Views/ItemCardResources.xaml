@@ -393,13 +393,24 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
-                               Foreground="#28507f" VerticalAlignment="Center" />
-                    <!-- Unityへ順に送っている最中の進み具合（#69）。取り込み画面は Unity 側に出る -->
+                               Foreground="#28507f" VerticalAlignment="Center"
+                               Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!--
+                        Unityへ送っている最中の進み具合（#69）。取り込み画面は Unity 側に出る。
+                        1件だけ送るとき（カードの右クリック）もここに出す（E10）
+                    -->
                     <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Margin="14,0,0,0"
                                Foreground="#28507f" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
                                Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 送っている間だけ出す（E7）。いちばん長い待ちは、人が Unity の取り込み画面を見ている時間 -->
+                    <Button Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding StopUnityCommand}"
+                            Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="送るのをやめます。Unity の取り込み画面が残っていたら、Unity 側で「Cancel」を押してください。" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
                     <Button Content="全て選択" Style="{StaticResource SmallButton}"
                             Command="{Binding SelectAllCommand}"

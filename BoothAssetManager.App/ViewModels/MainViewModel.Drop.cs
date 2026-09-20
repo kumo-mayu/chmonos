@@ -129,8 +129,11 @@ public sealed partial class MainViewModel
             var fetched = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FetchBoothImage(imageUrl));
             if (fetched is not Core.Commands.CommandResult.ImageFetched { Bytes: var bytesFromBooth })
             {
+                // 文は取ってきた側が作る（E3：届かなかったのか、もう無いのかで次の一手が違う）
                 Services.Notice.Show(
-                    "BOOTHから画像を取れませんでした。",
+                    fetched is Core.Commands.CommandResult.Failed failure
+                        ? failure.Message
+                        : "BOOTHから画像を取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。",
                     "画像を足す",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);

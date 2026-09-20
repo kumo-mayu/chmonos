@@ -649,7 +649,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <TextBlock Text="候補がありません。上のボタンで検索するか、「商品IDを決める」に商品IDを直接入れてください。" TextWrapping="Wrap">
+                            <TextBlock Text="{Binding CandidatesEmptyText}" TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                         <Setter Property="Visibility" Value="Collapsed" />

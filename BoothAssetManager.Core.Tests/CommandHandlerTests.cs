@@ -45,7 +45,8 @@ public class CommandHandlerTests
 
         public Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 
-        public Task<bool> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<BoothAssetManager.Core.Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+            => Task.FromResult(BoothAssetManager.Core.Booth.BoothFetchStatus.Success);
 
         public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
 
@@ -180,7 +181,10 @@ public class CommandHandlerTests
 
         public Task RemoveAliasAsync(string itemId, string text, CancellationToken cancellationToken = default) => Note($"alias- {itemId}");
 
-        public Task<bool> RecheckAsync(string itemId, CancellationToken cancellationToken = default) => Task.FromResult(RecheckSucceeds);
+        public Task<BoothAssetManager.Core.Booth.BoothFetchStatus> RecheckAsync(string itemId, CancellationToken cancellationToken = default)
+            => Task.FromResult(RecheckSucceeds
+                ? BoothAssetManager.Core.Booth.BoothFetchStatus.Success
+                : BoothAssetManager.Core.Booth.BoothFetchStatus.TemporaryFailure);
 
         private Task Note(string call)
         {
@@ -211,7 +215,9 @@ public class CommandHandlerTests
 
         var failed = Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.RecheckAvatar("111")));
 
-        Assert.Contains("BOOTHに確認できませんでした", failed.Message);
+        // 届かなかったことと、もう一度押せばよいことを言う（E3）
+        Assert.Contains("BOOTHに問い合わせできませんでした", failed.Message);
+        Assert.Contains("もう一度", failed.Message);
     }
 
     /// <summary>

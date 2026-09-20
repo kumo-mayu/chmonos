@@ -98,6 +98,30 @@ public sealed partial class ResolveViewModel
         private set => SetField(ref _hasSearched, value);
     }
 
+    private bool _boothUnreachable;
+
+    /// <summary>
+    /// 直前の検索が BOOTH に届かなかったか（E3）。**0件と言い分ける**——
+    /// 届かなかったのに「候補がありません。商品IDを直接入れてください」と出すと、
+    /// 待ってもう一度押せば出るものを、手で入れさせることになる。
+    /// </summary>
+    public bool BoothUnreachable
+    {
+        get => _boothUnreachable;
+        private set
+        {
+            if (SetField(ref _boothUnreachable, value))
+            {
+                OnPropertyChanged(nameof(CandidatesEmptyText));
+            }
+        }
+    }
+
+    /// <summary>候補が0件のときに出す文。届かなかったときは次の一手が違う。</summary>
+    public string CandidatesEmptyText => BoothUnreachable
+        ? "BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度「候補を検索」を押してください。商品IDが分かっていれば、「商品IDを決める」に直接入れられます。"
+        : "候補がありません。上のボタンで検索するか、「商品IDを決める」に商品IDを直接入れてください。";
+
     private async Task ProposeAsync()
     {
         if (SearchTargetPath is not { } searchTarget)
@@ -134,6 +158,7 @@ public sealed partial class ResolveViewModel
 
                 SearchPhase = string.Empty;
                 HasSearched = true;
+                BoothUnreachable = proposed.BoothUnreachable;
                 // 0件のときは候補の欄の「候補がありません…」が同じことを言うので、状態の1行には出さない（ユーザ指示 2026-09-17）
                 StatusText = proposed.Candidates.Count == 0
                     ? string.Empty

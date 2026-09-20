@@ -43,7 +43,8 @@ public interface IItemService
     Task<int> FetchImagesAsync(string itemId, CancellationToken cancellationToken = default);
 
     /// <summary>ファイルを持たない商品として登録する。既にあれば何もしない。</summary>
-    Task<bool> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default);
+    /// <summary>BOOTH から取って商品を作る。**失敗の種類をそのまま返す**（E3：見つからないのと一時的に届かないは次の一手が違う）。</summary>
+    Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default);
 
     Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default);
 
@@ -486,14 +487,14 @@ public sealed class ItemService : IItemService
     /// ——どちらもファイルが手元に来ないので、取り込みからは入れない。
     /// </summary>
     /// <returns>登録できたか。既に持っている商品なら true（何もしない）。</returns>
-    public async Task<bool> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
+    public async Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
     {
         if (await _store.Items.LoadAsync(itemId, cancellationToken) is not null)
         {
-            return true;
+            return Booth.BoothFetchStatus.Success;
         }
 
-        return await FetchNewItemAsync(itemId, cancellationToken) is not null;
+        return (await FetchNewItemAsync(itemId, cancellationToken)).Status;
     }
 
     /// <summary>
@@ -517,7 +518,7 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? await FetchNewItemAsync(itemId, cancellationToken);
+        var item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? (await FetchNewItemAsync(itemId, cancellationToken)).Item;
         if (item is null)
         {
             return false;
@@ -595,17 +596,19 @@ public sealed class ItemService : IItemService
     /// BOOTHから取って新しいitemを作る。**仮IDでは何もしない**——
     /// 存在しないIDなので、通信するだけ無駄になる。
     /// </summary>
-    private async Task<ItemRecord?> FetchNewItemAsync(string itemId, CancellationToken cancellationToken)
+    private async Task<(ItemRecord? Item, Booth.BoothFetchStatus Status)> FetchNewItemAsync(
+        string itemId, CancellationToken cancellationToken)
     {
         if (LocalItemId.IsLocal(itemId))
         {
-            return null;
+            return (null, Booth.BoothFetchStatus.NotFound);
         }
 
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
-            return null;
+            // **失敗の種類をそのまま返す**（E3）。見つからないのと、一時的に届かないのは次の一手が違う
+            return (null, jsonResult.Status);
         }
 
         var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
@@ -639,7 +642,7 @@ public sealed class ItemService : IItemService
             await _images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
         }
 
-        return item;
+        return (item, Booth.BoothFetchStatus.Success);
     }
 
     /// <summary>登録したフォルダの配下にあった未確定を取り除く。行き先が決まったため。</summary>
@@ -896,7 +899,7 @@ public sealed class ItemService : IItemService
         {
             // 取得に数秒かかるので、その間に人が触っていることがある。
             // 作った直後でも、書くのは取り込みが持つ項目だけにする
-            var created = await FetchNewItemAsync(itemId, cancellationToken);
+            var created = (await FetchNewItemAsync(itemId, cancellationToken)).Item;
             if (created is null)
             {
                 return false;
@@ -990,7 +993,7 @@ public sealed class ItemService : IItemService
         }
 
         var prepared = await _store.Items.LoadAsync(toId, cancellationToken)
-            ?? await FetchNewItemAsync(toId, cancellationToken);
+            ?? (await FetchNewItemAsync(toId, cancellationToken)).Item;
 
         // **合わせる直前に読み直す**（技術的負債 1-5）。BOOTH から取って作ると数秒かかり、その間に取り込みが
         // 同じ商品へファイルを足すことがある。前は取る前の写しと合わせて丸ごと書いたので、足された物が消えていた

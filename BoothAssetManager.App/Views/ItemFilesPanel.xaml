@@ -371,11 +371,21 @@
                                        TextWrapping="Wrap" Margin="18,0,18,14"
                                        Visibility="{Binding HasAnyUnityPackage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <!-- 積んだことはUnity側の反応では分からないので、ここで言う -->
-                            <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="18,0,18,14"
-                                       Foreground="{StaticResource Accent}"
-                                       Visibility="{Binding HasUnityRecordNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <!--
+                                積んだことはUnity側の反応では分からないので、ここで言う。
+                                送っている最中の進み具合も同じ行に出し、その間だけ「中止」を添える（E7・E10）
+                            -->
+                            <DockPanel Margin="18,0,18,14"
+                                       Visibility="{Binding HasUnityRecordNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding StopUnityCommand}"
+                                        Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        ToolTip="送るのをやめます。Unity の取り込み画面が残っていたら、Unity 側で「Cancel」を押してください。" />
+                                <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{StaticResource Accent}" />
+                            </DockPanel>
                             </StackPanel>
                         </StackPanel>
                     </Border>

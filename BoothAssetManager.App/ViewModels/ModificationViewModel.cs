@@ -510,6 +510,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public bool HasUnityQueueText => UnityQueueText.Length > 0;
 
+    /// <summary>送るのをやめる（E7）。送信は1本ずつなので、どの画面から押しても同じ物が止まる。</summary>
+    public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
+
+    private RelayCommand? _stopUnity;
+
     /// <summary>
     /// 使ったものを**並びの順に**（＝導入の順、依存物が先）Unity へ1件ずつ送る（#69・ユーザ判断）。
     /// 改変を作り直すとき、記録した順に入れ直せば同じものが組める。

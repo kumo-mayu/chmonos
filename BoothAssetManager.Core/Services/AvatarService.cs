@@ -131,7 +131,8 @@ public interface IAvatarRegistryEditor
     Task RemoveAliasAsync(string itemId, string text, CancellationToken cancellationToken = default);
 
     /// <returns>BOOTH に確かめられたか。</returns>
-    Task<bool> RecheckAsync(string itemId, CancellationToken cancellationToken = default);
+    /// <summary>もう一度BOOTHに問い合わせる。**失敗の種類をそのまま返す**（E3）。404 は「非公開になっていた」として書き込む。</summary>
+    Task<Booth.BoothFetchStatus> RecheckAsync(string itemId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

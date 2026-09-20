@@ -164,9 +164,9 @@
                        Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </StackPanel>
 
-        <!-- 選んでいる間だけ出す、まとめて操作の帯（検索画面と同じ・ユーザ指示 2026-09-14） -->
+        <!-- 選んでいる間と、Unity へ送っている間に出す、まとめて操作の帯（検索画面と同じ・ユーザ指示 2026-09-14） -->
         <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
-                        Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        Visibility="{Binding ShowsSelectionBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <Grid x:Name="ListArea" SizeChanged="OnListSizeChanged" Margin="10,10,0,0">
             <!-- 行を仮想化の単位にする（検索画面と同じ）。画面外の行のカードは作られないので、絵の読み込みも走らない -->

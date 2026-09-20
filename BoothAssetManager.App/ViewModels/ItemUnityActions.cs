@@ -43,7 +43,8 @@ internal static class ItemUnityActions
         => editor.ProjectPath ?? await Task.Run(() => UnityEditors.PathOf(editor));
 
     /// <summary>1件を、選んだ Unity に送る（送る前に何をどこへ送るかを確かめる）。</summary>
-    public static async Task SendAsync(AppServiceContainer services, ItemRecord item, UnityPackageEntry package)
+    public static async Task SendAsync(
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, UnitySendUi? ui = null)
     {
         const string title = "Unityへ送る";
 
@@ -63,7 +64,7 @@ internal static class ItemUnityActions
 
         if (answer == System.Windows.MessageBoxResult.OK)
         {
-            await SendOneAsync(services, item, editor, package, title);
+            await SendOneAsync(services, item, editor, package, title, ui);
         }
     }
 
@@ -73,9 +74,22 @@ internal static class ItemUnityActions
     /// </summary>
     /// <returns>取り込み画面を出せたか。</returns>
     private static async Task<bool> SendOneAsync(
-        AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package, string title)
+        AppServiceContainer services, ItemRecord item, OpenUnityEditor editor, UnityPackageEntry package,
+        string title, UnitySendUi? ui)
     {
-        var outcomes = await UnityImportQueue.RunAsync(editor.ProcessId, [package], progress: null, CancellationToken.None);
+        // 1件でも進み具合を出す（E10）。出す先を持っている画面だけが渡す
+        ui?.Begin($"「{package.Name}」をUnityへ送っています…");
+        IReadOnlyList<UnityQueueOutcome> outcomes;
+        try
+        {
+            outcomes = await UnityImportQueue.RunAsync(
+                editor.ProcessId, [package], ui?.Progress, CancellationToken.None);
+        }
+        finally
+        {
+            ui?.End();
+        }
+
         var outcome = outcomes.FirstOrDefault();
 
         if (outcome is null || !outcome.Opened)
@@ -104,7 +118,7 @@ internal static class ItemUnityActions
     /// </summary>
     /// <returns>足した改変（足せなかった・やめたら null）。</returns>
     public static async Task<ModificationRecord?> SendWithRecordAsync(
-        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify)
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify, UnitySendUi? ui = null)
     {
         const string title = "改変に足して送る";
 
@@ -146,7 +160,7 @@ internal static class ItemUnityActions
         }
 
         // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
-        var sent = await SendOneAsync(services, item, editor, package, title);
+        var sent = await SendOneAsync(services, item, editor, package, title, ui);
         notify(
             sent
             ? $"「{record.Name}」に足して、Unityへ送りました。"
