@@ -42,6 +42,10 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         _thumbnails = thumbnails;
         ShowsUseActions = !forEditing;
 
+        // メモはこの画面でも書ける（I9）。編集画面の中に入れているときは、右の欄と二重になるので出さない
+        ShowsMemoEditor = !forEditing;
+        _memoDraft = item.Local.Memo ?? string.Empty;
+
         // 戻るは画面の履歴を遡る（U23）。以前は開くときに戻り先を1つ受け取っていた
         BackCommand = new RelayCommand(main.GoBack);
 
@@ -862,6 +866,76 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public string? Memo => Item.Local.Memo;
 
     public bool HasMemo => !string.IsNullOrWhiteSpace(Item.Local.Memo);
+
+    private string _memoDraft = string.Empty;
+    private string _memoSaveText = string.Empty;
+    private Debounced? _saveMemo;
+
+    /// <summary>
+    /// 商品のメモ。**ここで書けて、押さずに残る**（ユーザ判断 2026-09-20・I9）。
+    /// 前は編集画面でしか書けず、しかもそこだけ「保存して次へ」で書く手動保存で、
+    /// ほかのメモ（分類・属性・アバター・改変・ショップ）と作法が違っていた。
+    /// 編集画面の中に入れているときは出さない（同じ物を2か所で書かせない）。
+    /// </summary>
+    /// <summary>メモの欄を出すか（編集画面の中に入れているときは出さない）。</summary>
+    public bool ShowsMemoEditor { get; }
+
+    public string MemoDraft
+    {
+        get => _memoDraft;
+        set
+        {
+            if (SetField(ref _memoDraft, value ?? string.Empty))
+            {
+                // 打っている間は待ち、止まってから1回書く（ほかのメモと同じ 0.8 秒）
+                MemoSaveText = "書いています…";
+                (_saveMemo ??= new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget())).Request();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 保存できているかを出す（ユーザ判断 2026-09-20・I10）。押さずに書く欄は、
+    /// **書けたのかどうかが画面から分からない**（0.8 秒待つので、打ってすぐ閉じると落ちる）。
+    /// </summary>
+    public string MemoSaveText
+    {
+        get => _memoSaveText;
+        private set
+        {
+            if (SetField(ref _memoSaveText, value))
+            {
+                OnPropertyChanged(nameof(HasMemoSaveText));
+            }
+        }
+    }
+
+    public bool HasMemoSaveText => MemoSaveText.Length > 0;
+
+    private async Task SaveMemoAsync()
+    {
+        var memo = _memoDraft.Trim();
+        var result = await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(
+            Item.Id,
+            Item.Local with { Memo = memo.Length == 0 ? null : memo },
+            LocalOwners.ItemPageMemo));
+
+        MemoSaveText = result is CommandResult.Failed failed ? failed.Message : "保存しました。";
+
+        if (await _services.Store.Items.LoadAsync(Item.Id) is { } saved)
+        {
+            Item = saved;
+            OnPropertyChanged(nameof(Memo));
+            OnPropertyChanged(nameof(HasMemo));
+            _main.Search.NoteItemChanged(saved);
+        }
+    }
+
+    /// <summary>待っているメモを今書く（画面を離れる前に呼ぶ。I10：打ってすぐ閉じると落ちていた）。</summary>
+    public void FlushMemo()
+    {
+        _saveMemo?.RunNow();
+    }
 
     public IReadOnlyList<AttributeBar> Attributes { get; private set; } = [];
 

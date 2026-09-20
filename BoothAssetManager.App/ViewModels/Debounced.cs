@@ -15,8 +15,11 @@ public sealed class Debounced
 {
     private readonly DispatcherTimer _timer;
 
+    private readonly Action _run;
+
     public Debounced(TimeSpan wait, Action run)
     {
+        _run = run;
         _timer = new DispatcherTimer { Interval = wait };
         _timer.Tick += (_, _) =>
         {
@@ -34,4 +37,20 @@ public sealed class Debounced
 
     /// <summary>待っているものを捨てる。</summary>
     public void Cancel() => _timer.Stop();
+
+    /// <summary>
+    /// 待っているものがあれば、待たずに今やる（ユーザ判断 2026-09-20・I10）。
+    /// 画面を離れる前に呼ぶ——打ち終えてすぐ閉じると、待っている 0.8 秒のうちに捨てられていた。
+    /// </summary>
+    public bool RunNow()
+    {
+        if (!_timer.IsEnabled)
+        {
+            return false;
+        }
+
+        _timer.Stop();
+        _run();
+        return true;
+    }
 }

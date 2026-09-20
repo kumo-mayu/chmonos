@@ -36,13 +36,23 @@ public sealed partial class EditViewModel
         var changed = LocalOwners.EditScreen.Where(field => !SameField(_baseline, current, field)).ToList();
         var files = ChangedFileVariations();
 
-        if (changed.Count == 0 && files.Count == 0)
+        // 決める前の打ちかけも控える（I4）。ほかが変わっていなくても、打ちかけがあれば書きかけとして残す
+        var draft = new EditDraft
+        {
+            Local = current,
+            Changed = changed,
+            FileVariations = files,
+            TagInput = TagInput,
+            AttributeInput = AttributeInput,
+        };
+
+        if (changed.Count == 0 && files.Count == 0 && !draft.HasTypedInput)
         {
             _main.Drafts.Remove(_item.Id);
             return;
         }
 
-        _main.Drafts.Put(_item.Id, new EditDraft { Local = current, Changed = changed, FileVariations = files });
+        _main.Drafts.Put(_item.Id, draft);
     }
 
     /// <summary>その項目だけを比べる。項目の中身（一覧や入れ子）ごと比べたいので、書き出した形で比べる。</summary>

@@ -524,7 +524,12 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" PreviewDragOver="OnIdBoxPreviewDragOver" PreviewDrop="OnIdBoxPreviewDrop" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
-                                         Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0" />
+                                         Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0">
+                                    <!-- Enter で「このIDで確認」まで進む（I12）。確定は押して決める（取り返しがつかないので Enter では走らせない） -->
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding PreviewCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
                                 <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}" />
                             </Grid>
 

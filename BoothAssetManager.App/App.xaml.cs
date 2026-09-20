@@ -89,6 +89,9 @@ public partial class App : Application
         // 閉じる直前に採る。Closed だと既に位置を失っている
         mainWindow.Closing += (_, e) =>
         {
+            // 待っている自動保存（メモ）を今書く（I10：打ち終えてすぐ閉じると 0.8 秒の待ちごと捨てられていた）
+            main.FlushPendingWrites();
+
             // 編集途中の入力が残っていれば尋ねる（ユーザ判断）。「移動する」「キャンセル」なら閉じない
             if (main.ShouldCancelCloseForDrafts())
             {

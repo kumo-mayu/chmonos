@@ -114,6 +114,8 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding SearchHistoryCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <!-- 入れられる範囲を出す（I11）。前は範囲外を黙って丸めていた -->
+                            <TextBlock Text="（1〜20）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                             <Button Content="履歴を削除" Command="{Binding ClearSearchHistoryCommand}" Margin="14,0,0,0"
                                     ToolTip="検索の履歴を全部削除します。いまの検索の条件は変わりません。" />
                         </StackPanel>
@@ -277,6 +279,7 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding RefreshIntervalDays, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（1〜365）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -284,6 +287,7 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding ShopBannerRecheckDays, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（1〜365）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -291,6 +295,7 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding AvatarDetectRecheckDays, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（1〜365）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -298,6 +303,7 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding NotificationRetentionCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（20〜5000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </StackPanel>
 
                 <!--
@@ -325,6 +331,7 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding FetchIntervalMs, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="ミリ秒" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（1500〜10000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                             <TextBlock Text="1500ミリ秒より短くはできません（相手のサービスに負担をかけないため）" Style="{StaticResource Caption}"
                                        Margin="14,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
@@ -334,13 +341,14 @@
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding ImageMaxEdgePixels, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="px" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（128〜2048）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="画像の品質" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
                                      Text="{Binding ImageQuality, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
-                            <TextBlock Text="（WebP・0〜100）" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（WebP・40〜100）" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <!--
@@ -359,6 +367,7 @@
                                      IsEnabled="{Binding ModificationSizeEnabled}"
                                      Text="{Binding ModificationImageMaxEdgePixels, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="px" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
+                            <TextBlock Text="（128〜4096）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <CheckBox Content="改変の写真を原寸で保存する" Style="{StaticResource SettingCheck}"

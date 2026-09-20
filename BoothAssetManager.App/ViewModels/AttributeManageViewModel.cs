@@ -800,8 +800,20 @@ public sealed class AttributeManageViewModel : ViewModelBase
     private async Task AddAsync(string? name)
     {
         var trimmed = name?.Trim();
+
+        // 空のまま押したときに黙って終わらない（I1）
         if (string.IsNullOrEmpty(trimmed))
         {
+            StatusText = "属性の名前を入れてから押してください。";
+            return;
+        }
+
+        // 既にある名前は足されない。**足していないのに「追加しました」と言わない**（I2）
+        if (_all.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            StatusText = $"「{trimmed}」は既にあります。";
+            Selected = _all.FirstOrDefault(row =>
+                string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
             return;
         }
 

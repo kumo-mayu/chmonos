@@ -707,6 +707,16 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     /// </summary>
     private readonly Dictionary<string, string> _writtenMemos = new(StringComparer.Ordinal);
 
+    /// <summary>名前・呼び方・素体の打ちかけ（ユーザ判断 2026-09-20・I5）。</summary>
+    private readonly record struct AvatarDraft(string Name, string Alias, string Base);
+
+    /// <summary>
+    /// **打ちかけは行を選び直しても残す**（I5）。前は黙って消えていて、
+    /// 同じ画面のメモだけが書き切られるという食い違いがあった。
+    /// 保存したらその行の控えは捨てる（保存済みの値より古い打ちかけが勝たないように）。
+    /// </summary>
+    private readonly Dictionary<string, AvatarDraft> _drafts = new(StringComparer.Ordinal);
+
     public AvatarRowViewModel? Selected
     {
         get => _selected;
@@ -715,13 +725,22 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             if (!ReferenceEquals(value, _selected))
             {
                 FlushMemo();
+
+                // 離れる前に打ちかけを控える（I5）
+                if (_selected is { } leaving)
+                {
+                    _drafts[leaving.ItemId] = new AvatarDraft(NameInput, AliasInput, BaseInput);
+                }
             }
 
             if (SetField(ref _selected, value))
             {
-                BaseInput = value?.Summary.Entry.BaseName ?? string.Empty;
-                AliasInput = string.Empty;
-                NameInput = value?.Name ?? string.Empty;
+                var draft = value is not null && _drafts.TryGetValue(value.ItemId, out var kept)
+                    ? (AvatarDraft?)kept
+                    : null;
+                BaseInput = draft?.Base ?? value?.Summary.Entry.BaseName ?? string.Empty;
+                AliasInput = draft?.Alias ?? string.Empty;
+                NameInput = draft?.Name ?? value?.Name ?? string.Empty;
                 _swappingMemo = true;
                 MemoInput = value is null ? string.Empty
                     : _writtenMemos.TryGetValue(value.ItemId, out var written) ? written : value.Summary.Entry.Memo ?? string.Empty;
@@ -1159,12 +1178,20 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     private async Task SetBaseAsync()
     {
-        if (Selected is null || string.IsNullOrWhiteSpace(BaseInput))
+        if (Selected is null)
         {
             return;
         }
 
+        // 空のまま押したときに黙って終わらない（I1）
+        if (string.IsNullOrWhiteSpace(BaseInput))
+        {
+            Status = "共通素体の名前を入れてから押してください。";
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarBase(Selected.ItemId, BaseInput));
+        _drafts.Remove(Selected.ItemId);
         await LoadAsync();
     }
 
@@ -1224,7 +1251,15 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     private void RenameBase(string oldName, string input)
     {
         var newName = input.Trim();
-        if (newName.Length == 0 || newName == oldName)
+
+        // 空のまま押したときに黙って終わらない（I1）
+        if (newName.Length == 0)
+        {
+            Status = "新しい素体の名前を入れてから押してください。";
+            return;
+        }
+
+        if (newName == oldName)
         {
             return;
         }
@@ -1300,17 +1335,25 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         }
 
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, string.Empty));
+        _drafts.Remove(Selected.ItemId);
         await LoadAsync();
     }
 
     private async Task RenameAsync()
     {
-        if (Selected is null || NameInput.Trim().Length == 0)
+        if (Selected is null)
         {
             return;
         }
 
+        if (NameInput.Trim().Length == 0)
+        {
+            Status = "名前を入れてから押してください。";
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, NameInput));
+        _drafts.Remove(Selected.ItemId);
         await LoadAsync();
     }
 
@@ -1342,13 +1385,23 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
     private async Task AddAliasAsync()
     {
-        if (Selected is null || AliasInput.Trim().Length < 2)
+        if (Selected is null)
         {
+            return;
+        }
+
+        // 1文字だと当たりが広すぎるので受けない。黙って終わらず、そう言う（I1）
+        if (AliasInput.Trim().Length < 2)
+        {
+            Status = AliasInput.Trim().Length == 0
+                ? "呼び方を入れてから押してください。"
+                : "呼び方は2文字以上で入れてください（1文字だと当たりが広すぎます）。";
             return;
         }
 
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddAvatarAlias(Selected.ItemId, AliasInput));
         AliasInput = string.Empty;
+        _drafts.Remove(Selected.ItemId);
         await LoadAsync();
     }
 

@@ -145,6 +145,27 @@ public sealed partial class EditViewModel : ViewModelBase
     /// <summary>属性の候補。既に評価したものは出さない。</summary>
     public ObservableCollection<string> AttributeSuggestions { get; } = [];
 
+    private string _tagInput = string.Empty;
+    private string _attributeInput = string.Empty;
+
+    /// <summary>
+    /// ユーザータグの欄の**打ちかけ**（ユーザ判断 2026-09-20・I4）。
+    /// 編集画面は「打ちかけを消さない」約束を持つのに、候補付きの欄に打った途中の字だけが控えに入らず、
+    /// 商品を移ると黙って消えていた。決める前の字も控えに入れる。
+    /// </summary>
+    public string TagInput
+    {
+        get => _tagInput;
+        set => SetField(ref _tagInput, value ?? string.Empty);
+    }
+
+    /// <summary>属性の欄の打ちかけ（I4）。</summary>
+    public string AttributeInput
+    {
+        get => _attributeInput;
+        set => SetField(ref _attributeInput, value ?? string.Empty);
+    }
+
     public ItemRecord? Item => _item;
 
     public bool HasItem => _item is not null;
@@ -683,6 +704,10 @@ public sealed partial class EditViewModel : ViewModelBase
                 FillFromItem(record);
                 _baseline = BuildLocal(record);
 
+                // 前の商品の打ちかけを持ち越さない（この商品の控えがあれば、すぐ下で戻す・I4）
+                TagInput = string.Empty;
+                AttributeInput = string.Empty;
+
                 // 書きかけがあれば、読み直した記録に変えた項目だけを重ねて埋め直す
                 if (_main.Drafts.Get(record.Id) is { } draft)
                 {
@@ -696,6 +721,10 @@ public sealed partial class EditViewModel : ViewModelBase
                     }
 
                     RefreshFileLinks();
+
+                    // 決める前の打ちかけも戻す（I4）
+                    TagInput = draft.TagInput;
+                    AttributeInput = draft.AttributeInput;
                 }
 
                 // BOOTHから名前が取れていない商品は、ここを埋めないと名前が無い。
@@ -800,7 +829,7 @@ public sealed partial class EditViewModel : ViewModelBase
                 {
                     VariationId = variation.VariationId,
                     NameSnapshot = variation.Name,
-                    Price = int.TryParse(variation.Price.Trim(), out var price) ? price : null,
+                    Price = Core.Services.MoneyText.Parse(variation.Price),
                     Kind = variation.Kind,
                     ExistsOnBooth = !variation.IsGone,
                 },
@@ -808,7 +837,7 @@ public sealed partial class EditViewModel : ViewModelBase
             {
                 VariationId = variation.VariationId,
                 NameSnapshot = extra.NameSnapshot ?? variation.Name,
-                Price = int.TryParse(extra.Price.Trim(), out var extraPrice) ? extraPrice : null,
+                Price = Core.Services.MoneyText.Parse(extra.Price),
                 Kind = extra.Kind,
                 Note = extra.Note,
                 ExistsOnBooth = !variation.IsGone,
@@ -824,10 +853,42 @@ public sealed partial class EditViewModel : ViewModelBase
             Category = string.IsNullOrWhiteSpace(CategoryInput) ? null : CategoryInput.Trim(),
             Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
             Purchases = ordered,
-            AcquiredAt = DateOnly.TryParse(AcquiredAt.Trim(), out var date) ? date : null,
+            // 人が打つ書き方を広く受ける（I3。`DateText` は検索の日付の欄と同じ読み取り）。
+            // 前は `DateOnly.TryParse` だけで、読めない書き方は黙って空になり、支出の統計から静かに落ちていた
+            AcquiredAt = Core.Services.DateText.Parse(AcquiredAt, isEnd: false, DateOnly.FromDateTime(DateTime.Today)),
             NotifyOnUpdate = NotifyOnUpdate,
             IsHidden = IsHidden,
         };
+    }
+
+    /// <summary>
+    /// 打ってあるのに読めなかった欄を1行で言う（ユーザ判断 2026-09-20・I3）。
+    /// **止めはしない**——入力を突き返すと、ほかの欄まで保存できなくなる。空欄は何も言わない（入れていないだけ）。
+    /// </summary>
+    private string UnreadableNotice()
+    {
+        var unreadable = new List<string>();
+
+        if (AcquiredAt.Trim().Length > 0
+            && Core.Services.DateText.Parse(AcquiredAt, isEnd: false, DateOnly.FromDateTime(DateTime.Today)) is null)
+        {
+            unreadable.Add($"入手日「{AcquiredAt.Trim()}」");
+        }
+
+        var prices = Variations
+            .Where(variation => variation.IsPurchased)
+            .SelectMany(variation => new[] { variation.Price }.Concat(variation.Extras.Select(extra => extra.Price)))
+            .Where(Core.Services.MoneyText.IsUnreadable)
+            .Select(price => $"金額「{price.Trim()}」")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        unreadable.AddRange(prices);
+
+        return unreadable.Count == 0
+            ? string.Empty
+            : $"{string.Join("・", unreadable)}は読めなかったので、空のまま保存しました。"
+                + "日付は「2026-09-20」「2026/9/20」、金額は「1200」「¥1,200」のように入れられます。";
     }
 
     private async Task SaveAndAdvanceAsync()
@@ -860,7 +921,10 @@ public sealed partial class EditViewModel : ViewModelBase
             }
 
             RememberShopName(BuildShop()?.Name);
-            StatusText = string.Empty;
+
+            // **読めなかった欄は止めずに言う**（ユーザ判断 2026-09-20・I3）。
+            // 黙って空にすると、打った本人は保存できたと思ったまま、支出の統計から静かに落ちる
+            StatusText = UnreadableNotice();
 
             // ナビの「未:」をその場で減らす（ユーザ指示 2026-09-12）。検索画面の写しの1件を差し替えると数え直しが走る。
             // 帯には緑の印で残し、編集画面を離れて入り直すまでは戻れる（入り直したら出さない・ResumeAsync）

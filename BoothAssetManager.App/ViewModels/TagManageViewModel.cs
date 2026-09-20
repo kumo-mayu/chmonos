@@ -989,8 +989,20 @@ public sealed class TagManageViewModel : ViewModelBase
     private async Task AddTopAsync(string? name)
     {
         var trimmed = name?.Trim();
+
+        // 空のまま押したときに黙って終わらない（I1）。押した人は「やった」と思っている
         if (string.IsNullOrEmpty(trimmed))
         {
+            StatusText = "大分類の名前を入れてから押してください。";
+            return;
+        }
+
+        // 既にある名前は足されない。**足していないのに「追加しました」と言わない**（I2）
+        if (_allTops.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            StatusText = $"「{trimmed}」は既にあります。";
+            Selected = _allTops.FirstOrDefault(row =>
+                string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
             return;
         }
 
@@ -1004,9 +1016,21 @@ public sealed class TagManageViewModel : ViewModelBase
 
     private async Task AddSubAsync(string? name)
     {
-        var trimmed = name?.Trim();
-        if (Selected is null || string.IsNullOrEmpty(trimmed))
+        if (Selected is null)
         {
+            return;
+        }
+
+        var trimmed = name?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            StatusText = "小分類の名前を入れてから押してください。";
+            return;
+        }
+
+        if (Subs.Any(row => string.Equals(row.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            StatusText = $"「{Selected.Name}」には「{trimmed}」が既にあります。";
             return;
         }
 

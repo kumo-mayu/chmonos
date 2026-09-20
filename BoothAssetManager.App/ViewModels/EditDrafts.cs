@@ -17,6 +17,17 @@ public sealed class EditDraft
 
     /// <summary>ファイルの種類の付け替え（変えたものだけ）。ハッシュ → 種類。</summary>
     public required IReadOnlyDictionary<string, long?> FileVariations { get; init; }
+
+    /// <summary>
+    /// 候補付きの欄に**打ちかけたまま決めていない字**（ユーザ判断 2026-09-20・I4）。
+    /// 決める前の字は `local` のどこにも入らないので、別に持たないと控えから抜ける。
+    /// </summary>
+    public string TagInput { get; init; } = string.Empty;
+
+    public string AttributeInput { get; init; } = string.Empty;
+
+    /// <summary>打ちかけだけでも書きかけとして残す（ほかは変わっていなくても）。</summary>
+    public bool HasTypedInput => TagInput.Trim().Length > 0 || AttributeInput.Trim().Length > 0;
 }
 
 /// <summary>

@@ -532,7 +532,9 @@
                         <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しいユーザータグとして追加されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
+                        <!-- 打ちかけの字も書きかけに残す（I4）。Text を結んでおくと、控えに入れられる -->
                         <controls:SuggestBox Source="{Binding TagSuggestions}" CommitCommand="{Binding AddTagCommand}"
+                                             Text="{Binding TagInput, Mode=TwoWay}"
                                              Placeholder="ユーザータグを追加（例：衣装）" />
 
                         <ItemsControl ItemsSource="{Binding Tags}" Margin="0,8,0,0">
@@ -591,6 +593,7 @@
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
                         <controls:SuggestBox Source="{Binding AttributeSuggestions}" CommitCommand="{Binding AddAttributeCommand}"
+                                             Text="{Binding AttributeInput, Mode=TwoWay}"
                                              Placeholder="属性を追加（例：かっこいい）" />
 
                         <ItemsControl ItemsSource="{Binding Attributes}" Margin="0,8,0,0">

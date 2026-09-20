@@ -212,7 +212,12 @@
                             <Grid Width="230" VerticalAlignment="Center">
                                 <TextBox Padding="7,4"
                                          Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると紐付けが外れます。" />
+                                         ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると紐付けが外れます。">
+                                    <!-- Enter で決められるように揃える（I12） -->
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding SetItemIdCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
                                 <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" IsHitTestVisible="False"
                                            VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                            Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
@@ -648,7 +653,12 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBox Width="200" Padding="7,5"
                                                  Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="検出が拾えなかった呼び方を足せます。" />
+                                                 ToolTip="検出が拾えなかった呼び方を足せます。">
+                                            <!-- Enter で決められるように揃える（I12） -->
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding AddAliasCommand}" />
+                                            </TextBox.InputBindings>
+                                        </TextBox>
                                         <Button Content="呼び方を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                 Command="{Binding AddAliasCommand}" />
                                     </StackPanel>
@@ -698,7 +708,12 @@
                                     <Grid Width="240">
                                         <TextBox Height="26" Padding="7,0" VerticalContentAlignment="Center"
                                                  Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="「普段着」「制服」のように、着せ替えごとに名前を付けます。" />
+                                                 ToolTip="「普段着」「制服」のように、着せ替えごとに名前を付けます。">
+                                            <!-- Enter で決められるように揃える（I12） -->
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding CreateModificationCommand}" />
+                                            </TextBox.InputBindings>
+                                        </TextBox>
                                         <TextBlock Text="新しい改変の名前（例：普段着）" Margin="10,0,0,0" IsHitTestVisible="False"
                                                    VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                                    Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />

@@ -158,6 +158,15 @@ public static class LocalOwners
     /// </summary>
     public static readonly IReadOnlyCollection<LocalField> FileVariations = [LocalField.LocalFiles];
 
+    /// <summary>
+    /// 商品ページのメモ（ユーザ判断 2026-09-20・I9：メモはどこでも自動保存にし、商品ページでも書けるようにする）。
+    ///
+    /// **メモ1項目だけ**を持つ。編集画面の一式（<see cref="EditScreen"/>）で書くと、
+    /// 開いた時点の写しで分類や購入記録まで戻してしまう。
+    /// 編集画面とは持ち主が2人になるが、書くのは同じ1項目で、どちらも人が今打った字を書く（後に打った方が残る）。
+    /// </summary>
+    public static readonly IReadOnlyCollection<LocalField> ItemPageMemo = [LocalField.Memo];
+
     /// <summary>取り込み。手元のファイルとフォルダだけ。</summary>
     public static readonly IReadOnlyCollection<LocalField> Import =
     [

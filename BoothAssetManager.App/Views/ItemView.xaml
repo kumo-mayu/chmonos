@@ -460,16 +460,34 @@
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
-                            <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
-                            <TextBlock Text="未設定（編集画面で書けます）" Style="{StaticResource Caption}"
-                                       Visibility="{Binding HasMemo, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10"
-                                    Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <RichTextBox Style="{StaticResource SelectableBody}"
-                                             controls:SelectableText.Text="{Binding Memo}"
-                                             controls:SelectableText.Navigator="{Binding}" />
-                            </Border>
+                            <DockPanel Margin="0,0,0,8">
+                                <!-- 押さずに残る欄なので、保存できたかを出す（I10） -->
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding MemoSaveText}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding HasMemoSaveText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
+                            </DockPanel>
+
+                            <!-- ここで書ける。押さなくても残る（I9。ほかのメモと同じ作法） -->
+                            <TextBox Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="240"
+                                     VerticalScrollBarVisibility="Auto" Padding="10,8"
+                                     Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="押さなくても残ります。" Style="{StaticResource Caption}" Margin="0,5,0,0"
+                                       Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                            <!-- 編集画面の中に入れているときは、右の欄で書くので読むだけ -->
+                            <StackPanel Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="未設定（右の欄で書けます）" Style="{StaticResource Caption}"
+                                           Visibility="{Binding HasMemo, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
+                                        CornerRadius="6" Padding="12,10"
+                                        Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <RichTextBox Style="{StaticResource SelectableBody}"
+                                                 controls:SelectableText.Text="{Binding Memo}"
+                                                 controls:SelectableText.Navigator="{Binding}" />
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

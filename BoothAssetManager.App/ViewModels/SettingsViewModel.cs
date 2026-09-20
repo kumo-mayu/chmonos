@@ -437,18 +437,47 @@ public sealed class SettingsViewModel : ViewModelBase
         set { if (SetField(ref _notifyOnUpdateByDefault, value)) { Save(); } }
     }
 
+    /// <summary>
+    /// 範囲の外を打たれたら、**丸めたことを言う**（ユーザ判断 2026-09-20・I11）。
+    /// 前は黙って丸めていて、500 と打っても 365 で保存され、出るのは「保存しました。」だけだった。
+    /// </summary>
+    private int Clamped(int value, int min, int max, string what, string unit)
+    {
+        var clamped = Math.Clamp(value, min, max);
+        if (clamped != value)
+        {
+            // 保存が終わってから出す（先に入れると「保存しました。」で消える）
+            _clampNote = $"{what}に入れられるのは {min}〜{max}{unit}です。{clamped}{unit}にしました。";
+            Status = _clampNote;
+        }
+
+        return clamped;
+    }
+
+    private string _clampNote = string.Empty;
+
     private int _refreshIntervalDays;
     public int RefreshIntervalDays
     {
         get => _refreshIntervalDays;
-        set { if (SetField(ref _refreshIntervalDays, Math.Clamp(value, 1, 365))) { Save(); } }
+        set
+        {
+            var clamped = Clamped(value, 1, 365, "商品情報を取り直す間隔", " 日");
+            if (SetField(ref _refreshIntervalDays, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
     }
 
     private int _notificationRetentionCount;
     public int NotificationRetentionCount
     {
         get => _notificationRetentionCount;
-        set { if (SetField(ref _notificationRetentionCount, Math.Clamp(value, 20, 5000))) { Save(); } }
+        set
+        {
+            var clamped = Clamped(value, 20, 5000, "要確認に残す件数", " 件");
+            if (SetField(ref _notificationRetentionCount, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
     }
 
     private int _searchHistoryCount;
@@ -465,10 +494,9 @@ public sealed class SettingsViewModel : ViewModelBase
         get => _searchHistoryCount;
         set
         {
-            if (SetField(ref _searchHistoryCount, Math.Clamp(value, 1, Core.Services.SearchHistory.MaxLimit)))
-            {
-                Save();
-            }
+            var clamped = Clamped(value, 1, Core.Services.SearchHistory.MaxLimit, "検索の履歴を残す件数", " 件");
+            if (SetField(ref _searchHistoryCount, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
         }
     }
 
@@ -514,14 +542,24 @@ public sealed class SettingsViewModel : ViewModelBase
     public int ShopBannerRecheckDays
     {
         get => _shopBannerRecheckDays;
-        set { if (SetField(ref _shopBannerRecheckDays, Math.Clamp(value, 1, 365))) { Save(); } }
+        set
+        {
+            var clamped = Clamped(value, 1, 365, "ショップのバナーを確かめ直す間隔", " 日");
+            if (SetField(ref _shopBannerRecheckDays, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
     }
 
     private int _avatarDetectRecheckDays;
     public int AvatarDetectRecheckDays
     {
         get => _avatarDetectRecheckDays;
-        set { if (SetField(ref _avatarDetectRecheckDays, Math.Clamp(value, 1, 365))) { Save(); } }
+        set
+        {
+            var clamped = Clamped(value, 1, 365, "対応アバターを検出し直す間隔", " 日");
+            if (SetField(ref _avatarDetectRecheckDays, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
     }
 
     // ---- 取得と画像（次の起動から効く） ----
@@ -533,7 +571,7 @@ public sealed class SettingsViewModel : ViewModelBase
         // 下限は約束の1.5秒（AppSettings.MinFetchIntervalMs）。短く打っても1500に戻す
         set
         {
-            var clamped = Math.Clamp(value, AppSettings.MinFetchIntervalMs, 10000);
+            var clamped = Clamped(value, AppSettings.MinFetchIntervalMs, 10000, "BOOTHへ問い合わせる間隔", " ミリ秒");
             if (SetField(ref _fetchIntervalMs, clamped))
             {
                 Save();
@@ -550,14 +588,24 @@ public sealed class SettingsViewModel : ViewModelBase
     public int ImageMaxEdgePixels
     {
         get => _imageMaxEdgePixels;
-        set { if (SetField(ref _imageMaxEdgePixels, Math.Clamp(value, 128, 2048))) { Save(); } }
+        set
+        {
+            var clamped = Clamped(value, 128, 2048, "画像の長辺", " px");
+            if (SetField(ref _imageMaxEdgePixels, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
     }
 
     private int _imageQuality;
     public int ImageQuality
     {
         get => _imageQuality;
-        set { if (SetField(ref _imageQuality, Math.Clamp(value, 40, 100))) { Save(); } }
+        set
+        {
+            var clamped = Clamped(value, 40, 100, "画像の品質", string.Empty);
+            if (SetField(ref _imageQuality, clamped)) { Save(); }
+            else if (clamped != value) { OnPropertyChanged(); }
+        }
     }
 
     private int _modificationImageMaxEdgePixels;
@@ -573,7 +621,8 @@ public sealed class SettingsViewModel : ViewModelBase
         get => _modificationImageMaxEdgePixels;
         set
         {
-            if (SetField(ref _modificationImageMaxEdgePixels, Math.Clamp(value, 128, 4096)))
+            var clamped = Clamped(value, 128, 4096, "改変の写真の長辺", " px");
+            if (SetField(ref _modificationImageMaxEdgePixels, clamped))
             {
                 Save();
             }
@@ -806,7 +855,10 @@ public sealed class SettingsViewModel : ViewModelBase
         try
         {
             await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(change));
-            Status = "保存しました。";
+
+            // 範囲の外を打たれたときは、丸めたことを出す（I11）。「保存しました。」で上書きしない
+            Status = _clampNote.Length > 0 ? _clampNote : "保存しました。";
+            _clampNote = string.Empty;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

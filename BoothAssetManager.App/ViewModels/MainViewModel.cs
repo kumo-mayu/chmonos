@@ -377,6 +377,12 @@ public sealed partial class MainViewModel : ViewModelBase
                 leavingEdit.CaptureDraft();
             }
 
+            // 商品ページを離れるときは、待っているメモを今書く（I10：打ち終えてすぐ移ると 0.8 秒の待ちごと捨てられていた）
+            if (_currentViewModel is ItemViewModel leavingItem && !ReferenceEquals(leavingItem, value))
+            {
+                leavingItem.FlushMemo();
+            }
+
             // ショップ一覧を離れたら、裏で走らせているアイコン取得を止める
             if (_currentViewModel is ShopsViewModel leaving && !ReferenceEquals(leaving, value))
             {
@@ -460,6 +466,13 @@ public sealed partial class MainViewModel : ViewModelBase
     /// 編集の書きかけ（アプリに1つ）。未編集の順番と指定して入った順番で共有する。
     /// </summary>
     public EditDraftStore Drafts { get; } = new();
+
+    /// <summary>
+    /// 待っている自動保存を今書く（ユーザ判断 2026-09-20・I10）。
+    /// **押さずに残る欄は 0.8 秒待ってから書く**ので、打ち終えてすぐ閉じると、その待ちごと捨てられていた。
+    /// 閉じる前と、画面を離れるときに呼ぶ。
+    /// </summary>
+    public void FlushPendingWrites() => (CurrentViewModel as ItemViewModel)?.FlushMemo();
 
     /// <summary>
     /// 閉じる前に、書きかけが残っていれば尋ねる（ユーザ判断）。閉じるのをやめるなら true。
