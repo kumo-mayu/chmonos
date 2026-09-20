@@ -682,6 +682,19 @@ public sealed class SettingsViewModel : ViewModelBase
 
     private async Task LoadAsync()
     {
+        // 読めなかったときも「読み込み中」を下ろす（成功した道でしか下ろしていなかった）
+        try
+        {
+            await LoadCoreAsync();
+        }
+        finally
+        {
+            RunOnUiThread(() => IsLoading = false);
+        }
+    }
+
+    private async Task LoadCoreAsync()
+    {
         var usage = await _services.SettingsStore.LoadUsageAsync();
         var hidden = await _services.SettingsStore.LoadHiddenAsync();
         var excluded = _services.SettingsStore.LoadExcluded();

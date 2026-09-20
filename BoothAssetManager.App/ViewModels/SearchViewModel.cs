@@ -306,7 +306,40 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         }
     }
 
+    /// <summary>
+    /// 読み直しは投げっぱなしの道が複数ある（取り込みの進捗・起動時の裏の作業・編集の後・商品ページの操作）。
+    /// **2本重ねない。**重なるとカードを作り直す途中で一覧の差し替えが競り、選択が落ち、
+    /// 先に終わった方が「読み込み中」を下ろしてしまう。
+    /// 走っている最中に来た分は、終わってから1回だけやり直す（同じ読み直しを何本も並べない）。
+    /// </summary>
+    private readonly SemaphoreSlim _reloadGate = new(1, 1);
+
+    private bool _reloadAgain;
+
     public async Task ReloadAsync()
+    {
+        if (!await _reloadGate.WaitAsync(0))
+        {
+            _reloadAgain = true;
+            return;
+        }
+
+        try
+        {
+            do
+            {
+                _reloadAgain = false;
+                await ReloadCoreAsync();
+            }
+            while (_reloadAgain);
+        }
+        finally
+        {
+            _reloadGate.Release();
+        }
+    }
+
+    private async Task ReloadCoreAsync()
     {
         IsLoading = true;
         try

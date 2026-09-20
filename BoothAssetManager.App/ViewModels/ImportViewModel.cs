@@ -41,6 +41,12 @@ public sealed class ImportViewModel : ViewModelBase
     /// <summary>実行中の作業集合。走らせている最中に足せるので、ここを握っておく。</summary>
     private ImportWorkSet? _work;
 
+    /// <summary>
+    /// 立ち上げの途中（<see cref="_work"/> が入るまで）。2本目を止めるのに要る——
+    /// その間に確認の窓と設定の保存を挟むので、待っている間に画面のメッセージが回る。
+    /// </summary>
+    private bool _starting;
+
     private bool _isRunning;
     private string? _stackNotice;
     private string _phaseText = string.Empty;
@@ -835,7 +841,25 @@ public sealed class ImportViewModel : ViewModelBase
     {
         if (_work is not { } running)
         {
-            await RunAsync();
+            // **立ち上げている最中の2度目を止める。**`_work` が入るのは、展開先の確認の窓と
+            // 設定の保存を挟んだ後。その間は画面のメッセージが回るので、2度目の押下が同じ道へ入れた。
+            // 通り抜けると取り込みが2本走り、先に終わった方の後始末が中断の口を捨てるので、
+            // 走っている方を止められなくなる
+            if (_starting)
+            {
+                return;
+            }
+
+            _starting = true;
+            try
+            {
+                await RunAsync();
+            }
+            finally
+            {
+                _starting = false;
+            }
+
             return;
         }
 

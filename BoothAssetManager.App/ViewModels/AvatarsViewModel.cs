@@ -1003,6 +1003,19 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
 
     private async Task LoadAsync()
     {
+        // 読めなかったときも「読み込み中」を下ろす（成功した道でしか下ろしていなかった）
+        try
+        {
+            await LoadCoreAsync();
+        }
+        finally
+        {
+            RunOnUiThread(() => IsLoading = false);
+        }
+    }
+
+    private async Task LoadCoreAsync()
+    {
         var avatars = await Task.Run(() => _services.Avatars.LoadAsync());
         var bases = await Task.Run(() => _services.Avatars.LoadBasesAsync());
 

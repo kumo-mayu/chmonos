@@ -35,6 +35,10 @@ public sealed class RecentTracker
 
         try
         {
+            // 保存先を運んでいる間は待つ。足跡は `UiCommand` を通らないので、門はここで通す
+            // （コピー済みへ書いた分は、元を消すときに失われる）
+            await Core.Storage.StoreWriteGate.WaitAsync();
+
             // 錠は窓口（`JsonFileStore.UpdateAsync`）に持たせる。ここだけに錠を置いていたので、
             // 取り込み側（別経路で同じ recent.json を書く）とは重なり、片方の足跡が消えていた
             await _store.Recent.UpdateAsync(

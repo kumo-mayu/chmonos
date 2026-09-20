@@ -351,6 +351,20 @@ public sealed class StatsViewModel : ViewModelBase
 
     private async Task LoadAsync()
     {
+        // 読めなかったときも「読み込み中」を下ろす。成功した道でしか下ろしていなかったので、
+        // 壊れた商品が1件あるだけで画面が空のまま戻らなかった（失敗そのものはログに残る）
+        try
+        {
+            await LoadCoreAsync();
+        }
+        finally
+        {
+            RunOnUiThread(() => IsLoading = false);
+        }
+    }
+
+    private async Task LoadCoreAsync()
+    {
         var snapshot = await Task.Run(() => _services.Stats.LoadAsync());
 
         RunOnUiThread(() =>

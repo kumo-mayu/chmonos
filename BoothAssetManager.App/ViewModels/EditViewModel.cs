@@ -73,9 +73,9 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
         _main = main;
         _thumbnails = thumbnails;
 
-        SaveAndNextCommand = new RelayCommand(() => SaveAndAdvanceAsync().Forget(), () => HasItem && !IsSaving);
-        SkipCommand = new RelayCommand(() => SkipAsync().Forget(), () => HasItem && !IsSaving);
-        BackCommand = new RelayCommand(GoBack, () => _index > 0);
+        SaveAndNextCommand = new RelayCommand(() => SaveAndAdvanceAsync().Forget(), () => HasItem && !IsSaving && !IsMoving);
+        SkipCommand = new RelayCommand(() => SkipAsync().Forget(), () => HasItem && !IsSaving && !IsMoving);
+        BackCommand = new RelayCommand(GoBack, () => _index > 0 && !IsSaving && !IsMoving);
         FinishCommand = new RelayCommand(() => FinishAsync().Forget());
         // 仮IDの商品にはBOOTHページが無い。押せると404へ送ることになる
         OpenBoothCommand = new RelayCommand(OpenBooth, () => HasItem && !IsLocalOnly);
@@ -1002,12 +1002,46 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
         _shopNames.Sort(StringComparer.CurrentCulture);
     }
 
+    /// <summary>
+    /// 次・前へ移っている最中。
+    ///
+    /// **読み込みが二重に走ると1件飛ぶ。**<see cref="LoadCurrentAsync"/> は中で位置を進める
+    /// （消えた商品を飛ばす）ので、2本が同じ位置を別々に進めてしまう。
+    /// スキップは保存の印（<see cref="IsSaving"/>）を立てないため、連打で素通りしていた。
+    /// </summary>
+    private bool _isMoving;
+
+    private bool IsMoving
+    {
+        get => _isMoving;
+        set
+        {
+            if (SetField(ref _isMoving, value))
+            {
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     private async Task AdvanceAsync()
     {
-        RememberStep();
-        _index++;
-        await SavePositionAsync();
-        await LoadCurrentAsync();
+        if (IsMoving)
+        {
+            return;
+        }
+
+        IsMoving = true;
+        try
+        {
+            RememberStep();
+            _index++;
+            await SavePositionAsync();
+            await LoadCurrentAsync();
+        }
+        finally
+        {
+            IsMoving = false;
+        }
     }
 
     /// <summary>
@@ -1020,19 +1054,32 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
         await AdvanceAsync();
     }
 
-    private void GoBack()
+    private void GoBack() => GoBackAsync().Forget();
+
+    private async Task GoBackAsync()
     {
-        if (_index == 0)
+        if (_index == 0 || IsMoving)
         {
             return;
         }
 
-        RememberStep();
-        StopReturnTimer();
-        CaptureDraft();
-        _index--;
-        SavePositionAsync().Forget();
-        LoadCurrentAsync().Forget();
+        IsMoving = true;
+        try
+        {
+            RememberStep();
+            StopReturnTimer();
+            CaptureDraft();
+            _index--;
+
+            // 位置の保存と読み込みを投げっぱなしにしていたので、保存や次へ進む処理と
+            // 交差して、位置と「保存した印」が食い違っていた
+            await SavePositionAsync();
+            await LoadCurrentAsync();
+        }
+        finally
+        {
+            IsMoving = false;
+        }
     }
 
     /// <summary>
