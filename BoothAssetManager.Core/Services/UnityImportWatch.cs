@@ -15,7 +15,7 @@ public enum UnityImportState
     Cancelled,
 
     /// <summary>
-    /// 取り込み画面が「Nothing to import!」だった。送った物は既に全部入っている。次を出してよい。
+    /// 送った物は既に全部プロジェクトに入っていた（Unity は取り込み画面に「Nothing to import!」しか出さない）。次を出してよい。
     /// 送ることの目的（プロジェクトに入っていること）は果たせているので、Cancel ではなく送れたと数える（ユーザ判断 2026-09-19）
     /// </summary>
     AlreadyPresent,
@@ -51,9 +51,9 @@ public sealed class UnityImportWatch
     public static readonly TimeSpan CancelQuiet = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    /// 「Nothing to import!」と見た窓が閉じてから、既に入っていたと決めるまで。
-    /// その窓に Import は無いので本来は待たなくてよいが、絵の見分けを外していたときに、後から来る取り込みの行を拾えるように
-    /// Import で何かが動くまでの最長（1.4秒・実測）より少し長く待つ
+    /// 既に全部入っている物の窓が閉じてから、「既に入っていた」と決めるまで。
+    /// その窓は「Nothing to import!」で Import が無いので本来は待たなくてよいが、
+    /// 調べた後に中身が変わっていて取り込みが起きたときに拾えるよう、Import で何かが動くまでの最長（1.4秒・実測）より少し長く待つ
     /// </summary>
     public static readonly TimeSpan NothingQuiet = TimeSpan.FromSeconds(2);
 
@@ -79,7 +79,7 @@ public sealed class UnityImportWatch
     private DateTime? _doneAt;
     private DateTime? _calmSince;
     private bool _sawLogLine;
-    private bool _nothingToImport;
+    private bool _alreadyInProject;
 
     /// <param name="expectedAssetPaths">送った物の中身のパス（<see cref="UnityHandoff.ReadAssetPaths"/>）。</param>
     public UnityImportWatch(IEnumerable<string> expectedAssetPaths)
@@ -94,11 +94,12 @@ public sealed class UnityImportWatch
     public void DialogClosed(DateTime at) => _closedAt ??= at;
 
     /// <summary>
-    /// 取り込み画面が「Nothing to import!」だと分かった（<see cref="UnityImportWindowLook"/>）。
-    /// その窓には OK しかなく、閉じても Unity は何も書かないので、Cancel と見分けるための <see cref="CancelQuiet"/> を待たずに
-    /// <see cref="NothingQuiet"/> で次へ進む
+    /// 送る物の中身が、プロジェクトに全部あると分かっている（<see cref="UnityProjectMatcher"/> で送る前に調べる）。
+    /// このとき Unity は取り込み画面に「Nothing to import!」しか出さず、OK で閉じても1行も書かないので、
+    /// 何も動かないまま閉じられたら Cancel ではなく「既に入っていた」。Cancel と見分けるための
+    /// <see cref="CancelQuiet"/> を待たずに <see cref="NothingQuiet"/> で次へ進む
     /// </summary>
-    public void NothingToImportShown() => _nothingToImport = true;
+    public void AlreadyInProject() => _alreadyInProject = true;
 
     /// <summary>Editor.log に増えた1行。</summary>
     public void LogLine(string line, DateTime at)
@@ -148,7 +149,7 @@ public sealed class UnityImportWatch
 
         if (_movedAt is null)
         {
-            if (_nothingToImport)
+            if (_alreadyInProject)
             {
                 return now - closed >= NothingQuiet ? UnityImportState.AlreadyPresent : UnityImportState.Waiting;
             }

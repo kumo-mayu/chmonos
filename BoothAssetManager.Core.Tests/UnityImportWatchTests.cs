@@ -41,12 +41,12 @@ public sealed class UnityImportWatchTests
     }
 
     [Fact]
-    public void NothingToImportを見た窓を閉じたら2秒で既に入っていた()
+    public void 既に全部入っている物は窓を閉じたら2秒で既に入っていた()
     {
         // 「Nothing to import!」を OK で閉じても Unity は1行も書かない。Cancel と数えていた（2026-09-19）。
         // Cancel の5秒は待たない
         var watch = Watch();
-        watch.NothingToImportShown();
+        watch.AlreadyInProject();
         Assert.Equal(UnityImportState.Waiting, watch.Evaluate(At(0)));
 
         watch.DialogClosed(At(1));
@@ -56,11 +56,11 @@ public sealed class UnityImportWatchTests
     }
 
     [Fact]
-    public void NothingToImportと見ても取り込みの行が出たら取り込んだ方を信じる()
+    public void 既に入っていると調べた後でも取り込みの行が出たら取り込んだ方を信じる()
     {
-        // 絵の見分けを外したときに、実際に入った物を「既に入っていた」と言わないため
+        // 調べた後に中身が変わっていたときに、実際に入った物を「既に入っていた」と言わないため
         var watch = Watch();
-        watch.NothingToImportShown();
+        watch.AlreadyInProject();
         watch.DialogClosed(At(0));
         watch.LogLine("Start importing Assets/nHaruka/PenSystem/Pen.asset using Guid(abc)", At(0.5));
         watch.Windows(false, At(0.5));

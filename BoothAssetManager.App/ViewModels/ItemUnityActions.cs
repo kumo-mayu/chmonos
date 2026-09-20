@@ -40,11 +40,7 @@ internal static class ItemUnityActions
     /// Hub にも VCC にも載っていないプロジェクトだと引けない（null）
     /// </summary>
     private static async Task<string?> ProjectPathOf(OpenUnityEditor editor)
-        => editor.ProjectPath ?? (editor.ProjectName is { } name
-            ? await Task.Run(() => UnityProjects.Discover()
-                .FirstOrDefault(candidate =>
-                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path)
-            : null);
+        => editor.ProjectPath ?? await Task.Run(() => UnityEditors.PathOf(editor));
 
     /// <summary>1件を、選んだ Unity に送る（送る前に何をどこへ送るかを確かめる）。</summary>
     public static async Task SendAsync(AppServiceContainer services, ItemRecord item, UnityPackageEntry package)

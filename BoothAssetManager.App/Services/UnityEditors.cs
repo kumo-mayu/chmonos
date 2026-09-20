@@ -75,4 +75,19 @@ public static class UnityEditors
             return [];
         }
     }
+
+    /// <summary>
+    /// そのエディタのプロジェクトの場所。**窓の題から一覧で言い当てた場所を先に使う**——
+    /// 名前から引き直すと、同じ名前のフォルダが2つあるときに取り違える（2026-09-19）。
+    /// Hub にも VCC にも載っていないプロジェクトは引けない（null）。
+    /// </summary>
+    public static string? PathOf(OpenUnityEditor editor)
+        => editor.ProjectPath ?? (editor.ProjectName is { } name
+            ? UnityProjects.Discover().FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))?.Path
+            : null);
+
+    /// <summary>送り先のプロセス番号から場所を引く（取り込みの列は番号しか持っていない）。</summary>
+    public static string? PathOf(int processId)
+        => Open().FirstOrDefault(editor => editor.ProcessId == processId) is { } found ? PathOf(found) : null;
 }

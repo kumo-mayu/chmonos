@@ -63,6 +63,9 @@ public static class UnityImportQueue
     private const uint WmSetText = 0x000C;
     private const int IdOk = 1;
 
+    /// <summary><c>SW_RESTORE</c>。最小化を解いて元の大きさに戻す。</summary>
+    private const int SwRestore = 9;
+
     /// <summary>Windows 標準のファイル選択で、ファイル名の欄を包む部品の番号（§9-4b）。</summary>
     private const int FileNameControlId = 1148;
 
@@ -73,11 +76,6 @@ public static class UnityImportQueue
 
     /// <summary>利用者が取り込み画面を眺めて考える時間は待つ。これを超えたら残りは送らない。</summary>
     private static readonly TimeSpan ImportTimeout = TimeSpan.FromMinutes(30);
-
-    /// <summary>
-    /// 取り込み画面の絵を見直す間隔。1回は数十ミリ秒。人が OK を押すまで数秒はかかるので、1秒ごとで取りこぼさない
-    /// </summary>
-    private static readonly TimeSpan LookInterval = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Unity 自身の進捗の窓の題（実機で見た物）。これ以外の <c>#32770</c> が出ていたら、
@@ -123,6 +121,9 @@ public static class UnityImportQueue
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int max);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
 
@@ -170,6 +171,9 @@ public static class UnityImportQueue
         var unpacker = new TemporaryUnpacker();
         string? stop = null;
 
+        // 送り先のプロジェクトの場所。「既に全部入っているか」を調べるのに使う（引けなければ調べない）
+        var project = await Task.Run(() => UnityEditors.PathOf(processId), cancellationToken);
+
         for (var index = 0; index < packages.Count; index++)
         {
             var package = packages[index];
@@ -189,6 +193,10 @@ public static class UnityImportQueue
                 continue;
             }
 
+            // 最小化されていると取り込み画面を見逃し、押されないまま Cancel と数えてしまう（ユーザ指摘 2026-09-20）。
+            // 人に見せて押してもらう画面なので、送る前に開いておく
+            Restore(main);
+
             Report($"{index + 1}/{packages.Count}：「{package.Name}」の取り込み画面を出しています…");
 
             string path;
@@ -204,6 +212,17 @@ public static class UnityImportQueue
                 outcomes.Add(new UnityQueueOutcome(package, false, $"zip から取り出せませんでした（{exception.Message}）"));
                 continue;
             }
+
+            // 中身がプロジェクトに全部あれば、Unity は取り込み画面に「Nothing to import!」しか出さない。
+            // その窓を OK で閉じても Unity は1行も書かないので、ログだけでは Cancel と見分けられない（2026-09-19 に実機で確かめた）。
+            // 入っているかは「Unityで選択」と同じ調べ方（<see cref="UnityProjectMatcher"/>。パスの一覧は控えがある）
+            var alreadyThere = project is not null && expected.Count > 0
+                && await Task.Run(
+                    () => UnityProjectMatcher.Match(
+                        project,
+                        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [package.Name] = expected })
+                        .FirstOrDefault() is { Total: > 0 } match && match.Present == match.Total,
+                    cancellationToken);
 
             // メニューの番号は毎回探し直す。スクリプトを含むパッケージを取り込むと Unity がメニューを作り直し、
             // 番号が1つずれた（古い番号を送ったら「Export Package」の画面が開いた §9-4b）
@@ -245,7 +264,13 @@ public static class UnityImportQueue
 
             Report($"{index + 1}/{packages.Count}：「{package.Name}」— Unity の取り込み画面で「Import」か「Cancel」を押してください");
 
-            var (state, closed) = await WatchUntilDoneAsync(processId, baseline, importWindow, tail, expected, index, packages.Count, package, progress, cancellationToken);
+            if (alreadyThere)
+            {
+                Report($"{index + 1}/{packages.Count}：「{package.Name}」は既に全部入っています。Unity で「OK」を押すと次に進みます");
+            }
+
+            var (state, closed) = await WatchUntilDoneAsync(
+                processId, baseline, importWindow, tail, expected, alreadyThere, index, packages.Count, package, progress, cancellationToken);
             if (closed)
             {
                 stop = "Unity が閉じられました";
@@ -284,6 +309,7 @@ public static class UnityImportQueue
         IntPtr importWindow,
         LogTail tail,
         IReadOnlyList<string> expected,
+        bool alreadyThere,
         int index,
         int total,
         UnityPackageEntry package,
@@ -291,10 +317,13 @@ public static class UnityImportQueue
         CancellationToken cancellationToken)
     {
         var watch = new UnityImportWatch(expected);
+        if (alreadyThere)
+        {
+            watch.AlreadyInProject();
+        }
+
         var until = DateTime.UtcNow + ImportTimeout;
         string? askedTitle = null;
-        var nothingToImport = false;
-        var lookedAt = DateTime.MinValue;
 
         while (DateTime.UtcNow < until)
         {
@@ -307,21 +336,6 @@ public static class UnityImportQueue
             if (importWindow == IntPtr.Zero || !IsWindow(importWindow) || !IsWindowVisible(importWindow))
             {
                 watch.DialogClosed(now);
-            }
-            else if (!nothingToImport && now - lookedAt >= LookInterval)
-            {
-                // 「Nothing to import!」は閉じても何も書かれないので、開いている間に絵で見分ける（ユーザ指示 2026-09-19）。
-                // 出てすぐは描き終えていないことがあるので、閉じるまで見直す
-                lookedAt = now;
-                var window = importWindow;
-                nothingToImport = await Task.Run(() => WindowPicture.Capture(window) is { } picture
-                    && UnityImportWindowLook.IsNothingToImport(picture.Width, picture.Height, picture.Pixels), cancellationToken);
-                if (nothingToImport)
-                {
-                    watch.NothingToImportShown();
-                    progress?.Report(new UnityQueueProgress(index + 1, total,
-                        $"{index + 1}/{total}：「{package.Name}」は既に全部入っています。Unity で「OK」を押すと次に進みます"));
-                }
             }
 
             foreach (var line in tail.ReadNewLines())
@@ -353,6 +367,18 @@ public static class UnityImportQueue
         }
 
         return (UnityImportState.Waiting, false);
+    }
+
+    /// <summary>最小化されていたら開く。送る前に呼ぶ（取り込み画面は人に押してもらう物なので、隠れていては困る）。</summary>
+    private static void Restore(IntPtr window)
+    {
+        if (!IsIconic(window))
+        {
+            return;
+        }
+
+        ShowWindow(window, SwRestore);
+        SetForegroundWindow(window);
     }
 
     private static bool IsImportWindow(IntPtr window)
