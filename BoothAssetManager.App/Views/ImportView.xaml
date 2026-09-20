@@ -263,7 +263,7 @@
                                 <TextBlock Text="{Binding Summary.FilesHashed}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
-                                <TextBlock Text="キャッシュ再利用" Style="{StaticResource Caption}" />
+                                <TextBlock Text="ハッシュを省略" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.FilesReusedFromCache}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
