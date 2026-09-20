@@ -14,8 +14,8 @@ public sealed record FindMatch(FrameworkElement Owner, TextPointer Start, int Le
 ///
 /// 探すのは**見えている文字**（TextBlock と、説明文の RichTextBox）だけ。入力欄は探さない
 /// （打っている最中の文字が一致に数えられると、どこを探しているのか分からなくなる）。
-/// 一覧のうち画面の外の行は作られていない（仮想化）ので探せない——検索とショップの画面は
-/// Ctrl+F で検索欄へ入る（ユーザ判断）ので、ここに来るのはそれ以外の画面。
+/// 一覧のうち画面の外の行は作られていない（仮想化）ので探せない——**見えている分だけが相手**。
+/// 自前の絞り込み欄を持つ画面（検索・ショップ・アバターなど）でも同じに働く（ユーザ判断 2026-09-20・B2）。
 /// 畳んだ見出しの中は、画面の側が開いてから探す（<see cref="ViewModels.ItemViewModel.RevealMatches"/>）。
 /// </summary>
 public static class FindInPage

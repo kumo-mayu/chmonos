@@ -9,8 +9,9 @@ using BoothAssetManager.App.Views;
 namespace BoothAssetManager.App;
 
 /// <summary>
-/// 画面内検索（U20）。検索とショップ以外の画面で Ctrl+F（「検索欄へ」の割り当て）を押すと、
-/// 右上に帯を出して画面の中の文字を探す。
+/// 画面内検索（U20）。**どの画面でも** Ctrl+F（「画面の中を探す」の割り当て）を押すと、
+/// 右上に帯を出して画面の中の文字を探す（ユーザ判断 2026-09-20・B2。
+/// 以前は検索とショップだけ検索画面へ移していて、同じキーで見ていた画面を失っていた）。
 ///
 /// 画面の見た目だけの話で、データには触らないので UiCommand は通さない。
 /// </summary>
@@ -19,9 +20,6 @@ public partial class MainWindow
     private FindHighlightAdorner? _findAdorner;
     private List<FindMatch> _findMatches = [];
     private int _findIndex = -1;
-
-    /// <summary>検索とショップの画面は Ctrl+F で検索欄へ入る（今どおり・ユーザ判断）。</summary>
-    private static bool UsesSearchBox(object? screen) => screen is SearchViewModel or ShopsViewModel or ShopViewModel;
 
     private void HookFind()
     {

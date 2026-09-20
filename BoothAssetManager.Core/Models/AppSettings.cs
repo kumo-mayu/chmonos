@@ -322,13 +322,14 @@ public sealed record ShortcutSettings
     public string SaveAndNext { get; init; } = "Ctrl+Enter";
 
     /// <summary>
-    /// 編集画面の「スキップ」。**文字の欄では働かない**——Ctrl+→ は文字の欄では1語ずつ動く操作で、
-    /// 編集画面ではたいてい文字の欄にいるため、横取りすると打ちにくくなる。
+    /// 編集画面の「スキップ」。**文字の欄の中でも働く**（ユーザ判断 2026-09-20・B11）。
+    /// 以前の Ctrl+→ は文字の欄では1語ずつ動く操作で、編集画面はほぼ常に欄の中にいるため一度も効かなかった。
+    /// Ctrl+Shift+→ は欄では1語ずつ選ぶ操作だが、選ぶのは Shift+→ とマウスで足りるので、こちらを譲ってもらう。
     /// </summary>
-    public string Skip { get; init; } = "Ctrl+Right";
+    public string Skip { get; init; } = "Ctrl+Shift+Right";
 
-    /// <summary>検索画面を出して検索欄へ。</summary>
-    public string FocusSearch { get; init; } = "Ctrl+F";
+    /// <summary>画面の中の文字を探す帯を出す（どの画面でも同じ・B2）。</summary>
+    public string FindInPage { get; init; } = "Ctrl+F";
 
     /// <summary>直前の画面へ戻る（どの画面でも。編集画面の「前の1件へ」は「← 前へ」ボタン）。</summary>
     public string Back { get; init; } = "Alt+Left";

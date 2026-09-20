@@ -6,7 +6,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ImportViewModel}"
-             AllowDrop="True" Drop="OnDrop" DragOver="OnDragOver">
+             AllowDrop="True">
     <DockPanel Background="{StaticResource Bg}">
         <Border DockPanel.Dock="Top" Height="60" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">

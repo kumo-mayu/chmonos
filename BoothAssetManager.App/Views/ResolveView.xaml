@@ -53,7 +53,7 @@
                     <Button Content="最後に確定した商品を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                             VerticalAlignment="Center" Command="{Binding OpenLastSettledCommand}"
                             ToolTip="最後に確定した商品のページを開きます。" />
-                    <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}"
+                    <Button Content="確定したものを編集する" Style="{StaticResource PrimaryButton}"
                             Command="{Binding SendSettledToEditCommand}" />
                 </StackPanel>
                 </StackPanel>
@@ -94,7 +94,7 @@
                 <Button Content="{Binding UndoExcludeText}" Style="{StaticResource SmallButton}" Margin="0,0,8,0" VerticalAlignment="Center"
                         Command="{Binding UndoExcludeCommand}"
                         Visibility="{Binding HasUndoExclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Button Content="確定した分を編集へ送る" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                <Button Content="確定したものを編集する" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
                         Command="{Binding SendSettledToEditCommand}"
                         Visibility="{Binding HasSettled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Button Content="取り込みを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"

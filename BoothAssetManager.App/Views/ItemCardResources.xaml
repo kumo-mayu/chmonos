@@ -400,8 +400,10 @@
                                Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="表示中を全て選択" Style="{StaticResource SmallButton}"
-                            Command="{Binding SelectAllCommand}" />
+                    <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
+                    <Button Content="全て選択" Style="{StaticResource SmallButton}"
+                            Command="{Binding SelectAllCommand}"
+                            ToolTip="今出ている商品を全て選びます。" />
                     <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding ClearSelectionCommand}" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->

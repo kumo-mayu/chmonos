@@ -924,7 +924,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen
         }
     }
 
-    /// <summary>確定した分をまとめて編集へ送る。ID確定と入力を分ける設計の受け渡し口。</summary>
+    /// <summary>確定したものを対象に編集の画面へ移る。ID確定と入力を分ける設計の受け渡し口。</summary>
     private void SendSettledToEdit()
     {
         if (_settledItemIds.Count == 0)

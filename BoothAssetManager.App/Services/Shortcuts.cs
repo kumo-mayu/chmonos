@@ -8,7 +8,7 @@ public enum ShortcutAction
 {
     SaveAndNext,
     Skip,
-    FocusSearch,
+    FindInPage,
     Back,
     Forward,
 }
@@ -25,7 +25,7 @@ public static class Shortcuts
     {
         ShortcutAction.SaveAndNext => "保存して次へ（編集）",
         ShortcutAction.Skip => "スキップ（編集）",
-        ShortcutAction.FocusSearch => "検索欄へ",
+        ShortcutAction.FindInPage => "画面の中を探す",
         ShortcutAction.Back => "直前の画面へ戻る",
         ShortcutAction.Forward => "戻った先から進む",
         _ => action.ToString(),
@@ -35,7 +35,7 @@ public static class Shortcuts
     {
         ShortcutAction.SaveAndNext => settings.SaveAndNext,
         ShortcutAction.Skip => settings.Skip,
-        ShortcutAction.FocusSearch => settings.FocusSearch,
+        ShortcutAction.FindInPage => settings.FindInPage,
         ShortcutAction.Back => settings.Back,
         ShortcutAction.Forward => settings.Forward,
         _ => string.Empty,
@@ -45,7 +45,7 @@ public static class Shortcuts
     {
         ShortcutAction.SaveAndNext => settings with { SaveAndNext = gesture },
         ShortcutAction.Skip => settings with { Skip = gesture },
-        ShortcutAction.FocusSearch => settings with { FocusSearch = gesture },
+        ShortcutAction.FindInPage => settings with { FindInPage = gesture },
         ShortcutAction.Back => settings with { Back = gesture },
         ShortcutAction.Forward => settings with { Forward = gesture },
         _ => settings,
@@ -114,7 +114,10 @@ public static class Shortcuts
         return string.Join(" + ", parts);
     }
 
-    /// <summary>文字の欄でカーソルを動かすキー。文字の欄にいるときは、この割り当ては働かせない。</summary>
+    /// <summary>
+    /// 文字の欄でカーソルを動かすキー。文字の欄にいるときは、この割り当ては働かせない。
+    /// ただし Alt＋矢印と Ctrl+Shift＋矢印だけは欄の中でも横取りする（<c>MainWindow.xaml.cs</c>）。
+    /// </summary>
     public static bool IsTextEditingKey(Key key)
         => key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End
             or Key.PageUp or Key.PageDown or Key.Back or Key.Delete;

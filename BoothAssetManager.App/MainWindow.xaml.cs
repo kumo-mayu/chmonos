@@ -333,17 +333,22 @@ public partial class MainWindow : Window
 
             var typing = (modifiers & (System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Alt)) == 0;
 
-            // 文字の欄が使う矢印は素の矢印と Ctrl＋矢印（1語ずつ）だけ。Alt＋矢印は使わないので、
-            // 欄の中でも効かせる（Alt＋← で戻れないと、入力欄の多い編集画面では戻る手段が無かった）
-            var altOnly = (modifiers & System.Windows.Input.ModifierKeys.Alt) != 0
-                && (modifiers & System.Windows.Input.ModifierKeys.Control) == 0;
-            if (inText && (typing || (Services.Shortcuts.IsTextEditingKey(key) && !altOnly)))
+            // 文字の欄に譲る矢印は、素の矢印・Shift＋矢印（選ぶ）・Ctrl＋矢印（1語ずつ）まで。
+            // Alt＋矢印（戻る・進む）と Ctrl+Shift＋矢印（スキップ）は**欄の中でも横取りする**——
+            // 譲ると、入力欄だらけの編集画面では一度も効かない（Alt＋← は 2026-09-12、Ctrl+Shift+→ は B11）。
+            // 代償は欄の「1語ずつ選ぶ」で、Shift＋矢印とマウスで足りる
+            var control = (modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+            var shift = (modifiers & System.Windows.Input.ModifierKeys.Shift) != 0;
+            var alt = (modifiers & System.Windows.Input.ModifierKeys.Alt) != 0;
+            var appTakesArrow = (alt && !control) || (control && shift);
+            if (inText && (typing || (Services.Shortcuts.IsTextEditingKey(key) && !appTakesArrow)))
             {
                 return false;
             }
 
-            // U20：検索とショップ以外の画面では、同じキーで画面の中の文字を探す（ユーザ判断）
-            if (action == Services.ShortcutAction.FocusSearch && !UsesSearchBox(main.CurrentViewModel))
+            // Ctrl+F は**どの画面でも**画面の中を探す（ユーザ判断 2026-09-20・B2）。
+            // 以前は検索とショップだけ検索画面へ移していたが、同じキーで見ていた画面を失うのは食い違い
+            if (action == Services.ShortcutAction.FindInPage)
             {
                 e.Handled = true;
                 OpenFind();
@@ -356,14 +361,6 @@ public partial class MainWindow : Window
             }
 
             e.Handled = true;
-            if (action == Services.ShortcutAction.FocusSearch)
-            {
-                // 検索画面は差し替えた直後にはまだ組み上がっていない。組み上がってから欄へ入る
-                Dispatcher.BeginInvoke(
-                    () => FindDescendant<Views.SearchView>(this)?.FocusQuery(),
-                    System.Windows.Threading.DispatcherPriority.Loaded);
-            }
-
             return true;
         }
 

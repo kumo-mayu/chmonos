@@ -66,8 +66,21 @@ public sealed class RowReorder
         }
     }
 
+    /// <summary>
+    /// 外から来た物（ファイル・URL）は**ここの仕事ではない**ので、印も付けず、handled にもしない。
+    /// 窓まで上げれば、中身で行き先が決まる（`ui-rules.md`「落とすは窓全体で受ける」・B5：
+    /// 一覧の上だけ落とせず、タグや属性の画面では窓の端でしか受け付けなかった）。
+    /// </summary>
+    private static bool IsRowDrag(DragEventArgs e) => Dragged(e) is not null;
+
     public void OnDragOver(object sender, DragEventArgs e)
     {
+        if (!IsRowDrag(e))
+        {
+            ClearIndicators();
+            return;
+        }
+
         var target = Resolve(sender, e, out var after);
 
         ClearIndicators();
@@ -91,6 +104,11 @@ public sealed class RowReorder
     public void OnDrop(object sender, DragEventArgs e)
     {
         ClearIndicators();
+
+        if (!IsRowDrag(e))
+        {
+            return;
+        }
 
         var target = Resolve(sender, e, out var after);
         var moved = Dragged(e);

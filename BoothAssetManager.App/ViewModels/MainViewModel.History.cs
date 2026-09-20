@@ -63,6 +63,26 @@ public sealed partial class MainViewModel
 
     public string ForwardTip => _forward.Count > 0 ? $"「{_forward[^1].Label}」へ進む（Alt+→）" : "進む先がありません";
 
+    /// <summary>
+    /// <see cref="LeaveEdit"/> で戻る先の名前（編集の中で移った分は飛ばす）。
+    /// 編集のボタンが行き先と違う名前を名乗っていた（B1：商品ページから入っても「検索へ戻る」と出ていた）。
+    /// </summary>
+    public string LeaveEditLabel
+    {
+        get
+        {
+            for (var i = _history.Count - 1; i >= 0; i--)
+            {
+                if (!_history[i].IsEdit)
+                {
+                    return _history[i].Label;
+                }
+            }
+
+            return "検索";
+        }
+    }
+
     /// <summary>直前の画面へ戻る。履歴が無ければ検索へ。</summary>
     public void GoBack()
     {

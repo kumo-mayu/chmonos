@@ -125,6 +125,27 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public string Name => Summary.Group.Name;
 
+    private string _nameInput = string.Empty;
+
+    /// <summary>
+    /// 名前の欄。**アバターの名前と同じく欄の中で変える**（ユーザ指示 2026-09-20・B10）。
+    /// ここだけ OS の古い入力窓（InputBox）で、同じ画面の中で名前を変える作法が2つに割れていた。
+    /// </summary>
+    public string NameInput
+    {
+        get => _nameInput;
+        set
+        {
+            if (SetField(ref _nameInput, value))
+            {
+                OnPropertyChanged(nameof(HasNameChange));
+            }
+        }
+    }
+
+    /// <summary>欄を今の名前から変えたか。「名前を保存」はそのときだけ出す（アバターと同じ作法）。</summary>
+    public bool HasNameChange => NameInput.Trim().Length > 0 && NameInput.Trim() != Name;
+
     public string MemberText => $"アバター {Summary.MemberCount}（所有 {Summary.OwnedMemberCount}）";
 
     public string ItemText => $"この素体向けと書かれた商品 {Summary.ItemCount}件";
@@ -969,11 +990,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase
                     Summary = summary,
                     ItemCandidates = candidates,
                     ItemIdInput = summary.Group.ItemId ?? string.Empty,
+                    NameInput = name,
                     ToggleInferCommand = new RelayCommand(() => ToggleInferAsync(name, !summary.Group.InferClothing).Forget()),
-                    RenameCommand = new RelayCommand(() => RenameBase(name)),
                     DeleteCommand = new RelayCommand(() => ConfirmDeleteBaseAsync(name).Forget()),
                 };
                 baseRow.SetItemIdCommand = new RelayCommand(() => SetBaseItemIdAsync(name, baseRow.ItemIdInput).Forget());
+                baseRow.RenameCommand = new RelayCommand(() => RenameBase(name, baseRow.NameInput));
                 Bases.Add(baseRow);
                 BaseNames.Add(name);
             }
@@ -1178,19 +1200,19 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         await LoadAsync();
     }
 
-    private void RenameBase(string name)
+    /// <summary>
+    /// 共通素体の名前を、欄に打った名前へ変える（B10）。
+    /// 欄が空・変わっていないときは何もしない（アバターの名前と同じ作法）。
+    /// </summary>
+    private void RenameBase(string oldName, string input)
     {
-        var input = Microsoft.VisualBasic.Interaction.InputBox(
-            $"「{name}」の新しい名前を入れてください。\n全ての商品の宣言も一緒に書き換えます。",
-            "共通素体の名前を変える",
-            name);
-
-        if (string.IsNullOrWhiteSpace(input) || input == name)
+        var newName = input.Trim();
+        if (newName.Length == 0 || newName == oldName)
         {
             return;
         }
 
-        RenameBaseAsync(name, input).Forget();
+        RenameBaseAsync(oldName, newName).Forget();
     }
 
     private async Task RenameBaseAsync(string oldName, string newName)

@@ -12,10 +12,10 @@ public partial class ModificationView : UserControl
     {
         InitializeComponent();
 
-        // **落とすのと貼るのを、選ぶのと同じ道に通す。**
-        // 1つの改変には何枚も撮るので、まとめて受けられないと手数が合わない
-        Drop += OnDrop;
-        DragOver += OnDragOver;
+        // 落とすのは**窓全体**で受け、中身で行き先を決める（`ui-rules.md`・B5）。
+        // この画面が自分で受けていた頃は、改変を見ている間は zip も BOOTH の URL も落とせなかった。
+        // 画像を写真に回す判断は `DropRouting.DecideOnModification`。
+        // 貼る（Ctrl+V）はここに残す——絵そのものは落とす経路では来ないので、画面ごとの受け口が要る
         PreviewKeyDown += OnPreviewKeyDown;
     }
 
@@ -24,27 +24,6 @@ public partial class ModificationView : UserControl
     /// Unity なのか分かりにくかった）。項目はボタンの ContextMenu に置き、左クリックでも開く（右クリックでも同じ物が出る）
     /// </summary>
     private void OnUnityMenuClick(object sender, RoutedEventArgs e) => Controls.MenuButton.OpenBelow(sender, e);
-
-    private static void OnDragOver(object sender, DragEventArgs e)
-    {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Copy
-            : DragDropEffects.None;
-
-        e.Handled = true;
-    }
-
-    private void OnDrop(object sender, DragEventArgs e)
-    {
-        if (DataContext is not ModificationViewModel view
-            || e.Data.GetData(DataFormats.FileDrop) is not string[] paths)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        view.AddImageFilesAsync(paths).Forget();
-    }
 
     /// <summary>
     /// Ctrl+V でクリップボードの絵を貼る。

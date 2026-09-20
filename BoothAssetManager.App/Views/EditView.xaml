@@ -210,7 +210,7 @@
                        Visibility="{Binding IsReturning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
-                <Button Content="検索へ戻る" Command="{Binding FinishCommand}" />
+                <Button Content="{Binding FinishButtonText}" Command="{Binding FinishCommand}" />
                 <Button Content="ここに留まる" Margin="8,0,0,0" Command="{Binding StayCommand}"
                         Visibility="{Binding IsReturning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </StackPanel>
@@ -230,6 +230,13 @@
             <!-- 左：何を編集しているかが分かるだけの控えめな表示 -->
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="20">
                 <StackPanel>
+                    <!--
+                        左右で保存のしかたが違う（左は押した時点・右は「保存して次へ」）。
+                        今の形のままにすると決めた（ユーザ判断 2026-09-20・B7）ので、**画面に書く**。
+                        書いていないと、左で触った分も「保存して次へ」を押すまで残らないと読める
+                    -->
+                    <TextBlock Text="この列は押した時点で保存されます。右の欄は「保存して次へ」で保存します。"
+                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10" />
                     <!--
                         画像の欄は商品ページと同じ部品（ユーザ判断 2026-09-12：画像の追加などの編集は両方で同等にする）。
                         足す（ファイル・落とす・貼る）・消す・並べ替え・サムネイルの指名・役割・足りない画像の取得がそのまま使える。

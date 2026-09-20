@@ -28,8 +28,8 @@ public sealed class SettingsNormalizeTests
         var shortcuts = new AppSettings().Shortcuts;
 
         Assert.Equal("Ctrl+Enter", shortcuts.SaveAndNext);
-        Assert.Equal("Ctrl+Right", shortcuts.Skip);
-        Assert.Equal("Ctrl+F", shortcuts.FocusSearch);
+        Assert.Equal("Ctrl+Shift+Right", shortcuts.Skip);
+        Assert.Equal("Ctrl+F", shortcuts.FindInPage);
         Assert.Equal("Alt+Left", shortcuts.Back);
     }
 

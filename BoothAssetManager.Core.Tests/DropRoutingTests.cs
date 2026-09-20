@@ -312,4 +312,35 @@ public class DropRoutingTests
         Assert.Equal(DropAction.Import, DropRouting.DecideOnResolve([@"D:\storage\a.zip"], null, NothingKnown).Action);
         Assert.Equal(DropAction.OpenShop, DropRouting.DecideOnResolve(null, "https://someshop.booth.pm/", NothingKnown).Action);
     }
+
+    [Fact]
+    public void OnTheModificationScreenOnlyImagesBecomePhotos()
+    {
+        Assert.Equal(
+            DropAction.AddPhotoToModification,
+            DropRouting.DecideOnModification([@"D:\shots\a.png", @"D:\shots\b.jpg"], null, false, NothingKnown).Action);
+
+        // 絵そのもの（スクリーンショット）も写真に回す
+        Assert.Equal(
+            DropAction.AddPhotoToModification,
+            DropRouting.DecideOnModification(null, null, true, NothingKnown).Action);
+    }
+
+    /// <summary>B5：改変を見ている間も、zip は取り込みへ・BOOTH の URL は今まで通りに通す。</summary>
+    [Fact]
+    public void OnTheModificationScreenFilesAndUrlsKeepTheUsualRoute()
+    {
+        Assert.Equal(
+            DropAction.Import,
+            DropRouting.DecideOnModification([@"D:\storage\a.zip"], null, false, NothingKnown).Action);
+
+        // 画像でないファイルが混ざっていたら取り込み（写真だけのつもりではない）
+        Assert.Equal(
+            DropAction.Import,
+            DropRouting.DecideOnModification([@"D:\shots\a.png", @"D:\storage\b.zip"], null, false, NothingKnown).Action);
+
+        Assert.Equal(
+            DropAction.OfferToRegister,
+            DropRouting.DecideOnModification(null, "https://booth.pm/ja/items/5813187", false, NothingKnown).Action);
+    }
 }

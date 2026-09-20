@@ -331,6 +331,14 @@ public sealed partial class MainViewModel : ViewModelBase
     public ItemViewModel? CurrentItemPage
         => CurrentViewModel as ItemViewModel ?? (CurrentViewModel as EditViewModel)?.ItemPage;
 
+    /// <summary>
+    /// いま出している改変の詳細（単独の画面でも、改変の画面に組み込んだ物でも）。
+    /// 落とした物の行き先を決めるのに要る（B5）。
+    /// </summary>
+    public ModificationViewModel? CurrentModification
+        => CurrentViewModel as ModificationViewModel
+            ?? (CurrentViewModel as ModificationHubViewModel)?.Detail as ModificationViewModel;
+
     public void NoteWindowActivated()
     {
         (CurrentViewModel as ItemViewModel)?.NoteUnityChanged();
@@ -566,9 +574,6 @@ public sealed partial class MainViewModel : ViewModelBase
                 return Run(edit.SaveAndNextCommand);
             case ShortcutAction.Skip when CurrentViewModel is EditViewModel edit:
                 return Run(edit.SkipCommand);
-            case ShortcutAction.FocusSearch:
-                ShowSearch();
-                return true;
             case ShortcutAction.Back:
                 // どの画面でも直前の画面へ（U23）。編集画面も同じ（ユーザ判断 2026-09-12）——
                 // 以前は編集画面だけ「前の1件へ」にしていたが、入力欄にいると効かず、他の画面と食い違っていた。

@@ -29,6 +29,9 @@ public enum DropAction
 
     /// <summary>未確定の画面で、選んでいるファイルの商品IDとして入れて確かめる（ユーザ指示 2026-09-17：画面のどこに落としても）。</summary>
     UseAsItemId,
+
+    /// <summary>改変の詳細を開いているとき、画像を**その改変の写真**に足す（B5）。</summary>
+    AddPhotoToModification,
 }
 
 public readonly record struct DropDecision(
@@ -93,6 +96,30 @@ public static class DropRouting
         if (paths is not { Count: > 0 } && BoothItemId.Parse(text) is { } itemId)
         {
             return new DropDecision(DropAction.UseAsItemId, itemId);
+        }
+
+        return Decide(paths, text, isKnown);
+    }
+
+    /// <summary>
+    /// 改変の詳細を開いているとき。写真の足し先が決まっているので、**画像だけが落ちてきたら**写真に回す。
+    /// それ以外（zip・BOOTHのURL）は今まで通りの規則で決める——
+    /// 以前は画面が自分で受けていて、改変を見ている間は zip も URL も落とせなかった（B5）。
+    /// </summary>
+    public static DropDecision DecideOnModification(
+        IReadOnlyList<string>? paths,
+        string? text,
+        bool hasBitmap,
+        Func<string, bool> isKnown)
+    {
+        if (paths is { Count: > 0 } && paths.All(LooksLikeImage))
+        {
+            return new DropDecision(DropAction.AddPhotoToModification, null);
+        }
+
+        if (paths is not { Count: > 0 } && hasBitmap)
+        {
+            return new DropDecision(DropAction.AddPhotoToModification, null);
         }
 
         return Decide(paths, text, isKnown);

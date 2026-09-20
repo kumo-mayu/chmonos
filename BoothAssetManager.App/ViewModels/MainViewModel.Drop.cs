@@ -26,16 +26,34 @@ public sealed partial class MainViewModel
         // 未確定の画面でファイルを選んでいるときは、商品ページを「そのファイルの商品ID」として受ける（ユーザ指示 2026-09-17：
         // 前は商品IDの入力欄の上でしか受けず、欄の外に落とすと商品ページへ移っていた）
         var resolve = CurrentViewModel as ResolveViewModel;
+
+        // 改変の詳細も同じ道を通す（B5）。以前は改変の画面が自分で受けていて、
+        // 改変を見ている間は zip も BOOTH の URL も落とせなかった
+        var modification = CurrentModification;
         var decision = CurrentItemPage is not null
             ? Core.Services.DropRouting.DecideOnItemPage(paths, text, hasBitmap, _services.Store.Items.Exists)
-            : resolve is { HasSelection: true }
-                ? Core.Services.DropRouting.DecideOnResolve(paths, text, _services.Store.Items.Exists)
-                : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
+            : modification is not null
+                ? Core.Services.DropRouting.DecideOnModification(paths, text, hasBitmap, _services.Store.Items.Exists)
+                : resolve is { HasSelection: true }
+                    ? Core.Services.DropRouting.DecideOnResolve(paths, text, _services.Store.Items.Exists)
+                    : Core.Services.DropRouting.Decide(paths, text, _services.Store.Items.Exists);
 
         switch (decision.Action)
         {
             case Core.Services.DropAction.UseAsItemId:
                 resolve?.AcceptDroppedItemId(decision.ItemId!);
+                return;
+
+            case Core.Services.DropAction.AddPhotoToModification when modification is not null:
+                if (paths is { Count: > 0 })
+                {
+                    await modification.AddImageFilesAsync(paths);
+                }
+                else if (hasBitmap && ReadClipboardImage() is { } photo)
+                {
+                    await modification.PasteImageAsync(photo);
+                }
+
                 return;
 
             case Core.Services.DropAction.AddImageToItem:

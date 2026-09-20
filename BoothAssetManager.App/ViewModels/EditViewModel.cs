@@ -274,7 +274,16 @@ public sealed partial class EditViewModel : ViewModelBase
         }
     }
 
-    /// <summary>自動で検索へ戻るまでのカウントダウン。0なら出さない。</summary>
+    /// <summary>
+    /// 編集を終えると行く先の名前。**検索とは限らない**——商品を指定して入った編集は入る前の画面へ戻る（B1）。
+    /// 名乗りと実際の行き先が違うと、押した後に迷子になる。
+    /// </summary>
+    public string FinishTargetName => _run is null ? "検索" : _main.LeaveEditLabel;
+
+    /// <summary>終えるボタンの文言。行き先を名乗る。</summary>
+    public string FinishButtonText => $"{FinishTargetName}に戻る";
+
+    /// <summary>自動で戻るまでのカウントダウン。0なら出さない。</summary>
     public int RemainingSeconds
     {
         get => _remainingSeconds;
@@ -290,7 +299,7 @@ public sealed partial class EditViewModel : ViewModelBase
 
     public bool IsReturning => RemainingSeconds > 0;
 
-    public string ReturnNoticeText => $"{RemainingSeconds} 秒後に検索へ戻ります。";
+    public string ReturnNoticeText => $"{RemainingSeconds} 秒後に{FinishTargetName}に戻ります。";
 
     public string StatusText
     {
