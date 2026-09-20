@@ -24,7 +24,7 @@ public sealed class CardRow
 /// 絞り込み（離散値）と文字列検索を分けているのは、
 /// 「なぜこの結果になったか」が分かるようにするため。
 /// </summary>
-public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
+public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISelectionScreen
 {
     /// <summary>カード1枚が占める幅（カードの幅 + 右の間。設定の「サムネイルの大きさ」で変わる）。列数の計算に使う。</summary>
     private static double CardSlotWidth => global::BoothAssetManager.App.Services.CardMetrics.SlotWidth;
@@ -85,35 +85,35 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         // 行き先が無いものは押せなくする（ユーザ指示 2026-09-20・R1）。押しても黙って何も起きなかった。
         // 理由はカードのツールチップ（ItemCardViewModel の OpenBoothTip など）で出す
         OpenBoothCommand = new RelayCommand(
-            parameter => OpenBooth(parameter as ItemCardViewModel),
-            parameter => parameter is not ItemCardViewModel card || card.HasBoothPage);
+            parameter => OpenBooth(AsCard(parameter)),
+            parameter => AsCard(parameter) is { HasBoothPage: true });
         OpenShopCommand = new RelayCommand(
-            parameter => OpenShop(parameter as ItemCardViewModel),
-            parameter => parameter is not ItemCardViewModel card || card.HasShop);
+            parameter => OpenShop(AsCard(parameter)),
+            parameter => AsCard(parameter) is { HasShop: true });
         CopyLinkCommand = new RelayCommand(
-            parameter => CopyLink(parameter as ItemCardViewModel),
-            parameter => parameter is not ItemCardViewModel card || card.HasBoothPage);
-        EditItemCommand = new RelayCommand(parameter => EditItemAsync(parameter as ItemCardViewModel).Forget());
-        RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
+            parameter => CopyLink(AsCard(parameter)),
+            parameter => AsCard(parameter) is { HasBoothPage: true });
+        EditItemCommand = new RelayCommand(parameter => EditItemAsync(AsCard(parameter)).Forget());
+        RevealCommand = new RelayCommand(parameter => Reveal(AsCard(parameter)));
         CardUnpackCommand = new RelayCommand(parameter =>
         {
-            if (parameter is ItemCardViewModel card)
+            if (AsCard(parameter) is { } card)
             {
                 ItemFileActions.UnpackAsync(_services, card.Item).Forget();
             }
         });
         CardSendToUnityCommand = new RelayCommand(parameter => CardUnityAsync(
-            parameter as ItemCardViewModel, "Unityへ送る", "これを送る",
-            package => ItemUnityActions.SendAsync(_services, ((ItemCardViewModel)parameter!).Item, package)).Forget());
+            AsCard(parameter), "Unityへ送る", "これを送る",
+            package => ItemUnityActions.SendAsync(_services, AsCard(parameter)!.Item, package)).Forget());
         CardSendToUnityWithRecordCommand = new RelayCommand(parameter => CardUnityAsync(
-            parameter as ItemCardViewModel, "改変に足して送る", "これを送る",
-            package => ItemUnityActions.SendWithRecordAsync(_services, ((ItemCardViewModel)parameter!).Item, package,
+            AsCard(parameter), "改変に足して送る", "これを送る",
+            package => ItemUnityActions.SendWithRecordAsync(_services, AsCard(parameter)!.Item, package,
                 text => Tell("改変に足して送る", text))).Forget());
         CardSelectInUnityCommand = new RelayCommand(parameter => CardUnityAsync(
-            parameter as ItemCardViewModel, "Unityで選択", "これを示す",
-            package => ItemUnityActions.SelectAsync(((ItemCardViewModel)parameter!).Item, package,
+            AsCard(parameter), "Unityで選択", "これを示す",
+            package => ItemUnityActions.SelectAsync(AsCard(parameter)!.Item, package,
                 text => Tell("Unityで選択", text))).Forget());
-        HideItemCommand = new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
+        HideItemCommand = new RelayCommand(parameter => HideItemAsync(AsCard(parameter)).Forget());
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;
         _isListMode = ItemListMode.IsList(services, "search");

@@ -21,9 +21,20 @@ public partial class MainWindow : Window
         // 割り当てのショートカットと同じ道を通す（編集画面では前の1件へ）
         PreviewMouseDown += (_, e) =>
         {
-            if (e.ChangedButton == System.Windows.Input.MouseButton.XButton1
-                && DataContext is MainViewModel main
-                && main.RunShortcut(Services.ShortcutAction.Back))
+            if (DataContext is not MainViewModel main)
+            {
+                return;
+            }
+
+            // 進むボタン（XButton2）も同じ道を通す（ユーザ指示 2026-09-20・M7）
+            var action = e.ChangedButton switch
+            {
+                System.Windows.Input.MouseButton.XButton1 => Services.ShortcutAction.Back,
+                System.Windows.Input.MouseButton.XButton2 => Services.ShortcutAction.Forward,
+                _ => (Services.ShortcutAction?)null,
+            };
+
+            if (action is { } move && main.RunShortcut(move))
             {
                 e.Handled = true;
             }
@@ -385,6 +396,27 @@ public partial class MainWindow : Window
     /// 入力欄にいるときは何もしない。そこでの Ctrl+V は文字を貼る操作で、
     /// 横取りすると打てなくなる。
     /// </summary>
+    /// <summary>
+    /// Esc で、まとめて操作するための選択を解除する（ユーザ指示 2026-09-20・M6）。
+    /// 前は解除がボタンだけで、置き場所も画面ごとに違った（検索は下の帯・未確定は一覧の上）。
+    ///
+    /// **文字を打っている間と、選んでいないときは横取りしない**——入力欄の Esc（候補を閉じる・打ち消す）と
+    /// 画面の中の検索の帯を閉じる Esc を先に通す。
+    /// </summary>
+    private static bool TryClearSelection(MainViewModel main, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Escape
+            || System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox
+            || main.CurrentViewModel is not ViewModels.ISelectionScreen { HasSelection: true } screen)
+        {
+            return false;
+        }
+
+        screen.ClearSelection();
+        e.Handled = true;
+        return true;
+    }
+
     private void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (DataContext is MainViewModel shortcutMain && TryShortcut(shortcutMain, e))
@@ -393,6 +425,11 @@ public partial class MainWindow : Window
         }
 
         if (DataContext is MainViewModel current && TryMoveGallery(current, e))
+        {
+            return;
+        }
+
+        if (DataContext is MainViewModel selecting && TryClearSelection(selecting, e))
         {
             return;
         }

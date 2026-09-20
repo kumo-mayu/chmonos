@@ -37,6 +37,14 @@ public sealed partial class SearchViewModel
     public ItemCardViewModel CreateCard(ItemRecord item)
         => ToCard(_allItems.Find(current => current.Id == item.Id) ?? item);
 
+    /// <summary>
+    /// 右クリックのメニューが渡してきた行を、カードとして受け取る。
+    /// **カードそのもの**（検索・ショップ・フォルダ）か、**カードを持つ行**（改変のリスト表示・<see cref="IHasItemCard"/>）。
+    /// 手元に無い商品の行はカードが無いので null（押せない）
+    /// </summary>
+    internal static ItemCardViewModel? AsCard(object? parameter)
+        => parameter as ItemCardViewModel ?? (parameter as IHasItemCard)?.Card;
+
     /// <summary>商品ページをブラウザで開く。中クリックからも呼ぶ。</summary>
     public void OpenBooth(ItemCardViewModel? card)
     {

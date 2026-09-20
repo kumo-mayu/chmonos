@@ -46,6 +46,12 @@
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
                 <Setter Property="MinHeight" Value="52" />
+                <!--
+                    カード表示と同じ右クリック（ユーザ指示 2026-09-20・M1：表示を切り替えただけで操作が消えていた）。
+                    行はカードそのものではないので、メニューは行から Card を取り出す（SearchViewModel.AsCard）
+                -->
+                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
+                <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">

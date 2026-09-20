@@ -35,15 +35,33 @@ public sealed partial class MainViewModel
         Push,
         Replace,
         Back,
+
+        /// <summary>「進む」で開き直す分。履歴には積むが、進む先の控えは捨てない。</summary>
+        Forward,
     }
 
     private readonly List<HistoryEntry> _history = [];
+
+    /// <summary>
+    /// 戻った先から**また進む**ための控え（ユーザ指示 2026-09-20・M7：ブラウザと同じく進むも要る）。
+    /// 戻るたびに、離れる画面をここへ積む。**新しい画面へ移ったら捨てる**——ブラウザと同じで、
+    /// 枝分かれした後の「進む」は行き先が決まらない
+    /// </summary>
+    private readonly List<HistoryEntry> _forward = [];
+
     private Navigation _nextNavigation = Navigation.Push;
 
     public bool CanGoBack => _history.Count > 0;
 
+    public bool CanGoForward => _forward.Count > 0;
+
     /// <summary>戻るボタンの文言。行き先の名前を出す（どこへ戻るのか分からないと押せない）。</summary>
     public string BackButtonText => _history.Count > 0 ? $"← {_history[^1].Label}に戻る" : "← 検索に戻る";
+
+    /// <summary>左上の戻る・進む（ブラウザと同じ形）。名前は出せないので、行き先はツールチップで言う。</summary>
+    public string BackTip => _history.Count > 0 ? $"「{_history[^1].Label}」へ戻る（Alt+←）" : "戻る先がありません";
+
+    public string ForwardTip => _forward.Count > 0 ? $"「{_forward[^1].Label}」へ進む（Alt+→）" : "進む先がありません";
 
     /// <summary>直前の画面へ戻る。履歴が無ければ検索へ。</summary>
     public void GoBack()
@@ -54,10 +72,40 @@ public sealed partial class MainViewModel
             return;
         }
 
+        // 戻る前の画面を「進む」に積む（積めない画面＝控えの作れない物は積まない）
+        if (_currentViewModel is not null && EntryFor(_currentViewModel) is { } leaving)
+        {
+            _forward.Add(leaving);
+        }
+
         var entry = _history[^1];
         _history.RemoveAt(_history.Count - 1);
         _nextNavigation = Navigation.Back;
         entry.Restore();
+    }
+
+    /// <summary>戻った先から進む。進む先が無ければ何もしない。</summary>
+    public void GoForward()
+    {
+        if (_forward.Count == 0)
+        {
+            return;
+        }
+
+        var entry = _forward[^1];
+        _forward.RemoveAt(_forward.Count - 1);
+
+        // 進むときは、今の画面を履歴へ積む（戻れば元の場所に返れる）
+        _nextNavigation = Navigation.Forward;
+        entry.Restore();
+    }
+
+    private void ClearForward()
+    {
+        if (_forward.Count > 0)
+        {
+            _forward.Clear();
+        }
     }
 
     /// <summary>

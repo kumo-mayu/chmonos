@@ -16,7 +16,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// 調べる作業と主観で決める作業とで頭の使い方が違うため。
 /// 確定したものはこの画面で溜めておき、最後にまとめて編集へ送る。
 /// </summary>
-public sealed partial class ResolveViewModel : ViewModelBase
+public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;

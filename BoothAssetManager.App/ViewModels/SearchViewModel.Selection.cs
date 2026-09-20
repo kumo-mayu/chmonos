@@ -137,7 +137,7 @@ public sealed partial class SearchViewModel
         }
     }
 
-    private void ClearSelection()
+    public void ClearSelection()
     {
         foreach (var card in _cards.Values.Where(card => card.IsSelected))
         {

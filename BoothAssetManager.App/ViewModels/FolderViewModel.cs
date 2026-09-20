@@ -270,7 +270,7 @@ public sealed class FolderViewRow : ViewModelBase
 /// 未確定のファイルは未確定の画面の右側を、そのまま組み込む。根の決め方は <see cref="FolderViewRoots"/>。
 /// **木は保存した記録のパスから組み、ディスクを読み回らない**（取り外したドライブも最後に分かっていた形で出す）。
 /// </summary>
-public sealed class FolderViewModel : ViewModelBase
+public sealed class FolderViewModel : ViewModelBase, ISelectionScreen
 {
     // 開いた・畳んだはアプリを閉じるまで覚える（改変の画面と同じ・ユーザ判断）
     private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
@@ -1297,5 +1297,17 @@ public sealed class FolderViewModel : ViewModelBase
         return parent.StartsWith(@"\\", StringComparison.Ordinal) && parent.Count(character => character == '\\') < 3
             ? null
             : parent;
+    }
+
+    // ---- Esc で選択を解除（ユーザ指示 2026-09-20・M6）。選ぶのは右のフォルダの中身（FolderViewDetail）----
+
+    bool ISelectionScreen.HasSelection => Detail is FolderViewDetail { HasSelection: true };
+
+    void ISelectionScreen.ClearSelection()
+    {
+        if (Detail is FolderViewDetail detail)
+        {
+            detail.ClearSelection();
+        }
     }
 }

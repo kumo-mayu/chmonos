@@ -146,6 +146,14 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public RelayCommand ToggleNavCommand { get; }
 
+    private RelayCommand? _goBack;
+    private RelayCommand? _goForward;
+
+    /// <summary>左上の戻る・進む（ユーザ指示 2026-09-20・M7）。キーとマウスのボタンと同じ道を通す。</summary>
+    public RelayCommand GoBackCommand => _goBack ??= new RelayCommand(() => GoBack(), () => CanGoBack);
+
+    public RelayCommand GoForwardCommand => _goForward ??= new RelayCommand(() => GoForward(), () => CanGoForward);
+
     private void ToggleNav()
     {
         IsNavCollapsed = !IsNavCollapsed;
@@ -343,9 +351,16 @@ public sealed partial class MainViewModel : ViewModelBase
             // 離れる画面を履歴に積む（U23）。戻るで来たときと、同じ商品を開き直すときは積まない
             var navigation = _nextNavigation;
             _nextNavigation = Navigation.Push;
-            if (navigation == Navigation.Push && _currentViewModel is not null && !ReferenceEquals(_currentViewModel, value))
+            if (navigation is Navigation.Push or Navigation.Forward
+                && _currentViewModel is not null && !ReferenceEquals(_currentViewModel, value))
             {
                 Remember(_currentViewModel);
+            }
+
+            // 新しい画面へ移ったら「進む」は捨てる（ブラウザと同じ。枝分かれした先は決まらない）
+            if (navigation == Navigation.Push && !ReferenceEquals(_currentViewModel, value))
+            {
+                ClearForward();
             }
 
             // 編集画面を離れるときは、今の商品の入力を書きかけとして控える（別の画面へ移っても消さない・ユーザ判断）
@@ -389,6 +404,9 @@ public sealed partial class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsAttributeManageActive));
                 OnPropertyChanged(nameof(CanGoBack));
                 OnPropertyChanged(nameof(BackButtonText));
+                OnPropertyChanged(nameof(CanGoForward));
+                OnPropertyChanged(nameof(BackTip));
+                OnPropertyChanged(nameof(ForwardTip));
             }
         }
     }
@@ -561,6 +579,15 @@ public sealed partial class MainViewModel : ViewModelBase
                 }
 
                 GoBack();
+                return true;
+            case ShortcutAction.Forward:
+                // 戻った先からまた進む（ユーザ指示 2026-09-20・M7）。進む先が無ければ譲る
+                if (!CanGoForward)
+                {
+                    return false;
+                }
+
+                GoForward();
                 return true;
             default:
                 return false;

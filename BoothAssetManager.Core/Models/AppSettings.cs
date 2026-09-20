@@ -332,6 +332,9 @@ public sealed record ShortcutSettings
 
     /// <summary>直前の画面へ戻る（どの画面でも。編集画面の「前の1件へ」は「← 前へ」ボタン）。</summary>
     public string Back { get; init; } = "Alt+Left";
+
+    /// <summary>戻った先からまた進む（ユーザ指示 2026-09-20・M7。ブラウザと同じ形）。</summary>
+    public string Forward { get; init; } = "Alt+Right";
 }
 
 /// <summary>ウィンドウの位置・大きさ・最大化。</summary>

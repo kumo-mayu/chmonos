@@ -14,7 +14,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// **並びが導入の順**なので、位置（<see cref="Index"/>）が意味を持つ。
 /// 位置で指すのは、同じ商品を別バージョンで2回足せるため。
 /// </summary>
-public sealed class ModificationMemberRowViewModel
+public sealed class ModificationMemberRowViewModel : IHasItemCard
 {
     public required int Index { get; init; }
 

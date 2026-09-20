@@ -10,6 +10,7 @@ public enum ShortcutAction
     Skip,
     FocusSearch,
     Back,
+    Forward,
 }
 
 /// <summary>
@@ -26,6 +27,7 @@ public static class Shortcuts
         ShortcutAction.Skip => "スキップ（編集）",
         ShortcutAction.FocusSearch => "検索欄へ",
         ShortcutAction.Back => "直前の画面へ戻る",
+        ShortcutAction.Forward => "戻った先から進む",
         _ => action.ToString(),
     };
 
@@ -35,6 +37,7 @@ public static class Shortcuts
         ShortcutAction.Skip => settings.Skip,
         ShortcutAction.FocusSearch => settings.FocusSearch,
         ShortcutAction.Back => settings.Back,
+        ShortcutAction.Forward => settings.Forward,
         _ => string.Empty,
     };
 
@@ -44,6 +47,7 @@ public static class Shortcuts
         ShortcutAction.Skip => settings with { Skip = gesture },
         ShortcutAction.FocusSearch => settings with { FocusSearch = gesture },
         ShortcutAction.Back => settings with { Back = gesture },
+        ShortcutAction.Forward => settings with { Forward = gesture },
         _ => settings,
     };
 

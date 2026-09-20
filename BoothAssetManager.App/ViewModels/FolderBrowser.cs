@@ -402,7 +402,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         return cards;
     }
 
-    private void ClearSelection()
+    public void ClearSelection()
     {
         foreach (var card in _cards.Values.Where(card => card.IsSelected))
         {

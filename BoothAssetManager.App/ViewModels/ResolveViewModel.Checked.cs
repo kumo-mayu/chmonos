@@ -273,4 +273,10 @@ public sealed partial class ResolveViewModel
             OnPropertyChanged(nameof(HasStatus));
         }
     }
+
+    // ---- Esc で選択を解除（ユーザ指示 2026-09-20・M6。解除はボタンだけで、位置も画面ごとに違った） ----
+
+    bool ISelectionScreen.HasSelection => HasChecked;
+
+    void ISelectionScreen.ClearSelection() => ClearChecks();
 }
