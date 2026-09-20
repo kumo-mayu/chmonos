@@ -197,6 +197,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// <summary>読んである全商品から1件を引く。持っているアバターの絵に、その商品の1枚目を使うため（U18）。</summary>
     public ItemRecord? FindItem(string itemId) => _allItems.FirstOrDefault(item => item.Id == itemId);
 
+    /// <summary>その商品のカード（右クリックを借りる画面のため・M2）。手元に無ければ null。</summary>
+    public ItemCardViewModel? CardFor(string itemId) => FindItem(itemId) is { } item ? ToCard(item) : null;
+
     /// <summary>
     /// そのファイルを持っている（外していない）別の商品。商品ページの灰色の行で、
     /// 「この商品に戻す」を押す前に戻せないことを見せるため。読んである写しから引くので、

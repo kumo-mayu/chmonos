@@ -163,10 +163,29 @@
                     </Border>
 
                     <ListBox x:Name="FilesList" ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                             PreviewMouseRightButtonDown="OnFileRowRightClick"
                              BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                              VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <!--
+                            行の右クリック（ユーザ指示 2026-09-20・M2）。押した行を選んでから出すので（下の OnFileRowRightClick）、
+                            右の詳細と同じ物に効く。中身は右の操作と同じ命令
+                        -->
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="エクスプローラで開く"
+                                          ToolTip="このファイルの場所を開きます。"
+                                          ToolTipService.ShowOnDisabled="True"
+                                          Command="{Binding PlacementTarget.DataContext.RevealCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <MenuItem Header="管理対象から除外する"
+                                          ToolTip="未確定の一覧から外します。設定の「隠したもの」から戻せます。"
+                                          ToolTipService.ShowOnDisabled="True"
+                                          Command="{Binding PlacementTarget.DataContext.ExcludeCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <!--
                             束は元zip（分からなければフォルダ）。元zipの束は畳んで出し、zipを単位に扱う。
                             1件ずつ扱いたいときだけ開いて行を選ぶ。

@@ -437,7 +437,7 @@ public sealed partial class SearchViewModel
         };
     }
 
-    private ItemCardViewModel ToCard(ItemRecord item)
+    internal ItemCardViewModel ToCard(ItemRecord item)
     {
         var missing = item.Local.OwnedFiles.Any(file => file.Paths.Count == 0);
 

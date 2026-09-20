@@ -120,6 +120,9 @@ public sealed class ShopCardViewModel : ViewModelBase
 
     public RelayCommand? OpenCommand { get; set; }
 
+    /// <summary>右クリックから、BOOTHのショップページをブラウザで開く（ユーザ指示 2026-09-20・M2）。URL が分からなければ押せない。</summary>
+    public RelayCommand? OpenBoothCommand { get; set; }
+
     /// <summary>名前から色を決める。同じショップは常に同じ色になる。</summary>
     private static System.Windows.Media.Brush TileBrush(string key)
     {
@@ -393,6 +396,8 @@ public sealed class ShopsViewModel : ViewModelBase
                     }
 
                     card.OpenCommand = new RelayCommand(() => _main.ShowShop(shop));
+                    card.OpenBoothCommand = new RelayCommand(
+                        () => Services.Shell.OpenUrl(shop.Url!), () => !string.IsNullOrEmpty(shop.Url));
                     return card;
                 }).ToList();
 

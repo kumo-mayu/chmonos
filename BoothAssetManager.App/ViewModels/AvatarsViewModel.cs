@@ -11,9 +11,40 @@ namespace BoothAssetManager.App.ViewModels;
 /// **同じ名前を許してあるので、日付が見分けの手掛かり**（`docs/history/modifications.md` Q27）。
 /// </summary>
 /// <summary>一覧の1行。</summary>
-public sealed class AvatarRowViewModel : ViewModelBase
+public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
 {
     public required AvatarSummary Summary { get; init; }
+
+    /// <summary>この行の商品（アバターは商品でもある）。右クリックをカードと同じにするために持つ（M2）。手元に無ければ null。</summary>
+    public ItemRecord? Item { get; init; }
+
+    /// <summary>カードを作るのに要る物（画像の置き場と設定）。</summary>
+    public AppServiceContainer? Services { get; init; }
+
+    private ItemCardViewModel? _card;
+
+    /// <summary>右クリックで使うカード。**押されたときに初めて作る**（一覧は数百行並ぶ）。</summary>
+    ItemCardViewModel? IHasItemCard.Card
+    {
+        get
+        {
+            if (_card is not null)
+            {
+                return _card;
+            }
+
+            if (Item is not { } item || Thumbnails is null || Services is null)
+            {
+                return null;
+            }
+
+            return _card = new ItemCardViewModel(
+                item, Thumbnails, Services.Paths.ItemImagesDir(item.Id), Services.Settings.ThumbnailRole)
+            {
+                Name = item.DisplayName,
+            };
+        }
+    }
 
     /// <summary>一覧のグループ見出し。所有しているものを先に固めて出す。</summary>
     public string GroupName { get; set; } = string.Empty;
@@ -194,7 +225,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         OpenItemCommand = new RelayCommand(() => OpenItemAsync().Forget());
         RecheckCommand = new RelayCommand(() => RecheckAsync().Forget());
         TreatAsAvatarCommand = new RelayCommand(parameter => SetOverrideAsync(parameter as string).Forget());
-        OpenBoothCommand = new RelayCommand(OpenBooth);
+        OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter));
         ShowItemsCommand = new RelayCommand(ShowItems);
         CreateModificationCommand = new RelayCommand(
             () => CreateModificationAsync().Forget(),
@@ -896,6 +927,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             {
                 Summary = summary,
                 Thumbnails = _main.Thumbnails,
+                Item = _main.Search.FindItem(summary.Entry.ItemId),
+                Services = _services,
                 IconPathFactory = () => AvatarImageSync.IconPath(
                     _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId)),
             }).ToList();
@@ -1321,9 +1354,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         await LoadAsync();
     }
 
-    private void OpenBooth()
+    /// <summary>
+    /// BOOTHの商品ページを開く。右の詳細のボタンからは選んでいるアバター、
+    /// 一覧の行の右クリックからはその行（ユーザ指示 2026-09-20・M2）。
+    /// </summary>
+    private void OpenBooth(object? parameter = null)
     {
-        if (Selected is null)
+        var target = parameter as AvatarRowViewModel ?? Selected;
+        if (target is null)
         {
             return;
         }
@@ -1332,7 +1370,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = $"https://booth.pm/ja/items/{Selected.ItemId}",
+                FileName = $"https://booth.pm/ja/items/{target.ItemId}",
                 UseShellExecute = true,
             });
         }
@@ -1353,4 +1391,24 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         _main.Search.ShowOnlyAvatar(Selected.ItemId, Selected.Name);
         _main.ShowSearch();
     }
+
+    // ---- 一覧の行の右クリック（ユーザ指示 2026-09-20・M2）。中身は検索画面と同じ命令を借りる ----
+
+    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+
+    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
+
+    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
+
+    public RelayCommand RevealCommand => _main.Search.RevealCommand;
+
+    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
+
+    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
+
+    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
+
+    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
+
+    public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
 }

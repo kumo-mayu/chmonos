@@ -173,6 +173,7 @@ public sealed partial class EditViewModel
                 IsDraft = _main.Drafts.Contains(itemId),
                 ImageFactory = onLoaded => TileImage(itemId, onLoaded, preview: false),
                 PreviewFactory = onLoaded => TileImage(itemId, onLoaded, preview: true),
+                CardFactory = () => _main.Search.CardFor(itemId),
             });
         }
 

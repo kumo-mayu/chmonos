@@ -27,6 +27,12 @@ public sealed partial class EditViewModel : ViewModelBase
     /// <summary>右の入力欄の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
     public PaneColumn RightPane => _rightPane ??= new PaneColumn(_services.PaneWidths, "edit.right");
     private readonly MainViewModel _main;
+
+    /// <summary>
+    /// 続く商品の帯の右クリック（カードと同じメニュー・M2）が使う命令の持ち主。
+    /// この画面にも同じ名前の命令（BOOTHで開く・エクスプローラで開く）があるので、検索画面をそのまま渡す
+    /// </summary>
+    public SearchViewModel CardHost => _main.Search;
     private readonly ThumbnailLoader _thumbnails;
     private readonly DispatcherTimer _returnTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 

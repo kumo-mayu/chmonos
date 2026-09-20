@@ -8,8 +8,15 @@ namespace BoothAssetManager.App.ViewModels;
 /// 名前も絵も、帯に作られたときに初めて引く。帯は見えている分しか作らないので、
 /// 2000件の順番でも引くのは画面に出た数十件だけで済む。
 /// </summary>
-public sealed class EditQueueTile : ViewModelBase
+public sealed class EditQueueTile : ViewModelBase, IHasItemCard
 {
+    /// <summary>この商品のカード（右クリックをカードと同じにするため・M2）。押されたときに初めて作る。</summary>
+    public Func<ItemCardViewModel?>? CardFactory { get; init; }
+
+    private ItemCardViewModel? _card;
+
+    ItemCardViewModel? IHasItemCard.Card => _card ??= CardFactory?.Invoke();
+
     /// <summary>編集の順番の中の位置。</summary>
     public required int Index { get; init; }
 

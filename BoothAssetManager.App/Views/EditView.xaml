@@ -9,6 +9,15 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:EditViewModel}">
+    <UserControl.Resources>
+      <ResourceDictionary>
+        <!-- 続く商品の帯の右クリックは、カードと同じメニュー（ユーザ指示 2026-09-20・M2） -->
+        <ResourceDictionary.MergedDictionaries>
+            <views:ItemCardResources />
+        </ResourceDictionary.MergedDictionaries>
+      </ResourceDictionary>
+    </UserControl.Resources>
+
     <DockPanel Background="{StaticResource Bg}">
 
         <!--
@@ -98,6 +107,8 @@
                                 56の枠が上だけ残して切れた（右下の保存の印も見えなくなった）
                             -->
                             <Button Width="56" Height="56" Margin="0,0,6,0" Padding="0" Focusable="False" Cursor="Hand"
+                                    Tag="{Binding DataContext.CardHost, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    ContextMenu="{StaticResource CardMenu}"
                                     ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0"
                                     ToolTipService.Placement="Bottom"
                                     Command="{Binding DataContext.JumpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

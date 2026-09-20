@@ -78,6 +78,9 @@ public sealed class ImportViewModel : ViewModelBase
         // 終わるのを待たせない。押した先は同じ取り込みで、2本目は起こさない
         AddFolderCommand = new RelayCommand(AddFolder);
         RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => parameter is string);
+        // 右クリックから、そのフォルダをエクスプローラで開く（ユーザ指示 2026-09-20・M2）
+        RevealFolderCommand = new RelayCommand(
+            parameter => Services.Shell.Reveal(parameter as string), parameter => parameter is string);
         StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
@@ -112,6 +115,9 @@ public sealed class ImportViewModel : ViewModelBase
     public RelayCommand AddFolderCommand { get; }
 
     public RelayCommand RemoveFolderCommand { get; }
+
+    /// <summary>右クリックの「エクスプローラで開く」（取り込み元・監視フォルダ）。</summary>
+    public RelayCommand RevealFolderCommand { get; }
 
     public RelayCommand StartCommand { get; }
 

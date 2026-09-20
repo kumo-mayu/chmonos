@@ -66,7 +66,15 @@
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11">
+                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                        <!-- 右クリック（ユーザ指示 2026-09-20・M2）。行のボタンと同じ操作に、場所を開くを足す -->
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="取り込み対象から外す" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                                             <Button Content="削除" Width="60" Height="27" HorizontalAlignment="Right"
@@ -129,7 +137,15 @@
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11">
+                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                        <!-- 右クリック（M2）。行のボタンと同じ操作に、場所を開くを足す -->
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="監視から外す" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                                             <Button Content="外す" Width="60" Height="27" HorizontalAlignment="Right"

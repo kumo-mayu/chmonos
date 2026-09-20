@@ -63,6 +63,19 @@ public partial class ResolveView : UserControl
         }
     }
 
+    /// <summary>
+    /// 右クリックした行を先に選ぶ（ユーザ指示 2026-09-20・M2）。
+    /// 未確定の操作は「選んでいる物」に効くので、選ばずにメニューを出すと、別の行に効いてしまう。
+    /// </summary>
+    private void OnFileRowRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is System.Windows.DependencyObject source
+            && ItemsControl.ContainerFromElement(FilesList, source) is System.Windows.Controls.ListBoxItem row)
+        {
+            row.IsSelected = true;
+        }
+    }
+
     /// <summary>「商品IDを決める」の欄を画面に入れる。候補は欄より下にあり、押した結果が見えなかった（ユーザ判断 2026-09-17）。</summary>
     private void OnDecisionFocusRequested() => DecisionCard.BringIntoView();
 }

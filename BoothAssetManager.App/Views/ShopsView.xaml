@@ -139,6 +139,16 @@
                           <Grid Margin="0,0,14,14">
                           <Button Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand"
                                   AutomationProperties.Name="{Binding Name}">
+                            <!-- 右クリック（ユーザ指示 2026-09-20・M2）。押したときと同じ2つの行き先を出す -->
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="ショップを開く" Command="{Binding OpenCommand}"
+                                              ToolTip="このショップの商品を、アプリの中のショップ画面で見ます。" />
+                                    <MenuItem Header="BOOTHのショップページを開く" Command="{Binding OpenBoothCommand}"
+                                              ToolTip="BOOTHのショップページをブラウザで開きます（アプリの外へ出ます）。"
+                                              ToolTipService.ShowOnDisabled="True" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <ContentPresenter />
