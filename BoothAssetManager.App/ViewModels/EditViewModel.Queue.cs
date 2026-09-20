@@ -126,7 +126,15 @@ public sealed partial class EditViewModel
     {
         var at = itemId is null ? -1 : _queue.IndexOf(itemId);
         var target = at >= 0 ? at : Math.Clamp(fallbackIndex, 0, _queue.Count);
-        return target == _index ? Task.CompletedTask : MoveToAsync(target);
+        if (target != _index)
+        {
+            return MoveToAsync(target);
+        }
+
+        // 行き先が今と同じでも、**数え上げは止める**。止める処理が MoveToAsync の中にしか無く、
+        // たまたま同じ位置へ戻ったときだけ素通りして、数秒後に勝手に検索へ飛んでいた
+        StopReturnTimer();
+        return Task.CompletedTask;
     }
 
     private async Task MoveToAsync(int index)

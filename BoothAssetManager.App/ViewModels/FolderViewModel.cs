@@ -1376,13 +1376,25 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     // ---- Esc で選択を解除（ユーザ指示 2026-09-20・M6）。選ぶのは右のフォルダの中身（FolderViewDetail）----
 
-    bool ISelectionScreen.HasSelection => Detail is FolderViewDetail { HasSelection: true };
+    // 右に組み込んだ未確定の画面も見る。単独の未確定画面では Esc で解除できるのに、
+    // フォルダの右に出したときだけ解除できなかった
+    bool ISelectionScreen.HasSelection => Detail switch
+    {
+        FolderViewDetail folder => folder.HasSelection,
+        ISelectionScreen embedded => embedded.HasSelection,
+        _ => false,
+    };
 
     void ISelectionScreen.ClearSelection()
     {
-        if (Detail is FolderViewDetail detail)
+        switch (Detail)
         {
-            detail.ClearSelection();
+            case FolderViewDetail folder:
+                folder.ClearSelection();
+                break;
+            case ISelectionScreen embedded:
+                embedded.ClearSelection();
+                break;
         }
     }
 }

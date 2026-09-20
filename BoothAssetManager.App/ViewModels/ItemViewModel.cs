@@ -408,7 +408,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         }
         else
         {
-            _main.ShowSearch();
+            // 登録を外した商品のページは履歴に積まない（取り直し・IDの付け替えと同じ扱い）。
+            // 積むと、直後の「戻る」が無いものへ戻ろうとして更にもう1つ前へ飛ぶ
+            _main.ReplaceWithSearch();
         }
     }
 

@@ -457,9 +457,14 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 ShowAvatar(selection.Key);
                 break;
             case ModificationHubSelectionKind.Modification:
+                // 外で消されていたら、黙って空にせず理由を出す（空表示には次にやることを書く）
                 if (FindRecord(selection.Key) is { } record)
                 {
                     ShowModification(record);
+                }
+                else
+                {
+                    Status = "開いていた改変は、もうありません。左の一覧から選び直してください。";
                 }
 
                 break;
@@ -467,6 +472,10 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 if (FindRecord(selection.Key) is { } owner && selection.Index < owner.Members.Count)
                 {
                     ShowMember(MemberRow(owner, owner.Members[selection.Index], selection.Index));
+                }
+                else
+                {
+                    Status = "開いていた「使ったもの」は、もうありません。左の一覧から選び直してください。";
                 }
 
                 break;

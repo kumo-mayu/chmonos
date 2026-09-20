@@ -19,7 +19,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// userTagも属性も、マスタを全部並べるのではなく候補付きの入力欄から積む。
 /// 並べる方式は分類が増えるほど画面が縦に伸び、使えなくなるため。
 /// </summary>
-public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
+public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeavingScreen
 {
     private readonly AppServiceContainer _services;
     private PaneColumn? _rightPane;
@@ -1103,6 +1103,12 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
         RemainingSeconds = 0;
     }
 
+    /// <summary>
+    /// 離れたら数え上げを止める。止める口が無く、画面を離れても回り続けていた
+    /// （今の画面かを確かめるので飛ばされはしないが、数え終わるまで古い編集画面が残る）。
+    /// </summary>
+    public void OnLeaving() => StopReturnTimer();
+
     private void OnReturnTick(object? sender, EventArgs e)
     {
         RemainingSeconds--;
@@ -1138,7 +1144,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
 
         if (_run is null)
         {
-            _main.ShowSearch();
+            _main.LeaveEditToSearch();
         }
         else
         {

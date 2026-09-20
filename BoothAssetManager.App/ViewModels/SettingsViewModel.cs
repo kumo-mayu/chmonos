@@ -91,7 +91,7 @@ public sealed class RestorableRow
 /// 起動時にサービスへ渡している値は、次の起動から効く。どれがそうなのかは
 /// 画面に書いておく（黙って効かないのがいちばん困る）。
 /// </summary>
-public sealed class SettingsViewModel : ViewModelBase
+public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -106,15 +106,11 @@ public sealed class SettingsViewModel : ViewModelBase
         _main = main;
 
         // 取り込みが始まる／終わると「場所を変える」の可否と理由が変わる。
-        // ボタンの enabled は RelayCommand の一括通知で戻るが、理由の文は自分で書き換える
-        _main.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(MainViewModel.IsImporting))
-            {
-                OnPropertyChanged(nameof(CanChangeRoot));
-                OnPropertyChanged(nameof(RootLockedNote));
-            }
-        };
+        // ボタンの enabled は RelayCommand の一括通知で戻るが、理由の文は自分で書き換える。
+        //
+        // **離れるときに外す**（`OnLeaving`）。主画面はアプリと同じ寿命、この画面は開くたびに作り直しなので、
+        // 外さないと捨てたはずの設定画面が生き残り、取り込みのたびに開いた回数ぶん同じ知らせが走る
+        _main.PropertyChanged += OnMainChanged;
 
         AddFolderCommand = new RelayCommand(AddFolder);
         OpenRootCommand = new RelayCommand(OpenRoot);
@@ -160,6 +156,18 @@ public sealed class SettingsViewModel : ViewModelBase
 
         LoadAsync().Forget();
     }
+
+    private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(MainViewModel.IsImporting))
+        {
+            OnPropertyChanged(nameof(CanChangeRoot));
+            OnPropertyChanged(nameof(RootLockedNote));
+        }
+    }
+
+    /// <summary>離れたら主画面の知らせを外す（外さないと、開いた回数ぶん生き残って同じ知らせが走る）。</summary>
+    public void OnLeaving() => _main.PropertyChanged -= OnMainChanged;
 
     public RelayCommand AddFolderCommand { get; }
 

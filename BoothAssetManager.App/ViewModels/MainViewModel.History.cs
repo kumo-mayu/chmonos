@@ -84,16 +84,25 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>直前の画面へ戻る。履歴が無ければ検索へ。</summary>
-    public void GoBack()
+    public void GoBack() => GoBack(rememberForward: true);
+
+    /// <param name="rememberForward">
+    /// 戻る前の画面を「進む」に積むか。**消えた先を飛ばしてもう1つ戻るときは積まない**——
+    /// 画面はまだ差し替わっていないので、同じ画面が「進む」に2つ並び、進むを2回押すと同じ所へ2回来る。
+    /// </param>
+    private void GoBack(bool rememberForward)
     {
         if (_history.Count == 0)
         {
+            // 戻り先が無いので、今の画面を積み直さずに検索へ出す
+            // （積むと、戻ったはずなのに戻るがまた光って、今出てきた画面を指す）
+            _nextNavigation = Navigation.Replace;
             ShowSearch();
             return;
         }
 
         // 戻る前の画面を「進む」に積む（積めない画面＝控えの作れない物は積まない）
-        if (_currentViewModel is not null && EntryFor(_currentViewModel) is { } leaving)
+        if (rememberForward && _currentViewModel is not null && EntryFor(_currentViewModel) is { } leaving)
         {
             _forward.Add(leaving);
         }
@@ -135,12 +144,30 @@ public sealed partial class MainViewModel
     /// </summary>
     public void LeaveEdit()
     {
+        DropEditSteps();
+        GoBack();
+    }
+
+    /// <summary>
+    /// ナビから入った編集（未編集の順番）を終えたとき。**編集の足跡を捨ててから**検索へ戻す。
+    ///
+    /// 前は普通の移動で検索へ戻していたので、編集の足跡が履歴に残ったまま編集画面まで積まれていた。
+    /// 戻るを押すと、順番の記録はもう消してあるので、開いていた商品ではなく
+    /// 未編集の先頭から編集が始まり直していた（押した回数ぶん掘り返す）。
+    /// </summary>
+    public void LeaveEditToSearch()
+    {
+        DropEditSteps();
+        _nextNavigation = Navigation.Replace;
+        ShowSearch();
+    }
+
+    private void DropEditSteps()
+    {
         while (_history.Count > 0 && _history[^1].IsEdit)
         {
             _history.RemoveAt(_history.Count - 1);
         }
-
-        GoBack();
     }
 
     private void Remember(object leaving)
@@ -166,9 +193,9 @@ public sealed partial class MainViewModel
     {
         SearchViewModel => new HistoryEntry("検索", ShowSearch),
         ItemViewModel item => new HistoryEntry(Shorten(item.Name), () => RestoreItemAsync(item.Item.Id).Forget()),
-        ShopViewModel shop => new HistoryEntry(Shorten(shop.Shop.Name), () => ShowShop(shop.Shop)),
+        ShopViewModel shop => new HistoryEntry(Shorten(shop.Shop.Name), () => RestoreShopAsync(shop.Shop).Forget()),
         ModificationViewModel modification => new HistoryEntry(
-            Shorten(modification.Record.Name), () => ShowModification(modification.Record)),
+            Shorten(modification.Record.Name), () => RestoreModificationAsync(modification.Record.Id).Forget()),
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
         ModificationHubViewModel hub => new HistoryEntry(
             "改変", () => ShowModifications(hub.Level, hub.Selection)),
@@ -192,8 +219,21 @@ public sealed partial class MainViewModel
     public void RememberEditStep(EditViewModel edit)
     {
         Remember(edit);
+
+        // 次の商品へ移ったら枝分かれしたので「進む」は捨てる（画面を移るときと同じ。ブラウザと同じ）。
+        // ここだけ Remember を直に呼んでいて、捨てるのも知らせるのも抜けていた
+        ClearForward();
+        NotifyHistoryChanged();
+    }
+
+    /// <summary>戻る・進むの見た目（押せるか・行き先の名前）を出し直す。</summary>
+    private void NotifyHistoryChanged()
+    {
         OnPropertyChanged(nameof(CanGoBack));
         OnPropertyChanged(nameof(BackButtonText));
+        OnPropertyChanged(nameof(CanGoForward));
+        OnPropertyChanged(nameof(BackTip));
+        OnPropertyChanged(nameof(ForwardTip));
     }
 
     /// <summary>
@@ -219,8 +259,7 @@ public sealed partial class MainViewModel
         {
             // 画面の差し替えが起きないので、戻るの印をここで下ろす（残すと次の画面移動が履歴に積まれない）
             _nextNavigation = Navigation.Push;
-            OnPropertyChanged(nameof(CanGoBack));
-            OnPropertyChanged(nameof(BackButtonText));
+            NotifyHistoryChanged();
             await current.ShowStepAsync(itemId, index);
             return;
         }
@@ -238,6 +277,63 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>
+    /// 改変も開き直した時点の中身で出す（商品ページと同じ）。
+    /// **覚えた時の記録をそのまま抱えて渡していたので、外で消した改変がそのまま出ていた。**
+    /// 消えていれば飛ばして、もう1つ戻る
+    /// </summary>
+    private async Task RestoreModificationAsync(string id)
+    {
+        var forward = _nextNavigation == Navigation.Forward;
+
+        if (await _services.Modifications.LoadAsync(id) is { } record)
+        {
+            ShowModification(record);
+            return;
+        }
+
+        _nextNavigation = Navigation.Push;
+        if (forward)
+        {
+            GoForward();
+        }
+        else
+        {
+            GoBack(rememberForward: false);
+        }
+    }
+
+    /// <summary>
+    /// ショップも開き直した時点で数え直す。覚えた時の集計をそのまま出していたので、
+    /// その後に外した商品が並んだままになっていた。無くなっていれば飛ばす
+    /// </summary>
+    private async Task RestoreShopAsync(Core.Services.ShopSummary remembered)
+    {
+        var forward = _nextNavigation == Navigation.Forward;
+
+        // ショップ一覧と同じく、全商品のJSONは読み直さずに検索画面の写しから数える
+        var items = Search.SnapshotItems();
+        var shops = await Task.Run(() => _services.Shops.Summarize(items));
+        var fresh = shops.FirstOrDefault(entry =>
+            string.Equals(entry.Subdomain, remembered.Subdomain, StringComparison.OrdinalIgnoreCase));
+
+        if (fresh is not null)
+        {
+            ShowShop(fresh);
+            return;
+        }
+
+        _nextNavigation = Navigation.Push;
+        if (forward)
+        {
+            GoForward();
+        }
+        else
+        {
+            GoBack(rememberForward: false);
+        }
+    }
+
     /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
     private Action RestoreAvatars(string? selectedId)
         => selectedId is null ? ShowAvatars : () => ShowAvatar(selectedId);
@@ -248,6 +344,10 @@ public sealed partial class MainViewModel
     /// </summary>
     private async Task RestoreItemAsync(string itemId)
     {
+        // どちら向きに動いていたか。進んでいる最中に消えた商品へ当たったのに戻していたので、
+        // 「進む」を押すと1つ戻っていた（押した先が読めない）
+        var forward = _nextNavigation == Navigation.Forward;
+
         if (await _services.Store.Items.LoadAsync(itemId) is { } item)
         {
             ShowItem(item);
@@ -255,7 +355,14 @@ public sealed partial class MainViewModel
         }
 
         _nextNavigation = Navigation.Push;
-        GoBack();
+        if (forward)
+        {
+            GoForward();
+        }
+        else
+        {
+            GoBack(rememberForward: false);
+        }
     }
 
     private static string Shorten(string label)

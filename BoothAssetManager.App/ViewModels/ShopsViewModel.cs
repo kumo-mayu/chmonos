@@ -174,7 +174,7 @@ public sealed class ShopCardRow
 /// 検索画面が起動時に読んだ写しから数え、並べ方は検索画面で効いた軽量化に揃える
 /// （行を単位にした仮想化・見えたカードだけが絵を裏で読む）。
 /// </summary>
-public sealed class ShopsViewModel : ViewModelBase
+public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
 {
     /// <summary>カード1枚ぶんの幅（カード304＋間14）。ShopsView.xaml のカードの Width と Margin に合わせる。</summary>
     private const double CardStride = 318;
@@ -474,6 +474,9 @@ public sealed class ShopsViewModel : ViewModelBase
 
     /// <summary>画面を離れるときに呼ぶ。取得を続ける意味がないので止める。</summary>
     public void StopFetching() => _iconFetch.Cancel();
+
+    /// <summary>離れたら、裏で走らせているアイコン取得を止める（結果は誰も見ない）。</summary>
+    public void OnLeaving() => StopFetching();
 
     public string IconStatus
     {

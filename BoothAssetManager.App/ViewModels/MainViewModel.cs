@@ -66,19 +66,23 @@ public sealed partial class MainViewModel : ViewModelBase
         // 書きかけが増えたり消えたりすると「未:」の数も変わる（未から編へ移るので）
         Drafts.PropertyChanged += (_, _) => OnPropertyChanged(nameof(NeedsEditBadgeCount));
 
-        ShowSearchCommand = new RelayCommand(ShowSearch);
-        ShowImportCommand = new RelayCommand(ShowImport);
+        // ナビは**今いる画面を押しても何もしない**（2026-09-20）。
+        // 検索と取り込み以外は押すたびに画面を作り直すので、履歴に積むかどうかの判定（同じ参照か）を
+        // 必ずすり抜け、同じ画面が2つ積まれていた。抜けるのに戻るを2回押す羽目になり、
+        // そのたびに読み込みも走る
+        ShowSearchCommand = new RelayCommand(Unless<SearchViewModel>(ShowSearch));
+        ShowImportCommand = new RelayCommand(Unless<ImportViewModel>(ShowImport));
         ShowEditCommand = new RelayCommand(() => ShowEditAsync().Forget());
-        ShowResolveCommand = new RelayCommand(ShowResolve);
-        ShowInboxCommand = new RelayCommand(ShowInbox);
-        ShowShopsCommand = new RelayCommand(ShowShops);
-        ShowStatsCommand = new RelayCommand(ShowStats);
-        ShowAvatarsCommand = new RelayCommand(ShowAvatars);
-        ShowModificationsCommand = new RelayCommand(() => ShowModifications());
-        ShowFoldersCommand = new RelayCommand(() => ShowFolders());
-        ShowSettingsCommand = new RelayCommand(ShowSettings);
-        ShowTagManageCommand = new RelayCommand(ShowTagManage);
-        ShowAttributeManageCommand = new RelayCommand(ShowAttributeManage);
+        ShowResolveCommand = new RelayCommand(Unless<ResolveViewModel>(ShowResolve));
+        ShowInboxCommand = new RelayCommand(Unless<InboxViewModel>(ShowInbox));
+        ShowShopsCommand = new RelayCommand(Unless<ShopsViewModel>(ShowShops));
+        ShowStatsCommand = new RelayCommand(Unless<StatsViewModel>(ShowStats));
+        ShowAvatarsCommand = new RelayCommand(Unless<AvatarsViewModel>(ShowAvatars));
+        ShowModificationsCommand = new RelayCommand(Unless<ModificationHubViewModel>(() => ShowModifications()));
+        ShowFoldersCommand = new RelayCommand(Unless<FolderViewModel>(() => ShowFolders()));
+        ShowSettingsCommand = new RelayCommand(Unless<SettingsViewModel>(ShowSettings));
+        ShowTagManageCommand = new RelayCommand(Unless<TagManageViewModel>(ShowTagManage));
+        ShowAttributeManageCommand = new RelayCommand(Unless<AttributeManageViewModel>(ShowAttributeManage));
         ToggleNavCommand = new RelayCommand(ToggleNav);
         ApplyPendingCommand = new RelayCommand(() => ReloadLibraryAsync().Forget());
 
@@ -221,6 +225,15 @@ public sealed partial class MainViewModel : ViewModelBase
     public RelayCommand ShowShopsCommand { get; }
 
     public bool IsShopsActive => CurrentViewModel is ShopsViewModel or ShopViewModel;
+
+    /// <summary>その画面に**いなければ**開く（ナビの二度押しで同じ画面を積み直さない）。</summary>
+    private Action Unless<T>(Action show) => () =>
+    {
+        if (CurrentViewModel is not T)
+        {
+            show();
+        }
+    };
 
     public RelayCommand ShowFoldersCommand { get; }
 
@@ -411,11 +424,10 @@ public sealed partial class MainViewModel : ViewModelBase
                 leavingScreen.FlushPendingWritesAsync().Forget();
             }
 
-
-            // ショップ一覧を離れたら、裏で走らせているアイコン取得を止める
-            if (_currentViewModel is ShopsViewModel leaving && !ReferenceEquals(leaving, value))
+            // 止める物・外す購読は、離れる画面自身に任せる（ここに手書きで並べると書き忘れる）
+            if (_currentViewModel is ILeavingScreen leaving && !ReferenceEquals(leaving, value))
             {
-                leaving.StopFetching();
+                leaving.OnLeaving();
             }
 
             // 一覧を離れたら「押すと反映」は役目を終える。
@@ -557,8 +569,13 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public void ShowItem(Core.Models.ItemRecord item)
     {
-        // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い
-        _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed).Forget();
+        // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い。
+        // **戻るで来たときは付けない**（履歴をたどっただけで「最近見たもの」の並びが動いていた）
+        if (_nextNavigation is not Navigation.Back)
+        {
+            _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed).Forget();
+        }
+
         CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails);
     }
 
@@ -570,6 +587,13 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         _nextNavigation = Navigation.Replace;
         ShowItem(item);
+    }
+
+    /// <summary>今の画面を履歴に積まずに検索へ戻す（開いていた物が無くなったとき）。</summary>
+    public void ReplaceWithSearch()
+    {
+        _nextNavigation = Navigation.Replace;
+        ShowSearch();
     }
 
     /// <summary>未確定ファイルの総件数。「残っている作業量」を示す。</summary>
