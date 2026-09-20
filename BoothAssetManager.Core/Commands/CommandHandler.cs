@@ -68,6 +68,17 @@ public sealed class CommandHandler
         _avatars = avatars;
     }
 
+    /// <summary>
+    /// 組み立てのときに依存を渡し忘れたときだけ来る道（ユーザ判断 2026-09-20・E5）。
+    ///
+    /// **利用者の操作では起こらない。**本番の組み立ては `AppServiceContainer` の1か所だけで、
+    /// そこは全部を渡している。渡し忘れは書き間違いなので、
+    /// 意味の取れない文（「〜手段が設定されていません。」）を画面に出すのではなく、**不具合として落とす。**
+    /// 同じファイルの「〜が渡されていません。」（設定の保存先など）と扱いを揃えた。
+    /// </summary>
+    private static CommandResult MissingService(string what)
+        => throw new InvalidOperationException($"{what}が組み立てのときに渡されていません（アプリの不具合）。");
+
     public async Task<CommandResult> ExecuteAsync(
         UiCommand command,
         IProgress<ImportProgress>? progress = null,
@@ -116,13 +127,13 @@ public sealed class CommandHandler
                 or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase
                 or UiCommand.AddAvatarAlias or UiCommand.RemoveAvatarAlias or UiCommand.RecheckAvatar:
                 return _avatarEditor is null
-                    ? new CommandResult.Failed("アバターの登録簿の編集手段が設定されていません。")
+                    ? MissingService("アバターの登録簿の編集")
                     : await EditAvatarRegistryAsync(_avatarEditor, command, cancellationToken);
 
             case UiCommand.StartEditSession or UiCommand.AdvanceEditSession or UiCommand.NoteEditSaved
                 or UiCommand.ReplaceEditSessionItemId or UiCommand.ClearEditSession:
                 return _edit is null
-                    ? new CommandResult.Failed("編集の保存手段が設定されていません。")
+                    ? MissingService("編集の保存")
                     : await EditSessionAsync(_edit, command, cancellationToken);
 
             case UiCommand.UnhideItem unhide:
@@ -146,7 +157,7 @@ public sealed class CommandHandler
             case UiCommand.SyncShopIcons sync:
                 if (_shops is null || _images is null)
                 {
-                    return new CommandResult.Failed("ショップの画像の取得手段が設定されていません。");
+                    return MissingService("ショップの画像の取得");
                 }
 
                 using (Booth.BoothClient.Prioritize(Booth.BoothPriority.ShopIcon))
@@ -157,7 +168,7 @@ public sealed class CommandHandler
             case UiCommand.EnsureShopBanner banner:
                 if (_shops is null || _images is null)
                 {
-                    return new CommandResult.Failed("ショップの画像の取得手段が設定されていません。");
+                    return MissingService("ショップの画像の取得");
                 }
 
                 // 開いた画面に出す1枚なので、指名された画像と同じ段
@@ -168,13 +179,13 @@ public sealed class CommandHandler
 
             case UiCommand.RefreshShopImages refresh:
                 return _shops is null || _images is null
-                    ? new CommandResult.Failed("ショップの画像の取得手段が設定されていません。")
+                    ? MissingService("ショップの画像の取得")
                     : new CommandResult.ShopImagesRefreshed(await _shops.RefreshImagesAsync(refresh.Subdomain, _images, cancellationToken));
 
             case UiCommand.FetchBoothImage fetch:
                 if (_client is null)
                 {
-                    return new CommandResult.Failed("BOOTHへの問い合わせ手段が設定されていません。");
+                    return MissingService("BOOTHへの問い合わせ");
                 }
 
                 using (Booth.BoothClient.Prioritize(Booth.BoothPriority.PinnedImage))
@@ -363,7 +374,7 @@ public sealed class CommandHandler
                     RefreshOutcome.NotFound => new CommandResult.Failed("BOOTHで見つかりませんでした。"),
                     RefreshOutcome.Delisted => new CommandResult.Failed("非公開または削除済みと判定しました。"),
                     RefreshOutcome.TemporaryFailure => new CommandResult.Failed("一時的に取得できませんでした。次回に再試行します。"),
-                    RefreshOutcome.Missing => new CommandResult.Failed("対象のitemがローカルにありません。"),
+                    RefreshOutcome.Missing => new CommandResult.Failed("対象の商品データが手元にありません。"),
                     RefreshOutcome.NotOnBooth =>
                         new CommandResult.Failed("BOOTHに無い商品として登録したものなので、取り直せません。"),
                     _ => new CommandResult.Failed("不明な結果です。"),
@@ -380,7 +391,7 @@ public sealed class CommandHandler
             case UiCommand.RemoveUnpackedFolders remove:
                 if (_unpackedRemover is null)
                 {
-                    return new CommandResult.Failed("削除の実行手段が設定されていません。");
+                    return MissingService("削除の実行");
                 }
 
                 return new CommandResult.UnpackedFoldersRemoved(
@@ -389,17 +400,17 @@ public sealed class CommandHandler
             case UiCommand.SaveItemLocal save:
                 if (_edit is null)
                 {
-                    return new CommandResult.Failed("編集の保存手段が設定されていません。");
+                    return MissingService("編集の保存");
                 }
 
                 return await _edit.SaveLocalAsync(save.ItemId, save.Local, save.Owns, cancellationToken)
                     ? new CommandResult.ItemSaved(save.ItemId)
-                    : new CommandResult.Failed("対象のitemがローカルにありません。");
+                    : new CommandResult.Failed("対象の商品データが手元にありません。");
 
             case UiCommand.AddUserTag addTag:
                 if (_edit is null)
                 {
-                    return new CommandResult.Failed("編集の保存手段が設定されていません。");
+                    return MissingService("編集の保存");
                 }
 
                 return new CommandResult.UserTagsChanged(
@@ -408,7 +419,7 @@ public sealed class CommandHandler
             case UiCommand.AddAttribute addAttribute:
                 if (_edit is null)
                 {
-                    return new CommandResult.Failed("編集の保存手段が設定されていません。");
+                    return MissingService("編集の保存");
                 }
 
                 return new CommandResult.AttributesChanged(
@@ -417,7 +428,7 @@ public sealed class CommandHandler
             case UiCommand.RenameUserTag rename:
                 if (_userTags is null)
                 {
-                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                    return MissingService("分類の編集");
                 }
 
                 return new CommandResult.UserTagsRewritten(rename.Sub is null
@@ -427,7 +438,7 @@ public sealed class CommandHandler
             case UiCommand.DeleteUserTag delete:
                 if (_userTags is null)
                 {
-                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                    return MissingService("分類の編集");
                 }
 
                 return new CommandResult.UserTagsRewritten(delete.Sub is null
@@ -437,7 +448,7 @@ public sealed class CommandHandler
             case UiCommand.SetUserTagMemo memo:
                 if (_userTags is null)
                 {
-                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                    return MissingService("分類の編集");
                 }
 
                 return new CommandResult.UserTagsChanged(
@@ -446,7 +457,7 @@ public sealed class CommandHandler
             case UiCommand.ReorderUserTags reorder:
                 if (_userTags is null)
                 {
-                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                    return MissingService("分類の編集");
                 }
 
                 return new CommandResult.UserTagsChanged(
@@ -455,7 +466,7 @@ public sealed class CommandHandler
             case UiCommand.MoveUserTagSub move:
                 if (_userTags is null)
                 {
-                    return new CommandResult.Failed("分類の編集手段が設定されていません。");
+                    return MissingService("分類の編集");
                 }
 
                 return new CommandResult.UserTagsRewritten(await _userTags.MoveSubAsync(
@@ -464,7 +475,7 @@ public sealed class CommandHandler
             case UiCommand.RenameAttribute renameAttribute:
                 if (_attributes is null)
                 {
-                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                    return MissingService("属性の編集");
                 }
 
                 return new CommandResult.AttributesRewritten(await _attributes.RenameAsync(
@@ -473,7 +484,7 @@ public sealed class CommandHandler
             case UiCommand.DeleteAttribute deleteAttribute:
                 if (_attributes is null)
                 {
-                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                    return MissingService("属性の編集");
                 }
 
                 return new CommandResult.AttributesRewritten(
@@ -482,7 +493,7 @@ public sealed class CommandHandler
             case UiCommand.SetAttributeMemo attributeMemo:
                 if (_attributes is null)
                 {
-                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                    return MissingService("属性の編集");
                 }
 
                 return new CommandResult.AttributesChanged(
@@ -491,7 +502,7 @@ public sealed class CommandHandler
             case UiCommand.CreateModification create:
                 if (_modifications is null)
                 {
-                    return new CommandResult.Failed("改変の編集手段が設定されていません。");
+                    return MissingService("改変の編集");
                 }
 
                 var created = await _modifications.CreateAsync(
@@ -503,7 +514,7 @@ public sealed class CommandHandler
             case UiCommand.DeleteModification deleteMod:
                 if (_modifications is null)
                 {
-                    return new CommandResult.Failed("改変の編集手段が設定されていません。");
+                    return MissingService("改変の編集");
                 }
 
                 return await _modifications.DeleteAsync(deleteMod.Id, cancellationToken)
@@ -554,7 +565,7 @@ public sealed class CommandHandler
             case UiCommand.AddModificationImage addImage2:
                 if (_modifications is null)
                 {
-                    return new CommandResult.Failed("改変の編集手段が設定されていません。");
+                    return MissingService("改変の編集");
                 }
 
                 return await _modifications.AddImageAsync(addImage2.Id, addImage2.Bytes, cancellationToken) is not null
@@ -573,7 +584,7 @@ public sealed class CommandHandler
             case UiCommand.SetAttributeDefault attributeDefault:
                 if (_attributes is null)
                 {
-                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                    return MissingService("属性の編集");
                 }
 
                 return new CommandResult.AttributesChanged(
@@ -585,7 +596,7 @@ public sealed class CommandHandler
             case UiCommand.ReorderAttributes reorderAttributes:
                 if (_attributes is null)
                 {
-                    return new CommandResult.Failed("属性の編集手段が設定されていません。");
+                    return MissingService("属性の編集");
                 }
 
                 return new CommandResult.AttributesChanged(
@@ -687,7 +698,7 @@ public sealed class CommandHandler
             case UiCommand.SetNotificationRead setRead:
                 if (_notifications is null)
                 {
-                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                    return MissingService("要確認の保存");
                 }
 
                 await _notifications.SetReadAsync(setRead.Id, setRead.IsRead, cancellationToken);
@@ -696,7 +707,7 @@ public sealed class CommandHandler
             case UiCommand.MarkAllNotificationsRead:
                 if (_notifications is null)
                 {
-                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                    return MissingService("要確認の保存");
                 }
 
                 await _notifications.MarkAllReadAsync(cancellationToken);
@@ -705,7 +716,7 @@ public sealed class CommandHandler
             case UiCommand.MarkNotificationsRead markSome:
                 if (_notifications is null)
                 {
-                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                    return MissingService("要確認の保存");
                 }
 
                 await _notifications.MarkReadAsync(markSome.Ids, cancellationToken);
@@ -714,7 +725,7 @@ public sealed class CommandHandler
             case UiCommand.ResolveNotifications resolve:
                 if (_notifications is null)
                 {
-                    return new CommandResult.Failed("要確認の保存手段が設定されていません。");
+                    return MissingService("要確認の保存");
                 }
 
                 await _notifications.ResolveAsync(resolve.Ids, cancellationToken);
@@ -723,7 +734,7 @@ public sealed class CommandHandler
             case UiCommand.DetectAvatars detect:
                 if (_avatars is null)
                 {
-                    return new CommandResult.Failed("対応アバターの検出手段が設定されていません。");
+                    return MissingService("対応アバターの検出");
                 }
 
                 return new CommandResult.AvatarsDetected(
@@ -732,7 +743,7 @@ public sealed class CommandHandler
             case UiCommand.ProposeCandidates propose:
                 if (_resolver is null)
                 {
-                    return new CommandResult.Failed("候補の検索手段が設定されていません。");
+                    return MissingService("候補の検索");
                 }
 
                 // **画面が今まさに待っている対象。**確定を押すと次の1件へ自動で移るので、
@@ -864,7 +875,7 @@ public sealed class CommandHandler
     {
         if (_modifications is null)
         {
-            return new CommandResult.Failed("改変の編集手段が設定されていません。");
+            return MissingService("改変の編集");
         }
 
         return await run()

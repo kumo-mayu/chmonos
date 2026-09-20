@@ -214,12 +214,18 @@ public class CommandHandlerTests
         Assert.Contains("BOOTHに確認できませんでした", failed.Message);
     }
 
+    /// <summary>
+    /// 依存を渡し忘れた組み立ては**不具合として落ちる**（ユーザ判断 2026-09-20・E5）。
+    /// 前は画面に「〜手段が設定されていません。」と出していたが、利用者には意味が取れず、
+    /// 利用者の操作では起こらない（本番の組み立ては1か所で全部を渡している）。
+    /// </summary>
     [Fact]
-    public async Task FailsAvatarEditsWithoutAnEditor()
+    public async Task ThrowsForAvatarEditsWithoutAnEditor()
     {
         var (handler, _, _) = Create();
 
-        Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.SetAvatarMemo("111", "メモ")));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => handler.ExecuteAsync(new UiCommand.SetAvatarMemo("111", "メモ")));
     }
 
     [Fact]

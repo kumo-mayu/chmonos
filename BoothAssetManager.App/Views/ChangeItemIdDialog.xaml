@@ -107,6 +107,10 @@
             Enter は、まだ下見が無いうちは入力欄の Enter が「調べる」を走らせ、
             下見が出てから「移す」に効く（`IsDefault`）。Esc は `IsCancel` で閉じる（D1・D2）
         -->
+        <!-- 押せないときは理由を出す（E9）。ボタンの列に混ぜると窓の幅からはみ出すので、1行上に置く -->
+        <TextBlock Text="{Binding CommitHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                   TextAlignment="Right" Margin="0,14,0,0" />
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="この内容で移す" Style="{StaticResource PrimaryButton}" Width="140"
                     IsDefault="True" IsEnabled="{Binding HasPlan}" Click="OnMove" />

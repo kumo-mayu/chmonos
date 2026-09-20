@@ -75,6 +75,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
                 // 打ち直したら下見は捨てる。**古い下見のまま押させない**
                 Plan = null;
                 OnPropertyChanged(nameof(CanCheck));
+                OnPropertyChanged(nameof(CommitHint));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -115,7 +116,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
 
                 foreach (var name in new[]
                 {
-                    nameof(HasPlan), nameof(TargetText), nameof(MovingText), nameof(Dropped),
+                    nameof(HasPlan), nameof(CommitHint), nameof(TargetText), nameof(MovingText), nameof(Dropped),
                     nameof(HasDropped), nameof(HasDuplicates), nameof(NotOnBoothText),
                     nameof(IsNotOnBooth), nameof(IsEmptySource),
                 })
@@ -129,6 +130,16 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
     }
 
     public bool HasPlan => Plan is not null;
+
+    /// <summary>
+    /// 押せないときに、何が足りないかを書く（`ui-dialogs.md`・E9）。
+    /// **下見を見ないと押せない**のがこの窓の要で、そこが出ていないと塞がれた理由が分からない。
+    /// </summary>
+    public string CommitHint => HasPlan
+        ? string.Empty
+        : CanCheck
+            ? "「調べる」を押すと、何が移るかを出します。それから押せます。"
+            : "移し先の商品ID（またはBOOTHの商品ページのURL）を入れてください。";
 
     public string Status
     {

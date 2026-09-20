@@ -310,7 +310,8 @@
                                 Visibility="{Binding IsProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                 Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}"
-                                ToolTip="既に開いていれば、そのUnityを手前に出します。" />
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="{Binding OpenHint}" />
                         <StackPanel VerticalAlignment="Center">
                             <Button Style="{StaticResource HubLink}"
                                     Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -488,7 +489,8 @@
                         <Button Content="Unityを開く" Style="{StaticResource PrimaryButton}" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}"
-                                ToolTip="既に開いていれば、そのUnityを手前に出します。" />
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="{Binding OpenProjectHint}" />
                         <Button Content="エクスプローラで開く" Margin="8,0,0,0" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}" />

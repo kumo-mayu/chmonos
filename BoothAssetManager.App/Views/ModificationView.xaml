@@ -225,11 +225,13 @@
 
                                                 <!-- カードは左から右へ並ぶので、並べ替えは左右の矢印（ユーザ指摘 2026-09-14。リストは縦なので上下のまま） -->
                                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                                    <Button Content="◀" Style="{StaticResource SmallButton}" ToolTip="前へ（先に入れる）"
+                                                    <Button Content="◀" Style="{StaticResource SmallButton}" ToolTip="{Binding MoveBackHint}"
+                                                            ToolTipService.ShowOnDisabled="True"
                                                             IsEnabled="{Binding CanMoveBack}"
                                                             Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="▶" Style="{StaticResource SmallButton}" Margin="5,0,0,0" ToolTip="後ろへ（後に入れる）"
+                                                    <Button Content="▶" Style="{StaticResource SmallButton}" Margin="5,0,0,0" ToolTip="{Binding MoveForwardHint}"
+                                                            ToolTipService.ShowOnDisabled="True"
                                                             IsEnabled="{Binding CanMoveForward}"
                                                             Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
@@ -364,11 +366,13 @@
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">
                                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="先に入れる"
+                                                                <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="{Binding MoveBackHint}"
+                                                                        ToolTipService.ShowOnDisabled="True"
                                                                         IsEnabled="{Binding CanMoveBack}"
                                                                         Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
-                                                                <Button Content="▼" Style="{StaticResource SmallButton}" Margin="4,0,0,0" ToolTip="後に入れる"
+                                                                <Button Content="▼" Style="{StaticResource SmallButton}" Margin="4,0,0,0" ToolTip="{Binding MoveForwardHint}"
+                                                                        ToolTipService.ShowOnDisabled="True"
                                                                         IsEnabled="{Binding CanMoveForward}"
                                                                         Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />

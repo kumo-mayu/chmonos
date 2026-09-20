@@ -565,6 +565,16 @@ public sealed class TagManageViewModel : ViewModelBase
 
     public bool HasOrphans => Orphans.Count > 0;
 
+    /// <summary>
+    /// 左の一覧が空のとき、真っ白にせず次にやることを書く（`ui-rules.md`・E1）。
+    /// **探して0件と、そもそも1つも無いのを言い分ける**（検索・フォルダ・改変と同じ書き分け）。
+    /// </summary>
+    public bool IsEmpty => Tops.Count == 0;
+
+    public string EmptyText => HasFilter
+        ? "探している言葉に当てはまる大分類がありません。言葉を変えるか、絞り込みを消してください。"
+        : "大分類はまだありません。上の「大分類を追加」に名前を入れるか、商品の編集画面でユーザータグを付けると、ここに並びます。";
+
     public int TopCount => _allTops.Count;
 
     public string HeaderText => $"大分類 {TopCount} 件";
@@ -683,6 +693,8 @@ public sealed class TagManageViewModel : ViewModelBase
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(HasFilter));
         OnPropertyChanged(nameof(FilterResultText));
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
     }
 
     private static bool MatchesFilter(

@@ -255,6 +255,13 @@ public sealed class AttributeManageViewModel : ViewModelBase
         : "この属性を持つ商品はまだありません。編集画面で値を入れると、ここに並びます。";
 
     /// <summary>
+    /// 並べ方・向き・中を探す欄がまとめて押せなくなるので、**その理由を見える所に1行出す**
+    /// （`ui-rules.md`・E11：同じ画面で理由の出るボタンと出ないボタンが混ざっていた）。
+    /// 灰色の部品ひとつひとつに吹き出しを付けるより、まとめて1行の方が読まれる。
+    /// </summary>
+    public bool ShowsUnusedReason => HasSelection && !SelectedIsUsed;
+
+    /// <summary>
     /// 値の高い順か低い順か（ユーザ指示 2026-09-19）。既定は高い順——その属性の「らしい」物から見たいことが多い。
     /// 低い順は、付けたけれど弱い物を見直すときに使う。属性をまたいで、アプリを閉じるまで覚える
     /// </summary>
@@ -550,6 +557,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
             OnPropertyChanged(nameof(ShowItemsToolTip));
             OnPropertyChanged(nameof(ItemsHeaderText));
             OnPropertyChanged(nameof(ExpandToolTip));
+            OnPropertyChanged(nameof(ShowsUnusedReason));
             OnPropertyChanged(nameof(ToggleDefaultText));
 
             // 開き方は属性をまたいで持つ（小分類を開いたまま見比べるのと同じ）。探している語もそのまま当てる
@@ -619,6 +627,16 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public bool MemoChanged => Selected is not null && MemoDraft != (Selected.Memo ?? string.Empty);
 
     public bool HasOrphans => Orphans.Count > 0;
+
+    /// <summary>
+    /// 左の一覧が空のとき、真っ白にせず次にやることを書く（`ui-rules.md`・E1）。
+    /// **探して0件と、そもそも1つも無いのを言い分ける**（タグの管理と同じ）。
+    /// </summary>
+    public bool IsEmpty => Rows.Count == 0;
+
+    public string EmptyText => HasFilter
+        ? "探している言葉に当てはまる属性がありません。言葉を変えるか、絞り込みを消してください。"
+        : "属性はまだありません。上の「属性を追加」に名前を入れると、編集画面でその評価を付けられるようになります。";
 
     public string HeaderText => $"属性 {_all.Count} 件";
 
@@ -716,6 +734,8 @@ public sealed class AttributeManageViewModel : ViewModelBase
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(HasFilter));
         OnPropertyChanged(nameof(FilterResultText));
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
     }
 
     public bool HasFilter => _filterText.Trim().Length > 0;

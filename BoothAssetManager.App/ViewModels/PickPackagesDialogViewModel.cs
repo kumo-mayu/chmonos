@@ -197,6 +197,7 @@ public sealed class PickPackagesDialogViewModel : ViewModelBase
                     group.NoteChecked();
                     OnPropertyChanged(nameof(SummaryText));
                     OnPropertyChanged(nameof(CanCommit));
+                    OnPropertyChanged(nameof(CommitHint));
                 };
             }
         }
@@ -217,4 +218,7 @@ public sealed class PickPackagesDialogViewModel : ViewModelBase
         : $"{CheckedCount} 件を選んでいます。";
 
     public bool CanCommit => CheckedCount + _othersCount > 0;
+
+    /// <summary>押せないときに、何が足りないかを書く（`ui-dialogs.md`・E9）。</summary>
+    public string CommitHint => CanCommit ? string.Empty : "送るものを1つ以上選んでください。";
 }

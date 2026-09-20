@@ -99,6 +99,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
             if (SetField(ref _picked, value))
             {
                 OnPropertyChanged(nameof(CanCommit));
+                OnPropertyChanged(nameof(CommitHint));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -119,6 +120,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
                 OnPropertyChanged(nameof(PickingExisting));
                 OnPropertyChanged(nameof(CanCommit));
+                OnPropertyChanged(nameof(CommitHint));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -144,6 +146,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
             if (SetField(ref _newName, value))
             {
                 OnPropertyChanged(nameof(CanCommit));
+                OnPropertyChanged(nameof(CommitHint));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -158,6 +161,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
             if (SetField(ref _newAvatarItemId, value))
             {
                 OnPropertyChanged(nameof(CanCommit));
+                OnPropertyChanged(nameof(CommitHint));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -202,6 +206,18 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     public bool CanCommit => MakingNew
         ? NewName.Trim().Length > 0 && NewAvatarItemId is not null
         : Picked is not null;
+
+    /// <summary>
+    /// 押せないときに、**何が足りないか**を書く（`ui-dialogs.md`・E9）。
+    /// 塞がれた理由が出ていないと、押せるようにする道が分からない。
+    /// </summary>
+    public string CommitHint => CanCommit
+        ? string.Empty
+        : MakingNew
+            ? NewName.Trim().Length == 0
+                ? "新しい改変の名前を入れてください。"
+                : "どのアバターの改変かを選んでください。"
+            : "足す先の改変を選んでください。";
 
     private void Pick(PickModificationRowViewModel? row)
     {

@@ -424,6 +424,8 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasSummary));
                 OnPropertyChanged(nameof(NotFoundText));
                 OnPropertyChanged(nameof(HasNotFound));
+                OnPropertyChanged(nameof(UnreadableText));
+                OnPropertyChanged(nameof(HasUnreadable));
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
             }
@@ -1035,5 +1037,19 @@ public sealed class ImportViewModel : ViewModelBase
         : string.Empty;
 
     public bool HasNotFound => NotFoundText.Length > 0;
+
+    /// <summary>
+    /// 権限などで読めなかったファイルの1行（E4・ユーザ判断 2026-09-20）。
+    ///
+    /// **1件ずつは言わない。**走査の途中で何千件も出うるので、数と、次にやること（場所を確かめる）だけを出す。
+    /// 0 のときは何も出さない（普段0の数字を常設で並べない。「BOOTHに無かったもの」と同じ扱い）。
+    /// </summary>
+    public string UnreadableText => Summary is { FilesUnreadable: > 0 } summary
+        ? $"読めなかったファイルが {summary.FilesUnreadable} 件あります（取り込めていません）。"
+            + "別のアプリが開いている、ネットワーク越しでつながっていない、権限が無い、のいずれかです。"
+            + "閉じてから、もう一度取り込んでください。"
+        : string.Empty;
+
+    public bool HasUnreadable => UnreadableText.Length > 0;
 
 }

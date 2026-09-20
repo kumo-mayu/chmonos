@@ -52,7 +52,7 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
         {
             if (SetField(ref _target, value))
             {
-                foreach (var property in new[] { nameof(HasTarget), nameof(TargetText), nameof(ImpactText), nameof(UndoText), nameof(CommitText), nameof(IsMerge) })
+                foreach (var property in new[] { nameof(HasTarget), nameof(TargetText), nameof(ImpactText), nameof(UndoText), nameof(CommitHint), nameof(CommitText), nameof(IsMerge) })
                 {
                     OnPropertyChanged(property);
                 }
@@ -85,4 +85,9 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
             : "名前を変えるだけなら、同じ手順で元の名前に戻せます。";
 
     public string CommitText => IsMerge ? "統合する" : "名前を変える";
+
+    /// <summary>押せないときに、何が足りないかを書く（`ui-dialogs.md`・E9）。</summary>
+    public string CommitHint => HasTarget
+        ? string.Empty
+        : $"新しい名前を入れると押せます（今と同じ「{Name}」では押せません）。";
 }

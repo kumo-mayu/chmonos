@@ -80,6 +80,12 @@ public sealed class ImportSummary
     /// <summary>アーカイブの展開先とみなして取り込まなかったファイル数。</summary>
     public int FilesSkippedAsUnpacked { get; init; }
 
+    /// <summary>
+    /// 権限などで読めず、取り込めなかったファイル数（E4）。**0 でないときだけ画面に出す。**
+    /// 黙って飛ばしていたので、取り込んだつもりの物が入っていないことに気付けなかった。
+    /// </summary>
+    public int FilesUnreadable { get; init; }
+
     /// <summary>見つかった展開先フォルダ。削除機能に渡す候補になる。</summary>
     public IReadOnlyList<UnpackedFolder> UnpackedFolders { get; init; } = [];
 
@@ -401,6 +407,7 @@ public sealed class ImportPipeline : IImportPipeline
         private readonly List<UnpackedFolder> _unpacked = [];
         private int _scanned;
         private int _skippedUnpacked;
+        private int _unreadable;
         private int _hashed;
         private int _reused;
         private int _excluded;
@@ -420,6 +427,7 @@ public sealed class ImportPipeline : IImportPipeline
             _scanned += scan.Files.Count;
             _unpacked.AddRange(scan.UnpackedFolders);
             _skippedUnpacked += scan.SkippedInsideUnpackedFolders;
+            _unreadable += scan.Unreadable;
 
             _hashed += resolution.Hashed;
             _reused += resolution.ReusedFromCache;
@@ -446,6 +454,7 @@ public sealed class ImportPipeline : IImportPipeline
             FilesScanned = _scanned,
             UnpackedFolders = _unpacked,
             FilesSkippedAsUnpacked = _skippedUnpacked,
+            FilesUnreadable = _unreadable,
             FilesHashed = _hashed,
             FilesReusedFromCache = _reused,
             FilesExcluded = _excluded,
@@ -576,12 +585,14 @@ public sealed class ImportPipeline : IImportPipeline
         var scanned = new List<ScannedFile>();
         var unpacked = new List<UnpackedFolder>();
         var skippedUnpacked = 0;
+        var unreadable = 0;
 
         foreach (var folder in folders)
         {
             var result = _scanner.Scan(folder, cancellationToken);
             unpacked.AddRange(result.UnpackedFolders);
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
+            unreadable += result.Unreadable;
 
             foreach (var file in result.Files)
             {
@@ -612,6 +623,7 @@ public sealed class ImportPipeline : IImportPipeline
             Files = scanned,
             UnpackedFolders = unpacked,
             SkippedInsideUnpackedFolders = skippedUnpacked,
+            Unreadable = unreadable,
         };
     }
 
@@ -622,6 +634,8 @@ public sealed class ImportPipeline : IImportPipeline
         public required List<UnpackedFolder> UnpackedFolders { get; init; }
 
         public int SkippedInsideUnpackedFolders { get; init; }
+
+        public int Unreadable { get; init; }
     }
 
     private async Task<ResolutionResult> ResolveAsync(

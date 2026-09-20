@@ -108,8 +108,11 @@
                         IsDefault="True" IsEnabled="{Binding CanCommit}" Click="OnCommit" />
                 <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
             </StackPanel>
-            <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                       VerticalAlignment="Center" Margin="0,0,12,0" />
+            <!-- 押せないときは理由を出す（E9） -->
+            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding CommitHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+            </StackPanel>
         </DockPanel>
     </StackPanel>
 </Window>

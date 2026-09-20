@@ -207,6 +207,13 @@ public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOp
 
     public bool CanOpen => Candidate is { Exists: true };
 
+    /// <summary>押せないときの理由も出す（`ui-rules.md`・E11）。</summary>
+    public string OpenHint => CanOpen
+        ? "既に開いていれば、そのUnityを手前に出します。"
+        : Candidate is null
+            ? "このまとまりはプロジェクトに紐付いていないので、開くものがありません。"
+            : "紐付けたフォルダが見つかりません。場所が変わったなら、改変の右側で紐付け直してください。";
+
     public string DetailText => Candidate is null
         ? "改変の右側でプロジェクトを紐付けると、そのプロジェクトの下に並びます"
         : IsMissing ? "フォルダが見つかりません" : Candidate.Version ?? "バージョンが読めません";
@@ -264,6 +271,11 @@ public sealed class HubProjectDetail
     public string Path => Candidate.Path;
 
     public bool Exists => Candidate.Exists;
+
+    /// <summary>押せないときの理由も出す（`ui-rules.md`・E11）。</summary>
+    public string OpenProjectHint => Exists
+        ? "既に開いていれば、そのUnityを手前に出します。"
+        : "このフォルダが見つかりません。場所が変わったなら、改変の右側で紐付け直してください。";
 
     public bool IsMissing => !Candidate.Exists;
 

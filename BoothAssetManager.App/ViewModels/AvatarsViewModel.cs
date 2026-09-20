@@ -247,6 +247,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         _openWith = selectItemId;
 
         DetectCommand = new RelayCommand(() => DetectAsync().Forget(), () => !IsDetecting);
+        ClearQueryCommand = new RelayCommand(() => Query = string.Empty);
         SetBaseCommand = new RelayCommand(() => SetBaseAsync().Forget());
         ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget());
         AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
@@ -501,12 +502,26 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     public bool IsEmpty => !IsLoading && Rows.Count == 0;
 
     /// <summary>
+    /// **探して0件**か（E2）。そもそも1体も無いのと言い分ける（検索・フォルダ・改変と同じ3通りの書き分け）。
+    /// 絞った結果を「まだ見つかっていません・検出してください」と言うと、
+    /// 打ち込んだ言葉のせいで消えているだけなのに、登録簿が空だと読める。
+    /// </summary>
+    public bool IsFilteredEmpty => IsEmpty && _query.Trim().Length > 0;
+
+    /// <summary>
     /// 商品を1件も取り込んでいないか。そのときは検出を押しても何も見つからないので、先に取り込みへ案内する
     /// （ユーザ判断 2026-09-17：空表示には次にやることを書く）
     /// </summary>
-    public bool HasNoItems => IsEmpty && _main.Search.TotalCount == 0;
+    public bool HasNoItems => IsEmpty && !IsFilteredEmpty && _main.Search.TotalCount == 0;
 
-    public bool CanDetectFromItems => IsEmpty && !HasNoItems;
+    public bool CanDetectFromItems => IsEmpty && !IsFilteredEmpty && !HasNoItems;
+
+    public string EmptyTitle => IsFilteredEmpty
+        ? "当てはまるアバターがありません"
+        : "対応アバターがまだ見つかっていません";
+
+    /// <summary>探して0件のときだけ、絞り込みを消して戻す。</summary>
+    public RelayCommand ClearQueryCommand { get; }
 
     public RelayCommand ShowImportCommand => _main.ShowImportCommand;
 
@@ -1061,6 +1076,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasBases));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(IsFilteredEmpty));
+        OnPropertyChanged(nameof(EmptyTitle));
         OnPropertyChanged(nameof(HasNoItems));
         OnPropertyChanged(nameof(CanDetectFromItems));
         OnPropertyChanged(nameof(AvatarModeText));

@@ -426,7 +426,8 @@
                                                       AutomationProperties.Name="下限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False"
-                                                    IsEnabled="{Binding MinEnabled}" ToolTip="{Binding ScaleHint}"
+                                                    IsEnabled="{Binding MinEnabled}" ToolTip="{Binding MinHint}"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     AutomationProperties.Name="下限" />
                                         </DockPanel>
                                         <DockPanel>
@@ -436,7 +437,8 @@
                                                       AutomationProperties.Name="上限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
-                                                    IsEnabled="{Binding MaxEnabled}" ToolTip="{Binding ScaleHint}"
+                                                    IsEnabled="{Binding MaxEnabled}" ToolTip="{Binding MaxHint}"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     AutomationProperties.Name="上限" />
                                         </DockPanel>
                                         <DockPanel LastChildFill="False" Margin="24,2,0,0">
@@ -446,14 +448,16 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <TextBox Text="{Binding MinText, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="62" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="下限" />
+                                                     IsEnabled="{Binding MinEnabled}" AutomationProperties.Name="下限"
+                                                     ToolTipService.ShowOnDisabled="True" ToolTip="{Binding MinHint}" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMinCommand}"
                                                     ToolTip="下限を消す" AutomationProperties.Name="下限を消す"
                                                     Visibility="{Binding HasMin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBlock Text="〜" VerticalAlignment="Center" Margin="4,0" Style="{StaticResource Caption}" />
                                             <TextBox Text="{Binding MaxText, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="62" Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="上限" />
+                                                     IsEnabled="{Binding MaxEnabled}" AutomationProperties.Name="上限"
+                                                     ToolTipService.ShowOnDisabled="True" ToolTip="{Binding MaxHint}" />
                                             <Button Style="{StaticResource ClearFieldButton}" Command="{Binding ClearMaxCommand}"
                                                     ToolTip="上限を消す" AutomationProperties.Name="上限を消す"
                                                     Visibility="{Binding HasMax, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -480,7 +484,8 @@
                                                       AutomationProperties.Name="始まりの日を効かせる" />
                                             <ToggleButton x:Name="SinceCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding SinceEnabled}"
-                                                          Margin="4,0,0,0" ToolTip="カレンダーで選ぶ" AutomationProperties.Name="開始の日をカレンダーで選ぶ">
+                                                          ToolTipService.ShowOnDisabled="True"
+                                                          Margin="4,0,0,0" ToolTip="{Binding SinceHint}" AutomationProperties.Name="開始の日をカレンダーで選ぶ">
                                                 <!-- 字形のアイコンは字体が無いと四角になる。ほかの画面と同じく線で描く -->
                                                 <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{StaticResource TextMuted}"
                                                       StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
@@ -493,7 +498,8 @@
                                                     Visibility="{Binding HasSince, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBox Text="{Binding SinceText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding SinceEnabled}" AutomationProperties.Name="開始の日" />
+                                                     IsEnabled="{Binding SinceEnabled}" AutomationProperties.Name="開始の日"
+                                                     ToolTipService.ShowOnDisabled="True" ToolTip="{Binding SinceHint}" />
                                         </DockPanel>
                                         <Popup IsOpen="{Binding IsChecked, ElementName=SinceCalendarButton}" StaysOpen="False"
                                                PlacementTarget="{Binding ElementName=SinceCalendarButton}" Placement="Bottom">
@@ -508,7 +514,8 @@
                                                       AutomationProperties.Name="終わりの日を効かせる" />
                                             <ToggleButton x:Name="TillCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding TillEnabled}"
-                                                          Margin="4,0,0,0" ToolTip="カレンダーで選ぶ" AutomationProperties.Name="終わりの日をカレンダーで選ぶ">
+                                                          ToolTipService.ShowOnDisabled="True"
+                                                          Margin="4,0,0,0" ToolTip="{Binding TillHint}" AutomationProperties.Name="終わりの日をカレンダーで選ぶ">
                                                 <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{StaticResource TextMuted}"
                                                       StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
                                             </ToggleButton>
@@ -520,7 +527,8 @@
                                                     Visibility="{Binding HasTill, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <TextBox Text="{Binding TillText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
                                                      Height="26" FontSize="12" Padding="7,0" VerticalContentAlignment="Center"
-                                                     IsEnabled="{Binding TillEnabled}" AutomationProperties.Name="終わりの日" />
+                                                     IsEnabled="{Binding TillEnabled}" AutomationProperties.Name="終わりの日"
+                                                     ToolTipService.ShowOnDisabled="True" ToolTip="{Binding TillHint}" />
                                         </DockPanel>
                                         <Popup IsOpen="{Binding IsChecked, ElementName=TillCalendarButton}" StaysOpen="False"
                                                PlacementTarget="{Binding ElementName=TillCalendarButton}" Placement="Bottom">

@@ -49,6 +49,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasTarget));
                 OnPropertyChanged(nameof(TargetText));
                 OnPropertyChanged(nameof(UndoText));
+                OnPropertyChanged(nameof(CommitHint));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -57,6 +58,9 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
     public bool HasTarget => !string.IsNullOrEmpty(Target);
 
     public string TargetText => HasTarget ? $"移動先： {Target}" : "移動先をまだ選んでいません";
+
+    /// <summary>押せないときに、何が足りないかを書く（`ui-dialogs.md`・E9）。</summary>
+    public string CommitHint => HasTarget ? string.Empty : "上の欄で移動先の大分類を選ぶと押せます。";
 
     /// <summary>移動後に何が起きるか。押す前に見えていないと判断できない。</summary>
     public string ImpactText

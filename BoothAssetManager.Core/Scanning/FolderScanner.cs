@@ -62,8 +62,9 @@ public sealed class FolderScanner
 
         if (File.Exists(rootFolder))
         {
-            var single = Describe(rootFolder);
-            return new ScanResult { Files = single is null ? [] : [single] };
+            var missed = 0;
+            var single = Describe(rootFolder, ref missed);
+            return new ScanResult { Files = single is null ? [] : [single], Unreadable = missed };
         }
 
         if (!Directory.Exists(rootFolder))
@@ -74,6 +75,7 @@ public sealed class FolderScanner
         var unpacked = FindUnpackedFolders(rootFolder, cancellationToken);
         var files = new List<ScannedFile>();
         var skipped = 0;
+        var unreadable = 0;
 
         foreach (var path in Directory.EnumerateFiles(rootFolder, "*", RecursiveOptions))
         {
@@ -91,7 +93,7 @@ public sealed class FolderScanner
                 continue;
             }
 
-            var scanned = Describe(path);
+            var scanned = Describe(path, ref unreadable);
             if (scanned is not null)
             {
                 files.Add(scanned);
@@ -103,11 +105,12 @@ public sealed class FolderScanner
             Files = files,
             UnpackedFolders = unpacked,
             SkippedInsideUnpackedFolders = skipped,
+            Unreadable = unreadable,
         };
     }
 
-    /// <summary>1ファイルを見て取り込み対象なら情報を返す。対象外・読めない場合は null。</summary>
-    private static ScannedFile? Describe(string path)
+    /// <summary>1ファイルを見て取り込み対象なら情報を返す。対象外・読めない場合は null（読めなかったものは数える）。</summary>
+    private static ScannedFile? Describe(string path, ref int unreadable)
     {
         var extension = Path.GetExtension(path);
         if (string.IsNullOrEmpty(extension) || !TargetExtensions.Contains(extension))
@@ -128,7 +131,8 @@ public sealed class FolderScanner
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // 走査中に消えた・触れないファイルは黙って飛ばす
+            // 走査中に消えた・触れないファイルは飛ばすが、**数は残す**（E4：無言で消えていた）
+            unreadable++;
             return null;
         }
     }
@@ -229,4 +233,12 @@ public sealed class ScanResult
     public IReadOnlyList<UnpackedFolder> UnpackedFolders { get; init; } = [];
 
     public int SkippedInsideUnpackedFolders { get; init; }
+
+    /// <summary>
+    /// 権限などで**読めなかった**ファイルの数（E4・ユーザ判断 2026-09-20）。
+    /// 黙って飛ばすと、取り込んだつもりの物が入っていないのに気付けない。
+    /// 1件ずつ言うと何千件も出るので、数だけを取り込みの結果に足す
+    /// （`SkippedInsideUnpackedFolders` と同じ道）。
+    /// </summary>
+    public int Unreadable { get; init; }
 }

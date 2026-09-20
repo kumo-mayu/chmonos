@@ -1214,6 +1214,7 @@ public sealed class RangeModule : SearchModule
             {
                 // 切っている間は相手を越えていてよい（止める相手がいない）。入れ直したときに合わせる
                 FixCrossing(moveMin: true);
+                OnPropertyChanged(nameof(MinHint));
                 NotifyChanged();
             }
         }
@@ -1227,6 +1228,7 @@ public sealed class RangeModule : SearchModule
             if (SetField(ref _maxEnabled, value))
             {
                 FixCrossing(moveMin: false);
+                OnPropertyChanged(nameof(MaxHint));
                 NotifyChanged();
             }
         }
@@ -1284,6 +1286,14 @@ public sealed class RangeModule : SearchModule
     public string MinimumLabel => "0" + Unit;
 
     /// <summary>目盛の配り方の説明（左端の1目盛に 0〜Floor を畳んでいることを、触る前に分かるように）。</summary>
+    /// <summary>
+    /// 効かせていない側に**使えない理由**を出す（`ui-rules.md`・E11）。
+    /// 同じ欄の中で、理由の出る物と出ない物が混ざっていた。
+    /// </summary>
+    public string MinHint => MinEnabled ? ScaleHint : "左の印を付けると、下限を使えます（今は下限を見ていません）。";
+
+    public string MaxHint => MaxEnabled ? ScaleHint : "左の印を付けると、上限を使えます（今は上限を見ていません）。";
+
     public string ScaleHint => UsesFloor
         ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数（多い所を広く）です。"
         : "目盛は対数です（数の小さい所を広く取っています）。";
@@ -1794,8 +1804,18 @@ public sealed class DateModule : SearchModule
             : "日付として読めません（例：2026/9/1・9/1・2026/9）";
     }
 
+    /// <summary>効かせていない側に、使えない理由を出す（`ui-rules.md`・E11）。</summary>
+    public string SinceHint => SinceEnabled
+        ? "日付は「2026-09-01」「9/1」のように入れられます。"
+        : "左の印を付けると、始まりの日を使えます（今は始まりを見ていません）。";
+
+    public string TillHint => TillEnabled
+        ? "日付は「2026-09-01」「9/1」のように入れられます。"
+        : "左の印を付けると、終わりの日を使えます（今は終わりを見ていません）。";
+
     private void RaiseSince()
     {
+        OnPropertyChanged(nameof(SinceHint));
         OnPropertyChanged(nameof(SinceDate));
         OnPropertyChanged(nameof(SinceNote));
         OnPropertyChanged(nameof(HasSince));
@@ -1803,6 +1823,7 @@ public sealed class DateModule : SearchModule
 
     private void RaiseTill()
     {
+        OnPropertyChanged(nameof(TillHint));
         OnPropertyChanged(nameof(TillDate));
         OnPropertyChanged(nameof(TillNote));
         OnPropertyChanged(nameof(HasTill));

@@ -46,6 +46,10 @@
         <!-- 取り返しがつくかは、属性の統合の窓と同じ置き場所で出す（D4） -->
         <TextBlock Text="{Binding UndoText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,0" />
 
+        <!-- 押せないときは理由を出す（E9）。ボタンの列に混ぜると窓の幅からはみ出すので、1行上に置く -->
+        <TextBlock Text="{Binding CommitHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                   TextAlignment="Right" Margin="0,14,0,0" />
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
             <Button Content="移す" Style="{StaticResource PrimaryButton}"
                     IsDefault="True" IsEnabled="{Binding HasTarget}" Click="OnMove" />

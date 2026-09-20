@@ -87,6 +87,11 @@
                     </StackPanel>
 
                     <!-- 並びは検索の候補にも編集の候補にも出るので、ドラッグで変えられる -->
+                    <Grid>
+                    <!-- 0件のときに真っ白にしない（E1）。一覧の上に重ねて出す -->
+                    <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                               Margin="18,26,18,0" VerticalAlignment="Top"
+                               Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                              BorderThickness="0" Background="Transparent"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -139,6 +144,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    </Grid>
                 </DockPanel>
             </Border>
 
@@ -289,6 +295,11 @@
                                                  ToolTip="上から下へ並べ、下まで来たら次の列へ。" />
                                 </StackPanel>
                             </StackPanel>
+
+                            <!-- 上の並べ方・向き・下の欄がまとめて押せなくなるので、その理由を1行で出す（E11） -->
+                            <TextBlock Text="この属性はまだどの商品にも付いていないので、並べ方と絞り込みは使えません。編集画面で値を付けると使えるようになります。"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="30,10,0,0"
+                                       Visibility="{Binding ShowsUnusedReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <Grid Width="360" HorizontalAlignment="Left" Margin="30,10,0,0">
                                 <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"

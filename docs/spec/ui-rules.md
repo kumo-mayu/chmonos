@@ -109,6 +109,7 @@
 - 画面の中の畳み方（改変の画面の見出し・フォルダの木・購入した種類・タグの欄など）はアプリを閉じるまで覚える。
 - 戻るは画面の履歴（`docs/spec/architecture.md`）。
 - 別の窓（ダイアログ）のキー・ボタンの並び・確認のアイコンは [ui-dialogs.md](ui-dialogs.md)。
+- 空のとき・失敗したとき・押せないときに何を出すかは [ui-empty-and-errors.md](ui-empty-and-errors.md)。
 
 ## 画面の幅
 

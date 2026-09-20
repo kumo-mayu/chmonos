@@ -252,6 +252,14 @@
                                        Foreground="{StaticResource Warn}" />
                         </Border>
 
+                        <!-- 読めずに飛ばしたもの（E4）。同じく1行で、0のときは出さない -->
+                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
+                                Visibility="{Binding HasUnreadable, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <TextBlock Text="{Binding UnreadableText}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Warn}" />
+                        </Border>
+
                         <!--
                             取り込みの次の一手（動線の点検 D1・ユーザ判断 2026-09-12）。以前は「未確定で確かめて」と
                             文で言うだけで、そこへ飛ぶボタンが無く、ナビから探し直していた

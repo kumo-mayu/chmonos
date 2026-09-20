@@ -45,6 +45,7 @@
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |
 | [ui-rules.md](spec/ui-rules.md) | 文言、入力、ナビ、窓と画面の状態、画面の幅、ドロップ、キー |
 | [ui-dialogs.md](spec/ui-dialogs.md) | 別の窓（ダイアログ）の Enter・Esc、ボタンの並びと名前、取り返しの一文、確認と失敗のアイコン |
+| [ui-empty-and-errors.md](spec/ui-empty-and-errors.md) | 空の表示の3通りの書き分け、押せない理由の出し方、黙って捨てない失敗、利用者に見せない文 |
 | [tags.md](spec/tags.md) | タグの管理・属性の管理（大分類／小分類、名前の変更・統合・削除、並べ方、小分類の中を探す、メモ） |
 
 ## history（経緯）

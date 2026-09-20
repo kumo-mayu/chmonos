@@ -72,6 +72,11 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
     public bool CanMoveBack => Index > 0;
 
     public bool CanMoveForward => Index < Total - 1;
+
+    // 押せない理由も出す（`ui-rules.md`・E11）。同じ並びの中で、理由の出るボタンと出ないボタンが混ざっていた
+    public string MoveBackHint => CanMoveBack ? "前へ（先に入れる）" : "いちばん前にあります。";
+
+    public string MoveForwardHint => CanMoveForward ? "後ろへ（後に入れる）" : "いちばん後ろにあります。";
 }
 
 /// <summary>改変に貼った写真1枚。</summary>
