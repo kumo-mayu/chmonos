@@ -579,6 +579,7 @@
                                     <Button Content="自動検索" Style="{StaticResource SmallButton}"
                                             Command="{Binding ProposeCommand}" />
                                     <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                            ToolTip="このファイル名でBOOTHを検索します（アプリの外へ出ます）。"
                                             Command="{Binding OpenBoothCommand}" />
                                 </StackPanel>
                             </Grid>
@@ -615,7 +616,8 @@
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <!-- 候補を出す以上、それが目当てのものか確かめる手段が要る -->
-                                                    <Button Content="BOOTHで見る" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                    <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                            ToolTip="この候補の商品ページをブラウザで開いて、目当ての物か確かめます（アプリの外へ出ます）。"
                                                             Command="{Binding OpenBoothCommand}" />
                                                     <Button Content="これで確認" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.UseCandidateCommand,

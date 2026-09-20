@@ -459,7 +459,7 @@ public sealed partial class EditViewModel : ViewModelBase
 
     public string OpenBoothTip => IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
-        : "BOOTHの商品ページをブラウザで開きます。";
+        : "BOOTHの商品ページをブラウザで開きます（アプリの外へ出ます）。";
 
     /// <summary>入手日。空欄ならファイルの日付にフォールバックする（保存時にnullを書く）。</summary>
     public string AcquiredAt

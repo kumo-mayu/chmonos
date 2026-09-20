@@ -12,12 +12,19 @@
         開くのは一度に1つなので、1つを全カードで使い回す。項目は開いたカード（PlacementTarget）を見る
     -->
     <ContextMenu x:Key="CardMenu">
+        <!--
+            行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1）。
+            塞いだ理由はツールチップで出す（ShowOnDisabled。押せないまま何も言わないのは決め事違反）
+        -->
         <MenuItem Header="BOOTHで開く" CommandParameter="{Binding}"
+                  ToolTip="{Binding OpenBoothTip}" ToolTipService.ShowOnDisabled="True"
                   Command="{Binding PlacementTarget.Tag.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <MenuItem Header="ショップを開く" CommandParameter="{Binding}"
+                  ToolTip="{Binding OpenShopTip}" ToolTipService.ShowOnDisabled="True"
                   Command="{Binding PlacementTarget.Tag.OpenShopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <!-- 人に商品を教えるときに要る。落とす／貼るの逆向き -->
         <MenuItem Header="リンクをコピー" CommandParameter="{Binding}"
+                  ToolTip="{Binding CopyLinkTip}" ToolTipService.ShowOnDisabled="True"
                   Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <MenuItem Header="編集に入る" CommandParameter="{Binding}"
                   Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />

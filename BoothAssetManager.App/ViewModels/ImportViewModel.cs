@@ -640,7 +640,7 @@ public sealed class ImportViewModel : ViewModelBase
         {
             StackNotice = running.Remove(folder)
                 ? "今の取り込みから取り下げました。"
-                : "既に走査したので、今の取り込みからは外せません。中断すると止まります。";
+                : "既にスキャンしたので、今の取り込みからは外せません。中断すると止まります。";
         }
     }
 
@@ -836,7 +836,7 @@ public sealed class ImportViewModel : ViewModelBase
 
         StackNotice = added == 0
             ? "積むものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
-            : $"{added} 件を今の取り込みに積みました。順番が来たら走査します。";
+            : $"{added} 件を今の取り込みに積みました。順番が来たらスキャンします。";
     }
 
     private async Task RunAsync()
@@ -872,7 +872,7 @@ public sealed class ImportViewModel : ViewModelBase
             // 全部終わるまで待つものだと読まれてしまう
             PhaseText = report.Phase switch
             {
-                ImportPhase.Scanning => "1. ファイルを走査",
+                ImportPhase.Scanning => "1. ファイルをスキャン",
                 ImportPhase.Resolving => "2. 商品IDを解決",
                 ImportPhase.FetchingJson => "3. 商品の情報を取得",
                 ImportPhase.FetchingHtml => "4. 商品ページを取得",
@@ -969,7 +969,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// <summary>常設の1行に出す段の呼び名。取り込み画面の段の名前を1行に収まるよう短くしたもの。</summary>
     private static string LineLabelOf(ImportPhase phase) => phase switch
     {
-        ImportPhase.Scanning => "取り込み：ファイルを走査中",
+        ImportPhase.Scanning => "取り込み：ファイルをスキャン中",
         ImportPhase.Resolving => "取り込み：商品IDを解決中",
         ImportPhase.FetchingJson => "取り込み：商品の情報を取得中",
         ImportPhase.FetchingHtml => "取り込み：商品ページを取得中",

@@ -56,6 +56,27 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public ItemRecord Item { get; }
 
+    /// <summary>
+    /// 右クリックの「BOOTHで開く」「リンクをコピー」を押せるか。**BOOTHに無い商品として登録した物には開く先が無い**。
+    /// 前は押せて、黙って何も起きなかった（商品ページ側は同じ条件で塞いでいた。`docs/spec/ui-rules.md`：効かない選択肢は出さない）
+    /// </summary>
+    public bool HasBoothPage => !Item.IsLocalOnly;
+
+    public string OpenBoothTip => Item.IsLocalOnly
+        ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
+        : "BOOTHの商品ページをブラウザで開きます（アプリの外へ出ます）。";
+
+    public string CopyLinkTip => Item.IsLocalOnly
+        ? "BOOTHに無い商品として登録したものなので、リンクがありません。"
+        : "BOOTHの商品ページのリンクを写します。";
+
+    /// <summary>ショップの画面（アプリの中）へ行けるか。BOOTHの店が分からない商品では行き先が無い。</summary>
+    public bool HasShop => !string.IsNullOrWhiteSpace(Item.Booth.Shop?.Subdomain);
+
+    public string OpenShopTip => HasShop
+        ? "このショップの商品を、アプリの中のショップ画面で見ます。"
+        : "この商品にはBOOTHのショップが記録されていないので、開けません。";
+
     private bool _isFavorite;
 
     /// <summary>

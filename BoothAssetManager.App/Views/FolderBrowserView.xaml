@@ -106,7 +106,7 @@
                 <Button Content="エクスプローラで開く" Margin="0,0,8,8" IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                         Command="{Binding Owner.RevealCommand}" CommandParameter="{Binding}" />
                 <!-- 「取り込み元に足す」は何が起きるか分かりにくかった（ユーザ指示 2026-09-14）。押すと取り込みが始まる -->
-                <Button Content="このフォルダのアイテムを取り込む" Margin="0,0,8,8"
+                <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"
                         IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                         Command="{Binding Owner.ImportHereCommand}" CommandParameter="{Binding}"
                         ToolTip="このフォルダを取り込みの対象に積んで、取り込みを始めます（取り込み画面へ移ります）。新しいファイルを探して商品を決めます。" />

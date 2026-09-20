@@ -15,7 +15,7 @@ public sealed class VideoRow : ViewModelBase
 
     public string ThumbnailUrl => Link.ThumbnailUrl;
 
-    public string TitleText => _title ?? (_isLoading ? "タイトルを確かめています…" : "タイトルを取れませんでした（押すと YouTube で開きます）");
+    public string TitleText => _title ?? (_isLoading ? "タイトルを確かめています…" : "タイトルを取れませんでした（押すと YouTube で開きます。アプリの外へ出ます）");
 
     public RelayCommand OpenCommand => new(() => Shell.OpenUrl(Url));
 

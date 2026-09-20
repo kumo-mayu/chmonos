@@ -82,9 +82,17 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost
         AddSelectionToFavoritesCommand = new RelayCommand(() => AddSelectionToFavoritesAsync().Forget(), () => SelectedCount > 0);
         AddSelectionToModificationCommand = new RelayCommand(() => AddSelectionToModificationAsync().Forget(), () => SelectedCount > 0);
         SendSelectionToUnityCommand = new RelayCommand(() => SendSelectionToUnityAsync().Forget(), () => SelectedCount > 0 && !IsSendingToUnity);
-        OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter as ItemCardViewModel));
-        OpenShopCommand = new RelayCommand(parameter => OpenShop(parameter as ItemCardViewModel));
-        CopyLinkCommand = new RelayCommand(parameter => CopyLink(parameter as ItemCardViewModel));
+        // 行き先が無いものは押せなくする（ユーザ指示 2026-09-20・R1）。押しても黙って何も起きなかった。
+        // 理由はカードのツールチップ（ItemCardViewModel の OpenBoothTip など）で出す
+        OpenBoothCommand = new RelayCommand(
+            parameter => OpenBooth(parameter as ItemCardViewModel),
+            parameter => parameter is not ItemCardViewModel card || card.HasBoothPage);
+        OpenShopCommand = new RelayCommand(
+            parameter => OpenShop(parameter as ItemCardViewModel),
+            parameter => parameter is not ItemCardViewModel card || card.HasShop);
+        CopyLinkCommand = new RelayCommand(
+            parameter => CopyLink(parameter as ItemCardViewModel),
+            parameter => parameter is not ItemCardViewModel card || card.HasBoothPage);
         EditItemCommand = new RelayCommand(parameter => EditItemAsync(parameter as ItemCardViewModel).Forget());
         RevealCommand = new RelayCommand(parameter => Reveal(parameter as ItemCardViewModel));
         CardUnpackCommand = new RelayCommand(parameter =>
