@@ -1020,15 +1020,13 @@ public sealed class TagManageViewModel : ViewModelBase
         var merging = _allTops.Any(row =>
             string.Equals(row.Name, target, StringComparison.CurrentCultureIgnoreCase));
 
-        var message = merging
-            ? $"「{Selected.Name}」を「{target}」に統合します。\n\n"
+        // 統合だけもう一度聞く（D5。理由は小分類の方に書いた）
+        if (merging && !Confirm(
+                $"「{Selected.Name}」を「{target}」に統合します。\n\n"
                 + $"{Selected.ItemCount} 件の商品を書き換えます。小分類は「{target}」側へまとめます。\n"
                 + MemoNotice(Selected.Memo, target)
-                + "この操作は元に戻せません。"
-            : $"「{Selected.Name}」を「{target}」に変更します。\n\n"
-                + $"{Selected.ItemCount} 件の商品を書き換えます。";
-
-        if (!Confirm(message, merging ? "大分類を統合する" : "名前を変更する"))
+                + "この操作は元に戻せません。",
+                "大分類を統合する"))
         {
             return;
         }
@@ -1124,15 +1122,15 @@ public sealed class TagManageViewModel : ViewModelBase
             return;
         }
 
+        // **統合だけもう一度聞く**（ユーザ判断 2026-09-20・D5）。統合は元に戻せないが、
+        // 名前の変更は同じ手順で戻せる。戻せるものまで2回聞くと、聞かれること自体が読まれなくなる
         var merging = Subs.Any(entry => string.Equals(entry.Name, target, StringComparison.CurrentCultureIgnoreCase));
-        var message = merging
-            ? $"「{row.Top}」の「{row.Name}」を「{target}」に統合します。\n\n"
+        if (merging && !Confirm(
+                $"「{row.Top}」の「{row.Name}」を「{target}」に統合します。\n\n"
                 + $"{row.ItemCount} 件の商品を書き換えます。\n"
                 + MemoNotice(row.Memo, target)
-            : $"「{row.Top}」の「{row.Name}」を「{target}」に変更します。\n\n"
-                + $"{row.ItemCount} 件の商品を書き換えます。";
-
-        if (!Confirm(message, merging ? "小分類を統合する" : "小分類の名前を変更する"))
+                + "\nこの操作は元に戻せません。",
+                "小分類を統合する"))
         {
             return;
         }

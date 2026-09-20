@@ -689,7 +689,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
-        if (await UnityMemberSelect.RunAsync(_services, Record, row.Index, row.Member, row.Name, row.SourceText, item, (text, _) => Status = text))
+        if (await UnityMemberSelect.RunAsync(_services, Record, row.Index, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => Status = text)))
         {
             await ReloadAsync();
         }

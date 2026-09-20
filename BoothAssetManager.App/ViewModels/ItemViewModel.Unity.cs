@@ -32,7 +32,7 @@ public sealed partial class ItemViewModel
     {
         if (parameter is Core.Services.UnityPackageEntry package)
         {
-            await ItemUnityActions.SelectAsync(Item, package, (text, _) => UnityRecordNotice = text);
+            await ItemUnityActions.SelectAsync(Item, package, Notices.LineOrWindow("Unityで選択", text => UnityRecordNotice = text));
         }
     }
 
@@ -40,7 +40,7 @@ public sealed partial class ItemViewModel
     {
         if (parameter is Core.Services.UnityPackageEntry package)
         {
-            await ItemUnityActions.SendWithRecordAsync(_services, Item, package, (text, _) => UnityRecordNotice = text);
+            await ItemUnityActions.SendWithRecordAsync(_services, Item, package, Notices.LineOrWindow("改変に足して送る", text => UnityRecordNotice = text));
         }
     }
 

@@ -794,6 +794,25 @@ public sealed class AttributeManageViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 統合の2回目の確認（ユーザ判断 2026-09-20・D5）。窓で影響を見て残す値を選んだ後に、もう一度だけ聞く。
+    ///
+    /// **統合は元に戻せない**（1つになった後は、どちらに付いていたかで分け直せない）。
+    /// 名前の変更は同じ手順で戻せるので、そちらは窓だけの1回で済ませる。
+    /// </summary>
+    private static bool ConfirmMerge(string from, string to, AttributeMergePreview preview, AttributeMergeValue keep)
+        => Confirm(
+            $"「{from}」を「{to}」に統合します。\n\n"
+            + (preview.ItemCount == 0
+                ? "どの商品も評価していないので、商品側の書き換えはありません。\n"
+                : $"{preview.ItemCount} 件の商品を書き換えます。メモは「{to}」側へ書き足します。\n")
+            + (preview.Conflicts > 0
+                ? $"両方に値が入っている {preview.Conflicts} 件は、"
+                    + $"{(keep == AttributeMergeValue.KeepTarget ? $"「{to}」" : $"「{from}」")}の値を残します。\n"
+                : string.Empty)
+            + "\nこの操作は元に戻せません。",
+            "属性を統合する");
+
+    /// <summary>
     /// 改名。既にある名前を指すと統合になる。
     /// 統合では両方に値が入っているitemが出るので、そのときだけどちらを残すか聞く。
     /// </summary>
@@ -821,12 +840,11 @@ public sealed class AttributeManageViewModel : ViewModelBase
             }
 
             keep = ((MergeAttributeDialogViewModel)dialog.DataContext).Keep;
-        }
-        else if (!Confirm(
-            $"「{Selected.Name}」を「{target}」に変更します。\n\n{Selected.ItemCount} 件の商品を書き換えます。",
-            "名前を変更する"))
-        {
-            return;
+
+            if (!ConfirmMerge(Selected.Name, target, preview, keep))
+            {
+                return;
+            }
         }
 
         var result = await _services.Commands.ExecuteAsync(
@@ -975,6 +993,12 @@ public sealed class AttributeManageViewModel : ViewModelBase
         }
 
         var keep = ((MergeAttributeDialogViewModel)dialog.DataContext).Keep;
+
+        // 統合はもう一度聞く（D5）
+        if (!ConfirmMerge(row.Name, name, preview, keep))
+        {
+            return;
+        }
 
         var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAttribute(row.Name, name, keep));
         if (result is CommandResult.AttributesRewritten rewritten)

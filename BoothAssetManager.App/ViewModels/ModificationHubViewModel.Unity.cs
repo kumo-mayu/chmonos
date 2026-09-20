@@ -44,7 +44,7 @@ public sealed partial class ModificationHubViewModel
 
         var item = _items.GetValueOrDefault(row.ItemId) ?? await _services.Store.Items.LoadAsync(row.ItemId);
         var recorded = await UnityMemberSelect.RunAsync(
-            _services, row.Record, row.Index, row.Member, row.Name, row.FileText, item, (text, _) => Status = text);
+            _services, row.Record, row.Index, row.Member, row.Name, row.FileText, item, Notices.LineOrWindow("Unityで選択", text => Status = text));
 
         // 記録した行（どのファイルを使ったか）を一覧に出す
         if (recorded)
