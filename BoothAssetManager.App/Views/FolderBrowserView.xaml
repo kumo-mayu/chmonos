@@ -103,7 +103,9 @@
                 <Button Content="このフォルダの商品を検索で開く" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
                         Command="{Binding Owner.SearchHereCommand}" CommandParameter="{Binding}"
                         ToolTip="検索の画面へ移り、このフォルダの下にファイルを持つ商品だけで絞り込みます（分類・対応アバターなどでも絞れます）。" />
-                <Button Content="エクスプローラで開く" Margin="0,0,8,8" IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                <!-- エクスプローラを開くのは、どの画面でも小さいボタン（V1） -->
+                <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="0,0,8,8"
+                        IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                         Command="{Binding Owner.RevealCommand}" CommandParameter="{Binding}" />
                 <!-- 「取り込み元に足す」は何が起きるか分かりにくかった（ユーザ指示 2026-09-14）。押すと取り込みが始まる -->
                 <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"

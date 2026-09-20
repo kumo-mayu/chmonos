@@ -485,13 +485,17 @@
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastWriteValue}" Style="{StaticResource ProjectInfoValue}"
                                    Visibility="{Binding HasLastWrite, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </Grid>
+                    <!--
+                        外のアプリ・エクスプローラを開くのは**どの画面でも小さいボタン**（ユーザ判断 2026-09-20・V1）。
+                        主のボタン（青）は「その画面で今いちばんやってほしいこと」1つだけに使う
+                    -->
                     <WrapPanel Margin="0,14,0,0">
-                        <Button Content="Unityを開く" Style="{StaticResource PrimaryButton}" IsEnabled="{Binding Exists}"
+                        <Button Content="Unityを開く" Style="{StaticResource SmallButton}" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}"
                                 ToolTipService.ShowOnDisabled="True"
                                 ToolTip="{Binding OpenProjectHint}" />
-                        <Button Content="エクスプローラで開く" Margin="8,0,0,0" IsEnabled="{Binding Exists}"
+                        <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="8,0,0,0" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}" />
                     </WrapPanel>
@@ -698,7 +702,7 @@
                             VCC は起動するだけ（中身の管理はしない・ユーザ仕様）。Unityプロジェクトの見方の時だけ、
                             切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）
                         -->
-                        <Button DockPanel.Dock="Right" Content="VCCを開く" Margin="8,0,0,0" VerticalAlignment="Center"
+                        <Button DockPanel.Dock="Right" Content="VCCを開く" Style="{StaticResource SmallButton}" Margin="8,0,0,0" VerticalAlignment="Center"
                                 Command="{Binding OpenVccCommand}" IsEnabled="{Binding CanOpenVcc}"
                                 ToolTip="{Binding VccHint}" ToolTipService.ShowOnDisabled="True"
                                 AutomationProperties.HelpText="{Binding VccHint}"
