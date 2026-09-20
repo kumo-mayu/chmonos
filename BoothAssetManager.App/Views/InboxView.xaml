@@ -140,12 +140,25 @@
                                                     <DataTemplate>
                                                         <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
                                                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
+                                                            <!--
+                                                                行を押すと、その商品を開く（ユーザ指示 2026-09-20・B3）。
+                                                                行を押す意味はアプリ全体で「選ぶ」か「開く」の2つだけで、この画面は「開く」。
+                                                                以前はどこを押しても何も起きず、乗せたときだけ色が変わるので押せるように見えていた。
+                                                                中のボタン（既読の印・商品ページを開く・直しに行く）は自分で受け止めるので、ここまで上がってこない
+                                                            -->
+                                                            <Border.InputBindings>
+                                                                <MouseBinding MouseAction="LeftClick" Command="{Binding OpenItemCommand}" />
+                                                            </Border.InputBindings>
                                                             <Border.Style>
                                                                 <!-- 読んだ行は薄くする。未読が浮き上がって、どこまで読んだかが分かる -->
                                                                 <Style TargetType="Border">
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding IsRead}" Value="True">
                                                                             <Setter Property="Opacity" Value="0.62" />
+                                                                        </DataTrigger>
+                                                                        <!-- 商品のある行だけが押せる。押せない行に手の形を出さない -->
+                                                                        <DataTrigger Binding="{Binding HasItem}" Value="True">
+                                                                            <Setter Property="Cursor" Value="Hand" />
                                                                         </DataTrigger>
                                                                         <Trigger Property="IsMouseOver" Value="True">
                                                                             <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />

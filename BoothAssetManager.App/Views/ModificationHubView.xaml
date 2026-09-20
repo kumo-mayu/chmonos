@@ -117,9 +117,45 @@
             <Setter Property="Margin" Value="0,0,6,4" />
         </Style>
 
+        <!--
+            押せる行（ユーザ指示 2026-09-20・B3）。行を押す意味は「選ぶ（右に出す）」と「開く」の2つだけにし、
+            **この一覧は全部「選ぶ」**。以前は名前の文字だけが押せて、行のどこを押しても何も起きなかった。
+            中のボタン（Unityで選択・Unityを開く・アバター・プロジェクト・三角）は自分で受け止めるので、ここまで上がってこない。
+            押せることは、乗せたときの色と手の形で見せる
+        -->
+        <Style x:Key="HubPressableRow" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 見出しの行。地の色を持っているので、乗せたときだけ少し濃くする -->
+        <Style x:Key="HubPressableHeader" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Bg}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="4,7,8,7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- 使ったもの1件（ファイル単位） -->
         <DataTemplate DataType="{x:Type vm:HubMemberRow}">
-            <DockPanel Margin="0,3">
+            <Border Style="{StaticResource HubPressableRow}">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick"
+                                  Command="{Binding DataContext.ShowMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  CommandParameter="{Binding}" />
+                </Border.InputBindings>
+                <DockPanel Margin="0,3">
                 <Button DockPanel.Dock="Right" Content="Unityで選択" Style="{StaticResource SmallButton}"
                         VerticalAlignment="Center" Margin="6,0,0,0"
                         Command="{Binding DataContext.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -172,12 +208,19 @@
                                    ToolTip="{Binding FileText}" />
                     </DockPanel>
                 </StackPanel>
-            </DockPanel>
+                </DockPanel>
+            </Border>
         </DataTemplate>
 
         <!-- 改変1件。見方によって、アバター・プロジェクトへの繋がりを出し分ける -->
         <DataTemplate DataType="{x:Type vm:HubModificationRow}">
             <StackPanel Margin="0,4,0,2">
+                <Border Style="{StaticResource HubPressableRow}">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick"
+                                  Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  CommandParameter="{Binding}" />
+                </Border.InputBindings>
                 <DockPanel>
                     <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
                                   Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
@@ -238,6 +281,7 @@
                                    Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </StackPanel>
                 </DockPanel>
+                </Border>
                 <!-- 畳んだ中身の字下げは、ユーザ指示（2026-09-13「少しだけ深く」）で見出しの下 14→22、改変の下 28→36 にした -->
                 <!-- 縦線は改変の三角の真下（三角の幅 18 の半分 = 9）。中身の位置は線が無かったときと同じ 36 -->
                 <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
@@ -250,7 +294,12 @@
         <!-- Unityプロジェクトの見出し -->
         <DataTemplate DataType="{x:Type vm:HubProjectGroup}">
             <StackPanel Margin="0,0,0,8">
-                <Border Background="{StaticResource Bg}" CornerRadius="6" Padding="4,7,8,7">
+                <Border Style="{StaticResource HubPressableHeader}">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick"
+                                      Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      CommandParameter="{Binding Path}" />
+                    </Border.InputBindings>
                     <DockPanel>
                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
@@ -295,7 +344,12 @@
         <!-- アバターの見出し -->
         <DataTemplate DataType="{x:Type vm:HubAvatarGroup}">
             <StackPanel Margin="0,0,0,8">
-                <Border Background="{StaticResource Bg}" CornerRadius="6" Padding="4,7,8,7">
+                <Border Style="{StaticResource HubPressableHeader}">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick"
+                                      Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      CommandParameter="{Binding AvatarItemId}" />
+                    </Border.InputBindings>
                     <DockPanel>
                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
