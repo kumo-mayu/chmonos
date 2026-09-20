@@ -1107,23 +1107,23 @@ public sealed class ItemService : IItemService
             return null;
         }
 
-        // 既に同じ絵が入っていれば、記録は増やさずファイルだけ入れ替わる
-        var images = existing.Local.UserImages.ToList();
-        if (!images.Any(image => string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase)))
-        {
-            images.Add(new UserImage
-            {
-                FileName = fileName,
-                AddedAt = DateTimeOffset.Now,
-                Caption = string.IsNullOrWhiteSpace(caption) ? null : caption.Trim(),
-            });
-        }
-
-        await _store.Items.SaveLocalAsync(
+        // 既に同じ絵が入っていれば、記録は増やさずファイルだけ入れ替わる。
+        // 一覧は書く直前の値に足す（絵を保存する間に別の操作が並べ替えていることがある）
+        await _store.Items.ChangeLocalAsync(
             itemId,
-            existing.Local with { UserImages = images },
+            current => current.UserImages.Any(image => string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                ? null
+                : current with
+                {
+                    UserImages = [.. current.UserImages, new UserImage
+                    {
+                        FileName = fileName,
+                        AddedAt = DateTimeOffset.Now,
+                        Caption = string.IsNullOrWhiteSpace(caption) ? null : caption.Trim(),
+                    }],
+                },
             LocalOwners.UserImages,
-            cancellationToken: cancellationToken);
+            cancellationToken);
 
         return fileName;
     }
@@ -1146,21 +1146,25 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var images = existing.Local.UserImages
-            .Where(image => !string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        var pinned = string.Equals(existing.Local.ThumbnailImage, fileName, StringComparison.OrdinalIgnoreCase)
-            ? null
-            : existing.Local.ThumbnailImage;
-
         _images.DeleteUserImage(itemId, fileName);
 
-        await _store.Items.SaveLocalAsync(
+        await _store.Items.ChangeLocalAsync(
             itemId,
-            existing.Local with { UserImages = images, ThumbnailImage = pinned },
-            LocalOwners.UserImages,
-            cancellationToken: cancellationToken);
+            current => current with
+            {
+                UserImages = [.. current.UserImages
+                    .Where(image => !string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase))],
+                ThumbnailImage = string.Equals(current.ThumbnailImage, fileName, StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : current.ThumbnailImage,
+
+                // 役割の行も落とす。残すと、同じ絵を入れ直したときに外したはずの役割が復活する
+                ImageRoles = current.ImageRoles
+                    .Where(pair => !string.Equals(pair.Key, fileName, StringComparison.OrdinalIgnoreCase))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value),
+            },
+            LocalOwners.RemoveUserImage,
+            cancellationToken);
 
         return true;
     }
@@ -1178,31 +1182,26 @@ public sealed class ItemService : IItemService
         int delta,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (existing is null)
-        {
-            return false;
-        }
-
-        var images = existing.Local.UserImages.ToList();
-        var from = images.FindIndex(image =>
-            string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase));
-
-        var to = from + delta;
-        if (from < 0 || to < 0 || to >= images.Count)
-        {
-            return false;
-        }
-
-        (images[from], images[to]) = (images[to], images[from]);
-
-        await _store.Items.SaveLocalAsync(
+        // 並べ替えは書く直前の一覧に当てる（続けて押したとき、前の結果を古い写しで消さない）
+        return await _store.Items.ChangeLocalAsync(
             itemId,
-            existing.Local with { UserImages = images },
-            LocalOwners.UserImages,
-            cancellationToken: cancellationToken);
+            current =>
+            {
+                var images = current.UserImages.ToList();
+                var from = images.FindIndex(image =>
+                    string.Equals(image.FileName, fileName, StringComparison.OrdinalIgnoreCase));
 
-        return true;
+                var to = from + delta;
+                if (from < 0 || to < 0 || to >= images.Count)
+                {
+                    return null;
+                }
+
+                (images[from], images[to]) = (images[to], images[from]);
+                return current with { UserImages = images };
+            },
+            LocalOwners.UserImages,
+            cancellationToken);
     }
 
     /// <summary>
@@ -1219,30 +1218,31 @@ public sealed class ItemService : IItemService
         bool isUserAdded,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (existing is null || string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(fileName))
         {
             return false;
         }
 
         var name = Path.GetFileName(fileName);
-        var roles = existing.Local.ImageRoles
-            .Where(pair => !string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(pair => pair.Key, pair => pair.Value);
-
         var natural = isUserAdded ? ImageRole.Other : ImageRole.Booth;
-        if (role != natural)
-        {
-            roles[name] = role;
-        }
 
-        await _store.Items.SaveLocalAsync(
+        return await _store.Items.ChangeLocalAsync(
             itemId,
-            existing.Local with { ImageRoles = roles },
-            LocalOwners.UserImages,
-            cancellationToken: cancellationToken);
+            current =>
+            {
+                var roles = current.ImageRoles
+                    .Where(pair => !string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        return true;
+                if (role != natural)
+                {
+                    roles[name] = role;
+                }
+
+                return current with { ImageRoles = roles };
+            },
+            LocalOwners.ImageRoles,
+            cancellationToken);
     }
 
     /// <summary>
@@ -1254,22 +1254,13 @@ public sealed class ItemService : IItemService
         string? fileName,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (existing is null)
-        {
-            return false;
-        }
+        var pinned = string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileName(fileName);
 
-        await _store.Items.SaveLocalAsync(
+        return await _store.Items.ChangeLocalAsync(
             itemId,
-            existing.Local with
-            {
-                ThumbnailImage = string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileName(fileName),
-            },
-            LocalOwners.UserImages,
-            cancellationToken: cancellationToken);
-
-        return true;
+            current => current with { ThumbnailImage = pinned },
+            LocalOwners.ThumbnailImage,
+            cancellationToken);
     }
 
     /// <summary>

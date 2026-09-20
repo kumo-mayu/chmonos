@@ -371,20 +371,20 @@ public sealed class AttributeService : IAttributeService
 
         foreach (var item in loaded.Items)
         {
-            var attributes = transform(item.Local.Attributes);
-            if (attributes is null)
-            {
-                continue;
-            }
-
-            // 全件を先に読んでから順に書く。書く頃には写しが古いので、属性だけを名指しする
-            await _store.Items.SaveLocalAsync(
+            // 全件を先に読んでから順に書く。書く頃には写しが古いので、**書き換えを書く直前の値に当てる**
+            // （名指しは他の項目を守るだけで、属性そのものは守らない）。触る物が無ければ書かない
+            var written = await _store.Items.ChangeLocalAsync(
                 item.Id,
-                item.Local with { Attributes = attributes },
+                current => transform(current.Attributes) is { } attributes
+                    ? current with { Attributes = attributes }
+                    : null,
                 LocalOwners.Attributes,
-                cancellationToken: cancellationToken);
+                cancellationToken);
 
-            updated++;
+            if (written)
+            {
+                updated++;
+            }
         }
 
         return updated;

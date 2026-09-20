@@ -337,33 +337,32 @@ public sealed partial class AvatarService
 
         foreach (var item in loaded.Items)
         {
-            if (!item.Local.AvatarBases.Any(link =>
-                string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)))
-            {
-                continue;
-            }
-
-            var bases = newName is null
-                ? item.Local.AvatarBases
-                    .Where(link => !string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase))
-                    .ToList()
-                : item.Local.AvatarBases
-                    .Select(link => string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)
-                        ? link with { BaseName = newName }
-                        : link)
-                    .DistinctBy(link => link.BaseName, StringComparer.CurrentCultureIgnoreCase)
-                    .ToList();
-
-            // 全件を先に読んでから順に書く。書く頃には写しが古いので、素体の対応だけを名指しする
-            await _store.Items.SaveLocalAsync(
+            // 全件を先に読んでから順に書く。書く頃には写しが古いので、**書き換えを書く直前の値に当てる**
+            // （名指しは他の項目を守るだけで、素体の対応そのものは守らない）。持っていなければ書かない
+            var written = await _store.Items.ChangeLocalAsync(
                 item.Id,
-                item.Local with { AvatarBases = bases },
+                current => current.AvatarBases.Any(link =>
+                    string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase))
+                        ? current with { AvatarBases = Rename(current.AvatarBases) }
+                        : null,
                 LocalOwners.AvatarBases,
-                cancellationToken: cancellationToken);
+                cancellationToken);
 
-            updated++;
+            if (written)
+            {
+                updated++;
+            }
         }
 
         return updated;
+
+        IReadOnlyList<AvatarBaseLink> Rename(IReadOnlyList<AvatarBaseLink> links)
+            => newName is null
+                ? [.. links.Where(link => !string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase))]
+                : [.. links
+                    .Select(link => string.Equals(link.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)
+                        ? link with { BaseName = newName }
+                        : link)
+                    .DistinctBy(link => link.BaseName, StringComparer.CurrentCultureIgnoreCase)];
     }
 }

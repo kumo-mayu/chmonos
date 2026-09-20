@@ -678,22 +678,31 @@ public sealed class UserTagService : IUserTagService
 
         foreach (var item in loaded.Items)
         {
-            var local = transform(item.Local);
-            if (local is null)
+            // 全件を先に読んでから順に書く。書く頃には写しが古いので、**書き換えを書く直前の値に当てる**
+            // （名指しは他の項目を守るだけで、userTag そのものは守らない）。
+            // 触る物が無ければ書かない
+            var before = 0;
+            var after = 0;
+            var written = await _store.Items.ChangeLocalAsync(
+                item.Id,
+                current =>
+                {
+                    before = current.UserTags.Count;
+                    var local = transform(current);
+                    after = local?.UserTags.Count ?? before;
+                    return local;
+                },
+                LocalOwners.UserTags,
+                cancellationToken);
+
+            if (!written)
             {
                 continue;
             }
 
-            // 全件を先に読んでから順に書く。書く頃には写しが古いので、userTagだけを名指しする
-            await _store.Items.SaveLocalAsync(
-                item.Id,
-                local,
-                LocalOwners.UserTags,
-                cancellationToken: cancellationToken);
-
             updated++;
 
-            if (item.Local.UserTags.Count > 0 && local.UserTags.Count == 0)
+            if (before > 0 && after == 0)
             {
                 leftUntagged++;
             }

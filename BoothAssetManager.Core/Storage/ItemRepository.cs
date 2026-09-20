@@ -113,10 +113,13 @@ public sealed class ItemRepository
     /// （検出・一括書き換え・取り込み）が、その項目自体を古い値で潰していた。
     /// <paramref name="owns"/> は他の項目を守るだけで、名指しした項目そのものは守らないため、
     /// **名指しした項目を古い写しから作る側が、今の値を見て組み直す**必要がある。
+    ///
+    /// <paramref name="change"/> が null を返したら何も書かない（触る物が無かった）。
     /// </summary>
+    /// <returns>書いたか（itemが消えていた・触る物が無かったときは false）。</returns>
     public async Task<bool> ChangeLocalAsync(
         string itemId,
-        Func<LocalBlock, LocalBlock> change,
+        Func<LocalBlock, LocalBlock?> change,
         IReadOnlyCollection<LocalField> owns,
         CancellationToken cancellationToken = default)
     {
@@ -124,13 +127,13 @@ public sealed class ItemRepository
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = await LoadAsync(itemId, cancellationToken);
-            if (existing is null)
+            if (await LoadAsync(itemId, cancellationToken) is not { } existing
+                || change(existing.Local) is not { } changed)
             {
                 return false;
             }
 
-            var merged = LocalFields.Merge(existing.Local, change(existing.Local), owns);
+            var merged = LocalFields.Merge(existing.Local, changed, owns);
             merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
 
             await WriteAsync(existing with { Local = merged }, cancellationToken);

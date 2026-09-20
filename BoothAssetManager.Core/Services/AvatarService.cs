@@ -662,26 +662,28 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             var links = BuildLinks(scan, entries);
             var bases = BuildBaseLinks(scan);
 
-            var merged = MergeLinks(item.Local.Avatars, links);
-            var mergedBases = MergeBaseLinks(item.Local.AvatarBases, bases);
-
-            if (SameLinks(item.Local.Avatars, merged) && SameBaseLinks(item.Local.AvatarBases, mergedBases))
-            {
-                continue;
-            }
-
-            // 全件を先に読んでから順に書くので、書く頃には手元の写しが古い。
-            // 検出が持つ3項目だけを名指しして、その間のユーザ入力を潰さない
-            var written = await _store.Items.SaveLocalAsync(
+            // 全件を先に読んでから順に書くので、書く頃には手元の写しが古い（友人データの初回で約37分）。
+            // 名指し（LocalOwners.Detection）が守るのは**他の**項目だけなので、
+            // **重ね合わせそのものを書く直前の値に当てる**。
+            // 古い写しに当てていたため、検出の間に人が手で足した／「違う」と消した対応アバターが元へ戻っていた
+            var written = await _store.Items.ChangeLocalAsync(
                 item.Id,
-                item.Local with
+                current =>
                 {
-                    Avatars = merged,
-                    AvatarBases = mergedBases,
-                    AvatarsDetectedAt = DateTimeOffset.Now,
+                    var merged = MergeLinks(current.Avatars, links);
+                    var mergedBases = MergeBaseLinks(current.AvatarBases, bases);
+
+                    return SameLinks(current.Avatars, merged) && SameBaseLinks(current.AvatarBases, mergedBases)
+                        ? null
+                        : current with
+                        {
+                            Avatars = merged,
+                            AvatarBases = mergedBases,
+                            AvatarsDetectedAt = DateTimeOffset.Now,
+                        };
                 },
                 LocalOwners.Detection,
-                cancellationToken: cancellationToken);
+                cancellationToken);
 
             if (written)
             {

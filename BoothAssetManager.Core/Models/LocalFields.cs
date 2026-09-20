@@ -162,8 +162,26 @@ public static class LocalOwners
     /// <summary>属性の一括書き換え。</summary>
     public static readonly IReadOnlyCollection<LocalField> Attributes = [LocalField.Attributes];
 
-    /// <summary>自分で足した画像の操作（足す・消す・並べ替え・サムネイルの指名・役割）。</summary>
-    public static readonly IReadOnlyCollection<LocalField> UserImages =
+    /// <summary>
+    /// 自分で足した画像の一覧（足す・並べ替え）。
+    ///
+    /// **3項目をまとめて名乗らない**（2026-09-20）。どれも「読む→組み直す→書く」で、
+    /// 指名だけを変えたいときにも古い画像一覧ごと書き戻していたため、
+    /// 続けて押すと片方の結果が消えていた。
+    /// </summary>
+    public static readonly IReadOnlyCollection<LocalField> UserImages = [LocalField.UserImages];
+
+    /// <summary>サムネイルに使う1枚の指名。</summary>
+    public static readonly IReadOnlyCollection<LocalField> ThumbnailImage = [LocalField.ThumbnailImage];
+
+    /// <summary>画像に付けた役割。</summary>
+    public static readonly IReadOnlyCollection<LocalField> ImageRoles = [LocalField.ImageRoles];
+
+    /// <summary>
+    /// 自分で足した画像を消す。**3つ揃って片付ける**——一覧から消しても役割の行が残ると、
+    /// 同じ絵を入れ直したときに外したはずの役割が復活する（保存名が中身のハッシュなので同じ名前に戻る）。
+    /// </summary>
+    public static readonly IReadOnlyCollection<LocalField> RemoveUserImage =
     [
         LocalField.UserImages,
         LocalField.ThumbnailImage,
