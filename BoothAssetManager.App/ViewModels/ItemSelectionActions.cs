@@ -78,7 +78,7 @@ internal static class ItemSelectionActions
                     + $"（選ぶ必要がある商品 {choosing.Count} 件のうち {i + 1} 件目）",
                 labels,
                 "これを送る",
-                skipText: "この商品は送らない");
+                skipText: "この商品を飛ばす");
 
             if (answer is not { } index)
             {
@@ -108,7 +108,7 @@ internal static class ItemSelectionActions
             $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
             + "1件ずつ Unity の取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。"
             + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
-            + (notSending.Count > 0 ? $"\n送らないと選んだ {notSending.Count} 件は飛ばします。" : string.Empty),
+            + (notSending.Count > 0 ? $"\n飛ばすと選んだ {notSending.Count} 件は送りません。" : string.Empty),
             title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

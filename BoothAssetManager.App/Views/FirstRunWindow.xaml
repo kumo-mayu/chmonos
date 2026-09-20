@@ -24,7 +24,9 @@
             <DockPanel LastChildFill="False">
                 <TextBlock DockPanel.Dock="Left" x:Name="Notice" Style="{StaticResource Caption}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="380" />
-                <Button DockPanel.Dock="Right" Content="はじめる" Click="OnStart" Padding="22,6" FontWeight="Bold" />
+                <!-- Enter で始められる（D2）。Esc は code-behind で受けて、×と同じに閉じる（D1） -->
+                <Button DockPanel.Dock="Right" Content="はじめる" Click="OnStart" IsDefault="True"
+                        Padding="22,6" FontWeight="Bold" />
             </DockPanel>
         </Border>
 

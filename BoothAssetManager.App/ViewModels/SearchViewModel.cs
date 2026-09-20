@@ -111,11 +111,11 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         CardSendToUnityWithRecordCommand = new RelayCommand(parameter => CardUnityAsync(
             AsCard(parameter), "改変に足して送る", "これを送る",
             package => ItemUnityActions.SendWithRecordAsync(_services, AsCard(parameter)!.Item, package,
-                text => Tell("改変に足して送る", text))).Forget());
+                (text, failed) => Tell("改変に足して送る", text, failed))).Forget());
         CardSelectInUnityCommand = new RelayCommand(parameter => CardUnityAsync(
             AsCard(parameter), "Unityで選択", "これを示す",
             package => ItemUnityActions.SelectAsync(AsCard(parameter)!.Item, package,
-                text => Tell("Unityで選択", text))).Forget());
+                (text, failed) => Tell("Unityで選択", text, failed))).Forget());
         HideItemCommand = new RelayCommand(parameter => HideItemAsync(AsCard(parameter)).Forget());
         ToggleFilterPanelCommand = new RelayCommand(ToggleFilterPanel);
         _isFilterPanelCollapsed = services.UiState.FilterPanelCollapsed;

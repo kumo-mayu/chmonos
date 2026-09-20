@@ -48,6 +48,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(HasTarget));
                 OnPropertyChanged(nameof(TargetText));
+                OnPropertyChanged(nameof(UndoText));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -100,8 +101,25 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
     public bool DropEmptySourceTop
     {
         get => _dropEmptySourceTop;
-        set => SetField(ref _dropEmptySourceTop, value);
+        set
+        {
+            if (SetField(ref _dropEmptySourceTop, value))
+            {
+                OnPropertyChanged(nameof(UndoText));
+            }
+        }
     }
+
+    /// <summary>
+    /// 取り返しがつくかを、押す前に出す（`ui-rules.md`・D4：属性の統合の窓にだけ出ていた）。
+    /// **移すだけなら戻せる。**戻せなくなるのは「大分類も外す」を選んだときで、
+    /// 小分類なしで単独に付いていた分まで消え、どの商品がそうだったかを残していない。
+    /// </summary>
+    public string UndoText => !HasTarget
+        ? string.Empty
+        : DropEmptySourceTop
+            ? $"「{FromTop}」を外した分は元に戻せません。単独で付いていた商品も一緒に外れます。"
+            : "移した後は、同じ手順で元の大分類へ戻せます。";
 
     public bool KeepEmptySourceTop
     {

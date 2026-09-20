@@ -52,7 +52,7 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
         {
             if (SetField(ref _target, value))
             {
-                foreach (var property in new[] { nameof(HasTarget), nameof(TargetText), nameof(ImpactText), nameof(CommitText), nameof(IsMerge) })
+                foreach (var property in new[] { nameof(HasTarget), nameof(TargetText), nameof(ImpactText), nameof(UndoText), nameof(CommitText), nameof(IsMerge) })
                 {
                     OnPropertyChanged(property);
                 }
@@ -70,8 +70,19 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
     public string ImpactText => !HasTarget
         ? string.Empty
         : IsMerge
-            ? $"「{Target.Trim()}」は既にあるので、2つは1つに統合されます。統合した後は元に戻せません。"
+            ? $"「{Target.Trim()}」は既にあるので、2つは1つに統合されます。"
             : $"新しい名前になります。{KindText}を参照している商品は、まとめて書き換わります。";
+
+    /// <summary>
+    /// 取り返しがつくかを、押す前に必ず出す（`ui-rules.md`・D4：属性の統合の窓にだけ出ていた）。
+    /// **統合と名前の変更で答えが違う。**名前は同じ手順で戻せるが、統合した2つは分け直せない
+    /// （どちらの商品がどちらに付いていたかを残していない）。
+    /// </summary>
+    public string UndoText => !HasTarget
+        ? string.Empty
+        : IsMerge
+            ? "この操作は元に戻せません。1つになった後は、どちらに付いていたかで分け直せません。"
+            : "名前を変えるだけなら、同じ手順で元の名前に戻せます。";
 
     public string CommitText => IsMerge ? "統合する" : "名前を変える";
 }

@@ -488,7 +488,7 @@ public sealed class SettingsViewModel : ViewModelBase
             + "いまの検索の条件は変わりません。",
             "検索の履歴を削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
 
         if (answer != System.Windows.MessageBoxResult.OK)

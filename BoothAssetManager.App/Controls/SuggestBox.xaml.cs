@@ -301,11 +301,16 @@ public partial class SuggestBox : UserControl
                 break;
 
             case Key.Enter:
+                // 候補が出ていないとき（＝もう決めた後）は、食べずに窓の既定のボタンへ抜けさせる（D2）。
+                // 常に食べていたので、打ち終えて Enter を何度押しても窓が決まらなかった。
+                // 決める動き自体は変えない——候補に無い語をそのまま使う欄があるため
+                e.Handled = DropDown.IsOpen;
                 Commit();
-                e.Handled = true;
                 break;
 
-            case Key.Escape:
+            // 候補が出ているときだけ受ける。閉じているのに食べてしまうと、
+            // この欄を載せた窓が Esc で閉じられなかった（名前を変える・小分類を移す・改変を選ぶ。D1）
+            case Key.Escape when DropDown.IsOpen:
                 DropDown.IsOpen = false;
                 e.Handled = true;
                 break;

@@ -701,7 +701,7 @@ public sealed class ImportViewModel : ViewModelBase
             + "いずれも展開元のアーカイブが手元に残っているものです。削除しますか？",
             "展開先フォルダの削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
 
         if (answer != System.Windows.MessageBoxResult.OK)

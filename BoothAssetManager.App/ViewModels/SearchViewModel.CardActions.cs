@@ -143,8 +143,11 @@ public sealed partial class SearchViewModel
         }
     }
 
-    /// <summary>カードには結果を出す行が無いので、選択・改変に足した結果は窓で言う。</summary>
-    private static void Tell(string title, string text)
+    /// <summary>
+    /// カードには結果を出す行が無いので、選択・改変に足した結果は窓で言う。
+    /// **できなかったことは ⚠ で出す**（D8：既定のまま ℹ で出していて、失敗が情報の顔をしていた）。
+    /// </summary>
+    private static void Tell(string title, string text, bool failed)
     {
         // 「調べています…」のような途中の文と、空の文（入っていなかった・続きを言う合図）は窓にしない
         if (text.Length == 0 || text.EndsWith('…'))
@@ -153,7 +156,8 @@ public sealed partial class SearchViewModel
         }
 
         // 選択の結果は Unity を手前に出した後に来るので、主の窓を戻してから言う（Unity の後ろに隠れていた）
-        FrontNotice.Show(text, title);
+        FrontNotice.Show(text, title, System.Windows.MessageBoxButton.OK,
+            failed ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Information);
     }
 
     /// <summary>

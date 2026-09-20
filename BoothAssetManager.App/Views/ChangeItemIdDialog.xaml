@@ -19,7 +19,15 @@
         <TextBlock Text="移し先の商品ID" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
         <Grid>
             <TextBox Text="{Binding IdInput, UpdateSourceTrigger=PropertyChanged}"
-                     Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,110,0" />
+                     Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,110,0">
+                <!--
+                    打ち終えて Enter で調べられるように。下見が出た後は「調べる」が押せなくなるので、
+                    この割り当ては働かず、Enter は既定のボタン（移す）へ抜ける（BOOTH へ二度聞かない）
+                -->
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding CheckCommand}" />
+                </TextBox.InputBindings>
+            </TextBox>
             <Button Content="調べる" HorizontalAlignment="Right" Width="100"
                     Command="{Binding CheckCommand}" />
         </Grid>
@@ -94,10 +102,15 @@
                        Visibility="{Binding IsEmptySource, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </StackPanel>
 
+        <!--
+            やめる側は右端・名前は「キャンセル」で揃える（`ui-rules.md`「窓の決まり」・D3）。
+            Enter は、まだ下見が無いうちは入力欄の Enter が「調べる」を走らせ、
+            下見が出てから「移す」に効く（`IsDefault`）。Esc は `IsCancel` で閉じる（D1・D2）
+        -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="やめる" Width="100" Click="OnCancel" />
-            <Button Content="この内容で移す" Style="{StaticResource PrimaryButton}" Width="140" Margin="9,0,0,0"
-                    IsEnabled="{Binding HasPlan}" Click="OnMove" />
+            <Button Content="この内容で移す" Style="{StaticResource PrimaryButton}" Width="140"
+                    IsDefault="True" IsEnabled="{Binding HasPlan}" Click="OnMove" />
+            <Button Content="キャンセル" Width="100" Margin="9,0,0,0" IsCancel="True" Click="OnCancel" />
         </StackPanel>
     </StackPanel>
 </Window>

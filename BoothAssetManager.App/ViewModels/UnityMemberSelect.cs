@@ -28,33 +28,33 @@ internal static class UnityMemberSelect
         string name,
         string fileText,
         ItemRecord? item,
-        Action<string> setStatus)
+        NoticeSink setStatus)
     {
         const string title = "Unityで選択";
 
         if (record.UnityProject is not { } project)
         {
-            setStatus("この改変はUnityプロジェクトに紐付いていません。改変を開いて、右側の「Unityプロジェクト」から紐付けてください。");
+            setStatus("この改変はUnityプロジェクトに紐付いていません。改変を開いて、右側の「Unityプロジェクト」から紐付けてください。", failed: true);
             return false;
         }
 
         var projectName = ModificationHubViewModel.ProjectNameOf(project);
         if (!await DiskCheck.FolderExistsAsync(project))
         {
-            setStatus($"紐付けたプロジェクト「{projectName}」のフォルダが見つかりません。");
+            setStatus($"紐付けたプロジェクト「{projectName}」のフォルダが見つかりません。", failed: true);
             return false;
         }
 
         if (item is null)
         {
-            setStatus($"「{name}」は手元にありません。");
+            setStatus($"「{name}」は手元にありません。", failed: true);
             return false;
         }
 
         var packages = ModificationViewModel.PackagesFor(item, member);
         if (packages.Count == 0)
         {
-            setStatus($"「{name}」には、Unityに入れられるファイル（zip の中の unitypackage）が手元にありません。");
+            setStatus($"「{name}」には、Unityに入れられるファイル（zip の中の unitypackage）が手元にありません。", failed: true);
             return false;
         }
 
@@ -66,7 +66,7 @@ internal static class UnityMemberSelect
         // 開いている印はあるのに窓が特定できない（起動中・コンパイル中で題が読めない）
         if (editor is null && UnityProjects.IsProjectOpen(project))
         {
-            setStatus($"「{projectName}」は開いていますが、読み込み中のようです。落ち着いてから、もう一度押してください。");
+            setStatus($"「{projectName}」は開いていますが、読み込み中のようです。落ち着いてから、もう一度押してください。", failed: true);
             return false;
         }
 
@@ -74,7 +74,7 @@ internal static class UnityMemberSelect
         // 改変に入っている時点で使う・使ったと分かっているので、入っていないときに取り込むか聞くのは今のままでよい）
         if (editor is null)
         {
-            setStatus($"プロジェクト「{projectName}」がまだ開かれていません。");
+            setStatus($"プロジェクト「{projectName}」がまだ開かれていません。", failed: true);
             return false;
         }
 
@@ -141,13 +141,15 @@ internal static class UnityMemberSelect
         }
 
         var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
-        setStatus(failed.Count > 0
+        setStatus(
+            failed.Count > 0
             ? $"Unityへ送れませんでした（{failed[0].Problem}）。"
             : outcomes.All(outcome => outcome.Cancelled)
                 ? "Cancel されたので、入っていません。"
                 : outcomes.All(outcome => outcome.AlreadyPresent)
                     ? $"「{projectName}」には既に全部入っていました。もう一度押すと、プロジェクトタブで示します。"
-                    : $"「{projectName}」へ送りました。入った後にもう一度押すと、プロジェクトタブで示します。");
+                    : $"「{projectName}」へ送りました。入った後にもう一度押すと、プロジェクトタブで示します。",
+            failed: failed.Count > 0);
 
         return recorded;
     }
@@ -163,7 +165,7 @@ internal static class UnityMemberSelect
         OpenUnityEditor? editor,
         IReadOnlyList<UnityPackageEntry> packages,
         string itemId,
-        Action<string> setStatus)
+        NoticeSink setStatus)
     {
         setStatus($"「{projectName}」の中を調べています…");
         var (roots, present) = await Task.Run(() =>
@@ -185,7 +187,7 @@ internal static class UnityMemberSelect
 
         if (roots.Count == 0)
         {
-            setStatus("入り先のフォルダを読めませんでした。");
+            setStatus("入り先のフォルダを読めませんでした。", failed: true);
             return true;
         }
 
@@ -200,10 +202,14 @@ internal static class UnityMemberSelect
 
         // 名前ではなくパスで渡す。同じ名前のフォルダが別の場所にあると、名前では取り違える（§13-7）
         var outcome = await UnityProjectTab.SelectFolderAsync(editor.ProcessId, project, root);
+        if (outcome.Problem is { } trouble)
+        {
+            setStatus(trouble, failed: true);
+            return true;
+        }
+
         setStatus(outcome switch
         {
-            { Problem: { } problem } => problem,
-
             // Packages の下は Unity の検索に出ないので探していない。見つける場所の名前を伝える
             { Searched: false, StopReason: { } where } =>
                 $"入り先は {root} です。{where}、Unity では探さずに手前に出しました。",

@@ -98,9 +98,9 @@
         </Border>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
-            <Button Content="{Binding CommitLabel}" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
-                    IsEnabled="{Binding CanCommit}" Click="OnCommit" />
+            <Button Content="{Binding CommitLabel}" Style="{StaticResource PrimaryButton}"
+                    IsDefault="True" IsEnabled="{Binding CanCommit}" Click="OnCommit" />
+            <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
         </StackPanel>
     </StackPanel>
 </Window>

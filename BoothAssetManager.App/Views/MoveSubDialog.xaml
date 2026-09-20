@@ -43,10 +43,13 @@
             </StackPanel>
         </Border>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
-            <Button Content="移す" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
-                    IsEnabled="{Binding HasTarget}" Click="OnMove" />
+        <!-- 取り返しがつくかは、属性の統合の窓と同じ置き場所で出す（D4） -->
+        <TextBlock Text="{Binding UndoText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="移す" Style="{StaticResource PrimaryButton}"
+                    IsDefault="True" IsEnabled="{Binding HasTarget}" Click="OnMove" />
+            <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
         </StackPanel>
     </StackPanel>
 </Window>

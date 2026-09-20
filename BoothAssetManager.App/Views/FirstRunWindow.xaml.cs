@@ -65,6 +65,21 @@ public partial class FirstRunWindow : Window
         return window.ShowDialog() == true;
     }
 
+    /// <summary>
+    /// Esc でも閉じられるようにする（D1：窓はどれも Esc で抜けられる）。
+    /// ×と同じ扱いで、まだ何も書いていないので失う物は無い（押し間違えても、次の起動でまたこの窓が出る）。
+    /// </summary>
+    protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Escape)
+        {
+            e.Handled = true;
+            Close();
+        }
+
+        base.OnPreviewKeyDown(e);
+    }
+
     private void OnPickFolder(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog

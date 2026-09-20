@@ -594,7 +594,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
                 System.Windows.MessageBoxButton.OKCancel,
-                elsewhere ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Question,
+                // 人が押した操作の確認はどれも Question（`ui-rules.md`・D9）。
+                // 紐付いていない別のプロジェクトへ送るときは、既定のボタンをキャンセル側に倒して止める
+                System.Windows.MessageBoxImage.Question,
                 elsewhere ? System.Windows.MessageBoxResult.Cancel : System.Windows.MessageBoxResult.OK);
 
             if (confirm != System.Windows.MessageBoxResult.OK)
@@ -687,7 +689,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
-        if (await UnityMemberSelect.RunAsync(_services, Record, row.Index, row.Member, row.Name, row.SourceText, item, text => Status = text))
+        if (await UnityMemberSelect.RunAsync(_services, Record, row.Index, row.Member, row.Name, row.SourceText, item, (text, _) => Status = text))
         {
             await ReloadAsync();
         }
@@ -1345,7 +1347,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             + "元には戻せません。使った商品そのものは消えません。",
             "改変を削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
 
         if (answer != System.Windows.MessageBoxResult.OK)
@@ -1439,7 +1441,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             + "この操作は元に戻せません。",
             "使ったものを削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
 
         if (answer != System.Windows.MessageBoxResult.OK)
@@ -1574,7 +1576,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             "この写真を削除します。\n\n元には戻せません。",
             "写真を削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
 
         if (answer != System.Windows.MessageBoxResult.OK)

@@ -104,7 +104,7 @@ internal static class ItemUnityActions
     /// </summary>
     /// <returns>足した改変（足せなかった・やめたら null）。</returns>
     public static async Task<ModificationRecord?> SendWithRecordAsync(
-        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, Action<string> notify)
+        AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify)
     {
         const string title = "改変に足して送る";
 
@@ -147,9 +147,11 @@ internal static class ItemUnityActions
 
         // 窓を名指しして送る（U14）。取り込み画面を出せなかったら、記録だけ済んだと正直に言う
         var sent = await SendOneAsync(services, item, editor, package, title);
-        notify(sent
+        notify(
+            sent
             ? $"「{record.Name}」に足して、Unityへ送りました。"
-            : $"「{record.Name}」に足しました。Unityへは送れませんでした。");
+            : $"「{record.Name}」に足しました。Unityへは送れませんでした。",
+            failed: !sent);
         return record;
     }
 
@@ -191,14 +193,14 @@ internal static class ItemUnityActions
     /// 相手は送り先と同じ、いま開いている Unity。**入っていなければ言うだけで、取り込みには進まない**——
     /// 「示す」つもりで押した物が「取り込む」話にすり替わると意図と違う（動線の洗い出し A1 と同じ種類）。入れるなら「Unityへ送る」を選ぶ
     /// </summary>
-    public static async Task SelectAsync(ItemRecord item, UnityPackageEntry package, Action<string> notify)
+    public static async Task SelectAsync(ItemRecord item, UnityPackageEntry package, NoticeSink notify)
     {
         const string title = "Unityで選択";
 
         // 選ぶ門は「送れません」と言うので、開いていないときはこちらで「示せない」と言う
         if (UnityEditors.Open().Count == 0)
         {
-            notify("Unityが開いていないので、示せません。プロジェクトを開いてから、もう一度選んでください。");
+            notify("Unityが開いていないので、示せません。プロジェクトを開いてから、もう一度選んでください。", failed: true);
             return;
         }
 
@@ -211,7 +213,7 @@ internal static class ItemUnityActions
         if (await ProjectPathOf(editor) is not { } projectPath)
         {
             notify($"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の場所が分からないので、中を調べられません"
-                + "（Unity Hub にも VRChat Creator Companion にも載っていないプロジェクトです）。");
+                + "（Unity Hub にも VRChat Creator Companion にも載っていないプロジェクトです）。", failed: true);
             return;
         }
 
@@ -219,7 +221,7 @@ internal static class ItemUnityActions
         if (!await UnityMemberSelect.ShowIfPresentAsync(projectPath, projectName, editor, [package], item.Id, notify))
         {
             notify($"「{package.Name}」は、Unityの「{projectName}」にまだ入っていません。"
-                + "入れるには「Unityへ送る」を選んでください。");
+                + "入れるには「Unityへ送る」を選んでください。", failed: true);
         }
     }
 }

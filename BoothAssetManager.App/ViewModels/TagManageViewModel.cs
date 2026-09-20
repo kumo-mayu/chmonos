@@ -1490,12 +1490,15 @@ public sealed class TagManageViewModel : ViewModelBase
             ? string.Empty
             : $"メモは「{target}」側に「「元の名前」から統合：…」として書き足します。\n";
 
-    /// <summary>既定はキャンセル。Enterを押しただけで消えないようにする。</summary>
+    /// <summary>
+    /// 人が押した操作の確認（アイコンは Question で揃える。`ui-rules.md`・D9）。
+    /// 既定はキャンセル。Enterを押しただけで消えないようにする。
+    /// </summary>
     private static bool Confirm(string message, string caption)
         => Services.Notice.Show(
             message,
             caption,
             MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning,
+            MessageBoxImage.Question,
             MessageBoxResult.Cancel) == MessageBoxResult.OK;
 }

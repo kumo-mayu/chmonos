@@ -12,13 +12,17 @@
         <TextBlock x:Name="QuestionText" FontWeight="Bold" FontSize="14" TextWrapping="Wrap" />
         <TextBlock x:Name="DetailText" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
 
+        <!--
+            やめる側は右端に置く（`ui-rules.md`「窓の決まり」・D3）。
+            **既定のボタンは置かない**（D2 の例外）——どちらの意図か分からないから聞いているので、Enter で片方に倒さない
+        -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="キャンセル" IsCancel="True" MinWidth="90" Click="OnCancel" />
-            <Button x:Name="FirstButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnFirst" />
+            <Button x:Name="FirstButton" MinWidth="110" Padding="14,0" Click="OnFirst" />
             <Button x:Name="SecondButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnSecond" />
             <!-- 3つ目の選択肢。要るときだけ出す（外して空になった商品の「非表示・残す・完全に削除」） -->
             <Button x:Name="ThirdButton" MinWidth="110" Padding="14,0" Margin="8,0,0,0" Click="OnThird"
                     Visibility="Collapsed" />
+            <Button Content="キャンセル" IsCancel="True" MinWidth="90" Margin="8,0,0,0" Click="OnCancel" />
         </StackPanel>
     </StackPanel>
 </Window>

@@ -1239,7 +1239,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
             + "この操作は元に戻せません。同じ名前で作り直しても、所属と宣言は戻りません。",
             "共通素体を削除",
             System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
 
         if (answer == System.Windows.MessageBoxResult.OK)

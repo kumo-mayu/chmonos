@@ -104,9 +104,9 @@
 
         <DockPanel Margin="0,16,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
-                <Button Content="送る" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
-                        IsEnabled="{Binding CanCommit}" Click="OnCommit" />
+                <Button Content="送る" Style="{StaticResource PrimaryButton}"
+                        IsDefault="True" IsEnabled="{Binding CanCommit}" Click="OnCommit" />
+                <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
             </StackPanel>
             <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                        VerticalAlignment="Center" Margin="0,0,12,0" />

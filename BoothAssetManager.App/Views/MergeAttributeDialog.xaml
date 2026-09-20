@@ -37,8 +37,8 @@
         <TextBlock Text="この操作は元に戻せません。" Style="{StaticResource Caption}" Margin="0,14,0,0" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
-            <Button Content="キャンセル" IsCancel="True" Click="OnCancel" />
-            <Button Content="統合する" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="OnMerge" />
+            <Button Content="統合する" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnMerge" />
+            <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
         </StackPanel>
     </StackPanel>
 </Window>

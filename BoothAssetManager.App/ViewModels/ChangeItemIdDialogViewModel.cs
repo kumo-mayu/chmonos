@@ -52,7 +52,8 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
         FromId = fromId;
         CurrentName = currentName;
 
-        CheckCommand = new RelayCommand(() => CheckAsync().Forget(), () => CanCheck && !IsBusy);
+        // 下見が出ている間は押せない。同じIDをもう一度BOOTHに聞かないため（入力を打ち直せば下見は捨てられ、また押せる）
+        CheckCommand = new RelayCommand(() => CheckAsync().Forget(), () => CanCheck && !IsBusy && Plan is null);
     }
 
     public string FromId { get; }
