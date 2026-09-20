@@ -30,6 +30,11 @@ public sealed partial class MainViewModel : ViewModelBase
         // 通信の様子はアプリに1つ。常設の行も取り込み画面も、ここを見る
         BoothActivity = new BoothActivityViewModel(services.Client, System.Windows.Threading.Dispatcher.CurrentDispatcher);
 
+        // Unity へ送っている間は、**どの画面でも**下の帯に進み具合と「中止」を出す（ユーザ判断 2026-09-20）。
+        // 前は始めた画面にしか「中止」が無く、別の画面へ移ると止める手立てが無くなっていた
+        Services.UnityImportQueue.RunningChanged += running => RunOnUiThread(() => IsSendingToUnity = running);
+        Services.UnityImportQueue.ProgressChanged += text => RunOnUiThread(() => UnitySendText = text);
+
         Search = new SearchViewModel(services, Thumbnails);
         Search.AttachMain(this);
 
@@ -172,6 +177,28 @@ public sealed partial class MainViewModel : ViewModelBase
 
     /// <summary>今BOOTHに対して何をしているか。全画面で同じものを見る。</summary>
     public BoothActivityViewModel BoothActivity { get; }
+
+    private bool _isSendingToUnity;
+    private string _unitySendText = string.Empty;
+
+    /// <summary>Unity へ送っている最中か（送信は1本ずつなので、アプリに1つ）。</summary>
+    public bool IsSendingToUnity
+    {
+        get => _isSendingToUnity;
+        private set => SetField(ref _isSendingToUnity, value);
+    }
+
+    /// <summary>送っている最中の1行（始めた画面の1行と同じ文）。</summary>
+    public string UnitySendText
+    {
+        get => _unitySendText;
+        private set => SetField(ref _unitySendText, value);
+    }
+
+    /// <summary>送るのをやめる。どの画面からでも同じ物が止まる。</summary>
+    public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
+
+    private RelayCommand? _stopUnity;
 
     public SearchViewModel Search { get; }
 

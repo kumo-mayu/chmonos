@@ -123,7 +123,17 @@ public static class UnityImportQueue
 
     /// <summary>送っている最中に別の送信を押されたときの言い方。</summary>
     public const string BusyMessage =
-        "Unityへの送信がまだ続いています。\n\nいま出ている取り込み画面を閉じ終えてから、もう一度押してください。";
+        "Unityへの送信がまだ続いています。\n\nいま出ている取り込み画面を閉じ終えてから、もう一度押してください。\n"
+        + "やめるなら、画面の下の帯の「中止」を押してください。";
+
+    /// <summary>
+    /// 走っているかが変わった（ユーザ判断 2026-09-20）。**どの画面からでも止められるように**、常設の帯を出すのに使う。
+    /// 前は「中止」が送信を始めた画面にしか無く、別の画面へ移ると止める手立てが無くなっていた（実機で踏んだ）。
+    /// </summary>
+    public static event Action<bool>? RunningChanged;
+
+    /// <summary>進み具合の1行。常設の帯にも同じ文を出す。</summary>
+    public static event Action<string>? ProgressChanged;
 
     /// <summary>今走っている送信を止める合図。送信は1本ずつなので1つでよい（<see cref="IsRunning"/>）。</summary>
     private static CancellationTokenSource? _stop;
@@ -190,6 +200,7 @@ public static class UnityImportQueue
         // 画面の「中止」から止められるように、この送信のトークンを預かる（E7）
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _stop = stop;
+        RunningChanged?.Invoke(true);
         try
         {
             return await RunCoreAsync(processId, packages, progress, stop.Token);
@@ -198,6 +209,8 @@ public static class UnityImportQueue
         {
             _stop = null;
             Volatile.Write(ref _running, 0);
+            ProgressChanged?.Invoke(string.Empty);
+            RunningChanged?.Invoke(false);
         }
     }
 
@@ -244,7 +257,13 @@ public static class UnityImportQueue
                 continue;
             }
 
-            void Report(string text) => progress?.Report(new UnityQueueProgress(index + 1, packages.Count, text));
+            void Report(string text)
+            {
+                progress?.Report(new UnityQueueProgress(index + 1, packages.Count, text));
+
+                // 常設の帯にも同じ文を出す（どの画面へ移っても、何をしているかと「中止」が見える）
+                ProgressChanged?.Invoke(text);
+            }
 
             var main = MainWindowOf(processId);
             if (main == IntPtr.Zero)
