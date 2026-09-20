@@ -71,7 +71,34 @@
                 <Grid Visibility="{Binding DataContext.IsCardMode, RelativeSource={RelativeSource AncestorType=UserControl},
                                    Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                       Opacity="{Binding IsExcluded, Converter={x:Static vm:ExcludedOpacityConverter.Instance}}">
-                    <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
+                    <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
+                                    Visibility="{Binding HasCard, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!--
+                        名前が挙がっただけで手元に商品が無いアバターの札。商品のカードを当てると、
+                        中の結び付け先が全部外れて札が全部出てしまう（「所持」と「未所持」が同時に出ていた）。
+                        出せる情報（絵か頭文字・名前・素体）だけをカードと同じ大きさで並べる
+                    -->
+                    <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
+                            Margin="0,0,14,14" HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Bottom" Margin="11,0,11,11">
+                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
+                                           TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding BaseText}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <TextBlock Text="この名前の商品は手元にありません" Style="{StaticResource Caption}" Margin="0,6,0,0"
+                                           Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Grid Background="#e9edf4">
+                                <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="#b9c1cf"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image Source="{Binding Icon}" Stretch="Uniform"
+                                       Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </Grid>
+                        </DockPanel>
+                    </Border>
                     <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
                             Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                             BorderThickness="1" CornerRadius="4" Padding="6,1"

@@ -278,7 +278,18 @@
                                                            TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" Margin="0,4,0,0"
                                                            TextTrimming="CharacterEllipsis" />
-                                                <WrapPanel Margin="0,8,0,0">
+                                                <!-- 未所持の襷（左下）と重ならないよう、そのときだけ右へ寄せる（ユーザ指摘 2026-09-20） -->
+                                                <WrapPanel>
+                                                    <WrapPanel.Style>
+                                                        <Style TargetType="WrapPanel">
+                                                            <Setter Property="Margin" Value="0,8,0,0" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOwned}" Value="False">
+                                                                    <Setter Property="Margin" Value="46,8,0,0" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </WrapPanel.Style>
                                                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
                                                             Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -310,6 +321,8 @@
 
                                     <!--
                                         未所持の襷（ユーザ指示：左下の隅にバックスラッシュの形で掛ける）。
+                                        **掛かる場所には札を置かない**（ユーザ指摘 2026-09-20：ユーザタグの札と重なっていた）。
+                                        未所持のときだけ、下のユーザタグの札を襷のぶん右へ寄せる。
                                         所持が大半なので、所持の側に札を付けても「無い」ことに気付けなかった（友人の要望 #42）。
                                         カードの角で切れるよう、カード自体の ClipToBounds に任せる。押した操作はカードへ通す
                                     -->

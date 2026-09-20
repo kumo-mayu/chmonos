@@ -21,30 +21,24 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
     /// <summary>カードを作るのに要る物（画像の置き場と設定）。</summary>
     public AppServiceContainer? Services { get; init; }
 
+    /// <summary>
+    /// カードを作るもの。**検索画面と同じ作り方を通す**（タグ・属性の管理と同じ）。
+    /// 自分で <see cref="ItemCardViewModel"/> を組むと、所持・容量・札の値を入れ忘れて
+    /// 所持している商品にまで「未所持」の襷が掛かった（ユーザ指摘 2026-09-20）。
+    /// </summary>
+    public Func<ItemCardViewModel?>? CardFactory { get; init; }
+
     private ItemCardViewModel? _card;
 
     /// <summary>右クリックとカード表示で使うカード。**要るときに初めて作る**（一覧は数百行並ぶ）。</summary>
-    public ItemCardViewModel? Card
-    {
-        get
-        {
-            if (_card is not null)
-            {
-                return _card;
-            }
+    public ItemCardViewModel? Card => _card ??= Item is null ? null : CardFactory?.Invoke();
 
-            if (Item is not { } item || Thumbnails is null || Services is null)
-            {
-                return null;
-            }
-
-            return _card = new ItemCardViewModel(
-                item, Thumbnails, Services.Paths.ItemImagesDir(item.Id), Services.Settings.ThumbnailRole)
-            {
-                Name = item.DisplayName,
-            };
-        }
-    }
+    /// <summary>
+    /// 商品のカードを出せるか。**名前が挙がっただけのアバターには商品が無い**ので、
+    /// そのときカードの型を当てると、中の札の結び付け先が全部外れて既定の「出す」になり、
+    /// 「所持」と「未所持」が同時に出ていた（ユーザ指摘 2026-09-20）。名前だけの札に切り替える。
+    /// </summary>
+    public bool HasCard => Card is not null;
 
     /// <summary>一覧のグループ見出し。所有しているものを先に固めて出す。</summary>
     public string GroupName { get; set; } = string.Empty;
@@ -948,6 +942,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
                 Summary = summary,
                 Thumbnails = _main.Thumbnails,
                 Item = _main.Search.FindItem(summary.Entry.ItemId),
+                CardFactory = () => _main.Search.CardFor(summary.Entry.ItemId),
                 Services = _services,
                 IconPathFactory = () => AvatarImageSync.IconPath(
                     _services.Paths, summary.Entry.ItemId, _main.Search.FindItem(summary.Entry.ItemId)),
