@@ -13,6 +13,11 @@
         右は選んだ物の詳細（管理しているファイルは商品ページ、未確定は未確定の画面の右側、フォルダは場所と操作）。
     -->
     <UserControl.Resources>
+      <ResourceDictionary>
+        <!-- 木の行の右クリックは、カードと同じメニュー（ユーザ指示 2026-09-20・M3） -->
+        <ResourceDictionary.MergedDictionaries>
+            <views:ItemCardResources />
+        </ResourceDictionary.MergedDictionaries>
         <!-- 畳む印。行を選ばずに開け閉めする -->
         <Style x:Key="FolderGlyph" TargetType="Button">
             <Setter Property="Width" Value="18" />
@@ -70,6 +75,20 @@
         </DataTemplate>
 
         <!-- ===== 左の一覧の行。種類ごとに要る部品だけ組む（技術的負債 4-4・FolderRowTemplateSelector） ===== -->
+
+        <!--
+            木の行のうち、商品のファイル（とフォルダごと登録した商品）にだけカードと同じ右クリックを付ける
+            （ユーザ指示 2026-09-20・M3：カードと同じ癖で右クリックしても何も出なかった）。
+            フォルダと未確定の行には商品が無いので、メニューの項目は押せない（理由はツールチップに出る）
+        -->
+        <Style x:Key="FolderTreeRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsItemFile}" Value="True">
+                    <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
 
         <!-- 薄く出す行（取り外したドライブ・見つからないファイル） -->
         <Style x:Key="FolderRowText" TargetType="StackPanel">
@@ -199,6 +218,7 @@
                                          Folder="{StaticResource FolderRowTemplate}"
                                          ItemFile="{StaticResource ItemFileRowTemplate}"
                                          Unresolved="{StaticResource UnresolvedRowTemplate}" />
+      </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid Background="{StaticResource Bg}">
@@ -254,11 +274,13 @@
 
                 <!-- 見えている行だけを平らに並べて仮想化する（1つのフォルダに1000本あっても重くしない） -->
                 <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                         Tag="{Binding}"
                          BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                          VirtualizingPanel.CacheLengthUnit="Item" VirtualizingPanel.CacheLength="4,4"
                          ItemTemplateSelector="{StaticResource FolderRowSelector}"
+                         ItemContainerStyle="{StaticResource FolderTreeRowStyle}"
                          Padding="6,0,6,6">
                     <!--
                         画面外に作っておく行は上下4行だけ（技術的負債 4-4）。既定は上下1画面ぶんで、1000本並ぶ根を開くと

@@ -154,7 +154,7 @@ internal sealed class FolderViewVolume
 }
 
 /// <summary>左の一覧の1行。**見えている行だけを平らに並べる**（1つのフォルダに1000本あっても、仮想化した一覧で重くしない）。</summary>
-public sealed class FolderViewRow : ViewModelBase
+public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 {
     public required string Key { get; init; }
 
@@ -260,6 +260,39 @@ public sealed class FolderViewRow : ViewModelBase
     /// <summary>吹き出しに添える商品名。</summary>
     public string ItemName => Entry?.Item?.DisplayName ?? Name;
 
+    /// <summary>カードを作るのに要る物（画像の置き場と設定）。木の行から右クリックを出すために受け取る。</summary>
+    public AppServiceContainer? Services { get; init; }
+
+    private ItemCardViewModel? _card;
+
+    /// <summary>
+    /// 右クリック（カードと同じメニュー）で使う商品のカード（ユーザ指示 2026-09-20・M3）。
+    /// **押されたときに初めて作る**——木は1000行並ぶことがあるので、行を作るたびにカードまで作ると重い。
+    /// 商品に結び付いていない行（フォルダ・未確定）は null で、メニューの項目は押せない
+    /// </summary>
+    ItemCardViewModel? IHasItemCard.Card
+    {
+        get
+        {
+            if (_card is not null)
+            {
+                return _card;
+            }
+
+            if (Entry?.Item is not { } item || Thumbnails is null || Services is null)
+            {
+                return null;
+            }
+
+            // 右クリックのメニューは商品だけを見る（絵や札は出さない）ので、名前だけ埋めれば足りる
+            return _card = new ItemCardViewModel(
+                item, Thumbnails, Services.Paths.ItemImagesDir(item.Id), Services.Settings.ThumbnailRole)
+            {
+                Name = item.DisplayName,
+            };
+        }
+    }
+
     public string Initial => AvatarText.InitialOf(Entry?.Item?.DisplayName ?? Name);
 }
 
@@ -319,7 +352,18 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen
                 _main.ShowItemsInFolder(detail.Path);
             }
         });
-        RevealCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewDetail)?.Path));
+        // 右のフォルダの詳細からはその場所を開く。木の行（商品のファイル）の右クリックからは、
+        // カードと同じ「エクスプローラで開く」（手元のファイルが2つ以上あれば選ばせる。M3）
+        RevealCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is FolderViewDetail detail)
+            {
+                Shell.Reveal(detail.Path);
+                return;
+            }
+
+            _main.Search.RevealCommand.Execute(parameter);
+        });
         ImportHereCommand = new RelayCommand(parameter => ImportHere(parameter as FolderViewDetail));
         ToggleWatchCommand = new RelayCommand(parameter => ToggleWatchAsync(parameter as FolderViewDetail).Forget());
         ExcludeUnresolvedCommand = new RelayCommand(parameter => ExcludeUnresolvedAsync(parameter as FolderViewDetail).Forget());
@@ -935,6 +979,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen
         Entry = entry,
         ThumbnailPathFactory = entry.Item is { } item ? () => ItemThumbnailPath(item) : null,
         Thumbnails = _thumbnails,
+        Services = _services,
     };
 
     private bool EntryVisible(FolderViewEntry entry)
@@ -1298,6 +1343,29 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen
             ? null
             : parent;
     }
+
+    // ---- 木の行の右クリック（ユーザ指示 2026-09-20・M3）。中身は検索画面と同じ命令を借りる ----
+    //
+    // メニュー（ItemCardResources の CardMenu）は一覧の Tag からこれらを名前で引く。
+    // 押した行はカードそのものではないので、受け取る側が行からカードを取り出す（SearchViewModel.AsCard）
+
+    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+
+    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+
+    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
+
+    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
+
+    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
+
+    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
+
+    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
+
+    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
+
+    public RelayCommand HideItemCommand => _main.Search.HideItemCommand;
 
     // ---- Esc で選択を解除（ユーザ指示 2026-09-20・M6）。選ぶのは右のフォルダの中身（FolderViewDetail）----
 
