@@ -135,11 +135,12 @@ internal static class ItemSelectionActions
             }
 
             var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
-            var shown = UnityQueueOutcome.DescribeShown(outcomes);
+            var shown = UnityQueueOutcome.Describe(outcomes);
             setQueueText(string.Empty);
             // 送っている間は Unity が手前にいるので、主の窓を戻してから言う
+            // 止めたときは、1件ずつ理由を並べない（全部同じ理由なので読む物が増えるだけ。E7）
             FrontNotice.Show(
-                failed.Count == 0
+                failed.Count == 0 || failed.All(outcome => outcome.Problem == Services.UnityImportQueue.StoppedMessage)
                     ? shown
                     : $"{shown}{failed.Count} 件は送れませんでした：\n\n"
                         + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)),

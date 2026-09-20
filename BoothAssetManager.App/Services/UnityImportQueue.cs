@@ -20,6 +20,25 @@ public sealed record UnityQueueOutcome(
     UnityPackageEntry Package, bool Opened, string? Problem, bool Cancelled = false, bool AlreadyPresent = false)
 {
     /// <summary>
+    /// 止めたときの言い方（E7）。**「n 件は送れませんでした（理由）」の括弧に入れない**——
+    /// 止めた理由は文が長く、入れ子の括弧になって読めなかった（2026-09-20 に実機で見た）。
+    /// </summary>
+    public static string Describe(IReadOnlyList<UnityQueueOutcome> outcomes)
+    {
+        var shown = DescribeShown(outcomes);
+        var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
+        if (failed.Count == 0)
+        {
+            return shown;
+        }
+
+        // 止めたときは、残りの件数と、Unity 側に残った画面の話だけを言う
+        return failed.All(outcome => outcome.Problem == UnityImportQueue.StoppedMessage)
+            ? $"{shown}残り {failed.Count} 件は送っていません。{UnityImportQueue.StoppedMessage}"
+            : $"{shown}{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
+    }
+
+    /// <summary>
     /// 何件の取り込み画面を出したかの1文。複数を順に送った後の知らせ（検索の複数選択・改変の「使ったものを順にUnityへ送る」）で共用する。
     /// </summary>
     public static string DescribeShown(IReadOnlyList<UnityQueueOutcome> outcomes)

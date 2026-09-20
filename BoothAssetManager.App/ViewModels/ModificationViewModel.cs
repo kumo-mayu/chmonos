@@ -655,11 +655,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 _services.Recent.TouchAsync(itemId, RecentKind.Used).Forget();
             }
 
-            var failed = outcomes.Where(outcome => !outcome.Opened).ToList();
-            var shown = UnityQueueOutcome.DescribeShown(outcomes);
-            UnityQueueText = failed.Count == 0
-                ? shown
-                : $"{shown}{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
+            UnityQueueText = UnityQueueOutcome.Describe(outcomes);
         }
         finally
         {
