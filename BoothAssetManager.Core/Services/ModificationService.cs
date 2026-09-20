@@ -464,22 +464,14 @@ public sealed class ModificationService : IModificationService
     /// 書き換えが何もしなかった場合（範囲外の位置を指した等）も true を返す。
     /// 「対象が無い」と「動かせなかった」を呼ぶ側で区別する必要が無い。
     /// </summary>
-    private async Task<bool> UpdateAsync(
+    private Task<bool> UpdateAsync(
         string id,
         Func<ModificationRecord, ModificationRecord> update,
         CancellationToken cancellationToken)
-    {
-        if (await _store.Modifications.LoadAsync(id, cancellationToken) is not { } record)
-        {
-            return false;
-        }
-
-        await _store.Modifications.SaveAsync(
-            update(record) with { UpdatedAt = DateTimeOffset.Now },
+        => _store.Modifications.UpdateAsync(
+            id,
+            record => update(record) with { UpdatedAt = DateTimeOffset.Now },
             cancellationToken);
-
-        return true;
-    }
 
     /// <summary>
     /// アバターを登録簿に入れる。既にあれば何もしない。

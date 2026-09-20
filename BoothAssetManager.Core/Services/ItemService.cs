@@ -282,25 +282,27 @@ public sealed class ItemService : IItemService
             return;
         }
 
-        var notifications = _store.Notifications.Load();
-
         // 同じ商品の未読が既にあれば差し替える。溜めても読む手間が増えるだけ
         var id = $"item-updated:{existing.Id}";
-        notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
+        await _store.Notifications.UpdateAsync(
+            notifications =>
+            {
+                notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
+                notifications.Add(new NotificationRecord
+                {
+                    Id = id,
+                    Kind = NotificationKind.ItemUpdated,
+                    ItemId = existing.Id,
+                    Title = booth.Name ?? existing.Id,
+                    Detail = BoothChanges.Summarize(diffs),
+                    Diffs = diffs,
+                    CreatedAt = DateTimeOffset.Now,
+                    IsStrong = BoothChanges.HasStrongChange(diffs),
+                });
 
-        notifications.Add(new NotificationRecord
-        {
-            Id = id,
-            Kind = NotificationKind.ItemUpdated,
-            ItemId = existing.Id,
-            Title = booth.Name ?? existing.Id,
-            Detail = BoothChanges.Summarize(diffs),
-            Diffs = diffs,
-            CreatedAt = DateTimeOffset.Now,
-            IsStrong = BoothChanges.HasStrongChange(diffs),
-        });
-
-        await _store.Notifications.SaveAsync(notifications, cancellationToken);
+                return notifications;
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -326,51 +328,54 @@ public sealed class ItemService : IItemService
         var present = booth.Variations.Select(variation => variation.Id).ToHashSet();
         var missing = linked.Where(id => !present.Contains(id)).ToList();
 
-        var notifications = _store.Notifications.Load();
         var goneId = $"variation-gone:{existing.Id}";
-        var wasGone = notifications.FindIndex(entry => entry.Id == goneId && !entry.IsResolved);
         var name = booth.Name ?? existing.Id;
-        var changed = false;
 
-        if (missing.Count > 0)
-        {
-            if (wasGone < 0)
+        await _store.Notifications.TryUpdateAsync(
+            notifications =>
             {
+                var wasGone = notifications.FindIndex(entry => entry.Id == goneId && !entry.IsResolved);
+                if (missing.Count > 0)
+                {
+                    if (wasGone >= 0)
+                    {
+                        return null;
+                    }
+
+                    notifications.Add(new NotificationRecord
+                    {
+                        Id = goneId,
+                        Kind = NotificationKind.OrphanVariationLink,
+                        ItemId = existing.Id,
+                        // 説明は束の見出しに出るので、行にはこの行だけの事実を書く（ユーザ指示 2026-09-18）
+                        Title = name,
+                        Detail = $"消えたバリエーション：{NameVariations(missing, existing)}",
+                        CreatedAt = DateTimeOffset.Now,
+                    });
+
+                    return notifications;
+                }
+
+                if (wasGone < 0)
+                {
+                    return null;
+                }
+
+                // 消えていた種類が戻った。前の知らせは用が済んだので解消済みにし、戻ったことを1件出す
+                notifications[wasGone] = notifications[wasGone] with { IsResolved = true };
                 notifications.Add(new NotificationRecord
                 {
-                    Id = goneId,
-                    Kind = NotificationKind.OrphanVariationLink,
+                    Id = $"variation-back:{existing.Id}:{DateTimeOffset.Now:yyyyMMddHHmmss}",
+                    Kind = NotificationKind.VariationBackOnBooth,
                     ItemId = existing.Id,
-                    // 説明は束の見出しに出るので、行にはこの行だけの事実を書く（ユーザ指示 2026-09-18）
                     Title = name,
-                    Detail = $"消えたバリエーション：{NameVariations(missing, existing)}",
+                    Detail = $"戻ったバリエーション：{NameVariations(linked.Where(present.Contains).ToList(), existing, booth)}",
                     CreatedAt = DateTimeOffset.Now,
                 });
 
-                changed = true;
-            }
-        }
-        else if (wasGone >= 0)
-        {
-            // 消えていた種類が戻った。前の知らせは用が済んだので解消済みにし、戻ったことを1件出す
-            notifications[wasGone] = notifications[wasGone] with { IsResolved = true };
-            notifications.Add(new NotificationRecord
-            {
-                Id = $"variation-back:{existing.Id}:{DateTimeOffset.Now:yyyyMMddHHmmss}",
-                Kind = NotificationKind.VariationBackOnBooth,
-                ItemId = existing.Id,
-                Title = name,
-                Detail = $"戻ったバリエーション：{NameVariations(linked.Where(present.Contains).ToList(), existing, booth)}",
-                CreatedAt = DateTimeOffset.Now,
-            });
-
-            changed = true;
-        }
-
-        if (changed)
-        {
-            await _store.Notifications.SaveAsync(notifications, cancellationToken);
-        }
+                return notifications;
+            },
+            cancellationToken);
     }
 
     /// <summary>行に出すバリエーションの名前を並べる（ユーザ要望 2026-09-18：件数だけでは何が消えたか分からない）。</summary>
@@ -430,27 +435,29 @@ public sealed class ItemService : IItemService
             return;
         }
 
-        var notifications = _store.Notifications.Load();
-
         var id = $"item-back:{existing.Id}";
-        notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
-
         var name = existing.Local.DisplayName;
         var detail = name is { Length: > 0 }
             ? $"「販売終了」の印を外しました。名前は自分で付けた「{name}」のままです（編集画面で変えられます）。"
             : "「販売終了」の印を外しました。";
 
-        notifications.Add(new NotificationRecord
-        {
-            Id = id,
-            Kind = NotificationKind.ItemBackOnBooth,
-            ItemId = existing.Id,
-            Title = name ?? booth.Name ?? existing.Id,
-            Detail = detail,
-            CreatedAt = DateTimeOffset.Now,
-        });
+        await _store.Notifications.UpdateAsync(
+            notifications =>
+            {
+                notifications.RemoveAll(entry => entry.Id == id && !entry.IsRead);
+                notifications.Add(new NotificationRecord
+                {
+                    Id = id,
+                    Kind = NotificationKind.ItemBackOnBooth,
+                    ItemId = existing.Id,
+                    Title = name ?? booth.Name ?? existing.Id,
+                    Detail = detail,
+                    CreatedAt = DateTimeOffset.Now,
+                });
 
-        await _store.Notifications.SaveAsync(notifications, cancellationToken);
+                return notifications;
+            },
+            cancellationToken);
     }
 
     /// <summary>

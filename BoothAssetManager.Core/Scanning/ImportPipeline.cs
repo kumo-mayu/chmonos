@@ -482,8 +482,9 @@ public sealed class ImportPipeline : IImportPipeline
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var paths = new List<string>();
-        var notifications = _store.Notifications.Load();
-        var notificationCountBefore = notifications.Count;
+
+        // zipが手に入っていたフォルダ。知らせは測り終えてから、錠の中で今の一覧に足す
+        var archivesFound = new List<(ItemRecord Item, string FolderPath, string ArchivePath)>();
 
         var owned = loaded.Items
             .SelectMany(item => item.Local.OwnedFiles)
@@ -492,7 +493,7 @@ public sealed class ImportPipeline : IImportPipeline
 
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
-            var refreshed = new List<LocalFolderRecord>();
+            var measured = new Dictionary<string, (int Count, long Bytes)>(StringComparer.OrdinalIgnoreCase);
             var changed = false;
 
             foreach (var folder in item.Local.LocalFolders)
@@ -500,7 +501,6 @@ public sealed class ImportPipeline : IImportPipeline
                 if (!Directory.Exists(folder.Path))
                 {
                     // 見つからないものは登録として残すが、スキャンの除外には使わない
-                    refreshed.Add(folder);
                     continue;
                 }
 
@@ -510,38 +510,55 @@ public sealed class ImportPipeline : IImportPipeline
                 // 黙っていると容量が二重に乗ったままなので知らせる。
                 if (RegisteredFolderSet.FindArchiveFor(folder.Path) is { } archive)
                 {
-                    NoteArchiveFound(notifications, item, folder.Path, archive);
+                    archivesFound.Add((item, folder.Path, archive));
                 }
 
                 var (count, bytes) = RegisteredFolderSet.Measure(folder.Path);
+                measured[folder.Path] = (count, bytes);
                 if (count != folder.FileCount || bytes != folder.TotalBytes || folder.LastSeenAt is null)
                 {
                     changed = true;
                 }
-
-                refreshed.Add(folder with
-                {
-                    FileCount = count,
-                    TotalBytes = bytes,
-                    LastSeenAt = DateTimeOffset.Now,
-                });
             }
 
             if (changed)
             {
                 // 全件を先に読んでから、フォルダを1つずつ測って回る。測るのに時間がかかるので、
-                // 書く頃には写しが古い。取り込みが持つ項目だけを名指しする
-                await _store.Items.SaveLocalAsync(
+                // 書く頃には写しが古い。**測った値を今の一覧に当てる**（古い写しで丸ごと書き戻すと、
+                // 測っている間に人がフォルダを外した・ファイルに種類を付けた操作が消える）
+                await _store.Items.ChangeLocalAsync(
                     item.Id,
-                    item.Local with { LocalFolders = refreshed },
+                    current => current with
+                    {
+                        LocalFolders = [.. current.LocalFolders.Select(folder =>
+                            measured.TryGetValue(folder.Path, out var size)
+                                ? folder with
+                                {
+                                    FileCount = size.Count,
+                                    TotalBytes = size.Bytes,
+                                    LastSeenAt = DateTimeOffset.Now,
+                                }
+                                : folder)],
+                    },
                     LocalOwners.Import,
-                    cancellationToken: cancellationToken);
+                    cancellationToken);
             }
         }
 
-        if (notifications.Count != notificationCountBefore)
+        if (archivesFound.Count > 0)
         {
-            await _store.Notifications.SaveAsync(notifications, cancellationToken);
+            await _store.Notifications.TryUpdateAsync(
+                notifications =>
+                {
+                    var before = notifications.Count;
+                    foreach (var (item, folderPath, archivePath) in archivesFound)
+                    {
+                        NoteArchiveFound(notifications, item, folderPath, archivePath);
+                    }
+
+                    return notifications.Count == before ? null : notifications;
+                },
+                cancellationToken);
         }
 
         return (new RegisteredFolderSet(paths), owned, DetachedIndex.From(loaded.Items));
@@ -1031,12 +1048,13 @@ public sealed class ImportPipeline : IImportPipeline
     {
         try
         {
-            var log = _store.Recent.Load();
-            var updated = Services.RecentActivity.Touch(
-                log.Entries, itemId, Services.RecentKind.Added, DateTimeOffset.Now);
-
-            await _store.Recent.SaveAsync(
-                new Services.RecentLog { Entries = updated },
+            // 画面からの足跡（閲覧・使った）と同じファイルなので、窓口の錠を通す
+            await _store.Recent.UpdateAsync(
+                log => new Services.RecentLog
+                {
+                    Entries = Services.RecentActivity.Touch(
+                        log.Entries, itemId, Services.RecentKind.Added, DateTimeOffset.Now),
+                },
                 cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

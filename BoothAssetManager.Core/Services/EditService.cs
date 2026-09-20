@@ -135,54 +135,73 @@ public sealed class EditService : IEditService
             return _store.UserTags.Load();
         }
 
-        var master = _store.UserTags.Load();
-        var tops = master.Tops.ToList();
-
-        var index = tops.FindIndex(entry => string.Equals(entry.Name, topName, StringComparison.CurrentCultureIgnoreCase));
-        if (index < 0)
-        {
-            tops.Add(new UserTagTop { Name = topName });
-            index = tops.Count - 1;
-        }
-
+        // マスタは管理画面も書く。読み直してから足さないと、
+        // 管理画面が並べ替え・改名している最中に足した分が消える（`docs/spec/data-model.md`）
         var subName = sub?.Trim();
-        if (!string.IsNullOrEmpty(subName))
-        {
-            var subs = tops[index].Subs.ToList();
-            if (!subs.Any(entry => string.Equals(entry.Name, subName, StringComparison.CurrentCultureIgnoreCase)))
+        var written = new UserTagMaster();
+        await _store.UserTags.TryUpdateAsync(
+            master =>
             {
-                subs.Add(new UserTagSub { Name = subName });
-                tops[index] = new UserTagTop
-                {
-                    Name = tops[index].Name,
-                    Memo = tops[index].Memo,
-                    Subs = subs,
-                };
-            }
-        }
+                written = master;
+                var tops = master.Tops.ToList();
 
-        var updated = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
-        return updated;
+                var index = tops.FindIndex(entry => string.Equals(entry.Name, topName, StringComparison.CurrentCultureIgnoreCase));
+                if (index < 0)
+                {
+                    tops.Add(new UserTagTop { Name = topName });
+                    index = tops.Count - 1;
+                }
+
+                if (!string.IsNullOrEmpty(subName))
+                {
+                    var subs = tops[index].Subs.ToList();
+                    if (!subs.Any(entry => string.Equals(entry.Name, subName, StringComparison.CurrentCultureIgnoreCase)))
+                    {
+                        subs.Add(new UserTagSub { Name = subName });
+                        tops[index] = new UserTagTop
+                        {
+                            Name = tops[index].Name,
+                            Memo = tops[index].Memo,
+                            Subs = subs,
+                        };
+                    }
+                }
+
+                written = new UserTagMaster { Tops = tops };
+                return written;
+            },
+            cancellationToken);
+
+        return written;
     }
 
     public async Task<AttributeMaster> AddAttributeAsync(string name, CancellationToken cancellationToken = default)
     {
         var trimmed = name.Trim();
-        var master = _store.Attributes.Load();
-
-        if (trimmed.Length == 0
-            || master.Attributes.Any(entry => string.Equals(entry.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+        if (trimmed.Length == 0)
         {
-            return master;
+            return _store.Attributes.Load();
         }
 
-        var updated = new AttributeMaster
-        {
-            Attributes = [.. master.Attributes, new AttributeDefinition { Name = trimmed }],
-        };
+        var written = new AttributeMaster();
+        await _store.Attributes.TryUpdateAsync(
+            master =>
+            {
+                written = master;
+                if (master.Attributes.Any(entry => string.Equals(entry.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    return null;
+                }
 
-        await _store.Attributes.SaveAsync(updated, cancellationToken);
-        return updated;
+                written = new AttributeMaster
+                {
+                    Attributes = [.. master.Attributes, new AttributeDefinition { Name = trimmed }],
+                };
+
+                return written;
+            },
+            cancellationToken);
+
+        return written;
     }
 }

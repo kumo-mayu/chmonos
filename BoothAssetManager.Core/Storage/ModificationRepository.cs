@@ -40,6 +40,38 @@ public sealed class ModificationRepository
     }
 
     /// <summary>
+    /// 1件を読み直して書き換える。**読んでから書くまでを錠の中に入れる。**
+    ///
+    /// 書き手は画面（名前・メモ・並べ替え）と Unity からの受け取り（構成物）の2つあり、
+    /// 本文を打っている最中に構成物が入ると、錠が無ければ片方が消える。
+    /// </summary>
+    /// <returns>その改変が無ければ false。</returns>
+    public async Task<bool> UpdateAsync(
+        string id,
+        Func<ModificationRecord, ModificationRecord> change,
+        CancellationToken cancellationToken = default)
+    {
+        var gate = _locks.GetOrAdd(id, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (await LoadAsync(id, cancellationToken) is not { } record)
+            {
+                return false;
+            }
+
+            await SaveAsync(change(record), cancellationToken);
+            return true;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// 全部読む。**新しく作った順（作成日時の降順）**で返す。
     ///
     /// 同じアバターに同じ名前の改変を作れるようにしてあるので、

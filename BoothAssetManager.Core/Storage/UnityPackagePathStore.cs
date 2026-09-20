@@ -32,6 +32,27 @@ public sealed class UnityPackagePathStore(AppPaths paths)
 
     /// <summary>1つの zip の分を丸ごと書く（取り込みの裏で読んだとき）。</summary>
     public void Save(string hash, IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
+    {
+        lock (LockFor(hash))
+        {
+            Write(hash, packages);
+        }
+    }
+
+    /// <summary>1つだけ足す（取り込みの裏より先に、商品ページなどで読んだとき）。</summary>
+    public void Add(string hash, string entry, IReadOnlyList<string> assetPaths)
+    {
+        // 取り込みの裏と商品ページが同じ zip を同時に開くので、読み直してから足すまでを1本にする
+        lock (LockFor(hash))
+        {
+            var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value, StringComparer.Ordinal)
+                ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            packages[entry] = assetPaths;
+            Write(hash, packages);
+        }
+    }
+
+    private void Write(string hash, IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
         => JsonStore.Write(
             paths.UnityPackageFile(hash),
             new UnityPackagePathsFile
@@ -39,12 +60,8 @@ public sealed class UnityPackagePathStore(AppPaths paths)
                 Packages = packages.ToDictionary(pair => pair.Key, pair => pair.Value.ToList(), StringComparer.Ordinal),
             });
 
-    /// <summary>1つだけ足す（取り込みの裏より先に、商品ページなどで読んだとき）。</summary>
-    public void Add(string hash, string entry, IReadOnlyList<string> assetPaths)
-    {
-        var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value, StringComparer.Ordinal)
-            ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-        packages[entry] = assetPaths;
-        Save(hash, packages);
-    }
+    private static object LockFor(string hash) => s_locks.GetOrAdd(hash, static _ => new object());
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> s_locks
+        = new(StringComparer.OrdinalIgnoreCase);
 }

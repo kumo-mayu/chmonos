@@ -18,12 +18,6 @@ public sealed class RecentTracker
 {
     private readonly DataStore _store;
 
-    /// <summary>
-    /// 書き込みを1本に直列化する。閲覧と使ったが同時に走ると、
-    /// 読んでから書くまでの間に相手の足跡を消してしまう。
-    /// </summary>
-    private readonly SemaphoreSlim _gate = new(1, 1);
-
     public RecentTracker(DataStore store)
     {
         _store = store;
@@ -39,20 +33,16 @@ public sealed class RecentTracker
             return;
         }
 
-        await _gate.WaitAsync();
         try
         {
-            var log = _store.Recent.Load();
-            var updated = RecentActivity.Touch(log.Entries, itemId, kind, at);
-            await _store.Recent.SaveAsync(new RecentLog { Entries = updated });
+            // 錠は窓口（`JsonFileStore.UpdateAsync`）に持たせる。ここだけに錠を置いていたので、
+            // 取り込み側（別経路で同じ recent.json を書く）とは重なり、片方の足跡が消えていた
+            await _store.Recent.UpdateAsync(
+                log => new RecentLog { Entries = RecentActivity.Touch(log.Entries, itemId, kind, at) });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // 足跡が1つ欠けても商品の記録は無事。ここで止める理由が無い
-        }
-        finally
-        {
-            _gate.Release();
         }
     }
 

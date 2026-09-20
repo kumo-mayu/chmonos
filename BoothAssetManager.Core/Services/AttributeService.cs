@@ -177,38 +177,42 @@ public sealed class AttributeService : IAttributeService
         CancellationToken cancellationToken = default)
     {
         var target = newName.Trim();
-        var master = _store.Attributes.Load();
 
         if (target.Length == 0 || Same(oldName, target))
         {
-            return new AttributeEditResult { Master = master, ItemsUpdated = 0 };
+            return new AttributeEditResult { Master = _store.Attributes.Load(), ItemsUpdated = 0 };
         }
 
-        var definitions = master.Attributes.ToList();
-        var from = definitions.FindIndex(entry => Same(entry.Name, oldName));
-        var into = definitions.FindIndex(entry => Same(entry.Name, target));
-        var merged = into >= 0 && into != from;
-
-        if (merged && from >= 0)
-        {
-            definitions[into] = new AttributeDefinition
+        var merged = false;
+        var updated = await ChangeMasterAsync(
+            master =>
             {
-                Name = definitions[into].Name,
-                Memo = MergeMemo(definitions[into].Memo, definitions[from].Name, definitions[from].Memo),
+                var definitions = master.Attributes.ToList();
+                var from = definitions.FindIndex(entry => Same(entry.Name, oldName));
+                var into = definitions.FindIndex(entry => Same(entry.Name, target));
+                merged = into >= 0 && into != from;
 
-                // 残る側の指定を引き継ぐ。組み直すたびに書き写さないと黙って落ちる
-                IsDefault = definitions[into].IsDefault,
-            };
+                if (merged && from >= 0)
+                {
+                    definitions[into] = new AttributeDefinition
+                    {
+                        Name = definitions[into].Name,
+                        Memo = MergeMemo(definitions[into].Memo, definitions[from].Name, definitions[from].Memo),
 
-            definitions.RemoveAt(from);
-        }
-        else if (from >= 0)
-        {
-            definitions[from] = new AttributeDefinition { Name = target, Memo = definitions[from].Memo, IsDefault = definitions[from].IsDefault };
-        }
+                        // 残る側の指定を引き継ぐ。組み直すたびに書き写さないと黙って落ちる
+                        IsDefault = definitions[into].IsDefault,
+                    };
 
-        var updated = new AttributeMaster { Attributes = definitions };
-        await _store.Attributes.SaveAsync(updated, cancellationToken);
+                    definitions.RemoveAt(from);
+                }
+                else if (from >= 0)
+                {
+                    definitions[from] = new AttributeDefinition { Name = target, Memo = definitions[from].Memo, IsDefault = definitions[from].IsDefault };
+                }
+
+                return new AttributeMaster { Attributes = definitions };
+            },
+            cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             attributes => RenameIn(attributes, oldName, target, keep),
@@ -223,13 +227,12 @@ public sealed class AttributeService : IAttributeService
     /// </summary>
     public async Task<AttributeEditResult> DeleteAsync(string name, CancellationToken cancellationToken = default)
     {
-        var master = _store.Attributes.Load();
-        var updated = new AttributeMaster
-        {
-            Attributes = master.Attributes.Where(entry => !Same(entry.Name, name)).ToList(),
-        };
-
-        await _store.Attributes.SaveAsync(updated, cancellationToken);
+        var updated = await ChangeMasterAsync(
+            master => new AttributeMaster
+            {
+                Attributes = master.Attributes.Where(entry => !Same(entry.Name, name)).ToList(),
+            },
+            cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             attributes => TryGet(attributes, name, out _)
@@ -251,25 +254,27 @@ public sealed class AttributeService : IAttributeService
         bool isDefault,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.Attributes.Load();
-        var definitions = master.Attributes.ToList();
-        var index = definitions.FindIndex(entry => Same(entry.Name, name));
+        return await ChangeMasterAsync(
+            master =>
+            {
+                var definitions = master.Attributes.ToList();
+                var index = definitions.FindIndex(entry => Same(entry.Name, name));
 
-        if (index < 0 || definitions[index].IsDefault == isDefault)
-        {
-            return master;
-        }
+                if (index < 0 || definitions[index].IsDefault == isDefault)
+                {
+                    return null;
+                }
 
-        definitions[index] = new AttributeDefinition
-        {
-            Name = definitions[index].Name,
-            Memo = definitions[index].Memo,
-            IsDefault = isDefault,
-        };
+                definitions[index] = new AttributeDefinition
+                {
+                    Name = definitions[index].Name,
+                    Memo = definitions[index].Memo,
+                    IsDefault = isDefault,
+                };
 
-        var updated = new AttributeMaster { Attributes = definitions };
-        await _store.Attributes.SaveAsync(updated, cancellationToken);
-        return updated;
+                return new AttributeMaster { Attributes = definitions };
+            },
+            cancellationToken);
     }
 
     /// <summary>メモだけを書き換える。item側は名前しか参照していないので影響しない。</summary>
@@ -278,25 +283,27 @@ public sealed class AttributeService : IAttributeService
         string? memo,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.Attributes.Load();
-        var definitions = master.Attributes.ToList();
-        var index = definitions.FindIndex(entry => Same(entry.Name, name));
+        return await ChangeMasterAsync(
+            master =>
+            {
+                var definitions = master.Attributes.ToList();
+                var index = definitions.FindIndex(entry => Same(entry.Name, name));
 
-        if (index < 0)
-        {
-            return master;
-        }
+                if (index < 0)
+                {
+                    return null;
+                }
 
-        definitions[index] = new AttributeDefinition
-        {
-            Name = definitions[index].Name,
-            Memo = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(),
-            IsDefault = definitions[index].IsDefault,
-        };
+                definitions[index] = new AttributeDefinition
+                {
+                    Name = definitions[index].Name,
+                    Memo = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(),
+                    IsDefault = definitions[index].IsDefault,
+                };
 
-        var updated = new AttributeMaster { Attributes = definitions };
-        await _store.Attributes.SaveAsync(updated, cancellationToken);
-        return updated;
+                return new AttributeMaster { Attributes = definitions };
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -307,25 +314,48 @@ public sealed class AttributeService : IAttributeService
         IReadOnlyList<string> names,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.Attributes.Load();
-        var remaining = master.Attributes.ToList();
-        var sorted = new List<AttributeDefinition>(remaining.Count);
-
-        foreach (var name in names)
-        {
-            var index = remaining.FindIndex(entry => Same(entry.Name, name));
-            if (index >= 0)
+        return await ChangeMasterAsync(
+            master =>
             {
-                sorted.Add(remaining[index]);
-                remaining.RemoveAt(index);
-            }
-        }
+                var remaining = master.Attributes.ToList();
+                var sorted = new List<AttributeDefinition>(remaining.Count);
 
-        sorted.AddRange(remaining);
+                foreach (var name in names)
+                {
+                    var index = remaining.FindIndex(entry => Same(entry.Name, name));
+                    if (index >= 0)
+                    {
+                        sorted.Add(remaining[index]);
+                        remaining.RemoveAt(index);
+                    }
+                }
 
-        var updated = new AttributeMaster { Attributes = sorted };
-        await _store.Attributes.SaveAsync(updated, cancellationToken);
-        return updated;
+                sorted.AddRange(remaining);
+                return new AttributeMaster { Attributes = sorted };
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// マスタを読み直してから書き換える。<c>attributes.json</c> は書き手が2つ（管理画面・編集画面）あるので、
+    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-model.md`）。
+    /// <paramref name="change"/> が null を返したら書かない。
+    /// </summary>
+    private async Task<AttributeMaster> ChangeMasterAsync(
+        Func<AttributeMaster, AttributeMaster?> change,
+        CancellationToken cancellationToken)
+    {
+        var written = new AttributeMaster();
+        await _store.Attributes.TryUpdateAsync(
+            master =>
+            {
+                var updated = change(master);
+                written = updated ?? master;
+                return updated;
+            },
+            cancellationToken);
+
+        return written;
     }
 
     /// <summary>

@@ -409,20 +409,32 @@ public sealed class ShopService : IShopService
             }
         }
 
-        records.RemoveAll(record => string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
-        records.Add(new ShopBannerRecord
-        {
-            Subdomain = subdomain,
-            HasBanner = hasBanner,
-            SourceUrl = sourceUrl ?? known?.SourceUrl,
-            CheckedAt = DateTimeOffset.Now,
-        });
-
-        await _store.ShopBanners.SaveAsync(records, cancellationToken);
+        // 通信をまたぐので、書くときは読み直す。古い写しを丸ごと書き戻すと、
+        // 別のショップを開いて調べた記録が消えて、次に開いたときまた取りに行く
+        await SaveBannerRecordAsync(
+            subdomain,
+            new ShopBannerRecord
+            {
+                Subdomain = subdomain,
+                HasBanner = hasBanner,
+                SourceUrl = sourceUrl ?? known?.SourceUrl,
+                CheckedAt = DateTimeOffset.Now,
+            },
+            cancellationToken);
 
         // BOOTH側から消えていても、手元にあるものは消さずに出す（商品画像と同じ扱い）
         return local;
     }
+
+    private Task SaveBannerRecordAsync(string subdomain, ShopBannerRecord record, CancellationToken cancellationToken)
+        => _store.ShopBanners.UpdateAsync(
+            records =>
+            {
+                records.RemoveAll(entry => string.Equals(entry.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+                records.Add(record);
+                return records;
+            },
+            cancellationToken);
 
     /// <summary>
     /// このショップの画像を今すぐ取り直す。
@@ -492,16 +504,16 @@ public sealed class ShopService : IShopService
         var bannerSaved = bannerChanged
             && await images.SyncShopBannerAsync(subdomain, bannerUrl!, cancellationToken);
 
-        records.RemoveAll(record => string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
-        records.Add(new ShopBannerRecord
-        {
-            Subdomain = subdomain,
-            HasBanner = bannerUrl is not null,
-            SourceUrl = bannerUrl,
-            CheckedAt = DateTimeOffset.Now,
-        });
-
-        await _store.ShopBanners.SaveAsync(records, cancellationToken);
+        await SaveBannerRecordAsync(
+            subdomain,
+            new ShopBannerRecord
+            {
+                Subdomain = subdomain,
+                HasBanner = bannerUrl is not null,
+                SourceUrl = bannerUrl,
+                CheckedAt = DateTimeOffset.Now,
+            },
+            cancellationToken);
 
         var iconAfter = _store.Paths.FindShopIcon(subdomain);
 

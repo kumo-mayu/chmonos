@@ -45,6 +45,30 @@ public sealed class JsonFileStore<T> where T : class, new()
             _gate.Release();
         }
     }
+
+    /// <summary>
+    /// <see cref="UpdateAsync"/> と同じだが、**変える物が無ければ書かない**（<paramref name="change"/> が null を返す）。
+    /// 「押したが何も変わらなかった」で毎回ファイルを書き直さないため。
+    /// </summary>
+    /// <returns>書いたか。</returns>
+    public async Task<bool> TryUpdateAsync(Func<T, T?> change, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (change(Load()) is not { } updated)
+            {
+                return false;
+            }
+
+            await SaveAsync(updated, cancellationToken);
+            return true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 }
 
 /// <summary>

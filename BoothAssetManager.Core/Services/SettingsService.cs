@@ -245,11 +245,14 @@ public sealed class SettingsService : ISettingsService
     /// </summary>
     public async Task RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default)
     {
-        var entries = _store.Excluded.Load()
-            .Where(entry => !string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        await _store.Excluded.SaveAsync(entries, cancellationToken);
+        // 取り込みも同じファイルへ書くので、読み直してから消す（`docs/spec/data-model.md`）。
+        // 錠の外で読むと、解除の最中に取り込みが足した除外が消える
+        await _store.Excluded.UpdateAsync(
+            entries =>
+            [
+                .. entries.Where(entry => !string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)),
+            ],
+            cancellationToken);
     }
 
     /// <summary>

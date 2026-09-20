@@ -204,43 +204,47 @@ public sealed class UserTagService : IUserTagService
         CancellationToken cancellationToken = default)
     {
         var target = newName.Trim();
-        var master = _store.UserTags.Load();
 
         if (target.Length == 0 || Same(oldName, target))
         {
-            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = _store.UserTags.Load(), ItemsUpdated = 0 };
         }
 
-        var tops = master.Tops.ToList();
-        var from = tops.FindIndex(top => Same(top.Name, oldName));
-        var into = tops.FindIndex(top => Same(top.Name, target));
-        var merged = into >= 0 && into != from;
-
-        if (merged && from >= 0)
-        {
-            // サブレベルは寄せ先に足す。同じ名前のサブは寄せ先のメモを残す
-            var subs = tops[into].Subs.ToList();
-            foreach (var sub in tops[from].Subs.Where(sub => !subs.Any(entry => Same(entry.Name, sub.Name))))
+        var merged = false;
+        var updated = await ChangeMasterAsync(
+            master =>
             {
-                subs.Add(sub);
-            }
+                var tops = master.Tops.ToList();
+                var from = tops.FindIndex(top => Same(top.Name, oldName));
+                var into = tops.FindIndex(top => Same(top.Name, target));
+                merged = into >= 0 && into != from;
 
-            tops[into] = new UserTagTop
-            {
-                Name = tops[into].Name,
-                Memo = MergeMemo(tops[into].Memo, tops[from].Name, tops[from].Memo),
-                Subs = subs,
-            };
+                if (merged && from >= 0)
+                {
+                    // サブレベルは寄せ先に足す。同じ名前のサブは寄せ先のメモを残す
+                    var subs = tops[into].Subs.ToList();
+                    foreach (var sub in tops[from].Subs.Where(sub => !subs.Any(entry => Same(entry.Name, sub.Name))))
+                    {
+                        subs.Add(sub);
+                    }
 
-            tops.RemoveAt(from);
-        }
-        else if (from >= 0)
-        {
-            tops[from] = Replace(tops[from], target, tops[from].Subs);
-        }
+                    tops[into] = new UserTagTop
+                    {
+                        Name = tops[into].Name,
+                        Memo = MergeMemo(tops[into].Memo, tops[from].Name, tops[from].Memo),
+                        Subs = subs,
+                    };
 
-        var updated = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
+                    tops.RemoveAt(from);
+                }
+                else if (from >= 0)
+                {
+                    tops[from] = Replace(tops[from], target, tops[from].Subs);
+                }
+
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => RenameTopIn(item, oldName, target),
@@ -262,44 +266,47 @@ public sealed class UserTagService : IUserTagService
         CancellationToken cancellationToken = default)
     {
         var target = newName.Trim();
-        var master = _store.UserTags.Load();
 
         if (target.Length == 0 || Same(oldName, target))
         {
-            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = _store.UserTags.Load(), ItemsUpdated = 0 };
         }
 
-        var tops = master.Tops.ToList();
-        var index = tops.FindIndex(entry => Same(entry.Name, top));
         var merged = false;
-
-        if (index >= 0)
-        {
-            var subs = tops[index].Subs.ToList();
-            var from = subs.FindIndex(sub => Same(sub.Name, oldName));
-            var into = subs.FindIndex(sub => Same(sub.Name, target));
-            merged = into >= 0 && into != from;
-
-            if (merged && from >= 0)
+        var updated = await ChangeMasterAsync(
+            master =>
             {
-                subs[into] = new UserTagSub
+                var tops = master.Tops.ToList();
+                var index = tops.FindIndex(entry => Same(entry.Name, top));
+
+                if (index >= 0)
                 {
-                    Name = subs[into].Name,
-                    Memo = MergeMemo(subs[into].Memo, subs[from].Name, subs[from].Memo),
-                };
+                    var subs = tops[index].Subs.ToList();
+                    var from = subs.FindIndex(sub => Same(sub.Name, oldName));
+                    var into = subs.FindIndex(sub => Same(sub.Name, target));
+                    merged = into >= 0 && into != from;
 
-                subs.RemoveAt(from);
-            }
-            else if (from >= 0)
-            {
-                subs[from] = new UserTagSub { Name = target, Memo = subs[from].Memo };
-            }
+                    if (merged && from >= 0)
+                    {
+                        subs[into] = new UserTagSub
+                        {
+                            Name = subs[into].Name,
+                            Memo = MergeMemo(subs[into].Memo, subs[from].Name, subs[from].Memo),
+                        };
 
-            tops[index] = Replace(tops[index], tops[index].Name, subs);
-        }
+                        subs.RemoveAt(from);
+                    }
+                    else if (from >= 0)
+                    {
+                        subs[from] = new UserTagSub { Name = target, Memo = subs[from].Memo };
+                    }
 
-        var updated = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
+                    tops[index] = Replace(tops[index], tops[index].Name, subs);
+                }
+
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => RenameSubIn(item, top, oldName, target),
@@ -319,9 +326,9 @@ public sealed class UserTagService : IUserTagService
     /// </summary>
     public async Task<UserTagEditResult> DeleteTopAsync(string name, CancellationToken cancellationToken = default)
     {
-        var master = _store.UserTags.Load();
-        var updated = new UserTagMaster { Tops = master.Tops.Where(top => !Same(top.Name, name)).ToList() };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
+        var updated = await ChangeMasterAsync(
+            master => new UserTagMaster { Tops = master.Tops.Where(top => !Same(top.Name, name)).ToList() },
+            cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => item.UserTags.Any(assignment => Same(assignment.Top, name))
@@ -342,20 +349,23 @@ public sealed class UserTagService : IUserTagService
         string name,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.UserTags.Load();
-        var tops = master.Tops.ToList();
-        var index = tops.FindIndex(entry => Same(entry.Name, top));
+        var updated = await ChangeMasterAsync(
+            master =>
+            {
+                var tops = master.Tops.ToList();
+                var index = tops.FindIndex(entry => Same(entry.Name, top));
 
-        if (index >= 0)
-        {
-            tops[index] = Replace(
-                tops[index],
-                tops[index].Name,
-                tops[index].Subs.Where(sub => !Same(sub.Name, name)).ToList());
-        }
+                if (index >= 0)
+                {
+                    tops[index] = Replace(
+                        tops[index],
+                        tops[index].Name,
+                        tops[index].Subs.Where(sub => !Same(sub.Name, name)).ToList());
+                }
 
-        var updated = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
 
         var rewritten = await RewriteItemsAsync(
             item => RenameSubIn(item, top, name, newName: null),
@@ -426,45 +436,53 @@ public sealed class UserTagService : IUserTagService
         bool dropEmptySourceTop,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.UserTags.Load();
-        var tops = master.Tops.ToList();
+        UserTagSub? moving = null;
+        var updated = await ChangeMasterAsync(
+            master =>
+            {
+                var tops = master.Tops.ToList();
 
-        var from = tops.FindIndex(entry => Same(entry.Name, fromTop));
-        var to = tops.FindIndex(entry => Same(entry.Name, toTop));
+                var from = tops.FindIndex(entry => Same(entry.Name, fromTop));
+                var to = tops.FindIndex(entry => Same(entry.Name, toTop));
 
-        if (from < 0 || to < 0 || from == to)
-        {
-            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
-        }
+                if (from < 0 || to < 0 || from == to)
+                {
+                    return null;
+                }
 
-        var moving = tops[from].Subs.FirstOrDefault(entry => Same(entry.Name, sub));
+                moving = tops[from].Subs.FirstOrDefault(entry => Same(entry.Name, sub));
+                if (moving is null)
+                {
+                    return null;
+                }
+
+                tops[from] = Replace(tops[from], tops[from].Name, tops[from].Subs.Where(entry => !Same(entry.Name, sub)).ToList());
+
+                var targetSubs = tops[to].Subs.ToList();
+                var existing = targetSubs.FindIndex(entry => Same(entry.Name, moving.Name));
+                if (existing >= 0)
+                {
+                    // 移動先に同じ名前があれば、そこへ寄せる（メモは書き足す）
+                    targetSubs[existing] = new UserTagSub
+                    {
+                        Name = targetSubs[existing].Name,
+                        Memo = MergeMemo(targetSubs[existing].Memo, $"{fromTop}／{moving.Name}", moving.Memo),
+                    };
+                }
+                else
+                {
+                    targetSubs.Add(moving);
+                }
+
+                tops[to] = Replace(tops[to], tops[to].Name, targetSubs);
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
+
         if (moving is null)
         {
-            return new UserTagEditResult { Master = master, ItemsUpdated = 0 };
+            return new UserTagEditResult { Master = updated, ItemsUpdated = 0 };
         }
-
-        tops[from] = Replace(tops[from], tops[from].Name, tops[from].Subs.Where(entry => !Same(entry.Name, sub)).ToList());
-
-        var targetSubs = tops[to].Subs.ToList();
-        var existing = targetSubs.FindIndex(entry => Same(entry.Name, moving.Name));
-        if (existing >= 0)
-        {
-            // 移動先に同じ名前があれば、そこへ寄せる（メモは書き足す）
-            targetSubs[existing] = new UserTagSub
-            {
-                Name = targetSubs[existing].Name,
-                Memo = MergeMemo(targetSubs[existing].Memo, $"{fromTop}／{moving.Name}", moving.Memo),
-            };
-        }
-        else
-        {
-            targetSubs.Add(moving);
-        }
-
-        tops[to] = Replace(tops[to], tops[to].Name, targetSubs);
-
-        var updated = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
 
         var gained = 0;
         var sourceRemoved = 0;
@@ -516,36 +534,38 @@ public sealed class UserTagService : IUserTagService
         string? memo,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.UserTags.Load();
-        var tops = master.Tops.ToList();
-        var index = tops.FindIndex(entry => Same(entry.Name, top));
-        if (index < 0)
-        {
-            return master;
-        }
-
         var trimmed = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim();
 
-        if (sub is null)
-        {
-            tops[index] = new UserTagTop { Name = tops[index].Name, Memo = trimmed, Subs = tops[index].Subs };
-        }
-        else
-        {
-            var subs = tops[index].Subs.ToList();
-            var subIndex = subs.FindIndex(entry => Same(entry.Name, sub));
-            if (subIndex < 0)
+        return await ChangeMasterAsync(
+            master =>
             {
-                return master;
-            }
+                var tops = master.Tops.ToList();
+                var index = tops.FindIndex(entry => Same(entry.Name, top));
+                if (index < 0)
+                {
+                    return null;
+                }
 
-            subs[subIndex] = new UserTagSub { Name = subs[subIndex].Name, Memo = trimmed };
-            tops[index] = Replace(tops[index], tops[index].Name, subs);
-        }
+                if (sub is null)
+                {
+                    tops[index] = new UserTagTop { Name = tops[index].Name, Memo = trimmed, Subs = tops[index].Subs };
+                }
+                else
+                {
+                    var subs = tops[index].Subs.ToList();
+                    var subIndex = subs.FindIndex(entry => Same(entry.Name, sub));
+                    if (subIndex < 0)
+                    {
+                        return null;
+                    }
 
-        var updated = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(updated, cancellationToken);
-        return updated;
+                    subs[subIndex] = new UserTagSub { Name = subs[subIndex].Name, Memo = trimmed };
+                    tops[index] = Replace(tops[index], tops[index].Name, subs);
+                }
+
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -560,27 +580,48 @@ public sealed class UserTagService : IUserTagService
         IReadOnlyList<string> names,
         CancellationToken cancellationToken = default)
     {
-        var master = _store.UserTags.Load();
+        return await ChangeMasterAsync(
+            master =>
+            {
+                if (top is null)
+                {
+                    return new UserTagMaster { Tops = Sort(master.Tops, names, entry => entry.Name) };
+                }
 
-        if (top is null)
-        {
-            var updated = new UserTagMaster { Tops = Sort(master.Tops, names, entry => entry.Name) };
-            await _store.UserTags.SaveAsync(updated, cancellationToken);
-            return updated;
-        }
+                var tops = master.Tops.ToList();
+                var index = tops.FindIndex(entry => Same(entry.Name, top));
+                if (index < 0)
+                {
+                    return null;
+                }
 
-        var tops = master.Tops.ToList();
-        var index = tops.FindIndex(entry => Same(entry.Name, top));
-        if (index < 0)
-        {
-            return master;
-        }
+                tops[index] = Replace(tops[index], tops[index].Name, Sort(tops[index].Subs, names, sub => sub.Name));
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
+    }
 
-        tops[index] = Replace(tops[index], tops[index].Name, Sort(tops[index].Subs, names, sub => sub.Name));
+    /// <summary>
+    /// マスタを読み直してから書き換える。<c>userTags.json</c> は書き手が2つ（管理画面・編集画面）あるので、
+    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-model.md`）。
+    /// 錠の外で読むと、並べ替えや改名の最中に編集画面が足したタグが消える。
+    /// <paramref name="change"/> が null を返したら書かない。
+    /// </summary>
+    private async Task<UserTagMaster> ChangeMasterAsync(
+        Func<UserTagMaster, UserTagMaster?> change,
+        CancellationToken cancellationToken)
+    {
+        var written = new UserTagMaster();
+        await _store.UserTags.TryUpdateAsync(
+            master =>
+            {
+                var updated = change(master);
+                written = updated ?? master;
+                return updated;
+            },
+            cancellationToken);
 
-        var result = new UserTagMaster { Tops = tops };
-        await _store.UserTags.SaveAsync(result, cancellationToken);
-        return result;
+        return written;
     }
 
     /// <summary>

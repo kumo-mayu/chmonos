@@ -317,8 +317,9 @@ public class ItemRefreshTests : IDisposable
 
         await _service.RefreshAsync(ItemId);
 
-        var gone = Assert.Single(_store.Notifications.Load()
-            .Where(entry => entry.Kind == NotificationKind.OrphanVariationLink));
+        var gone = Assert.Single(
+            _store.Notifications.Load(),
+            entry => entry.Kind == NotificationKind.OrphanVariationLink);
 
         Assert.Equal("旧・支援版・旧・通常版", gone.Detail["消えたバリエーション：".Length..]);
     }

@@ -55,38 +55,57 @@ public sealed class NotificationService : INotificationService
 
     public IReadOnlyList<NotificationRecord> Load() => _store.Notifications.Load();
 
-    public async Task<bool> SetReadAsync(string id, bool isRead, CancellationToken cancellationToken = default)
-    {
-        var records = _store.Notifications.Load();
-        var index = records.FindIndex(record => record.Id == id);
-        if (index < 0 || records[index].IsRead == isRead)
-        {
-            return false;
-        }
-
-        records[index] = records[index] with { IsRead = isRead };
-        await SaveWithPruneAsync(records, cancellationToken);
-        return true;
-    }
-
-    public async Task<int> MarkAllReadAsync(CancellationToken cancellationToken = default)
-    {
-        var records = _store.Notifications.Load();
-        var changed = 0;
-
-        for (var index = 0; index < records.Count; index++)
-        {
-            if (!records[index].IsRead)
+    public Task<bool> SetReadAsync(string id, bool isRead, CancellationToken cancellationToken = default)
+        => _store.Notifications.TryUpdateAsync(
+            records =>
             {
-                records[index] = records[index] with { IsRead = true };
-                changed++;
-            }
-        }
+                var index = records.FindIndex(record => record.Id == id);
+                if (index < 0 || records[index].IsRead == isRead)
+                {
+                    return null;
+                }
 
-        if (changed > 0)
-        {
-            await SaveWithPruneAsync(records, cancellationToken);
-        }
+                records[index] = records[index] with { IsRead = isRead };
+                return Pruned(records);
+            },
+            cancellationToken);
+
+    public Task<int> MarkAllReadAsync(CancellationToken cancellationToken = default)
+        => MarkAsync(
+            _ => true,
+            record => record.IsRead,
+            record => record with { IsRead = true },
+            cancellationToken);
+
+    /// <summary>
+    /// 印（既読・解消済み）を付ける。3つとも形が同じなので1か所にまとめ、
+    /// **読み直してから付ける**ようにする（錠の外で読むと、付けた印が裏の取り直しに消される）。
+    /// </summary>
+    private async Task<int> MarkAsync(
+        Func<NotificationRecord, bool> targets,
+        Func<NotificationRecord, bool> alreadyDone,
+        Func<NotificationRecord, NotificationRecord> mark,
+        CancellationToken cancellationToken)
+    {
+        var changed = 0;
+        await _store.Notifications.TryUpdateAsync(
+            records =>
+            {
+                changed = 0;
+                for (var index = 0; index < records.Count; index++)
+                {
+                    if (!targets(records[index]) || alreadyDone(records[index]))
+                    {
+                        continue;
+                    }
+
+                    records[index] = mark(records[index]);
+                    changed++;
+                }
+
+                return changed == 0 ? null : Pruned(records);
+            },
+            cancellationToken);
 
         return changed;
     }
@@ -105,11 +124,10 @@ public sealed class NotificationService : INotificationService
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-        var records = _store.Notifications.Load();
-        var added = 0;
 
-        // 今も食い違っている物の通知ID。ここに無い分は直したということなので「解消済み」にする
-        var stillBroken = new HashSet<string>(StringComparer.Ordinal);
+        // 食い違っている物を先に組み立ててから、錠の中で今の一覧に当てる。
+        // 全件を読むのに時間がかかるので、その間に人が既読にした印を古い写しで消さないため
+        var wanted = new List<NotificationRecord>();
 
         // フォルダ登録が残っている場所。登録を解除したら「zipを入手した」の用は済んでいる
         var registeredFolders = loaded.Items
@@ -151,64 +169,73 @@ public sealed class NotificationService : INotificationService
             // itemごとに1件だけ持つ。既読でも作り直さないのは、
             // 直さないまま画面を開くたびに同じ話が積み上がるのを避けるため
             // （既読は「この食い違いは見た」という意思表示として扱う）。
-            var id = $"orphan-tag:{item.Id}";
-            stillBroken.Add(id);
-            var existing = records.FindIndex(record => record.Id == id);
-            if (existing >= 0)
+            wanted.Add(new NotificationRecord
             {
-                if (records[existing].Detail == detail)
-                {
-                    continue;
-                }
-
-                // 中身が変わったなら別の話なので、既読を解いて出し直す
-                records.RemoveAt(existing);
-            }
-
-            records.Add(new NotificationRecord
-            {
-                Id = id,
+                Id = $"orphan-tag:{item.Id}",
                 Kind = NotificationKind.OrphanTag,
                 ItemId = item.Id,
                 Title = item.DisplayName,
                 Detail = detail,
                 CreatedAt = DateTimeOffset.Now,
             });
-
-            added++;
         }
 
-        // 用が済んだ物に「解消済み」を付ける（ユーザ判断 2026-09-18）。
-        // 消さないのは、何が起きていたかを後から辿れるようにするため
-        var resolved = 0;
-        for (var index = 0; index < records.Count; index++)
-        {
-            var record = records[index];
-            if (record.IsResolved)
-            {
-                continue;
-            }
+        // 今も食い違っている物の通知ID。ここに無い分は直したということなので「解消済み」にする
+        var stillBroken = wanted.Select(record => record.Id).ToHashSet(StringComparer.Ordinal);
+        var added = 0;
 
-            var isDone = record.Kind switch
+        await _store.Notifications.TryUpdateAsync(
+            records =>
             {
-                NotificationKind.OrphanTag => !stillBroken.Contains(record.Id),
-                NotificationKind.ArchiveFoundForFolder =>
-                    record.Id.StartsWith("archive-found:", StringComparison.Ordinal)
-                        && !registeredFolders.Contains(record.Id["archive-found:".Length..]),
-                _ => false,
-            };
+                added = 0;
+                foreach (var candidate in wanted)
+                {
+                    var existing = records.FindIndex(record => record.Id == candidate.Id);
+                    if (existing >= 0)
+                    {
+                        if (records[existing].Detail == candidate.Detail)
+                        {
+                            continue;
+                        }
 
-            if (isDone)
-            {
-                records[index] = record with { IsResolved = true };
-                resolved++;
-            }
-        }
+                        // 中身が変わったなら別の話なので、既読を解いて出し直す
+                        records.RemoveAt(existing);
+                    }
 
-        if (added > 0 || resolved > 0)
-        {
-            await SaveWithPruneAsync(records, cancellationToken);
-        }
+                    records.Add(candidate);
+                    added++;
+                }
+
+                // 用が済んだ物に「解消済み」を付ける（ユーザ判断 2026-09-18）。
+                // 消さないのは、何が起きていたかを後から辿れるようにするため
+                var resolved = 0;
+                for (var index = 0; index < records.Count; index++)
+                {
+                    var record = records[index];
+                    if (record.IsResolved)
+                    {
+                        continue;
+                    }
+
+                    var isDone = record.Kind switch
+                    {
+                        NotificationKind.OrphanTag => !stillBroken.Contains(record.Id),
+                        NotificationKind.ArchiveFoundForFolder =>
+                            record.Id.StartsWith("archive-found:", StringComparison.Ordinal)
+                                && !registeredFolders.Contains(record.Id["archive-found:".Length..]),
+                        _ => false,
+                    };
+
+                    if (isDone)
+                    {
+                        records[index] = record with { IsResolved = true };
+                        resolved++;
+                    }
+                }
+
+                return added > 0 || resolved > 0 ? Pruned(records) : null;
+            },
+            cancellationToken);
 
         return added;
     }
@@ -246,103 +273,75 @@ public sealed class NotificationService : INotificationService
         var suspect = recent.Count >= StructureSampleMinimum
             && broken >= (int)Math.Ceiling(recent.Count * StructureBrokenRatio);
 
-        var records = _store.Notifications.Load();
         const string id = "page-structure";
-        var existing = records.FindIndex(record => record.Id == id);
+        var detail = $"最近取り直した{recent.Count}件のうち{broken}件で、説明文の見出しを読み取れませんでした。"
+            + "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。";
 
-        if (suspect)
-        {
-            var detail = $"最近取り直した{recent.Count}件のうち{broken}件で、説明文の見出しを読み取れませんでした。"
-                + "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。";
-
-            if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
+        await _store.Notifications.TryUpdateAsync(
+            records =>
             {
-                return true;
-            }
+                var existing = records.FindIndex(record => record.Id == id);
+                if (suspect)
+                {
+                    if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
+                    {
+                        return null;
+                    }
 
-            if (existing >= 0)
-            {
-                records.RemoveAt(existing);
-            }
+                    if (existing >= 0)
+                    {
+                        records.RemoveAt(existing);
+                    }
 
-            records.Add(new NotificationRecord
-            {
-                Id = id,
-                Kind = NotificationKind.PageStructureChanged,
-                Title = "BOOTHから取得できる情報の形式が変化した可能性があります",
-                Detail = detail,
-                CreatedAt = DateTimeOffset.Now,
-                IsStrong = true,
-            });
+                    records.Add(new NotificationRecord
+                    {
+                        Id = id,
+                        Kind = NotificationKind.PageStructureChanged,
+                        Title = "BOOTHから取得できる情報の形式が変化した可能性があります",
+                        Detail = detail,
+                        CreatedAt = DateTimeOffset.Now,
+                        IsStrong = true,
+                    });
 
-            await SaveWithPruneAsync(records, cancellationToken);
-            return true;
-        }
+                    return Pruned(records);
+                }
 
-        // 読み取りが戻ったら、帯は自分で消える
-        if (existing >= 0 && !records[existing].IsResolved)
-        {
-            records[existing] = records[existing] with { IsResolved = true };
-            await SaveWithPruneAsync(records, cancellationToken);
-        }
+                // 読み取りが戻ったら、帯は自分で消える
+                if (existing < 0 || records[existing].IsResolved)
+                {
+                    return null;
+                }
 
-        return false;
+                records[existing] = records[existing] with { IsResolved = true };
+                return Pruned(records);
+            },
+            cancellationToken);
+
+        return suspect;
     }
 
-    public async Task<int> MarkReadAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
+    public Task<int> MarkReadAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
     {
         var wanted = ids.ToHashSet(StringComparer.Ordinal);
-        if (wanted.Count == 0)
-        {
-            return 0;
-        }
-
-        var records = _store.Notifications.Load();
-        var changed = 0;
-
-        for (var index = 0; index < records.Count; index++)
-        {
-            if (wanted.Contains(records[index].Id) && !records[index].IsRead)
-            {
-                records[index] = records[index] with { IsRead = true };
-                changed++;
-            }
-        }
-
-        if (changed > 0)
-        {
-            await SaveWithPruneAsync(records, cancellationToken);
-        }
-
-        return changed;
+        return wanted.Count == 0
+            ? Task.FromResult(0)
+            : MarkAsync(
+                record => wanted.Contains(record.Id),
+                record => record.IsRead,
+                record => record with { IsRead = true },
+                cancellationToken);
     }
 
-    public async Task<int> ResolveAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
+    public Task<int> ResolveAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
     {
         var wanted = ids.ToHashSet(StringComparer.Ordinal);
-        if (wanted.Count == 0)
-        {
-            return 0;
-        }
-
-        var records = _store.Notifications.Load();
-        var changed = 0;
-
-        for (var index = 0; index < records.Count; index++)
-        {
-            if (wanted.Contains(records[index].Id) && !records[index].IsResolved)
-            {
-                records[index] = records[index] with { IsResolved = true };
-                changed++;
-            }
-        }
-
-        if (changed > 0)
-        {
-            await SaveWithPruneAsync(records, cancellationToken);
-        }
-
-        return changed;
+        return wanted.Count == 0
+            ? Task.FromResult(0)
+            : MarkAsync(
+                record => wanted.Contains(record.Id),
+                record => record.IsResolved,
+                record => record with { IsResolved = true },
+                cancellationToken);
     }
 
     /// <summary>
@@ -353,23 +352,24 @@ public sealed class NotificationService : INotificationService
     /// </summary>
     public async Task<int> PruneAsync(CancellationToken cancellationToken = default)
     {
-        var records = _store.Notifications.Load();
-        var before = records.Count;
+        var dropped = 0;
+        await _store.Notifications.TryUpdateAsync(
+            records =>
+            {
+                var before = records.Count;
+                Prune(records);
+                dropped = before - records.Count;
+                return dropped == 0 ? null : records;
+            },
+            cancellationToken);
 
-        Prune(records);
-        if (records.Count == before)
-        {
-            return 0;
-        }
-
-        await _store.Notifications.SaveAsync(records, cancellationToken);
-        return before - records.Count;
+        return dropped;
     }
 
-    private async Task SaveWithPruneAsync(List<NotificationRecord> records, CancellationToken cancellationToken)
+    private List<NotificationRecord> Pruned(List<NotificationRecord> records)
     {
         Prune(records);
-        await _store.Notifications.SaveAsync(records, cancellationToken);
+        return records;
     }
 
     /// <summary>
