@@ -71,28 +71,37 @@ public sealed class EditService : IEditService
         return session;
     }
 
-    /// <summary>位置だけを進める。1件ごとに書くので、落ちても直前まで戻る。</summary>
-    public async Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default)
-    {
-        var session = _store.EditSession.Load() with { Index = index };
-        await _store.EditSession.SaveAsync(session, cancellationToken);
-        return session;
-    }
+    /// <summary>
+    /// 位置だけを進める。1件ごとに書くので、落ちても直前まで戻る。
+    ///
+    /// 位置と「保存した印」は別々に書かれるので、**錠の中で今の記録に当てる**。
+    /// 錠の外で読んで書いていたため、保存して次へ・戻るが重なると、
+    /// 後から書いた方が相手の欄を消していた。
+    /// </summary>
+    public Task<EditSession> AdvanceSessionAsync(int index, CancellationToken cancellationToken = default)
+        => _store.EditSession.UpdateAsync(session => session with { Index = index }, cancellationToken);
 
     /// <summary>
     /// この回で保存した商品を控える。編集画面の上の帯で、保存した物と飛ばした物を見分けるため。
     /// </summary>
     public async Task<EditSession> NoteSavedAsync(string itemId, CancellationToken cancellationToken = default)
     {
-        var current = _store.EditSession.Load();
-        if (current.SavedItemIds.Contains(itemId, StringComparer.Ordinal))
-        {
-            return current;
-        }
+        var written = new EditSession();
+        await _store.EditSession.TryUpdateAsync(
+            current =>
+            {
+                written = current;
+                if (current.SavedItemIds.Contains(itemId, StringComparer.Ordinal))
+                {
+                    return null;
+                }
 
-        var session = current with { SavedItemIds = [.. current.SavedItemIds, itemId] };
-        await _store.EditSession.SaveAsync(session, cancellationToken);
-        return session;
+                written = current with { SavedItemIds = [.. current.SavedItemIds, itemId] };
+                return written;
+            },
+            cancellationToken);
+
+        return written;
     }
 
     /// <summary>

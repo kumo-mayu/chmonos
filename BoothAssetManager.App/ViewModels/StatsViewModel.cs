@@ -583,10 +583,12 @@ public sealed class StatsViewModel : ViewModelBase
         }
     }
 
-    private void ShowItem(string itemId)
+    private void ShowItem(string itemId) => ShowItemAsync(itemId).Forget();
+
+    /// <summary>画面のスレッドを塞いで待たない（読み込みが遅いと、押した瞬間に画面が固まる）。</summary>
+    private async Task ShowItemAsync(string itemId)
     {
-        var item = _services.Store.Items.LoadAsync(itemId).GetAwaiter().GetResult();
-        if (item is not null)
+        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
         {
             _main.ShowItem(item);
         }

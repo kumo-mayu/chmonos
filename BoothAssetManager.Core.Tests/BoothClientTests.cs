@@ -191,7 +191,7 @@ public class BoothClientTests
         var result = await client.GetItemJsonAsync("123");
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2000, client.CurrentIntervalMs);
+        Assert.Equal(3000, client.CurrentIntervalMs);
         Assert.True(client.IsThrottled);
     }
 
@@ -305,18 +305,34 @@ public class BoothClientTests
     [Fact]
     public async Task 広げている最中に設定を縮めても広げた分は保つ()
     {
-        var settings = new AppSettings { FetchIntervalMs = 1000, FetchIntervalMaxMs = 8000 };
+        var settings = new AppSettings { FetchIntervalMs = 2000, FetchIntervalMaxMs = 8000 };
         var client = new BoothClient(
             new HttpClient(new QueuedHandler(TooManyRequests(), Ok("ok"))),
             () => settings,
             (_, _) => Task.CompletedTask);
 
         await client.GetItemJsonAsync("123");
-        Assert.Equal(2000, client.CurrentIntervalMs);
+        Assert.Equal(4000, client.CurrentIntervalMs);
 
         settings = settings with { FetchIntervalMs = 1500 };
-        Assert.Equal(2000, client.CurrentIntervalMs);
+        Assert.Equal(4000, client.CurrentIntervalMs);
         Assert.True(client.IsThrottled);
+    }
+
+    /// <summary>
+    /// 設定が下限（1.5秒）より短くても、**下限より詰めて問い合わせない**。
+    /// 守っていたのが設定の入口だけだったので、通信をする側にも床を置いた。
+    /// </summary>
+    [Fact]
+    public void 設定が下限より短くても下限まで空ける()
+    {
+        var client = new BoothClient(
+            new HttpClient(new QueuedHandler(Ok("ok"))),
+            () => new AppSettings { FetchIntervalMs = 200 },
+            (_, _) => Task.CompletedTask);
+
+        Assert.Equal(AppSettings.MinFetchIntervalMs, client.CurrentIntervalMs);
+        Assert.False(client.IsThrottled);
     }
 
     /// <summary>ふつうの5xxでは減速しない。BOOTH側の不調にこちらが付き合う理由はない。</summary>

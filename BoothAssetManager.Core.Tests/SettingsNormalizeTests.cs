@@ -56,7 +56,19 @@ public sealed class SettingsNormalizeTests
     [InlineData(128, 128)]
     [InlineData(16, 16)]
     public void サムネイルの保持上限は以前の既定だけ新しい既定に置き換える(int saved, int expected)
-        => Assert.Equal(expected, new AppSettings { ThumbnailCacheBudgetMb = saved }.Normalized().ThumbnailCacheBudgetMb);
+        => Assert.Equal(
+            expected,
+            new AppSettings { ThumbnailCacheBudgetMb = saved }.Normalized(fromDisk: true).ThumbnailCacheBudgetMb);
+
+    /// <summary>
+    /// 置き換えは**読み込んだ直後だけ**。保存のたびに通していたので、
+    /// 手で 32 や 192 に書き換えた人の値が、設定を1つ触るだけで既定に戻っていた。
+    /// </summary>
+    [Theory]
+    [InlineData(192)]
+    [InlineData(32)]
+    public void 保存のときは以前の既定でも置き換えない(int saved)
+        => Assert.Equal(saved, new AppSettings { ThumbnailCacheBudgetMb = saved }.Normalized().ThumbnailCacheBudgetMb);
 
     [Fact]
     public void 範囲内なら他の項目も含めてそのまま返す()

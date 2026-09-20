@@ -390,61 +390,69 @@ public sealed class ImagePipeline
         var missing = 0;
         var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // BOOTH側の一覧に残っている印。ここに無い印は「もう取りに行く先が無い」ので消す
-        var liveMarkers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // BOOTH側の一覧に残っている印。ここに無い印は「もう取りに行く先が無い」ので消す。
+        // **取りに行く前に全部数えておく。**取りながら数えて最後に片付けていたので、
+        // 途中で中断すると片付けが走らず、立てたままの印を「取れなかった画像」として数え続けていた
+        var liveMarkers = images.Select(image => MissingMarkerFor(image.OriginalUrl))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var image in images)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var fileName = FileNameFor(image.OriginalUrl);
-            expected.Add(fileName);
-
-            var markerName = MissingMarkerFor(image.OriginalUrl);
-            liveMarkers.Add(markerName);
-
-            var path = Path.Combine(directory, fileName);
-            if (File.Exists(path))
+            foreach (var image in images)
             {
-                skipped++;
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            // 404だったものは取りに行かない。印は商品を取り直したときに消える
-            if (File.Exists(Path.Combine(directory, markerName)))
-            {
-                missing++;
-                continue;
-            }
+                var fileName = FileNameFor(image.OriginalUrl);
+                expected.Add(fileName);
 
-            var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
+                var markerName = MissingMarkerFor(image.OriginalUrl);
 
-            if (result.Status == BoothFetchStatus.NotFound)
-            {
-                MarkMissing(directory, image.OriginalUrl);
-                missing++;
-                continue;
-            }
+                var path = Path.Combine(directory, fileName);
+                if (File.Exists(path))
+                {
+                    skipped++;
+                    continue;
+                }
 
-            if (!result.IsSuccess || result.Value is null)
-            {
-                // 一時エラーでは印を置かない。次回もう一度取りに行く
-                failed++;
-                continue;
-            }
+                // 404だったものは取りに行かない。印は商品を取り直したときに消える
+                if (File.Exists(Path.Combine(directory, markerName)))
+                {
+                    missing++;
+                    continue;
+                }
 
-            try
-            {
-                await SaveAsWebpAsync(result.Value, path, cancellationToken);
-                downloaded++;
-            }
-            catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
-            {
-                failed++;
+                var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
+
+                if (result.Status == BoothFetchStatus.NotFound)
+                {
+                    MarkMissing(directory, image.OriginalUrl);
+                    missing++;
+                    continue;
+                }
+
+                if (!result.IsSuccess || result.Value is null)
+                {
+                    // 一時エラーでは印を置かない。次回もう一度取りに行く
+                    failed++;
+                    continue;
+                }
+
+                try
+                {
+                    await SaveAsWebpAsync(result.Value, path, cancellationToken);
+                    downloaded++;
+                }
+                catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
+                {
+                    failed++;
+                }
             }
         }
-
-        RemoveStaleMarkers(directory, liveMarkers);
+        finally
+        {
+            // 中断したときも片付ける（立てたままの印が「取れなかった画像」として残り続けないように）
+            RemoveStaleMarkers(directory, liveMarkers);
+        }
 
         // 1枚ごとではなく最後に1回。画面は商品単位で組み直すので、枚数分知らせても同じ
         if (downloaded > 0)

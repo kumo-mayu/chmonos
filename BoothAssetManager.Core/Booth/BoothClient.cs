@@ -132,7 +132,7 @@ public sealed class BoothClient : IBoothClient
         _httpClient = httpClient;
         _currentSettings = currentSettings;
         _delay = delay ?? ((duration, token) => Task.Delay(duration, token));
-        _currentIntervalMs = _intervalBaseMs = _settings.FetchIntervalMs;
+        _currentIntervalMs = _intervalBaseMs = ConfiguredIntervalMs;
 
         if (!_httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(UserAgent))
         {
@@ -177,7 +177,8 @@ public sealed class BoothClient : IBoothClient
 
     public int CurrentIntervalMs => SyncedIntervalMs();
 
-    public bool IsThrottled => SyncedIntervalMs() > _settings.FetchIntervalMs;
+    /// <summary>設定より広げている最中か。**床を踏んだ分は「広げた」ではない**（設定が下限より短いだけ）。</summary>
+    public bool IsThrottled => SyncedIntervalMs() > ConfiguredIntervalMs;
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
     private AppSettings _settings => _currentSettings();
@@ -190,9 +191,18 @@ public sealed class BoothClient : IBoothClient
     /// **429で広げている最中なら、広げた分は保つ**——相手が待てと言っているのに、
     /// 設定を触っただけで詰めて問い合わせることになる。
     /// </summary>
+    /// <summary>
+    /// 設定の間隔。**床（1.5秒）はここで踏む。**
+    ///
+    /// 下限を守っていたのは設定の入口（<see cref="AppSettings.Normalized"/>）だけで、
+    /// 設定を通さずに組み立てる道が増えると守れなくなる。
+    /// 相手に負担をかけないための決め事なので、通信をする側にも床を置く。
+    /// </summary>
+    private int ConfiguredIntervalMs => Math.Max(_settings.FetchIntervalMs, AppSettings.MinFetchIntervalMs);
+
     private int SyncedIntervalMs()
     {
-        var configured = _settings.FetchIntervalMs;
+        var configured = ConfiguredIntervalMs;
         if (configured != _intervalBaseMs)
         {
             var throttled = _currentIntervalMs > _intervalBaseMs;
@@ -521,7 +531,7 @@ public sealed class BoothClient : IBoothClient
     private void SlowDown()
     {
         var doubled = Math.Min((long)SyncedIntervalMs() * 2, _settings.FetchIntervalMaxMs);
-        _currentIntervalMs = (int)Math.Max(doubled, _settings.FetchIntervalMs);
+        _currentIntervalMs = (int)Math.Max(doubled, ConfiguredIntervalMs);
     }
 
     /// <summary>Retry-Afterを読む。秒数形式とHTTP日付形式の両方が来る。</summary>

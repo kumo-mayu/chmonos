@@ -287,18 +287,21 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showSubTagsInList, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    // どちらも今出ている一覧と件数を変えるので、保存したら組み直す（小分類タグ・サムネイルの役割と同じ）。
+    // 組み直していなかったので、次に別の条件で検索し直すまで変わらず、
+    // 「効くときと効かないときがある」ように見えていた
     private bool _showAdult;
     public bool ShowAdult
     {
         get => _showAdult;
-        set { if (SetField(ref _showAdult, value)) { Save(); } }
+        set { if (SetField(ref _showAdult, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
     private bool _showHiddenCountInSearch;
     public bool ShowHiddenCountInSearch
     {
         get => _showHiddenCountInSearch;
-        set { if (SetField(ref _showHiddenCountInSearch, value)) { Save(); } }
+        set { if (SetField(ref _showHiddenCountInSearch, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
     private ThumbnailSize _thumbnailSize;

@@ -213,6 +213,12 @@ public sealed class ImportPipeline : IImportPipeline
     {
         _store.Paths.EnsureCreated();
 
+        // **始めた時点で前回の記録を消す。**書くのは①の中だけ、消すのは最後まで走り切ったときだけだったので、
+        // ①より手前（走査・解決）で止めた回と、新しい商品が1件も無かった回は記録に触れない。
+        // その結果、起動時に出る「前回は N / M 件まで進んで中断しました」が、
+        // 前回ではなくもっと前の回の数字のことがあった（走査は最も長い段なので、そこで止めるのは珍しくない）
+        await _store.ImportState.SaveAsync(new ImportState(), cancellationToken);
+
         var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
 
@@ -356,9 +362,15 @@ public sealed class ImportPipeline : IImportPipeline
             await reading;
             await _unityPackages!.ApplyAsync(itemIds, cancellationToken);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-                                              or System.Text.Json.JsonException)
+        catch (OperationCanceledException)
         {
+            // 中断。次の取り込みで読み直すだけ
+        }
+        catch (Exception exception)
+        {
+            // **何を投げられてもここで受ける。**この作業を待つのは最後の1行だけなので、
+            // 中断でそこへ到達しないと「誰にも観測されない Task」になり、
+            // 落ちたことが後から `UnobservedTaskException` として遅れて出ていた
             Diagnostics.AppLog.Error("取り込みの裏の作業", exception);
         }
     }

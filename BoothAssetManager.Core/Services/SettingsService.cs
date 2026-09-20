@@ -102,7 +102,7 @@ public sealed class SettingsService : ISettingsService
         _store = store;
 
         // 以前の版は取得の間隔を500msまで保存できた。約束（1.5秒以上）の範囲に戻してから使う
-        Current = store.Settings.Load().Normalized();
+        Current = store.Settings.Load().Normalized(fromDisk: true);
         UiState = store.UiState.Load();
     }
 

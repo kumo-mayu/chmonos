@@ -102,9 +102,6 @@ public sealed class ImportViewModel : ViewModelBase
     /// <summary>通信と作業の様子。使っていない間の取得を、この画面にも出すため。</summary>
     public BoothActivityViewModel Activity => _main.BoothActivity;
 
-    /// <summary>落としたらそのまま取り込みを始める設定か（#38）。</summary>
-    public bool StartsOnDrop => _services.Settings.StartImportOnDrop;
-
     public bool HasFolders => Folders.Count > 0;
 
     /// <summary>

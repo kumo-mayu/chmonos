@@ -150,9 +150,14 @@ public sealed record AppSettings
     public const int MinFetchIntervalMs = 1500;
 
     /// <summary>
-    /// 読み込んだ設定を約束の範囲に戻す。以前の版で1.5秒より短く保存された設定もここで直る。
+    /// 約束の範囲に戻す。以前の版で1.5秒より短く保存された設定もここで直る。
+    ///
+    /// <paramref name="fromDisk"/> は**読み込んだ直後だけ** true。
+    /// 古い既定の置き換えはそのときにしか行わない——保存のたびに通すと、
+    /// 手で 32 や 192 に書き換えた人の値が、設定を1つ触るだけで既定に戻ってしまう
+    /// （「手で書き換えた人の値は尊重する」という、置き換えそのものの前提が崩れる）。
     /// </summary>
-    public AppSettings Normalized()
+    public AppSettings Normalized(bool fromDisk = false)
     {
         var result = this;
         if (result.FetchIntervalMs < MinFetchIntervalMs)
@@ -166,7 +171,7 @@ public sealed record AppSettings
             result = result with { Shortcuts = new ShortcutSettings() };
         }
 
-        if (result.ThumbnailCacheBudgetMb is FormerThumbnailCacheBudgetMb or PreviousThumbnailCacheBudgetMb)
+        if (fromDisk && result.ThumbnailCacheBudgetMb is FormerThumbnailCacheBudgetMb or PreviousThumbnailCacheBudgetMb)
         {
             result = result with { ThumbnailCacheBudgetMb = DefaultThumbnailCacheBudgetMb };
         }
