@@ -87,6 +87,29 @@ public static class LocalFields
 
         return result;
     }
+
+    /// <summary>
+    /// <paramref name="candidates"/> のうち、**実際に中身が変わった項目だけ**を返す。
+    ///
+    /// 持ち主として名指しした項目は、名指しした側の値で必ず上書きされる。
+    /// だから**変えていない項目まで名指しすると、開いている間に別の画面が書いた値を古い写しで戻す。**
+    /// 編集画面が一式を名指ししていたため、商品ページで打ったメモが
+    /// 編集画面を保存した時点で打つ前の字に戻っていた（2026-09-20）。
+    ///
+    /// 比べ方は「その項目だけを入れた <c>local</c> を書き出して見比べる」。
+    /// 項目ごとに比べ方を書き分けると、項目が増えたときに書き忘れる
+    /// （配列や辞書は参照で比べられてしまい、変わっていないのに変わった扱いになる）。
+    /// </summary>
+    public static IReadOnlyCollection<LocalField> Changed(
+        LocalBlock before,
+        LocalBlock after,
+        IReadOnlyCollection<LocalField> candidates)
+        => [.. candidates.Where(field => Only(before, field) != Only(after, field))];
+
+    private static string Only(LocalBlock local, LocalField field)
+        => System.Text.Json.JsonSerializer.Serialize(
+            Merge(new LocalBlock(), local, [field]),
+            Storage.JsonStore.Options);
 }
 
 /// <summary>

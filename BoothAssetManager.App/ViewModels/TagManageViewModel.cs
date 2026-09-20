@@ -259,7 +259,7 @@ public sealed class OrphanTagRow : ViewModelBase
 /// マスタに無い名前をitemが参照したままの状態もここに出す。
 /// 要確認はそれを知らせるだけで、直せる場所はこの画面しかないため。
 /// </summary>
-public sealed class TagManageViewModel : ViewModelBase
+public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
 {
     private readonly AppServiceContainer _services;
 
@@ -325,8 +325,8 @@ public sealed class TagManageViewModel : ViewModelBase
             () => Selected is { ItemCount: > 0 });
 
         // メモは押さずに残す（ユーザ指示 2026-09-18。ショップ・アバターと同じ）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
-        _saveSubMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveSubMemosAsync().Forget());
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _saveSubMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveSubMemosAsync);
 
         _sort = services.UiState.TagSort switch
         {
@@ -340,6 +340,9 @@ public sealed class TagManageViewModel : ViewModelBase
 
     private readonly Debounced _saveMemo;
     private readonly Debounced _saveSubMemo;
+
+    /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
+    public Task FlushPendingWritesAsync() => Task.WhenAll(_saveMemo.RunNowAsync(), _saveSubMemo.RunNowAsync());
 
     /// <summary>
     /// 並べ方（ユーザ指示 2026-09-18）。既定は名前順。

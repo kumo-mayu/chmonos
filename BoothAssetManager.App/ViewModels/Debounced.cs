@@ -15,16 +15,29 @@ public sealed class Debounced
 {
     private readonly DispatcherTimer _timer;
 
-    private readonly Action _run;
+    private readonly Func<Task> _run;
 
     public Debounced(TimeSpan wait, Action run)
+        : this(wait, () =>
+        {
+            run();
+            return Task.CompletedTask;
+        })
+    {
+    }
+
+    /// <summary>
+    /// 保存のように待てる物は、こちらで作る。<see cref="RunNowAsync"/> が
+    /// **書き終わりまで待てる**ようになる（閉じる前に待つため）。
+    /// </summary>
+    public Debounced(TimeSpan wait, Func<Task> run)
     {
         _run = run;
         _timer = new DispatcherTimer { Interval = wait };
         _timer.Tick += (_, _) =>
         {
             _timer.Stop();
-            run();
+            _run().Forget();
         };
     }
 
@@ -40,17 +53,17 @@ public sealed class Debounced
 
     /// <summary>
     /// 待っているものがあれば、待たずに今やる（ユーザ判断 2026-09-20・I10）。
-    /// 画面を離れる前に呼ぶ——打ち終えてすぐ閉じると、待っている 0.8 秒のうちに捨てられていた。
+    /// 画面を離れる前・閉じる前に呼ぶ——打ち終えてすぐ閉じると、待っている 0.8 秒のうちに捨てられていた。
     /// </summary>
-    public bool RunNow()
+    /// <returns>書き終わりまでの待ち。待っている物が無ければ済んだ状態で返る。</returns>
+    public Task RunNowAsync()
     {
         if (!_timer.IsEnabled)
         {
-            return false;
+            return Task.CompletedTask;
         }
 
         _timer.Stop();
-        _run();
-        return true;
+        return _run();
     }
 }

@@ -13,7 +13,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// BOOTHのショップにある全商品ではない。取りに行っていないものは存在自体を知らないので、
 /// その旨は画面に書いておく（件数を全商品数と誤解されると数字の意味が変わる）。
 /// </summary>
-public sealed class ShopViewModel : ViewModelBase, IItemCardHost
+public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -71,7 +71,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
         ToggleFavoriteCommand = new RelayCommand(() => ToggleFavoriteAsync().Forget());
 
         // 打つたびに書かず、止まってから1回（画面を離れても待ちは残るので、書き漏れない）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
 
         ReloadAsync().Forget();
     }
@@ -111,6 +111,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost
             }
         }
     }
+
+    /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
+    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
 
     private async Task ToggleFavoriteAsync()
     {

@@ -148,7 +148,7 @@ public sealed class ProjectCandidateRowViewModel
 /// （アバター詳細の中で展開すると縦に伸び続ける）。決めた理由は
 /// <c>docs/history/modifications.md</c>。
 /// </summary>
-public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost
+public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost, IPendingWrites
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -170,9 +170,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         _nameInput = record.Name;
         _memoInput = record.Memo ?? string.Empty;
         _blueprintInput = record.BlueprintId ?? string.Empty;
-        _saveName = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveNameAsync().Forget());
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
-        _saveBlueprint = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveBlueprintAsync().Forget());
+        _saveName = new Debounced(TimeSpan.FromMilliseconds(800), SaveNameAsync);
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
+        _saveBlueprint = new Debounced(TimeSpan.FromMilliseconds(800), SaveBlueprintAsync);
         ChangeAvatarCommand = new RelayCommand(() => ChangeAvatarAsync().Forget());
 
         // 使ったものは検索と同じカード・リストで出す（ユーザ指示 2026-09-14）。どちらで出すかと列の幅は、この画面で覚える
@@ -974,6 +974,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     private readonly Debounced _saveName;
     private readonly Debounced _saveMemo;
     private readonly Debounced _saveBlueprint;
+
+    /// <summary>待っている名前・メモ・blueprint ID を今書く（画面を離れる前・閉じる前）。</summary>
+    public Task FlushPendingWritesAsync()
+        => Task.WhenAll(_saveName.RunNowAsync(), _saveMemo.RunNowAsync(), _saveBlueprint.RunNowAsync());
 
     public string NameInput
     {

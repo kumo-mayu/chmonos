@@ -192,7 +192,7 @@ public sealed record BaseItemCandidate(string ItemId, string Label, RelayCommand
 /// 素体でグループ化した一覧にすると「素体の指定なし」に大半が落ちて読めなくなる
 /// （実データでは独自素体が大半）。素体の管理は別の欄に分ける。
 /// </summary>
-public sealed partial class AvatarsViewModel : ViewModelBase
+public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
 {
     /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
     private const int MaxNameSuggestions = 5;
@@ -261,7 +261,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         });
         ClearBaseCommand = new RelayCommand(() => ClearBaseAsync().Forget());
         AddAliasCommand = new RelayCommand(() => AddAliasAsync().Forget());
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
         RenameCommand = new RelayCommand(() => RenameAsync().Forget());
         UseNameSuggestionCommand = new RelayCommand(
             parameter => { if (parameter is string name) { NameInput = name; } },
@@ -708,6 +708,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     }
 
     private readonly Debounced _saveMemo;
+
+    /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
+    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
 
     /// <summary>書くのを待っているメモの持ち主。待ちの間に別のアバターへ移っても、元のアバターに書くため</summary>
     private string? _memoItemId;

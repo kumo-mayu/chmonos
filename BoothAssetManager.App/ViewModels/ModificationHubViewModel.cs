@@ -12,7 +12,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// <summary>
 /// 改変の画面。左で「Unityプロジェクト」「アバター」「改変」の見方を切り替えて探し、右に押したもののビューを出す。
 /// </summary>
-public sealed partial class ModificationHubViewModel : ViewModelBase
+public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWrites
 {
     /// <summary>最後に使った見方。ナビから開き直したときに同じ見方で始める（アプリを閉じるまで）。</summary>
     private static ModificationHubLevel s_lastLevel = ModificationHubLevel.Project;
@@ -203,6 +203,10 @@ public sealed partial class ModificationHubViewModel : ViewModelBase
             };
 
     // ---- 右側 ----
+
+    /// <summary>右に組み込んだ物（改変の画面・商品ページ）の待っている保存も拾う。</summary>
+    public Task FlushPendingWritesAsync()
+        => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
 
     /// <summary>右側に出しているもの。プロジェクト・アバター・改変・使ったもののどれか。</summary>
     public object? Detail

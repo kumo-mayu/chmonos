@@ -18,7 +18,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// 商品ページ。BOOTHの商品ページを参考にしつつ、ローカルの情報から組み立てる。
 /// 閲覧専用にしているのは決定事項（編集はEdit画面へ一本化し、保存経路を1つに保つ）。
 /// </summary>
-public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGalleryHost
+public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, IGalleryHost, IPendingWrites
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -890,7 +890,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             {
                 // 打っている間は待ち、止まってから1回書く（ほかのメモと同じ 0.8 秒）
                 MemoSaveText = "書いています…";
-                (_saveMemo ??= new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget())).Request();
+                (_saveMemo ??= new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync)).Request();
             }
         }
     }
@@ -932,11 +932,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         }
     }
 
-    /// <summary>待っているメモを今書く（画面を離れる前に呼ぶ。I10：打ってすぐ閉じると落ちていた）。</summary>
-    public void FlushMemo()
-    {
-        _saveMemo?.RunNow();
-    }
+    /// <summary>待っているメモを今書く（画面を離れる前・閉じる前に呼ぶ。I10：打ってすぐ閉じると落ちていた）。</summary>
+    public Task FlushPendingWritesAsync() => _saveMemo?.RunNowAsync() ?? Task.CompletedTask;
 
     public IReadOnlyList<AttributeBar> Attributes { get; private set; } = [];
 

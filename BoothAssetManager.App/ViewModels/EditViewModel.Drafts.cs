@@ -33,7 +33,7 @@ public sealed partial class EditViewModel
         }
 
         var current = BuildLocal(_item);
-        var changed = LocalOwners.EditScreen.Where(field => !SameField(_baseline, current, field)).ToList();
+        var changed = LocalFields.Changed(_baseline, current, LocalOwners.EditScreen);
         var files = ChangedFileVariations();
 
         // 決める前の打ちかけも控える（I4）。ほかが変わっていなくても、打ちかけがあれば書きかけとして残す
@@ -54,11 +54,6 @@ public sealed partial class EditViewModel
 
         _main.Drafts.Put(_item.Id, draft);
     }
-
-    /// <summary>その項目だけを比べる。項目の中身（一覧や入れ子）ごと比べたいので、書き出した形で比べる。</summary>
-    private static bool SameField(LocalBlock before, LocalBlock after, LocalField field)
-        => System.Text.Json.JsonSerializer.Serialize(LocalFields.Merge(new LocalBlock(), before, [field]))
-            == System.Text.Json.JsonSerializer.Serialize(LocalFields.Merge(new LocalBlock(), after, [field]));
 
     /// <summary>「編集途中 n件」のボタン。書きかけの置き場そのもの。</summary>
     public EditDraftStore Drafts => _main.Drafts;

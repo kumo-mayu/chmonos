@@ -89,8 +89,10 @@ public partial class App : Application
         // 閉じる直前に採る。Closed だと既に位置を失っている
         mainWindow.Closing += (_, e) =>
         {
-            // 待っている自動保存（メモ）を今書く（I10：打ち終えてすぐ閉じると 0.8 秒の待ちごと捨てられていた）
-            main.FlushPendingWrites();
+            // 待っている自動保存（メモ）を今書く（I10：打ち終えてすぐ閉じると 0.8 秒の待ちごと捨てられていた）。
+            // **書き終わるまで待つ。**投げっぱなしにすると、窓が閉じて主のスレッドが終わった時点で
+            // 書いている途中の作業が切られ、結局その回の入力だけが消えていた（2026-09-20）
+            WaitForPendingWrites(main.FlushPendingWritesAsync());
 
             // 編集途中の入力が残っていれば尋ねる（ユーザ判断）。「移動する」「キャンセル」なら閉じない
             if (main.ShouldCancelCloseForDrafts())
@@ -154,6 +156,48 @@ public partial class App : Application
     /// UIスレッドから直接待つと保存側の継続がUIスレッドを待って詰まるため、
     /// Task.Run で切り離してから待つ。小さなJSON1枚なので数msで終わる。
     /// </summary>
+    /// <summary>
+    /// 閉じる前の書き出しを待つ。
+    ///
+    /// **画面のスレッドを塞がずに待つ**（<see cref="System.Windows.Threading.DispatcherFrame"/>）。
+    /// 保存の続きは画面のスレッドへ戻ってくるので、ここで塞ぐと噛み合わずに止まる。
+    /// 待っている間は画面のメッセージが回る——閉じている最中なので、数 ms のあいだだけ。
+    ///
+    /// **5秒で諦める。**書くのは小さなJSON1枚なので普通は数 ms で終わる。それでも終わらないのは
+    /// 保存先の引越し・バックアップが書き込みの門を持っているときで、その門は分単位で開かない。
+    /// 閉じる操作を分単位で止めるより、諦めて記録に残す。
+    /// </summary>
+    private static void WaitForPendingWrites(Task pending)
+    {
+        if (pending.IsCompleted)
+        {
+            return;
+        }
+
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        var gaveUp = true;
+
+        pending.ContinueWith(
+            _ => Current?.Dispatcher.BeginInvoke(() =>
+            {
+                gaveUp = false;
+                frame.Continue = false;
+            }),
+            TaskScheduler.Default);
+
+        var limit = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        limit.Tick += (_, _) => frame.Continue = false;
+        limit.Start();
+
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+        limit.Stop();
+
+        if (gaveUp)
+        {
+            Core.Diagnostics.AppLog.Warn("閉じるときの書き出し", "5秒待っても書き終わらなかったので諦めた");
+        }
+    }
+
     private static void SavePlacement(MainViewModel main, MainWindow window)
     {
         // 背景で走っている取得を先に止める。終わるのは待たない

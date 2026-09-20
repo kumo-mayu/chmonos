@@ -19,7 +19,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// userTagも属性も、マスタを全部並べるのではなく候補付きの入力欄から積む。
 /// 並べる方式は分類が増えるほど画面が縦に伸び、使えなくなるため。
 /// </summary>
-public sealed partial class EditViewModel : ViewModelBase
+public sealed partial class EditViewModel : ViewModelBase, IPendingWrites
 {
     private readonly AppServiceContainer _services;
     private PaneColumn? _rightPane;
@@ -209,6 +209,9 @@ public sealed partial class EditViewModel : ViewModelBase
         get => _itemPage;
         private set => SetField(ref _itemPage, value);
     }
+
+    /// <summary>中に組み込んだ商品ページの待っている保存を拾う。</summary>
+    public Task FlushPendingWritesAsync() => ItemPage?.FlushPendingWritesAsync() ?? Task.CompletedTask;
 
     /// <summary>
     /// 左の欄が商品を開き直したとき（取り直した・ファイルやフォルダを外した・IDを変えた）。
@@ -919,8 +922,16 @@ public sealed partial class EditViewModel : ViewModelBase
         IsSaving = true;
         try
         {
+            // **この画面で人が変えた項目だけ**を持ち主として書く（2026-09-20）。
+            // 一式を名指ししていたので、商品ページで打ったメモが、編集画面を保存した時点で
+            // 開いた時点の字に戻っていた（Memo は商品ページとこの画面の2人が持つ項目）
+            var local = BuildLocal(_item);
+            var owns = _baseline is null
+                ? LocalOwners.EditScreen
+                : LocalFields.Changed(_baseline, local, LocalOwners.EditScreen);
+
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.SaveItemLocal(_item.Id, BuildLocal(_item), LocalOwners.EditScreen));
+                new UiCommand.SaveItemLocal(_item.Id, local, owns));
 
             if (result is CommandResult.Failed failed)
             {

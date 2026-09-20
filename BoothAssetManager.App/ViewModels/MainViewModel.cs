@@ -404,11 +404,13 @@ public sealed partial class MainViewModel : ViewModelBase
                 leavingEdit.CaptureDraft();
             }
 
-            // 商品ページを離れるときは、待っているメモを今書く（I10：打ち終えてすぐ移ると 0.8 秒の待ちごと捨てられていた）
-            if (_currentViewModel is ItemViewModel leavingItem && !ReferenceEquals(leavingItem, value))
+            // 離れるときは、待っている自動保存を今書く（I10：打ち終えてすぐ移ると 0.8 秒の待ちごと捨てられていた）。
+            // 窓は開いたままなので、ここでは待たない
+            if (_currentViewModel is IPendingWrites leavingScreen && !ReferenceEquals(leavingScreen, value))
             {
-                leavingItem.FlushMemo();
+                leavingScreen.FlushPendingWritesAsync().Forget();
             }
+
 
             // ショップ一覧を離れたら、裏で走らせているアイコン取得を止める
             if (_currentViewModel is ShopsViewModel leaving && !ReferenceEquals(leaving, value))
@@ -498,8 +500,16 @@ public sealed partial class MainViewModel : ViewModelBase
     /// 待っている自動保存を今書く（ユーザ判断 2026-09-20・I10）。
     /// **押さずに残る欄は 0.8 秒待ってから書く**ので、打ち終えてすぐ閉じると、その待ちごと捨てられていた。
     /// 閉じる前と、画面を離れるときに呼ぶ。
+    ///
+    /// 今の画面だけでなく、**中に組み込んだ商品ページ・改変も拾う**
+    /// （フォルダや改変の右に出した商品のメモが、単独の商品ページなら残るのに消えていた）。
     /// </summary>
-    public void FlushPendingWrites() => (CurrentViewModel as ItemViewModel)?.FlushMemo();
+    /// <returns>書き終わりまでの待ち。閉じる前は待つ——投げっぱなしにすると、窓が閉じた時点で切られる。</returns>
+    public Task FlushPendingWritesAsync()
+    {
+        // 組み込んだ物は、組み込んだ画面が自分で拾う（フォルダ・改変・編集の中の商品ページ）
+        return (CurrentViewModel as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
+    }
 
     /// <summary>
     /// 閉じる前に、書きかけが残っていれば尋ねる（ユーザ判断）。閉じるのをやめるなら true。

@@ -303,7 +303,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 /// 未確定のファイルは未確定の画面の右側を、そのまま組み込む。根の決め方は <see cref="FolderViewRoots"/>。
 /// **木は保存した記録のパスから組み、ディスクを読み回らない**（取り外したドライブも最後に分かっていた形で出す）。
 /// </summary>
-public sealed class FolderViewModel : ViewModelBase, ISelectionScreen
+public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites
 {
     // 開いた・畳んだはアプリを閉じるまで覚える（改変の画面と同じ・ユーザ判断）
     private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
@@ -407,6 +407,13 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen
 
     /// <summary>戻るで戻ったときに、同じ行を選び直すための鍵。</summary>
     public string? SelectedKey => _selected?.Key;
+
+    /// <summary>
+    /// 右に組み込んだ物（商品ページなど）の待っている保存も拾う。
+    /// 組み込んだときは今の画面がこちらなので、主画面から商品ページを直に探しても当たらない。
+    /// </summary>
+    public Task FlushPendingWritesAsync()
+        => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
 
     public object? Detail
     {

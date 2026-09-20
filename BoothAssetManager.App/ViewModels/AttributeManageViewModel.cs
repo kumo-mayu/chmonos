@@ -63,7 +63,7 @@ public sealed class OrphanAttributeRow : ViewModelBase
 /// 違いはitem側が名前だけでなく 0〜100 の値を持つこと。統合すると
 /// 「両方に値が入っているitemでどちらを残すか」が出るので、そこだけ聞く。
 /// </summary>
-public sealed class AttributeManageViewModel : ViewModelBase
+public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
 {
     private readonly AppServiceContainer _services;
 
@@ -108,7 +108,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         DeleteCommand = new RelayCommand(() => DeleteAsync().Forget(), () => Selected is not null);
 
         // メモは押さずに残す（タグの管理・ショップ・アバターと揃える。ユーザ指示 2026-09-19）
-        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), () => SaveMemoAsync().Forget());
+        _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
         ToggleDefaultCommand = new RelayCommand(() => ToggleDefaultAsync().Forget(), () => Selected is not null);
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ShowItemsCommand = new RelayCommand(
@@ -506,6 +506,10 @@ public sealed class AttributeManageViewModel : ViewModelBase
     public RelayCommand DeleteCommand { get; }
 
     private readonly Debounced _saveMemo;
+
+    /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
+    public Task FlushPendingWritesAsync() => _saveMemo.RunNowAsync();
+
     private bool _memoPending;
     private bool _swappingMemo;
     private bool _rebuildingList;
