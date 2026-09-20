@@ -229,7 +229,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         ImportMemberCommand = new RelayCommand(
             parameter => SendToUnityAsync(
                 parameter is ModificationMemberRowViewModel row ? new[] { row } : Array.Empty<ModificationMemberRowViewModel>(),
-                "Unityへインポート").Forget(),
+                "Unityへ送る").Forget(),
             parameter => parameter is ModificationMemberRowViewModel && !IsSendingToUnity);
         SelectMemberInUnityCommand = new RelayCommand(
             parameter => SelectMemberInUnityAsync(parameter as ModificationMemberRowViewModel).Forget(),
@@ -589,7 +589,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var confirm = Services.Notice.Show(
                 where + "\n\n"
-                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ取り込み画面が出るので、"
+                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ Unity の取り込み画面が出るので、"
                 + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が出ます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
@@ -1340,10 +1340,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     {
         var images = Record.Images.Count;
         var answer = Services.Notice.Show(
-            $"改変「{Record.Name}」を消します。\n\n"
+            $"改変「{Record.Name}」を削除します。\n\n"
             + (images > 0 ? $"貼った画像 {images} 枚も一緒に消えます。\n" : string.Empty)
             + "元には戻せません。使った商品そのものは消えません。",
-            "改変を消す",
+            "改変を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Warning,
             System.Windows.MessageBoxResult.Cancel);
@@ -1571,8 +1571,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         // **取り返しがつかない。**ファイルごと消える
         var answer = Services.Notice.Show(
-            "この写真を消します。\n\n元には戻せません。",
-            "写真を消す",
+            "この写真を削除します。\n\n元には戻せません。",
+            "写真を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Warning,
             System.Windows.MessageBoxResult.Cancel);

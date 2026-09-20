@@ -106,7 +106,7 @@ internal static class ItemSelectionActions
         // 数えているのは unitypackage の数（選んだ商品の数ではない）。選び終えた後に、全体で何を送るかを1回だけ確かめる
         var confirm = Services.Notice.Show(
             $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
-            + "1件ずつ取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。"
+            + "1件ずつ Unity の取り込み画面が出ます。Unity側で「Import」（入れない物は「Cancel」）を押すと、次の1件が出ます。"
             + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
             + (notSending.Count > 0 ? $"\n送らないと選んだ {notSending.Count} 件は飛ばします。" : string.Empty),
             title,

@@ -230,8 +230,8 @@ public sealed class OrphanTagRow : ViewModelBase
     public string ItemCountText => $"{ItemCount} 件の商品が参照";
 
     public string MergePlaceholder => IsSub
-        ? $"「{Top}」の既にある小分類へ寄せる"
-        : "既にある大分類へ寄せる";
+        ? $"「{Top}」の既にある小分類へ統合する"
+        : "既にある大分類へ統合する";
 
     /// <summary>寄せ先の候補。トップならトップ一覧、サブなら同じトップの既存サブ。</summary>
     public IReadOnlyList<string> MergeCandidates { get; set; } = [];
@@ -1000,7 +1000,7 @@ public sealed class TagManageViewModel : ViewModelBase
             : $"「{Selected.Name}」を「{target}」に変更します。\n\n"
                 + $"{Selected.ItemCount} 件の商品を書き換えます。";
 
-        if (!Confirm(message, merging ? "分類を統合する" : "名前を変更する"))
+        if (!Confirm(message, merging ? "大分類を統合する" : "名前を変更する"))
         {
             return;
         }
@@ -1035,10 +1035,10 @@ public sealed class TagManageViewModel : ViewModelBase
         var message = Selected.ItemCount == 0
             ? $"「{Selected.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
             : $"「{Selected.Name}」を削除します。\n\n"
-                + $"{Selected.ItemCount} 件の商品からこの分類が外れます（小分類も一緒に外れます）。\n"
+                + $"{Selected.ItemCount} 件の商品からこの大分類が外れます（小分類も一緒に外れます）。\n"
                 + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。";
 
-        if (!Confirm(message, "分類を削除する"))
+        if (!Confirm(message, "大分類を削除する"))
         {
             return;
         }
@@ -1404,8 +1404,8 @@ public sealed class TagManageViewModel : ViewModelBase
         }
 
         if (!Confirm(
-            $"「{row.DisplayName}」を「{name}」に寄せます。\n\n{row.ItemCount} 件の商品を書き換えます。",
-            "分類を寄せる"))
+            $"「{row.DisplayName}」を「{name}」に統合します。\n\n{row.ItemCount} 件の商品を書き換えます。",
+            "ユーザータグを統合する"))
         {
             return;
         }
@@ -1416,7 +1416,7 @@ public sealed class TagManageViewModel : ViewModelBase
 
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+            StatusText = $"「{name}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         await ReloadAsync();

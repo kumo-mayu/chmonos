@@ -435,7 +435,7 @@
                                 Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}"
                                 ToolTip="既に開いていれば、そのUnityを手前に出します。" />
-                        <Button Content="フォルダを見る" Margin="8,0,0,0" IsEnabled="{Binding Exists}"
+                        <Button Content="エクスプローラで開く" Margin="8,0,0,0" IsEnabled="{Binding Exists}"
                                 Command="{Binding DataContext.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding Path}" />
                     </WrapPanel>

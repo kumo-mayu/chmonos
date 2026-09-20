@@ -150,7 +150,7 @@
                             <!-- 分類側と同じ理由。通常の流れに手動追加の手順があるように読ませない -->
                             <TextBlock Text="編集画面で付けた属性は、その場で一覧に入ります。ここに出ているのは、アプリの外で保存先のファイルを直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既存へ寄せ、もう使わないなら消してください。"
+                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既にある属性へ統合し、もう使わないなら外してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
 
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
@@ -173,12 +173,12 @@
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                         <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button Content="評価を消す" Style="{StaticResource SmallButton}"
+                                                        <Button Content="商品から外す" Style="{StaticResource SmallButton}"
                                                                 Margin="6,0,0,0" Foreground="#9a3232"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
-                                                                         Placeholder="既にある属性へ寄せる"
+                                                                         Placeholder="既にある属性へ統合する"
                                                                          Source="{Binding DataContext.AllNames,
                                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                          CommitCommand="{Binding MergeCommand}" />
@@ -203,7 +203,7 @@
                                                    TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
                                         <Button Content="名前を変更" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                                                 Command="{Binding AskRenameCommand}"
-                                                ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。この属性を持つ商品はまとめて書き換わります。" />
+                                                ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つに統合します。この属性を持つ商品はまとめて書き換わります。" />
                                     </WrapPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                                         <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"

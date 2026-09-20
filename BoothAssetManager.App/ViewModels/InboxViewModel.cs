@@ -313,7 +313,7 @@ public sealed class InboxViewModel : ViewModelBase
 
             if (detected > 0)
             {
-                StatusText = $"一覧に無い分類を参照している商品を {detected} 件見つけました。";
+                StatusText = $"一覧に無いユーザータグを参照している商品を {detected} 件見つけました。";
             }
         });
     }
@@ -366,7 +366,7 @@ public sealed class InboxViewModel : ViewModelBase
 
     private static string ActionTip(NotificationRecord record) => record.Kind switch
     {
-        NotificationKind.OrphanTag => "タグの管理を開きます。消えたタグを作り直すか、商品から外せます。",
+        NotificationKind.OrphanTag => "タグの管理を開きます。消えたユーザータグを作り直すか、商品から外せます。",
         NotificationKind.ArchiveFoundForFolder =>
             "この商品のファイルを、展開したフォルダではなくzipの方で数えるようにします。"
             + "\nディスクのファイルは消えません。あとから同じフォルダを登録し直せます。",
@@ -515,7 +515,7 @@ public sealed class InboxViewModel : ViewModelBase
         // 商品IDを付け替えたり商品を消しても通知は書き換えないので、宛先が無いことがある。
         // 黙って何も起きないと壊れたように見えるので言う（ユーザ判断 2026-09-18）。
         // 宛先が無い通知は、もう手当てのしようがないので解消済みにする
-        StatusText = "この商品はもうありません（商品IDを変えたか、管理から外したようです）。この知らせは解消済みにしました。";
+        StatusText = "この商品はもうありません（商品IDを変えたか、管理対象から除外したようです）。この知らせは解消済みにしました。";
 
         var ids = _services.Notifications.Load()
             .Where(notification => notification.ItemId == itemId && !notification.IsResolved)

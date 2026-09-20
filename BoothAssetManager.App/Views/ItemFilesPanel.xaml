@@ -153,7 +153,7 @@
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
-                                                    <Button Content="登録を解除" Style="{StaticResource SmallButton}"
+                                                    <Button Content="登録を外す" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.UnregisterFolderCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding Path}" />
@@ -331,7 +331,7 @@
                                                                                 <Button.ContextMenu>
                                                                                     <ContextMenu>
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
-                                                                                                  ToolTip="開いているUnityで取り込みを始めます。取り込む内容はUnity側で確認できます。"
+                                                                                                  ToolTip="開いているUnityへ送ります。送る内容はUnity側で確認できます。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                         <MenuItem Header="改変に足して送る" CommandParameter="{Binding Entry}"
                                                                                                   ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"

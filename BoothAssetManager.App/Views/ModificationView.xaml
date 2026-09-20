@@ -89,9 +89,9 @@
                                VerticalAlignment="Center" Margin="12,0,0,0"
                                Foreground="{StaticResource TextMuted}" />
                     <!-- 改変の画面の右側では、ここで消す（ユーザ判断 2026-09-13：作るのはアバターの行、消すのは右のビュー） -->
-                    <Button Content="この改変を消す" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
+                    <Button Content="この改変を削除" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
                             Command="{Binding DeleteCommand}"
-                            ToolTip="記録を消します。元に戻せません。使った商品とUnityプロジェクトはそのまま残ります。"
+                            ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトはそのまま残ります。"
                             Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
             </Grid>
@@ -149,7 +149,7 @@
                                     <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
-                                            ToolTip="上から順に1件ずつ取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                                            ToolTip="上から順に1件ずつ Unity の取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
                                 </StackPanel>
                             </Grid>
                             <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
@@ -231,10 +231,10 @@
                                                     <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="Unity へインポートするか、Unity のプロジェクトタブで選択します">
+                                                            ToolTip="Unityへ送るか、Unity のプロジェクトタブで選択します">
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
-                                                                <MenuItem Header="インポート（Unity へ取り込む）" CommandParameter="{Binding}"
+                                                                <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
@@ -369,10 +369,10 @@
                                                                 <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
                                                                         Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        ToolTip="Unity へインポートするか、Unity のプロジェクトタブで選択します">
+                                                                        ToolTip="Unityへ送るか、Unity のプロジェクトタブで選択します">
                                                                     <Button.ContextMenu>
                                                                         <ContextMenu>
-                                                                            <MenuItem Header="インポート（Unity へ取り込む）" CommandParameter="{Binding}"
+                                                                            <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                             <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
@@ -558,7 +558,7 @@
                                     <Button Content="Unityを開く" Style="{StaticResource SmallButton}"
                                             Command="{Binding OpenProjectCommand}"
                                             ToolTip="既に開いていれば、そのUnityを手前に出します。" />
-                                    <Button Content="フォルダを見る" Style="{StaticResource SmallButton}"
+                                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                             Margin="6,0,0,0" Command="{Binding OpenProjectFolderCommand}" />
                                     <Button Content="紐付けを外す" Style="{StaticResource SmallButton}"
                                             Margin="6,0,0,0" Command="{Binding UnlinkProjectCommand}"

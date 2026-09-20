@@ -728,7 +728,7 @@
                                         <Button Style="{StaticResource HistorySlotButton}" Content="✕"
                                                 FontSize="10" Padding="6,4" Command="{Binding RemoveCommand}"
                                                 Foreground="{StaticResource TextMuted}"
-                                                ToolTip="この履歴を消します。検索の条件は変わりません。" />
+                                                ToolTip="この履歴を削除します。検索の条件は変わりません。" />
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

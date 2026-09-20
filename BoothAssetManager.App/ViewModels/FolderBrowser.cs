@@ -151,7 +151,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         ? $"この下に 商品 {ItemCount} 件・未確定 {Unresolved.Count} 件"
         : $"この下に 商品 {ItemCount} 件";
 
-    /// <summary>未確定の案内と「管理から外す」を出すか。左の「未確定」を切っているときは出さない（ユーザ指示 2026-09-15）。</summary>
+    /// <summary>未確定の案内と「管理対象から除外する」を出すか。左の「未確定」を切っているときは出さない（ユーザ指示 2026-09-15）。</summary>
     public bool HasUnresolved => Unresolved.Count > 0 && FolderViewModel.ShowsUnresolvedNow;
 
     /// <summary>未確定を出していないときの小さな札（あることだけ分かるように）。</summary>
@@ -169,9 +169,9 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
     }
 
     public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。確定・フォルダの登録は「未確定として開く」から、"
-        + "要らない物は「管理から外す」で片付けられます（ファイル自体は消しません）。";
+        + "要らない物は「管理対象から除外する」で片付けられます（ファイル自体は消しません）。";
 
-    public string ExcludeText => $"この下の未確定 {Unresolved.Count} 件を管理から外す";
+    public string ExcludeText => $"この下の未確定 {Unresolved.Count} 件を管理対象から除外する";
 
     // ---- 文字で探す（絞り込みは付けない・ユーザ指示） ----
 

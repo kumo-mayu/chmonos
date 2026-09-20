@@ -508,7 +508,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         var answer = Services.Notice.Show(
             $"次のフォルダの紐付けを解除します。\n\n{folderPath}\n\n"
             + "ファイルは消しません。以降このフォルダの中もスキャン対象に戻ります。",
-            "フォルダの登録を解除",
+            "フォルダの登録を外す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
@@ -714,7 +714,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// BOOTHのショップに結び付いているなら、そちらの店であることも言う。
     /// </summary>
     public string UserShopNotice => Item.Local.Shop is { IsOnBooth: true } shop
-        ? $"このショップは自分で結び付けたものです（BOOTHの {shop.Subdomain}）"
+        ? $"このショップは自分で紐付けたものです（BOOTHの {shop.Subdomain}）"
         : "このショップ名は自分で入れたものです";
 
     /// <summary>

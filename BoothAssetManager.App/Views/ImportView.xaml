@@ -246,7 +246,7 @@
                                     Command="{Binding OpenResolveCommand}"
                                     Visibility="{Binding HasUnresolvedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="商品が決まらなかったファイルを、1件ずつ確かめて決めます。" />
-                            <Button Content="取り込んだ商品を検索で見る" Style="{StaticResource SmallButton}" Margin="0,0,0,14"
+                            <Button Content="取り込んだ商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,0,14"
                                     Command="{Binding ShowAddedCommand}"
                                     Visibility="{Binding HasAddedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="検索を、最近手元に入った順に並べて開きます（ほかの条件は外します）。" />

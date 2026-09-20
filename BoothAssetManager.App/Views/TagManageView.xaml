@@ -18,7 +18,7 @@
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="タグの管理" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock Text="ユーザータグの管理" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="商品は名前で参照しているので、名前の変更と削除は全商品の書き換えを伴います。"
@@ -47,7 +47,7 @@
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14" >
-                        <TextBlock Text="タグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
+                        <TextBlock Text="ユーザータグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                  Padding="9,6" BorderBrush="{StaticResource BorderStrong}"
                                  ToolTip="大分類の名前だけでなく、小分類の名前と、商品（商品名・ショップ名・メモ）でも探します。" />
@@ -153,15 +153,15 @@
                             Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                             Visibility="{Binding HasOrphans, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="18,15">
-                            <TextBlock Text="一覧に無い分類" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
+                            <TextBlock Text="一覧に無いユーザータグ" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
                             <!--
                                 編集画面で打った分類はその場で一覧に入る（EditViewModel）。
                                 ここに出るのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合だけ。
                                 通常の流れに手動追加の手順があるように読ませない。
                             -->
-                            <TextBlock Text="編集画面で付けた分類は、その場で一覧に入ります。ここに出ているのは、アプリの外で保存先のファイルを直したか、一覧から消した後に商品側が残っている場合です。"
+                            <TextBlock Text="編集画面で付けたユーザータグは、その場で一覧に入ります。ここに出ているのは、アプリの外で保存先のファイルを直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既存へ寄せ、もう使わないなら外してください。"
+                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既にあるユーザータグへ統合し、もう使わないなら外してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
 
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
@@ -228,7 +228,7 @@
                                                        TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
                                             <Button Content="名前を変更" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                                                     Command="{Binding RenameTopCommand}"
-                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。付いている商品はまとめて書き換わります。" />
+                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つに統合します。付いている商品はまとめて書き換わります。" />
                                         </WrapPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding SelectedUsageText}" Style="{StaticResource Caption}"
@@ -245,7 +245,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                     <!-- 大分類の削除は小分類も商品の付け替えも伴うので、色で重さを出す（ユーザ指摘 2026-09-18） -->
-                                    <Button Content="この分類を削除" Style="{StaticResource SmallButton}"
+                                    <Button Content="この大分類を削除" Style="{StaticResource SmallButton}"
                                             Foreground="#9a3232" BorderBrush="#e2bcbc"
                                             HorizontalAlignment="Right" VerticalAlignment="Top"
                                             Command="{Binding DeleteTopCommand}" />
@@ -473,7 +473,7 @@
                                                                     ToolTip="{Binding ShowItemsToolTip}" />
                                                             <Button Content="名前を変更" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,6,0" Command="{Binding RenameCommand}"
-                                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つにまとめます。" />
+                                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つに統合します。" />
                                                             <!-- 「移す」だけでは何が起きるか分からない（ユーザ指摘 2026-09-18） -->
                                                             <Button Content="別の大分類へ移す" Style="{StaticResource SmallButton}"
                                                                     Margin="0,0,10,0" Command="{Binding MoveCommand}"
@@ -482,7 +482,7 @@
                                                             <Button Content="削除" Style="{StaticResource SmallButton}"
                                                                     Foreground="#9a3232" BorderBrush="#e2bcbc"
                                                                     Command="{Binding DeleteCommand}"
-                                                                    ToolTip="この小分類を消します。付いている商品からも外れます。" />
+                                                                    ToolTip="この小分類を削除します。付いている商品からも外れます。" />
                                                         </StackPanel>
                                                     </StackPanel>
 

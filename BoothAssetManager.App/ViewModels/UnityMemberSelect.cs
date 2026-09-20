@@ -117,7 +117,7 @@ internal static class UnityMemberSelect
         else
         {
             var answer = Services.Notice.Show(
-                $"「{name}」（{fileText}）は、Unityの「{projectName}」にまだ入っていません。取り込みますか？\n\n"
+                $"「{name}」（{fileText}）は、Unityの「{projectName}」にまだ入っていません。Unityへ送りますか？\n\n"
                 + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
                 title,
                 System.Windows.MessageBoxButton.OKCancel,
@@ -147,7 +147,7 @@ internal static class UnityMemberSelect
                 ? "Cancel されたので、入っていません。"
                 : outcomes.All(outcome => outcome.AlreadyPresent)
                     ? $"「{projectName}」には既に全部入っていました。もう一度押すと、プロジェクトタブで示します。"
-                    : $"「{projectName}」に取り込み画面を出しました。入った後にもう一度押すと、プロジェクトタブで示します。");
+                    : $"「{projectName}」へ送りました。入った後にもう一度押すと、プロジェクトタブで示します。");
 
         return recorded;
     }

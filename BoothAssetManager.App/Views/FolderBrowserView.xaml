@@ -100,7 +100,7 @@
             </StackPanel>
 
             <WrapPanel Margin="0,12,0,0">
-                <Button Content="このフォルダで絞り込んで検索" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
+                <Button Content="このフォルダの商品を検索で開く" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
                         Command="{Binding Owner.SearchHereCommand}" CommandParameter="{Binding}"
                         ToolTip="検索の画面へ移り、このフォルダの下にファイルを持つ商品だけで絞り込みます（分類・対応アバターなどでも絞れます）。" />
                 <Button Content="エクスプローラで開く" Margin="0,0,8,8" IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
@@ -135,7 +135,7 @@
                 </Border>
             </WrapPanel>
 
-            <!-- 未確定（ユーザ指示：未確定のフォルダには管理から外すボタンなども付ける） -->
+            <!-- 未確定（ユーザ指示：未確定のフォルダには「管理対象から除外する」ボタンなども付ける） -->
             <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                     CornerRadius="6" Padding="14,10" Margin="0,4,0,0"
                     Visibility="{Binding HasUnresolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -143,7 +143,7 @@
                     <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
                         <Button Content="未確定として開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                                 Command="{Binding Owner.OpenUnresolvedCommand}" CommandParameter="{Binding}"
-                                ToolTip="この下の未確定だけを、未確定の画面と同じ形で右に出します（確定・フォルダの登録・管理から外す）。" />
+                                ToolTip="この下の未確定だけを、未確定の画面と同じ形で右に出します（確定・フォルダの登録・管理対象から除外する）。" />
                         <Button Content="{Binding ExcludeText}" Style="{StaticResource SmallButton}"
                                 Command="{Binding Owner.ExcludeUnresolvedCommand}" CommandParameter="{Binding}" />
                     </WrapPanel>

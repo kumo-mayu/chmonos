@@ -127,7 +127,7 @@
                                         </MenuItem>
 
                                         <!-- 消せるのは自分で足した分だけ。BOOTHの画像は取り直せば戻る -->
-                                        <MenuItem Header="この画像を消す" Command="{Binding RemoveImageCommand}"
+                                        <MenuItem Header="この画像を削除" Command="{Binding RemoveImageCommand}"
                                                   Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <Separator />
                                         <MenuItem Header="画像を足す…" Command="{Binding AddImageCommand}" />

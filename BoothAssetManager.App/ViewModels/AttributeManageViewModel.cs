@@ -958,7 +958,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
         var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAttribute(row.Name, name, keep));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"「{name}」に寄せました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+            StatusText = $"「{name}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
         }
 
         await ReloadAsync();
@@ -969,7 +969,7 @@ public sealed class AttributeManageViewModel : ViewModelBase
     private async Task RemoveOrphanAsync(OrphanAttributeRow row)
     {
         if (!Confirm(
-            $"「{row.Name}」の評価を {row.ItemCount} 件の商品から消します。\n\nこの操作は元に戻せません。",
+            $"「{row.Name}」の評価を {row.ItemCount} 件の商品から外します。\n\nこの操作は元に戻せません。",
             "参照を外す"))
         {
             return;

@@ -129,7 +129,7 @@
                             <Grid Width="230" VerticalAlignment="Center">
                                 <TextBox Padding="7,4"
                                          Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると結び付きが外れます。" />
+                                         ToolTip="商品IDか、BOOTHの商品ページのURLを入れてください。空にすると紐付けが外れます。" />
                                 <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" IsHitTestVisible="False"
                                            VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
                                            Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
@@ -147,7 +147,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                         <Button Content="名前を変える" Style="{StaticResource SmallButton}"
                                 Command="{Binding RenameCommand}" />
-                        <Button Content="消す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                        <Button Content="削除" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                 Command="{Binding DeleteCommand}" />
                     </StackPanel>
                 </Grid>
@@ -446,7 +446,7 @@
                                         見出しの下の行に並べる（ユーザ指摘 2026-09-17）
                                     -->
                                     <WrapPanel Grid.Row="1" Grid.Column="1" Margin="6,10,0,0">
-                                        <Button Content="この商品を検索で見る" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
+                                        <Button Content="この商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                                                 Command="{Binding ShowItemsCommand}"
                                                 ToolTip="このアバターに対応している商品を、素体経由も含めて検索で開きます。" />
                                         <!-- 取り込んであるアバターは、ファイルや改変を見に商品ページへ（動線の点検 D2） -->
@@ -535,7 +535,7 @@
                                                                 Command="{Binding DataContext.RemoveAliasCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"
-                                                                ToolTip="明らかに間違っている呼び方を消します。" />
+                                                                ToolTip="明らかに間違っている呼び方を削除します。" />
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>

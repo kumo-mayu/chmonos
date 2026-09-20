@@ -12,7 +12,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// - 元のzipが一覧に無い（消した・取り込んでいない）：同じzipの中身全件を1つの単位にする
 /// - 例外（1つのzipに複数の商品が入っているなど）のために「このファイルだけを扱う」。選び直すと切れる
 /// - zipが無いフォルダのファイルも同じく、同じフォルダのファイル全件を単位にする
-/// 単位は確定・BOOTHに無い商品としての登録・管理対象から外すのどれにも効く（ユーザ判断 2026-09-17）。
+/// 単位は確定・BOOTHに無い商品としての登録・管理対象から除外するのどれにも効く（ユーザ判断 2026-09-17）。
 /// </summary>
 public sealed partial class ResolveViewModel
 {
@@ -136,7 +136,7 @@ public sealed partial class ResolveViewModel
 
     private bool _singleFileOnly;
 
-    /// <summary>「このファイルだけを扱う」。zipやフォルダの単位にせず、選んだ1件だけを登録・管理対象から外すの対象にする。</summary>
+    /// <summary>「このファイルだけを扱う」。zipやフォルダの単位にせず、選んだ1件だけを登録・管理対象から除外するの対象にする。</summary>
     public bool SingleFileOnly
     {
         get => _singleFileOnly;
@@ -151,7 +151,7 @@ public sealed partial class ResolveViewModel
 
     /// <summary>
     /// トグルを出すか。zipを展開した中身か、zipが無いフォルダのファイルを選んでいるときだけ意味がある
-    /// （どちらもまとまりが単位で、登録にも管理対象から外すにも効く・ユーザ判断 2026-09-17）。
+    /// （どちらもまとまりが単位で、登録にも「管理対象から除外する」にも効く・ユーザ判断 2026-09-17）。
     /// </summary>
     public bool CanChooseSingleFile => Selected is { IsExpandedContent: true } or { IsArchiveContent: true };
 
@@ -176,12 +176,12 @@ public sealed partial class ResolveViewModel
         {
             var mates = Files.Count(other => other.IsExpandedContent
                 && string.Equals(other.GroupKey, row.GroupKey, StringComparison.OrdinalIgnoreCase));
-            // 元のzipが未確定にあるときも束を立てる。登録は止めているが、管理対象から外すは中身全件に効かせる
+            // 元のzipが未確定にあるときも束を立てる。登録は止めているが、「管理対象から除外する」は中身全件に効かせる
             ActiveGroup = !SingleFileOnly && mates > 1 ? row.GroupKey : null;
         }
         else if (Selected is { IsArchiveContent: true } folderRow)
         {
-            // zipが無いフォルダのファイルは、同じフォルダのファイル全件を単位にする（確定・登録・管理対象から外すのどれも）
+            // zipが無いフォルダのファイルは、同じフォルダのファイル全件を単位にする（確定・登録・管理対象から除外するのどれも）
             var mates = Files.Count(other => other.IsArchiveContent
                 && string.Equals(other.GroupKey, folderRow.GroupKey, StringComparison.OrdinalIgnoreCase));
             ActiveGroup = !SingleFileOnly && mates > 1 ? folderRow.GroupKey : null;

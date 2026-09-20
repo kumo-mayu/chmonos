@@ -37,8 +37,8 @@ public sealed record UnityQueueOutcome(
         }
 
         return notes.Count == 0
-            ? $"{opened} 件の取り込み画面を順に出しました。"
-            : $"{opened} 件の取り込み画面を順に出しました（うち {string.Join("、", notes)}）。";
+            ? $"{opened} 件を Unity へ順に送りました。"
+            : $"{opened} 件を Unity へ順に送りました（うち {string.Join("、", notes)}）。";
     }
 }
 
@@ -197,7 +197,7 @@ public static class UnityImportQueue
             // 人に見せて押してもらう画面なので、送る前に開いておく
             Restore(main);
 
-            Report($"{index + 1}/{packages.Count}：「{package.Name}」の取り込み画面を出しています…");
+            Report($"{index + 1}/{packages.Count}：「{package.Name}」を送っています…");
 
             string path;
             IReadOnlyList<string> expected;

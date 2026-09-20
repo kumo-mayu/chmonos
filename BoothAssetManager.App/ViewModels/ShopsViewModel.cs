@@ -84,7 +84,7 @@ public sealed class ShopCardViewModel : ViewModelBase
     /// BOOTHに無い鍵に .booth.pm を足すと、実在しないURLを名乗ることになる。
     /// </summary>
     public string DomainText => Core.Models.LocalShopKey.IsLocal(Shop.Subdomain)
-        ? "BOOTHのショップに結び付いていません"
+        ? "BOOTHのショップに紐付いていません"
         : $"{Shop.Subdomain}.booth.pm";
 
     public string OwnedText => $"{Shop.OwnedCount}";

@@ -19,7 +19,7 @@ public sealed partial class ResolveViewModel
 
     public string AssignCheckedText => $"選択した {CheckedCount} 件をこのIDで確定";
 
-    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理対象から外す";
+    public string ExcludeCheckedText => $"選択した {CheckedCount} 件を管理対象から除外する";
 
     private void OnCheckedChanged()
     {
@@ -57,7 +57,7 @@ public sealed partial class ResolveViewModel
 
     /// <summary>
     /// まとめて扱っている元zipの束。null なら選んだ1件だけを扱う。
-    /// 確定・管理から外すがこの束の全件に効く。元zipが単位の基本で、
+    /// 確定・「管理対象から除外する」がこの束の全件に効く。元zipが単位の基本で、
     /// 1件ずつ扱いたいときは束を開いて行を選ぶ（行を選ぶと束は外れる）。
     /// </summary>
     public string? ActiveGroup
@@ -84,7 +84,7 @@ public sealed partial class ResolveViewModel
             : $"フォルダ「{Path.GetFileName(ActiveGroup)}」のファイル {ActiveRows.Count} 件をまとめて扱っています")
           + (ActiveRows.Count(row => !MatchesFilter(row)) is var hidden && hidden > 0 ? $"（うち {hidden} 件は検索で隠れています）" : string.Empty);
 
-    /// <summary>確定・管理から外すの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
+    /// <summary>確定・管理対象から除外するの対象。束を選んでいればその全件、でなければ選んだ1件。</summary>
     private IReadOnlyList<UnresolvedRow> ActiveRows => ActiveGroup is { } key
         ? Files.Where(row => string.Equals(row.GroupKey, key, StringComparison.OrdinalIgnoreCase)).ToList()
         : Selected is null ? [] : [Selected];
@@ -126,11 +126,11 @@ public sealed partial class ResolveViewModel
         }
     }
 
-    private Task<bool> ExcludeCheckedAsync() => ExcludeRowsAsync(Files.Where(row => row.IsSelected).ToList(), "まとめて管理対象から外す");
+    private Task<bool> ExcludeCheckedAsync() => ExcludeRowsAsync(Files.Where(row => row.IsSelected).ToList(), "まとめて管理対象から除外する");
 
     /// <summary>
     /// 元のzipが残っている中身を「元zipとして扱う」：元のzipの行を選ぶ。そのままzipで登録すれば、中身は一覧から消える。
-    /// 前は中身を管理対象から外していたが、外した記録は残り続けるので、後でzipを消しても中身が戻らなかった
+    /// 前は中身を管理対象から除外していたが、外した記録は残り続けるので、後でzipを消しても中身が戻らなかった
     /// （ユーザ判断 2026-09-17：登録済みのzipの中身は出さないだけにする、と揃えた）。
     /// </summary>
     /// <param name="parameter">中身の束の鍵（zipの名前）か、1行で出ている中身の行。</param>
@@ -152,7 +152,7 @@ public sealed partial class ResolveViewModel
         UseOriginZip();
     }
 
-    /// <summary>決めた行をまとめて管理対象から外す。外す前に件数と名前を見せて聞く。外したら true。</summary>
+    /// <summary>決めた行をまとめて管理対象から除外する。外す前に件数と名前を見せて聞く。外したら true。</summary>
     /// <param name="lead">確認の窓の頭に置く、なぜ外すのかの一文（無ければ出さない）。</param>
     private async Task<bool> ExcludeRowsAsync(List<UnresolvedRow> targets, string title, string? lead = null)
     {
@@ -169,7 +169,7 @@ public sealed partial class ResolveViewModel
 
         var answer = Services.Notice.Show(
             (lead is null ? string.Empty : lead + "\n\n")
-            + $"{targets.Count} 件を管理対象から外します。\n\n{sample}\n\n"
+            + $"{targets.Count} 件を管理対象から除外します。\n\n{sample}\n\n"
             + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
             title,
             System.Windows.MessageBoxButton.OKCancel,
@@ -192,7 +192,7 @@ public sealed partial class ResolveViewModel
 
             RemoveRows(targets);
             RememberExcluded(targets);
-            StatusText = $"{targets.Count} 件を管理対象から外しました。";
+            StatusText = $"{targets.Count} 件を管理対象から除外しました。";
             return true;
         }
         finally

@@ -427,10 +427,10 @@ public sealed partial class ItemViewModel
         }
 
         var answer = Services.Notice.Show(
-            "この画像を消します。\n\n"
+            "この画像を削除します。\n\n"
             + "ライブラリから消えるので、元に戻せません。\n"
             + "（元のファイルが手元にあれば、もう一度足せます）",
-            "画像を消す",
+            "画像を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);

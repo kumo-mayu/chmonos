@@ -1104,7 +1104,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         if (trimmed.Length == 0)
         {
             await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetBaseItemId(name, null));
-            Status = $"「{name}」の配布商品との結び付きを外しました。";
+            Status = $"「{name}」の配布商品との紐付けを外しました。";
             await LoadAsync();
             return;
         }
@@ -1117,7 +1117,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         }
 
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetBaseItemId(name, itemId));
-        Status = $"「{name}」を商品 {itemId} に結び付けました。";
+        Status = $"「{name}」を商品 {itemId} に紐付けました。";
         await LoadAsync();
     }
 
@@ -1163,11 +1163,11 @@ public sealed partial class AvatarsViewModel : ViewModelBase
         var items = await Task.Run(() => _services.Avatars.CountItemsUsingBaseAsync(name));
 
         var answer = Services.Notice.Show(
-            $"共通素体「{name}」を消します。\n\n"
+            $"共通素体「{name}」を削除します。\n\n"
             + $"アバター {members} 体が所属無しに戻り、商品 {items} 件から素体の宣言が消えます。\n"
             + "素体経由で出ていた対応も出なくなります。\n\n"
             + "この操作は元に戻せません。同じ名前で作り直しても、所属と宣言は戻りません。",
-            "共通素体を消す",
+            "共通素体を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Warning,
             System.Windows.MessageBoxResult.Cancel);
@@ -1182,7 +1182,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase
     {
         var updated = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DeleteBase(name))
             is Core.Commands.CommandResult.Counted deleted ? deleted.Count : 0;
-        Status = $"「{name}」を消しました（商品 {updated} 件を書き換え）。";
+        Status = $"「{name}」を削除しました（商品 {updated} 件を書き換え）。";
         await LoadAsync();
     }
 

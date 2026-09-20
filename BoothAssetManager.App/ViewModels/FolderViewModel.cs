@@ -1236,7 +1236,7 @@ public sealed class FolderViewModel : ViewModelBase
             : $"「{detail.Path}」の監視をやめました。取り込んだ物はそのまま残ります。";
     }
 
-    /// <summary>その下の未確定を全部（子のフォルダも含む）管理から外す（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>
+    /// <summary>その下の未確定を全部（子のフォルダも含む）管理対象から除外する（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>
     private async Task ExcludeUnresolvedAsync(FolderViewDetail? detail)
     {
         if (detail is not { Unresolved.Count: > 0 })
@@ -1245,9 +1245,9 @@ public sealed class FolderViewModel : ViewModelBase
         }
 
         var answer = Notice.Show(
-            $"「{detail.Title}」の下の未確定 {detail.Unresolved.Count} 件を管理から外します。\n\n"
+            $"「{detail.Title}」の下の未確定 {detail.Unresolved.Count} 件を管理対象から除外します。\n\n"
             + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
-            "管理から外す",
+            "管理対象から除外する",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question,
             MessageBoxResult.Cancel);
@@ -1262,7 +1262,7 @@ public sealed class FolderViewModel : ViewModelBase
             await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFile(file.Hash, file.Paths, "フォルダビューからフォルダごと除外"));
         }
 
-        Status = $"{detail.Unresolved.Count} 件を管理から外しました。";
+        Status = $"{detail.Unresolved.Count} 件を管理対象から除外しました。";
         _main.RefreshBadges();
         await LoadAsync();
         ShowDetail(_selected);

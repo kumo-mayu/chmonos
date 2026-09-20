@@ -70,8 +70,8 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
     public string ImpactText => !HasTarget
         ? string.Empty
         : IsMerge
-            ? $"「{Target.Trim()}」は既にあるので、2つは1つにまとまります。まとめた後は元に戻せません。"
+            ? $"「{Target.Trim()}」は既にあるので、2つは1つに統合されます。統合した後は元に戻せません。"
             : $"新しい名前になります。{KindText}を参照している商品は、まとめて書き換わります。";
 
-    public string CommitText => IsMerge ? "まとめる" : "名前を変える";
+    public string CommitText => IsMerge ? "統合する" : "名前を変える";
 }

@@ -67,7 +67,7 @@ public sealed class ImportFolderRow
     public RelayCommand? RemoveCommand { get; set; }
 }
 
-/// <summary>非表示にした商品／管理から外したファイルの1行。</summary>
+/// <summary>非表示にした商品／管理対象から除外したファイルの1行。</summary>
 public sealed class RestorableRow
 {
     public required string Key { get; init; }
@@ -486,7 +486,7 @@ public sealed class SettingsViewModel : ViewModelBase
             "検索の履歴を全部消します。\n\n"
             + "名前を付けたものも一緒に消えます。元には戻せません。\n"
             + "いまの検索の条件は変わりません。",
-            "検索の履歴を消す",
+            "検索の履歴を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Warning,
             System.Windows.MessageBoxResult.Cancel);

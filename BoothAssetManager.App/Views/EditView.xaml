@@ -477,7 +477,7 @@
 
                     <!--
                         対応アバターと手元のファイルも商品ページと同じ部品（ユーザ判断 2026-09-12）。
-                        手元のファイルの欄は、外す・フォルダの登録を解除・エクスプローラで開くだけを出す
+                        手元のファイルの欄は、外す・フォルダの登録を外す・エクスプローラで開くだけを出す
                         （Unityへ送る・展開して開くは商品ページ。編集画面はJSONに関わる操作と確かめたいものを見せる所）
                     -->
                     <views:ItemAvatarsPanel DataContext="{Binding ItemPage}" />
@@ -511,7 +511,7 @@
 
                         <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
                         <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しい分類として追加されます。"
+                        <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しいユーザータグとして追加されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
                         <controls:SuggestBox Source="{Binding TagSuggestions}" CommitCommand="{Binding AddTagCommand}"
@@ -702,7 +702,7 @@
                                                                         <ComboBoxItem Content="贈った" Tag="{x:Static models:PurchaseKind.Given}" />
                                                                     </ComboBox>
                                                                     <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
-                                                                    <Button Content="この記録を消す" Style="{StaticResource SmallButton}"
+                                                                    <Button Content="この記録を削除" Style="{StaticResource SmallButton}"
                                                                             Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
                                                                 </StackPanel>
                                                             </DataTemplate>

@@ -9,7 +9,7 @@ using BoothAssetManager.Core.Services;
 namespace BoothAssetManager.App.ViewModels;
 
 /// <summary>
-/// 未確定画面。BoothIDが決まらなかったファイルに、IDを与えるか管理から外す。
+/// 未確定画面。BoothIDが決まらなかったファイルに、IDを与えるか管理対象から除外する。
 ///
 /// ID確定だけをまとめて先に片付ける形にしている（設計メモの Resolve → Edit）。
 /// 1件ごとにID確定とメタデータ入力を交互にやらないのは、
@@ -851,9 +851,9 @@ public sealed partial class ResolveViewModel : ViewModelBase
 
         var what = targets.Count == 1 ? targets[0].FileName : GroupSubject;
         var answer = Services.Notice.Show(
-            $"{what} を管理対象から外します。\n\n"
+            $"{what} を管理対象から除外します。\n\n"
             + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
-            "管理対象から外す",
+            "管理対象から除外する",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.Cancel);
@@ -880,7 +880,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
             else
             {
                 RemoveRows(targets);
-                StatusText = $"{targets.Count} 件を管理対象から外しました。";
+                StatusText = $"{targets.Count} 件を管理対象から除外しました。";
                 OnPropertyChanged(nameof(HasStatus));
             }
         }
@@ -891,7 +891,7 @@ public sealed partial class ResolveViewModel : ViewModelBase
     }
 
     /// <summary>1件片付いたら一覧から外し、次の1件へ自動で移る。</summary>
-    /// <param name="registered">商品に登録したか（管理対象から外したときは false）。登録したら、そのzipの中身も一覧から外す。</param>
+    /// <param name="registered">商品に登録したか（管理対象から除外したときは false）。登録したら、そのzipの中身も一覧から外す。</param>
     private void AfterSettled(bool registered = true)
     {
         // 次に選ぶのは、検索で見えている行の中の次（隠れている行を選ぶと、左で何を選んでいるか分からない）
