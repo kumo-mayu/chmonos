@@ -4,6 +4,12 @@ using System.Text.Json;
 
 namespace BoothAssetManager.Core.Storage;
 
+/// <summary>
+/// 書き出す・戻すの進み具合（ユーザ判断 2026-09-20・E8）。
+/// **先に数えてから詰める。**数えずに回していたので「書き出しています…」としか言えなかった。
+/// </summary>
+public readonly record struct BackupProgress(int Done, int Total, string CurrentName);
+
 /// <summary>書き出した結果。何を入れて何を入れなかったかを人に見せるために持つ。</summary>
 public sealed record BackupResult(int Files, long Bytes, int SkippedLocked);
 
@@ -55,7 +61,12 @@ public static class BackupArchive
     /// 書き出す。書き出し先の zip が保存先の中にあっても、自分自身は入れない。
     /// 他のプログラムが掴んでいて開けないファイル（ロックなど）は飛ばして数える。
     /// </summary>
-    public static BackupResult Export(string root, string zipPath, bool includeImages, CancellationToken cancellationToken = default)
+    public static BackupResult Export(
+        string root,
+        string zipPath,
+        bool includeImages,
+        IProgress<BackupProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         var rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         var zipFull = Path.GetFullPath(zipPath);
@@ -66,11 +77,16 @@ public static class BackupArchive
         var bytes = 0L;
         var skipped = 0;
 
+        // 先に数える（E8）。件数が分からないと進み具合を出せない。列挙をもう一度回すだけで、中身は読まない
+        var targets = Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories).ToList();
+
         using (var stream = File.Create(temporary))
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false, Encoding.UTF8))
         {
-            foreach (var path in Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories))
+            var seen = 0;
+            foreach (var path in targets)
             {
+                seen++;
                 cancellationToken.ThrowIfCancellationRequested();
 
                 if (string.Equals(Path.GetFullPath(path), zipFull, StringComparison.OrdinalIgnoreCase)
@@ -94,6 +110,7 @@ public static class BackupArchive
                     source.CopyTo(target);
                     files++;
                     bytes += source.Length;
+                    progress?.Report(new BackupProgress(seen, targets.Count, Path.GetFileName(path)));
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
@@ -131,7 +148,11 @@ public static class BackupArchive
     /// zip の外へ書き出そうとする名前は飛ばす。
     /// </summary>
     /// <returns>展開したファイルの数。</returns>
-    public static int Restore(string zipPath, string destinationRoot, CancellationToken cancellationToken = default)
+    public static int Restore(
+        string zipPath,
+        string destinationRoot,
+        IProgress<BackupProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (!LooksLikeBackup(zipPath))
         {
@@ -148,6 +169,7 @@ public static class BackupArchive
         var files = 0;
 
         using var archive = ZipFile.OpenRead(zipPath);
+        var total = archive.Entries.Count;
         foreach (var entry in archive.Entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -166,6 +188,7 @@ public static class BackupArchive
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, overwrite: false);
             files++;
+            progress?.Report(new BackupProgress(files, total, Path.GetFileName(target)));
         }
 
         return files;

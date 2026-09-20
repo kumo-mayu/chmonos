@@ -344,10 +344,29 @@ public abstract record UiCommand
     public record SetFileVariations(string ItemId, IReadOnlyDictionary<string, long?> VariationByHash) : UiCommand;
 
     /// <summary>保存先を1つの zip に書き出す（#61）。</summary>
-    public record ExportBackup(string Root, string ZipPath, bool IncludeImages) : UiCommand;
+    public record ExportBackup(
+        string Root,
+        string ZipPath,
+        bool IncludeImages,
+        IProgress<Storage.BackupProgress>? Progress = null) : UiCommand;
 
     /// <summary>バックアップの zip を空の場所へ展開する（#61）。そこへ移るのは呼ぶ側（保存先の切り替え）。</summary>
-    public record RestoreBackup(string ZipPath, string DestinationRoot) : UiCommand;
+    public record RestoreBackup(
+        string ZipPath,
+        string DestinationRoot,
+        IProgress<Storage.BackupProgress>? Progress = null) : UiCommand;
+
+    /// <summary>
+    /// 保存先を引っ越す・置き換える（ユーザ判断 2026-09-20・E8）。
+    /// **ここを通すのは、書き込みを止めてから運ぶため**——前は画面が直に呼んでいて、
+    /// 運んでいる間の書き込みが素通りし、コピー済みへ書いた分が元を消すときに失われていた。
+    /// 画面のスレッドも塞いでいた（数GBならその間ずっと無反応）。
+    /// </summary>
+    public record MoveStore(
+        string Source,
+        string Destination,
+        bool Replace,
+        IProgress<Storage.StoreMoveProgress>? Progress = null) : UiCommand;
 
     /// <summary>展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。</summary>
     public record SwapFolderForArchive(string ItemId, string FolderPath) : UiCommand;
@@ -451,4 +470,7 @@ public abstract record CommandResult
 
     /// <summary>バックアップを展開した。</summary>
     public record BackupRestored(int Files) : CommandResult;
+
+    /// <summary>保存先を運んだ（引越し・置き換え）。失敗も結果の中に入っている。</summary>
+    public record StoreMoved(Storage.StoreMoveResult Result) : CommandResult;
 }

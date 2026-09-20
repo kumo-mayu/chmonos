@@ -106,6 +106,10 @@ public sealed class CommandHandler
         // まとめて上げてよい——内側の指定が勝つ。
         using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.User);
 
+        // 保存先を丸ごと運んでいる間（引越し・置き換え・戻す）は、書き込みを待たせる（E8）。
+        // **読むだけの道はここを通らない**ので、その間も画面は見られる（ユーザ判断 2026-09-20）
+        await Storage.StoreWriteGate.WaitAsync(cancellationToken);
+
         switch (command)
         {
             case UiCommand.ScanFolders scan:
@@ -637,8 +641,11 @@ public sealed class CommandHandler
             case UiCommand.ExportBackup export:
                 try
                 {
+                    // 書き出している間は、束として食い違わないように書き込みを止める（E8）
+                    using var holdForExport = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
                     var exported = await Task.Run(
-                        () => Storage.BackupArchive.Export(export.Root, export.ZipPath, export.IncludeImages, cancellationToken),
+                        () => Storage.BackupArchive.Export(
+                            export.Root, export.ZipPath, export.IncludeImages, export.Progress, cancellationToken),
                         cancellationToken);
                     return new CommandResult.BackupExported(exported);
                 }
@@ -651,8 +658,10 @@ public sealed class CommandHandler
             case UiCommand.RestoreBackup restore:
                 try
                 {
+                    using var holdForRestore = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
                     var restored = await Task.Run(
-                        () => Storage.BackupArchive.Restore(restore.ZipPath, restore.DestinationRoot, cancellationToken),
+                        () => Storage.BackupArchive.Restore(
+                            restore.ZipPath, restore.DestinationRoot, restore.Progress, cancellationToken),
                         cancellationToken);
                     return new CommandResult.BackupRestored(restored);
                 }
@@ -660,6 +669,19 @@ public sealed class CommandHandler
                 {
                     return new CommandResult.Failed($"戻せませんでした：{exception.Message}");
                 }
+
+            case UiCommand.MoveStore move:
+            {
+                // **運んでいる間は書き込みを止める**（E8）。通してしまうと、コピー済みへ書いた分は
+                // 元を消すときに消え、列挙の後に生まれたファイルは運ばれず、増えた1件で突き合わせが落ちる
+                using var holdForMove = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
+                var moved = await Task.Run(
+                    () => move.Replace
+                        ? Storage.StoreMover.Replace(move.Source, move.Destination, move.Progress, cancellationToken)
+                        : Storage.StoreMover.Move(move.Source, move.Destination, move.Progress, cancellationToken),
+                    cancellationToken);
+                return new CommandResult.StoreMoved(moved);
+            }
 
             case UiCommand.UnpackToTemporary unpack:
                 try

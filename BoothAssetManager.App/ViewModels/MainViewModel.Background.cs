@@ -115,6 +115,9 @@ public sealed partial class MainViewModel
     {
         try
         {
+            // 裏の作業は `UiCommand` を通らないので、門はここで通す（E8）。
+            // 保存先を運んでいる間に書き込むと、コピー済みへ書いた分が元を消すときに失われる
+            await Core.Storage.StoreWriteGate.WaitAsync(_backlog?.Token ?? CancellationToken.None);
             await stage();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

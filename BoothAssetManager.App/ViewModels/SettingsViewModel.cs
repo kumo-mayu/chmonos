@@ -118,7 +118,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         AddFolderCommand = new RelayCommand(AddFolder);
         OpenRootCommand = new RelayCommand(OpenRoot);
-        ChangeRootCommand = new RelayCommand(ChangeRoot, () => CanChangeRoot);
+        ChangeRootCommand = new RelayCommand(() => ChangeRootAsync().Forget(), () => CanChangeRoot);
         RestartCommand = new RelayCommand(Restart);
         ExportBackupCommand = new RelayCommand(() => ExportBackupAsync().Forget(), () => !IsBackingUp);
         RestoreBackupCommand = new RelayCommand(() => RestoreBackupAsync().Forget(), () => !IsBackingUp && CanChangeRoot);
@@ -907,7 +907,10 @@ public sealed class SettingsViewModel : ViewModelBase
     /// </summary>
     public bool CanChangeRoot
         => Core.Storage.StoreLocation.Resolve().Source != Core.Storage.StoreRootSource.Environment
-            && !_main.IsImporting;
+            && !_main.IsImporting
+            // 書き出し・戻しと重ねない（E8）。どちらも保存先の場所を書くので、後に押した方が勝って案内と食い違っていた
+            && !IsBackingUp
+            && !IsMovingStore;
 
     /// <summary>
     /// 押せない理由。**押せる顔をして効かないより、押せなくして理由を出す。**
@@ -922,13 +925,74 @@ public sealed class SettingsViewModel : ViewModelBase
                 return $"環境変数 {Core.Storage.AppPaths.RootVariable} で保存先が指定されているため、ここからは変えられません。";
             }
 
-            return _main.IsImporting
-                ? "取り込みが走っている間は場所を変えられません。終わるか、中断してから変えてください。"
+            if (_main.IsImporting)
+            {
+                return "取り込みが走っている間は場所を変えられません。終わるか、中断してから変えてください。";
+            }
+
+            if (IsMovingStore)
+            {
+                return "いま運んでいます。終わるまでお待ちください。";
+            }
+
+            return IsBackingUp
+                ? "バックアップの書き出し・戻しが終わってから変えてください。"
                 : string.Empty;
         }
     }
 
-    private void ChangeRoot()
+    /// <summary>
+    /// 運ぶのは裏で（ユーザ判断 2026-09-20・E8）。**画面のスレッドで回していたので、数GBならその間ずっと無反応だった。**
+    /// `UiCommand` を通すのは、運んでいる間の書き込みを止めるため（`StoreWriteGate`）。
+    /// 進み具合は「n/N」で出す。止めている間も読む操作（画面を見る・検索する）はできる。
+    /// </summary>
+    private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)
+    {
+        IsMovingStore = true;
+        Status = replace ? "置き換えています…" : "引っ越しています…";
+        try
+        {
+            var progress = new Progress<Core.Storage.StoreMoveProgress>(
+                report => Status = (replace ? "置き換えています… " : "引っ越しています… ")
+                    + $"{report.Copied:N0}/{report.Total:N0}");
+
+            var result = await _services.Commands.ExecuteAsync(
+                new Core.Commands.UiCommand.MoveStore(source, destination, replace, progress));
+
+            Status = string.Empty;
+            return result is Core.Commands.CommandResult.StoreMoved moved
+                ? moved.Result
+                : new Core.Storage.StoreMoveResult
+                {
+                    Succeeded = false,
+                    Copied = 0,
+                    Bytes = 0,
+                    Error = (result as Core.Commands.CommandResult.Failed)?.Message ?? "運べませんでした。",
+                };
+        }
+        finally
+        {
+            IsMovingStore = false;
+        }
+    }
+
+    private bool _isMovingStore;
+
+    /// <summary>運んでいる最中か。二重に押させない・バックアップと重ねさせない。</summary>
+    public bool IsMovingStore
+    {
+        get => _isMovingStore;
+        private set
+        {
+            if (SetField(ref _isMovingStore, value))
+            {
+                OnPropertyChanged(nameof(RootLockedNote));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private async Task ChangeRootAsync()
     {
         if (!CanChangeRoot)
         {
@@ -949,8 +1013,9 @@ public sealed class SettingsViewModel : ViewModelBase
         // 向こうが古い作りかけということもあるので、勝手にどちらかへ寄せない
         if (StoreLocation.LooksLikeStore(picked))
         {
-            var here = Core.Storage.StoreMover.Summarize(source);
-            var there = Core.Storage.StoreMover.Summarize(picked);
+            // 数えるだけでも全ファイルを舐めるので、画面のスレッドで回さない（E8）
+            var here = await Task.Run(() => Core.Storage.StoreMover.Summarize(source));
+            var there = await Task.Run(() => Core.Storage.StoreMover.Summarize(picked));
 
             // 「はい／いいえ」は本文と対応を覚えないと押せない。ボタンに何が起きるかを名乗らせる（ユーザ判断）
             var answer = Views.ChoiceDialog.Ask(
@@ -978,7 +1043,7 @@ public sealed class SettingsViewModel : ViewModelBase
             }
 
             _services.ReleaseInstanceLock();
-            var replaced = Core.Storage.StoreMover.Replace(source, picked);
+            var replaced = await MoveStoreAsync(source, picked, replace: true);
 
             if (!replaced.Succeeded)
             {
@@ -1014,7 +1079,7 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
-        var (files, bytes) = Core.Storage.StoreMover.Measure(source);
+        var (files, bytes) = await Task.Run(() => Core.Storage.StoreMover.Measure(source));
 
         var move = Views.ChoiceDialog.Ask(
             "データを引っ越しますか",
@@ -1036,7 +1101,7 @@ public sealed class SettingsViewModel : ViewModelBase
             // 実行中のロックを持ったままだと、元のフォルダを畳みきれない
             _services.ReleaseInstanceLock();
 
-            var result = Core.Storage.StoreMover.Move(source, picked);
+            var result = await MoveStoreAsync(source, picked, replace: false);
 
             if (!result.Succeeded)
             {
@@ -1090,6 +1155,7 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _isBackingUp, value))
             {
+                OnPropertyChanged(nameof(RootLockedNote));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -1131,8 +1197,12 @@ public sealed class SettingsViewModel : ViewModelBase
         Status = "書き出しています…";
         try
         {
+            // 何件中何件目かを出す（E8）。前は「書き出しています…」だけで、進んでいるのか止まっているのか読めなかった
+            var progress = new Progress<Core.Storage.BackupProgress>(
+                report => Status = $"書き出しています… {report.Done:N0}/{report.Total:N0}");
+
             var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ExportBackup(
-                _services.Paths.Root, dialog.FileName, withImages == Views.ChoiceDialogResult.First));
+                _services.Paths.Root, dialog.FileName, withImages == Views.ChoiceDialogResult.First, progress));
 
             Status = result switch
             {
@@ -1200,8 +1270,11 @@ public sealed class SettingsViewModel : ViewModelBase
         Status = "戻しています…";
         try
         {
+            var progress = new Progress<Core.Storage.BackupProgress>(
+                report => Status = $"戻しています… {report.Done:N0}/{report.Total:N0}");
+
             var result = await _services.Commands.ExecuteAsync(
-                new Core.Commands.UiCommand.RestoreBackup(open.FileName, destination));
+                new Core.Commands.UiCommand.RestoreBackup(open.FileName, destination, progress));
 
             if (result is Core.Commands.CommandResult.Failed failed)
             {
