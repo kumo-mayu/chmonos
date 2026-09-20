@@ -61,6 +61,8 @@
                                              Placeholder="属性を追加（例：かっこいい）" />
 
                         <!-- 並べ方は一覧のすぐ上に、つながったボタンで（タグの管理と同じ。ユーザ指示 2026-09-19） -->
+                        <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
+                        <TextBlock Text="表示順" Style="{StaticResource Caption}" Margin="2,12,0,4" />
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

@@ -97,6 +97,51 @@ public sealed class SortOption
 }
 
 /// <summary>
+/// 並べ替えに使う**項目**（ユーザ指示 2026-09-20・M5：使う項目と昇順・降順を分ける）。
+///
+/// 前は「入手日が新しい順」「入手日が古い順」のように、項目と向きを掛け合わせた選択肢を1つの
+/// プルダウンに並べていた。属性が増えると選択肢も増え、同じ項目の逆向きを探すのに一覧を読み直すことになる。
+///
+/// **向きの言い方は項目ごとに変える**——日付は「新しい／古い」、数は「多い／少ない」、
+/// 名前は「あ→わ」。「昇順・降順」では、どちらが新しいのかが読み取れない。
+/// </summary>
+public sealed class SortField
+{
+    public required string Label { get; init; }
+
+    public required SortKind Kind { get; init; }
+
+    /// <summary><see cref="SortKind.Attribute"/> のときの属性名。</summary>
+    public string? AttributeName { get; init; }
+
+    /// <summary>大きい方から並べるときの言い方（「新しい順」「多い順」）。</summary>
+    public required string DescendingLabel { get; init; }
+
+    /// <summary>小さい方から並べるときの言い方（「古い順」「少ない順」）。</summary>
+    public required string AscendingLabel { get; init; }
+
+    /// <summary>この項目を選んだときの既定の向き。日付や数は大きい方から見たいことが多い。</summary>
+    public bool DefaultDescending { get; init; } = true;
+
+    /// <summary>
+    /// 選んだ項目と向きを合わせた言い方（「入手日が新しい順」）。
+    /// **検索の履歴はこの言い方で残る**ので、前からある言い方を変えない
+    /// （変えると、前に残した履歴から並び順を戻せなくなる）。
+    /// </summary>
+    public required Func<bool, string> FullLabel { get; init; }
+
+    public SortOption ToOption(bool descending) => new()
+    {
+        Label = FullLabel(descending),
+        Kind = Kind,
+        AttributeName = AttributeName,
+        Descending = descending,
+    };
+
+    public override string ToString() => Label;
+}
+
+/// <summary>
 /// 検索の履歴1件ぶんのスロット。
 ///
 /// 検索欄の上に横に並ぶ。押すとその条件に戻る。

@@ -63,6 +63,8 @@
                             並べ方は並べる一覧のすぐ上に、つながったボタンで置く（ユーザ指示 2026-09-19：頭の右端では
                             どの一覧の並びか分かりにくかった）。選ぶとファイルの並びも同じ順に書き換える（2026-09-18）
                         -->
+                        <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
+                        <TextBlock Text="表示順" Style="{StaticResource Caption}" Margin="2,12,0,4" />
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

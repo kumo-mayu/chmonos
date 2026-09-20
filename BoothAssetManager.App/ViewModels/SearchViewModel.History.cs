@@ -109,13 +109,24 @@ public sealed partial class SearchViewModel
             }
         }
 
-        if (entry.Sort is not null
-            && SortOptions.FirstOrDefault(option => option.Label == entry.Sort) is { } sort)
+        // 履歴に残るのは「入手日が新しい順」のような1つの言い方。項目と向きに分けた今も、
+        // その言い方から戻せるように、項目ごとの言い方と突き合わせる（M5）
+        if (entry.Sort is not null)
         {
-            _sort = sort;
+            foreach (var field in SortFields)
+            {
+                foreach (var descending in new[] { true, false })
+                {
+                    if (field.FullLabel(descending) == entry.Sort)
+                    {
+                        _sortField = field;
+                        _sort = field.ToOption(descending);
+                    }
+                }
+            }
         }
 
-        foreach (var name in new[] { nameof(QueryText), nameof(SearchAlternates), nameof(Sort) })
+        foreach (var name in new[] { nameof(QueryText), nameof(SearchAlternates), nameof(Sort), nameof(SortField), nameof(SortsDescending), nameof(SortsAscending), nameof(AscendingLabel), nameof(DescendingLabel) })
         {
             OnPropertyChanged(name);
         }

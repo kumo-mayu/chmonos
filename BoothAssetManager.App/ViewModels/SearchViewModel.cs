@@ -55,6 +55,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     private int _columns = 1;
     private SortOption _sort = DefaultSort;
 
+    /// <summary>並べ替えに使う項目（M5）。BuildFacets で作り直す。</summary>
+    private SortField _sortField = DefaultSortField;
+
     /// <summary>「最近」の足跡。絞り込み1回ぶんの間だけ持つ写し</summary>
     private RecentTimes? _recentTimes;
 

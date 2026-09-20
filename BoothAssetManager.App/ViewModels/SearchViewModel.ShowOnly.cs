@@ -80,8 +80,10 @@ public sealed partial class SearchViewModel
     public void ShowRecentlyAddedFirst()
     {
         ClearFilters(apply: false);
-        _sort = SortOptions.FirstOrDefault(option => option.Kind == SortKind.RecentlyAdded) ?? _sort;
+        _sortField = SortFields.FirstOrDefault(field => field.Kind == SortKind.RecentlyAdded) ?? _sortField;
+        _sort = _sortField.ToOption(descending: true);
         OnPropertyChanged(nameof(Sort));
+        OnPropertyChanged(nameof(SortField));
         ApplyFilters();
     }
 

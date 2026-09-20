@@ -13,6 +13,8 @@
         <!-- 商品のカード（フォルダビューの右側と共通。Views/ItemCardResources.xaml） -->
         <ResourceDictionary.MergedDictionaries>
             <views:ItemCardResources />
+            <!-- 並べ替えの繋がったボタン（タグ・属性の管理と同じ部品・M5） -->
+            <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
         <!--
             畳む・開くの小さなボタン。既定のボタンの見た目（枠と余白）だと
@@ -865,11 +867,28 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- 表示順は絞り込みと別の場所に置く -->
+                    <!--
+                        表示順は絞り込みと別の場所に置く。**使う項目と向きを分ける**（ユーザ指示 2026-09-20・M5）。
+                        項目は多いのでプルダウン、向きは2つなので繋がったボタン（ui-rules.md の並べ替えの決め事）。
+                        向きの言い方は項目で変わる（日付は「新しい順／古い順」、数は「多い順／少ない順」）
+                    -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0" />
-                        <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
-                                  DisplayMemberPath="Label" Width="180" Height="28" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding SortFields}" SelectedItem="{Binding SortField, Mode=TwoWay}"
+                                  DisplayMemberPath="Label" Width="150" Height="28" FontSize="12"
+                                  AutomationProperties.Name="並べ替えに使う項目" />
+                        <Grid Margin="8,0,0,0" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <RadioButton Grid.Column="0" GroupName="SearchSortOrder" Style="{StaticResource SegmentFirst}"
+                                         Content="{Binding DescendingLabel}" MinWidth="82"
+                                         IsChecked="{Binding SortsDescending, Mode=TwoWay}" />
+                            <RadioButton Grid.Column="1" GroupName="SearchSortOrder" Style="{StaticResource SegmentLast}"
+                                         Content="{Binding AscendingLabel}" MinWidth="82"
+                                         IsChecked="{Binding SortsAscending, Mode=TwoWay}" />
+                        </Grid>
                     </StackPanel>
                 </Grid>
             </Border>
