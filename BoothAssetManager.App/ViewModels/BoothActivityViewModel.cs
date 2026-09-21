@@ -22,13 +22,34 @@ public enum WorkSource
 /// </summary>
 public sealed class BoothActivityViewModel : ViewModelBase
 {
+    /// <summary>
+    /// 何もしていない状態が来ても、この間は畳まない。
+    ///
+    /// **通信は1件ごとに一瞬 Idle に戻る。**応答を片付けて次を呼ぶまでの隙間がそれで、
+    /// そこで畳むと1行が消えてすぐ出る、を1件ごとに繰り返す（ユーザ指摘 2026-09-21）。
+    /// 取り込みと裏の取得は作業として登録してあるので元から畳まれなかったが、
+    /// **人が押した取り直しには登録が無い**ので、そこだけ点滅していた。
+    /// 間隔の下限（1500ms）と同じだけ待てば、隙間で畳まれることはない。
+    /// </summary>
+    private static readonly TimeSpan IdleLinger = TimeSpan.FromMilliseconds(1500);
+
     private readonly Dispatcher _dispatcher;
     private readonly Dictionary<WorkSource, (string Label, int Done, int Total)> _work = new();
+    private readonly DispatcherTimer _idleLinger;
     private BoothActivity _activity = BoothActivity.Idle;
+    private BoothActivity? _waitingToSettle;
 
     public BoothActivityViewModel(IBoothClient client, Dispatcher dispatcher)
     {
         _dispatcher = dispatcher;
+        _idleLinger = new DispatcherTimer(DispatcherPriority.Normal, dispatcher) { Interval = IdleLinger };
+        _idleLinger.Tick += (_, _) =>
+        {
+            _idleLinger.Stop();
+            Activity = _waitingToSettle ?? BoothActivity.Idle;
+            _waitingToSettle = null;
+        };
+
         client.ActivityChanged += OnActivityChanged;
     }
 
@@ -148,7 +169,27 @@ public sealed class BoothActivityViewModel : ViewModelBase
     /// 取得は別のスレッドから知らせてくるので、UIスレッドへ渡し直す。
     /// 0.2秒ごとに来るだけなので、まとめる必要はない。
     /// </summary>
-    private void OnActivityChanged(BoothActivity activity) => OnUiThread(() => Activity = activity);
+    private void OnActivityChanged(BoothActivity activity) => OnUiThread(() => Apply(activity));
+
+    /// <summary>
+    /// 受け取った様子を出す。**何もしていない状態だけは少し待ってから当てる**
+    /// （<see cref="IdleLinger"/>。1件ごとの隙間で畳まないため）。
+    /// 待っている間は前の様子を出したままにするので、文字もバーも途中で空にならない。
+    /// </summary>
+    private void Apply(BoothActivity activity)
+    {
+        if (!activity.IsActive && _activity.IsActive && CurrentWork is null)
+        {
+            _waitingToSettle = activity;
+            _idleLinger.Stop();
+            _idleLinger.Start();
+            return;
+        }
+
+        _idleLinger.Stop();
+        _waitingToSettle = null;
+        Activity = activity;
+    }
 
     private void OnUiThread(Action action)
     {
