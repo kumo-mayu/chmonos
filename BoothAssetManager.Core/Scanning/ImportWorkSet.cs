@@ -206,28 +206,43 @@ public sealed class ImportWorkSet
 
     private int _jsonLeft;
     private int _pagesLeft;
-    private int _imagesLeft;
+    private int _thumbnailsLeft;
+    private int _galleryLeft;
+    private int _iconsLeft;
 
-    /// <summary>残りの問い合わせ（①商品の情報・②商品ページ・④⑤⑥画像）。</summary>
-    public (int Json, int Pages, int Images) RequestsLeft
+    /// <summary>
+    /// 残りの問い合わせ。**段ごとに分けて持つ。**
+    ///
+    /// 以前は画像を④⑤⑥まとめて1つの数にしていたので、画面が「この段の残り」を出せず、
+    /// ④サムネイルの最中に④⑤⑥全部の時間を出していた（1商品に画像が十数枚あるので十倍以上に出る。
+    /// ユーザ指摘 2026-09-21）。段の残りは段ごとの数からしか出せない。
+    /// </summary>
+    public (int Json, int Pages, int Thumbnails, int Gallery, int Icons) RequestsLeft
     {
         get
         {
             lock (_gate)
             {
-                return (Math.Max(0, _jsonLeft), Math.Max(0, _pagesLeft), Math.Max(0, _imagesLeft));
+                return (
+                    Math.Max(0, _jsonLeft),
+                    Math.Max(0, _pagesLeft),
+                    Math.Max(0, _thumbnailsLeft),
+                    Math.Max(0, _galleryLeft),
+                    Math.Max(0, _iconsLeft));
             }
         }
     }
 
     /// <summary>見込みを足す（済んだ分は負の数で引く）。</summary>
-    public void PlanRequests(int json = 0, int pages = 0, int images = 0)
+    public void PlanRequests(int json = 0, int pages = 0, int thumbnails = 0, int gallery = 0, int icons = 0)
     {
         lock (_gate)
         {
             _jsonLeft += json;
             _pagesLeft += pages;
-            _imagesLeft += images;
+            _thumbnailsLeft += thumbnails;
+            _galleryLeft += gallery;
+            _iconsLeft += icons;
         }
     }
 

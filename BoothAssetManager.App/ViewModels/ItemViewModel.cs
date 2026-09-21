@@ -248,9 +248,16 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
                 }
             });
         }
-        catch (Exception exception) when (exception is IOException or System.Net.Http.HttpRequestException)
+        catch (Exception exception)
         {
-            RunOnUiThread(() => RefreshStatus = "取得できませんでした。時間をおいて試してください。");
+            // **どの失敗でも理由を出す。**前は IOException と HttpRequestException だけを受けていたので、
+            // JSON が壊れていた・書き込めなかった といった失敗は、ボタンが元に戻るだけで
+            // 何も起きなかったように見えていた（ログには Forget() が残す）。
+            // 落ちた事実はログにも残す——画面の1行は消えるが、後から追えるようにしておく
+            Core.Diagnostics.AppLog.Error("商品情報の取り直し", exception);
+            RunOnUiThread(() => RefreshStatus = exception is IOException or System.Net.Http.HttpRequestException
+                ? "取得できませんでした。時間をおいて試してください。"
+                : $"取り直せませんでした（{exception.Message}）。");
         }
         finally
         {

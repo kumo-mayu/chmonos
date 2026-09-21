@@ -220,15 +220,16 @@ public class ImportInterleaveTests : IDisposable
     }
 
     /// <summary>
-    /// U1：残り時間の見込みの元になる「残りの問い合わせ」。①の最初は新しい商品2件ぶんの①②が残っていて、
-    /// 画像（2枚×2件＋ショップのアイコン1つ）まで取り終わると0に戻る。
+    /// U1：残り時間の見込みの元になる「残りの問い合わせ」。**段ごとに分けて数える**
+    /// （まとめた1つの数だと、画面が「この段の残り」を出せない）。
+    /// ①の最初は新しい商品2件ぶんの①②が残っていて、画像（1枚目2件・残り2件・アイコン1つ）まで取り終わると0に戻る。
     /// </summary>
     [Fact]
     public async Task CountsTheRequestsLeft()
     {
         var work = new ImportWorkSet([CreateSource("plan", "111", "222")]);
-        (int Json, int Pages, int Images)? atStart = null;
-        (int Json, int Pages, int Images)? atFirstImage = null;
+        (int Json, int Pages, int Thumbnails, int Gallery, int Icons)? atStart = null;
+        (int Json, int Pages, int Thumbnails, int Gallery, int Icons)? atFirstImage = null;
 
         var progress = new InlineProgress(report =>
         {
@@ -245,11 +246,14 @@ public class ImportInterleaveTests : IDisposable
 
         await _pipeline.RunAsync(work, progress);
 
-        Assert.Equal((2, 2, 0), atStart!.Value);
+        // ①の最中は画像の数をまだ数えていない（②が終わってから数える）
+        Assert.Equal((2, 2, 0, 0, 0), atStart!.Value);
+
         // 1枚目を取り始めたところ。取っている最中の1件は、取り終えるまで残りに数える
-        Assert.Equal((0, 0, 5), atFirstImage!.Value);
-        Assert.Equal((0, 0, 0), work.RequestsLeft);
+        Assert.Equal((0, 0, 2, 2, 1), atFirstImage!.Value);
+        Assert.Equal((0, 0, 0, 0, 0), work.RequestsLeft);
     }
+
 
     /// <summary>取得済みの商品は③待ちにしない。前の取り込みで編集できていたものを塞がない。</summary>
     [Fact]

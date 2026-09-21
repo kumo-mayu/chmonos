@@ -25,6 +25,18 @@
 
   <ItemGroup>
     <!--
+      配る物にライセンスの文を同梱する。同梱している辞書は CC BY-SA 4.0 で、
+      出典はアプリの設定画面にも出しているが、**渡した先で読める形の文も一緒に置く**
+      （渡すこと自体が配布なので、受け取った人が何の条件の物かを辿れるようにしておく）。
+      ExcludeFromSingleFile を付けるのは、付けないと1ファイルにまとめたとき exe の中へ
+      吸い込まれて読めなくなるため（辞書と同じ。BoothAssetManager.Core.csproj の assets と揃える）
+    -->
+    <None Include="..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\NOTICE" Link="NOTICE" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
       第2世代の空きが多くなったら、GCに詰め直させる（0〜9、大きいほど早めに詰める）。
       2000件の保存先では起動直後に第2世代の37%が空きのまま握られていた（#71）。
       裏で動くGCは詰め直しをしないので、放っておくと穴ごと持ち続ける。

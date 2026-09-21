@@ -507,7 +507,7 @@ public sealed class ImportViewModel : ViewModelBase
             return;
         }
 
-        var (json, pages, images) = work.RequestsLeft;
+        var (json, pages, thumbnails, gallery, icons) = work.RequestsLeft;
 
         // ③の確認は、手元に持っている商品なら問い合わせずに済む。全部を問い合わせとして数えるので多めに出る
         var checking = report.Phase == ImportPhase.Detecting && report.Step == DetectionCheckingStep
@@ -515,25 +515,40 @@ public sealed class ImportViewModel : ViewModelBase
             : 0;
         var perRequest = SecondsPerRequest;
 
+        // **段の残りは、その段の数だけで出す。**以前は画像を④⑤⑥まとめた1つの数で出していたので、
+        // ④サムネイルの最中に④⑤⑥全部の時間が出ていた（ユーザ指摘 2026-09-21）
         var phaseLeft = report.Phase switch
         {
             ImportPhase.FetchingJson => json,
             ImportPhase.FetchingHtml => pages,
             ImportPhase.Detecting => checking,
-            _ => images,
+            ImportPhase.FetchingThumbnails => thumbnails,
+            ImportPhase.FetchingGallery => gallery,
+            _ => icons,
         };
         EtaPhaseText = $"この段の残り {Duration(phaseLeft * perRequest)}";
 
-        // ③の確認で何件問い合わせるかは、③に入るまで分からない。分からないことは分からないと書く
+        // **①②の間は「編集できるまで」を時間で出さない。**③で何件問い合わせるかが③に入るまで分からず、
+        // 出していた数字には③の分が1件も入っていなかった。**分からない物に数字を付けない**
+        // （ユーザ指示 2026-09-21：「「編集できるまで」という文言が嘘なのが良くない」）。
+        // 代わりに「いつ分かるか」を出す——これは①②の残りそのもので、正確に言える
         var beforeDetection = report.Phase is ImportPhase.FetchingJson or ImportPhase.FetchingHtml;
-        var editableLeft = json + pages + checking;
-        EtaEditableText = work.AwaitingDetectionCount > 0 || json > 0
-            ? $"編集できるまで {Duration(editableLeft * perRequest)}" + (beforeDetection ? "＋対応アバターの確認" : string.Empty)
-            : "新しい商品はもう編集できます";
+        var untilKnown = (json + pages) * perRequest;
+        EtaEditableText = work.AwaitingDetectionCount == 0 && json == 0
+            ? "新しい商品はもう編集できます"
+            : !beforeDetection
+                ? $"編集できるまで {Duration(checking * perRequest)}"
+                : untilKnown < 60
+                    ? "編集できるまでの時間は、まもなく分かります"
+                    : $"編集できるまでの時間は、あと {Duration(untilKnown)} で分かります";
 
-        EtaImagesText = _services.Settings.SaveImages
-            ? $"画像を取り終わるまで {Duration((editableLeft + images) * perRequest)}"
-            : "画像は保存しない設定です";
+        // 画像の数は②が終われば分かる（FetchAsync でそこで数えている）。①②の間はまだ 0 なので、
+        // 数字を出すと「編集できるまで」と同じ数字がもう1本並ぶだけになる。ここも分かる時期を書く
+        EtaImagesText = !_services.Settings.SaveImages
+            ? "画像は保存しない設定です"
+            : beforeDetection
+                ? "画像の残りは、商品ページを取り終わると分かります"
+                : $"画像を取り終わるまで {Duration((checking + thumbnails + gallery + icons) * perRequest)}";
 
         OnPropertyChanged(nameof(HasEstimate));
     }

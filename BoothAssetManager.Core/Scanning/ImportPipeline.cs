@@ -316,10 +316,8 @@ public sealed class ImportPipeline : IImportPipeline
 
             // この周回の1枚目は、今の列に残っている画像より先に取る。
             // 積んだ物が早く一覧に出ることの方が、前の周回の2枚目より先に要る
+            // 見込み（U1）は②が終わった時点で数えてある（FetchAsync の中）。ここでは列に積むだけ
             images.Enqueue(fetchResult.WithImages, fetchResult.ShopIcons);
-
-            // 画像の問い合わせの見込み（U1）。手元にある絵は取りに行かないので、多めに出ることがある
-            work.PlanRequests(images: fetchResult.WithImages.Sum(item => item.Booth.Images.Count) + fetchResult.ShopIcons.Count);
         }
 
         // 取り込みが終わったと言うのは、裏で読んでいた unitypackage も書き終えてから
@@ -1047,6 +1045,19 @@ public sealed class ImportPipeline : IImportPipeline
             await _store.Items.SaveDescriptionHtmlAsync(item.Id, extraction.DescriptionHtml ?? string.Empty, cancellationToken);
         }
 
+        // 画像の問い合わせの見込みは、**②が終わった時点で**数えておく（手元にある絵は取りに行かないので多めに出る）。
+        // 以前は周回の最後（③の後）に足していたので、①②③の間ずっと画像の残りが 0 のままで、
+        // 「画像を取り終わるまで」が「編集できるまで」と同じ数字になっていた（ユーザ指摘 2026-09-21）。
+        // 画像の枚数は②まで済めば分かるので、そこで数える
+        if (_images.SavesImages)
+        {
+            var planned = pages.Where(item => item.Booth.Images.Count > 0).ToList();
+            work.PlanRequests(
+                thumbnails: planned.Count,
+                gallery: planned.Sum(item => item.Booth.Images.Count) - planned.Count,
+                icons: shopIcons.Count);
+        }
+
         // ── ③ 対応アバターの検出 ──
         //
         // 画像より先に置く。対応アバターを選ぶのは人の作業で、その候補が出揃っている
@@ -1231,7 +1242,7 @@ public sealed class ImportPipeline : IImportPipeline
                 }
 
                 // 見込みは取り終えてから減らす（①②と揃える）
-                work.PlanRequests(images: -1);
+                work.PlanRequests(thumbnails: -1);
 
                 queue.Galleries.Enqueue(item);
                 queue.GalleriesTotal++;
@@ -1248,7 +1259,7 @@ public sealed class ImportPipeline : IImportPipeline
                     downloaded += (await _images.SyncAsync(gallery.Id, gallery.Booth.Images, cancellationToken)).Downloaded;
                 }
 
-                work.PlanRequests(images: -(gallery.Booth.Images.Count - 1)); // 1枚目は④で数えた
+                work.PlanRequests(gallery: -(gallery.Booth.Images.Count - 1)); // 1枚目は④で数えた
 
                 continue;
             }
@@ -1263,7 +1274,7 @@ public sealed class ImportPipeline : IImportPipeline
                 await _images.SyncShopIconAsync(subdomain, thumbnailUrl, cancellationToken);
             }
 
-            work.PlanRequests(images: -1);
+            work.PlanRequests(icons: -1);
         }
 
         return downloaded;
