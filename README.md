@@ -25,3 +25,20 @@ dotnet test BoothAssetManager.Core.Tests
 
 実行ファイルは `BoothAssetManager.App\bin\Debug\net9.0-windows\BoothAssetManager.App.exe`。
 データの保存先は `%LOCALAPPDATA%\Chmonos`。環境変数 `CHMONOS_HOME` で差し替えられる。
+
+## 渡す用のビルド
+
+```powershell
+dotnet publish BoothAssetManager.App -p:PublishProfile=win-x64
+```
+
+`publish\Chmonos-win-x64\` に出る。**自己完結**（.NET 9 のランタイムを同梱）なので、
+渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる。
+
+設定は `BoothAssetManager.App\Properties\PublishProfiles\win-x64.pubxml` にある。csproj ではなくプロファイルに置いてあるのは、
+`RuntimeIdentifier` を csproj へ書くと `dotnet build` まで RID 付きになり、開発用の exe が
+`bin\Debug\net9.0-windows\win-x64\` へ移って `ui-check` の起動が壊れるため。
+
+- **1ファイルにまとめない**（`PublishSingleFile=false`）。起動のたびに一時フォルダへ展開する形は誤検知が増える（`docs/research/antivirus.md` A）
+- 配布物の exe は `BoothAssetManager.App.exe` の1つだけ。`createdump.exe` は csproj の `DropCreatedump` で落としている
+- 署名は無いので、初回は SmartScreen の「発行元不明」が出る（同 A の1つ目。まだ打っていない手）
