@@ -33,6 +33,13 @@ public sealed class ImageBacklog
     /// どちらが正しいか分からなくなるため。数え直せば必ず実態と一致する。
     /// </summary>
     public async Task<IReadOnlyList<string>> FindPendingAsync(CancellationToken cancellationToken = default)
+        => (await FindPendingItemsAsync(cancellationToken)).Select(item => item.Id).ToList();
+
+    /// <summary>
+    /// 対象の商品そのもの。**読んだ物をそのまま返す**（ユーザ判断 2026-09-21・G18）。
+    /// IDだけ返して呼ぶ側がもう一度読み直していたので、起動直後にディスクが二重に回っていた。
+    /// </summary>
+    private async Task<IReadOnlyList<Models.ItemRecord>> FindPendingItemsAsync(CancellationToken cancellationToken)
     {
         // 画像を取らない設定なら、差はあっても対象ではない。
         // 見ないと全商品が「未取得」に見えて、全件を無駄に回すことになる
@@ -42,14 +49,20 @@ public sealed class ImageBacklog
         }
 
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
-
-        // 404だった画像は「決着済み」として数に入れる。数に入れないと、
-        // 二度と取れないものを毎回の起動で対象に挙げ続けることになる
-        return loaded.Items
-            .Where(item => item.Booth.Images.Count > CountOnDisk(item.Id) + _images.CountMissingMarkers(item.Id))
-            .Select(item => item.Id)
-            .ToList();
+        return loaded.Items.Where(HasMissingImages).ToList();
     }
+
+    /// <summary>
+    /// まだ手元に無い画像があるか。**1枚ずつ見る**（ユーザ判断 2026-09-21・G7）。
+    ///
+    /// 前は「BOOTHの枚数 > 手元の .webp の数 + 取れなかった印」で決めていた。
+    /// **自分で足した絵も、BOOTHの一覧から消えたので残している絵も、同じ場所に同じ拡張子である**ため
+    /// 数に混ざり、本当は欠けていても「揃っている」と判定されていた（自分で絵を足した商品は永久に対象外）。
+    /// 今の一覧のURLごとに「手元にあるか・取れなかった印があるか」を見れば、混ざりようがない。
+    /// 見るファイルの数は前とほぼ同じ。
+    /// </summary>
+    private bool HasMissingImages(Models.ItemRecord item)
+        => item.Booth.Images.Any(image => !_images.IsSettled(item.Id, image.OriginalUrl));
 
     /// <summary>
     /// 残っている画像を取りに行く。1件ずつ保存されるので、どこで止めても続きから進む。
@@ -59,21 +72,11 @@ public sealed class ImageBacklog
         IProgress<(int Done, int Total)>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var pending = await FindPendingAsync(cancellationToken);
-        if (pending.Count == 0)
+        // 対象を決めるときに読んだ商品をそのまま使う（読み直さない・G18）
+        var items = await FindPendingItemsAsync(cancellationToken);
+        if (items.Count == 0)
         {
             return 0;
-        }
-
-        // 対象を先に読んでおく（同じ商品を2周するので、読み直さない）
-        var items = new List<Models.ItemRecord>(pending.Count);
-        foreach (var itemId in pending)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } item)
-            {
-                items.Add(item);
-            }
         }
 
         var downloaded = 0;
@@ -122,22 +125,5 @@ public sealed class ImageBacklog
         }
 
         return downloaded;
-    }
-
-    private int CountOnDisk(string itemId)
-    {
-        var directory = _store.Paths.ItemImagesDir(itemId);
-
-        try
-        {
-            return Directory.Exists(directory)
-                ? Directory.EnumerateFiles(directory, "*.webp").Count()
-                : 0;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // 読めないなら「揃っている」ことにする。取りに行っても同じ場所に置けない
-            return int.MaxValue;
-        }
     }
 }

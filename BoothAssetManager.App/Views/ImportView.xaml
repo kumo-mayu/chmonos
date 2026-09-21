@@ -55,6 +55,13 @@
                         </StackPanel>
                         <Button DockPanel.Dock="Right" Content="取り込み対象に入れる" Style="{StaticResource PrimaryButton}"
                                 VerticalAlignment="Center" Command="{Binding TakeWatchedNewCommand}" />
+                        <!--
+                            取り込むつもりの無いファイルが監視フォルダに居座ると、起動のたびに同じ件数を
+                            知らされ続けていた（消す以外に黙らせる手が無かった・G16）
+                        -->
+                        <Button DockPanel.Dock="Right" Content="知らせなくてよい" Margin="0,0,9,0"
+                                VerticalAlignment="Center" Command="{Binding Main.DismissWatchedNewCommand}"
+                                ToolTip="いま見つかっている分は、これ以上知らせません。新しいファイルが増えたらまた出ます。" />
                     </DockPanel>
                 </Border>
 

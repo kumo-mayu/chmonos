@@ -124,6 +124,23 @@ public class ImageBacklogTests : IDisposable
         Assert.Empty(await _backlog.FindPendingAsync());
     }
 
+    /// <summary>
+    /// **自分で足した絵は数に混ぜない**（ユーザ判断 2026-09-21・G7）。
+    /// 枚数で見ていたので、絵を足した商品は BOOTH の絵が欠けていても「揃っている」ことになり、
+    /// 裏の取得の対象から永久に外れていた。
+    /// </summary>
+    [Fact]
+    public async Task StillFetchesWhenTheItemHasImagesTheUserAddedHerself()
+    {
+        await SaveItemAsync("111", 2);
+        await DownloadFirstAsync("111");
+
+        // 自分で足した絵を、商品の画像と同じ場所に置く（保存名は中身のハッシュなので別名になる）
+        await File.WriteAllBytesAsync(Path.Combine(_paths.ItemImagesDir("111"), "userpic.webp"), TinyPng);
+
+        Assert.Equal(["111"], await _backlog.FindPendingAsync());
+    }
+
     /// <summary>**⑤の再開。**残りだけを取りに行き、既にあるものは取り直さない。</summary>
     [Fact]
     public async Task FetchesOnlyTheImagesThatAreNotOnDiskYet()

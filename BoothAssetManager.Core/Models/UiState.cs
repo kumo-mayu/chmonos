@@ -73,4 +73,15 @@ public sealed record UiState
     /// リストの列の幅は <see cref="PaneWidths"/> に <c>"search.col.name"</c> のような鍵で入る。
     /// </summary>
     public IReadOnlyList<string> ItemListScreens { get; init; } = [];
+
+    /// <summary>
+    /// 「この新着はもう知らせなくてよい」と言われたときの、新着の顔つき（ユーザ判断 2026-09-21・G16）。
+    ///
+    /// 監視フォルダに取り込むつもりの無いファイルがあると、起動のたびに同じ件数を知らされ続け、
+    /// ファイルを消す以外に黙らせる手が無かった。
+    /// **ファイルを1件ずつ覚えると、監視フォルダの大きさに比例して記録が膨らむ。**
+    /// 新着の一覧をまとめた指紋（文字列1つ）だけを持てば、
+    /// 「前と同じ顔ぶれなら黙る・何か増えたらまた言う」が満たせる。
+    /// </summary>
+    public string? DismissedWatchNew { get; init; }
 }

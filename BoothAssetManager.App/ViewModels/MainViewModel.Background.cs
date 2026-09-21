@@ -227,6 +227,14 @@ public sealed partial class MainViewModel
                     return;
                 }
 
+                // **前に「知らせなくてよい」と言われた顔ぶれのままなら黙る**（ユーザ判断 2026-09-21・G16）。
+                // 取り込むつもりの無いファイルが監視フォルダに居座ると、起動のたびに同じ件数を
+                // 知らされ続けていた（消す以外に黙らせる手が無かった）
+                if (WatchNewDigest(result.NewFiles) == _services.UiState.DismissedWatchNew)
+                {
+                    return;
+                }
+
                 RunOnUiThread(() =>
                 {
                     WatchedNewFiles = result.NewFiles;
@@ -242,6 +250,36 @@ public sealed partial class MainViewModel
             }
         }, token).Forget();
     }
+
+    /// <summary>
+    /// 新着の顔つき（G16）。**並べた順に依らない**ように並べ替えてから作る。
+    /// 中身は覚えない——覚えるのはこの1文字列だけで、監視フォルダが大きくても増えない。
+    /// </summary>
+    private static string WatchNewDigest(IReadOnlyList<string> files)
+    {
+        var joined = string.Join("\n", files.OrderBy(path => path, StringComparer.OrdinalIgnoreCase));
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(joined));
+        return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// 今出ている新着を「もう知らせなくてよい」にする（G16）。
+    /// **同じ顔ぶれの間は黙り、何か増えたらまた言う。**取り込むつもりが変わったら、押し直さなくても出てくる。
+    /// </summary>
+    public void DismissWatchedNew()
+    {
+        var digest = WatchNewDigest(WatchedNewFiles);
+        WatchedNewFiles = [];
+        OnPropertyChanged(nameof(WatchedNewCount));
+        OnPropertyChanged(nameof(HasWatchedNew));
+        OnPropertyChanged(nameof(WatchedNewText));
+
+        SaveUiStateAsync(state => state with { DismissedWatchNew = digest }).Forget();
+    }
+
+    private RelayCommand? _dismissWatchedNew;
+
+    public RelayCommand DismissWatchedNewCommand => _dismissWatchedNew ??= new RelayCommand(DismissWatchedNew);
 
     /// <summary>監視対象で見つかった、まだ見ていないファイル。</summary>
     public IReadOnlyList<string> WatchedNewFiles { get; private set; } = [];

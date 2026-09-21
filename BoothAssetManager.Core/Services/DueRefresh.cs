@@ -17,6 +17,15 @@ namespace BoothAssetManager.Core.Services;
 /// </summary>
 public sealed class DueRefresh
 {
+    /// <summary>
+    /// 1回の起動で取り直す件数の上限（ユーザ判断 2026-09-21・G15）。
+    ///
+    /// 200件＝1件2リクエスト×1.5秒で**約10分**。⑦は梯子のいちばん下で急ぐ理由が無く、
+    /// これ以上ゲートを占めると、その回に人が押した操作がずっと後ろで待つことになる。
+    /// 残りは次の起動へ回る（期限の古い順なので、古い物から順に片付く）。
+    /// </summary>
+    private const int MaxPerRun = 200;
+
     private readonly DataStore _store;
     private readonly IItemService _items;
 
@@ -63,6 +72,17 @@ public sealed class DueRefresh
         if (due.Count == 0)
         {
             return 0;
+        }
+
+        // **1回の起動で叩く件数に頭打ちを作る**（ユーザ判断 2026-09-21・G15）。
+        // 一時失敗では次の予定日を動かさない決まりなので、圏外や相手の不調が続くと
+        // 次の起動でも同じ全件が期限切れのまま残り、起動のたびに全件を叩き直していた
+        // （1件2リクエスト＋再試行なので、件数が多いと数十分ゲートを占める）。
+        // 期限の古い順に並んでいるので、頭から切れば古い物から順に片付く。
+        // **予定日は動かさない**——動かすと、こちら側の都合（圏外）で本当の更新の取り直しが遅れる
+        if (due.Count > MaxPerRun)
+        {
+            due = [.. due.Take(MaxPerRun)];
         }
 
         using var priority = BoothClient.Prioritize(BoothPriority.Background);

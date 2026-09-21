@@ -21,6 +21,17 @@ internal static class ItemSelectionActions
         Action<string> setQueueText)
     {
         const string title = "Unityへ順に送る";
+
+        // **送信中なら押した直後に断る**（ユーザ判断 2026-09-21・N8）。
+        // 判定が zip を開いて数え・送る物を選ばせ・確かめの窓を出した後にあったので、
+        // 二度押しすると最後まで進んでから断られていた（壊れはしないが、その手間が全部無駄になる）
+        if (Services.UnityImportQueue.IsRunning)
+        {
+            Services.Notice.Show(Services.UnityImportQueue.BusyMessage, title,
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
         var steps = new List<(ItemCardViewModel Card, IReadOnlyList<Core.Services.UnityPackageEntry> Packages)>();
         var nothing = new List<string>();
 
@@ -45,7 +56,8 @@ internal static class ItemSelectionActions
             return;
         }
 
-        // 送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える（§11-3）
+        // zip を読んでいる間に別の送信が始まっていることがあるので、ここでももう一度見る
+        // （送信は1列に限る。Editor.log は全エディタが共有するので、終わりを取り違える §11-3）
         if (Services.UnityImportQueue.IsRunning)
         {
             Services.Notice.Show(Services.UnityImportQueue.BusyMessage, title,

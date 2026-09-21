@@ -431,6 +431,19 @@ public sealed class InboxViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 行に「既読」の印を付けるが、**行からの知らせは受け取らない**（ユーザ判断 2026-09-21・P16）。
+    ///
+    /// まとめて既読は保存を1回で済ませてあるので、行ごとの知らせで1件ずつ書き直させない。
+    /// 「外して・立てて・付け直す」を2か所に書いていたので、作法をここ1つに寄せた。
+    /// </summary>
+    private void MarkReadWithoutEcho(NotificationRow row)
+    {
+        row.ReadChanged -= OnRowReadChanged;
+        row.IsRead = true;
+        row.ReadChanged += OnRowReadChanged;
+    }
+
     private void OnRowReadChanged(NotificationRow row)
     {
         // **保存を待ってから数え直す。**待たずに数えると、ナビのバッジだけ1つ古い数が残った
@@ -469,9 +482,7 @@ public sealed class InboxViewModel : ViewModelBase
 
         foreach (var row in group.Rows.Where(row => !row.IsRead))
         {
-            row.ReadChanged -= OnRowReadChanged;
-            row.IsRead = true;
-            row.ReadChanged += OnRowReadChanged;
+            MarkReadWithoutEcho(row);
         }
 
         group.RefreshCount();
@@ -487,9 +498,7 @@ public sealed class InboxViewModel : ViewModelBase
 
         foreach (var row in _all.Where(row => !row.IsRead))
         {
-            row.ReadChanged -= OnRowReadChanged;
-            row.IsRead = true;
-            row.ReadChanged += OnRowReadChanged;
+            MarkReadWithoutEcho(row);
         }
 
         OnPropertyChanged(nameof(UnreadCount));

@@ -114,6 +114,30 @@ public sealed class ImagePipeline
         => Path.Combine(_paths.ItemImagesDir(itemId), FileNameFor(originalUrl));
 
     /// <summary>
+    /// この1枚は決着しているか（ユーザ判断 2026-09-21・G7）。
+    ///
+    /// 手元にある・404だった・しばらく休んでいる のどれかなら、取りに行く必要が無い。
+    /// **枚数では数えない**——自分で足した絵も、BOOTHの一覧から消えたので残している絵も
+    /// 同じ場所に同じ拡張子であり、数に混ざると「揃っている」と誤って判定される。
+    /// </summary>
+    public bool IsSettled(string itemId, string originalUrl)
+    {
+        var directory = _paths.ItemImagesDir(itemId);
+
+        try
+        {
+            return File.Exists(Path.Combine(directory, FileNameFor(originalUrl)))
+                || File.Exists(Path.Combine(directory, MissingMarkerFor(originalUrl)))
+                || IsRestingAfterFailure(directory, originalUrl);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 読めないなら「決着している」ことにする。取りに行っても同じ場所に置けない
+            return true;
+        }
+    }
+
+    /// <summary>
     /// BOOTHが配っているアイコンの大きさ。
     ///
     /// CDNは決まったサイズしか返さない（実測で 48 / 128 / 150 と原寸のみが200、

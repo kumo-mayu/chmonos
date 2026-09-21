@@ -287,10 +287,21 @@ public sealed partial class MainViewModel
     private async Task RestoreModificationAsync(string id)
     {
         var forward = _nextNavigation == Navigation.Forward;
+        var restoring = BeginAsyncRestore();
 
         if (await _services.Modifications.LoadAsync(id) is { } record)
         {
+            if (!ResumeAsyncRestore(restoring, forward))
+            {
+                return;
+            }
+
             ShowModification(record);
+            return;
+        }
+
+        if (!ResumeAsyncRestore(restoring, forward))
+        {
             return;
         }
 
@@ -312,12 +323,18 @@ public sealed partial class MainViewModel
     private async Task RestoreShopAsync(Core.Services.ShopSummary remembered)
     {
         var forward = _nextNavigation == Navigation.Forward;
+        var restoring = BeginAsyncRestore();
 
         // ショップ一覧と同じく、全商品のJSONは読み直さずに検索画面の写しから数える
         var items = Search.SnapshotItems();
         var shops = await Task.Run(() => _services.Shops.Summarize(items));
         var fresh = shops.FirstOrDefault(entry =>
             string.Equals(entry.Subdomain, remembered.Subdomain, StringComparison.OrdinalIgnoreCase));
+
+        if (!ResumeAsyncRestore(restoring, forward))
+        {
+            return;
+        }
 
         if (fresh is not null)
         {
@@ -334,6 +351,35 @@ public sealed partial class MainViewModel
         {
             GoBack(rememberForward: false);
         }
+    }
+
+    /// <summary>
+    /// 開き直すのに待ちが要る控え（商品・ショップ・改変）の入口（ユーザ判断 2026-09-21・P17）。
+    ///
+    /// **待っている間は「戻る」の印を下ろしておく。**印は一度きりなので、
+    /// 待っている間に人がナビを押すと、その移動が「戻る」扱いになって履歴に積まれず、
+    /// 「進む」も消えないまま1つずれていた。
+    /// </summary>
+    /// <returns>待ち始めた時点の画面。戻ってきたときに、人が動かしていないかを見るのに使う。</returns>
+    private object? BeginAsyncRestore()
+    {
+        _nextNavigation = Navigation.Push;
+        return _currentViewModel;
+    }
+
+    /// <summary>
+    /// 待ちから戻ってきた。**人が別の画面へ移っていたら、開き直しをやめる**
+    /// （押した移動を勝手に上書きしない）。移っていなければ、差し替える直前に向きを立て直す。
+    /// </summary>
+    private bool ResumeAsyncRestore(object? restoring, bool forward)
+    {
+        if (!ReferenceEquals(_currentViewModel, restoring))
+        {
+            return false;
+        }
+
+        _nextNavigation = forward ? Navigation.Forward : Navigation.Back;
+        return true;
     }
 
     /// <summary>検索は、離れたときの条件に戻してから出す（P4）。</summary>
@@ -356,10 +402,21 @@ public sealed partial class MainViewModel
         // どちら向きに動いていたか。進んでいる最中に消えた商品へ当たったのに戻していたので、
         // 「進む」を押すと1つ戻っていた（押した先が読めない）
         var forward = _nextNavigation == Navigation.Forward;
+        var restoring = BeginAsyncRestore();
 
         if (await _services.Store.Items.LoadAsync(itemId) is { } item)
         {
+            if (!ResumeAsyncRestore(restoring, forward))
+            {
+                return;
+            }
+
             ShowItem(item);
+            return;
+        }
+
+        if (!ResumeAsyncRestore(restoring, forward))
+        {
             return;
         }
 
