@@ -28,6 +28,12 @@ public enum NotificationKind
 
     /// <summary>非公開と見なしていた商品がBOOTHに戻ってきた。</summary>
     ItemBackOnBooth,
+
+    /// <summary>
+    /// 自動で始めた取り込みで、zipを展開したフォルダの中のファイルを指していた
+    /// （ユーザ判断 2026-09-21・G2）。押してもいないのに窓で尋ねるのはやめ、そのまま取り込んで後から直せるようにする。
+    /// </summary>
+    UnpackedFilesImported,
 }
 
 /// <summary>

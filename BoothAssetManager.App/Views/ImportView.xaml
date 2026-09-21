@@ -141,6 +141,20 @@
                                 <TextBlock Text="起動時にファイルが増えていないか自動で調べ、増えたファイルを自動で取り込みます。"
                                            Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
                                            Visibility="{Binding ImportsOnLaunch, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <!--
+                                    動かしたファイルを結び直す（ユーザ判断 2026-09-21・G17）。
+                                    ファイルの同一性はハッシュで持っているので、移した・名前を変えただけなら
+                                    同じ中身を探して場所を書き換えれば戻る。手で1件ずつ結び直すのは現実的ではない
+                                -->
+                                <DockPanel LastChildFill="False" Margin="0,10,0,0">
+                                    <Button DockPanel.Dock="Left" Content="見つからないファイルを探す"
+                                            Style="{StaticResource SmallButton}"
+                                            Command="{Binding FindMissingFilesCommand}"
+                                            ToolTip="手元に見つからなくなったファイルを、監視フォルダの中から中身で探して結び直します。ファイルには触りません。" />
+                                    <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
+                                               Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
                             </StackPanel>
                         </Border>
                         <ItemsControl ItemsSource="{Binding Watched}">
@@ -164,6 +178,62 @@
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                         </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    取り込み元の履歴（ユーザ判断 2026-09-21・G3/G4）。
+                    **何を読んだかを確かめるための一覧で、対象ではない。**
+                    前は履歴がそのまま「取り込み対象」に積まれていたので、1本落としたつもりでも
+                    過去に指したフォルダ全部が走っていた。ここから1件ずつ対象に積む。
+                    ファイルも残す（何を読んだかは確かめたい）が、監視の対象にはしない
+                -->
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                            <StackPanel>
+                                <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" />
+                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に積む」を押すと、今回の取り込み対象に入ります。" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="{Binding HistoryEmptyText}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="18,12,18,14"
+                                   Visibility="{Binding HasHistory, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
+                        <ItemsControl ItemsSource="{Binding History}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="取り込み対象に積む" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="履歴から消す" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="履歴から消す" Width="94" Height="27"
+                                                    FontSize="12" Margin="8,0,0,0"
+                                                    ToolTip="履歴の一覧から消します。フォルダとファイルはそのまま残ります。"
+                                                    Command="{Binding DataContext.ForgetHistoryCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button DockPanel.Dock="Right" Content="対象に積む" Width="88" Height="27"
+                                                    FontSize="12"
+                                                    ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
+                                                    Command="{Binding DataContext.TakeFromHistoryCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

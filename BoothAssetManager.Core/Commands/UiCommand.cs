@@ -385,6 +385,18 @@ public abstract record UiCommand
 
     /// <summary>用が済んだ要確認に「解消済み」の印を付ける（消さずに残す）。</summary>
     public record ResolveNotifications(IReadOnlyList<string> Ids) : UiCommand;
+
+    /// <summary>
+    /// 要確認を1件足す。同じIDの未読があれば差し替える（溜めても読む手間が増えるだけ）。
+    /// 画面から書くので `UiCommand` を通す。
+    /// </summary>
+    public record AddNotification(Models.NotificationRecord Record) : UiCommand;
+
+    /// <summary>
+    /// 見つからない手元のファイルを、監視フォルダの中から**中身で**探して結び直す（G17）。
+    /// 結果は <see cref="CommandResult.MissingFilesSearched"/> で返る。
+    /// </summary>
+    public record FindMissingFiles(IProgress<(int Hashed, string? Detail)>? Progress = null) : UiCommand;
 }
 
 /// <summary>コマンドの実行結果。</summary>
@@ -461,6 +473,9 @@ public abstract record CommandResult
 
     /// <summary>一時フォルダへ展開した。</summary>
     public record Unpacked(string Folder) : CommandResult;
+
+    /// <summary>見つからないファイルを探した結果（G17）。</summary>
+    public record MissingFilesSearched(Services.MissingFileSearchResult Result) : CommandResult;
 
     /// <summary>展開フォルダをzipへ切り替えた結果。</summary>
     public record ArchiveSwapped(Services.ArchiveSwapOutcome Outcome) : CommandResult;

@@ -9,6 +9,9 @@ public interface INotificationService
 
     Task<bool> SetReadAsync(string id, bool isRead, CancellationToken cancellationToken = default);
 
+    /// <summary>1件足す。同じIDの未読があれば差し替える。</summary>
+    Task AddAsync(NotificationRecord record, CancellationToken cancellationToken = default);
+
     Task<int> MarkAllReadAsync(CancellationToken cancellationToken = default);
 
     Task<int> DetectOrphanReferencesAsync(CancellationToken cancellationToken = default);
@@ -54,6 +57,19 @@ public sealed class NotificationService : INotificationService
     private AppSettings _settings => _currentSettings();
 
     public IReadOnlyList<NotificationRecord> Load() => _store.Notifications.Load();
+
+    /// <summary>
+    /// 1件足す。**同じIDの未読があれば差し替える**（溜めても読む手間が増えるだけ。商品の更新の知らせと同じ作法）。
+    /// </summary>
+    public Task AddAsync(NotificationRecord record, CancellationToken cancellationToken = default)
+        => _store.Notifications.UpdateAsync(
+            records =>
+            {
+                records.RemoveAll(entry => entry.Id == record.Id && !entry.IsRead);
+                records.Add(record);
+                return Pruned(records);
+            },
+            cancellationToken);
 
     public Task<bool> SetReadAsync(string id, bool isRead, CancellationToken cancellationToken = default)
         => _store.Notifications.TryUpdateAsync(

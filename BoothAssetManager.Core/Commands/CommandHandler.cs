@@ -28,6 +28,9 @@ public sealed class CommandHandler
     private readonly Storage.JsonFileStore<List<Models.VideoTitleRecord>>? _videoTitles;
     private readonly Storage.JsonFileStore<List<Models.ShopNoteRecord>>? _shopNotes;
 
+    /// <summary>見つからないファイルを中身で探して結び直す（G17）。</summary>
+    private readonly MissingFileFinder? _missingFiles;
+
     public CommandHandler(
         IImportPipeline import,
         IItemService items,
@@ -46,8 +49,10 @@ public sealed class CommandHandler
         Images.ImagePipeline? images = null,
         Booth.IBoothClient? client = null,
         Storage.JsonFileStore<List<Models.VideoTitleRecord>>? videoTitles = null,
-        Storage.JsonFileStore<List<Models.ShopNoteRecord>>? shopNotes = null)
+        Storage.JsonFileStore<List<Models.ShopNoteRecord>>? shopNotes = null,
+        MissingFileFinder? missingFiles = null)
     {
+        _missingFiles = missingFiles;
         _videoTitles = videoTitles;
         _shopNotes = shopNotes;
         _settings = settings;
@@ -738,6 +743,25 @@ public sealed class CommandHandler
 
                 await _notifications.SetReadAsync(setRead.Id, setRead.IsRead, cancellationToken);
                 return new CommandResult.Done();
+
+            case UiCommand.AddNotification add:
+                if (_notifications is null)
+                {
+                    return MissingService("要確認の保存");
+                }
+
+                await _notifications.AddAsync(add.Record, cancellationToken);
+                return new CommandResult.Done();
+
+            case UiCommand.FindMissingFiles find:
+                if (_missingFiles is null || _settings is null)
+                {
+                    return MissingService("見つからないファイルの探索");
+                }
+
+                return new CommandResult.MissingFilesSearched(
+                    await _missingFiles.FindAsync(
+                        _settings.Current.WatchedFolders, find.Progress, cancellationToken));
 
             case UiCommand.MarkAllNotificationsRead:
                 if (_notifications is null)

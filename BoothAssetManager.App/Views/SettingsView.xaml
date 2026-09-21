@@ -190,12 +190,12 @@
                                   ToolTip="切っているときは、取り込み画面に件数を出して、押してから始めます。起動しただけでBOOTHへの通信が始まるのを避けたいときは切ってください。次に起動したときから効きます。" />
 
                         <Grid Margin="0,8,0,6">
-                            <TextBlock Text="取り込み元フォルダ" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
+                            <TextBlock Text="取り込み元の履歴" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
                             <Button Content="フォルダを足す" Style="{StaticResource SmallButton}"
                                     HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
                         </Grid>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="取り込み画面で既定の対象になります。ここに無いフォルダも、取り込み画面から都度指定できます。" />
+                                   Text="これまでに取り込んだフォルダとファイルです。並んでいるだけでは取り込みません（取り込み画面で「対象に積む」を押したものだけが対象になります）。" />
 
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>

@@ -62,7 +62,11 @@ public sealed record AppSettings
 
     // --- 取り込み ---
 
-    /// <summary>取り込み元フォルダの履歴。ファイルが欠落した時の再スキャン範囲も兼ねる。</summary>
+    /// <summary>
+    /// 取り込み元の履歴（フォルダとファイル）。**何を読んだかを確かめるための記録で、取り込みの対象ではない**
+    /// （ユーザ判断 2026-09-21・G3/G4）。取り込み画面の一覧から1件ずつ対象に積む。
+    /// 監視の対象とは別（履歴にファイルが入っても監視はしない）。
+    /// </summary>
     public IReadOnlyList<string> ImportFolders { get; init; } = [];
 
     /// <summary>

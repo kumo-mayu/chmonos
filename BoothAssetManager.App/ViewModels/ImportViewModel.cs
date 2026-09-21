@@ -62,9 +62,13 @@ public sealed class ImportViewModel : ViewModelBase
         _services = services;
         _main = main;
 
-        foreach (var folder in services.Settings.ImportFolders)
+        // **対象は空から始める**（ユーザ判断 2026-09-21・G3）。
+        // 前は履歴を全部「取り込み対象」に積んでいたので、1本落としたつもりでも
+        // 過去に指したフォルダ全部が走り、起動時の自動取り込みは説明と逆に履歴を全部舐めていた（G1）。
+        // 履歴は別の一覧として出し、そこから1件ずつ対象に積む
+        foreach (var path in services.Settings.ImportFolders)
         {
-            Folders.Add(folder);
+            History.Add(path);
         }
 
         foreach (var folder in services.Settings.WatchedFolders)
@@ -99,7 +103,117 @@ public sealed class ImportViewModel : ViewModelBase
         ShowAddedCommand = new RelayCommand(() => ShowAddedAsync().Forget());
     }
 
+    /// <summary>今回の取り込み対象。落とした物・選んだ物・履歴から積んだ物・監視の新着。</summary>
     public ObservableCollection<string> Folders { get; } = [];
+
+    /// <summary>
+    /// 取り込み元の履歴（<c>settings.ImportFolders</c>）。**何を読んだかを確かめるための一覧**で、
+    /// 対象ではない（ユーザ判断 2026-09-21・G3/G4）。ファイルも積むが、監視の対象にはしない。
+    /// </summary>
+    public ObservableCollection<string> History { get; } = [];
+
+    public bool HasHistory => History.Count > 0;
+
+    public string HistoryEmptyText => "まだ何も取り込んでいません。取り込んだフォルダとファイルがここに残ります。";
+
+    private RelayCommand? _takeFromHistory;
+    private RelayCommand? _forgetHistory;
+
+    /// <summary>履歴の1件を、今回の対象に積む。</summary>
+    public RelayCommand TakeFromHistoryCommand => _takeFromHistory ??= new RelayCommand(
+        parameter =>
+        {
+            if (parameter is string path && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                Folders.Add(path);
+                OnPropertyChanged(nameof(HasFolders));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        },
+        parameter => parameter is string);
+
+    private RelayCommand? _findMissing;
+    private string _missingSearchText = string.Empty;
+    private bool _isFindingMissing;
+
+    /// <summary>探した結果の1行。押しても何も起きなかったときこそ要る（I1）。</summary>
+    public string MissingSearchText
+    {
+        get => _missingSearchText;
+        private set => SetField(ref _missingSearchText, value);
+    }
+
+    /// <summary>
+    /// 見つからないファイルを、監視フォルダの中から**中身で**探して結び直す（ユーザ判断 2026-09-21・G17）。
+    /// ファイルを移した・名前を変えただけなら、これで元に戻る。
+    /// </summary>
+    public RelayCommand FindMissingFilesCommand => _findMissing ??= new RelayCommand(
+        () => FindMissingFilesAsync().Forget(),
+        () => !_isFindingMissing);
+
+    private async Task FindMissingFilesAsync()
+    {
+        _isFindingMissing = true;
+        MissingSearchText = "見つからないファイルを調べています…";
+        RelayCommand.RaiseCanExecuteChanged();
+
+        try
+        {
+            var progress = new Progress<(int Hashed, string? Detail)>(report => RunOnUiThread(() =>
+                MissingSearchText = $"中身を確かめています… {report.Hashed} 件（{report.Detail}）"));
+
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.FindMissingFiles(progress));
+            MissingSearchText = result switch
+            {
+                Core.Commands.CommandResult.MissingFilesSearched { Result.MissingBefore: 0 } =>
+                    "見つからないファイルはありませんでした。",
+                Core.Commands.CommandResult.MissingFilesSearched found => Describe(found.Result),
+                Core.Commands.CommandResult.Failed failed => failed.Message,
+                _ => string.Empty,
+            };
+        }
+        finally
+        {
+            _isFindingMissing = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+
+        static string Describe(Core.Services.MissingFileSearchResult result)
+        {
+            var parts = new List<string>
+            {
+                result.Relinked > 0
+                    ? $"{result.Relinked} 件を新しい場所に結び直しました"
+                    : "結び直せたものはありませんでした",
+            };
+
+            if (result.StillMissing > 0)
+            {
+                parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした"
+                    + "（監視対象に足してからもう一度押すと、その中も探します）");
+            }
+
+            if (result.Unreachable.Count > 0)
+            {
+                parts.Add($"{result.Unreachable.Count} 個のフォルダは今つながっていないので見ていません");
+            }
+
+            return string.Join("。", parts) + "。";
+        }
+    }
+
+    /// <summary>履歴から消す。フォルダとファイルには触らない。</summary>
+    public RelayCommand ForgetHistoryCommand => _forgetHistory ??= new RelayCommand(
+        parameter =>
+        {
+            if (parameter is string path)
+            {
+                History.Remove(path);
+                OnPropertyChanged(nameof(HasHistory));
+                SaveHistoryAsync().Forget();
+            }
+        },
+        parameter => parameter is string);
 
     /// <summary>通信と作業の様子。使っていない間の取得を、この画面にも出すため。</summary>
     public BoothActivityViewModel Activity => _main.BoothActivity;
@@ -526,14 +640,25 @@ public sealed class ImportViewModel : ViewModelBase
     /// フォルダを足したら監視対象に入れるか聞くか。フォルダビューの「このフォルダのアイテムを取り込む」では聞かない
     /// （監視は隣の切り替えで決めるので、同じことを2か所で聞かない）。
     /// </param>
-    public void AddDroppedPaths(IEnumerable<string> paths, bool startImmediately = false, bool offerWatch = true)
-        => AddDroppedPathsAsync(paths.ToList(), startImmediately, offerWatch).Forget();
+    /// <param name="askAboutUnpacked">
+    /// 展開先のファイルを指していたときに人へ尋ねてよいか。**自動で始めたときは尋ねない**（G2）。
+    /// </param>
+    public void AddDroppedPaths(
+        IEnumerable<string> paths,
+        bool startImmediately = false,
+        bool offerWatch = true,
+        bool askAboutUnpacked = true)
+        => AddDroppedPathsAsync(paths.ToList(), startImmediately, offerWatch, askAboutUnpacked).Forget();
 
     /// <summary>
     /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落とされた物・監視の新着は外付けやネットワークにもあり、
     /// 確かめるだけで数秒かかることがある。見終わってから画面のスレッドで一覧に足す。
     /// </summary>
-    private async Task AddDroppedPathsAsync(IReadOnlyList<string> paths, bool startImmediately, bool offerWatch)
+    private async Task AddDroppedPathsAsync(
+        IReadOnlyList<string> paths,
+        bool startImmediately,
+        bool offerWatch,
+        bool askAboutUnpacked = true)
     {
         var kinds = await Task.Run(() => paths
             .Select(path => (Path: path, IsFolder: Core.Services.DiskCheck.FolderExists(path), IsFile: Core.Services.DiskCheck.FileExists(path)))
@@ -564,7 +689,7 @@ public sealed class ImportViewModel : ViewModelBase
         // 走っていれば今の取り込みに積む。2本目は起こさない（StartOrStackAsync の決まり）
         if (startImmediately && Folders.Count > 0)
         {
-            StartOrStackAsync().Forget();
+            StartOrStackAsync(askAboutUnpacked).Forget();
         }
     }
 
@@ -788,12 +913,43 @@ public sealed class ImportViewModel : ViewModelBase
     /// </summary>
     private async Task SaveFoldersAsync()
     {
+        // **今回の対象を履歴へ足す**（ユーザ判断 2026-09-21・G4）。
+        // 前は「対象＝履歴」で、対象に積んだ物がそのまま次の起動の対象になっていた。
+        // 履歴は「何を読んだか」を確かめるための記録なので、ファイルも残す（監視の対象にはしない）
+        foreach (var path in Folders.Where(path => !History.Contains(path, StringComparer.OrdinalIgnoreCase)).ToList())
+        {
+            History.Add(path);
+        }
+
+        OnPropertyChanged(nameof(HasHistory));
+        await SaveHistoryAsync();
+    }
+
+    private async Task SaveHistoryAsync()
+    {
         // 前はディスクから読んで書き、メモリの設定を直していなかった。そのため別の画面の保存（メモリの古い写し）で、
         // ここで足した取り込み元が消えていた（技術的負債 1-1）
-        var folders = Folders.ToList();
+        var history = History.ToList();
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
-            settings => settings with { ImportFolders = folders }));
+            settings => settings with { ImportFolders = history }));
     }
+
+    /// <summary>
+    /// 自動で始めた取り込みが展開先のファイルを指していたことを、要確認に出す（G2）。
+    /// 窓で尋ねる代わりなので、**そのまま取り込んだこと**と、**後から差し替えられること**を書く。
+    /// </summary>
+    private Task NoteUnpackedFoundAsync(int count)
+        => _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddNotification(
+            new Core.Models.NotificationRecord
+            {
+                Id = "unpacked-imported",
+                Kind = Core.Models.NotificationKind.UnpackedFilesImported,
+                Title = "展開したフォルダの中のファイルを取り込みました",
+                Detail = $"自動で始めた取り込みで、zipを展開したフォルダの中のファイルが {count} 件ありました。"
+                    + "そのまま取り込んであります。元のzipの方で持ち直すなら、取り込み画面でそのzipを対象に積んでから"
+                    + "「取り込みを開始」を押し、展開先は「展開先フォルダの削除」で片付けられます。",
+                CreatedAt = DateTimeOffset.Now,
+            }));
 
     /// <summary>
     /// 指定されたファイルのうち、アーカイブの展開先の中にあるものを元のzipへ差し替える。
@@ -803,12 +959,24 @@ public sealed class ImportViewModel : ViewModelBase
     /// 意図してその1ファイルを指したのかもしれないので、どちらを使うかは尋ねる。
     /// 1件ずつ聞くと数が多いときに煩わしいので、その取り込み全体の方針として1回だけ聞く。
     /// </summary>
-    private List<string> ResolveUnpackedTargets()
+    /// <param name="ask">
+    /// 人に尋ねてよいか（ユーザ判断 2026-09-21・G2）。**自動で始めたときは尋ねない**——
+    /// 起動直後に、押してもいないのに応答待ちの窓が黙って出ていた。
+    /// 尋ねないときは指定されたファイルをそのまま取り込み、**要確認に出して後から差し替えられる**ようにする。
+    /// </param>
+    private List<string> ResolveUnpackedTargets(bool ask = true)
     {
         var targets = Folders.ToList();
         var origins = UnpackedFileResolver.FindOrigins(targets);
         if (origins.Count == 0)
         {
+            return targets;
+        }
+
+        if (!ask)
+        {
+            // 自動で始めたときは尋ねず、そのまま取り込んで要確認に出す（G2）
+            NoteUnpackedFoundAsync(origins.Count).Forget();
             return targets;
         }
 
@@ -861,7 +1029,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 2本目を起こさないのは、取得の順序（画像より先にJSON）が2本では保てず、
     /// どちらの進捗を出すのかも決められなくなるため。
     /// </summary>
-    private async Task StartOrStackAsync()
+    private async Task StartOrStackAsync(bool ask = true)
     {
         if (_work is not { } running)
         {
@@ -877,7 +1045,7 @@ public sealed class ImportViewModel : ViewModelBase
             _starting = true;
             try
             {
-                await RunAsync();
+                await RunAsync(ask);
             }
             finally
             {
@@ -887,7 +1055,7 @@ public sealed class ImportViewModel : ViewModelBase
             return;
         }
 
-        var added = running.Add(ResolveUnpackedTargets());
+        var added = running.Add(ResolveUnpackedTargets(ask));
         await SaveFoldersAsync();
 
         StackNotice = added == 0
@@ -895,9 +1063,9 @@ public sealed class ImportViewModel : ViewModelBase
             : $"{added} 件を今の取り込みに積みました。順番が来たらスキャンします。";
     }
 
-    private async Task RunAsync()
+    private async Task RunAsync(bool ask = true)
     {
-        var targets = ResolveUnpackedTargets();
+        var targets = ResolveUnpackedTargets(ask);
 
         await SaveFoldersAsync();
 

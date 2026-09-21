@@ -212,7 +212,12 @@ public sealed partial class MainViewModel
 
                 if (_services.Settings.StartImportOnLaunch)
                 {
-                    RunOnUiThread(() => Import.AddDroppedPaths(result.NewFiles, startImmediately: true));
+                    // **対象は監視フォルダの新着だけ**（ユーザ判断 2026-09-21・G1）。
+                    // 取り込み画面が起動時に履歴を全部「対象」に積んでいたため、
+                    // 新着を足して走らせると履歴も丸ごと舐め直していた（設定の説明と真逆）。
+                    // 押してもいないので、展開先のファイルがあっても窓で尋ねない（G2）
+                    RunOnUiThread(() => Import.AddDroppedPaths(
+                        result.NewFiles, startImmediately: true, askAboutUnpacked: false));
                     return;
                 }
 
