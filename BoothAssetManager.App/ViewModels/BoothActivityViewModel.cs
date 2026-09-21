@@ -107,6 +107,16 @@ public sealed class BoothActivityViewModel : ViewModelBase
     public bool IsThrottled => _activity.IsThrottled;
 
     /// <summary>
+    /// 閉じても続きから進む作業をしているか。常設の1行の横に、その旨を出すために見る（ユーザ判断 2026-09-21）。
+    ///
+    /// 取り込みも裏の取得も、途中で閉じて構わない作業（取り込みは押し直し、裏の取得は次の起動で自動）。
+    /// **人が押した取り直しだけのときは出さない**——それは押し直さないと進まないので、
+    /// 「続きから進みます」が嘘になる。作業として登録されるのは取り込みと裏の取得の2つだけなので、
+    /// 作業が在るかどうかがそのまま判定になる。
+    /// </summary>
+    public bool CanResumeLater => _work.Count > 0;
+
+    /// <summary>
     /// 使っていない間の取得をしているか。取り込み画面にも出す——取り込みではないが、
     /// ユーザからは取り込みの続きに見える（ユーザ判断 2026-09-12）。下の1行を押すと取り込み画面へ行くので、
     /// 行った先で何をしているのか分かるようにする。取り込みと重なっても、こちらはこちらで出す。
@@ -128,6 +138,7 @@ public sealed class BoothActivityViewModel : ViewModelBase
         OnPropertyChanged(nameof(Text));
         OnPropertyChanged(nameof(HasProgress));
         OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(CanResumeLater));
         OnPropertyChanged(nameof(HasBackgroundWork));
         OnPropertyChanged(nameof(BackgroundText));
         OnPropertyChanged(nameof(BackgroundProgress));

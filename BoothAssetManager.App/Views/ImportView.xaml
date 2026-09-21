@@ -24,21 +24,6 @@
             </StackPanel>
         </Border>
 
-        <!--
-            閉じても大丈夫だと先に書く（U9・ユーザ判断）。中断を知らせるのは閉じた後だけだった。
-            ②③の途中で閉じると説明が埋まらない穴を塞いでから入れた（嘘にならないように）。
-
-            2026-09-21：ボタンの下（取り込み対象のカードの中）に置いていたが、そこだと気付かない人がいる、
-            というユーザの指摘で画面の一番下へ移した。スクロールの外に固定するのは、
-            履歴まで送っている間も、取り込みが走っている間も、いつでも目に入るようにするため。
-            DockPanel の子は書いた順に下から積むので、ScrollViewer より前に書く（docs/dev/wpf.md）
-        -->
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
-            <TextBlock Style="{StaticResource Caption}" Margin="24,10" TextWrapping="Wrap"
-                       Text="アプリを閉じても、取れた分は残ります。次に開いて「取り込みを開始」を押すと続きから進みます（画像は起動したときに自動で続きを取ります）。" />
-        </Border>
-
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,20" MaxWidth="900" HorizontalAlignment="Left">
 
@@ -277,6 +262,16 @@
                                      Maximum="{Binding Total, Mode=OneWay}" Value="{Binding Current, Mode=OneWay}"
                                      Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0"
                                      Visibility="{Binding HasTotal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <!--
+                            閉じても大丈夫だと先に書く（U9・ユーザ判断）。中断を知らせるのは閉じた後だけだった。
+                            ②③の途中で閉じると説明が埋まらない穴を塞いでから入れた（嘘にならないように）。
+
+                            2026-09-21：取り込み対象のカードの中（ボタンの下）に置いていたが気付かない人がいる、
+                            というユーザの指摘で**バーの真下**へ移した。進み具合を見ている目の先にある。
+                            走っている間はどの画面からでも見えるよう、常設の1行の横にも短い形で出している（MainWindow.xaml）
+                        -->
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Text="アプリを閉じても、取れた分は残ります。次に開いて「取り込みを開始」を押すと続きから進みます（画像は起動したときに自動で続きを取ります）。" />
                         <!--
                             残り時間の見込み（U1）。取り込みの時間のほとんどは問い合わせの間隔を待つ時間なので、
                             残りの問い合わせの数から出す。今の段／編集できるまで／画像を取り終わるまで、に分ける

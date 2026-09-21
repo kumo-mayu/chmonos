@@ -537,6 +537,14 @@
                                                        Converter={x:Static vm:InverseBoolConverter.Instance}}" />
                         <TextBlock Text="{Binding BoothActivity.Text}" Style="{StaticResource Caption}"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <!--
+                            閉じてよいことを、走っている間はどの画面でも見えるようにする（ユーザ判断 2026-09-21）。
+                            取り込み画面まで行かないと読めなかった。人が押した取り直しだけのときは出さない（CanResumeLater）
+                        -->
+                        <TextBlock Text="閉じても続きから進みます" Style="{StaticResource Caption}"
+                                   VerticalAlignment="Center" Margin="16,0,0,0" Opacity="0.75"
+                                   Visibility="{Binding BoothActivity.CanResumeLater,
+                                                Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </StackPanel>
                     <TextBlock Text="混み合っています" Style="{StaticResource Caption}" HorizontalAlignment="Right"
                                VerticalAlignment="Center" Foreground="{StaticResource Warn}"
