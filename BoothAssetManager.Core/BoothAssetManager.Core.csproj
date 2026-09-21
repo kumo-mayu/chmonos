@@ -15,10 +15,10 @@
     索引は初回に手元で組んで保存先へ置く。
   -->
   <ItemGroup>
-    <None Include="..\assets\JMdict_e.gz" Link="assets\JMdict_e.gz" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\assets\kanjidic2.xml.gz" Link="assets\kanjidic2.xml.gz" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\assets\booth-categories.json" Link="assets\booth-categories.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\assets\README.md" Link="assets\README.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\assets\JMdict_e.gz" Link="assets\JMdict_e.gz" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\assets\kanjidic2.xml.gz" Link="assets\kanjidic2.xml.gz" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\assets\booth-categories.json" Link="assets\booth-categories.json" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\assets\README.md" Link="assets\README.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
   <PropertyGroup>

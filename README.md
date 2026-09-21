@@ -32,13 +32,15 @@ dotnet test BoothAssetManager.Core.Tests
 dotnet publish BoothAssetManager.App -p:PublishProfile=win-x64
 ```
 
-`publish\Chmonos-win-x64\` に出る。**自己完結**（.NET 9 のランタイムを同梱）なので、
-渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる。
+`publish\Chmonos-win-x64\` に **exe 1つ ＋ `assets` フォルダ**（辞書など4件）の計5ファイルで出る。
 
-設定は `BoothAssetManager.App\Properties\PublishProfiles\win-x64.pubxml` にある。csproj ではなくプロファイルに置いてあるのは、
+- **自己完結**（.NET 9 のランタイムを同梱）。渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる
+- **1ファイルにまとめている**（ネイティブDLLも exe の中）。起動すると `%TEMP%\.net\` へネイティブDLL 5つ・7.8MB を展開し、以降は使い回す。
+  これは `docs/research/antivirus.md` A の「参考」が懸念していた動きなので、**セキュリティソフトで詰まったらプロファイルの `PublishSingleFile` を false に戻す**
+- **辞書（`assets\`）は exe の外に残す**。アプリは `AppContext.BaseDirectory\assets\` を見るので、exe に入れると見つけられなくなる（`BoothAssetManager.Core.csproj` の `ExcludeFromSingleFile`）。**exe だけ取り出しても動かない。フォルダごと渡す**
+- デバッグ情報は DLL に埋め込む（`Directory.Build.props` の `DebugType=embedded`）。pdb を並べずに、`logs\app.log` のスタックトレースの行番号を残すため
+- 署名は無いので、初回は SmartScreen の「発行元不明」が出る（同 A の1つ目。まだ打っていない手）
+
+設定は `BoothAssetManager.App\Properties\PublishProfiles\win-x64.pubxml`。csproj ではなくプロファイルに置いてあるのは、
 `RuntimeIdentifier` を csproj へ書くと `dotnet build` まで RID 付きになり、開発用の exe が
 `bin\Debug\net9.0-windows\win-x64\` へ移って `ui-check` の起動が壊れるため。
-
-- **1ファイルにまとめない**（`PublishSingleFile=false`）。起動のたびに一時フォルダへ展開する形は誤検知が増える（`docs/research/antivirus.md` A）
-- 配布物の exe は `BoothAssetManager.App.exe` の1つだけ。`createdump.exe` は csproj の `DropCreatedump` で落としている
-- 署名は無いので、初回は SmartScreen の「発行元不明」が出る（同 A の1つ目。まだ打っていない手）
