@@ -92,7 +92,7 @@ public static class StatsExtras
 
         foreach (var item in owned)
         {
-            var current = item.Booth.Variations.ToDictionary(v => v.Id, v => v.Price);
+            var current = FirstWins.Map(item.Booth.Variations, v => v.Id, v => v.Price, EqualityComparer<long>.Default);
             var paid = 0;
             var now = 0;
             var matched = false;

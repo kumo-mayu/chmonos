@@ -34,6 +34,12 @@ public enum NotificationKind
     /// （ユーザ判断 2026-09-21・G2）。押してもいないのに窓で尋ねるのはやめ、そのまま取り込んで後から直せるようにする。
     /// </summary>
     UnpackedFilesImported,
+
+    /// <summary>
+    /// 手で直した JSON に食い違いがある（ユーザ判断 2026-09-21・J2/L6）。
+    /// 同じ名前が2つある・商品IDとファイル名が違う。**直し方はこちらで決めず、人に伝える。**
+    /// </summary>
+    HandEditMismatch,
 }
 
 /// <summary>

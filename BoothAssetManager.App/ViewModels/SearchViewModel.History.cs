@@ -87,6 +87,19 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// 今の絞り込みを控える（ユーザ判断 2026-09-21・P4）。
+    ///
+    /// 画面の履歴は「開き直す手順」だけを預かるが、**検索は1つを持ち回すので、
+    /// 控えに条件が入っていないと戻っても条件が戻らない**。
+    /// 「この商品だけ出す」などの入口は条件を全消ししてから絞るので、前の条件は戻す手段ごと失われていた。
+    /// 形は検索の履歴と同じ物を使う（同じ「条件一式」なので、2つ持つ理由が無い）。
+    /// </summary>
+    public Core.Models.SearchHistoryEntry CaptureFilters() => CurrentSearch();
+
+    /// <summary>控えた絞り込みに戻す（P4）。</summary>
+    public void RestoreFilters(Core.Models.SearchHistoryEntry entry) => ApplyHistory(entry);
+
+    /// <summary>
     /// 履歴の条件に戻す。
     ///
     /// **まず全部の値を戻してから当てる。**今の条件の上に重ねると、

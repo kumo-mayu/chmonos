@@ -78,6 +78,12 @@ public sealed partial class MainViewModel
                     "ページの作りの確認",
                     () => _services.Notifications.DetectPageStructureAsync(token));
 
+                // 手で直した JSON の食い違い（同じ名前が2つ・商品IDとファイル名が違う）。
+                // 通信はしないので、裏の取得を切っていても見る（J2・L6）
+                await RunBackgroundStageAsync(
+                    "手で直したJSONの確認",
+                    () => _services.Notifications.DetectHandEditIssuesAsync(token));
+
                 RunOnUiThread(RefreshCounts);
 
                 await RunBackgroundStageAsync("前の取り込みで残った画像", () => _services.Backlog.ResumeAsync(images, token));

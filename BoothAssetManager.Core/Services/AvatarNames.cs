@@ -53,7 +53,7 @@ public static class AvatarNames
     public static IReadOnlyDictionary<string, string> Map(IEnumerable<AvatarRegistryEntry> entries)
     {
         var list = entries.ToList();
-        var shown = list.ToDictionary(entry => entry.ItemId, ShownName, StringComparer.Ordinal);
+        var shown = FirstWins.Map(list, entry => entry.ItemId, ShownName, StringComparer.Ordinal);
 
         // 名簿にはアバターでないと分かった物（そのアバター向けのテクスチャなど）も残っている。
         // それと名前が重なっただけで、本物のアバターにショップ名が付いていた

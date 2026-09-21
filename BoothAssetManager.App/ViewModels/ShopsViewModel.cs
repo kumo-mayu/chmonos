@@ -191,12 +191,22 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
     private List<ShopCardViewModel> _matches = [];
     private int _columns = 1;
     private string _iconStatus = string.Empty;
-    private string _filterText = string.Empty;
-    private bool _searchNames = true;
-    private bool _searchMemos = true;
-    private bool _favoritesOnly;
-    private ShopSortOption _sort;
     private bool _isLoading;
+
+    // 画面は開くたびに作り直すので、**絞り込みと並べ替えはアプリの側で覚える**
+    // （ユーザ判断 2026-09-21・P5）。覚えないと、戻ってきたときに組んでいた絞り込みが消えていた。
+    // フォルダの木の開き具合・分類と属性の選択と同じ作法（アプリを閉じるまで保つ）
+    private static string s_filterText = string.Empty;
+    private static bool s_searchNames = true;
+    private static bool s_searchMemos = true;
+    private static bool s_favoritesOnly;
+    private static string? s_sortLabel;
+
+    private string _filterText = s_filterText;
+    private bool _searchNames = s_searchNames;
+    private bool _searchMemos = s_searchMemos;
+    private bool _favoritesOnly = s_favoritesOnly;
+    private ShopSortOption _sort;
 
     public ShopsViewModel(AppServiceContainer services, MainViewModel main, Services.ThumbnailLoader thumbnails)
     {
@@ -217,7 +227,8 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
             new ShopSortOption { Label = "ショップ名順", Key = shop => shop.Name },
         ];
 
-        _sort = SortOptions[0];
+        // 覚えている並べ替えがあればそれで開く（P5）
+        _sort = SortOptions.FirstOrDefault(option => option.Label == s_sortLabel) ?? SortOptions[0];
 
         // 「読み直す」は全商品を読み直してから数える。普段は写しから数えるので、
         // 手でJSONを直したときなどに最新にする道がここ
@@ -494,6 +505,13 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
 
     private void Rebuild()
     {
+        // 組み直すたびに、今の絞り込みと並べ替えを覚え直す（開き直したときに同じ形で出す・P5）
+        s_filterText = _filterText;
+        s_searchNames = _searchNames;
+        s_searchMemos = _searchMemos;
+        s_favoritesOnly = _favoritesOnly;
+        s_sortLabel = _sort.Label;
+
         var filter = _filterText.Trim();
 
         var matches = _all.Where(card =>

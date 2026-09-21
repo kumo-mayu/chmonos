@@ -27,6 +27,9 @@ public interface INotificationService
 
     /// <summary>上限を超えた分を落とす。起動時に1回呼ぶ（足すときは上限を見ていない）。</summary>
     Task<int> PruneAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>手で直した JSON の食い違いを要確認に出す（J2・L6）。</summary>
+    Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -380,6 +383,70 @@ public sealed class NotificationService : INotificationService
             cancellationToken);
 
         return dropped;
+    }
+
+    /// <summary>
+    /// 手で直した JSON の食い違いを要確認に出す（ユーザ判断 2026-09-21・J2/L6）。
+    ///
+    /// **こちらから直さない。**公開前は、合っていないデータの方を問題にして直し方を聞く決まり
+    /// （`docs/spec/data-model.md`）。ここは「どこの何がどう食い違っているか」を伝えるだけ。
+    /// 食い違いが無くなったら解消済みにする（直したのに残り続けない）。
+    /// </summary>
+    public async Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default)
+    {
+        var issues = await HandEditCheck.FindAsync(_store, cancellationToken);
+        const string id = "hand-edit";
+        var changed = 0;
+
+        await _store.Notifications.TryUpdateAsync(
+            records =>
+            {
+                var existing = records.FindIndex(record => record.Id == id);
+
+                if (issues.Count == 0)
+                {
+                    // 直ったので用は済んだ
+                    if (existing < 0 || records[existing].IsResolved)
+                    {
+                        return null;
+                    }
+
+                    records[existing] = records[existing] with { IsResolved = true };
+                    return Pruned(records);
+                }
+
+                var detail = string.Join(
+                    "\n",
+                    issues.Select(issue => $"・{issue.Where}：{issue.What}"));
+
+                if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
+                {
+                    return null;
+                }
+
+                if (existing >= 0)
+                {
+                    records.RemoveAt(existing);
+                }
+
+                records.Add(new NotificationRecord
+                {
+                    Id = id,
+                    Kind = NotificationKind.HandEditMismatch,
+                    Title = "手で直したJSONに食い違いがあります",
+                    Detail = detail + "\n\n同じ名前が2つあると、その名前を使う画面が開けません。"
+                        + "商品IDとファイル名が違うと、以後その商品への保存が別のファイルに書かれます。"
+                        + "どちらも**直し方はこちらで決められない**ので、JSONを開いて片方を消すか、名前を分けてください。",
+                    CreatedAt = DateTimeOffset.Now,
+                    IsStrong = true,
+                });
+
+                changed = issues.Count;
+                return Pruned(records);
+            },
+            cancellationToken);
+
+        return changed;
     }
 
     private List<NotificationRecord> Pruned(List<NotificationRecord> records)

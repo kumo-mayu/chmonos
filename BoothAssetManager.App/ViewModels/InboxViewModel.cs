@@ -578,6 +578,8 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.PageStructureChanged => "取得できる情報の形式の変化",
         NotificationKind.ArchiveFoundForFolder => "zipを入手した",
         NotificationKind.ItemBackOnBooth => "非公開商品の復活",
+        NotificationKind.UnpackedFilesImported => "展開先のファイルを取り込んだ",
+        NotificationKind.HandEditMismatch => "手で直したJSONの食い違い",
         _ => "その他",
     };
 
@@ -590,6 +592,8 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
         NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を持っています。登録を外すまで、同じ中身を二重に数えます（ファイルは消えません）。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
+        NotificationKind.UnpackedFilesImported => "自動で始めた取り込みで、zipを展開したフォルダの中のファイルを取り込みました。元のzipの方で持ち直せます。",
+        NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前が2つある／商品IDとファイル名が違う、といった食い違いがあります。直し方はこちらで決められないので、JSONを開いて直してください。",
         _ => string.Empty,
     };
 }

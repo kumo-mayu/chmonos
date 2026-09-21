@@ -144,7 +144,8 @@ public sealed class UserTagService : IUserTagService
     /// </summary>
     public static IReadOnlyList<OrphanUserTag> FindOrphans(UserTagMaster master, IReadOnlyList<ItemRecord> items)
     {
-        var subsByTop = master.Tops.ToDictionary(
+        var subsByTop = FirstWins.Map(
+            master.Tops,
             top => top.Name,
             top => top.Subs.Select(sub => sub.Name).ToHashSet(StringComparer.CurrentCultureIgnoreCase),
             StringComparer.CurrentCultureIgnoreCase);

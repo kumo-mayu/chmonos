@@ -191,7 +191,9 @@ public sealed partial class MainViewModel
     /// </summary>
     private HistoryEntry? EntryFor(object screen) => screen switch
     {
-        SearchViewModel => new HistoryEntry("検索", ShowSearch),
+        // 検索は1つを持ち回すので、**そのときの条件も控える**（P4）。
+        // 控えないと、戻っても「この商品だけ出す」で全消しされた後の条件のままだった
+        SearchViewModel search => new HistoryEntry("検索", RestoreSearch(search.CaptureFilters())),
         ItemViewModel item => new HistoryEntry(Shorten(item.Name), () => RestoreItemAsync(item.Item.Id).Forget()),
         ShopViewModel shop => new HistoryEntry(Shorten(shop.Shop.Name), () => RestoreShopAsync(shop.Shop).Forget()),
         ModificationViewModel modification => new HistoryEntry(
@@ -333,6 +335,13 @@ public sealed partial class MainViewModel
             GoBack(rememberForward: false);
         }
     }
+
+    /// <summary>検索は、離れたときの条件に戻してから出す（P4）。</summary>
+    private Action RestoreSearch(Core.Models.SearchHistoryEntry filters) => () =>
+    {
+        Search.RestoreFilters(filters);
+        ShowSearch();
+    };
 
     /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
     private Action RestoreAvatars(string? selectedId)

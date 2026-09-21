@@ -434,7 +434,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = _store.Avatars.Load();
 
-        var entries = registry.Entries.ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
+        var entries = FirstWins.Map(registry.Entries, entry => entry.ItemId, StringComparer.Ordinal);
         var entriesBefore = entries.Count;
         // 名前が定着している共通素体を最初だけ足す。既にある名前には触らない。
         // 素体の関係はBOOTHのデータからは取れないので、空から始めると何も出ない
@@ -442,9 +442,10 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         AvatarBaseSeed.Merge(seeded);
 
         // 消した印の付いたグループは照合に使わない（行は「戻さない」ための記録・X1）
-        var groups = seeded
-            .Where(group => !group.Rejected)
-            .ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
+        var groups = FirstWins.Map(
+            seeded.Where(group => !group.Rejected),
+            group => group.Name,
+            StringComparer.CurrentCultureIgnoreCase);
 
         // ── ⓪ ライブラリの中のアバターを先に登録する ──
         //
@@ -967,7 +968,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         IReadOnlyDictionary<string, int> counted,
         string source)
     {
-        var byText = existing.ToDictionary(alias => alias.Text, StringComparer.CurrentCultureIgnoreCase);
+        var byText = FirstWins.Map(existing, alias => alias.Text, StringComparer.CurrentCultureIgnoreCase);
 
         foreach (var (text, count) in counted)
         {
