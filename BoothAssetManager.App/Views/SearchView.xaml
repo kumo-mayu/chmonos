@@ -931,14 +931,14 @@
                 -->
                 <ListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
                           ItemContainerStyle="{StaticResource ItemListRowStyle}"
-                          ScrollViewer.ScrollChanged="OnResultsScrollChanged"
+                          ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                           BorderThickness="0" Background="Transparent" Margin="18,4,18,18"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                           Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
                          Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                         ScrollViewer.ScrollChanged="OnResultsScrollChanged"
+                         ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                          Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"

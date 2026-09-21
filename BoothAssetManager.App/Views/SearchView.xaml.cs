@@ -21,8 +21,23 @@ public partial class SearchView : UserControl
     /// <summary>スクロールの知らせがこれだけ途切れたら「止まった」とみなす。</summary>
     private static readonly TimeSpan SettleDelay = TimeSpan.FromMilliseconds(200);
 
+    /// <summary>
+    /// 送っていた所へ返すのを諦めるまで。カードが出来上がるのを待つが、
+    /// 待ち続けると（絞り込みが変わって届かない場合に）ユーザの操作を覚え直せないままになる
+    /// </summary>
+    private static readonly TimeSpan RestoreGiveUp = TimeSpan.FromSeconds(5);
+
     private readonly System.Windows.Threading.DispatcherTimer _settleTimer = new() { Interval = SettleDelay };
     private DateTime _lastScrollAt;
+
+    /// <summary>送っていた所へ返している最中か。戻したぶんの知らせを覚え直さないための印。</summary>
+    private bool _restoringScroll;
+
+    /// <summary>一覧が出来上がったか。出来上がる前に届く「先頭にいる」で、覚えていた位置を潰さないための印。</summary>
+    private bool _ready;
+
+    private double _restoreTarget;
+    private DateTime _restoreUntil;
 
     /// <summary>絞り込みの条件をドラッグで並べ替える。中身はタグ・属性の管理と共通（<see cref="RowReorder"/>）。</summary>
     private readonly RowReorder _reorder;
@@ -113,6 +128,31 @@ public partial class SearchView : UserControl
 
         search.IsScrolledDown = e.VerticalOffset > 0;
 
+        // 戻している最中は、覚え直しも速さの判定もしない。まだ実体化していない行のせいで
+        // 小さく丸められた値を覚えてしまうと、戻し切る前に目標そのものが壊れる
+        if (_restoringScroll)
+        {
+            ContinueRestore((ScrollViewer)e.OriginalSource, e);
+            return;
+        }
+
+        // **画面を作り直している途中の知らせは覚えない。**行き来のたびに View は作り直され、
+        // その途中に「先頭にいる（0）」という知らせが Loaded より前に届く。
+        // これを覚えてしまうと、送っていた位置が毎回 0 で潰れる（最初にそう書いて、戻らなかった）
+        if (!_ready)
+        {
+            return;
+        }
+
+        if (sender is ListView)
+        {
+            search.ListScrollOffset = e.VerticalOffset;
+        }
+        else if (sender is ListBox)
+        {
+            search.CardScrollOffset = e.VerticalOffset;
+        }
+
         // 速く流しているかを見る（U12・U27）。間が0.5秒より空いたら、そこから流し始めたとみなして速さは測らない
         var now = DateTime.UtcNow;
         var seconds = (now - _lastScrollAt).TotalSeconds;
@@ -126,5 +166,91 @@ public partial class SearchView : UserControl
 
         _settleTimer.Stop();
         _settleTimer.Start();
+    }
+
+    /// <summary>
+    /// 送っていた所へ返す（ユーザ指示 2026-09-21：「検索に戻る時など、スクロール位置も保存しておかないといけない」）。
+    ///
+    /// 条件も並びも ViewModel に残るのに、足元だけ先頭へ戻っていた。
+    /// 主画面の `ContentControl` が行き来のたびに View を作り直すので、
+    /// スクロール位置は View と一緒に捨てられる（<see cref="SearchViewModel.CardScrollOffset"/>）。
+    ///
+    /// **一度で決まらない。**一覧は仮想化していて、カードは4枚ずつ後から作られる（<see cref="DeferredCardHost"/>）。
+    /// 読み込んだ直後は実体化した行のぶんしか高さが無いので、送れる範囲が目標より手前で止まる。
+    /// 短い間に何度やり直しても、その間は高さが伸びていないので届かない（最初にそう書いて、戻らなかった）。
+    /// **高さが伸びた知らせ（<c>ExtentHeightChange</c>）に乗せて送り直す。**
+    /// 伸びなくなったら諦める（絞り込みが変わって件数が減っていれば、そもそも届かない）ので、
+    /// <see cref="RestoreGiveUp"/> を過ぎたら印を降ろして普通の覚え直しに戻す。
+    /// </summary>
+    private void OnResultsLoaded(object sender, RoutedEventArgs e)
+    {
+        var search = Model;
+
+        // 覚えていた位置は、印を立てる**前に**読む。立てた後だと、2つの一覧の Loaded の間に
+        // 届いた「先頭にいる」で潰れたものを読むことになる
+        var wanted = sender is ListView ? search?.ListScrollOffset ?? 0 : search?.CardScrollOffset ?? 0;
+
+        // ここから先の知らせは、画面が出来上がった後の本物
+        _ready = true;
+
+        if (sender is not FrameworkElement list || list.Visibility != Visibility.Visible
+            || search is null || wanted <= 0)
+        {
+            return;
+        }
+
+        _restoreTarget = wanted;
+        _restoringScroll = true;
+        _restoreUntil = DateTime.UtcNow + RestoreGiveUp;
+
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Loaded,
+            () =>
+            {
+                if (FindChild<ScrollViewer>(list) is { } viewer)
+                {
+                    viewer.ScrollToVerticalOffset(_restoreTarget);
+                }
+                else
+                {
+                    _restoringScroll = false;
+                }
+            });
+    }
+
+    /// <summary>高さが伸びたら、その分だけ目標へ近づける。届いたか、諦める時刻を過ぎたら印を降ろす。</summary>
+    private void ContinueRestore(ScrollViewer viewer, ScrollChangedEventArgs e)
+    {
+        if (Math.Abs(e.VerticalOffset - _restoreTarget) <= 1 || DateTime.UtcNow > _restoreUntil)
+        {
+            _restoringScroll = false;
+            return;
+        }
+
+        // 伸びていないのに送り直しても同じ所で止まるだけ。伸びた知らせのときだけ送る
+        if (e.ExtentHeightChange != 0)
+        {
+            viewer.ScrollToVerticalOffset(_restoreTarget);
+        }
+    }
+
+    private static T? FindChild<T>(DependencyObject parent)
+        where T : DependencyObject
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is T found)
+            {
+                return found;
+            }
+
+            if (FindChild<T>(child) is { } deeper)
+            {
+                return deeper;
+            }
+        }
+
+        return null;
     }
 }

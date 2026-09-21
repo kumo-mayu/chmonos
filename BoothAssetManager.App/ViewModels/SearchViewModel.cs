@@ -250,6 +250,23 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     public bool IsScrolledDown { get; set; }
 
     /// <summary>
+    /// 一覧をどこまで送っていたか。**商品を開いて戻ったときに、同じ所へ返すために持つ。**
+    ///
+    /// この画面（ViewModel）はアプリの生存期間中1つを持ち回しているが、
+    /// 主画面の `ContentControl` は行き来のたびに View を作り直すので、
+    /// スクロール位置だけは View と一緒に捨てられていた。条件も並びも残るのに足元だけ戻る、
+    /// という直しにくい見え方になっていたので、画面の側から預かる。
+    ///
+    /// カードとリストで別に持つのは、送る単位が違うため（カードは画素・リストは行）。
+    /// 覚えるのはアプリを閉じるまで（`ui-state.json` には書かない。
+    /// 起動し直したときは、前に見ていた途中ではなく先頭から見たいはず）
+    /// </summary>
+    public double CardScrollOffset { get; set; }
+
+    /// <inheritdoc cref="CardScrollOffset"/>
+    public double ListScrollOffset { get; set; }
+
+    /// <summary>
     /// 速く流しているかを知らせる（U12・U27）。流している間はカードの絵を小さく読み、
     /// 止まったら小さく読んだカードだけ正規の大きさで読み直させる。
     /// </summary>
