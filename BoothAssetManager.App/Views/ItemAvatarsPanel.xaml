@@ -196,9 +196,27 @@
                                             <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                     BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                     <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
                                                                VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" />
+                                                    <!-- 対応アバターと同じ形で消せる（X4）。乗せたときだけ出す -->
+                                                    <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                            Height="16" Background="Transparent" BorderThickness="0"
+                                                            Cursor="Hand" Foreground="{StaticResource TextMuted}"
+                                                            Command="{Binding RejectCommand}"
+                                                            ToolTip="この共通素体は違う、として消します。次の検出でも復活しません。下の「消したもの」から戻せます。">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                                <Setter Property="Visibility" Value="Hidden" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Value="True"
+                                                                                 Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>

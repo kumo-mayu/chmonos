@@ -201,6 +201,16 @@ public sealed record AvatarBaseGroup
 
     public string? Memo { get; init; }
 
+    /// <summary>
+    /// 消した印（ユーザ判断 2026-09-21・X1）。
+    ///
+    /// **行ごと消すと次の検出で丸ごと戻る**（初期辞書が足し直し、検出が作り直す）。
+    /// 消したことを覚えておく場所がここしか無いので、行は残して印を立てる。
+    /// 同じ名前を手で作り直したら印を下ろす（別名の消し方と同じ作法）。
+    /// 印の付いたグループは、一覧にも照合にも出さない。
+    /// </summary>
+    public bool Rejected { get; init; }
+
     public IReadOnlyList<AvatarAlias> Aliases { get; init; } = [];
 }
 

@@ -154,7 +154,7 @@ public class ImageBacklogTests : IDisposable
         Assert.Empty(_requests);
     }
 
-    /// <summary>途中で止めても、そこまでに落としたものは残る。</summary>
+    /// <summary>途中で止めても、そこまでに落とした絵はディスクに残る（次の起動は続きから）。</summary>
     [Fact]
     public async Task KeepsWhatItAlreadyDownloadedWhenCancelled()
     {
@@ -163,8 +163,8 @@ public class ImageBacklogTests : IDisposable
 
         using var cancellation = new CancellationTokenSource();
 
-        // Progress<T> は別スレッドへ投げるので、止まる位置が実行の速さで変わる。試験は時間に依存させない
-        // 始めに「0件目」も知らせるので、1商品ぶん終わった知らせで止める
+        // Progress<T> は別スレッドへ投げるので、止まる位置が実行の速さで変わる。試験は時間に依存させない。
+        // 始めに「0件目」も知らせるので、1つ目の仕事が終わった知らせで止める
         var progress = new InlineProgress(report =>
         {
             if (report.Done > 0)
@@ -176,7 +176,27 @@ public class ImageBacklogTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => _backlog.ResumeAsync(progress, cancellation.Token));
 
-        // 1商品ぶんは終わっている。次の起動で残りから続く
-        Assert.Single(await _backlog.FindPendingAsync());
+        // 1周目は全件の1枚目なので、止めた時点で落ちているのは 111 の1枚目だけ
+        var first = await _store.Items.LoadAsync("111");
+        Assert.True(File.Exists(_images.FilePathFor("111", first!.Booth.Images[0].OriginalUrl)));
+
+        // どちらもまだ揃っていないので、次の起動でも両方が対象に残る
+        Assert.Equal(2, (await _backlog.FindPendingAsync()).Count);
+    }
+
+    /// <summary>
+    /// **1周目は全件の1枚目だけ**（ユーザ判断 2026-09-21・Q3）。
+    /// 1商品ずつ最後まで取っていたので、先頭の商品が取り終えるまで後ろの商品は1枚も出てこなかった。
+    /// </summary>
+    [Fact]
+    public async Task FetchesTheFirstImageOfEveryItemBeforeTheRest()
+    {
+        await SaveItemAsync("111", 3);
+        await SaveItemAsync("222", 3);
+
+        await _backlog.ResumeAsync();
+
+        // 最初の2本は、2商品それぞれの1枚目（どちらの商品が先かは並び次第なので、枚数で見る）
+        Assert.Equal(2, _requests.Take(2).Count(url => url.EndsWith("/1.jpg", StringComparison.Ordinal)));
     }
 }

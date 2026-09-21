@@ -372,23 +372,34 @@ public sealed class ModificationService : IModificationService
         string fileName,
         CancellationToken cancellationToken = default)
     {
+        // **記録に無いファイル名を渡されたら消さない**（ユーザ判断 2026-09-21・X7）。
+        // 「対象が無い」と「変えなかった」を区別しない作りが消す操作にも効いていて、
+        // 記録に無い名前でも「消した」と答えてディスクのファイルを消していた
         var name = Path.GetFileName(fileName);
-        var removed = await UpdateAsync(
+        var held = false;
+
+        var removed = await _store.Modifications.UpdateAsync(
             id,
-            record => record with
+            record =>
             {
-                Images = record.Images
-                    .Where(image => !string.Equals(image.FileName, name, StringComparison.OrdinalIgnoreCase))
-                    .ToList(),
+                held = record.Images.Any(image => string.Equals(image.FileName, name, StringComparison.OrdinalIgnoreCase));
+                return held
+                    ? record with
+                    {
+                        Images = [.. record.Images
+                            .Where(image => !string.Equals(image.FileName, name, StringComparison.OrdinalIgnoreCase))],
+                        UpdatedAt = DateTimeOffset.Now,
+                    }
+                    : record;
             },
             cancellationToken);
 
-        if (removed)
+        if (removed && held)
         {
             _images?.DeleteModificationImage(id, name);
         }
 
-        return removed;
+        return removed && held;
     }
 
     public Task<bool> MoveImageAsync(

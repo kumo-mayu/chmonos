@@ -177,7 +177,7 @@ public sealed partial class ItemViewModel
                 && pair.First.IsOwned == pair.Second.IsOwned);
 
     /// <summary>この商品が名指ししている共通素体。</summary>
-    public IReadOnlyList<string> AvatarBases { get; private set; } = [];
+    public IReadOnlyList<AvatarBaseRow> AvatarBases { get; private set; } = [];
 
     public bool HasAvatarBases => AvatarBases.Count > 0;
 
@@ -238,10 +238,15 @@ public sealed partial class ItemViewModel
 
         AvatarBases = Item.Local.AvatarBases
             .Where(link => !link.Rejected)
-            .Select(link => link.BaseName)
+            .Select(link => new AvatarBaseRow
+            {
+                Name = link.BaseName,
+                RejectCommand = new RelayCommand(() => RejectBaseAsync(link.BaseName).Forget(), () => !IsEditLocked),
+            })
             .ToList();
 
-        // 消した対応は畳んだ欄に並べ、1件ずつ戻せるようにする（ユーザ判断 2026-09-12）
+        // 消した対応は畳んだ欄に並べ、1件ずつ戻せるようにする（ユーザ判断 2026-09-12）。
+        // 共通素体も同じ欄に混ぜる（ユーザ判断 2026-09-21・X4：同じ「消したもの」として扱う）
         RejectedAvatars = Item.Local.Avatars
             .Where(link => link.Rejected)
             .Select(link => new RejectedAvatarRow
@@ -249,6 +254,13 @@ public sealed partial class ItemViewModel
                 Name = NameOf(link.AvatarItemId, link.Name),
                 RestoreCommand = new RelayCommand(() => RestoreAvatarAsync(link.AvatarItemId).Forget(), () => !IsEditLocked),
             })
+            .Concat(Item.Local.AvatarBases
+                .Where(link => link.Rejected)
+                .Select(link => new RejectedAvatarRow
+                {
+                    Name = $"{link.BaseName}（共通素体）",
+                    RestoreCommand = new RelayCommand(() => RestoreBaseAsync(link.BaseName).Forget(), () => !IsEditLocked),
+                }))
             .ToList();
 
         // 候補の名前から絵を引くための表（U18）
@@ -310,6 +322,36 @@ public sealed partial class ItemViewModel
             .ToList();
 
         await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
+    }
+
+    /// <summary>
+    /// 対応している共通素体を、この商品から消す（ユーザ判断 2026-09-21・X3/X4）。
+    ///
+    /// 足す道（検出）しか無く、誤検出を消せなかった。対応アバターと同じ形にする——
+    /// 行は残して出どころを「手入力」に付け替え、消した印を立てる
+    /// （出どころを変えないと、次の検出で行ごと作り直されて印が消える）。
+    /// </summary>
+    private async Task RejectBaseAsync(string baseName)
+    {
+        var links = Item.Local.AvatarBases
+            .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+                ? link with { Source = AvatarLinkSource.Manual, Rejected = true, Confirmed = true }
+                : link)
+            .ToList();
+
+        await SaveLocalAsync(Item.Local with { AvatarBases = links }, LocalOwners.AvatarBases);
+    }
+
+    /// <summary>消した共通素体を戻す（「消したもの」の欄の［戻す］）。</summary>
+    private async Task RestoreBaseAsync(string baseName)
+    {
+        var links = Item.Local.AvatarBases
+            .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+                ? link with { Rejected = false, Confirmed = true }
+                : link)
+            .ToList();
+
+        await SaveLocalAsync(Item.Local with { AvatarBases = links }, LocalOwners.AvatarBases);
     }
 
     /// <summary>

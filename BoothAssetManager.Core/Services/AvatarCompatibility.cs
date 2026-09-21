@@ -42,7 +42,8 @@ public sealed class AvatarCompatibilityIndex
     {
         var index = new AvatarCompatibilityIndex();
 
-        foreach (var group in registry.BaseGroups)
+        // 消した印の付いたグループは無い物として扱う（X1）
+        foreach (var group in registry.BaseGroups.Where(group => !group.Rejected))
         {
             if (string.IsNullOrWhiteSpace(group.Name))
             {
@@ -67,7 +68,7 @@ public sealed class AvatarCompatibilityIndex
         // 手で決めた所属が無いアバターは、名前・別名の「#MARUBODY」「（えも研素体）」「+Head」から推す。
         // 手で決める道しか無かった頃は、所持207件の実データでも所属しているアバターが0体で、
         // 素体経由の対応が一度も働いていなかった。推した所属は保存しない（ここで毎回計算する）
-        var lookup = AvatarBaseKeys.Lookup(registry.BaseGroups);
+        var lookup = AvatarBaseKeys.Lookup([.. registry.BaseGroups.Where(group => !group.Rejected)]);
 
         foreach (var entry in registry.Entries)
         {

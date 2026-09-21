@@ -378,3 +378,15 @@ public sealed class RejectedAvatarRow
     /// <summary>この対応を戻す。出どころは「手入力」になる。</summary>
     public RelayCommand? RestoreCommand { get; init; }
 }
+
+/// <summary>
+/// 商品が対応している共通素体の1件（ユーザ判断 2026-09-21・X3/X4）。
+/// 足す道（検出）しか無く、誤検出を消せなかったので、対応アバターと同じ形にした。
+/// </summary>
+public sealed class AvatarBaseRow
+{
+    public required string Name { get; init; }
+
+    /// <summary>この対応は違う、として消す。次の検出でも復活しない。</summary>
+    public RelayCommand? RejectCommand { get; init; }
+}

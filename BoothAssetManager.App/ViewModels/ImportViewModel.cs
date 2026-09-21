@@ -87,10 +87,12 @@ public sealed class ImportViewModel : ViewModelBase
         // 右クリックから、そのフォルダをエクスプローラで開く（ユーザ指示 2026-09-20・M2）
         RevealFolderCommand = new RelayCommand(
             parameter => Services.Shell.Reveal(parameter as string), parameter => parameter is string);
-        StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0);
+        StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0 && !IsRemovingUnpacked);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);
-        RemoveUnpackedCommand = new RelayCommand(() => RemoveUnpackedAsync().Forget(), () => !IsRunning && HasUnpackedSelection);
+        RemoveUnpackedCommand = new RelayCommand(
+            () => RemoveUnpackedAsync().Forget(),
+            () => !IsRunning && !IsRemovingUnpacked && HasUnpackedSelection);
         RemoveWatchedCommand = new RelayCommand(parameter => RemoveWatchedAsync(parameter as string).Forget(), parameter => parameter is string);
         TakeWatchedNewCommand = new RelayCommand(() => _main.TakeWatchedNew());
         OpenResolveCommand = new RelayCommand(() => _main.ShowResolve());
@@ -141,13 +143,38 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(StartText));
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
-
-                // 設定画面が保存先の引越しを塞ぐために見る
-                _main.IsImporting = value;
-
-                RelayCommand.RaiseCanExecuteChanged();
+                NoteBusyChanged();
             }
         }
+    }
+
+    private bool _isRemovingUnpacked;
+
+    /// <summary>
+    /// 展開先フォルダを消している最中（ユーザ判断 2026-09-21・N7）。
+    ///
+    /// **取り込みと同じ旗で兼ねない。**兼ねていたので、削除の後始末が「取り込み中」の状態まで倒し、
+    /// ボタンの名前も「今の取り込みに積む」に変わっていた。
+    /// 優先は取り込み——走査中のフォルダを消されると取りこぼすので、取り込み中は削除を押せない。
+    /// 削除は人が押す一度きりの操作なので、待たせても困らない。
+    /// </summary>
+    public bool IsRemovingUnpacked
+    {
+        get => _isRemovingUnpacked;
+        private set
+        {
+            if (SetField(ref _isRemovingUnpacked, value))
+            {
+                NoteBusyChanged();
+            }
+        }
+    }
+
+    /// <summary>どちらかが走っている間は、保存先の引越しを塞ぐ（書き込みが元の場所へ行く）。</summary>
+    private void NoteBusyChanged()
+    {
+        _main.IsImporting = IsRunning || IsRemovingUnpacked;
+        RelayCommand.RaiseCanExecuteChanged();
     }
 
     public bool IsIdle => !IsRunning;
@@ -714,7 +741,7 @@ public sealed class ImportViewModel : ViewModelBase
             return;
         }
 
-        IsRunning = true;
+        IsRemovingUnpacked = true;
         RemovalResults.Clear();
 
         try
@@ -748,7 +775,7 @@ public sealed class ImportViewModel : ViewModelBase
         }
         finally
         {
-            IsRunning = false;
+            IsRemovingUnpacked = false;
             OnPropertyChanged(nameof(HasUnpackedFolders));
             OnPropertyChanged(nameof(HasRemovalResults));
             RaiseSelectionChanged();

@@ -70,7 +70,13 @@ public sealed partial class AvatarService
                 var entries = registry.Entries
                     .Select(entry => entry.ItemId == itemId ? entry with { BaseName = trimmed } : entry);
 
-                var groups = registry.BaseGroups.ToList();
+                // 一度消したものを付け直したときは、印を下ろすだけ（別名の付け直しと同じ作法）
+                var groups = registry.BaseGroups
+                    .Select(group => trimmed is not null
+                        && string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)
+                            ? group with { Rejected = false }
+                            : group)
+                    .ToList();
 
                 if (trimmed is not null
                     && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
@@ -163,7 +169,12 @@ public sealed partial class AvatarService
             string.Equals(link.BaseName, name, StringComparison.CurrentCultureIgnoreCase)));
     }
 
-    /// <summary>素体グループを消す。所属していたアバターは所属無しに戻る。</summary>
+    /// <summary>
+    /// 素体グループを消す。所属していたアバターは所属無しに戻る。
+    ///
+    /// **行は残して消した印を立てる**（ユーザ判断 2026-09-21・X1）。
+    /// 行ごと消すと、初期辞書が足し直し、検出が作り直すので、次の検出で丸ごと戻っていた。
+    /// </summary>
     /// <returns>書き換えたitem数。</returns>
     public async Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default)
     {
@@ -173,7 +184,9 @@ public sealed partial class AvatarService
                 registry.Entries.Select(entry => string.Equals(entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase)
                     ? entry with { BaseName = null }
                     : entry),
-                registry.BaseGroups.Where(group => !string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase))),
+                registry.BaseGroups.Select(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
+                    ? group with { Rejected = true }
+                    : group)),
             cancellationToken);
 
         return await RewriteBaseNameInItemsAsync(name, null, cancellationToken);

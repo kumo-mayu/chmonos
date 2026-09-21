@@ -56,7 +56,8 @@ public sealed class AvatarNameIndex
             }
         }
 
-        foreach (var group in registry.BaseGroups)
+        // 消した印の付いたグループは照合に使わない（X1）
+        foreach (var group in registry.BaseGroups.Where(group => !group.Rejected))
         {
             index.Add(index._bases, group.Name, group.Name);
 

@@ -95,6 +95,9 @@ public interface IAvatarService
         IProgress<AvatarDetectProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>裏での検出をお願いする（結果は見ない）。走っている間に来た分は1回にまとめる。</summary>
+    Task RequestDetectAsync(CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<AvatarSummary>> LoadAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<AvatarBaseSummary>> LoadBasesAsync(CancellationToken cancellationToken = default);
@@ -305,7 +308,9 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             declared[link.BaseName] = declared.TryGetValue(link.BaseName, out var current) ? current + 1 : 1;
         }
 
+        // 消した印の付いたグループは一覧に出さない（行は「戻さない」ための記録として残っているだけ・X1）
         return registry.BaseGroups
+            .Where(group => !group.Rejected)
             .Select(group =>
             {
                 var memberIds = compatibility.MembersOf(group.Name).ToHashSet(StringComparer.Ordinal);
@@ -348,6 +353,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         // **1本ずつ走らせる。**取り込みの③、アバター画面のボタン、手で紐付けた後の検出が重なりうる。
         // どれもライブラリ全体を読み書きするので、重なると後から書いた方が先の結果を消す
         await _detectGate.WaitAsync(cancellationToken);
+
         try
         {
             return await DetectUnguardedAsync(progress, cancellationToken);
@@ -359,6 +365,40 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     }
 
     private readonly SemaphoreSlim _detectGate = new(1, 1);
+
+    private readonly SemaphoreSlim _requestGate = new(1, 1);
+
+    private bool _detectAgain;
+
+    /// <summary>
+    /// 裏での検出をお願いする（ユーザ判断 2026-09-21・N4）。**走っている間に来た分は1回にまとめる。**
+    ///
+    /// 未確定で確定するたびに投げていたので、10件まとめて確定すると
+    /// 全件走査が10回直列に並んでいた（錠があるので壊れはしないが、待たせるだけ）。
+    /// 検出は毎回ライブラリ全体を見るので、10回やっても結果は最後の1回と同じ。
+    /// </summary>
+    public async Task RequestDetectAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await _requestGate.WaitAsync(0, cancellationToken))
+        {
+            _detectAgain = true;
+            return;
+        }
+
+        try
+        {
+            do
+            {
+                _detectAgain = false;
+                await DetectAsync(cancellationToken: cancellationToken);
+            }
+            while (_detectAgain);
+        }
+        finally
+        {
+            _requestGate.Release();
+        }
+    }
 
     private async Task<AvatarDetectResult> DetectUnguardedAsync(
         IProgress<AvatarDetectProgress>? progress,
@@ -401,7 +441,10 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var seeded = registry.BaseGroups.ToList();
         AvatarBaseSeed.Merge(seeded);
 
-        var groups = seeded.ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
+        // 消した印の付いたグループは照合に使わない（行は「戻さない」ための記録・X1）
+        var groups = seeded
+            .Where(group => !group.Rejected)
+            .ToDictionary(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
 
         // ── ⓪ ライブラリの中のアバターを先に登録する ──
         //

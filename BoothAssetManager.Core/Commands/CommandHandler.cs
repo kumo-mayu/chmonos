@@ -286,7 +286,8 @@ public sealed class CommandHandler
                             using var priority = Booth.BoothClient.Prioritize(Booth.BoothPriority.Detection);
                             try
                             {
-                                await avatars.DetectAsync();
+                                // まとめて確定したときは1回にまとめる（N4）
+                                await avatars.RequestDetectAsync();
                             }
                             catch (Exception exception) when (exception is not OperationCanceledException)
                             {

@@ -169,8 +169,13 @@ public sealed class BoothClient : IBoothClient
         public void Dispose() => Ambient.Value = previous;
     }
 
-    /// <summary>範囲が指定されていなければ、取り込みの本体と同じ扱いにする。</summary>
-    private static BoothPriority CurrentPriority => Ambient.Value ?? BoothPriority.Metadata;
+    /// <summary>
+    /// 範囲が指定されていなければ**一番下の段**として扱う（ユーザ判断 2026-09-21・Q4）。
+    ///
+    /// 前は取り込みの本体（②）を既定にしていたので、**段を付け忘れた問い合わせが
+    /// 他を押しのける側に倒れていた**。一番下にしておけば、付け忘れは人を待たせない側に倒れる。
+    /// </summary>
+    private static BoothPriority CurrentPriority => Ambient.Value ?? BoothPriority.Background;
 
     /// <summary>順番待ちの本数。溜まり具合を見るためのもので、判断には使わない。</summary>
     public int WaitingRequestCount => _gate.WaitingCount;

@@ -65,28 +65,60 @@ public sealed class ImageBacklog
             return 0;
         }
 
-        using var priority = BoothClient.Prioritize(BoothPriority.Gallery);
+        // 対象を先に読んでおく（同じ商品を2周するので、読み直さない）
+        var items = new List<Models.ItemRecord>(pending.Count);
+        foreach (var itemId in pending)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } item)
+            {
+                items.Add(item);
+            }
+        }
 
         var downloaded = 0;
         var done = 0;
 
-        // 1件目が終わるまで何も出ないと、何をしているのか分からない
-        progress?.Report((0, pending.Count));
+        // **1周目は全件の1枚目だけ**（ユーザ判断 2026-09-21・Q3）。
+        // 1商品ずつ最後まで取っていたので、先頭の商品が20枚取り終えるまで
+        // 後ろの商品は1枚も出てこなかった。梯子でも④（1枚目）は⑤（残り）より先。
+        //
+        // 進み具合の単位は「1商品につき2つ（1枚目・残り）」。途中で数が戻らないようにするため
+        var total = items.Count * 2;
+        progress?.Report((0, total));
 
-        foreach (var itemId in pending)
+        using (BoothClient.Prioritize(BoothPriority.Thumbnail))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var item = await _store.Items.LoadAsync(itemId, cancellationToken);
-            if (item is null)
+            foreach (var item in items)
             {
-                continue;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (item.Booth.Images.Count > 0)
+                {
+                    // 既に手元にある物は「落とした」に数えない（SyncOneAsync は手元にあるだけでも true）
+                    var had = File.Exists(_images.FilePathFor(item.Id, item.Booth.Images[0].OriginalUrl));
+                    if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], cancellationToken) && !had)
+                    {
+                        downloaded++;
+                    }
+                }
+
+                progress?.Report((++done, total));
             }
+        }
 
-            var result = await _images.SyncAsync(itemId, item.Booth.Images, cancellationToken);
-            downloaded += result.Downloaded;
+        using (BoothClient.Prioritize(BoothPriority.Gallery))
+        {
+            foreach (var item in items)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            progress?.Report((++done, pending.Count));
+                // 1枚目は既に手元にあるので、ここでは飛ばされる（枚数には数えない）
+                var result = await _images.SyncAsync(item.Id, item.Booth.Images, cancellationToken);
+                downloaded += result.Downloaded;
+
+                progress?.Report((++done, total));
+            }
         }
 
         return downloaded;

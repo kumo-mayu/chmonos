@@ -288,6 +288,9 @@ public class ImportLadderTests : IDisposable
     {
         public string? Fail { get; init; }
 
+        public Task RequestDetectAsync(CancellationToken cancellationToken = default)
+            => DetectAsync(cancellationToken: cancellationToken);
+
         public Task<AvatarDetectResult> DetectAsync(
             IProgress<AvatarDetectProgress>? progress = null,
             CancellationToken cancellationToken = default)
