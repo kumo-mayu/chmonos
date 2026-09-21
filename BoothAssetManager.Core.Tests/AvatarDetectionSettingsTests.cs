@@ -42,11 +42,15 @@ public class AvatarDetectionSettingsTests : IDisposable
     }
 
     /// <summary>
-    /// 「🔍検索用🔍」の見出しは 2026-09-11 に既定へ足した語。
-    /// それ以前の一覧が保存された設定でも、この見出しの下のアバターを対応として拾う。
+    /// **設定から外した見出しは使わない**（ユーザ判断 2026-09-21・G13）。
+    ///
+    /// 前は既定の語を必ず混ぜていたので、`settings.json` から消しても次の検出で戻り、
+    /// 足すことしかできなかった（対になる「読まない見出し」は消せるので、作りが揃っていなかった）。
+    /// ここでは「🔍検索用🔍」を含まない一覧を設定にしているので、その見出しの下は拾わない
+    /// （出どころは「確定」ではなく、本文中のリンク＝要確認になる）。
     /// </summary>
     [Fact]
-    public async Task ReadsNewDefaultHeadingsEvenWithOldSavedSettings()
+    public async Task DoesNotBringBackHeadingsTheUserRemoved()
     {
         await _store.Avatars.SaveAsync(new AvatarRegistry
         {
@@ -74,17 +78,57 @@ public class AvatarDetectionSettingsTests : IDisposable
             _paths.ItemHtmlFile(ItemId),
             $"<h2>🔍 検索用 🔍</h2><p>https://booth.pm/ja/items/{AvatarId}</p>");
 
-        var oldSettings = new AppSettings
+        var withoutSearchHeading = new AppSettings
         {
             AvatarSupportHeadings = ["対応アバター", "対応モデル", "対応リスト", "対応表", "対応一覧", "Supported", "Compatible"],
         };
 
-        await new AvatarService(_store, oldSettings).DetectAsync();
+        await new AvatarService(_store, withoutSearchHeading).DetectAsync();
 
         var item = await _store.Items.LoadAsync(ItemId);
         var link = Assert.Single(item!.Local.Avatars);
         Assert.Equal(AvatarId, link.AvatarItemId);
-        Assert.Equal(AvatarLinkSource.SupportSection, link.Source);
-        Assert.True(link.Confirmed);
+
+        // 宣言の見出しとして読まないので、本文中のリンク（要確認）どまり
+        Assert.Equal(AvatarLinkSource.H2Link, link.Source);
+        Assert.False(link.Confirmed);
+    }
+
+    /// <summary>
+    /// 見出しの一覧を丸ごと消した・壊した設定では既定に戻す（何も拾えなくなるより良い）。
+    /// 手で書いた `null` は空として受けるので、この道を通る。
+    /// </summary>
+    [Fact]
+    public async Task FallsBackToTheDefaultsWhenTheListIsEmpty()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry
+                {
+                    ItemId = AvatarId,
+                    BoothName = "オリジナル3Dモデル「マヌカ」",
+                    Category = "3Dキャラクター",
+                    CheckedAt = DateTimeOffset.Now,
+                },
+            ],
+        });
+
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = ItemId,
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "ネイルチップ" },
+            Local = new LocalBlock(),
+        });
+
+        File.WriteAllText(
+            _paths.ItemHtmlFile(ItemId),
+            $"<h2>🔍 検索用 🔍</h2><p>https://booth.pm/ja/items/{AvatarId}</p>");
+
+        await new AvatarService(_store, new AppSettings { AvatarSupportHeadings = [] }).DetectAsync();
+
+        var item = await _store.Items.LoadAsync(ItemId);
+        Assert.Equal(AvatarLinkSource.SupportSection, Assert.Single(item!.Local.Avatars).Source);
     }
 }

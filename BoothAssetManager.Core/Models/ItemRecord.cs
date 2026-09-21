@@ -12,9 +12,17 @@ public sealed record ItemRecord
     /// <summary>BOOTH商品ID。ファイル名と一致する正のキー。</summary>
     public required string Id { get; init; }
 
-    public required BoothBlock Booth { get; init; }
+    /// <summary>
+    /// BOOTHから取った物。**必須にしない**（ユーザ判断 2026-09-21・J3）。
+    ///
+    /// 入れ物なので、欄ごと消えている＝「まだ何も取っていない」と読むのが自然。
+    /// 必須にしていたので、手で <c>"booth": {}</c> を消しただけでその商品が読み込みで落ち、
+    /// 一覧から丸ごと消えていた（「読めなかった N 件」には出るが、中身は失われていないのに開けない）。
+    /// </summary>
+    public BoothBlock Booth { get; init; } = new();
 
-    public required LocalBlock Local { get; init; }
+    /// <summary>人と取り込みが決めた物。<see cref="Booth"/> と同じく入れ物なので必須にしない。</summary>
+    public LocalBlock Local { get; init; } = new();
 
     /// <summary>
     /// 画面に出す名前。**ユーザが付けた名前を優先する。**

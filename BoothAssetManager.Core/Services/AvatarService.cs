@@ -800,14 +800,18 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     }
 
     /// <summary>
-    /// 対応を宣言する見出し。保存済みの設定に、既定の語を合わせる。
-    /// 見出し語の一覧は settings.json に丸ごと保存されるので、既定に語を足しても
-    /// 合わせなければ今の利用者には届かない。
+    /// 対応を宣言する見出し。**設定に書かれている物をそのまま使う**（ユーザ判断 2026-09-21・G13）。
+    ///
+    /// 前は既定の語を必ず混ぜていたので、`settings.json` から消しても次の検出で戻り、
+    /// **足すことしかできなかった**（対になる「読まない見出し」は消せるので、作りが揃っていなかった）。
+    /// 混ぜていたのは「既定に語を足したときに今の利用者へ届ける」ためだが、
+    /// 公開前なので古い設定に合わせる必要は無い（`docs/spec/data-model.md`）。
+    /// 欄ごと消した・壊れた場合は、読むときに空として受けるので既定に戻す。
     /// </summary>
     private IReadOnlyList<string> SupportHeadings
-        => _settings.AvatarSupportHeadings
-            .Union(AppSettings.DefaultAvatarSupportHeadings, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        => _settings.AvatarSupportHeadings.Count > 0
+            ? _settings.AvatarSupportHeadings
+            : AppSettings.DefaultAvatarSupportHeadings;
 
     private string? ReadHtml(string itemId)
     {

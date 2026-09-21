@@ -1032,8 +1032,88 @@ public sealed class ItemService : IItemService
         // 以前は別の detached.json をここで読み替えていた
 
         await MoveModificationsAsync(fromId, toId, cancellationToken);
+        await MoveReferencesAsync(fromId, toId, cancellationToken);
 
         return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 商品IDを指している他の記録を、移した先へ付け替える（ユーザ判断 2026-09-21・L16）。
+    ///
+    /// 改変だけを読み替えていたので、**登録簿・他の商品の対応アバター・足跡・要確認が
+    /// 消えたIDを指したまま**になっていた（アバターの一覧から消える、持っていない扱いになる、
+    /// 他の商品の対応アバターが迷子になる）。
+    /// </summary>
+    private async Task MoveReferencesAsync(string fromId, string toId, CancellationToken cancellationToken)
+    {
+        // 登録簿（アバターそのもの・素体グループが指す商品）
+        await _store.Avatars.TryUpdateAsync(
+            registry =>
+            {
+                var entries = registry.Entries
+                    .Select(entry => entry.ItemId == fromId ? entry with { ItemId = toId } : entry)
+                    .ToList();
+
+                var groups = registry.BaseGroups
+                    .Select(group => group.ItemId == fromId ? group with { ItemId = toId } : group)
+                    .ToList();
+
+                return registry.Entries.Any(entry => entry.ItemId == fromId)
+                    || registry.BaseGroups.Any(group => group.ItemId == fromId)
+                        ? new AvatarRegistry
+                        {
+                            DetectedAt = registry.DetectedAt,
+                            Entries = entries,
+                            BaseGroups = groups,
+                        }
+                        : null;
+            },
+            cancellationToken);
+
+        // 足跡と要確認
+        await _store.Recent.TryUpdateAsync(
+            log => log.Entries.Any(entry => entry.ItemId == fromId)
+                ? new Services.RecentLog
+                {
+                    Entries = [.. log.Entries.Select(entry => entry.ItemId == fromId ? entry with { ItemId = toId } : entry)],
+                }
+                : null,
+            cancellationToken);
+
+        await _store.Notifications.TryUpdateAsync(
+            records =>
+            {
+                var touched = false;
+                for (var index = 0; index < records.Count; index++)
+                {
+                    if (records[index].ItemId == fromId)
+                    {
+                        records[index] = records[index] with { ItemId = toId };
+                        touched = true;
+                    }
+                }
+
+                return touched ? records : null;
+            },
+            cancellationToken);
+
+        // 他の商品が対応アバターとして指している分
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        foreach (var item in loaded.Items.Where(item =>
+            item.Local.Avatars.Any(link => link.AvatarItemId == fromId)))
+        {
+            await _store.Items.ChangeLocalAsync(
+                item.Id,
+                current => current.Avatars.Any(link => link.AvatarItemId == fromId)
+                    ? current with
+                    {
+                        Avatars = [.. current.Avatars
+                            .Select(link => link.AvatarItemId == fromId ? link with { AvatarItemId = toId } : link)],
+                    }
+                    : null,
+                LocalOwners.SupportedAvatars,
+                cancellationToken);
+        }
     }
 
     /// <summary>

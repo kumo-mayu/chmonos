@@ -295,7 +295,7 @@ public sealed class ImportPipeline : IImportPipeline
             totals.Unresolved.AddRange(resolution.Unresolved);
             unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, offlineTargets, cancellationToken);
 
-            var fetchResult = await FetchAsync(resolution.FilesByItemId, work, progress, cancellationToken);
+            var fetchResult = await FetchAsync(resolution.FilesByItemId, work, totals, progress, cancellationToken);
 
             // 入り先を item に写すのは①の後。item の手元のファイルは①も書き、錠が無いので、重なると片方の書き込みが消える。
             // 読み終わっていなければ、読み終わったところで写す（画像の段は待たせない）
@@ -420,6 +420,21 @@ public sealed class ImportPipeline : IImportPipeline
     private sealed class ImportTotals
     {
         public List<UnresolvedFile> Unresolved { get; } = [];
+
+        /// <summary>
+        /// 中断の記録に出す件数（ユーザ判断 2026-09-21・C12）。**周回をまたいで足し合わせる。**
+        ///
+        /// 周回ごとの数を書いていたので、走らせている最中にフォルダを積むと
+        /// 次の周回が前の周回の数字を上書きし、「30件中3件」で止めたのに「2 / 2」になっていた。
+        /// 人から見れば1回の取り込みなので、まとめの件数と同じ数え方にする。
+        /// </summary>
+        public int PendingTotal { get; private set; }
+
+        public int FetchedTotal { get; private set; }
+
+        public void PlanFetch(int count) => PendingTotal += count;
+
+        public void NoteFetched() => FetchedTotal++;
 
         private readonly List<UnpackedFolder> _unpacked = [];
         private int _scanned;
@@ -841,6 +856,7 @@ public sealed class ImportPipeline : IImportPipeline
     private async Task<FetchResult> FetchAsync(
         Dictionary<string, List<LocalFileRecord>> filesByItemId,
         ImportWorkSet work,
+        ImportTotals totals,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -889,6 +905,9 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 残り時間の見込み（U1）。①は新しい商品の数、②はそれに説明の無い取得済みを足した数
         work.PlanRequests(json: pending.Count, pages: pending.Count + withoutPage.Count);
+
+        // 中断の記録は周回をまたいで足し合わせる（C12）
+        totals.PlanFetch(pending.Count);
 
         // ── ① 商品JSON（全商品）。ここが終われば検索も統計も成立する ──
         //
@@ -942,8 +961,25 @@ public sealed class ImportPipeline : IImportPipeline
                 },
             };
 
-            // 1件ずつ保存する。ここで中断しても、取れたぶんはそのまま残る
-            await _store.Items.SaveAsync(item, cancellationToken);
+            // 1件ずつ保存する。ここで中断しても、取れたぶんはそのまま残る。
+            //
+            // **「新しい」と判断した時点と書く時点がずれている**（ユーザ判断 2026-09-21・L13）。
+            // BOOTH から取る数秒〜数分の間に、未確定の「このIDで登録」が同じ商品を作ることがあり、
+            // 丸ごと書くと人が入れた名前・購入記録が消えていた。
+            // `ChangeItemIdAsync` と同じく**書く直前に読み直し**、あれば取ってきた `booth` だけを重ねる
+            if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } appeared)
+            {
+                await _store.Items.SaveLocalAsync(
+                    itemId,
+                    appeared.Local with { LocalFiles = LocalFileMerger.Merge(appeared.Local.LocalFiles, discovered) },
+                    LocalOwners.Import,
+                    item.Booth,
+                    cancellationToken);
+            }
+            else
+            {
+                await _store.Items.SaveAsync(item, cancellationToken);
+            }
 
             // 「追加」の足跡。**itemのJSONには書かない**（足跡で埋めないため）。
             // 既にある商品には打てないので、そちらは「不明」のまま残る——
@@ -959,8 +995,9 @@ public sealed class ImportPipeline : IImportPipeline
             // どこまで進んだかを残す。閉じた時に何件残っていたかをユーザは覚えていない。
             // ①の途中で閉じると「IDは分かったがまだ取得していない商品」の一覧は消えるので、
             // 件数だけでも残しておかないと、中断したこと自体が黙って起きる
+            totals.NoteFetched();
             await _store.ImportState.SaveAsync(
-                new ImportState { Done = fetched.Count, Total = pending.Count, StoppedAt = DateTimeOffset.Now },
+                new ImportState { Done = totals.FetchedTotal, Total = totals.PendingTotal, StoppedAt = DateTimeOffset.Now },
                 cancellationToken);
 
             // アイコンのURLは商品JSONにしか入っていないので、ここで控えて⑥で取りに行く
