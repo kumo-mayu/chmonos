@@ -264,7 +264,12 @@ public sealed class ImportPipeline : IImportPipeline
             await RecordVolumesAsync(folders, cancellationToken);
             offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
 
-            var scan = ScanFolders(folders, exclusions, registered, progress, cancellationToken);
+            // **走査は画面のスレッドの外で回す**（ユーザ判断 2026-09-21・C4）。
+            // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
+            // 全再帰列挙と展開先の実測が丸ごと走り、その間ずっと画面が固まっていた
+            var scan = await Task.Run(
+                () => ScanFolders(folders, exclusions, registered, progress, cancellationToken),
+                cancellationToken);
             var resolution = await ResolveAsync(
                 scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
             await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
@@ -729,7 +734,13 @@ public sealed class ImportPipeline : IImportPipeline
                 continue;
             }
 
-            var clues = InspectFile(file, out var contents);
+            // zip の中身読みは同期なので、画面のスレッドへ戻ってから走っていた（C19）。
+            // ハッシュ計算だけが本当に非同期で、その直後にここで引っかかる
+            var (clues, contents) = await Task.Run(() =>
+            {
+                var found = InspectFile(file, out var inside);
+                return (found, inside);
+            }, cancellationToken);
             var zone = ZoneIdentifierReader.Read(file.Path);
 
             // 商品ページで外したものは候補から落とす。

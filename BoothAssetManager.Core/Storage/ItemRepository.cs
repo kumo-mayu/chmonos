@@ -164,9 +164,20 @@ public sealed class ItemRepository
     /// 全件をメモリへ読み込む。説明の生HTMLは含まないので、件数が増えても軽いまま。
     /// 壊れた1件で全体が止まらないよう、読めなかったファイルはスキップして呼び出し側へ返す。
     /// </summary>
-    public async Task<ItemLoadResult> LoadAllAsync(
+    /// <remarks>
+    /// **読み込みそのものを画面のスレッドから外す**（ユーザ判断 2026-09-21・C6）。
+    /// ファイルを開く所に非同期の指定が無いので <c>await</c> が同期で終わり、
+    /// 呼んだスレッドを一度も手放さなかった。2000件ならその全部が1回の固まりになる
+    /// （起動・取り込みの後・編集の後の読み直しで、毎回画面が止まっていた）。
+    /// </remarks>
+    public Task<ItemLoadResult> LoadAllAsync(
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
+        => Task.Run(() => LoadAllCoreAsync(progress, cancellationToken), cancellationToken);
+
+    private async Task<ItemLoadResult> LoadAllCoreAsync(
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
     {
         var items = new List<ItemRecord>();
         var failures = new List<string>();

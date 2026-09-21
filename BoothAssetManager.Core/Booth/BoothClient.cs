@@ -422,6 +422,8 @@ public sealed class BoothClient : IBoothClient
                 return BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}", ReadRetryAfter(response));
             }
 
+            // 広げた間隔は、成功が続いたら少しずつ戻す（C16）
+            EaseBack();
             return BoothFetchResult<T>.Success(await readBody(response));
         }
         catch (HttpRequestException exception)
@@ -537,6 +539,34 @@ public sealed class BoothClient : IBoothClient
     {
         var doubled = Math.Min((long)SyncedIntervalMs() * 2, _settings.FetchIntervalMaxMs);
         _currentIntervalMs = (int)Math.Max(doubled, ConfiguredIntervalMs);
+        _successesSinceSlowDown = 0;
+    }
+
+    /// <summary>
+    /// 広げた間隔を戻すまでの、続けて成功した回数（ユーザ判断 2026-09-21・C16）。
+    ///
+    /// **戻す道が無く、一度広がるとプロセスを終えるまでそのままだった。**
+    /// 相手が「待て」と言った直後に戻すのは筋が通らないので、
+    /// **こちらが広げた間隔で十分に間を置き、成功し続けたこと**を条件にする。
+    /// 20回＝広げた間隔（最短3秒）で1分前後。それだけ何事も無ければ、詰まっていた側は空いている。
+    /// </summary>
+    private const int SuccessesBeforeEasing = 20;
+
+    private int _successesSinceSlowDown;
+
+    /// <summary>
+    /// 成功が続いたら、広げた分を半分ずつ戻す（下限は設定の間隔）。
+    /// 一気に戻さないのは、戻した先でまた429を受けると往復するため。
+    /// </summary>
+    private void EaseBack()
+    {
+        if (_currentIntervalMs <= ConfiguredIntervalMs || ++_successesSinceSlowDown < SuccessesBeforeEasing)
+        {
+            return;
+        }
+
+        _successesSinceSlowDown = 0;
+        _currentIntervalMs = Math.Max(_currentIntervalMs / 2, ConfiguredIntervalMs);
     }
 
     /// <summary>Retry-Afterを読む。秒数形式とHTTP日付形式の両方が来る。</summary>

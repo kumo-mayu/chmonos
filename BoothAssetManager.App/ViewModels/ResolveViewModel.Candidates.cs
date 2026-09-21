@@ -142,12 +142,19 @@ public sealed partial class ResolveViewModel
             SearchPhase = report.Phase;
             SearchCurrent = report.Current;
             SearchTotal = report.Total;
+            _main.ReportLongJob($"候補を検索中　{report.Phase}　{report.Current} / {report.Total}");
         }));
+
+        // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C2）。
+        // BOOTH内検索＋候補3件のJSON＋（当たらなければ）別語での引き直しで分単位かかるのに、
+        // 押した後まったく止められなかった（配管は通っていて、入口だけ抜けていた）
+        using var stop = new CancellationTokenSource();
+        _main.BeginLongJob("この間、BOOTHへの他の問い合わせは順番待ちになります", stop);
 
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(searchTarget, progress));
+                new UiCommand.ProposeCandidates(searchTarget, progress), cancellationToken: stop.Token);
 
             if (result is CommandResult.CandidatesProposed proposed)
             {
@@ -169,10 +176,17 @@ public sealed partial class ResolveViewModel
                 StatusText = failed.Message;
             }
         }
+        catch (OperationCanceledException)
+        {
+            // 中止。もう一度押せばやり直せる（何も書いていない）
+            StatusText = "候補の検索を中止しました。もう一度「候補を検索」を押すとやり直せます。";
+        }
         finally
         {
+            _main.EndLongJob();
             IsBusy = false;
             IsSearching = false;
+            SearchPhase = string.Empty;
             OnPropertyChanged(nameof(HasStatus));
         }
     }

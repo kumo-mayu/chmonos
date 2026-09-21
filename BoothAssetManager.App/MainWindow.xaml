@@ -497,6 +497,28 @@
                 </DockPanel>
             </Border>
 
+            <!--
+                分単位で掛かる作業（対応アバターの検出・未確定の候補を検索）の帯。
+                **どの画面でも進み具合と「中止」を出す**（ユーザ判断 2026-09-21・C1/C2）。
+                始めた画面にしか止める手立てが無いと、画面を移った時点で止められなくなる。
+                この間できなくなることも1行で言う（黙って押せなくしない）
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
+                    BorderBrush="{StaticResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding IsLongJobRunning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="30">
+                    <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
+                            VerticalAlignment="Center" Margin="10,0,0,0"
+                            Command="{Binding StopLongJobCommand}"
+                            ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding LongJobNote}" Style="{StaticResource Caption}"
+                               Foreground="#28507f" VerticalAlignment="Center" Margin="12,0,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding LongJobText}" Style="{StaticResource Caption}" Foreground="#28507f"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
+
             <!-- 押すと取り込みの画面へ（U24）。通信の話を見に行く先は1つにしておく -->
             <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAlt}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"

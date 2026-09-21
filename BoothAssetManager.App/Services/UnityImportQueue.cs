@@ -324,7 +324,8 @@ public static class UnityImportQueue
                 () => VisibleWindows(processId).FirstOrDefault(window =>
                     !baseline.Contains(window) && ClassOf(window) == "#32770" && FindFileNameBox(window) is not null),
                 TimeSpan.FromSeconds(10),
-                cancellationToken);
+                cancellationToken,
+                busyProcessId: processId);
 
             if (dialog == IntPtr.Zero || FindFileNameBox(dialog) is not { } box)
             {
@@ -340,7 +341,8 @@ public static class UnityImportQueue
             var importWindow = await WaitForAsync(
                 () => VisibleWindows(processId).FirstOrDefault(window => !baseline.Contains(window) && IsImportWindow(window)),
                 TimeSpan.FromSeconds(20),
-                cancellationToken);
+                cancellationToken,
+                busyProcessId: processId);
 
             Report($"{index + 1}/{packages.Count}：「{package.Name}」— Unity の取り込み画面で「Import」か「Cancel」を押してください");
 
@@ -586,7 +588,20 @@ public static class UnityImportQueue
         return windows;
     }
 
-    private static async Task<IntPtr> WaitForAsync(Func<IntPtr> probe, TimeSpan timeout, CancellationToken cancellationToken)
+    /// <param name="busyProcessId">
+    /// **Unity が作業中の間は待ち時間を数え直す**（ユーザ判断 2026-09-21・C18）。
+    ///
+    /// 固定の待ちだけで見ていたので、Unity がコンパイル中・ドメイン再読込中だと
+    /// 普通に超えてしまい、「ファイル選択の画面が出ませんでした」で1件落ちていた。
+    /// 進捗の窓（Importing・Compiling Scripts・Reloading Domain…）が出ている間は、
+    /// **こちらの都合ではなく Unity の都合**なので、時間切れにしない。
+    /// 渡さなければ、これまで通り単純な時間切れ。
+    /// </param>
+    private static async Task<IntPtr> WaitForAsync(
+        Func<IntPtr> probe,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        int? busyProcessId = null)
     {
         var until = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < until)
@@ -598,8 +613,17 @@ public static class UnityImportQueue
             }
 
             await Task.Delay(200, cancellationToken);
+
+            if (busyProcessId is { } processId && IsUnityBusy(processId))
+            {
+                until = DateTime.UtcNow + timeout;
+            }
         }
 
         return IntPtr.Zero;
     }
+
+    /// <summary>Unity が自分の作業（取り込み・コンパイル・ドメイン再読込）で塞がっているか。</summary>
+    private static bool IsUnityBusy(int processId)
+        => VisibleWindows(processId).Any(window => IsProgressTitle(TitleOf(window)));
 }

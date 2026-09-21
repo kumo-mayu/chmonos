@@ -204,6 +204,61 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private RelayCommand? _stopUnity;
 
+    // ---- 長い作業（対応アバターの検出・未確定の候補を検索）----
+
+    private CancellationTokenSource? _longJob;
+    private string _longJobText = string.Empty;
+    private string _longJobNote = string.Empty;
+    private RelayCommand? _stopLongJob;
+
+    /// <summary>
+    /// 分単位で掛かる作業が走っている最中か（ユーザ判断 2026-09-21・C1/C2）。
+    ///
+    /// **始めた画面にしか止める手立てが無いと、画面を移った時点で止められなくなる。**
+    /// Unity へ送るときの帯と同じ形で、どの画面でも進み具合と「中止」を出す。
+    /// </summary>
+    public bool IsLongJobRunning => _longJob is not null;
+
+    /// <summary>進み具合の1行（始めた画面に出るものと同じ文）。</summary>
+    public string LongJobText
+    {
+        get => _longJobText;
+        private set => SetField(ref _longJobText, value);
+    }
+
+    /// <summary>この間できなくなる作業。**黙って押せなくしない**（ユーザ指示 2026-09-21・C1）。</summary>
+    public string LongJobNote
+    {
+        get => _longJobNote;
+        private set => SetField(ref _longJobNote, value);
+    }
+
+    public RelayCommand StopLongJobCommand => _stopLongJob ??= new RelayCommand(
+        () => _longJob?.Cancel(),
+        () => IsLongJobRunning);
+
+    /// <summary>長い作業を始める。止める口を預かり、帯を出す。</summary>
+    public void BeginLongJob(string note, CancellationTokenSource stop)
+    {
+        _longJob = stop;
+        LongJobNote = note;
+        LongJobText = string.Empty;
+        OnPropertyChanged(nameof(IsLongJobRunning));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>進み具合を帯へ流す（始めた画面の表示とは別に、どの画面でも見えるように）。</summary>
+    public void ReportLongJob(string text) => LongJobText = text;
+
+    public void EndLongJob()
+    {
+        _longJob = null;
+        LongJobText = string.Empty;
+        LongJobNote = string.Empty;
+        OnPropertyChanged(nameof(IsLongJobRunning));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
     public SearchViewModel Search { get; }
 
     public ImportViewModel Import { get; }

@@ -1026,14 +1026,26 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         IsMovingStore = true;
         Status = replace ? "置き換えています…" : "引っ越しています…";
+
+        // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C3）。
+        // 運んでいる間は書き込みの門を持つので、止める手立てが無いと全部の保存が無期限に待たされる。
+        // 途中で止めても元には手を付けていないので、保存先を古いままにすれば何も失われない
+        using var stop = new CancellationTokenSource();
+        _main.BeginLongJob("この間、保存は運び終わるまで待たされます（読む操作はできます）", stop);
+
         try
         {
-            var progress = new Progress<Core.Storage.StoreMoveProgress>(
-                report => Status = (replace ? "置き換えています… " : "引っ越しています… ")
-                    + $"{report.Copied:N0}/{report.Total:N0}");
+            var progress = new Progress<Core.Storage.StoreMoveProgress>(report =>
+            {
+                var text = (replace ? "置き換えています… " : "引っ越しています… ")
+                    + $"{report.Copied:N0}/{report.Total:N0}";
+                Status = text;
+                _main.ReportLongJob(text);
+            });
 
             var result = await _services.Commands.ExecuteAsync(
-                new Core.Commands.UiCommand.MoveStore(source, destination, replace, progress));
+                new Core.Commands.UiCommand.MoveStore(source, destination, replace, progress),
+                cancellationToken: stop.Token);
 
             Status = string.Empty;
             return result is Core.Commands.CommandResult.StoreMoved moved
@@ -1048,6 +1060,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
         finally
         {
+            _main.EndLongJob();
             IsMovingStore = false;
         }
     }

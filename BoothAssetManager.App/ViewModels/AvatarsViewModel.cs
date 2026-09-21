@@ -1143,16 +1143,25 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
         IsDetecting = true;
         Status = "手元の説明文とタグを読んでいます…";
 
+        // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C1）。
+        // 止める手立てが一切無く、友人データの初回で約37分ぶら下がっていた
+        using var stop = new CancellationTokenSource();
+        _main.BeginLongJob("この間、アバターの編集と取り込みの検出は待たされます", stop);
+
         try
         {
             var progress = new Progress<AvatarDetectProgress>(report =>
-                Status = $"{report.Phase}　{report.Done} / {report.Total}");
+            {
+                Status = $"{report.Phase}　{report.Done} / {report.Total}";
+                _main.ReportLongJob($"対応アバターを検出中　{report.Phase}　{report.Done} / {report.Total}");
+            });
 
             // **UiCommand を通す。**直接呼ぶと CommandHandler の優先度の包みの外に
             // 出てしまい、既定の Metadata（取り込みの①②と同じ順位）で順番待ちする。
             // 押した人は画面の前で結果を待っているので User に乗せたい。
             // 取り込みの中の③は内側で Detection を指定しているので、そのまま待てる側に残る
-            var outcome = await _services.Commands.ExecuteAsync(new UiCommand.DetectAvatars(progress));
+            var outcome = await _services.Commands.ExecuteAsync(
+                new UiCommand.DetectAvatars(progress), cancellationToken: stop.Token);
             if (outcome is CommandResult.Failed detectFailed)
             {
                 Status = detectFailed.Message;
@@ -1193,7 +1202,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
             Status = string.Join(" / ", parts);
             await LoadAsync();
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (OperationCanceledException)
+        {
+            // 中止。そこまでに書き込んだ分はそのまま残る（1件ずつ書いている）
+            Status = "検出を中止しました。そこまでに分かった分は書き込んであります。もう一度押すと続きから試します。";
+            await LoadAsync();
+        }
+        catch (Exception exception)
         {
             // 検出は途中まで進んでいることがあり、もう一度押せば続きから走る
             Core.Diagnostics.AppLog.Error("アバターの画面：対応アバターの検出", exception);
@@ -1201,6 +1216,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
         }
         finally
         {
+            _main.EndLongJob();
             IsDetecting = false;
         }
     }
