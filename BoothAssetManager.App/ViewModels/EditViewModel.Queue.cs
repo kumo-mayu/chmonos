@@ -224,11 +224,16 @@ public sealed partial class EditViewModel
     private async Task<List<string>> BuildDefaultQueueAsync()
     {
         var loaded = await _services.Store.Items.LoadAllAsync();
-        return loaded.Items
+        var unedited = loaded.Items
             .Where(item => item.Local.UserTags.Count == 0)
             // 取り込みの③がまだの商品は積まない（U8・U10）。③が済めば次に開いたときに入る
-            .Where(item => !_main.IsAwaitingDetection(item.Id))
-            .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
+            .Where(item => !_main.IsAwaitingDetection(item.Id));
+
+        // 検索の既定・サムネイルを取る順と同じ規則で並べる（ItemOrder.ByAcquired。2026-09-21 ユーザ判断）。
+        // 入手日は人が手で入れたときにしか入らないので、取り込んだばかりの商品は全部同じ値になる。
+        // 以前はここに同着の決め手が無く、items フォルダの列挙順（＝商品IDの順）がそのまま出ていて、
+        // 検索（商品名順）ともサムネイルを取る順（走査した順）とも違う並びになっていた
+        return ItemOrder.ByAcquired(unedited, descending: true)
             .Select(item => item.Id)
             .ToList();
     }

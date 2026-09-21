@@ -1,6 +1,7 @@
 using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Services;
 using BoothAssetManager.Core.Storage;
 using BoothIdResolver;
 using BoothZipInspector;
@@ -1076,8 +1077,12 @@ public sealed class ImportPipeline : IImportPipeline
         // ④1枚目 ⑤残りの画像 ⑥ショップのアイコン は、周回の外の画像の列で取る（U5・DrainImagesAsync）。
         // 周回の中で取り切ると、その間に積まれたフォルダは⑥が終わるまで何も始まらない。
         // 画像を取らない設定なら何も積まない（梯子は①②③で終わり。検索・絞り込み・統計は JSON だけで成立する）
+        //
+        // **並びは検索・編集の待ち行列と同じ規則にそろえる**（ItemOrder.ByAcquired。2026-09-21 ユーザ判断）。
+        // 走査した順のままだと、絵が埋まっていく順と、人が上から片付けていく順が無関係になり、
+        // 待ち行列の先頭の商品の絵だけがいつまでも来ない、という見え方になっていた
         var withImages = _images.SavesImages
-            ? pages.Where(item => item.Booth.Images.Count > 0).ToList()
+            ? ItemOrder.ByAcquired(pages.Where(item => item.Booth.Images.Count > 0), descending: true).ToList()
             : [];
 
         return new FetchResult
