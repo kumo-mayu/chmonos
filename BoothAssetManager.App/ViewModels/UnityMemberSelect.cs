@@ -16,14 +16,13 @@ namespace BoothAssetManager.App.ViewModels;
 /// </summary>
 internal static class UnityMemberSelect
 {
-    /// <param name="index">改変の中の位置（何件目か）。選んだファイルを記録するときに使う。</param>
+    /// <param name="member">改変の中のその行。選んだファイルを記録するときに、**位置ではなく行の身元で指す**（J5）。</param>
     /// <param name="fileText">使ったファイルの言い方（取り込むか聞くときに添える）。</param>
     /// <param name="setStatus">結果を言う先（呼んだ画面の1行）。</param>
     /// <returns>どのファイルを使ったかを記録した（呼んだ側は並びを読み直す）。</returns>
     public static async Task<bool> RunAsync(
         AppServiceContainer services,
         ModificationRecord record,
-        int index,
         ModificationMember member,
         string name,
         string fileText,
@@ -93,7 +92,7 @@ internal static class UnityMemberSelect
 
         IReadOnlyList<UnityPackageEntry> toSend = packages;
         var recorded = false;
-        if (member.FileHash is null && packages.Count > 1 && PackageChoiceSection.Build(item, index) is { } choice)
+        if (member.FileHash is null && packages.Count > 1 && PackageChoiceSection.Build(item) is { } choice)
         {
             // どのファイルを使ったか記録が無く、送れる物が2つ以上ある。全部送ると古い版や別の種類まで入るので選ばせ、
             // 選んだ物をこの行に記録する（ユーザ判断 2026-09-13）
@@ -111,7 +110,7 @@ internal static class UnityMemberSelect
 
             toSend = choice.CheckedPackages;
             var result = await services.Commands.ExecuteAsync(
-                new UiCommand.RecordModificationMemberFiles(record.Id, index, choice.CheckedMembers));
+                new UiCommand.RecordModificationMemberFiles(record.Id, member, choice.CheckedMembers));
             recorded = result is not CommandResult.Failed;
         }
         else

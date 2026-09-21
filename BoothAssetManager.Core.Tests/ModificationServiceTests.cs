@@ -254,6 +254,20 @@ public sealed class ModificationServiceTests : IDisposable
     private static ModificationMember Member(string itemId, string? hash = null)
         => new() { ItemId = itemId, FileHash = hash };
 
+    /// <summary>
+    /// 今その位置に並んでいる行。**操作は位置ではなく行そのもので指す**（J5）ので、
+    /// 試験からも保存されている行を渡す（足した日時はサービスが入れるため、作った値とは別物）。
+    /// </summary>
+    private async Task<ModificationMember> MemberAtAsync(string id, int index)
+    {
+        var members = (await _service.LoadAsync(id))!.Members;
+        return index >= 0 && index < members.Count
+            ? members[index]
+
+            // 範囲外を指したときの試験用。どの行とも一致しない身元を返す
+            : new ModificationMember { ItemId = "無い行", AddedAt = DateTimeOffset.MinValue };
+    }
+
     [Fact]
     public async Task 足すと末尾に付く()
     {
@@ -297,7 +311,7 @@ public sealed class ModificationServiceTests : IDisposable
         await _service.AddMemberAsync(id, Member("2"));
         await _service.AddMemberAsync(id, Member("3"));
 
-        await _service.RemoveMemberAsync(id, 1);
+        await _service.RemoveMemberAsync(id, await MemberAtAsync(id, 1));
 
         Assert.Equal(["1", "3"], (await _service.LoadAsync(id))!.Members.Select(member => member.ItemId));
     }
@@ -311,7 +325,7 @@ public sealed class ModificationServiceTests : IDisposable
         await _service.AddMemberAsync(id, Member("2", hash: "ZIP2") with { Package = "a/b.unitypackage" });
         await _service.AddMemberAsync(id, Member("3"));
 
-        await _service.SetMemberDetachedAsync(id, 1, detached: true);
+        await _service.SetMemberDetachedAsync(id, await MemberAtAsync(id, 1), detached: true);
         var detached = (await _service.LoadAsync(id))!;
 
         Assert.Equal(["1", "2", "3"], detached.Members.Select(member => member.ItemId));
@@ -320,7 +334,7 @@ public sealed class ModificationServiceTests : IDisposable
         Assert.Equal("a/b.unitypackage", detached.Members[1].Package);
         Assert.Equal(["1", "3"], detached.UsedMembers.Select(member => member.ItemId));
 
-        await _service.SetMemberDetachedAsync(id, 1, detached: false);
+        await _service.SetMemberDetachedAsync(id, await MemberAtAsync(id, 1), detached: false);
         var restored = (await _service.LoadAsync(id))!;
 
         Assert.False(restored.Members[1].Detached);
@@ -332,7 +346,7 @@ public sealed class ModificationServiceTests : IDisposable
     {
         var id = await NewAsync();
         await _service.AddMemberAsync(id, Member("5901276"));
-        await _service.SetMemberDetachedAsync(id, 0, detached: true);
+        await _service.SetMemberDetachedAsync(id, await MemberAtAsync(id, 0), detached: true);
 
         Assert.Empty(await _service.LoadUsingItemAsync("5901276"));
     }
@@ -359,7 +373,7 @@ public sealed class ModificationServiceTests : IDisposable
         await _service.AddMemberAsync(id, Member("後"));
         var addedAt = (await _service.LoadAsync(id))!.Members[1].AddedAt;
 
-        var replaced = await _service.ReplaceMemberAsync(id, 1,
+        var replaced = await _service.ReplaceMemberAsync(id, await MemberAtAsync(id, 1),
         [
             new ModificationMember { ItemId = "クラゲ", FileHash = "AAA", Package = "Bracelet.v1.01/Bracelet.v1.01.unitypackage" },
             new ModificationMember { ItemId = "クラゲ", FileHash = "BBB", Package = "fullset.v1.06/fullset.v1.06.unitypackage" },
@@ -379,7 +393,7 @@ public sealed class ModificationServiceTests : IDisposable
         var id = await NewAsync();
         await _service.AddMemberAsync(id, Member("クラゲ", "AAA"));
 
-        var replaced = await _service.ReplaceMemberAsync(id, 0, [Member("クラゲ", "BBB")]);
+        var replaced = await _service.ReplaceMemberAsync(id, await MemberAtAsync(id, 0), [Member("クラゲ", "BBB")]);
 
         Assert.False(replaced);
         Assert.Equal("AAA", Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
@@ -392,7 +406,7 @@ public sealed class ModificationServiceTests : IDisposable
         var id = await NewAsync();
         await _service.AddMemberAsync(id, Member("本体"));
 
-        var replaced = await _service.ReplaceMemberAsync(id, 0, [Member("クラゲ", "AAA")]);
+        var replaced = await _service.ReplaceMemberAsync(id, await MemberAtAsync(id, 0), [Member("クラゲ", "AAA")]);
 
         Assert.False(replaced);
         Assert.Null(Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
@@ -404,8 +418,8 @@ public sealed class ModificationServiceTests : IDisposable
         var id = await NewAsync();
         await _service.AddMemberAsync(id, Member("1"));
 
-        Assert.False(await _service.ReplaceMemberAsync(id, 3, [Member("1", "AAA")]));
-        Assert.False(await _service.ReplaceMemberAsync(id, -1, [Member("1", "AAA")]));
+        Assert.False(await _service.ReplaceMemberAsync(id, await MemberAtAsync(id, 3), [Member("1", "AAA")]));
+        Assert.False(await _service.ReplaceMemberAsync(id, await MemberAtAsync(id, -1), [Member("1", "AAA")]));
         Assert.Null(Assert.Single((await _service.LoadAsync(id))!.Members).FileHash);
     }
 
@@ -415,8 +429,8 @@ public sealed class ModificationServiceTests : IDisposable
         var id = await NewAsync();
         await _service.AddMemberAsync(id, Member("1"));
 
-        await _service.RemoveMemberAsync(id, 5);
-        await _service.RemoveMemberAsync(id, -1);
+        await _service.RemoveMemberAsync(id, await MemberAtAsync(id, 5));
+        await _service.RemoveMemberAsync(id, await MemberAtAsync(id, -1));
 
         Assert.Single((await _service.LoadAsync(id))!.Members);
     }
@@ -429,7 +443,7 @@ public sealed class ModificationServiceTests : IDisposable
         await _service.AddMemberAsync(id, Member("本体"));
         await _service.AddMemberAsync(id, Member("依存"));
 
-        await _service.MoveMemberAsync(id, 1, -1);
+        await _service.MoveMemberAsync(id, await MemberAtAsync(id, 1), -1);
 
         Assert.Equal(["依存", "本体"], (await _service.LoadAsync(id))!.Members.Select(member => member.ItemId));
     }
@@ -441,10 +455,35 @@ public sealed class ModificationServiceTests : IDisposable
         await _service.AddMemberAsync(id, Member("1"));
         await _service.AddMemberAsync(id, Member("2"));
 
-        await _service.MoveMemberAsync(id, 0, -1);
-        await _service.MoveMemberAsync(id, 1, 1);
+        await _service.MoveMemberAsync(id, await MemberAtAsync(id, 0), -1);
+        await _service.MoveMemberAsync(id, await MemberAtAsync(id, 1), 1);
 
         Assert.Equal(["1", "2"], (await _service.LoadAsync(id))!.Members.Select(member => member.ItemId));
+    }
+
+    /// <summary>
+    /// **並びが変わっても、指した行に当たる**（ユーザ判断 2026-09-21・J5）。
+    /// 画面は読み込んだ時点の位置を送るので、位置で指していると別の行を外していた。
+    /// </summary>
+    [Fact]
+    public async Task 並びが変わっても指した行に当たる()
+    {
+        var id = await NewAsync();
+        await _service.AddMemberAsync(id, Member("1"));
+        await _service.AddMemberAsync(id, Member("2"));
+        await _service.AddMemberAsync(id, Member("3"));
+
+        // 画面が「2」の行を掴む
+        var target = await MemberAtAsync(id, 1);
+
+        // その間に別の道で並びが変わった（先頭を後ろへ）
+        await _service.MoveMemberAsync(id, await MemberAtAsync(id, 0), 2);
+        Assert.Equal(["2", "3", "1"], (await _service.LoadAsync(id))!.Members.Select(member => member.ItemId));
+
+        await _service.RemoveMemberAsync(id, target);
+
+        // 位置で指していれば「3」が消えていた
+        Assert.Equal(["3", "1"], (await _service.LoadAsync(id))!.Members.Select(member => member.ItemId));
     }
 
     // ---- 逆引き ----

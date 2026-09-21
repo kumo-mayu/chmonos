@@ -567,21 +567,21 @@ public sealed class CommandHandler
             case UiCommand.SetModificationMemberDetached detachMember:
                 return await RunModificationAsync(
                     () => _modifications!.SetMemberDetachedAsync(
-                        detachMember.Id, detachMember.Index, detachMember.Detached, cancellationToken));
+                        detachMember.Id, detachMember.Member, detachMember.Detached, cancellationToken));
 
             case UiCommand.RemoveModificationMember removeMember:
                 return await RunModificationAsync(
-                    () => _modifications!.RemoveMemberAsync(removeMember.Id, removeMember.Index, cancellationToken));
+                    () => _modifications!.RemoveMemberAsync(removeMember.Id, removeMember.Member, cancellationToken));
 
             case UiCommand.MoveModificationMember moveMember:
                 return await RunModificationAsync(
                     () => _modifications!.MoveMemberAsync(
-                        moveMember.Id, moveMember.Index, moveMember.Delta, cancellationToken));
+                        moveMember.Id, moveMember.Member, moveMember.Delta, cancellationToken));
 
             case UiCommand.RecordModificationMemberFiles recordFiles:
                 return await RunModificationAsync(
                     () => _modifications!.ReplaceMemberAsync(
-                        recordFiles.Id, recordFiles.Index, recordFiles.Members, cancellationToken),
+                        recordFiles.Id, recordFiles.Member, recordFiles.Members, cancellationToken),
                     "使ったファイルを記録できませんでした。選んでいる間に、改変の使ったものが変わったかもしれません。");
 
             case UiCommand.AddModificationImage addImage2:

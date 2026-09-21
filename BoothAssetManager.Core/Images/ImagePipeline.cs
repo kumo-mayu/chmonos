@@ -86,6 +86,24 @@ public sealed class ImagePipeline
     /// </summary>
     public static string MissingMarkerFor(string originalUrl) => $"{ShortHash(originalUrl)}.missing";
 
+    /// <summary>
+    /// 「404ではないが取れなかった」印の名前（ユーザ判断 2026-09-21・G6）。
+    ///
+    /// 403・接続失敗・画像として読めなかった物には印が無く、**起動のたびに同じ物を取り直していた**
+    /// （読めない画像は受信までやり直すので、毎回まるまる通信が無駄になる）。
+    /// 404 と違って「もう取りに行く先が無い」とは言えないので、**日時つきで一定期間だけ休む**
+    /// （ショップのバナーの「調べた日時」と同じ考え方）。日時はファイルの更新日時をそのまま使う。
+    /// </summary>
+    public static string RetryMarkerFor(string originalUrl) => $"{ShortHash(originalUrl)}.retry";
+
+    /// <summary>
+    /// 取れなかった画像を、次に取りに行くまで休む日数。
+    ///
+    /// **商品の取り直しの既定（7日）と同じ。**取れなかった理由（相手の不調・権限・壊れた画像）が
+    /// 消えたかどうかは、商品ページを取り直すのと同じ頻度で確かめれば足りる。
+    /// </summary>
+    private const int RetryAfterDays = 7;
+
     private static string ShortHash(string originalUrl)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(originalUrl));
@@ -316,6 +334,50 @@ public sealed class ImagePipeline
         }
     }
 
+    /// <summary>404 ではない失敗の印を置き直す（日時はファイルの更新日時。G6）。</summary>
+    private static void MarkRetryLater(string directory, string originalUrl)
+    {
+        try
+        {
+            var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
+            File.WriteAllBytes(path, []);
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>まだ休んでいる最中か（印が無ければ休んでいない）。</summary>
+    private static bool IsRestingAfterFailure(string directory, string originalUrl)
+    {
+        try
+        {
+            var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
+            return File.Exists(path)
+                && File.GetLastWriteTimeUtc(path) > DateTime.UtcNow.AddDays(-RetryAfterDays);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static void ClearRetryMarker(string directory, string originalUrl)
+    {
+        try
+        {
+            var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     /// <summary>
     /// この商品の印を全部消す。**商品のJSONを取り直したときに呼ぶ。**
     ///
@@ -361,8 +423,10 @@ public sealed class ImagePipeline
 
         try
         {
+            // 「しばらく休む」印も数える（数えないと、休んでいる間ずっと裏の取得の対象に戻り続ける・G6）
             return Directory.Exists(directory)
                 ? Directory.EnumerateFiles(directory, "*.missing").Count()
+                    + Directory.EnumerateFiles(directory, "*.retry").Count()
                 : 0;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -393,7 +457,7 @@ public sealed class ImagePipeline
         // BOOTH側の一覧に残っている印。ここに無い印は「もう取りに行く先が無い」ので消す。
         // **取りに行く前に全部数えておく。**取りながら数えて最後に片付けていたので、
         // 途中で中断すると片付けが走らず、立てたままの印を「取れなかった画像」として数え続けていた
-        var liveMarkers = images.Select(image => MissingMarkerFor(image.OriginalUrl))
+        var liveMarkers = images.SelectMany(image => new[] { MissingMarkerFor(image.OriginalUrl), RetryMarkerFor(image.OriginalUrl) })
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         try
@@ -421,6 +485,13 @@ public sealed class ImagePipeline
                     continue;
                 }
 
+                // 404以外で取れなかった物は、しばらく休んでから取り直す（G6）
+                if (IsRestingAfterFailure(directory, image.OriginalUrl))
+                {
+                    failed++;
+                    continue;
+                }
+
                 var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
 
                 if (result.Status == BoothFetchStatus.NotFound)
@@ -432,7 +503,9 @@ public sealed class ImagePipeline
 
                 if (!result.IsSuccess || result.Value is null)
                 {
-                    // 一時エラーでは印を置かない。次回もう一度取りに行く
+                    // 404ではないので「もう無い」とは言えない。日時つきの印を置いてしばらく休む（G6）。
+                    // 印が無かったので、403・接続失敗・読めない画像を起動のたびに取り直していた
+                    MarkRetryLater(directory, image.OriginalUrl);
                     failed++;
                     continue;
                 }
@@ -441,9 +514,14 @@ public sealed class ImagePipeline
                 {
                     await SaveAsWebpAsync(result.Value, path, cancellationToken);
                     downloaded++;
+
+                    // 取れたので、前に置いた「しばらく休む」の印は用済み
+                    ClearRetryMarker(directory, image.OriginalUrl);
                 }
                 catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
                 {
+                    // 落とせたが画像として読めなかった。受信までやり直しても同じなので、ここも休む（G6）
+                    MarkRetryLater(directory, image.OriginalUrl);
                     failed++;
                 }
             }
@@ -478,7 +556,9 @@ public sealed class ImagePipeline
     {
         try
         {
-            foreach (var marker in Directory.EnumerateFiles(directory, "*.missing"))
+            // 「しばらく休む」の印も同じ扱い（一覧から消えたURLの分は用済み）
+            foreach (var marker in Directory.EnumerateFiles(directory, "*.missing")
+                .Concat(Directory.EnumerateFiles(directory, "*.retry")))
             {
                 if (!live.Contains(Path.GetFileName(marker)))
                 {

@@ -53,16 +53,16 @@ public interface IModificationService
         ModificationMember member,
         CancellationToken cancellationToken = default);
 
-    /// <summary>位置で外す。並びが意味を持つので、商品IDではなく位置で指す。</summary>
-    Task<bool> RemoveMemberAsync(string id, int index, CancellationToken cancellationToken = default);
+    /// <summary>完全に消す。**指すのは位置ではなく行そのもの**（J5）。</summary>
+    Task<bool> RemoveMemberAsync(string id, ModificationMember member, CancellationToken cancellationToken = default);
 
     /// <summary>外す・戻す。行と記録は残し、印だけを付け外しする（完全に消すのは <see cref="RemoveMemberAsync"/>）。</summary>
-    Task<bool> SetMemberDetachedAsync(string id, int index, bool detached, CancellationToken cancellationToken = default);
+    Task<bool> SetMemberDetachedAsync(string id, ModificationMember member, bool detached, CancellationToken cancellationToken = default);
 
     /// <summary>位置を動かす。依存物を後から思い出したときに直せるようにする。</summary>
     Task<bool> MoveMemberAsync(
         string id,
-        int index,
+        ModificationMember member,
         int delta,
         CancellationToken cancellationToken = default);
 
@@ -73,7 +73,7 @@ public interface IModificationService
     /// </summary>
     Task<bool> ReplaceMemberAsync(
         string id,
-        int index,
+        ModificationMember member,
         IReadOnlyList<ModificationMember> members,
         CancellationToken cancellationToken = default);
 
@@ -230,12 +230,25 @@ public sealed class ModificationService : IModificationService
             record => record with { Members = [.. record.Members, member with { AddedAt = DateTimeOffset.Now }] },
             cancellationToken);
 
-    public Task<bool> RemoveMemberAsync(string id, int index, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 行の身元（ユーザ判断 2026-09-21・J5）。**位置では指さない**——
+    /// 画面は読み込んだ時点の位置を送るので、その間に並び替え・外す・足すが入ると別の行に当たる。
+    /// 同じ商品を2回足せるので、商品IDだけでも足りない。足した日時と使ったファイルまで見て1行に決める。
+    /// </summary>
+    private static bool IsSame(ModificationMember a, ModificationMember b)
+        => string.Equals(a.ItemId, b.ItemId, StringComparison.Ordinal)
+            && a.AddedAt == b.AddedAt
+            && a.VariationId == b.VariationId
+            && string.Equals(a.FileHash, b.FileHash, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(a.Package, b.Package, StringComparison.Ordinal);
+
+    public Task<bool> RemoveMemberAsync(string id, ModificationMember member, CancellationToken cancellationToken = default)
         => UpdateAsync(
             id,
             record =>
             {
-                if (index < 0 || index >= record.Members.Count)
+                var index = record.Members.ToList().FindIndex(entry => IsSame(entry, member));
+                if (index < 0)
                 {
                     return record;
                 }
@@ -250,17 +263,18 @@ public sealed class ModificationService : IModificationService
     /// 外す・戻す（ユーザ指示 2026-09-19）。行も記録（どのファイル・どの unitypackage）も残し、印だけを付け外しする。
     /// 並びの位置も変えない（戻したときに導入の順が崩れない）
     /// </summary>
-    public Task<bool> SetMemberDetachedAsync(string id, int index, bool detached, CancellationToken cancellationToken = default)
+    public Task<bool> SetMemberDetachedAsync(string id, ModificationMember member, bool detached, CancellationToken cancellationToken = default)
         => UpdateAsync(
             id,
             record =>
             {
-                if (index < 0 || index >= record.Members.Count || record.Members[index].Detached == detached)
+                var members = record.Members.ToList();
+                var index = members.FindIndex(entry => IsSame(entry, member));
+                if (index < 0 || members[index].Detached == detached)
                 {
                     return record;
                 }
 
-                var members = record.Members.ToList();
                 members[index] = members[index] with { Detached = detached };
                 return record with { Members = members };
             },
@@ -268,7 +282,7 @@ public sealed class ModificationService : IModificationService
 
     public Task<bool> MoveMemberAsync(
         string id,
-        int index,
+        ModificationMember member,
         int delta,
         CancellationToken cancellationToken = default)
         => UpdateAsync(
@@ -276,8 +290,9 @@ public sealed class ModificationService : IModificationService
             record =>
             {
                 var members = record.Members.ToList();
+                var index = members.FindIndex(entry => IsSame(entry, member));
                 var to = index + delta;
-                if (index < 0 || index >= members.Count || to < 0 || to >= members.Count)
+                if (index < 0 || to < 0 || to >= members.Count)
                 {
                     return record;
                 }
@@ -291,7 +306,7 @@ public sealed class ModificationService : IModificationService
 
     public async Task<bool> ReplaceMemberAsync(
         string id,
-        int index,
+        ModificationMember member,
         IReadOnlyList<ModificationMember> members,
         CancellationToken cancellationToken = default)
     {
@@ -305,7 +320,8 @@ public sealed class ModificationService : IModificationService
             id,
             record =>
             {
-                if (index < 0 || index >= record.Members.Count)
+                var index = record.Members.ToList().FindIndex(entry => IsSame(entry, member));
+                if (index < 0)
                 {
                     return record;
                 }

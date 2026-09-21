@@ -84,9 +84,6 @@ public sealed class PackageChoiceSection
 
     public required IReadOnlyList<PackageChoiceGroup> Groups { get; init; }
 
-    /// <summary>改変の中の位置。改変から送るとき、選んだファイルをこの行に記録する。</summary>
-    public int? MemberIndex { get; init; }
-
     /// <summary>チェックした物。見えている順（上から）に送る。</summary>
     public IReadOnlyList<PackageChoiceRow> Checked => Groups.SelectMany(group => group.Rows).Where(row => row.IsChecked).ToList();
 
@@ -104,7 +101,7 @@ public sealed class PackageChoiceSection
         .ToList();
 
     /// <summary>候補が2つ以上あるときだけ作る。1つなら選ぶまでもないので null（今までどおり聞かずに送る）。</summary>
-    public static PackageChoiceSection? Build(ItemRecord item, int? memberIndex = null)
+    public static PackageChoiceSection? Build(ItemRecord item)
     {
         var variations = item.Booth.Variations;
         var candidates = new List<(PackageChoiceRow Row, string Key, string Label, int Order)>();
@@ -145,7 +142,6 @@ public sealed class PackageChoiceSection
         return new PackageChoiceSection
         {
             Item = item,
-            MemberIndex = memberIndex,
             Groups = candidates
                 .GroupBy(candidate => candidate.Key, StringComparer.OrdinalIgnoreCase)
                 .OrderBy(group => group.First().Order)

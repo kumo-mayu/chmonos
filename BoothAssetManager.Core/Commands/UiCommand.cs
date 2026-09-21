@@ -272,19 +272,24 @@ public abstract record UiCommand
     /// <summary>使ったものを足す。**末尾に付く**（並びが導入の順）</summary>
     public record AddModificationMember(string Id, Models.ModificationMember Member) : UiCommand;
 
-    /// <summary>外す・戻す（行と記録は残す。ユーザ指示 2026-09-19）。位置で指す</summary>
-    public record SetModificationMemberDetached(string Id, int Index, bool Detached) : UiCommand;
+    // 使ったものを指すのは**位置ではなく行そのもの**（ユーザ判断 2026-09-21・J5）。
+    // 画面は読み込んだ時点の位置を送るので、その間に並びが変わると別の行に当たっていた。
+    // 並びは配列の順のまま（人が並べ替えられる）で、指し方だけを変える
 
-    /// <summary>位置で完全に消す（外した行の「削除」から。記録も残らない）。並びが意味を持つので商品IDでは指さない</summary>
-    public record RemoveModificationMember(string Id, int Index) : UiCommand;
+    /// <summary>外す・戻す（行と記録は残す。ユーザ指示 2026-09-19）。</summary>
+    public record SetModificationMemberDetached(string Id, Models.ModificationMember Member, bool Detached) : UiCommand;
 
-    public record MoveModificationMember(string Id, int Index, int Delta) : UiCommand;
+    /// <summary>完全に消す（外した行の「削除」から。記録も残らない）。</summary>
+    public record RemoveModificationMember(string Id, Models.ModificationMember Member) : UiCommand;
+
+    public record MoveModificationMember(string Id, Models.ModificationMember Member, int Delta) : UiCommand;
 
     /// <summary>
     /// 手で足した使ったもの（どのファイルか分からない行）に、Unityへ送るときに選んだファイルを記録する。
-    /// 2つ選べば、その位置に2行並ぶ
+    /// 2つ選べば、その行の場所に2行並ぶ
     /// </summary>
-    public record RecordModificationMemberFiles(string Id, int Index, IReadOnlyList<Models.ModificationMember> Members) : UiCommand;
+    public record RecordModificationMemberFiles(
+        string Id, Models.ModificationMember Member, IReadOnlyList<Models.ModificationMember> Members) : UiCommand;
 
     /// <summary>改変に画像を足す。商品と同じ圧縮を通す</summary>
     public record AddModificationImage(string Id, byte[] Bytes) : UiCommand;

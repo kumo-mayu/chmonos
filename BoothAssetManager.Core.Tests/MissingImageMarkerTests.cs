@@ -118,10 +118,12 @@ public class MissingImageMarkerTests : IDisposable
     }
 
     /// <summary>
-    /// **一時エラーでは印を置かない。**商品が消えた証拠にならないので、次回もう一度取りに行く。
+    /// **一時エラーでは404の印を置かない**（商品が消えた証拠にならない）。
+    /// ただし**しばらく休む印は置く**（ユーザ判断 2026-09-21・G6）——
+    /// 印が無かったので、403・接続失敗・読めない画像を起動のたびに取り直していた。
     /// </summary>
     [Fact]
-    public async Task DoesNotMarkAnImageThatOnlyFailedTemporarily()
+    public async Task RestsBeforeAskingAgainForAnImageThatFailedTemporarily()
     {
         _flaky.Add(Url(1));
 
@@ -131,9 +133,28 @@ public class MissingImageMarkerTests : IDisposable
         Assert.Equal(0, result.Missing);
         Assert.False(HasMarker(1));
 
-        // 次に呼べばまた取りに行く
+        // 休んでいる間は取りに行かない
         _requests.Clear();
         await _images.SyncAsync(ItemId, Images(1));
+        Assert.Empty(_requests);
+    }
+
+    /// <summary>休みが明けたら、もう一度取りに行く（「もう無い」と決めつけない）。</summary>
+    [Fact]
+    public async Task AsksAgainOnceTheRestIsOver()
+    {
+        _flaky.Add(Url(1));
+        await _images.SyncAsync(ItemId, Images(1));
+
+        // 印の日時を8日前にする（休むのは7日）
+        var marker = Path.Combine(
+            _paths.ItemImagesDir(ItemId),
+            Core.Images.ImagePipeline.RetryMarkerFor(Url(1)));
+        File.SetLastWriteTimeUtc(marker, DateTime.UtcNow.AddDays(-8));
+
+        _requests.Clear();
+        await _images.SyncAsync(ItemId, Images(1));
+
         Assert.NotEmpty(_requests);
     }
 

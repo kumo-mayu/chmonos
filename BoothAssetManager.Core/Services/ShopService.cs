@@ -607,7 +607,48 @@ public sealed class ShopService : IShopService
     /// 見えていないカードまで絵を読み始める（行を単位にした仮想化の狙いが崩れる）
     /// </summary>
     public IReadOnlyList<ShopSummary> ShopsNeedingIcons(IEnumerable<ShopSummary> shops)
-        => shops.Where(shop => shop.IconPath is null && shop.ThumbnailUrl is not null).ToList();
+    {
+        // 一度当たった店はしばらく休む（ユーザ判断 2026-09-21・G5）。
+        // 間隔はバナーと同じ設定を使う——どちらも「ショップの画像を確かめ直す頻度」で、分ける理由が無い
+        var since = DateTimeOffset.Now.AddDays(-Math.Max(1, _settings.ShopBannerRecheckDays));
+        var checkedAt = _store.ShopBanners.Load()
+            .Where(record => record.IconCheckedAt is not null)
+            .ToDictionary(record => record.Subdomain, record => record.IconCheckedAt!.Value, StringComparer.OrdinalIgnoreCase);
+
+        return shops
+            .Where(shop => shop.IconPath is null && shop.ThumbnailUrl is not null)
+            .Where(shop => !checkedAt.TryGetValue(shop.Subdomain, out var last) || last < since)
+            .ToList();
+    }
+
+    /// <summary>アイコンを取りに行ったことを控える（取れても取れなくても）。</summary>
+    private Task NoteIconCheckedAsync(string subdomain, CancellationToken cancellationToken)
+        => _store.ShopBanners.UpdateAsync(
+            records =>
+            {
+                var index = records.FindIndex(record =>
+                    string.Equals(record.Subdomain, subdomain, StringComparison.OrdinalIgnoreCase));
+
+                if (index >= 0)
+                {
+                    records[index] = records[index] with { IconCheckedAt = DateTimeOffset.Now };
+                }
+                else
+                {
+                    records.Add(new ShopBannerRecord
+                    {
+                        Subdomain = subdomain,
+
+                        // バナーはまだ調べていない。調べた日時を入れると、バナー探しの方まで休んでしまう
+                        HasBanner = false,
+                        CheckedAt = DateTimeOffset.MinValue,
+                        IconCheckedAt = DateTimeOffset.Now,
+                    });
+                }
+
+                return records;
+            },
+            cancellationToken);
 
     public async Task<int> SyncIconsAsync(
         IReadOnlyList<ShopSummary> shops,
@@ -621,8 +662,13 @@ public sealed class ShopService : IShopService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!await images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken)
-                || _store.Paths.FindShopIcon(shop.Subdomain) is not { } path)
+            var got = await images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
+
+            // **取りに行ったことを記録する**（ユーザ判断 2026-09-21・G5）。
+            // 記録が無かったので、取れない店へはショップ一覧を開くたびに何度でも取りに行っていた
+            await NoteIconCheckedAsync(shop.Subdomain, cancellationToken);
+
+            if (!got || _store.Paths.FindShopIcon(shop.Subdomain) is not { } path)
             {
                 continue;
             }

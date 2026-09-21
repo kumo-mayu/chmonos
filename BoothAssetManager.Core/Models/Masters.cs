@@ -80,6 +80,15 @@ public sealed record ShopBannerRecord
     /// 一度の結果で永久に決めつけない。通信に失敗したときはここを更新しない。
     /// </summary>
     public required DateTimeOffset CheckedAt { get; init; }
+
+    /// <summary>
+    /// アイコンを最後に取りに行った日時（ユーザ判断 2026-09-21・G5）。
+    ///
+    /// **取れなかった印が無かったので、ショップ一覧を開くたびに同じ店へ何度でも取りに行っていた**
+    /// （対象の選び方が「手元にアイコンが無く、URLはある店」だけだった）。
+    /// 商品の画像やバナーと同じく、一度当たったら一定期間は休む。取れた店は手元にファイルがあるので対象から外れる。
+    /// </summary>
+    public DateTimeOffset? IconCheckedAt { get; init; }
 }
 
 /// <summary>

@@ -528,7 +528,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     {
         // 使ったものの並び（導入の順）に積む。どのファイルか記録の無い行で、送れる物が2つ以上ある商品は、
         // 送り先を決めた後に選ばせる（ユーザ判断 2026-09-13。前は全部送っていて、古い版や別の種類まで入った）
-        var steps = new List<(int Index, string ItemId, IReadOnlyList<UnityPackageEntry> Fixed, PackageChoiceSection? Choice)>();
+        var steps = new List<(int Index, ModificationMember Member, string ItemId, IReadOnlyList<UnityPackageEntry> Fixed, PackageChoiceSection? Choice)>();
         var nothing = new List<string>();
 
         foreach (var row in rows)
@@ -542,9 +542,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             }
 
             var choice = row.Member.FileHash is null && packages.Count > 1
-                ? PackageChoiceSection.Build(item!, row.Index)
+                ? PackageChoiceSection.Build(item!)
                 : null;
-            steps.Add((row.Index, row.Member.ItemId, choice is null ? packages : [], choice));
+            steps.Add((row.Index, row.Member, row.Member.ItemId, choice is null ? packages : [], choice));
         }
 
         if (steps.Count == 0)
@@ -622,7 +622,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         foreach (var step in steps.Where(step => step.Choice is { Checked.Count: > 0 }).OrderByDescending(step => step.Index))
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.RecordModificationMemberFiles(Record.Id, step.Index, step.Choice!.CheckedMembers));
+                new UiCommand.RecordModificationMemberFiles(Record.Id, step.Member, step.Choice!.CheckedMembers));
             if (result is CommandResult.Failed failed)
             {
                 Status = failed.Message;
@@ -696,7 +696,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
-        if (await UnityMemberSelect.RunAsync(_services, Record, row.Index, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => Status = text)))
+        if (await UnityMemberSelect.RunAsync(_services, Record, row.Member, row.Name, row.SourceText, item, Notices.LineOrWindow("Unityで選択", text => Status = text)))
         {
             await ReloadAsync();
         }
@@ -1425,7 +1425,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         await _services.Commands.ExecuteAsync(
-            new UiCommand.SetModificationMemberDetached(Record.Id, row.Index, detached));
+            new UiCommand.SetModificationMemberDetached(Record.Id, row.Member, detached));
 
         Status = detached
             ? $"「{row.Name}」を外しました。行は薄く残るので、「戻す」で戻せます。"
@@ -1461,7 +1461,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         await _services.Commands.ExecuteAsync(
-            new UiCommand.RemoveModificationMember(Record.Id, row.Index));
+            new UiCommand.RemoveModificationMember(Record.Id, row.Member));
 
         Status = $"「{row.Name}」を削除しました。";
         await ReloadAsync();
@@ -1475,7 +1475,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         await _services.Commands.ExecuteAsync(
-            new UiCommand.MoveModificationMember(Record.Id, row.Index, delta));
+            new UiCommand.MoveModificationMember(Record.Id, row.Member, delta));
 
         await ReloadAsync();
     }
