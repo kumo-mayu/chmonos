@@ -125,9 +125,10 @@
                 <!--
                     監視対象。取り込み対象（今回積んだもの）とは別物なので、別の枠に出す。
                     こちらは起動をまたいで残り、次に開いたときに見に行く範囲になる。
+                    **空でも枠は出す**（2026-09-21）——隠していたので、中に置いた
+                    「見つからないファイルを探す」（G17）ごと見えなくなっていた。空表示には次の一手を書く
                 -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
-                        Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>
                         <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <StackPanel>
@@ -157,6 +158,10 @@
                                 </DockPanel>
                             </StackPanel>
                         </Border>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,12,18,14"
+                                   Text="まだ監視しているフォルダはありません。フォルダを上の枠に落とすと、監視するかどうかを聞きます。"
+                                   Visibility="{Binding HasWatched, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
