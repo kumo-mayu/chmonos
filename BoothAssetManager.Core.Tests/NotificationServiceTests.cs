@@ -266,4 +266,56 @@ public class NotificationServiceTests : IDisposable
         Assert.False(record.IsRead);
         Assert.Contains("別の無いタグ", record.Detail);
     }
+
+    /// <summary>
+    /// 説明文はあるのに見出しが0件、という判定は**②（商品ページ）を取った商品だけ**で数える。
+    /// 説明文は商品JSON（①）から入り、見出しはHTMLからしか入らないので、
+    /// ①だけ済んだ商品はいつでも「読み取れなかった」ように見える。
+    /// 取り込みを②の前で止めただけで「形式が変わったかもしれません」が出ていた（2026-09-22）。
+    /// </summary>
+    [Fact]
+    public async Task DoesNotBlameTheFormatForItemsWhosePageIsNotFetchedYet()
+    {
+        foreach (var index in Enumerable.Range(0, 8))
+        {
+            await _store.Items.SaveAsync(new ItemRecord
+            {
+                Id = $"{index}",
+                Booth = new BoothBlock
+                {
+                    Name = $"商品{index}",
+                    FetchedAt = DateTimeOffset.Now,
+                    Description = new string('あ', 300),
+                },
+            });
+        }
+
+        Assert.False(await Create().DetectPageStructureAsync());
+        Assert.Empty(Create().Load());
+    }
+
+    /// <summary>②を取ってあるのに見出しが揃って0件なら、そのときは知らせる。</summary>
+    [Fact]
+    public async Task BlamesTheFormatOnceThePagesAreFetched()
+    {
+        foreach (var index in Enumerable.Range(0, 8))
+        {
+            await _store.Items.SaveAsync(new ItemRecord
+            {
+                Id = $"{index}",
+                Booth = new BoothBlock
+                {
+                    Name = $"商品{index}",
+                    FetchedAt = DateTimeOffset.Now,
+                    Description = new string('あ', 300),
+                },
+            });
+
+            // ②を通った印。説明の無い商品でも空のファイルを置くので、在ること自体が印になる
+            await File.WriteAllTextAsync(_store.Paths.ItemHtmlFile($"{index}"), "<p>本文</p>");
+        }
+
+        Assert.True(await Create().DetectPageStructureAsync());
+        Assert.Contains(Create().Load(), record => record.Kind == NotificationKind.PageStructureChanged);
+    }
 }

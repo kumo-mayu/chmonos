@@ -285,6 +285,14 @@ public sealed class NotificationService : INotificationService
 
         var recent = loaded.Items
             .Where(item => item.Booth.FetchedAt is { } at && at >= since)
+            // **②（商品ページ）をまだ取っていない商品は数えない**（ユーザ指摘 2026-09-22）。
+            // 説明文は商品JSON（①）から入るが、見出しはHTML（②）からしか入らない。
+            // だから①だけ済んだ商品は必ず「説明文はあるのに見出しが0件」に見え、
+            // **HTMLを1件も取っていないのに「形式が変わったかもしれません」が出ていた**
+            // （取り込みを②の前で止めた保存先で、27件中27件が該当して実際に出た）。
+            // ②が済んだかは説明のファイルが在るかで見る——説明の無い商品でも空のファイルを置くので、
+            // 在る＝②を通った、になる（取り込みが `withoutPage` を選ぶのと同じ見方）
+            .Where(item => File.Exists(_store.Paths.ItemHtmlFile(item.Id)))
             .Where(item => (item.Booth.Description?.Length ?? 0) >= StructureBodyLength)
             .ToList();
 
