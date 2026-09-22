@@ -808,6 +808,7 @@ public sealed partial class MainViewModel : ViewModelBase
             if (SetField(ref _isImporting, value))
             {
                 RelayCommand.RaiseCanExecuteChanged();
+                NoteInterruptedImportChanged();
 
                 // 取り込みが終わったら（中断を含む）③待ちの印は全部外れる。
                 // ②③の途中で止めた商品は「取り込み中」の札のまま一覧に残っているので、読み直して外す
@@ -824,6 +825,28 @@ public sealed partial class MainViewModel : ViewModelBase
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 前回の取り込みが途中で止まったままか。**どの画面からでも分かるように、下の帯に出す**
+    /// （ユーザ指摘 2026-09-22：「アプリを途中で落とした場合に再開ボタンが取り込み画面にないのは変」）。
+    ///
+    /// 帯は常設ではない。**前回の続きが残っている間**と、**通信している間**だけ出す（ユーザ判断 2026-09-22）。
+    /// 走っている最中は通信の帯が同じ場所に出るので、こちらは出さない（2本並べない）。
+    /// 半端なままだと、②が済んでいない商品は説明文が無く、③が走っていないので編集にも出てこない
+    /// ——解消するまで出し続ける（未確定・要確認・形式の変化と同じ扱い）。
+    /// </summary>
+    public bool HasInterruptedImport
+        => !IsImporting && _services.Store.ImportState.Load().HasProgress;
+
+    public string InterruptedImportText
+        => _services.Store.ImportState.Load() is { HasProgress: true } state ? state.Text : string.Empty;
+
+    /// <summary>記録を読み直して帯を出し入れする。取り込みの開始・中断・「やめる」から呼ぶ。</summary>
+    public void NoteInterruptedImportChanged()
+    {
+        OnPropertyChanged(nameof(HasInterruptedImport));
+        OnPropertyChanged(nameof(InterruptedImportText));
     }
 
     private int _pendingItemCount;

@@ -81,7 +81,9 @@ public sealed class ImportViewModel : ViewModelBase
         var previous = services.Store.ImportState.Load();
         if (previous.HasProgress)
         {
-            _interruptedText = previous.Text + "。もう一度押すと続きから進みます。";
+            // 「もう一度押すと続きから進みます」とだけ書いていたが、取り込み対象は次の起動で空に戻るので、
+            // 指していた「取り込みを開始」は押せない状態だった。押せるボタンを横に置く（2026-09-22）
+            _interruptedText = previous.Text + "。";
         }
 
         // 実行中でも足せる。「1ファイルだけ後から見つかった」は普通に起きるので、
@@ -320,6 +322,53 @@ public sealed class ImportViewModel : ViewModelBase
     }
 
     public bool HasInterrupted => !string.IsNullOrEmpty(InterruptedText);
+
+    private RelayCommand? _resume;
+    private RelayCommand? _discardInterrupted;
+
+    /// <summary>
+    /// 前回の続きから進む。**対象を積むところまでやる。**
+    ///
+    /// 前は「もう一度押すと続きから進みます」と書いてあるだけだったが、取り込み対象は
+    /// 次の起動で空に戻る（履歴とは別物）ので、指している「取り込みを開始」は押せない状態だった。
+    /// 案内が押せないボタンを指していた（ユーザ指摘 2026-09-22）。
+    /// 積むのは前回の対象だけ（<see cref="Core.Scanning.ImportState.Targets"/>）——
+    /// 履歴を全部積むと、そのとき対象にしていなかったフォルダまで走査してしまう。
+    /// </summary>
+    public RelayCommand ResumeCommand => _resume ??= new RelayCommand(
+        () =>
+        {
+            foreach (var path in _services.Store.ImportState.Load().Targets)
+            {
+                if (!Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    Folders.Add(path);
+                }
+            }
+
+            OnPropertyChanged(nameof(HasFolders));
+            RelayCommand.RaiseCanExecuteChanged();
+
+            if (Folders.Count > 0)
+            {
+                StartOrStackAsync().Forget();
+            }
+        },
+        () => !IsRunning);
+
+    /// <summary>
+    /// 続きを進めないことにする。記録だけ消す（**取れた分は消さない**）。
+    ///
+    /// 解消するまで出し続ける決まりなので、続ける気の無い人（取り込み元を消した・
+    /// 間違って落としたフォルダだった）に逃げ道が要る（ユーザ判断 2026-09-22）。
+    /// </summary>
+    public RelayCommand DiscardInterruptedCommand => _discardInterrupted ??= new RelayCommand(
+        () =>
+        {
+            _services.Store.ImportState.SaveAsync(new Core.Scanning.ImportState()).Forget();
+            InterruptedText = null;
+            _main.NoteInterruptedImportChanged();
+        });
 
     /// <summary>積んだ結果。押しても何も起きなかったときこそ要る。</summary>
     public string? StackNotice

@@ -255,6 +255,29 @@ public class ImportInterleaveTests : IDisposable
     }
 
 
+    /// <summary>
+    /// 中断の記録は**何を対象にしていたか**も覚える。覚えないと「続きから進む」が積み直せない
+    /// （取り込み対象は次の起動で空に戻り、履歴を全部積むのでは対象外のフォルダまで走査してしまう）。
+    /// </summary>
+    [Fact]
+    public async Task RemembersWhatTheImportWasAimedAt()
+    {
+        var folder = CreateSource("aim", "111", "222");
+        IReadOnlyList<string>? targets = null;
+
+        var progress = new InlineProgress(report =>
+        {
+            if (report.Phase == ImportPhase.FetchingHtml && targets is null)
+            {
+                targets = _store.ImportState.Load().Targets;
+            }
+        });
+
+        await _pipeline.RunAsync(new ImportWorkSet([folder]), progress);
+
+        Assert.Equal([folder], targets!);
+    }
+
     /// <summary>取得済みの商品は③待ちにしない。前の取り込みで編集できていたものを塞がない。</summary>
     [Fact]
     public async Task DoesNotHoldItemsThatWereAlreadyThere()

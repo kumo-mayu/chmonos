@@ -996,7 +996,13 @@ public sealed class ImportPipeline : IImportPipeline
             // 件数だけでも残しておかないと、中断したこと自体が黙って起きる
             totals.NoteFetched();
             await _store.ImportState.SaveAsync(
-                new ImportState { Done = totals.FetchedTotal, Total = totals.PendingTotal, StoppedAt = DateTimeOffset.Now },
+                new ImportState
+                {
+                    Done = totals.FetchedTotal,
+                    Total = totals.PendingTotal,
+                    StoppedAt = DateTimeOffset.Now,
+                    Targets = work.Accepted,
+                },
                 cancellationToken);
 
             // アイコンのURLは商品JSONにしか入っていないので、ここで控えて⑥で取りに行く

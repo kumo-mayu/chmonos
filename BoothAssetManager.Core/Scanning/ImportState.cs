@@ -25,6 +25,16 @@ public sealed record ImportState
     public DateTimeOffset StoppedAt { get; init; }
 
     /// <summary>
+    /// 何を対象にしていたか。**続きから進むボタンが、これを積み直して始める。**
+    ///
+    /// 持たないと「続きから」が押せない。取り込み対象は次の起動で空に戻る（履歴とは別物）ので、
+    /// 人は履歴まで送って積み直す必要があり、「もう一度押すと続きから進みます」という案内が
+    /// 押せないボタンを指していた（ユーザ指摘 2026-09-22）。
+    /// 履歴を全部積むのでは、そのとき対象にしていなかったフォルダまで走査してしまう。
+    /// </summary>
+    public IReadOnlyList<string> Targets { get; init; } = [];
+
+    /// <summary>
     /// 読む価値があるか。
     ///
     /// **<see cref="Done"/> が <see cref="Total"/> に届いていれば出さない。**

@@ -519,6 +519,24 @@
                 </DockPanel>
             </Border>
 
+            <!--
+                前回の取り込みが途中で止まったままだと、どの画面からも分からず、再開の道も取り込み画面にしか無かった
+                （ユーザ指摘 2026-09-22）。**帯は常設ではない**——続きが残っている間と、通信している間だけ出す。
+                走っている間は下の通信の帯が同じ場所に出るので、こちらは引っ込む（2本並べない）
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasInterruptedImport, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="34">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="続きから進む" Command="{Binding Import.ResumeCommand}" />
+                        <Button Content="やめる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding InterruptedImportText}" Style="{StaticResource Caption}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
+
             <!-- 押すと取り込みの画面へ（U24）。通信の話を見に行く先は1つにしておく -->
             <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAlt}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
