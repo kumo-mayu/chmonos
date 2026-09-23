@@ -97,4 +97,19 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(0, usage.ImageCount);
         Assert.Equal(_root, usage.Root);
     }
+
+    /// <summary>
+    /// 保存が重なっても、手元の設定はディスクと同じ最後の値になる。
+    /// 前は錠を出てから手元へ代入していたので、先に書いた方が後から代入され、古い値を持ち続け得た。
+    /// </summary>
+    [Fact]
+    public async Task KeepsTheLatestSettingsWhenSavesOverlap()
+    {
+        await Task.WhenAll(Enumerable.Range(0, 40).Select(_ => Task.Run(() =>
+            _service.UpdateAsync(current => current with { FetchIntervalMs = current.FetchIntervalMs + 1 }))));
+
+        var onDisk = _store.Settings.Load();
+        Assert.Equal(AppSettings.MinFetchIntervalMs + 40, onDisk.FetchIntervalMs);
+        Assert.Equal(onDisk.FetchIntervalMs, _service.Current.FetchIntervalMs);
+    }
 }

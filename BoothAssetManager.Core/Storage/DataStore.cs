@@ -31,13 +31,23 @@ public sealed class JsonFileStore<T> where T : class, new()
     /// 錠はこの窓口1つにつき1本。アプリは <see cref="DataStore"/> を1つだけ持つので、書き手どうしは重ならない。
     /// </summary>
     /// <returns>書いた値。</returns>
-    public async Task<T> UpdateAsync(Func<T, T> change, CancellationToken cancellationToken = default)
+    public Task<T> UpdateAsync(Func<T, T> change, CancellationToken cancellationToken = default)
+        => UpdateAsync(change, written: null, cancellationToken);
+
+    /// <summary>
+    /// <see cref="UpdateAsync(Func{T, T}, CancellationToken)"/> と同じだが、書けたら**錠を持ったまま** <paramref name="written"/> を呼ぶ。
+    ///
+    /// 書いた値を手元にも持つ（<c>SettingsService.Current</c> など）とき、錠を出てから代入すると、
+    /// 2本の更新が重なったときに**先に書いた方の値が後から代入されて**、ディスクより古い値を持ち続ける。
+    /// </summary>
+    public async Task<T> UpdateAsync(Func<T, T> change, Action<T>? written, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
             var updated = change(Load());
             await SaveAsync(updated, cancellationToken);
+            written?.Invoke(updated);
             return updated;
         }
         finally
