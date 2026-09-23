@@ -161,9 +161,6 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。
-    /// </summary>
-    /// <summary>
     /// お気に入りの星を切り替える（#70・ユーザ指示「searchのitem要素で空いている下の方に星のトグル」）。
     ///
     /// 星だけを名指しして書く。カードが抱えているのは前回の読み込み時の写しで、
@@ -190,6 +187,9 @@ public sealed partial class SearchViewModel
         NoteFavoriteChanged(card.Item.Id, next);
     }
 
+    /// <summary>
+    /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。
+    /// </summary>
     private async Task HideItemAsync(ItemCardViewModel? card)
     {
         if (card is null)
@@ -199,10 +199,17 @@ public sealed partial class SearchViewModel
 
         // カードが抱えているのは前回の読み込み時の写しなので、非表示だけを名指しして書く。
         // 丸ごと書き戻すと、その間に取り込みや検出が入れた項目まで古い値に戻る
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
             card.Item.Id,
             card.Item.Local with { IsHidden = true },
             LocalOwners.Visibility));
+
+        // 確かめずに消すかわりに、下の帯で戻し方と「非表示を解除」を出す（動線の点検 B2）。
+        // 書けなかったときは出さない（していないことを「しました」と言わない）
+        if (result is not Core.Commands.CommandResult.Failed)
+        {
+            _main?.NoteHidden(card.Item);
+        }
 
         await ReloadAsync();
     }

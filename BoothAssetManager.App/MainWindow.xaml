@@ -563,6 +563,25 @@
                 </DockPanel>
             </Border>
 
+            <!--
+                カードの右クリックで非表示にした知らせ（点検 2026-09-23・動線の点検 B2）。戻せる操作なので窓では聞かず、
+                戻す場所とその場の解除をここに出す（登録の帯と同じ場所・同じ見た目）。押すか閉じるまで残す
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasHiddenNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissHiddenCommand}" AutomationProperties.Name="非表示の知らせを閉じる"
+                            ToolTip="この知らせを閉じます。非表示のままです（設定の「非表示にした商品」から戻せます）。" />
+                    <Button DockPanel.Dock="Right" Content="非表示を解除" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding UnhideRecentCommand}"
+                            ToolTip="今非表示にした商品を、検索とショップにまた出します。" />
+                    <TextBlock Text="{Binding HiddenNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding HiddenNoticeText}" />
+                </DockPanel>
+            </Border>
+
             <!-- 画面内検索（U20）の帯を今の画面の上に重ねるため、同じ枠に置く -->
             <Grid>
                 <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" />
