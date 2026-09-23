@@ -1,4 +1,5 @@
 using BoothAssetManager.Core.Booth;
+using BoothAssetManager.Core.Diagnostics;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Scanning;
@@ -525,34 +526,43 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? (await FetchNewItemAsync(itemId, cancellationToken)).Item;
-        if (item is null)
+        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken)).Item is null)
         {
             return false;
         }
 
         var (count, bytes) = RegisteredFolderSet.Measure(folderPath);
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
-
-        var folders = item.Local.LocalFolders
-            .Where(folder => !string.Equals(
-                Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        folders.Add(new LocalFolderRecord
+        var record = new LocalFolderRecord
         {
             Path = normalized,
             FileCount = count,
             TotalBytes = bytes,
             RegisteredAt = DateTimeOffset.Now,
             LastSeenAt = DateTimeOffset.Now,
-        });
+        };
 
-        await _store.Items.SaveLocalAsync(
+        // BOOTH から取る数秒と、フォルダを測る時間（大きなフォルダでは数十秒）を挟むので、
+        // 一覧は書く直前の今の値に当てる。始めに読んだ写しで書くと、その間に取り込みが足したフォルダが消えていた
+        var written = await _store.Items.ChangeLocalAsync(
             itemId,
-            item.Local with { LocalFolders = folders },
+            current => current with
+            {
+                LocalFolders =
+                [
+                    .. current.LocalFolders.Where(folder => !string.Equals(
+                        Path.TrimEndingDirectorySeparator(folder.Path), normalized, StringComparison.OrdinalIgnoreCase)),
+                    record,
+                ],
+            },
             LocalOwners.Import,
-            cancellationToken: cancellationToken);
+            cancellationToken);
+
+        // 測っている間に商品が消されていたら、未確定からも外さない（行き先が無くなったので）
+        if (!written)
+        {
+            return false;
+        }
 
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
         return true;
@@ -635,7 +645,31 @@ public sealed class ItemService : IItemService
             },
         };
 
-        await _store.Items.SaveAsync(item, cancellationToken);
+        // **「無い」と判断した時点と書く時点がずれている**（取り込みの①と同じ・L13）。
+        // BOOTH へ2回問い合わせる3秒以上の間に、取り込みや別の「このIDで登録」が同じ商品を作ることがあり、
+        // 丸ごと書くとそちらが入れたファイル・名前・購入記録が消えていた。
+        // 書く直前に読み直し、あれば取ってきた booth と取得の記録だけを重ねる（手元のファイルは呼ぶ側が足す）
+        if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } appeared)
+        {
+            await _store.Items.SaveLocalAsync(
+                itemId,
+                appeared.Local with
+                {
+                    ConsecutiveNotFoundCount = 0,
+                    IsDelisted = false,
+                    LastFetchedAt = item.Local.LastFetchedAt,
+                    NextFetchDueAt = item.Local.NextFetchDueAt,
+                },
+                LocalOwners.Fetch,
+                item.Booth,
+                cancellationToken);
+
+            item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? item;
+        }
+        else
+        {
+            await _store.Items.SaveAsync(item, cancellationToken);
+        }
 
         if (extraction.DescriptionHtml is not null)
         {
@@ -892,31 +926,21 @@ public sealed class ItemService : IItemService
             Contents = target.Contents,
         };
 
-        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (existing is not null)
+        if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken)).Item is null)
         {
-            var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, [record]);
-            await _store.Items.SaveLocalAsync(
-                itemId,
-                existing.Local with { LocalFiles = merged },
-                LocalOwners.Import,
-                cancellationToken: cancellationToken);
+            return false;
         }
-        else
-        {
-            // 取得に数秒かかるので、その間に人が触っていることがある。
-            // 作った直後でも、書くのは取り込みが持つ項目だけにする
-            var created = (await FetchNewItemAsync(itemId, cancellationToken)).Item;
-            if (created is null)
-            {
-                return false;
-            }
 
-            await _store.Items.SaveLocalAsync(
+        // 取得に数秒かかるので、その間に取り込みが同じ商品へファイルを足していることがある。
+        // 前は作った時点の写しに [このファイル] を置き換えで書いていたので、足された物が消えていた。
+        // 書く直前の一覧に足す
+        if (!await _store.Items.ChangeLocalAsync(
                 itemId,
-                created.Local with { LocalFiles = [record] },
+                current => current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, [record]) },
                 LocalOwners.Import,
-                cancellationToken: cancellationToken);
+                cancellationToken))
+        {
+            return false;
         }
 
         // 前に「この商品のものではない」と外していたなら、上の突き合わせ（LocalFileMerger）で印が下りている。
@@ -993,35 +1017,70 @@ public sealed class ItemService : IItemService
             return ItemIdChangeOutcome.SameId;
         }
 
-        var source = await _store.Items.LoadAsync(fromId, cancellationToken);
-        if (source is null)
+        if (await _store.Items.LoadAsync(fromId, cancellationToken) is not { } before)
         {
             return ItemIdChangeOutcome.SourceMissing;
+        }
+
+        // 自分で足した画像のファイルは、何かを書く前に移した先のフォルダへ写す。
+        // 元の商品を消すと画像のフォルダごと消えるので、写せなかったら何も書かずに元を残す。
+        // BOOTH から取るより前に行うのは、写せなかったときに取ってきた空の商品を残さないため
+        if (CopyUserImages(fromId, toId, before.Local.UserImages) is not { } copied)
+        {
+            return ItemIdChangeOutcome.ImagesNotMoved;
         }
 
         var prepared = await _store.Items.LoadAsync(toId, cancellationToken)
             ?? (await FetchNewItemAsync(toId, cancellationToken)).Item;
 
-        // **合わせる直前に読み直す**（技術的負債 1-5）。BOOTH から取って作ると数秒かかり、その間に取り込みが
-        // 同じ商品へファイルを足すことがある。前は取る前の写しと合わせて丸ごと書いたので、足された物が消えていた
-        var target = (prepared is null ? null : await _store.Items.LoadAsync(toId, cancellationToken) ?? prepared)
-            ?? EmptyItem(toId);
+        // **移す元は取得の後で読み直す。**BOOTH から取って作ると数秒かかり、その間に取り込みが元の商品へ
+        // ファイルを足したり、人がメモを書いたり画像を足したりする。前は取る前の写しを移したので、その分が元の商品ごと消えていた
+        var source = await _store.Items.LoadAsync(fromId, cancellationToken);
+        if (source is null)
+        {
+            DeleteQuietly(copied);
+            return ItemIdChangeOutcome.SourceMissing;
+        }
 
-        var merged = ItemIdChange.Merge(source.Local, target.Local, skippedPurchases ?? new HashSet<int>());
+        // 取っている間に足された画像の分（写し済みの物は飛ばされる）
+        if (CopyUserImages(fromId, toId, source.Local.UserImages) is not { } late)
+        {
+            DeleteQuietly(copied);
+            return ItemIdChangeOutcome.ImagesNotMoved;
+        }
 
-        // 移した先のvariation一覧で照合し直す。指していない記録は照合されず、
-        // 支出にはそのまま数えられる
-        merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, target.Booth.Variations) };
+        copied.AddRange(late);
+        var skipped = skippedPurchases ?? new HashSet<int>();
+
+        // 取れなかった間に、取り込みが同じIDの商品を作っていることがある（L13 と同じ形）。在ればそちらへ重ねる
+        prepared ??= await _store.Items.LoadAsync(toId, cancellationToken);
 
         if (prepared is null)
         {
             // 手元にも BOOTH にも無い＝新しく作る。Items.SaveAsync を使ってよいのはここだけ
-            await _store.Items.SaveAsync(target with { Local = merged }, cancellationToken);
+            var target = EmptyItem(toId);
+            var merged = ItemIdChange.Merge(source.Local, target.Local, skipped);
+            await _store.Items.SaveAsync(
+                target with { Local = merged with { Purchases = Purchase.Reconcile(merged.Purchases, target.Booth.Variations) } },
+                cancellationToken);
         }
         else
         {
-            // 移すのは手元の記録の全部なので、全項目の持ち主として書く
-            await _store.Items.SaveLocalAsync(toId, merged, Enum.GetValues<LocalField>(), cancellationToken: cancellationToken);
+            // **合わせるのは錠の中で読み直した今の値**（技術的負債 1-5）。
+            // 移すのは手元の記録の全部なので、全項目の持ち主として書く。
+            // 購入記録は移した先のvariation一覧で照合し直される（保存側）。指していない記録は支出にそのまま数える
+            var written = await _store.Items.ChangeLocalAsync(
+                toId,
+                current => ItemIdChange.Merge(source.Local, current, skipped),
+                Enum.GetValues<LocalField>(),
+                cancellationToken);
+
+            if (!written)
+            {
+                // 取った後で移した先が消された。元は消さずに残し、写した画像も片付ける
+                DeleteQuietly(copied);
+                return ItemIdChangeOutcome.TargetUnavailable;
+            }
         }
 
         // 元の商品を消すのは最後。ここまでで落ちても、中身は移した先に残っている
@@ -1035,6 +1094,63 @@ public sealed class ItemService : IItemService
         await MoveReferencesAsync(fromId, toId, cancellationToken);
 
         return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 自分で足した画像のファイルを、移した先の画像のフォルダへ写す（元は元の商品と一緒に消える）。
+    ///
+    /// **名前がぶつかったら写さない。**保存名は中身のハッシュなので、同じ名前なら同じ絵で、
+    /// 移した先の記録と1枚にまとまる（<see cref="ItemIdChange.Merge"/>）。
+    /// 元のファイルが既に無い記録はそのまま移す（元の商品でも絵は出ていなかったので、失う物は無い）。
+    /// </summary>
+    /// <returns>新しく写したファイル。写せない物があれば、写した分を片付けて null。</returns>
+    private List<string>? CopyUserImages(string fromId, string toId, IReadOnlyList<UserImage> images)
+    {
+        var fromDir = _store.Paths.ItemImagesDir(fromId);
+        var toDir = _store.Paths.ItemImagesDir(toId);
+        var copied = new List<string>();
+
+        try
+        {
+            foreach (var image in images)
+            {
+                var name = Path.GetFileName(image.FileName);
+                var from = Path.Combine(fromDir, name);
+                var to = Path.Combine(toDir, name);
+                if (!File.Exists(from) || File.Exists(to))
+                {
+                    continue;
+                }
+
+                Directory.CreateDirectory(toDir);
+                File.Copy(from, to);
+                copied.Add(to);
+            }
+
+            return copied;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            AppLog.Error("IDの変更で自分で足した画像を写す", exception);
+            DeleteQuietly(copied);
+            return null;
+        }
+    }
+
+    private static void DeleteQuietly(IEnumerable<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 片付けられなかった写しは、どの記録からも指されない1枚が残るだけ。移し替えの結果は変わらない
+                AppLog.Error("IDの変更で写した画像を片付ける", exception);
+            }
+        }
     }
 
     /// <summary>
@@ -1132,35 +1248,45 @@ public sealed class ItemService : IItemService
     {
         var loaded = await _store.Modifications.LoadAllAsync(cancellationToken);
 
-        foreach (var record in loaded.Modifications)
+        foreach (var found in loaded.Modifications)
         {
-            var usesAsAvatar = string.Equals(record.AvatarItemId, fromId, StringComparison.Ordinal);
-            var usesAsMember = record.Members.Any(member =>
-                string.Equals(member.ItemId, fromId, StringComparison.Ordinal));
-
-            if (!usesAsAvatar && !usesAsMember)
+            if (!UsesItem(found, fromId))
             {
                 continue;
             }
 
-            await _store.Modifications.SaveAsync(
-                record with
+            // 全件を読んでから1件ずつ書くまでの間に、改変の画面が名前やメモを書き、Unity から構成物が届く。
+            // 読んだ写しで丸ごと書くとそれが消えるので、錠の中で読み直した今の値に当てる
+            await _store.Modifications.UpdateAsync(
+                found.Id,
+                record =>
                 {
-                    AvatarItemId = usesAsAvatar ? toId : record.AvatarItemId,
-                    Members = usesAsMember
-                        ? record.Members
+                    if (!UsesItem(record, fromId))
+                    {
+                        return record;
+                    }
+
+                    return record with
+                    {
+                        AvatarItemId = string.Equals(record.AvatarItemId, fromId, StringComparison.Ordinal)
+                            ? toId
+                            : record.AvatarItemId,
+                        Members = [.. record.Members
                             .Select(member => string.Equals(member.ItemId, fromId, StringComparison.Ordinal)
                                 ? member with { ItemId = toId }
-                                : member)
-                            .ToList()
-                        : record.Members,
+                                : member)],
 
-                    // 触った跡は残す。あとで「なぜ変わったか」を辿れるようにする
-                    UpdatedAt = DateTimeOffset.Now,
+                        // 触った跡は残す。あとで「なぜ変わったか」を辿れるようにする
+                        UpdatedAt = DateTimeOffset.Now,
+                    };
                 },
                 cancellationToken);
         }
     }
+
+    private static bool UsesItem(ModificationRecord record, string itemId)
+        => string.Equals(record.AvatarItemId, itemId, StringComparison.Ordinal)
+            || record.Members.Any(member => string.Equals(member.ItemId, itemId, StringComparison.Ordinal));
 
     /// <summary>
     /// 自分で足す画像を1枚入れる。
@@ -1487,10 +1613,6 @@ public sealed class ItemService : IItemService
             return DetachOutcome.Missing;
         }
 
-        var files = item.Local.LocalFiles
-            .Select(file => ReferenceEquals(file, target) ? file with { Detached = true } : file)
-            .ToList();
-
         // 実体が残っているものだけ未確定へ戻す。
         // 既に消えているファイルを並べても、紐付け直す相手がいない
         var alive = target.Paths.Where(File.Exists).ToList();
@@ -1530,8 +1652,37 @@ public sealed class ItemService : IItemService
                 cancellationToken);
         }
 
-        // 手元に何も無くなったか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る
-        var becameEmpty = !files.Any(file => !file.Detached) && item.Local.LocalFolders.Count == 0;
+        // 在るかを見るのは落ちたネットワークドライブなら数秒かかり、未確定の錠も待つ。
+        // その間に取り込みが同じ商品へファイルやフォルダを足すことがあるので、
+        // 外す印は書く直前の今の一覧に付け、空になったかも今の値で見る
+        var becameEmpty = false;
+        var written = await _store.Items.ChangeLocalAsync(
+            itemId,
+            current =>
+            {
+                if (!current.LocalFiles.Any(file =>
+                        !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return null;
+                }
+
+                var files = current.LocalFiles
+                    .Select(file => !file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)
+                        ? file with { Detached = true }
+                        : file)
+                    .ToList();
+
+                // 手元に何も無くなったか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る
+                becameEmpty = !files.Any(file => !file.Detached) && current.LocalFolders.Count == 0;
+                return current with { LocalFiles = files };
+            },
+            LocalOwners.Import,
+            cancellationToken);
+
+        if (!written)
+        {
+            return DetachOutcome.Missing;
+        }
 
         // 商品ごと消すと、外した印も一緒に消える（次の取り込みで手掛かりが指せば、また作られる）
         if (becameEmpty && deleteItemWhenEmpty)
@@ -1539,12 +1690,6 @@ public sealed class ItemService : IItemService
             _store.Items.Delete(itemId);
             return DetachOutcome.ItemDeleted;
         }
-
-        await _store.Items.SaveLocalAsync(
-            itemId,
-            item.Local with { LocalFiles = files },
-            LocalOwners.Import,
-            cancellationToken: cancellationToken);
 
         return becameEmpty ? DetachOutcome.ItemNowEmpty : DetachOutcome.Detached;
     }
@@ -1574,15 +1719,26 @@ public sealed class ItemService : IItemService
             return ReattachOutcome.OwnedElsewhere;
         }
 
-        var files = item.Local.LocalFiles
-            .Select(file => ReferenceEquals(file, target) ? file with { Detached = false } : file)
-            .ToList();
-
-        await _store.Items.SaveLocalAsync(
+        // 全件を読んで確かめる間に取り込みが一覧を書き換えることがあるので、書く直前の今の一覧で戻す
+        var written = await _store.Items.ChangeLocalAsync(
             itemId,
-            item.Local with { LocalFiles = files },
+            current => current.LocalFiles.Any(file =>
+                    file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
+                ? current with
+                {
+                    LocalFiles = [.. current.LocalFiles
+                        .Select(file => file.Detached && string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)
+                            ? file with { Detached = false }
+                            : file)],
+                }
+                : null,
             LocalOwners.Import,
-            cancellationToken: cancellationToken);
+            cancellationToken);
+
+        if (!written)
+        {
+            return ReattachOutcome.Missing;
+        }
 
         await RemoveUnresolvedAsync(hash, cancellationToken);
 
