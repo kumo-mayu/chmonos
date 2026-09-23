@@ -97,10 +97,20 @@ public sealed class DueRefresh
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var outcome = await _items.RefreshAsync(itemId, cancellationToken);
-            if (outcome is RefreshOutcome.Updated)
+            // **1件ずつ受け止める。**前は1件が投げると残りが全部止まり、しかも期限の古い順に並ぶので
+            // 次の起動でも同じ商品が先頭に来て、毎回そこで止まっていた。
+            // 受け止めた分は一時失敗と同じ扱い（予定日を動かさない・G15）で、ログに残して次へ進む
+            try
             {
-                refreshed++;
+                var outcome = await _items.RefreshAsync(itemId, cancellationToken);
+                if (outcome is RefreshOutcome.Updated)
+                {
+                    refreshed++;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Diagnostics.AppLog.Error("期限の来た商品の取り直し（1件）", exception);
             }
 
             progress?.Report((++done, due.Count));

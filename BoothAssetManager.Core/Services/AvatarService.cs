@@ -615,14 +615,14 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                 continue;
             }
 
-            if (!fetched.IsSuccess || fetched.Value is null)
+            // 通信の失敗と読めない応答では何も決めない。次回また試す（投げると検出全体が止まる）
+            if (!fetched.IsSuccess || fetched.Value is null
+                || BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: id) is not { } booth)
             {
-                // 通信の失敗で何も決めない。次回また試す
                 unresolved++;
                 continue;
             }
 
-            var booth = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
             var aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
                 ? BuildAliasesFromTags(booth)
                 : [];

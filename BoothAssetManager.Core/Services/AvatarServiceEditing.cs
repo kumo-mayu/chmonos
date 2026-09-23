@@ -281,7 +281,11 @@ public sealed partial class AvatarService
             return Booth.BoothFetchStatus.TemporaryFailure;
         }
 
-        var booth = Booth.BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
+        // 読めない応答も「届かなかった」と同じ扱い（E3 と同じく画面は確認できなかったと出す）
+        if (Booth.BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
+        {
+            return Booth.BoothFetchStatus.TemporaryFailure;
+        }
 
         await UpdateEntryAsync(
             itemId,

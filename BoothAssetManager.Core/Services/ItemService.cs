@@ -219,7 +219,11 @@ public sealed class ItemService : IItemService
             ? H2SectionExtractor.Extract(htmlResult.Value)
             : new H2ExtractionResult();
 
-        var booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, extraction.Sections);
+        // 読めない応答は一時失敗と同じ扱い（カウントも予定日も動かさない）。投げると⑦の残りが止まる
+        if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, extraction.Sections, itemId) is not { } booth)
+        {
+            return RefreshOutcome.TemporaryFailure;
+        }
 
         // booth を差し替え、local は取得の記録だけを書く。
         //
@@ -623,10 +627,16 @@ public sealed class ItemService : IItemService
             ? H2SectionExtractor.Extract(htmlResult.Value)
             : new H2ExtractionResult();
 
+        // 読めない応答は「一時的に届かない」と同じ扱い。投げると画面に理由の分からない失敗が出る
+        if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, extraction.Sections, itemId) is not { } fetched)
+        {
+            return (null, Booth.BoothFetchStatus.TemporaryFailure);
+        }
+
         var item = new ItemRecord
         {
             Id = itemId,
-            Booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, extraction.Sections),
+            Booth = fetched,
             Local = new LocalBlock
             {
                 NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
@@ -761,7 +771,9 @@ public sealed class ItemService : IItemService
             return (null, $"BOOTHに問い合わせできませんでした{detail}。通信を確かめて、もう一度お試しください。");
         }
 
-        return (ToPreview(itemId, BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now, []), isAlreadyOwned: false), null);
+        return BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, [], itemId) is { } booth
+            ? (ToPreview(itemId, booth, isAlreadyOwned: false), null)
+            : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。");
     }
 
     private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned) => new()

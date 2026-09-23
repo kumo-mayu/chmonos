@@ -151,9 +151,14 @@ public sealed class AvatarImageSync
                 // 通信の失敗では何も決めない。次の起動でまた試す
                 return false;
             }
+            else if (BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: entry.ItemId) is { } booth)
+            {
+                url = booth.Images.FirstOrDefault()?.OriginalUrl ?? string.Empty;
+            }
             else
             {
-                url = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now).Images.FirstOrDefault()?.OriginalUrl ?? string.Empty;
+                // 読めない応答も通信の失敗と同じく何も決めない（「画像が無い」と覚えると二度と取りに行かない）
+                return false;
             }
 
             observed[entry.ItemId] = url;

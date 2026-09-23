@@ -45,6 +45,24 @@ public class BoothItemMapperTests
 
     private static readonly DateTimeOffset FetchedAt = new(2026, 9, 5, 10, 0, 0, TimeSpan.Zero);
 
+    /// <summary>
+    /// 200 でも JSON とは限らない（メンテナンス中の HTML など）。読めなければ投げずに null を返す。
+    /// 投げると1件のために取り込み全体や⑦の残りが止まっていた。
+    /// </summary>
+    [Theory]
+    [InlineData("<html><body>メンテナンス中</body></html>")]
+    [InlineData("""{"name": "途中で切れ""")]
+    public void TryMapReturnsNullForAnUnreadableResponse(string body)
+    {
+        Assert.Null(BoothItemMapper.TryMap(body, FetchedAt));
+    }
+
+    [Fact]
+    public void TryMapReadsTheSameAsMap()
+    {
+        Assert.Equal(BoothItemMapper.Map(RealisticJson, FetchedAt).Name, BoothItemMapper.TryMap(RealisticJson, FetchedAt)!.Name);
+    }
+
     [Fact]
     public void MapsBasicFields()
     {

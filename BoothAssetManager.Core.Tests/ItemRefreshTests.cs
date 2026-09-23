@@ -46,6 +46,9 @@ public class ItemRefreshTests : IDisposable
     /// <summary>商品JSONを404にする。非公開になった状況を作る。</summary>
     private bool _itemJsonNotFound;
 
+    /// <summary>商品JSONの代わりに返す本文。200 でも JSON でない応答を作る。</summary>
+    private string? _itemJsonBody;
+
     public ItemRefreshTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "bam-refresh-" + Guid.NewGuid().ToString("N"));
@@ -88,7 +91,7 @@ public class ItemRefreshTests : IDisposable
             {
                 return owner._itemJsonNotFound
                     ? new HttpResponseMessage(HttpStatusCode.NotFound)
-                    : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ItemJson) };
+                    : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(owner._itemJsonBody ?? ItemJson) };
             }
 
             if (url.Contains("/items/", StringComparison.Ordinal))
@@ -116,6 +119,24 @@ public class ItemRefreshTests : IDisposable
             Booth = new BoothBlock { Name = "取り直す前の名前", FetchedAt = DateTimeOffset.Now },
             Local = local,
         });
+
+    /// <summary>
+    /// 200 で JSON でない応答が来たら、投げずに一時失敗として返す（予定日も動かさない）。
+    /// 前は投げていたので、⑦は毎回この商品で止まって残りに届かなかった。
+    /// </summary>
+    [Fact]
+    public async Task TreatsAnUnreadableResponseAsATemporaryFailure()
+    {
+        var due = DateTimeOffset.Now.AddDays(-3);
+        await SaveItemAsync(new LocalBlock { NextFetchDueAt = due });
+        _itemJsonBody = "<html><body>メンテナンス中</body></html>";
+
+        Assert.Equal(RefreshOutcome.TemporaryFailure, await _service.RefreshAsync(ItemId));
+
+        var item = await _store.Items.LoadAsync(ItemId);
+        Assert.Equal("取り直す前の名前", item!.Booth.Name);
+        Assert.Equal(due, item.Local.NextFetchDueAt);
+    }
 
     /// <summary>
     /// **これがA1で塞いだ穴。**
