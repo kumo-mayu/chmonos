@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,6 +18,42 @@ public partial class ModificationView : UserControl
         // 画像を写真に回す判断は `DropRouting.DecideOnModification`。
         // 貼る（Ctrl+V）はここに残す——絵そのものは落とす経路では来ないので、画面ごとの受け口が要る
         PreviewKeyDown += OnPreviewKeyDown;
+
+        // 絵・星の列の幅は見出しの境目で変えられるので、変わったら名前の列を合わせ直す
+        // （DependencyPropertyDescriptor.AddValueChanged は列を静的な表に掴ませて画面ごと残すので、列自身の知らせを聞く）
+        foreach (var column in MemberColumns.Where(column => column != MemberNameColumn))
+        {
+            ((INotifyPropertyChanged)column).PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(GridViewColumn.ActualWidth))
+                {
+                    FitMemberNameColumn();
+                }
+            };
+        }
+    }
+
+    private IEnumerable<GridViewColumn> MemberColumns => ((GridView)MemberList.View).Columns;
+
+    private void OnMemberListSizeChanged(object sender, SizeChangedEventArgs e) => FitMemberNameColumn();
+
+    /// <summary>
+    /// 名前の列を「一覧の幅 − ほかの列」にする。GridView の列は残りを埋める指定を持たないので、幅が変わるたびに決め直す。
+    /// 狭くても 160（ui-rules.md の名前の列の最小）は割らず、足りない分は一覧の横送りに任せる
+    /// </summary>
+    private void FitMemberNameColumn()
+    {
+        const double minimum = 160;
+
+        // 行の枠と端の余白の分。これを引かないと、ちょうどの幅で横のスクロールバーが出たり消えたりする
+        const double slack = 8;
+
+        var others = MemberColumns.Where(column => column != MemberNameColumn).Sum(column => column.ActualWidth);
+        var width = Math.Max(minimum, Math.Floor(MemberList.ActualWidth - others - slack));
+        if (Math.Abs(MemberNameColumn.Width - width) >= 1)
+        {
+            MemberNameColumn.Width = width;
+        }
     }
 
     /// <summary>

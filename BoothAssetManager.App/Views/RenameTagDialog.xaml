@@ -19,9 +19,14 @@
 
         <TextBlock Text="新しい名前" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
 
-        <!-- 既にある名前を選ぶと統合になる。打ち間違いで新しい分類が増えるのを防ぐため候補を出す -->
+        <!--
+            既にある名前を選ぶと統合になる。打ち間違いで新しい分類が増えるのを防ぐため候補を出す。
+            既にある名前と同じ綴りを打っただけでも統合先になる（RenameTagDialogViewModel.Input）。
+            決めた名前は欄に残す——消すと、打った物が決まったのかが欄から読めない
+        -->
         <controls:SuggestBox Source="{Binding Candidates}" CommitCommand="{Binding PickCommand}"
-                             AllowNew="True" Placeholder="新しい名前（既にある名前を選ぶと統合）" />
+                             Text="{Binding Input, Mode=TwoWay}" KeepsCommittedText="True"
+                             AllowNew="True" Placeholder="新しい名前（既にある名前を選ぶと統合）" AutomationProperties.Name="新しい名前" />
 
         <TextBlock Text="{Binding TargetText}" Style="{StaticResource Mono}" FontSize="11.5" Margin="0,8,0,0" />
         <TextBlock Text="{Binding ImpactText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0" />

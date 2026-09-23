@@ -45,6 +45,43 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
         ? $"「{Name}」の名前を変えます。まだどの商品にも付いていません。"
         : $"「{Name}」の名前を変えます。{ItemCount} 件の商品を書き換えます。";
 
+    /// <summary>
+    /// 欄に今打ってある文字。
+    ///
+    /// **既にある名前と同じ綴りになったら、候補から選んだのと同じに統合先にする**（点検 2026-09-23：そのまま打っても
+    /// 統合と出ず、候補から選び直さないと気付けなかった）。既にある名前は表記の揺れを生まないので、選ばせる手間を省いてよい。
+    /// 綴りは候補の側に揃える（大文字・小文字だけ違う打ち方で新しい名前にしない）。
+    /// **無い名前は打っただけでは決めない**——候補の「新規」の行を選ばせる決まり（CLAUDE.md「入力欄には候補を付ける」）のまま。
+    /// 決めた後に打ち直して別の文字になったら、決めた物を外す（欄と中身の食い違いを残さない）
+    /// </summary>
+    public string Input
+    {
+        get => _input;
+        set
+        {
+            if (!SetField(ref _input, value ?? string.Empty))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(CommitHint));
+
+            var typed = _input.Trim();
+            var existing = Candidates.FirstOrDefault(candidate =>
+                string.Equals(candidate, typed, StringComparison.CurrentCultureIgnoreCase));
+            if (existing is not null)
+            {
+                Target = existing;
+            }
+            else if (!string.Equals(typed, Target.Trim(), StringComparison.CurrentCulture))
+            {
+                Target = string.Empty;
+            }
+        }
+    }
+
+    private string _input = string.Empty;
+
     public string Target
     {
         get => _target;
@@ -89,5 +126,11 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
     /// <summary>押せないときに、何が足りないかを書く（`ui-dialogs.md`・E9）。</summary>
     public string CommitHint => HasTarget
         ? string.Empty
-        : $"新しい名前を入れると押せます（今と同じ「{Name}」では押せません）。";
+        : IsTypedNewName
+            ? $"「{_input.Trim()}」を新しい名前にするときは、候補の「新規」の行を選んでください（Enter でも選べます）。"
+            : $"新しい名前を入れると押せます（今と同じ「{Name}」では押せません）。";
+
+    /// <summary>打ってあるのが、まだ決めていない新しい名前か（押せない理由を言い分けるため）。</summary>
+    private bool IsTypedNewName =>
+        _input.Trim().Length > 0 && !string.Equals(_input.Trim(), Name, StringComparison.CurrentCulture);
 }
