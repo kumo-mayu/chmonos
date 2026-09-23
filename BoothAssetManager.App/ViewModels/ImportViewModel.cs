@@ -1340,7 +1340,7 @@ public sealed class ImportViewModel : ViewModelBase
         if (summary.AvatarDetectError is { } error)
         {
             // 取り込みは済んでいる。検出はやり直せるので、その道を言う
-            return $"対応アバターの検出は途中で止まりました。{error}アバターの管理の「対応アバターを検出」からやり直せます。";
+            return $"対応アバターの検出は途中で止まりました。{error}アバターの管理の「対応アバターを検出する」からやり直せます。";
         }
 
         // 走らなかったのに「見つかりませんでした」と言っていた（自動で走っていないと受け取られた）
