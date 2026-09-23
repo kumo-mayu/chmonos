@@ -326,11 +326,12 @@ public sealed class ImportViewModel : ViewModelBase
     /// 案内が押せないボタンを指していた（ユーザ指摘 2026-09-22）。
     /// 積むのは前回の対象だけ（<see cref="Core.Scanning.ImportState.Targets"/>）——
     /// 履歴を全部積むと、そのとき対象にしていなかったフォルダまで走査してしまう。
+    /// BOOTH の不調で取れなかった商品のファイルも積む（最後まで走った回はそれだけ・#10）。
     /// </summary>
     public RelayCommand ResumeCommand => _resume ??= new RelayCommand(
         () =>
         {
-            foreach (var path in _services.Store.ImportState.Load().Targets)
+            foreach (var path in _services.Store.ImportState.Load().ResumeTargets)
             {
                 if (!Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
                 {
@@ -1378,8 +1379,21 @@ public sealed class ImportViewModel : ViewModelBase
     /// （ナビのバッジで「0件のときは出さない」と決めたのと同じ理由）。
     /// 1行なら、次にやること（未確定を見る）も一緒に言える。
     /// </summary>
-    public string NotFoundText => Summary is { NotFound: > 0 } summary
-        ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、下の「未確定を開く」から確かめてください。"
+    /// <remarks>
+    /// BOOTH の不調（タイムアウト・5xx・読めない応答）で取れなかった商品もここに並べる（ユーザ判断 2026-09-23・#10）。
+    /// 前は数えるだけで画面のどこにも出ず、そのファイルは商品にも未確定にも入らないまま黙って消えたように見えた。
+    /// 取れなかった物は「続きから」の記録に残してあるので、次の手（待ってから下の帯の「続きから進む」）まで書く。
+    /// どちらも BOOTH 側の事情で取れなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
+    /// </remarks>
+    public string NotFoundText => Summary is { } summary
+        ? string.Join(
+            string.Empty,
+            summary.NotFound > 0
+                ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、下の「未確定を開く」から確かめてください。"
+                : string.Empty,
+            summary.TemporaryFailures > 0
+                ? $"{summary.TemporaryFailures} 件は BOOTH の不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
+                : string.Empty)
         : string.Empty;
 
     public bool HasNotFound => NotFoundText.Length > 0;
