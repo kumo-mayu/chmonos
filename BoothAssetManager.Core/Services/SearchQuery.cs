@@ -190,7 +190,7 @@ public static class SearchQuery
     /// 全角と半角、大文字と小文字の違いを気にせず打てるようにする。
     /// </summary>
     public static string Normalize(string? text)
-        => string.IsNullOrEmpty(text) ? string.Empty : text.Normalize(NormalizationForm.FormKC).ToLowerInvariant();
+        => string.IsNullOrEmpty(text) ? string.Empty : Nfkc.Fold(text).ToLowerInvariant();
 
     /// <summary>カタカナをひらがなに寄せる（長音・記号はそのまま）。</summary>
     public static string ToHiragana(string text)
@@ -342,16 +342,7 @@ public static class SearchQuery
     private readonly record struct Token(TokenKind Kind, string Raw, SearchField? Field = null);
 
     /// <summary>1字を NFKC で畳む。構文の記号（全角の括弧・引用符・ハイフン・コロン）を見分けるため。</summary>
-    private static char FoldSymbol(char c)
-    {
-        if (c < 0x80)
-        {
-            return c;
-        }
-
-        var folded = c.ToString().Normalize(NormalizationForm.FormKC);
-        return folded.Length == 1 ? folded[0] : c;
-    }
+    private static char FoldSymbol(char c) => Nfkc.FoldChar(c);
 
     /// <summary>
     /// 引用符は <c>"</c> だけを見る。日本語の「」は商品名にそのまま出てくるので

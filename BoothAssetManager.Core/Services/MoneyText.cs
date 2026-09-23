@@ -23,7 +23,7 @@ public static class MoneyText
         }
 
         // 全角の数字・記号を半角に寄せてから、金額に使われる飾りを落とす
-        var folded = new StringBuilder(text.Trim().Normalize(NormalizationForm.FormKC))
+        var folded = new StringBuilder(Nfkc.Fold(text.Trim()))
             .Replace("¥", string.Empty)
             .Replace("￥", string.Empty)
             .Replace("円", string.Empty)

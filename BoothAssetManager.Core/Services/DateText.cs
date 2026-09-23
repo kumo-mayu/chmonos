@@ -23,7 +23,7 @@ public static class DateText
             return null;
         }
 
-        var folded = new StringBuilder(text.Trim().Normalize(NormalizationForm.FormKC))
+        var folded = new StringBuilder(Nfkc.Fold(text.Trim()))
             .Replace('年', '/').Replace('月', '/').Replace("日", string.Empty)
             .Replace('-', '/').Replace('.', '/')
             .ToString()
