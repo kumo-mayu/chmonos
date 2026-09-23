@@ -668,28 +668,24 @@ public sealed class ItemService : IItemService
         // **「無い」と判断した時点と書く時点がずれている**（取り込みの①と同じ・L13）。
         // BOOTH へ2回問い合わせる3秒以上の間に、取り込みや別の「このIDで登録」が同じ商品を作ることがあり、
         // 丸ごと書くとそちらが入れたファイル・名前・購入記録が消えていた。
-        // 書く直前に読み直し、あれば取ってきた booth と取得の記録だけを重ねる（手元のファイルは呼ぶ側が足す）
-        if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } appeared)
-        {
-            await _store.Items.SaveLocalAsync(
-                itemId,
-                appeared.Local with
-                {
-                    ConsecutiveNotFoundCount = 0,
-                    IsDelisted = false,
-                    LastFetchedAt = item.Local.LastFetchedAt,
-                    NextFetchDueAt = item.Local.NextFetchDueAt,
-                },
-                LocalOwners.Fetch,
-                item.Booth,
-                cancellationToken);
+        // 書く直前に読み直し、あれば取ってきた booth と取得の記録だけを重ねる（手元のファイルは呼ぶ側が足す）。
+        // **在るかを見てから書くまでを商品の錠の中で行う**（外で見ていた頃は、見てから書くまでの数 ms に
+        // 作られた商品を、こちらの新しい商品で丸ごと上書きし得た）
+        await _store.Items.CreateOrChangeLocalAsync(
+            itemId,
+            () => item,
+            local => local with
+            {
+                ConsecutiveNotFoundCount = 0,
+                IsDelisted = false,
+                LastFetchedAt = item.Local.LastFetchedAt,
+                NextFetchDueAt = item.Local.NextFetchDueAt,
+            },
+            LocalOwners.Fetch,
+            cancellationToken,
+            booth: item.Booth);
 
-            item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? item;
-        }
-        else
-        {
-            await _store.Items.SaveAsync(item, cancellationToken);
-        }
+        item = await _store.Items.LoadAsync(itemId, cancellationToken) ?? item;
 
         if (extraction.DescriptionHtml is not null)
         {

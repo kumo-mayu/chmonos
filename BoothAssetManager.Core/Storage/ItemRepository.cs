@@ -341,19 +341,23 @@ public sealed class ItemRepository
     /// **在るかを見てから書くまでを錠の中で行う。**外で見ると、その間に取り込みが同じIDの商品を作り、
     /// こちらの新しい空の商品で丸ごと上書きしていた。
     /// </summary>
+    /// <param name="booth">在ったときに差し替える booth（取ってきたばかりの物）。null なら今のまま。</param>
     /// <returns>書いたか（<paramref name="change"/> が null を返したら false）。</returns>
     public async Task<bool> CreateOrChangeLocalAsync(
         string itemId,
         Func<ItemRecord> create,
         Func<LocalBlock, LocalBlock?> change,
         IReadOnlyCollection<LocalField> owns,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BoothBlock? booth = null)
     {
         var gate = LockFor(itemId);
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = await LoadAsync(itemId, cancellationToken) ?? create();
+            var existing = await LoadAsync(itemId, cancellationToken) is { } found
+                ? (booth is null ? found : found with { Booth = booth })
+                : create();
             if (change(existing.Local) is not { } changed)
             {
                 return false;
