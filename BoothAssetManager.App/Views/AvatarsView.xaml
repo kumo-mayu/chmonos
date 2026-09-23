@@ -849,24 +849,32 @@
                                 <!--
                                     アバターかどうか（判定の上書き）。今の扱いは文で出し、ボタンは変える操作だけにする
                                     （ユーザ指示 2026-09-17：「自動」のボタンが状態の表示も兼ねていて、押す物か読む物か分からなかった）。
-                                    今の扱いと同じボタンは押せなくする
+                                    今の扱いと同じボタンは押せなくする。
+                                    ボタンを押せなくするだけでは、どれが今効いているのか見た目で分からなかった（点検 2026-09-23）。
+                                    3つのうち1つを選ぶ形なので、並べ替えや表示の切り替えと同じ繋がったボタンにし、今の扱いを塗って見せる。
+                                    点いているかは読むだけ（OneWay）で、押したときだけコマンドで変える（カード／リストの切り替えと同じ作り）
                                 -->
                                 <TextBlock Text="アバターかどうか" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
                                 <TextBlock Text="{Binding JudgementText}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="自動の判定に任せる" Style="{StaticResource SmallButton}"
-                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"
-                                            IsEnabled="{Binding IsOverrideAuto, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                            ToolTip="カテゴリと、出品者が「対応アバター」に挙げているかで決めます。" />
-                                    <Button Content="アバターとして扱う" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
-                                            IsEnabled="{Binding IsForcedAvatar, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                            ToolTip="「3Dキャラクター」のカテゴリに無いアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
-                                    <Button Content="アバターとして扱わない" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                            Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
-                                            IsEnabled="{Binding IsForcedNotAvatar, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                            ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。" />
-                                </StackPanel>
+                                <Grid HorizontalAlignment="Left">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <RadioButton Grid.Column="0" Content="自動の判定に任せる" GroupName="AvatarJudgement" Style="{StaticResource SegmentFirst}"
+                                                 Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"
+                                                 IsChecked="{Binding IsOverrideAuto, Mode=OneWay}"
+                                                 ToolTip="カテゴリと、出品者が「対応アバター」に挙げているかで決めます。" />
+                                    <RadioButton Grid.Column="1" Content="アバターとして扱う" GroupName="AvatarJudgement" Style="{StaticResource SegmentMiddle}"
+                                                 Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
+                                                 IsChecked="{Binding IsForcedAvatar, Mode=OneWay}"
+                                                 ToolTip="「3Dキャラクター」のカテゴリに無いアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
+                                    <RadioButton Grid.Column="2" Content="アバターとして扱わない" GroupName="AvatarJudgement" Style="{StaticResource SegmentLast}"
+                                                 Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
+                                                 IsChecked="{Binding IsForcedNotAvatar, Mode=OneWay}"
+                                                 ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。" />
+                                </Grid>
                             </StackPanel>
                         </Border>
 
