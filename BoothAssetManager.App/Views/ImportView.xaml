@@ -92,7 +92,7 @@
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                                             <!-- 消すのは一覧からの登録だけで、ファイルには触らない。語も「外す」に揃える（V4・W の語彙） -->
-                                            <Button Content="対象から外す" Width="88" Height="27" HorizontalAlignment="Right"
+                                            <Button Content="対象から外す" MinWidth="88" Height="27" HorizontalAlignment="Right"
                                                     FontSize="12"
                                                     ToolTip="取り込み対象の一覧から外します。フォルダとファイルはそのまま残ります。"
                                                     Command="{Binding DataContext.RemoveFolderCommand,
@@ -231,13 +231,17 @@
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <DockPanel>
-                                            <Button DockPanel.Dock="Right" Content="履歴から消す" Width="94" Height="27"
+                                            <!--
+                                                行ごとに端を揃えたいので幅の下限だけ決める。決め打ちの幅だと、ボタンの左右の余白（14px ずつ）と
+                                                枠で文字の置き場が足りず、「履歴から消す」の最後の「す」が欠けた（点検 2026-09-23）
+                                            -->
+                                            <Button DockPanel.Dock="Right" Content="履歴から消す" MinWidth="94" Height="27"
                                                     FontSize="12" Margin="8,0,0,0"
                                                     ToolTip="履歴の一覧から消します。フォルダとファイルはそのまま残ります。"
                                                     Command="{Binding DataContext.ForgetHistoryCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button DockPanel.Dock="Right" Content="対象に積む" Width="88" Height="27"
+                                            <Button DockPanel.Dock="Right" Content="対象に積む" MinWidth="88" Height="27"
                                                     FontSize="12"
                                                     ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
                                                     Command="{Binding DataContext.TakeFromHistoryCommand,
