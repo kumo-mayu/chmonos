@@ -211,12 +211,41 @@ public static class SearchQuery
             return new SearchNode.All();
         }
 
-        var tokens = Tokenize(query);
+        var tokens = DropUnmatchedClose(Tokenize(query));
         var index = 0;
         var node = ParseOr(tokens, ref index);
-
-        // 閉じ括弧が余っていても止めない。打ちかけの入力でも結果が出続ける方がよい
         return node ?? new SearchNode.All();
+    }
+
+    /// <summary>
+    /// 対になる開き括弧の無い閉じ括弧を読み飛ばす。前は余った「)」でそこから後ろを黙って捨てていたので、
+    /// 「夏) 冬」が「夏」だけで探され、打った語が効いていないことに気付けなかった（点検 2026-09-23）。
+    /// 閉じていない「(」は文の終わりで閉じたとみなす（打ちかけの入力でも結果が出続ける方がよい）。
+    /// </summary>
+    private static List<Token> DropUnmatchedClose(List<Token> tokens)
+    {
+        var kept = new List<Token>(tokens.Count);
+        var depth = 0;
+        foreach (var token in tokens)
+        {
+            if (token.Kind == TokenKind.Open)
+            {
+                depth++;
+            }
+            else if (token.Kind == TokenKind.Close)
+            {
+                if (depth == 0)
+                {
+                    continue;
+                }
+
+                depth--;
+            }
+
+            kept.Add(token);
+        }
+
+        return kept;
     }
 
     public static bool Matches(SearchNode node, SearchHaystack haystack, SearchOptions options)
@@ -439,10 +468,14 @@ public static class SearchQuery
         return tokens;
     }
 
-    /// <summary>語を読む。「or」なら演算子、決まった名前＋「:」（全角の「：」も）で始まれば前置き。</summary>
+    /// <summary>
+    /// 語を読む。「OR」（大文字だけ。全角の「ＯＲ」も）なら演算子、決まった名前＋「:」（全角の「：」も）で始まれば前置き。
+    /// 小文字の「or」は語として探す——英語の商品名（「Black or White」）で打った語が演算子に化けないように。
+    /// spec の書き方も「OR」だけ（Google などと同じ）。
+    /// </summary>
     private static Token ReadWord(string raw)
     {
-        if (Normalize(raw) == "or")
+        if (Nfkc.Fold(raw) == "OR")
         {
             return new Token(TokenKind.Or, raw);
         }
@@ -509,13 +542,19 @@ public static class SearchQuery
 
         while (index < tokens.Count && tokens[index].Kind is not (TokenKind.Or or TokenKind.Close))
         {
+            var start = index;
             var part = ParseUnary(tokens, ref index);
-            if (part is null)
+            if (part is not null)
+            {
+                parts.Add(part);
+            }
+            else if (index == start)
             {
                 break;
             }
 
-            parts.Add(part);
+            // 読み進めたのに何も無かった物（空の「()」・打ちかけの「-」「name:」）は無いものとして次へ進む。
+            // 前はここで止めていたので「() 冬」の「冬」が捨てられ、全件に当たっていた（点検 2026-09-23）
         }
 
         return parts.Count switch
