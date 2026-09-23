@@ -182,4 +182,17 @@ public class RegistryCandidateTests
 
         Assert.Empty(RegistryCandidates.For(@"C:\dl\光のヘイロー012　天使の羽.zip", [entry]));
     }
+
+    /// <summary>短い商品IDが、別の数（長いID・日付）の中に当たらない（点検 2026-09-23）。</summary>
+    [Theory]
+    [InlineData(@"C:\dl\outfit_7123456.zip", false)]
+    [InlineData(@"C:\dl\outfit_20231234567.zip", false)]
+    [InlineData(@"C:\dl\outfit_123456_v2.zip", true)]
+    [InlineData(@"C:\dl\123456.zip", true)]
+    public void MatchesTheIdOnlyAsAWholeNumber(string path, bool expected)
+    {
+        var entry = new AvatarRegistryEntry { ItemId = "123456", DisplayName = "ぜんぜん別の名前" };
+
+        Assert.Equal(expected, RegistryCandidates.For(path, [entry]).Count == 1);
+    }
 }

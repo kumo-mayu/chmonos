@@ -107,6 +107,30 @@ public static class RegistryCandidates
     }
 
     /// <summary>
+    /// 数が、前後を数字に挟まれずに現れるか。前は部分一致だったので、短い商品ID（12345）が
+    /// 別の数（ファイル名の中の 7123456 や日付の 20231234）の中に当たり、無関係なアバターが最高点で出ていた（点検 2026-09-23）。
+    /// </summary>
+    private static bool ContainsNumber(string text, string number)
+    {
+        if (number.Length == 0)
+        {
+            return false;
+        }
+
+        for (var start = text.IndexOf(number, StringComparison.Ordinal); start >= 0;
+             start = text.IndexOf(number, start + 1, StringComparison.Ordinal))
+        {
+            var end = start + number.Length;
+            if ((start == 0 || !char.IsAsciiDigit(text[start - 1])) && (end >= text.Length || !char.IsAsciiDigit(text[end])))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// 点数の高い順に：商品IDそのもの → 名前が入っている → 別名が入っている → 読みで当たる。
     /// IDが書かれていればそれ以上の証拠は無い。
     /// </summary>
@@ -119,7 +143,7 @@ public static class RegistryCandidates
         SearchBridge? bridge,
         KanjiReadings? readings)
     {
-        if (fileName.Contains(entry.ItemId, StringComparison.Ordinal))
+        if (ContainsNumber(fileName, entry.ItemId))
         {
             return (entry.ItemId, 100);
         }
