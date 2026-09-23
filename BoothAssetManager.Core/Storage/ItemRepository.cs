@@ -246,24 +246,65 @@ public sealed class ItemRepository
     public async Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken = default)
     {
         var path = _paths.ItemHtmlFile(itemId);
+        // JSON と同じく、読んでいる間に⑦の取り直しが置き換えても保存を落とさない開き方で読む
         return File.Exists(path)
-            ? await File.ReadAllTextAsync(path, cancellationToken)
+            ? await JsonStore.ReadTextAsync(path, cancellationToken)
             : null;
     }
 
     public Task SaveDescriptionHtmlAsync(string itemId, string html, CancellationToken cancellationToken = default)
         => JsonStore.WriteTextAsync(_paths.ItemHtmlFile(itemId), html, cancellationToken);
 
-    /// <summary>管理対象から外す。保存ファイルの実体には触らない。</summary>
+    /// <summary>
+    /// 管理対象から外す。保存ファイルの実体には触らない。
+    ///
+    /// **商品ごとの錠の中で消す。**錠の外だと、読み直して書く途中の保存（<see cref="SaveLocalAsync"/> など）が
+    /// 消した直後に書き戻し、外したはずの商品が生き返っていた。
+    ///
+    /// **画像 → 説明HTML → JSON の順に消す。**画像フォルダは開いている絵があると消せないことがあり、
+    /// 前は JSON を先に消していたので、そこで投げると「商品は無いのに画像だけ残る」半端な状態になった
+    /// （誰も片付けない）。JSON を最後にすれば、途中で投げても商品は残り、もう一度外せば済む。
+    /// 欠けた画像は裏の取得が取り直す。
+    /// </summary>
     public void Delete(string itemId)
     {
-        DeleteIfExists(_paths.ItemFile(itemId));
-        DeleteIfExists(_paths.ItemHtmlFile(itemId));
-
-        var imagesDir = _paths.ItemImagesDir(itemId);
-        if (Directory.Exists(imagesDir))
+        var gate = LockFor(itemId);
+        gate.Wait();
+        try
         {
-            Directory.Delete(imagesDir, recursive: true);
+            using var writing = StoreWriteGate.Enter();
+
+            var imagesDir = _paths.ItemImagesDir(itemId);
+            if (Directory.Exists(imagesDir))
+            {
+                Directory.Delete(imagesDir, recursive: true);
+            }
+
+            DeleteIfExists(_paths.ItemHtmlFile(itemId));
+            DeleteIfExists(_paths.ItemFile(itemId));
+
+            // 画像を消してから JSON を消すまでの間に、画像の取得がフォルダを作り直していることがある
+            // （取得は JSON があるかを見てから作る）。JSON が消えた今なら、もう作り直されない
+            TryDeleteDirectory(imagesDir);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private static void TryDeleteDirectory(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 商品はもう無い。残った画像は画面に出ないだけで害は無い
         }
     }
 

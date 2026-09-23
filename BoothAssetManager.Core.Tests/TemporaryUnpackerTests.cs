@@ -103,6 +103,36 @@ public sealed class TemporaryUnpackerTests : IDisposable
         Assert.Equal(path, unpacker.ExtractEntry(zip, "中/Sig_Ring.unitypackage"));
     }
 
+    /// <summary>
+    /// 同じ名前のファイルが別のフォルダにあっても取り違えない。
+    /// 前はファイル名だけで控えの場所を決めていたので、PC 版を先に取り出すと Quest 版を頼んでも PC 版が返っていた。
+    /// </summary>
+    [Fact]
+    public void 同じ名前の別のフォルダのファイルを取り違えない()
+    {
+        var zip = MakeZip("pack.zip", ("PC/X.unitypackage", "pc"), ("Quest/X.unitypackage", "quest"));
+        var unpacker = new TemporaryUnpacker(Root);
+
+        var pc = unpacker.ExtractEntry(zip, "PC/X.unitypackage");
+        var quest = unpacker.ExtractEntry(zip, "Quest/X.unitypackage");
+
+        Assert.NotEqual(pc, quest);
+        Assert.Equal("pc", File.ReadAllText(pc));
+        Assert.Equal("quest", File.ReadAllText(quest));
+        Assert.Equal("X.unitypackage", Path.GetFileName(quest));
+    }
+
+    /// <summary>zip の中のパスに <c>..</c> があっても、置き場所の外へは書かない。</summary>
+    [Fact]
+    public void 上へ出る名前でも置き場所の中に取り出す()
+    {
+        var zip = MakeZip("pack.zip", ("../../evil.unitypackage", "x"));
+
+        var path = new TemporaryUnpacker(Root).ExtractEntry(zip, "../../evil.unitypackage");
+
+        Assert.StartsWith(Path.GetFullPath(Root), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void zipの中に無いファイルは投げる()
     {

@@ -121,8 +121,14 @@ public sealed class TemporaryUnpacker
             throw new FileNotFoundException("zip が見つかりません。", zipPath);
         }
 
-        var folder = Path.Combine(_root, "packages", Stamp(info));
-        var target = Path.Combine(folder, SafeFileName(Path.GetFileName(entryPath.Replace('/', Path.DirectorySeparatorChar))));
+        // **zip の中のパス全体で置き場所を決める。**前はファイル名だけで決めていたので、
+        // 同じ zip の `PC/X.unitypackage` と `Quest/X.unitypackage` が同じ控えになり、
+        // 後から頼んだ方に先に取り出した方を渡していた（取り違えたまま Unity に入る）。
+        // ファイル名は最後にそのまま残す——Unity の取り込みの窓はファイル名を出すので
+        var segments = entryPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Select(SafeSegment).ToArray();
+        string[] directories = segments.Length > 1 ? segments[..^1] : [];
+        var folder = Path.Combine([_root, "packages", Stamp(info), .. directories]);
+        var target = Path.Combine(folder, SafeFileName(segments.Length == 0 ? string.Empty : segments[^1]));
         if (File.Exists(target))
         {
             return target;
@@ -139,6 +145,16 @@ public sealed class TemporaryUnpacker
         entry.ExtractToFile(partial, overwrite: true);
         File.Move(partial, target, overwrite: true);
         return target;
+    }
+
+    /// <summary>
+    /// zip の中のフォルダ名を1段ぶん、置き場所の名前にする。
+    /// <c>..</c> と <c>.</c> は置き場所の外へ出る・同じ段に留まるので、ただの名前に変える。
+    /// </summary>
+    private static string SafeSegment(string segment)
+    {
+        var cleaned = SafeFileName(segment);
+        return cleaned is "." or ".." ? "_" : cleaned;
     }
 
     private static string SafeFileName(string name)

@@ -270,6 +270,12 @@ public sealed class ImagePipeline
         BoothImage image,
         CancellationToken cancellationToken = default)
     {
+        // 外した商品の画像フォルダを作り直さない（SyncAsync と同じ理由）
+        if (!ItemStillExists(itemId))
+        {
+            return false;
+        }
+
         var (present, saved) = await FetchOneAsync(_paths.ItemImagesDir(itemId), image.OriginalUrl, cancellationToken);
         if (saved)
         {
@@ -465,6 +471,14 @@ public sealed class ImagePipeline
         CancellationToken cancellationToken = default)
     {
         if (!_settings.SaveImages)
+        {
+            return new ImageSyncResult();
+        }
+
+        // **外した商品の画像フォルダを作り直さない。**取り込みや裏の取得は商品の一覧を先に作ってから
+        // 1件ずつ回るので、その間に外された商品が回ってくる。ここでフォルダを作ると、
+        // JSON の無い画像フォルダが残り、誰も片付けなかった
+        if (!ItemStillExists(itemId))
         {
             return new ImageSyncResult();
         }
@@ -747,12 +761,45 @@ public sealed class ImagePipeline
             TransparentColorMode = WebpTransparentColorMode.Clear,
         };
 
-        var temporaryPath = path + ".tmp";
-        await using (var stream = File.Create(temporaryPath))
-        {
-            await image.SaveAsync(stream, encoder, cancellationToken);
-        }
+        // 縮めて圧縮するのは手元の計算なので、書く前に済ませる。保存先を運ぶ門（StoreWriteGate）で
+        // 「書いている」に数える間を、ファイルに書く一瞬だけにするため
+        using var encoded = new MemoryStream();
+        await image.SaveAsync(encoded, encoder, cancellationToken);
 
-        File.Move(temporaryPath, path, overwrite: true);
+        // **一時ファイルの名前は毎回変える。失敗したら消す。**
+        // 固定の「本体+.tmp」だと、同じ絵を2本が同時に保存したとき（指名された画像と裏の取得が重なる）に
+        // 一時ファイルを取り合って落ち、落ちた方の .tmp は誰も片付けずに残っていた
+        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+        try
+        {
+            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                encoded.Position = 0;
+                await encoded.CopyToAsync(stream, cancellationToken);
+            }
+
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteFile(temporaryPath);
+            throw;
+        }
     }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 残っても起動時に10分より古い .tmp として消える
+        }
+    }
+
+    /// <summary>商品がまだ在るか（JSON が在るか）。外した商品の画像を保存しないために見る。</summary>
+    private bool ItemStillExists(string itemId) => File.Exists(_paths.ItemFile(itemId));
 }

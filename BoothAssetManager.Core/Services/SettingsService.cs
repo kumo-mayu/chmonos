@@ -110,12 +110,9 @@ public sealed class SettingsService : ISettingsService
     public UiState UiState { get; private set; }
 
     /// <summary>画面が覚えている状態を変える。設定と同じく、錠の中で今の値に当てる。</summary>
-    public async Task<UiState> UpdateUiStateAsync(Func<UiState, UiState> change, CancellationToken cancellationToken = default)
-    {
-        var updated = await _store.UiState.UpdateAsync(change, cancellationToken);
-        UiState = updated;
-        return updated;
-    }
+    public Task<UiState> UpdateUiStateAsync(Func<UiState, UiState> change, CancellationToken cancellationToken = default)
+        // 設定と同じく、手元の値は錠の中で差し替える（錠の外だと古い方が後から代入され得る）
+        => _store.UiState.UpdateAsync(change, written => UiState = written, cancellationToken);
 
     /// <summary>
     /// 今の設定。サービスには値ではなく「今の設定を読む関数」を渡しているので、書けばすぐ効く。
@@ -129,12 +126,13 @@ public sealed class SettingsService : ISettingsService
     /// 別の画面が同時に別の項目を書いても消し合わない（同じファイルへの書き込みも重ならない・技術的負債 1-4）。
     /// 画面からは <see cref="Commands.UiCommand.ChangeSettings"/> で呼ぶ。
     /// </summary>
-    public async Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default)
-    {
-        var updated = await _store.Settings.UpdateAsync(current => change(current).Normalized(), cancellationToken);
-        Current = updated;
-        return updated;
-    }
+    public Task<AppSettings> UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken = default)
+        // 手元の値は錠の中で差し替える。錠の外だと、2本の保存が重なったときに先に書いた方が後から代入され、
+        // ディスクより古い設定を持ち続けていた
+        => _store.Settings.UpdateAsync(
+            current => change(current).Normalized(),
+            written => Current = written,
+            cancellationToken);
 
     /// <summary>
     /// 検索の履歴を変える。前は検索画面と設定画面が読んだ写しを丸ごと書いていた（技術的負債 3-1）。

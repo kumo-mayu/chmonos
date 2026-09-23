@@ -332,12 +332,10 @@ public sealed class BoothClient : IBoothClient
         {
             if (attempt > 0)
             {
-                // 相手がRetry-Afterで待ち時間を指示してきたら、こちらの既定より長い限りそちらに従う。
+                // ここで待つのは**こちらの決めた間合い**（2秒→8秒）だけ。ゲートの外なので、その間は他の問い合わせが進む。
+                // 相手が Retry-After で指示した待ちは、ゲートの中で全員に守らせる（<see cref="_quietUntil"/>・C15）。
+                // 前はここで指示の分まで待っていたので、この1本が待つ間に他の商品が取りに行っていた
                 var wait = RetryDelays[attempt - 1];
-                if (previous?.RetryAfter is { } instructed && instructed > wait)
-                {
-                    wait = instructed;
-                }
 
                 var attemptNumber = attempt;
                 await CountDownAsync(
@@ -355,7 +353,7 @@ public sealed class BoothClient : IBoothClient
                     cancellationToken);
             }
 
-            var result = await SendOnceAsync(url, readBody, cancellationToken);
+            var result = await SendOnceAsync(url, readBody, attempt, cancellationToken);
             if (result.Status != BoothFetchStatus.TemporaryFailure)
             {
                 return result;
@@ -376,14 +374,21 @@ public sealed class BoothClient : IBoothClient
     private async Task<BoothFetchResult<T>> SendOnceAsync<T>(
         string url,
         Func<HttpResponseMessage, Task<T>> readBody,
+        int attempt,
         CancellationToken cancellationToken)
     {
         var target = DescribeTarget(url);
 
         await _gate.EnterAsync(CurrentPriority, cancellationToken);
+
+        // 送り出したか。**送った後は、どう抜けても最後の問い合わせの時刻を更新する**（finally）。
+        // 前は成功・HTTPの失敗・タイムアウトの道でしか更新しておらず、送った後の中断
+        // （OperationCanceledException）や想定外の例外で抜けると古い時刻のまま残り、
+        // 次の1本が 1.5 秒を空けずに出得た（絶対に破らない決め事1）
+        var sent = false;
         try
         {
-            await WaitForIntervalAsync(target, cancellationToken);
+            await WaitForIntervalAsync(target, attempt, cancellationToken);
 
             Report(new BoothActivity
             {
@@ -392,22 +397,32 @@ public sealed class BoothClient : IBoothClient
                 IsThrottled = IsThrottled,
             });
 
+            // 送る直前に立てる。GetAsync の中で投げても、相手に届いているかは分からないので
+            // 「届いた」側に倒す（間を空けすぎても困る人はいない）
+            sent = true;
+
             // ヘッダだけ先に受け取る。本文を途中で打ち切る呼び出し（ショップのバナー探し）が
             // 実際に通信を止められるようにするため。全部読む呼び出しの動きは変わらない。
             using var response = await _httpClient.GetAsync(
                 url,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
-            _lastRequestAt = DateTimeOffset.UtcNow;
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return BoothFetchResult<T>.NotFound();
             }
 
+            // 相手が待てと言ってきたら（429 に限らず 503 などでも）、**次の誰もが**その間は取りに行かない
+            // （ユーザ判断 C15：「BOOTH に待てと言われたら、他の商品も取りに行かずに待つ」）
+            var retryAfter = ReadRetryAfter(response);
+            if (!response.IsSuccessStatusCode && retryAfter is { } instructed)
+            {
+                HoldQuiet(instructed);
+            }
+
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                var retryAfter = ReadRetryAfter(response);
                 SlowDown();
                 return BoothFetchResult<T>.RateLimited(
                     retryAfter is { } wait
@@ -418,8 +433,15 @@ public sealed class BoothClient : IBoothClient
 
             if (!response.IsSuccessStatusCode)
             {
-                // 503などもRetry-Afterを付けてくることがあるので、あれば従う。
-                return BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}", ReadRetryAfter(response));
+                // 503 なども Retry-After を付けてくることがある。付いていれば「こちらが詰めすぎ」の申告として
+                // 429 と同じく以降の間隔も広げる（待てと言われた直後に元の間隔で叩き直さない）。
+                // 付いていない 5xx は相手の不調なので広げない
+                if (retryAfter is not null)
+                {
+                    SlowDown();
+                }
+
+                return BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}", retryAfter);
             }
 
             // 広げた間隔は、成功が続いたら少しずつ戻す（C16）
@@ -428,16 +450,19 @@ public sealed class BoothClient : IBoothClient
         }
         catch (HttpRequestException exception)
         {
-            _lastRequestAt = DateTimeOffset.UtcNow;
             return BoothFetchResult<T>.Temporary(exception.Message);
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            _lastRequestAt = DateTimeOffset.UtcNow;
             return BoothFetchResult<T>.Temporary("タイムアウトしました");
         }
         finally
         {
+            if (sent)
+            {
+                _lastRequestAt = DateTimeOffset.UtcNow;
+            }
+
             _gate.Release();
 
             // 直列なので、ゲートを出た時点で「何もしていない」に戻せる。
@@ -475,30 +500,55 @@ public sealed class BoothClient : IBoothClient
                 : "ページ";
     }
 
-    /// <summary>前回のリクエストから現在の間隔が空くまで待つ。</summary>
-    private async Task WaitForIntervalAsync(string? target, CancellationToken cancellationToken)
+    /// <summary>
+    /// 相手が Retry-After で指示した「この時刻までは来るな」。**ゲートの中で待つので、誰も追い越せない**（C15）。
+    /// 付き合うのは設定の上限（既定60秒）まで。それより長い指示は、その1本は諦めて次回に回すが（前から同じ）、
+    /// 他の問い合わせは上限の分だけは待つ——すぐ叩き直すと、同じ指示をもう一度受けるだけなので。
+    /// ゲートの中でしか読み書きしない。
+    /// </summary>
+    private DateTimeOffset _quietUntil = DateTimeOffset.MinValue;
+
+    private void HoldQuiet(TimeSpan instructed)
     {
-        if (_lastRequestAt == DateTimeOffset.MinValue)
+        var wait = instructed > MaxRetryAfterWait ? MaxRetryAfterWait : instructed;
+        var until = DateTimeOffset.UtcNow + wait;
+        if (until > _quietUntil)
+        {
+            _quietUntil = until;
+        }
+    }
+
+    /// <summary>
+    /// 前回のリクエストから現在の間隔が空き、相手に指示された待ちも明けるまで待つ。
+    /// **ゲートを持ったまま待つ**ので、その間は他の問い合わせも出ない。中断はそのまま効く。
+    /// </summary>
+    private async Task WaitForIntervalAsync(string? target, int attempt, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var intervalEnd = _lastRequestAt == DateTimeOffset.MinValue
+            ? now
+            : _lastRequestAt + TimeSpan.FromMilliseconds(SyncedIntervalMs());
+        var quiet = _quietUntil > intervalEnd;
+        var wait = (quiet ? _quietUntil : intervalEnd) - now;
+        if (wait <= TimeSpan.Zero)
         {
             return;
         }
 
-        var elapsed = DateTimeOffset.UtcNow - _lastRequestAt;
-        var interval = TimeSpan.FromMilliseconds(SyncedIntervalMs());
-        if (elapsed >= interval)
-        {
-            return;
-        }
-
+        // 指示された待ちのうち、待てと言われた本人の再試行は「再試行まで待っている」と出す。
+        // 巻き添えで待っている他の問い合わせは、再試行ではないので「混み合っているので間隔を広げています」側に出す
+        var retrying = quiet && attempt > 0;
         await CountDownAsync(
-            interval - elapsed,
+            wait,
             remaining => new BoothActivity
             {
-                Kind = BoothActivityKind.Waiting,
+                Kind = retrying ? BoothActivityKind.Retrying : BoothActivityKind.Waiting,
                 Target = target,
-                Total = interval - elapsed,
+                Total = wait,
                 Remaining = remaining,
-                IsThrottled = IsThrottled,
+                Attempt = retrying ? attempt : 0,
+                MaxAttempts = retrying ? RetryDelays.Length : 0,
+                IsThrottled = quiet || IsThrottled,
             },
             cancellationToken);
     }

@@ -955,10 +955,19 @@ public sealed class ImportPipeline : IImportPipeline
                 continue;
             }
 
+            // 200 でも読めない応答（JSON でない・型が変わった）は一時失敗と同じ扱い。
+            // 投げると、1件のために取り込み全体が止まっていた
+            if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
+            {
+                temporaryFailures++;
+                work.PlanRequests(pages: -1); // ②へは進まない
+                continue;
+            }
+
             var item = new ItemRecord
             {
                 Id = itemId,
-                Booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now),
+                Booth = booth,
                 Local = new LocalBlock
                 {
                     LocalFiles = LocalFileMerger.Merge([], discovered),

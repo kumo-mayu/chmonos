@@ -31,6 +31,69 @@ public class StoreMoverTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// 今の保存先が選んだ先の内側にあると、置き換えは始める前に断る。
+    /// 前は選んだ先を退ける所で今の保存先ごと退けてしまい、運ぶ物が空のまま「成功」か、元を消す所で落ちていた。
+    /// </summary>
+    [Fact]
+    public void RefusesToReplaceALibraryThatContainsTheCurrentOne()
+    {
+        var outer = Path.Combine(_root, "outer");
+        var inner = Path.Combine(outer, "inner");
+        Directory.CreateDirectory(inner);
+        File.WriteAllText(Path.Combine(outer, "settings.json"), "{}");
+        File.WriteAllText(Path.Combine(inner, "settings.json"), "{\"a\":1}");
+
+        var result = StoreMover.Replace(inner, outer);
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.ParkedAt);
+        Assert.NotNull(result.Error);
+        Assert.True(File.Exists(Path.Combine(inner, "settings.json")));
+        Assert.Equal(["inner", "settings.json"], Directory.EnumerateFileSystemEntries(outer).Select(entry => Path.GetFileName(entry)!).Order().ToArray());
+    }
+
+    /// <summary>運ぶ先が今の保存先の内側でも断る（運んだ物をまた運び、突き合わせで必ず落ちる）。</summary>
+    [Fact]
+    public void RefusesToMoveIntoItself()
+    {
+        var result = StoreMover.Move(Source, Path.Combine(Source, "next"));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.Copied);
+        Assert.False(Directory.Exists(Path.Combine(Source, "next")));
+    }
+
+    /// <summary>
+    /// 運んでいる間に書かれるログは突き合わせない。ログは門を通らずに書き足されるので、
+    /// 大きさが食い違って「コピーの確認に失敗」になっていた。
+    /// </summary>
+    [Fact]
+    public void DoesNotFailWhenTheLogGrowsWhileMoving()
+    {
+        Directory.CreateDirectory(Path.Combine(Source, "logs"));
+        var log = Path.Combine(Source, "logs", "app.log");
+        File.WriteAllText(log, "1行目\n");
+
+        var progress = new SyncProgress(report =>
+        {
+            if (report.Copied == report.Total)
+            {
+                File.AppendAllText(log, "運んでいる間に書いた行\n");
+            }
+        });
+
+        var result = StoreMover.Move(Source, Destination, progress);
+
+        Assert.True(result.Succeeded, result.Error);
+    }
+
+    /// <summary>その場で呼ぶ進み具合（<see cref="Progress{T}"/> は後で呼ぶので、運び終わる前に書けない）。</summary>
+    private sealed class SyncProgress(Action<StoreMoveProgress> report) : IProgress<StoreMoveProgress>
+    {
+        public void Report(StoreMoveProgress value) => report(value);
+    }
+
     [Fact]
     public void CopiesEveryFileKeepingTheLayout()
     {

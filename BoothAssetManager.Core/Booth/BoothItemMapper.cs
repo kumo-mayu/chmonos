@@ -45,6 +45,35 @@ public static class BoothItemMapper
         };
     }
 
+    /// <summary>
+    /// <see cref="Map"/> と同じだが、**読めなければ投げずに null を返し、ログに残す。**
+    ///
+    /// 200 で返ってきても JSON とは限らない（メンテナンス中の HTML・途中で切れた本文）し、
+    /// 項目の型が予告なく変わることもある。<see cref="Map"/> の例外を受け止めていなかったので、
+    /// 1件の読めない応答で取り込み全体が止まり、⑦（期限の取り直し）は毎回同じ商品で止まって残りに届かなかった。
+    /// 呼ぶ側は null を**一時失敗**として扱う（非公開の数には入れず、予定日も動かさない）。
+    /// </summary>
+    public static BoothBlock? TryMap(
+        string json,
+        DateTimeOffset fetchedAt,
+        IReadOnlyList<H2Section>? sections = null,
+        string? itemId = null)
+    {
+        try
+        {
+            return Map(json, fetchedAt, sections);
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException
+                                              or FormatException or OverflowException or ArgumentException
+                                              or KeyNotFoundException)
+        {
+            Diagnostics.AppLog.Error(
+                itemId is null ? "BOOTHの商品情報の読み取り" : $"BOOTHの商品情報の読み取り（商品 {itemId}）",
+                exception);
+            return null;
+        }
+    }
+
     /// <summary>商品IDだけを取り出す（未確定ファイルの候補確認で、全体を組み立てずに済ませたい時に使う）。</summary>
     public static string? ReadItemId(string json)
     {

@@ -366,9 +366,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
     private readonly SemaphoreSlim _detectGate = new(1, 1);
 
-    private readonly SemaphoreSlim _requestGate = new(1, 1);
-
-    private bool _detectAgain;
+    private CoalescedRun? _detectRequests;
 
     /// <summary>
     /// 裏での検出をお願いする（ユーザ判断 2026-09-21・N4）。**走っている間に来た分は1回にまとめる。**
@@ -376,29 +374,13 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     /// 未確定で確定するたびに投げていたので、10件まとめて確定すると
     /// 全件走査が10回直列に並んでいた（錠があるので壊れはしないが、待たせるだけ）。
     /// 検出は毎回ライブラリ全体を見るので、10回やっても結果は最後の1回と同じ。
+    /// まとめ方と取りこぼさない理由は <see cref="CoalescedRun"/>。
     /// </summary>
-    public async Task RequestDetectAsync(CancellationToken cancellationToken = default)
-    {
-        if (!await _requestGate.WaitAsync(0, cancellationToken))
-        {
-            _detectAgain = true;
-            return;
-        }
-
-        try
-        {
-            do
-            {
-                _detectAgain = false;
-                await DetectAsync(cancellationToken: cancellationToken);
-            }
-            while (_detectAgain);
-        }
-        finally
-        {
-            _requestGate.Release();
-        }
-    }
+    public Task RequestDetectAsync(CancellationToken cancellationToken = default)
+        => LazyInitializer.EnsureInitialized(
+                ref _detectRequests,
+                () => new CoalescedRun(token => DetectAsync(cancellationToken: token)))
+            .RequestAsync(cancellationToken);
 
     private async Task<AvatarDetectResult> DetectUnguardedAsync(
         IProgress<AvatarDetectProgress>? progress,
@@ -615,14 +597,14 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                 continue;
             }
 
-            if (!fetched.IsSuccess || fetched.Value is null)
+            // 通信の失敗と読めない応答では何も決めない。次回また試す（投げると検出全体が止まる）
+            if (!fetched.IsSuccess || fetched.Value is null
+                || BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: id) is not { } booth)
             {
-                // 通信の失敗で何も決めない。次回また試す
                 unresolved++;
                 continue;
             }
 
-            var booth = BoothItemMapper.Map(fetched.Value, DateTimeOffset.Now);
             var aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
                 ? BuildAliasesFromTags(booth)
                 : [];
@@ -819,7 +801,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         try
         {
             var path = _store.Paths.ItemHtmlFile(itemId);
-            return File.Exists(path) ? File.ReadAllText(path) : null;
+            return File.Exists(path) ? Storage.JsonStore.ReadText(path) : null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

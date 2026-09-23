@@ -42,6 +42,14 @@ public class MissingImageMarkerTests : IDisposable
         _paths.EnsureCreated();
         _store = new DataStore(_paths);
 
+        // 画像は在る商品にだけ保存する（外した商品の画像フォルダを作り直さない）ので、商品を置いておく
+        _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = ItemId,
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.UtcNow },
+            Local = new LocalBlock(),
+        }).GetAwaiter().GetResult();
+
         // 再試行の待ちは実際には置かない。一時エラーの試験で10秒待つことになる
         var settings = new AppSettings { FetchIntervalMs = 0 };
         var client = new BoothClient(

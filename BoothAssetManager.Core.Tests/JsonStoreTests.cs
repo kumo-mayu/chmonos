@@ -142,6 +142,50 @@ public class JsonStoreTests : IDisposable
     }
 
     /// <summary>
+    /// **読んでいる最中の保存が落ちない。**前は読むのに削除の共有を許さない開き方をしていたので、
+    /// 同時の保存の置き換えがアクセス拒否で落ちていた。読んでいた側は開いた時点の中身を読み切れる。
+    /// </summary>
+    [Fact]
+    public async Task SavesWhileSomeoneIsReading()
+    {
+        JsonStore.Write(FilePath, CreateItem());
+
+        await using (var reading = JsonStore.OpenShared(FilePath))
+        {
+            await JsonStore.WriteAsync(FilePath, CreateItem() with { Booth = new BoothBlock { FetchedAt = DateTimeOffset.UtcNow, Name = "更新後" } });
+            JsonStore.Write(FilePath, CreateItem() with { Booth = new BoothBlock { FetchedAt = DateTimeOffset.UtcNow, Name = "もう一度" } });
+
+            var old = await JsonSerializer.DeserializeAsync<ItemRecord>(reading, JsonStore.Options);
+            Assert.Equal("フリルニットセット", old!.Booth.Name);
+        }
+
+        Assert.Equal("もう一度", JsonStore.Read<ItemRecord>(FilePath)!.Booth.Name);
+    }
+
+    /// <summary>
+    /// アプリの外の読み手（セキュリティソフトなど）が削除の共有を許さずに少しだけ握っていても、
+    /// 置き換えを少し待ってやり直すので保存ごと落とさない。
+    /// </summary>
+    [Fact]
+    public async Task RetriesReplacingWhileAnOutsideReaderBrieflyHoldsTheFile()
+    {
+        JsonStore.Write(FilePath, CreateItem());
+
+        var outside = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var release = Task.Run(async () =>
+        {
+            await Task.Delay(40);
+            await outside.DisposeAsync();
+        });
+
+        await JsonStore.WriteTextAsync(FilePath, "{}");
+        await release;
+
+        Assert.Equal("{}", await JsonStore.ReadTextAsync(FilePath));
+        Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
+    }
+
+    /// <summary>
     /// 手で書いた <c>null</c> の配列は空として受ける（読んだ瞬間ではなく、後から画面が触って落ちていた）。
     /// </summary>
     [Fact]

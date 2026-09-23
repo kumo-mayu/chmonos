@@ -356,7 +356,11 @@ public sealed class FallbackResolver
             return null;
         }
 
-        var booth = BoothItemMapper.Map(jsonResult.Value, DateTimeOffset.Now);
+        // 読めない応答は、取れなかったときと同じく候補から外す
+        if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
+        {
+            return null;
+        }
 
         // 商品名はもう取ってあるので、読みの照合に通信は要らない
         var readingMatch = booth.Name is null

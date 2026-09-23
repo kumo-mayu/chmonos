@@ -45,10 +45,15 @@ public class DueRefreshTests : IDisposable
     {
         public List<string> Refreshed { get; } = [];
 
+        /// <summary>取り直しが投げる商品（想定外の応答・ディスクの失敗の代わり）。</summary>
+        public HashSet<string> Throws { get; } = [];
+
         public Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default)
         {
             Refreshed.Add(itemId);
-            return Task.FromResult(RefreshOutcome.Updated);
+            return Throws.Contains(itemId)
+                ? throw new IOException("想定外")
+                : Task.FromResult(RefreshOutcome.Updated);
         }
 
         public Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
@@ -205,6 +210,23 @@ public class DueRefreshTests : IDisposable
 
         Assert.Equal(2, await _due.RunAsync());
         Assert.Equal(["b", "a"], _items.Refreshed);
+    }
+
+    /// <summary>
+    /// **1件が投げても残りは取り直す。**前は1件で残りが全部止まり、期限の古い順なので
+    /// 次の起動でも同じ商品が先頭に来て、毎回そこで止まっていた。
+    /// </summary>
+    [Fact]
+    public async Task KeepsGoingWhenOneItemFails()
+    {
+        var now = DateTimeOffset.Now;
+
+        await SaveAsync("broken", now.AddDays(-9));
+        await SaveAsync("fine", now.AddDays(-2));
+        _items.Throws.Add("broken");
+
+        Assert.Equal(1, await _due.RunAsync());
+        Assert.Equal(["broken", "fine"], _items.Refreshed);
     }
 
     /// <summary>期限の来たものが無ければ、何も呼ばない。</summary>
