@@ -88,6 +88,13 @@ public static class StoreMover
         IProgress<StoreMoveProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // 今の保存先が選んだ先の内側にあると、下で選んだ先の中身を退けるときに**今の保存先ごと退けてしまう**。
+        // 運ぶ元が消えるので、空のまま進むか元を消す所で落ちていた（試験で確かめた）。始める前に断る
+        if (Overlap(source, destination) is { } refusal)
+        {
+            return Refused(refusal);
+        }
+
         var parked = Path.Combine(destination, $"_置き換え前-{DateTime.Now:yyyyMMdd-HHmmss}");
 
         try
@@ -124,6 +131,12 @@ public static class StoreMover
         IProgress<StoreMoveProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // 運ぶ先が今の保存先の内側だと、運んだ物がまた運ぶ元に数えられ、突き合わせで必ず落ちる
+        if (IsSameOrInside(destination, source))
+        {
+            return Refused("選んだ場所が今の保存先の中にあります。今の保存先の外の場所を選んでください。");
+        }
+
         var files = Enumerate(source).ToList();
         var copied = 0;
         var bytes = 0L;
@@ -181,12 +194,44 @@ public static class StoreMover
         };
     }
 
+    private static StoreMoveResult Refused(string error)
+        => new() { Succeeded = false, Copied = 0, Bytes = 0, Error = error };
+
+    /// <summary>置き換えで、2つの場所が重なっていれば断る理由を返す。</summary>
+    private static string? Overlap(string source, string destination)
+        => IsSameOrInside(source, destination)
+            ? "今の保存先が、選んだ場所の中にあります。置き換えると今のデータごと退けてしまうので、別の場所を選んでください。"
+            : IsSameOrInside(destination, source)
+                ? "選んだ場所が今の保存先の中にあります。今の保存先の外の場所を選んでください。"
+                : null;
+
+    /// <summary><paramref name="path"/> が <paramref name="folder"/> そのものか、その内側か。</summary>
+    private static bool IsSameOrInside(string path, string folder)
+    {
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)) + Path.DirectorySeparatorChar;
+        var container = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar;
+        return full.StartsWith(container, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 突き合わせない物。<c>logs/</c> は運んでいる間も書き足される（ログは引越しの門を通らない——
+    /// 書けなくても投げない決まりで、待たせる相手でもない）。大きさが食い違って
+    /// 「コピーは済んでいるのに確認に失敗」になっていた。運ぶ・消すのは他と同じ（食い違うのは最後の数行だけ）。
+    /// </summary>
+    private static bool IsUnverified(string relative)
+        => relative.StartsWith("logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>全部揃っていれば null、足りなければその名前を返す。</summary>
     private static string? Verify(string source, string destination)
     {
         foreach (var file in Enumerate(source))
         {
             var relative = Path.GetRelativePath(source, file);
+            if (IsUnverified(relative))
+            {
+                continue;
+            }
+
             var target = Path.Combine(destination, relative);
 
             if (!File.Exists(target))
