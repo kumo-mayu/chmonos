@@ -1288,7 +1288,9 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         _lastResolveCount = -1;
         resolve.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName != nameof(ResolveViewModel.RemainingCount))
+            // 右を別の物に差し替えた後の、古い未確定の知らせは聞かない。
+            // 聞くと共有の _lastResolveCount を古い件数で書き換え、要らない木の読み直しを起こす
+            if (e.PropertyName != nameof(ResolveViewModel.RemainingCount) || !ReferenceEquals(Detail, resolve))
             {
                 return;
             }
