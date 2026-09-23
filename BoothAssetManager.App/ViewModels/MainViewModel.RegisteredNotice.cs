@@ -98,6 +98,11 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>押した時点の中身で開く（帯を出してから取り直し・IDの変更があり得る）。</summary>
+    /// <remarks>
+    /// **開けなかったら黙らずに言う。**帯を出した後に IDを付け替えた・登録を外したと、その ID ではもう読めない。
+    /// 前は押しても何も起きず、押し損ねたのか壊れているのか分からなかった。
+    /// 付け替えた先の ID は帯が持っていないので、探す道（検索）を添える
+    /// </remarks>
     private async Task OpenRegisteredAsync()
     {
         if (_itemNotice?.ItemId is not { } itemId)
@@ -109,7 +114,14 @@ public sealed partial class MainViewModel
         if (await _services.Store.Items.LoadAsync(itemId) is { } item)
         {
             ShowItem(item);
+            return;
         }
+
+        Services.Notice.Show(
+            "この商品は見つかりませんでした。\n知らせが出た後に商品IDを変えたか、登録を外した可能性があります。\n検索で商品名から探してください。",
+            "商品を開けませんでした",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
     }
 
     /// <summary>今の知らせを下ろし、待っていた次を出す（無ければ帯を畳む）。</summary>

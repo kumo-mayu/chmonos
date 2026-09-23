@@ -362,6 +362,17 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public Action<ItemRecord?>? Replaced { get; set; }
 
     /// <summary>
+    /// 組み込んだ持ち主が、このページをまだ出しているか。false なら開き直しが済んでも帯で知らせる。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Replaced"/> を渡すと持ち主が差し替えを引き受けるので、単独の商品ページと違って
+    /// 「離れた後に済んだ」ことが帯に出ていなかった（取り直しを待つ間に別の行・別の画面へ移ると、済んだことに気付けない）。
+    /// 見えているかは持ち主にしか分からないので問い合わせる。null（編集画面）は今までどおり知らせない
+    /// （編集画面は順番の中で読み直すので、前の商品の知らせを出すと次の商品の編集中に割り込む）。
+    /// </remarks>
+    public Func<bool>? IsShownByOwner { get; set; }
+
+    /// <summary>
     /// 「使う」操作（Unityへ送る・展開して開く）を出すか。編集画面では出さない（ユーザ判断：
     /// 編集画面はJSONに関わる操作と確かめたいものを見せる所。その商品に何をしたいかを網羅するのは商品ページ）。
     /// </summary>
@@ -415,6 +426,13 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     {
         if (Replaced is { } replaced)
         {
+            // 知らせるかは差し替えの前に聞く（持ち主が差し替えると、このページは出ていないことになる）。
+            // 持ち主には知らせた後も渡す：木の読み直しや手元の控えの更新は、見えていなくても要る
+            if (updated is not null && IsShownByOwner is { } isShown && !isShown())
+            {
+                _main.NoteItemChangedAway(updated, awayText ?? $"「{updated.DisplayName}」を更新しました。");
+            }
+
             replaced(updated);
             return;
         }

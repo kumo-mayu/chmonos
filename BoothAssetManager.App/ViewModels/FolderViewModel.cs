@@ -1253,7 +1253,9 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         //
         // **右がまだこのページのときだけ差し替える。**取り直しは BOOTH の順番を待つので、待つ間に別の行を選べる。
         // 前は選び直した右側を古い商品のページで上書きしていた。フォルダの画面を離れていたら何もしない
-        // （この画面は開くたびに作り直すので、木は次に開くときに読み直される）
+        // （この画面は開くたびに作り直すので、木は次に開くときに読み直される）。
+        // 右から外れていたら、済んだことは下の帯で知らせる（単独の商品ページを離れたときと同じ）
+        page.IsShownByOwner = () => ReferenceEquals(_main.CurrentViewModel, this) && ReferenceEquals(Detail, page);
         page.Replaced = updated =>
         {
             if (!ReferenceEquals(_main.CurrentViewModel, this))
