@@ -112,7 +112,7 @@
                 <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"
                         IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                         Command="{Binding Owner.ImportHereCommand}" CommandParameter="{Binding}"
-                        ToolTip="このフォルダを取り込みの対象に積んで、取り込みを始めます（取り込み画面へ移ります）。新しいファイルを探して商品を決めます。" />
+                        ToolTip="このフォルダを取り込みの対象に積んで、取り込みを始めます。新しいファイルを探して商品を決めます。画面はこのままで、進み具合は下の帯に出ます（取り込み画面へはそこから移れます）。" />
 
                 <!-- 監視は状態を出し、足す・外すの両方をできるようにする（ユーザ指示 2026-09-14。前は足すだけで外せなかった） -->
                 <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,0,4,0" Margin="0,0,8,8"

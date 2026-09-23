@@ -1258,7 +1258,9 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     // ---- フォルダの操作 ----
 
     /// <summary>
-    /// このフォルダを取り込みの対象に積んで、そのまま始める（フォルダを落としたときと同じ道）。取り込み画面へ移って進み具合を見せる。
+    /// このフォルダを取り込みの対象に積んで、そのまま始める（フォルダを落としたときと同じ道）。
+    /// 画面は移さず、下の帯に進み具合と「取り込み画面を開く」を出す（点検 2026-09-23・動線の点検 A3：
+    /// 前は取り込み画面へ移り、フォルダを見ていた所を失った）。
     /// 監視に入れるかは隣の切り替えで決めるので、ここでは聞かない
     /// </summary>
     private void ImportHere(FolderViewDetail? detail)
@@ -1269,7 +1271,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         }
 
         _main.Import.AddDroppedPaths([detail.Path], startImmediately: true, offerWatch: false);
-        _main.ShowImport();
+        _main.NoteImportQueued(started: true);
     }
 
     /// <summary>監視対象に足す・外す。取り込み画面の一覧と同じ所を通す（別々に書くと、片方の写しがもう片方の変更を消す）。</summary>
