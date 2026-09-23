@@ -314,6 +314,11 @@
 
         <!-- ナビゲーション -->
         <Border Grid.Column="0" Background="{StaticResource Rail}">
+            <!--
+                窓が低いと下の「設定」が窓の外に出て押せなかった（点検 2026-09-23・高さ700px）。溢れたときだけ縦に送る。
+                高さが足りている間は、送る入れ物が中身を窓の高さまで伸ばすので「設定」は下端に付いたまま
+            -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Top" Margin="0,16,0,0">
                     <!--
@@ -473,6 +478,7 @@
                     </DockPanel>
                 </Button>
             </DockPanel>
+            </ScrollViewer>
         </Border>
 
         <DockPanel Grid.Column="1">
@@ -638,7 +644,16 @@
 
             <!-- 画面内検索（U20）の帯を今の画面の上に重ねるため、同じ枠に置く -->
             <Grid>
-                <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" />
+                <!--
+                    窓が画面の中身の最小より狭いときは、横に送って届かせる（ユーザ判断 2026-09-23：窓の最小の幅は付けない）。
+                    縦は画面ごとに自分で送るので、ここでは送らない。幅が足りていれば中身は前と同じ幅で並ぶ（ViewportFitHost）
+                -->
+                <ScrollViewer x:Name="ScreenScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" CanContentScroll="True"
+                              Focusable="False">
+                    <controls:ViewportFitHost>
+                        <ContentControl x:Name="ScreenHost" Content="{Binding CurrentViewModel}" />
+                    </controls:ViewportFitHost>
+                </ScrollViewer>
                 <Border x:Name="FindBar" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
                         Margin="0,58,24,0" Padding="10,7" CornerRadius="8" Background="{StaticResource Surface}"
                         BorderBrush="{StaticResource Border}" BorderThickness="1">
