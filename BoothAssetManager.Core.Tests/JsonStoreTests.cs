@@ -241,4 +241,45 @@ public class JsonStoreTests : IDisposable
         Assert.DoesNotContain("isDownloaded", text);
         Assert.DoesNotContain("logicalSizeBytes", text);
     }
+
+    /// <summary>
+    /// 置き換えが本体を退けた後で一時ファイルを据えられなかった（1176・1177）とき、**一時ファイルを消さずに本体の場所へ据える。**
+    /// 前は一時ファイルまで片付けていて、その JSON は丸ごと消えていた。
+    /// </summary>
+    [Theory]
+    [InlineData(1176)]
+    [InlineData(1177)]
+    public void PutsTheNewContentInPlaceWhenReplaceStrandsIt(int error)
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, "古い");
+        var temporary = FilePath + ".x.tmp";
+        File.WriteAllText(temporary, "新しい");
+
+        JsonStore.MoveOver(temporary, FilePath, (_, target) =>
+        {
+            // ReplaceFile が本体を退けたところで失敗した形（1177 なら別の名前に残るが、本体の名前は空く）
+            File.Move(target, target + ".退けた");
+            throw new IOException("置き換えに失敗", unchecked((int)0x80070000) | error);
+        });
+
+        Assert.Equal("新しい", File.ReadAllText(FilePath));
+        Assert.False(File.Exists(temporary));
+    }
+
+    /// <summary>それ以外の失敗は今までどおり投げる（据え直しで隠さない）。</summary>
+    [Fact]
+    public void OtherReplaceFailuresStillThrow()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, "古い");
+        var temporary = FilePath + ".y.tmp";
+        File.WriteAllText(temporary, "新しい");
+
+        Assert.Throws<IOException>(() => JsonStore.MoveOver(
+            temporary, FilePath, (_, _) => throw new IOException("別の失敗", unchecked((int)0x80070000) | 5)));
+
+        Assert.Equal("古い", File.ReadAllText(FilePath));
+        Assert.True(File.Exists(temporary));
+    }
 }

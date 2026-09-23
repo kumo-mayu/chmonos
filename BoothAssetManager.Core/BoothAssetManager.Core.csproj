@@ -21,6 +21,14 @@
     <None Include="..\assets\README.md" Link="assets\README.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
+  <!--
+    試験から内側の口を叩く（置き換えの失敗を作る・閉じたままにした門を開ける）。
+    どれもアプリの全体に効く静的な状態か、ディスクの失敗を作らないと届かない道で、公開の口にすると画面から呼べてしまう
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="BoothAssetManager.Core.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

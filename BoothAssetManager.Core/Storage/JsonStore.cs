@@ -75,9 +75,9 @@ public static class JsonStore
 
                 Replace(temporaryPath, path);
             }
-            catch
+            catch (Exception failure)
             {
-                TryDelete(temporaryPath);
+                DiscardTemporary(temporaryPath, failure);
                 throw;
             }
         }
@@ -105,11 +105,11 @@ public static class JsonStore
 
                 await ReplaceAsync(temporaryPath, path, cancellationToken);
             }
-            catch
+            catch (Exception failure)
             {
                 // 中断（OperationCanceledException）でも書きかけを残さない。
                 // 残った .tmp は誰も片付けず、画像の保存先に溜まり続けていた
-                TryDelete(temporaryPath);
+                DiscardTemporary(temporaryPath, failure);
                 throw;
             }
         }
@@ -175,21 +175,66 @@ public static class JsonStore
     /// 読み手は開いた時点の中身を読み切れる。本体が無ければ置き換える物が無いので Move で置く。
     /// </summary>
     private static void MoveOver(string temporaryPath, string path)
+        => MoveOver(temporaryPath, path, static (temporary, target)
+            => File.Replace(temporary, target, destinationBackupFileName: null, ignoreMetadataErrors: true));
+
+    /// <summary>置き換えの道具を差し替えられる形（1176・1177 は実のディスクでは起こせないので、試験で作る）。</summary>
+    internal static void MoveOver(string temporaryPath, string path, Action<string, string> replace)
     {
         if (File.Exists(path))
         {
             try
             {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                replace(temporaryPath, path);
                 return;
             }
             catch (FileNotFoundException) when (File.Exists(temporaryPath))
             {
                 // 確かめた後に本体が消された（商品を外した等）。置き換える物が無いので下の Move で置く
             }
+            catch (IOException exception) when (IsStrandedReplacement(exception) && File.Exists(temporaryPath))
+            {
+                // 本体はもう退けられ、新しい中身は一時ファイルにしか無い。前はここで投げ、呼んだ側の片付けが
+                // 一時ファイルまで消していたので、その JSON は丸ごと消えていた。本体の場所へ据え直す
+                try
+                {
+                    File.Move(temporaryPath, path, overwrite: true);
+                    return;
+                }
+                catch (Exception moveFailure) when (moveFailure is IOException or UnauthorizedAccessException)
+                {
+                    throw new StrandedReplacementException(temporaryPath, path, moveFailure);
+                }
+            }
         }
 
         File.Move(temporaryPath, path, overwrite: true);
+    }
+
+    /// <summary>
+    /// <c>ReplaceFile</c> が本体を退けた後で、一時ファイルを本体の名前にできなかったか。
+    /// 1176（ERROR_UNABLE_TO_MOVE_REPLACEMENT）：控えの名前を渡していないと、本体はもう無く一時ファイルだけが残る。
+    /// 1177（ERROR_UNABLE_TO_MOVE_REPLACEMENT_2）：本体は別の名前へ退けられ、一時ファイルは元の名前のまま残る。
+    /// どちらも本体の名前は空いていて、新しい中身は一時ファイルにあるので、同じく Move で据えられる
+    /// （Win32 の <c>ReplaceFileW</c> の説明による）。
+    /// </summary>
+    private static bool IsStrandedReplacement(IOException exception)
+        => (exception.HResult & 0xFFFF) is 1176 or 1177;
+
+    /// <summary>
+    /// 置き換えの途中で本体が退けられ、一時ファイルを据え直すこともできなかった。
+    /// **中身は一時ファイルにしか無いので、呼んだ側はそれを消さない。**
+    /// </summary>
+    internal sealed class StrandedReplacementException(string temporaryPath, string path, Exception inner)
+        : IOException($"「{path}」の置き換えの途中で失敗しました。書いた中身は「{temporaryPath}」に残っています。", inner);
+
+    /// <summary>失敗した書き込みの一時ファイルを片付ける。ただし中身がそこにしか無いときは残す。</summary>
+    private static void DiscardTemporary(string temporaryPath, Exception failure)
+    {
+        if (failure is not StrandedReplacementException)
+        {
+            TryDelete(temporaryPath);
+        }
     }
 
     private static void Replace(string temporaryPath, string path)
@@ -285,11 +330,11 @@ public static class JsonStore
 
                 await ReplaceAsync(temporaryPath, path, cancellationToken);
             }
-            catch
+            catch (Exception failure)
             {
                 // 置き換えに失敗すると .tmp が残り、誰も片付けなかった（友人のストアに2件残っていた）。
                 // 本体を読んでいる人がいると置き換えは失敗しうる。例外はそのまま上へ返す
-                TryDelete(temporaryPath);
+                DiscardTemporary(temporaryPath, failure);
                 throw;
             }
         }
