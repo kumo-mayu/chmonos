@@ -444,6 +444,26 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen
         DecisionFocusRequested?.Invoke();
     }
 
+    private bool _isLoaded;
+    private bool _loadFailed;
+
+    /// <summary>
+    /// 一覧を一度でも読み終えたか。読み終えるまでは一覧が0件なので、「未確定のファイルはありません」と
+    /// 区別するために要る（E1：読み込み中・探して0件・1つも無いを言い分ける）。
+    /// </summary>
+    public bool IsLoaded
+    {
+        get => _isLoaded;
+        private set => SetField(ref _isLoaded, value);
+    }
+
+    /// <summary>一覧を読めなかった。空の表示は出さず、上の1行で理由を言う。</summary>
+    public bool LoadFailed
+    {
+        get => _loadFailed;
+        private set => SetField(ref _loadFailed, value);
+    }
+
     /// <summary>
     /// 開くたびに、既にitem側が持っているファイルを未確定から均してから読み直す。
     /// 確定の途中で落ちると両方に残るため。
@@ -471,7 +491,20 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen
         // 読み込みはUIスレッド以外で終わることがあるので、必ず戻してから触る
         RunOnUiThread(() =>
         {
-            Reload();
+            try
+            {
+                Reload();
+            }
+            catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+            {
+                // 読めなかったのを「未確定のファイルはありません」と見せない（E4：失敗を黙って捨てない）。
+                // 前はここで落ちると読み込み中の0件のまま残り、無いように見えた
+                Core.Diagnostics.AppLog.Error("未確定の画面：一覧の読み込み", exception);
+                failure = $"未確定の一覧を読めませんでした（{exception.Message}）。少し待ってから画面を開き直してください。";
+                LoadFailed = true;
+            }
+
+            IsLoaded = true;
 
             if (failure is not null)
             {
