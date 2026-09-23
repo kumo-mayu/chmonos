@@ -1045,59 +1045,49 @@ public sealed class ItemService : IItemService
         var prepared = await _store.Items.LoadAsync(toId, cancellationToken)
             ?? (await FetchNewItemAsync(toId, cancellationToken)).Item;
 
-        // **移す元は取得の後で読み直す。**BOOTH から取って作ると数秒かかり、その間に取り込みが元の商品へ
-        // ファイルを足したり、人がメモを書いたり画像を足したりする。前は取る前の写しを移したので、その分が元の商品ごと消えていた
-        var source = await _store.Items.LoadAsync(fromId, cancellationToken);
-        if (source is null)
-        {
-            DeleteQuietly(copied);
-            return ItemIdChangeOutcome.SourceMissing;
-        }
-
-        // 取っている間に足された画像の分（写し済みの物は飛ばされる）
-        if (CopyUserImages(fromId, toId, source.Local.UserImages) is not { } late)
-        {
-            DeleteQuietly(copied);
-            return ItemIdChangeOutcome.ImagesNotMoved;
-        }
-
-        copied.AddRange(late);
         var skipped = skippedPurchases ?? new HashSet<int>();
+        var refused = ItemIdChangeOutcome.TargetUnavailable;
 
-        // 取れなかった間に、取り込みが同じIDの商品を作っていることがある（L13 と同じ形）。在ればそちらへ重ねる
-        prepared ??= await _store.Items.LoadAsync(toId, cancellationToken);
-
-        if (prepared is null)
-        {
-            // 手元にも BOOTH にも無い＝新しく作る。Items.SaveAsync を使ってよいのはここだけ
-            var target = EmptyItem(toId);
-            var merged = ItemIdChange.Merge(source.Local, target.Local, skipped);
-            await _store.Items.SaveAsync(
-                target with { Local = merged with { Purchases = Purchase.Reconcile(merged.Purchases, target.Booth.Variations) } },
-                cancellationToken);
-        }
-        else
-        {
-            // **合わせるのは錠の中で読み直した今の値**（技術的負債 1-5）。
-            // 移すのは手元の記録の全部なので、全項目の持ち主として書く。
-            // 購入記録は移した先のvariation一覧で照合し直される（保存側）。指していない記録は支出にそのまま数える
-            var written = await _store.Items.ChangeLocalAsync(
-                toId,
-                current => ItemIdChange.Merge(source.Local, current, skipped),
-                Enum.GetValues<LocalField>(),
-                cancellationToken);
-
-            if (!written)
+        // **移す元の錠を持ったまま、今の値を読み、移し、消す**（ItemRepository.MoveAwayAsync）。
+        // BOOTH から取って作ると数秒かかり、その間に取り込みが元の商品へファイルを足したり、人がメモを書いたり画像を足したりする。
+        // 前は錠の外で読み直してから消したので、読み直してから消すまでに書かれた分が、元の商品と一緒に消えていた
+        var moved = await _store.Items.MoveAwayAsync(
+            fromId,
+            async source =>
             {
-                // 取った後で移した先が消された。元は消さずに残し、写した画像も片付ける
-                DeleteQuietly(copied);
-                return ItemIdChangeOutcome.TargetUnavailable;
-            }
+                // 取っている間に足された画像の分（写し済みの物は飛ばされる）
+                if (CopyUserImages(fromId, toId, source.Local.UserImages) is not { } late)
+                {
+                    refused = ItemIdChangeOutcome.ImagesNotMoved;
+                    return false;
+                }
+
+                copied.AddRange(late);
+
+                // **合わせるのは錠の中で読み直した今の値**（技術的負債 1-5）。
+                // 移すのは手元の記録の全部なので、全項目の持ち主として書く。
+                // 購入記録は移した先のvariation一覧で照合し直される（保存側）。指していない記録は支出にそのまま数える
+                LocalBlock? Merge(LocalBlock current) => ItemIdChange.Merge(source.Local, current, skipped);
+
+                // 手元にも BOOTH にも無ければ新しく作る。在るかは移す先の錠の中で見る——取れなかった間に、
+                // 取り込みが同じIDの商品を作っていることがある（L13 と同じ形）。在ればそちらへ重ねる。
+                // 取って作った物が取った後で消されていれば、作り直さずに断る（元は消さずに残す）
+                return prepared is null
+                    ? await _store.Items.CreateOrChangeLocalAsync(
+                        toId, () => EmptyItem(toId), Merge, Enum.GetValues<LocalField>(), cancellationToken)
+                    : await _store.Items.ChangeLocalAsync(toId, Merge, Enum.GetValues<LocalField>(), cancellationToken);
+            },
+            cancellationToken);
+
+        if (moved is not true)
+        {
+            // 元は残っている（または初めから無い）。写した画像は片付ける
+            DeleteQuietly(copied);
+            return moved is null ? ItemIdChangeOutcome.SourceMissing : refused;
         }
 
-        // 元の商品を消すのは最後。ここまでで落ちても、中身は移した先に残っている
+        // 元の商品は移し終えた後で消えている。ここまでで落ちても、中身は移した先に残っている
         // （両方に出るのは二重に見えるが、消えてしまうよりはるかによい）
-        _store.Items.Delete(fromId);
 
         // 外した印はファイルの行と一緒に移した先へ移っている（ItemIdChange.Merge）。
         // 以前は別の detached.json をここで読み替えていた
@@ -1684,8 +1674,7 @@ public sealed class ItemService : IItemService
                         : file)
                     .ToList();
 
-                // 手元に何も無くなったか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る
-                becameEmpty = !files.Any(file => !file.Detached) && current.LocalFolders.Count == 0;
+                becameEmpty = !HoldsAnything(current with { LocalFiles = files });
                 return current with { LocalFiles = files };
             },
             LocalOwners.Import,
@@ -1696,15 +1685,22 @@ public sealed class ItemService : IItemService
             return DetachOutcome.Missing;
         }
 
-        // 商品ごと消すと、外した印も一緒に消える（次の取り込みで手掛かりが指せば、また作られる）
+        // 商品ごと消すと、外した印も一緒に消える（次の取り込みで手掛かりが指せば、また作られる）。
+        // **空かは消す錠の中でもう一度見る。**印を書いてから消すまでの間に取り込みがファイルを足すと、
+        // 前は足された分ごと消していた。足されていれば消さずに、外しただけとして返す
         if (becameEmpty && deleteItemWhenEmpty)
         {
-            _store.Items.Delete(itemId);
-            return DetachOutcome.ItemDeleted;
+            return await _store.Items.DeleteIfAsync(itemId, item => !HoldsAnything(item.Local), cancellationToken)
+                ? DetachOutcome.ItemDeleted
+                : DetachOutcome.Detached;
         }
 
         return becameEmpty ? DetachOutcome.ItemNowEmpty : DetachOutcome.Detached;
     }
+
+    /// <summary>手元に何か持っているか（外したファイルは数えない）。フォルダ登録も所持のうちなので一緒に見る。</summary>
+    private static bool HoldsAnything(LocalBlock local)
+        => local.LocalFiles.Any(file => !file.Detached) || local.LocalFolders.Count > 0;
 
     /// <summary>
     /// 外したファイルをこの商品に戻す（商品ページの灰色の行の「この商品に戻す」・ユーザ判断 2026-09-12）。
