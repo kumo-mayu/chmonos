@@ -346,7 +346,7 @@
 
     <!-- ===== リスト（ユーザ指示 2026-09-14：カードの代わりに1行ずつ並べる。列の幅はドラッグで変え、その画面の一覧で共通） ===== -->
 
-    <!-- カード／リストの切り替えの1区画。一覧の右下に重ねて置く（ユーザ指示「右下が空いているので一旦そこに」） -->
+    <!-- カード／リストの切り替えの1区画（置き場所は下の ItemViewModeSwitch） -->
     <Style x:Key="ItemViewModeSegment" TargetType="RadioButton">
         <Setter Property="Height" Value="28" />
         <Setter Property="Padding" Value="14,0" />
@@ -439,11 +439,12 @@
         両方向に結ぶと、画面を作る・組み直すときに WPF が片方を外した拍子に「外れた」が書き戻され、
         押していないのにカードへ戻って覚えてしまうことがあった（2026-09-14・起動し直すと検索がカードで始まった）
     -->
+    <!--
+        置き場所は一覧の上の帯（検索・ショップ・フォルダ）か見出しの行（改変）。一覧の右下に浮かせていたときは
+        影を付けていたが、狭い窓でカードの上に重なったので帯へ移した（点検 2026-09-23）。帯の中では影は要らない
+    -->
     <DataTemplate x:Key="ItemViewModeSwitch">
         <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.18" />
-            </Border.Effect>
             <StackPanel Orientation="Horizontal">
                 <RadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=OneWay}"
                              Command="{Binding ShowCardsCommand}" ToolTip="絵の大きなカードで並べます">

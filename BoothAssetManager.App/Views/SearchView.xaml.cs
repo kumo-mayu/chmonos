@@ -80,6 +80,24 @@ public partial class SearchView : UserControl
         }
     }
 
+    /// <summary>
+    /// 続きがある側の端にだけ「‹」「›」を出す。バーを出さない帯なので、これが無いと右端のチップが切れていても
+    /// 続きがあると分からなかった（点検 2026-09-23）。幅が変わったとき・履歴が増減したときも ScrollChanged が来る
+    /// </summary>
+    private void OnHistoryScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // 1px 未満の端数で出たり消えたりしないよう、半端は無いものとして見る
+        HistoryBack.Visibility = HistoryStrip.HorizontalOffset > 1 ? Visibility.Visible : Visibility.Collapsed;
+        HistoryForward.Visibility = HistoryStrip.HorizontalOffset < HistoryStrip.ScrollableWidth - 1 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // 1画面ぶんより少し少なく送る。端の1枚を送った先でも見せ、どこまで見たかを見失わないように
+    private void OnHistoryScrollBack(object sender, RoutedEventArgs e)
+        => HistoryStrip.ScrollToHorizontalOffset(HistoryStrip.HorizontalOffset - HistoryStrip.ViewportWidth * 0.8);
+
+    private void OnHistoryScrollForward(object sender, RoutedEventArgs e)
+        => HistoryStrip.ScrollToHorizontalOffset(HistoryStrip.HorizontalOffset + HistoryStrip.ViewportWidth * 0.8);
+
     /// <summary>検索欄へ入り、今の文字を選んだ状態にする（ショートカット「検索欄へ」#43）。そのまま打てば置き換わる。</summary>
     public void FocusQuery()
     {
