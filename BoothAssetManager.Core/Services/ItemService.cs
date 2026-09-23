@@ -220,10 +220,20 @@ public sealed class ItemService : IItemService
             ? H2SectionExtractor.Extract(htmlResult.Value)
             : new H2ExtractionResult();
 
-        // 読めない応答は一時失敗と同じ扱い（カウントも予定日も動かさない）。投げると⑦の残りが止まる
+        // 読めない応答（200 なのに JSON でない・形が変わった）。投げると⑦の残りが止まる。
+        //
+        // **予定日は普段の間隔で進める。**通信の失敗（上）と違って BOOTH は応答を返しているので、
+        // こちらが圏外だったという話ではなく、次の起動で取り直しても同じ物が返りやすい。
+        // 動かさないでいた頃は、読めない商品が毎回の⑦の先頭に来て、そのたびに1本を使っていた。
+        // 404 の回数・取得日時・booth には触れない（読めていないので、何も分かっていない）
         if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, extraction.Sections, itemId) is not { } booth)
         {
-            return RefreshOutcome.TemporaryFailure;
+            await _store.Items.SaveLocalAsync(
+                itemId,
+                existing.Local with { NextFetchDueAt = NextDue(itemId) },
+                LocalOwners.Fetch,
+                cancellationToken: cancellationToken);
+            return RefreshOutcome.Unreadable;
         }
 
         // booth を差し替え、local は取得の記録だけを書く。
@@ -1848,6 +1858,12 @@ public enum RefreshOutcome
     NotFound,
     Delisted,
     TemporaryFailure,
+
+    /// <summary>
+    /// BOOTH は応答したが読めなかった（JSON でない・形が変わった）。待てば直る一時失敗とは言い分ける
+    /// （「次回に再試行します」と言うと、待っても直らない失敗を待てば直るように読ませる）。予定日は普段の間隔で進める。
+    /// </summary>
+    Unreadable,
     Missing,
 }
 

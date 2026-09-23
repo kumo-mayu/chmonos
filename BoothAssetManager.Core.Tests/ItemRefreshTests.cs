@@ -121,21 +121,24 @@ public class ItemRefreshTests : IDisposable
         });
 
     /// <summary>
-    /// 200 で JSON でない応答が来たら、投げずに一時失敗として返す（予定日も動かさない）。
+    /// 200 で JSON でない応答が来たら、投げずに「読めなかった」として返す。
     /// 前は投げていたので、⑦は毎回この商品で止まって残りに届かなかった。
+    /// 予定日は普段の間隔で進める（動かさないと、毎回の⑦の先頭で同じ商品に1本を使い続けた）。
+    /// booth と 404 の回数には触れない（読めていないので何も分かっていない）。
     /// </summary>
     [Fact]
-    public async Task TreatsAnUnreadableResponseAsATemporaryFailure()
+    public async Task PutsOffAnUnreadableResponseUntilTheNextUsualCheck()
     {
         var due = DateTimeOffset.Now.AddDays(-3);
-        await SaveItemAsync(new LocalBlock { NextFetchDueAt = due });
+        await SaveItemAsync(new LocalBlock { NextFetchDueAt = due, ConsecutiveNotFoundCount = 1 });
         _itemJsonBody = "<html><body>メンテナンス中</body></html>";
 
-        Assert.Equal(RefreshOutcome.TemporaryFailure, await _service.RefreshAsync(ItemId));
+        Assert.Equal(RefreshOutcome.Unreadable, await _service.RefreshAsync(ItemId));
 
         var item = await _store.Items.LoadAsync(ItemId);
         Assert.Equal("取り直す前の名前", item!.Booth.Name);
-        Assert.Equal(due, item.Local.NextFetchDueAt);
+        Assert.Equal(1, item.Local.ConsecutiveNotFoundCount);
+        Assert.True(item.Local.NextFetchDueAt > DateTimeOffset.Now.AddDays(1), "予定日が普段の間隔で先へ進むこと");
     }
 
     /// <summary>
