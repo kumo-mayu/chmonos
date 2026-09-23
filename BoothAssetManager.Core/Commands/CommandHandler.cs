@@ -923,9 +923,10 @@ public sealed class CommandHandler
             {
                 await catalog.FillItemAsync(itemId);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-                                                  or System.Text.Json.JsonException)
+            catch (Exception exception)
             {
+                // 待つ者のいない裏の作業なので、ここで受け止めない例外は誰にも見られずに消える（`Forget()` と同じ決まり）。
+                // 壊れた zip の読み取りは IO と JSON 以外の例外（InvalidDataException など）も投げる
                 Diagnostics.AppLog.Error("ファイルを付けた後の unitypackage の読み込み", exception);
             }
         });
