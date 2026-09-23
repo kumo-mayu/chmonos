@@ -42,6 +42,9 @@ public sealed class Suggestion
     }
 
     public Visibility IconVisibility => IconFactory is null || IsNew ? Visibility.Collapsed : Visibility.Visible;
+
+    // 候補の行の読み上げ名は、この文字列から作られる。無いと型の名前（…Controls.Suggestion）が読まれていた（点検 2026-09-23）
+    public override string ToString() => IsNew ? $"{Display}（新規）" : Display;
 }
 
 /// <summary>
@@ -217,7 +220,37 @@ public partial class SuggestBox : UserControl
         => ((SuggestBox)element).Refresh();
 
     private static void OnPlaceholderChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
-        => ((SuggestBox)element).Watermark.Text = args.NewValue as string ?? string.Empty;
+    {
+        var box = (SuggestBox)element;
+        box.Watermark.Text = args.NewValue as string ?? string.Empty;
+        box.UpdateInputName();
+    }
+
+    /// <summary>
+    /// 読み上げ・自動操作が見る入力欄の名前（点検 2026-09-23：中の TextBox が名前を持たず、何の欄か読み上げられなかった）。
+    /// 置き場所で <c>AutomationProperties.Name</c> をこの部品に付ければそれを、無ければ薄い字の案内を中の欄へ渡す。
+    /// 部品そのものに付けた名前は中の欄まで届かないので、ここで写す
+    /// </summary>
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.Property == System.Windows.Automation.AutomationProperties.NameProperty)
+        {
+            UpdateInputName();
+        }
+    }
+
+    private void UpdateInputName()
+    {
+        // 部品の中身を作る前（InitializeComponent の前）に来ることがある
+        if (Input is null)
+        {
+            return;
+        }
+
+        var given = System.Windows.Automation.AutomationProperties.GetName(this);
+        System.Windows.Automation.AutomationProperties.SetName(Input, string.IsNullOrEmpty(given) ? Placeholder : given);
+    }
 
     private static void OnMaxLengthChanged(DependencyObject element, DependencyPropertyChangedEventArgs args)
         => ((SuggestBox)element).Input.MaxLength = (int)args.NewValue;

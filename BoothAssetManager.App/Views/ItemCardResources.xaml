@@ -178,6 +178,20 @@
         </Style.Triggers>
     </Style>
 
+    <!--
+        キーボードで止まったカードの印。既定の点線は角丸の白いカードの上で見分けにくいので、選んだ色の枠を外側に出す
+        （枠の太さを変えると中身がずれるので、飾りの層に描く FocusVisualStyle にする）
+    -->
+    <Style x:Key="CardFocusVisual">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{StaticResource Accent}" BorderThickness="2" CornerRadius="9" Margin="-2" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
                             <DataTemplate x:Key="ItemCardTemplate">
                               <!--
                                   カードの中身は DeferredCardHost が、画面のスレッドが空いたときに4枚ずつ作る（U12・4回目・ユーザ判断）。
@@ -198,8 +212,13 @@
                                     カードは Border なので、名前を付けないと確かめから掴めない（商品名の文字も見えなかった。2026-09-20）。
                                     付けるのは AutomationProperties なので、画面の見た目は変わらない
                                 -->
-                                <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
+                                <!--
+                                    Tab で止まり、Enter・Space で押したのと同じことをする（点検 2026-09-23：キーボードだけでは
+                                    検索→商品ページ→戻るが進められなかった）。右クリックのメニューは Shift+F10・アプリケーションキーで出る
+                                -->
+                                <controls:ItemCardBorder Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}"
                                         Cursor="Hand" MouseLeftButtonUp="OnCardClick" MouseDown="OnCardMouseDown"
+                                        Focusable="True" KeyDown="OnCardKeyDown" Invoked="OnCardInvoked" Loaded="OnCardLoaded" FocusVisualStyle="{StaticResource CardFocusVisual}"
                                         ClipToBounds="True"
                                         AutomationProperties.AutomationId="ItemCard"
                                         AutomationProperties.Name="{Binding Name}"
@@ -337,7 +356,7 @@
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     </Grid>
-                                </Border>
+                                </controls:ItemCardBorder>
                             </DataTemplate>
                                   </controls:DeferredCardHost.RealTemplate>
                                 </controls:DeferredCardHost>
@@ -446,19 +465,19 @@
     <DataTemplate x:Key="ItemViewModeSwitch">
         <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6">
             <StackPanel Orientation="Horizontal">
-                <RadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=OneWay}"
+                <controls:CommandRadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=OneWay}"
                              Command="{Binding ShowCardsCommand}" ToolTip="絵の大きなカードで並べます">
-                    <RadioButton.Tag>
+                    <controls:CommandRadioButton.Tag>
                         <CornerRadius>5,0,0,5</CornerRadius>
-                    </RadioButton.Tag>
-                </RadioButton>
+                    </controls:CommandRadioButton.Tag>
+                </controls:CommandRadioButton>
                 <Border Width="1" Background="{StaticResource BorderStrong}" />
-                <RadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=OneWay}"
+                <controls:CommandRadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=OneWay}"
                              Command="{Binding ShowListCommand}" ToolTip="1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます">
-                    <RadioButton.Tag>
+                    <controls:CommandRadioButton.Tag>
                         <CornerRadius>0,5,5,0</CornerRadius>
-                    </RadioButton.Tag>
-                </RadioButton>
+                    </controls:CommandRadioButton.Tag>
+                </controls:CommandRadioButton>
             </StackPanel>
         </Border>
     </DataTemplate>
@@ -499,6 +518,12 @@
         </Setter>
         <EventSetter Event="MouseLeftButtonUp" Handler="OnListRowClick" />
         <EventSetter Event="MouseDown" Handler="OnCardMouseDown" />
+        <!-- 行に止まって Enter・Space で押したのと同じこと（カードと揃える） -->
+        <EventSetter Event="KeyDown" Handler="OnListRowKeyDown" />
+        <!-- キーで開いて戻ってきたら、開いた行に止まり直す（OnCardLoaded） -->
+        <EventSetter Event="Loaded" Handler="OnCardLoaded" />
+        <!-- 読み上げに型の名前（…ItemCardViewModel）が出ていた。商品・フォルダの名前で名乗る -->
+        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsFolder}" Value="True">
                 <Setter Property="ContextMenu" Value="{x:Null}" />

@@ -281,7 +281,8 @@
                                 </ItemsControl>
 
                                 <!-- リスト。絵・星は検索のリストと同じ部品。列の幅は見出しの境目をドラッグで変え、この画面で覚える -->
-                                <ListView ItemsSource="{Binding Members}" Tag="{Binding}" BorderThickness="0" Background="Transparent"
+                                <ListView x:Name="MemberList" SizeChanged="OnMemberListSizeChanged"
+                                          ItemsSource="{Binding Members}" Tag="{Binding}" BorderThickness="0" Background="Transparent"
                                           ItemContainerStyle="{StaticResource MemberListRowStyle}"
                                           ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                           Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -319,7 +320,11 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}">
+                                            <!--
+                                                名前は残りの幅を全部使う（点検 2026-09-23：固定の幅だと窓を広げても商品名・使ったファイルが見切れたままだった）。
+                                                幅は裏のコードが「一覧の幅 − ほかの列」で決めるので覚えない。切れた分はツールチップで全文
+                                            -->
+                                            <GridViewColumn x:Name="MemberNameColumn" Header="名前" Width="160">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">
@@ -360,7 +365,7 @@
                                                                         <TextBlock Text="手元に無い" FontSize="10" Foreground="{StaticResource Warn}" />
                                                                     </Border>
                                                                     <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}"
-                                                                               TextTrimming="CharacterEllipsis"
+                                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding VariationText}"
                                                                                Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                 </WrapPanel>
                                                             </StackPanel>
@@ -369,7 +374,7 @@
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
                                             <!-- 操作は右端にまとめる（ユーザ指示 2026-09-14）。並べ替え・Unity へのインポートと選択・外す -->
-                                            <GridViewColumn Header="操作" Width="200">
+                                            <GridViewColumn Header="操作" Width="216">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border Style="{StaticResource ItemListCellFrame}">

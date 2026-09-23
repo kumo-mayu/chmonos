@@ -536,7 +536,7 @@
                         <!-- 打ちかけの字も書きかけに残す（I4）。Text を結んでおくと、控えに入れられる -->
                         <controls:SuggestBox Source="{Binding TagSuggestions}" CommitCommand="{Binding AddTagCommand}"
                                              Text="{Binding TagInput, Mode=TwoWay}"
-                                             Placeholder="ユーザータグを追加（例：衣装）" />
+                                             Placeholder="ユーザータグを追加（例：衣装）" AutomationProperties.Name="ユーザータグを追加" />
 
                         <ItemsControl ItemsSource="{Binding Tags}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
@@ -579,7 +579,7 @@
                                             </ItemsControl>
 
                                             <controls:SuggestBox Source="{Binding SubCandidates}" CommitCommand="{Binding AddSubCommand}"
-                                                                 Placeholder="小分類を追加" Margin="0,6,0,0" />
+                                                                 Placeholder="小分類を追加" AutomationProperties.Name="小分類を追加" Margin="0,6,0,0" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -595,7 +595,7 @@
 
                         <controls:SuggestBox Source="{Binding AttributeSuggestions}" CommitCommand="{Binding AddAttributeCommand}"
                                              Text="{Binding AttributeInput, Mode=TwoWay}"
-                                             Placeholder="属性を追加（例：かっこいい）" />
+                                             Placeholder="属性を追加（例：かっこいい）" AutomationProperties.Name="属性を追加" />
 
                         <ItemsControl ItemsSource="{Binding Attributes}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
@@ -609,8 +609,15 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12"
                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <!--
+                                            キーの刻みは目盛りに合わせる：←→ で5（1目盛り）、PageUp/PageDown で25（4分の1）、Home/End で0/100。
+                                            既定の刻み（0.1）のままだと、動かした値が目盛りへ吸い寄せられて元に戻り、キーでは動かなかった（点検 2026-09-23）。
+                                            キーで値が変わったら触ったのと同じ（並べてあるだけの行も、その時点で保存する行になる）
+                                        -->
                                         <Slider Grid.Column="1" Minimum="0" Maximum="100" VerticalAlignment="Center"
-                                                Value="{Binding Value, Mode=TwoWay}" TickFrequency="5" IsSnapToTickEnabled="True" />
+                                                Value="{Binding Value, Mode=TwoWay}" TickFrequency="5" IsSnapToTickEnabled="True"
+                                                SmallChange="5" LargeChange="25"
+                                                AutomationProperties.Name="{Binding Name}" />
                                         <!--
                                             並べてあるだけの行は値を出さない。
                                             50%と書いてあると、そう評価したように読める

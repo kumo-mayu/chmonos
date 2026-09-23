@@ -358,10 +358,10 @@
                         <!-- 一覧をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4） -->
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,4,14,0"
                                     Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                            <RadioButton Content="カード" GroupName="AvatarsView" Style="{StaticResource SegmentFirst}"
+                            <controls:CommandRadioButton Content="カード" GroupName="AvatarsView" Style="{StaticResource SegmentFirst}"
                                          IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
                                          ToolTip="絵の大きなカードで並べます" />
-                            <RadioButton Content="リスト" GroupName="AvatarsView" Style="{StaticResource SegmentLast}"
+                            <controls:CommandRadioButton Content="リスト" GroupName="AvatarsView" Style="{StaticResource SegmentLast}"
                                          IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
                                          ToolTip="名前が読める詰まった行で並べます" />
                         </StackPanel>
@@ -863,15 +863,15 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <RadioButton Grid.Column="0" Content="自動の判定に任せる" GroupName="AvatarJudgement" Style="{StaticResource SegmentFirst}"
+                                    <controls:CommandRadioButton Grid.Column="0" Content="自動の判定に任せる" GroupName="AvatarJudgement" Style="{StaticResource SegmentFirst}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="auto"
                                                  IsChecked="{Binding IsOverrideAuto, Mode=OneWay}"
                                                  ToolTip="カテゴリと、出品者が「対応アバター」に挙げているかで決めます。" />
-                                    <RadioButton Grid.Column="1" Content="アバターとして扱う" GroupName="AvatarJudgement" Style="{StaticResource SegmentMiddle}"
+                                    <controls:CommandRadioButton Grid.Column="1" Content="アバターとして扱う" GroupName="AvatarJudgement" Style="{StaticResource SegmentMiddle}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
                                                  IsChecked="{Binding IsForcedAvatar, Mode=OneWay}"
                                                  ToolTip="「3Dキャラクター」のカテゴリに無いアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
-                                    <RadioButton Grid.Column="2" Content="アバターとして扱わない" GroupName="AvatarJudgement" Style="{StaticResource SegmentLast}"
+                                    <controls:CommandRadioButton Grid.Column="2" Content="アバターとして扱わない" GroupName="AvatarJudgement" Style="{StaticResource SegmentLast}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
                                                  IsChecked="{Binding IsForcedNotAvatar, Mode=OneWay}"
                                                  ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。" />

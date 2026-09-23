@@ -696,7 +696,15 @@
                                        Text="まだ属性を付けた商品がありません。編集画面から付けられます。"
                                        Visibility="{Binding HasAttributeDistributions, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                            <TextBlock Text="軸どうしの関係" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
+                            <TextBlock Text="軸どうしの関係" Style="{StaticResource SectionLabel}" Margin="0,14,0,4" />
+                            <!--
+                                数字の意味を見出しの下に書く（点検 2026-09-23：「+0.31（25件）」だけでは何の数か読めなかった）。
+                                中身はピアソンの相関係数（StatsExtras.Correlations）。読み方だけを言い、強弱の境目の数は決めない
+                                （目安の数には根拠が要り、件数でも変わる）
+                            -->
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Text="両方を評価した商品で、2つの値が一緒に動くかを −1〜+1 で表します。＋は片方が高いほどもう片方も高い、−は片方が高いほどもう片方が低い。0 に近いほど関係は薄く、±1 に近いほど強い関係です。（ ）は数えた商品の数です。"
+                                       Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <ItemsControl ItemsSource="{Binding AttributeCorrelations}" ItemTemplate="{StaticResource BarRow}"
                                           Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 出せない理由をその場に書く。空欄のまま置かない -->

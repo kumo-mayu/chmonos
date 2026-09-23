@@ -30,6 +30,43 @@ public sealed class PaneGrid : Grid
         set => SetValue(PaneProperty, value);
     }
 
+    private ViewportFitHost? _host;
+
+    public PaneGrid()
+    {
+        Loaded += (_, _) => AttachToHost();
+        Unloaded += (_, _) =>
+        {
+            _host?.Untrack(this);
+            _host = null;
+        };
+    }
+
+    /// <summary>
+    /// 窓が左右の列の最小の合計より狭いとき、画面ごと横に送れるよう外側の入れ物に知らせる（ユーザ判断 2026-09-23）。
+    /// 自分で横に送る画面（商品ページ・改変の詳細）の中にあるときは、その画面が届かせるので知らせない
+    /// </summary>
+    private void AttachToHost()
+    {
+        _host?.Untrack(this);
+        _host = null;
+        for (var node = System.Windows.Media.VisualTreeHelper.GetParent(this); node is not null;
+             node = System.Windows.Media.VisualTreeHelper.GetParent(node))
+        {
+            if (node is ViewportFitHost host)
+            {
+                _host = host;
+                host.Track(this);
+                return;
+            }
+
+            if (node is ScrollViewer { HorizontalScrollBarVisibility: not ScrollBarVisibility.Disabled })
+            {
+                return;
+            }
+        }
+    }
+
     protected override Size MeasureOverride(Size constraint)
     {
         if (Pane is { } pane && !double.IsInfinity(constraint.Width))
