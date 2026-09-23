@@ -680,7 +680,11 @@ public sealed partial class MainViewModel : ViewModelBase
     public int NeedsEditBadgeCount => NeedsEditCount - Drafts.ItemIds.Count(id =>
         Search.FindItem(id) is { } item && item.Local.UserTags.Count == 0 && !IsAwaitingDetection(id));
 
-    public string LibrarySummary => $"{Search.TotalCount} items / {Search.ShopCount} shops";
+    /// <summary>
+    /// ナビの頭の件数。内部の言葉（item）を画面に出さない決め事なので日本語で言う
+    /// （前は「123 items / 45 shops」と英語のまま出ていた）。
+    /// </summary>
+    public string LibrarySummary => $"商品 {Search.TotalCount:N0} 件・{Search.ShopCount:N0} ショップ";
 
     public void ShowSearch()
     {

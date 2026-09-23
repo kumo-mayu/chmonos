@@ -330,7 +330,9 @@
                             <TextBlock Foreground="White" FontSize="13">
                                 <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="#8a93a3" />
                             </TextBlock>
-                            <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
+                            <!-- 日本語にして英語の頃より幅が要る。万単位でもナビの幅からはみ出さないよう、溢れたら「…」で切る -->
+                            <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding LibrarySummary}" />
                         </StackPanel>
                         <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
                                  Style="{StaticResource NavCollapsedOnly}" ToolTip="Chmonos（クモノス）">
