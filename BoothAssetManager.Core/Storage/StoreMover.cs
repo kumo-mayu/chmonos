@@ -113,12 +113,13 @@ public static class StoreMover
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            Diagnostics.AppLog.Error("置き換えで選んだ場所を退ける", exception);
             return new StoreMoveResult
             {
                 Succeeded = false,
                 Copied = 0,
                 Bytes = 0,
-                Error = $"選んだ場所のデータを退けられませんでした：{exception.Message}",
+                Error = $"選んだ場所のデータを退けられませんでした。{Services.FailureText.Cause(exception)}",
             };
         }
 
@@ -163,12 +164,17 @@ public static class StoreMover
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
             // 元には手を付けていないので、保存先を古いままにすれば何も失われない
+            if (exception is not OperationCanceledException)
+            {
+                Diagnostics.AppLog.Error("保存先を運ぶ", exception);
+            }
+
             return new StoreMoveResult
             {
                 Succeeded = false,
                 Copied = copied,
                 Bytes = bytes,
-                Error = exception is OperationCanceledException ? "中断しました。" : exception.Message,
+                Error = exception is OperationCanceledException ? "中断しました。" : Services.FailureText.Cause(exception),
             };
         }
 

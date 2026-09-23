@@ -450,7 +450,9 @@ public sealed class BoothClient : IBoothClient
         }
         catch (HttpRequestException exception)
         {
-            return BoothFetchResult<T>.Temporary(exception.Message);
+            // 理由は画面や取り込みの結果にそのまま出る。.NET の文（英語・内部の名前）は出さず、中身はログへ
+            Diagnostics.AppLog.Error("BOOTHへの問い合わせ", exception);
+            return BoothFetchResult<T>.Temporary(Services.FailureText.Cause(exception));
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {

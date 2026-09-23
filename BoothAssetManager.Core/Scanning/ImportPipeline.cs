@@ -1121,7 +1121,8 @@ public sealed class ImportPipeline : IImportPipeline
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 // 取り込みは成立している。検出はアバター画面からやり直せるので、止めずに知らせるだけ
-                avatarDetectError = exception.Message;
+                Diagnostics.AppLog.Error("取り込みの後の対応アバターの検出", exception);
+                avatarDetectError = Services.FailureText.Cause(exception);
             }
         }
 

@@ -66,11 +66,12 @@ public sealed class UnpackedFolderRemover
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            Diagnostics.AppLog.Error("展開したフォルダを消す", exception);
             return new UnpackedFolderRemoval
             {
                 Path = folder.Path,
                 Removed = false,
-                Reason = exception.Message,
+                Reason = Services.FailureText.Cause(exception),
             };
         }
 

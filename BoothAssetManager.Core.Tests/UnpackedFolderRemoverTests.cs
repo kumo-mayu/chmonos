@@ -176,7 +176,8 @@ public class UnpackedFolderRemoverTests : IDisposable
         var results = await remover.RemoveAsync([folder]);
 
         Assert.False(results[0].Removed);
-        Assert.Equal("使用中です", results[0].Reason);
+        // 画面に出る理由なので、.NET の文ではなく原因の見当（中身はログへ）
+        Assert.Equal(BoothAssetManager.Core.Services.FailureText.Cause(new IOException("使用中です")), results[0].Reason);
         Assert.True(Directory.Exists(folder.Path));
     }
 }

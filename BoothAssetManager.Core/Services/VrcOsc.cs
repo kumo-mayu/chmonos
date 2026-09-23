@@ -66,7 +66,9 @@ public static partial class VrcOsc
         }
         catch (SocketException exception)
         {
-            return exception.Message;
+            // 理由は改変の画面にそのまま出る。.NET の文ではなく、次に確かめることを返す
+            Diagnostics.AppLog.Error("VRChat へ着替えを送る", exception);
+            return "VRChat へ送れませんでした。VRChat を起動し、OSC を有効にしているか確かめてください。";
         }
     }
 }

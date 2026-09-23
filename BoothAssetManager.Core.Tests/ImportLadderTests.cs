@@ -277,7 +277,8 @@ public class ImportLadderTests : IDisposable
         var summary = await pipeline.RunAsync([CreateSource("111")]);
 
         Assert.Equal(1, summary.ItemsAdded);
-        Assert.Equal("登録簿が読めませんでした", summary.AvatarDetectError);
+        // 画面に出る文なので、.NET の文ではなく原因の見当（中身はログへ）
+        Assert.Equal(BoothAssetManager.Core.Services.FailureText.Cause(new InvalidOperationException()), summary.AvatarDetectError);
 
         // 画像まで進んでいる
         Assert.Contains("image1", _requests.Select(Kind));

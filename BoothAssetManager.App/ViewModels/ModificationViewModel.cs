@@ -1070,7 +1070,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         // 送りっぱなしの UDP なので、着替えたかはこちらでは分からない。送ったことと、効かないときの確かめ方を言う
         Status = await VrcOsc.SendAvatarChangeAsync(id) is { } problem
-            ? $"VRChat へ送れませんでした（{problem}）。"
+            ? problem
             : "VRChat に着替えを送りました。着替わらなければ、VRChat の設定で OSC を有効にしているか、"
                 + "このアバターを着られるか（自分でアップロードした・お気に入りにしている）を確かめてください。";
     }

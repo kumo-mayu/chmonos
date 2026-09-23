@@ -669,8 +669,8 @@ public sealed class CommandHandler
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
-                    return new CommandResult.Failed(
-                        $"書き出せませんでした：{exception.Message}（書き出し先の空きが足りないか、書けない場所のことがあります）");
+                    Diagnostics.AppLog.Error("バックアップの書き出し", exception);
+                    return new CommandResult.Failed($"書き出せませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
             case UiCommand.RestoreBackup restore:
@@ -685,7 +685,8 @@ public sealed class CommandHandler
                 }
                 catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
                 {
-                    return new CommandResult.Failed($"戻せませんでした：{exception.Message}");
+                    Diagnostics.AppLog.Error("バックアップから戻す", exception);
+                    return new CommandResult.Failed($"戻せませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
             case UiCommand.MoveStore move:
@@ -712,9 +713,9 @@ public sealed class CommandHandler
                 catch (Exception exception) when (exception is IOException or InvalidDataException
                                                       or UnauthorizedAccessException or NotSupportedException)
                 {
-                    // 原因はこちらでは決め付けない。見当だけ添える
-                    return new CommandResult.Failed(
-                        $"展開できませんでした：{exception.Message}（zip が壊れているか、一時フォルダの空きが足りないことがあります）");
+                    // 原因はこちらでは決め付けない。見当だけ添え、詳しい中身はログへ
+                    Diagnostics.AppLog.Error("一時展開", exception);
+                    return new CommandResult.Failed($"展開できませんでした。{Services.FailureText.Cause(exception)}");
                 }
 
             case UiCommand.SetFileVariations setVariations:
