@@ -16,7 +16,7 @@
 | `mock/` | 画面のモック（Claude Design のキャンバス。`*.dc.html` が1画面ずつ）。今の画面とは違う所がある |
 | `tools/wording.mjs` | 画面に出る文字列を XAML と C# から集める（文言の総点検に使う） |
 | `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
-| 直下の `作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt` | 作者のメモ。読むだけ |
+| `docs/history/author-memos/` | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`）。2026-09-24 に直下から移した（中身は変えていない）。書き直さない |
 
 ## 文書の種類
 
@@ -68,6 +68,7 @@
 | [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
 | [zip-inspector-readme.md](history/zip-inspector-readme.md) | その試作（BoothZipInspector・BoothIdResolver）の使い方。元は直下の README（2026-09-18 に移した） |
+| [author-memos/](history/author-memos/) | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`。2026-09-07〜08）。grill-1・grill-2 はこれを前提に決め事を確定させた。2026-09-24 に直下から移した（中身は変えていない） |
 
 ## research（調査）
 

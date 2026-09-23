@@ -45,7 +45,7 @@
 `history-backup` は履歴を書き換える前の控え。**触らない・消さない。**
 
 友人のデータから作った写し（`friendtest` `friendcheck` `flowcheck` `eval` `noticheck` `structcheck` `tagcheck` `attrcheck`）は第三者のもの。
-画像はどこへも送らず、文書・コミット・ログには数と傾向だけ書く（CLAUDE.md の 5.）。
+画像はどこへも送らず、文書・コミット・ログには数と傾向だけ書く（CLAUDE.md の「友人のデータは第三者のもの」）。
 
 ## 作り物の作り方
 

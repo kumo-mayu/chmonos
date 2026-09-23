@@ -43,7 +43,7 @@ git diff --cached --stat
   その会話で写しの画面に出た名前が分かっていれば、`git diff origin/master..master | Select-String` と `git log origin/master..master --format=%B` で探す
 - 文書に足した7桁以上の数（商品IDらしい物）が無いか
 - `DLforTest/`・購入した物・取ってきた BOOTH の説明や画像が無いか（`git diff --name-only` に `.zip`・画像が無いか）
-- `作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt` を変えていないか（書き込まない決まり）
+- `docs/history/` の既存の文書（作者の出発点のメモ `author-memos/` を含む）を書き直していないか（足すのはよい）
 
 ## 5. コミット
 

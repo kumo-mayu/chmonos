@@ -7,9 +7,9 @@ https://creativecommons.org/licenses/by/4.0/
 
 対象：
 
-- `docs/` 配下の `.md`（`spec/`・`history/`・`research/`・`feedback/`・`features.md`）
+- `docs/` 配下の `.md`（`spec/`・`history/`・`research/`・`feedback/`・`features.md`）。ただし下の `作業方針メモ.md` は除く
 - `research/` 配下の `.md`
-- `モック用画面メモ.md`
+- `docs/history/author-memos/モック用画面メモ.md`
 
 コードと分けているのは、**このリポジトリの値打ちの多くが設計の側にある**ため。
 なぜその順序で取るのか、なぜその条件で聞くのか、何を測ってそう決めたのか。
@@ -23,6 +23,6 @@ Apache License 2.0（`LICENSE`）による。
 
 ---
 
-`作業方針メモ.md` は作者の思考整理のためのメモで、
-上のどちらにも当てはまらない。読むのは自由だが、
-文書として整えたものではない。
+`docs/history/author-memos/作業方針メモ.md` は作者の思考整理のためのメモで、
+`docs/` の下にあるが上のどちらにも当てはまらない。読むのは自由だが、
+文書として整えたものではない（2026-09-24 に直下から移した。扱いは変えていない）。
