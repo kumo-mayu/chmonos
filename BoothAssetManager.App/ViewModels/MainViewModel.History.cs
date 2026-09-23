@@ -84,7 +84,46 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>直前の画面へ戻る。履歴が無ければ検索へ。</summary>
-    public void GoBack() => GoBack(rememberForward: true);
+    /// <remarks>
+    /// **待ちの要る開き直し（商品・ショップ・改変）の最中に押された戻る・進むは受けない。**
+    /// 素早く2回押すと、1回目の待ちの間はまだ画面が替わっていないので、今の画面をもう一度「進む」に積み、
+    /// 待ちの控え（<see cref="_pendingBack"/>）も2回目で上書きして、1回目の行き先が履歴から消えていた。
+    /// 済んだ方の開き直しが勝つと、もう一方は「人が移った」と見て捨てられる（戻る・進むのどの組でも同じ）。
+    /// 2回目を1回目の先から戻す形も考えたが、1回目の待ちを取り消す手立てが要り、
+    /// 消えた先を飛ばす処理と絡んで筋が増える。待ちは手元の JSON を1つ読む程度（ほぼ一瞬）なので、受けない方を選んだ。
+    /// ナビで移るのは今までどおり受ける（開き直しをやめ、控えを履歴へ戻す）。
+    /// </remarks>
+    public void GoBack()
+    {
+        if (_asyncRestores > 0)
+        {
+            return;
+        }
+
+        GoBack(rememberForward: true);
+    }
+
+    /// <summary>
+    /// 待ちの要る開き直しが走っている数。0 でないうちは、人の戻る・進むを受けない（<see cref="GoBack()"/>）。
+    /// 数にしたのは、消えた先を飛ばすとき、待ちの中から次の開き直しが始まって重なるため。
+    /// </summary>
+    private int _asyncRestores;
+
+    /// <summary>
+    /// 待ちの要る開き直しを走らせる。**終わり方に依らず数を戻す**（読めずに投げても、戻るが押せないままにならないように）。
+    /// </summary>
+    private async Task RunAsyncRestore(Func<Task> restore)
+    {
+        _asyncRestores++;
+        try
+        {
+            await restore();
+        }
+        finally
+        {
+            _asyncRestores--;
+        }
+    }
 
     /// <param name="rememberForward">
     /// 戻る前の画面を「進む」に積むか。**消えた先を飛ばしてもう1つ戻るときは積まない**——
@@ -164,8 +203,19 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>戻った先から進む。進む先が無ければ何もしない。</summary>
+    /// <summary>戻った先から進む。進む先が無ければ何もしない。待ちの要る開き直しの最中は受けない（<see cref="GoBack()"/>）。</summary>
     public void GoForward()
+    {
+        if (_asyncRestores > 0)
+        {
+            return;
+        }
+
+        GoForwardCore();
+    }
+
+    /// <summary>進む本体。消えた先を飛ばすときは開き直しの最中から呼ぶので、待ちの数を見ない。</summary>
+    private void GoForwardCore()
     {
         if (_forward.Count == 0)
         {
@@ -195,6 +245,12 @@ public sealed partial class MainViewModel
     /// </summary>
     public void LeaveEdit()
     {
+        // 足跡を捨ててから戻るが受けられないと、足跡だけ消えて編集に残る。受けないなら先に止める
+        if (_asyncRestores > 0)
+        {
+            return;
+        }
+
         DropEditSteps();
         GoBack();
     }
@@ -270,13 +326,13 @@ public sealed partial class MainViewModel
 
     // 以下は引数だけを捕まえる（画面を捕まえないように、ラムダを画面の変数と同じ所で書かない）
     private HistoryEntry ItemEntry(string label, string itemId)
-        => new(label, () => RestoreItemAsync(itemId).Forget());
+        => new(label, () => RunAsyncRestore(() => RestoreItemAsync(itemId)).Forget());
 
     private HistoryEntry ShopEntry(Core.Services.ShopSummary shop)
-        => new(Shorten(shop.Name), () => RestoreShopAsync(shop).Forget());
+        => new(Shorten(shop.Name), () => RunAsyncRestore(() => RestoreShopAsync(shop)).Forget());
 
     private HistoryEntry ModificationEntry(string label, string modificationId)
-        => new(label, () => RestoreModificationAsync(modificationId).Forget());
+        => new(label, () => RunAsyncRestore(() => RestoreModificationAsync(modificationId)).Forget());
 
     private HistoryEntry HubEntry(ModificationHubLevel level, ModificationHubSelection? selection)
         => new("改変", () => ShowModifications(level, selection));
@@ -385,7 +441,7 @@ public sealed partial class MainViewModel
         _nextNavigation = Navigation.Push;
         if (forward)
         {
-            GoForward();
+            GoForwardCore();
         }
         else
         {
@@ -422,7 +478,7 @@ public sealed partial class MainViewModel
         _nextNavigation = Navigation.Push;
         if (forward)
         {
-            GoForward();
+            GoForwardCore();
         }
         else
         {
@@ -508,7 +564,7 @@ public sealed partial class MainViewModel
         _nextNavigation = Navigation.Push;
         if (forward)
         {
-            GoForward();
+            GoForwardCore();
         }
         else
         {
