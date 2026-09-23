@@ -454,6 +454,7 @@ public sealed partial class MainViewModel : ViewModelBase
             // 離れる画面を履歴に積む（U23）。戻るで来たときと、同じ商品を開き直すときは積まない
             var navigation = _nextNavigation;
             _nextNavigation = Navigation.Push;
+            SettlePendingBack(navigation, value);
             if (navigation is Navigation.Push or Navigation.Forward
                 && _currentViewModel is not null && !ReferenceEquals(_currentViewModel, value))
             {
