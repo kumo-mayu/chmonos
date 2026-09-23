@@ -819,7 +819,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         try
         {
             var path = _store.Paths.ItemHtmlFile(itemId);
-            return File.Exists(path) ? File.ReadAllText(path) : null;
+            return File.Exists(path) ? Storage.JsonStore.ReadText(path) : null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

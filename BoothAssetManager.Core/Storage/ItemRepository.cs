@@ -210,8 +210,9 @@ public sealed class ItemRepository
     public async Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken = default)
     {
         var path = _paths.ItemHtmlFile(itemId);
+        // JSON と同じく、読んでいる間に⑦の取り直しが置き換えても保存を落とさない開き方で読む
         return File.Exists(path)
-            ? await File.ReadAllTextAsync(path, cancellationToken)
+            ? await JsonStore.ReadTextAsync(path, cancellationToken)
             : null;
     }
 
