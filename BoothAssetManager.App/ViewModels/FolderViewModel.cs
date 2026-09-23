@@ -584,7 +584,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         }
 
         var unresolved = _services.Store.Unresolved.Load();
-        var built = await Task.Run(async () =>
+        var built = await Task.Run(() =>
         {
             token.ThrowIfCancellationRequested();
 
@@ -594,18 +594,21 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             IReadOnlyDictionary<string, string> found;
             try
             {
-                // 組を volumes.json に控えるので、書き込みの道（保存先を運ぶ間の門）を通す
-                found = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ObserveVolumes(recorded))
-                    is Core.Commands.CommandResult.VolumesObserved observed
-                    ? observed.Remap
-                    : new Dictionary<string, string>();
+                // 木は今控えてある組で読み替えて組む（読むだけなので門を通らない）。
+                // 控え直しの結果を待たないのは、控え直しは書き込みの門を通るため。保存先を運ぶ間や書き出しの間は
+                // 門が閉じていて数分待たされ、その間フォルダビューが「読み込み中」のまま止まっていた（止めている間も読む操作はできる決め事）。
+                // 控え直し（ObserveVolumes）が返す読み替えも、書く前の組から出した物なので、待って組んでいた前と同じ木になる
+                found = _services.Volumes.RefreshRemap();
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                                   or System.Text.Json.JsonException)
             {
-                AppLog.Error("フォルダビュー：ドライブ文字の組を確かめる", exception);
+                AppLog.Error("フォルダビュー：ドライブ文字の組を読む", exception);
                 found = new Dictionary<string, string>();
             }
+
+            // 組を volumes.json に控えるので、書き込みの道（保存先を運ぶ間の門）を通す。待たない
+            _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ObserveVolumes(recorded), cancellationToken: token).Forget();
 
             token.ThrowIfCancellationRequested();
             return Build(items, unresolved, found);
@@ -1253,7 +1256,9 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         //
         // **右がまだこのページのときだけ差し替える。**取り直しは BOOTH の順番を待つので、待つ間に別の行を選べる。
         // 前は選び直した右側を古い商品のページで上書きしていた。フォルダの画面を離れていたら何もしない
-        // （この画面は開くたびに作り直すので、木は次に開くときに読み直される）
+        // （この画面は開くたびに作り直すので、木は次に開くときに読み直される）。
+        // 右から外れていたら、済んだことは下の帯で知らせる（単独の商品ページを離れたときと同じ）
+        page.IsShownByOwner = () => ReferenceEquals(_main.CurrentViewModel, this) && ReferenceEquals(Detail, page);
         page.Replaced = updated =>
         {
             if (!ReferenceEquals(_main.CurrentViewModel, this))

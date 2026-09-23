@@ -122,6 +122,28 @@ public sealed class TemporaryUnpackerTests : IDisposable
         Assert.Equal("X.unitypackage", Path.GetFileName(quest));
     }
 
+    /// <summary>
+    /// 深いフォルダの中の物でも、Unity のファイル選択に渡せる長さ（260 字未満）に収める。
+    /// 同じ名前で別のフォルダの物は、畳んだ後も取り違えない。
+    /// </summary>
+    [Fact]
+    public void 長すぎるパスは短く畳み取り違えない()
+    {
+        var deep = string.Join('/', Enumerable.Repeat(new string('深', 40), 6));
+        var zip = MakeZip("deep.zip", ($"{deep}/PC/X.unitypackage", "pc"), ($"{deep}/Quest/X.unitypackage", "quest"));
+        var unpacker = new TemporaryUnpacker(Root);
+
+        var pc = unpacker.ExtractEntry(zip, $"{deep}/PC/X.unitypackage");
+        var quest = unpacker.ExtractEntry(zip, $"{deep}/Quest/X.unitypackage");
+
+        Assert.True(pc.Length < 260, $"{pc.Length} 字");
+        Assert.True(quest.Length < 260, $"{quest.Length} 字");
+        Assert.NotEqual(pc, quest);
+        Assert.Equal("pc", File.ReadAllText(pc));
+        Assert.Equal("quest", File.ReadAllText(quest));
+        Assert.Equal("X.unitypackage", Path.GetFileName(pc));
+    }
+
     /// <summary>zip の中のパスに <c>..</c> があっても、置き場所の外へは書かない。</summary>
     [Fact]
     public void 上へ出る名前でも置き場所の中に取り出す()

@@ -474,18 +474,8 @@ public static class UnityImportQueue
     private static bool IsProgressTitle(string title)
         => ProgressTitles.Any(prefix => title.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
-    private static IntPtr MainWindowOf(int processId)
-    {
-        try
-        {
-            using var process = Process.GetProcessById(processId);
-            return process.HasExited ? IntPtr.Zero : process.MainWindowHandle;
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
-        {
-            return IntPtr.Zero;
-        }
-    }
+    // 浮いた窓ではなく、メニューを持つ主の窓を選ぶ（MainWindowHandle は浮いた窓に当たり、メニューが見つからなかった）
+    private static IntPtr MainWindowOf(int processId) => UnityEditors.MainWindowOf(processId);
 
     /// <summary>
     /// メニューを文字でたどって項目の番号を得る。段ごとに候補の名前のどれかに合えばよい。

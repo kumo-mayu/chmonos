@@ -19,6 +19,7 @@ public sealed partial class MainViewModel
     private bool _importNoticeStarted;
     private bool _importNoticeSawRunning;
     private bool _importNoticeHooked;
+    private string? _importNoticeNotStarted;
     private RelayCommand? _openImportFromNotice;
     private RelayCommand? _dismissImportNotice;
 
@@ -36,6 +37,11 @@ public sealed partial class MainViewModel
             if (Import.IsRunning)
             {
                 return $"取り込んでいます：{Import.PhaseText}（{Import.ProgressText}）。この画面のまま使えます。";
+            }
+
+            if (_importNoticeNotStarted is { } notStarted)
+            {
+                return notStarted;
             }
 
             // 始めたが、ファイルの有無を裏で見ている間はまだ走っていない。ここで「終わりました」と言わない
@@ -110,8 +116,28 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>
+    /// 帯を出した後に、取り込みが始まらなかった（落とした物が見つからなかった）と分かった。
+    /// 「始めています…」のまま止めずに、始まらなかったことと次にやることを出す。
+    /// </summary>
+    /// <remarks>
+    /// 取り込み画面にいるときは帯を出していないので何もしない（その画面の一覧に何も増えないのが見えている）。
+    /// 走っている取り込みがあれば、帯はそちらの件数を出し続ける（上の文の順番）。
+    /// </remarks>
+    internal void NoteImportNotStarted(string text)
+    {
+        if (!_hasImportNotice)
+        {
+            return;
+        }
+
+        _importNoticeNotStarted = text;
+        OnPropertyChanged(nameof(ImportNoticeText));
+    }
+
     private void SetImportNotice(bool show, bool started)
     {
+        _importNoticeNotStarted = null;
         _hasImportNotice = show;
         _importNoticeStarted = show && started;
         _importNoticeSawRunning = show && Import.IsRunning;

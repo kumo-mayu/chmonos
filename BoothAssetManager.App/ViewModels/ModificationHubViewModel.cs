@@ -593,20 +593,35 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
         // 手元にある商品は、ほかの画面と同じ商品ページを組み込む（ユーザ指示 2026-09-14）。
         // 取り直した・ファイルを外したなど、商品ページが自分を作り直すときは右側だけ作り直す（主画面ごと差し替えない）
+        //
+        // **右がまだこのページで、この画面がまだ出ているときだけ差し替える**（フォルダビューと同じ）。
+        // 取り直しは BOOTH の順番を待つので、待つ間に別の行を選べる・別の画面へ移れる。
+        // 前は確かめずに差し替えていたので、別の行を選んだ後でも前の商品へ引き戻していた。
+        // 外れていたら下の帯で知らせる（手元の控えは、次にこの行を選んだときのために見えていなくても直す）
         var page = item is null ? null : new ItemViewModel(item, _services, _main, _thumbnails)
         {
             IsEmbedded = true,
             EmbeddedPaneKey = "modifications.item.left",
-            Replaced = updated =>
+        };
+
+        if (page is not null)
+        {
+            page.IsShownByOwner = () => ReferenceEquals(_main.CurrentViewModel, this)
+                && Detail is HubItemDetail { Page: var shown } && ReferenceEquals(shown, page);
+            page.Replaced = updated =>
             {
+                var wasShown = page.IsShownByOwner();
                 if (updated is not null)
                 {
                     _items[updated.Id] = updated;
                 }
 
-                ShowMember(row);
-            },
-        };
+                if (wasShown)
+                {
+                    ShowMember(row);
+                }
+            };
+        }
 
         var detail = new HubItemDetail
         {

@@ -290,6 +290,47 @@ public sealed class UnityHandoffTests : IDisposable
     public void 作業中の題は名前にしない()
         => Assert.Equal((null, null), UnityHandoff.ProjectFromWindowTitle("Compiling Scripts", KnownProjects, _ => true));
 
+    private static readonly string[] SameNamedProjects =
+    [
+        @"D:\VRChatProjects\proj",
+        @"E:\Backup\proj",
+    ];
+
+    [Fact]
+    public void 同じ名前のプロジェクトが両方開いていれば見分けられないと返す()
+    {
+        // 題はどちらも「proj - …」。前は一覧の先の方に決め打ちし、2つのエディタを同じ場所と読んでいた
+        var found = UnityHandoff.IdentifyProject(
+            "proj - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", SameNamedProjects, _ => true);
+
+        Assert.True(found.IsAmbiguous);
+        Assert.Equal("proj", found.Name);
+        Assert.Null(found.Path);
+    }
+
+    [Fact]
+    public void 同じ名前でも開いているのが片方なら言い当てる()
+    {
+        var found = UnityHandoff.IdentifyProject(
+            "proj - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>", SameNamedProjects,
+            candidate => candidate == @"E:\Backup\proj");
+
+        Assert.False(found.IsAmbiguous);
+        Assert.Equal(@"E:\Backup\proj", found.Path);
+    }
+
+    [Fact]
+    public void 同じ場所が一覧に2度載っていても見分けられないとは言わない()
+    {
+        // Hub と VCC の両方に載っていると同じ場所が2回来る（末尾の区切りや大文字小文字が違うことがある）
+        var found = UnityHandoff.IdentifyProject(
+            "proj - SampleScene - Windows, Mac, Linux - Unity 2022.3.22f1 <DX11>",
+            [@"D:\VRChatProjects\proj", @"d:\vrchatprojects\proj\"], _ => true);
+
+        Assert.False(found.IsAmbiguous);
+        Assert.NotNull(found.Path);
+    }
+
     [Theory]
     [InlineData(
         @"""C:\Program Files\Unity\Hub\Editor\2022.3.22f1\Editor\Unity.exe"" -projectPath ""D:\work\vrchat\VRChatProjects\kip01"" -accept-apiupdate",

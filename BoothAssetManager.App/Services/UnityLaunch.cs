@@ -271,9 +271,8 @@ public static class UnityLaunch
 
         // 場所が分かるエディタは場所で照らす。題の名前だけで見ると、「cleanTest - コピー」を開いているのに
         // 「cleanTest」と読んで、開いていないと思い込んでいた（2026-09-19）
-        var editor = UnityEditors.Open().FirstOrDefault(candidate => candidate.ProjectPath is { } path
-            ? PathText.Same(path, projectPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-            : string.Equals(candidate.ProjectName, name, StringComparison.OrdinalIgnoreCase));
+        // 同じ名前のプロジェクトが2つ開いていて見分けられないエディタは、名前では選ばない（別の方を手前に出しかねない）
+        var editor = UnityEditors.FindByProject(UnityEditors.Open(), projectPath, name);
 
         if (editor is null)
         {
@@ -305,7 +304,8 @@ public static class UnityLaunch
         {
             using (running)
             {
-                var window = running.MainWindowHandle;
+                // 浮いた窓ではなく主の窓を手前に出す
+                var window = UnityEditors.MainWindowOf(running.Id);
                 if (window != IntPtr.Zero)
                 {
                     ShowWindow(window, Restore);
@@ -345,8 +345,9 @@ public static class UnityLaunch
         {
             return Start(new ProcessStartInfo(exe)
             {
-                // 引用符を付けるのは、パスに空白が入るのが普通だから
-                Arguments = $"-projectPath \"{projectPath}\"",
+                // 引用符は .NET に任せる。手で「"パス"」と組むと、パスが \ で終わるとき（D:\proj\）に \" が引用符の逃がしと読まれ、
+                // 引数が閉じずに後ろまで1つにつながっていた。ArgumentList は末尾の \ を倍にして正しく閉じる
+                ArgumentList = { "-projectPath", projectPath },
                 UseShellExecute = true,
             })
                 ? UnityOpenResult.Launched
