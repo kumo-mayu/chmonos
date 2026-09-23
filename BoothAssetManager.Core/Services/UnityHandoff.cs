@@ -243,6 +243,7 @@ public static class UnityHandoff
             return paths;
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
+                                              or ArgumentException or ArithmeticException or InvalidOperationException
                                               or UnauthorizedAccessException or NotSupportedException)
         {
             return [];

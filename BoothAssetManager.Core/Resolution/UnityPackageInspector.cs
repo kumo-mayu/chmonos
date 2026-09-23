@@ -141,7 +141,12 @@ public static class UnityPackageInspector
                 }
             }
         }
-        catch (Exception exception) when (exception is InvalidDataException or IOException or EndOfStreamException)
+        // TarReader は壊れた頭を InvalidDataException だけでなく、OverflowException（base-256 の大きさが桁あふれ）・
+        // InvalidOperationException（GNU の長い名前の大きさが長すぎる）でも知らせる（作り物の tar で確かめた）。
+        // 数の欄の読み方次第で FormatException・ArgumentOutOfRangeException も出うる。
+        // 受けないと、壊れた unitypackage 1つで取り込みの解決が止まっていた（点検 2026-09-23）
+        catch (Exception exception) when (exception is InvalidDataException or IOException or FormatException
+                                              or ArgumentException or ArithmeticException or InvalidOperationException)
         {
             // 壊れた unitypackage は手掛かり無しとして扱い、取り込み全体は止めない
         }
