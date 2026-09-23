@@ -21,6 +21,10 @@ public static class ItemOrder
             ? rated.OrderByDescending(item => item.Local.Attributes[attributeName])
             : rated.OrderBy(item => item.Local.Attributes[attributeName]);
 
+        // 同じ値の商品は名前順（入手日の並びと同じ決め手）。決めないと元の一覧の順のままになり、
+        // 読み込み直すたびに同じ点の商品の並びが入れ替わって見えた（点検 2026-09-23）
+        ordered = ordered.ThenBy(item => item.DisplayName, StringComparer.CurrentCulture);
+
         return ordered.Concat(unrated);
     }
 
@@ -37,6 +41,7 @@ public static class ItemOrder
         var byTime = descending
             ? stamped.OrderByDescending(item => times[item.Id])
             : stamped.OrderBy(item => times[item.Id]);
+        byTime = byTime.ThenBy(item => item.DisplayName, StringComparer.CurrentCulture);
 
         return byTime.Concat(untouched);
     }
