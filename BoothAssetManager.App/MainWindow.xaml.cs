@@ -248,7 +248,9 @@ public partial class MainWindow : Window
         {
             Core.Diagnostics.AppLog.Error("落とされた物の振り分け", exception);
             Services.Notice.Show(
-                $"受け取ったものを処理できませんでした。\n\n{exception.Message}",
+                "受け取ったものを処理できませんでした。\n\n"
+                + Core.Services.FailureText.Cause(exception) + "\n\n"
+                + "もう一度落としてみてください。詳しい記録は保存先の logs\\app.log に残しました。",
                 "Chmonos",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);

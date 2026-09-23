@@ -66,15 +66,7 @@ public sealed class ImportViewModel : ViewModelBase
         // 前は履歴を全部「取り込み対象」に積んでいたので、1本落としたつもりでも
         // 過去に指したフォルダ全部が走り、起動時の自動取り込みは説明と逆に履歴を全部舐めていた（G1）。
         // 履歴は別の一覧として出し、そこから1件ずつ対象に積む
-        foreach (var path in services.Settings.ImportFolders)
-        {
-            History.Add(path);
-        }
-
-        foreach (var folder in services.Settings.WatchedFolders)
-        {
-            Watched.Add(folder);
-        }
+        SyncFolderLists();
 
         // 前回が途中で終わっていれば知らせる。中断は黙って起きるので、
         // 閉じた時に何件残っていたかをユーザは覚えていない
@@ -212,7 +204,7 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 History.Remove(path);
                 OnPropertyChanged(nameof(HasHistory));
-                SaveHistoryAsync().Forget();
+                ChangeFolderListsAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
             }
         },
         parameter => parameter is string);
@@ -362,13 +354,59 @@ public sealed class ImportViewModel : ViewModelBase
     /// 解消するまで出し続ける決まりなので、続ける気の無い人（取り込み元を消した・
     /// 間違って落としたフォルダだった）に逃げ道が要る（ユーザ判断 2026-09-22）。
     /// </summary>
+    /// <remarks>
+    /// **取り返しがつかないので、押す前に聞く**（D4・D9）。捨てた記録は戻せない。
+    /// やり直すには、同じフォルダを取り込み対象に積み直して始めればよい（取れた商品は飛ばして続きを取る）ことも書く。
+    /// 帯を消すのは書き終わってから。前は書くのを待たずに帯の出し入れを読み直していたので、
+    /// 古い記録を読んで帯が消えないことがあった。
+    /// </remarks>
     public RelayCommand DiscardInterruptedCommand => _discardInterrupted ??= new RelayCommand(
-        () =>
+        () => DiscardInterruptedAsync().Forget());
+
+    /// <summary>「続きを捨てる」の説明（ボタンのツールチップ）。窓と同じことを短く言う。</summary>
+    public static string DiscardInterruptedTip =>
+        "前回の取り込みの続きの記録を捨てます。取り込めた商品はそのまま残ります。\n"
+        + "捨てた記録は戻せません。続きを取りたくなったら、同じフォルダを取り込み対象に積み直して始めてください。";
+
+    private async Task DiscardInterruptedAsync()
+    {
+        var answer = Services.Notice.Show(
+            "前回の取り込みの続きの記録を捨てますか。\n\n"
+            + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取りに行きません。\n\n"
+            + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に積む」を押し、"
+            + "「取り込みを開始」を押してください。",
+            "取り込みの続きを捨てる",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
         {
-            _services.Store.ImportState.SaveAsync(new Core.Scanning.ImportState()).Forget();
+            return;
+        }
+
+        try
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DiscardInterruptedImport());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("取り込みの続きを捨てる", exception);
+            Services.Notice.Show(
+                "続きの記録を捨てられませんでした。保存先が読み取り専用になっているか、別のアプリが開いていることがあります。\n"
+                + "少し待ってからもう一度押してください。",
+                "取り込みの続きを捨てる",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        RunOnUiThread(() =>
+        {
             InterruptedText = null;
             _main.NoteInterruptedImportChanged();
         });
+    }
 
     /// <summary>積んだ結果。押しても何も起きなかったときこそ要る。</summary>
     public string? StackNotice
@@ -440,7 +478,51 @@ public sealed class ImportViewModel : ViewModelBase
     }
 
     /// <summary>画面を開いたときに呼ぶ。設定画面で変えた値を説明に映す。</summary>
-    public void NoteShown() => OnPropertyChanged(nameof(ImportsOnLaunch));
+    public void NoteShown()
+    {
+        OnPropertyChanged(nameof(ImportsOnLaunch));
+
+        // 設定画面で取り込み元や監視を足し引きして戻ってきたときに、一覧を今の設定に合わせる
+        SyncFolderLists();
+    }
+
+    /// <summary>
+    /// 履歴と監視の一覧を、今の設定から並べ直す。
+    ///
+    /// この画面はアプリの間1つを持ち回すので、前は起動時に1回だけ読んだ写しのまま、
+    /// 設定画面で足し引きした物が出てこなかった（その写しで丸ごと書き戻して、設定画面の変更を消してもいた）。
+    /// </summary>
+    private void SyncFolderLists()
+    {
+        Replace(History, _services.Settings.ImportFolders ?? []);
+        Replace(Watched, _services.Settings.WatchedFolders ?? []);
+        OnPropertyChanged(nameof(HasHistory));
+        OnPropertyChanged(nameof(HasWatched));
+
+        static void Replace(ObservableCollection<string> list, IReadOnlyList<string> fresh)
+        {
+            if (list.SequenceEqual(fresh))
+            {
+                return;
+            }
+
+            list.Clear();
+            foreach (var path in fresh)
+            {
+                list.Add(path);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 取り込み元・監視を1件ずつ足し引きする（<see cref="Core.Services.FolderListChange"/>）。
+    /// 錠の中で今の設定に当て、書けた設定で一覧を並べ直す（別の所が同時に足した物も出る）。
+    /// </summary>
+    private async Task ChangeFolderListsAsync(Func<Core.Models.AppSettings, Core.Models.AppSettings> change)
+    {
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(change));
+        RunOnUiThread(SyncFolderLists);
+    }
 
     public int Current
     {
@@ -735,7 +817,8 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 Folders.Add(path);
 
-                if (isFolder && !Watched.Contains(path, StringComparer.OrdinalIgnoreCase))
+                // 画面の一覧ではなく今の設定で見る（設定画面で足した監視を、まだこの画面が知らないことがある）
+                if (isFolder && !_services.Settings.WatchedFolders.Any(watched => Core.Services.PathText.Same(watched, path)))
                 {
                     addedFolders.Add(path);
                 }
@@ -824,14 +907,7 @@ public sealed class ImportViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(HasWatched));
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings => settings with
-        {
-            WatchedFolders = watch
-                ? settings.WatchedFolders.Contains(folder, StringComparer.OrdinalIgnoreCase)
-                    ? settings.WatchedFolders
-                    : [.. settings.WatchedFolders, folder]
-                : [.. settings.WatchedFolders.Where(candidate => !string.Equals(candidate, folder, StringComparison.OrdinalIgnoreCase))],
-        }));
+        await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.SetWatched(settings, folder, watch));
     }
 
     private void AddFolder()
@@ -980,22 +1056,11 @@ public sealed class ImportViewModel : ViewModelBase
         // **今回の対象を履歴へ足す**（ユーザ判断 2026-09-21・G4）。
         // 前は「対象＝履歴」で、対象に積んだ物がそのまま次の起動の対象になっていた。
         // 履歴は「何を読んだか」を確かめるための記録なので、ファイルも残す（監視の対象にはしない）
-        foreach (var path in Folders.Where(path => !History.Contains(path, StringComparer.OrdinalIgnoreCase)).ToList())
-        {
-            History.Add(path);
-        }
-
-        OnPropertyChanged(nameof(HasHistory));
-        await SaveHistoryAsync();
-    }
-
-    private async Task SaveHistoryAsync()
-    {
-        // 前はディスクから読んで書き、メモリの設定を直していなかった。そのため別の画面の保存（メモリの古い写し）で、
-        // ここで足した取り込み元が消えていた（技術的負債 1-1）
-        var history = History.ToList();
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
-            settings => settings with { ImportFolders = history }));
+        //
+        // 足すのは今回の対象だけで、この画面の履歴の写しでは書かない（技術的負債 1-1 の再発：
+        // 写しで丸ごと書いていたので、設定画面で足した取り込み元を取り込むたびに消していた）
+        var paths = Folders.ToList();
+        await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, paths));
     }
 
     /// <summary>

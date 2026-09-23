@@ -454,6 +454,7 @@ public sealed partial class MainViewModel : ViewModelBase
             // 離れる画面を履歴に積む（U23）。戻るで来たときと、同じ商品を開き直すときは積まない
             var navigation = _nextNavigation;
             _nextNavigation = Navigation.Push;
+            SettlePendingBack(navigation, value);
             if (navigation is Navigation.Push or Navigation.Forward
                 && _currentViewModel is not null && !ReferenceEquals(_currentViewModel, value))
             {
@@ -679,7 +680,11 @@ public sealed partial class MainViewModel : ViewModelBase
     public int NeedsEditBadgeCount => NeedsEditCount - Drafts.ItemIds.Count(id =>
         Search.FindItem(id) is { } item && item.Local.UserTags.Count == 0 && !IsAwaitingDetection(id));
 
-    public string LibrarySummary => $"{Search.TotalCount} items / {Search.ShopCount} shops";
+    /// <summary>
+    /// ナビの頭の件数。内部の言葉（item）を画面に出さない決め事なので日本語で言う
+    /// （前は「123 items / 45 shops」と英語のまま出ていた）。
+    /// </summary>
+    public string LibrarySummary => $"商品 {Search.TotalCount:N0} 件・{Search.ShopCount:N0} ショップ";
 
     public void ShowSearch()
     {

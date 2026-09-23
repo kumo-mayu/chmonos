@@ -95,22 +95,73 @@ public sealed partial class MainViewModel
         if (_history.Count == 0)
         {
             // 戻り先が無いので、今の画面を積み直さずに検索へ出す
-            // （積むと、戻ったはずなのに戻るがまた光って、今出てきた画面を指す）
+            // （積むと、戻ったはずなのに戻るがまた光って、今出てきた画面を指す）。
+            // 消えた先を飛ばしてここへ来たときは、待っていた控えも捨てる（戻すと消えた先が履歴に返ってくる）
+            _pendingBack = null;
             _nextNavigation = Navigation.Replace;
             ShowSearch();
             return;
         }
 
         // 戻る前の画面を「進む」に積む（積めない画面＝控えの作れない物は積まない）
+        HistoryEntry? pushedForward = null;
         if (rememberForward && _currentViewModel is not null && EntryFor(_currentViewModel) is { } leaving)
         {
             _forward.Add(leaving);
+            pushedForward = leaving;
         }
 
         var entry = _history[^1];
         _history.RemoveAt(_history.Count - 1);
         _nextNavigation = Navigation.Back;
-        entry.Restore();
+        _backInFlight = new PendingBack(entry, pushedForward);
+        try
+        {
+            entry.Restore();
+        }
+        finally
+        {
+            _backInFlight = null;
+        }
+    }
+
+    /// <param name="Entry">履歴から除いた、開き直している控え。</param>
+    /// <param name="Forward">戻る前の画面として「進む」に積んだ控え（積んでいなければ null）。</param>
+    private sealed record PendingBack(HistoryEntry Entry, HistoryEntry? Forward);
+
+    /// <summary><see cref="GoBack(bool)"/> が控えの手順を呼んでいる間だけ立つ。</summary>
+    private PendingBack? _backInFlight;
+
+    /// <summary>
+    /// 待ちの要る戻る（商品・ショップ・改変）で、開き直しを待っている控え。
+    ///
+    /// **待つ間に人が別の画面へ移ったら、除いた控えを履歴へ戻す**（開き直しはやめる）。
+    /// 前は開き直しを待つ前に履歴から1件除いていたので、待つ間にナビを押すと、
+    /// やめた開き直しの行き先がそのまま履歴から消えていた（戻るが1つ飛ぶ）。
+    /// 手順がすぐに画面を差し替える控え（検索・一覧の画面）は待たないので、ここには入らない。
+    /// </summary>
+    private PendingBack? _pendingBack;
+
+    /// <summary>画面が差し替わる所から呼ぶ。戻る待ちを片付ける（戻るで着いたなら捨て、別の移動なら控えを戻す）。</summary>
+    private void SettlePendingBack(Navigation navigation, object? next)
+    {
+        if (_pendingBack is not { } pending || ReferenceEquals(_currentViewModel, next))
+        {
+            return;
+        }
+
+        _pendingBack = null;
+        if (navigation == Navigation.Back)
+        {
+            return;
+        }
+
+        // この後で今の画面が積まれる。戻っていなかった形（控え → 今の画面）に並ぶよう、先に戻す
+        _history.Add(pending.Entry);
+        if (pending.Forward is { } forward)
+        {
+            _forward.Remove(forward);
+        }
     }
 
     /// <summary>戻った先から進む。進む先が無ければ何もしない。</summary>
@@ -189,20 +240,23 @@ public sealed partial class MainViewModel
     /// 画面を抱えると、戻るまでその画面の画像や一覧を握ったままになる（#71でメモリを押し上げた型）。
     /// 検索と取り込みの画面は1つを持ち回しているので、絞り込みやスクロール位置もそのまま戻る
     /// </summary>
+    /// <remarks>
+    /// **手順が捕まえるのは ID や選択の値だけにする。**前は <c>() => RestoreItemAsync(item.Item.Id)</c> のように
+    /// 画面そのものを捕まえていたので、履歴100件分の商品ページが絵やカードごと生き残っていた。
+    /// 値は控えを作る時点で取り出し、その値だけを手順に渡す（<see cref="ItemEntry"/> など）。
+    /// </remarks>
     private HistoryEntry? EntryFor(object screen) => screen switch
     {
         // 検索は1つを持ち回すので、**そのときの条件も控える**（P4）。
         // 控えないと、戻っても「この商品だけ出す」で全消しされた後の条件のままだった
         SearchViewModel search => new HistoryEntry("検索", RestoreSearch(search.CaptureFilters())),
-        ItemViewModel item => new HistoryEntry(Shorten(item.Name), () => RestoreItemAsync(item.Item.Id).Forget()),
-        ShopViewModel shop => new HistoryEntry(Shorten(shop.Shop.Name), () => RestoreShopAsync(shop.Shop).Forget()),
-        ModificationViewModel modification => new HistoryEntry(
-            Shorten(modification.Record.Name), () => RestoreModificationAsync(modification.Record.Id).Forget()),
+        ItemViewModel item => ItemEntry(Shorten(item.Name), item.Item.Id),
+        ShopViewModel shop => ShopEntry(shop.Shop),
+        ModificationViewModel modification => ModificationEntry(Shorten(modification.Record.Name), modification.Record.Id),
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
-        ModificationHubViewModel hub => new HistoryEntry(
-            "改変", () => ShowModifications(hub.Level, hub.Selection)),
+        ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
         ShopsViewModel => new HistoryEntry("ショップ一覧", ShowShops),
-        FolderViewModel folders => new HistoryEntry("フォルダ", () => ShowFolders(folders.SelectedKey)),
+        FolderViewModel folders => FolderEntry(folders.SelectedKey),
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
         ResolveViewModel => new HistoryEntry("未確定", ShowResolve),
@@ -213,6 +267,21 @@ public sealed partial class MainViewModel
         EditViewModel edit => EditEntry(edit),
         _ => null,
     };
+
+    // 以下は引数だけを捕まえる（画面を捕まえないように、ラムダを画面の変数と同じ所で書かない）
+    private HistoryEntry ItemEntry(string label, string itemId)
+        => new(label, () => RestoreItemAsync(itemId).Forget());
+
+    private HistoryEntry ShopEntry(Core.Services.ShopSummary shop)
+        => new(Shorten(shop.Name), () => RestoreShopAsync(shop).Forget());
+
+    private HistoryEntry ModificationEntry(string label, string modificationId)
+        => new(label, () => RestoreModificationAsync(modificationId).Forget());
+
+    private HistoryEntry HubEntry(ModificationHubLevel level, ModificationHubSelection? selection)
+        => new("改変", () => ShowModifications(level, selection));
+
+    private HistoryEntry FolderEntry(string? key) => new("フォルダ", () => ShowFolders(key));
 
     /// <summary>
     /// 編集画面の中で商品を移るとき、今の商品を履歴に積む（ユーザ指示 2026-09-12：
@@ -259,6 +328,14 @@ public sealed partial class MainViewModel
         // 作り直すと、店名の候補を作るために全件を読み直す（#71。2000件で重い）
         if (CurrentViewModel is EditViewModel current && ReferenceEquals(current.Run, run))
         {
+            // **進むで来たときは、今の商品を履歴に積む。**画面の差し替えが起きないので、差し替えの所で積む仕組みを通らない。
+            // 積まないと、進んだ先から戻るが今の商品を飛ばして1つ前へ行っていた。
+            // 「進む」の控えは捨てない（RememberEditStep は捨てるので使わない）
+            if (_nextNavigation == Navigation.Forward && current.HasItem)
+            {
+                Remember(current);
+            }
+
             // 画面の差し替えが起きないので、戻るの印をここで下ろす（残すと次の画面移動が履歴に積まれない）
             _nextNavigation = Navigation.Push;
             NotifyHistoryChanged();
@@ -364,6 +441,14 @@ public sealed partial class MainViewModel
     private object? BeginAsyncRestore()
     {
         _nextNavigation = Navigation.Push;
+
+        // 戻るの途中なら、待つ間に人が移ったときに控えを戻せるように預かる。
+        // 消えた先を飛ばしてもう1つ戻る途中なら、最初の戻るで「進む」に積んだ分を引き継ぐ
+        if (_backInFlight is { } inFlight)
+        {
+            _pendingBack = inFlight with { Forward = inFlight.Forward ?? _pendingBack?.Forward };
+        }
+
         return _currentViewModel;
     }
 

@@ -111,10 +111,17 @@ public sealed class StatsRangeOption
 /// 数え方の但し書き（推定で埋めた日付・金額の記録が無いもの）は畳まずに本文へ出す。
 /// 集計結果を信じてよいかは、欠けの量が分からないと判断できないため。
 /// </summary>
-public sealed class StatsViewModel : ViewModelBase
+public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
+
+    /// <summary>
+    /// 離れたら読み込みを取り消す（既知 P8）。この画面は開くたびに作り直すので、離れた後の集計は誰も見ない。
+    /// 全商品を読んで数えるので件数に比例して重く、離れた後も走り切って次の画面の読み込みとディスクを取り合っていた。読むだけなので止めてよい
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
     private StatsSnapshot? _snapshot;
     private StatsRangeOption _range;
     private bool _isLoading = true;
@@ -127,6 +134,8 @@ public sealed class StatsViewModel : ViewModelBase
 
         LoadAsync().Forget();
     }
+
+    public void OnLeaving() => _leaving.Cancel();
 
     public static IReadOnlyList<StatsRangeOption> Ranges { get; } =
     [
@@ -365,10 +374,16 @@ public sealed class StatsViewModel : ViewModelBase
 
     private async Task LoadCoreAsync()
     {
-        var snapshot = await Task.Run(() => _services.Stats.LoadAsync());
+        var token = _leaving.Token;
+        var snapshot = await Task.Run(() => _services.Stats.LoadAsync(token), token);
 
         RunOnUiThread(() =>
         {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
             _snapshot = snapshot;
             IsLoading = false;
 

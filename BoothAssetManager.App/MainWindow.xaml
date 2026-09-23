@@ -330,7 +330,9 @@
                             <TextBlock Foreground="White" FontSize="13">
                                 <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="#8a93a3" />
                             </TextBlock>
-                            <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0" />
+                            <!-- 日本語にして英語の頃より幅が要る。万単位でもナビの幅からはみ出さないよう、溢れたら「…」で切る -->
+                            <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding LibrarySummary}" />
                         </StackPanel>
                         <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
                                  Style="{StaticResource NavCollapsedOnly}" ToolTip="Chmonos（クモノス）">
@@ -530,7 +532,9 @@
                 <DockPanel Height="34">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="続きから進む" Command="{Binding Import.ResumeCommand}" />
-                        <Button Content="やめる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}" />
+                        <!-- 「やめる」では何が無くなるのか読めなかった（戻せない操作なので、押す前に窓でも聞く） -->
+                        <Button Content="続きを捨てる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}"
+                                ToolTip="{x:Static vm:ImportViewModel.DiscardInterruptedTip}" />
                     </StackPanel>
                     <TextBlock Text="{Binding InterruptedImportText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -573,16 +577,17 @@
 
             <!--
                 登録し終えた商品への入口（ユーザ指示 2026-09-15）。前は登録が終わると商品ページへ移り、検索を進めていた画面が勝手に替わっていた。
-                通信の帯のすぐ上に出し、開くかを選ばせる。通信が終わって通信の帯が畳まれても、押すか閉じるまでは残す
+                通信の帯のすぐ上に出し、開くかを選ばせる。通信が終わって通信の帯が畳まれても、押すか閉じるまでは残す。
+                商品ページを離れた後に取り直しが済んだときも同じ帯で知らせる（画面を引き戻さない）
             -->
             <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding HasRegisteredNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
-                            Command="{Binding DismissRegisteredCommand}" AutomationProperties.Name="登録の知らせを閉じる"
-                            ToolTip="この知らせを閉じます。登録した商品はそのまま残り、検索から開けます。" />
-                    <Button DockPanel.Dock="Right" Content="登録した商品を開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding DismissRegisteredCommand}" AutomationProperties.Name="この知らせを閉じる"
+                            ToolTip="この知らせを閉じます。商品はそのまま残り、検索から開けます。" />
+                    <Button DockPanel.Dock="Right" Content="{Binding RegisteredNoticeAction}" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                             Command="{Binding OpenRegisteredCommand}" />
                     <TextBlock Text="{Binding RegisteredNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />

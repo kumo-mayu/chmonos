@@ -218,15 +218,29 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
     /// 商品ページなら画面ごと作り直すが、ここでは編集の中で読み直す。
     /// 右の打ちかけの入力は、書きかけとして控えてから読み直した記録に重ね直す（消さない）。
     /// </summary>
-    private void OnItemPageReplaced(ItemRecord? updated)
+    /// <param name="sender">知らせてきた左の欄。</param>
+    /// <param name="openedId">その欄が開いていた商品のID。</param>
+    /// <remarks>
+    /// **知らせてきた欄が今の欄かを確かめ、IDはその欄が開いていた商品で比べる。**
+    /// 取り直しは BOOTH の順番を待つので、待つ間に「保存して次へ」で次の商品へ進める。
+    /// 前は古い欄の知らせを今の商品と比べていたので「IDを変えた」と取り違え、
+    /// 次の商品の書きかけと順番の位置を前の商品のIDへ付け替えていた。
+    /// 古い欄の知らせでも、IDの付け替えと消えた商品の書きかけの片付けだけはする（その商品へ戻ったときに迷わないように）。
+    /// 読み直すのは今の欄のときだけ（今開いている商品を前の商品の中身で塗り替えない）。
+    /// </remarks>
+    private void OnItemPageReplaced(ItemViewModel sender, string openedId, ItemRecord? updated)
     {
         if (_item is null)
         {
             return;
         }
 
-        var previousId = _item.Id;
-        CaptureDraft();
+        var isCurrent = ReferenceEquals(ItemPage, sender);
+        var previousId = openedId;
+        if (isCurrent)
+        {
+            CaptureDraft();
+        }
 
         if (updated is null)
         {
@@ -236,7 +250,12 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
         else if (!string.Equals(updated.Id, previousId, StringComparison.Ordinal))
         {
             // IDを変えた。順番の中の商品も、書きかけも保存した印も、移した先に付け替える
-            _queue[_index] = updated.Id;
+            var at = _queue.IndexOf(previousId);
+            if (at >= 0)
+            {
+                _queue[at] = updated.Id;
+            }
+
             if (_main.Drafts.Get(previousId) is { } draft)
             {
                 _main.Drafts.Remove(previousId);
@@ -251,7 +270,10 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             ReplaceInSessionAsync(previousId, updated.Id).Forget();
         }
 
-        LoadCurrentAsync().Forget();
+        if (isCurrent)
+        {
+            LoadCurrentAsync().Forget();
+        }
     }
 
     /// <summary>
@@ -751,10 +773,10 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
                 // BOOTHから名前が取れていない商品は、ここを埋めないと名前が無い。
                 // 閉じたままだと入れる場所が見えないので、その商品だけ開いて出す
                 IsEditingBasics = record.Booth.Name is not { Length: > 0 };
-                ItemPage = new ItemViewModel(record, _services, _main, _thumbnails, forEditing: true)
-                {
-                    Replaced = OnItemPageReplaced,
-                };
+                var page = new ItemViewModel(record, _services, _main, _thumbnails, forEditing: true);
+                var openedId = record.Id;
+                page.Replaced = updated => OnItemPageReplaced(page, openedId, updated);
+                ItemPage = page;
                 RaiseItemChanged();
                 return;
             }
@@ -1141,6 +1163,13 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
         }
 
         await _main.ReloadLibraryAsync();
+
+        // 待つ間（記録を消す・全件を読み直す。2000件で数秒）に人が別の画面へ移っていたら、そこから引きはがさない。
+        // 押した時点の確かめだけでは、待った後の戻るが移った先を上書きし、履歴も1つずれていた
+        if (!ReferenceEquals(_main.CurrentViewModel, this))
+        {
+            return;
+        }
 
         if (_run is null)
         {

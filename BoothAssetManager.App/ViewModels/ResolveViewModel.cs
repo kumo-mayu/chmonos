@@ -16,10 +16,19 @@ namespace BoothAssetManager.App.ViewModels;
 /// 調べる作業と主観で決める作業とで頭の使い方が違うため。
 /// 確定したものはこの画面で溜めておき、最後にまとめて編集へ送る。
 /// </summary>
-public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen
+public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, ILeavingScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
+
+    /// <summary>
+    /// 離れたら一覧の読み直しを取り消す（既知 P8）。この画面は開くたびに作り直すので、離れた後の一覧は誰も見ない。
+    /// **候補の検索は止めない**——人が押した長い作業で、どの画面からでも止められるようにしてある（C2）。
+    /// 未確定の突き合わせ（書き込み）も止めない
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
+    public void OnLeaving() => _leaving.Cancel();
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
     public MainViewModel Main => _main;
@@ -452,25 +461,37 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen
     {
         var healed = 0;
         string? failure = null;
+        var token = _leaving.Token;
 
         try
         {
+            // 均すのは書き込みなので、離れても取り消さない（途中で止めると両方に残ったままになる）
             healed = await _services.Commands.ExecuteAsync(new UiCommand.ReconcileUnresolved())
                 is CommandResult.Counted counted ? counted.Count : 0;
 
             // 元のzipが登録済みの中身を出さないために、商品が持っているファイルの場所を読む
-            await LoadOwnedPathsAsync();
+            await LoadOwnedPathsAsync(token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {
             // 均せなくても一覧は出す。黙って空にする方がずっと悪い
             Core.Diagnostics.AppLog.Error("未確定の画面：突き合わせ", exception);
-            failure = $"未確定の突き合わせに失敗しました: {exception.Message}";
+            failure = "未確定の突き合わせに失敗しました（確定済みの物が一覧に残っていることがあります）。"
+                + Core.Services.FailureText.Cause(exception) + "　画面を開き直すともう一度試します。";
         }
 
         // 読み込みはUIスレッド以外で終わることがあるので、必ず戻してから触る
         RunOnUiThread(() =>
         {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
             Reload();
 
             if (failure is not null)

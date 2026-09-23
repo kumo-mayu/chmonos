@@ -802,10 +802,9 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     }
 
     /// <summary>
-    /// 変更のたびに保存する。設定画面に「保存」ボタンを置かないのは、
-    /// 押し忘れたまま閉じて設定が消える方が困るため。
+    /// 監視をやめる。取り込んだ記録には触らない。
+    /// **この画面の一覧の写しで書かない。**外すのはこの1件だけ（画面を開いた後に取り込み画面やフォルダビューが足した監視を消さない）。
     /// </summary>
-    /// <summary>監視をやめる。取り込んだ記録には触らない。</summary>
     private async Task RemoveWatchedAsync(string path)
     {
         var row = Watched.FirstOrDefault(entry =>
@@ -817,13 +816,19 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         Watched.Remove(row);
         OnPropertyChanged(nameof(HasWatched));
-
-        var watched = Watched.Select(entry => entry.Path).ToList();
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(
-            settings => settings with { WatchedFolders = watched }));
+        await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: false));
     }
 
+    /// <summary>
+    /// 変更のたびに保存する。設定画面に「保存」ボタンを置かないのは、
+    /// 押し忘れたまま閉じて設定が消える方が困るため。
+    /// </summary>
     /// <param name="then">保存が済んでから行うこと。一覧の組み直しは新しい設定を読むので、保存より先に走ると前の値で組んでしまう。</param>
+    /// <remarks>
+    /// **取り込み元と監視はここで書かない**（足す・外すを押した所で1件ずつ書く）。
+    /// 前は保存のたびに画面の取り込み元の一覧で丸ごと書いていたので、画面を開いた後に取り込みで足された取り込み元が、
+    /// 別の項目（表示の切り替えなど）を変えただけで消えていた（技術的負債 1-1 の再発）。
+    /// </remarks>
     private void Save(Func<Task>? then = null)
     {
         if (_suppressSave)
@@ -832,8 +837,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
 
         // 画面が持つ項目だけを、ディスクの今の設定に当てる。画面を開いた後に別の所が書いた項目（画面の状態・監視など）を消さない。
-        // 一覧と組み合わせは画面のスレッドでここで写しておく（当てるのは錠の中で、別のスレッドのことがある）
-        var folders = Folders.Select(row => row.Path).ToList();
+        // 組み合わせは画面のスレッドでここで写しておく（当てるのは錠の中で、別のスレッドのことがある）
         var shortcuts = BuildShortcuts();
         ThenAsync(SaveAsync(current => current with
         {
@@ -858,7 +862,6 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             ImageQuality = ImageQuality,
             ModificationImageMaxEdgePixels = ModificationImageMaxEdgePixels,
             SaveModificationImagesAtOriginalSize = SaveModificationImagesAtOriginalSize,
-            ImportFolders = folders,
             Shortcuts = shortcuts,
             StartImportOnDrop = StartImportOnDrop,
             StartImportOnLaunch = StartImportOnLaunch,
@@ -889,7 +892,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             // 原因はこちらでは分からないので、断定も指示もしない。
             // 見当だけ添えて、判断はユーザに残す
             Core.Diagnostics.AppLog.Error("設定画面：設定の保存", exception);
-            Status = $"保存できませんでした：{exception.Message}（保存先が読み取り専用になっていることがあります）";
+            Status = $"保存できませんでした。{Core.Services.FailureText.Cause(exception)}　もう一度変えると保存し直します。";
         }
     }
 
@@ -918,7 +921,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             RemoveCommand = new RelayCommand(() => RemoveFolder(path)),
         });
 
-        Save();
+        // 足すのはこの1件だけ（Save の注を参照）
+        SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])).Forget();
     }
 
     private void RemoveFolder(string path)
@@ -932,7 +936,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
 
         Folders.Remove(row);
-        Save();
+        SaveAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
     }
 
     private RelayCommand? _resetPaneWidthsCommand;

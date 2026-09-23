@@ -55,14 +55,24 @@ public partial class SearchView : UserControl
             }
         };
 
-        _settleTimer.Tick += (_, _) =>
+        _settleTimer.Tick += (_, _) => SettleFastScrolling();
+
+        // 落ち着き待ちの間に画面を移ると、時計が鳴る頃には DataContext が外れていて解除が素通りしていた。
+        // 印は絵の読み手（ThumbnailLoader）に共有なので、残るとほかの画面の絵まで粗いまま止まる。離れるときに下ろす
+        Unloaded += (_, _) => SettleFastScrolling();
+    }
+
+    /// <summary>速く流している印を立てた検索の画面。DataContext が外れた後でも印を下ろせるように、立てた相手を覚える。</summary>
+    private SearchViewModel? _fastScrolling;
+
+    private void SettleFastScrolling()
+    {
+        _settleTimer.Stop();
+        if (_fastScrolling is { } search)
         {
-            _settleTimer.Stop();
-            if (DataContext is SearchViewModel search)
-            {
-                search.SetFastScrolling(false);
-            }
-        };
+            _fastScrolling = null;
+            search.SetFastScrolling(false);
+        }
     }
 
     private SearchViewModel? Model => DataContext as SearchViewModel;
@@ -162,6 +172,7 @@ public partial class SearchView : UserControl
             && Math.Abs(e.VerticalChange) / seconds > FastScrollDipPerSecond)
         {
             search.SetFastScrolling(true);
+            _fastScrolling = search;
         }
 
         _settleTimer.Stop();

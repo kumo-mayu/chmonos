@@ -12,7 +12,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// <summary>
 /// 改変の画面。左で「Unityプロジェクト」「アバター」「改変」の見方を切り替えて探し、右に押したもののビューを出す。
 /// </summary>
-public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWrites
+public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWrites, ILeavingScreen
 {
     /// <summary>最後に使った見方。ナビから開き直したときに同じ見方で始める（アプリを閉じるまで）。</summary>
     private static ModificationHubLevel s_lastLevel = ModificationHubLevel.Project;
@@ -208,6 +208,20 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     public Task FlushPendingWritesAsync()
         => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
 
+    /// <summary>
+    /// 離れたら読み込み（開いたとき・窓が手前に戻ったとき）を取り消す（既知 P8）。
+    /// この画面は開くたびに作り直すので、離れた後の一覧は誰も見ない。書き込み（右の改変の入力）は上の保存で先に書き切る
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
+    public void OnLeaving()
+    {
+        _leaving.Cancel();
+
+        // 右に組み込んだ改変の画面は主画面からは見えないので、自分が伝える
+        (Detail as ILeavingScreen)?.OnLeaving();
+    }
+
     /// <summary>右側に出しているもの。プロジェクト・アバター・改変・使ったもののどれか。</summary>
     public object? Detail
     {
@@ -328,21 +342,34 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     private async Task LoadAsync()
     {
+        try
+        {
+            await LoadCoreAsync(_leaving.Token);
+        }
+        catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
+        {
+            // 画面を離れた（取り消した読み込みを失敗としてログに残さない）
+        }
+    }
+
+    private async Task LoadCoreAsync(CancellationToken token)
+    {
         _isLoading = true;
         OnPropertyChanged(nameof(EmptyText));
 
-        var modifications = _services.Modifications.LoadAllAsync();
-        var avatars = Task.Run(() => _services.Avatars.LoadAsync());
-        var projects = Task.Run(() => UnityProjects.Discover());
-        var tools = Task.Run(() => UnityTools.Detect());
+        var modifications = _services.Modifications.LoadAllAsync(token);
+        var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
+        var projects = Task.Run(() => UnityProjects.Discover(), token);
+        var tools = Task.Run(() => UnityTools.Detect(), token);
         await Task.WhenAll(modifications, avatars, projects, tools);
+        token.ThrowIfCancellationRequested();
         Tools = tools.Result;
 
         // 商品は検索画面が持っている写しから引く（全商品の JSON を読み直さない。ショップ一覧と同じ扱い）
         var snapshot = _main.Search.SnapshotItems();
         if (snapshot.Count == 0)
         {
-            snapshot = (await _services.Store.Items.LoadAllAsync()).Items;
+            snapshot = (await _services.Store.Items.LoadAllAsync(cancellationToken: token)).Items;
         }
 
         _items = snapshot
@@ -417,13 +444,15 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         }
 
         _isRefreshing = true;
+        var token = _leaving.Token;
         try
         {
-            var modifications = _services.Modifications.LoadAllAsync();
-            var avatars = Task.Run(() => _services.Avatars.LoadAsync());
-            var projects = Task.Run(() => UnityProjects.Discover());
-            var tools = Task.Run(() => UnityTools.Detect());
+            var modifications = _services.Modifications.LoadAllAsync(token);
+            var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
+            var projects = Task.Run(() => UnityProjects.Discover(), token);
+            var tools = Task.Run(() => UnityTools.Detect(), token);
             await Task.WhenAll(modifications, avatars, projects, tools);
+            token.ThrowIfCancellationRequested();
 
             _records = modifications.Result.Modifications;
             _avatars = avatars.Result
@@ -437,6 +466,10 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             {
                 ShowProject(project.Path);
             }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // 画面を離れた
         }
         finally
         {

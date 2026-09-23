@@ -31,6 +31,12 @@ public sealed class CommandHandler
     /// <summary>見つからないファイルを中身で探して結び直す（G17）。</summary>
     private readonly MissingFileFinder? _missingFiles;
 
+    /// <summary>ドライブ文字と通し番号の組（フォルダビュー）。</summary>
+    private readonly VolumeTable? _volumes;
+
+    /// <summary>途中で止まった取り込みの記録（import-state.json）。</summary>
+    private readonly Storage.JsonFileStore<ImportState>? _importState;
+
     public CommandHandler(
         IImportPipeline import,
         IItemService items,
@@ -50,8 +56,12 @@ public sealed class CommandHandler
         Booth.IBoothClient? client = null,
         Storage.JsonFileStore<List<Models.VideoTitleRecord>>? videoTitles = null,
         Storage.JsonFileStore<List<Models.ShopNoteRecord>>? shopNotes = null,
-        MissingFileFinder? missingFiles = null)
+        MissingFileFinder? missingFiles = null,
+        VolumeTable? volumes = null,
+        Storage.JsonFileStore<ImportState>? importState = null)
     {
+        _volumes = volumes;
+        _importState = importState;
         _missingFiles = missingFiles;
         _videoTitles = videoTitles;
         _shopNotes = shopNotes;
@@ -764,6 +774,32 @@ public sealed class CommandHandler
                 return new CommandResult.MissingFilesSearched(
                     await _missingFiles.FindAsync(
                         _settings.Current.WatchedFolders, find.Progress, cancellationToken));
+
+            case UiCommand.DetectOrphanReferences:
+                if (_notifications is null)
+                {
+                    return MissingService("要確認の保存");
+                }
+
+                return new CommandResult.Counted(await _notifications.DetectOrphanReferencesAsync(cancellationToken));
+
+            case UiCommand.ObserveVolumes observe:
+                if (_volumes is null)
+                {
+                    return MissingService("ドライブ文字の記録");
+                }
+
+                return new CommandResult.VolumesObserved(
+                    await _volumes.ObserveAsync(observe.RecordedPaths, cancellationToken));
+
+            case UiCommand.DiscardInterruptedImport:
+                if (_importState is null)
+                {
+                    return MissingService("取り込みの続きの記録");
+                }
+
+                await _importState.SaveAsync(new ImportState(), cancellationToken);
+                return new CommandResult.Done();
 
             case UiCommand.MarkAllNotificationsRead:
                 if (_notifications is null)

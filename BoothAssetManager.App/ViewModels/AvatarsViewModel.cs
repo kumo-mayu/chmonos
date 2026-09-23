@@ -192,12 +192,20 @@ public sealed record BaseItemCandidate(string ItemId, string Label, RelayCommand
 /// 素体でグループ化した一覧にすると「素体の指定なし」に大半が落ちて読めなくなる
 /// （実データでは独自素体が大半）。素体の管理は別の欄に分ける。
 /// </summary>
-public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
+public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen
 {
     /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
     private const int MaxNameSuggestions = 5;
 
     private readonly AppServiceContainer _services;
+
+    /// <summary>
+    /// 離れたら一覧の読み直しを取り消す（既知 P8）。この画面は開くたびに作り直すので、離れた後の一覧は誰も見ない。
+    /// **取り消すのは読み直しだけ。**押した書き込み（名前・素体・メモ）は読み直しの前に済んでいるので止まらない
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
+    public void OnLeaving() => _leaving.Cancel();
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
@@ -1006,7 +1014,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
         // 読めなかったときも「読み込み中」を下ろす（成功した道でしか下ろしていなかった）
         try
         {
-            await LoadCoreAsync();
+            await LoadCoreAsync(_leaving.Token);
+        }
+        catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
+        {
+            // 画面を離れた。投げ直さないのは、書き込みの後に読み直していた呼び手を失敗に見せないため
+            // （呼び手の続きは出ない画面の状況の文を書くだけ）
         }
         finally
         {
@@ -1014,13 +1027,18 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
         }
     }
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(CancellationToken token)
     {
-        var avatars = await Task.Run(() => _services.Avatars.LoadAsync());
-        var bases = await Task.Run(() => _services.Avatars.LoadBasesAsync());
+        var avatars = await Task.Run(() => _services.Avatars.LoadAsync(token), token);
+        var bases = await Task.Run(() => _services.Avatars.LoadBasesAsync(token), token);
 
         RunOnUiThread(() =>
         {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
             _all = avatars.Select(summary => new AvatarRowViewModel
             {
                 Summary = summary,
@@ -1212,7 +1230,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites
         {
             // 検出は途中まで進んでいることがあり、もう一度押せば続きから走る
             Core.Diagnostics.AppLog.Error("アバターの画面：対応アバターの検出", exception);
-            Status = $"検出の途中で止まりました：{exception.Message}　もう一度押すと続きから試します。";
+            Status = $"検出の途中で止まりました。{Core.Services.FailureText.Cause(exception)}　もう一度押すと続きから試します。";
         }
         finally
         {
