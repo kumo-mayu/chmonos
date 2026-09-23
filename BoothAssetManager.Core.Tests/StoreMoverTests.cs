@@ -50,7 +50,7 @@ public class StoreMoverTests : IDisposable
         Assert.Null(result.ParkedAt);
         Assert.NotNull(result.Error);
         Assert.True(File.Exists(Path.Combine(inner, "settings.json")));
-        Assert.Equal(["inner", "settings.json"], Directory.EnumerateFileSystemEntries(outer).Select(Path.GetFileName).Order().ToArray());
+        Assert.Equal(["inner", "settings.json"], Directory.EnumerateFileSystemEntries(outer).Select(entry => Path.GetFileName(entry)!).Order().ToArray());
     }
 
     /// <summary>運ぶ先が今の保存先の内側でも断る（運んだ物をまた運び、突き合わせで必ず落ちる）。</summary>
