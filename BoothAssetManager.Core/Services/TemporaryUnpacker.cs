@@ -128,7 +128,27 @@ public sealed class TemporaryUnpacker
         var segments = entryPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Select(SafeSegment).ToArray();
         string[] directories = segments.Length > 1 ? segments[..^1] : [];
         var folder = Path.Combine([_root, "packages", Stamp(info), .. directories]);
-        var target = Path.Combine(folder, SafeFileName(segments.Length == 0 ? string.Empty : segments[^1]));
+        var fileName = SafeFileName(segments.Length == 0 ? string.Empty : segments[^1]);
+        var target = Path.Combine(folder, fileName);
+
+        // **長すぎるパスは Unity に渡せない**（ファイル選択の窓は 260 字まで）。そのときだけ、zip の中のフォルダの段を
+        // 中のパス全体から作った短い印1段に畳む（印は全体から作るので PC/ と Quest/ の取り違えは起きない）。
+        // それでも長ければファイル名を切り詰める（拡張子は残す）。
+        // 2026-09-23 に手元の zip 336 個（unitypackage 382 件）で測ると、中のパスは最長 102 字・置き場所の頭が 69 字で、
+        // 合わせて 171 字。今は届かないが、利用者名や一時フォルダの場所、深い配布物で伸びるので守りだけ置く
+        if (target.Length > MaxUnityPath)
+        {
+            folder = Path.Combine(_root, "packages", Stamp(info), ShortStamp(entryPath));
+            var room = MaxUnityPath - folder.Length - 1;
+            if (fileName.Length > room)
+            {
+                var extension = Path.GetExtension(fileName);
+                fileName = fileName[..Math.Max(1, room - extension.Length)] + extension;
+            }
+
+            target = Path.Combine(folder, fileName);
+        }
+
         if (File.Exists(target))
         {
             return target;
@@ -195,6 +215,15 @@ public sealed class TemporaryUnpacker
         // 深い階層の zip で全体のパスが長くなりすぎないよう、名前は切り詰める
         return cleaned.Length == 0 ? "archive" : cleaned[..Math.Min(cleaned.Length, 60)];
     }
+
+    /// <summary>
+    /// Unity へ渡すパスの上限。Windows の MAX_PATH（260）から終端の1字を除いた長さ。
+    /// 「.part」を足した書きかけの名前は Unity に渡さないので、ここには数えない（.NET は長いパスも扱える）
+    /// </summary>
+    internal const int MaxUnityPath = 259;
+
+    private static string ShortStamp(string entryPath)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(entryPath)))[..8];
 
     private static string Stamp(FileInfo info)
     {

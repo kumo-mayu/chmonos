@@ -345,8 +345,9 @@ public static class UnityLaunch
         {
             return Start(new ProcessStartInfo(exe)
             {
-                // 引用符を付けるのは、パスに空白が入るのが普通だから
-                Arguments = $"-projectPath \"{projectPath}\"",
+                // 引用符は .NET に任せる。手で「"パス"」と組むと、パスが \ で終わるとき（D:\proj\）に \" が引用符の逃がしと読まれ、
+                // 引数が閉じずに後ろまで1つにつながっていた。ArgumentList は末尾の \ を倍にして正しく閉じる
+                ArgumentList = { "-projectPath", projectPath },
                 UseShellExecute = true,
             })
                 ? UnityOpenResult.Launched
