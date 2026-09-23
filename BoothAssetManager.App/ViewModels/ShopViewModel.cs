@@ -13,7 +13,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// BOOTHのショップにある全商品ではない。取りに行っていないものは存在自体を知らないので、
 /// その旨は画面に書いておく（件数を全商品数と誤解されると数字の意味が変わる）。
 /// </summary>
-public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
+public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -49,6 +49,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 // 書くのは検索画面と同じ命令。この一覧からもその場で外す（外したのに残って見えないように）
                 _main.Search.HideItemCommand.Execute(card);
                 _all.Remove(card);
+                card.IsSelected = false;
+                OnCardSelectionChanged();
                 Rebuild();
             }
         });
@@ -485,7 +487,133 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => IsListMode = true);
 
     /// <summary>ショップの列には入手日を出す（カードの2行目と同じ。店名は全部同じで意味が無い）。</summary>
-    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "shop", hasSelect: false, shopHeader: "入手日");
+    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "shop", hasSelect: true, shopHeader: "入手日");
+
+    // ---- まとめて操作（検索・フォルダビューと同じ帯。動線の点検 C1） ----
+    // 2026-09-15 にリストにしたとき選ぶ列を付けず、ショップだけまとめて選べなかった。
+    // 作者のメモにも「表示されている商品への操作は検索画面と同等」とある。中身は検索・フォルダと同じ命令を使う
+
+    private bool _isSendingToUnity;
+    private string _unityQueueText = string.Empty;
+    private RelayCommand? _selectAll;
+    private RelayCommand? _clearSelection;
+    private RelayCommand? _sendToEdit;
+    private RelayCommand? _addToFavorites;
+    private RelayCommand? _addToModification;
+    private RelayCommand? _sendToUnity;
+    private RelayCommand? _stopUnity;
+
+    /// <summary>見えている分（「所持しているものだけ」で絞った後）を全て選ぶ（B8：見えている分に効く）。</summary>
+    public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(() =>
+    {
+        foreach (var card in _matches)
+        {
+            card.IsSelected = true;
+        }
+    });
+
+    public RelayCommand ClearSelectionCommand => _clearSelection ??= new RelayCommand(ClearSelection);
+
+    public RelayCommand SendSelectionToEditCommand => _sendToEdit ??= new RelayCommand(() =>
+    {
+        var ids = SelectedCards().Select(card => card.Item.Id).ToList();
+        if (ids.Count > 0)
+        {
+            ClearSelection();
+            _main.ShowEditAsync(ids).Forget();
+        }
+    });
+
+    public RelayCommand AddSelectionToFavoritesCommand => _addToFavorites ??= new RelayCommand(() => AddSelectionToFavoritesAsync().Forget());
+
+    public RelayCommand AddSelectionToModificationCommand => _addToModification ??= new RelayCommand(
+        () => ItemSelectionActions.AddToModificationAsync(_services, SelectedCards()).Forget());
+
+    public RelayCommand SendSelectionToUnityCommand => _sendToUnity ??= new RelayCommand(
+        () => ItemSelectionActions.SendToUnityAsync(
+            _services, SelectedCards(), sending => IsSendingToUnity = sending, text => UnityQueueText = text).Forget(),
+        () => !IsSendingToUnity);
+
+    public bool IsSendingToUnity
+    {
+        get => _isSendingToUnity;
+        private set
+        {
+            if (SetField(ref _isSendingToUnity, value))
+            {
+                OnPropertyChanged(nameof(ShowsSelectionBar));
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>帯を出すか。選んでいる間と、Unity へ送っている間（E10：1件でも進み具合を出す）。</summary>
+    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity;
+
+    /// <summary>送るのをやめる（E7）。</summary>
+    public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
+
+    public string UnityQueueText
+    {
+        get => _unityQueueText;
+        private set
+        {
+            if (SetField(ref _unityQueueText, value))
+            {
+                OnPropertyChanged(nameof(HasUnityQueueText));
+            }
+        }
+    }
+
+    public bool HasUnityQueueText => UnityQueueText.Length > 0;
+
+    public int SelectedCount => _all.Count(card => card.IsSelected);
+
+    public bool HasSelection => SelectedCount > 0;
+
+    public string SelectionText => $"{SelectedCount} 件を選択中";
+
+    /// <summary>選んだカード。見えている並びを先に、「所持しているものだけ」で隠れた物を後に（検索画面と同じ）。</summary>
+    private List<ItemCardViewModel> SelectedCards()
+    {
+        var cards = _matches.Where(card => card.IsSelected).ToList();
+        cards.AddRange(_all.Where(card => card.IsSelected && !cards.Contains(card)));
+        return cards;
+    }
+
+    public void ClearSelection()
+    {
+        foreach (var card in _all.Where(card => card.IsSelected))
+        {
+            card.IsSelected = false;
+        }
+    }
+
+    /// <summary>選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。</summary>
+    private async Task AddSelectionToFavoritesAsync()
+    {
+        foreach (var card in SelectedCards().Where(card => !card.IsFavorite))
+        {
+            await ToggleFavoriteAsync(card);
+        }
+    }
+
+    /// <summary>1件でも選ぶと、カード全体が選択の的になる（検索画面と同じ。中を見るのは専用のボタンへ）。</summary>
+    private void OnCardSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(ShowsSelectionBar));
+        OnPropertyChanged(nameof(SelectionText));
+
+        var selecting = HasSelection;
+        foreach (var card in _all)
+        {
+            card.IsSelectionMode = selecting;
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
+    }
 
     public IReadOnlyList<object> ListItems => _listItems;
 
@@ -560,6 +688,13 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 UserTagText = ItemCardViewModel.UserTagLine(entry.Item.Local.UserTags, _services.Settings.ShowSubTagsInList),
             }).ToList();
 
+            // 読み直すとカードを作り直すので、選んでいた物は外れる。帯もそれに合わせて畳む
+            foreach (var card in _all)
+            {
+                card.SelectionChanged += OnCardSelectionChanged;
+            }
+
+            OnCardSelectionChanged();
             Rebuild();
             OnPropertyChanged(nameof(SizeText));
 
