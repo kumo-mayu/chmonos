@@ -90,4 +90,22 @@ public class RomajiReadingTests
         Assert.Equal("タマクラゲ", RomajiReading.ToKatakana("たまくらげ"));
         Assert.Equal("サメ", RomajiReading.ToKatakana("さめ"));
     }
+
+    /// <summary>
+    /// 枝分かれが続いて最後で読めない語でも、すぐ返る（点検 2026-09-23）。
+    /// 上限が無いと 2字ごとに倍になり、60字で数分かかる。検索欄に長い英字を貼るだけで固まっていた。
+    /// </summary>
+    [Fact]
+    public void GivesUpQuicklyOnLongBranchingInput()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        Assert.Empty(RomajiReading.Readings(string.Concat(Enumerable.Repeat("na", 40)) + "x"));
+
+        Assert.True(watch.ElapsedMilliseconds < 2000, $"{watch.ElapsedMilliseconds}ms");
+    }
+
+    [Fact]
+    public void StillReadsOrdinaryWordsWithTheLimit()
+        => Assert.Contains("しんおん", RomajiReading.Readings("shinon"));
 }
