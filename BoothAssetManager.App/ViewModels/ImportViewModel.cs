@@ -47,6 +47,11 @@ public sealed class ImportViewModel : ViewModelBase
     /// </summary>
     private bool _starting;
 
+    /// <summary>
+    /// 立ち上げの途中に来た「始める／積む」。立ち上がったら今の一覧を積み直す（値は展開先について尋ねてよいか）。
+    /// </summary>
+    private bool? _stackAfterStart;
+
     private bool _isRunning;
     private string? _stackNotice;
     private string _phaseText = string.Empty;
@@ -811,6 +816,17 @@ public sealed class ImportViewModel : ViewModelBase
             .ToList());
         var addedFolders = new List<string>();
 
+        // 落とした物が1つも無かった（見終わるまでに動かした・ドライブが外れた）。積める物が無いので始めない。
+        // 帯は「始めています…」「積みました」と先に出ているので、始まらなかったことと次の一手に替える。
+        // 前は何も起きないまま帯が「始めています…」で止まっていた。
+        // 一覧に前からある物だけで始めることもしない（落とした物の取り込みを頼まれたのであって、全部ではない）
+        if (!kinds.Any(kind => kind.IsFolder || kind.IsFile))
+        {
+            _main.NoteImportNotStarted(
+                "落としたファイルやフォルダが見つからず、取り込みを始めませんでした。動かしたか、ドライブがつながっていない可能性があります。場所を確かめて、もう一度落としてください。");
+            return;
+        }
+
         foreach (var (path, isFolder, isFile) in kinds)
         {
             if ((isFolder || isFile) && !Folders.Contains(path, StringComparer.OrdinalIgnoreCase))
@@ -1168,6 +1184,9 @@ public sealed class ImportViewModel : ViewModelBase
             // 走っている方を止められなくなる
             if (_starting)
             {
+                // 捨てずに、立ち上がったところで積む。前は黙って弾いていたので、この間に落とした物は
+                // 一覧には載るのに今回の取り込みに入らず、帯は「終わりました」と言っていた
+                _stackAfterStart = ask || _stackAfterStart == true;
                 return;
             }
 
@@ -1213,6 +1232,12 @@ public sealed class ImportViewModel : ViewModelBase
 
         _cancellation = new CancellationTokenSource();
         _work = new ImportWorkSet(targets);
+        if (_stackAfterStart is { } stackAsk)
+        {
+            _stackAfterStart = null;
+            _work.Add(ResolveUnpackedTargets(stackAsk));
+        }
+
         _main.AttachImportWork(_work);
         _requestSeconds.Clear();
         _lastRequestPhase = null;
