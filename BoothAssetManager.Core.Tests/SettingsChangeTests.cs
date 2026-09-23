@@ -47,6 +47,23 @@ public sealed class SettingsChangeTests : IDisposable
         Assert.Equal(saved.ImportFolders, settings.Current.ImportFolders);
     }
 
+    /// <summary>画面が使う道（UiCommand.ChangeSettings → CommandHandler）でも、変え方が今の設定に当たり、書いた値が返る。</summary>
+    [Fact]
+    public async Task 命令を通しても変え方が今の設定に当たる()
+    {
+        var settings = new SettingsService(_store);
+        await settings.UpdateAsync(current => current with { ImportFolders = [@"D:\BOOTH"] });
+        var handler = new BoothAssetManager.Core.Commands.CommandHandler(null!, null!, settings: settings);
+
+        var result = await handler.ExecuteAsync(
+            new BoothAssetManager.Core.Commands.UiCommand.ChangeSettings(current => current with { SaveImages = false }));
+
+        var changed = Assert.IsType<BoothAssetManager.Core.Commands.CommandResult.SettingsChanged>(result).Settings;
+        Assert.False(changed.SaveImages);
+        Assert.Equal([@"D:\BOOTH"], changed.ImportFolders);
+        Assert.False(_store.Settings.Load().SaveImages);
+    }
+
     /// <summary>同時に書いても、一時ファイルがぶつからず、どちらの変更も残る（前は投げっぱなしの保存が重なりえた）。</summary>
     [Fact]
     public async Task 同時に書いても両方残る()

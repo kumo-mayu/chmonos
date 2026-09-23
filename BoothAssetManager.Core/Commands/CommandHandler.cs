@@ -94,6 +94,18 @@ public sealed class CommandHandler
     private static CommandResult MissingService(string what)
         => throw new InvalidOperationException($"{what}が組み立てのときに渡されていません（アプリの不具合）。");
 
+    /// <summary>
+    /// 保存先を運び終えた。**門を閉じたまま返し、ログも止める**（画面はこの後すぐ新しい保存先で開き直す・ユーザ判断 2026-09-23）。
+    ///
+    /// 開いて返すと、待っていた書き込みが画面が閉じ直すまでの間に古い保存先へ流れていた。
+    /// ログは門を通らずに書き足すので、止めないと引越しで消した元の場所に <c>logs/</c> を作り直す。
+    /// </summary>
+    private static void KeepClosedUntilRestart(Storage.StoreWriteGate.StoreHold hold)
+    {
+        hold.KeepClosedUntilRestart();
+        Diagnostics.AppLog.Use(null);
+    }
+
     public async Task<CommandResult> ExecuteAsync(
         UiCommand command,
         IProgress<ImportProgress>? progress = null,
@@ -656,16 +668,21 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(unregister.ItemId)
                     : new CommandResult.Failed("登録が見つかりませんでした。");
 
+            // 門を持つ3つは、**取るのも放すのも Task.Run の中で行う。**
+            // 画面のスレッドの文脈で await すると、放す（開ける）のは画面のスレッドへ戻ってからになる。
+            // そのとき画面のスレッドが同期で門を待っていると、互いに待ち合って固まる（StoreWriteGate.Enter の注）
             case UiCommand.ExportBackup export:
                 try
                 {
-                    // 書き出している間は、束として食い違わないように書き込みを止める（E8）
-                    using var holdForExport = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
-                    var exported = await Task.Run(
-                        () => Storage.BackupArchive.Export(
-                            export.Root, export.ZipPath, export.IncludeImages, export.Progress, cancellationToken),
+                    return await Task.Run(
+                        async () =>
+                        {
+                            // 書き出している間は、束として食い違わないように書き込みを止める（E8）
+                            using var holdForExport = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
+                            return (CommandResult)new CommandResult.BackupExported(Storage.BackupArchive.Export(
+                                export.Root, export.ZipPath, export.IncludeImages, export.Progress, cancellationToken));
+                        },
                         cancellationToken);
-                    return new CommandResult.BackupExported(exported);
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
@@ -676,12 +693,16 @@ public sealed class CommandHandler
             case UiCommand.RestoreBackup restore:
                 try
                 {
-                    using var holdForRestore = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
-                    var restored = await Task.Run(
-                        () => Storage.BackupArchive.Restore(
-                            restore.ZipPath, restore.DestinationRoot, restore.Progress, cancellationToken),
+                    return await Task.Run(
+                        async () =>
+                        {
+                            using var holdForRestore = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
+                            var restored = Storage.BackupArchive.Restore(
+                                restore.ZipPath, restore.DestinationRoot, restore.Progress, cancellationToken);
+                            KeepClosedUntilRestart(holdForRestore);
+                            return (CommandResult)new CommandResult.BackupRestored(restored);
+                        },
                         cancellationToken);
-                    return new CommandResult.BackupRestored(restored);
                 }
                 catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
                 {
@@ -690,17 +711,23 @@ public sealed class CommandHandler
                 }
 
             case UiCommand.MoveStore move:
-            {
-                // **運んでいる間は書き込みを止める**（E8）。通してしまうと、コピー済みへ書いた分は
-                // 元を消すときに消え、列挙の後に生まれたファイルは運ばれず、増えた1件で突き合わせが落ちる
-                using var holdForMove = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
-                var moved = await Task.Run(
-                    () => move.Replace
-                        ? Storage.StoreMover.Replace(move.Source, move.Destination, move.Progress, cancellationToken)
-                        : Storage.StoreMover.Move(move.Source, move.Destination, move.Progress, cancellationToken),
+                return await Task.Run(
+                    async () =>
+                    {
+                        // **運んでいる間は書き込みを止める**（E8）。通してしまうと、コピー済みへ書いた分は
+                        // 元を消すときに消え、列挙の後に生まれたファイルは運ばれず、増えた1件で突き合わせが落ちる
+                        using var holdForMove = await Storage.StoreWriteGate.HoldAsync(cancellationToken);
+                        var moved = move.Replace
+                            ? Storage.StoreMover.Replace(move.Source, move.Destination, move.Progress, cancellationToken)
+                            : Storage.StoreMover.Move(move.Source, move.Destination, move.Progress, cancellationToken);
+                        if (moved.Succeeded)
+                        {
+                            KeepClosedUntilRestart(holdForMove);
+                        }
+
+                        return (CommandResult)new CommandResult.StoreMoved(moved);
+                    },
                     cancellationToken);
-                return new CommandResult.StoreMoved(moved);
-            }
 
             case UiCommand.UnpackToTemporary unpack:
                 try

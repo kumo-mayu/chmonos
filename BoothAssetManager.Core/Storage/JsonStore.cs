@@ -56,14 +56,28 @@ public static class JsonStore
         return await JsonSerializer.DeserializeAsync<T>(stream, Options, cancellationToken);
     }
 
-    public static void Write<T>(string path, T value)
+    /// <summary>
+    /// 同期で書く。保存先を運んでいる間はスレッドを止めて待つので、**画面のスレッドから呼ばない**（<see cref="StoreWriteGate.Enter"/>）。
+    /// 画面から来得る保存は <see cref="WriteAsync{T}"/> を使う。
+    /// </summary>
+    public static void Write<T>(string path, T value) => Write(path, value, throughStoreGate: true);
+
+    /// <summary>
+    /// **保存先の外**のファイルを書く（<c>location.json</c>）。運ぶ門を通らない。
+    ///
+    /// 保存先の場所を覚えるファイルは、運び終えて門を閉じたままにした後（開き直す直前）に画面のスレッドで書く。
+    /// 門を通すと、開くことの無い門を画面のスレッドが待ち続けて固まる。運ぶ対象でもないので、止める理由も無い。
+    /// </summary>
+    internal static void WriteOutsideStore<T>(string path, T value) => Write(path, value, throughStoreGate: false);
+
+    private static void Write<T>(string path, T value, bool throughStoreGate)
     {
         var gate = GateFor(path);
         gate.Wait();
         try
         {
             // 保存先を運んでいる間は待つ。書いている間は「書いている」に数えられ、運ぶ側はこれが抜けるのを待つ（StoreWriteGate）
-            using var writing = StoreWriteGate.Enter();
+            using var writing = throughStoreGate ? StoreWriteGate.Enter() : null;
             var temporaryPath = PrepareTemporary(path);
             try
             {

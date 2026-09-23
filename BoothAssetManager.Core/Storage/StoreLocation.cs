@@ -106,7 +106,8 @@ public static class StoreLocation
         }
 
         Directory.CreateDirectory(DefaultRoot);
-        JsonStore.Write(LocationFile, new StoreLocationFile { Root = full });
+        // 運び終えて門を閉じたままの所で書くので、門を通さない（JsonStore.WriteOutsideStore）
+        JsonStore.WriteOutsideStore(LocationFile, new StoreLocationFile { Root = full });
     }
 
     public static void Clear()

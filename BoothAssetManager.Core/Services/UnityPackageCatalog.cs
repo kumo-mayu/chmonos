@@ -71,7 +71,7 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
                     package => UnityHandoff.ReadAssetPaths(package),
                     StringComparer.Ordinal));
 
-            pathStore.Save(record.Hash, packages);
+            await pathStore.SaveAsync(record.Hash, packages, cancellationToken);
             read++;
         }
 
