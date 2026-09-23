@@ -366,9 +366,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
     private readonly SemaphoreSlim _detectGate = new(1, 1);
 
-    private readonly SemaphoreSlim _requestGate = new(1, 1);
-
-    private bool _detectAgain;
+    private CoalescedRun? _detectRequests;
 
     /// <summary>
     /// 裏での検出をお願いする（ユーザ判断 2026-09-21・N4）。**走っている間に来た分は1回にまとめる。**
@@ -376,29 +374,13 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     /// 未確定で確定するたびに投げていたので、10件まとめて確定すると
     /// 全件走査が10回直列に並んでいた（錠があるので壊れはしないが、待たせるだけ）。
     /// 検出は毎回ライブラリ全体を見るので、10回やっても結果は最後の1回と同じ。
+    /// まとめ方と取りこぼさない理由は <see cref="CoalescedRun"/>。
     /// </summary>
-    public async Task RequestDetectAsync(CancellationToken cancellationToken = default)
-    {
-        if (!await _requestGate.WaitAsync(0, cancellationToken))
-        {
-            _detectAgain = true;
-            return;
-        }
-
-        try
-        {
-            do
-            {
-                _detectAgain = false;
-                await DetectAsync(cancellationToken: cancellationToken);
-            }
-            while (_detectAgain);
-        }
-        finally
-        {
-            _requestGate.Release();
-        }
-    }
+    public Task RequestDetectAsync(CancellationToken cancellationToken = default)
+        => LazyInitializer.EnsureInitialized(
+                ref _detectRequests,
+                () => new CoalescedRun(token => DetectAsync(cancellationToken: token)))
+            .RequestAsync(cancellationToken);
 
     private async Task<AvatarDetectResult> DetectUnguardedAsync(
         IProgress<AvatarDetectProgress>? progress,
