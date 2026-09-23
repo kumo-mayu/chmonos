@@ -91,7 +91,8 @@
             <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth・LeftColumnWidth） -->
             <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
                     Width="{Binding ViewportWidth, ElementName=Body}">
-            <Grid>
+            <!-- 覚えた左の幅は窓が狭いと頭打ちにする（右の最小 320 を割らないように。PaneGrid） -->
+            <controls:PaneGrid Pane="{Binding LeftPane}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{Binding LeftPane.Width, Mode=TwoWay}"
                                       MinWidth="{Binding LeftPane.MinWidth}" MaxWidth="{Binding LeftPane.MaxWidth}" />
@@ -601,7 +602,7 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-            </Grid>
+            </controls:PaneGrid>
             </Border>
         </ScrollViewer>
     </DockPanel>

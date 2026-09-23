@@ -148,7 +148,7 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource Bg}">
+    <controls:PaneGrid Background="{StaticResource Bg}" Pane="{Binding FilterPane}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding FilterPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding FilterPane.MinWidth}" MaxWidth="{Binding FilterPane.MaxWidth}" />
@@ -1058,5 +1058,5 @@
                 </StackPanel>
             </Grid>
         </DockPanel>
-    </Grid>
+    </controls:PaneGrid>
 </UserControl>

@@ -266,9 +266,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>
     /// 組み込んだときは左右の列を幅に合わせる。右側は窓より狭いので、単独の画面と同じ固定の 660px では
-    /// 横に送るしかなくなる
+    /// 横に送るしかなくなる。
+    /// 単独の画面の下限は、覚えた左の幅ではなく**左の最小**から出す。覚えた幅は窓が狭いと頭打ちになる（PaneGrid）ので、
+    /// 覚えた幅で下限を決めると、縮められる左を縮めずに横へ送らせることになる（点検 2026-09-23）
     /// </summary>
-    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.Pixels + 400;
+    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.MinPixels + 400;
 
     /// <remarks>
     /// 組み込んだときは左（写真・使ったもの）に残りを全部渡す。右は最低幅（320px）で足りるが、

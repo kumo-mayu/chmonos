@@ -3,7 +3,7 @@
 > **要点**：画面は同じウィンドウの中の差し替え。欠けや推定を隠さず、内部の言葉を画面に出さない。取り返しのつかない操作には取り返せるかを書き、空表示とエラーには次にやることを書く。
 > 幅が決め打ちだった所は境目をドラッグで変えられ、画面ごとに覚える。画面の状態は設定ではなく `ui-state.json` に置く。
 >
-> **コード**：`App/MainWindow.xaml`（ナビ・常設の1行）・`App/Controls/PaneSplitter.cs`・`App/ViewModels/PaneColumn.cs`・`App/Services/PaneWidths.cs`・`Controls/SuggestBox`・`ChipStrip`・`ChoiceDialog`・`Shortcuts.cs`・`DropRouting`、`tools/wording.mjs`
+> **コード**：`App/MainWindow.xaml`（ナビ・常設の1行）・`App/Controls/PaneSplitter.cs`・`PaneGrid.cs`・`App/ViewModels/PaneColumn.cs`・`App/Services/PaneWidths.cs`・`Controls/SuggestBox`・`ChipStrip`・`ChoiceDialog`・`Shortcuts.cs`・`DropRouting`、`tools/wording.mjs`
 >
 > **経緯**：`docs/history/ui-revision.md`（ナビ・窓・ドロップ・文言）、`docs/research/ui-wording.md`（文言の総調査と用語）、`docs/feedback/done-2026-09.md`（U番号・画面の幅の範囲）
 
@@ -113,7 +113,7 @@
 - 画面ごとに `ui-state.json` の `paneWidths` に覚える。ドラッグの間は手元で持ち、止まってから 0.4 秒で1回だけ書く。
 - 組み込んだ画面（フォルダビューの右の商品ページ・改変の画面の右の改変）も境目を動かせる（ユーザ指示 2026-09-14）。単独の画面とは別の鍵で覚え、右側が狭いので既定と範囲を小さくしてある。
   未確定を組み込んだときは左の一覧を隠すので境目は無い。ナビと絞り込み欄は開いたときの幅だけ変わる（畳んだ幅は変えない）。
-- 反対側の列には最小 360（商品ページ・改変の詳細の右は 320）を付けて潰れないようにする。
+- 反対側の列には最小 360（商品ページ・改変の詳細の右は 320）を付けて潰れないようにする。**覚えた幅は窓が狭いと「入れ物 − 反対側の最小」で頭打ちにする**（覚えた値は書き換えないので、窓を広げ直せば戻る。`PaneGrid`・点検 2026-09-23：広げた後に窓を狭めると商品ページの右が約130pxになった）。
 
 | 鍵 | 場所 | 既定 | 最小 | 最大 |
 |---|---|---|---|---|

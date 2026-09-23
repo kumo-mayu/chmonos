@@ -371,8 +371,12 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public bool ShowsBack => !IsEmbedded && _main.CanGoBack;
 
     /// <summary>組み込んだときは右側が窓より狭いので、単独の画面の最小幅（1060px）では横にはみ出す。</summary>
-    /// <remarks>単独の画面では、左の列の幅（既定660）＋右の列の最小320＋余白と内側の余白80。左の列はドラッグで変わる。</remarks>
-    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.Pixels + 400;
+    /// <remarks>
+    /// 単独の画面では、左の列の最小（460）＋右の列の最小320＋余白と内側の余白80。
+    /// 覚えた左の幅（既定660・最大1100）で下限を決めていたときは、窓が狭いと右が約130pxまで潰れた。
+    /// 今は覚えた幅を窓に合わせて頭打ちにする（PaneGrid）ので、下限は縮めきった形で決める（点検 2026-09-23）
+    /// </remarks>
+    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.MinPixels + 400;
 
     private PaneColumn? _leftPane;
 

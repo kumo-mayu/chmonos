@@ -45,7 +45,7 @@
             </Grid>
         </Border>
 
-        <Grid>
+        <controls:PaneGrid Pane="{Binding ListPane}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                                   MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
@@ -572,6 +572,6 @@
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
-        </Grid>
+        </controls:PaneGrid>
     </DockPanel>
 </UserControl>

@@ -216,7 +216,8 @@
             </StackPanel>
         </StackPanel>
 
-        <Grid Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+        <controls:PaneGrid Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+              Pane="{Binding RightPane}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="360" />
                 <ColumnDefinition Width="{Binding RightPane.Width, Mode=TwoWay}"
@@ -927,7 +928,7 @@
                     </StackPanel>
                 </ScrollViewer>
             </Border>
-        </Grid>
+        </controls:PaneGrid>
 
         </Grid>
     </DockPanel>

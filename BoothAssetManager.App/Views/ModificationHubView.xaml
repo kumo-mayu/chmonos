@@ -679,7 +679,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource Bg}">
+    <controls:PaneGrid Background="{StaticResource Bg}" Pane="{Binding ListPane}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
@@ -774,5 +774,5 @@
         <TextBlock Grid.Column="1" Text="左の一覧から、プロジェクト・アバター・改変・使ったものを押すと、ここに出ます。"
                    Style="{StaticResource Caption}" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-    </Grid>
+    </controls:PaneGrid>
 </UserControl>
