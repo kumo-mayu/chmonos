@@ -343,6 +343,24 @@ public abstract record UiCommand
     public record ReattachFile(string ItemId, string Hash) : UiCommand;
 
     /// <summary>
+    /// 途中で止まった取り込みの続きを捨てる（import-state.json を空にする）。取れた商品は消さない。
+    /// 前は画面が直に書いていて、保存先を運んでいる間の門（StoreWriteGate）も通っていなかった。
+    /// </summary>
+    public record DiscardInterruptedImport() : UiCommand;
+
+    /// <summary>
+    /// 分類・属性の一覧に無い名前を指している商品を探し、要確認へ出す（要確認の画面を開くたび）。
+    /// 知らせを書くので書き込みとして通す。結果は <see cref="CommandResult.Counted"/>（見つけた件数）。
+    /// </summary>
+    public record DetectOrphanReferences() : UiCommand;
+
+    /// <summary>
+    /// 記録したパスのドライブ文字と通し番号の組を確かめ直し、volumes.json に控える（フォルダビューを開くたび）。
+    /// 結果は <see cref="CommandResult.VolumesObserved"/>（元の文字 → 今の文字の読み替え）。
+    /// </summary>
+    public record ObserveVolumes(IReadOnlyList<string> RecordedPaths) : UiCommand;
+
+    /// <summary>
     /// ファイルがどの種類（BOOTHのバリエーション）のものかを付け直す。値が null なら外す。
     /// 名指ししなかったファイルは今のまま。
     /// </summary>
@@ -447,6 +465,9 @@ public abstract record CommandResult
 
     /// <summary>済んだ。数を持つ（書き換えた商品の数・取り除いた数など）。</summary>
     public record Counted(int Count) : CommandResult;
+
+    /// <summary>ドライブ文字の組を確かめた。元の文字 → 今の文字の読み替えを持つ。</summary>
+    public record VolumesObserved(IReadOnlyDictionary<string, string> Remap) : CommandResult;
 
     /// <summary>ショップのバナーを確かめた。手元に無く BOOTH にも無ければ null。</summary>
     public record ShopBannerEnsured(string? Path) : CommandResult;

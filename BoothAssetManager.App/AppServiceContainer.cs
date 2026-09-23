@@ -91,7 +91,7 @@ public sealed class AppServiceContainer : IDisposable
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
             Modifications, Avatars, UnityPackages, SettingsStore, Avatars, Shops, Images, Client, Store.VideoTitles, Store.ShopNotes,
-            new MissingFileFinder(Store));
+            new MissingFileFinder(Store), Volumes, Store.ImportState);
 
         // 商品ページの動画の欄のタイトル。控えを読み、無いか30日を過ぎていれば YouTube に聞いて控える（ユーザ判断 2026-09-14）
         YouTube = new Services.YouTubeInfo(Store.VideoTitles, Commands);

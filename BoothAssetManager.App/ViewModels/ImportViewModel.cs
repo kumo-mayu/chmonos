@@ -354,13 +354,59 @@ public sealed class ImportViewModel : ViewModelBase
     /// 解消するまで出し続ける決まりなので、続ける気の無い人（取り込み元を消した・
     /// 間違って落としたフォルダだった）に逃げ道が要る（ユーザ判断 2026-09-22）。
     /// </summary>
+    /// <remarks>
+    /// **取り返しがつかないので、押す前に聞く**（D4・D9）。捨てた記録は戻せない。
+    /// やり直すには、同じフォルダを取り込み対象に積み直して始めればよい（取れた商品は飛ばして続きを取る）ことも書く。
+    /// 帯を消すのは書き終わってから。前は書くのを待たずに帯の出し入れを読み直していたので、
+    /// 古い記録を読んで帯が消えないことがあった。
+    /// </remarks>
     public RelayCommand DiscardInterruptedCommand => _discardInterrupted ??= new RelayCommand(
-        () =>
+        () => DiscardInterruptedAsync().Forget());
+
+    /// <summary>「続きを捨てる」の説明（ボタンのツールチップ）。窓と同じことを短く言う。</summary>
+    public static string DiscardInterruptedTip =>
+        "前回の取り込みの続きの記録を捨てます。取り込めた商品はそのまま残ります。\n"
+        + "捨てた記録は戻せません。続きを取りたくなったら、同じフォルダを取り込み対象に積み直して始めてください。";
+
+    private async Task DiscardInterruptedAsync()
+    {
+        var answer = Services.Notice.Show(
+            "前回の取り込みの続きの記録を捨てますか。\n\n"
+            + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取りに行きません。\n\n"
+            + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に積む」を押し、"
+            + "「取り込みを開始」を押してください。",
+            "取り込みの続きを捨てる",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        if (answer != System.Windows.MessageBoxResult.OK)
         {
-            _services.Store.ImportState.SaveAsync(new Core.Scanning.ImportState()).Forget();
+            return;
+        }
+
+        try
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DiscardInterruptedImport());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Core.Diagnostics.AppLog.Error("取り込みの続きを捨てる", exception);
+            Services.Notice.Show(
+                "続きの記録を捨てられませんでした。保存先が読み取り専用になっているか、別のアプリが開いていることがあります。\n"
+                + "少し待ってからもう一度押してください。",
+                "取り込みの続きを捨てる",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        RunOnUiThread(() =>
+        {
             InterruptedText = null;
             _main.NoteInterruptedImportChanged();
         });
+    }
 
     /// <summary>積んだ結果。押しても何も起きなかったときこそ要る。</summary>
     public string? StackNotice

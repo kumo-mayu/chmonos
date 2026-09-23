@@ -297,7 +297,12 @@ public sealed class InboxViewModel : ViewModelBase
         var detected = 0;
         try
         {
-            detected = await _services.Notifications.DetectOrphanReferencesAsync();
+            // 見つけた物は知らせとして書くので、書き込みの道（保存先を運ぶ間の門）を通す
+            if (await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DetectOrphanReferences())
+                is Core.Commands.CommandResult.Counted counted)
+            {
+                detected = counted.Count;
+            }
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {

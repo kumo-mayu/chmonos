@@ -530,7 +530,9 @@
                 <DockPanel Height="34">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="続きから進む" Command="{Binding Import.ResumeCommand}" />
-                        <Button Content="やめる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}" />
+                        <!-- 「やめる」では何が無くなるのか読めなかった（戻せない操作なので、押す前に窓でも聞く） -->
+                        <Button Content="続きを捨てる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}"
+                                ToolTip="{x:Static vm:ImportViewModel.DiscardInterruptedTip}" />
                     </StackPanel>
                     <TextBlock Text="{Binding InterruptedImportText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />

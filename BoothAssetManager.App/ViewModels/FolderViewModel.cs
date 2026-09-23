@@ -566,7 +566,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             IReadOnlyDictionary<string, string> found;
             try
             {
-                found = await _services.Volumes.ObserveAsync(recorded);
+                // 組を volumes.json に控えるので、書き込みの道（保存先を運ぶ間の門）を通す
+                found = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ObserveVolumes(recorded))
+                    is Core.Commands.CommandResult.VolumesObserved observed
+                    ? observed.Remap
+                    : new Dictionary<string, string>();
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                                   or System.Text.Json.JsonException)

@@ -124,7 +124,8 @@
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                         <Button Content="続きから進む" Command="{Binding ResumeCommand}" />
-                                        <Button Content="やめる" Margin="8,0,0,0" Command="{Binding DiscardInterruptedCommand}" />
+                                        <Button Content="続きを捨てる" Margin="8,0,0,0" Command="{Binding DiscardInterruptedCommand}"
+                                                ToolTip="{x:Static vm:ImportViewModel.DiscardInterruptedTip}" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding InterruptedText}" FontSize="12" TextWrapping="Wrap"
                                                VerticalAlignment="Center" />
