@@ -9,12 +9,19 @@ namespace BoothZipInspector;
 /// </summary>
 public static class BoothUrlExtractor
 {
+    // 全角の括弧・句読点・鉤括弧（U+3000〜303F と全角・半角の記号）で URL を切る。
+    // 日本語の文では URL の直後に空白を置かずに「）」「。」「です」が続くので、
+    // 空白で切るだけだと「（https://booth.pm/ja/items/1234567）」の「）」まで URL に食われていた。
+    // 英数字（U+FF10〜FF19・FF21〜FF3A・FF41〜FF5A）は URL に入り得ないが、切る理由も無いので残す
     private static readonly Regex UrlScanRegex = new(
-        @"https?://[^\s""'<>\]\)]+",
+        @"https?://[^\s""'<>\]\)\u3000-\u303F\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]+",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // ID の後ろは「数字でない」だけを見る。前は [/?#] か末尾を求めていたので、
+    // 「…/items/1234567です」のように文が続くと取れなかった。数字でないことは要る——
+    // 見ないと 12345678 の先頭の 1234567 に当たってしまう
     private static readonly Regex ItemUrlRegex = new(
-        @"^https?://(?:(?<sub>[a-zA-Z0-9][a-zA-Z0-9-]*)\.)?booth\.pm(?:/(?<lang>[a-z]{2}(?:-[a-z]{2})?))?/items/(?<id>\d+)(?:[/?#].*)?$",
+        @"^https?://(?:(?<sub>[a-zA-Z0-9][a-zA-Z0-9-]*)\.)?booth\.pm(?:/(?<lang>[a-z]{2}(?:-[a-z]{2})?))?/items/(?<id>\d+)(?![0-9])",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ShopUrlRegex = new(
@@ -120,9 +127,12 @@ public static class BoothUrlExtractor
         return null;
     }
 
-    /// <summary>ショップのサブドメイン。トップでも配下のページでも拾う。</summary>
+    /// <summary>
+    /// ショップのサブドメイン。トップでも配下のページでも拾う。
+    /// 後ろは「ホスト名が続かない」だけを見る（「…booth.pmです」の文でも取れ、booth.pm.evil.com は外す）。
+    /// </summary>
     private static readonly Regex ShopSubdomainRegex = new(
-        @"^https?://(?<sub>[a-zA-Z0-9][a-zA-Z0-9-]*)\.booth\.pm(?:[/?#].*)?$",
+        @"^https?://(?<sub>[a-zA-Z0-9][a-zA-Z0-9-]*)\.booth\.pm(?![a-zA-Z0-9.\-])",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>ショップではないサブドメイン。ここを開いても手持ちは出てこない。</summary>
@@ -139,10 +149,13 @@ public static class BoothUrlExtractor
         var itemMatch = ItemUrlRegex.Match(trimmed);
         if (itemMatch.Success)
         {
+            // ID の直後に文が続いていたら（「…/1234567です」）そこで切る。パスや問い合わせが続くなら残す
+            var end = itemMatch.Index + itemMatch.Length;
+            var itemUrl = end < trimmed.Length && trimmed[end] is not ('/' or '?' or '#') ? trimmed[..end] : trimmed;
             return new BoothClue
             {
                 Kind = BoothClueKind.ItemUrl,
-                Url = trimmed,
+                Url = itemUrl,
                 ItemId = itemMatch.Groups["id"].Value,
                 SourcePath = sourcePath,
             };

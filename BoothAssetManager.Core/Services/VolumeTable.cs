@@ -100,6 +100,11 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
     /// <summary>
     /// 読み替え。控えた通し番号が、控えたのと違うドライブ文字に見えていれば「元の文字 → 今の文字」。
     /// 元の文字に同じ通し番号がまだ見えていれば読み替えない。どこにも見えていなければ読み替えない（取り外している）。
+    ///
+    /// **同じ通し番号が2つ以上の文字に見えているときも読み替えない**（点検 2026-09-23）。
+    /// 通し番号はボリュームを作ったときに決まるだけなので、ディスクを丸ごと複製すると同じ番号が2台に付く。
+    /// どちらが記録した方かは番号からは分からず、取り違えて別のディスクの下に記録を出すより、出さない方がよい。
+    /// 通し番号0（番号を持たない種類のボリューム）も同じ理由で見ない。
     /// </summary>
     public static IReadOnlyDictionary<string, string> Remap(
         IReadOnlyList<VolumeRecord> known,
@@ -108,20 +113,27 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
         var remap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var record in known)
         {
-            if (mounted.Any(volume => Same(volume.Letter, record.Letter) && volume.Serial == record.Serial))
+            if (!IsDistinctive(record.Serial)
+                || mounted.Any(volume => Same(volume.Letter, record.Letter) && volume.Serial == record.Serial))
             {
                 continue;
             }
 
-            if (mounted.FirstOrDefault(volume => volume.Serial == record.Serial) is { } moved
-                && !Same(moved.Letter, record.Letter))
+            var seen = mounted.Where(volume => volume.Serial == record.Serial).ToList();
+            if (seen.Count == 1 && !Same(seen[0].Letter, record.Letter))
             {
-                remap[record.Letter] = moved.Letter.ToUpperInvariant();
+                remap[record.Letter] = seen[0].Letter.ToUpperInvariant();
             }
         }
 
         return remap;
     }
+
+    /// <summary>
+    /// 通し番号でボリュームを見分けられるか。0 は「番号が無い」の意味で、どのボリュームも同じ値になり得る。
+    /// </summary>
+    public static bool IsDistinctive(string? serial)
+        => !string.IsNullOrWhiteSpace(serial) && serial.Trim('0').Length > 0;
 
     /// <summary>控えに足す。同じドライブ文字の古い組は置き換える。</summary>
     public static IReadOnlyList<VolumeRecord> Merge(
@@ -129,7 +141,8 @@ public sealed class VolumeTable(DataStore store, IVolumeReader reader)
         IEnumerable<MountedVolume> confirmed,
         DateTimeOffset now)
     {
-        var fresh = confirmed.ToList();
+        // 番号で見分けられない組は控えても読み替えに使えない。控えに残すと、その文字の前の正しい組を消してしまう
+        var fresh = confirmed.Where(volume => IsDistinctive(volume.Serial)).ToList();
         return known
             .Where(record => !fresh.Any(volume => Same(volume.Letter, record.Letter)))
             .Concat(fresh.Select(volume => new VolumeRecord

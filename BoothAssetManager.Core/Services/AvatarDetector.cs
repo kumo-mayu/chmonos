@@ -93,7 +93,7 @@ public sealed class AvatarNameIndex
     /// </summary>
     public static IEnumerable<string> NamesOf(AvatarRegistryEntry entry)
     {
-        var booth = (entry.BoothName ?? string.Empty).Normalize(NormalizationForm.FormKC);
+        var booth = Nfkc.Fold(entry.BoothName);
         var own = AvatarText.Normalize(entry.BoothName);
 
         foreach (Match quoted in Regex.Matches(booth, @"[「『｢]([^「」『』｢｣]{1,24})[」』｣]"))
@@ -175,7 +175,7 @@ public sealed class AvatarNameIndex
             return [];
         }
 
-        var lower = (text ?? string.Empty).Normalize(NormalizationForm.FormKC).ToLowerInvariant();
+        var lower = Nfkc.Fold(text).ToLowerInvariant();
         var hits = from.Keys.Where(alias => normalized.Contains(alias, StringComparison.Ordinal)).ToList();
         var found = new HashSet<string>(StringComparer.Ordinal);
 
@@ -241,7 +241,7 @@ public static class AvatarText
         // 実測では装飾除去そのものより効果が大きかった
         var builder = new StringBuilder(text.Length);
 
-        foreach (var ch in SafeNormalize(text).ToLowerInvariant())
+        foreach (var ch in Nfkc.Fold(text).ToLowerInvariant())
         {
             if (ch == 'ー' || char.IsLetterOrDigit(ch))
             {
@@ -250,40 +250,6 @@ public static class AvatarText
         }
 
         return builder.ToString();
-    }
-
-    /// <summary>
-    /// NFKC に通す。**壊れた UTF-16（片割れのサロゲート）でも例外にしない。**
-    ///
-    /// 絵文字は2つの UTF-16 単位でできていて、文字列を途中で切ったり、記号を1つずつ並べた
-    /// 正規表現で落としたりすると片方だけが残る。<see cref="string.Normalize()"/> はそれを受けると
-    /// 例外を投げるので、検出が1件の商品で丸ごと止まる（評価台で実際に止まった）。
-    /// 片割れは文字として意味を持たないので落として続ける。
-    /// </summary>
-    private static string SafeNormalize(string text)
-    {
-        try
-        {
-            return text.Normalize(NormalizationForm.FormKC);
-        }
-        catch (ArgumentException)
-        {
-            var builder = new StringBuilder(text.Length);
-            for (var i = 0; i < text.Length; i++)
-            {
-                var ch = text[i];
-                if (char.IsHighSurrogate(ch) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                {
-                    builder.Append(ch).Append(text[++i]);
-                }
-                else if (!char.IsSurrogate(ch))
-                {
-                    builder.Append(ch);
-                }
-            }
-
-            return builder.ToString().Normalize(NormalizationForm.FormKC);
-        }
     }
 
     private static readonly string[] SupportSuffixes =
@@ -443,7 +409,7 @@ public static class AvatarText
     /// </summary>
     public static string DisplayNameFrom(string? boothName, IEnumerable<string>? aliases = null)
     {
-        var name = (boothName ?? string.Empty).Normalize(NormalizationForm.FormKC).Trim();
+        var name = Nfkc.Fold(boothName).Trim();
         if (name.Length == 0)
         {
             return string.Empty;
@@ -674,7 +640,7 @@ public static class AvatarText
 
     private static bool IsNoiseSegment(string segment)
     {
-        var letters = new string(segment.Normalize(NormalizationForm.FormKC).ToLowerInvariant()
+        var letters = new string(Nfkc.Fold(segment).ToLowerInvariant()
             .Where(char.IsLetterOrDigit).ToArray());
         foreach (var token in NoiseTokens)
         {
@@ -712,7 +678,7 @@ public static class AvatarText
     /// </summary>
     public static string InitialOf(string? text)
     {
-        foreach (var ch in (text ?? string.Empty).Normalize(NormalizationForm.FormKC))
+        foreach (var ch in Nfkc.Fold(text))
         {
             if (char.IsLetterOrDigit(ch))
             {

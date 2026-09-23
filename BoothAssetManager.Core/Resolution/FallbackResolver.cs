@@ -259,8 +259,10 @@ public sealed class FallbackResolver
             // 1件ずつ間隔を空けて取るので、ここが一番待たされる。件数を出す
             progress?.Report(new ResolveProgress("候補を1件ずつ確認しています", rank, orderedIds.Count));
 
+            // 「検索結果の1位」は**本当の検索の順位**で付ける。orderedIds は同梱の URL を先頭に置くので、
+            // その添字を順位にすると、同梱の URL の商品が検索の1位として点をもらっていた（点検 2026-09-23）
             var candidate = await ScoreCandidateAsync(
-                itemId, query, filePath, hints, rank, direct, cancellationToken);
+                itemId, query, filePath, hints, IndexOf(searchIds, itemId), direct, cancellationToken);
 
             if (candidate is not null)
             {
@@ -288,7 +290,8 @@ public sealed class FallbackResolver
 
                 progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
-                var extraIds = (await SearchIdsAsync(alternate, filePath, cancellationToken)).Ids
+                var alternateIds = (await SearchIdsAsync(alternate, filePath, cancellationToken)).Ids;
+                var extraIds = alternateIds
                     .Where(id => seen.Add(id))
                     .Take(MaxCandidates)
                     .ToList();
@@ -299,7 +302,7 @@ public sealed class FallbackResolver
                     progress?.Report(new ResolveProgress("候補を1件ずつ確認しています", rank, extraIds.Count));
 
                     var extra = await ScoreCandidateAsync(
-                        extraIds[rank], alternate, filePath, hints, rank, direct, cancellationToken);
+                        extraIds[rank], alternate, filePath, hints, IndexOf(alternateIds, extraIds[rank]), direct, cancellationToken);
 
                     if (extra is not null)
                     {
@@ -338,6 +341,20 @@ public sealed class FallbackResolver
         return (cards.Count > 0
             ? Rerank(cards, filePath).Select(card => card.ItemId).ToList()
             : ExtractSearchResultIds(result.Value), true);
+    }
+
+    /// <summary>検索の結果の中の順位（0が1位）。検索に出ていない（同梱の URL だけの）物は -1。</summary>
+    private static int IndexOf(IReadOnlyList<string> ids, string itemId)
+    {
+        for (var index = 0; index < ids.Count; index++)
+        {
+            if (string.Equals(ids[index], itemId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>候補1件を取って点数を付ける。取れなければ null。</summary>

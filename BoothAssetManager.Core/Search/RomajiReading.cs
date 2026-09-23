@@ -20,6 +20,19 @@ public static class RomajiReading
 
     private static readonly (string Romaji, string Kana)[] Table = BuildTable();
 
+    /// <summary>
+    /// 試す回数の上限。n の前後で「な行」と「ん＋母音」の2通りに枝分かれするので、n と母音が続くと
+    /// 枝が倍々に増え、最後で読めない語（「nanana…x」）は全部の枝を試してから空を返す（33字で約10万回・約0.1秒、2字ごとに倍）。
+    /// 測った（2026-09-23）：JMdict の読み 16万語をヘボン式に直して引くと、最も多い語でも 93 回（99% は 22 回以内）。
+    /// その約100倍で打ち切る。打ち切っても、それまでに読めた候補は返す
+    /// </summary>
+    private const int MaxSteps = 10_000;
+
+    private sealed class Budget
+    {
+        public int Left;
+    }
+
     /// <summary>この語がローマ字として読めるか（ASCIIの英字だけでできているか）。</summary>
     public static bool LooksRomaji(string word)
         => word.Length > 0 && word.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or '\'' or '-');
@@ -41,7 +54,8 @@ public static class RomajiReading
         }
 
         var results = new List<string>();
-        Walk(source, 0, new StringBuilder(), results);
+        var budget = new Budget { Left = MaxSteps };
+        Walk(source, 0, new StringBuilder(), results, budget);
         return results;
     }
 
@@ -50,9 +64,9 @@ public static class RomajiReading
     /// 行き止まりになったらそこで捨てる（部分的に読めた分は返さない——
     /// 「途中まで読めた」ものは日本語として意味を成さないため）。
     /// </summary>
-    private static void Walk(string source, int index, StringBuilder kana, List<string> results)
+    private static void Walk(string source, int index, StringBuilder kana, List<string> results, Budget budget)
     {
-        if (results.Count >= MaxResults)
+        if (results.Count >= MaxResults || --budget.Left < 0)
         {
             return;
         }
@@ -77,7 +91,7 @@ public static class RomajiReading
         {
             var length = kana.Length;
             kana.Append('っ');
-            Walk(source, index + 1, kana, results);
+            Walk(source, index + 1, kana, results, budget);
             kana.Length = length;
             return;
         }
@@ -90,7 +104,7 @@ public static class RomajiReading
             {
                 var length = kana.Length;
                 kana.Append('ん');
-                Walk(source, index + 1, kana, results);
+                Walk(source, index + 1, kana, results, budget);
                 kana.Length = length;
                 return;
             }
@@ -104,7 +118,7 @@ public static class RomajiReading
             {
                 var branch = kana.Length;
                 kana.Append('ん');
-                Walk(source, index + 1, kana, results);
+                Walk(source, index + 1, kana, results, budget);
                 kana.Length = branch;
             }
         }
@@ -123,7 +137,7 @@ public static class RomajiReading
 
             var length = kana.Length;
             kana.Append(kanaText);
-            Walk(source, index + romaji.Length, kana, results);
+            Walk(source, index + romaji.Length, kana, results, budget);
             kana.Length = length;
 
             if (results.Count >= MaxResults)

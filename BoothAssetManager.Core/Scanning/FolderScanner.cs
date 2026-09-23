@@ -1,3 +1,5 @@
+using System.IO.Enumeration;
+
 namespace BoothAssetManager.Core.Scanning;
 
 /// <summary>フォルダ走査で見つかった1ファイル。</summary>
@@ -37,12 +39,64 @@ public sealed class FolderScanner
         ".mp4", ".mov", ".avi",
     };
 
+    /// <summary>
+    /// 再解析点は**種類を見て**飛ばす（点検 2026-09-23）。前は再解析点を全部飛ばしていたが、
+    /// OneDrive（ファイル オンデマンド）は同期フォルダの中のフォルダもファイルも全部が再解析点なので、
+    /// OneDrive に置いたアセットが1件も取り込まれていなかった（この機械の OneDrive で、フォルダも手元にあるファイルも
+    /// ReparsePoint を持つことを確かめた）。
+    /// 飛ばすのはジャンクションとシンボリックリンクだけ——自分の親を指せばループになり、別の場所を指せば同じファイルを二度読む。
+    /// </summary>
     private static readonly EnumerationOptions RecursiveOptions = new()
     {
         RecurseSubdirectories = true,
         IgnoreInaccessible = true,
-        AttributesToSkip = FileAttributes.System | FileAttributes.ReparsePoint,
+        AttributesToSkip = FileAttributes.System,
     };
+
+    // Windows の属性で .NET の列挙に名前が無い物。オンラインのみのクラウドのファイルに付く
+    private const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
+    private const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
+
+    /// <summary>
+    /// 手元に中身が無い（開くとダウンロードが始まる）クラウドのファイルか。
+    ///
+    /// **取り込まない。**取り込むとハッシュを取るために中身を読むので、OneDrive なら数十GBのダウンロードが
+    /// 人の知らないうちに始まる。落とすかどうかはユーザが決める事で、今は手元にある物だけを読む
+    /// （「常にこのデバイスに保持する」にすれば取り込める）。数は <see cref="ScanResult.OnlineOnly"/> に残す。
+    /// </summary>
+    public static bool IsOnlineOnly(FileAttributes attributes)
+        => (attributes & (FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess)) != 0;
+
+    /// <summary>ジャンクション・シンボリックリンクか（クラウドの再解析点は違う）。</summary>
+    private static bool IsLink(ref FileSystemEntry entry)
+    {
+        if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            // LinkTarget は再解析点をたどらずに開くので、クラウドのファイルを落とさない（この機械で確かめた）
+            return entry.ToFileSystemInfo().LinkTarget is not null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 種類が読めない物は、ループの元かもしれないので前どおり飛ばす
+            return true;
+        }
+    }
+
+    /// <summary>リンクの先へ降りずに、ファイルかフォルダを再帰で並べる。</summary>
+    private static IEnumerable<(string Path, FileAttributes Attributes)> Walk(string root, bool directories)
+        => new FileSystemEnumerable<(string, FileAttributes)>(
+            root,
+            (ref FileSystemEntry entry) => (entry.ToFullPath(), entry.Attributes),
+            RecursiveOptions)
+        {
+            ShouldIncludePredicate = (ref FileSystemEntry entry) => entry.IsDirectory == directories && !IsLink(ref entry),
+            ShouldRecursePredicate = (ref FileSystemEntry entry) => !IsLink(ref entry),
+        };
 
     /// <summary>
     /// 指定フォルダ以下を再帰的に走査する。アクセスできないフォルダは飛ばして続行する
@@ -76,8 +130,9 @@ public sealed class FolderScanner
         var files = new List<ScannedFile>();
         var skipped = 0;
         var unreadable = 0;
+        var onlineOnly = 0;
 
-        foreach (var path in Directory.EnumerateFiles(rootFolder, "*", RecursiveOptions))
+        foreach (var (path, attributes) in Walk(rootFolder, directories: false))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -90,6 +145,12 @@ public sealed class FolderScanner
             if (IsInsideUnpackedFolder(path, unpacked))
             {
                 skipped++;
+                continue;
+            }
+
+            if (IsOnlineOnly(attributes))
+            {
+                onlineOnly++;
                 continue;
             }
 
@@ -106,6 +167,7 @@ public sealed class FolderScanner
             UnpackedFolders = unpacked,
             SkippedInsideUnpackedFolders = skipped,
             Unreadable = unreadable,
+            OnlineOnly = onlineOnly,
         };
     }
 
@@ -141,7 +203,7 @@ public sealed class FolderScanner
     {
         var found = new List<UnpackedFolder>();
 
-        foreach (var directory in Directory.EnumerateDirectories(rootFolder, "*", RecursiveOptions))
+        foreach (var (directory, _) in Walk(rootFolder, directories: true))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -190,7 +252,7 @@ public sealed class FolderScanner
 
         try
         {
-            foreach (var path in Directory.EnumerateFiles(directory, "*", RecursiveOptions))
+            foreach (var (path, _) in Walk(directory, directories: false))
             {
                 try
                 {
@@ -241,4 +303,10 @@ public sealed class ScanResult
     /// （`SkippedInsideUnpackedFolders` と同じ道）。
     /// </summary>
     public int Unreadable { get; init; }
+
+    /// <summary>
+    /// 中身が手元に無いクラウドのファイル（OneDrive の「オンラインのみ」）で、読まなかった数。
+    /// 読むとダウンロードが始まるので取り込まない（<see cref="FolderScanner.IsOnlineOnly"/>）。
+    /// </summary>
+    public int OnlineOnly { get; init; }
 }

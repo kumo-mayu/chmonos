@@ -38,7 +38,7 @@ public static partial class AvatarBaseKeys
             return string.Empty;
         }
 
-        if (PlusHead.IsMatch(text.Normalize(NormalizationForm.FormKC)))
+        if (PlusHead.IsMatch(Nfkc.Fold(text)))
         {
             return "+head";
         }
@@ -84,7 +84,7 @@ public static partial class AvatarBaseKeys
             yield return Key(match.Groups["name"].Value);
         }
 
-        if (PlusHead.IsMatch(text.Normalize(NormalizationForm.FormKC)))
+        if (PlusHead.IsMatch(Nfkc.Fold(text)))
         {
             yield return "+head";
         }

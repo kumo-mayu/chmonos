@@ -63,6 +63,36 @@ public class ZoneIdentifierParserTests
         Assert.Equal("1234567", info.BoothItemId);
     }
 
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern uint GetACP();
+
+    /// <summary>
+    /// 表示形式（今のカルチャ）を英語にしていても、システムの ANSI コードページで読む（点検 2026-09-23）。
+    /// ブラウザが書くのはシステムの方なので、カルチャから取ると 1252 で読んで化けていた。
+    /// </summary>
+    [Fact]
+    public void DecodesWithTheSystemCodePageEvenWhenTheCultureDiffers()
+    {
+        if (!OperatingSystem.IsWindows() || GetACP() != 932)
+        {
+            return; // 日本語の Windows でしか、この取り違えは起きない
+        }
+
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        var bytes = System.Text.Encoding.GetEncoding(932).GetBytes("[ZoneTransfer]\r\nZoneId=3\r\nReferrerUrl=C:\\dl\\アバター.zip\r\n");
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("en-US");
+
+            Assert.Contains("アバター.zip", ZoneIdentifierReader.Decode(bytes), StringComparison.Ordinal);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = before;
+        }
+    }
+
     [Fact]
     public void ReturnsNullItemIdWhenNeitherUrlContainsOne()
     {

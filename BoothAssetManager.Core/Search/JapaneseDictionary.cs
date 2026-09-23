@@ -107,15 +107,16 @@ public sealed class JapaneseDictionary
 
             try
             {
-                if (TryLoadCache())
+                if (TryLoadCacheSafely())
                 {
                     return;
                 }
 
                 Build();
-                SaveCache();
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException)
+            // 壊れた gz は InvalidDataException で来る。受けないと _failed が立たず、
+            // 検索のたびに63MBを読み直しては投げていた（点検 2026-09-23）
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException or InvalidDataException)
             {
                 // 引けなくても検索そのものは動く。橋が架からないだけ。
                 // 理由は残す——黙って引けなくなると、辞書が壊れているのか
@@ -125,7 +126,38 @@ public sealed class JapaneseDictionary
                 _byReading = null;
                 _byKana = null;
                 LoadError = exception.Message;
+                return;
             }
+
+            // 書き出しは組むのと別に受ける。同じ try に入れていたので、保存先に書けないだけで
+            // 組めた索引まで捨てて「辞書が読めない」にしていた。書けなければ次の起動でまた組むだけ
+            try
+            {
+                SaveCache();
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                CacheSaveError = exception.Message;
+            }
+        }
+    }
+
+    /// <summary>索引の控えを書けなかった理由（引くのには差し支えない。次の起動でまた組む）。</summary>
+    public string? CacheSaveError { get; private set; }
+
+    /// <summary>
+    /// 控えを読む。読めなければ（ほかのアプリが掴んでいる・壊れている）組み直しに回す——
+    /// 控えは手元で組んだ物なので、読めないことを「辞書が無い」にしない。
+    /// </summary>
+    private bool TryLoadCacheSafely()
+    {
+        try
+        {
+            return TryLoadCache();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

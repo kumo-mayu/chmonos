@@ -140,4 +140,26 @@ public sealed class VolumeTableTests : IDisposable
         Assert.Equal(@"F:\a.zip", table.Current(@"E:\a.zip"));
         Assert.Equal(before, File.GetLastWriteTimeUtc(_store.Volumes.Path));
     }
+
+    // 複製したディスクは同じ通し番号を持つ。どちらが記録した方か分からないので読み替えない（点検 2026-09-23）
+    [Fact]
+    public void 同じ番号が2文字に見えるときは読み替えない()
+        => Assert.Empty(VolumeTable.Remap(
+            [Known("E:", "AAAA0001")],
+            [new MountedVolume("F:", "AAAA0001", null), new MountedVolume("G:", "AAAA0001", null)]));
+
+    [Fact]
+    public void 通し番号0は読み替えに使わない()
+        => Assert.Empty(VolumeTable.Remap([Known("E:", "00000000")], [new MountedVolume("F:", "00000000", null)]));
+
+    [Fact]
+    public void 通し番号0の組は控えず前の組を残す()
+    {
+        var merged = VolumeTable.Merge(
+            [Known("E:", "AAAA0001")],
+            [new MountedVolume("E:", "00000000", null)],
+            DateTimeOffset.Now);
+
+        Assert.Equal("AAAA0001", Assert.Single(merged).Serial);
+    }
 }

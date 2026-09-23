@@ -82,10 +82,48 @@ public class LocalFileMergerTests
         var merged = LocalFileMerger.Merge(
             [Record("AAAA", @"D:\storage\a.zip")],
             [Record("AAAA", @"E:\moved\a.zip")],
-            path => path.StartsWith(@"E:\", StringComparison.OrdinalIgnoreCase));
+            path => path.StartsWith(@"E:\", StringComparison.OrdinalIgnoreCase),
+            NoVolumeMissing);
 
         var record = Assert.Single(merged);
         Assert.Equal([@"E:\moved\a.zip"], record.Paths);
+    }
+
+    private static bool NoVolumeMissing(string path) => false;
+
+    /// <summary>
+    /// 外付けを外している間に、同じ商品へ別のファイルを足した。外付けの上の記録は「見えない」だけなので残す
+    /// （点検 2026-09-23：落としていたので、つなぎ直しても商品から外付けのファイルが消えていた）。
+    /// </summary>
+    [Fact]
+    public void KeepsPathsOnDisconnectedVolume()
+    {
+        var merged = LocalFileMerger.Merge(
+            [Record("AAAA", @"F:\external\a.zip")],
+            [Record("BBBB", @"D:\storage\b.zip")],
+            path => path.StartsWith(@"D:\", StringComparison.OrdinalIgnoreCase),
+            path => path.StartsWith(@"F:\", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal([@"F:\external\a.zip"], merged.Single(record => record.Hash == "AAAA").Paths);
+        Assert.Equal([@"D:\storage\b.zip"], merged.Single(record => record.Hash == "BBBB").Paths);
+    }
+
+    /// <summary>既定では、実際につながっていないドライブ文字を「外している」と見る。</summary>
+    [Fact]
+    public void DefaultTreatsUnmountedDriveAsDisconnected()
+    {
+        var free = Enumerable.Range('F', 'Z' - 'F' + 1)
+            .Select(letter => $"{(char)letter}:\\")
+            .FirstOrDefault(root => !Directory.Exists(root));
+        if (free is null)
+        {
+            return;
+        }
+
+        var path = free + @"external\a.zip";
+        var merged = LocalFileMerger.Merge([Record("AAAA", path)], [], _ => false);
+
+        Assert.Equal([path], Assert.Single(merged).Paths);
     }
 
     /// <summary>
@@ -95,7 +133,7 @@ public class LocalFileMergerTests
     [Fact]
     public void KeepsRecordWithNoRemainingPaths()
     {
-        var merged = LocalFileMerger.Merge([Record("AAAA", @"D:\storage\a.zip")], [], _ => false);
+        var merged = LocalFileMerger.Merge([Record("AAAA", @"D:\storage\a.zip")], [], _ => false, NoVolumeMissing);
 
         var record = Assert.Single(merged);
         Assert.Empty(record.Paths);

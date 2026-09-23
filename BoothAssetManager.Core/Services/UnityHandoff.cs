@@ -65,13 +65,6 @@ public static class UnityHandoff
     /// </summary>
     private const int MaxPackages = 64;
 
-    static UnityHandoff()
-    {
-        // ZIPエントリ名のCP932読み取りに必要。UnityPackageInspector と同じ理由で、
-        // 登録し忘れると Encoding.GetEncoding(932) が投げて静かに空を返すことになる
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-    }
-
     /// <summary>
     /// zipの中の <c>.unitypackage</c> を、zipに入っている順で返す。
     ///
@@ -88,7 +81,7 @@ public static class UnityHandoff
     {
         try
         {
-            using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+            using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance);
 
             var found = new List<UnityPackageEntry>();
             foreach (var entry in archive.Entries)
@@ -223,7 +216,7 @@ public static class UnityHandoff
     {
         try
         {
-            using var archive = ZipFile.Open(package.ZipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+            using var archive = ZipFile.Open(package.ZipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance);
             if (archive.GetEntry(package.EntryPath) is not { } entry)
             {
                 return [];
@@ -256,6 +249,7 @@ public static class UnityHandoff
             return paths;
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
+                                              or ArgumentException or ArithmeticException or InvalidOperationException
                                               or UnauthorizedAccessException or NotSupportedException)
         {
             return [];

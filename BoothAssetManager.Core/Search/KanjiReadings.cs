@@ -199,9 +199,10 @@ public sealed class KanjiReadings
             {
                 _readings = Load();
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException or InvalidDataException)
             {
-                // 読めなくても検索は動く。造語の読みが作れないだけ
+                // 読めなくても検索は動く。造語の読みが作れないだけ。
+                // 壊れた gz（InvalidDataException）も受ける——受けないと引くたびに読み直しては投げる（点検 2026-09-23）
                 _failed = true;
             }
         }

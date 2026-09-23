@@ -8,15 +8,22 @@ namespace BoothAssetManager.Core.Scanning;
 /// 同一性はハッシュなので、同じ中身が複数箇所にあれば1レコードが複数のパスを持つ。
 /// ファイルを移動した場合も「同じレコードのパスが差し替わった」として扱えるよう、
 /// 実在しなくなったパスは落とす。
+///
+/// ただし**つながっていないボリューム（外付けを外している・NAS が落ちている）の上のパスは残す。**
+/// そこは「無くなった」のではなく「今は見えない」だけで、外している間に同じ商品へ別のファイルを足すと
+/// 外付けの上の記録が消えていた（点検 2026-09-23）。未確定の一覧の引き継ぎ
+/// （<see cref="UnresolvedMerge.IsOnMissingVolume"/>）と同じ考え。
 /// </summary>
 public static class LocalFileMerger
 {
     public static IReadOnlyList<LocalFileRecord> Merge(
         IReadOnlyList<LocalFileRecord> existing,
         IEnumerable<LocalFileRecord> discovered,
-        Func<string, bool>? pathExists = null)
+        Func<string, bool>? pathExists = null,
+        Func<string, bool>? onMissingVolume = null)
     {
         var exists = pathExists ?? File.Exists;
+        var unreachable = onMissingVolume ?? UnresolvedMerge.IsOnMissingVolume;
         var byHash = new Dictionary<string, LocalFileRecord>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var record in existing)
@@ -34,7 +41,7 @@ public static class LocalFileMerger
         var merged = new List<LocalFileRecord>();
         foreach (var record in byHash.Values)
         {
-            var paths = record.Paths.Where(exists).ToList();
+            var paths = record.Paths.Where(path => exists(path) || unreachable(path)).ToList();
 
             // どのパスにも実体が無くなったレコードも残す。
             // 「ファイルが見つからない」として扱い、再スキャンでの復旧やBOOTHからの再取得へ繋げるため。

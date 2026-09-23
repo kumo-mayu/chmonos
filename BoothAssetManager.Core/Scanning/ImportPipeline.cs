@@ -218,12 +218,15 @@ public sealed class ImportPipeline : IImportPipeline
         // ①より手前（走査・解決）で止めた回と、新しい商品が1件も無かった回は記録に触れない。
         // その結果、起動時に出る「前回は N / M 件まで進んで中断しました」が、
         // 前回ではなくもっと前の回の数字のことがあった（走査は最も長い段なので、そこで止めるのは珍しくない）
-        await _store.ImportState.SaveAsync(new ImportState(), cancellationToken);
+        //
+        // ただし**前の回に BOOTH の不調で取れなかった商品は引き継ぐ**（ユーザ判断 2026-09-23・#10）。
+        // 別のフォルダを取り込んだだけで消すと、取り直す手が無くなる。取り直せたところで外す
+        var totals = new ImportTotals();
+        totals.CarryUnfetched(_store.ImportState.Load().UnfetchedItems);
+        await _store.ImportState.SaveAsync(new ImportState { Unfetched = totals.Unfetched }, cancellationToken);
 
         var scanCache = new ScanCacheIndex(_store.ScanCache.Load());
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
-
-        var totals = new ImportTotals();
 
         // 未確定の一覧は取り込みの最中に人も書く。書くたびに、前に書いた物と今の物を比べて人の変更を残す（UnresolvedMerge）。
         // 外付けを外している取り込み元の下の物は、見られなかっただけなので引き継ぐ
@@ -323,8 +326,14 @@ public sealed class ImportPipeline : IImportPipeline
         // 取り込みが終わったと言うのは、裏で読んでいた unitypackage も書き終えてから
         await Task.WhenAll(unityWork);
 
-        // 最後まで来たので記録は要らない。残すと次の起動で「中断した」と嘘をつく
-        await _store.ImportState.SaveAsync(new ImportState(), cancellationToken);
+        // 最後まで来たので途中の記録は要らない。残すと次の起動で「中断した」と嘘をつく。
+        // BOOTH の不調で取れなかった商品だけは残す——消すと、そのファイルは商品にも未確定にも入らず、
+        // 走査の控えに載っているので監視も新しいと数えず、どこにも出てこなくなる（#10）
+        await _store.ImportState.SaveAsync(
+            totals.Unfetched.Count == 0
+                ? new ImportState()
+                : new ImportState { Unfetched = totals.Unfetched, StoppedAt = DateTimeOffset.Now },
+            cancellationToken);
 
         return totals.ToSummary();
     }
@@ -434,6 +443,48 @@ public sealed class ImportPipeline : IImportPipeline
         public void PlanFetch(int count) => PendingTotal += count;
 
         public void NoteFetched() => FetchedTotal++;
+
+        /// <summary>BOOTH の不調で①が取れなかった商品（前の回から引き継いだ分を含む・#10）。</summary>
+        private readonly Dictionary<string, UnfetchedItem> _unfetched = new(StringComparer.Ordinal);
+
+        public IReadOnlyList<UnfetchedItem> Unfetched
+            => _unfetched.Values.OrderBy(item => item.ItemId, StringComparer.Ordinal).ToList();
+
+        /// <summary>
+        /// 前の回の分を引き継ぐ。ファイルが消えた物は落とす（取り直しても足す物が無い）。
+        /// つながっていないボリュームの上の物は、見えないだけなので残す
+        /// </summary>
+        public void CarryUnfetched(IEnumerable<UnfetchedItem> previous)
+        {
+            foreach (var item in previous)
+            {
+                var paths = item.PathList
+                    .Where(path => File.Exists(path) || UnresolvedMerge.IsOnMissingVolume(path))
+                    .ToList();
+                if (paths.Count > 0 && !string.IsNullOrWhiteSpace(item.ItemId))
+                {
+                    _unfetched[item.ItemId] = item with { Paths = paths };
+                }
+            }
+        }
+
+        public void NoteUnfetched(string itemId, IEnumerable<LocalFileRecord> files)
+        {
+            var paths = files.SelectMany(file => file.Paths);
+            if (_unfetched.TryGetValue(itemId, out var known))
+            {
+                paths = known.PathList.Concat(paths);
+            }
+
+            _unfetched[itemId] = new UnfetchedItem
+            {
+                ItemId = itemId,
+                Paths = paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            };
+        }
+
+        /// <summary>取れた・既に商品がある・BOOTH に無かった（未確定へ回した）。どれも取り直す物ではない。</summary>
+        public void NoteSettled(string itemId) => _unfetched.Remove(itemId);
 
         private readonly List<UnpackedFolder> _unpacked = [];
         private int _scanned;
@@ -642,6 +693,15 @@ public sealed class ImportPipeline : IImportPipeline
             unpacked.AddRange(result.UnpackedFolders);
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
             unreadable += result.Unreadable;
+
+            // 中身が手元に無いクラウドのファイルは、読むとダウンロードが始まるので飛ばした。
+            // 画面に出すかはユーザの判断待ち（点検 2026-09-23）。どこで何件かはログに残す
+            if (result.OnlineOnly > 0)
+            {
+                Diagnostics.AppLog.Warn(
+                    "取り込みの走査",
+                    $"{folder}：中身が手元に無いクラウドのファイル {result.OnlineOnly} 件は読みませんでした（開くとダウンロードが始まるため）");
+            }
 
             foreach (var file in result.Files)
             {
@@ -903,6 +963,9 @@ public sealed class ImportPipeline : IImportPipeline
 
             alreadyKnown++;
 
+            // 前に取れなかった商品でも、今は商品があるならファイルはここで足された
+            totals.NoteSettled(itemId);
+
             // 販売終了の商品はページも無いので戻さない（取りに行っても毎回失敗するだけ）
             if (!existing.Local.IsDelisted && !File.Exists(_store.Paths.ItemHtmlFile(itemId)))
             {
@@ -945,22 +1008,20 @@ public sealed class ImportPipeline : IImportPipeline
                 notFound++;
                 work.PlanRequests(pages: -1); // ②へは進まない
                 notFoundFiles.AddRange(discovered.Select(file => ToUnresolved(file, itemId)));
+                totals.NoteSettled(itemId);
                 continue;
             }
 
-            if (!jsonResult.IsSuccess || jsonResult.Value is null)
+            // 一時失敗（タイムアウト・5xx・接続失敗）と、200 でも読めない応答（JSON でない・型が変わった）。
+            // 後者を投げると、1件のために取り込み全体が止まっていた。
+            // どちらも「続きから」に残して取り直せるようにする（#10）。その場で書くのは、この後に閉じても残すため
+            if (!jsonResult.IsSuccess || jsonResult.Value is null
+                || BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
             {
                 temporaryFailures++;
                 work.PlanRequests(pages: -1); // ②へは進まない
-                continue;
-            }
-
-            // 200 でも読めない応答（JSON でない・型が変わった）は一時失敗と同じ扱い。
-            // 投げると、1件のために取り込み全体が止まっていた
-            if (BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
-            {
-                temporaryFailures++;
-                work.PlanRequests(pages: -1); // ②へは進まない
+                totals.NoteUnfetched(itemId, discovered);
+                await SaveProgressAsync(totals, work, cancellationToken);
                 continue;
             }
 
@@ -1008,19 +1069,10 @@ public sealed class ImportPipeline : IImportPipeline
             // 検索と件数にはもう出してよい。編集は③が済むまで待たせる（U8・U10）
             work.NoteAdded(itemId);
 
-            // どこまで進んだかを残す。閉じた時に何件残っていたかをユーザは覚えていない。
-            // ①の途中で閉じると「IDは分かったがまだ取得していない商品」の一覧は消えるので、
-            // 件数だけでも残しておかないと、中断したこと自体が黙って起きる
+            // どこまで進んだかを残す（理由は SaveProgressAsync）
             totals.NoteFetched();
-            await _store.ImportState.SaveAsync(
-                new ImportState
-                {
-                    Done = totals.FetchedTotal,
-                    Total = totals.PendingTotal,
-                    StoppedAt = DateTimeOffset.Now,
-                    Targets = work.Accepted,
-                },
-                cancellationToken);
+            totals.NoteSettled(itemId);
+            await SaveProgressAsync(totals, work, cancellationToken);
 
             // アイコンのURLは商品JSONにしか入っていないので、ここで控えて⑥で取りに行く
             if (item.Booth.Shop is { ThumbnailUrl.Length: > 0 } shop)
@@ -1155,6 +1207,24 @@ public sealed class ImportPipeline : IImportPipeline
             AvatarDetectRan = avatarDetectRan,
         };
     }
+
+    /// <summary>
+    /// どこまで進んだかを残す。閉じた時に何件残っていたかをユーザは覚えていない。
+    /// ①の途中で閉じると「IDは分かったがまだ取得していない商品」の一覧は消えるので、
+    /// 件数だけでも残しておかないと、中断したこと自体が黙って起きる。
+    /// BOOTH の不調で取れなかった商品も一緒に書く（#10）
+    /// </summary>
+    private Task SaveProgressAsync(ImportTotals totals, ImportWorkSet work, CancellationToken cancellationToken)
+        => _store.ImportState.SaveAsync(
+            new ImportState
+            {
+                Done = totals.FetchedTotal,
+                Total = totals.PendingTotal,
+                StoppedAt = DateTimeOffset.Now,
+                Targets = work.Accepted,
+                Unfetched = totals.Unfetched,
+            },
+            cancellationToken);
 
     /// <summary>
     /// 「手元に入った」時刻を <c>recent.json</c> に打つ。

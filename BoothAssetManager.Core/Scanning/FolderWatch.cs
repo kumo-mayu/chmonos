@@ -46,6 +46,12 @@ public sealed class FolderWatch
         var exclusions = new ExclusionFilter(_store.Excluded.Load());
         var registered = await LoadRegisteredAsync(cancellationToken);
 
+        // BOOTH の不調で取れなかった商品のファイルは、ハッシュが控えに載っていても「新しい」と数える（#10）。
+        // 数えないと、取り直すまで商品にも未確定にも入っていないのに、監視からは片付いたように見える
+        var unfetched = _store.ImportState.Load().UnfetchedItems
+            .SelectMany(item => item.PathList)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var newFiles = new List<string>();
         var seenFolders = new List<string>();
 
@@ -70,7 +76,7 @@ public sealed class FolderWatch
                     continue;
                 }
 
-                if (!cache.TryGetHash(file.Path, file.SizeBytes, file.ModifiedAtUtc, out _))
+                if (unfetched.Contains(file.Path) || !cache.TryGetHash(file.Path, file.SizeBytes, file.ModifiedAtUtc, out _))
                 {
                     newFiles.Add(file.Path);
                 }

@@ -123,8 +123,21 @@ public static class ZoneIdentifierReader
         catch (DecoderFallbackException)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var codePage = ansiCodePage ?? System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+            var codePage = ansiCodePage ?? SystemAnsiCodePage();
             return Encoding.GetEncoding(codePage).GetString(bytes);
         }
     }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern uint GetACP();
+
+    /// <summary>
+    /// **システムの** ANSI コードページ（ブラウザが書くのはこれ）。
+    /// 前は今のカルチャ（表示形式の設定）から取っていたので、日本語の Windows で表示形式だけ英語にしている人は
+    /// 1252 で読んで化けていた（点検 2026-09-23）。表示形式は人が自由に変えるが、ANSI の方は「Unicode 対応でないプログラムの言語」でしか変わらない。
+    /// </summary>
+    internal static int SystemAnsiCodePage()
+        => OperatingSystem.IsWindows()
+            ? (int)GetACP()
+            : System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
 }

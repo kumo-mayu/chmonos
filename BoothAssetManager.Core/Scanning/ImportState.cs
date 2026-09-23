@@ -35,6 +35,24 @@ public sealed record ImportState
     public IReadOnlyList<string> Targets { get; init; } = [];
 
     /// <summary>
+    /// ①で**BOOTH の不調（タイムアウト・5xx・読めない応答）で取れなかった商品**と、その手元のファイル
+    /// （ユーザ判断 2026-09-23・#10「続きから」に残して取り直す）。
+    ///
+    /// 前はその回を飛ばすだけで、商品は作られず未確定にも入らず、ファイルがどこにも出てこなかった。
+    /// しかもハッシュは走査の控えに入るので、監視も「新しいファイル」と数えず、黙って消えたように見えた。
+    /// 取り込みが最後まで走っても、ここが空でなければ記録を消さない。取り直せた・取り込み直して片付いたら外す。
+    /// </summary>
+    public IReadOnlyList<UnfetchedItem> Unfetched { get; init; } = [];
+
+    /// <summary>①が途中で止まったままか（最後まで走っていれば 0 / 0 で書く）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool WasInterrupted => Total > 0 && Done < Total;
+
+    /// <summary>取れなかった商品（手で直した JSON の null も空として読む）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<UnfetchedItem> UnfetchedItems => Unfetched ?? [];
+
+    /// <summary>
     /// 読む価値があるか。
     ///
     /// **<see cref="Done"/> が <see cref="Total"/> に届いていれば出さない。**
@@ -43,9 +61,20 @@ public sealed record ImportState
     /// ——説明文も画像も、次の起動で自動的に続きから取りに行く。
     /// そこで「2 / 2 件まで進んで中断しました」と出すのは、
     /// 何も起きていないことを知らせているだけになる。
+    /// BOOTH の不調で取れなかった商品が残っていれば、最後まで走っていても出す。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasProgress => Total > 0 && Done < Total;
+    public bool HasProgress => WasInterrupted || UnfetchedItems.Count > 0;
+
+    /// <summary>
+    /// 「続きから進む」で積み直す物。前回の対象と、取れなかった商品のファイル。
+    /// 最後まで走った回は対象を持たない（全部を走査し直さず、取れなかった物だけを読み直す）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<string> ResumeTargets
+        => (Targets ?? []).Concat(UnfetchedItems.SelectMany(item => item.PathList))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     /// <summary>
     /// 出す1行。
@@ -54,5 +83,34 @@ public sealed record ImportState
     /// 書き出すと、数と文が食い違ったときにどちらが正しいか分からなくなる。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public string Text => $"前回は {Done} / {Total} 件まで進んで中断しました";
+    public string Text
+    {
+        get
+        {
+            var failed = UnfetchedItems.Count;
+            if (WasInterrupted)
+            {
+                var text = $"前回は {Done} / {Total} 件まで進んで中断しました";
+                return failed > 0 ? text + $"（うち {failed} 件は BOOTH の不調で取れませんでした）" : text;
+            }
+
+            // 次にやることまで書く（空表示とエラーには次の手を・ui-empty-and-errors.md）。
+            // 不調はしばらくすると直るので、待ってから押せば取れる
+            return failed > 0
+                ? $"前回の取り込みで {failed} 件は BOOTH の不調で取れませんでした。少し待ってから「続きから進む」で取り直せます"
+                : string.Empty;
+        }
+    }
+}
+
+/// <summary>①で取れなかった商品1件。</summary>
+public sealed record UnfetchedItem
+{
+    public required string ItemId { get; init; }
+
+    /// <summary>この商品と分かった手元のファイル。取り直すときに読み直し、監視は取り直すまで「新しい」と数える。</summary>
+    public IReadOnlyList<string> Paths { get; init; } = [];
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<string> PathList => Paths ?? [];
 }

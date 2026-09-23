@@ -121,4 +121,45 @@ public class FolderScannerTests : IDisposable
         Assert.Single(result.Files);
         Assert.Equal(inside, result.Files[0].Path);
     }
+
+    /// <summary>
+    /// 自分の親を指すジャンクションはたどらない（ループの元）。
+    /// 再解析点を全部飛ばすのをやめた（OneDrive の中が丸ごと飛んでいた）ので、種類を見て飛ばせていることを確かめる。
+    /// </summary>
+    [Fact]
+    public void DoesNotFollowJunctionsBackIntoItself()
+    {
+        Write("a.zip");
+        var loop = Path.Combine(_root, "loop");
+        using (var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{loop}\" \"{_root}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+        })!)
+        {
+            mklink.WaitForExit();
+        }
+
+        if (!Directory.Exists(loop))
+        {
+            return; // ジャンクションを作れない環境（FAT など）では確かめようが無い
+        }
+
+        var result = _scanner.Scan(_root);
+
+        Assert.Equal([Path.Combine(_root, "a.zip")], result.Files.Select(file => file.Path));
+    }
+
+    /// <summary>
+    /// 中身が手元に無いクラウドのファイル（OneDrive の「オンラインのみ」はこの機械で Offline＋RecallOnDataAccess）。
+    /// 手元にある OneDrive のファイル（ReparsePoint だけ）は読む。
+    /// </summary>
+    [Theory]
+    [InlineData(FileAttributes.Archive | FileAttributes.ReparsePoint, false)]
+    [InlineData(FileAttributes.Archive | FileAttributes.ReparsePoint | FileAttributes.SparseFile | FileAttributes.Offline | (FileAttributes)0x00400000, true)]
+    [InlineData(FileAttributes.Archive | (FileAttributes)0x00040000, true)]
+    [InlineData(FileAttributes.Archive, false)]
+    public void TellsOnlineOnlyCloudFilesApart(FileAttributes attributes, bool expected)
+        => Assert.Equal(expected, FolderScanner.IsOnlineOnly(attributes));
 }

@@ -16,6 +16,25 @@ public sealed class ItemOrderTests
 
     private static string[] Ids(IEnumerable<ItemRecord> items) => items.Select(item => item.Id).ToArray();
 
+    /// <summary>同じ値の商品は名前順（入手日の並びと揃える・点検 2026-09-23）。前は元の一覧の順のままだった。</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void 同じ値の商品は名前順(bool descending)
+    {
+        var items = new[]
+        {
+            Item("c", new() { ["かわいい"] = 3 }),
+            Item("a", new() { ["かわいい"] = 3 }),
+            Item("b", new() { ["かわいい"] = 3 }),
+        };
+
+        Assert.Equal(["a", "b", "c"], Ids(ItemOrder.ByAttribute(items, "かわいい", descending)));
+
+        var sameTime = items.ToDictionary(item => item.Id, _ => DateTimeOffset.UnixEpoch);
+        Assert.Equal(["a", "b", "c"], Ids(ItemOrder.ByTime(items, sameTime, descending)));
+    }
+
     [Theory]
     [InlineData(false, new[] { "low", "high", "a-unrated", "b-unrated" })]
     [InlineData(true, new[] { "high", "low", "a-unrated", "b-unrated" })]

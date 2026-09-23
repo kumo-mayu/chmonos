@@ -29,9 +29,9 @@ public static class ZipInspector
 
     public static ZipInspectionResult Inspect(string zipPath)
     {
-        // UTF-8フラグが立っていないエントリ名はShift-JISとして解釈する。
-        // (BOOTH配布ZIPは日本語ファイル名がShift-JISで格納されていることが多い)
-        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+        // UTF-8フラグが立っていないエントリ名は、厳密な UTF-8 として読めればそれ（Mac の圧縮）、駄目なら Shift-JIS。
+        // (BOOTH配布ZIPは日本語ファイル名がShift-JISで格納されていることが多い。ZipNameEncoding)
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, ZipNameEncoding.Instance);
 
         var files = new List<ZipEntryInfo>();
         var collector = new BoothClueCollector();

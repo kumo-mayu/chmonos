@@ -291,4 +291,42 @@ public class SearchQueryTests
         Assert.False(Match("なでおと", hay));
         Assert.True(MatchWith("なでおと", hay, SearchOptions.Default with { IncludeReadings = true }));
     }
+
+    // 余った「)」と空の「()」から後ろを黙って捨てていた（点検 2026-09-23）。
+    // 「() 冬」は全件に当たり、「夏) 冬」は冬が効いていなかった
+    [Theory]
+    [InlineData("() 冬")]
+    [InlineData("（） 冬")]
+    [InlineData("夏) 冬")]
+    [InlineData(") 冬")]
+    [InlineData("冬 ())")]
+    [InlineData("-() 冬")]
+    public void StrayOrEmptyParenthesesDoNotSwallowTheRest(string query)
+    {
+        Assert.True(Match(query, Hay("夏と冬のセット")));
+        Assert.False(Match(query, Hay("夏のセット")));
+    }
+
+    [Fact]
+    public void StrayCloseInsideOrKeepsBothSides()
+    {
+        Assert.True(Match("夏 OR 冬) 秋", Hay("冬と秋")));
+        Assert.False(Match("夏 OR 冬) 秋", Hay("冬だけ")));
+    }
+
+    [Fact]
+    public void UnclosedParenthesisClosesAtTheEnd()
+        => Assert.True(Match("(夏 OR 冬", Hay("冬の服")));
+
+    /// <summary>演算子は大文字の OR だけ（spec）。小文字の or は英語の商品名の語として探す。</summary>
+    [Fact]
+    public void OnlyUppercaseOrIsAnOperator()
+    {
+        Assert.IsType<SearchNode.Or>(SearchQuery.Parse("夏 OR 冬"));
+        Assert.IsType<SearchNode.Or>(SearchQuery.Parse("夏 ＯＲ 冬"));
+        Assert.IsType<SearchNode.And>(SearchQuery.Parse("black or white"));
+
+        Assert.True(Match("black or white", Hay("Black or White Parka")));
+        Assert.False(Match("black or white", Hay("Black Parka")));
+    }
 }
