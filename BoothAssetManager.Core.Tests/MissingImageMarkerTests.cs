@@ -234,7 +234,7 @@ public class MissingImageMarkerTests : IDisposable
         await _images.SyncAsync(ItemId, Images(1, 2));
 
         Assert.Equal(2, _images.CountMissingMarkers(ItemId));
-        Assert.Equal(2, _images.ClearMissingMarkers(ItemId));
+        Assert.Equal(2, await _images.ClearMissingMarkersAsync(ItemId));
         Assert.Equal(0, _images.CountMissingMarkers(ItemId));
 
         // 商品が戻っていれば、そのまま取れる

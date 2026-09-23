@@ -412,7 +412,10 @@ public sealed class ModificationService : IModificationService
 
         if (removed && held)
         {
-            _images?.DeleteModificationImage(id, name);
+            if (_images is not null)
+            {
+                await _images.DeleteModificationImageAsync(id, name, cancellationToken);
+            }
         }
 
         return removed && held;

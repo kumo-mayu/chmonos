@@ -30,38 +30,61 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         }
     }
 
-    /// <summary>1つの zip の分を丸ごと書く（取り込みの裏で読んだとき）。</summary>
-    public void Save(string hash, IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
+    /// <summary>
+    /// 1つの zip の分を丸ごと書く（取り込みの裏で読んだとき）。
+    ///
+    /// **非同期で書く。**取り込みは画面のスレッドの文脈で進むので、ここが同期だと保存先を運んでいる間に
+    /// 画面のスレッドが門を待って止まり、門を開ける側も画面のスレッドを待って、互いに待ち合って固まっていた。
+    /// </summary>
+    public async Task SaveAsync(
+        string hash,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> packages,
+        CancellationToken cancellationToken = default)
     {
-        lock (LockFor(hash))
+        var gate = LockFor(hash);
+        await gate.WaitAsync(cancellationToken);
+        try
         {
-            Write(hash, packages);
+            await JsonStore.WriteAsync(paths.UnityPackageFile(hash), ToFile(packages), cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
         }
     }
 
-    /// <summary>1つだけ足す（取り込みの裏より先に、商品ページなどで読んだとき）。</summary>
+    /// <summary>
+    /// 1つだけ足す（取り込みの裏より先に、商品ページなどで読んだとき）。
+    /// 同期なのは、呼び手（<see cref="Services.UnityHandoff.ReadAssetPaths"/>）が zip を解く同期の処理で、
+    /// 必ず裏のスレッドで呼ばれるため（画面のスレッドでは止まり得る。<see cref="StoreWriteGate.Enter"/>）。
+    /// </summary>
     public void Add(string hash, string entry, IReadOnlyList<string> assetPaths)
     {
         // 取り込みの裏と商品ページが同じ zip を同時に開くので、読み直してから足すまでを1本にする
-        lock (LockFor(hash))
+        var gate = LockFor(hash);
+        gate.Wait();
+        try
         {
             var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value, StringComparer.Ordinal)
                 ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
             packages[entry] = assetPaths;
-            Write(hash, packages);
+            JsonStore.Write(paths.UnityPackageFile(hash), ToFile(packages));
+        }
+        finally
+        {
+            gate.Release();
         }
     }
 
-    private void Write(string hash, IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
-        => JsonStore.Write(
-            paths.UnityPackageFile(hash),
-            new UnityPackagePathsFile
-            {
-                Packages = packages.ToDictionary(pair => pair.Key, pair => pair.Value.ToList(), StringComparer.Ordinal),
-            });
+    private static UnityPackagePathsFile ToFile(IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
+        => new()
+        {
+            Packages = packages.ToDictionary(pair => pair.Key, pair => pair.Value.ToList(), StringComparer.Ordinal),
+        };
 
-    private static object LockFor(string hash) => s_locks.GetOrAdd(hash, static _ => new object());
+    // 丸ごと書く（非同期）と1つ足す（同期）が同じ錠を取るので、どちらからも使える SemaphoreSlim にする
+    private static SemaphoreSlim LockFor(string hash) => s_locks.GetOrAdd(hash, static _ => new SemaphoreSlim(1, 1));
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> s_locks
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> s_locks
         = new(StringComparer.OrdinalIgnoreCase);
 }

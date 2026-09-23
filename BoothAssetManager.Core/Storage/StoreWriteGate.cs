@@ -19,7 +19,7 @@ namespace BoothAssetManager.Core.Storage;
 /// 前は入口で一度見るだけだったので、見た後に走り出した書き込み（裏へ投げた検出・unitypackage の読み込み、
 /// 起動時の裏の段）が引越しの最中にも書けていた。
 ///
-/// **数えるのはファイル1つを書く間だけ**（<see cref="JsonStore"/>・画像の保存・商品を外すとき）。
+/// **数えるのはファイル1つを書く間だけ**（<see cref="JsonStore"/>・画像の保存・画像の印を置く/消す・自分で足した画像を消す・商品を外すとき）。
 /// 取り込みや裏の段をまるごと数えると、引越しやバックアップが画像の取得（数時間）の終わりまで待たされる。
 /// 1ファイルなら数十ms で抜けるので、閉じてからすぐ運び始められる。
 ///
@@ -99,9 +99,13 @@ public static class StoreWriteGate
     }
 
     /// <summary>
-    /// <see cref="EnterAsync"/> の同期版。同期の保存（<see cref="JsonStore.Write{T}"/>・画像の印）から使う。
-    /// 閉じている間はスレッドを止めて待つが、同期の保存は裏のスレッドと起動・初回の窓からしか呼ばれず、
-    /// 引越しの最中に画面のスレッドから来ることは無い。
+    /// <see cref="EnterAsync"/> の同期版。閉じている間は**呼んだスレッドを止めて**待つ。
+    ///
+    /// **画面のスレッドから呼ばない。**門を開ける側（運ぶ処理の後始末）が画面のスレッドへ戻ってくる形だと、
+    /// 互いに待ち合ってアプリが固まる（2026-09-23 に、取り込みの中の unitypackage の控えの保存と商品の削除で見つけた）。
+    /// 今これを通るのは <see cref="JsonStore.Write{T}"/> だけで、その呼び手は
+    /// 初回の窓（まだ誰も門を閉じない）・CLI（別のプロセス）・unitypackage の控えを1つ足す所（必ず裏のスレッドで読む）。
+    /// 画面から来得る保存と削除は非同期（<see cref="EnterAsync"/>）にしてある。
     /// </summary>
     public static IDisposable Enter()
     {
@@ -127,7 +131,7 @@ public static class StoreWriteGate
     /// 保存先を丸ごと触る間、書き込みを止める。**門を閉じ、走っている書き込みが抜けてから返る。**返った物を捨てると開く。
     /// 抜けを待つ間に中断されたら、閉じたのを戻して投げる（待たせていた書き込みを止めたままにしない）。
     /// </summary>
-    public static async Task<IDisposable> HoldAsync(CancellationToken cancellationToken = default)
+    public static async Task<StoreHold> HoldAsync(CancellationToken cancellationToken = default)
     {
         await HoldLock.WaitAsync(cancellationToken);
 
@@ -154,7 +158,27 @@ public static class StoreWriteGate
             throw;
         }
 
-        return new Hold();
+        return new StoreHold();
+    }
+
+    /// <summary>
+    /// 運び終えて、開き直すまで門を閉じたままにしているか（<see cref="StoreHold.KeepClosedUntilRestart"/>）。
+    /// 立ったら、このプロセスはもう古い保存先へ何も書かない。
+    /// </summary>
+    public static bool IsClosedForRestart => Volatile.Read(ref s_closedForRestart);
+
+    private static bool s_closedForRestart;
+
+    /// <summary>
+    /// 閉じたままにした門を開ける。**試験のためだけの口。**アプリでは開き直すまで開けない
+    /// （門は1つなので、閉じたままの試験の後に続く試験の保存が永久に待たされる）。
+    /// </summary>
+    internal static void ReopenAfterRestartForTests()
+    {
+        if (Interlocked.Exchange(ref s_closedForRestart, false))
+        {
+            Open();
+        }
     }
 
     private static void Leave()
@@ -198,9 +222,29 @@ public static class StoreWriteGate
         }
     }
 
-    private sealed class Hold : IDisposable
+    /// <summary>門を閉じている間の持ち札。捨てると開く。</summary>
+    public sealed class StoreHold : IDisposable
     {
         private int _released;
+
+        internal StoreHold()
+        {
+        }
+
+        /// <summary>
+        /// **捨てても開けず、開き直すまで閉じたままにする**（引越し・置き換え・バックアップから戻すが済んだとき）。
+        ///
+        /// 済むと必ずその場で開き直す（ユーザ判断 2026-09-23）。前は命令が終わると一度開き、待っていた書き込みが
+        /// 古い保存先へ流れた後で、画面が閉じ直していた（その間に書いた物は次の起動で読まれない場所に残る）。
+        /// 閉じたまま返すので、開き直すまでに画面のスレッドから同期で門を待つ所があると固まる（<see cref="Enter"/> の注）。
+        /// </summary>
+        public void KeepClosedUntilRestart()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                Volatile.Write(ref s_closedForRestart, true);
+            }
+        }
 
         public void Dispose()
         {

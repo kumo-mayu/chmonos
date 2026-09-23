@@ -1159,7 +1159,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             }
 
             StoreLocation.Save(picked);
-            await RestartIntoNewRootAsync(
+            RestartIntoNewRoot(
                 $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"
                 + $"元々あったものは「{replaced.ParkedAt}」に残してあります（中身を確かめてから消してください）。\n\n"
                 + "新しい場所で開き直します。",
@@ -1220,7 +1220,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             }
 
             StoreLocation.Save(picked);
-            await RestartIntoNewRootAsync(
+            RestartIntoNewRoot(
                 $"{result.Copied:N0} ファイルを「{picked}」へ移しました。\n\n"
                 + (result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n")
                 + "新しい場所で開き直します。",
@@ -1400,7 +1400,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             var files = (result as Core.Commands.CommandResult.BackupRestored)?.Files ?? 0;
             StoreLocation.Save(destination);
             Status = string.Empty;
-            await RestartIntoNewRootAsync(
+            RestartIntoNewRoot(
                 $"バックアップの {files:N0} ファイルを「{destination}」に戻しました。\n\n"
                 + $"今までのデータは「{_services.Paths.Root}」に残っています。\n\n"
                 + "戻した場所で開き直します。",
@@ -1477,12 +1477,13 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     ///
     /// 前は開き直しを任せていたので、それまでの保存は**古い保存先**へ行き、次の起動で新しい場所を読むと消えていた
     /// （引越しなら、消したはずの元のフォルダを作り直してもいた）。
-    /// 書き込みの門を閉じたまま返さないのは、知らせを読んでいる間に裏の作業が古い場所へ書かないようにするため。
-    /// 待たされた書き込みはプロセスと一緒に終わる。
+    /// 書き込みの門は、運ぶ命令が済んだときに**閉じたまま**返してくる（<c>StoreHold.KeepClosedUntilRestart</c>）。
+    /// 知らせを読んでいる間に裏の作業が古い場所へ書かないようにするためで、待たされた書き込みはプロセスと一緒に終わる。
+    /// 前はここで閉じ直していたが、命令が一度開けた隙間に待っていた書き込みが古い保存先へ流れていた。
+    /// **ここで門を取り直さない**（閉じたままの門は開かないので、永久に待つ）。
     /// </summary>
-    private async Task RestartIntoNewRootAsync(string message, string title)
+    private void RestartIntoNewRoot(string message, string title)
     {
-        _ = await Core.Storage.StoreWriteGate.HoldAsync();
         _main.BeginRelocationRestart();
 
         Services.Notice.Show(

@@ -241,9 +241,13 @@ public sealed class ModificationServiceTests : IDisposable
     public async Task 触ると更新日時が動く()
     {
         var id = await NewAsync();
-        var before = (await _service.LoadAsync(id))!.UpdatedAt;
 
-        await Task.Delay(10);
+        // 更新日時を1日前へずらしてから触る。作ってすぐ触ると、時計の刻み（Windows では約15ms）の内に収まって
+        // 同じ時刻になることがあり、待つ長さで揺れていた
+        var created = (await _store.Modifications.LoadAsync(id))!;
+        var before = created.UpdatedAt.AddDays(-1);
+        await _store.Modifications.SaveAsync(created with { UpdatedAt = before });
+
         await _service.SetMemoAsync(id, "何か");
 
         Assert.True((await _service.LoadAsync(id))!.UpdatedAt > before);

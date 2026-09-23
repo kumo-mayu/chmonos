@@ -313,7 +313,8 @@ public static class UnityProjects
     /// </summary>
     public static IReadOnlyList<UnityProjectCandidate> Discover(
         string? hubProjectsFile = null,
-        string? vccSettingsFile = null)
+        string? vccSettingsFile = null,
+        bool? anyEditorRunning = null)
     {
         var sources = new Dictionary<string, UnityProjectSource>(StringComparer.OrdinalIgnoreCase);
 
@@ -323,7 +324,8 @@ public static class UnityProjects
         static string Or(string? given, string fallback) =>
             string.IsNullOrWhiteSpace(given) ? fallback : given;
 
-        var running = IsAnyEditorRunning();
+        // 試験では明示する（このマシンで Unity が動いているかで「開いている」の判定が変わり、結果が揺れた）
+        var running = anyEditorRunning ?? IsAnyEditorRunning();
         return [.. sources
             .Select(pair => Describe(pair.Key, pair.Value, running))
             .OrderByDescending(candidate => candidate.IsOpen)

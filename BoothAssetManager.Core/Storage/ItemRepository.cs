@@ -265,32 +265,130 @@ public sealed class ItemRepository
     /// 前は JSON を先に消していたので、そこで投げると「商品は無いのに画像だけ残る」半端な状態になった
     /// （誰も片付けない）。JSON を最後にすれば、途中で投げても商品は残り、もう一度外せば済む。
     /// 欠けた画像は裏の取得が取り直す。
+    ///
+    /// **非同期で待つ。**ファイルを外す・IDを付け替えるは画面のスレッドの文脈から来るので、同期で錠と門を待つと、
+    /// 保存先を運んでいる間に画面が止まり、門を開ける側と待ち合って固まる（<see cref="StoreWriteGate.Enter"/>）。
     /// </summary>
-    public void Delete(string itemId)
+    public async Task DeleteAsync(string itemId, CancellationToken cancellationToken = default)
+        => await DeleteIfAsync(itemId, static _ => true, cancellationToken);
+
+    /// <summary>
+    /// **錠の中で今の値を読み、<paramref name="condition"/> が真のときだけ消す。**消したかを返す（無ければ false）。
+    ///
+    /// 「空になったら商品ごと消す」を錠の外で決めると、決めてから消すまでの間に取り込みが足したファイルごと消えていた。
+    /// </summary>
+    public async Task<bool> DeleteIfAsync(
+        string itemId,
+        Func<ItemRecord, bool> condition,
+        CancellationToken cancellationToken = default)
     {
         var gate = LockFor(itemId);
-        gate.Wait();
+        await gate.WaitAsync(cancellationToken);
         try
         {
-            using var writing = StoreWriteGate.Enter();
-
-            var imagesDir = _paths.ItemImagesDir(itemId);
-            if (Directory.Exists(imagesDir))
+            if (await LoadAsync(itemId, cancellationToken) is not { } current || !condition(current))
             {
-                Directory.Delete(imagesDir, recursive: true);
+                return false;
             }
 
-            DeleteIfExists(_paths.ItemHtmlFile(itemId));
-            DeleteIfExists(_paths.ItemFile(itemId));
-
-            // 画像を消してから JSON を消すまでの間に、画像の取得がフォルダを作り直していることがある
-            // （取得は JSON があるかを見てから作る）。JSON が消えた今なら、もう作り直されない
-            TryDeleteDirectory(imagesDir);
+            await DeleteLockedAsync(itemId, cancellationToken);
+            return true;
         }
         finally
         {
             gate.Release();
         }
+    }
+
+    /// <summary>
+    /// 商品を別の場所へ移してから消す（IDの付け替え）。**移す元の錠を持ったまま、今の値を読み、移し、消す。**
+    ///
+    /// 錠の外で読み直してから消すと、その間に取り込みや人が元の商品へ書いた分は、移されずに元と一緒に消えていた。
+    /// <paramref name="moveTo"/> は移せたかを返す。移せなければ元は消さない。移す先は別の商品なので、その錠は
+    /// <paramref name="moveTo"/> の中で取ってよい（元と同じIDを渡さないこと。同じ錠を2度取って止まる）。
+    /// </summary>
+    /// <returns>元が無ければ null。あれば <paramref name="moveTo"/> の答え（真なら元は消えている）。</returns>
+    public async Task<bool?> MoveAwayAsync(
+        string itemId,
+        Func<ItemRecord, Task<bool>> moveTo,
+        CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (await LoadAsync(itemId, cancellationToken) is not { } current)
+            {
+                return null;
+            }
+
+            if (!await moveTo(current))
+            {
+                return false;
+            }
+
+            await DeleteLockedAsync(itemId, cancellationToken);
+            return true;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 無ければ <paramref name="create"/> で作り、あれば <see cref="ChangeLocalAsync"/> と同じく今の値に当てて書く。
+    /// **在るかを見てから書くまでを錠の中で行う。**外で見ると、その間に取り込みが同じIDの商品を作り、
+    /// こちらの新しい空の商品で丸ごと上書きしていた。
+    /// </summary>
+    /// <returns>書いたか（<paramref name="change"/> が null を返したら false）。</returns>
+    public async Task<bool> CreateOrChangeLocalAsync(
+        string itemId,
+        Func<ItemRecord> create,
+        Func<LocalBlock, LocalBlock?> change,
+        IReadOnlyCollection<LocalField> owns,
+        CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var existing = await LoadAsync(itemId, cancellationToken) ?? create();
+            if (change(existing.Local) is not { } changed)
+            {
+                return false;
+            }
+
+            var merged = LocalFields.Merge(existing.Local, changed, owns);
+            merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
+            await WriteAsync(existing with { Local = merged }, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+
+        return true;
+    }
+
+    /// <summary>商品の錠を持った所から呼ぶ。</summary>
+    private async Task DeleteLockedAsync(string itemId, CancellationToken cancellationToken)
+    {
+        // 消すのも書き込み。運んでいる間は待ち、消している間は「書いている」に数えられる
+        using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
+
+        var imagesDir = _paths.ItemImagesDir(itemId);
+        if (Directory.Exists(imagesDir))
+        {
+            Directory.Delete(imagesDir, recursive: true);
+        }
+
+        DeleteIfExists(_paths.ItemHtmlFile(itemId));
+        DeleteIfExists(_paths.ItemFile(itemId));
+
+        // 画像を消してから JSON を消すまでの間に、画像の取得がフォルダを作り直していることがある
+        // （取得は JSON があるかを見てから作る）。JSON が消えた今なら、もう作り直されない
+        TryDeleteDirectory(imagesDir);
     }
 
     private static void TryDeleteDirectory(string directory)
