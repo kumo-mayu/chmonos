@@ -71,7 +71,9 @@ public sealed class FolderWatch
             var result = _scanner.Scan(folder, cancellationToken);
             foreach (var file in result.Files)
             {
-                if (exclusions.IsExcludedByPath(file.Path) || registered.Contains(file.Path))
+                // 外したパスでも、控えと大きさ・更新日時が合わなければ（落とし直した更新版）新しいと数える。
+                // 外したのは中身で、場所ではない（ユーザ判断 2026-09-23）。数えないと起動時の取り込みが拾わない
+                if (exclusions.IsExcludedWithoutHashing(file, cache) || registered.Contains(file.Path))
                 {
                     continue;
                 }

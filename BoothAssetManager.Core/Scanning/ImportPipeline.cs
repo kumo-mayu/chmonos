@@ -280,7 +280,7 @@ public sealed class ImportPipeline : IImportPipeline
             // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
             // 全再帰列挙と展開先の実測が丸ごと走り、その間ずっと画面が固まっていた
             var scan = await Task.Run(
-                () => ScanFolders(folders, exclusions, registered, progress, cancellationToken),
+                () => ScanFolders(folders, exclusions, scanCache, registered, progress, cancellationToken),
                 cancellationToken);
             var resolution = await ResolveAsync(
                 scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
@@ -689,6 +689,7 @@ public sealed class ImportPipeline : IImportPipeline
     private ScanOutcome ScanFolders(
         IReadOnlyList<string> folders,
         ExclusionFilter exclusions,
+        ScanCacheIndex scanCache,
         RegisteredFolderSet registered,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
@@ -718,8 +719,9 @@ public sealed class ImportPipeline : IImportPipeline
 
             foreach (var file in result.Files)
             {
-                // 除外済みのパスはここで弾く。ハッシュ計算にすら進ませない。
-                if (exclusions.IsExcludedByPath(file.Path))
+                // 外したパスで、控えから中身も同じと分かる物はここで弾く。ハッシュ計算にすら進ませない。
+                // 同じパスでも中身が変わっていれば（落とし直した更新版）ここを通し、解決でハッシュを取って決める
+                if (exclusions.IsExcludedWithoutHashing(file, scanCache))
                 {
                     continue;
                 }
@@ -824,7 +826,8 @@ public sealed class ImportPipeline : IImportPipeline
                 }
             }
 
-            // 移動・改名された除外ファイルはパスでは弾けないので、ハッシュで最終判定する。
+            // 移動・改名された除外ファイルと、外したパスで控えと合わなかった物は、ハッシュで最終判定する。
+            // 外したパスでも中身が違えばここを抜け、新しい物として取り込まれる
             if (exclusions.IsExcludedByHash(hash))
             {
                 excluded++;

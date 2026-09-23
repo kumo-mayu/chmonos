@@ -98,23 +98,48 @@ public class FolderWatchTests : IDisposable
         Assert.True(result.HasNew);
     }
 
+    private async Task ExcludeAsync(string path, string hash)
+    {
+        var excluded = _store.Excluded.Load();
+        excluded.Add(new ExcludedEntry
+        {
+            Hash = hash,
+            Paths = [path],
+            ExcludedAt = DateTimeOffset.Now,
+        });
+        await _store.Excluded.SaveAsync(excluded);
+    }
+
     /// <summary>管理から外したファイルは、増えたと数えない。</summary>
     [Fact]
     public async Task IgnoresExcludedFiles()
     {
         var path = WriteFile("unity_backup.zip");
-        var excluded = _store.Excluded.Load();
-        excluded.Add(new ExcludedEntry
-        {
-            Hash = "AAAA",
-            Paths = [path],
-            ExcludedAt = DateTimeOffset.Now,
-        });
-        await _store.Excluded.SaveAsync(excluded);
+        await RememberAsync(path);
+        await ExcludeAsync(path, "CAFEBABE");
 
         var result = await _watch.FindNewAsync([_watched]);
 
         Assert.False(result.HasNew);
+    }
+
+    /// <summary>
+    /// 外したのは中身で、場所ではない（ユーザ判断 2026-09-23）。
+    /// 同じ名前で落とし直した更新版は、控えと大きさ・更新日時が合わないので新しいと数える。
+    /// 前はパスだけで弾いていたので、起動時の取り込みが拾わなかった。
+    /// </summary>
+    [Fact]
+    public async Task CountsAnExcludedPathAsNewWhenItsContentChanged()
+    {
+        var path = WriteFile("衣装.zip");
+        await RememberAsync(path);
+        await ExcludeAsync(path, "CAFEBABE");
+
+        WriteFile("衣装.zip", "更新版の中身");
+
+        var result = await _watch.FindNewAsync([_watched]);
+
+        Assert.Equal([path], result.NewFiles);
     }
 
     /// <summary>商品へ紐付けたフォルダの中は管理済みなので、増えたと数えない。</summary>
