@@ -9,12 +9,13 @@ description: 変更を仕上げる（ビルド・テスト・文書の更新・�
 
 ```powershell
 dotnet build 2>&1 | Select-Object -Last 4          # 警告 0・エラー 0 を見る
-dotnet test BoothAssetManager.Core.Tests --nologo 2>&1 | Select-Object -Last 4   # 件数と失敗の数
+dotnet test --nologo 2>&1 | Select-String '合計:|失敗 '   # 3つの一式（本体・zip の読み取り・ID の特定）の件数と失敗
 ```
 
 出力を丸ごと出さない（文脈を食う）。失敗したときだけ `Select-String 'error|失敗|Failed'` で該当の行を見る。
 実行ファイルが掴まれて失敗したら、確かめ用のアプリを閉じる（`ui-check` スキルの `Stop-ChmonosApp`）。
-テストは1,200件超。**通信するテストを既定の一式に入れない**（BOOTH へ実際に問い合わせる確かめは `experiments/`）。
+通信するテストを既定の一式に入れない（BOOTH へ実際に問い合わせる確かめは `experiments/`）。
+並行や時計に絡む直しをしたときは、テストを2回走らせて揺れないことを見る。
 
 ## 2. 画面を変えたなら撮って見る
 
@@ -38,9 +39,11 @@ git status --short
 git diff --cached --stat
 ```
 
-- 友人のデータ（`-friendtest`・`-eval`・`-friendcheck`）の商品名・ファイル名・商品IDが、差分・文書・コミットメッセージに無いか
-- `DLforTest/`・購入した物・取ってきた BOOTH の説明や画像が無いか
-- `作業方針メモ.md` を変えていないか（書き込まない決まり）
+- 友人のデータ（`-friendtest`・`-eval`・`-friendcheck` など）の商品名・ファイル名・商品IDが、差分・文書・コミットメッセージ・テストの作り物のデータに無いか。
+  その会話で写しの画面に出た名前が分かっていれば、`git diff origin/master..master | Select-String` と `git log origin/master..master --format=%B` で探す
+- 文書に足した7桁以上の数（商品IDらしい物）が無いか
+- `DLforTest/`・購入した物・取ってきた BOOTH の説明や画像が無いか（`git diff --name-only` に `.zip`・画像が無いか）
+- `作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt` を変えていないか（書き込まない決まり）
 
 ## 5. コミット
 

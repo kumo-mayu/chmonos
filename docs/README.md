@@ -15,7 +15,7 @@
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
 | `mock/` | 画面のモック（Claude Design のキャンバス。`*.dc.html` が1画面ずつ）。今の画面とは違う所がある |
 | `tools/wording.mjs` | 画面に出る文字列を XAML と C# から集める（文言の総点検に使う） |
-| `.claude/skills/` | 繰り返す手順（`ui-check`・`perf-measure`・`feedback-log`・`wrap-up`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
+| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
 | 直下の `作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt` | 作者のメモ。読むだけ |
 
 ## 文書の種類
