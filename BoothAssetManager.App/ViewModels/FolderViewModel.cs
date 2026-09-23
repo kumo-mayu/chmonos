@@ -303,7 +303,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 /// 未確定のファイルは未確定の画面の右側を、そのまま組み込む。根の決め方は <see cref="FolderViewRoots"/>。
 /// **木は保存した記録のパスから組み、ディスクを読み回らない**（取り外したドライブも最後に分かっていた形で出す）。
 /// </summary>
-public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites
+public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites, ILeavingScreen
 {
     // 開いた・畳んだはアプリを閉じるまで覚える（改変の画面と同じ・ユーザ判断）
     private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
@@ -549,17 +549,45 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     // ---- 読み込み ----
 
+    /// <summary>
+    /// 離れたら木の読み直しを取り消す（既知 P8）。この画面は開くたびに作り直すので、離れた後の木は誰も見ない。
+    /// 取り消すのは読むところだけ。ドライブ文字の組を控える書き込みは、始まっていれば最後まで書く
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
+    public void OnLeaving()
+    {
+        _leaving.Cancel();
+
+        // 右に組み込んだ画面（未確定など）は主画面からは見えないので、自分が伝える
+        (Detail as ILeavingScreen)?.OnLeaving();
+    }
+
     private async Task LoadAsync()
+    {
+        try
+        {
+            await LoadCoreAsync(_leaving.Token);
+        }
+        catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
+        {
+            // 画面を離れた。投げ直さないのは、除外の後に読み直していた呼び手を失敗に見せないため
+        }
+    }
+
+    private async Task LoadCoreAsync(CancellationToken token)
     {
         var items = _main.Search.SnapshotItems();
         if (items.Count == 0)
         {
-            items = (await _services.Store.Items.LoadAllAsync()).Items;
+            items = (await _services.Store.Items.LoadAllAsync(cancellationToken: token)).Items;
         }
 
         var unresolved = _services.Store.Unresolved.Load();
         var built = await Task.Run(async () =>
         {
+            token.ThrowIfCancellationRequested();
+
             // 開くたびにドライブ文字と通し番号の組を確かめ直す（ユーザ判断 2026-09-14：取り込みとフォルダビューを開いた時）。
             // ファイルが在るかを見るので裏で
             var recorded = RecordedPaths(items, unresolved);
@@ -579,9 +607,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
                 found = new Dictionary<string, string>();
             }
 
+            token.ThrowIfCancellationRequested();
             return Build(items, unresolved, found);
-        });
+        }, token);
 
+        token.ThrowIfCancellationRequested();
         _volumes = built;
         _isLoading = false;
 

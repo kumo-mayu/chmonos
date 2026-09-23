@@ -148,11 +148,20 @@ public sealed class ProjectCandidateRowViewModel
 /// （アバター詳細の中で展開すると縦に伸び続ける）。決めた理由は
 /// <c>docs/history/modifications.md</c>。
 /// </summary>
-public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost, IPendingWrites
+public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost, IPendingWrites, ILeavingScreen
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
     private readonly ThumbnailLoader _thumbnails;
+
+    /// <summary>
+    /// 離れたら、全商品を読む読み込み（足す商品の候補・プロジェクトに入っている商品を探す）を取り消す（既知 P8）。
+    /// この画面は開くたびに作り直すので、離れた後の結果は誰も見ない。探す方は unitypackage を全部解くので重い。
+    /// 書き込み（名前・メモ・使ったもの）は止めない
+    /// </summary>
+    private readonly CancellationTokenSource _leaving = new();
+
+    public void OnLeaving() => _leaving.Cancel();
 
     private string _status = string.Empty;
 
@@ -411,9 +420,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         IsFindingInProject = true;
         FoundInProject.Clear();
+        var token = _leaving.Token;
         try
         {
-            var loaded = await _services.Store.Items.LoadAllAsync();
+            var loaded = await _services.Store.Items.LoadAllAsync(cancellationToken: token);
             var items = loaded.Items.Where(item => item.IsDownloaded).ToList();
             IProgress<int> progress = new Progress<int>(done =>
                 ProjectFindText = $"手元の商品の中身を読んでいます…（{done}/{items.Count}）");
@@ -426,12 +436,13 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 var done = 0;
                 foreach (var item in items)
                 {
+                    token.ThrowIfCancellationRequested();
                     paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(UnityHandoff.ReadAssetPaths).ToList();
                     progress.Report(++done);
                 }
 
                 return UnityProjectMatcher.Match(project, paths);
-            });
+            }, token);
 
             var members = Record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
             var names = items.ToDictionary(item => item.Id, item => item.DisplayName, StringComparer.Ordinal);
@@ -451,6 +462,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 : matches.Count > 0
                     ? "このプロジェクトに入っている手元の商品は、すべて「使ったもの」に入っています。"
                     : "このプロジェクトの中に、手元の商品のファイルは見つかりませんでした。数えられるのは zip の中に unitypackage がある商品だけです。使ったものは上の欄から商品名で足せます。";
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // 画面を離れた（出ない画面なので何も言わない）
         }
         finally
         {
@@ -1287,7 +1302,17 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     {
         ItemSuggestions.Clear();
 
-        var loaded = await _services.Store.Items.LoadAllAsync();
+        Core.Storage.ItemLoadResult loaded;
+        try
+        {
+            loaded = await _services.Store.Items.LoadAllAsync(cancellationToken: _leaving.Token);
+        }
+        catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
+        {
+            // 画面を離れた。投げ直さないのは、書き込みの後に読み直していた呼び手を失敗に見せないため
+            return;
+        }
+
         foreach (var item in loaded.Items
             .Where(item => item.IsDownloaded)
             .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture))

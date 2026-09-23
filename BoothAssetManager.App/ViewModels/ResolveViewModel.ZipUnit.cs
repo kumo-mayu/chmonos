@@ -31,12 +31,12 @@ public sealed partial class ResolveViewModel
     /// 商品が持っているファイルのパスを集める。主画面が読み込み済みの一覧を使い、まだ読み込んでいなければファイルから読む
     /// （2000件で全商品を読むと約0.6秒。開くたびに整理の処理と合わせて2回読んでいた・2026-09-17 に測った）。
     /// </summary>
-    private async Task LoadOwnedPathsAsync()
+    private async Task LoadOwnedPathsAsync(CancellationToken token = default)
     {
         var items = _main.Search.SnapshotItems();
         if (items.Count == 0)
         {
-            items = (await _services.Store.Items.LoadAllAsync()).Items;
+            items = (await _services.Store.Items.LoadAllAsync(cancellationToken: token)).Items;
         }
 
         _ownedPaths = items
