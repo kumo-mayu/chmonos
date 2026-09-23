@@ -43,6 +43,55 @@
             </Setter>
         </Style>
 
+        <!--
+            履歴の帯の端に出す「‹」「›」。続きのチップの上に重ねるので、外側へ向かって白く抜ける地を持たせ、
+            切れたチップが「ここで終わり」ではなく「この先に続く」と読めるようにする
+        -->
+        <Style x:Key="HistoryScrollButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Rectangle x:Name="Fade">
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#00ffffff" Offset="0" />
+                                        <GradientStop Color="#ffffffff" Offset="0.45" />
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>
+                            <Border x:Name="Face" Width="22" Height="22" CornerRadius="11" HorizontalAlignment="Right"
+                                    Background="{StaticResource Surface}" BorderBrush="{StaticResource AccentBorder}" BorderThickness="1">
+                                <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                           FontSize="{TemplateBinding FontSize}" Margin="0,-3,0,0"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Face" Property="Background" Value="{StaticResource AccentSoft}" />
+                            </Trigger>
+                            <!-- 左端の「‹」は向きを逆にする（地は右から白く、丸は左に寄せる） -->
+                            <Trigger Property="HorizontalAlignment" Value="Left">
+                                <Setter TargetName="Face" Property="HorizontalAlignment" Value="Left" />
+                                <Setter TargetName="Fade" Property="RenderTransformOrigin" Value="0.5,0.5" />
+                                <Setter TargetName="Fade" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="-1" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="PanelToggle" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Width" Value="24" />
@@ -99,7 +148,7 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource Bg}">
+    <controls:PaneGrid Background="{StaticResource Bg}" Pane="{Binding FilterPane}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding FilterPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding FilterPane.MinWidth}" MaxWidth="{Binding FilterPane.MaxWidth}" />
@@ -708,10 +757,13 @@
                 <TextBlock DockPanel.Dock="Left" Text="検索履歴" Style="{StaticResource SectionLabel}"
                            VerticalAlignment="Center" Margin="0,0,12,0" />
                 <!--
-                    横に送れるが、バーは出さない（ユーザ指示 2026-09-16）。バーが無いとつまめないので、ホイールで横に送る
+                    横に送れるが、バーは出さない（ユーザ指示 2026-09-16）。バーが無いとつまめないので、ホイールで横に送る。
+                    バーが無いと右端のチップが切れても続きがあると分からなかった（点検 2026-09-23）ので、
+                    続きがある側の端にだけ「‹」「›」を出す（押すと1画面ぶん送る）。切れたチップの上に薄い地を重ねて、端だと分かるようにする
                 -->
-                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
-                              PreviewMouseWheel="OnHistoryMouseWheel">
+                <Grid>
+                <ScrollViewer x:Name="HistoryStrip" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                              PreviewMouseWheel="OnHistoryMouseWheel" ScrollChanged="OnHistoryScrollChanged">
                     <ItemsControl ItemsSource="{Binding History}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -745,6 +797,13 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+                <Button x:Name="HistoryBack" Style="{StaticResource HistoryScrollButton}" HorizontalAlignment="Left" Content="‹"
+                        Click="OnHistoryScrollBack" Visibility="Collapsed"
+                        ToolTip="前の履歴へ送る（ホイールでも送れます）" AutomationProperties.Name="前の検索履歴へ送る" />
+                <Button x:Name="HistoryForward" Style="{StaticResource HistoryScrollButton}" HorizontalAlignment="Right" Content="›"
+                        Click="OnHistoryScrollForward" Visibility="Collapsed"
+                        ToolTip="続きの履歴へ送る（ホイールでも送れます）" AutomationProperties.Name="続きの検索履歴へ送る" />
+                </Grid>
               </DockPanel>
             </Border>
 
@@ -851,41 +910,48 @@
                 </StackPanel>
             </Border>
 
-            <Border DockPanel.Dock="Top" Height="38" Background="{StaticResource Bg}">
-                <Grid Margin="18,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,240,0">
-                        <TextBlock Text="{Binding ResultSummary}" FontWeight="Bold" FontSize="12" />
-                        <TextBlock Text="読み込み中…" Style="{StaticResource Caption}" Margin="12,0,0,0"
+            <!--
+                件数（左）と表示順・カード／リスト（右）の帯。**入り切らなければ右を次の行へ送る**（点検 2026-09-23）。
+                前は右の塊を右寄せで重ね、左に決め打ちの余白を取っていたので、幅 900px の窓で件数の上に表示順が乗って読めなかった。
+                カード／リストの切り替えも、一覧の右下に浮かせるのをやめてここに置く（狭い窓でカードの上に重なった）
+            -->
+            <Border DockPanel.Dock="Top" MinHeight="38" Background="{StaticResource Bg}" Padding="18,5">
+                <controls:SplitRowPanel VerticalAlignment="Center" MinLeftWidth="200">
+                    <DockPanel VerticalAlignment="Center">
+                        <TextBlock DockPanel.Dock="Left" Text="{Binding ResultSummary}" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock DockPanel.Dock="Left" Text="読み込み中…" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center"
                                    Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        <!-- なぜこの結果になったかを結果の隣で読めるようにする -->
-                        <TextBlock Text="{Binding FilterSummary}" Style="{StaticResource Caption}" Margin="12,0,0,0"
-                                   TextTrimming="CharacterEllipsis"
-                                   Visibility="{Binding HasActiveFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-
                         <!--
                             表記をまたいで探したときは、何で当たったかを必ず出す。
                             辞書は引いた結果を説明できるのが取り柄なので、説明を捨てない。
                         -->
-                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        <Border DockPanel.Dock="Right" Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                 BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="12,0,0,0"
                                 VerticalAlignment="Center"
                                 Visibility="{Binding HasWidened, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding WidenedText}" FontSize="11" Foreground="#28507f"
                                        TextTrimming="CharacterEllipsis" MaxWidth="420" />
                         </Border>
-                    </StackPanel>
+                        <!-- なぜこの結果になったかを結果の隣で読めるようにする。幅が足りなければ省略して縮む（全文は吹き出し） -->
+                        <TextBlock Text="{Binding FilterSummary}" Style="{StaticResource Caption}" Margin="12,0,0,0"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding FilterSummary}"
+                                   Visibility="{Binding HasActiveFilters, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </DockPanel>
 
                     <!--
                         表示順は絞り込みと別の場所に置く。**使う項目と向きを分ける**（ユーザ指示 2026-09-20・M5）。
                         項目は多いのでプルダウン、向きは2つなので繋がったボタン（ui-rules.md の並べ替えの決め事）。
                         向きの言い方は項目で変わる（日付は「新しい順／古い順」、数は「多い順／少ない順」）
                     -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- 絞り込み欄を開いた幅 900px の窓では、送った先の1行にも入り切らない。表示順と切り替えの間でも折り返す -->
+                    <WrapPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,8,2">
                         <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0" />
                         <ComboBox ItemsSource="{Binding SortFields}" SelectedItem="{Binding SortField, Mode=TwoWay}"
                                   DisplayMemberPath="Label" Width="150" Height="28" FontSize="12"
                                   AutomationProperties.Name="並べ替えに使う項目" />
-                        <Grid Margin="8,0,0,0" VerticalAlignment="Center">
+                    </StackPanel>
+                        <Grid Margin="0,2,16,2" VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
@@ -897,8 +963,10 @@
                                          Content="{Binding AscendingLabel}" MinWidth="82"
                                          IsChecked="{Binding SortsAscending, Mode=TwoWay}" />
                         </Grid>
-                    </StackPanel>
-                </Grid>
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                                    VerticalAlignment="Center" Margin="0,2" />
+                    </WrapPanel>
+                </controls:SplitRowPanel>
             </Border>
 
             <!--
@@ -988,11 +1056,7 @@
                             ToolTip="tori で「鳥」、shark で「サメ」のように、読み・漢字・英語などの別の書き方でも探します。"
                             Visibility="{Binding ShowsWidenOffer, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
-
-                <!-- カード／リストの切り替え。右下の空いた所に重ねる（ユーザ指示 2026-09-14） -->
-                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,30,18" Panel.ZIndex="3" />
             </Grid>
         </DockPanel>
-    </Grid>
+    </controls:PaneGrid>
 </UserControl>

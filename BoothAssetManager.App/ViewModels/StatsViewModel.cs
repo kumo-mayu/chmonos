@@ -10,7 +10,14 @@ public sealed class SpendBarViewModel
     /// <summary>グラフの描画領域の高さ。ここを基準に棒の高さを決める。</summary>
     public const double ChartHeight = 140;
 
+    /// <summary>軸に出す短い名前（月は「09」、年は「2025」）。</summary>
     public required string Label { get; init; }
+
+    /// <summary>月の下に添える年。左端と1月にだけ入れ、ほかは空（年が変わる所だけで読めるので）。</summary>
+    public string YearLabel { get; init; } = string.Empty;
+
+    /// <summary>吹き出しに出す、年まで入った名前（「2025年9月」）。</summary>
+    public required string FullLabel { get; init; }
 
     public required long SpentYen { get; init; }
 
@@ -23,7 +30,7 @@ public sealed class SpendBarViewModel
 
     public bool IsPeak { get; init; }
 
-    public string Tooltip => $"{Label}：¥{SpentYen:N0}／{ItemCount} 件";
+    public string Tooltip => $"{FullLabel}：¥{SpentYen:N0}／{ItemCount} 件";
 }
 
 /// <summary>横棒1本。棒の長さはGridの星取りで表すので、長さをそのまま持つ。</summary>
@@ -418,11 +425,12 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        // 日付の分かる購入が1件も無ければ、0円の目盛りだけ並べても読む物が無いので、今までどおりグラフごと出さない
         var source = _range.Months is { } months
-            ? _snapshot.Months.TakeLast(months).ToList()
-            : _snapshot.Years.ToList();
+            ? _snapshot.Months.Count == 0 ? [] : LastMonths(_snapshot.Months, months)
+            : _snapshot.Years.Select(year => (Period: year, Year: string.Empty, Full: $"{year.Label}年")).ToList();
 
-        var peak = source.Count == 0 ? 0 : source.Max(period => period.SpentYen);
+        var peak = source.Count == 0 ? 0 : source.Max(bar => bar.Period.SpentYen);
         var scale = RoundUpAxis(peak);
 
         AxisTopText = $"¥{Format(scale)}";
@@ -430,13 +438,15 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
         for (var index = 0; index < source.Count; index++)
         {
-            var period = source[index];
+            var (period, year, full) = source[index];
             var isPeak = peak > 0 && period.SpentYen == peak;
             var isLast = index == source.Count - 1;
 
             Chart.Add(new SpendBarViewModel
             {
                 Label = period.Label,
+                YearLabel = year,
+                FullLabel = full,
                 SpentYen = period.SpentYen,
                 ItemCount = period.ItemCount,
                 BarHeight = scale == 0 ? 0 : period.SpentYen / (double)scale * SpendBarViewModel.ChartHeight,
@@ -450,6 +460,42 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         OnPropertyChanged(nameof(HasChartNote));
         OnPropertyChanged(nameof(AxisTopText));
         OnPropertyChanged(nameof(AxisMidText));
+    }
+
+    /// <summary>
+    /// 今月までの <paramref name="count"/> ヶ月を、買っていない月も0円として並べる。
+    ///
+    /// 集計は「最初に買った月から最後に買った月まで」しか持たないので、そこから末尾を切るだけだと、
+    /// 12ヶ月を選んでいても買った月が1つなら棒が1本だけ浮き、どの時期なのかも読めなかった（点検 2026-09-23）。
+    /// 選んだ期間の目盛りは常に全部出し、今月を右端に置く（入手日が先の日付になっている分は、その月まで伸ばす）。
+    ///
+    /// 軸の月は「09」だけでは年が分からないので、左端と1月の下に年を添える。全部に年を付けると、
+    /// 24ヶ月のとき狭い窓で目盛りの文字が重なる
+    /// </summary>
+    private static List<(StatsPeriod Period, string Year, string Full)> LastMonths(IReadOnlyList<StatsPeriod> months, int count)
+    {
+        var byKey = months.ToDictionary(month => month.Key, StringComparer.Ordinal);
+        var today = DateTime.Today;
+        var end = new DateTime(today.Year, today.Month, 1);
+        if (months.Count > 0
+            && DateTime.TryParseExact(months[^1].Key, "yyyy-MM", null, System.Globalization.DateTimeStyles.None, out var last)
+            && last > end)
+        {
+            end = last;
+        }
+
+        var result = new List<(StatsPeriod, string, string)>(count);
+        for (var cursor = end.AddMonths(1 - count); cursor <= end; cursor = cursor.AddMonths(1))
+        {
+            var key = $"{cursor.Year:D4}-{cursor.Month:D2}";
+            var period = byKey.TryGetValue(key, out var found)
+                ? found
+                : new StatsPeriod { Key = key, Label = $"{cursor.Month:D2}", SpentYen = 0, ItemCount = 0 };
+            var year = result.Count == 0 || cursor.Month == 1 ? $"{cursor.Year}" : string.Empty;
+            result.Add((period, year, $"{cursor.Year}年{cursor.Month}月"));
+        }
+
+        return result;
     }
 
     private void RebuildPanels()

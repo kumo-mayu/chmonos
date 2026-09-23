@@ -52,7 +52,7 @@
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                     <!-- 束の幅は中身の長さで変えない（畳むと札の幅が縮んで目が泳ぐ） -->
-                    <StackPanel MaxWidth="1000" HorizontalAlignment="Stretch">
+                    <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
     

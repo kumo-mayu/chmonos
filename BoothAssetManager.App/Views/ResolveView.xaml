@@ -80,15 +80,28 @@
         <!-- 片付いた表示と一覧は重ねる。DockPanelの兄弟にすると横幅を食って中央に来ない -->
         <Grid>
 
+        <!--
+            読み込んでいる間（E1：読み込み中と「1つも無い」を言い分ける）。一覧は読み終えるまで0件なので、
+            前は読み込みの間も下の「未確定のファイルはありません」が出ていた。フォルダビューを開いた直後に未確定の zip を選ぶと、
+            フォルダの読み込みと重なって読み終わるのが遅れ、選んだファイルが無いように見えた（点検 2026-09-23）
+        -->
+        <TextBlock Text="読み込んでいます…" Style="{StaticResource Caption}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                   Visibility="{Binding IsLoaded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+
         <!-- 全部片付いたとき -->
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             <StackPanel.Style>
                 <Style TargetType="StackPanel">
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding RemainingCount}" Value="0">
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding RemainingCount}" Value="0" />
+                                <Condition Binding="{Binding IsLoaded}" Value="True" />
+                                <Condition Binding="{Binding LoadFailed}" Value="False" />
+                            </MultiDataTrigger.Conditions>
                             <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </StackPanel.Style>
@@ -387,7 +400,7 @@
             <!-- 右：手掛かりと決定 -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20"
                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+                <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
 
                     <!-- 組み込んだとき（上の帯が無い）だけ、外した直後に戻すボタンと出していない件数をここに出す -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12"

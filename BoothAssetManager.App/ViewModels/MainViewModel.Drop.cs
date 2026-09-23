@@ -65,10 +65,12 @@ public sealed partial class MainViewModel
                 return;
 
             case Core.Services.DropAction.Import:
-                ShowImport();
-
+                // 画面は移さない（点検 2026-09-23・動線の点検 A2）。前は取り込み画面へ移り、見ていた画面が勝手に替わった。
+                // 登録で画面を移さなくした（Q4）のと同じく、下の帯に進み具合と「取り込み画面を開く」を出す
                 // 落としたらそのまま始める（#38。設定で切れる）
-                Import.AddDroppedPaths(paths!, startImmediately: _services.Settings.StartImportOnDrop);
+                var startNow = _services.Settings.StartImportOnDrop;
+                Import.AddDroppedPaths(paths!, startImmediately: startNow);
+                NoteImportQueued(startNow);
                 return;
 
             case Core.Services.DropAction.OpenItem:

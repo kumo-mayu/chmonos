@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:views="clr-namespace:BoothAssetManager.App.Views"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -111,7 +112,7 @@
                 <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"
                         IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                         Command="{Binding Owner.ImportHereCommand}" CommandParameter="{Binding}"
-                        ToolTip="このフォルダを取り込みの対象に積んで、取り込みを始めます（取り込み画面へ移ります）。新しいファイルを探して商品を決めます。" />
+                        ToolTip="このフォルダを取り込みの対象に積んで、取り込みを始めます。新しいファイルを探して商品を決めます。画面はこのままで、進み具合は下の帯に出ます（取り込み画面へはそこから移れます）。" />
 
                 <!-- 監視は状態を出し、足す・外すの両方をできるようにする（ユーザ指示 2026-09-14。前は足すだけで外せなかった） -->
                 <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,0,4,0" Margin="0,0,8,8"
@@ -154,14 +155,22 @@
             </Border>
 
             <!-- 文字で探す（絞り込みは付けない・ユーザ指示）。探すときは、この下の全部から -->
-            <Grid Margin="0,14,0,0" MaxWidth="460" HorizontalAlignment="Left">
-                <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30" MinWidth="320"
-                         VerticalContentAlignment="Center" Padding="7,0"
-                         AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
-                <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" IsHitTestVisible="False" Margin="10,0,0,0"
-                           VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextFaint}"
-                           Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-            </Grid>
+            <!--
+                カード／リストの切り替えは探す欄の行の右に置く（点検 2026-09-23：一覧の右下に浮かせると、狭い窓でカードの上に重なった）。
+                入り切らなければ次の行へ送る（検索の結果の上の帯と同じ部品）
+            -->
+            <controls:SplitRowPanel Margin="0,14,0,0" MinLeftWidth="320">
+                <Grid MaxWidth="460" HorizontalAlignment="Left">
+                    <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30" MinWidth="320"
+                             VerticalContentAlignment="Center" Padding="7,0"
+                             AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
+                    <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" IsHitTestVisible="False" Margin="10,0,0,0"
+                               VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextFaint}"
+                               Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                </Grid>
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                                VerticalAlignment="Center" Margin="0,0,8,0" />
+            </controls:SplitRowPanel>
             <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
                        Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </StackPanel>
@@ -214,10 +223,6 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-
-            <!-- カード／リストの切り替え。右下の空いた所に重ねる（ユーザ指示 2026-09-14） -->
-            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,30,18" Panel.ZIndex="3" />
 
             <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap" MaxWidth="520"
                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0" TextAlignment="Center"

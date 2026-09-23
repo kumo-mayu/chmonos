@@ -8,6 +8,12 @@
             商品カードの大きさ。起動時と設定の「サムネイルの大きさ」を変えたときに CardMetrics が書き換える
             （ユーザ判断 2026-09-15）。ここの値は「中」＝前からの大きさ。カードは DynamicResource で読む
         -->
+        <!--
+            文章と入力が主の画面（設定・取り込み・改変の画面の右・未確定の右・要確認）の最大幅（ユーザ判断 2026-09-23）。
+            行が長すぎると読みにくいので止め、余った幅は左右に分けて中央に寄せる（2560px の窓で右に大きな空きが出ていた）。
+            960 は画面ごとにばらばらだった値（860〜1000）の間で、商品ページの左の列の既定（660）＋右の最小（320）とほぼ同じ幅
+        -->
+        <sys:Double x:Key="ReadingMaxWidth">960</sys:Double>
         <sys:Double x:Key="CardWidth">228</sys:Double>
         <sys:Double x:Key="CardHeight">336</sys:Double>
         <sys:Double x:Key="CardImageHeight">200</sys:Double>

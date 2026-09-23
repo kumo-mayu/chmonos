@@ -210,8 +210,8 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <!-- 縦軸。目盛りは棒の帯（上14px・下18px を除いた140px）に合わせる -->
-                                <Grid Grid.Column="0" Width="52" Height="140" Margin="0,14,0,18">
+                                <!-- 縦軸。目盛りは棒の帯（上14px・下32px〔月18＋年14〕を除いた140px）に合わせる -->
+                                <Grid Grid.Column="0" Width="52" Height="140" Margin="0,14,0,32">
                                     <TextBlock Text="{Binding AxisTopText}" Style="{StaticResource Mono}" FontSize="10.5"
                                                Foreground="{StaticResource TextFaint}" HorizontalAlignment="Right"
                                                VerticalAlignment="Top" Margin="0,-7,8,0" />
@@ -225,7 +225,7 @@
 
                                 <Grid Grid.Column="1">
                                     <!-- 目盛り線。棒と同じ帯にだけ重ねる -->
-                                    <Grid Margin="0,14,0,18">
+                                    <Grid Margin="0,14,0,32">
                                         <Border Height="1" VerticalAlignment="Top" Background="#f0f1f4" />
                                         <Border Height="1" VerticalAlignment="Center" Background="#f0f1f4" />
                                         <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource Border}" />
@@ -240,6 +240,14 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpendBarViewModel}">
                                                 <DockPanel ToolTip="{Binding Tooltip}">
+                                                    <!--
+                                                        月の下に年（左端と1月だけ。点検 2026-09-23：「09」だけでは年が分からなかった）。
+                                                        年の無い棒も同じ高さを取り、棒の下端を揃える。年は隣の棒の下まではみ出してよい
+                                                    -->
+                                                    <Canvas DockPanel.Dock="Bottom" Height="14" ClipToBounds="False">
+                                                        <TextBlock Text="{Binding YearLabel}" Style="{StaticResource Mono}" FontSize="10"
+                                                                   Foreground="{StaticResource TextMuted}" Canvas.Left="2" />
+                                                    </Canvas>
                                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Label}" Height="18"
                                                                Style="{StaticResource Mono}" FontSize="10.5"
                                                                Foreground="{StaticResource TextFaint}"

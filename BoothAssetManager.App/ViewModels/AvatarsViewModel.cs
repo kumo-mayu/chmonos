@@ -1532,6 +1532,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             _ => null,
         };
 
+        // 繋がったボタンは今の扱いの所も押せる（押せなくすると塗りが薄れて今の扱いが読みにくい）。同じなら書かない
+        if (Selected.Summary.Entry.AvatarOverride == value)
+        {
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarOverride(Selected.ItemId, value));
         await LoadAsync();
     }

@@ -275,9 +275,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>
     /// 組み込んだときは左右の列を幅に合わせる。右側は窓より狭いので、単独の画面と同じ固定の 660px では
-    /// 横に送るしかなくなる
+    /// 横に送るしかなくなる。
+    /// 単独の画面の下限は、覚えた左の幅ではなく**左の最小**から出す。覚えた幅は窓が狭いと頭打ちになる（PaneGrid）ので、
+    /// 覚えた幅で下限を決めると、縮められる左を縮めずに横へ送らせることになる（点検 2026-09-23）
     /// </summary>
-    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.Pixels + 400;
+    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.MinPixels + 400;
 
     /// <remarks>
     /// 組み込んだときは左（写真・使ったもの）に残りを全部渡す。右は最低幅（320px）で足りるが、
@@ -1255,6 +1257,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>紐付けを差し替える。null を渡すと外す。</summary>
     private async Task LinkProjectAsync(UnityProjectRowViewModel? row)
     {
+        if (!ConfirmReplaceProject(row))
+        {
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(
             new UiCommand.SetModificationProject(Record.Id, row?.Candidate.Path));
 
@@ -1263,6 +1270,47 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             : $"「{row.Name}」を紐付けました。";
 
         await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 既に紐付いている先を差し替える・外す前に聞く（動線の点検 B3）。
+    ///
+    /// 改変の記録は紐付け先を1つしか持たないので、差し替えると前の紐付け先はどこにも残らない。
+    /// 前は確かめずに差し替わり、何を指していたか分からなくなった。前の名前と場所を出し、戻し方を書く。
+    /// **戻し方は前の紐付け先が候補の一覧に載っているかで変わる**——候補は Unity Hub と VCC の一覧から作るので、
+    /// 載っていなければこの画面からは付け直せない。そのときは既定のボタンをキャンセルに倒す（ui-dialogs.md：取り返しのつかない操作）。
+    /// まだ何も紐付いていないときと、同じ先を選び直したときは聞かない（失う物が無い）。
+    /// </summary>
+    private bool ConfirmReplaceProject(UnityProjectRowViewModel? row)
+    {
+        if (Record.UnityProject is not { } oldPath
+            || (row is not null && ModificationService.SamePath(row.Candidate.Path, oldPath)))
+        {
+            return true;
+        }
+
+        var oldName = ProjectName;
+        var canRelink = ProjectCandidates.Any(candidate => ModificationService.SamePath(candidate.Candidate.Path, oldPath));
+        var how = canRelink
+            ? $"戻すときは、下の「紐付ける先」から「{oldName}」をもう一度選んでください。"
+            : $"「{oldName}」は Unity Hub・VRChat Creator Companion の一覧に無いので、この画面からは付け直せません"
+              + "（Hub か VCC にそのプロジェクトを足すと、「紐付ける先」に出ます）。";
+        var what = row is null
+            ? $"Unityプロジェクト「{oldName}」の紐付けを外します。"
+            : $"Unityプロジェクトの紐付けを「{oldName}」から「{row.Name}」に替えます。";
+
+        var answer = Services.Notice.Show(
+            what + "\n\n"
+            + $"今の紐付け先：{oldPath}\n"
+            + "この改変は紐付け先を1つしか覚えないので、今の紐付け先は残りません。\n"
+            + how + "\n\n"
+            + "プロジェクトのフォルダと、改変の記録（使ったもの・写真）はそのままです。",
+            row is null ? "紐付けを外す" : "紐付けを替える",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            canRelink ? System.Windows.MessageBoxResult.OK : System.Windows.MessageBoxResult.Cancel);
+
+        return answer == System.Windows.MessageBoxResult.OK;
     }
 
     /// <summary>

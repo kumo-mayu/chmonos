@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:views="clr-namespace:BoothAssetManager.App.Views"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -181,22 +182,34 @@
             </DockPanel>
         </Border>
 
+        <!--
+            件数（左）と「所持しているものだけ」・カード／リスト（右）。入り切らなければ右を次の行へ送る（検索の結果の上の帯と同じ部品）。
+            切り替えは一覧の右下に浮かせていたが、狭い窓でカードの上に重なった（点検 2026-09-23）
+        -->
         <Border DockPanel.Dock="Top" Padding="24,14,24,0">
-            <Grid>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="このショップの商品" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11.5"
+            <controls:SplitRowPanel MinLeftWidth="240">
+                <DockPanel VerticalAlignment="Center">
+                    <TextBlock DockPanel.Dock="Left" Text="このショップの商品" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11.5"
                                Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <!-- 全商品ではないことを書いておく。件数の意味が変わってしまう -->
-                    <TextBlock Text="BOOTHの全商品ではなく、ローカルに情報があるものだけです。"
+                    <!-- 全商品ではないことを書いておく。件数の意味が変わってしまう。狭いときは省略して縮む -->
+                    <TextBlock Text="BOOTHの全商品ではなく、ローカルに情報があるものだけです。" TextTrimming="CharacterEllipsis"
+                               ToolTip="BOOTHの全商品ではなく、ローカルに情報があるものだけです。"
                                Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
+                </DockPanel>
 
-                <CheckBox Content="所持しているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
-                          HorizontalAlignment="Right" VerticalAlignment="Center"
-                          Foreground="{StaticResource Text}" />
-            </Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox Content="所持しているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
+                              VerticalAlignment="Center" Foreground="{StaticResource Text}" />
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
+                                    Margin="16,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </controls:SplitRowPanel>
         </Border>
+
+        <!-- 選んでいる間と、Unity へ送っている間に出す、まとめて操作の帯（検索・フォルダビューと同じ。動線の点検 C1） -->
+        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
+                        Visibility="{Binding ShowsSelectionBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <Grid SizeChanged="OnListSizeChanged">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -256,10 +269,6 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-
-            <!-- カード／リストの切り替え。右下の空いた所に重ねる（検索画面・フォルダビューと同じ） -->
-            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,36,18" Panel.ZIndex="3" />
         </Grid>
     </DockPanel>
 </UserControl>
