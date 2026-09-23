@@ -19,8 +19,15 @@ public sealed class UndoExcludeTests : IDisposable
         var paths = new AppPaths(_root);
         paths.EnsureCreated();
         _store = new DataStore(paths);
-        var client = new BoothClient(new HttpClient(), new AppSettings { FetchIntervalMs = 0 });
+        // 本物の通信の口で組まない（既定の一式に通信する試験を入れない）。行けば落ちる偽物にする
+        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 });
         _service = new ItemService(_store, client, new ImagePipeline(client, paths));
+    }
+
+    private sealed class UnreachableHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("このテストではBOOTHへ行かないはず");
     }
 
     public void Dispose()

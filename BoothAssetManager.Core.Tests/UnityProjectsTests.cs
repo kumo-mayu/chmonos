@@ -166,7 +166,7 @@ public sealed class UnityProjectsTests : IDisposable
     public void 消えていても候補から外さない()
     {
         var candidate = UnityProjects.Describe(
-            Path.Combine(_dir, "gone"), UnityProjectSource.Vcc);
+            Path.Combine(_dir, "gone"), UnityProjectSource.Vcc, anyEditorRunning: false);
 
         Assert.False(candidate.Exists);
         Assert.Equal("gone", candidate.Name);
@@ -255,7 +255,10 @@ public sealed class UnityProjectsTests : IDisposable
 
         var found = UnityProjects.Discover(
             WriteHubJson(closed, opened),
-            Path.Combine(_dir, "no-vcc.json"));
+            Path.Combine(_dir, "no-vcc.json"),
+
+            // このマシンで Unity が動いているかに依らせない（動いていないと、印があっても開いているとみない）
+            anyEditorRunning: true);
 
         Assert.Equal("opened", found[0].Name);
         Assert.Equal("closed", found[1].Name);

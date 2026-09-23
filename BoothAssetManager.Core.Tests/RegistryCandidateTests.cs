@@ -6,12 +6,46 @@ using Xunit;
 namespace BoothAssetManager.Core.Tests;
 
 /// <summary>
+/// 辞書の索引の置き場。**GUID の一時フォルダに置き、組の試験が終わったら片付ける。**
+/// 前は決まった一時パスに置いて消さなかったので、前の実行の索引を読み、片付けも誰もしなかった。
+/// 組むのに時間がかかるので、この組の試験の間は1つを使い回す。
+/// </summary>
+public sealed class RegistryCandidateBridgeFixture : IDisposable
+{
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"bam-registry-bridge-{Guid.NewGuid():N}");
+
+    public RegistryCandidateBridgeFixture()
+    {
+        Directory.CreateDirectory(_directory);
+        Readings = new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
+        Bridge = new SearchBridge(new JapaneseDictionary(
+            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
+            Path.Combine(_directory, "bridge.cache")));
+    }
+
+    public KanjiReadings Readings { get; }
+
+    public SearchBridge Bridge { get; }
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_directory, recursive: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+}
+
+/// <summary>
 /// 手元のアバター登録簿から候補を出す。**通信は増えない。**
 ///
 /// 登録簿は未所持の商品の名前まで持っている（実データでは13件中6件が未所持）。
 /// BOOTHが404を返すファイルでも、名前から辿り着けることがある。
 /// </summary>
-public class RegistryCandidateTests
+public class RegistryCandidateTests(RegistryCandidateBridgeFixture dictionary) : IClassFixture<RegistryCandidateBridgeFixture>
 {
     private static AvatarRegistryEntry Kuuta(params string[] aliases) => new()
     {
@@ -67,14 +101,8 @@ public class RegistryCandidateTests
     [Fact]
     public void MatchesARomajiFileNameThroughTheReading()
     {
-        var readings = new KanjiReadings(
-            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
-        var bridge = new SearchBridge(new JapaneseDictionary(
-            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
-            Path.Combine(Path.GetTempPath(), "registry-candidate-bridge.cache")));
-
         var found = RegistryCandidates.For(
-            @"C:\dl\hotogiya_Kuuta_ver1.03.zip", [Kuuta()], bridge, readings);
+            @"C:\dl\hotogiya_Kuuta_ver1.03.zip", [Kuuta()], dictionary.Bridge, dictionary.Readings);
 
         Assert.Equal("4897493", Assert.Single(found).ItemId);
     }
@@ -88,14 +116,9 @@ public class RegistryCandidateTests
     [InlineData(@"C:\dl\Eku_PC_v1_0_0.zip", "エク")]
     public void MatchesAShortNameThroughATwoLetterReading(string file, string displayName)
     {
-        var readings = new KanjiReadings(
-            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
-        var bridge = new SearchBridge(new JapaneseDictionary(
-            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
-            Path.Combine(Path.GetTempPath(), "registry-candidate-bridge.cache")));
         var entry = new AvatarRegistryEntry { ItemId = "6", DisplayName = displayName, Category = "3Dキャラクター" };
 
-        Assert.Equal("6", Assert.Single(RegistryCandidates.For(file, [entry], bridge, readings)).ItemId);
+        Assert.Equal("6", Assert.Single(RegistryCandidates.For(file, [entry], dictionary.Bridge, dictionary.Readings)).ItemId);
     }
 
     /// <summary>
