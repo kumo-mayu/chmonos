@@ -565,6 +565,15 @@ public sealed partial class MainViewModel : ViewModelBase
     public EditDraftStore Drafts { get; } = new();
 
     /// <summary>
+    /// 保存先を運び終えて開き直す途中か（ユーザ判断 2026-09-23）。
+    /// 閉じるときの書き出し（窓の位置・メモ）は**古い保存先**へ行く。引越しなら消したはずのフォルダを作り直し、
+    /// 戻す・置き換えなら次の起動で読まれない場所に書くだけなので、閉じるときに何も書かない。
+    /// </summary>
+    public bool IsRelocatingStore { get; private set; }
+
+    public void BeginRelocationRestart() => IsRelocatingStore = true;
+
+    /// <summary>
     /// 待っている自動保存を今書く（ユーザ判断 2026-09-20・I10）。
     /// **押さずに残る欄は 0.8 秒待ってから書く**ので、打ち終えてすぐ閉じると、その待ちごと捨てられていた。
     /// 閉じる前と、画面を離れるときに呼ぶ。

@@ -1135,11 +1135,17 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
+            if (!await PrepareToRelocateAsync())
+            {
+                return;
+            }
+
             _services.ReleaseInstanceLock();
             var replaced = await MoveStoreAsync(source, picked, replace: true);
 
             if (!replaced.Succeeded)
             {
+                _services.ReacquireInstanceLock();
                 Services.Notice.Show(
                     $"置き換えられませんでした。\n\n{replaced.Error}\n\n"
                     + "保存先は元のままです。データは失われていません。"
@@ -1153,11 +1159,11 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             }
 
             StoreLocation.Save(picked);
-            PendingRoot = picked;
-            RootNotice = $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。"
-                + $"元々あったものは「{replaced.ParkedAt}」に残してあります（中身を確かめてから消してください）。"
-                + "再起動すると新しい場所を使います。";
-            RaiseRootChanged();
+            await RestartIntoNewRootAsync(
+                $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"
+                + $"元々あったものは「{replaced.ParkedAt}」に残してあります（中身を確かめてから消してください）。\n\n"
+                + "新しい場所で開き直します。",
+                "置き換えました");
             return;
         }
 
@@ -1191,6 +1197,11 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         if (move == Views.ChoiceDialogResult.First)
         {
+            if (!await PrepareToRelocateAsync())
+            {
+                return;
+            }
+
             // 実行中のロックを持ったままだと、元のフォルダを畳みきれない
             _services.ReleaseInstanceLock();
 
@@ -1198,6 +1209,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
             if (!result.Succeeded)
             {
+                _services.ReacquireInstanceLock();
                 Services.Notice.Show(
                     $"引越しできませんでした。\n\n{result.Error}\n\n"
                     + "保存先は元のままです。データは失われていません。",
@@ -1207,9 +1219,13 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
-            RootNotice = result.SourceRemoved
-                ? $"{result.Copied:N0} ファイルを「{picked}」へ移しました。再起動すると新しい場所を使います。"
-                : $"{result.Copied:N0} ファイルを「{picked}」へ移しました。元の場所に消せなかったファイルが残っています。";
+            StoreLocation.Save(picked);
+            await RestartIntoNewRootAsync(
+                $"{result.Copied:N0} ファイルを「{picked}」へ移しました。\n\n"
+                + (result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n")
+                + "新しい場所で開き直します。",
+                "引っ越しました");
+            return;
         }
         else
         {
@@ -1319,6 +1335,12 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     private async Task RestoreBackupAsync()
     {
+        // 戻し終えると開き直すので、選ばせる前に書きかけを片付けてもらう（ユーザ判断 2026-09-23）
+        if (!await PrepareToRelocateAsync())
+        {
+            return;
+        }
+
         var open = new Microsoft.Win32.OpenFileDialog
         {
             Title = "戻すバックアップを選ぶ",
@@ -1377,11 +1399,12 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
             var files = (result as Core.Commands.CommandResult.BackupRestored)?.Files ?? 0;
             StoreLocation.Save(destination);
-            PendingRoot = destination;
-            RootNotice = $"バックアップの {files:N0} ファイルを「{destination}」に戻しました。再起動するとその場所を使います。"
-                + $"今のデータは「{_services.Paths.Root}」に残っています。";
             Status = string.Empty;
-            RaiseRootChanged();
+            await RestartIntoNewRootAsync(
+                $"バックアップの {files:N0} ファイルを「{destination}」に戻しました。\n\n"
+                + $"今までのデータは「{_services.Paths.Root}」に残っています。\n\n"
+                + "戻した場所で開き直します。",
+                "バックアップから戻しました");
         }
         finally
         {
@@ -1423,6 +1446,66 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+        System.Windows.Application.Current.Shutdown();
+    }
+
+    /// <summary>
+    /// 保存先を運ぶ前の片付け。運び終えると開き直すので（ユーザ判断 2026-09-23）、
+    /// **保存していない編集の入力は開き直しで消える**——黙って捨てず、先に保存してもらう。
+    /// 0.8秒待ちの自動保存（メモ）は、門が開いた後に古い保存先へ書かれないよう、運ぶ前に書き出す。
+    /// </summary>
+    private async Task<bool> PrepareToRelocateAsync()
+    {
+        if (_main.Drafts.HasAny)
+        {
+            Services.Notice.Show(
+                $"編集途中の商品（{_main.Drafts.Count} 件）に、保存していない入力があります。\n\n"
+                + "運び終えるとアプリを開き直すので、このままだとその入力は消えてしまいます。"
+                + "編集画面で保存してから、もう一度選んでください。",
+                "先に編集を保存してください",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            return false;
+        }
+
+        await _main.FlushPendingWritesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// 運び終えたら、その場で新しい保存先で開き直す（ユーザ判断 2026-09-23）。
+    ///
+    /// 前は開き直しを任せていたので、それまでの保存は**古い保存先**へ行き、次の起動で新しい場所を読むと消えていた
+    /// （引越しなら、消したはずの元のフォルダを作り直してもいた）。
+    /// 書き込みの門を閉じたまま返さないのは、知らせを読んでいる間に裏の作業が古い場所へ書かないようにするため。
+    /// 待たされた書き込みはプロセスと一緒に終わる。
+    /// </summary>
+    private async Task RestartIntoNewRootAsync(string message, string title)
+    {
+        _ = await Core.Storage.StoreWriteGate.HoldAsync();
+        _main.BeginRelocationRestart();
+
+        Services.Notice.Show(
+            message,
+            title,
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+
+        var exe = Environment.ProcessPath;
+        if (exe is null)
+        {
+            // 開き直す手立てが無い。古い場所で続けさせると書いた物が消えるので、閉じて手で開いてもらう
+            Services.Notice.Show(
+                "自動で開き直せませんでした。アプリを閉じるので、もう一度開いてください。",
+                title,
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
+        else
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+        }
+
         System.Windows.Application.Current.Shutdown();
     }
 

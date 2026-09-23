@@ -93,6 +93,14 @@ public partial class App : Application
         // 閉じる直前に採る。Closed だと既に位置を失っている
         mainWindow.Closing += (_, e) =>
         {
+            // 保存先を運び終えて開き直すところ。書きかけと待っている保存は運ぶ前に片付けてあり、
+            // ここで書くと古い保存先へ行く（MainViewModel.IsRelocatingStore）
+            if (main.IsRelocatingStore)
+            {
+                main.StopBackgroundWork();
+                return;
+            }
+
             // 待っている自動保存（メモ）を今書く（I10：打ち終えてすぐ閉じると 0.8 秒の待ちごと捨てられていた）。
             // **書き終わるまで待つ。**投げっぱなしにすると、窓が閉じて主のスレッドが終わった時点で
             // 書いている途中の作業が切られ、結局その回の入力だけが消えていた（2026-09-20）

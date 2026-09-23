@@ -219,6 +219,15 @@ public sealed class AppServiceContainer : IDisposable
         _instanceLock = null;
     }
 
+    /// <summary>
+    /// 運ぶのに失敗して元の保存先のまま続けるときに、放した錠を取り直す。
+    /// 取り直さないと、失敗の後はずっと二重起動を許していた。
+    /// </summary>
+    public void ReacquireInstanceLock()
+    {
+        _instanceLock ??= SingleInstanceLock.TryAcquire(Paths);
+    }
+
     public CommandHandler Commands { get; }
 
     /// <summary>ロックを取れたか。取れていなければ既に別のインスタンスが起動している。</summary>
