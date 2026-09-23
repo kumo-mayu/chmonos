@@ -21,12 +21,6 @@ public sealed class TemporaryUnpacker
 
     private readonly string _root;
 
-    static TemporaryUnpacker()
-    {
-        // zip のエントリ名を CP932 で読むのに要る（UnityHandoff と同じ理由）
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-    }
-
     /// <param name="root">置き場所。試験では別の場所を渡す（本物の一時フォルダを消さないため）。</param>
     public TemporaryUnpacker(string? root = null)
     {
@@ -79,7 +73,7 @@ public sealed class TemporaryUnpacker
         Directory.CreateDirectory(destination);
         var destinationRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(destination)) + Path.DirectorySeparatorChar;
 
-        using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932)))
+        using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance))
         {
             foreach (var entry in archive.Entries)
             {
@@ -135,7 +129,7 @@ public sealed class TemporaryUnpacker
         }
 
         Directory.CreateDirectory(folder);
-        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance);
         var entry = archive.GetEntry(entryPath) ?? throw new FileNotFoundException("zip の中に見つかりません。", entryPath);
 
         cancellationToken.ThrowIfCancellationRequested();

@@ -39,13 +39,6 @@ public static class UnityPackageInspector
         ".txt", ".md", ".url", ".json", ".html", ".htm", ".xml", ".yaml", ".yml", ".asset",
     };
 
-    static UnityPackageInspector()
-    {
-        // ZIPエントリ名のCP932読み取りに必要。登録し忘れると Encoding.GetEncoding(932) が
-        // NotSupportedException を投げ、手掛かりが取れないまま静かに空を返すことになる。
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-    }
-
     public static UnityPackageHints Inspect(string zipPath)
     {
         var authors = new List<string>();
@@ -54,7 +47,7 @@ public static class UnityPackageInspector
 
         try
         {
-            using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, Encoding.GetEncoding(932));
+            using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, ZipNameEncoding.Instance);
 
             foreach (var entry in archive.Entries)
             {
