@@ -694,6 +694,15 @@ public sealed class ImportPipeline : IImportPipeline
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
             unreadable += result.Unreadable;
 
+            // 中身が手元に無いクラウドのファイルは、読むとダウンロードが始まるので飛ばした。
+            // 画面に出すかはユーザの判断待ち（点検 2026-09-23）。どこで何件かはログに残す
+            if (result.OnlineOnly > 0)
+            {
+                Diagnostics.AppLog.Warn(
+                    "取り込みの走査",
+                    $"{folder}：中身が手元に無いクラウドのファイル {result.OnlineOnly} 件は読みませんでした（開くとダウンロードが始まるため）");
+            }
+
             foreach (var file in result.Files)
             {
                 // 除外済みのパスはここで弾く。ハッシュ計算にすら進ませない。
