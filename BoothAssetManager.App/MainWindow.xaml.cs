@@ -284,8 +284,9 @@ public partial class MainWindow : Window
             return false;
         }
 
+        // スライダー（編集画面の属性）の左右は値を動かすキー。横取りすると、止まっても値が動かなかった（点検 2026-09-23）
         if (System.Windows.Input.Keyboard.FocusedElement
-            is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox)
+            is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox or System.Windows.Controls.Slider)
         {
             return false;
         }
@@ -344,6 +345,13 @@ public partial class MainWindow : Window
             var alt = (modifiers & System.Windows.Input.ModifierKeys.Alt) != 0;
             var appTakesArrow = (alt && !control) || (control && shift);
             if (inText && (typing || (Services.Shortcuts.IsTextEditingKey(key) && !appTakesArrow)))
+            {
+                return false;
+            }
+
+            // スライダーに止まっている間の素の矢印・Home・End・PageUp・PageDown は値を動かすキー（点検 2026-09-23）
+            if (focused is System.Windows.Controls.Slider && modifiers == System.Windows.Input.ModifierKeys.None
+                && Services.Shortcuts.IsTextEditingKey(key))
             {
                 return false;
             }

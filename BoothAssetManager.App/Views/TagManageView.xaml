@@ -77,7 +77,7 @@
                         -->
                         <controls:SuggestBox CommitCommand="{Binding AddTopCommand}" Margin="0,12,0,0"
                                              Source="{Binding AllTopNames}" MaxLength="60"
-                                             Placeholder="大分類を追加（例：衣装）" />
+                                             Placeholder="大分類を追加（例：衣装）" AutomationProperties.Name="大分類を追加" />
 
                         <!--
                             並べ方は並べる一覧のすぐ上に、つながったボタンで置く（ユーザ指示 2026-09-19：頭の右端では
@@ -296,10 +296,10 @@
                                     <DockPanel>
                                         <!-- 中の商品をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ形 -->
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <RadioButton Content="カード" GroupName="TagItemsView" Style="{StaticResource SegmentFirst}"
+                                            <controls:CommandRadioButton Content="カード" GroupName="TagItemsView" Style="{StaticResource SegmentFirst}"
                                                          IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
                                                          ToolTip="小分類を開いたとき、中の商品を絵の大きなカードで並べます" />
-                                            <RadioButton Content="リスト" GroupName="TagItemsView" Style="{StaticResource SegmentLast}"
+                                            <controls:CommandRadioButton Content="リスト" GroupName="TagItemsView" Style="{StaticResource SegmentLast}"
                                                          IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
                                                          ToolTip="名前が読める詰まった行で並べます" />
                                         </StackPanel>

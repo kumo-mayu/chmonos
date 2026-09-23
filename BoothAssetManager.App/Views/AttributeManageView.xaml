@@ -74,7 +74,7 @@
                         <!-- 候補には既にある属性を出す（I7。候補の元を結んでいない欄だった） -->
                         <controls:SuggestBox CommitCommand="{Binding AddCommand}" Margin="0,12,0,0"
                                              Source="{Binding AllNames}" MaxLength="60"
-                                             Placeholder="属性を追加（例：かっこいい）" />
+                                             Placeholder="属性を追加（例：かっこいい）" AutomationProperties.Name="属性を追加" />
 
                         <!-- 並べ方は一覧のすぐ上に、つながったボタンで（タグの管理と同じ。ユーザ指示 2026-09-19） -->
                         <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
@@ -275,10 +275,10 @@
                                 <!-- カードで見るかリストで見るか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ形 -->
                                 <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"
                                             IsEnabled="{Binding SelectedIsUsed}">
-                                    <RadioButton Content="カード" GroupName="AttributeItemsView" Style="{StaticResource SegmentFirst}"
+                                    <controls:CommandRadioButton Content="カード" GroupName="AttributeItemsView" Style="{StaticResource SegmentFirst}"
                                                  IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
                                                  ToolTip="絵の大きなカードで並べます" />
-                                    <RadioButton Content="リスト" GroupName="AttributeItemsView" Style="{StaticResource SegmentLast}"
+                                    <controls:CommandRadioButton Content="リスト" GroupName="AttributeItemsView" Style="{StaticResource SegmentLast}"
                                                  IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
                                                  ToolTip="名前が読める詰まった行で並べます" />
                                 </StackPanel>
