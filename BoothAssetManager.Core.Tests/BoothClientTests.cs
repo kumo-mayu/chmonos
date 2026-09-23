@@ -226,7 +226,9 @@ public class BoothClientTests
         var result = await client.GetItemJsonAsync("123");
 
         Assert.True(result.IsSuccess);
-        Assert.Contains(TimeSpan.FromSeconds(30), retries);
+
+        // 指示の分はゲートの中で待つ（C15）。指示を受けてから数えるので、伝える残りは30秒をわずかに切る
+        Assert.Contains(retries, wait => wait > TimeSpan.FromSeconds(29) && wait <= TimeSpan.FromSeconds(30));
     }
 
     /// <summary>Retry-Afterが短くても、こちらの再試行間隔より前倒しはしない。</summary>
@@ -264,9 +266,12 @@ public class BoothClientTests
         Assert.DoesNotContain(TimeSpan.FromMinutes(30), waits);
     }
 
-    /// <summary>503もRetry-Afterを付けてくることがあるので従う。ただし減速はしない（こちらの責任ではない）。</summary>
+    /// <summary>
+    /// 503もRetry-Afterを付けてくることがあるので従い、**以降の間隔も広げる**。
+    /// 待てと言われた直後に元の間隔で叩き直さない（前は 503 では広げていなかった）。
+    /// </summary>
     [Fact]
-    public async Task HonorsRetryAfterOnServerErrorWithoutSlowingDown()
+    public async Task HonorsRetryAfterOnServerErrorAndSlowsDown()
     {
         var waits = new List<TimeSpan>();
         var unavailable = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
@@ -277,8 +282,8 @@ public class BoothClientTests
         var result = await client.GetItemJsonAsync("123");
 
         Assert.True(result.IsSuccess);
-        Assert.Contains(TimeSpan.FromSeconds(20), retries);
-        Assert.False(client.IsThrottled);
+        Assert.Contains(retries, wait => wait > TimeSpan.FromSeconds(19) && wait <= TimeSpan.FromSeconds(20));
+        Assert.True(client.IsThrottled);
     }
 
     /// <summary>
@@ -333,6 +338,135 @@ public class BoothClientTests
 
         Assert.Equal(AppSettings.MinFetchIntervalMs, client.CurrentIntervalMs);
         Assert.False(client.IsThrottled);
+    }
+
+    /// <summary>送った後に中断されると、中の通信は投げて抜ける。そのときも最後の問い合わせの時刻を残す。</summary>
+    private sealed class CancelingHandler(CancellationTokenSource source) : HttpMessageHandler
+    {
+        private int _count;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            if (++_count > 1)
+            {
+                return Task.FromResult(Ok("ok"));
+            }
+
+            source.Cancel();
+            throw new OperationCanceledException(source.Token);
+        }
+    }
+
+    /// <summary>1本目は想定外の例外で落ち、2本目からは成功を返す。</summary>
+    private sealed class FailsOnceUnexpectedlyHandler : HttpMessageHandler
+    {
+        private int _count;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+            => ++_count == 1
+                ? throw new InvalidOperationException("想定外")
+                : Task.FromResult(Ok("ok"));
+    }
+
+    private static TimeSpan Sum(IEnumerable<TimeSpan> waits)
+        => waits.Aggregate(TimeSpan.Zero, (sum, wait) => sum + wait);
+
+    /// <summary>
+    /// **送った後に中断されても、次の1本は 1.5 秒を空ける**（絶対に破らない決め事1）。
+    /// 前は中断で抜けると最後の問い合わせの時刻が古いまま残り、次が間を空けずに出得た。
+    /// </summary>
+    [Fact]
+    public async Task 送った後に中断されても次の1本は間隔を空ける()
+    {
+        var waits = new List<TimeSpan>();
+        using var source = new CancellationTokenSource();
+        var client = new BoothClient(
+            new HttpClient(new CancelingHandler(source)),
+            new AppSettings { FetchIntervalMs = 1500 },
+            (duration, _) =>
+            {
+                waits.Add(duration);
+                return Task.CompletedTask;
+            });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GetItemJsonAsync("1", source.Token));
+        Assert.Empty(waits);
+
+        var result = await client.GetItemJsonAsync("2");
+
+        Assert.True(result.IsSuccess);
+        Assert.True(Sum(waits) > TimeSpan.FromMilliseconds(1400), $"待った長さ：{Sum(waits)}");
+    }
+
+    /// <summary>想定外の例外で抜けても同じ。どの道で抜けても、送ったなら時刻を残す。</summary>
+    [Fact]
+    public async Task 送った後に想定外の例外で抜けても次の1本は間隔を空ける()
+    {
+        var waits = new List<TimeSpan>();
+        var client = new BoothClient(
+            new HttpClient(new FailsOnceUnexpectedlyHandler()),
+            new AppSettings { FetchIntervalMs = 1500 },
+            (duration, _) =>
+            {
+                waits.Add(duration);
+                return Task.CompletedTask;
+            });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetItemJsonAsync("1"));
+
+        var result = await client.GetItemJsonAsync("2");
+
+        Assert.True(result.IsSuccess);
+        Assert.True(Sum(waits) > TimeSpan.FromMilliseconds(1400), $"待った長さ：{Sum(waits)}");
+    }
+
+    /// <summary>
+    /// **BOOTH に待てと言われたら、他の商品も取りに行かずに待つ**（ユーザ判断 C15）。
+    /// 指示が上限（60秒）より長いとその1本は諦めるが、次の問い合わせは上限の分だけ待ってから出る。
+    /// 前は指示の待ちがゲートの外にあり、その間に他の問い合わせが進んでいた。
+    /// </summary>
+    [Fact]
+    public async Task 待てと言われたら次の問い合わせもゲートの中で待つ()
+    {
+        var waits = new List<TimeSpan>();
+        var client = CreateThrottleClient(
+            new QueuedHandler(TooManyRequests(TimeSpan.FromMinutes(30)), Ok("ok")),
+            waits);
+
+        var first = await client.GetItemJsonAsync("1");
+        Assert.True(first.IsRateLimited);
+        Assert.Empty(waits);
+
+        var second = await client.GetItemJsonAsync("2");
+
+        Assert.True(second.IsSuccess);
+        Assert.True(Sum(waits) > TimeSpan.FromSeconds(59), $"待った長さ：{Sum(waits)}");
+    }
+
+    /// <summary>待っている間も中断は効く（閉じるときに待ち続けない）。</summary>
+    [Fact]
+    public async Task 待てと言われて待っている間も中断は効く()
+    {
+        using var source = new CancellationTokenSource();
+        var handler = new QueuedHandler(TooManyRequests(TimeSpan.FromMinutes(30)), Ok("ok"));
+        var client = new BoothClient(
+            new HttpClient(handler),
+            new AppSettings { FetchIntervalMs = 1500 },
+            (_, token) =>
+            {
+                source.Cancel();
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            });
+
+        await client.GetItemJsonAsync("1");
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GetItemJsonAsync("2", source.Token));
+        Assert.Equal(1, handler.RequestCount);
     }
 
     /// <summary>ふつうの5xxでは減速しない。BOOTH側の不調にこちらが付き合う理由はない。</summary>
