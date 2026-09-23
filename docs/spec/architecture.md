@@ -77,7 +77,7 @@
 
 ## 試験とビルド
 
-- `dotnet build`・`dotnet test BoothAssetManager.Core.Tests`（1,200件超）。**通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。
+- `dotnet build`・`dotnet test BoothAssetManager.Core.Tests`（1,400件超）。**通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。
 - 画面から出す知らせ・確認の窓は `Services/Notice` を通す（`MessageBox.Show` を直に呼ばない）。出す形は変えていないが、文言と押されたボタンを1か所で拾える。
 - 確かめ用の足跡（`Core/Services/UiTrace`）：**環境変数 `CHMONOS_UITRACE` があるときだけ**、知らせ・選ぶ窓・`UiCommand`・Unity の取り込みを1行ずつファイルに書く。
   無ければ何もしない（本番の動きは変えない）。画面の確かめで、文言を撮って読む代わりに使う（`ui-check` スキル）。

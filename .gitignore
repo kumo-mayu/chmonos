@@ -14,6 +14,10 @@ _くうた_Shounen_少年_blendshape_iixiona.png
 # Downloaded test files (purchased assets and their PDFs) - local verification only
 DLforTest/
 
+# A mock of a friend's folder layout (third-party product names). It used to be ignored only
+# in .git/info/exclude, which does not travel with a clone
+/VRChat_Avatar/
+
 # Research/scratch work.
 #
 # The write-ups and the probe sources are kept - they are our own analysis and code.
