@@ -325,7 +325,7 @@ public sealed class ImagePipeline
 
         if (result.Status == BoothFetchStatus.NotFound)
         {
-            MarkMissing(directory, originalUrl);
+            await MarkMissingAsync(directory, originalUrl, cancellationToken);
             return (false, false);
         }
 
@@ -352,26 +352,32 @@ public sealed class ImagePipeline
     /// 記録を <c>local</c> に持たないのは、実態（ディスク）とフラグがずれたときに
     /// どちらが正しいか分からなくなるため。印もファイルなら、実態の側にある。
     /// </summary>
-    private static void MarkMissing(string directory, string originalUrl)
-    {
-        try
-        {
-            File.WriteAllBytes(Path.Combine(directory, MissingMarkerFor(originalUrl)), []);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // 印を置けなくても取得は成立している。次回もう一度取りに行くだけ
-        }
-    }
+    private static Task MarkMissingAsync(string directory, string originalUrl, CancellationToken cancellationToken)
+        // 印を置けなくても取得は成立している。次回もう一度取りに行くだけ
+        => TouchStoreAsync(() => File.WriteAllBytes(Path.Combine(directory, MissingMarkerFor(originalUrl)), []), cancellationToken);
 
     /// <summary>404 ではない失敗の印を置き直す（日時はファイルの更新日時。G6）。</summary>
-    private static void MarkRetryLater(string directory, string originalUrl)
+    private static Task MarkRetryLaterAsync(string directory, string originalUrl, CancellationToken cancellationToken)
+        => TouchStoreAsync(
+            () =>
+            {
+                var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
+                File.WriteAllBytes(path, []);
+                File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// 印を置く・消す・自分で足した画像を消す。**これも保存先への書き込みなので、運ぶ門を通す**（StoreWriteGate）。
+    /// 通さずにいた頃は、運んでいる最中に置いた印が、元を消すときに一緒に消えるか、運ばれずに元の場所に残った。
+    /// 失敗しても投げない（どれも無くて困る物ではなく、次の取得で置き直すか、次の掃除で消える）。
+    /// </summary>
+    private static async Task TouchStoreAsync(Action touch, CancellationToken cancellationToken)
     {
+        using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
         try
         {
-            var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
-            File.WriteAllBytes(path, []);
-            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+            touch();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -393,19 +399,14 @@ public sealed class ImagePipeline
         }
     }
 
-    private static void ClearRetryMarker(string directory, string originalUrl)
+    private static Task ClearRetryMarkerAsync(string directory, string originalUrl, CancellationToken cancellationToken)
     {
-        try
-        {
-            var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
+        var path = Path.Combine(directory, RetryMarkerFor(originalUrl));
+
+        // 無ければ門を待たない（取れた画像ごとに通る道なので、空振りを軽くする）
+        return File.Exists(path)
+            ? TouchStoreAsync(() => File.Delete(path), cancellationToken)
+            : Task.CompletedTask;
     }
 
     /// <summary>
@@ -416,7 +417,7 @@ public sealed class ImagePipeline
     /// 日数で外す仕組みを別に持たなくてよいのは、これが成り立つため。
     /// </summary>
     /// <returns>消した印の数。</returns>
-    public int ClearMissingMarkers(string itemId)
+    public async Task<int> ClearMissingMarkersAsync(string itemId, CancellationToken cancellationToken = default)
     {
         var directory = _paths.ItemImagesDir(itemId);
         if (!Directory.Exists(directory))
@@ -425,18 +426,22 @@ public sealed class ImagePipeline
         }
 
         var cleared = 0;
-
-        foreach (var marker in Directory.EnumerateFiles(directory, "*.missing"))
-        {
-            try
+        await TouchStoreAsync(
+            () =>
             {
-                File.Delete(marker);
-                cleared++;
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-            }
-        }
+                foreach (var marker in Directory.EnumerateFiles(directory, "*.missing"))
+                {
+                    try
+                    {
+                        File.Delete(marker);
+                        cleared++;
+                    }
+                    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                    {
+                    }
+                }
+            },
+            cancellationToken);
 
         return cleared;
     }
@@ -534,7 +539,7 @@ public sealed class ImagePipeline
 
                 if (result.Status == BoothFetchStatus.NotFound)
                 {
-                    MarkMissing(directory, image.OriginalUrl);
+                    await MarkMissingAsync(directory, image.OriginalUrl, cancellationToken);
                     missing++;
                     continue;
                 }
@@ -543,7 +548,7 @@ public sealed class ImagePipeline
                 {
                     // 404ではないので「もう無い」とは言えない。日時つきの印を置いてしばらく休む（G6）。
                     // 印が無かったので、403・接続失敗・読めない画像を起動のたびに取り直していた
-                    MarkRetryLater(directory, image.OriginalUrl);
+                    await MarkRetryLaterAsync(directory, image.OriginalUrl, cancellationToken);
                     failed++;
                     continue;
                 }
@@ -554,12 +559,12 @@ public sealed class ImagePipeline
                     downloaded++;
 
                     // 取れたので、前に置いた「しばらく休む」の印は用済み
-                    ClearRetryMarker(directory, image.OriginalUrl);
+                    await ClearRetryMarkerAsync(directory, image.OriginalUrl, cancellationToken);
                 }
                 catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
                 {
                     // 落とせたが画像として読めなかった。受信までやり直しても同じなので、ここも休む（G6）
-                    MarkRetryLater(directory, image.OriginalUrl);
+                    await MarkRetryLaterAsync(directory, image.OriginalUrl, cancellationToken);
                     failed++;
                 }
             }
@@ -567,7 +572,14 @@ public sealed class ImagePipeline
         finally
         {
             // 中断したときも片付ける（立てたままの印が「取れなかった画像」として残り続けないように）
-            RemoveStaleMarkers(directory, liveMarkers);
+            // 中断したときに門が閉じていれば、ここで待たずに次へ回す（片付けは次に同じ商品を取るときに走る）
+            try
+            {
+                await TouchStoreAsync(() => RemoveStaleMarkers(directory, liveMarkers), cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
         }
 
         // 1枚ごとではなく最後に1回。画面は商品単位で組み直すので、枚数分知らせても同じ
@@ -704,35 +716,28 @@ public sealed class ImagePipeline
     /// ユーザが足した画像を消す。**ファイルごと消える。**
     /// BOOTHから取り直しても戻らないので、呼ぶ側で確かめてから呼ぶ。
     /// </summary>
-    public void DeleteUserImage(string itemId, string fileName)
-        => DeleteUserImageFrom(_paths.ItemImagesDir(itemId), fileName);
+    public Task DeleteUserImageAsync(string itemId, string fileName, CancellationToken cancellationToken = default)
+        => DeleteUserImageFromAsync(_paths.ItemImagesDir(itemId), fileName, cancellationToken);
 
     /// <summary>改変に貼った画像を消す。**ファイルごと消える。**</summary>
-    public void DeleteModificationImage(string modificationId, string fileName)
-        => DeleteUserImageFrom(_paths.ModificationImagesDir(modificationId), fileName);
+    public Task DeleteModificationImageAsync(string modificationId, string fileName, CancellationToken cancellationToken = default)
+        => DeleteUserImageFromAsync(_paths.ModificationImagesDir(modificationId), fileName, cancellationToken);
 
-    private void DeleteUserImageFrom(string directory, string fileName)
+    private static Task DeleteUserImageFromAsync(string directory, string fileName, CancellationToken cancellationToken)
     {
         if (!UserImageName.IsUserAdded(fileName))
         {
             // BOOTHから取った画像はここでは消さない。取り直せば戻るものなので、
             // 「消した」という記録が残らないと次の取得で復活して混乱する
-            return;
+            return Task.CompletedTask;
         }
 
         var path = Path.Combine(directory, Path.GetFileName(fileName));
 
-        try
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // 消せなくても記録からは外す。次の掃除で消える
-        }
+        // 消せなくても記録からは外す。次の掃除で消える
+        return File.Exists(path)
+            ? TouchStoreAsync(() => File.Delete(path), cancellationToken)
+            : Task.CompletedTask;
     }
 
     private async Task SaveAsWebpAsync(

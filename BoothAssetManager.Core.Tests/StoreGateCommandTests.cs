@@ -172,6 +172,45 @@ public sealed class StoreGateCommandTests : IDisposable
         Assert.False(store.ImportState.Load().HasProgress);
     }
 
+    /// <summary>
+    /// 画像の「404だった」印も、運んでいる間は置くのを待つ。
+    /// 通さずにいた頃は、運んでいる最中に置いた印が、元を消すときに一緒に消えるか、運ばれずに元の場所に残った。
+    /// </summary>
+    [Fact]
+    public async Task 画像の印も運んでいる間は置かない()
+    {
+        var settings = new AppSettings { FetchIntervalMs = 0 };
+        var client = new Booth.BoothClient(new HttpClient(new NotFoundHandler()), settings, (_, _) => Task.CompletedTask);
+        var images = new Images.ImagePipeline(client, new AppPaths(Root), settings);
+        var directory = Path.Combine(Root, "images", "_marker");
+        const string url = "https://booth.pximg.net/a.png";
+        var marker = Path.Combine(directory, Images.ImagePipeline.MissingMarkerFor(url));
+
+        var hold = await StoreWriteGate.HoldAsync();
+        Task<bool> syncing;
+        try
+        {
+            syncing = images.SyncOneToAsync(directory, url);
+            await Task.Delay(100);
+            Assert.False(syncing.IsCompleted);
+            Assert.False(File.Exists(marker));
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+
+        Assert.False(await syncing.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.True(File.Exists(marker));
+    }
+
+    /// <summary>何を聞かれても 404 を返す（通信はしない）。</summary>
+    private sealed class NotFoundHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+    }
+
     private sealed class NoVolumes : IVolumeReader
     {
         public IReadOnlyList<MountedVolume> Mounted() => [];

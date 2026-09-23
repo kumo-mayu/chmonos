@@ -255,7 +255,7 @@ public sealed class ItemService : IItemService
         // **ここが印を外す唯一のきっかけ。**取り直した瞬間に新しい画像URLの一覧が
         // 手に入るので、日数で外す仕組みを別に持たなくてよい。
         // 作者がたまたま商品ページを非公開にしていただけ、という場合はこれで復活する。
-        _images.ClearMissingMarkers(itemId);
+        await _images.ClearMissingMarkersAsync(itemId, cancellationToken);
 
         await NoteBackOnBoothAsync(existing, booth, cancellationToken);
         await NoteVariationLinksAsync(existing, booth, cancellationToken);
@@ -1354,7 +1354,7 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        _images.DeleteUserImage(itemId, fileName);
+        await _images.DeleteUserImageAsync(itemId, fileName, cancellationToken);
 
         await _store.Items.ChangeLocalAsync(
             itemId,
