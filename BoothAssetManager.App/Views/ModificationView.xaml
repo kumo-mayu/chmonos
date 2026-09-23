@@ -579,7 +579,7 @@
                                             Margin="6,0,0,0" Command="{Binding OpenProjectFolderCommand}" />
                                     <Button Content="紐付けを外す" Style="{StaticResource SmallButton}"
                                             Margin="6,0,0,0" Command="{Binding UnlinkProjectCommand}"
-                                            ToolTip="改変の記録は残ります。付け直せます。" />
+                                            ToolTip="改変の記録は残ります。外す前に、今の紐付け先と付け直し方を出して確かめます。" />
                                 </WrapPanel>
                             </StackPanel>
 
