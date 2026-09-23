@@ -1230,7 +1230,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             // 検出は途中まで進んでいることがあり、もう一度押せば続きから走る
             Core.Diagnostics.AppLog.Error("アバターの画面：対応アバターの検出", exception);
-            Status = $"検出の途中で止まりました：{exception.Message}　もう一度押すと続きから試します。";
+            Status = $"検出の途中で止まりました。{Core.Services.FailureText.Cause(exception)}　もう一度押すと続きから試します。";
         }
         finally
         {

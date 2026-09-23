@@ -145,7 +145,8 @@ public partial class FirstRunWindow : Window
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Services.Notice.Show(
-                $"設定を書けませんでした。\n\n{exception.Message}\n\n"
+                // ログはまだ書き先が決まっていない（保存先を決める窓なので）。見当と次の一手だけ出す
+                $"「{_root}」に設定を書けませんでした。\n\n{Core.Services.FailureText.Cause(exception)}\n\n"
                 + "書き込める場所を選び直してください。",
                 "保存先に書けません",
                 MessageBoxButton.OK,

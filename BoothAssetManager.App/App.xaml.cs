@@ -26,7 +26,11 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             Core.Diagnostics.AppLog.Error("画面の処理", args.Exception);
-            Services.Notice.Show($"予期しないエラーが発生しました。\n\n{args.Exception.Message}",
+            // 例外の文（英語や内部の型の名前）は見せず、見当と次の一手だけ出す。詳しくはログ（E5）
+            Services.Notice.Show(
+                "予期しないエラーが起きました。今の操作は途中で止まっているかもしれません。\n\n"
+                + Core.Services.FailureText.Cause(args.Exception) + "\n\n"
+                + "同じ操作で繰り返すときは、アプリを開き直してください。詳しい記録は保存先の logs\\app.log に残しました。",
                 "Chmonos", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };

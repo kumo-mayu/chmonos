@@ -892,7 +892,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             // 原因はこちらでは分からないので、断定も指示もしない。
             // 見当だけ添えて、判断はユーザに残す
             Core.Diagnostics.AppLog.Error("設定画面：設定の保存", exception);
-            Status = $"保存できませんでした：{exception.Message}（保存先が読み取り専用になっていることがあります）";
+            Status = $"保存できませんでした。{Core.Services.FailureText.Cause(exception)}　もう一度変えると保存し直します。";
         }
     }
 

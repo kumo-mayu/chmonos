@@ -480,7 +480,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             // 均せなくても一覧は出す。黙って空にする方がずっと悪い
             Core.Diagnostics.AppLog.Error("未確定の画面：突き合わせ", exception);
-            failure = $"未確定の突き合わせに失敗しました: {exception.Message}";
+            failure = "未確定の突き合わせに失敗しました（確定済みの物が一覧に残っていることがあります）。"
+                + Core.Services.FailureText.Cause(exception) + "　画面を開き直すともう一度試します。";
         }
 
         // 読み込みはUIスレッド以外で終わることがあるので、必ず戻してから触る

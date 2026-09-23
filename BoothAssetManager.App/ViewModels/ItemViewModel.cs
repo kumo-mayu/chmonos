@@ -255,9 +255,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             // 何も起きなかったように見えていた（ログには Forget() が残す）。
             // 落ちた事実はログにも残す——画面の1行は消えるが、後から追えるようにしておく
             Core.Diagnostics.AppLog.Error("商品情報の取り直し", exception);
-            RunOnUiThread(() => RefreshStatus = exception is IOException or System.Net.Http.HttpRequestException
-                ? "取得できませんでした。時間をおいて試してください。"
-                : $"取り直せませんでした（{exception.Message}）。");
+            // 例外の文はそのまま出さない（英語や内部のパスが混ざる）。見当と次の一手だけ（E5）
+            RunOnUiThread(() => RefreshStatus = $"取り直せませんでした。{Core.Services.FailureText.Cause(exception)}");
         }
         finally
         {

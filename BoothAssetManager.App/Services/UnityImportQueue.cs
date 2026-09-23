@@ -289,7 +289,9 @@ public static class UnityImportQueue
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
             {
-                outcomes.Add(new UnityQueueOutcome(package, false, $"zip から取り出せませんでした（{exception.Message}）"));
+                Core.Diagnostics.AppLog.Error("Unityへ送る：zip から取り出す", exception);
+                outcomes.Add(new UnityQueueOutcome(package, false,
+                    $"zip から取り出せませんでした。{Core.Services.FailureText.Cause(exception)}"));
                 continue;
             }
 
