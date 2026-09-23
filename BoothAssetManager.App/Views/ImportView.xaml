@@ -25,7 +25,7 @@
         </Border>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="24,20" MaxWidth="900" HorizontalAlignment="Left">
+            <StackPanel Margin="24,20" MaxWidth="{StaticResource ReadingMaxWidth}">
 
                 <!-- 取り込み元 -->
                 <Border BorderBrush="#b9c6dc" BorderThickness="2" CornerRadius="10" Background="#f7faff" Padding="24,22">

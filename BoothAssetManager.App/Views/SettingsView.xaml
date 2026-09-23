@@ -61,7 +61,7 @@
         </Border>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
-            <StackPanel MaxWidth="920" HorizontalAlignment="Left">
+            <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
 
                 <!--
                     並びは「効く場所ごと」（ユーザ判断 2026-09-16）。前は「表示」に一覧・商品ページ・編集が混ざり、

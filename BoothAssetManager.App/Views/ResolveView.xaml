@@ -400,7 +400,7 @@
             <!-- 右：手掛かりと決定 -->
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20"
                           Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+                <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
 
                     <!-- 組み込んだとき（上の帯が無い）だけ、外した直後に戻すボタンと出していない件数をここに出す -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12"

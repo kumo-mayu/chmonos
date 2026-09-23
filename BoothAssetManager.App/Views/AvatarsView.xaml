@@ -451,7 +451,8 @@
 
                 <!-- 右：選んだアバターの詳細と、共通素体の管理 -->
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
-                    <StackPanel>
+                    <!-- 文章と入力が主なので最大幅で止め、中央に寄せる（ユーザ判断 2026-09-23。広い窓で枠だけ横に伸び、中身は左に寄っていた） -->
+                    <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
 
                         <Border Style="{StaticResource Card}" Padding="22,18"
                                 Visibility="{Binding ShowsAvatarDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

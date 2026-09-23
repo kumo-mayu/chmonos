@@ -422,7 +422,7 @@
         <!-- 右側：Unityプロジェクト -->
         <DataTemplate DataType="{x:Type vm:HubProjectDetail}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="28,22" MaxWidth="860" HorizontalAlignment="Left">
+                <StackPanel Margin="28,22" MaxWidth="{StaticResource ReadingMaxWidth}">
                     <TextBlock Text="Unityプロジェクト" Style="{StaticResource SectionLabel}" />
                     <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" Margin="0,4,0,0" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
@@ -515,7 +515,7 @@
         <!-- 右側：アバター（改変に関係する所だけ） -->
         <DataTemplate DataType="{x:Type vm:HubAvatarDetail}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="28,22" MaxWidth="860" HorizontalAlignment="Left">
+                <StackPanel Margin="28,22" MaxWidth="{StaticResource ReadingMaxWidth}">
                     <TextBlock Text="アバター" Style="{StaticResource SectionLabel}" />
                     <DockPanel Margin="0,8,0,0">
                         <Border DockPanel.Dock="Left" Width="72" Height="72" CornerRadius="36" Margin="0,0,16,0"
@@ -620,7 +620,7 @@
             </DockPanel>
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding HasPage, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                <StackPanel Margin="28,22" MaxWidth="860" HorizontalAlignment="Left">
+                <StackPanel Margin="28,22" MaxWidth="{StaticResource ReadingMaxWidth}">
                     <TextBlock Text="使ったもの" Style="{StaticResource SectionLabel}" />
                     <DockPanel Margin="0,8,0,0">
                         <Border DockPanel.Dock="Left" Width="180" Height="180" CornerRadius="6" Margin="0,0,18,0"
