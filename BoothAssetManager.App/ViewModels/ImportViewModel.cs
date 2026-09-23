@@ -1431,10 +1431,24 @@ public sealed class ImportViewModel : ViewModelBase
     /// **1件ずつは言わない。**走査の途中で何千件も出うるので、数と、次にやること（場所を確かめる）だけを出す。
     /// 0 のときは何も出さない（普段0の数字を常設で並べない。「BOOTHに無かったもの」と同じ扱い）。
     /// </summary>
-    public string UnreadableText => Summary is { FilesUnreadable: > 0 } summary
-        ? $"読めなかったファイルが {summary.FilesUnreadable} 件あります（取り込めていません）。"
-            + "別のアプリが開いている、ネットワーク越しでつながっていない、権限が無い、のいずれかです。"
-            + "閉じてから、もう一度取り込んでください。"
+    /// <remarks>
+    /// OneDrive の「オンラインのみ」で読まなかったファイルもここに並べる（ユーザ判断 2026-09-23）。
+    /// 読むとダウンロードが始まるので勝手には読まないが、黙って飛ばすと取り込んだつもりの物が入っていない。
+    /// 直し方が「閉じる」ではなく「手元に置く」なので、文は分けて次の手を書く。
+    /// どちらも手元のファイルが読めなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
+    /// </remarks>
+    public string UnreadableText => Summary is { } summary
+        ? string.Join(
+            string.Empty,
+            summary.FilesUnreadable > 0
+                ? $"読めなかったファイルが {summary.FilesUnreadable} 件あります（取り込めていません）。"
+                    + "別のアプリが開いている、ネットワーク越しでつながっていない、権限が無い、のいずれかです。"
+                    + "閉じてから、もう一度取り込んでください。"
+                : string.Empty,
+            summary.FilesOnlineOnly > 0
+                ? $"{summary.FilesOnlineOnly} 件は OneDrive の「オンラインのみ」なので読めませんでした。"
+                    + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
+                : string.Empty)
         : string.Empty;
 
     public bool HasUnreadable => UnreadableText.Length > 0;

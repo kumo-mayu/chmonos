@@ -152,4 +152,40 @@ public class ImportWriteBackTests : IDisposable
         Assert.Equal(1, summary.FilesUnreadable);
         Assert.Null(await _store.Items.LoadAsync(ItemId));
     }
+
+    /// <summary>
+    /// OneDrive の「オンラインのみ」のファイルは読まずに飛ばすが（読むとダウンロードが始まる）、
+    /// 黙って飛ばすと取り込んだつもりの物が入っていないことに気付けない。数を結果に出す（ユーザ判断 2026-09-23）。
+    /// 読めなかった物とは直し方が違うので、そちらには数えない。
+    /// </summary>
+    [Fact]
+    public async Task CountsOnlineOnlyCloudFilesWithoutReadingThem()
+    {
+        var source = CreateSource();
+        var path = Path.Combine(source, $"item_{ItemId}.zip");
+
+        // 手元で作れるオンラインのみの印は Offline だけ（RecallOn… はクラウドの同期エンジンしか付けられない）
+        File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.Offline);
+        try
+        {
+            var summary = await _pipeline.RunAsync(new ImportWorkSet([source]));
+
+            Assert.Equal(1, summary.FilesOnlineOnly);
+            Assert.Equal(0, summary.FilesUnreadable);
+            Assert.Equal(0, summary.FilesHashed);
+            Assert.Null(await _store.Items.LoadAsync(ItemId));
+        }
+        finally
+        {
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public async Task DoesNotCountOnlineOnlyWhenEverythingIsOnThisDevice()
+    {
+        var summary = await _pipeline.RunAsync(new ImportWorkSet([CreateSource()]));
+
+        Assert.Equal(0, summary.FilesOnlineOnly);
+    }
 }
