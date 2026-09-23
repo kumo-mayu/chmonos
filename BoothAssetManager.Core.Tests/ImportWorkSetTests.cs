@@ -101,6 +101,28 @@ public class ImportWorkSetTests
         Assert.False(work.Remove(Path("D:", "a")));
     }
 
+    /// <summary>ドライブの根を積んでいれば、その下は積まない（前は根の末尾の区切りのせいで両方を走査していた）。</summary>
+    [Fact]
+    public void TreatsFoldersUnderADriveRootAsInside()
+    {
+        var work = new ImportWorkSet([@"E:\"]);
+
+        Assert.Equal(0, work.Add([@"E:\Booth"]));
+        Assert.Equal([@"E:\"], work.TakePending());
+    }
+
+    /// <summary>区切りの向き・末尾の区切り・「..」が違うだけの同じ場所は1つ。</summary>
+    [Theory]
+    [InlineData(@"D:/x")]
+    [InlineData(@"D:\x\")]
+    [InlineData(@"D:\y\..\x")]
+    public void SeesTheSamePlaceWrittenDifferentlyAsOne(string other)
+    {
+        var work = new ImportWorkSet([@"D:\x"]);
+
+        Assert.Equal(0, work.Add([other]));
+    }
+
     /// <summary>取り下げたフォルダは、後からもう一度積める。</summary>
     [Fact]
     public void AllowsAWithdrawnFolderToBeAddedAgain()

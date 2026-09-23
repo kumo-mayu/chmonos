@@ -246,11 +246,38 @@ public sealed class ImportWorkSet
         }
     }
 
+    /// <summary>
+    /// 同じ場所を同じ文字列にする。区切り（<c>D:/x</c> と <c>D:\x</c>）・<c>..</c>・末尾の区切りの違いで
+    /// 別物に見えると、同じフォルダを二度走査する（点検 2026-09-23）。
+    /// </summary>
     private static string Normalize(string path)
-        => Path.TrimEndingDirectorySeparator(path.Trim());
+    {
+        var trimmed = path.Trim();
+        if (trimmed.Length == 0)
+        {
+            return trimmed;
+        }
 
-    /// <summary><paramref name="path"/> が <paramref name="root"/> の中にあるか。</summary>
+        try
+        {
+            trimmed = Path.GetFullPath(trimmed);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // 形の読めないパスは手を付けずに受ける（走査が見つからないとして飛ばす）
+        }
+
+        return Path.TrimEndingDirectorySeparator(trimmed);
+    }
+
+    /// <summary>
+    /// <paramref name="path"/> が <paramref name="root"/> の中にあるか。
+    /// ドライブの根（<c>E:\</c>）は末尾の区切りが残るので、区切りを足すと <c>E:\\</c> になって何にも当たらず、
+    /// <c>E:\</c> と <c>E:\Booth</c> を両方走査していた。
+    /// </summary>
     private static bool IsUnder(string path, string root)
-        => path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    {
+        var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+        return path.Length > prefix.Length && path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
 }
