@@ -104,37 +104,52 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
                 continue;
             }
 
-            var changed = false;
-            var files = item.Local.LocalFiles
-                .Select(file =>
+            // 要約は読み取りの控え（ディスク）から先に組んでおき、錠の中では当てるだけにする
+            var summaries = new Dictionary<string, List<UnityPackageSummary>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in item.Local.LocalFiles)
+            {
+                if (file.UnityPackages is null && HasPackages(file) && pathStore.Load(file.Hash) is { } packages)
                 {
-                    if (file.UnityPackages is not null || !HasPackages(file) || pathStore.Load(file.Hash) is not { } packages)
-                    {
-                        return file;
-                    }
+                    summaries[file.Hash] = packages
+                        .Select(pair => new UnityPackageSummary
+                        {
+                            Entry = pair.Key,
+                            Roots = UnityHandoff.DestinationRoots(pair.Value),
+                        })
+                        .ToList();
+                }
+            }
 
-                    changed = true;
-                    return file with
-                    {
-                        UnityPackages = packages
-                            .Select(pair => new UnityPackageSummary
-                            {
-                                Entry = pair.Key,
-                                Roots = UnityHandoff.DestinationRoots(pair.Value),
-                            })
-                            .ToList(),
-                    };
-                })
-                .ToList();
-
-            if (!changed)
+            if (summaries.Count == 0)
             {
                 continue;
             }
 
-            // 手元のファイルの欄だけを書く。書く直前に読み直すので、ほかの欄は今の値が残る
-            if (await store.Items.SaveLocalAsync(
-                    itemId, item.Local with { LocalFiles = files }, [LocalField.LocalFiles], cancellationToken: cancellationToken))
+            // 手元のファイルの一覧は書く直前の今の値に当てる。
+            // 全件を順に読んで控えを開く間に、取り込みや「この商品から外す」が同じ商品の一覧を書き換えることがあり、
+            // 読んだ写しの一覧で書くと、その間に足されたファイルや外した印が消えていた
+            if (await store.Items.ChangeLocalAsync(
+                    itemId,
+                    current =>
+                    {
+                        var changed = false;
+                        var files = current.LocalFiles
+                            .Select(file =>
+                            {
+                                if (file.UnityPackages is not null || !summaries.TryGetValue(file.Hash, out var summary))
+                                {
+                                    return file;
+                                }
+
+                                changed = true;
+                                return file with { UnityPackages = summary };
+                            })
+                            .ToList();
+
+                        return changed ? current with { LocalFiles = files } : null;
+                    },
+                    [LocalField.LocalFiles],
+                    cancellationToken))
             {
                 written++;
             }

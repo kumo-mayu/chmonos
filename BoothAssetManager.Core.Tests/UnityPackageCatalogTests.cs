@@ -118,6 +118,43 @@ public sealed class UnityPackageCatalogTests : IDisposable
         Assert.Equal(2, _paths.Load("AAA")!["Bracelet/Bracelet.v1.01.unitypackage"].Count);
     }
 
+    /// <summary>
+    /// 入り先は書く直前の今の一覧に当てる。全件を順に読む間に取り込みが同じ商品へ足したファイルを、
+    /// 読んだ写しの一覧で書いて消していた。
+    /// </summary>
+    [Fact]
+    public async Task 読んでいる間に足されたファイルを消さない()
+    {
+        var file = MakeZip("piyo.zip", "AAA", ("P.unitypackage", MakeUnityPackage("Assets/Piyo/a.prefab")));
+        await SaveItemAsync("1", file);
+        await _catalog.ReadAsync([file]);
+
+        // 取り込みが同じ商品を書いている最中（錠を持ったまま）に写しに来る
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var import = Task.Run(() => _store.Items.ChangeLocalAsync(
+            "1",
+            current =>
+            {
+                entered.Set();
+                release.Wait();
+                return current with { LocalFiles = [.. current.LocalFiles, new LocalFileRecord { Hash = "NEW", Paths = [@"C:\dl\new.zip"], SizeBytes = 1 }] };
+            },
+            LocalOwners.Import));
+        entered.Wait();
+
+        var apply = _catalog.ApplyAsync(["1"]);
+        await Task.WhenAny(apply, Task.Delay(500));
+        release.Set();
+        await import;
+
+        Assert.Equal(1, await apply);
+
+        var files = (await _store.Items.LoadAsync("1"))!.Local.LocalFiles;
+        Assert.Contains(files, record => record.Hash == "NEW");
+        Assert.NotNull(files.Single(record => record.Hash == "AAA").UnityPackages);
+    }
+
     [Fact]
     public async Task 控えがあれば解き直さない()
     {
