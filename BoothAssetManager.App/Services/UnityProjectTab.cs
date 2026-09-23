@@ -220,7 +220,9 @@ public static class UnityProjectTab
         try
         {
             using var process = Process.GetProcessById(processId);
-            main = process.MainWindowHandle;
+
+            // メニューを持つ主の窓で探す（MainWindowHandle は浮いた窓に当たることがあり、メニューが無い）
+            main = UnityEditors.MainWindowOf(processId);
         }
         catch (ArgumentException)
         {

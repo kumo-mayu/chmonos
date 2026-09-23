@@ -58,9 +58,16 @@ internal static class UnityMemberSelect
         }
 
         // 場所が分かるエディタは場所で照らす（名前だけだと「cleanTest - コピー」と「cleanTest」を取り違えた。2026-09-19）
-        var editor = UnityEditors.Open().FirstOrDefault(candidate => candidate.ProjectPath is { } path
-            ? PathText.Same(path, project.TrimEnd('\\', '/'))
-            : string.Equals(candidate.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+        var editors = UnityEditors.Open();
+        var editor = UnityEditors.FindByProject(editors, project, projectName);
+
+        // 同じ名前のプロジェクトが2つ以上開いていると、題からはどちらの窓か分からない。決め打ちで別の方を調べ・選ばせないよう、言って止める
+        if (editor is null && editors.Any(candidate => candidate.IsAmbiguous
+                && string.Equals(candidate.ProjectName, projectName, StringComparison.OrdinalIgnoreCase)))
+        {
+            setStatus($"「{projectName}」という名前のプロジェクトが2つ以上開いていて、どれがこのプロジェクトか見分けられません。使わない方を閉じてから、もう一度押してください。", failed: true);
+            return false;
+        }
 
         // 開いている印はあるのに窓が特定できない（起動中・コンパイル中で題が読めない）
         if (editor is null && UnityProjects.IsProjectOpen(project))

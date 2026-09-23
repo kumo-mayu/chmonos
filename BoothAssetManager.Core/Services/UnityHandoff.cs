@@ -42,6 +42,12 @@ public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long Si
     }
 }
 
+/// <summary>Unity の窓の題から言い当てたプロジェクト（<see cref="UnityHandoff.IdentifyProject"/>）。</summary>
+/// <param name="Name">プロジェクト名。題から読めなければ null。</param>
+/// <param name="Path">場所。一覧で言い当てられたときだけ。</param>
+/// <param name="IsAmbiguous">同じ名前の開いているプロジェクトが複数あって、どれの窓か見分けられない。</param>
+public sealed record UnityWindowProject(string? Name, string? Path, bool IsAmbiguous);
+
 /// <summary>
 /// zipの中の <c>.unitypackage</c> をUnityへ渡すための下ごしらえ。
 ///
@@ -372,22 +378,51 @@ public static class UnityHandoff
     public static (string? Name, string? Path) ProjectFromWindowTitle(
         string? title, IEnumerable<string> knownProjectPaths, Func<string, bool> isOpen)
     {
-        if (ProjectNameFromWindowTitle(title) is null)
+        var found = IdentifyProject(title, knownProjectPaths, isOpen);
+        return (found.Name, found.Path);
+    }
+
+    /// <summary>
+    /// <see cref="ProjectFromWindowTitle"/> に、**見分けられなかった**印を足した物。
+    /// </summary>
+    /// <remarks>
+    /// 同じ名前のフォルダのプロジェクト（D:\A\proj と E:\B\proj）を両方開くと、題はどちらも「proj - …」で、
+    /// 開いているかでも名前の長さでも差が付かない。前は一覧の先の方に決め打ちしていたので、2つのエディタを同じ場所と読み、
+    /// 片方へ送る・調べるつもりがもう片方に働いていた。題からは見分ける手掛かりが無いので、場所は出さずに
+    /// 見分けられないと返す（使う側は決め打ちせず、選ばせるか見分けられないと言う）。
+    /// </remarks>
+    public static UnityWindowProject IdentifyProject(
+        string? title, IEnumerable<string> knownProjectPaths, Func<string, bool> isOpen)
+    {
+        if (ProjectNameFromWindowTitle(title) is not { } headName)
         {
-            return (null, null);
+            return new UnityWindowProject(null, null, false);
         }
 
-        var best = knownProjectPaths
+        var ranked = knownProjectPaths
             .Select(path => (Path: path, Name: System.IO.Path.GetFileName(path.TrimEnd('\\', '/'))))
             .Where(candidate => candidate.Name.Length > 0
                 && title!.StartsWith(candidate.Name + " - ", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(candidate => isOpen(candidate.Path))
+            .Select(candidate => (candidate.Path, candidate.Name, Open: isOpen(candidate.Path)))
+            .OrderByDescending(candidate => candidate.Open)
             .ThenByDescending(candidate => candidate.Name.Length)
-            .FirstOrDefault();
+            .ToList();
 
-        return best.Path is null
-            ? (ProjectNameFromWindowTitle(title), null)
-            : (best.Name, best.Path);
+        if (ranked.Count == 0)
+        {
+            return new UnityWindowProject(headName, null, false);
+        }
+
+        var best = ranked[0];
+
+        // 題の頭に当たって長さが同じなら名前も同じ。開いているかまで同じで場所が違えば、題からは見分けられない
+        var ambiguous = ranked.Skip(1).Any(other => other.Open == best.Open
+            && other.Name.Length == best.Name.Length
+            && !PathText.Same(other.Path.TrimEnd('\\', '/'), best.Path.TrimEnd('\\', '/')));
+
+        return ambiguous
+            ? new UnityWindowProject(best.Name, null, true)
+            : new UnityWindowProject(best.Name, best.Path, false);
     }
 
     /// <summary>

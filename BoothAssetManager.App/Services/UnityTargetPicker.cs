@@ -26,9 +26,10 @@ public static class UnityTargetPicker
             return null;
         }
 
+        // 同じ名前のプロジェクトが複数開いていて見分けられないときは、黙って決めずに選ばせる（別の方へ送りかねない）
         if (preferProjectName is not null
-            && editors.FirstOrDefault(editor =>
-                string.Equals(editor.ProjectName, preferProjectName, StringComparison.OrdinalIgnoreCase)) is { } linked)
+            && editors.FirstOrDefault(editor => !editor.IsAmbiguous
+                && string.Equals(editor.ProjectName, preferProjectName, StringComparison.OrdinalIgnoreCase)) is { } linked)
         {
             return linked;
         }
@@ -44,8 +45,10 @@ public static class UnityTargetPicker
             title,
             $"Unityが {editors.Count} つ開いています。どれを相手にしますか？\n選んだUnityの窓にだけ働くので、ほかのプロジェクトには入りません。",
             [.. editors.Select(editor => new ListChoiceItem(
-                editor.ProjectName ?? $"名前の分からないプロジェクト（プロセス {editor.ProcessId}）",
-                editor.ProjectPath))],
+                editor.ProjectName is { } name
+                    ? editor.IsAmbiguous ? $"{name}（プロセス {editor.ProcessId}）" : name
+                    : $"名前の分からないプロジェクト（プロセス {editor.ProcessId}）",
+                editor.IsAmbiguous ? "同じ名前のプロジェクトが複数開いていて、場所を見分けられません" : editor.ProjectPath))],
             "このUnityにする");
 
         return picked is { } index ? editors[index] : null;
