@@ -1164,6 +1164,13 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
         await _main.ReloadLibraryAsync();
 
+        // 待つ間（記録を消す・全件を読み直す。2000件で数秒）に人が別の画面へ移っていたら、そこから引きはがさない。
+        // 押した時点の確かめだけでは、待った後の戻るが移った先を上書きし、履歴も1つずれていた
+        if (!ReferenceEquals(_main.CurrentViewModel, this))
+        {
+            return;
+        }
+
         if (_run is null)
         {
             _main.LeaveEditToSearch();
