@@ -62,6 +62,8 @@ public static class JsonStore
         gate.Wait();
         try
         {
+            // 保存先を運んでいる間は待つ。書いている間は「書いている」に数えられ、運ぶ側はこれが抜けるのを待つ（StoreWriteGate）
+            using var writing = StoreWriteGate.Enter();
             var temporaryPath = PrepareTemporary(path);
             try
             {
@@ -91,6 +93,7 @@ public static class JsonStore
         await gate.WaitAsync(cancellationToken);
         try
         {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
             var temporaryPath = PrepareTemporary(path);
             try
             {
@@ -264,6 +267,7 @@ public static class JsonStore
         await gate.WaitAsync(cancellationToken);
         try
         {
+            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
             var temporaryPath = PrepareTemporary(path);
             try
             {
