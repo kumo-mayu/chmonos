@@ -95,7 +95,9 @@ public sealed partial class MainViewModel
         if (_history.Count == 0)
         {
             // 戻り先が無いので、今の画面を積み直さずに検索へ出す
-            // （積むと、戻ったはずなのに戻るがまた光って、今出てきた画面を指す）
+            // （積むと、戻ったはずなのに戻るがまた光って、今出てきた画面を指す）。
+            // 消えた先を飛ばしてここへ来たときは、待っていた控えも捨てる（戻すと消えた先が履歴に返ってくる）
+            _pendingBack = null;
             _nextNavigation = Navigation.Replace;
             ShowSearch();
             return;
