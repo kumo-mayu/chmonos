@@ -107,23 +107,34 @@ public sealed class EditService : IEditService
     /// <summary>
     /// 編集の最中に商品のIDを変えたとき、順番と保存した印の中のIDを付け替える。
     /// 付け替えないと、続きから開いたときに元のIDは無いので飛ばされ、移した先の商品が順番から消える。
+    ///
+    /// 位置・保存した印と同じく**錠の中で今の記録に当てる**。ここだけ錠の外で読んで書いていたので、
+    /// IDの付け替えと「保存して次へ」が重なると、進めた位置か保存した印のどちらかが古い値に戻っていた。
     /// </summary>
     public async Task<EditSession> ReplaceItemIdAsync(string fromId, string toId, CancellationToken cancellationToken = default)
     {
-        var current = _store.EditSession.Load();
-        if (!current.ItemIds.Contains(fromId, StringComparer.Ordinal))
-        {
-            return current;
-        }
-
         string Swap(string id) => string.Equals(id, fromId, StringComparison.Ordinal) ? toId : id;
-        var session = current with
-        {
-            ItemIds = [.. current.ItemIds.Select(Swap)],
-            SavedItemIds = [.. current.SavedItemIds.Select(Swap)],
-        };
-        await _store.EditSession.SaveAsync(session, cancellationToken);
-        return session;
+
+        var written = new EditSession();
+        await _store.EditSession.TryUpdateAsync(
+            current =>
+            {
+                written = current;
+                if (!current.ItemIds.Contains(fromId, StringComparer.Ordinal))
+                {
+                    return null;
+                }
+
+                written = current with
+                {
+                    ItemIds = [.. current.ItemIds.Select(Swap)],
+                    SavedItemIds = [.. current.SavedItemIds.Select(Swap)],
+                };
+                return written;
+            },
+            cancellationToken);
+
+        return written;
     }
 
     public Task ClearSessionAsync(CancellationToken cancellationToken = default)

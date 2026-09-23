@@ -342,6 +342,8 @@ public sealed class CommandHandler
                     ItemIdChangeOutcome.Moved => new CommandResult.ItemSaved(change.ToId),
                     ItemIdChangeOutcome.SameId => new CommandResult.Failed("同じIDです。"),
                     ItemIdChangeOutcome.SourceMissing => new CommandResult.Failed("元の商品が見つかりませんでした。"),
+                    ItemIdChangeOutcome.ImagesNotMoved => new CommandResult.Failed(
+                        "自分で足した画像を移せなかったので、IDは変えていません（元の商品はそのままです）。ほかのアプリが画像を開いていないか確かめて、もう一度押してください。"),
                     _ => new CommandResult.Failed("移した先を用意できませんでした。"),
                 };
 
@@ -923,9 +925,10 @@ public sealed class CommandHandler
             {
                 await catalog.FillItemAsync(itemId);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-                                                  or System.Text.Json.JsonException)
+            catch (Exception exception)
             {
+                // 待つ者のいない裏の作業なので、ここで受け止めない例外は誰にも見られずに消える（`Forget()` と同じ決まり）。
+                // 壊れた zip の読み取りは IO と JSON 以外の例外（InvalidDataException など）も投げる
                 Diagnostics.AppLog.Error("ファイルを付けた後の unitypackage の読み込み", exception);
             }
         });

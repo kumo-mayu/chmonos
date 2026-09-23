@@ -14,6 +14,12 @@ public enum DroppedReason
 
     /// <summary>取得の状態。新しい商品のものが正しい。</summary>
     FetchState,
+
+    /// <summary>
+    /// BOOTHの画像に付けた指定（サムネイルの指名・役割）。BOOTHの画像のファイル名は元URLのハッシュで、
+    /// URLに商品IDが入るので、移した先の画像とは名前が合わない。
+    /// </summary>
+    BoothImageChoice,
 }
 
 /// <summary>移せなかったもの1件。**名指しで出す**ためにあり、件数だけにしない。</summary>
@@ -94,6 +100,12 @@ public enum ItemIdChangeOutcome
 
     /// <summary>移した先を用意できなかった。</summary>
     TargetUnavailable,
+
+    /// <summary>
+    /// 自分で足した画像のファイルを移した先へ写せなかった。**何も書かず、元の商品を残す。**
+    /// 元の商品を消すと画像のフォルダごと消え、二度と取り返せないため。
+    /// </summary>
+    ImagesNotMoved,
 }
 
 /// <summary>
@@ -153,6 +165,18 @@ public static class ItemIdChange
             {
                 Reason = DroppedReason.Detected,
                 Text = text + "。移した先で検出し直せます",
+            });
+        }
+
+        // BOOTHの画像に付けた指定。自分で足した画像の分は画像ごと移るが、
+        // BOOTHの画像は移した先で別の名前になるので、指したまま移すと空振りする
+        var boothChoices = BoothImageChoices(source.Local);
+        if (boothChoices > 0)
+        {
+            dropped.Add(new DroppedThing
+            {
+                Reason = DroppedReason.BoothImageChoice,
+                Text = $"BOOTHの画像に付けたサムネイルの指定・役割 {boothChoices} 件（自分で足した画像とその指定は移ります）",
             });
         }
 
@@ -223,6 +247,10 @@ public static class ItemIdChange
         return found;
     }
 
+    private static int BoothImageChoices(LocalBlock local)
+        => (local.ThumbnailImage is { } pinned && !UserImageName.IsUserAdded(pinned) ? 1 : 0)
+            + local.ImageRoles.Keys.Count(name => !UserImageName.IsUserAdded(name));
+
     /// <summary>
     /// 移したあとの <c>Local</c> を組み立てる。
     ///
@@ -250,6 +278,34 @@ public static class ItemIdChange
                 string.Equals(existing.Path, folder.Path, StringComparison.OrdinalIgnoreCase))))
             .ToList();
 
+        // 自分で足した画像は、手元のファイルと同じく両方を残す（移した先の分を先に）。
+        // 保存名は中身のハッシュなので、同じ名前なら同じ絵——1枚にまとめ、覚え書きは空いている方を埋める
+        var images = target.UserImages.ToList();
+        foreach (var image in source.UserImages)
+        {
+            var index = images.FindIndex(existing =>
+                string.Equals(existing.FileName, image.FileName, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                images.Add(image);
+            }
+            else if (images[index].Caption is null && image.Caption is not null)
+            {
+                images[index] = images[index] with { Caption = image.Caption };
+            }
+        }
+
+        // 役割は移した先の指定を優先し、自分で足した画像の分だけ引き継ぐ。
+        // BOOTHの画像の名前は元URLのハッシュで、URLに商品IDが入るので移した先では合わない（下見で名指しする）
+        var roles = new Dictionary<string, ImageRole>(target.ImageRoles, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, role) in source.ImageRoles)
+        {
+            if (UserImageName.IsUserAdded(name))
+            {
+                roles.TryAdd(name, role);
+            }
+        }
+
         return target with
         {
             DisplayName = target.DisplayName ?? source.DisplayName,
@@ -261,6 +317,14 @@ public static class ItemIdChange
             Memo = JoinMemo(target.Memo, source.Memo),
             AcquiredAt = target.AcquiredAt ?? source.AcquiredAt,
 
+            // サムネイルの指名も他の1つだけの欄と同じく移した先が優先。
+            // 移す側の指名は、自分で足した画像を指すときだけ持って行ける（画像ごと移るので）
+            ThumbnailImage = target.ThumbnailImage
+                ?? (UserImageName.IsUserAdded(source.ThumbnailImage) ? source.ThumbnailImage : null),
+
+            // お気に入りは「片方が付けていたら付ける」。付けた印を黙って外さない
+            IsFavorite = target.IsFavorite || source.IsFavorite,
+
             // 知らせるかは「片方が切っていたら切る」。勝手に通知を復活させない
             NotifyOnUpdate = target.NotifyOnUpdate && source.NotifyOnUpdate,
 
@@ -270,6 +334,8 @@ public static class ItemIdChange
             Purchases = purchases,
             LocalFiles = files,
             LocalFolders = folders,
+            UserImages = images,
+            ImageRoles = roles,
         };
     }
 

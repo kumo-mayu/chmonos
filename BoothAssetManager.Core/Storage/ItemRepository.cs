@@ -146,6 +146,42 @@ public sealed class ItemRepository
         return true;
     }
 
+    /// <summary>
+    /// 読み直した今の <c>booth</c> に、渡された変え方を当てて書く（<see cref="ChangeLocalAsync"/> の <c>booth</c> 版）。
+    ///
+    /// 取り込みの②は①で取った <c>booth</c> に説明の節を足して書いていたので、
+    /// ①と②の間に人が「商品情報を取り直す」を押すと、取り直した新しい <c>booth</c> が①の古い物に戻っていた。
+    /// <c>local</c> には触らない（購入記録の <c>ExistsOnBooth</c> だけは新しい種類の一覧で入れ直す）。
+    ///
+    /// <paramref name="change"/> が null を返したら何も書かない。
+    /// </summary>
+    /// <returns>書いたか（itemが消えていた・触る物が無かったときは false）。</returns>
+    public async Task<bool> ChangeBoothAsync(
+        string itemId,
+        Func<BoothBlock, BoothBlock?> change,
+        CancellationToken cancellationToken = default)
+    {
+        var gate = LockFor(itemId);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (await LoadAsync(itemId, cancellationToken) is not { } existing
+                || change(existing.Booth) is not { } booth)
+            {
+                return false;
+            }
+
+            var local = existing.Local with { Purchases = Purchase.Reconcile(existing.Local.Purchases, booth.Variations) };
+            await WriteAsync(existing with { Booth = booth, Local = local }, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+
+        return true;
+    }
+
     public IReadOnlyList<string> EnumerateItemIds()
     {
         if (!Directory.Exists(_paths.ItemsDir))

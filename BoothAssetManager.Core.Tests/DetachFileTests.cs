@@ -239,4 +239,63 @@ public class DetachFileTests : IDisposable
 
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"detached\""));
     }
+
+    /// <summary>
+    /// 外す印は書く直前の今の一覧に付ける。在るかを見る・未確定の錠を待つ間に取り込みが足したファイルを、
+    /// 始めに読んだ写しの一覧で書いて消していた。空になったかも今の値で見る。
+    /// </summary>
+    [Fact]
+    public async Task KeepsFilesAddedWhileWaitingForTheUnresolvedList()
+    {
+        await SaveItemAsync("111");
+
+        // 未確定の画面が一覧を書いている最中（錠を持ったまま）に外し始める
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var screen = Task.Run(() => _store.Unresolved.UpdateAsync(list =>
+        {
+            entered.Set();
+            release.Wait();
+            return list;
+        }));
+        entered.Wait();
+
+        var detach = _service.DetachFileAsync("111", Hash, deleteItemWhenEmpty: true);
+        await Task.WhenAny(detach, Task.Delay(500));
+        Assert.False(detach.IsCompleted);
+
+        // その間に取り込みが同じ商品へファイルを足す
+        await _store.Items.ChangeLocalAsync(
+            "111",
+            current => current with
+            {
+                LocalFiles = [.. current.LocalFiles, new LocalFileRecord { Hash = "CCCC1", Paths = [_file], SizeBytes = 5 }],
+            },
+            LocalOwners.Import);
+
+        release.Set();
+        await screen;
+
+        // 足されたファイルがあるので、空にはならず商品も消えない
+        Assert.Equal(DetachOutcome.Detached, await detach);
+
+        var item = await LoadAsync("111");
+        Assert.True(item.Local.LocalFiles.Single(file => file.Hash == Hash).Detached);
+        Assert.False(item.Local.LocalFiles.Single(file => file.Hash == "CCCC1").Detached);
+    }
+
+    /// <summary>戻すときも、確かめている間に足されたファイルを消さない（全件を読むので時間がかかる）。</summary>
+    [Fact]
+    public async Task ReattachingWritesOntoTheCurrentList()
+    {
+        await SaveItemAsync("111", fileCount: 2);
+        await _service.DetachFileAsync("111", Hash, deleteItemWhenEmpty: false);
+
+        Assert.Equal(ReattachOutcome.Reattached, await _service.ReattachFileAsync("111", Hash));
+        Assert.Equal(ReattachOutcome.Missing, await _service.ReattachFileAsync("111", Hash));
+
+        var item = await LoadAsync("111");
+        Assert.All(item.Local.LocalFiles, file => Assert.False(file.Detached));
+        Assert.Equal("自分で書いたメモ", item.Local.Memo);
+    }
 }

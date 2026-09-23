@@ -24,6 +24,7 @@ public class ItemIdChangeTests : IDisposable
     private readonly string _root;
     private readonly DataStore _store;
     private readonly ItemService _service;
+    private readonly Handler _handler = new();
 
     public ItemIdChangeTests()
     {
@@ -35,7 +36,7 @@ public class ItemIdChangeTests : IDisposable
         _store = new DataStore(paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
-        var client = new BoothClient(new HttpClient(new Handler()), settings);
+        var client = new BoothClient(new HttpClient(_handler), settings);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths, settings), settings);
     }
 
@@ -55,10 +56,21 @@ public class ItemIdChangeTests : IDisposable
     /// <summary>RealId は普通に返す。それ以外のIDは404。</summary>
     private sealed class Handler : HttpMessageHandler
     {
+        /// <summary>
+        /// BOOTH から取っている最中に1回だけ走らせる（その数秒の間に取り込みや人が書く様子を作る）。
+        /// </summary>
+        public Func<Task>? DuringFetch { get; set; }
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            if (DuringFetch is { } during)
+            {
+                DuringFetch = null;
+                during().GetAwaiter().GetResult();
+            }
+
             var url = request.RequestUri!.ToString();
 
             if (!url.Contains(RealId, StringComparison.Ordinal))
@@ -454,5 +466,274 @@ public class ItemIdChangeTests : IDisposable
         Assert.NotNull(moved);
         Assert.True(moved!.Local.LocalFiles.Single(file => file.Hash == "bbb").Detached);
         Assert.False(moved.Local.LocalFiles.Single(file => file.Hash == "aaa").Detached);
+    }
+
+    // ---- 画像とお気に入り ----
+
+    private const string UserImageFile = "user-1a2b3c4d.webp";
+
+    private string WriteImage(string itemId, string fileName, string content = "絵")
+    {
+        var dir = _store.Paths.ItemImagesDir(itemId);
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, fileName);
+        System.IO.File.WriteAllText(path, content);
+        return path;
+    }
+
+    /// <summary>
+    /// 自分で足した画像・お気に入り・役割・サムネイルの指定は移る。
+    /// 前は引き継がず、元の商品を消すときに画像のフォルダごと消えて二度と取り返せなかった。
+    /// </summary>
+    [Fact]
+    public async Task CarriesUserImagesFavoriteRolesAndThumbnail()
+    {
+        WriteImage(LocalId, UserImageFile);
+        await SaveLocalItemAsync(new LocalBlock
+        {
+            LocalFiles = [File("aaa")],
+            UserImages = [new UserImage { FileName = UserImageFile, Caption = "着せたところ" }],
+            ImageRoles = new Dictionary<string, ImageRole> { [UserImageFile] = ImageRole.Modified },
+            ThumbnailImage = UserImageFile,
+            IsFavorite = true,
+        });
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Equal("着せたところ", Assert.Single(moved.UserImages).Caption);
+        Assert.Equal(ImageRole.Modified, moved.ImageRoles[UserImageFile]);
+        Assert.Equal(UserImageFile, moved.ThumbnailImage);
+        Assert.True(moved.IsFavorite);
+        Assert.True(System.IO.File.Exists(Path.Combine(_store.Paths.ItemImagesDir(RealId), UserImageFile)));
+        Assert.False(Directory.Exists(_store.Paths.ItemImagesDir(LocalId)));
+    }
+
+    /// <summary>
+    /// 同じ名前の画像は同じ絵（保存名が中身のハッシュ）。1枚にまとめ、移した先のファイルと記録を残す。
+    /// 覚え書きは空いている方を埋める。
+    /// </summary>
+    [Fact]
+    public async Task MergesTheSamePictureIntoOne()
+    {
+        WriteImage(LocalId, UserImageFile, "移す側");
+        WriteImage(RealId, UserImageFile, "先にあった");
+        await SaveTargetAsync(new LocalBlock { UserImages = [new UserImage { FileName = UserImageFile }] });
+        await SaveLocalItemAsync(new LocalBlock
+        {
+            LocalFiles = [File("aaa")],
+            UserImages = [new UserImage { FileName = UserImageFile, Caption = "覚え書き" }],
+        });
+
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Equal("覚え書き", Assert.Single(moved.UserImages).Caption);
+        Assert.Equal("先にあった", System.IO.File.ReadAllText(Path.Combine(_store.Paths.ItemImagesDir(RealId), UserImageFile)));
+    }
+
+    /// <summary>
+    /// サムネイルの指定は他の1つだけの欄と同じく移した先が優先。お気に入りはどちらかが付けていれば付ける。
+    /// </summary>
+    [Fact]
+    public async Task KeepsTheTargetsThumbnailAndFavoriteFromEither()
+    {
+        WriteImage(LocalId, UserImageFile);
+        await SaveTargetAsync(new LocalBlock { ThumbnailImage = "abcdef01.webp" });
+        await SaveLocalItemAsync(new LocalBlock
+        {
+            LocalFiles = [File("aaa")],
+            UserImages = [new UserImage { FileName = UserImageFile }],
+            ThumbnailImage = UserImageFile,
+            IsFavorite = true,
+        });
+
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Equal("abcdef01.webp", moved.ThumbnailImage);
+        Assert.True(moved.IsFavorite);
+    }
+
+    /// <summary>
+    /// BOOTHの画像に付けた指定は移した先の画像と名前が合わないので移らない。**下見で名指しする。**
+    /// </summary>
+    [Fact]
+    public async Task NamesTheChoicesOnBoothImagesThatCannotMove()
+    {
+        await SaveLocalItemAsync(new LocalBlock
+        {
+            LocalFiles = [File("aaa")],
+            ThumbnailImage = "abcdef01.webp",
+            ImageRoles = new Dictionary<string, ImageRole>
+            {
+                ["abcdef02.webp"] = ImageRole.Modified,
+                [UserImageFile] = ImageRole.Modified,
+            },
+        });
+
+        var plan = await _service.PlanItemIdChangeAsync(LocalId, RealId);
+
+        var dropped = Assert.Single(plan!.Dropped, thing => thing.Reason == DroppedReason.BoothImageChoice);
+        Assert.Contains("2 件", dropped.Text, StringComparison.Ordinal);
+
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Null(moved.ThumbnailImage);
+        Assert.Equal([UserImageFile], moved.ImageRoles.Keys);
+    }
+
+    /// <summary>
+    /// 画像を写せなければ**何も書かずに元を残す**。元を消すと画像のフォルダごと消えるため。
+    /// BOOTH から取るより前に確かめるので、取ってきた空の商品も残らない。
+    /// </summary>
+    [Fact]
+    public async Task LeavesEverythingWhenTheImagesCannotBeCopied()
+    {
+        var path = WriteImage(LocalId, UserImageFile);
+        await SaveLocalItemAsync(new LocalBlock
+        {
+            LocalFiles = [File("aaa")],
+            UserImages = [new UserImage { FileName = UserImageFile }],
+        });
+
+        ItemIdChangeOutcome outcome;
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            outcome = await _service.ChangeItemIdAsync(LocalId, RealId);
+        }
+
+        Assert.Equal(ItemIdChangeOutcome.ImagesNotMoved, outcome);
+        Assert.NotNull(await _store.Items.LoadAsync(LocalId));
+        Assert.True(System.IO.File.Exists(path));
+        Assert.Null(await _store.Items.LoadAsync(RealId));
+    }
+
+    // ---- 取っている間に書かれた物 ----
+
+    /// <summary>
+    /// 移す元は取得の後で読み直す。前は取る前の写しを移したので、
+    /// BOOTH から取っている数秒の間に取り込みが足したファイルが、元の商品ごと消えていた。
+    /// </summary>
+    [Fact]
+    public async Task MovesWhatWasAddedToTheSourceWhileFetching()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        _handler.DuringFetch = () => _store.Items.ChangeLocalAsync(
+            LocalId,
+            current => current with { LocalFiles = [.. current.LocalFiles, File("bbb")], Memo = "取っている間のメモ" },
+            [LocalField.LocalFiles, LocalField.Memo]);
+
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        var moved = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Equal(["aaa", "bbb"], moved.LocalFiles.Select(file => file.Hash).Order());
+        Assert.Equal("取っている間のメモ", moved.Memo);
+    }
+
+    /// <summary>
+    /// 取っている間に同じIDの商品が別の道で作られたら、丸ごと書かずに重ねる（L13 と同じ形）。
+    /// 前は取ってきた商品で丸ごと書いたので、そちらに入ったファイルと名前が消えていた。
+    /// </summary>
+    [Fact]
+    public async Task LayersOntoATargetCreatedWhileFetching()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        _handler.DuringFetch = () => SaveTargetAsync(new LocalBlock { DisplayName = "先に作られた", LocalFiles = [File("ccc")] });
+
+        await _service.ChangeItemIdAsync(LocalId, RealId);
+
+        var moved = await _store.Items.LoadAsync(RealId);
+        Assert.Equal("先に作られた", moved!.Local.DisplayName);
+        Assert.Equal(["aaa", "ccc"], moved.Local.LocalFiles.Select(file => file.Hash).Order());
+
+        // booth は取ってきた方が重なる
+        Assert.Equal("オリジナル3Dモデル『Bird/鳥』", moved.Booth.Name);
+    }
+
+    /// <summary>
+    /// 未確定の「このIDで登録」も同じ。取っている間に取り込みが同じ商品へ足したファイルを、
+    /// 作った時点の写しの [このファイル] で置き換えていた。
+    /// </summary>
+    [Fact]
+    public async Task AssigningKeepsFilesAddedWhileFetching()
+    {
+        await _store.Unresolved.UpdateAsync(list =>
+        {
+            list.Add(new UnresolvedFile
+            {
+                Hash = "aaa",
+                Paths = [@"C:\dl\aaa.zip"],
+                SizeBytes = 100,
+                ModifiedAtUtc = DateTimeOffset.Now,
+                FirstSeenAt = DateTimeOffset.Now,
+            });
+            return list;
+        });
+        _handler.DuringFetch = () => SaveTargetAsync(new LocalBlock { Memo = "取り込みが作った", LocalFiles = [File("ccc")] });
+
+        Assert.True(await _service.AssignItemIdAsync("aaa", RealId));
+
+        var item = (await _store.Items.LoadAsync(RealId))!.Local;
+        Assert.Equal("取り込みが作った", item.Memo);
+        Assert.Equal(["aaa", "ccc"], item.LocalFiles.Select(file => file.Hash).Order());
+    }
+
+    /// <summary>フォルダの登録も同じ。取っている間と測っている間に足されたフォルダを消さない。</summary>
+    [Fact]
+    public async Task RegisteringAFolderKeepsFoldersAddedWhileFetching()
+    {
+        var folder = Path.Combine(_root, "展開した");
+        Directory.CreateDirectory(folder);
+        _handler.DuringFetch = () => SaveTargetAsync(new LocalBlock
+        {
+            LocalFolders = [new LocalFolderRecord { Path = @"D:\先に登録", RegisteredAt = DateTimeOffset.Now }],
+        });
+
+        Assert.True(await _service.RegisterFolderAsync(RealId, folder));
+
+        var folders = (await _store.Items.LoadAsync(RealId))!.Local.LocalFolders.Select(record => record.Path);
+        Assert.Contains(@"D:\先に登録", folders);
+        Assert.Contains(folder, folders);
+    }
+
+    /// <summary>
+    /// 改変の付け替えは錠の中で今の値に当てる。全件を読んでから書くまでの間に改変の画面が書いた名前を、
+    /// 読んだ写しで丸ごと書いて消していた。
+    /// </summary>
+    [Fact]
+    public async Task MovingModificationsKeepsWhatWasWrittenMeanwhile()
+    {
+        await _store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-77778888",
+            AvatarItemId = "4897493",
+            Name = "前の名前",
+            CreatedAt = DateTimeOffset.Now,
+            UpdatedAt = DateTimeOffset.Now,
+            Members = [new ModificationMember { ItemId = LocalId }],
+        });
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+
+        // 改変の画面が書いている最中（錠を持ったまま）に付け替えを始める
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var screen = Task.Run(() => _store.Modifications.UpdateAsync("mod-77778888", record =>
+        {
+            entered.Set();
+            release.Wait();
+            return record with { Name = "画面で直した名前" };
+        }));
+        entered.Wait();
+
+        var change = _service.ChangeItemIdAsync(LocalId, RealId);
+        await Task.WhenAny(change, Task.Delay(500));
+        release.Set();
+        await Task.WhenAll(screen, change);
+
+        var record = await _store.Modifications.LoadAsync("mod-77778888");
+        Assert.Equal("画面で直した名前", record!.Name);
+        Assert.Equal(RealId, Assert.Single(record.Members).ItemId);
     }
 }

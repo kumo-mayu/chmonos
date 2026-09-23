@@ -464,6 +464,7 @@ public sealed class ImportPipeline : IImportPipeline
             _reused += resolution.ReusedFromCache;
             _excluded += resolution.Excluded;
             _alreadyOwned += resolution.AlreadyOwned;
+            _unreadable += resolution.Unreadable;
 
             _added += fetch.Added;
             _alreadyKnown += fetch.AlreadyKnown;
@@ -701,6 +702,7 @@ public sealed class ImportPipeline : IImportPipeline
         var reused = 0;
         var excluded = 0;
         var alreadyOwned = 0;
+        var unreadable = 0;
         var processed = 0;
 
         foreach (var file in scanned)
@@ -729,6 +731,11 @@ public sealed class ImportPipeline : IImportPipeline
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
+                    // 書き込み中のダウンロードや、ほかのアプリが開いているファイルがここに来る。
+                    // 黙って飛ばしていたので、取り込んだつもりの物が入っていないことに気付けなかった。
+                    // 走査で読めなかった物（E4）と同じ数に入れて結果に出し、どれかはログに残す
+                    Diagnostics.AppLog.Warn("取り込みでファイルを読む", $"{file.Path}：{exception.Message}");
+                    unreadable++;
                     continue;
                 }
 
@@ -814,6 +821,7 @@ public sealed class ImportPipeline : IImportPipeline
             ReusedFromCache = reused,
             Excluded = excluded,
             AlreadyOwned = alreadyOwned,
+            Unreadable = unreadable,
         };
     }
 
@@ -1038,13 +1046,33 @@ public sealed class ImportPipeline : IImportPipeline
 
             var extraction = H2SectionExtractor.Extract(htmlResult.Value);
 
-            pages[index] = item = item with { Booth = item.Booth with { H2Sections = extraction.Sections } };
-            await _store.Items.SaveLocalAsync(
+            // 節は、書く直前に読み直した今の booth に足す。①で取った写しに足して丸ごと書くと、
+            // ①と②の間（数分になることもある）に人が「商品情報を取り直す」を押したとき、
+            // 取り直した新しい booth が①の古い物に戻っていた。
+            // 今の方が新しく取れていれば、節もそちらが同じ時に取った物なので触らない
+            var fetchedAt = item.Booth.FetchedAt;
+            BoothBlock? written = null;
+            await _store.Items.ChangeBoothAsync(
                 item.Id,
-                item.Local,
-                [],
-                item.Booth,
+                current => current.FetchedAt > fetchedAt
+                    ? null
+                    : written = current with { H2Sections = extraction.Sections },
                 cancellationToken);
+
+            if (written is not null)
+            {
+                pages[index] = item = item with { Booth = written };
+            }
+            else if (await _store.Items.LoadAsync(item.Id, cancellationToken) is { } newer)
+            {
+                // 後の③と画像の列は、取り直した新しい画像の一覧で進める
+                pages[index] = item = newer;
+                continue;
+            }
+            else
+            {
+                continue;
+            }
 
             // 説明が無い商品でも空のファイルを置く。置かないと「まだ取っていない」と見分けが付かず、
             // 取り込むたびに取り直しに来る
@@ -1172,6 +1200,9 @@ public sealed class ImportPipeline : IImportPipeline
 
         /// <summary>既にitemが持っていたので未確定へ流さなかった件数。</summary>
         public int AlreadyOwned { get; init; }
+
+        /// <summary>中身を読めず（ハッシュを計算できず）飛ばした件数。</summary>
+        public int Unreadable { get; init; }
     }
 
     /// <summary>

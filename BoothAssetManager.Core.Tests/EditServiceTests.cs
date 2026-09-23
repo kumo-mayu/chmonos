@@ -320,4 +320,48 @@ public class EditServiceTests : IDisposable
         await _service.StartSessionAsync(["4"]);
         Assert.Empty(_store.EditSession.Load().SavedItemIds);
     }
+
+    /// <summary>
+    /// IDの付け替えも錠の中で今の記録に当てる。ここだけ錠の外で読んで書いていたので、
+    /// 「保存して次へ」と重なると、進めた位置か付け替えのどちらかが消えていた。
+    /// </summary>
+    [Fact]
+    public async Task ReplacingAnItemIdKeepsTheIndexWrittenMeanwhile()
+    {
+        await _service.StartSessionAsync(["1", "local-aaaa1111", "3"]);
+        await _service.NoteSavedAsync("local-aaaa1111");
+
+        // 位置を書いている最中（錠を持ったまま）に付け替えが来る
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var advance = Task.Run(() => _store.EditSession.UpdateAsync(session =>
+        {
+            entered.Set();
+            release.Wait();
+            return session with { Index = 2 };
+        }));
+        entered.Wait();
+
+        var replace = _service.ReplaceItemIdAsync("local-aaaa1111", "222");
+        await Task.WhenAny(replace, Task.Delay(500));
+        release.Set();
+        await Task.WhenAll(advance, replace);
+
+        var saved = _store.EditSession.Load();
+        Assert.Equal(["1", "222", "3"], saved.ItemIds);
+        Assert.Equal(["222"], saved.SavedItemIds);
+        Assert.Equal(2, saved.Index);
+        Assert.Equal(saved.ItemIds, (await replace).ItemIds);
+    }
+
+    /// <summary>順番に無いIDなら書かずに今の記録を返す。</summary>
+    [Fact]
+    public async Task ReplacingAnIdThatIsNotQueuedWritesNothing()
+    {
+        await _service.StartSessionAsync(["1"]);
+
+        var session = await _service.ReplaceItemIdAsync("9", "10");
+
+        Assert.Equal(["1"], session.ItemIds);
+    }
 }
