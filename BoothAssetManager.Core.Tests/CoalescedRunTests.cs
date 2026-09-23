@@ -97,6 +97,67 @@ public class CoalescedRunTests
         Assert.Equal(2, steps.Started);
     }
 
+    /// <summary>
+    /// **走っている人が中断で抜けても、任された依頼は捨てない。**中断したのは走っていた人の都合なので、
+    /// 任せた人の分は裏で続きを走らせる。前は誰も拾わず、次の依頼まで走らなかった。
+    /// </summary>
+    [Fact]
+    public async Task DoesNotDropRequestsWhenTheRunnerIsCanceled()
+    {
+        var started = 0;
+        var secondRun = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = new CoalescedRun(async token =>
+        {
+            if (Interlocked.Increment(ref started) == 1)
+            {
+                await Task.Delay(Timeout.Infinite, token);
+            }
+            else
+            {
+                secondRun.TrySetResult();
+            }
+        });
+
+        using var leaving = new CancellationTokenSource();
+        var first = run.RequestAsync(leaving.Token);
+        for (var i = 0; i < 200 && Volatile.Read(ref started) < 1; i++)
+        {
+            await Task.Delay(10);
+        }
+
+        // 走っている間に別の人が頼んで任せ、その後に走っていた人が中断する
+        await run.RequestAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        leaving.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first.WaitAsync(TimeSpan.FromSeconds(5)));
+        await secondRun.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(2, Volatile.Read(ref started));
+    }
+
+    /// <summary>任された依頼が無ければ、中断した後に勝手に走らせない。</summary>
+    [Fact]
+    public async Task DoesNotRunAgainAfterCancelWhenNothingWasHandedOver()
+    {
+        var started = 0;
+        var run = new CoalescedRun(async token =>
+        {
+            Interlocked.Increment(ref started);
+            await Task.Delay(Timeout.Infinite, token);
+        });
+
+        using var leaving = new CancellationTokenSource();
+        var first = run.RequestAsync(leaving.Token);
+        for (var i = 0; i < 200 && Volatile.Read(ref started) < 1; i++)
+        {
+            await Task.Delay(10);
+        }
+
+        leaving.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first.WaitAsync(TimeSpan.FromSeconds(5)));
+        await Task.Delay(100);
+        Assert.Equal(1, Volatile.Read(ref started));
+    }
+
     /// <summary>誰も走っていなければ、その場で走って終わるまで待つ。</summary>
     [Fact]
     public async Task RunsRightAwayWhenIdle()
