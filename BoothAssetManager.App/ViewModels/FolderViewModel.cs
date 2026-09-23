@@ -1216,8 +1216,23 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         var page = new ItemViewModel(item, _services, _main, _thumbnails) { IsEmbedded = true };
 
         // 開き直すのは右側だけ（主画面ごと差し替えない）。ファイルを外すと木の形も変わるので読み直す
+        //
+        // **右がまだこのページのときだけ差し替える。**取り直しは BOOTH の順番を待つので、待つ間に別の行を選べる。
+        // 前は選び直した右側を古い商品のページで上書きしていた。フォルダの画面を離れていたら何もしない
+        // （この画面は開くたびに作り直すので、木は次に開くときに読み直される）
         page.Replaced = updated =>
         {
+            if (!ReferenceEquals(_main.CurrentViewModel, this))
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(Detail, page))
+            {
+                LoadAsync().Forget();
+                return;
+            }
+
             if (updated is null)
             {
                 Detail = null;

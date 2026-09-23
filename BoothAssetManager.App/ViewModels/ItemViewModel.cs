@@ -244,7 +244,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             {
                 if (updated is not null)
                 {
-                    ReplaceSelf(updated);
+                    ReplaceSelf(updated, $"「{updated.DisplayName}」の商品情報を取り直しました。");
                 }
             });
         }
@@ -401,11 +401,29 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     }
 
     /// <summary>開き直す。編集画面に入っていれば持ち主に任せ、商品ページなら画面ごと作り直す。</summary>
-    private void ReplaceSelf(ItemRecord? updated)
+    /// <param name="awayText">このページを離れていたときに下の帯へ出す文。null なら「更新しました」。</param>
+    /// <remarks>
+    /// **このページがもう出ていなければ、画面を差し替えない。**取り直しは BOOTH の順番を待つので、
+    /// 待つ間に別の画面へ移れる。前はそこへ商品ページを引き戻し、今いた画面は履歴に積まれず消えていた。
+    /// 離れていたら帯で知らせるだけにする（登録し終えた商品の知らせと同じ考え方）。
+    /// 組み込んだときの確かめは持ち主（<see cref="Replaced"/> を渡した画面）がする。
+    /// </remarks>
+    private void ReplaceSelf(ItemRecord? updated, string? awayText = null)
     {
         if (Replaced is { } replaced)
         {
             replaced(updated);
+            return;
+        }
+
+        if (!ReferenceEquals(_main.CurrentViewModel, this))
+        {
+            // 消えた商品は開く先が無いので知らせない（検索の一覧からは読み直しで消えている）
+            if (updated is not null)
+            {
+                _main.NoteItemChangedAway(updated, awayText ?? $"「{updated.DisplayName}」を更新しました。");
+            }
+
             return;
         }
 
