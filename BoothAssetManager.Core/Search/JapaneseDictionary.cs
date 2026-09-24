@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 using System.Text;
 using System.Xml;
@@ -37,13 +38,21 @@ public sealed class JapaneseDictionary
     /// <summary>組み上げた索引の形式。上げると古いキャッシュを作り直す（3：読み→英語の索引を足した）。</summary>
     private const int CacheVersion = 3;
 
+    // 控えの節の並び（英語→表記・読み→表記・読み→英語）。控えのファイルにもこの順で書く
+    private const int EnglishSection = 0;
+    private const int ReadingSection = 1;
+    private const int KanaSection = 2;
+    private const int SectionCount = 3;
+
     private readonly string _dictionaryPath;
     private readonly string _cachePath;
     private readonly object _sync = new();
 
-    private Dictionary<string, string[]>? _byEnglish;
-    private Dictionary<string, string[]>? _byReading;
-    private Dictionary<string, string[]>? _byKana;
+    /// <summary>
+    /// 節ごとに、**引かれたときに初めて**控えから読む。「別表記でも検索」の中の変換は1つずつ切れるので、
+    /// 切っている変換の節まで持つと、使わない索引がアプリを閉じるまで残る。
+    /// </summary>
+    private readonly PackedIndex?[] _sections = new PackedIndex?[SectionCount];
     private bool _failed;
 
     public JapaneseDictionary(string dictionaryPath, string cachePath)
@@ -60,29 +69,21 @@ public sealed class JapaneseDictionary
 
     /// <summary>英語1語から日本語の表記を引く。</summary>
     public IReadOnlyList<string> ByEnglish(string word)
-    {
-        EnsureLoaded();
-        return _byEnglish is not null && _byEnglish.TryGetValue(word.ToLowerInvariant(), out var forms)
-            ? forms
-            : [];
-    }
+        => EnsureLoaded(EnglishSection)?.Lookup(word.ToLowerInvariant()) ?? [];
 
     /// <summary>読み（ひらがな）から日本語の表記を引く。</summary>
     public IReadOnlyList<string> ByReading(string reading)
-    {
-        EnsureLoaded();
-        return _byReading is not null && _byReading.TryGetValue(reading, out var forms) ? forms : [];
-    }
+        => EnsureLoaded(ReadingSection)?.Lookup(reading) ?? [];
 
     /// <summary>
     /// 読み（ひらがな）から英語を引く（日英変換・2026-09-16）。カタカナで打った外来語から、
     /// 英語で名付けた商品に届くように。漢字を持たない語（サメ・リボン）も引ける。
     /// </summary>
     public IReadOnlyList<string> ByKana(string reading)
-    {
-        EnsureLoaded();
-        return _byKana is not null && _byKana.TryGetValue(reading, out var words) ? words : [];
-    }
+        => EnsureLoaded(KanaSection)?.Lookup(reading) ?? [];
+
+    /// <summary>試験用：いま手元に持っている節の数（引いていない節を読んでいないかを見る）。</summary>
+    internal int LoadedSectionCount => _sections.Count(section => section is not null);
 
     /// <summary>
     /// 索引を組む。**最初に必要になったときだけ**動く。
@@ -91,27 +92,28 @@ public sealed class JapaneseDictionary
     /// キャッシュは手元で組んだものなので配布物には入らない
     /// （＝加工した辞書を配らないので、継承条項に触れる物が無い）。
     /// </summary>
-    private void EnsureLoaded()
+    private PackedIndex? EnsureLoaded(int section)
     {
-        if (_byEnglish is not null || _failed)
+        if (_sections[section] is not null || _failed)
         {
-            return;
+            return _sections[section];
         }
 
         lock (_sync)
         {
-            if (_byEnglish is not null || _failed)
+            if (_sections[section] is not null || _failed)
             {
-                return;
+                return _sections[section];
             }
 
             try
             {
-                if (TryLoadCacheSafely())
+                if (TryLoadCacheSafely(section))
                 {
-                    return;
+                    return _sections[section];
                 }
 
+                // 組むときは XML を1度通すので、3つの節を全部作って持つ（控えが無い最初の1回だけ）
                 Build();
             }
             // 壊れた gz は InvalidDataException で来る。受けないと _failed が立たず、
@@ -122,11 +124,9 @@ public sealed class JapaneseDictionary
                 // 理由は残す——黙って引けなくなると、辞書が壊れているのか
                 // 語が無いだけなのかを区別できない
                 _failed = true;
-                _byEnglish = null;
-                _byReading = null;
-                _byKana = null;
+                Array.Clear(_sections);
                 LoadError = exception.Message;
-                return;
+                return null;
             }
 
             // 書き出しは組むのと別に受ける。同じ try に入れていたので、保存先に書けないだけで
@@ -139,6 +139,8 @@ public sealed class JapaneseDictionary
             {
                 CacheSaveError = exception.Message;
             }
+
+            return _sections[section];
         }
     }
 
@@ -149,11 +151,11 @@ public sealed class JapaneseDictionary
     /// 控えを読む。読めなければ（ほかのアプリが掴んでいる・壊れている）組み直しに回す——
     /// 控えは手元で組んだ物なので、読めないことを「辞書が無い」にしない。
     /// </summary>
-    private bool TryLoadCacheSafely()
+    private bool TryLoadCacheSafely(int section)
     {
         try
         {
-            return TryLoadCache();
+            return TryLoadCache(section);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -208,9 +210,9 @@ public sealed class JapaneseDictionary
             }
         }
 
-        _byEnglish = Pack(english, EnglishForms);
-        _byReading = Pack(reading, ReadingForms);
-        _byKana = Pack(kanaToEnglish, KanaEnglish);
+        _sections[EnglishSection] = Pack(english, EnglishForms);
+        _sections[ReadingSection] = Pack(reading, ReadingForms);
+        _sections[KanaSection] = Pack(kanaToEnglish, KanaEnglish);
     }
 
     private sealed record Ranked(string[] Forms, int Rank);
@@ -412,9 +414,9 @@ public sealed class JapaneseDictionary
         list.Add(new Ranked(forms, rank));
     }
 
-    private static Dictionary<string, string[]> Pack(Dictionary<string, List<Ranked>> index, int keep)
+    private static PackedIndex Pack(Dictionary<string, List<Ranked>> index, int keep)
     {
-        var packed = new Dictionary<string, string[]>(index.Count, StringComparer.Ordinal);
+        var packed = new PackedIndex.Builder(index.Count);
 
         foreach (var (key, list) in index)
         {
@@ -442,10 +444,14 @@ public sealed class JapaneseDictionary
                 }
             }
 
-            packed[key] = forms.ToArray();
+            packed.BeginKey(key);
+            foreach (var form in forms)
+            {
+                packed.AddForm(form);
+            }
         }
 
-        return packed;
+        return packed.Build();
     }
 
     /// <summary>
@@ -494,52 +500,180 @@ public sealed class JapaneseDictionary
     //
     // 「鍵\t表記\t表記…」を1行ずつ。英語の索引・読みの索引・読み→英語の索引を空行で区切る。
     // 人が開いて読める形にしてあるのは、このツール全体の方針に合わせたもの。
+    // 読むのは頼まれた節だけ。ほかの節の行は、文字列に直さずに読み飛ばす
 
-    private bool TryLoadCache()
+    private bool TryLoadCache(int section)
     {
         if (!File.Exists(_cachePath))
         {
             return false;
         }
 
-        using var reader = new StreamReader(_cachePath, Encoding.UTF8);
-        if (reader.ReadLine() is not { } header || header != $"bridge\t{CacheVersion}\t{DictionaryStamp()}")
+        // 1行ずつ ReadLine すると、読み飛ばす節の行まで文字列になる（48.5万行・割り当て188MB）。
+        // バイトのまま行を切り、頼まれた節の行だけを使い回す文字の置き場へ直して詰める。
+        // 頼まれた節を読み終えたら、後ろの節は読まない
+        using var stream = new FileStream(_cachePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan);
+        var reader = new ByteLines(stream);
+        try
         {
-            return false;
-        }
-
-        var english = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        var reading = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        var kanaToEnglish = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        var sections = new[] { english, reading, kanaToEnglish };
-        var section = 0;
-        var target = english;
-
-        while (reader.ReadLine() is { } line)
-        {
-            if (line.Length == 0)
+            if (reader.Next() is not { } header
+                || !Encoding.UTF8.GetString(StripPreamble(header)).Equals($"bridge\t{CacheVersion}\t{DictionaryStamp()}", StringComparison.Ordinal))
             {
-                section = Math.Min(section + 1, sections.Length - 1);
-                target = sections[section];
-                continue;
+                return false;
             }
 
-            var parts = line.Split('\t');
-            if (parts.Length > 1)
+            // 1行はおよそ52バイト（2026-09-24 の控え：25.2MB・48.5万行）。節は3つでほぼ同じ行数
+            var builder = new PackedIndex.Builder((int)(stream.Length / 52 / SectionCount));
+            var chars = ArrayPool<char>.Shared.Rent(256);
+            try
             {
-                target[parts[0]] = parts[1..];
+                // 空行ごとに次の節へ（3つ目より後ろの空行は3つ目のまま。前の読み方と同じ）
+                var current = 0;
+                while (reader.Next() is { } line)
+                {
+                    if (line.Length == 0)
+                    {
+                        current = Math.Min(current + 1, SectionCount - 1);
+                        if (current > section)
+                        {
+                            break;
+                        }
+
+                        continue;
+                    }
+
+                    if (current != section)
+                    {
+                        continue;
+                    }
+
+                    if (Encoding.UTF8.GetMaxCharCount(line.Length) > chars.Length)
+                    {
+                        ArrayPool<char>.Shared.Return(chars);
+                        chars = ArrayPool<char>.Shared.Rent(Encoding.UTF8.GetMaxCharCount(line.Length));
+                    }
+
+                    var count = Encoding.UTF8.GetChars(line.Span, chars);
+                    AddRow(builder, chars.AsSpan(0, count));
+                }
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(chars);
+            }
+
+            _sections[section] = builder.Build();
+            return true;
+        }
+        finally
+        {
+            reader.Dispose();
+        }
+    }
+
+    private static ReadOnlySpan<byte> StripPreamble(ReadOnlyMemory<byte> line)
+        => line.Span.StartsWith(Encoding.UTF8.Preamble) ? line.Span[Encoding.UTF8.Preamble.Length..] : line.Span;
+
+    /// <summary>1行（鍵\t表記…）を足す。表記の無い行は前と同じく読み飛ばす。</summary>
+    private static void AddRow(PackedIndex.Builder builder, ReadOnlySpan<char> row)
+    {
+        var tab = row.IndexOf('\t');
+        if (tab < 0)
+        {
+            return;
+        }
+
+        builder.BeginKey(row[..tab]);
+        var rest = row[(tab + 1)..];
+        while (true)
+        {
+            var next = rest.IndexOf('\t');
+            if (next < 0)
+            {
+                builder.AddForm(rest);
+                return;
+            }
+
+            builder.AddForm(rest[..next]);
+            rest = rest[(next + 1)..];
+        }
+    }
+
+    /// <summary>
+    /// ファイルをバイトのまま1行ずつ返す（改行 LF・CRLF を除いた中身）。置き場は借り物で、
+    /// 返した行は次の <see cref="Next"/> まで有効。1行が置き場より長ければ置き場を広げる。
+    /// </summary>
+    private sealed class ByteLines(Stream stream) : IDisposable
+    {
+        private byte[] _buffer = ArrayPool<byte>.Shared.Rent(1 << 16);
+        private int _start;
+        private int _end;
+        private bool _eof;
+
+        public ReadOnlyMemory<byte>? Next()
+        {
+            while (true)
+            {
+                var newline = Array.IndexOf(_buffer, (byte)'\n', _start, _end - _start);
+                if (newline >= 0)
+                {
+                    var line = Trim(_start, newline);
+                    _start = newline + 1;
+                    return line;
+                }
+
+                if (_eof)
+                {
+                    if (_start >= _end)
+                    {
+                        return null;
+                    }
+
+                    var last = Trim(_start, _end);
+                    _start = _end;
+                    return last;
+                }
+
+                Fill();
             }
         }
 
-        _byEnglish = english;
-        _byReading = reading;
-        _byKana = kanaToEnglish;
-        return true;
+        private ReadOnlyMemory<byte> Trim(int start, int end)
+            => _buffer.AsMemory(start, (end > start && _buffer[end - 1] == (byte)'\r' ? end - 1 : end) - start);
+
+        private void Fill()
+        {
+            // 残りを頭へ寄せる。1行が置き場いっぱいなら置き場を倍にする
+            var remaining = _end - _start;
+            if (remaining == _buffer.Length)
+            {
+                var larger = ArrayPool<byte>.Shared.Rent(_buffer.Length * 2);
+                Buffer.BlockCopy(_buffer, _start, larger, 0, remaining);
+                ArrayPool<byte>.Shared.Return(_buffer);
+                _buffer = larger;
+            }
+            else
+            {
+                Buffer.BlockCopy(_buffer, _start, _buffer, 0, remaining);
+            }
+
+            _start = 0;
+            _end = remaining;
+            var read = stream.Read(_buffer, _end, _buffer.Length - _end);
+            if (read == 0)
+            {
+                _eof = true;
+            }
+
+            _end += read;
+        }
+
+        public void Dispose() => ArrayPool<byte>.Shared.Return(_buffer);
     }
 
     private void SaveCache()
     {
-        if (_byEnglish is null || _byReading is null || _byKana is null)
+        if (_sections.Any(section => section is null))
         {
             return;
         }
@@ -554,19 +688,23 @@ public sealed class JapaneseDictionary
         using (var writer = new StreamWriter(temp, false, new UTF8Encoding(false)))
         {
             writer.WriteLine($"bridge\t{CacheVersion}\t{DictionaryStamp()}");
-            WriteSection(writer, _byEnglish);
-            writer.WriteLine();
-            WriteSection(writer, _byReading);
-            writer.WriteLine();
-            WriteSection(writer, _byKana);
+            for (var section = 0; section < SectionCount; section++)
+            {
+                if (section > 0)
+                {
+                    writer.WriteLine();
+                }
+
+                WriteSection(writer, _sections[section]!);
+            }
         }
 
         File.Move(temp, _cachePath, overwrite: true);
     }
 
-    private static void WriteSection(TextWriter writer, Dictionary<string, string[]> index)
+    private static void WriteSection(TextWriter writer, PackedIndex index)
     {
-        foreach (var (key, forms) in index)
+        foreach (var (key, forms) in index.Entries())
         {
             writer.Write(key);
             foreach (var form in forms)
