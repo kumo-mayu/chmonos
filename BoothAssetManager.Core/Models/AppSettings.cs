@@ -154,14 +154,9 @@ public sealed record AppSettings
     public const int MinFetchIntervalMs = 1500;
 
     /// <summary>
-    /// 約束の範囲に戻す。以前の版で1.5秒より短く保存された設定もここで直る。
-    ///
-    /// <paramref name="fromDisk"/> は**読み込んだ直後だけ** true。
-    /// 古い既定の置き換えはそのときにしか行わない——保存のたびに通すと、
-    /// 手で 32 や 192 に書き換えた人の値が、設定を1つ触るだけで既定に戻ってしまう
-    /// （「手で書き換えた人の値は尊重する」という、置き換えそのものの前提が崩れる）。
+    /// 約束の範囲に戻す。1.5秒より短く保存された設定もここで直る。
     /// </summary>
-    public AppSettings Normalized(bool fromDisk = false)
+    public AppSettings Normalized()
     {
         var result = this;
         if (result.FetchIntervalMs < MinFetchIntervalMs)
@@ -173,11 +168,6 @@ public sealed record AppSettings
         if (result.Shortcuts is null)
         {
             result = result with { Shortcuts = new ShortcutSettings() };
-        }
-
-        if (fromDisk && result.ThumbnailCacheBudgetMb is FormerThumbnailCacheBudgetMb or PreviousThumbnailCacheBudgetMb)
-        {
-            result = result with { ThumbnailCacheBudgetMb = DefaultThumbnailCacheBudgetMb };
         }
 
         return result;
@@ -261,10 +251,9 @@ public sealed record AppSettings
     /// 復号済みサムネイルを保持する上限（MB）。超えたら最後に見てから古いものから捨てる。
     /// 保持しているのは圧縮前の生ピクセルで、ディスク上の30倍以上になる点に注意。
     ///
-    /// **32MB。**検索カードは表示の大きさ（長辺240px・約230KB）に縮めて持つので約140枚、
-    /// 原寸（長辺384px・576KB）でも約55枚入る。検索画面に一度に並ぶのは7列×4行ほどで、
-    /// なぞって切り替える分と少し戻る分を足しても収まる。
-    /// 以前は192MBで、2000件を最後までスクロールするとそれだけで作業セットが600MBを超えていた（#71）。
+    /// 既定は132MB（下の <see cref="DefaultThumbnailCacheBudgetMb"/>）。192MBでは2000件を最後までスクロールすると
+    /// それだけで作業セットが600MBを超え（#71）、32MBでは速く流して戻ったときに読み直しでカクついた（U12）。
+    /// 設定画面には出していない。settings.json に書いた値をそのまま使う
     /// </summary>
     public int ThumbnailCacheBudgetMb { get; init; } = DefaultThumbnailCacheBudgetMb;
 
@@ -273,15 +262,6 @@ public sealed record AppSettings
     /// 速く流して戻ったときに読み直しが起き、カクついた。作業セットの目標は300〜400MB。
     /// </remarks>
     public const int DefaultThumbnailCacheBudgetMb = 132;
-
-    /// <summary>1つ前の既定。これも設定画面に出したことが無いので、保存された32は既定を写しただけ。</summary>
-    private const int PreviousThumbnailCacheBudgetMb = 32;
-
-    /// <summary>
-    /// 以前の既定。設定画面に出したことが無く、保存された192は全員「既定を写しただけ」なので
-    /// 読み込み時に新しい既定へ置き換える。手で別の値に書き換えた人の値は尊重する。
-    /// </summary>
-    private const int FormerThumbnailCacheBudgetMb = 192;
 
     /// <summary>WebPの品質（0-100）。</summary>
     public int ImageQuality { get; init; } = 80;

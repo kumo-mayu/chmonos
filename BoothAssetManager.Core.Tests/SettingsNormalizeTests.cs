@@ -48,26 +48,10 @@ public sealed class SettingsNormalizeTests
         => Assert.Equal(new ShortcutSettings(), new AppSettings { Shortcuts = null! }.Normalized().Shortcuts);
 
     [Theory]
-    // 以前の既定。画面に出したことが無いので、保存された192は既定を写しただけ（#71）
-    [InlineData(192, AppSettings.DefaultThumbnailCacheBudgetMb)]
-    // 1つ前の既定。これも画面に出したことが無い（U12で132へ上げた）
-    [InlineData(32, AppSettings.DefaultThumbnailCacheBudgetMb)]
-    // 手で書き換えた値はそのまま
-    [InlineData(128, 128)]
-    [InlineData(16, 16)]
-    public void サムネイルの保持上限は以前の既定だけ新しい既定に置き換える(int saved, int expected)
-        => Assert.Equal(
-            expected,
-            new AppSettings { ThumbnailCacheBudgetMb = saved }.Normalized(fromDisk: true).ThumbnailCacheBudgetMb);
-
-    /// <summary>
-    /// 置き換えは**読み込んだ直後だけ**。保存のたびに通していたので、
-    /// 手で 32 や 192 に書き換えた人の値が、設定を1つ触るだけで既定に戻っていた。
-    /// </summary>
-    [Theory]
     [InlineData(192)]
+    [InlineData(132)]
     [InlineData(32)]
-    public void 保存のときは以前の既定でも置き換えない(int saved)
+    public void 保存されたサムネイルの保持上限はそのまま使う(int saved)
         => Assert.Equal(saved, new AppSettings { ThumbnailCacheBudgetMb = saved }.Normalized().ThumbnailCacheBudgetMb);
 
     [Fact]
