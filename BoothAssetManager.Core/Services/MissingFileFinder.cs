@@ -86,6 +86,10 @@ public sealed class MissingFileFinder
         var unreachable = new List<string>();
         var hashed = 0;
 
+        // 計算したハッシュは走査の控えに足す。前は捨てていたので、同じ大きさのファイルを探すたび・取り込むたびに
+        // 同じファイルを読み直していた（大きさが合う物は数GB の zip のこともある）
+        var computed = new List<(ScannedFile File, string Hash)>();
+
         foreach (var folder in folders)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -122,7 +126,11 @@ public sealed class MissingFileFinder
                         continue;
                     }
 
-                    progress?.Report((++hashed, Path.GetFileName(file.Path)));
+                    computed.Add((file, hash));
+
+                    // 数えるのは知らせの外で（`progress?.Report(++hashed…)` は受け手が無いと数えなかった）
+                    hashed++;
+                    progress?.Report((hashed, Path.GetFileName(file.Path)));
                 }
 
                 if (missing.ContainsKey(hash))
@@ -130,6 +138,23 @@ public sealed class MissingFileFinder
                     found.TryAdd(hash, file.Path);
                 }
             }
+        }
+
+        if (computed.Count > 0)
+        {
+            // 控えは取り込みも書くので、錠の中で今の控えに足す（読んだ時の写しで丸ごと書くと、その間に取り込みが足した分を消す）
+            await _store.ScanCache.UpdateAsync(
+                current =>
+                {
+                    var index = new ScanCacheIndex(current);
+                    foreach (var (file, hash) in computed)
+                    {
+                        index.Set(file.Path, file.SizeBytes, file.ModifiedAtUtc, hash);
+                    }
+
+                    return index.ToList();
+                },
+                cancellationToken);
         }
 
         var relinked = 0;
