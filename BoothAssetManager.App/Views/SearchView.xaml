@@ -226,7 +226,7 @@
                                 Style="{StaticResource HistorySlotButton}" Foreground="{StaticResource Accent}"
                                 FontSize="12" VerticalAlignment="Center" Padding="4,2"
                                 AutomationProperties.Name="条件をクリア"
-                                ToolTip="打った文字と条件の値を戻します（追加した条件は残ります）。押す前の条件は検索の履歴に残すので、履歴から戻せます。" />
+                                ToolTip="入力と条件の値をクリアします。前の条件は検索の履歴から戻せます。" />
                     </Grid>
                 </Border>
 
@@ -380,7 +380,7 @@
                                         -->
                                         <CheckBox IsChecked="{Binding IncludeOn, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.Name="お気に入りのショップの商品を含める"
-                                                  ToolTip="ショップ画面で星を付けたショップを、まとめて選んだのと同じに扱います。ほかに選んだショップがあれば、そのどれかに当てはまる商品を表示します。"
+                                                  ToolTip="お気に入りのショップをすべて選んだのと同じに絞ります。"
                                                   Visibility="{Binding HasInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock FontSize="12" Foreground="{StaticResource Text}">
                                                 <Run Text="★" Foreground="#d99a00" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
@@ -414,7 +414,7 @@
                                           </CheckBox>
                                           <CheckBox IsChecked="{Binding ShowUnspecified, Mode=TwoWay}" Margin="0,3,0,0"
                                                     AutomationProperties.Name="対応の指定が無い商品を表示"
-                                                    ToolTip="対応アバターが1つも書かれていない商品を、どのアバターにも使えるものとして表示します。1つでも書いてある商品は、書いてあるとおりに絞ります。">
+                                                    ToolTip="対応アバターが書かれていない商品も表示します。">
                                               <TextBlock Text="{Binding UnspecifiedLabel}" FontSize="12" TextWrapping="Wrap"
                                                          Foreground="{StaticResource Text}" />
                                           </CheckBox>
@@ -435,7 +435,7 @@
                                         -->
                                         <CheckBox IsChecked="{Binding IgnoreOutliers, Mode=TwoWay}" Margin="0,0,0,6"
                                                   AutomationProperties.Name="外れ値を無視"
-                                                  ToolTip="普通の価格の上の方（95%の位置）の5倍以上を外れ値として、目盛の幅と照合から外します。支援用のバリエーションや、販売を止めるためのあり得ない高値が当たります。商品そのものは外さず、ほかのバリエーションの価格で照らします。"
+                                                  ToolTip="極端に高い価格を、目盛と絞り込みから外します。商品は外しません。"
                                                   Visibility="{Binding SupportsOutliers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding OutlierLabel}" FontSize="12" TextWrapping="Wrap"
                                                        Foreground="{StaticResource Text}" />
@@ -450,7 +450,7 @@
                                             左の余白はトグルの幅ぶん（スライダの左端に揃える）
                                         -->
                                         <controls:ContentItemsControl ItemsSource="{Binding Histogram}" Height="22" Margin="24,0,0,1"
-                                                                      Focusable="False" ToolTip="商品が多いところ（範囲を決める目印）"
+                                                                      Focusable="False" ToolTip="商品の数の分布"
                                                                       AutomationProperties.Name="商品の数の分布"
                                                                       Visibility="{Binding HasHistogram, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <ItemsControl.ItemsPanel>
@@ -471,7 +471,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MinEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると下限を見ません（それ以下も表示します）"
+                                                      ToolTip="チェックを外すと、下限で絞りません。"
                                                       AutomationProperties.Name="下限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False" LargeChange="10"
@@ -482,7 +482,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MaxEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると上限を見ません（それ以上も表示します）"
+                                                      ToolTip="チェックを外すと、上限で絞りません。"
                                                       AutomationProperties.Name="上限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False" LargeChange="10"
@@ -529,7 +529,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding SinceEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると始まりの日を見ません（それより前も表示します）"
+                                                      ToolTip="チェックを外すと、始まりの日で絞りません。"
                                                       AutomationProperties.Name="始まりの日を効かせる" />
                                             <ToggleButton x:Name="SinceCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding SinceEnabled}"
@@ -559,7 +559,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding TillEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると終わりの日を見ません（それより後も表示します）"
+                                                      ToolTip="チェックを外すと、終わりの日で絞りません。"
                                                       AutomationProperties.Name="終わりの日を効かせる" />
                                             <ToggleButton x:Name="TillCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding TillEnabled}"
@@ -804,10 +804,10 @@
                 </ScrollViewer>
                 <Button x:Name="HistoryBack" Style="{StaticResource HistoryScrollButton}" HorizontalAlignment="Left" Content="‹"
                         Click="OnHistoryScrollBack" Visibility="Collapsed"
-                        ToolTip="前の履歴へ送る（ホイールでも送れます）" AutomationProperties.Name="前の検索履歴へ送る" />
+                        ToolTip="前の履歴へ送ります。ホイールでも送れます。" AutomationProperties.Name="前の検索履歴へ送る" />
                 <Button x:Name="HistoryForward" Style="{StaticResource HistoryScrollButton}" HorizontalAlignment="Right" Content="›"
                         Click="OnHistoryScrollForward" Visibility="Collapsed"
-                        ToolTip="続きの履歴へ送る（ホイールでも送れます）" AutomationProperties.Name="続きの検索履歴へ送る" />
+                        ToolTip="続きの履歴へ送ります。ホイールでも送れます。" AutomationProperties.Name="続きの検索履歴へ送る" />
                 </Grid>
               </DockPanel>
             </Border>
@@ -851,7 +851,7 @@
 
                     <Menu Grid.Column="1" Background="Transparent" VerticalAlignment="Center" Margin="8,0,0,0">
                         <MenuItem Header="対象 ▾" ItemsSource="{Binding TargetOptions}" Height="34" Padding="10,0"
-                                  ToolTip="文字列で探す項目を選びます。name: のように前置きを付けた語は、ここで切っていてもその項目だけを探します。">
+                                  ToolTip="探す項目を選びます。name: などを付けた語は、その項目を探します。">
                             <MenuItem.ItemContainerStyle>
                                 <Style TargetType="MenuItem">
                                     <Setter Property="Header" Value="{Binding Header}" />
@@ -871,7 +871,7 @@
                             <Separator />
                             <MenuItem Header="別表記でも検索" IsCheckable="True" StaysOpenOnClick="True"
                                       IsChecked="{Binding SearchAlternates, Mode=TwoWay}"
-                                      ToolTip="打った語を、読み・漢字・英語などの別の書き方でも探します。何で当たったかは結果の上に表示されます。" />
+                                      ToolTip="読み・漢字・英語などの別の書き方でも探します。" />
                             <MenuItem Header="　ローマ字変換（tori → とり・トリ）" IsCheckable="True" StaysOpenOnClick="True"
                                       IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseRomaji, Mode=TwoWay}" />
                             <MenuItem Header="　漢字変換（とり → 鳥）" IsCheckable="True" StaysOpenOnClick="True"
@@ -882,7 +882,7 @@
                                       IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseJapaneseToEnglish, Mode=TwoWay}" />
                             <MenuItem Header="　造語変換（nadeoto → 撫で音）" IsCheckable="True" StaysOpenOnClick="True"
                                       IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseCoined, Mode=TwoWay}"
-                                      ToolTip="辞書に無い語は、商品名の漢字を1字ずつ読んで照らします。" />
+                                      ToolTip="辞書に無い語は、商品名の漢字を1字ずつ読んで探します。" />
                         </MenuItem>
                     </Menu>
                   </Grid>
@@ -893,7 +893,7 @@
                         <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="衣装 (夏 OR 冬)" />
                         <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="18,0,0,0" Text="path:ring" />
                         <TextBlock Style="{StaticResource Caption}" Margin="12,0,0,0" Foreground="{StaticResource TextFaint}"
-                                   Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり、name: で探す所を絞る">
+                                   Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり、name: で探す項目を絞る">
                             <TextBlock.ToolTip>
                                 <TextBlock>
                                     スペースで区切ると、どちらも含むものを探します。<LineBreak />
@@ -903,7 +903,7 @@
                                     括弧が無いと 衣装 夏 OR 冬 は「衣装かつ夏」または「冬」と読まれます。<LineBreak />
                                     衣装 (夏 OR 冬) と書けば「衣装かつ、夏か冬」になります。<LineBreak />
                                     <LineBreak />
-                                    前に付けると、その項目だけを探します（「対象」で切っていても探します）：<LineBreak />
+                                    前に付けると、その項目だけを探します。「対象」で外していても探します。<LineBreak />
                                     name: 商品名　shop: ショップ名　memo: メモ　subdomain: サブドメイン　main: 本文<LineBreak />
                                     tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
                                     file: ファイル名　path: ファイルの場所　content: zipの中のファイル名<LineBreak />
@@ -1060,7 +1060,7 @@
                     <!-- 0件でも自動では広げない（ユーザ判断 2026-09-16）。広げるかはここで選ばせる -->
                     <Button Content="別表記でも検索する" Style="{StaticResource SmallButton}" HorizontalAlignment="Center"
                             Margin="0,10,0,0" Command="{Binding WidenCommand}"
-                            ToolTip="toriで「鳥」、sharkで「サメ」のように、読み・漢字・英語などの別の書き方でも探します。"
+                            ToolTip="読み・漢字・英語などの別の書き方でも探します。"
                             Visibility="{Binding ShowsWidenOffer, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
             </Grid>

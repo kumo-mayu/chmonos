@@ -7,7 +7,7 @@
     -->
     <TextBlock Style="{StaticResource Caption}" Foreground="{StaticResource TextFaint}" TextWrapping="Wrap"
                ToolTipService.InitialShowDelay="250"
-               Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり、OR でどちらか（検索画面と同じ）">
+               Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり、OR でどちらか">
         <TextBlock.ToolTip>
             <TextBlock>
                 検索画面と同じ書き方で探します。<LineBreak />
