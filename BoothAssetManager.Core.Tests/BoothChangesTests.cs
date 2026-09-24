@@ -156,6 +156,6 @@ public class BoothChangesTests
             Block(price: "¥ 1,000", images: 8),
             Block(price: "¥ 1,200", images: 10));
 
-        Assert.Equal("価格 ¥ 1,000 → ¥ 1,200 / 画像 8枚 → 10枚", BoothChanges.Summarize(diffs));
+        Assert.Equal("価格 ¥ 1,000 → ¥ 1,200 / 画像 8 枚 → 10 枚", BoothChanges.Summarize(diffs));
     }
 }

@@ -203,7 +203,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public string RefreshButtonTip => Item.IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、取り直せません。"
         : "BOOTHの商品ページに載っている情報（商品名・価格・バリエーション・説明文・画像）を取り直します。"
-            + "\n商品のファイルはダウンロードしません。メモや分類など自分で入れたものも変わりません。";
+            + "\n商品のファイルはダウンロードしません。メモやユーザータグなど自分で入れたものも変わりません。";
 
     public string RefreshStatus
     {
@@ -326,7 +326,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public string EditLockText => "取り込みの途中です。対応アバターの検出が終わると編集できます（見る・Unityへ送る・改変に追加は今でもできます）";
 
-    public string EditButtonTip => IsEditLocked ? EditLockText : "分類・タグ・属性などを直す画面を開きます";
+    public string EditButtonTip => IsEditLocked ? EditLockText : "BOOTH分類名・ユーザータグ・属性などを直す画面を開きます";
 
     /// <summary>
     /// 画面内検索（U20）。畳んだ説明の中に一致があれば開いて見せる（ユーザ判断）。
@@ -692,7 +692,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
                 + "統計の支出には入ります。設定の「非表示にした商品」から戻せます。\n"
                 + "残す：商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。"
                 + "外した印も残るので、次の取り込みでこのファイルがこの商品に戻ることはありません。\n"
-                + "完全に削除：アプリ内の履歴から完全に削除します。メモや分類も一緒に消えます。"
+                + "完全に削除：アプリ内の履歴から完全に削除します。メモやユーザータグも一緒に消えます。"
                 + "外した印も消えるので、次の取り込みで読み取った情報がこの商品を指せば、再取り込みの対象になります。",
                 "非表示にして残す（おすすめ）",
                 "残す",

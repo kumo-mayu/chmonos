@@ -564,7 +564,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
                 SubText = $"{bar.ItemCount} 件",
                 Ratio = categoryMax == 0 ? 0 : bar.Bytes / (double)categoryMax,
                 OpenCommand = new RelayCommand(() => ShowCategory(category)),
-                Tooltip = "この分類の商品を検索画面で開きます。",
+                Tooltip = "このカテゴリの商品を検索画面で開きます。",
             });
         }
 

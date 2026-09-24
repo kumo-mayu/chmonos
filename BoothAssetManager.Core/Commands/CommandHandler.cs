@@ -477,7 +477,7 @@ public sealed class CommandHandler
             case UiCommand.RenameUserTag rename:
                 if (_userTags is null)
                 {
-                    return MissingService("分類の編集");
+                    return MissingService("ユーザータグの編集");
                 }
 
                 return new CommandResult.UserTagsRewritten(rename.Sub is null
@@ -487,7 +487,7 @@ public sealed class CommandHandler
             case UiCommand.DeleteUserTag delete:
                 if (_userTags is null)
                 {
-                    return MissingService("分類の編集");
+                    return MissingService("ユーザータグの編集");
                 }
 
                 return new CommandResult.UserTagsRewritten(delete.Sub is null
@@ -497,7 +497,7 @@ public sealed class CommandHandler
             case UiCommand.SetUserTagMemo memo:
                 if (_userTags is null)
                 {
-                    return MissingService("分類の編集");
+                    return MissingService("ユーザータグの編集");
                 }
 
                 return new CommandResult.UserTagsChanged(
@@ -506,7 +506,7 @@ public sealed class CommandHandler
             case UiCommand.ReorderUserTags reorder:
                 if (_userTags is null)
                 {
-                    return MissingService("分類の編集");
+                    return MissingService("ユーザータグの編集");
                 }
 
                 return new CommandResult.UserTagsChanged(
@@ -515,7 +515,7 @@ public sealed class CommandHandler
             case UiCommand.MoveUserTagSub move:
                 if (_userTags is null)
                 {
-                    return MissingService("分類の編集");
+                    return MissingService("ユーザータグの編集");
                 }
 
                 return new CommandResult.UserTagsRewritten(await _userTags.MoveSubAsync(

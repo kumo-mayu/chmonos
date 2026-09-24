@@ -140,7 +140,7 @@ internal static class ItemUnityActions
             projectPath is not null
                 ? $"送り先：Unityの「{editor.ProjectName}」"
                 : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
-                    + "（一覧に無いプロジェクトなので、改変は全部表示しています）",
+                    + "（一覧に無いプロジェクトなので、改変はすべて表示しています）",
             records,
             existingLabel: "このプロジェクトの改変に追加",
             commitLabel: "追加して送る",

@@ -447,8 +447,8 @@ public sealed partial class SearchViewModel
             [new("free", "無料のみ"), new("paid", "有料のみ"), new("both", "両方")],
             "both", (item, key, _) => FreePaidMatches(item, key)),
 
-        SearchModuleKind.UserTag => new ListModule(kind, allowsAnd: true, "ユーザタグで絞り込む",
-            "ユーザタグがまだ登録されていません。編集画面から追加できます。", (item, _, key, _) => UserTagMatches(item, key)),
+        SearchModuleKind.UserTag => new ListModule(kind, allowsAnd: true, "ユーザータグで絞り込む",
+            "ユーザータグがまだ登録されていません。編集画面から追加できます。", (item, _, key, _) => UserTagMatches(item, key)),
 
         SearchModuleKind.Attribute => new AttributeModule(),
 

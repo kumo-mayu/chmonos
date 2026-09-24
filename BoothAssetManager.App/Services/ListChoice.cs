@@ -70,7 +70,7 @@ public static class ListChoice
         // 名前は「キャンセル」で揃える（`ui-rules.md`・D3）。順に聞いている間だけ、範囲が分かる名前にする（D11）
         var cancel = new Button
         {
-            Content = skipText is null ? "キャンセル" : "残り全部を中止",
+            Content = skipText is null ? "キャンセル" : "残りすべてを中止",
             ToolTip = skipText is null ? null : "この商品も、まだ聞いていない残りの商品も送りません。",
             IsCancel = true,
             Margin = new Thickness(8, 0, 0, 0),

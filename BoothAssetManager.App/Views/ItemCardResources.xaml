@@ -273,7 +273,7 @@
                                                     </Border>
                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
-                                                            ToolTip="まだ分類していません"
+                                                            ToolTip="まだユーザータグを付けていません"
                                                             Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="未編集" FontSize="10" Foreground="{StaticResource Warn}" />
                                                     </Border>
@@ -431,9 +431,9 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                             Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
-                    <Button Content="全て選択" Style="{StaticResource SmallButton}"
+                    <Button Content="すべて選択" Style="{StaticResource SmallButton}"
                             Command="{Binding SelectAllCommand}"
-                            ToolTip="今出ている商品を全て選びます。" />
+                            ToolTip="今表示されている商品をすべて選びます。" />
                     <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding ClearSelectionCommand}" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
@@ -669,7 +669,7 @@
                     <TextBlock Text="取り込み中" FontSize="10" Foreground="{StaticResource Accent}" />
                 </Border>
                 <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだ分類していません"
+                        BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1" ToolTip="まだユーザータグを付けていません"
                         Visibility="{Binding NeedsEdit, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未編集" FontSize="10" Foreground="{StaticResource Warn}" />
                 </Border>

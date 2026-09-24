@@ -47,7 +47,7 @@ public sealed record UnityQueueOutcome(
         var notes = new List<string>();
         if (outcomes.Count(outcome => outcome.AlreadyPresent) is > 0 and var present)
         {
-            notes.Add($"{present} 件は既に全部入っていました");
+            notes.Add($"{present} 件は既にすべて入っていました");
         }
 
         if (outcomes.Count(outcome => outcome.Cancelled) is > 0 and var cancelled)
@@ -350,7 +350,7 @@ public static class UnityImportQueue
 
             if (alreadyThere)
             {
-                Report($"{index + 1}/{packages.Count}：「{package.Name}」は既に全部入っています。Unity で「OK」を押すと次に進みます");
+                Report($"{index + 1}/{packages.Count}：「{package.Name}」は既にすべて入っています。Unity で「OK」を押すと次に進みます");
             }
 
             UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」の取り込み画面を出した"

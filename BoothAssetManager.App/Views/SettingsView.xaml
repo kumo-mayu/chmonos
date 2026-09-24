@@ -118,7 +118,7 @@
                             <TextBlock Text="（1〜20）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                             <Button Content="履歴を削除" Style="{StaticResource DangerButton}"
                                     Command="{Binding ClearSearchHistoryCommand}" Margin="14,0,0,0"
-                                    ToolTip="検索の履歴を全部削除します。元に戻せません。いまの検索の条件は変わりません。" />
+                                    ToolTip="検索の履歴をすべて削除します。元に戻せません。いまの検索の条件は変わりません。" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="商品を開いたときに1件残ります。同じ条件は重ねて残しません。" />
@@ -148,11 +148,11 @@
                         <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />
-                            <Button Content="全部を元の幅に戻す" Style="{StaticResource SmallButton}"
+                            <Button Content="すべて元の幅に戻す" Style="{StaticResource SmallButton}"
                                     Command="{Binding ResetPaneWidthsCommand}" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
-                                   Text="一覧と詳細の境目などをドラッグして変えた幅を、全部元に戻します。1か所だけ戻すときは、その境目をダブルクリックします。" />
+                                   Text="一覧と詳細の境目などをドラッグして変えた幅を、すべて元に戻します。1か所だけ戻すときは、その境目をダブルクリックします。" />
 
                         <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"

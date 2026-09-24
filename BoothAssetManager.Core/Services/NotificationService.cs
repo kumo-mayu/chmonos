@@ -301,7 +301,7 @@ public sealed class NotificationService : INotificationService
             && broken >= (int)Math.Ceiling(recent.Count * StructureBrokenRatio);
 
         const string id = "page-structure";
-        var detail = $"最近取り直した{recent.Count}件のうち{broken}件で、説明文の見出しを読み取れませんでした。"
+        var detail = $"最近取り直した {recent.Count} 件のうち {broken} 件で、説明文の見出しを読み取れませんでした。"
             + "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。";
 
         await _store.Notifications.TryUpdateAsync(

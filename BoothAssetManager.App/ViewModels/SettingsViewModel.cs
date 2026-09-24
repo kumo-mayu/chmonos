@@ -522,7 +522,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     private void ClearSearchHistory()
     {
         var answer = Services.Notice.Show(
-            "検索の履歴を全部消します。\n\n"
+            "検索の履歴をすべて消します。\n\n"
             + "名前を付けたものも一緒に消えます。元には戻せません。\n"
             + "いまの検索の条件は変わりません。",
             "検索の履歴を削除",
@@ -945,7 +945,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     public RelayCommand ResetPaneWidthsCommand => _resetPaneWidthsCommand ??= new RelayCommand(() =>
     {
         _services.PaneWidths.ResetAll();
-        Status = "画面の幅を全部元に戻しました。";
+        Status = "画面の幅をすべて元に戻しました。";
     });
 
     private async Task UnhideAsync(string itemId)

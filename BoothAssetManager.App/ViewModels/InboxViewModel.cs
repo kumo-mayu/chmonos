@@ -171,7 +171,7 @@ public sealed class NotificationGroup : ViewModelBase
     /// 束の件数は、行に出る札と同じ色・同じ言葉で出す（ユーザ指示 2026-09-18）。
     /// 「4 件（未読 4）」の一続きの小さな文字では、何件あって何を先に読むのかが掴めなかった
     /// </summary>
-    public string TotalText => $"{Rows.Count}件";
+    public string TotalText => $"{Rows.Count} 件";
 
     public bool HasUnread => UnreadCount > 0;
 

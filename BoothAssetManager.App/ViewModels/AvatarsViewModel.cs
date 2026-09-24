@@ -148,7 +148,7 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public string MemberText => $"アバター {Summary.MemberCount}（所有 {Summary.OwnedMemberCount}）";
 
-    public string ItemText => $"この素体向けと書かれた商品 {Summary.ItemCount}件";
+    public string ItemText => $"この素体向けと書かれた商品 {Summary.ItemCount} 件";
 
     public bool InferClothing => Summary.Group.InferClothing;
 
@@ -894,7 +894,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     public string SelectedCountText => Selected is null
         ? string.Empty
-        : $"対応している商品 {Selected.Summary.DirectCount}件（ほかに共通素体経由 {Selected.Summary.ViaBaseCount}件）";
+        : $"対応している商品 {Selected.Summary.DirectCount} 件（ほかに共通素体経由 {Selected.Summary.ViaBaseCount} 件）";
 
     /// <summary>所有の表示。取り込んだファイルで所有しているときは固定（ユーザ判断 2026-09-17）、していないときだけ手動で切り替えられる。</summary>
     public string SelectedOwnedText => Selected is null
@@ -919,7 +919,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             var parts = Selected.Summary.Entry.SeenAs
                 .OrderByDescending(pair => pair.Value)
-                .Select(pair => $"{Label(pair.Key)} {pair.Value}件");
+                .Select(pair => $"{Label(pair.Key)} {pair.Value} 件");
 
             return "見つかった場所：" + string.Join(" / ", parts);
         }
@@ -1195,8 +1195,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             {
                 // 数字は詰めて書く。更新が0件のときに「0件を更新しました」だと、何か起きたのか分かりにくい（ユーザ判断 2026-09-17）
                 result.ItemsUpdated > 0
-                    ? $"{result.ItemsScanned}件を調べ、{result.ItemsUpdated}件の対応アバターを更新しました"
-                    : $"{result.ItemsScanned}件を調べました。対応アバターに変わりはありませんでした",
+                    ? $"{result.ItemsScanned} 件を調べ、{result.ItemsUpdated} 件の対応アバターを更新しました"
+                    : $"{result.ItemsScanned} 件を調べました。対応アバターに変わりはありませんでした",
                 $"アバター{result.AvatarsFound}体",
             };
 
@@ -1212,7 +1212,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             if (result.Unresolved > 0)
             {
-                parts.Add($"通信できず保留{result.Unresolved}件（次回もう一度試します）");
+                parts.Add($"通信できず保留 {result.Unresolved} 件（次回もう一度試します）");
             }
 
             Status = string.Join(" / ", parts);

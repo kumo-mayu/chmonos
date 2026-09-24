@@ -197,7 +197,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
                 parts.Add($"購入記録 {plan.PurchaseCount} 件");
             }
 
-            parts.Add("メモ・分類・属性・入手日");
+            parts.Add("メモ・ユーザータグ・属性・入手日");
 
             return "移すもの：" + string.Join("　", parts);
         }

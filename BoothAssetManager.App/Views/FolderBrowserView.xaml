@@ -103,7 +103,7 @@
             <WrapPanel Margin="0,12,0,0">
                 <Button Content="このフォルダの商品を検索で開く" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
                         Command="{Binding Owner.SearchHereCommand}" CommandParameter="{Binding}"
-                        ToolTip="検索の画面へ移り、このフォルダの下にファイルを持つ商品だけで絞り込みます（分類・対応アバターなどでも絞れます）。" />
+                        ToolTip="検索の画面へ移り、このフォルダの下にファイルを持つ商品だけで絞り込みます（カテゴリ・対応アバターなどでも絞れます）。" />
                 <!-- エクスプローラを開くのは、どの画面でも小さいボタン（V1） -->
                 <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="0,0,8,8"
                         IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"

@@ -175,7 +175,7 @@
                                     Visibility="{Binding HasFilterText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Grid>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="全て選択" Style="{StaticResource SmallButton}" Command="{Binding SelectAllCommand}" />
+                            <Button Content="すべて選択" Style="{StaticResource SmallButton}" Command="{Binding SelectAllCommand}" />
                             <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                     Command="{Binding ClearChecksCommand}" />
                         </StackPanel>

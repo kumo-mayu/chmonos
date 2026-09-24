@@ -61,7 +61,7 @@ public static class SearchModuleCatalog
 
     public static IReadOnlyList<SearchModuleInfo> All { get; } =
     [
-        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れた分類を含む）で絞ります。"),
+        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れたカテゴリを含む）で絞ります。"),
         new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。"),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。"),
@@ -72,17 +72,17 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
         new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰ったもので、自分でも買ったものは両方に表示されます。"),
         new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方があるものは両方に表示されます。"),
-        new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。"),
+        new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。"),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。"),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。"),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
-        new(SearchModuleKind.Unedited, "未編集", "ユーザタグをまだ付けていない商品で絞ります。"),
+        new(SearchModuleKind.Unedited, "未編集", "ユーザータグをまだ付けていない商品で絞ります。"),
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。"),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
-        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下の全部を含む）。"),
+        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下のすべてを含む）。"),
         new(SearchModuleKind.Recent, "最近", "最近使った（Unityへ送った）・見た・手元に入った商品で絞ります。記録が無い商品は外れます。"),
     ];
 

@@ -153,7 +153,7 @@ internal static class UnityMemberSelect
             : outcomes.All(outcome => outcome.Cancelled)
                 ? "Cancel されたので、入っていません。"
                 : outcomes.All(outcome => outcome.AlreadyPresent)
-                    ? $"「{projectName}」には既に全部入っていました。もう一度押すと、プロジェクトタブで示します。"
+                    ? $"「{projectName}」には既にすべて入っていました。もう一度押すと、プロジェクトタブで示します。"
                     : $"「{projectName}」へ送りました。入った後にもう一度押すと、プロジェクトタブで示します。",
             failed: failed.Count > 0);
 

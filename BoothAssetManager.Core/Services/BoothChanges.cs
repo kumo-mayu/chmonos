@@ -55,8 +55,8 @@ public static class BoothChanges
             diffs.Add(new NotificationDiff
             {
                 Field = "バリエーション",
-                Before = $"{before.Variations.Count}件",
-                After = $"{after.Variations.Count}件",
+                Before = $"{before.Variations.Count} 件",
+                After = $"{after.Variations.Count} 件",
             });
         }
 
@@ -65,8 +65,8 @@ public static class BoothChanges
             diffs.Add(new NotificationDiff
             {
                 Field = "画像",
-                Before = $"{before.Images.Count}枚",
-                After = $"{after.Images.Count}枚",
+                Before = $"{before.Images.Count} 枚",
+                After = $"{after.Images.Count} 枚",
             });
         }
 
