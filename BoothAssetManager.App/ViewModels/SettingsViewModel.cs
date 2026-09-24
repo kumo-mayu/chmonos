@@ -222,7 +222,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                          && string.Equals(entry.Gesture, gesture, StringComparison.OrdinalIgnoreCase)))
             {
                 other.SetGesture(string.Empty);
-                Status = $"「{other.Label}」の割り当てを外しました（同じキーだったため）。";
+                Status = $"同じキーだったので、「{other.Label}」の割り当てを外しました。";
             }
         }
 
@@ -1002,7 +1002,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             if (Core.Storage.StoreLocation.Resolve().Source == Core.Storage.StoreRootSource.Environment)
             {
-                return $"環境変数 {Core.Storage.AppPaths.RootVariable} で保存先が指定されているため、ここからは変えられません。";
+                return $"環境変数{Core.Storage.AppPaths.RootVariable}で保存先が指定されているため、ここからは変えられません。";
             }
 
             if (_main.IsImporting)
@@ -1012,7 +1012,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
             if (IsMovingStore)
             {
-                return "いま運んでいます。終わるまでお待ちください。";
+                return "保存先を移動しています。終わるまでお待ちください。";
             }
 
             return IsBackingUp
@@ -1035,7 +1035,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 運んでいる間は書き込みの門を持つので、止める手立てが無いと全部の保存が無期限に待たされる。
         // 途中で止めても元には手を付けていないので、保存先を古いままにすれば何も失われない
         using var stop = new CancellationTokenSource();
-        _main.BeginLongJob("この間、保存は運び終わるまで待たされます（読む操作はできます）", stop);
+        _main.BeginLongJob("移動が終わるまで、保存は待たされます。見ることはできます。", stop);
 
         try
         {
@@ -1059,7 +1059,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                     Succeeded = false,
                     Copied = 0,
                     Bytes = 0,
-                    Error = (result as Core.Commands.CommandResult.Failed)?.Message ?? "運べませんでした。",
+                    Error = (result as Core.Commands.CommandResult.Failed)?.Message ?? "移動できませんでした。",
                 };
         }
         finally
@@ -1161,7 +1161,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             StoreLocation.Save(picked);
             RestartIntoNewRoot(
                 $"{replaced.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"
-                + $"元々あったものは「{replaced.ParkedAt}」に残してあります（中身を確かめてから消してください）。\n\n"
+                + $"元々あったものは「{replaced.ParkedAt}」に移動しました。不要なら、中身を確かめてから削除してください。\n\n"
                 + "新しい場所で開き直します。",
                 "置き換えました");
             return;
@@ -1171,7 +1171,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Services.Notice.Show(
                 $"選んだ場所には別のファイルが入っています。\n\n{picked}\n\n"
-                + "間違えて選ぶと中身が混ざるので、空のフォルダか、このアプリのデータが入っている場所を選んでください。",
+                + "空のフォルダか、このアプリのデータが入っている場所を選んでください。",
                 "この場所は使えません",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
@@ -1186,7 +1186,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             $"変更前：{source}\n変更後：{picked}\n"
             + $"今のデータ：{files:N0} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
             + "「引っ越す」\nコピーしてから元を消します。途中で失敗した場合は元のままにします。\n\n"
-            + "「場所だけ変える」\n新しい場所は空なので、次の起動では何も無い状態から始まります。",
+            + "「場所だけ変える」\n次の起動は、新しい場所の空の状態から始まります。今のデータは元の場所に残ります。",
             "引っ越す",
             "場所だけ変える");
 
@@ -1229,8 +1229,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
         else
         {
-            RootNotice = $"次の起動から「{picked}」を使います。データは移していないので、"
-                + $"「{source}」の中身は元の場所に残ります。";
+            RootNotice = $"次の起動から「{picked}」を使います。今のデータは「{source}」に残っています。";
         }
 
         StoreLocation.Save(picked);
@@ -1291,7 +1290,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         var withImages = Views.ChoiceDialog.Ask(
             "バックアップを書き出す",
-            $"画像も含めますか？（画像：{ImageUsageText}）",
+            $"画像（{ImageUsageText}）も含めますか？",
             "「画像も入れる」\n戻したときに取り直さずに済みますが、zipが大きくなります。\n\n"
             + "「画像は入れない」\n戻した後、使っていない間にBOOTHから少しずつ取り直します。",
             "画像も入れる",
@@ -1355,7 +1354,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         if (!Core.Storage.BackupArchive.LooksLikeBackup(open.FileName))
         {
             Services.Notice.Show(
-                "このアプリのバックアップではないようです（商品も設定も入っていません）。\n\n"
+                "選んだzipには、このアプリの商品も設定も入っていません。\n\n"
                 + "設定画面の「バックアップを書き出す」で作ったzipを選んでください。",
                 "バックアップから戻す",
                 System.Windows.MessageBoxButton.OK,
@@ -1374,7 +1373,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Services.Notice.Show(
                 $"戻す先には既にファイルがあります。\n\n{destination}\n\n"
-                + "混ざらないよう、空のフォルダを選んでください（その中に「BoothAssetManager」を作って戻します）。",
+                + "別の空のフォルダを選んでください。",
                 "この場所には戻せません",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
@@ -1460,7 +1459,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Services.Notice.Show(
                 $"編集途中の商品（{_main.Drafts.Count} 件）に、保存していない入力があります。\n\n"
-                + "運び終えるとアプリを開き直すので、このままだとその入力は消えてしまいます。"
+                + "移動が終わるとアプリを開き直すので、その入力は消えてしまいます。"
                 + "編集画面で保存してから、もう一度選んでください。",
                 "先に編集を保存してください",
                 System.Windows.MessageBoxButton.OK,
@@ -1497,7 +1496,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             // 開き直す手立てが無い。古い場所で続けさせると書いた物が消えるので、閉じて手で開いてもらう
             Services.Notice.Show(
-                "自動で開き直せませんでした。アプリを閉じるので、もう一度開いてください。",
+                "自動で開き直せませんでした。アプリを閉じます。もう一度開いてください。",
                 title,
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
