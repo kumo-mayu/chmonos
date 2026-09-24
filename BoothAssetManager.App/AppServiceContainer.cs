@@ -76,6 +76,9 @@ public sealed class AppServiceContainer : IDisposable
         KanjiReadings = new KanjiReadings(
             Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"),
             Paths.KanjiReadingsCacheFile);
+
+        // 検索の「名前」「ショップ」の並べ替えの鍵（名前の読み）。名前ごとに1度だけ作って控える
+        NameOrder = new Core.Services.NameCollation(KanjiReadings);
         Due = new DueRefresh(Store, Items);
         Resolver = new FallbackResolver(Client, Bridge, KanjiReadings);
         Edit = new EditService(Store);
@@ -212,6 +215,9 @@ public sealed class AppServiceContainer : IDisposable
     public Core.Services.CategoryTable Categories { get; } = Core.Services.CategoryTable.Bundled();
 
     public KanjiReadings KanjiReadings { get; }
+
+    /// <summary>名前の読みの順（検索の並べ替え）。字の表は KanjiReadings と共有する。</summary>
+    public Core.Services.NameCollation NameOrder { get; }
 
     /// <summary>⑦ 期限の来た商品を取り直す。梯子のいちばん下。</summary>
     public DueRefresh Due { get; }

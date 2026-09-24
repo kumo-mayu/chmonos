@@ -75,6 +75,21 @@ public enum SortKind
 
     /// <summary>商品ページを開いた順</summary>
     RecentlyViewed,
+
+    /// <summary>自分用に払った額の合計（贈った・貰ったは含めない）</summary>
+    SelfPaid,
+
+    /// <summary>BOOTH の公開日</summary>
+    PublishedAt,
+
+    /// <summary>BOOTH の今の価格（いちばん安いバリエーション）</summary>
+    BoothPrice,
+
+    /// <summary>ショップ名の読みの順。同じショップの中は入手日の新しい順</summary>
+    Shop,
+
+    /// <summary>BOOTH のカテゴリの表の順。同じカテゴリの中は入手日の新しい順</summary>
+    Category,
 }
 
 /// <summary>

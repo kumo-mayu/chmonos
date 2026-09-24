@@ -555,10 +555,8 @@ public sealed partial class SearchViewModel
             return item.Booth.Variations.Select(variation => variation.Price).ToList();
         }
 
-        var priced = item.Local.Purchases
-            .Where(purchase => purchase.Kind == PurchaseKind.ForSelf && purchase.Price is not null)
-            .ToList();
-        return priced.Count == 0 ? [] : [priced.Sum(purchase => purchase.Price!.Value)];
+        // 「払った額」の並べ替えと同じ数え方（Purchases.SelfPaidOrNull）
+        return Core.Services.Purchases.SelfPaidOrNull(item) is { } paid ? [paid] : [];
     }
 
     /// <summary>

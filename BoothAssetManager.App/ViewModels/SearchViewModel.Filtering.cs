@@ -411,29 +411,32 @@ public sealed partial class SearchViewModel
     {
         var sort = _sort;
 
-        // 値が無い商品（属性を付けていない・足跡が無い・入手日が無い）を後ろにまとめる決まりは Core の ItemOrder にある（試験付き）
+        // 並べ方の決まり（値が無い商品を向きによらず後ろにまとめる・同じ値の中の2つ目の鍵・名前の読みの順）は
+        // Core の ItemOrder にある（試験付き）。ここは選んだ項目を呼び分けるだけ
+        var names = _services.NameOrder;
+        var descending = sort.Descending;
+
         if (sort.Kind == SortKind.Attribute && sort.AttributeName is { } attributeName)
         {
-            return Core.Services.ItemOrder.ByAttribute(items, attributeName, sort.Descending);
+            return Core.Services.ItemOrder.ByAttribute(items, attributeName, descending, names);
         }
 
         if (RecentKindOf(sort.Kind) is { } recentKind)
         {
-            return Core.Services.ItemOrder.ByTime(items, _services.Recent.Times(recentKind), sort.Descending);
+            return Core.Services.ItemOrder.ByTime(items, _services.Recent.Times(recentKind), descending, names);
         }
 
         return sort.Kind switch
         {
-            SortKind.Name => sort.Descending
-                ? items.OrderByDescending(item => item.DisplayName, StringComparer.CurrentCulture)
-                : items.OrderBy(item => item.DisplayName, StringComparer.CurrentCulture),
-            SortKind.Size => sort.Descending
-                ? items.OrderByDescending(item => item.LogicalSizeBytes)
-                : items.OrderBy(item => item.LogicalSizeBytes),
-            SortKind.WishList => sort.Descending
-                ? items.OrderByDescending(item => item.Booth.WishListsCount)
-                : items.OrderBy(item => item.Booth.WishListsCount),
-            _ => Core.Services.ItemOrder.ByAcquired(items, sort.Descending),
+            SortKind.Name => Core.Services.ItemOrder.ByName(items, descending, names),
+            SortKind.Size => Core.Services.ItemOrder.BySize(items, descending, names),
+            SortKind.WishList => Core.Services.ItemOrder.ByWishList(items, descending, names),
+            SortKind.SelfPaid => Core.Services.ItemOrder.BySelfPaid(items, descending, names),
+            SortKind.PublishedAt => Core.Services.ItemOrder.ByPublished(items, descending, names),
+            SortKind.BoothPrice => Core.Services.ItemOrder.ByBoothPrice(items, descending, names),
+            SortKind.Shop => Core.Services.ItemOrder.ByShop(items, descending, names),
+            SortKind.Category => Core.Services.ItemOrder.ByCategory(items, _services.Categories, descending, names),
+            _ => Core.Services.ItemOrder.ByAcquired(items, descending, names),
         };
     }
 

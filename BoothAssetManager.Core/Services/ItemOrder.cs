@@ -6,51 +6,154 @@ namespace BoothAssetManager.Core.Services;
 /// 検索の並べ替えの決まり（技術的負債 4-1・5：検索画面のクラスから、画面に依らない所を切り出して試験を付けた）。
 ///
 /// **値が無い商品は、昇順でも降順でも常に後ろにまとめる。**「値が小さい」のではなく「値が無い」ので、
-/// 0 や一番古い日時として混ぜると、昇順にしたときに先頭へ来て誤読させる。後ろにまとめた物は名前順。
+/// 0 や一番古い日時として混ぜると、昇順にしたときに先頭へ来て誤読させる。
+/// 同じ値の商品と、後ろにまとめた物は名前の読みの順（<see cref="NameCollation"/>）。
+/// ショップとカテゴリだけは、同じショップ・同じカテゴリの中を入手日の新しい順にする
+/// （中身は「その店・その種類で最近何を買ったか」を見たい。名前順だと同じ店のシリーズ物が型番順に並ぶだけになる。ユーザ判断 2026-09-24）。
 /// </summary>
 public static class ItemOrder
 {
-    /// <summary>属性の値で並べる。付けていない商品は後ろ。</summary>
-    public static IEnumerable<ItemRecord> ByAttribute(IEnumerable<ItemRecord> items, string attributeName, bool descending)
+    /// <summary>名前の読みの順。</summary>
+    public static IEnumerable<ItemRecord> ByName(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
     {
-        var list = items.ToList();
-        var rated = list.Where(item => item.Local.Attributes.ContainsKey(attributeName)).ToList();
-        var unrated = list.Where(item => !item.Local.Attributes.ContainsKey(attributeName)).OrderBy(item => item.DisplayName, StringComparer.CurrentCulture);
-
-        var ordered = descending
-            ? rated.OrderByDescending(item => item.Local.Attributes[attributeName])
-            : rated.OrderBy(item => item.Local.Attributes[attributeName]);
-
-        // 同じ値の商品は名前順（入手日の並びと同じ決め手）。決めないと元の一覧の順のままになり、
-        // 読み込み直すたびに同じ点の商品の並びが入れ替わって見えた（点検 2026-09-23）
-        ordered = ordered.ThenBy(item => item.DisplayName, StringComparer.CurrentCulture);
-
-        return ordered.Concat(unrated);
+        var collation = names ?? NameCollation.Plain;
+        return descending
+            ? items.OrderByDescending(item => collation.SortKeyOf(item.DisplayName))
+            : items.OrderBy(item => collation.SortKeyOf(item.DisplayName));
     }
+
+    /// <summary>属性の値で並べる。付けていない商品は後ろ。</summary>
+    public static IEnumerable<ItemRecord> ByAttribute(IEnumerable<ItemRecord> items, string attributeName, bool descending, NameCollation? names = null)
+        => ByValue(items, item => item.Local.Attributes.TryGetValue(attributeName, out var value) ? value : (int?)null, descending, names);
 
     /// <summary>「最近」の足跡の時刻で並べる。足跡が無い商品は後ろ。</summary>
     public static IEnumerable<ItemRecord> ByTime(
         IEnumerable<ItemRecord> items,
         IReadOnlyDictionary<string, DateTimeOffset> times,
-        bool descending)
+        bool descending,
+        NameCollation? names = null)
+        => ByValue(items, item => times.TryGetValue(item.Id, out var time) ? time : (DateTimeOffset?)null, descending, names);
+
+    /// <summary>入手日で並べる（既定の並び）。入手日が無い商品は後ろ。</summary>
+    public static IEnumerable<ItemRecord> ByAcquired(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
+        => ByValue(items, item => item.Local.AcquiredAt, descending, names);
+
+    /// <summary>
+    /// 容量で並べる。**ファイルを持っていない商品は後ろ**（カードで「未取得」と出る物。0バイトとして混ぜると、小さい順で先頭に来た）。
+    /// </summary>
+    public static IEnumerable<ItemRecord> BySize(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
+        => ByValue(items, item => item.IsDownloaded ? item.LogicalSizeBytes : (long?)null, descending, names);
+
+    /// <summary>
+    /// スキ数で並べる。**BOOTH から一度も取れていない商品は後ろ**（BOOTH に無い商品のスキ数は 0 ではなく「無い」。少ない順で先頭に来ていた）。
+    /// </summary>
+    public static IEnumerable<ItemRecord> ByWishList(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
+        => ByValue(items, item => item.Booth.WasEverFetched ? item.Booth.WishListsCount : (int?)null, descending, names);
+
+    /// <summary>自分用に払った額の合計で並べる（<see cref="Purchases.SelfPaidOrNull"/>）。額を入れていない商品は後ろ、無料は 0。</summary>
+    public static IEnumerable<ItemRecord> BySelfPaid(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
+        => ByValue(items, Purchases.SelfPaidOrNull, descending, names);
+
+    /// <summary>BOOTH の公開日で並べる。公開日が取れていない商品は後ろ。</summary>
+    public static IEnumerable<ItemRecord> ByPublished(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
+        => ByValue(items, item => item.Booth.PublishedAt, descending, names);
+
+    /// <summary>
+    /// BOOTH の今の価格（いちばん安いバリエーション）で並べる。バリエーションが取れていない商品は後ろ。
+    /// いちばん安い物にするのは、商品ページの「¥500〜」と同じ読み方にするため。
+    /// </summary>
+    public static IEnumerable<ItemRecord> ByBoothPrice(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
+        => ByValue(items, item => item.Booth.Variations.Count > 0 ? item.Booth.Variations.Min(variation => variation.Price) : (int?)null, descending, names);
+
+    /// <summary>
+    /// ショップ名の読みの順。同じショップの中は入手日の新しい順。ショップの無い商品は後ろ（その中も入手日の新しい順）。
+    /// </summary>
+    public static IEnumerable<ItemRecord> ByShop(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
     {
+        var collation = names ?? NameCollation.Plain;
         var list = items.ToList();
-        var stamped = list.Where(item => times.ContainsKey(item.Id)).ToList();
-        var untouched = list.Where(item => !times.ContainsKey(item.Id)).OrderBy(item => item.DisplayName, StringComparer.CurrentCulture);
+        var shopped = list.Where(item => item.ShopName is { Length: > 0 });
+        var none = list.Where(item => item.ShopName is not { Length: > 0 });
 
-        var byTime = descending
-            ? stamped.OrderByDescending(item => times[item.Id])
-            : stamped.OrderBy(item => times[item.Id]);
-        byTime = byTime.ThenBy(item => item.DisplayName, StringComparer.CurrentCulture);
+        var byShop = descending
+            ? shopped.OrderByDescending(item => collation.SortKeyOf(item.ShopName!))
+            : shopped.OrderBy(item => collation.SortKeyOf(item.ShopName!));
 
-        return byTime.Concat(untouched);
+        return NewestFirst(byShop, collation).Concat(NewestFirst(none.OrderBy(_ => 0), collation));
     }
 
-    /// <summary>入手日で並べる（既定の並び）。入手日が無い商品は後ろ、同じ日は名前順。</summary>
-    public static IEnumerable<ItemRecord> ByAcquired(IEnumerable<ItemRecord> items, bool descending)
-        => descending
-            ? items.OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
-                .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
-            : items.OrderBy(item => item.Local.AcquiredAt ?? DateOnly.MaxValue)
-                .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture);
+    /// <summary>
+    /// カテゴリの表の順（<see cref="CategoryTable.RankOf"/>：3Dモデルの子を先に、その後は BOOTH の表の並び）。逆順もできる。
+    /// 同じカテゴリの中は入手日の新しい順。表に無いカテゴリ（その名前の読みの順）→ カテゴリの無い商品、の順に後ろへ置く。
+    /// BOOTH に無い商品で人が入れたカテゴリも、同じ表で引く（<see cref="ItemRecord.CategoryName"/> は人が入れた方を先に見る）。
+    /// </summary>
+    public static IEnumerable<ItemRecord> ByCategory(IEnumerable<ItemRecord> items, CategoryTable table, bool descending, NameCollation? names = null)
+    {
+        var collation = names ?? NameCollation.Plain;
+        var list = items.Select(item => (Item: item, Name: item.CategoryName?.Trim(), Rank: table.RankOf(item.CategoryName))).ToList();
+
+        var ranked = list.Where(entry => entry.Rank is not null);
+        var byRank = descending
+            ? ranked.OrderByDescending(entry => entry.Rank)
+            : ranked.OrderBy(entry => entry.Rank);
+
+        // 表に無いカテゴリは向きによらず後ろ。カテゴリごとにまとめ、名前の読みの順に並べる
+        var unknown = list
+            .Where(entry => entry.Rank is null && entry.Name is { Length: > 0 })
+            .OrderBy(entry => collation.SortKeyOf(entry.Name!));
+
+        var none = list.Where(entry => entry.Rank is null && entry.Name is not { Length: > 0 }).OrderBy(_ => 0);
+
+        return NewestFirst(byRank, collation)
+            .Concat(NewestFirst(unknown, collation))
+            .Concat(NewestFirst(none, collation))
+            .Select(entry => entry.Item);
+    }
+
+    private static IEnumerable<(ItemRecord Item, string? Name, int? Rank)> NewestFirst(
+        IOrderedEnumerable<(ItemRecord Item, string? Name, int? Rank)> ordered,
+        NameCollation collation)
+        => ordered
+            .ThenByDescending(entry => entry.Item.Local.AcquiredAt ?? DateOnly.MinValue)
+            .ThenBy(entry => collation.SortKeyOf(entry.Item.DisplayName));
+
+    /// <summary>同じ値の中を入手日の新しい順（入手日の無い物はその後ろ）、さらに同じなら名前の読みの順。</summary>
+    private static IEnumerable<ItemRecord> NewestFirst(IOrderedEnumerable<ItemRecord> ordered, NameCollation collation)
+        => ordered
+            .ThenByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
+            .ThenBy(item => collation.SortKeyOf(item.DisplayName));
+
+    /// <summary>値で並べ、値の無い商品を向きによらず後ろにまとめる。同じ値と後ろの物は名前の読みの順。</summary>
+    private static IEnumerable<ItemRecord> ByValue<T>(
+        IEnumerable<ItemRecord> items,
+        Func<ItemRecord, T?> valueOf,
+        bool descending,
+        NameCollation? names)
+        where T : struct, IComparable<T>
+    {
+        var collation = names ?? NameCollation.Plain;
+        var valued = new List<(ItemRecord Item, T Value)>();
+        var missing = new List<ItemRecord>();
+
+        foreach (var item in items)
+        {
+            if (valueOf(item) is { } value)
+            {
+                valued.Add((item, value));
+            }
+            else
+            {
+                missing.Add(item);
+            }
+        }
+
+        var ordered = descending
+            ? valued.OrderByDescending(entry => entry.Value)
+            : valued.OrderBy(entry => entry.Value);
+
+        return ordered
+            .ThenBy(entry => collation.SortKeyOf(entry.Item.DisplayName))
+            .Select(entry => entry.Item)
+            .Concat(missing.OrderBy(item => collation.SortKeyOf(item.DisplayName)));
+    }
 }

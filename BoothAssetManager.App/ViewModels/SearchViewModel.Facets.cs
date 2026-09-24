@@ -125,7 +125,10 @@ public sealed partial class SearchViewModel
             .ToList();
 
         // 並べ替えは「項目」と「向き」に分ける（ユーザ指示 2026-09-20・M5）。
-        // 言い方は項目ごとに変える（日付は新しい／古い、数は多い／少ない）
+        // 言い方は項目ごとに変える（日付は新しい／古い、数は多い／少ない、額は高い／安い、名前は あ→わ）。
+        // **意味の近い項目を隣に置く**（2026-09-24）：買ったとき・BOOTH の値（日付と額）→ 名前で並ぶもの → 手元の量 → 「最近」の足跡 → 属性。
+        // 後ろに足していくと、「払った額」と「BOOTHの価格」のような比べたい物が離れる。
+        // FullLabel は検索の履歴に残る言い方なので、前からある項目の言い方は変えない
         SortFields.Clear();
         SortFields.Add(new SortField
         {
@@ -134,6 +137,42 @@ public sealed partial class SearchViewModel
             DescendingLabel = "新しい順",
             AscendingLabel = "古い順",
             FullLabel = descending => descending ? "入手日が新しい順" : "入手日が古い順",
+        });
+
+        // 自分用の額の合計。価格の絞り込みの既定（自分が払った額）と同じ数え方で、贈った・貰ったは含めない
+        SortFields.Add(new SortField
+        {
+            Label = "払った額",
+            Kind = SortKind.SelfPaid,
+            DescendingLabel = "高い順",
+            AscendingLabel = "安い順",
+            FullLabel = descending => descending ? "払った額が高い順" : "払った額が安い順",
+        });
+        SortFields.Add(new SortField
+        {
+            Label = "公開日",
+            Kind = SortKind.PublishedAt,
+            DescendingLabel = "新しい順",
+            AscendingLabel = "古い順",
+            FullLabel = descending => descending ? "公開日が新しい順" : "公開日が古い順",
+        });
+
+        // 絞り込みの「BOOTHの価格」と同じ呼び方にする（「今の価格」だと、自分が払った額と取り違えやすい）
+        SortFields.Add(new SortField
+        {
+            Label = "BOOTHの価格",
+            Kind = SortKind.BoothPrice,
+            DescendingLabel = "高い順",
+            AscendingLabel = "安い順",
+            FullLabel = descending => descending ? "BOOTHの価格が高い順" : "BOOTHの価格が安い順",
+        });
+        SortFields.Add(new SortField
+        {
+            Label = "スキ数",
+            Kind = SortKind.WishList,
+            DescendingLabel = "多い順",
+            AscendingLabel = "少ない順",
+            FullLabel = descending => descending ? "スキ数が多い順" : "スキ数が少ない順",
         });
         SortFields.Add(new SortField
         {
@@ -146,19 +185,31 @@ public sealed partial class SearchViewModel
         });
         SortFields.Add(new SortField
         {
+            Label = "ショップ",
+            Kind = SortKind.Shop,
+            DescendingLabel = "わ→あ",
+            AscendingLabel = "あ→わ",
+            DefaultDescending = false,
+            FullLabel = descending => descending ? "ショップの逆順" : "ショップ順",
+        });
+
+        // 向きは「何の順か」を名乗る（あ→わ でも 新しい／古い でもない。BOOTH のカテゴリの一覧と同じ並び）
+        SortFields.Add(new SortField
+        {
+            Label = "カテゴリ",
+            Kind = SortKind.Category,
+            DescendingLabel = "逆順",
+            AscendingLabel = "BOOTHの並び",
+            DefaultDescending = false,
+            FullLabel = descending => descending ? "カテゴリがBOOTHの逆順" : "カテゴリがBOOTHの並び順",
+        });
+        SortFields.Add(new SortField
+        {
             Label = "容量",
             Kind = SortKind.Size,
             DescendingLabel = "大きい順",
             AscendingLabel = "小さい順",
             FullLabel = descending => descending ? "容量が大きい順" : "容量が小さい順",
-        });
-        SortFields.Add(new SortField
-        {
-            Label = "スキ数",
-            Kind = SortKind.WishList,
-            DescendingLabel = "多い順",
-            AscendingLabel = "少ない順",
-            FullLabel = descending => descending ? "スキ数が多い順" : "スキ数が少ない順",
         });
 
         // 「最近」の3種。足跡が無い商品は後ろにまとめる（0扱いにすると

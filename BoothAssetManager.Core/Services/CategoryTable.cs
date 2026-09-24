@@ -32,8 +32,15 @@ public sealed class CategoryTable
 
     private readonly Lazy<IReadOnlyList<CategoryParent>> _parents;
 
+    private readonly Lazy<Dictionary<string, int>> _ranks;
+
     public CategoryTable(string filePath)
-        => _parents = new Lazy<IReadOnlyList<CategoryParent>>(() => Load(filePath));
+    {
+        _parents = new Lazy<IReadOnlyList<CategoryParent>>(() => Load(filePath));
+        _ranks = new Lazy<Dictionary<string, int>>(() => Suggestions()
+            .Select((name, index) => (name, index))
+            .ToDictionary(pair => pair.name, pair => pair.index, StringComparer.Ordinal));
+    }
 
     /// <summary>既定の置き場所（アプリと同じ場所の assets/）。</summary>
     public static CategoryTable Bundled()
@@ -70,6 +77,16 @@ public sealed class CategoryTable
         => string.IsNullOrWhiteSpace(userValue)
             ? Models.DisplayText.CategoryText(observed?.Name, observed?.ParentName)
             : Models.DisplayText.CategoryText(userValue, ParentOf(userValue.Trim()));
+
+    /// <summary>
+    /// 検索の「カテゴリ」の並べ替えで、この子カテゴリが何番目か。表に無ければ null。
+    ///
+    /// 並びは候補の並び（<see cref="Suggestions"/>：3Dモデルの子を先に、その後は表の親の順・親の中は子の順）と同じにする。
+    /// 並べ替えだけ別の順にすると、候補で見慣れた並びと食い違う。
+    /// </summary>
+    public int? RankOf(string? childName)
+        => childName is { Length: > 0 } && _ranks.Value.TryGetValue(childName.Trim(), out var rank) ? rank : null;
+
 
     /// <summary>この子カテゴリの親。分からなければ null。</summary>
     public string? ParentOf(string? childName)
