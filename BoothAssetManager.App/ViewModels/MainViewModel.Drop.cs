@@ -173,8 +173,8 @@ public sealed partial class MainViewModel
         var answer = Views.ChoiceDialog.Ask(
             "BOOTHの画像を受け取りました",
             "この画像をどうしますか？",
-            $"商品を開く …… 商品{name}のページへ移ります\n"
-            + $"画像として追加 …… いま開いている「{item.Name}」の画像に加えます",
+            $"「商品を開く」\n商品{name}のページへ移ります\n\n"
+            + $"「画像として追加」\nいま開いている「{item.Name}」の画像に加えます",
             "商品を開く",
             "画像として追加");
 
