@@ -538,7 +538,7 @@ public sealed partial class MainViewModel : ViewModelBase
             if (allowed.Count == 0)
             {
                 Services.Notice.Show(
-                    "選んだ商品は取り込みの途中です。対応アバターの検出が終わると編集できます。\n検索や商品ページで見ることは今でもできます。",
+                    "選んだ商品は取り込みの途中です。対応アバターの検出が終わると編集できます。",
                     "まだ編集できません",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Information);
@@ -925,7 +925,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public bool HasPendingItems => PendingItemCount > 0;
 
-    public string PendingItemText => $"取り込み中に {PendingItemCount} 件増えました（押すと反映）";
+    public string PendingItemText => $"取り込み中に {PendingItemCount} 件増えました。押すと一覧に反映します。";
 
     /// <summary>反映するボタン。一覧を読み直して1行を消す。</summary>
     public RelayCommand ApplyPendingCommand { get; }
@@ -1007,8 +1007,8 @@ public sealed partial class MainViewModel : ViewModelBase
     public RelayCommand ShowStructureAlertCommand => _showStructureAlertCommand ??= new RelayCommand(
         () => Services.Notice.Show(
             StructureAlert
-                + "\n\n手元のデータはそのままです。説明文の見出しから読み取るところ（対応アバターの検出・検索に使う情報）だけが少なくなります。"
-                + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは自分で消えます。",
+                + "\n\n手元のデータはそのままです。対応アバターの検出と検索に使う情報が少なくなります。"
+                + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは自動で消えます。",
             "BOOTHから取得できる情報の形式が変化した可能性があります",
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information));

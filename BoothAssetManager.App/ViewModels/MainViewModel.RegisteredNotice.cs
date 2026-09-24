@@ -118,7 +118,7 @@ public sealed partial class MainViewModel
         }
 
         Services.Notice.Show(
-            "この商品は見つかりませんでした。\n知らせが表示された後に商品IDを変えたか、登録を外した可能性があります。\n検索で商品名から探してください。",
+            "この商品は見つかりませんでした。\n商品IDを変えたか、登録を外した可能性があります。\n検索で商品名から探してください。",
             "商品を開けませんでした",
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
