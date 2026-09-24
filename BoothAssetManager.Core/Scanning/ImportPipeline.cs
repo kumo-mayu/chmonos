@@ -149,7 +149,23 @@ public interface IImportPipeline
 /// </summary>
 public sealed class ImportPipeline : IImportPipeline
 {
-    private const int ScanCacheSaveInterval = 50;
+    /// <summary>
+    /// ハッシュの途中で走査の控えを書く間隔。落ちたときに計算し直すのは長くてもこの間の分だけ
+    /// （SSD で数GB。取り込み全体の数十分に比べれば小さい）で、控え全体を書き直すのは10秒に1回で済む。
+    /// </summary>
+    private const long ScanCacheSaveIntervalMs = 10_000;
+
+    /// <summary>
+    /// 走査の控えを、錠の中で今の控えに重ねて書く（<see cref="ScanCacheIndex.MergeInto"/>）。変えた物が無ければ書かない。
+    /// 見つからないファイルを探す所も同じ控えに足すので、取り込みの写しで丸ごと書くと相手の分を消す。
+    /// </summary>
+    private async Task SaveScanCacheAsync(ScanCacheIndex scanCache, CancellationToken cancellationToken)
+    {
+        if (scanCache.HasChanges)
+        {
+            await _store.ScanCache.UpdateAsync(scanCache.MergeInto, cancellationToken);
+        }
+    }
 
     private readonly DataStore _store;
     private readonly IBoothClient _client;
@@ -255,6 +271,9 @@ public sealed class ImportPipeline : IImportPipeline
         var unresolvedBase = _store.Unresolved.Load();
         var offlineTargets = new List<string>();
 
+        // この取り込みで走査した取り込み元。終わりに、この下で無くなったパスを走査の控えから落とす
+        var scannedTargets = new List<string>();
+
         // unitypackage の中身を裏で読む（2026-09-13 ユーザ判断）。問い合わせは1本ずつ1.5秒空けるので、その間 CPU とディスクは空いている。
         // 前の取り込みで読み残した物（中断など）も、最初の周回で一緒に拾う
         var unityPending = _unityPackages is null ? null : await _unityPackages.FindPendingAsync(cancellationToken);
@@ -292,6 +311,7 @@ public sealed class ImportPipeline : IImportPipeline
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
             await RecordVolumesAsync(folders, cancellationToken);
             offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
+            scannedTargets.AddRange(folders);
 
             // **走査は画面のスレッドの外で回す**（ユーザ判断 2026-09-21・C4）。
             // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
@@ -306,7 +326,7 @@ public sealed class ImportPipeline : IImportPipeline
             var resolution = await ResolveAsync(
                 scan.Files, scanCache, exclusions, detached, owned, perFile, cancellationToken);
             perFile.Flush();
-            await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
+            await SaveScanCacheAsync(scanCache, cancellationToken);
 
             // 読むのは item に触らないので、①と同時に進めてよい。①に着くのを遅らせないよう、ここでは待たない
             Task? unityReading = null;
@@ -355,6 +375,11 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 取り込みが終わったと言うのは、裏で読んでいた unitypackage も書き終えてから
         await Task.WhenAll(unityWork);
+
+        // 走査の控えから、今回の取り込み元の下で無くなったパスを落とす（移した・消したファイルの控えが際限なく残っていた）。
+        // つながっていないボリュームの上は落とさない（ScanCacheIndex.RemoveMissingUnder）
+        scanCache.RemoveMissingUnder(scannedTargets);
+        await SaveScanCacheAsync(scanCache, cancellationToken);
 
         // 最後まで来たので途中の記録は要らない。残すと次の起動で「中断した」と嘘をつく。
         // BOOTH の不調で取れなかった商品だけは残す——消すと、そのファイルは商品にも未確定にも入らず、
@@ -819,6 +844,7 @@ public sealed class ImportPipeline : IImportPipeline
         var alreadyOwned = 0;
         var unreadable = 0;
         var processed = 0;
+        var lastCacheSave = Environment.TickCount64;
 
         foreach (var file in scanned)
         {
@@ -857,9 +883,12 @@ public sealed class ImportPipeline : IImportPipeline
                 scanCache.Set(file.Path, file.SizeBytes, file.ModifiedAtUtc, hash);
                 hashed++;
 
-                if (hashed % ScanCacheSaveInterval == 0)
+                // 途中でも控えを書く（閉じても計算した分は残す）。**間隔は時間で決める**：本数で決めていた（50本ごと）ので、
+                // 小さいファイルが続くと1秒に何度も控え全体（1万件なら約2MB）を書き直していた
+                if (Environment.TickCount64 - lastCacheSave >= ScanCacheSaveIntervalMs)
                 {
-                    await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
+                    await SaveScanCacheAsync(scanCache, cancellationToken);
+                    lastCacheSave = Environment.TickCount64;
                 }
             }
 
