@@ -442,9 +442,8 @@ public sealed class NotificationService : INotificationService
                     Id = id,
                     Kind = NotificationKind.HandEditMismatch,
                     Title = "手で直したJSONに食い違いがあります",
-                    Detail = detail + "\n\n同じ名前が2つあると、その名前を使う画面が開けません。"
-                        + "商品IDとファイル名が違うと、以後その商品への保存が別のファイルに書かれます。"
-                        + "どちらも直し方は自動では決められないので、JSONを開いて片方を消すか、名前を分けてください。",
+                    Detail = detail + "\n\nJSONを開いて直してください。同じ名前は片方を削除するか名前を変え、"
+                        + "ファイル名と中の商品IDは揃えてください。",
                     CreatedAt = DateTimeOffset.Now,
                     IsStrong = true,
                 });

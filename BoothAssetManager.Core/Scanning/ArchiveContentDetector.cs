@@ -54,7 +54,7 @@ public static class ArchiveContentDetector
             if (marker is not null)
             {
                 outermost = directory;
-                reason = $"同じ木の中に {marker} があります（配布物を展開したものとみなせます）";
+                reason = $"「{marker}」と同じフォルダの中にあるので、配布物を展開したものとみなしました";
             }
 
             directory = Path.GetDirectoryName(directory);

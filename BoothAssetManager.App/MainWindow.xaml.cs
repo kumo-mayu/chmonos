@@ -250,7 +250,7 @@ public partial class MainWindow : Window
             Services.Notice.Show(
                 "受け取ったものを処理できませんでした。\n\n"
                 + Core.Services.FailureText.Cause(exception) + "\n\n"
-                + "もう一度ドロップしてみてください。詳しい記録は保存先のlogs\\app.logに残しました。",
+                + "もう一度ドロップしてください。詳しい記録は保存先のlogs\\app.logに残しました。",
                 "Chmonos",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);

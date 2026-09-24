@@ -58,15 +58,15 @@ public sealed record BoothActivity
     public string Text => Kind switch
     {
         BoothActivityKind.Waiting => IsThrottled
-            ? $"混み合っているので間隔を広げています（あと {Seconds(Remaining)} 秒）"
-            : $"間隔を空けています（あと {Seconds(Remaining)} 秒）",
+            ? $"混み合っているので、次の問い合わせまで {Seconds(Remaining)} 秒"
+            : $"次の問い合わせまで {Seconds(Remaining)} 秒",
 
         BoothActivityKind.Sending => Target is null
             ? "BOOTHから取得しています"
             : $"BOOTHから取得しています（{Target}）",
 
         BoothActivityKind.Retrying =>
-            $"応答がないので待っています（{Seconds(Remaining)} 秒後に再試行 {Attempt}/{MaxAttempts}）",
+            $"応答を待っています。{Seconds(Remaining)} 秒後にもう一度試します（{Attempt}/{MaxAttempts}）",
 
         _ => string.Empty,
     };

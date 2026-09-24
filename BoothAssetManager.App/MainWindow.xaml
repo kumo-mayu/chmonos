@@ -500,7 +500,7 @@
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopUnityCommand}"
-                            ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
+                            ToolTip="送るのをやめます。Unityの取り込み画面は「Cancel」で閉じてください。" />
                     <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="#28507f"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
@@ -577,7 +577,7 @@
                     </StackPanel>
                     <TextBlock Text="混み合っています" Style="{StaticResource Caption}" HorizontalAlignment="Right"
                                VerticalAlignment="Center" Foreground="{StaticResource Warn}"
-                               ToolTip="BOOTHから待つよう指示があったので、以降の間隔を広げています。"
+                               ToolTip="BOOTHの指示で、問い合わせの間隔を広げています。"
                                Visibility="{Binding BoothActivity.IsThrottled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </Grid>
             </Border>
@@ -593,7 +593,7 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissRegisteredCommand}" AutomationProperties.Name="この知らせを閉じる"
-                            ToolTip="この知らせを閉じます。商品はそのまま残り、検索から開けます。待っている知らせがあれば、次にそれを表示します。" />
+                            ToolTip="この知らせを閉じます。商品は検索から開けます。" />
                     <Button DockPanel.Dock="Right" Content="{Binding RegisteredNoticeAction}" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                             Command="{Binding OpenRegisteredCommand}" />
                     <!-- 出ている間に来た別の知らせは待たせて、閉じたら次を出す（ユーザ判断 2026-09-23）。待っていると分かるように数を出す -->
@@ -616,7 +616,7 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissImportNoticeCommand}" AutomationProperties.Name="取り込みの知らせを閉じる"
-                            ToolTip="この知らせを閉じます。取り込みは止まりません（進み具合は左下の1行と取り込み画面で見られます）。" />
+                            ToolTip="この知らせを閉じます。取り込みは止まりません。" />
                     <Button DockPanel.Dock="Right" Content="取り込み画面を開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                             Command="{Binding OpenImportFromNoticeCommand}" />
                     <TextBlock Text="{Binding ImportNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
@@ -634,7 +634,7 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissHiddenCommand}" AutomationProperties.Name="非表示の知らせを閉じる"
-                            ToolTip="この知らせを閉じます。非表示のままです（設定の「非表示にした商品」から戻せます）。" />
+                            ToolTip="この知らせを閉じます。設定の「非表示にした商品」から戻せます。" />
                     <Button DockPanel.Dock="Right" Content="非表示を解除" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
                             Command="{Binding UnhideRecentCommand}"
                             ToolTip="今非表示にした商品を、検索とショップにまた表示します。" />
@@ -664,7 +664,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBox x:Name="FindBox" Width="220" Padding="6,3"
                                  TextChanged="OnFindTextChanged" PreviewKeyDown="OnFindKeyDown"
-                                 ToolTip="この画面の中の文字を探します。Enterで次、Shift+Enterで前、Escで閉じます。" />
+                                 ToolTip="画面の中を探します。Enterで次、Shift+Enterで前へ移ります。" />
                         <TextBlock x:Name="FindCount" Style="{StaticResource Caption}" Margin="10,0,8,0" MinWidth="64"
                                    VerticalAlignment="Center" />
                         <Button Content="↑" Style="{StaticResource SmallButton}" Click="OnFindPrevious" ToolTip="前の一致" />

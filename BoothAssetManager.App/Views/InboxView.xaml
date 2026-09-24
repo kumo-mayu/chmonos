@@ -128,7 +128,7 @@
                                                         -->
                                                         <Button Content="この束を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                                 Command="{Binding MarkGroupReadCommand}"
-                                                                ToolTip="この種別の未読を、まとめて既読にします（消えません）。"
+                                                                ToolTip="この種別の未読を、まとめて既読にします。"
                                                                 Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     </StackPanel>
                                                 </Grid>
@@ -277,7 +277,7 @@
                                                                         <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
                                                                         <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
                                                                                 Command="{Binding OpenItemCommand}"
-                                                                                ToolTip="このアプリの商品ページを開きます（BOOTHのページは開きません）。"
+                                                                                ToolTip="このアプリの中で商品ページを開きます。"
                                                                                 Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                                         <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
                                                                         <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"

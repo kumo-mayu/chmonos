@@ -258,7 +258,7 @@ public sealed class InboxViewModel : ViewModelBase
 
     public string HeaderText => UnreadCount > 0
         ? $"未読 {UnreadCount} 件 / 全 {TotalCount} 件"
-        : $"全 {TotalCount} 件（未読なし）";
+        : $"全 {TotalCount} 件・未読なし";
 
     public bool IsEmpty => Groups.Count == 0;
 
@@ -382,11 +382,10 @@ public sealed class InboxViewModel : ViewModelBase
     {
         NotificationKind.OrphanTag => "タグの管理を開きます。消えたユーザータグを作り直すか、商品から外せます。",
         NotificationKind.ArchiveFoundForFolder =>
-            "この商品のファイルを、展開したフォルダではなくzipの方で数えるようにします。"
-            + "\nディスクのファイルは消えません。あとから同じフォルダを登録し直せます。",
+            "展開したフォルダの代わりにzipで数えます。ファイルは削除しません。",
         NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
             or NotificationKind.VariationBackOnBooth =>
-            "BOOTHの商品ページに載っている情報（商品名・価格・バリエーション・説明文・画像）を取り直します。"
+            "BOOTHから商品情報を取り直します。"
             + "\n商品のファイルはダウンロードしません。",
         _ => string.Empty,
     };
@@ -411,17 +410,16 @@ public sealed class InboxViewModel : ViewModelBase
                         ? swapped.Result switch
                         {
                             Core.Services.ArchiveSwapResult.Registered =>
-                                $"zipで登録しなおしました。これからは {swapped.ArchiveName} でこの商品を数えます。"
-                                + "展開したフォルダのファイルは消していません。",
+                                $"「{swapped.ArchiveName}」で登録し直しました。展開したフォルダのファイルは削除していません。",
                             Core.Services.ArchiveSwapResult.AlreadyRegistered =>
-                                $"{swapped.ArchiveName} は既に登録してあったので、展開フォルダの登録だけ外しました。"
-                                + "フォルダのファイルは消していません。",
+                                $"「{swapped.ArchiveName}」は登録済みなので、展開したフォルダの登録だけ外しました。"
+                                + "ファイルは削除していません。",
                             Core.Services.ArchiveSwapResult.ArchiveMissing =>
                                 "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。"
                                 + "登録はそのままにしてあります。",
                             Core.Services.ArchiveSwapResult.ArchiveUnreadable =>
-                                "zipが読めませんでした（ほかのアプリが開いているかもしれません）。登録はそのままにしてあります。",
-                            _ => "この商品はもうありません。",
+                                "zipを読めませんでした。ほかのアプリが開いている可能性があります。登録はそのままです。",
+                            _ => "この商品は見つかりませんでした。",
                         }
                         : "登録しなおせませんでした。";
 
@@ -538,7 +536,7 @@ public sealed class InboxViewModel : ViewModelBase
         // 商品IDを付け替えたり商品を消しても通知は書き換えないので、宛先が無いことがある。
         // 黙って何も起きないと壊れたように見えるので言う（ユーザ判断 2026-09-18）。
         // 宛先が無い通知は、もう手当てのしようがないので解消済みにする
-        StatusText = "この商品はもうありません（商品IDを変えたか、管理対象から除外したようです）。この知らせは解消済みにしました。";
+        StatusText = "この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。この知らせは解消済みにしました。";
 
         var ids = _services.Notifications.Load()
             .Where(notification => notification.ItemId == itemId && !notification.IsResolved)
@@ -623,10 +621,10 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指すバリエーションが、BOOTH側から消えました。",
         NotificationKind.VariationBackOnBooth => "消えていたバリエーションが、BOOTHにまた出てきました。",
         NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
-        NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を持っています。登録を外すまで、同じ中身を二重に数えます（ファイルは消えません）。",
+        NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を登録しています。片方の登録を外すまで、同じ中身を二重に数えます。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         NotificationKind.UnpackedFilesImported => "自動で始めた取り込みで、zipを展開したフォルダの中のファイルを取り込みました。元のzipの方で持ち直せます。",
-        NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前が2つある／商品IDとファイル名が違う、といった食い違いがあります。直し方は自動では決められないので、JSONを開いて直してください。",
+        NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前の重複や、ファイル名と商品IDの食い違いがあります。JSONを開いて直してください。",
         _ => string.Empty,
     };
 }

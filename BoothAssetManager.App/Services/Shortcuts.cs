@@ -23,8 +23,8 @@ public static class Shortcuts
 {
     public static string ActionLabel(ShortcutAction action) => action switch
     {
-        ShortcutAction.SaveAndNext => "保存して次へ（編集）",
-        ShortcutAction.Skip => "スキップ（編集）",
+        ShortcutAction.SaveAndNext => "編集画面で保存して次へ",
+        ShortcutAction.Skip => "編集画面でスキップ",
         ShortcutAction.FindInPage => "画面の中を探す",
         ShortcutAction.Back => "直前の画面へ戻る",
         ShortcutAction.Forward => "戻った先から進む",

@@ -94,7 +94,7 @@
                                       SelectedItem="{Binding SelectedThumbnailRole, Mode=TwoWay}" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
-                                   Text="「デフォルト」のとき、商品ページで★を付けた1枚が優先されます。役割を選ぶとそちらが優先され、その役割の画像が無い商品は今まで通りの1枚になります。" />
+                                   Text="「デフォルト」では、商品ページで★を付けた画像を使います。役割を選ぶと、その役割の画像を優先します。" />
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,14,0,12" />
                         <CheckBox Content="一覧のカードに小分類のタグも表示" Style="{StaticResource SettingCheck}"
@@ -136,7 +136,7 @@
                                   IsChecked="{Binding ReturnToSearchWhenEditDone, Mode=TwoWay}" />
                         <CheckBox Content="編集画面の上に、続く商品を小さな絵で並べる" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowEditQueueStrip, Mode=TwoWay}"
-                                  ToolTip="保存した商品には緑の印、飛ばした商品は薄く表示されます。押すとその商品へ移れます。切ると帯を表示しません（「1件目へ」「最初の未保存へ」は残ります）。" />
+                                  ToolTip="押すとその商品へ移れます。オフでも「1件目へ」「最初の未保存へ」は使えます。" />
                     </StackPanel>
                 </Border>
 
@@ -156,7 +156,7 @@
 
                         <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="欄を選んでキーを押すと、そのキーが割り当てられます。Backspaceで外せます。文字の欄にいるときは、文字を打つ・カーソルを動かすキー（矢印・Home・Endなど）の割り当ては働きません。" />
+                                   Text="欄を選んでキーを押すと割り当てられます。Backspaceで外せます。入力欄では、矢印・Home・Endなど文字の入力に使うキーの割り当ては働きません。" />
                         <ItemsControl ItemsSource="{Binding ShortcutRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -187,7 +187,7 @@
                                   ToolTip="取り込みの最中にドロップした分は、今の取り込みに追加します。" />
                         <CheckBox Content="起動したとき、監視フォルダに新しいファイルがあれば取り込みを始める" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
-                                  ToolTip="切っているときは、取り込み画面に件数を表示して、押してから始めます。起動しただけでBOOTHへの通信が始まるのを避けたいときは切ってください。次に起動したときから効きます。" />
+                                  ToolTip="オフにすると、取り込み画面で押すまで始まりません。" />
 
                         <Grid Margin="0,8,0,6">
                             <TextBlock Text="取り込み元の履歴" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
@@ -195,7 +195,7 @@
                                     HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
                         </Grid>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="これまでに取り込んだフォルダとファイルです。並んでいるだけでは取り込みません（取り込み画面で「対象に追加」を押したものだけが対象になります）。" />
+                                   Text="これまでに取り込んだフォルダとファイルです。取り込むのは、取り込み画面で「対象に追加」を押したものだけです。" />
 
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
@@ -227,7 +227,7 @@
                             Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="監視対象フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込まず、取り込み画面に件数を表示します。ここに無いフォルダは、押されるまで確認しません。" />
+                                   Text="起動したときに、この中に新しいファイルが増えていないかを確認します。" />
 
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
@@ -273,7 +273,7 @@
                             <TextBlock Text="起動したとき、裏で取得を始める" />
                         </CheckBox>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
-                                   Text="残った画像・持っていないアバターの画像・商品の更新の確認・対応アバターの検出し直しを、押さなくても進めます。切っても止まらないもの：押して始める取得、取り込みの続きの取得（アバターの画像）、画面を開いたときに取るもの（ショップのアイコンとバナー）。変えると次に起動したときから効きます。" />
+                                   Text="残りの画像・持っていないアバターの画像・商品の更新の確認・対応アバターの検出し直しを、押さなくても進めます。オフでも、押して始めた取得と取り込みは止まりません。" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
                             <TextBlock Text="商品情報を取り直す間隔" Style="{StaticResource RowLabel}" Width="220" />
@@ -314,7 +314,7 @@
                 -->
                         <TextBlock Text="画像と通信" Style="{StaticResource SubTitle}" Margin="0,18,0,4" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
-                                   Text="変えると、次に取る分から効きます。今ある画像は作り直しません（長辺や画質を変えても、新しく取る画像から変わります）。" />
+                                   Text="変えると、これから取得する画像から反映されます。今ある画像は作り直しません。" />
 
                         <!--
                             取得の76%が画像。切れば取り込みは4分の1の時間で終わる。
@@ -333,8 +333,6 @@
                                      Text="{Binding FetchIntervalMs, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="ミリ秒" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（1500〜10000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                            <TextBlock Text="1500ミリ秒より短くはできません（BOOTHに負担をかけないため）" Style="{StaticResource Caption}"
-                                       Margin="14,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -373,9 +371,9 @@
 
                         <CheckBox Content="改変の写真を原寸で保存する" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding SaveModificationImagesAtOriginalSize, Mode=TwoWay}"
-                                  ToolTip="縮小せずに保存します。4Kのスクリーンショットは1枚200KB前後になります。" />
+                                  ToolTip="縮小せずに保存します。4Kの画像は1枚200KB前後になります。" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,2,0,0"
-                                   Text="商品画像とは別の設定です。改変の写真は見て思い出すものなので、既定を大きめ（768px）にしてあります。" />
+                                   Text="商品画像の長辺とは別の設定です。" />
                     </StackPanel>
                 </Border>
 
@@ -384,7 +382,7 @@
                     <StackPanel>
                         <TextBlock Text="隠したもの" Style="{StaticResource GroupTitle}" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,14"
-                                   Text="どれも普段の画面には出てこなくなります。取り消せる場所はここだけなので、ここに置いてあります。" />
+                                   Text="どれも普段の画面には表示されません。ここから元に戻せます。" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="非表示にした商品" Style="{StaticResource RowLabel}" Width="220" />
@@ -459,7 +457,7 @@
                                         <Button Content="紐付けを戻す" Style="{StaticResource SmallButton}"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Command="{Binding RestoreCommand}"
-                                                ToolTip="外したのが間違いだったとき。次の取り込みで、読み取った情報が指すならまたその商品へ紐付きます。" />
+                                                ToolTip="次の取り込みで、読み取った情報が指す商品にまた紐付きます。" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -480,7 +478,7 @@
                                         Command="{Binding OpenRootCommand}" />
                                 <Button Content="場所を変える" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                         Command="{Binding ChangeRootCommand}"
-                                        ToolTip="Cドライブ以外に置きたいときに使います。引越しをするかは選べます。" />
+                                        ToolTip="保存先を別の場所に変えます。データを移すかは選べます。" />
                             </StackPanel>
                         </Grid>
 
@@ -518,7 +516,7 @@
                                         ToolTip="保存先の中身を1つのzipにまとめます。画像を含めるかは押したときに選べます。" />
                                 <Button Content="バックアップから戻す…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                         Command="{Binding RestoreBackupCommand}"
-                                        ToolTip="バックアップを空のフォルダに展開して、次の起動からそこを使います。今のデータは元の場所に残ります。" />
+                                        ToolTip="空のフォルダに展開し、次の起動からそこを使います。今のデータは残ります。" />
                             </StackPanel>
                         </Grid>
 
@@ -553,7 +551,7 @@
 
                         <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="打った語の別表記でも探します。toriなら「鳥」、sharkなら「サメ」、nadeotoなら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に表示されます。" />
+                                   Text="打った語の別の表記でも探します。toriなら「鳥」、sharkなら「サメ」が見つかります。0件のときは自動で働き、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
