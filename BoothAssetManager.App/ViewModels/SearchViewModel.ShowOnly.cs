@@ -144,6 +144,7 @@ public sealed partial class SearchViewModel
 
         _allItems[index] = item;
         _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
+        _fingerprints.Remove(item.Id);
 
         if (_cards.TryGetValue(item.Id, out var old))
         {

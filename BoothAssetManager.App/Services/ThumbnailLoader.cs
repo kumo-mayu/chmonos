@@ -163,8 +163,38 @@ public sealed class ThumbnailLoader
             files = [];
         }
 
+        // 覚えるフォルダに上限を付ける。商品を開くたび・カードを出すたびに1つずつ増え、
+        // 起動している間は消えなかった（2000件を一巡すると2000件ぶんのパスの一覧を抱えたまま）。
+        // 数え直しは時刻を見て一覧を取り直すだけなので、あふれたら全部忘れても重くならない
+        if (_filesByDirectory.Count >= MaxRememberedDirectories)
+        {
+            _filesByDirectory.Clear();
+        }
+
         _filesByDirectory[imageDirectory] = (files, writtenAt);
         return files;
+    }
+
+    /// <summary>
+    /// 覚えておくフォルダの数。検索画面に一度に並ぶカードは多くて40枚ほどで、行き来する範囲を足しても
+    /// 数百で足りる。1件あたりパスが10本前後（約1KB）なので、512件で0.5MB程度
+    /// </summary>
+    private const int MaxRememberedDirectories = 512;
+
+    /// <summary>
+    /// そのフォルダに絵が1枚でもあるか。**どのスレッドからでも呼べる**（覚えた一覧は使わず、触らない）。
+    /// 検索の読み直しが、裏で「画像を取得中」の商品をまとめて見るのに使う
+    /// </summary>
+    public static bool HasAnyImage(string imageDirectory)
+    {
+        try
+        {
+            return Directory.Exists(imageDirectory) && Directory.EnumerateFiles(imageDirectory, "*.webp").Any();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>フォルダの更新時刻。無ければ最小値（作られたら変わったと分かる）。</summary>

@@ -438,6 +438,25 @@ public sealed partial class SearchViewModel
     }
 
     internal ItemCardViewModel ToCard(ItemRecord item)
+        => ToCard(
+            item,
+            _main?.IsImporting == true
+                && _services.Settings.SaveImages
+                && item.Booth.Images.Count > 0
+                && !_thumbnails.ListFiles(_services.Paths.ItemImagesDir(item.Id)).Any());
+
+    /// <summary>
+    /// 読み直しで前のカードをそのまま使えるか。記録が同じでも、カードは記録の外の値
+    /// （③待ちか・絵が届いたか・設定のサムネイルの役割と札の出し方）も映しているので、それも前と同じときだけ
+    /// </summary>
+    private bool CardStillFits(ItemCardViewModel card, ItemRecord item, bool imagePending)
+        => card.IsAwaitingDetection == (_main?.IsAwaitingDetection(item.Id) == true)
+           && card.IsImagePending == imagePending
+           && card.ThumbnailRole == _services.Settings.ThumbnailRole
+           && card.UserTagText == ItemCardViewModel.UserTagLine(item.Local.UserTags, _services.Settings.ShowSubTagsInList);
+
+    /// <param name="imagePending">取り込みの途中で、絵がまだ1枚も無いか。フォルダを見るのは呼び手（読み直しは裏でまとめて見る）。</param>
+    private ItemCardViewModel ToCard(ItemRecord item, bool imagePending)
     {
         var missing = item.Local.OwnedFiles.Any(file => file.Paths.Count == 0);
 
@@ -458,10 +477,7 @@ public sealed partial class SearchViewModel
             IsAwaitingDetection = awaiting,
             // 取り込みの途中で、絵がまだ1枚も無い。灰色の枠だけだと壊れて見える（U8）
             // 画像を保存しない設定では絵は来ないので、「取得中」と言うと嘘になる
-            IsImagePending = _main?.IsImporting == true
-                && _services.Settings.SaveImages
-                && item.Booth.Images.Count > 0
-                && !_thumbnails.ListFiles(_services.Paths.ItemImagesDir(item.Id)).Any(),
+            IsImagePending = imagePending,
             HasMissingFile = missing,
             UserTagText = ItemCardViewModel.UserTagLine(item.Local.UserTags, _services.Settings.ShowSubTagsInList),
         };
