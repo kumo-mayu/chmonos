@@ -76,8 +76,8 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group)
     /// </summary>
     public string KindText { get; } = group.Kind switch
     {
-        DuplicateKind.ArchiveAndUnpacked => "zipと展開済みの両方があります（展開した方を消した場合）",
-        _ when group.CrossesItems => $"{group.Places.Count} 箇所にあります（別の商品にも紐付いています）",
+        DuplicateKind.ArchiveAndUnpacked => "zipと展開したフォルダの両方があります。空く量は展開した方の分です",
+        _ when group.CrossesItems => $"{group.Places.Count} 箇所にあり、別の商品にも紐付いています",
         _ => $"{group.Places.Count} 箇所に同じ中身があります",
     };
 
@@ -148,7 +148,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     [
         new StatsRangeOption { Label = "直近 12 ヶ月", Months = 12 },
         new StatsRangeOption { Label = "直近 24 ヶ月", Months = 24 },
-        new StatsRangeOption { Label = "年別（全期間）" },
+        new StatsRangeOption { Label = "全期間・年別" },
     ];
 
     public StatsRangeOption Range
@@ -238,10 +238,10 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     public string SpentText => $"¥{_snapshot?.SpentYen ?? 0:N0}";
 
     /// <summary>
-    /// 贈答があるときだけ「（自分用）」と断る。
-    /// 贈答が無い人に毎回この括弧を見せても、何と区別しているのか分からない。
+    /// 贈答があるときだけ「自分用の」と断る。
+    /// 贈答が無い人に毎回この断りを見せても、何と区別しているのか分からない。
     /// </summary>
-    public string SpentLabel => HasGiven ? "累計支出（自分用）" : "累計支出";
+    public string SpentLabel => HasGiven ? "自分用の累計支出" : "累計支出";
 
     public string SpentSubText
     {
@@ -684,18 +684,17 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>相関が出ない理由をその場に書く。空欄のまま置かない。</summary>
     public string CorrelationNote => _snapshot is null || HasCorrelations
         ? string.Empty
-        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件に満たない組は表示していません。"
-            + "件数が少ないと相関の数字が安定しないためです。";
+        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件以上ある組だけを表示します。";
 
     public string GiftText => _snapshot is null
         ? string.Empty
-        : $"{_snapshot.GiftedItemCount} 件（定価にして ¥{_snapshot.GiftedValueYen:N0}）";
+        : $"{_snapshot.GiftedItemCount} 件・定価で ¥{_snapshot.GiftedValueYen:N0}";
 
     public string FreeText => _snapshot is null
         ? string.Empty
         : $"{_snapshot.FreeItemCount} 件" + (_snapshot.OwnedCount == 0
             ? string.Empty
-            : $"（所持の {_snapshot.FreeItemCount * 100.0 / _snapshot.OwnedCount:0.#}%）");
+            : $"・所持の {_snapshot.FreeItemCount * 100.0 / _snapshot.OwnedCount:0.#}%");
 
     public string RepeatText => _snapshot is null
         ? string.Empty
@@ -715,7 +714,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public string LocalOnlyText => _snapshot is null
         ? string.Empty
-        : $"{_snapshot.LocalOnlyCount} 件（自分で入れた額 ¥{_snapshot.LocalOnlySpentYen:N0}）";
+        : $"{_snapshot.LocalOnlyCount} 件・自分で入れた額 ¥{_snapshot.LocalOnlySpentYen:N0}";
 
     public string UnsortedText => _snapshot is null ? string.Empty : $"{_snapshot.UnsortedOwnedCount} 件";
 
@@ -752,7 +751,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         {
             Backlog.Add(new BacklogRowViewModel
             {
-                Label = "ユーザータグ 未設定（要編集）",
+                Label = "ユーザータグが未設定",
                 Count = _snapshot.Backlog.NeedsUserTagCount,
                 Severity = "Plain",
                 OpenCommand = new RelayCommand(() => _main.ShowEditAsync().Forget()),

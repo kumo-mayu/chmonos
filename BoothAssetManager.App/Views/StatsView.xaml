@@ -105,7 +105,7 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="統計" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                     <!-- 何を数えているかを最初に断る。件数の意味を取り違えると読み方が全部ずれる -->
-                    <TextBlock Text="ファイルを持っている商品だけを集計しています（非表示・R-18も含みます）"
+                    <TextBlock Text="ファイルを持っている商品だけを集計しています。非表示とR-18も含みます。"
                                Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
 
@@ -195,7 +195,7 @@
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="支出の推移" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                <TextBlock Text="入手日ベース。ギフトは含みません" Style="{StaticResource Caption}"
+                                <TextBlock Text="入手日で数えます。ギフトは含みません。" Style="{StaticResource Caption}"
                                            Margin="10,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
 
@@ -370,7 +370,7 @@
                                         Visibility="{Binding SizeSubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}">
                                     <TextBlock FontSize="11.5" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap">
                                         <Run Text="{Binding SizeSubText, Mode=OneWay}" />
-                                        <Run Text="（同じ中身のファイルを2箇所以上に置いている分）" />
+                                        <Run Text="。同じ中身のファイルを2箇所以上に置いている分です。" />
                                     </TextBlock>
                                 </Border>
 
@@ -649,7 +649,7 @@
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="属性" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                <TextBlock Text="評価した商品だけを数えます。未評価は0ではなく「値が無い」として除いています"
+                                <TextBlock Text="評価した商品だけを数え、未評価は除きます。"
                                            Style="{StaticResource Caption}" Margin="10,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
 
@@ -703,7 +703,7 @@
                                 （目安の数には根拠が要り、件数でも変わる）
                             -->
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                       Text="両方を評価した商品で、2つの値が一緒に動くかを −1〜+1 で表します。＋は片方が高いほどもう片方も高い、−は片方が高いほどもう片方が低い。0 に近いほど関係は薄く、±1 に近いほど強い関係です。（ ）は数えた商品の数です。"
+                                       Text="2つの値が一緒に動くかを −1〜+1 で表します。＋は片方が高いほどもう片方も高く、−はその逆です。（ ）は両方を評価した商品の数です。"
                                        Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <ItemsControl ItemsSource="{Binding AttributeCorrelations}" ItemTemplate="{StaticResource BarRow}"
                                           Visibility="{Binding HasCorrelations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -757,7 +757,7 @@
                                 <TextBlock Text="{Binding EndOfSaleText}" Style="{StaticResource Mono}" FontSize="12"
                                            Margin="0,6,0,0" TextWrapping="Wrap" />
                                 <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                           Text="手元にしか無いものです。バックアップの優先度を決める材料になります。" />
+                                           Text="手元にしか無いものです。バックアップをおすすめします。" />
 
                                 <!--
                                     販売終了とは別の行にする。金額の意味が違う——
@@ -770,7 +770,7 @@
                                     <TextBlock Text="{Binding LocalOnlyText}" Style="{StaticResource Mono}" FontSize="12"
                                                Margin="0,6,0,0" TextWrapping="Wrap" />
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                               Text="BOOTHの価格が取れないので、金額は自分で入れた分だけです。上の額とは合算できません。" />
+                                               Text="金額は自分で入れた額です。上の額とは別に数えています。" />
                                 </StackPanel>
 
                                 <TextBlock Text="スキ数の分布" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
