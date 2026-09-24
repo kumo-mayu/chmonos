@@ -381,7 +381,7 @@
                                         VerticalAlignment="Center"
                                         Command="{Binding StopUnityCommand}"
                                         Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="送るのを中止します。Unityに残った取り込み画面は「Cancel」で閉じてください。" />
+                                        ToolTip="送るのを中止します。残った取り込み画面は「Cancel」で閉じてください。" />
                                 <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" VerticalAlignment="Center"
                                            Foreground="{StaticResource Accent}" />
