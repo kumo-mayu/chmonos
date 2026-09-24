@@ -37,7 +37,7 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 ### 3. 本番のデータを触らない
 
 本番の保存先は `%LOCALAPPDATA%\Chmonos`。本番の `location.json` は友人のデータの写し（`BoothAssetManager-friendtest`）を指している
-（ユーザが普段の作業に使う）。`location.json` は書き換えない。
+（ユーザが普段の作業に使う）。`location.json` は書き換えない（`.claude/hooks/guard-location.mjs` が書き込みを止め、シェルで触れるときは確認を求める）。
 
 - 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番と friendtest では起動を断る）。
   写しの一覧と、画面ごとにどれを使うかは `.claude/skills/ui-check/sandboxes.md`

@@ -45,3 +45,4 @@ research/PdfProbe/*
 !.claude/skills/
 !.claude/rules/
 !.claude/settings.json
+!.claude/hooks/
