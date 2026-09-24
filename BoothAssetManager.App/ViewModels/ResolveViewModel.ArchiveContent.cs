@@ -253,8 +253,8 @@ public sealed partial class ResolveViewModel
         var answer = Services.Notice.Show(
             $"次のフォルダを「{Preview.Name}」（ID {Preview.Id}）として登録します。\n\n"
             + $"{folder}\n{count} ファイル / {Core.Models.DisplayText.Size(bytes)}\n\n"
-            + "以降このフォルダの中は取り込みで読まなくなり、未確定にも出てこなくなります。\n"
-            + "フォルダを動かすとつながりが切れるので、そのときは登録し直してください。",
+            + "このフォルダの中は、以降の取り込みと未確定の対象から外れます。\n"
+            + "フォルダを移動したときは、登録し直してください。",
             "フォルダを商品として登録",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

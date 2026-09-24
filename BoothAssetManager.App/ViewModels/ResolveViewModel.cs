@@ -500,7 +500,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             // 均せなくても一覧は出す。黙って空にする方がずっと悪い
             Core.Diagnostics.AppLog.Error("未確定の画面：突き合わせ", exception);
-            failure = "未確定の突き合わせに失敗しました（確定済みの物が一覧に残っていることがあります）。"
+            failure = "未確定の一覧の照合に失敗しました。確定済みのものが一覧に残っていることがあります。"
                 + Core.Services.FailureText.Cause(exception) + "　画面を開き直すともう一度試します。";
         }
 
@@ -861,7 +861,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             RemoveRows(settled);
             StatusText = settled.Count == targets.Count
                 ? $"{settled.Count} 件を確定しました。"
-                : $"{settled.Count} / {targets.Count} 件を確定しました（残りは失敗：{failure}）。";
+                : $"{settled.Count} / {targets.Count} 件を確定しました。残りは失敗しました。{failure}";
             OnPropertyChanged(nameof(HasStatus));
             HideCoveredContents(settled);
         }
@@ -895,9 +895,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
         var answer = Services.Notice.Show(
             $"{what} を「{name}」として登録します。\n\n"
-            + $"BOOTHには無い商品なので、仮のID（{LocalIdPreview}）を付けます。\n"
-            + "この商品はBOOTHから情報を取り直しません（名前も画像も増えません）。\n\n"
-            + "あとで本物の商品IDが分かったら、編集画面の「IDを変える」で移せます。",
+            + $"仮のID（{LocalIdPreview}）を付けます。BOOTHから情報を取得しないので、名前も画像も増えません。\n\n"
+            + "あとで商品IDが分かったら、編集画面の「IDを変える」で移せます。",
             "BOOTHに無い商品として登録する",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -946,7 +945,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             RemoveRows(settled);
             StatusText = settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"
-                : $"{settled.Count} / {targets.Count} 件を登録しました（残りは失敗）。";
+                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。";
             OnPropertyChanged(nameof(HasStatus));
             HideCoveredContents(settled);
         }
