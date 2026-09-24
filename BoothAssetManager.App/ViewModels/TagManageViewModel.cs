@@ -140,7 +140,7 @@ public sealed class TagSubRow : ReorderableRow
     // 押せないときは理由を言う（押しても何も起きないように見える物を作らない）
     public string ExpandToolTip => IsUsed
         ? "開くと、この小分類が付いている商品が並びます。"
-        : "この小分類はまだどの商品にも付いていないので、開いても中身がありません。";
+        : "この小分類はまだどの商品にも付いていません。";
 
     public string ShowItemsToolTip => IsUsed
         ? "この小分類が付いている商品を、検索で開きます。"
@@ -773,14 +773,14 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     private int _subFilterHits;
 
     public string ItemFilterResultText => HasItemFilter
-        ? $"「{_itemFilter.Trim()}」に当たる小分類 {_subFilterHits} 件・商品 {_itemFilterHits} 件（当たったところだけを表示しています）"
+        ? $"「{_itemFilter.Trim()}」に当たる小分類 {_subFilterHits} 件・商品 {_itemFilterHits} 件"
         : string.Empty;
 
     /// <summary>絞り込んでいるか。絞っている間は、右の小分類と中の商品も同じ語で絞る。</summary>
     public bool HasFilter => _filterText.Trim().Length > 0;
 
     public string FilterResultText => HasFilter
-        ? $"「{_filterText.Trim()}」に当たる大分類 {Tops.Count} 件（小分類名・商品も探しています）"
+        ? $"「{_filterText.Trim()}」に当たる大分類 {Tops.Count} 件"
         : string.Empty;
 
     public bool HasSubs => Subs.Count > 0;
@@ -1105,8 +1105,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.WasMerged
-                ? $"「{target}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。"
-                : $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+                ? $"「{target}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。"
+                : $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
 
         var keep = target;
@@ -1131,7 +1131,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         var message = Selected.ItemCount == 0
             ? $"「{Selected.Name}」を削除します。\n\nどの商品にも付いていないので、影響はありません。"
             : $"「{Selected.Name}」を削除します。\n\n"
-                + $"{Selected.ItemCount} 件の商品からこの大分類が外れます（小分類も一緒に外れます）。\n"
+                + $"{Selected.ItemCount} 件の商品から、この大分類と小分類が外れます。\n"
                 + "\nこの操作は元に戻せません。同じ名前で作り直しても、商品への割り当ては戻りません。";
 
         if (!Confirm(message, "大分類を削除する"))
@@ -1143,9 +1143,9 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.ItemsLeftUntagged > 0
-                ? $"削除しました（{rewritten.Result.ItemsUpdated} 件の商品から外し、"
-                    + $"うち {rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になったので編集の対象に戻ります）。"
-                : $"削除しました（{rewritten.Result.ItemsUpdated} 件の商品から外しました）。";
+                ? $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。"
+                    + $"{rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になり、未編集に戻りました。"
+                : $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。";
         }
 
         Selected = null;
@@ -1208,7 +1208,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target));
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+            StatusText = $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
 
         await ReloadAsync();
@@ -1231,7 +1231,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteUserTag(row.Top, row.Name));
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{row.Name}」を削除しました（{rewritten.Result.ItemsUpdated} 件の商品から外しました）。";
+            StatusText = $"「{row.Name}」を削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。";
         }
 
         await ReloadAsync();
@@ -1540,7 +1540,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
 
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{name}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+            StatusText = $"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
 
         await ReloadAsync();
@@ -1567,9 +1567,9 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.ItemsLeftUntagged > 0
-                ? $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件の商品から外し、"
-                    + $"うち {rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になったので編集の対象に戻ります）。"
-                : $"「{row.DisplayName}」を外しました（{rewritten.Result.ItemsUpdated} 件の商品から外しました）。";
+                ? $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。"
+                    + $"{rewritten.Result.ItemsLeftUntagged} 件はユーザータグが空になり、未編集に戻りました。"
+                : $"「{row.DisplayName}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。";
         }
 
         await ReloadAsync();
