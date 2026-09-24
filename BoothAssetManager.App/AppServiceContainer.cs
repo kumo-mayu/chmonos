@@ -71,9 +71,11 @@ public sealed class AppServiceContainer : IDisposable
             Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
             Paths.SearchBridgeCacheFile));
 
-        // 辞書に載っていない造語の読みは、漢字1字ごとの音訓から組み立てる
+        // 辞書に載っていない造語の読みは、漢字1字ごとの音訓から組み立てる。
+        // 字の表は控えから読む（gz の XML から組むと 0.3秒・19.5MB、控えなら 14ms・4.1MB。2026-09-24 の実測）
         KanjiReadings = new KanjiReadings(
-            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
+            Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"),
+            Paths.KanjiReadingsCacheFile);
         Due = new DueRefresh(Store, Items);
         Resolver = new FallbackResolver(Client, Bridge, KanjiReadings);
         Edit = new EditService(Store);
