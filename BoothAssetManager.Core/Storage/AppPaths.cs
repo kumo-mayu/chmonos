@@ -44,6 +44,9 @@ public sealed class AppPaths
     /// </summary>
     public string SearchBridgeCacheFile => Path.Combine(Root, "search-bridge.cache");
 
+    /// <summary>KANJIDIC2 から組んだ字の表の控え（造語変換の読み）。橋渡しの控えと同じく、消してよい物。</summary>
+    public string KanjiReadingsCacheFile => Path.Combine(Root, "kanji-readings.cache");
+
     public string NotificationsFile => Path.Combine(Root, "notifications.json");
 
     /// <summary>検索の履歴。人が読めるので、要らない行を手で消せる</summary>

@@ -7,7 +7,7 @@ namespace BoothAssetManager.Core.Tests;
 public class AvatarCompatibilityTests
 {
     /// <summary>実データに合わせた登録簿。まめふれんず素体は商品として配布されていない。</summary>
-    private static AvatarRegistry Registry() => new()
+    internal static AvatarRegistry Registry() => new()
     {
         Entries =
         [
@@ -24,7 +24,7 @@ public class AvatarCompatibilityTests
         ],
     };
 
-    private static LocalBlock Declaring(params string[] avatarIds) => new()
+    internal static LocalBlock Declaring(params string[] avatarIds) => new()
     {
         Avatars = avatarIds
             .Select(id => new AvatarLink { AvatarItemId = id, Source = AvatarLinkSource.SupportSection })
@@ -236,4 +236,37 @@ public class AvatarBaseSeedTests
     [Fact]
     public void EverySeedGroupSpreadsClothing()
         => Assert.All(AvatarBaseSeed.Groups, group => Assert.True(group.InferClothing));
+
+    /// <summary>
+    /// 展開した結果を商品の記録ごとに覚えても（2026-09-24）、何度引いても・記録を作り直しても、
+    /// まっさらな索引で引いた結果と同じ。
+    /// </summary>
+    [Fact]
+    public void RememberedResolutionEqualsFreshOne()
+    {
+        var index = AvatarCompatibilityIndex.Build(AvatarCompatibilityTests.Registry());
+        var locals = new[]
+        {
+            AvatarCompatibilityTests.Declaring("kipfel"),
+            AvatarCompatibilityTests.Declaring("tbody"),
+            AvatarCompatibilityTests.Declaring(),
+            AvatarCompatibilityTests.Declaring("kuuta", "kipfel"),
+            new LocalBlock { AvatarBases = [new AvatarBaseLink { BaseName = "珍飯亭" }] },
+        };
+
+        for (var round = 0; round < 3; round++)
+        {
+            foreach (var local in locals)
+            {
+                var fresh = AvatarCompatibilityIndex.Build(AvatarCompatibilityTests.Registry()).Resolve(local);
+                Assert.Equal(fresh.OrderBy(pair => pair.Key), index.Resolve(local).OrderBy(pair => pair.Key));
+            }
+        }
+
+        // 記録を作り直せば（with）、新しい中身で展開する
+        var changed = locals[2] with { Avatars = [new AvatarLink { AvatarItemId = "misumi", Source = AvatarLinkSource.SupportSection }] };
+        Assert.Empty(index.Resolve(locals[2]));
+        Assert.Equal(AvatarMatch.Direct, index.MatchFor(changed, "misumi"));
+        Assert.Equal(AvatarMatch.ViaBase, index.MatchFor(changed, "tbody"));
+    }
 }

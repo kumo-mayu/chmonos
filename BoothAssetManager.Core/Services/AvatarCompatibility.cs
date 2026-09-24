@@ -34,8 +34,19 @@ public sealed class AvatarCompatibilityIndex
     private readonly Dictionary<string, string> _baseOfItemId = new(StringComparer.Ordinal);
     private readonly HashSet<string> _noInfer = new(StringComparer.CurrentCultureIgnoreCase);
 
+    /// <summary>
+    /// 商品ごとに展開した結果。検索画面は1打鍵ごとに、選択肢の件数を数えるだけでも全商品を2〜3回展開していて、
+    /// 2000件で1打鍵 3.4ms・割り当て 1.6MB（辞書と集合を毎回作る。2026-09-24 実測）、対応アバターを選んでいるとその数倍になる。
+    /// 商品の記録（<see cref="LocalBlock"/>）は書き換えずに作り直す物なので、同じ記録の答えは変わらない。
+    /// 記録が捨てられたら一緒に消えるよう、弱い参照の表に置く
+    /// </summary>
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<LocalBlock, IReadOnlyDictionary<string, AvatarMatch>> _resolved = new();
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<LocalBlock, IReadOnlyDictionary<string, AvatarMatch>>.CreateValueCallback _resolve;
+
     private AvatarCompatibilityIndex()
     {
+        _resolve = ResolveCore;
     }
 
     public static AvatarCompatibilityIndex Build(AvatarRegistry registry)
@@ -108,7 +119,9 @@ public sealed class AvatarCompatibilityIndex
     /// 同じアバターに両方の経路があるときは直接対応を採る（強い方を残す）。
     /// ユーザが消した宣言（<see cref="AvatarLink.Rejected"/>）は最初から数えない。
     /// </summary>
-    public IReadOnlyDictionary<string, AvatarMatch> Resolve(LocalBlock local)
+    public IReadOnlyDictionary<string, AvatarMatch> Resolve(LocalBlock local) => _resolved.GetValue(local, _resolve);
+
+    private IReadOnlyDictionary<string, AvatarMatch> ResolveCore(LocalBlock local)
     {
         var result = new Dictionary<string, AvatarMatch>(StringComparer.Ordinal);
         var basesToExpand = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);

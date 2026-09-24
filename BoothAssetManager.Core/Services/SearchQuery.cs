@@ -69,6 +69,44 @@ public sealed record SearchOptions
 
     /// <summary>大文字小文字と全角半角を区別しない（＝前もって畳んだ文字列で速く比べられる）か。</summary>
     internal bool UsesFold => !CaseSensitive && !WidthSensitive;
+
+    private readonly EqualityNeutral<IReadOnlySet<SearchField>, SearchField[]> _targetList = new();
+
+    /// <summary>
+    /// <see cref="Targets"/> を配列にした物。<c>IReadOnlySet</c> を foreach で回すと、商品×語ごとに列挙子の箱が1つできていた。
+    /// <c>with</c> で対象を差し替えた写しでも、元の集合が同じ時だけ使い回す。
+    /// </summary>
+    internal SearchField[] TargetList => _targetList.Of(Targets, static set => set.ToArray());
+}
+
+/// <summary>
+/// 値から作った物を1つだけ覚える。**record の等しさに加わらない**（いつも等しい）——検索の式や切り替えは
+/// record なので、覚えた物で「等しいか」が変わると、同じ式が別物になる。<c>with</c> で写した先とは覚えた物を分け合うが、
+/// 元の値が同じ参照の時だけ使うので、写しで値を変えても古い物は返さない。
+/// </summary>
+internal sealed class EqualityNeutral<TKey, TValue>
+    where TKey : class
+{
+    private Entry? _entry;
+
+    public TValue Of(TKey key, Func<TKey, TValue> make)
+    {
+        // 覚えた物は1つの参照でまとめて差し替える（別のスレッドから来ても、鍵と値の組が崩れない）
+        if (_entry is { } entry && ReferenceEquals(entry.Key, key))
+        {
+            return entry.Value;
+        }
+
+        var value = make(key);
+        _entry = new Entry(key, value);
+        return value;
+    }
+
+    public override bool Equals(object? obj) => obj is EqualityNeutral<TKey, TValue>;
+
+    public override int GetHashCode() => 0;
+
+    private sealed record Entry(TKey Key, TValue Value);
 }
 
 /// <summary>
@@ -91,17 +129,76 @@ public sealed class SearchHaystack
     public SearchHaystack(Func<SearchField, IReadOnlyList<string>> raw, string readings = "")
     {
         _raw = raw;
-        Readings = readings;
+        _readings = readings;
     }
 
-    /// <summary>商品名の読み（畳み済み・ひらがな）。造語変換のときだけ見る。</summary>
-    public string Readings { get; }
+    /// <param name="raw">対象ごとの元の文字列。</param>
+    /// <param name="makeReadings">商品名の読み（畳む前）を作る。<see cref="Readings"/> を初めて見たときに1度だけ呼ぶ。</param>
+    public SearchHaystack(Func<SearchField, IReadOnlyList<string>> raw, Func<string>? makeReadings)
+    {
+        _raw = raw;
+        _makeReadings = makeReadings;
+        _readings = makeReadings is null ? string.Empty : null;
+    }
+
+    private readonly Func<string>? _makeReadings;
+    private string? _readings;
+
+    /// <summary>
+    /// 商品名の読み（畳み済み・ひらがな）。造語変換のときだけ見るので、**見たときに作る**
+    /// （既定の検索では全商品で作らずに済む）。
+    /// </summary>
+    public string Readings
+    {
+        get
+        {
+            if (_readings is { } ready)
+            {
+                return ready;
+            }
+
+            // 同時に2つのスレッドから来ても、どちらも同じ文字列を作るだけ（作る物は商品の記録から決まる）
+            var made = SearchQuery.Normalize(_makeReadings!());
+            _readings = made;
+            return made;
+        }
+    }
 
     /// <summary>試験用：対象ごとの文字列から作る。</summary>
     public static SearchHaystack FromValues(IReadOnlyDictionary<SearchField, string[]> values, string readings = "")
         => new(field => values.TryGetValue(field, out var list) ? list : [], SearchQuery.Normalize(readings));
 
-    public IReadOnlyList<string> Raw(SearchField field) => _raw(field);
+    private readonly IReadOnlyList<string>?[] _rawValues = new IReadOnlyList<string>?[FieldCount];
+
+    /// <summary>
+    /// 元の文字列。区別する切り替えのときに見る。**初めて見たときに控える**——前は照らすたびに商品の記録から
+    /// 並びを作り直していて、全角半角を区別してファイル・パスを対象にすると2000件で1回 15ms・割り当て 2.3MB だった（2026-09-24 実測）。
+    /// 控えるのは並びだけで、中の文字列は商品の記録と同じ物（ファイル名だけはパスから切り出した物）。
+    /// </summary>
+    public IReadOnlyList<string> Raw(SearchField field) => _rawValues[(int)field] ??= _raw(field);
+
+    // 最後に照らした式と切り替えの組（SearchQuery.MatchKey）と、その答え。当たりと外れを別の欄に置くのは、
+    // 答えと鍵を1つの参照の書き換えで決めるため（別のスレッドから照らしても組が崩れない）
+    private object? _matchedFor;
+    private object? _unmatchedFor;
+
+    internal bool TryRecall(object key, out bool matched)
+    {
+        matched = ReferenceEquals(_matchedFor, key);
+        return matched || ReferenceEquals(_unmatchedFor, key);
+    }
+
+    internal void Remember(object key, bool matched)
+    {
+        if (matched)
+        {
+            _matchedFor = key;
+        }
+        else
+        {
+            _unmatchedFor = key;
+        }
+    }
 
     /// <summary>
     /// 畳んだ文字列（NFKC＋小文字）。値ごとに改行で区切って繋ぐ——区切らずに繋ぐと、隣り合った値の末尾と先頭が
@@ -140,7 +237,15 @@ public abstract record SearchNode
     /// （top が stop に当たる）、増えた当たりのうち関係のある目安は 32%。区切りで当てると 64% に上がった（2026-09-16・試験データで測定・
     /// `experiments/KatakanaEnglishProbe`）。
     /// </param>
-    public sealed record Term(string Text, string Raw, SearchField? Field = null, bool WholeWord = false) : SearchNode;
+    public sealed record Term(string Text, string Raw, SearchField? Field = null, bool WholeWord = false) : SearchNode
+    {
+        private readonly EqualityNeutral<string, string> _hiragana = new();
+
+        /// <summary>
+        /// 畳んだ語のカタカナをひらがなに寄せた物。前は商品×対象ごとに作り直していた（ひらがなとカタカナを区別しないとき・読みを見るとき）。
+        /// </summary>
+        internal string Hiragana => _hiragana.Of(Text, SearchQuery.ToHiragana);
+    }
 
     public sealed record Not(SearchNode Inner) : SearchNode;
 
@@ -248,16 +353,92 @@ public static class SearchQuery
         return kept;
     }
 
+    /// <summary>
+    /// 商品が式に当たるか。
+    ///
+    /// **同じ式と切り替えの組の答えは、商品ごとに覚えて使い回す。**検索画面は1回の絞り込みで、結果を出すのに1度、
+    /// 選択肢の件数を数えるのに条件ごとに1度ずつ、同じ式で全商品を照らし直す（条件が3つなら4回）。
+    /// 大文字小文字・全角半角を区別して本文を対象にすると1回の照合が2000件で約170ms かかり、それが（条件数＋1）倍になっていた（2026-09-24 実測）。
+    /// 打ち直すと式が作り直されるので、覚えた答えは使われない（式と切り替えは参照が同じ時だけ同じ組とみなす）。
+    /// </summary>
     public static bool Matches(SearchNode node, SearchHaystack haystack, SearchOptions options)
-        => node switch
+    {
+        if (node is SearchNode.All)
         {
-            SearchNode.All => true,
-            SearchNode.Term term => Contains(term, haystack, options),
-            SearchNode.Not not => !Matches(not.Inner, haystack, options),
-            SearchNode.And and => and.Parts.All(part => Matches(part, haystack, options)),
-            SearchNode.Or or => or.Parts.Any(part => Matches(part, haystack, options)),
-            _ => true,
-        };
+            return true;
+        }
+
+        var key = MatchKey.For(node, options);
+        if (haystack.TryRecall(key, out var matched))
+        {
+            return matched;
+        }
+
+        matched = Evaluate(node, haystack, options);
+        haystack.Remember(key, matched);
+        return matched;
+    }
+
+    /// <summary>
+    /// 式と切り替えの組。直前の組と参照が同じなら同じ物を返す（1回の絞り込みの中では、全商品が同じ鍵を覚える）。
+    /// スレッドごとに持つ——別のスレッドの照合と取り合って、毎回作り直しになるのを避ける。
+    /// </summary>
+    private sealed class MatchKey(SearchNode node, SearchOptions options)
+    {
+        [ThreadStatic]
+        private static MatchKey? _last;
+
+        public static MatchKey For(SearchNode node, SearchOptions options)
+        {
+            if (_last is { } last && ReferenceEquals(last._node, node) && ReferenceEquals(last._options, options))
+            {
+                return last;
+            }
+
+            return _last = new MatchKey(node, options);
+        }
+
+        private readonly SearchNode _node = node;
+        private readonly SearchOptions _options = options;
+    }
+
+    // ラムダ（All・Any）を使わないのは、商品×ノードごとに閉包が1つできていたため
+    private static bool Evaluate(SearchNode node, SearchHaystack haystack, SearchOptions options)
+    {
+        switch (node)
+        {
+            case SearchNode.Term term:
+                return Contains(term, haystack, options);
+
+            case SearchNode.Not not:
+                return !Evaluate(not.Inner, haystack, options);
+
+            case SearchNode.And and:
+                for (var i = 0; i < and.Parts.Count; i++)
+                {
+                    if (!Evaluate(and.Parts[i], haystack, options))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+
+            case SearchNode.Or or:
+                for (var i = 0; i < or.Parts.Count; i++)
+                {
+                    if (Evaluate(or.Parts[i], haystack, options))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+
+            default:
+                return true;
+        }
+    }
 
     private static bool Contains(SearchNode.Term term, SearchHaystack haystack, SearchOptions options)
     {
@@ -267,7 +448,7 @@ public static class SearchQuery
                 || (field == SearchField.Name && InReadings(term, haystack, options));
         }
 
-        foreach (var target in options.Targets)
+        foreach (var target in options.TargetList)
         {
             if (InField(term, haystack, target, options))
             {
@@ -291,7 +472,7 @@ public static class SearchQuery
         {
             return options.KanaSensitive
                 ? haystack.Folded(field).Contains(term.Text, StringComparison.Ordinal)
-                : haystack.FoldedIgnoringKana(field).Contains(ToHiragana(term.Text), StringComparison.Ordinal);
+                : haystack.FoldedIgnoringKana(field).Contains(term.Hiragana, StringComparison.Ordinal);
         }
 
         var compare = CompareOptions.None;
@@ -310,8 +491,10 @@ public static class SearchQuery
             compare |= CompareOptions.IgnoreKanaType;
         }
 
-        foreach (var value in haystack.Raw(field))
+        var values = haystack.Raw(field);
+        for (var i = 0; i < values.Count; i++)
         {
+            var value = values[i];
             var found = compare == CompareOptions.None
                 ? value.Contains(term.Raw, StringComparison.Ordinal)
                 : JapaneseCompare.IndexOf(value, term.Raw, compare) >= 0;
@@ -352,7 +535,7 @@ public static class SearchQuery
         => options.IncludeReadings
             && haystack.Readings.Length > 0
             && (haystack.Readings.Contains(term.Text, StringComparison.Ordinal)
-                || haystack.Readings.Contains(ToHiragana(term.Text), StringComparison.Ordinal));
+                || haystack.Readings.Contains(term.Hiragana, StringComparison.Ordinal));
 
     // --- 字句 ---
 

@@ -16,25 +16,15 @@ public static class SearchText
     /// </param>
     public static SearchHaystack Build(ItemRecord item, Search.KanjiReadings? readings = null)
     {
-        // 商品名の読み。辞書に載っていない造語（撫で音）はここでしか作れない
-        var reading = new StringBuilder();
-        if (readings is not null)
-        {
-            foreach (var name in new[] { item.Local.DisplayName, item.Booth.Name })
-            {
-                if (name is not { Length: > 0 })
-                {
-                    continue;
-                }
+        // 字の表は、ここ（読み込みの裏のスレッド）で先に読んでおく。造語変換を初めて入れたときに
+        // 画面のスレッドで KANJIDIC2 を読む（0.3秒）ことにならないように。2回目からは何もしない
+        readings?.Prepare();
 
-                foreach (var text in readings.Of(name))
-                {
-                    reading.Append(text).Append('\n');
-                }
-            }
-        }
-
-        var haystack = new SearchHaystack(field => RawValues(item, field), SearchQuery.Normalize(reading.ToString()));
+        // 商品名の読みは、造語変換で初めて照らすときに作る（SearchHaystack.Readings）。
+        // 前は切れていても全商品の読みを作っていて、全件の作り直しが 2ms→23ms・割り当て 2MB→8MB に膨らんでいた
+        // （2000件。取り込み中は10秒ごとに作り直す・2026-09-24 実測）
+        Func<string>? makeReadings = readings is null ? null : () => NameReadings(item, readings);
+        var haystack = new SearchHaystack(field => RawValues(item, field), makeReadings);
 
         // 既定で探す対象だけは先に畳んでおく（読み込みの裏で作り、打つたびに作らない）
         foreach (var field in SearchOptions.DefaultTargets)
@@ -43,6 +33,26 @@ public static class SearchText
         }
 
         return haystack;
+    }
+
+    /// <summary>商品名の読み（改行で区切って繋ぐ）。辞書に載っていない造語（撫で音）はここでしか作れない。</summary>
+    internal static string NameReadings(ItemRecord item, Search.KanjiReadings readings)
+    {
+        var reading = new StringBuilder();
+        foreach (var name in new[] { item.Local.DisplayName, item.Booth.Name })
+        {
+            if (name is not { Length: > 0 })
+            {
+                continue;
+            }
+
+            foreach (var text in readings.Of(name))
+            {
+                reading.Append(text).Append('\n');
+            }
+        }
+
+        return reading.ToString();
     }
 
     /// <summary>対象ごとの元の文字列。空の値は含めない。</summary>
