@@ -585,7 +585,7 @@ public sealed class ImportPipeline : IImportPipeline
     /// ついでに登録済みフォルダの中身を数え直して保存する
     /// （数えるのは列挙だけでハッシュは計算しないので速い）。
     /// </summary>
-    private async Task<(RegisteredFolderSet Registered, IReadOnlySet<string> OwnedHashes, DetachedIndex Detached)> LoadOwnedAsync(
+    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, DetachedIndex Detached)> LoadOwnedAsync(
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -594,10 +594,15 @@ public sealed class ImportPipeline : IImportPipeline
         // zipが手に入っていたフォルダ。知らせは測り終えてから、錠の中で今の一覧に足す
         var archivesFound = new List<(ItemRecord Item, string FolderPath, string ArchivePath)>();
 
-        var owned = loaded.Items
-            .SelectMany(item => item.Local.OwnedFiles)
-            .Select(file => file.Hash)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // 持っているハッシュと、その中身の一覧（持っている zip を開かずに済ませるため。ResolveAsync）
+        var owned = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in loaded.Items.SelectMany(item => item.Local.OwnedFiles))
+        {
+            if (!owned.TryGetValue(file.Hash, out var known) || (known.Count == 0 && file.Contents.Count > 0))
+            {
+                owned[file.Hash] = file.Contents;
+            }
+        }
 
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
@@ -784,7 +789,7 @@ public sealed class ImportPipeline : IImportPipeline
         ScanCacheIndex scanCache,
         ExclusionFilter exclusions,
         DetachedIndex detached,
-        IReadOnlySet<string> owned,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> owned,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -848,13 +853,32 @@ public sealed class ImportPipeline : IImportPipeline
                 continue;
             }
 
-            // zip の中身読みは同期なので、画面のスレッドへ戻ってから走っていた（C19）。
-            // ハッシュ計算だけが本当に非同期で、その直後にここで引っかかる
-            var (clues, contents) = await Task.Run(() =>
+            // **持っている zip は開かない**（2026-09-24）。取り込み直すたびに持っているファイル全部の zip を開き直していた。
+            // 中身の一覧は商品が持ち、ID の手掛かりは走査の控えがハッシュと一緒に持つ（どちらも中身だけで決まる）。
+            // 商品の一覧が空の物（手で付けた等）は、前と同じく開いて一覧を取る
+            IReadOnlyList<BoothClue> clues;
+            IReadOnlyList<string> contents;
+            if (file.IsArchive
+                && owned.TryGetValue(hash, out var knownContents) && knownContents.Count > 0
+                && scanCache.TryGetClueItemIds(file, hash, out var knownClues))
             {
-                var found = InspectFile(file, out var inside);
-                return (found, inside);
-            }, cancellationToken);
+                clues = [.. knownClues.Select(ClueOf)];
+                contents = knownContents;
+            }
+            else
+            {
+                // zip の中身読みは同期なので、画面のスレッドへ戻ってから走っていた（C19）。
+                // ハッシュ計算だけが本当に非同期で、その直後にここで引っかかる
+                var inspected = await Task.Run(() => InspectFile(file), cancellationToken);
+                clues = inspected.Clues;
+                contents = inspected.Contents;
+                if (file.IsArchive && inspected.Read)
+                {
+                    // 開けなかった zip（ほかのアプリが開いている等）は控えない。次の取り込みでまた開く
+                    scanCache.SetClueItemIds(file, hash, ClueItemIdsOf(clues));
+                }
+            }
+
             var zone = ZoneIdentifierReader.Read(file.Path);
 
             // 商品ページで外したものは候補から落とす。
@@ -882,7 +906,7 @@ public sealed class ImportPipeline : IImportPipeline
 
                 list.Add(record);
             }
-            else if (owned.Contains(hash))
+            else if (owned.ContainsKey(hash))
             {
                 // 未確定画面で手作業で紐付けたファイル。手掛かりからは決まらないので、
                 // 毎回ここへ落ちてくる。既にitemが持っていると分かっているものを
@@ -919,25 +943,43 @@ public sealed class ImportPipeline : IImportPipeline
     }
 
     /// <summary>ZIPだけ中身を読む。それ以外の形式は Zone.Identifier だけが手掛かりになる。</summary>
-    private static IReadOnlyList<BoothClue> InspectFile(ScannedFile file, out IReadOnlyList<string> contents)
+    /// <returns>手掛かりと中身の一覧、読めたか（読めなかった zip と zip 以外は false）。</returns>
+    private static (IReadOnlyList<BoothClue> Clues, IReadOnlyList<string> Contents, bool Read) InspectFile(ScannedFile file)
     {
-        contents = [];
         if (!file.IsArchive)
         {
-            return [];
+            return ([], [], false);
         }
 
         try
         {
             var inspection = ZipInspector.Inspect(file.Path);
-            contents = inspection.Summary.Files.Select(entry => entry.RelativePath).ToList();
-            return inspection.Clues;
+            return (inspection.Clues, inspection.Summary.Files.Select(entry => entry.RelativePath).ToList(), true);
         }
         catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            return [];
+            return ([], [], false);
         }
     }
+
+    /// <summary>
+    /// 控えに書く手掛かり。ID を決めるのに使うのは「商品のURL」の手掛かりの商品IDだけ（<see cref="IdResolver.Resolve"/>）なので、
+    /// それだけを出てきた順に残す。
+    /// </summary>
+    private static IReadOnlyList<string> ClueItemIdsOf(IReadOnlyList<BoothClue> clues)
+        => [.. clues
+            .Where(clue => clue.Kind == BoothClueKind.ItemUrl && clue.ItemId is not null)
+            .Select(clue => clue.ItemId!)
+            .Distinct(StringComparer.Ordinal)];
+
+    /// <summary>控えた商品IDを、読んだときと同じ働きの手掛かりに戻す。</summary>
+    private static BoothClue ClueOf(string itemId) => new()
+    {
+        Kind = BoothClueKind.ItemUrl,
+        Url = IdResolver.ToItemUrl(itemId),
+        ItemId = itemId,
+        SourcePath = "（走査の控え）",
+    };
 
     /// <summary>
     /// 梯子を段ごとに降りる。**商品ごとに全部取るのではなく、段ごとに全商品を回る。**

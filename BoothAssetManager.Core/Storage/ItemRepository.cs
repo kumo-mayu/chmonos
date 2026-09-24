@@ -154,6 +154,30 @@ public sealed class ItemRepository
         }
     }
 
+    /// <summary>
+    /// 組み直した結果が今の中身と同じなら書かない。**呼んだ側への答え（書いたか）は変えない**——
+    /// 「触る物があった」ことは同じで、ディスクへ同じ中身を書き直すのを省くだけ。
+    ///
+    /// 取り込み直すと、変わっていない商品もファイルを足す道（<see cref="SaveLocalAsync"/>）を通り、
+    /// 1件ごとに一時ファイルへ書いてディスクへ書き出し（Flush）、置き換えていた（300本の取り込み直しで毎回300件）。
+    /// 書き直すと更新日時も動くので、商品の写し（<see cref="_cache"/>）も次の読み込みで読み直しになっていた。
+    ///
+    /// 比べるのは保存する形（JSON）で、書いたら読み戻して同じになる物は同じとみなす。
+    /// </summary>
+    private async Task WriteIfChangedAsync(ItemRecord current, ItemRecord updated, CancellationToken cancellationToken)
+    {
+        if (ReferenceEquals(current, updated) || SameContent(current, updated))
+        {
+            return;
+        }
+
+        await WriteAsync(updated, cancellationToken);
+    }
+
+    private static bool SameContent(ItemRecord left, ItemRecord right)
+        => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(left, JsonStore.Options).AsSpan()
+            .SequenceEqual(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(right, JsonStore.Options));
+
     private SemaphoreSlim LockFor(string itemId)
         => _itemLocks.GetOrAdd(itemId, static _ => new SemaphoreSlim(1, 1));
 
@@ -197,7 +221,8 @@ public sealed class ItemRepository
             var variations = (booth ?? existing.Booth).Variations;
             merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, variations) };
 
-            await WriteAsync(
+            await WriteIfChangedAsync(
+                existing,
                 existing with { Booth = booth ?? existing.Booth, Local = merged },
                 cancellationToken);
         }
@@ -239,7 +264,7 @@ public sealed class ItemRepository
             var merged = LocalFields.Merge(existing.Local, changed, owns);
             merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
 
-            await WriteAsync(existing with { Local = merged }, cancellationToken);
+            await WriteIfChangedAsync(existing, existing with { Local = merged }, cancellationToken);
         }
         finally
         {
@@ -275,7 +300,7 @@ public sealed class ItemRepository
             }
 
             var local = existing.Local with { Purchases = Purchase.Reconcile(existing.Local.Purchases, booth.Variations) };
-            await WriteAsync(existing with { Booth = booth, Local = local }, cancellationToken);
+            await WriteIfChangedAsync(existing, existing with { Booth = booth, Local = local }, cancellationToken);
         }
         finally
         {
@@ -508,9 +533,8 @@ public sealed class ItemRepository
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var existing = await LoadAsync(itemId, cancellationToken) is { } found
-                ? (booth is null ? found : found with { Booth = booth })
-                : create();
+            var found = await LoadAsync(itemId, cancellationToken);
+            var existing = found is null ? create() : (booth is null ? found : found with { Booth = booth });
             if (change(existing.Local) is not { } changed)
             {
                 return false;
@@ -518,7 +542,15 @@ public sealed class ItemRepository
 
             var merged = LocalFields.Merge(existing.Local, changed, owns);
             merged = merged with { Purchases = Purchase.Reconcile(merged.Purchases, existing.Booth.Variations) };
-            await WriteAsync(existing with { Local = merged }, cancellationToken);
+            var updated = existing with { Local = merged };
+            if (found is null)
+            {
+                await WriteAsync(updated, cancellationToken);
+            }
+            else
+            {
+                await WriteIfChangedAsync(found, updated, cancellationToken);
+            }
         }
         finally
         {

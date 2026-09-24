@@ -57,6 +57,45 @@ public sealed class ScanCacheIndex
         };
     }
 
+    /// <summary>
+    /// 控えてある zip の手掛かり（中のテキストの商品ID）を引く。パス・大きさ・日時が今と合い、ハッシュも同じときだけ。
+    /// まだ読んでいなければ false。
+    /// </summary>
+    public bool TryGetClueItemIds(ScannedFile file, string hash, out IReadOnlyList<string> itemIds)
+    {
+        if (_byPath.TryGetValue(file.Path, out var entry)
+            && entry.SizeBytes == file.SizeBytes
+            && entry.ModifiedAtUtc == file.ModifiedAtUtc
+            && string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)
+            && entry.ClueItemIds is { } ids)
+        {
+            itemIds = ids;
+            return true;
+        }
+
+        itemIds = [];
+        return false;
+    }
+
+    /// <summary>読んだ zip の手掛かりを控える。ハッシュの控えが今のファイルと合うときだけ（合わなければ次にまた読む）。</summary>
+    public void SetClueItemIds(ScannedFile file, string hash, IReadOnlyList<string> itemIds)
+    {
+        if (_byPath.TryGetValue(file.Path, out var entry)
+            && entry.SizeBytes == file.SizeBytes
+            && entry.ModifiedAtUtc == file.ModifiedAtUtc
+            && string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase))
+        {
+            _byPath[file.Path] = new ScanCacheEntry
+            {
+                Path = entry.Path,
+                SizeBytes = entry.SizeBytes,
+                ModifiedAtUtc = entry.ModifiedAtUtc,
+                Hash = entry.Hash,
+                ClueItemIds = itemIds,
+            };
+        }
+    }
+
     /// <summary>存在しなくなったパスを落とす。放置するとキャッシュが際限なく育つため。</summary>
     public void RemoveMissing()
     {

@@ -102,8 +102,8 @@ public sealed class OffUiThreadTests : IDisposable
         }
     }
 
-    /// <summary>通信しない作り物。呼ばれたら数えて「一時的な失敗」を返す。</summary>
-    private sealed class OfflineClient : IBoothClient
+    /// <summary>通信しない作り物。呼ばれたら数えて「一時的な失敗」を返す（取り込み直しの試験でも使う）。</summary>
+    internal sealed class OfflineClient : IBoothClient
     {
         public int Calls;
 
