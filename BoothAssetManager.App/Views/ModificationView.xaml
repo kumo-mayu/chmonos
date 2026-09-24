@@ -521,14 +521,14 @@
                             <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
                             <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"
                                      Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="「普段着」「制服」のような呼び分けです。打ち終えると残ります。" />
+                                     ToolTip="「普段着」「制服」のような呼び分けです。打ち終えると保存されます。" />
 
                             <!--
                                 VRChat の blueprint ID（ユーザ指示 2026-09-19：改変の名前の下に）。
                                 VRChat の OSC に /avatar/change で送ると、このアバターに着替えられる
                             -->
                             <TextBlock Text="VRChatのblueprint ID" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
-                            <TextBlock Text="アップロードしたアバターのID（avtr_…）。入れておくと、VRChatをこのアバターに着替えられます。打ち終えると残ります。"
+                            <TextBlock Text="アップロードしたアバターのID（avtr_…）。入れておくと、VRChatをこのアバターに着替えられます。打ち終えると保存されます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="VRChatで着替える" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
@@ -688,7 +688,7 @@
                             <TextBox Height="120" Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                      Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="貫通の直し方など、次に作るときに要ることを書けます。打ち終えると残ります。" />
+                                     ToolTip="貫通の直し方など、次に作るときに要ることを書けます。打ち終えると保存されます。" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

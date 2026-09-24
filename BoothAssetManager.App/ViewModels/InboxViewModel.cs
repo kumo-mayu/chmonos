@@ -620,7 +620,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.OrphanTag => "タグの管理・属性の管理から消えたか名前が変わったものを、商品がまだ参照しています。",
         NotificationKind.OrphanVariationLink => "手元のファイルや購入の記録が指すバリエーションが、BOOTH側から消えました。",
         NotificationKind.VariationBackOnBooth => "消えていたバリエーションが、BOOTHにまた出てきました。",
-        NotificationKind.PageStructureChanged => "BOOTHから取得できる情報の形式が変化した可能性があります。アプリの更新が必要かもしれません。",
+        NotificationKind.PageStructureChanged => "BOOTHの情報の形式が変わったかもしれません。対応アバターの検出と検索に使える情報が減ります。",
         NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を登録しています。片方の登録を外すまで、同じ中身を二重に数えます。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         NotificationKind.UnpackedFilesImported => "自動で始めた取り込みで、zipを展開したフォルダの中のファイルを取り込みました。元のzipの方で持ち直せます。",
