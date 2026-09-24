@@ -29,15 +29,37 @@ public sealed class KanjiReadings
     /// <summary>これより長い区間は読みを作らない。長い文は組み合わせが爆発する割に引かれない。</summary>
     private const int MaxSpanLength = 12;
 
+    /// <summary>字の表の控えの形式。上げると古い控えを作り直す。</summary>
+    private const int CacheVersion = 1;
+
     private readonly string _path;
+    private readonly string? _cachePath;
     private readonly object _sync = new();
 
     private Dictionary<char, string[]>? _readings;
     private bool _failed;
 
-    public KanjiReadings(string path) => _path = path;
+    /// <param name="path">同梱の KANJIDIC2（gz の XML）。</param>
+    /// <param name="cachePath">
+    /// 字の表の控え（表記の橋渡しの索引と同じく手元で組む物）。XML から組むと起動のたびに 0.3秒・割り当て19MB かかっていた
+    /// （2026-09-24 実測）。渡さなければ毎回 XML から組む（試験・実験用）。
+    /// </param>
+    public KanjiReadings(string path, string? cachePath = null)
+    {
+        _path = path;
+        _cachePath = cachePath;
+    }
 
     public bool IsAvailable => File.Exists(_path);
+
+    /// <summary>字の表の控えを書けなかった理由（引くのには差し支えない。次の起動でまた組む）。</summary>
+    public string? CacheSaveError { get; private set; }
+
+    /// <summary>
+    /// 字の表を先に読んでおく。読み込みの裏のスレッドから呼ぶ——商品名の読みは造語変換で初めて照らすときに
+    /// 画面のスレッドで作るので、そこで表まで読むと固まる。読み終えていれば何もしない。
+    /// </summary>
+    public void Prepare() => EnsureLoaded();
 
     /// <summary>
     /// 商品名から読みの候補を作る。
@@ -195,6 +217,12 @@ public sealed class KanjiReadings
                 return;
             }
 
+            if (TryLoadCache() is { } cached)
+            {
+                _readings = cached;
+                return;
+            }
+
             try
             {
                 _readings = Load();
@@ -204,8 +232,101 @@ public sealed class KanjiReadings
                 // 読めなくても検索は動く。造語の読みが作れないだけ。
                 // 壊れた gz（InvalidDataException）も受ける——受けないと引くたびに読み直しては投げる（点検 2026-09-23）
                 _failed = true;
+                return;
+            }
+
+            // 書けなくても組めた表は使う。次の起動でまた組むだけ
+            try
+            {
+                SaveCache(_readings);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                CacheSaveError = exception.Message;
             }
         }
+    }
+
+    // ---- 控え ----
+    //
+    // 「字\t読み\t読み…」を1行ずつ（読みの並びは KANJIDIC2 のまま・訓が先）。人が開いて読める形にしてある。
+    // 見出しに辞書の大きさと更新日時を入れ、辞書を差し替えたら組み直す
+
+    private string CacheHeader()
+    {
+        var info = new FileInfo(_path);
+        return $"kanjidic\t{CacheVersion}\t{info.Length}-{info.LastWriteTimeUtc.Ticks}";
+    }
+
+    /// <summary>控えを読む。無い・見出しが違う・読めない・形が崩れているときは null（XML から組み直す）。</summary>
+    private Dictionary<char, string[]>? TryLoadCache()
+    {
+        if (_cachePath is null || !File.Exists(_cachePath) || !File.Exists(_path))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var reader = new StreamReader(_cachePath, Encoding.UTF8);
+            if (reader.ReadLine() != CacheHeader())
+            {
+                return null;
+            }
+
+            var map = new Dictionary<char, string[]>();
+            while (reader.ReadLine() is { } line)
+            {
+                var parts = line.Split('\t');
+
+                // 1字と読み1つ以上。崩れた行があれば控えごと信じない（手で直した控えで字が抜けるより、組み直す方がよい）
+                if (parts.Length < 2 || parts[0].Length != 1)
+                {
+                    return null;
+                }
+
+                map[parts[0][0]] = parts[1..];
+            }
+
+            return map;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void SaveCache(Dictionary<char, string[]> map)
+    {
+        if (_cachePath is null)
+        {
+            return;
+        }
+
+        var directory = Path.GetDirectoryName(_cachePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var temp = _cachePath + ".tmp";
+        using (var writer = new StreamWriter(temp, false, new UTF8Encoding(false)))
+        {
+            writer.WriteLine(CacheHeader());
+            foreach (var (literal, readings) in map)
+            {
+                writer.Write(literal);
+                foreach (var reading in readings)
+                {
+                    writer.Write('\t');
+                    writer.Write(reading);
+                }
+
+                writer.WriteLine();
+            }
+        }
+
+        File.Move(temp, _cachePath, overwrite: true);
     }
 
     private Dictionary<char, string[]> Load()

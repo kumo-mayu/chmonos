@@ -91,11 +91,40 @@ public sealed class SearchHaystack
     public SearchHaystack(Func<SearchField, IReadOnlyList<string>> raw, string readings = "")
     {
         _raw = raw;
-        Readings = readings;
+        _readings = readings;
     }
 
-    /// <summary>商品名の読み（畳み済み・ひらがな）。造語変換のときだけ見る。</summary>
-    public string Readings { get; }
+    /// <param name="raw">対象ごとの元の文字列。</param>
+    /// <param name="makeReadings">商品名の読み（畳む前）を作る。<see cref="Readings"/> を初めて見たときに1度だけ呼ぶ。</param>
+    public SearchHaystack(Func<SearchField, IReadOnlyList<string>> raw, Func<string>? makeReadings)
+    {
+        _raw = raw;
+        _makeReadings = makeReadings;
+        _readings = makeReadings is null ? string.Empty : null;
+    }
+
+    private readonly Func<string>? _makeReadings;
+    private string? _readings;
+
+    /// <summary>
+    /// 商品名の読み（畳み済み・ひらがな）。造語変換のときだけ見るので、**見たときに作る**
+    /// （既定の検索では全商品で作らずに済む）。
+    /// </summary>
+    public string Readings
+    {
+        get
+        {
+            if (_readings is { } ready)
+            {
+                return ready;
+            }
+
+            // 同時に2つのスレッドから来ても、どちらも同じ文字列を作るだけ（作る物は商品の記録から決まる）
+            var made = SearchQuery.Normalize(_makeReadings!());
+            _readings = made;
+            return made;
+        }
+    }
 
     /// <summary>試験用：対象ごとの文字列から作る。</summary>
     public static SearchHaystack FromValues(IReadOnlyDictionary<SearchField, string[]> values, string readings = "")
