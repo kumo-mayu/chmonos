@@ -182,9 +182,9 @@
                         <TextBlock Text="取り込み" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
                         <!-- 取り込みの自動開始（#38）。既定はユーザ判断：落としたら入、起動時は切 -->
-                        <CheckBox Content="ファイルやフォルダを落としたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}"
+                        <CheckBox Content="ファイルやフォルダをドロップしたら、そのまま取り込みを始める" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding StartImportOnDrop, Mode=TwoWay}"
-                                  ToolTip="取り込みの最中に落とした分は、今の取り込みに追加します。" />
+                                  ToolTip="取り込みの最中にドロップした分は、今の取り込みに追加します。" />
                         <CheckBox Content="起動したとき、監視フォルダに新しいファイルがあれば取り込みを始める" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
                                   ToolTip="切っているときは、取り込み画面に件数を表示して、押してから始めます。起動しただけでBOOTHへの通信が始まるのを避けたいときは切ってください。次に起動したときから効きます。" />

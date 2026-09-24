@@ -31,7 +31,7 @@
                 <Border BorderBrush="#b9c6dc" BorderThickness="2" CornerRadius="10" Background="#f7faff" Padding="24,22">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="フォルダかファイルをここにドロップ" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
-                        <TextBlock Text="ファイルを落とした場合は、そのファイルだけが対象になります（親フォルダには広げません）"
+                        <TextBlock Text="ファイルをドロップした場合は、そのファイルだけが対象になります（親フォルダには広げません）"
                                    Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                             <Button Content="フォルダを選択" Style="{StaticResource PrimaryButton}"
@@ -172,7 +172,7 @@
                             </StackPanel>
                         </Border>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,12,18,14"
-                                   Text="まだ監視しているフォルダはありません。フォルダを上の枠に落とすと、監視するかどうかを聞きます。"
+                                   Text="まだ監視しているフォルダはありません。フォルダを上の枠にドロップすると、監視するかどうかを聞きます。"
                                    Visibility="{Binding HasWatched, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                         <ItemsControl ItemsSource="{Binding Watched}">

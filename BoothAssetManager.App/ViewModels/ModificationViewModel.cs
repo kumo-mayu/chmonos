@@ -807,7 +807,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     public string GalleryEmptyText => _gallery.Count > 0
         ? string.Empty
-        : "この改変の写真はまだありません。\n「＋」でまとめて選ぶか、ここへ落とすか、Ctrl+V で貼ってください。";
+        : "この改変の写真はまだありません。\n「＋」でまとめて選ぶか、ここへドロップするか、Ctrl+V で貼ってください。";
 
     // ---- ギャラリー（商品と同じ部品 ItemGalleryPanel・ユーザ指示 2026-09-13） ----
     //
@@ -869,7 +869,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public bool ShowsImageRoles => false;
 
-    public string AddImageTip => "この改変に写真を追加（ここへ落としても、Ctrl+Vで貼っても入ります）";
+    public string AddImageTip => "この改変に写真を追加（ここへドロップしても、Ctrl+Vで貼っても入ります）";
 
     // 商品の画像にだけある案内（BOOTH からの取得・削除された画像・自分で足した枚数）は出さない
     public bool HasUserImages => false;

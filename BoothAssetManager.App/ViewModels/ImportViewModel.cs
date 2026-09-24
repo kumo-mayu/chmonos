@@ -226,7 +226,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 「何を入れればここが埋まるのか」が画面から分からない。
     /// </summary>
     public string FoldersEmptyText =>
-        "まだ何も入っていません。上の枠にフォルダかファイルを落とすか、「フォルダを選択」で選んでください。";
+        "まだ何も入っていません。上の枠にフォルダかファイルをドロップするか、「フォルダを選択」で選んでください。";
 
     public ObservableCollection<UnpackedFolderRow> UnpackedFolders { get; } = [];
 
@@ -826,7 +826,7 @@ public sealed class ImportViewModel : ViewModelBase
         if (!kinds.Any(kind => kind.IsFolder || kind.IsFile))
         {
             _main.NoteImportNotStarted(
-                "落としたファイルやフォルダが見つからず、取り込みを始めませんでした。動かしたか、ドライブがつながっていない可能性があります。場所を確かめて、もう一度落としてください。");
+                "ドロップしたファイルやフォルダが見つからず、取り込みを始めませんでした。動かしたか、ドライブがつながっていない可能性があります。場所を確かめて、もう一度ドロップしてください。");
             return;
         }
 

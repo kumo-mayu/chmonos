@@ -68,7 +68,7 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public string CopyLinkTip => Item.IsLocalOnly
         ? "BOOTHに無い商品として登録したものなので、リンクがありません。"
-        : "BOOTHの商品ページのリンクを写します。";
+        : "BOOTHの商品ページのリンクをコピーします。";
 
     /// <summary>ショップの画面（アプリの中）へ行けるか。BOOTHの店が分からない商品では行き先が無い。</summary>
     public bool HasShop => !string.IsNullOrWhiteSpace(Item.Booth.Shop?.Subdomain);

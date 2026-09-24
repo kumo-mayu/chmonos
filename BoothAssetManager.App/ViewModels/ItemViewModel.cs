@@ -789,8 +789,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 出ているIDそのものを押せるようにした。
     /// </summary>
     public string IdCopyTip => Item.IsLocalOnly
-        ? "クリックすると仮のIDを写します"
-        : "クリックすると商品IDを写します";
+        ? "クリックすると仮のIDをコピーします"
+        : "クリックすると商品IDをコピーします";
 
     /// <summary>
     /// BOOTHに無い商品として登録したもの。**BOOTHへは問い合わせない。**
@@ -1111,12 +1111,12 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         try
         {
             System.Windows.Clipboard.SetText(Item.Id);
-            RefreshStatus = $"{Item.Id} を写しました。";
+            RefreshStatus = $"{Item.Id} をコピーしました。";
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
             // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
-            RefreshStatus = "写せませんでした。もう一度押してください。";
+            RefreshStatus = "コピーできませんでした。もう一度押してください。";
         }
     }
 

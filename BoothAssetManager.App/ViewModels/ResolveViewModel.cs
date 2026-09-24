@@ -448,7 +448,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             return;
         }
 
-        StatusText = $"元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipを落としてください。";
+        StatusText = $"元のzip「{origin.ArchiveName}」は未確定にありません。取り込み画面にzipをドロップしてください。";
         OnPropertyChanged(nameof(HasStatus));
         DecisionFocusRequested?.Invoke();
     }
