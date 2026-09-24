@@ -63,12 +63,13 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // 4K テクスチャを大量に同梱した物でも、中身は写さずに流して読む（UnityHandoff.ReadAssetPaths）ので、メモリは増えない
+            // 4K テクスチャを大量に同梱した物でも、中身は写さずに流して読む（UnityHandoff.ReadAssetPaths）ので、メモリは増えない。
+            // 読んだパスは控えのファイルに書くので、画面が使うメモリの表には入れない（手元の全部で表を埋めて、画面の分を押し出していた）
             var packages = await RunBelowNormalAsync(() => UnityHandoff.FindPackages(zip!)
                 .DistinctBy(package => package.EntryPath, StringComparer.Ordinal)
                 .ToDictionary(
                     package => package.EntryPath,
-                    package => UnityHandoff.ReadAssetPaths(package),
+                    package => UnityHandoff.ReadAssetPaths(package, remember: false),
                     StringComparer.Ordinal));
 
             await pathStore.SaveAsync(record.Hash, packages, cancellationToken);
