@@ -89,6 +89,7 @@ public sealed partial class MainViewModel : ViewModelBase
         _isNavCollapsed = services.UiState.NavCollapsed;
 
         RefreshCounts();
+        NoteInterruptedImportChanged();
         ShowStartScreen();
         StartBacklogResume();
         PruneVideoTitles();
@@ -117,7 +118,8 @@ public sealed partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (UnresolvedCount > 0)
+        // ナビの件数は裏で数える（RefreshCounts）ので、まだ入っていない。ここでは記録を直に読む（商品が0件のときだけ）
+        if (_services.Store.Unresolved.Load().Count > 0)
         {
             ShowResolve();
             return;
@@ -851,16 +853,52 @@ public sealed partial class MainViewModel : ViewModelBase
     /// ——解消するまで出し続ける（未確定・要確認・形式の変化と同じ扱い）。
     /// </summary>
     public bool HasInterruptedImport
-        => !IsImporting && _services.Store.ImportState.Load().HasProgress;
+        => !IsImporting && _interruptedImport is { HasProgress: true };
 
     public string InterruptedImportText
-        => _services.Store.ImportState.Load() is { HasProgress: true } state ? state.Text : string.Empty;
+        => _interruptedImport is { HasProgress: true } state ? state.Text : string.Empty;
+
+    /// <summary>
+    /// 取り込みの続きの記録。**読むのは <see cref="NoteInterruptedImportChanged"/> のときだけ、裏で**（2026-09-24）。
+    /// 前は帯の2つの値が読まれるたびに画面のスレッドでファイルを読んでいて、取り込みの開始・終わりに知らせ直すたびに2回読んでいた
+    /// </summary>
+    private Core.Scanning.ImportState? _interruptedImport;
+
+    /// <summary>読み直しの番号。遅れて届いた古い読みで新しい読みを上書きしない。</summary>
+    private int _interruptedImportRead;
 
     /// <summary>記録を読み直して帯を出し入れする。取り込みの開始・中断・「やめる」から呼ぶ。</summary>
     public void NoteInterruptedImportChanged()
     {
-        OnPropertyChanged(nameof(HasInterruptedImport));
-        OnPropertyChanged(nameof(InterruptedImportText));
+        var turn = Interlocked.Increment(ref _interruptedImportRead);
+        var store = _services.Store.ImportState;
+        Task.Run(() =>
+            {
+                Core.Scanning.ImportState? state;
+                try
+                {
+                    state = store.Load();
+                }
+                catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+                {
+                    // 読めない記録は「続きは無い」と同じに扱う（前は結び付けの中で投げて、帯が出ないだけだった）
+                    Core.Diagnostics.AppLog.Error("主画面：取り込みの続きの記録を読む", exception);
+                    state = null;
+                }
+
+                RunOnUiThread(() =>
+                {
+                    if (turn != Volatile.Read(ref _interruptedImportRead))
+                    {
+                        return;
+                    }
+
+                    _interruptedImport = state;
+                    OnPropertyChanged(nameof(HasInterruptedImport));
+                    OnPropertyChanged(nameof(InterruptedImportText));
+                });
+            })
+            .Forget();
     }
 
     private int _pendingItemCount;
@@ -895,24 +933,52 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <summary>取り込みが商品を1件ぶん見えるようにした。</summary>
     public void NotePendingItems(int count) => RunOnUiThread(() => PendingItemCount = count);
 
+    /// <remarks>
+    /// ファイル（未確定・要確認）は裏で読み、数だけを画面のスレッドで入れる（2026-09-24）。
+    /// 前は画面のスレッドで2つのファイルを同期で読んでいて、取り込み中は③待ちが変わるたび（1件ごと）に呼ばれていた。
+    /// 呼ばれた順と届く順が入れ替わっても古い数で上書きしないよう、最後に頼んだ読みだけを当てる
+    /// </remarks>
     private void RefreshCounts()
     {
-        UnresolvedCount = _services.Store.Unresolved.Load().Count;
         NeedsEditCount = Search.NeedsEditCount;
 
-        var notifications = _services.Notifications.Load();
+        var turn = Interlocked.Increment(ref _countsRead);
+        var store = _services.Store;
+        var notificationService = _services.Notifications;
+        Task.Run(() =>
+            {
+                // 読めなければ投げる（Forget がログに残す）。数は古いまま残るだけ
+                var unresolved = store.Unresolved.Load().Count;
+                var notifications = notificationService.Load();
 
-        // 解消済みは一覧（未読のみ）に出ないので、バッジにも乗せない。
-        // 乗せると「バッジは残っているのに画面に出ない」状態になる（ユーザ指摘 2026-09-18）
-        UnreadCount = notifications.Count(record => !record.IsRead && !record.IsResolved);
+                // 解消済みは一覧（未読のみ）に出ないので、バッジにも乗せない。
+                // 乗せると「バッジは残っているのに画面に出ない」状態になる（ユーザ指摘 2026-09-18）
+                var unread = notifications.Count(record => !record.IsRead && !record.IsResolved);
 
-        // BOOTH側の作りが変わった疑いは、商品1件ごとの話と並べずにナビの帯で出す（ユーザ判断 2026-09-18）
-        StructureAlert = notifications
-            .Where(record => record.Kind == Core.Models.NotificationKind.PageStructureChanged && !record.IsResolved)
-            .OrderByDescending(record => record.CreatedAt)
-            .FirstOrDefault()
-            ?.Detail ?? string.Empty;
+                // BOOTH側の作りが変わった疑いは、商品1件ごとの話と並べずにナビの帯で出す（ユーザ判断 2026-09-18）
+                var alert = notifications
+                    .Where(record => record.Kind == Core.Models.NotificationKind.PageStructureChanged && !record.IsResolved)
+                    .OrderByDescending(record => record.CreatedAt)
+                    .FirstOrDefault()
+                    ?.Detail ?? string.Empty;
+
+                RunOnUiThread(() =>
+                {
+                    if (turn != Volatile.Read(ref _countsRead))
+                    {
+                        return;
+                    }
+
+                    UnresolvedCount = unresolved;
+                    UnreadCount = unread;
+                    StructureAlert = alert;
+                });
+            })
+            .Forget();
     }
+
+    /// <summary>件数の読み直しの番号。</summary>
+    private int _countsRead;
 
     private string _structureAlert = string.Empty;
 
