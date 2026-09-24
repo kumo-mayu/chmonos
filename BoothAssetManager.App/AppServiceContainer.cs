@@ -34,10 +34,6 @@ public sealed class AppServiceContainer : IDisposable
 
         Store = new DataStore(Paths);
 
-        // 書き込みの途中で落ちると .tmp が残る。本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い。
-        // 直下と items/ だけを見ていたので、images/<商品>/ や modifications/ に残った分が永久に消えなかった
-        JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
-
         // 前回閉じたときに消し残った一時展開（#56）。二重に起動した側が消すと、
         // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
         if (IsSingleInstance)
@@ -139,6 +135,23 @@ public sealed class AppServiceContainer : IDisposable
     }
 
     public AppPaths Paths { get; }
+
+    /// <summary>
+    /// 書き込みの途中で落ちて残った <c>*.tmp</c> を片付ける。**窓を出した後に裏で呼ぶ**（2026-09-24）。
+    ///
+    /// 本体を残したまま置き換えだけ失敗した物なので、消して困る物は無い。
+    /// 直下と items/ だけを見ていた頃は、images/&lt;商品&gt;/ や modifications/ に残った分が永久に消えなかったので、保存先の全体を見る。
+    /// 全体を再帰でたどるので、画像が1万枚を超える保存先では窓が出るまでの待ちに乗っていた。
+    /// 消すのは10分より古い物だけなので、起動直後に裏の作業が書き始めた分とはぶつからない。
+    /// ファイルを消すのは書き込みなので、保存先を運ぶ間の門（書いている数）に入ってから行う
+    /// </summary>
+    public void SweepStaleTemporaryFilesLater()
+        => Task.Run(async () =>
+        {
+            using var writing = await Core.Storage.StoreWriteGate.EnterAsync();
+            var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
+            UiTrace.Write("速さ", $"起動時の片付け：書きかけ {deleted} 件を消した（窓を出した後に裏で）");
+        }).Forget();
 
     public DataStore Store { get; }
 
