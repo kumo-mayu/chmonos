@@ -55,7 +55,7 @@
                     -->
                     <Button Content="{Binding Drafts.ButtonText}" Style="{StaticResource SmallButton}" Margin="14,0,0,0"
                             VerticalAlignment="Center" Command="{Binding OpenDraftsCommand}"
-                            ToolTip="保存していない入力が残っている商品だけを並べて開きます。アプリを閉じると、保存していない入力は消えます。"
+                            ToolTip="保存していない入力がある商品だけを並べて開きます。"
                             Visibility="{Binding Drafts.HasAny, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
@@ -78,7 +78,7 @@
                         <Button Content="1件目へ" Command="{Binding GoFirstCommand}"
                                 ToolTip="編集の1件目へ戻ります。いま開いている商品の入力は保存しません。" />
                         <Button Content="最初の未保存へ" Command="{Binding GoFirstUnsavedCommand}" Margin="8,0,0,0"
-                                ToolTip="まだ保存していない商品のうち、いちばん前へ移ります。いま開いている商品の入力は保存しません。" />
+                                ToolTip="まだ保存していない最初の商品へ移ります。今の入力は保存しません。" />
                     </StackPanel>
                 <ItemsControl x:Name="QueueStrip" ItemsSource="{Binding QueueTiles}"
                               AutomationProperties.Name="続く商品"
@@ -252,7 +252,7 @@
                                            VerticalAlignment="Center" Margin="0,0,70,0" />
                                 <Button Content="{Binding EditBasicsLabel}" Style="{StaticResource SmallButton}"
                                         HorizontalAlignment="Right" Command="{Binding EditBasicsCommand}"
-                                        ToolTip="商品名・ショップ・BOOTH分類名を直します。BOOTHから取れている商品は、普段は直す必要がありません。" />
+                                        ToolTip="商品名・ショップ・カテゴリを直します。" />
                             </Grid>
                             <!--
                                 お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。商品ページと同じ位置・同じ見た目）。
@@ -295,11 +295,11 @@
                                 <Button Content="IDを変える" Style="{StaticResource SmallButton}"
                                         Padding="7,1" FontSize="10.5" VerticalAlignment="Center"
                                         Command="{Binding ChangeIdCommand}"
-                                        ToolTip="この商品の中身を、別のIDの商品へ移します。&#10;何が移って何が移らないかは、移す前に出します。" />
+                                        ToolTip="この商品の中身を別のIDの商品へ移します。移す前に確認できます。" />
                             </StackPanel>
 
                             <!--
-                                商品名・ショップ・BOOTH分類名。**普段は変える必要が無い**ので、
+                                商品名・ショップ・カテゴリ。**普段は変える必要が無い**ので、
                                 「編集」を押して初めて開く（ユーザ指示）。上の下見は打った内容を映すので、
                                 開いている間も何になるかが見える。
                             -->
@@ -427,12 +427,12 @@
                                 <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
 
                                 <!--
-                                    BOOTHの分類名。**「分類」だけだとユーザータグと区別が付かない**
-                                    ので、どこの分類かを名前に入れてある（ユーザ指示）。
+                                    BOOTHのカテゴリ。検索の絞り込みと並べ替えと同じ「カテゴリ」と呼ぶ（ユーザ指示 2026-09-24。
+                                    前は「BOOTH分類名」で、同じ物に2つの名前が付いていた）。
                                     取れない商品には無いので、統計にも絞り込みにも出てこない。
                                     候補は同梱したBOOTHのカテゴリ表から出す。
                                 -->
-                                <TextBlock Text="BOOTH分類名" FontWeight="Bold" FontSize="13" />
+                                <TextBlock Text="カテゴリ" FontWeight="Bold" FontSize="13" />
 
                                 <Grid Margin="0,7,0,0">
                                     <TextBox x:Name="CategoryBox" Text="{Binding CategoryInput, UpdateSourceTrigger=PropertyChanged}"
@@ -652,7 +652,7 @@
                                     <!-- 印が1つも無ければ、畳んでいても見出しで分かるようにする（ユーザ指示 2026-09-13） -->
                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                                             CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
-                                            ToolTip="買ったバリエーションにまだ印が付いていません。開いて、買ったバリエーションに印を付けてください。"
+                                            ToolTip="買ったバリエーションに印を付けてください。"
                                             Visibility="{Binding IsPurchaseUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="未選択" FontSize="11" Foreground="{StaticResource Warn}" />
                                     </Border>
@@ -661,7 +661,7 @@
                             <StackPanel>
                                 <TextBlock Text="買ったバリエーションに印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
-                                           ToolTip="空欄は未入力（支出に数えない）、0は無料配布です。同じバリエーションを2回買った（自分用に1つ、ギフトに1つなど）ときは［＋］で記録を追加します。" />
+                                           ToolTip="空欄は未入力、0は無料です。2回買ったときは［＋］で追加します。" />
 
                                 <ItemsControl ItemsSource="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
@@ -671,7 +671,7 @@
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
                                                                    VerticalAlignment="Center" Margin="8,0,0,0"
-                                                                   ToolTip="このバリエーションに付いたファイルの数です。付け分けは下の「バリエーション分け」でできます。" />
+                                                                   ToolTip="付いたファイルの数です。下の「バリエーション分け」で変えられます。" />
                                                         <StackPanel Orientation="Horizontal">
                                                             <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
                                                             <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
@@ -706,7 +706,7 @@
                                                         <!-- 「＋」だけではファイルの結び付けか追加購入か分からなかった（ユーザ指摘）。何が起きるかを名乗らせる -->
                                                         <Button Content="＋ 追加購入" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 Command="{Binding AddPurchaseCommand}"
-                                                                ToolTip="この版をもう1回買った記録を追加します（自分用に1つ、ギフトに1つなど）。" />
+                                                                ToolTip="このバリエーションをもう1回買った記録を追加します。" />
                                                     </StackPanel>
 
                                                     <!--
@@ -770,7 +770,7 @@
                                     <!-- 種類を選んでいないファイルがあれば、畳んでいても見出しで分かるようにする（「購入した種類」と同じ・ユーザ指示 2026-09-13） -->
                                     <Border DockPanel.Dock="Right" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
-                                            ToolTip="バリエーションを選んでいないファイルがあります。開いて、ファイルごとにバリエーションを選んでください。"
+                                            ToolTip="ファイルごとにバリエーションを選んでください。"
                                             Visibility="{Binding IsFileSortUnselected, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="未選択" FontSize="11" Foreground="{StaticResource Warn}" />
                                     </Border>
@@ -786,7 +786,7 @@
                                                      IsChecked="{Binding IsByVariationView, Mode=TwoWay}" />
                                     </StackPanel>
                                     <TextBlock Text="どのバリエーションのファイルかを選びます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                               ToolTip="「保存して次へ」で保存します。買ったバリエーションが1つのときは、すべてのファイルをそのバリエーションとして扱います（選ぶ必要はありません）。紐付けられるのは買ったバリエーションだけです。" />
+                                               ToolTip="選べるのは買ったバリエーションだけです。1つだけなら選ぶ必要はありません。" />
                                 </DockPanel>
 
                                 <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここでバリエーションを選べます。"
@@ -895,7 +895,7 @@
 
                         <CheckBox Content="更新を通知する" IsChecked="{Binding NotifyOnUpdate, Mode=TwoWay}"
                                   Margin="0,18,0,0" Foreground="{StaticResource Text}" />
-                        <CheckBox Content="非表示にする（統計には含めます）" IsChecked="{Binding IsHidden, Mode=TwoWay}"
+                        <CheckBox Content="非表示にする" IsChecked="{Binding IsHidden, Mode=TwoWay}" ToolTip="検索に表示しなくなります。統計には含めます。"
                                   Margin="0,9,0,0" Foreground="{StaticResource Text}" />
 
                         <!--

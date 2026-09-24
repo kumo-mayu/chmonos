@@ -109,11 +109,11 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     public RelayCommand StayCommand { get; }
 
-    /// <summary>商品名・ショップ・BOOTH分類名の欄を開く／閉じる。閉じても打った内容は残り、保存で書かれる。</summary>
+    /// <summary>商品名・ショップ・カテゴリの欄を開く／閉じる。閉じても打った内容は残り、保存で書かれる。</summary>
     public RelayCommand EditBasicsCommand { get; }
 
     /// <summary>
-    /// 商品名・ショップ・BOOTH分類名の欄を開いているか。
+    /// 商品名・ショップ・カテゴリの欄を開いているか。
     /// **普段は変える必要が無い**ので閉じておき、右の入力はユーザータグから始める（ユーザ指示）。
     /// 常に開いていると、毎回の編集で使わない欄の分だけ下へ送られる。
     /// </summary>
@@ -523,7 +523,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     public string NamePlaceholder => HasBoothName
         ? BoothName
-        : "商品名を入れてください（BOOTHから取れていません）";
+        : "商品名を入れてください";
 
     public string ShopPlaceholder => _item?.Booth.Shop?.Name is { Length: > 0 } shop
         ? shop
@@ -531,14 +531,14 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     public string CategoryPlaceholder => HasBoothCategory
         ? BoothCategory
-        : "BOOTHの分類名を入れると、統計と絞り込みに表示されます";
+        : "カテゴリを入れると、統計と絞り込みに表示されます";
 
     /// <summary>BOOTHに無い商品として登録したもの。名前を空欄にすると仮IDが出てしまう</summary>
     public bool IsLocalOnly => _item?.IsLocalOnly ?? false;
 
     public string OpenBoothTip => IsLocalOnly
-        ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
-        : "BOOTHの商品ページをブラウザで開きます（アプリの外へ出ます）。";
+        ? "BOOTHに無い商品なので開けません。"
+        : "BOOTHの商品ページをブラウザで開きます。アプリの外へ出ます。";
 
     /// <summary>入手日。空欄ならファイルの日付にフォールバックする（保存時にnullを書く）。</summary>
     public string AcquiredAt
@@ -567,8 +567,8 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
             var acquired = AcquiredDateResolver.Resolve(_item);
             return acquired.Value is { } date
-                ? $"空欄のまま → {date:yyyy-MM-dd}（ファイルの日付）"
-                : "yyyy-MM-dd（ファイルが無いため空欄のまま）";
+                ? $"空欄ならファイルの日付 {date:yyyy-MM-dd}"
+                : "yyyy-MM-dd";
         }
     }
 
