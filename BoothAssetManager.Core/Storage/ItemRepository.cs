@@ -17,8 +17,9 @@ public sealed class ItemRepository
     /// 錠が無いと、読んでから書くまでの間に入った相手の変更を消すか、
     /// 一時ファイルの取り合いで保存そのものが落ちる（落ちた保存はほとんど投げっぱなしなので画面には出ない）。
     /// 商品IDで分けているので、別の商品どうしは待たない。
+    /// 使っている人がいなくなった錠は捨てる（KeyedGate。前は触った商品の数だけ溜まり続けた）。
     /// </summary>
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _itemLocks = new(StringComparer.Ordinal);
+    private readonly KeyedGate<string> _itemLocks = new(StringComparer.Ordinal);
 
     /// <summary>
     /// 読んだ商品の写し。鍵はファイル名の商品ID、値は「読んだときのファイルの大きさと更新日時」と読んだ中身。
@@ -178,8 +179,8 @@ public sealed class ItemRepository
         => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(left, JsonStore.Options).AsSpan()
             .SequenceEqual(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(right, JsonStore.Options));
 
-    private SemaphoreSlim LockFor(string itemId)
-        => _itemLocks.GetOrAdd(itemId, static _ => new SemaphoreSlim(1, 1));
+    private KeyedGate<string>.Handle LockFor(string itemId)
+        => _itemLocks.For(itemId);
 
     /// <summary>
     /// <c>local</c> のうち、<paramref name="owns"/> で名指しした項目だけを書く。

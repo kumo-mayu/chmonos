@@ -10,7 +10,7 @@ public sealed class VideoLinksTests
     {
         Description = description,
         Embeds = embeds ?? [],
-        H2Sections = sections.Select(text => new H2Section { Heading = "見出し", NormalizedHeading = "見出し", Text = text }).ToList(),
+        H2Sections = sections.Select(text => new H2Section { Heading = "見出し", Text = text }).ToList(),
     };
 
     [Theory]

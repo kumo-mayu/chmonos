@@ -171,7 +171,7 @@ public class BoothItemMapperTests
     {
         var sections = new[]
         {
-            new Core.Models.H2Section { Heading = "利用規約", NormalizedHeading = "利用規約", Text = "再配布禁止" },
+            new Core.Models.H2Section { Heading = "利用規約", Text = "再配布禁止" },
         };
 
         var block = BoothItemMapper.Map(RealisticJson, FetchedAt, sections);
