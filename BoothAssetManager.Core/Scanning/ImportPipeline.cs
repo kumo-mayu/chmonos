@@ -262,6 +262,7 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 周回の外で取る画像の列（④1枚目 ⑤残り ⑥ショップのアイコン）。周回をまたいで持ち越す
         var images = new ImageQueue();
+        var measuredFolders = false;
 
         while (true)
         {
@@ -284,7 +285,9 @@ public sealed class ImportPipeline : IImportPipeline
             // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
             // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
             // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
-            var (registered, owned, detached) = await LoadOwnedAsync(cancellationToken);
+            // 登録したフォルダを測り直すのは取り込み1回につき最初の周回だけ（周回ごとに全部を並べ直していた）
+            var (registered, owned, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
+            measuredFolders = true;
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
             await RecordVolumesAsync(folders, cancellationToken);
@@ -585,7 +588,13 @@ public sealed class ImportPipeline : IImportPipeline
     /// ついでに登録済みフォルダの中身を数え直して保存する
     /// （数えるのは列挙だけでハッシュは計算しないので速い）。
     /// </summary>
+    /// <param name="remeasure">
+    /// 登録したフォルダを測り直し、zip が手に入っていないかを見るか。**取り込み1回につき最初の周回だけ**（2026-09-24）。
+    /// 周回は積むたびに増え、そのたびに登録したフォルダの中を全部並べ直していた。測った値は容量の表示に使うだけで、
+    /// 同じ取り込みの中で何度測っても変わらない。
+    /// </param>
     private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, DetachedIndex Detached)> LoadOwnedAsync(
+        bool remeasure,
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -618,6 +627,10 @@ public sealed class ImportPipeline : IImportPipeline
                 }
 
                 paths.Add(folder.Path);
+                if (!remeasure)
+                {
+                    continue;
+                }
 
                 // zipが手に入っていれば、フォルダ登録は役目を終えている。
                 // 黙っていると容量が二重に乗ったままなので知らせる。
