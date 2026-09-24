@@ -38,18 +38,18 @@
                       ToolTip="手元のファイルの場所を開きます。2つ以上あれば、どれを開くか選べます。"
                       Command="{Binding PlacementTarget.Tag.RevealCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
             <MenuItem Header="一時的に展開して開く…" CommandParameter="{Binding}"
-                      ToolTip="zipの中身を一時フォルダに展開して開きます。アプリを閉じると消えます。元のzipはそのままです。"
+                      ToolTip="zipを一時フォルダに展開して開きます。展開したものはアプリを閉じると消えます。"
                       Command="{Binding PlacementTarget.Tag.CardUnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </MenuItem>
         <MenuItem Header="Unity">
             <MenuItem Header="Unityへ送る…" CommandParameter="{Binding}"
-                      ToolTip="開いているUnityへ送ります。unitypackageが2つ以上あれば、どれを送るか選べます。"
+                      ToolTip="開いているUnityへ送ります。2つ以上あれば選べます。"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
             <MenuItem Header="改変に追加して送る…" CommandParameter="{Binding}"
                       ToolTip="送ったうえで、どの改変に使ったかを残します。"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
             <MenuItem Header="選択（Unityのプロジェクトタブで示す）…" CommandParameter="{Binding}"
-                      ToolTip="いま開いているUnityで、入った場所をプロジェクトタブで示します。まだ入っていなければ、そう言うだけです。"
+                      ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
                       Command="{Binding PlacementTarget.Tag.CardSelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </MenuItem>
         <Separator />
@@ -260,7 +260,7 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                     <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
-                                                            ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと付け直します"
+                                                            ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
                                                     </Border>
@@ -426,7 +426,7 @@
                             VerticalAlignment="Center"
                             Command="{Binding StopUnityCommand}"
                             Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                            ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
+                            ToolTip="送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                             Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -445,7 +445,7 @@
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
                     <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding SendSelectionToUnityCommand}"
-                            ToolTip="選んだ商品のunitypackageを、開いているUnityへ1件ずつ送ります。Unityの取り込み画面を閉じると次の1件が表示されます。" />
+                            ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
                     <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
                             Command="{Binding SendSelectionToEditCommand}" />
                 </StackPanel>
@@ -658,7 +658,7 @@
             <WrapPanel Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <Border Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                         BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
-                        ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと付け直します"
+                        ToolTip="記録にある場所にファイルがありません。移した先のフォルダを取り込むと直ります。"
                         Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
                 </Border>
@@ -691,7 +691,7 @@
                 <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
                 <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                         CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
-                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が表示されます。"
+                        ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
                         Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
                 </Border>

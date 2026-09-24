@@ -24,7 +24,7 @@
                 Visibility="{Binding AsksAboutValues, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <StackPanel>
                 <TextBlock Text="{Binding ConflictText}" FontSize="12.5" TextWrapping="Wrap" />
-                <TextBlock Text="残せるのはどちらか一方です。平均は取りません（付けていない数字ができてしまうため）。"
+                <TextBlock Text="残せるのはどちらか一方の値で、平均は取りません。"
                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,9" />
 
                 <RadioButton Content="{Binding KeepTargetText}" IsChecked="{Binding KeepTarget, Mode=TwoWay}"

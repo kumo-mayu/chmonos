@@ -315,7 +315,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
 
         return result.BannerAbsent
-            ? "変わっていませんでした（このショップはバナーを設定していません）。"
+            ? "変わっていませんでした。このショップにはバナーがありません。"
             : "変わっていませんでした。";
     }
 

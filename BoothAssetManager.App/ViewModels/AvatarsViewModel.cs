@@ -449,7 +449,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             var answer = Services.Notice.Show(
                 $"「{name}」という改変が既にあります。\n\n"
-                + "同じ名前で作れます（作り直したいときのため）。\n"
+                + "同じ名前でも作れます。\n"
                 + "一覧では作った日付で見分けられます。",
                 "同じ名前の改変があります",
                 System.Windows.MessageBoxButton.OKCancel,
@@ -894,7 +894,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     public string SelectedCountText => Selected is null
         ? string.Empty
-        : $"対応している商品 {Selected.Summary.DirectCount} 件（ほかに共通素体経由 {Selected.Summary.ViaBaseCount} 件）";
+        : $"対応している商品 {Selected.Summary.DirectCount} 件・共通素体経由 {Selected.Summary.ViaBaseCount} 件";
 
     /// <summary>所有の表示。取り込んだファイルで所有しているときは固定（ユーザ判断 2026-09-17）、していないときだけ手動で切り替えられる。</summary>
     public string SelectedOwnedText => Selected is null
@@ -1212,7 +1212,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             if (result.Unresolved > 0)
             {
-                parts.Add($"通信できず保留 {result.Unresolved} 件（次回もう一度試します）");
+                parts.Add($"通信できなかった {result.Unresolved} 件は次回もう一度試します");
             }
 
             Status = string.Join(" / ", parts);
@@ -1344,7 +1344,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         var updated = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RenameBase(oldName, newName))
             is Core.Commands.CommandResult.Counted renamed ? renamed.Count : 0;
-        Status = $"「{oldName}」を「{newName}」に変えました（商品 {updated} 件を書き換え）。";
+        Status = $"「{oldName}」を「{newName}」に変え、商品 {updated} 件を書き換えました。";
         await LoadAsync();
     }
 
@@ -1377,7 +1377,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         var updated = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DeleteBase(name))
             is Core.Commands.CommandResult.Counted deleted ? deleted.Count : 0;
-        Status = $"「{name}」を削除しました（商品 {updated} 件を書き換え）。";
+        Status = $"「{name}」を削除し、商品 {updated} 件を書き換えました。";
         await LoadAsync();
     }
 
@@ -1481,7 +1481,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             Status = AliasInput.Trim().Length == 0
                 ? "呼び方を入れてから押してください。"
-                : "呼び方は2文字以上で入れてください（1文字だと当たりが広すぎます）。";
+                : "呼び方は2文字以上で入れてください。";
             return;
         }
 

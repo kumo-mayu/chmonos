@@ -74,7 +74,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
             if (_preview.ItemCount == 0)
             {
-                return "どの商品にも付いていないので、商品側の書き換えはありません。";
+                return "どの商品にも付いていないので、商品は書き換わりません。";
             }
 
             var lines = new List<string> { $"{_preview.ItemCount} 件の商品を書き換えます。" };

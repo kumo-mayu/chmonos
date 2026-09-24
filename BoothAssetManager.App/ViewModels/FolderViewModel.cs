@@ -199,7 +199,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 
     public string? UnresolvedBadgeTip => FolderViewModel.ShowsUnresolvedNow
         ? null
-        : "この下に未確定のファイルがあります。左の「未確定」を入れると、件数と中身が表示されます。";
+        : "この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。";
 
     public bool IsFolderLike => Kind is FolderViewRowKind.Volume or FolderViewRowKind.Root or FolderViewRowKind.Folder;
 

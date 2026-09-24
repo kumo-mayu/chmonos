@@ -41,9 +41,9 @@
                     <!-- 絞り込みはショップ画面に作らず、検索の絞り込みをそのまま使う（#55） -->
                     <Button Content="このショップの商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                             Command="{Binding ShowInSearchCommand}"
-                            ToolTip="検索画面へ移り、このショップの商品だけを表示します。カテゴリ・対応アバター・タグなどで続けて絞れます。" />
+                            ToolTip="このショップの商品で絞って、検索を開きます。" />
                     <Button Content="BOOTHのショップページを開く" Style="{StaticResource SmallButton}"
-                            ToolTip="BOOTHのショップページをブラウザで開きます（アプリの外へ出ます）。"
+                            ToolTip="BOOTHのショップページをブラウザで開きます。アプリの外へ出ます。"
                             Command="{Binding OpenShopPageCommand}" />
                 </StackPanel>
             </Grid>

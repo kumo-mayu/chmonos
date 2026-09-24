@@ -63,7 +63,7 @@ public sealed partial class SearchViewModel
         (SearchField.Variation, "バリエーション名"),
         (SearchField.Id, "商品ID"),
         (SearchField.File, "ファイル名"),
-        (SearchField.Path, "ファイルの場所（パス）"),
+        (SearchField.Path, "ファイルの場所"),
         (SearchField.Content, "zipの中のファイル名"),
     ];
 

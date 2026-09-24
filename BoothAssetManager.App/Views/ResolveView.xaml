@@ -450,7 +450,7 @@
                                        Visibility="{Binding HasZone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <!-- 今もそこにあるとは限らない。消したzipや、別のPCで展開したzipでも記録は残る -->
-                            <TextBlock Text="元のzip（展開したときの記録）" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
+                            <TextBlock Text="展開したときの元のzip" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <TextBlock Text="{Binding SelectedOriginText}" Style="{StaticResource Mono}" FontSize="11" TextWrapping="Wrap"
                                        Visibility="{Binding HasSelectedOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -467,9 +467,9 @@
                                     <!-- 元のzipが未確定にあっても、フォルダのままの登録はできる（ユーザ判断 2026-09-17） -->
                                     <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                             Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
-                                            ToolTip="このzipの中身が入っているフォルダを、商品として登録します。先に「商品IDを決める」で商品IDを確認してから押します。" />
+                                            ToolTip="中身の入ったフォルダを商品として登録します。先に商品IDを決めてください。" />
                                 </StackPanel>
-                                <TextBlock Text="zipが残っているので、zipで登録するのがおすすめです。"
+                                <TextBlock Text="元のzipで登録するのがおすすめです。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
                             </StackPanel>
 
@@ -518,7 +518,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}"
                                         Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
-                                        ToolTip="先に「商品IDを決める」で商品IDを確認してから押します。場所で覚えるので、フォルダを動かすとつながりが切れます。" />
+                                        ToolTip="先に商品IDを決めてください。フォルダを移動したら登録し直してください。" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -531,7 +531,7 @@
                     <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをこの画面にドロップすると、その商品が下に表示されます。確認してから確定してください。"
+                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをドロップしてください。下に表示された商品を確かめてから確定します。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
                             <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す。IDを入れる前（落とす前）から分かるよう欄の上に置く（ユーザ判断 2026-09-17） -->
                             <TextBlock Text="{Binding BlockedByZipText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
@@ -589,7 +589,7 @@
                             </StackPanel>
                             <!-- 例外（1つのzipに複数の商品が入っているなど）のために、zipの単位にしない。選び直すと切れる（ユーザ判断 2026-09-17） -->
                             <CheckBox Content="このファイルだけを扱う" Margin="0,9,0,0" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
-                                      ToolTip="1つのzipに複数の商品が入っているときなど。切っている間は、zipの中身をまとめて登録します。"
+                                      ToolTip="1つのzipに複数の商品があるときに使います。オフならzipごと登録します。"
                                       Visibility="{Binding CanChooseSingleFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <!--
@@ -623,7 +623,7 @@
                                     <Button Content="自動検索" Style="{StaticResource SmallButton}"
                                             Command="{Binding ProposeCommand}" />
                                     <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                            ToolTip="このファイル名でBOOTHを検索します（アプリの外へ出ます）。"
+                                            ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
                                             Command="{Binding OpenBoothCommand}" />
                                 </StackPanel>
                             </Grid>
@@ -661,7 +661,7 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <!-- 候補を出す以上、それが目当てのものか確かめる手段が要る -->
                                                     <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
-                                                            ToolTip="この候補の商品ページをブラウザで開いて、目当ての物か確かめます（アプリの外へ出ます）。"
+                                                            ToolTip="この候補の商品ページをブラウザで開きます。アプリの外へ出ます。"
                                                             Command="{Binding OpenBoothCommand}" />
                                                     <Button Content="これで確認" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.UseCandidateCommand,
@@ -724,7 +724,7 @@
                                     -->
                                     <StackPanel Margin="0,8,0,0"
                                                 Visibility="{Binding HasLocalNameSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                        <TextBlock Text="手元の記録にあった名前（押すと入ります）" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="手元の記録にあった名前。押すと入力欄に入ります。" Style="{StaticResource Caption}" />
                                         <ItemsControl ItemsSource="{Binding LocalNameSuggestions}" Margin="0,5,0,0">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -753,7 +753,7 @@
 
                                     <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding RegisterLocalCommand}" />
-                                    <TextBlock Text="元のzipが未確定にあるので、zipで登録してください（「商品IDを決める」の「このファイルだけを扱う」で1件だけにもできます）。"
+                                    <TextBlock Text="元のzipが未確定にあるため、zipで登録してください。1件だけ扱うときは「このファイルだけを扱う」をオンにします。"
                                                Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{StaticResource Warn}" Margin="0,6,0,0"
                                                Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>

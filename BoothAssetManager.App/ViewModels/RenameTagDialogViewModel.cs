@@ -107,7 +107,7 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
     public string ImpactText => !HasTarget
         ? string.Empty
         : IsMerge
-            ? $"「{Target.Trim()}」は既にあるので、2つは1つに統合されます。"
+            ? $"「{Target.Trim()}」は既にあるため、2つは1つに統合されます。"
             : $"新しい名前になります。{KindText}を参照している商品は、まとめて書き換わります。";
 
     /// <summary>
@@ -127,8 +127,8 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
     public string CommitHint => HasTarget
         ? string.Empty
         : IsTypedNewName
-            ? $"「{_input.Trim()}」を新しい名前にするときは、候補の「新規」の行を選んでください（Enterでも選べます）。"
-            : $"新しい名前を入れると押せます（今と同じ「{Name}」では押せません）。";
+            ? $"「{_input.Trim()}」にするには、候補の「新規」の行を選ぶかEnterを押してください。"
+            : "今と違う名前を入れると押せます。";
 
     /// <summary>打ってあるのが、まだ決めていない新しい名前か（押せない理由を言い分けるため）。</summary>
     private bool IsTypedNewName =>

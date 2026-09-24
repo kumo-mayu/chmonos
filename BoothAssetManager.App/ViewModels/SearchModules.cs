@@ -82,8 +82,8 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。"),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
-        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルが置いてあるフォルダで絞ります（その下のすべてを含む）。"),
-        new(SearchModuleKind.Recent, "最近", "最近使った（Unityへ送った）・見た・手元に入った商品で絞ります。記録が無い商品は外れます。"),
+        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。"),
+        new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・手元に入った商品で絞ります。"),
     ];
 
     /// <summary>
@@ -1162,7 +1162,7 @@ public sealed class RangeModule : SearchModule
     /// <summary>何を外しているかを数で言う（境の数と、外れ値の数）。</summary>
     public string OutlierLabel => _outlierFence is { } fence && _outlierCount > 0
         ? $"外れ値を無視（{fence.ToString("N0", CultureInfo.CurrentCulture)}{Unit}以上の{_outlierCount}個）"
-        : "外れ値を無視（今は該当なし）";
+        : "外れ値を無視";
 
     private bool IgnoresOutliersNow => SupportsOutliers && _ignoreOutliers && _outlierFence is not null;
 
@@ -1290,13 +1290,13 @@ public sealed class RangeModule : SearchModule
     /// 効かせていない側に**使えない理由**を出す（`ui-rules.md`・E11）。
     /// 同じ欄の中で、理由の出る物と出ない物が混ざっていた。
     /// </summary>
-    public string MinHint => MinEnabled ? ScaleHint : "左の印を付けると、下限を使えます（今は下限を見ていません）。";
+    public string MinHint => MinEnabled ? ScaleHint : "下限を使うには、左のチェックを入れてください。";
 
-    public string MaxHint => MaxEnabled ? ScaleHint : "左の印を付けると、上限を使えます（今は上限を見ていません）。";
+    public string MaxHint => MaxEnabled ? ScaleHint : "上限を使うには、左のチェックを入れてください。";
 
     public string ScaleHint => UsesFloor
-        ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数（多いところを広く）です。"
-        : "目盛は対数です（数の小さいところを広く取っています）。";
+        ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数です。"
+        : "目盛は対数です。";
 
     public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 
@@ -1791,7 +1791,7 @@ public sealed class DateModule : SearchModule
     {
         if (!enabled)
         {
-            return $"{side}は見ていません（切っています）";
+            return $"{side}は指定なし";
         }
 
         if (text.Trim().Length == 0)
@@ -1801,17 +1801,17 @@ public sealed class DateModule : SearchModule
 
         return DateText.Parse(text, isEnd, Today) is { } date
             ? $"{date:yyyy年M月d日}{suffix}"
-            : "日付として読めません（例：2026/9/1・9/1・2026/9）";
+            : "日付として読めません。2026/9/1 のように入れてください。";
     }
 
     /// <summary>効かせていない側に、使えない理由を出す（`ui-rules.md`・E11）。</summary>
     public string SinceHint => SinceEnabled
         ? "日付は「2026-09-01」「9/1」のように入れられます。"
-        : "左の印を付けると、始まりの日を使えます（今は始まりを見ていません）。";
+        : "始まりの日を使うには、左のチェックを入れてください。";
 
     public string TillHint => TillEnabled
         ? "日付は「2026-09-01」「9/1」のように入れられます。"
-        : "左の印を付けると、終わりの日を使えます（今は終わりを見ていません）。";
+        : "終わりの日を使うには、左のチェックを入れてください。";
 
     private void RaiseSince()
     {
@@ -1970,8 +1970,8 @@ public sealed class RecentModule : SearchModule
     {
         Options =
         [
-            new ChoiceOption("used", "使った（Unityへ送った）"),
-            new ChoiceOption("viewed", "見た（商品ページを開いた）"),
+            new ChoiceOption("used", "Unityへ送った"),
+            new ChoiceOption("viewed", "商品ページを開いた"),
             new ChoiceOption("added", "手元に入った"),
         ];
         _selected = Options[0];

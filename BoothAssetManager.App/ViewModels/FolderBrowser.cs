@@ -168,8 +168,8 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         Rebuild();
     }
 
-    public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。確定・フォルダの登録は「未確定として開く」から、"
-        + "要らないものは「管理対象から除外する」で片付けられます（ファイル自体は消しません）。";
+    public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。「未確定として開く」から確定できます。"
+        + "要らないものは「管理対象から除外する」で片付けられます。ファイルは削除しません。";
 
     public string ExcludeText => $"この下の未確定 {Unresolved.Count} 件を管理対象から除外する";
 
@@ -236,7 +236,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
 
     /// <summary>外している商品があれば、そう書く（数えた商品が見当たらないと、壊れて見える）。</summary>
     public string ExcludedText => _excluded > 0
-        ? $"非表示・R-18 を表示しない設定で {_excluded} 件を表示していません（設定から変えられます）。"
+        ? $"非表示・R-18 を表示しない設定で {_excluded} 件を表示していません。"
         : string.Empty;
 
     public bool HasExcluded => _excluded > 0;
