@@ -155,6 +155,22 @@ public sealed class AppServiceContainer : IDisposable
 
     public DataStore Store { get; }
 
+    /// <summary>
+    /// アバターの登録簿・ユーザタグ・属性の一覧の、ファイルが変わっていなければ読み直さない写し（<see cref="Services.StoreFileCache{T}"/>）。
+    /// 商品ページ・編集の1件ごとのように、同じ物を何度も読む所で使う
+    /// </summary>
+    public Services.StoreFileCache<AvatarRegistry> CachedAvatars => _cachedAvatars ??= new(Store.Avatars);
+
+    /// <inheritdoc cref="CachedAvatars"/>
+    public Services.StoreFileCache<UserTagMaster> CachedUserTags => _cachedUserTags ??= new(Store.UserTags);
+
+    /// <inheritdoc cref="CachedAvatars"/>
+    public Services.StoreFileCache<AttributeMaster> CachedAttributes => _cachedAttributes ??= new(Store.Attributes);
+
+    private Services.StoreFileCache<AvatarRegistry>? _cachedAvatars;
+    private Services.StoreFileCache<UserTagMaster>? _cachedUserTags;
+    private Services.StoreFileCache<AttributeMaster>? _cachedAttributes;
+
     /// <summary>改変の記録を作る・消す・読む</summary>
     public IModificationService Modifications { get; }
 

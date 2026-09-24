@@ -195,7 +195,8 @@ public sealed partial class ItemViewModel
     /// </summary>
     private void BuildAvatars()
     {
-        var registry = _services.Store.Avatars.Load();
+        // 変わっていなければ前に読んだ物（商品ページを開くたびに登録簿を読み直していた）
+        var registry = _services.CachedAvatars.Load();
         var names = AvatarNames.Map(registry.Entries);
 
         string NameOf(string id, string? cached)
@@ -409,7 +410,7 @@ public sealed partial class ItemViewModel
         }
 
         // 候補に出した名前（同じ名前ならショップ名付き）と、正式名のどちらでも引けるようにする
-        var entries = _services.Store.Avatars.Load().Entries;
+        var entries = _services.CachedAvatars.Load().Entries;
         var names = AvatarNames.Map(entries);
         return entries.FirstOrDefault(entry =>
             string.Equals(names[entry.ItemId], name, StringComparison.CurrentCultureIgnoreCase)

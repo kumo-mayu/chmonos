@@ -734,8 +734,9 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
                 // 「残り n 件を表示」で全部並べたのは、その商品を開いている間だけ
                 _tagStrip.Reset(BoothTags, IsBoothTagsExpanded, showAll: false);
-                _tagMaster = _services.Store.UserTags.Load();
-                _attributeMaster = _services.Store.Attributes.Load();
+                // 変わっていなければ前に読んだ物（1件進むたびに2つとも読み直していた）
+                _tagMaster = _services.CachedUserTags.Load();
+                _attributeMaster = _services.CachedAttributes.Load();
                 // 店名の候補は画面を開いて1回だけ作る。以前は1件進むたびに全件を読み直していて、
                 // 2000件の保存先では「スキップ」30回で全件の読み込みが30回走り、500MBを超えた（#71）
                 if (!_shopNamesLoaded)
