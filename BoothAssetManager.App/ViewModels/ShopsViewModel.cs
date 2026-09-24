@@ -97,7 +97,7 @@ public sealed class ShopCardViewModel : ViewModelBase
     public bool LastAcquiredIsFallback => Shop.LastAcquiredIsFallback;
 
     public string LastAcquiredTooltip => Shop.LastAcquiredIsFallback
-        ? "入手日が手入力されていないので、ファイルの日付で代えています。"
+        ? "入手日が未入力なので、ファイルの日付を表示しています。"
         : string.Empty;
 
     /// <summary>情報はあるが所持していない商品数。0なら出さない。</summary>

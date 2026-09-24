@@ -22,8 +22,8 @@
                     <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
                     <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <!-- 数え方を隠さない。件数の意味が変わってしまう。狭いときは「…」で詰め、全文はツールチップで読む -->
-                    <TextBlock Text="ファイルを持っている商品だけを数えています（非表示にしたものは除く）。最終購入の ※ はファイルの日付です。"
-                               ToolTip="ファイルを持っている商品だけを数えています（非表示にしたものは除く）。最終購入の ※ はファイルの日付です。"
+                    <TextBlock Text="非表示を除き、ファイルを持つ商品を数えています。※ はファイルの日付です。"
+                               ToolTip="非表示を除き、ファイルを持つ商品を数えています。※ はファイルの日付です。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0"
                                TextTrimming="CharacterEllipsis" />
                 </DockPanel>
@@ -145,9 +145,9 @@
                             <Button.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="ショップを開く" Command="{Binding OpenCommand}"
-                                              ToolTip="このショップの商品を、アプリの中のショップ画面で見ます。" />
+                                              ToolTip="このショップの商品を、アプリの中のショップ画面で開きます。" />
                                     <MenuItem Header="BOOTHのショップページを開く" Command="{Binding OpenBoothCommand}"
-                                              ToolTip="BOOTHのショップページをブラウザで開きます（アプリの外へ出ます）。"
+                                              ToolTip="BOOTHのショップページをブラウザで開きます。アプリの外へ出ます。"
                                               ToolTipService.ShowOnDisabled="True" />
                                 </ContextMenu>
                             </Button.ContextMenu>
