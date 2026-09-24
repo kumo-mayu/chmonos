@@ -29,14 +29,17 @@ public sealed class KanjiReadings
     /// <summary>これより長い区間は読みを作らない。長い文は組み合わせが爆発する割に引かれない。</summary>
     private const int MaxSpanLength = 12;
 
-    /// <summary>字の表の控えの形式。上げると古い控えを作り直す。</summary>
-    private const int CacheVersion = 1;
+    /// <summary>字の表の控えの形式。上げると古い控えを作り直す（2：訓の数を持たせた。名前の読みの順で訓と音を選び分けるため）。</summary>
+    private const int CacheVersion = 2;
 
     private readonly string _path;
     private readonly string? _cachePath;
     private readonly object _sync = new();
 
     private Dictionary<char, string[]>? _readings;
+
+    /// <summary>字ごとの訓の数。読みの並びは訓が先なので、先頭からこの数が訓、残りが音。</summary>
+    private Dictionary<char, int> _kunCounts = [];
     private bool _failed;
 
     /// <param name="path">同梱の KANJIDIC2（gz の XML）。</param>
@@ -83,6 +86,46 @@ public sealed class KanjiReadings
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// 名前の読みの順に使う、1字の代表の読み（ひらがな・送り仮名を除く）。知らない字なら null。
+    ///
+    /// **熟語の中なら音、1字だけなら訓を先に見る**（魔法 → まほう・鳥 → とり・撫で → な＋で）。
+    /// 造語変換の読み（<see cref="Of"/>）のように多めに作って引きで絞ることができないので、1つに決める。
+    /// 推定なので外れる（指輪 → しりん・衣装 → いそう）。並びが実際の読みとずれることがあるのは spec に書いてある。
+    /// </summary>
+    public string? PrimaryReading(char kanji, bool inCompound)
+    {
+        EnsureLoaded();
+        if (_readings is null || !_readings.TryGetValue(kanji, out var all))
+        {
+            return null;
+        }
+
+        var kunCount = Math.Min(_kunCounts.GetValueOrDefault(kanji), all.Length);
+        var kun = all.AsSpan(0, kunCount);
+        var on = all.AsSpan(kunCount);
+
+        var picked = inCompound
+            ? FirstUsable(on) ?? FirstUsable(kun)
+            : FirstUsable(kun) ?? FirstUsable(on);
+
+        return picked is null ? null : Split(picked).Reading;
+    }
+
+    /// <summary>接頭・接尾の形（「-ずつ」「お-」）でない最初の読み。それしか無ければその先頭。</summary>
+    private static string? FirstUsable(ReadOnlySpan<string> readings)
+    {
+        foreach (var reading in readings)
+        {
+            if (!reading.StartsWith('-') && !reading.EndsWith('-'))
+            {
+                return reading;
+            }
+        }
+
+        return readings.Length > 0 ? readings[0] : null;
     }
 
     /// <summary>漢字とひらがなが続く区間を切り出す。漢字を1字も含まない区間は読む意味が無い。</summary>
@@ -219,13 +262,16 @@ public sealed class KanjiReadings
 
             if (TryLoadCache() is { } cached)
             {
-                _readings = cached;
+                _kunCounts = cached.KunCounts;
+                _readings = cached.Readings;
                 return;
             }
 
             try
             {
-                _readings = Load();
+                var loaded = Load();
+                _kunCounts = loaded.KunCounts;
+                _readings = loaded.Readings;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException or InvalidDataException)
             {
@@ -238,7 +284,7 @@ public sealed class KanjiReadings
             // 書けなくても組めた表は使う。次の起動でまた組むだけ
             try
             {
-                SaveCache(_readings);
+                SaveCache(_readings, _kunCounts);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -259,7 +305,7 @@ public sealed class KanjiReadings
     }
 
     /// <summary>控えを読む。無い・見出しが違う・読めない・形が崩れているときは null（XML から組み直す）。</summary>
-    private Dictionary<char, string[]>? TryLoadCache()
+    private (Dictionary<char, int> KunCounts, Dictionary<char, string[]> Readings)? TryLoadCache()
     {
         if (_cachePath is null || !File.Exists(_cachePath) || !File.Exists(_path))
         {
@@ -275,20 +321,22 @@ public sealed class KanjiReadings
             }
 
             var map = new Dictionary<char, string[]>();
+            var kunCounts = new Dictionary<char, int>();
             while (reader.ReadLine() is { } line)
             {
                 var parts = line.Split('\t');
 
-                // 1字と読み1つ以上。崩れた行があれば控えごと信じない（手で直した控えで字が抜けるより、組み直す方がよい）
-                if (parts.Length < 2 || parts[0].Length != 1)
+                // 1字・訓の数・読み1つ以上。崩れた行があれば控えごと信じない（手で直した控えで字が抜けるより、組み直す方がよい）
+                if (parts.Length < 3 || parts[0].Length != 1 || !int.TryParse(parts[1], out var kunCount) || kunCount < 0)
                 {
                     return null;
                 }
 
-                map[parts[0][0]] = parts[1..];
+                map[parts[0][0]] = parts[2..];
+                kunCounts[parts[0][0]] = kunCount;
             }
 
-            return map;
+            return (kunCounts, map);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -296,7 +344,7 @@ public sealed class KanjiReadings
         }
     }
 
-    private void SaveCache(Dictionary<char, string[]> map)
+    private void SaveCache(Dictionary<char, string[]> map, Dictionary<char, int> kunCounts)
     {
         if (_cachePath is null)
         {
@@ -316,6 +364,8 @@ public sealed class KanjiReadings
             foreach (var (literal, readings) in map)
             {
                 writer.Write(literal);
+                writer.Write('\t');
+                writer.Write(kunCounts.GetValueOrDefault(literal));
                 foreach (var reading in readings)
                 {
                     writer.Write('\t');
@@ -329,9 +379,10 @@ public sealed class KanjiReadings
         File.Move(temp, _cachePath, overwrite: true);
     }
 
-    private Dictionary<char, string[]> Load()
+    private (Dictionary<char, int> KunCounts, Dictionary<char, string[]> Readings) Load()
     {
         var map = new Dictionary<char, string[]>();
+        var kunCounts = new Dictionary<char, int>();
 
         using var file = File.OpenRead(_path);
         using var gzip = new GZipStream(file, CompressionMode.Decompress);
@@ -345,17 +396,18 @@ public sealed class KanjiReadings
 
         while (xml.ReadToFollowing("character"))
         {
-            var (literal, readings) = ReadCharacter(xml);
+            var (literal, readings, kunCount) = ReadCharacter(xml);
             if (literal is { Length: 1 } && readings.Count > 0)
             {
                 map[literal[0]] = readings.ToArray();
+                kunCounts[literal[0]] = kunCount;
             }
         }
 
-        return map;
+        return (kunCounts, map);
     }
 
-    private static (string? Literal, List<string> Readings) ReadCharacter(XmlReader xml)
+    private static (string? Literal, List<string> Readings, int KunCount) ReadCharacter(XmlReader xml)
     {
         string? literal = null;
         var kun = new List<string>();
@@ -397,7 +449,7 @@ public sealed class KanjiReadings
         }
 
         // 訓を先に見る。商品名は訓で読むことが多い（撫で音・指輪・鳥）
-        return (literal, kun.Concat(on).ToList());
+        return (literal, kun.Concat(on).ToList(), kun.Count);
     }
 
     private static string ToHiragana(string text)
