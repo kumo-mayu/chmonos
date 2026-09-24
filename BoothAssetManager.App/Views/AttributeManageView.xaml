@@ -157,8 +157,33 @@
                 </DockPanel>
             </Border>
 
-            <!-- 右：選んだ属性の中身 -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
+            <!--
+                右：選んだ属性の中身。平らな1本の一覧にして仮想化する（2026-09-24：この属性を持つ商品を WrapPanel に
+                全部並べていた頃は、2000件の属性を開くと約8秒固まった）。並べる物は、頭（属性の札・商品の見出し）→
+                商品の段（幅から数を決めて切る）→ 下の枠。商品を囲む枠は段ごとに描き分け、見た目は前と同じ1枚の札のまま
+            -->
+            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False"
+                                          VirtualizingPanel.IsVirtualizing="True"
+                                          VirtualizingPanel.VirtualizationMode="Recycling"
+                                          VirtualizingPanel.ScrollUnit="Pixel"
+                                          ScrollViewer.CanContentScroll="True"
+                                          ScrollViewer.ScrollChanged="OnDetailScrollChanged">
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Padding="20" CanContentScroll="True">
+                            <ItemsPresenter />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Resources>
+                    <!-- 頭：状況の文・一覧に無い属性・属性の札・この属性を持つ商品の見出し（この画面そのものに結ぶ） -->
+                    <DataTemplate DataType="{x:Type vm:AttributeManageViewModel}">
                 <!-- 使える幅いっぱいを使う（タグの管理と揃える。ユーザ指示 2026-09-19） -->
                 <StackPanel HorizontalAlignment="Stretch">
 
@@ -260,9 +285,11 @@
                         この属性を持つ商品（ユーザ指示 2026-09-19：タグの管理の小分類の中身と揃える）。
                         同じ三角・同じ商品の行・同じ書き方の探す欄。値の高い順に並べ、値を札で出す
                     -->
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,0"
+                    <!-- 商品を囲む枠の上側。段と下の枠（ManageFoot）が続きを描く -->
+                    <Border Margin="0,14,0,0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                            BorderThickness="1,1,1,0" CornerRadius="8,8,0,0"
                             Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <StackPanel Margin="20,16,20,16">
+                        <StackPanel Margin="20,16,20,0">
                             <StackPanel Orientation="Horizontal">
                                 <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                               IsChecked="{Binding IsItemsExpanded, Mode=TwoWay}"
@@ -321,71 +348,91 @@
                             <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="32,4,0,0"
                                        Visibility="{Binding HasItemFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <!-- 開いていることが分かるよう、左に線を下ろす（タグの管理と同じ） -->
-                            <Border Margin="11,12,0,0" Padding="19,0,0,0"
-                                    BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
-                                    Visibility="{Binding IsItemsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <StackPanel>
-                                <!-- リスト（詰まった行）とカードを選べる（ユーザ指示 2026-09-20・M4） -->
-                                <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}"
-                                              Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <!-- 左から右か上から下か（ユーザ指示 2026-09-19）。値の順に並ぶ属性だけが持つ（タグは名前順なので要らない） -->
-                                            <controls:FlowGridPanel FlowsVertically="{Binding ItemsFlowVertical}" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                </ItemsControl>
-
-                                <controls:ContentItemsControl ItemsSource="{Binding Items}"
-                                                              Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <!--
-                                                カードにも値を出す（ユーザ指摘 2026-09-20：リストに出ている情報を落とさない）。
-                                                札の見た目はリストと同じ。カードの右上は空いている（選ぶ箱は左上、星は右下）
-                                            -->
-                                            <Grid>
-                                                <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
-                                                <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
-                                                        Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
-                                                        BorderThickness="1" CornerRadius="4" Padding="6,1"
-                                                        Visibility="{Binding HasValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="11" />
-                                                </Border>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </controls:ContentItemsControl>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-
-                    <!--
-                        編集画面に最初から並べる指定。
-
-                        **並べるだけで保存はしない。**全itemに同じ値の行が並ぶと、
-                        付けていないのかそう評価したのかが区別できなくなるので、
-                        値を動かした行だけが書き出される。切り替える前にそう書いておく
-                    -->
-                    <Border Style="{StaticResource Card}" Padding="18,14" Margin="0,14,0,0"
-                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <StackPanel>
-                            <TextBlock Text="編集画面での扱い" FontWeight="Bold" />
-                            <TextBlock Text="{Binding DefaultNote}" Style="{StaticResource Caption}"
-                                       TextWrapping="Wrap" Margin="0,5,0,7" />
-                            <Button Content="{Binding ToggleDefaultText}" Style="{StaticResource SmallButton}"
-                                    HorizontalAlignment="Left" Command="{Binding ToggleDefaultCommand}" />
+                            <!-- 開いた中身の上の間（中身は段として続く） -->
+                            <Border Height="12"
+                                    Visibility="{Binding IsItemsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
-            </ScrollViewer>
+                    </DataTemplate>
+
+                    <!--
+                        商品の段。左の線は「開いている」印（タグの管理と同じ）。段の左右の線は商品を囲む枠の続き。
+                        リスト（詰まった行）とカードを選べる（ユーザ指示 2026-09-20・M4）
+                    -->
+                    <DataTemplate DataType="{x:Type vm:ManageListLine}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="31,0,20,0" Padding="19,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                                <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </Border>
+                        </Border>
+                    </DataTemplate>
+
+                    <DataTemplate DataType="{x:Type vm:ManageCardLine}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="31,0,20,0" Padding="19,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding Items}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <!--
+                                        カードにも値を出す（ユーザ指摘 2026-09-20：リストに出ている情報を落とさない）。
+                                        札の見た目はリストと同じ。カードの右上は空いている（選ぶ箱は左上、星は右下）
+                                    -->
+                                    <Grid>
+                                        <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
+                                                Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                BorderThickness="1" CornerRadius="4" Padding="6,1"
+                                                Visibility="{Binding HasValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="11" />
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
+                            </Border>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 下の枠：商品を囲む枠の下側と、編集画面での扱い -->
+                    <DataTemplate DataType="{x:Type vm:ManageFoot}">
+                        <StackPanel DataContext="{Binding Owner}"
+                                    Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <Border Height="17" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1,0,1,1" CornerRadius="0,0,8,8" />
+
+                <!--
+                    編集画面に最初から並べる指定。
+
+                    **並べるだけで保存はしない。**全itemに同じ値の行が並ぶと、
+                    付けていないのかそう評価したのかが区別できなくなるので、
+                    値を動かした行だけが書き出される。切り替える前にそう書いておく
+                -->
+                <Border Style="{StaticResource Card}" Padding="18,14" Margin="0,14,0,0"
+                        Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <StackPanel>
+                        <TextBlock Text="編集画面での扱い" FontWeight="Bold" />
+                        <TextBlock Text="{Binding DefaultNote}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="0,5,0,7" />
+                        <Button Content="{Binding ToggleDefaultText}" Style="{StaticResource SmallButton}"
+                                HorizontalAlignment="Left" Command="{Binding ToggleDefaultCommand}" />
+                    </StackPanel>
+                </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.Resources>
+            </controls:ContentItemsControl>
         </controls:PaneGrid>
     </DockPanel>
 </UserControl>

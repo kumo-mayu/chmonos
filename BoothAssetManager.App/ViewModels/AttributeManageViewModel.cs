@@ -74,6 +74,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
     {
         OnPropertyChanged(nameof(IsCardMode));
         OnPropertyChanged(nameof(IsListMode));
+        RebuildLines();
     });
 
     public bool IsCardMode => ItemView.IsCardMode;
@@ -122,6 +123,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
             _ => TagSortMode.Manual,
         };
 
+        // 読み終わる前から、頭（状況の文・一覧に無い属性）と下の枠を出しておく
+        RebuildLines();
         ReloadAsync().Forget();
     }
 
@@ -226,6 +229,60 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
     /// </summary>
     public ObservableCollection<TagItemRow> Items { get; } = [];
 
+    /// <summary>
+    /// 右側に並べる平らな一覧（仮想化の単位）。先頭はこの画面そのもの（属性の札・商品の見出し）、
+    /// 続いて開いた商品の段（<see cref="ManageItemLine"/>）、最後に下の枠（<see cref="ManageFoot"/>）。
+    /// 商品を WrapPanel に全部並べていた頃は、2000件の属性を開くと約8秒固まった（2026-09-24）
+    /// </summary>
+    public ObservableCollection<object> Lines { get; } = [];
+
+    private ManageFoot? _foot;
+
+    /// <summary>中の商品を並べられる幅。0 はまだ測っていない（段に切れないので、段を並べない）。</summary>
+    private double _itemsWidth;
+
+    /// <summary>中の商品を並べられる幅を受け取る（View が一覧の幅から枠の分を引いて渡す）。段の数が変わるときだけ切り直す。</summary>
+    public void SetItemsWidth(double width)
+    {
+        if (Math.Abs(width - _itemsWidth) < 0.5)
+        {
+            return;
+        }
+
+        var before = (Cards: ManageItemLayout.ColumnsFor(_itemsWidth, Services.CardMetrics.SlotWidth), List: ManageItemLayout.ColumnsFor(_itemsWidth, ManageItemLayout.ListSlotWidth));
+        var measured = _itemsWidth > 0;
+        _itemsWidth = width;
+        var after = (Cards: ManageItemLayout.ColumnsFor(width, Services.CardMetrics.SlotWidth), List: ManageItemLayout.ColumnsFor(width, ManageItemLayout.ListSlotWidth));
+        if (!measured || before != after)
+        {
+            RebuildLines();
+        }
+    }
+
+    /// <summary>開き具合・表示の切り替え・向き・幅から段を組み直す。同じ中身の段は使い回す（見えている部品を作り直さない）。</summary>
+    private void RebuildLines()
+    {
+        _foot ??= new ManageFoot(this);
+        var target = new List<object> { this };
+
+        if (HasSelection && _isItemsExpanded && _itemsWidth > 0 && Items.Count > 0)
+        {
+            var card = IsCardMode;
+            var columns = ManageItemLayout.ColumnsFor(_itemsWidth, card ? Services.CardMetrics.SlotWidth : ManageItemLayout.ListSlotWidth);
+
+            // カードは前も WrapPanel で、向きの切り替えを持たなかった（向きはリストだけ）
+            var previous = ManageItemLayout.IndexByFirst(Lines);
+            var used = new HashSet<ManageItemLine>(ReferenceEqualityComparer.Instance);
+            foreach (var items in ManageItemLayout.Split(Items, columns, vertical: !card && ItemsFlowVertical))
+            {
+                target.Add(ManageItemLayout.Line(items, card, previous, used));
+            }
+        }
+
+        target.Add(_foot);
+        CollectionSync.Apply(Lines, target);
+    }
+
     private bool _isItemsExpanded;
 
     public bool IsItemsExpanded
@@ -307,6 +364,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
             _itemsVertical = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(ItemsFlowHorizontal));
+            RebuildLines();
             _main.SaveUiStateAsync(state => state with { AttributeItemsVertical = value }).Forget();
         }
     }
@@ -358,6 +416,12 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
     private readonly Dictionary<string, TagItemRow> _rowCache = new(StringComparer.Ordinal);
 
     private void RebuildItems()
+    {
+        RebuildItemsCore();
+        RebuildLines();
+    }
+
+    private void RebuildItemsCore()
     {
         // 畳んでいる間は触らない。畳むたびに消すと、開き直すたびに部品を全部作り直すことになる
         if (!_isItemsExpanded || Selected is not { ItemCount: > 0 } row)
