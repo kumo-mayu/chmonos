@@ -25,6 +25,14 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   頭の小さな絵（切り抜いて出す物）は短い辺で縮める（`PeekForIcon`・`PeekForFill`）。長い辺で縮めると横長の絵がぼやける
 - 仮想化しない一覧を組み直すときは、丸ごと差し替えずに差分で寄せる（`CollectionSync.Apply`）。
   一度に全部入れ替えるなら `RangeObservableCollection.ReplaceAll`（見出しでまとめた一覧は1件ずつ足すと1件ごとに振り分け直す）
+- **入れ子の一覧（束の中の行・見出しの中の改変）と `ScrollViewer` の中の `WrapPanel` は、仮想化されない。**平らな1本に並べ直し、
+  `VirtualizingStackPanel`（`Recycling`・`ScrollUnit="Pixel"`）に載せる。束の枠・字下げ・縦線は行ごとの余白と線で描き分ける
+  （要確認・改変の左の一覧・タグと属性の管理。2026-09-24：知らせ1000件で7秒、改変300件で8秒、商品2000件で7秒固まっていた）。
+  WrapPanel は前が1段に置いていた数で段に切る（`ManageItemLines`。幅は View が一覧の `ViewportWidth` から枠の分を引いて渡す）。
+  仮想化するとスクロールバーのつまみは見積もりになり、流すと少し長さが変わる
+- テンプレートの中の `ScrollViewer` は UI Automation に部品として出ないので、流す操作が消える。一覧は `Controls/ContentItemsControl` にする（窓口から流す操作を渡す）
+- `ContentPresenter` は中身を自分の DataContext にする。`<ContentPresenter Content="{Binding Row}" Margin="{Binding InnerMargin}"/>` の Margin は
+  行ではなく中身を見て黙って効かない。余白は外の `Border` に付ける（改変の左の一覧で、行の間が4pxずつ詰まっていた）
 - 裏から細かく届く進み具合は、最新だけを間引いて出す（`Services/LatestProgress`。`Progress<T>` は全部を画面のスレッドへ積む）
 - 検索の View は1つを持ち回す（`Views/SearchViewHost`）。View に状態を足すときは、離れる（Unloaded）・戻る（Loaded）が何度も来る前提で書く
 
