@@ -14,8 +14,8 @@
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
 | `mock/` | 画面のモック（Claude Design のキャンバス。`*.dc.html` が1画面ずつ）。今の画面とは違う所がある |
-| `tools/wording.mjs` | 画面に出る文字列を XAML と C# から集める（文言の総点検に使う） |
-| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
+| `tools/wording.mjs` | 画面に表示される文を App と Core から集め、書き方の決まりに外れていそうな所に印を付ける（使い方はスキル `ui-wording`） |
+| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
 | `docs/history/author-memos/` | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`）。2026-09-24 に直下から移した（中身は変えていない）。書き直さない |
 
 ## 文書の種類
@@ -43,10 +43,12 @@
 | [modifications.md](spec/modifications.md) | 改変の記録（構成物・画像・Unity プロジェクト）、改変の画面、「Unityで選択」 |
 | [unity.md](spec/unity.md) | Unity への受け渡し（窓を名指しして送る・連続送り・入り先・プロジェクトタブ・VCC） |
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |
-| [ui-rules.md](spec/ui-rules.md) | 文言、入力、ナビ、窓と画面の状態、画面の幅、ドロップ、キー |
+| [ui-rules.md](spec/ui-rules.md) | ナビ、並べ替えの出し方、窓と画面の状態、画面の幅、ドロップ、キー |
+| [ui-writing.md](spec/ui-writing.md) | 画面の文言の書き方（1つの文言に載せるもの・長さ・要素ごとの型・正確さを落とさない） |
+| [ui-terms.md](spec/ui-terms.md) | 画面の用語表（内部の言葉・同じ操作の動詞・使わない語・揃える表記・まだ決めていない揺れ）。`tools/wording.mjs` が読む |
 | [ui-dialogs.md](spec/ui-dialogs.md) | 別の窓（ダイアログ）の Enter・Esc、ボタンの並びと名前、取り返しの一文、確認と失敗のアイコン |
 | [ui-input.md](spec/ui-input.md) | 候補の付け方、Enter で決める範囲、名前の変え方、メモの保存、編集画面の保存の分かれ方 |
-| [ui-empty-and-errors.md](spec/ui-empty-and-errors.md) | 空の表示の3通りの書き分け、押せない理由の出し方、黙って捨てない失敗、利用者に見せない文 |
+| [ui-empty-and-errors.md](spec/ui-empty-and-errors.md) | 空の表示の3通りの書き分け、押せない理由の表示、知らせずに捨てない失敗、エラーの型、利用者に見せない文 |
 | [tags.md](spec/tags.md) | タグの管理・属性の管理（大分類／小分類、名前の変更・統合・削除、並べ方、小分類の中を探す、メモ） |
 
 ## history（経緯）
@@ -65,6 +67,7 @@
 | [unity-handoff.md](history/unity-handoff.md) | Unity への受け渡しの実測（シェル・メニュー・ログ監視・プロジェクトタブ・VCC） |
 | [folder-view.md](history/folder-view.md) | フォルダビューの根の決め方の試しと速さ |
 | [tech-debt-2026-09-14.md](history/tech-debt-2026-09-14.md) | 技術的負債の洗い出しと直した記録 |
+| [ui-wording-2026-09-24.md](history/ui-wording-2026-09-24.md) | 画面の文言の AI らしさの点検（型と件数・元になった決め事・手本）と、書き方の決まり・用語表・点検の道具を作り直した理由 |
 | [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
 | [zip-inspector-readme.md](history/zip-inspector-readme.md) | その試作（BoothZipInspector・BoothIdResolver）の使い方。元は直下の README（2026-09-18 に移した） |
@@ -77,7 +80,7 @@
 | [id-resolution.md](research/id-resolution.md) | zip → 商品IDの特定（18本・319本での実測） |
 | [zip-linking.md](research/zip-linking.md)・[zip-linking-followup.md](research/zip-linking-followup.md) | 並行調査（PDF・CSV・他ツールのDB） |
 | [fuzzy-search.md](research/fuzzy-search.md) | 曖昧検索・類義語の調査（入れない推し） |
-| [ui-wording.md](research/ui-wording.md) | UI 文言の総調査と用語 |
+| [ui-wording.md](research/ui-wording.md) | UI 文言の総調査と用語（2026-09-09 の時点。今の用語表は spec/ui-terms.md） |
 | [memory-budget.md](research/memory-budget.md) | メモリの上限と測り方 |
 | [antivirus.md](research/antivirus.md) | セキュリティソフトに怪しまれない作り |
 | [youtube-terms.md](research/youtube-terms.md) | YouTube の絵とタイトルを手元に置いてよいか（絵は置かない・題は30日） |
