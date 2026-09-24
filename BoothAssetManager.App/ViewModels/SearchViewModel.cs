@@ -206,9 +206,17 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     public int TotalCount => _allItems.Count;
 
     /// <summary>読んである全商品から1件を引く。持っているアバターの絵に、その商品の1枚目を使うため（U18）。</summary>
-    public ItemRecord? FindItem(string itemId) => _allItems.FirstOrDefault(item => item.Id == itemId);
+    /// ID の表で引く。アバターの管理は行ごとに2回呼ぶ（約400行）ので、2000件を頭から探すと1回の組み直しで約160万回比べていた
+    public ItemRecord? FindItem(string itemId) => _itemsById.GetValueOrDefault(itemId);
 
-    /// <summary>その商品のカード（右クリックを借りる画面のため・M2）。手元に無ければ null。</summary>
+    /// <summary>ID から引く表。<see cref="_allItems"/> と同じ時機に作り直し、1件の差し替えも両方へ当てる。</summary>
+    private Dictionary<string, ItemRecord> _itemsById = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// その商品のカード（右クリックを借りる画面のため・M2）。手元に無ければ null。
+    /// 検索のカードは貸さない：カードの選ぶ箱を押すと検索の選択に数えられ、検索の全カードが「押すと選択の切り替え」に
+    /// 変わる（よその画面で押しても商品ページへ行かなくなる）。カードの ViewModel は部品を持たないので、作る代償は小さい
+    /// </summary>
     public ItemCardViewModel? CardFor(string itemId) => FindItem(itemId) is { } item ? ToCard(item) : null;
 
     /// <summary>
@@ -435,6 +443,13 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             });
 
             _allItems = sorted;
+            var byId = new Dictionary<string, ItemRecord>(sorted.Count, StringComparer.Ordinal);
+            foreach (var item in sorted)
+            {
+                byId[item.Id] = item;
+            }
+
+            _itemsById = byId;
             _haystacks = built;
             _favoriteShops = Core.Services.ShopNotes.FavoriteKeys(_services.Store.ShopNotes.Load());
 

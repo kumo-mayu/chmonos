@@ -116,6 +116,7 @@ public sealed partial class SearchViewModel
         if (index >= 0)
         {
             _allItems[index] = _allItems[index] with { Local = _allItems[index].Local with { IsFavorite = isFavorite } };
+            _itemsById[itemId] = _allItems[index];
         }
 
         foreach (var card in _cards.Values.Where(card => card.Item.Id == itemId))
@@ -143,6 +144,7 @@ public sealed partial class SearchViewModel
         }
 
         _allItems[index] = item;
+        _itemsById[item.Id] = item;
         _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
         _fingerprints.Remove(item.Id);
 
