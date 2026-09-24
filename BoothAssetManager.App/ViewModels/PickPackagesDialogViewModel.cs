@@ -179,10 +179,10 @@ public sealed class PickPackagesDialogViewModel : ViewModelBase
         _othersCount = othersCount;
 
         NoteText = (records
-                ? "次の使ったものは、どのファイルを使ったかの記録が無く、Unityへ送れるものが2つ以上あります。"
+                ? "次の使ったものには、Unityへ送れるものが2つ以上あります。"
                 : "次の商品には、Unityへ送れるものが2つ以上あります。")
-            + "送るものにチェックを付けてください。チェックしたものを上から順に送り、1件ずつ取り込み画面を表示します。チェックの無い商品は送りません。"
-            + (records ? "\n選んだものは、改変の使ったものとして記録します（次からは聞かずにそれを送ります）。" : string.Empty);
+            + "送るものにチェックを付けてください。上から順に1件ずつ送ります。"
+            + (records ? "\n選んだものは記録し、次からは聞かずに送ります。" : string.Empty);
 
         foreach (var group in sections.SelectMany(section => section.Groups))
         {

@@ -72,7 +72,7 @@ internal static class UnityMemberSelect
         // 開いている印はあるのに窓が特定できない（起動中・コンパイル中で題が読めない）
         if (editor is null && UnityProjects.IsProjectOpen(project))
         {
-            setStatus($"「{projectName}」は開いていますが、読み込み中のようです。落ち着いてから、もう一度押してください。", failed: true);
+            setStatus($"「{projectName}」は開いていますが、読み込み中のようです。読み込みが終わってから、もう一度押してください。", failed: true);
             return false;
         }
 
@@ -124,7 +124,7 @@ internal static class UnityMemberSelect
         {
             var answer = Services.Notice.Show(
                 $"「{name}」（{fileText}）は、Unityの「{projectName}」にまだ入っていません。Unityへ送りますか？\n\n"
-                + "Unity側で取り込む内容の一覧が表示されるので、そこで確認してから取り込めます。",
+                + "Unityの取り込み画面で内容を確認してから取り込めます。",
                 title,
                 System.Windows.MessageBoxButton.OKCancel,
                 System.Windows.MessageBoxImage.Question,
@@ -151,7 +151,7 @@ internal static class UnityMemberSelect
             failed.Count > 0
             ? $"Unityへ送れませんでした（{failed[0].Problem}）。"
             : outcomes.All(outcome => outcome.Cancelled)
-                ? "Cancelされたので、入っていません。"
+                ? "取り込みはキャンセルされました。"
                 : outcomes.All(outcome => outcome.AlreadyPresent)
                     ? $"「{projectName}」には既にすべて入っていました。もう一度押すと、プロジェクトタブで示します。"
                     : $"「{projectName}」へ送りました。入った後にもう一度押すと、プロジェクトタブで示します。",
@@ -201,8 +201,8 @@ internal static class UnityMemberSelect
         var folder = root.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
         if (editor is null)
         {
-            setStatus($"「{projectName}」の {root} に入っています。プロジェクトが開いていないので、"
-                + "「Unityを開く」で開いてからもう一度押すと、Unityのプロジェクトタブで示します。");
+            setStatus($"「{projectName}」の {root} に入っています。"
+                + "「Unityを開く」で開いてからもう一度押すと、プロジェクトタブで示します。");
             return true;
         }
 
@@ -224,7 +224,7 @@ internal static class UnityMemberSelect
             { StopReason: { } reason } =>
                 $"Unityの「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
                 + $"入り先は {root} です。Unityで選んでください。",
-            _ => $"Unityの「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。",
+            _ => $"Unityの「{projectName}」の{outcome.Where}で「{folder}」を開きました。入り先は {root} です。",
         });
         return true;
     }

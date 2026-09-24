@@ -74,9 +74,9 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
     public bool CanMoveForward => Index < Total - 1;
 
     // 押せない理由も出す（`ui-rules.md`・E11）。同じ並びの中で、理由の出るボタンと出ないボタンが混ざっていた
-    public string MoveBackHint => CanMoveBack ? "前へ（先に入れる）" : "いちばん前にあります。";
+    public string MoveBackHint => CanMoveBack ? "前へ移動します。先に送られます。" : "いちばん前にあります。";
 
-    public string MoveForwardHint => CanMoveForward ? "後ろへ（後に入れる）" : "いちばん後ろにあります。";
+    public string MoveForwardHint => CanMoveForward ? "後ろへ移動します。後に送られます。" : "いちばん後ろにあります。";
 }
 
 /// <summary>改変に貼った写真1枚。</summary>
@@ -617,8 +617,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var confirm = Services.Notice.Show(
                 where + "\n\n"
-                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつUnityの取り込み画面が表示されるので、"
-                + "Unity側で「Import」（入れないものは「Cancel」）を押すと次の1件が表示されます。"
+                + $"unitypackage {fixedCount} 件を上から順に送ります。"
+                + "Unityの取り込み画面で「Import」か「Cancel」を押すと、次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
                 System.Windows.MessageBoxButton.OKCancel,
@@ -869,7 +869,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public bool ShowsImageRoles => false;
 
-    public string AddImageTip => "この改変に写真を追加（ここへドロップしても、Ctrl+Vで貼っても入ります）";
+    public string AddImageTip => "この改変に写真を追加します。ドロップやCtrl+Vでも追加できます。";
 
     // 商品の画像にだけある案内（BOOTH からの取得・削除された画像・自分で足した枚数）は出さない
     public bool HasUserImages => false;
@@ -1102,8 +1102,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         // 送りっぱなしの UDP なので、着替えたかはこちらでは分からない。送ったことと、効かないときの確かめ方を言う
         Status = await VrcOsc.SendAvatarChangeAsync(id) is { } problem
             ? problem
-            : "VRChatに着替えを送りました。着替わらなければ、VRChatの設定でOSCを有効にしているか、"
-                + "このアバターを着られるか（自分でアップロードした・お気に入りにしている）を確かめてください。";
+            : "VRChatに着替えを送りました。着替わらないときは、VRChatでOSCが有効か、"
+                + "このアバターを着られるかを確かめてください。";
     }
 
     /// <summary>
@@ -1322,8 +1322,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var canRelink = ProjectCandidates.Any(candidate => ModificationService.SamePath(candidate.Candidate.Path, oldPath));
         var how = canRelink
             ? $"戻すときは、下の「紐付ける先」から「{oldName}」をもう一度選んでください。"
-            : $"「{oldName}」はUnity Hub・VRChat Creator Companionの一覧に無いので、この画面からは付け直せません"
-              + "（HubかVCCにそのプロジェクトを追加すると、「紐付ける先」に表示されます）。";
+            : $"「{oldName}」に紐付け直すには、先にUnity HubかVRChat Creator Companionにプロジェクトを追加してください。";
         var what = row is null
             ? $"Unityプロジェクト「{oldName}」の紐付けを外します。"
             : $"Unityプロジェクトの紐付けを「{oldName}」から「{row.Name}」に替えます。";
@@ -1331,9 +1330,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var answer = Services.Notice.Show(
             what + "\n\n"
             + $"今の紐付け先：{oldPath}\n"
-            + "この改変は紐付け先を1つしか覚えないので、今の紐付け先は残りません。\n"
-            + how + "\n\n"
-            + "プロジェクトのフォルダと、改変の記録（使ったもの・写真）はそのままです。",
+                        + how + "\n\n"
+            + "プロジェクトのフォルダと、改変の使ったもの・写真はそのままです。",
             row is null ? "紐付けを外す" : "紐付けを替える",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -1532,7 +1530,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             new UiCommand.SetModificationMemberDetached(Record.Id, row.Member, detached));
 
         Status = detached
-            ? $"「{row.Name}」を外しました。行は薄く残るので、「戻す」で戻せます。"
+            ? $"「{row.Name}」を外しました。「戻す」で元に戻せます。"
             : $"「{row.Name}」を戻しました。";
         await ReloadAsync();
     }
@@ -1549,9 +1547,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var answer = Services.Notice.Show(
-            $"「{row.Name}」をこの改変から完全に消します。\n\n"
+            $"「{row.Name}」をこの改変から完全に削除します。\n\n"
             + (row.IsFromUnity
-                ? $"使ったファイル（{row.SourceText}）の記録も消えます。追加し直しても、Unityへ送るまで記録は戻りません。\n\n"
+                ? $"使ったファイル（{row.SourceText}）の記録も消えます。\n\n"
                 : string.Empty)
             + "この操作は元に戻せません。",
             "使ったものを削除",
@@ -1597,7 +1595,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        Status = $"「{row.Name}」は手元にありません（記録は残しています）。";
+        Status = $"「{row.Name}」は手元にありません。記録は残っています。";
     }
 
     // ---- 写真 ----

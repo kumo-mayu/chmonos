@@ -200,7 +200,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     public bool HasNewAvatar => NewAvatarItemId is not null;
 
     /// <summary>選んでいない間だけ、欄の下で何をすればよいかを言う（選んだら欄が名前を見せる）。</summary>
-    public string NewAvatarLabel => "候補から選んでください（まだ選んでいません）";
+    public string NewAvatarLabel => "候補から選んでください";
 
     /// <summary>押せるか。**選んでいないのに押せると、何が起きるか分からない。**</summary>
     public bool CanCommit => MakingNew

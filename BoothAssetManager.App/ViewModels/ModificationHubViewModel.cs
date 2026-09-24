@@ -304,7 +304,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     public bool CanOpenVcc => Tools.HasVcc;
 
     public string VccHint => Tools.HasVcc
-        ? "VRChat Creator Companionを起動します。開いていれば手前に出します。"
+        ? "VRChat Creator Companionを起動するか、手前に表示します。"
         : VccMissingText;
 
     // ---- 操作 ----
@@ -397,7 +397,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         if (modifications.Result.FailedIds.Count > 0)
         {
             Status = $"読めなかった改変の記録が {modifications.Result.FailedIds.Count} 件あります"
-                + "（保存先のmodificationsフォルダのJSONが壊れているかもしれません）。";
+                + "。保存先のmodificationsフォルダのJSONが壊れている可能性があります。";
         }
 
         _isLoading = false;
@@ -688,8 +688,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         {
             var answer = Services.Notice.Show(
                 $"「{name}」という改変が既にあります。\n\n"
-                + "同じ名前で作れます（作り直したいときのため）。\n"
-                + "一覧では作った日付で見分けられます。",
+                + "同じ名前でも作れます。一覧では作った日付で見分けられます。",
                 "同じ名前の改変があります",
                 System.Windows.MessageBoxButton.OKCancel,
                 System.Windows.MessageBoxImage.Question,
