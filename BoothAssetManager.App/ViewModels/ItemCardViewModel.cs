@@ -63,19 +63,19 @@ public sealed class ItemCardViewModel : ViewModelBase
     public bool HasBoothPage => !Item.IsLocalOnly;
 
     public string OpenBoothTip => Item.IsLocalOnly
-        ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
-        : "BOOTHの商品ページをブラウザで開きます（アプリの外へ出ます）。";
+        ? "BOOTHに無い商品なので開けません。"
+        : "BOOTHの商品ページをブラウザで開きます。アプリの外へ出ます。";
 
     public string CopyLinkTip => Item.IsLocalOnly
-        ? "BOOTHに無い商品として登録したものなので、リンクがありません。"
+        ? "BOOTHに無い商品なので、リンクがありません。"
         : "BOOTHの商品ページのリンクをコピーします。";
 
     /// <summary>ショップの画面（アプリの中）へ行けるか。BOOTHの店が分からない商品では行き先が無い。</summary>
     public bool HasShop => !string.IsNullOrWhiteSpace(Item.Booth.Shop?.Subdomain);
 
     public string OpenShopTip => HasShop
-        ? "このショップの商品を、アプリの中のショップ画面で見ます。"
-        : "この商品にはBOOTHのショップが記録されていないので、開けません。";
+        ? "このショップの商品を、アプリの中のショップ画面で開きます。"
+        : "ショップが分からない商品なので開けません。";
 
     private bool _isFavorite;
 
