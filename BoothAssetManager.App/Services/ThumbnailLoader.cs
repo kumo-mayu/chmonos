@@ -205,6 +205,12 @@ public sealed class ThumbnailLoader
         }
     }
 
+    /// <summary>
+    /// フォルダの更新時刻（中のファイルを足す・消すと変わる）。**どのスレッドからでも呼べる。**
+    /// 検索の読み直しが、使い回すカードの絵を読み直させるかを裏でまとめて見るのに使う
+    /// </summary>
+    public static DateTime DirectoryStamp(string directory) => LastWriteOf(directory);
+
     /// <summary>フォルダの更新時刻。無ければ最小値（作られたら変わったと分かる）。</summary>
     private static DateTime LastWriteOf(string directory)
     {

@@ -52,6 +52,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// </summary>
     private Dictionary<string, Guid> _fingerprints = new(StringComparer.Ordinal);
 
+    /// <summary>カードを作った・読み直させたときの、画像のフォルダの更新時刻。</summary>
+    private Dictionary<string, DateTime> _imageStamps = new(StringComparer.Ordinal);
+
     private List<ItemRecord> _allItems = [];
     private List<ItemCardViewModel> _matches = [];
     private string _queryText = string.Empty;
@@ -406,7 +409,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             // await の続きは画面のスレッドに戻るので、ここにそのまま書くと画面のスレッドで走り、
             // 2000件で約0.5秒、読み込むたびに画面が止まっていた（起動・取り込みや編集の後の読み直し）。
             // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
-            var (sorted, built, prints, imagePending) = await Task.Run(() =>
+            var previousStamps = _imageStamps;
+            var (sorted, built, prints, imagePending, stamps) = await Task.Run(() =>
             {
                 // 外付けのドライブ文字が変わっていないかを読み直す（通し番号を読むので、ここで）。
                 // 表は書かない：控えるのは取り込みとフォルダビューを開いた時（ユーザ判断 2026-09-14）
@@ -443,6 +447,14 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                         : Core.Services.SearchText.Build(item, _services.KanjiReadings),
                     StringComparer.Ordinal);
 
+                // 画像のフォルダの更新時刻。使い回すカードは絵の並びを覚えているので、フォルダが変わった商品
+                // （商品ページで画像を消した・取り直したなど、記録は変わらずに絵だけ変わる）は読み直させる
+                var imageStamps = new Dictionary<string, DateTime>(sortedItems.Count, StringComparer.Ordinal);
+                foreach (var item in sortedItems)
+                {
+                    imageStamps[item.Id] = ThumbnailLoader.DirectoryStamp(_services.Paths.ItemImagesDir(item.Id));
+                }
+
                 // 取り込み中に「画像を取得中」を出す商品（絵がまだ1枚も無い）。フォルダを見るのはここで済ませる。
                 // 画面のスレッドでカードを作るたびに見ていて、2000件なら読み直しのたびに2000回フォルダを開いていた
                 var pending = new HashSet<string>(StringComparer.Ordinal);
@@ -457,7 +469,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                     }
                 }
 
-                return (sortedItems, haystacks, fingerprints, pending);
+                return (sortedItems, haystacks, fingerprints, pending, imageStamps);
             });
 
             _allItems = sorted;
@@ -483,13 +495,21 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 foreach (var item in _allItems)
                 {
                     var pendingImage = imagePending.Contains(item.Id);
+                    var imagesChanged = !previousStamps.TryGetValue(item.Id, out var stamp) || stamp != stamps[item.Id];
                     if (previousCards.Remove(item.Id, out var kept)
                         && previousPrints.TryGetValue(item.Id, out var print) && print == prints[item.Id]
-                        && CardStillFits(kept, item, pendingImage))
+                        && CardStillFits(kept, item, pendingImage)
+                        // 絵の読み直しは「画像を取得中」の札も下ろすので、札を出したままにする物は作り直す
+                        && !(imagesChanged && pendingImage))
                     {
                         kept.SelectionChanged -= OnCardSelectionChanged;
                         kept.IsSelected = false;
                         kept.SelectionChanged += OnCardSelectionChanged;
+                        if (imagesChanged)
+                        {
+                            kept.RefreshImages();
+                        }
+
                         _cards[item.Id] = kept;
                         reused++;
                         continue;
@@ -511,6 +531,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 }
 
                 _fingerprints = prints;
+                _imageStamps = stamps;
                 // 効き目を画面なしで数えるための足跡（CHMONOS_UITRACE のときだけ書く）
                 Core.Services.UiTrace.Write("速さ", $"検索の読み直し：{_allItems.Count} 件のうちカードを作った {_allItems.Count - reused} 件");
 
