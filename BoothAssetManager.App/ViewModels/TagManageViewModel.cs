@@ -171,6 +171,21 @@ public sealed class TagSubRow : ReorderableRow
 }
 
 /// <summary>
+/// 右側の平らな一覧の1行：畳んだ小分類のひと続き。前と同じ ColumnsPanel で列に並べる
+/// （開いた小分類は幅いっぱいの行になり、そこで列の並びが切れていたので、切れ目ごとにまとまりを分けても並びは同じ）。
+/// </summary>
+public sealed class TagSubRunLine
+{
+    public required IReadOnlyList<TagSubRow> Subs { get; init; }
+}
+
+/// <summary>右側の平らな一覧の1行：開いた小分類の下の余白（並べ替えのドラッグで「この後ろ」の線もここに出す）。</summary>
+public sealed class TagSubFootLine(TagSubRow sub)
+{
+    public TagSubRow Sub { get; } = sub;
+}
+
+/// <summary>
 /// 小分類の中に入っている商品1件（ユーザ指示 2026-09-18）。
 /// 改変の一覧と同じ形（絵・名前）で出し、押すと商品ページへ。
 /// </summary>
@@ -273,7 +288,128 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     {
         OnPropertyChanged(nameof(IsCardMode));
         OnPropertyChanged(nameof(IsListMode));
+        RequestLines();
     });
+
+    /// <summary>
+    /// 右側に並べる平らな一覧（仮想化の単位）。先頭はこの画面そのもの（大分類の札・小分類の見出し）、
+    /// 続いて畳んだ小分類のまとまり（<see cref="TagSubRunLine"/>）と、開いた小分類（<see cref="TagSubRow"/>・商品の段・
+    /// <see cref="TagSubFootLine"/>）、最後に下の枠（<see cref="ManageFoot"/>）。
+    /// 小分類の中の商品を WrapPanel に全部並べていた頃は、すべて開くとカード約560枚を全部作り、メモリが約300MB増えた（2026-09-24）
+    /// </summary>
+    public ObservableCollection<object> Lines { get; } = [];
+
+    private ManageFoot? _foot;
+    private readonly Dictionary<TagSubRow, TagSubFootLine> _subFeet = new(ReferenceEqualityComparer.Instance);
+    private bool _linesPending;
+
+    /// <summary>中の商品を並べられる幅。0 はまだ測っていない（段に切れないので、段を並べない）。</summary>
+    private double _itemsWidth;
+
+    /// <summary>中の商品を並べられる幅を受け取る（View が一覧の幅から枠の分を引いて渡す）。段の数が変わるときだけ切り直す。</summary>
+    public void SetItemsWidth(double width)
+    {
+        if (Math.Abs(width - _itemsWidth) < 0.5)
+        {
+            return;
+        }
+
+        var before = (Cards: ManageItemLayout.ColumnsFor(_itemsWidth, Services.CardMetrics.SlotWidth), List: ManageItemLayout.ColumnsFor(_itemsWidth, ManageItemLayout.ListSlotWidth));
+        var measured = _itemsWidth > 0;
+        _itemsWidth = width;
+        var after = (Cards: ManageItemLayout.ColumnsFor(width, Services.CardMetrics.SlotWidth), List: ManageItemLayout.ColumnsFor(width, ManageItemLayout.ListSlotWidth));
+        if (!measured || before != after)
+        {
+            RequestLines();
+        }
+    }
+
+    /// <summary>
+    /// 組み直しを1回にまとめる。「すべて開く」は小分類の数だけ、開いた小分類の中身は商品の数だけ知らせが続くので、
+    /// そのたびに組むと同じ組み直しを何百回もすることになる
+    /// </summary>
+    private void RequestLines()
+    {
+        if (_linesPending)
+        {
+            return;
+        }
+
+        _linesPending = true;
+        Application.Current.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, () =>
+        {
+            _linesPending = false;
+            RebuildLines();
+        });
+    }
+
+    private void RebuildLines()
+    {
+        _foot ??= new ManageFoot(this);
+        var target = new List<object> { this };
+
+        if (HasSelection)
+        {
+            var card = IsCardMode;
+            var columns = ManageItemLayout.ColumnsFor(_itemsWidth, card ? Services.CardMetrics.SlotWidth : ManageItemLayout.ListSlotWidth);
+            var previous = ManageItemLayout.IndexByFirst(Lines);
+            var used = new HashSet<ManageItemLine>(ReferenceEqualityComparer.Instance);
+            var previousRuns = Lines.OfType<TagSubRunLine>().ToList();
+            var run = new List<TagSubRow>();
+
+            void FlushRun()
+            {
+                if (run.Count == 0)
+                {
+                    return;
+                }
+
+                // 同じ小分類のまとまりは同じ行を使う（中の小分類の部品を作り直すと、打ちかけのメモ欄から入力の位置が外れる）
+                var same = previousRuns.FirstOrDefault(line => line.Subs.SequenceEqual(run));
+                target.Add(same ?? new TagSubRunLine { Subs = run });
+                run = [];
+            }
+
+            foreach (var sub in Subs)
+            {
+                // 隠した小分類は、前も列の場所だけは取っていた（ColumnsPanel は畳んだ子にも列を数える）ので、まとまりに残す
+                if (!sub.IsExpanded || sub.IsHidden)
+                {
+                    run.Add(sub);
+                    continue;
+                }
+
+                FlushRun();
+                target.Add(sub);
+                if (_itemsWidth > 0)
+                {
+                    foreach (var items in ManageItemLayout.Split(sub.Items, columns, vertical: false))
+                    {
+                        target.Add(ManageItemLayout.Line(items, card, previous, used));
+                    }
+                }
+
+                if (!_subFeet.TryGetValue(sub, out var foot))
+                {
+                    foot = new TagSubFootLine(sub);
+                    _subFeet[sub] = foot;
+                }
+
+                target.Add(foot);
+            }
+
+            FlushRun();
+        }
+
+        // 消えた小分類の下の余白は持ち続けない
+        foreach (var gone in _subFeet.Keys.Where(sub => !Subs.Contains(sub)).ToList())
+        {
+            _subFeet.Remove(gone);
+        }
+
+        target.Add(_foot);
+        CollectionSync.Apply(Lines, target);
+    }
 
     public bool IsCardMode => ItemView.IsCardMode;
 
@@ -316,6 +452,10 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     {
         _services = services;
         _main = main;
+
+        // 小分類の入れ替え（大分類を選び直す・読み直す）で、右の平らな一覧を組み直す。頭と下の枠は読み終わる前から出しておく
+        Subs.CollectionChanged += (_, _) => RequestLines();
+        RequestLines();
 
         AddTopCommand = new RelayCommand(parameter => AddTopAsync(parameter as string).Forget());
         AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
@@ -848,6 +988,16 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
                 _saveSubMemo.Request();
             };
             row.ExpandRequested += entry => FillSubItemsAsync(entry).Forget();
+
+            // 開く・畳む・隠す・中身が届く のたびに、右の平らな一覧を組み直す（まとめて1回）
+            row.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName is nameof(TagSubRow.IsExpanded) or nameof(TagSubRow.IsHidden))
+                {
+                    RequestLines();
+                }
+            };
+            row.Items.CollectionChanged += (_, _) => RequestLines();
 
             // 開いていた小分類は、商品ページから戻ってきたときも開いたままにする（ユーザ指示 2026-09-18）
             var key = SubKey(row);

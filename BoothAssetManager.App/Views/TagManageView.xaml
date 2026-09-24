@@ -16,6 +16,103 @@
             <!-- カード表示は検索と同じカード（ユーザ指示 2026-09-20・M4） -->
             <views:ItemCardResources />
         </ResourceDictionary.MergedDictionaries>
+
+        <!--
+            小分類1行。畳んだ小分類のまとまり（TagSubRunLine）と、開いた小分類の見出し（右の一覧に TagSubRow そのものを置く）の
+            両方から使う。開いた小分類の中身は、右の一覧の段（ManageListLine・ManageCardLine）として続く（2026-09-24：中身を
+            この中に並べていた頃は、すべて開くと見えていないカードまで全部作っていた）。開いた行では、下の余白を中身の上の間 10 にし、
+            「この後ろ」の線は中身の下（TagSubFootLine）に出す
+        -->
+        <DataTemplate x:Key="TagSubTemplate" DataType="{x:Type vm:TagSubRow}">
+        <!--
+            Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる。
+            開いた行は幅いっぱいを使う（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）
+        -->
+        <Border x:Name="Row" BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Padding="20,13"
+                Background="Transparent">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- ドラッグ中の落ち先。行の枠まで届くよう、Paddingの分だけ外へ出す -->
+                <Border Height="2" VerticalAlignment="Top" Margin="-20,-13,-20,0"
+                        Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
+                        Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Border x:Name="DropAfterLine" Height="2" VerticalAlignment="Bottom" Margin="-20,0,-20,-13"
+                        Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
+                        Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                <StackPanel Grid.Column="0" Margin="0,0,14,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <!--
+                            中の商品を見られるように畳む（ユーザ指示 2026-09-18：
+                            改変とitemの関係と同じ形）。商品の無い小分類でも印は消さずに押せない形で置く
+                            （ユーザ指示 2026-09-19：消すと名前の頭が行ごとにずれた）
+                        -->
+                        <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center"
+                                      Margin="0,0,7,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                      IsEnabled="{Binding IsUsed}"
+                                      ToolTipService.ShowOnDisabled="True"
+                                      ToolTip="{Binding ExpandToolTip}" />
+                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" />
+                        <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}"
+                                   FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                </StackPanel>
+
+                <!-- メモは書く場所が無かったので、欄そのものを置く（ユーザ指示 2026-09-18）。打ち終えると残る -->
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="23,7,0,0">
+                        <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="8,5" FontSize="11.5"
+                                 BorderBrush="{StaticResource Border}" />
+                        <TextBlock Text="何をここに入れるかのメモ" Margin="10,0,0,0"
+                                   IsHitTestVisible="False" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextFaint}" FontSize="11.5"
+                                   Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                </Grid>
+
+                <StackPanel Grid.Column="1">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <!--
+                            並びは「見る → 名前を変える → 移す → 消す」（ユーザ指示 2026-09-18）。
+                            よく使う物から並べ、取り返しのつかない物を右端に置く
+                        -->
+                        <Button Content="検索で開く" Style="{StaticResource SmallButton}"
+                                Margin="0,0,6,0" Command="{Binding ShowItemsCommand}"
+                                IsEnabled="{Binding IsUsed}"
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="{Binding ShowItemsToolTip}" />
+                        <Button Content="名前を変更" Style="{StaticResource SmallButton}"
+                                Margin="0,0,6,0" Command="{Binding RenameCommand}"
+                                ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つに統合します。" />
+                        <!-- 「移す」だけでは何が起きるか分からない（ユーザ指摘 2026-09-18） -->
+                        <Button Content="別の大分類へ移す" Style="{StaticResource SmallButton}"
+                                Margin="0,0,10,0" Command="{Binding MoveCommand}"
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="この小分類を別の大分類の下へ移します。移すには大分類が2つ以上要ります。" />
+                        <Button Content="削除" Style="{StaticResource DangerButton}"
+                                Command="{Binding DeleteCommand}"
+                                ToolTip="この小分類を削除します。付いている商品からも外れます。" />
+                    </StackPanel>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                    <Setter TargetName="Row" Property="Padding" Value="20,13,20,10" />
+                    <Setter TargetName="DropAfterLine" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
       </ResourceDictionary>
     </UserControl.Resources>
 
@@ -164,8 +261,40 @@
                 </DockPanel>
             </Border>
 
-            <!-- 右：選んだトップレベルの中身 -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
+            <!--
+                右：選んだトップレベルの中身。平らな1本の一覧にして仮想化する（2026-09-24：小分類の中の商品を WrapPanel に
+                全部並べていた頃は、すべて開くと見えていないカードまで全部作り、メモリが約300MB増えた）。並べる物は、
+                頭（大分類の札・小分類の見出し）→ 畳んだ小分類のまとまり・開いた小分類と中の商品の段 → 下の枠。
+                小分類を囲む札は行ごとに描き分け、見た目は前と同じ1枚の札のまま
+            -->
+            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False"
+                                          VirtualizingPanel.IsVirtualizing="True"
+                                          VirtualizingPanel.VirtualizationMode="Recycling"
+                                          VirtualizingPanel.ScrollUnit="Pixel"
+                                          ScrollViewer.CanContentScroll="True"
+                                          ScrollViewer.ScrollChanged="OnDetailScrollChanged"
+                                          AllowDrop="True"
+                                          PreviewMouseLeftButtonDown="OnRowsPreviewMouseLeftButtonDown"
+                                          MouseMove="OnRowsMouseMove"
+                                          DragOver="OnRowsDragOver"
+                                          DragLeave="OnRowsDragLeave"
+                                          Drop="OnRowsDrop">
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Padding="20" CanContentScroll="True">
+                            <ItemsPresenter />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Resources>
+                    <!-- 頭：状況の文・一覧に無いユーザータグ・大分類の札・小分類の見出し（この画面そのものに結ぶ） -->
+                    <DataTemplate DataType="{x:Type vm:TagManageViewModel}">
                 <!-- Leftにすると、状況表示の文の長さでカードの幅が動いてしまう -->
                 <!--
                     右は使える幅いっぱいを使う（ユーザ指示 2026-09-19）。上限を付けると広い画面で中央に寄り、
@@ -290,288 +419,231 @@
                         </Border>
 
                         <!-- サブレベル -->
-                        <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                            <StackPanel>
-                                <StackPanel Margin="20,16,20,14">
-                                    <DockPanel>
-                                        <!-- 中の商品をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ形 -->
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <controls:CommandRadioButton Content="カード" GroupName="TagItemsView" Style="{StaticResource SegmentFirst}"
-                                                         IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
-                                                         ToolTip="小分類を開いたとき、中の商品を絵の大きなカードで並べます" />
-                                            <controls:CommandRadioButton Content="リスト" GroupName="TagItemsView" Style="{StaticResource SegmentLast}"
-                                                         IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
-                                                         ToolTip="名前が読める詰まった行で並べます" />
-                                        </StackPanel>
-                                        <TextBlock Text="小分類" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                                    </DockPanel>
-                                    <TextBlock Text="大分類の下に入ります。商品から大分類を外すと、その下の小分類も一緒に外れます。"
-                                               Style="{StaticResource Caption}" Margin="0,4,0,0" />
-
-                                    <!--
-                                        商品名で探す欄と、小分類を足すボタンは隣り合わせにする
-                                        （ユーザ指摘 2026-09-18：右上に置くと遠い）。足す欄は押したときだけ出す
-                                    -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Grid Width="360">
-                                        <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
-                                                 Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
-                                        <TextBlock Text="この大分類の中を小分類名・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                                   VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
-                                                   Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
-                                    </Grid>
-
-                                        <!--
-                                            丸い＋を押すと、そのまま右へ伸びて入力欄になる（ユーザ指示 2026-09-18）。
-                                            隠れていた欄が別の場所に現れるより、押した物が育つ方が繋がりが分かる
-                                        -->
-                                        <Border Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="16" Height="32"
-                                                Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
-                                                BorderThickness="1">
-                                            <StackPanel Orientation="Horizontal">
-                                                <ToggleButton x:Name="AddSubToggle" Width="30" Height="30" Cursor="Hand"
-                                                              Focusable="False" IsChecked="{Binding IsAddingSub, Mode=TwoWay}"
-                                                              AutomationProperties.Name="小分類を追加"
-                                                              ToolTipService.InitialShowDelay="250"
-                                                              ToolTip="小分類を追加">
-                                                    <ToggleButton.Template>
-                                                        <ControlTemplate TargetType="ToggleButton">
-                                                            <Grid Background="Transparent">
-                                                                <Ellipse x:Name="Ring" Width="26" Height="26"
-                                                                         Fill="{StaticResource SurfaceAlt}" Stroke="{StaticResource Border}" />
-                                                                <Path x:Name="Mark" Data="M7,0 L7,14 M0,7 L14,7" Stroke="{StaticResource Text}"
-                                                                      StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                                      Width="14" Height="14" Stretch="Fill"
-                                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            </Grid>
-                                                            <ControlTemplate.Triggers>
-                                                                <!-- 開いている間は×（もう一度押すと閉じる、と分かるように） -->
-                                                                <Trigger Property="IsChecked" Value="True">
-                                                                    <Setter TargetName="Mark" Property="Data" Value="M0,0 L14,14 M14,0 L0,14" />
-                                                                    <Setter TargetName="Ring" Property="Fill" Value="{StaticResource AccentSoft}" />
-                                                                </Trigger>
-                                                                <Trigger Property="IsMouseOver" Value="True">
-                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
-                                                                </Trigger>
-                                                            </ControlTemplate.Triggers>
-                                                        </ControlTemplate>
-                                                    </ToggleButton.Template>
-                                                </ToggleButton>
-
-                                                <!--
-                                                    丸い枠そのものを入力欄に見せる（四角い欄が中で浮いていた。ユーザ指摘 2026-09-18）。
-                                                    伸び縮みは欄の側の Style で持つ。ボタンの側から名前で欄を指すと、開いたまま
-                                                    別の画面へ移ったときに合図だけが流れて欄が見つからず、例外で画面の切り替えが止まった（2026-09-19）
-                                                -->
-                                                <controls:SuggestBox Margin="2,0,10,0"
-                                                                     IsFrameless="True"
-                                                                     CommitCommand="{Binding AddSubCommand}"
-                                                                     Source="{Binding DataContext.SubNames, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                     MaxLength="60"
-                                                                     Placeholder="小分類の名前" VerticalAlignment="Center">
-                                                    <controls:SuggestBox.Style>
-                                                        <Style TargetType="controls:SuggestBox">
-                                                            <Setter Property="Width" Value="0" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsAddingSub}" Value="True">
-                                                                    <DataTrigger.EnterActions>
-                                                                        <BeginStoryboard>
-                                                                            <Storyboard>
-                                                                                <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                                                                 To="260" Duration="0:0:0.14" />
-                                                                            </Storyboard>
-                                                                        </BeginStoryboard>
-                                                                    </DataTrigger.EnterActions>
-                                                                    <DataTrigger.ExitActions>
-                                                                        <BeginStoryboard>
-                                                                            <Storyboard>
-                                                                                <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                                                                 To="0" Duration="0:0:0.12" />
-                                                                            </Storyboard>
-                                                                        </BeginStoryboard>
-                                                                    </DataTrigger.ExitActions>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </controls:SuggestBox.Style>
-                                                </controls:SuggestBox>
-                                            </StackPanel>
-                                        </Border>
-
-                                        <!--
-                                            小分類をまとめて開く・畳む（ユーザ指示 2026-09-19）。全部開いている間は「すべて畳む」になる。
-                                            開くのは中身のある小分類だけ（中身の無い物は三角も押せない）
-                                        -->
-                                        <Button Content="{Binding ToggleAllText}" Style="{StaticResource SmallButton}"
-                                                Margin="16,0,0,0" VerticalAlignment="Center"
-                                                Command="{Binding ToggleAllCommand}"
-                                                ToolTip="中身のある小分類を、まとめて開くか折りたたみます。" />
+                        <!-- 小分類を囲む札の上側。小分類の行と下の枠（ManageFoot）が続きを描く -->
+                        <Border Margin="0,16,0,0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                BorderThickness="1,1,1,0" CornerRadius="8,8,0,0">
+                            <StackPanel Margin="20,16,20,14">
+                                <DockPanel>
+                                    <!-- 中の商品をカードで見るかリストで見るか（ユーザ指示 2026-09-20・M4）。ほかの画面と同じ形 -->
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <controls:CommandRadioButton Content="カード" GroupName="TagItemsView" Style="{StaticResource SegmentFirst}"
+                                                     IsChecked="{Binding IsCardMode, Mode=OneWay}" Command="{Binding ShowCardsCommand}"
+                                                     ToolTip="小分類を開いたとき、中の商品を絵の大きなカードで並べます" />
+                                        <controls:CommandRadioButton Content="リスト" GroupName="TagItemsView" Style="{StaticResource SegmentLast}"
+                                                     IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}"
+                                                     ToolTip="名前が読める詰まった行で並べます" />
                                     </StackPanel>
-
-                                    <controls:SearchSyntaxHint Margin="2,6,0,0" />
-                                    <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,4,0,0"
-                                               Visibility="{Binding HasItemFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                </StackPanel>
+                                    <TextBlock Text="小分類" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <TextBlock Text="大分類の下に入ります。商品から大分類を外すと、その下の小分類も一緒に外れます。"
+                                           Style="{StaticResource Caption}" Margin="0,4,0,0" />
 
                                 <!--
-                                    幅が広いときは2列に流す（ユーザ指示 2026-09-18：縦に全部並ぶと、
-                                    小分類の多い大分類で上の情報が画面の外へ出る）。1件の幅を決めて折り返す
+                                    商品名で探す欄と、小分類を足すボタンは隣り合わせにする
+                                    （ユーザ指摘 2026-09-18：右上に置くと遠い）。足す欄は押したときだけ出す
                                 -->
-                                <ItemsControl ItemsSource="{Binding Subs}"
-                                              AllowDrop="True"
-                                              PreviewMouseLeftButtonDown="OnRowsPreviewMouseLeftButtonDown"
-                                              MouseMove="OnRowsMouseMove"
-                                              DragOver="OnRowsDragOver"
-                                              DragLeave="OnRowsDragLeave"
-                                              Drop="OnRowsDrop">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <controls:ColumnsPanel MinColumnWidth="540" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Grid Width="360">
+                                    <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
+                                    <TextBlock Text="この大分類の中を小分類名・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
+                                               VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                               Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                </Grid>
+
                                     <!--
-                                        開いた行は幅いっぱい（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）。
-                                        ItemsControl は項目を ContentPresenter で包むので、指定は容れ物側に付ける
+                                        丸い＋を押すと、そのまま右へ伸びて入力欄になる（ユーザ指示 2026-09-18）。
+                                        隠れていた欄が別の場所に現れるより、押した物が育つ方が繋がりが分かる
                                     -->
-                                    <ItemsControl.ItemContainerStyle>
-                                        <Style TargetType="ContentPresenter">
-                                            <Setter Property="controls:ColumnsPanel.FullWidth" Value="{Binding IsExpanded}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ItemsControl.ItemContainerStyle>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
+                                    <Border Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="16" Height="32"
+                                            Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
+                                            BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ToggleButton x:Name="AddSubToggle" Width="30" Height="30" Cursor="Hand"
+                                                          Focusable="False" IsChecked="{Binding IsAddingSub, Mode=TwoWay}"
+                                                          AutomationProperties.Name="小分類を追加"
+                                                          ToolTipService.InitialShowDelay="250"
+                                                          ToolTip="小分類を追加">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Grid Background="Transparent">
+                                                            <Ellipse x:Name="Ring" Width="26" Height="26"
+                                                                     Fill="{StaticResource SurfaceAlt}" Stroke="{StaticResource Border}" />
+                                                            <Path x:Name="Mark" Data="M7,0 L7,14 M0,7 L14,7" Stroke="{StaticResource Text}"
+                                                                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                                  Width="14" Height="14" Stretch="Fill"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <!-- 開いている間は×（もう一度押すと閉じる、と分かるように） -->
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L14,14 M14,0 L0,14" />
+                                                                <Setter TargetName="Ring" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                            </ToggleButton>
+
                                             <!--
-                                                Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる。
-                                                開いた行は幅いっぱいを使う（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）
+                                                丸い枠そのものを入力欄に見せる（四角い欄が中で浮いていた。ユーザ指摘 2026-09-18）。
+                                                伸び縮みは欄の側の Style で持つ。ボタンの側から名前で欄を指すと、開いたまま
+                                                別の画面へ移ったときに合図だけが流れて欄が見つからず、例外で画面の切り替えが止まった（2026-09-19）
                                             -->
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Padding="20,13"
-                                                    Background="Transparent">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                    </Grid.RowDefinitions>
+                                            <controls:SuggestBox Margin="2,0,10,0"
+                                                                 IsFrameless="True"
+                                                                 CommitCommand="{Binding AddSubCommand}"
+                                                                 Source="{Binding DataContext.SubNames, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                 MaxLength="60"
+                                                                 Placeholder="小分類の名前" VerticalAlignment="Center">
+                                                <controls:SuggestBox.Style>
+                                                    <Style TargetType="controls:SuggestBox">
+                                                        <Setter Property="Width" Value="0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsAddingSub}" Value="True">
+                                                                <DataTrigger.EnterActions>
+                                                                    <BeginStoryboard>
+                                                                        <Storyboard>
+                                                                            <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                                                             To="260" Duration="0:0:0.14" />
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </DataTrigger.EnterActions>
+                                                                <DataTrigger.ExitActions>
+                                                                    <BeginStoryboard>
+                                                                        <Storyboard>
+                                                                            <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                                                             To="0" Duration="0:0:0.12" />
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </DataTrigger.ExitActions>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </controls:SuggestBox.Style>
+                                            </controls:SuggestBox>
+                                        </StackPanel>
+                                    </Border>
 
-                                                    <!-- ドラッグ中の落ち先。行の枠まで届くよう、Paddingの分だけ外へ出す -->
-                                                    <Border Height="2" VerticalAlignment="Top" Margin="-20,-13,-20,0"
-                                                            Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
-                                                            Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <Border Height="2" VerticalAlignment="Bottom" Margin="-20,0,-20,-13"
-                                                            Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
-                                                            Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <!--
+                                        小分類をまとめて開く・畳む（ユーザ指示 2026-09-19）。全部開いている間は「すべて畳む」になる。
+                                        開くのは中身のある小分類だけ（中身の無い物は三角も押せない）
+                                    -->
+                                    <Button Content="{Binding ToggleAllText}" Style="{StaticResource SmallButton}"
+                                            Margin="16,0,0,0" VerticalAlignment="Center"
+                                            Command="{Binding ToggleAllCommand}"
+                                            ToolTip="中身のある小分類を、まとめて開くか折りたたみます。" />
+                                </StackPanel>
 
-                                                    <StackPanel Grid.Column="0" Margin="0,0,14,0" VerticalAlignment="Center">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <!--
-                                                                中の商品を見られるように畳む（ユーザ指示 2026-09-18：
-                                                                改変とitemの関係と同じ形）。商品の無い小分類でも印は消さずに押せない形で置く
-                                                                （ユーザ指示 2026-09-19：消すと名前の頭が行ごとにずれた）
-                                                            -->
-                                                            <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center"
-                                                                          Margin="0,0,7,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
-                                                                          IsEnabled="{Binding IsUsed}"
-                                                                          ToolTipService.ShowOnDisabled="True"
-                                                                          ToolTip="{Binding ExpandToolTip}" />
-                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" />
-                                                            <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}"
-                                                                       FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                                        </StackPanel>
-
-                                                    </StackPanel>
-
-                                                    <!-- メモは書く場所が無かったので、欄そのものを置く（ユーザ指示 2026-09-18）。打ち終えると残る -->
-                                                    <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="23,7,0,0">
-                                                            <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
-                                                                     Padding="8,5" FontSize="11.5"
-                                                                     BorderBrush="{StaticResource Border}" />
-                                                            <TextBlock Text="何をここに入れるかのメモ" Margin="10,0,0,0"
-                                                                       IsHitTestVisible="False" VerticalAlignment="Center"
-                                                                       Foreground="{StaticResource TextFaint}" FontSize="11.5"
-                                                                       Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
-                                                    </Grid>
-
-                                                    <StackPanel Grid.Column="1">
-                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                            <!--
-                                                                並びは「見る → 名前を変える → 移す → 消す」（ユーザ指示 2026-09-18）。
-                                                                よく使う物から並べ、取り返しのつかない物を右端に置く
-                                                            -->
-                                                            <Button Content="検索で開く" Style="{StaticResource SmallButton}"
-                                                                    Margin="0,0,6,0" Command="{Binding ShowItemsCommand}"
-                                                                    IsEnabled="{Binding IsUsed}"
-                                                                    ToolTipService.ShowOnDisabled="True"
-                                                                    ToolTip="{Binding ShowItemsToolTip}" />
-                                                            <Button Content="名前を変更" Style="{StaticResource SmallButton}"
-                                                                    Margin="0,0,6,0" Command="{Binding RenameCommand}"
-                                                                    ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つに統合します。" />
-                                                            <!-- 「移す」だけでは何が起きるか分からない（ユーザ指摘 2026-09-18） -->
-                                                            <Button Content="別の大分類へ移す" Style="{StaticResource SmallButton}"
-                                                                    Margin="0,0,10,0" Command="{Binding MoveCommand}"
-                                                                    ToolTipService.ShowOnDisabled="True"
-                                                                    ToolTip="この小分類を別の大分類の下へ移します。移すには大分類が2つ以上要ります。" />
-                                                            <Button Content="削除" Style="{StaticResource DangerButton}"
-                                                                    Command="{Binding DeleteCommand}"
-                                                                    ToolTip="この小分類を削除します。付いている商品からも外れます。" />
-                                                        </StackPanel>
-                                                    </StackPanel>
-
-                                                    <!--
-                                                        畳みを開いたときの中身。押すと商品ページへ（改変の一覧と同じ）。
-                                                        開いていることが分かるよう、左に線を下ろす（ユーザ指示 2026-09-18）
-                                                    -->
-                                                    <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="23,10,0,0" Padding="16,0,0,0"
-                                                            BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
-                                                            Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <StackPanel>
-                                                    <!-- リストとカードを選べる（ユーザ指示 2026-09-20・M4） -->
-                                                    <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}"
-                                                                  Visibility="{Binding DataContext.IsListMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <ItemsControl.ItemsPanel>
-                                                            <ItemsPanelTemplate>
-                                                                <!-- 小分類の中は名前順なので、並ぶ向きは選ばせない（ユーザ判断 2026-09-19：タグに縦横の概念は要らない） -->
-                                                                <WrapPanel />
-                                                            </ItemsPanelTemplate>
-                                                        </ItemsControl.ItemsPanel>
-                                                    </ItemsControl>
-
-                                                    <controls:ContentItemsControl ItemsSource="{Binding Items}"
-                                                                                  Visibility="{Binding DataContext.IsCardMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <ItemsControl.ItemsPanel>
-                                                            <ItemsPanelTemplate>
-                                                                <WrapPanel />
-                                                            </ItemsPanelTemplate>
-                                                        </ItemsControl.ItemsPanel>
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </controls:ContentItemsControl>
-                                                    </StackPanel>
-                                                    </Border>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <TextBlock Text="小分類はまだありません。" Style="{StaticResource Caption}" Margin="20,0,20,18"
-                                           Visibility="{Binding HasSubs, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                <controls:SearchSyntaxHint Margin="2,6,0,0" />
+                                <TextBlock Text="{Binding ItemFilterResultText}" Style="{StaticResource Caption}" Margin="2,4,0,0"
+                                           Visibility="{Binding HasItemFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                 </StackPanel>
-            </ScrollViewer>
+                    </DataTemplate>
+
+                    <!-- 畳んだ小分類のひと続き。前と同じく幅に応じて列に並べる -->
+                    <DataTemplate DataType="{x:Type vm:TagSubRunLine}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <!--
+                                幅が広いときは2列に流す（ユーザ指示 2026-09-18：縦に全部並ぶと、
+                                小分類の多い大分類で上の情報が画面の外へ出る）。1件の幅を決めて折り返す
+                            -->
+                            <ItemsControl ItemsSource="{Binding Subs}" ItemTemplate="{StaticResource TagSubTemplate}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <controls:ColumnsPanel MinColumnWidth="540" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <!--
+                                    開いた行は幅いっぱい（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）。
+                                    ItemsControl は項目を ContentPresenter で包むので、指定は容れ物側に付ける
+                                -->
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="controls:ColumnsPanel.FullWidth" Value="{Binding IsExpanded}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                            </ItemsControl>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 開いた小分類の見出し（中身は続く段） -->
+                    <DataTemplate DataType="{x:Type vm:TagSubRow}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TagSubTemplate}" />
+                        </Border>
+                    </DataTemplate>
+
+                    <!--
+                        開いた小分類の中の商品の段。左の線は「開いている」印（ユーザ指示 2026-09-18）。
+                        位置は前と同じ：小分類の行の余白 20 ＋ 字下げ 23 の所に線、線から 16 右に中身
+                    -->
+                    <DataTemplate DataType="{x:Type vm:ManageListLine}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                                <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </Border>
+                        </Border>
+                    </DataTemplate>
+
+                    <DataTemplate DataType="{x:Type vm:ManageCardLine}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding Items}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
+                            </Border>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 開いた小分類の下の余白（小分類の行の下の余白 13）。並べ替えで「この後ろ」に落とすときの線もここ -->
+                    <DataTemplate DataType="{x:Type vm:TagSubFootLine}">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                            <Grid Height="13">
+                                <Border Height="2" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                                        Visibility="{Binding Sub.DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 下の枠：小分類を囲む札の下側 -->
+                    <DataTemplate DataType="{x:Type vm:ManageFoot}">
+                        <Border DataContext="{Binding Owner}"
+                                Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
+                        <TextBlock Text="小分類はまだありません。" Style="{StaticResource Caption}" Margin="20,0,20,18"
+                                   Visibility="{Binding HasSubs, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.Resources>
+            </controls:ContentItemsControl>
         </controls:PaneGrid>
     </DockPanel>
 </UserControl>
