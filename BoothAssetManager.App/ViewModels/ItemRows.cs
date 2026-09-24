@@ -149,7 +149,7 @@ public sealed class LocalFolderRow
     /// 名前を押すとエクスプローラで開く
     /// </summary>
     public string PathToolTip => IsMissing
-        ? $"{Path}\n記録にある場所にフォルダがありません。押すと、近くの残っているフォルダを開きます。"
+        ? $"{Path}\nフォルダが見つかりません。押すと近くのフォルダを開きます。"
         : $"{Path}\n押すと、エクスプローラでこのフォルダを開きます。";
 }
 
@@ -232,10 +232,10 @@ public sealed class LocalFileRow : ViewModelBase
     /// </summary>
     public string PathToolTip => Paths.Count switch
     {
-        0 => "記録にある場所にファイルがありません。",
+        0 => "ファイルが見つかりません。",
         1 => $"{Paths[0]}\n押すと、エクスプローラでこのファイルの場所を開きます。",
         _ => $"同じ中身が {Paths.Count} 箇所にあります：\n{string.Join("\n", Paths)}\n"
-            + "押すと、1つめの場所をエクスプローラで開きます。ほかの場所は下の行から開けます。",
+            + "押すと1つめの場所を開きます。ほかは下の行から開けます。",
     };
 
     /// <summary>ほかの場所（2つめ以降）。1つめは名前を押せば開くので、行にしない。</summary>
@@ -303,7 +303,7 @@ public sealed class LocalFileRow : ViewModelBase
     public bool HasManyUnityPackages => UnityPackages.Count > 1;
 
     public string UnityPackageNote =>
-        $"Unityへ送れるもの {UnityPackages.Count} 件（依存するものを先に入れてください）";
+        $"Unityへ送れるもの {UnityPackages.Count} 件。依存するものから先に送ってください。";
 }
 
 public sealed class AttributeBar

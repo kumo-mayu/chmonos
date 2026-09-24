@@ -197,13 +197,12 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public string RefreshButtonText => IsRefreshing ? "取り直しています…" : "商品情報を取り直す";
 
     public string OpenBoothTip => Item.IsLocalOnly
-        ? "BOOTHに無い商品として登録したものなので、開く先がありません。"
-        : "BOOTHの商品ページをブラウザで開きます（アプリの外へ出ます）。";
+        ? "BOOTHに無い商品なので開けません。"
+        : "BOOTHの商品ページをブラウザで開きます。アプリの外へ出ます。";
 
     public string RefreshButtonTip => Item.IsLocalOnly
-        ? "BOOTHに無い商品として登録したものなので、取り直せません。"
-        : "BOOTHの商品ページに載っている情報（商品名・価格・バリエーション・説明文・画像）を取り直します。"
-            + "\n商品のファイルはダウンロードしません。メモやユーザータグなど自分で入れたものも変わりません。";
+        ? "BOOTHに無い商品なので取り直せません。"
+        : "BOOTHの情報を取り直します。ファイルはダウンロードせず、入力も残ります。";
 
     public string RefreshStatus
     {
@@ -324,9 +323,9 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </summary>
     public bool IsEditLocked => _main.IsAwaitingDetection(Item.Id);
 
-    public string EditLockText => "取り込みの途中です。対応アバターの検出が終わると編集できます（見る・Unityへ送る・改変に追加は今でもできます）";
+    public string EditLockText => "取り込みの途中です。対応アバターの検出が終わると編集できます。";
 
-    public string EditButtonTip => IsEditLocked ? EditLockText : "BOOTH分類名・ユーザータグ・属性などを直す画面を開きます";
+    public string EditButtonTip => IsEditLocked ? EditLockText : "カテゴリ・ユーザータグ・属性などを直す画面を開きます";
 
     /// <summary>
     /// 画面内検索（U20）。畳んだ説明の中に一致があれば開いて見せる（ユーザ判断）。
@@ -663,9 +662,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
         var answer = Services.Notice.Show(
             $"{row.FileName} をこの商品から外します。\n\n"
-            + "ファイルは消しません。未確定に戻るので、そこで正しい商品を選び直せます。\n"
-            + "次の取り込みでこの商品に戻ることもありません。\n"
-            + "この欄には灰色で残り、「この商品に戻す」で戻せます。",
+            + "ファイルは削除しません。未確定に戻り、正しい商品を選び直せます。\n"
+            + "「この商品に戻す」で元に戻せます。",
             "この商品から外す",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -687,13 +685,10 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             // 次の取り込みで同じ商品が作り直されない。削除すると印も消え、再取り込みの対象になる
             var choice = Views.ChoiceDialog.Ask(
                 "商品を残しますか",
-                "これが最後のファイルなので、この商品は手元に何も無い状態になります。商品をどうしますか？",
-                "非表示にして残す：検索やショップの件数には入れず、商品の情報と外した印を残します。"
-                + "統計の支出には入ります。設定の「非表示にした商品」から戻せます。\n"
-                + "残す：商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。"
-                + "外した印も残るので、次の取り込みでこのファイルがこの商品に戻ることはありません。\n"
-                + "完全に削除：アプリ内の履歴から完全に削除します。メモやユーザータグも一緒に消えます。"
-                + "外した印も消えるので、次の取り込みで読み取った情報がこの商品を指せば、再取り込みの対象になります。",
+                "これが最後のファイルです。この商品をどうしますか？",
+                "「非表示にして残す（おすすめ）」\n検索に表示しなくなります。設定の「非表示にした商品」から戻せます。\n\n"
+                + "「残す」\n商品の情報をそのまま残します。\n\n"
+                + "「完全に削除」\nメモやユーザータグも削除します。元に戻せません。次の取り込みで、また登録されることがあります。",
                 "非表示にして残す（おすすめ）",
                 "残す",
                 "完全に削除");
@@ -767,7 +762,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// BOOTHのショップに結び付いているなら、そちらの店であることも言う。
     /// </summary>
     public string UserShopNotice => Item.Local.Shop is { IsOnBooth: true } shop
-        ? $"このショップは自分で紐付けたものです（BOOTHの {shop.Subdomain}）"
+        ? $"BOOTHの {shop.Subdomain} に自分で紐付けたショップです"
         : "このショップ名は自分で入れたものです";
 
     /// <summary>
@@ -811,8 +806,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         : "この名前は自分で付けたものです";
 
     public string LocalOnlyNotice
-        => $"BOOTHに無い商品として登録しています（仮のID {Item.Id}）。"
-            + "BOOTHから情報を取り直さないので、名前も画像も増えません。";
+        => $"BOOTHに無い商品として、仮のID {Item.Id} で登録しています。BOOTHからは情報を取得しません。";
 
     public string PublishedText => Item.Booth.PublishedAt is null
         ? string.Empty

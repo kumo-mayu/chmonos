@@ -82,7 +82,7 @@
                                         <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                       IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
                                                       AutomationProperties.Name="ローカルファイルを開く"
-                                                      ToolTip="ローカルファイルの欄を開く・折りたたむ（ほかの商品に移っても同じ開き方のままです）" />
+                                                      ToolTip="ローカルファイルの欄を開く・折りたたむ" />
                                         <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding FileSummary}" Style="{StaticResource Mono}" FontSize="11"
@@ -134,7 +134,7 @@
                                                         <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                                 Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                                ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。消した場合は「この商品から外す」で外せます。">
+                                                                ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
                                                             <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
                                                         </Border>
                                                         <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
@@ -189,7 +189,7 @@
                                                             CommandParameter="{Binding FirstPath}" />
                                                     <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
-                                                            ToolTip="この商品から外したファイルです。所持や容量には数えず、取り込みでこの商品に戻ることもありません。"
+                                                            ToolTip="この商品から外したファイルです。所持や容量には数えません。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="外したファイル" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                     </Border>
@@ -211,7 +211,7 @@
                                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                            ToolTip="記録にある場所にファイルがありません。移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。消した場合は「この商品から外す」で外せます。">
+                                                            ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
                                                         <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
                                                     </Border>
                                                     <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
@@ -233,7 +233,7 @@
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
                                                                 <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding FirstPath}"
-                                                                          ToolTip="このファイルのある場所を開きます。zipは中を見る形で開きます（取り出しはしません）。"
+                                                                          ToolTip="このファイルのある場所を開きます。zipは展開せずに中を開きます。"
                                                                           Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 <!--
                                                                     unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れにくい（#56）。
@@ -241,7 +241,7 @@
                                                                     （ユーザ指示 2026-09-19）
                                                                 -->
                                                                 <MenuItem Header="一時的に展開して開く" CommandParameter="{Binding}"
-                                                                          ToolTip="中身を一時フォルダに展開して、エクスプローラで開きます。アプリを閉じると消えます。元のzipはそのままです。"
+                                                                          ToolTip="一時フォルダに展開して開きます。展開した分はアプリを閉じると消えます。"
                                                                           Visibility="{Binding CanUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                           Command="{Binding PlacementTarget.Tag.UnpackCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                             </ContextMenu>
@@ -256,7 +256,7 @@
                                                 <!-- 商品の中身を変える操作だけは右端に離す（開く・送るの隣で押し間違えないように） -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
-                                                            ToolTip="このファイルを未確定に戻します。ファイルは消しません。この欄には灰色で残り、戻すこともできます。"
+                                                            ToolTip="未確定に戻します。ファイルは削除せず、あとで元に戻せます。"
                                                             Visibility="{Binding IsAttached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.DetachFileCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -338,7 +338,7 @@
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                         <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
                                                                                         <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding Entry}"
-                                                                                                  ToolTip="いま開いているUnityで、このunitypackageが入った場所をプロジェクトタブで示します。まだ入っていなければ、そう言うだけです。"
+                                                                                                  ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                     </ContextMenu>
                                                                                 </Button.ContextMenu>
@@ -365,7 +365,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,10,18,14"
-                                       Text="同じ中身のファイルは1件として数え、容量も1回だけ計上します（実際の占有量は統計で確認できます）。" />
+                                       Text="同じ中身のファイルは1件として数え、容量も1回だけ数えます。" />
                             <!-- どこへ送るかは押す前に見えていること。開いていないと何も起きない -->
                             <TextBlock Text="{Binding UnityTargetText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="18,0,18,14"
@@ -381,7 +381,7 @@
                                         VerticalAlignment="Center"
                                         Command="{Binding StopUnityCommand}"
                                         Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
+                                        ToolTip="送るのを中止します。残った取り込み画面は「Cancel」で閉じてください。" />
                                 <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" VerticalAlignment="Center"
                                            Foreground="{StaticResource Accent}" />

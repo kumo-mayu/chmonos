@@ -21,7 +21,7 @@ public sealed partial class ItemViewModel
 
     public bool HasOrphanedImages => OrphanedImageCount > 0;
 
-    public string OrphanedImageText => $"BOOTHから削除された画像 {OrphanedImageCount} 枚（手元には残っています）";
+    public string OrphanedImageText => $"BOOTHから削除され、手元に残っている画像 {OrphanedImageCount} 枚";
 
     public int SelectedIndex
     {
@@ -146,7 +146,7 @@ public sealed partial class ItemViewModel
 
     public bool HasUnavailableImages => UnavailableImageCount > 0;
 
-    public string UnavailableImageText => $"{UnavailableImageCount} 枚は取得できませんでした（商品を取り直すともう一度試します）";
+    public string UnavailableImageText => $"{UnavailableImageCount} 枚は取得できませんでした。商品情報を取り直すと、もう一度試します。";
 
     /// <summary>
     /// この商品の画像を行列の先頭で取る。
@@ -442,8 +442,7 @@ public sealed partial class ItemViewModel
 
         var answer = Services.Notice.Show(
             "この画像を削除します。\n\n"
-            + "ライブラリから消えるので、元に戻せません。\n"
-            + "（元のファイルが手元にあれば、もう一度追加できます）",
+            + "元に戻せません。元のファイルが手元にあれば、もう一度追加できます。",
             "画像を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

@@ -97,7 +97,7 @@
                     <!-- 改変の画面の右側では、ここで消す（ユーザ判断 2026-09-13：作るのはアバターの行、消すのは右のビュー） -->
                     <Button Content="この改変を削除" Style="{StaticResource DangerButton}" Margin="14,0,0,0"
                             Command="{Binding DeleteCommand}"
-                            ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトはそのまま残ります。"
+                            ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトは残ります。"
                             Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
             </Grid>
@@ -156,7 +156,7 @@
                                     <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
-                                            ToolTip="上から順に1件ずつUnityの取り込み画面を表示します。Unity側で閉じると次の1件が表示されます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                                            ToolTip="上から順に1件ずつ、Unityの取り込み画面を表示します。" />
                                 </StackPanel>
                             </Grid>
                             <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
@@ -166,7 +166,7 @@
                                         VerticalAlignment="Center"
                                         Command="{Binding StopUnityCommand}"
                                         Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
+                                        ToolTip="送るのを中止します。残った取り込み画面は「Cancel」で閉じてください。" />
                                 <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
                                            TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
@@ -206,7 +206,7 @@
                                                     <!-- 外した行の印（ユーザ指示 2026-09-19：消していない物と外した物を見分けられるように） -->
                                                     <Border DockPanel.Dock="Left" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center"
-                                                            ToolTip="この改変から外したものです。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
+                                                            ToolTip="この改変から外したものです。「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                     </Border>
@@ -223,7 +223,7 @@
                                                         Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextWrapping="Wrap" />
-                                                        <TextBlock Text="手元に無い（記録は残っています）" FontSize="11" Foreground="{StaticResource Warn}"
+                                                        <TextBlock Text="手元にありません。記録は残っています。" FontSize="11" Foreground="{StaticResource Warn}"
                                                                    Margin="0,6,0,0" />
                                                     </StackPanel>
                                                 </Border>
@@ -259,7 +259,7 @@
                                                         </Button.ContextMenu>
                                                     </Button>
                                                     <Button Content="外す" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
-                                                            ToolTip="この改変から外します。行と、使ったファイルの記録は薄く残り、「戻す」で戻せます。商品そのものは消えません。"
+                                                            ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
@@ -270,7 +270,7 @@
                                                             Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <Button Content="削除" Style="{StaticResource DangerButton}" Margin="5,0,0,0"
-                                                            ToolTip="この改変から完全に消します。使ったファイルの記録も消え、元に戻せません（押すと確かめます）。"
+                                                            ToolTip="この改変から完全に削除します。使ったファイルの記録も消え、元に戻せません。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
@@ -354,7 +354,7 @@
                                                                     <!-- 外した行の印（カードと同じ） -->
                                                                     <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
-                                                                            ToolTip="この改変から外したものです。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
+                                                                            ToolTip="この改変から外したものです。「戻す」で元に戻せます。"
                                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                         <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                                     </Border>
@@ -403,7 +403,7 @@
                                                                     </Button.ContextMenu>
                                                                 </Button>
                                                                 <Button Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
-                                                                        ToolTip="この改変から外します。行と、使ったファイルの記録は薄く残り、「戻す」で戻せます。商品そのものは消えません。"
+                                                                        ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                                         Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
@@ -413,7 +413,7 @@
                                                                         Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
                                                                 <Button Content="削除" Style="{StaticResource DangerButton}" Margin="4,0,0,0"
-                                                                        ToolTip="この改変から完全に消します。使ったファイルの記録も消え、元に戻せません（押すと確かめます）。"
+                                                                        ToolTip="この改変から完全に削除します。使ったファイルの記録も消え、元に戻せません。"
                                                                         Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
@@ -431,7 +431,7 @@
                             <controls:SuggestBox Source="{Binding ItemSuggestions}" AllowNew="False"
                                                  CommitCommand="{Binding AddMemberCommand}"
                                                  AutomationProperties.Name="使ったものを追加"
-                                                 Placeholder="使ったものを追加（商品名で探す）"
+                                                 Placeholder="使ったものを商品名で探して追加"
                                                  Margin="0,12,0,0" />
 
                             <!--
@@ -446,7 +446,7 @@
                                     <Button Content="プロジェクトの中を調べる" Style="{StaticResource SmallButton}"
                                             HorizontalAlignment="Right" VerticalAlignment="Center"
                                             Command="{Binding FindInProjectCommand}"
-                                            ToolTip="プロジェクトのAssetsとPackagesにあるファイルを、手元の商品のunitypackageの中身と比べます。プロジェクトは書き換えません。" />
+                                            ToolTip="プロジェクトのファイルを手元の商品と比べます。プロジェクトは書き換えません。" />
                                 </Grid>
                                 <TextBlock Text="{Binding ProjectFindText}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" Margin="0,6,0,0"
@@ -534,7 +534,7 @@
                                 <Button DockPanel.Dock="Right" Content="VRChatで着替える" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                         VerticalAlignment="Center" Command="{Binding ChangeAvatarCommand}"
                                         IsEnabled="{Binding CanChangeAvatar}" ToolTipService.ShowOnDisabled="True"
-                                        ToolTip="VRChatのOSC（このPCの 9000 番）へ、このアバターに着替える合図を送ります。VRChatでOSCを有効にしておく必要があります。IDが空のときは押せません。" />
+                                        ToolTip="VRChatへ着替えの合図を送ります。IDが空のときは押せません。" />
                                 <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center" FontFamily="Consolas"
                                          Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
                             </DockPanel>
@@ -596,7 +596,7 @@
                                 <Button Content="読み直す" Style="{StaticResource SmallButton}"
                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                         Command="{Binding RefreshProjectsCommand}"
-                                        ToolTip="Unity HubとVRChat Creator Companionの一覧を見ます。" />
+                                        ToolTip="Unity HubとVCCの一覧を読み直します。" />
                             </Grid>
 
                             <TextBlock Text="{Binding ProjectCandidatesEmptyText}" Style="{StaticResource Caption}"
@@ -688,7 +688,7 @@
                             <TextBox Height="120" Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                      Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="貫通の直し方やシェイプキーの値など、次に同じものを作るときに要ることを残せます。打ち終えると残ります。" />
+                                     ToolTip="貫通の直し方など、次に作るときに要ることを書けます。打ち終えると残ります。" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

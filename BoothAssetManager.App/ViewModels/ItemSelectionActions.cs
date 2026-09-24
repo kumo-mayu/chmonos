@@ -82,12 +82,11 @@ internal static class ItemSelectionActions
         {
             var (card, packages) = choosing[i];
             var labels = ItemFileActions.PackageLabels(packages);
-            labels.Add(new ListChoiceItem($"すべて（{packages.Count} 件をzipに入っている順に）", "依存するものが同じzipに入っているときは、こちらを選びます"));
+            labels.Add(new ListChoiceItem($"すべて（{packages.Count} 件）", "zipに入っている順に送ります。依存するものが同じzipにあるときに選びます"));
 
             var answer = ListChoice.Ask(
                 $"{title}（{i + 1}/{choosing.Count}）",
-                $"「{card.Name}」にはunitypackageが {packages.Count} 件あります。Unityの「{target}」へどれを送りますか？\n"
-                    + $"（選ぶ必要がある商品 {choosing.Count} 件のうち {i + 1} 件目）",
+                $"「{card.Name}」にはunitypackageが {packages.Count} 件あります。Unityの「{target}」へどれを送りますか？",
                 labels,
                 "これを送る",
                 skipText: "この商品を飛ばす");
@@ -114,7 +113,7 @@ internal static class ItemSelectionActions
         {
             // 全部飛ばしたときに黙って終わらない（I1 と同じ理由。2026-09-20 に実機で見た）
             Services.Notice.Show(
-                "送るものが無くなりました（選んだ商品をすべて飛ばしました）。",
+                "選んだ商品をすべて飛ばしたので、送るものはありません。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -122,7 +121,7 @@ internal static class ItemSelectionActions
         // 数えているのは unitypackage の数（選んだ商品の数ではない）。選び終えた後に、全体で何を送るかを1回だけ確かめる
         var confirm = Services.Notice.Show(
             $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
-            + "1件ずつUnityの取り込み画面が表示されます。Unity側で「Import」（入れないものは「Cancel」）を押すと、次の1件が表示されます。"
+            + "1件ずつUnityの取り込み画面が表示されます。「Import」か「Cancel」を押すと、次の1件が表示されます。"
             + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
             + (notSending.Count > 0 ? $"\n飛ばすと選んだ {notSending.Count} 件は送りません。" : string.Empty),
             title,
@@ -191,7 +190,7 @@ internal static class ItemSelectionActions
             title,
             $"選んだ {cards.Count} 件を改変に追加します。",
             // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
-            "どのファイルを使ったかは残りません（商品ページからUnityへ送ると残ります）。",
+            "使ったファイルは記録されません。記録するには、商品ページからUnityへ送ってください。",
             (await services.Modifications.LoadAllAsync()).Modifications,
             existingLabel: "今ある改変に追加",
             commitLabel: "追加",
@@ -221,7 +220,7 @@ internal static class ItemSelectionActions
         Services.Notice.Show(
             skipped == 0
                 ? $"「{record.Name}」に {added} 件を追加しました。"
-                : $"「{record.Name}」に {added} 件を追加しました。{skipped} 件は既に入っていたので、重ねて追加していません。",
+                : $"「{record.Name}」に {added} 件を追加しました。{skipped} 件は既に入っています。",
             title,
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);

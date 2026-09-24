@@ -56,7 +56,7 @@ internal static class ItemUnityActions
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
         var answer = Services.Notice.Show(
             $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
-            + "Unity側で取り込む内容の一覧が表示されるので、そこで確認してから取り込めます。",
+            + "Unityの取り込み画面で内容を確認してから取り込めます。",
             title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -140,7 +140,7 @@ internal static class ItemUnityActions
             projectPath is not null
                 ? $"送り先：Unityの「{editor.ProjectName}」"
                 : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
-                    + "（一覧に無いプロジェクトなので、改変はすべて表示しています）",
+                    + "。すべての改変から選べます。",
             records,
             existingLabel: "このプロジェクトの改変に追加",
             commitLabel: "追加して送る",
@@ -214,7 +214,7 @@ internal static class ItemUnityActions
         // 選ぶ門は「送れません」と言うので、開いていないときはこちらで「示せない」と言う
         if (UnityEditors.Open().Count == 0)
         {
-            notify("Unityが開いていないので、示せません。プロジェクトを開いてから、もう一度選んでください。", failed: true);
+            notify("Unityが開いていません。プロジェクトを開いてから、もう一度選んでください。", failed: true);
             return;
         }
 
@@ -226,8 +226,8 @@ internal static class ItemUnityActions
 
         if (await ProjectPathOf(editor) is not { } projectPath)
         {
-            notify($"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の場所が分からないので、中を調べられません"
-                + "（Unity HubにもVRChat Creator Companionにも載っていないプロジェクトです）。", failed: true);
+            notify($"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の中を調べられません。"
+                + "Unity HubにもVRChat Creator Companionにも無いプロジェクトです。", failed: true);
             return;
         }
 

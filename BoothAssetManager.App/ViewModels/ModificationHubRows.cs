@@ -214,8 +214,8 @@ public sealed class HubProjectGroup(string key, bool openByDefault, bool forceOp
     public string OpenHint => CanOpen
         ? "既に開いていれば、そのUnityを手前に出します。"
         : Candidate is null
-            ? "このまとまりはプロジェクトに紐付いていないので、開くものがありません。"
-            : "紐付けたフォルダが見つかりません。場所が変わったなら、改変の右側で紐付け直してください。";
+            ? "プロジェクトに紐付いていないので開けません。"
+            : "紐付けたフォルダが見つかりません。改変の右側で紐付け直してください。";
 
     public string DetailText => Candidate is null
         ? "改変の右側でプロジェクトを紐付けると、そのプロジェクトの下に並びます"
@@ -279,7 +279,7 @@ public sealed class HubProjectDetail
     /// <summary>押せないときの理由も出す（`ui-rules.md`・E11）。</summary>
     public string OpenProjectHint => Exists
         ? "既に開いていれば、そのUnityを手前に出します。"
-        : "このフォルダが見つかりません。場所が変わったなら、改変の右側で紐付け直してください。";
+        : "このフォルダが見つかりません。改変の右側で紐付け直してください。";
 
     public bool IsMissing => !Candidate.Exists;
 
@@ -292,7 +292,7 @@ public sealed class HubProjectDetail
         UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity HubとVCCの一覧",
         UnityProjectSource.Hub => "Unity Hubの一覧",
         UnityProjectSource.Vcc => "VCCの一覧",
-        _ => "どちらの一覧にも無い（改変から紐付けたもの）",
+        _ => "改変から紐付けたもの",
     };
 
     public string OpenText => IsOpen ? "開いています" : "閉じています";
@@ -312,7 +312,7 @@ public sealed class HubProjectDetail
         UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity Hub・VCC",
         UnityProjectSource.Hub => "Unity Hub",
         UnityProjectSource.Vcc => "VCC",
-        _ => "改変から紐付けたもの（どちらの一覧にも無い）",
+        _ => "改変から紐付けたもの",
     };
 
     public string LastWriteValue => Candidate.LastWrite is { } time ? $"{time.ToLocalTime():yyyy-MM-dd}" : string.Empty;

@@ -149,8 +149,8 @@ public static class UnityImportQueue
     public static void Stop() => _stop?.Cancel();
 
     /// <summary>止めたときの言い方（画面と記録で同じ文を使う）。</summary>
-    public const string StoppedMessage = "送るのをやめました。Unityの取り込み画面が残っていたら、"
-        + "Unity側で「Cancel」を押してください（「Import」を押すと入りますが、このアプリの記録には残りません）。";
+    public const string StoppedMessage = "送るのを中止しました。残った取り込み画面は、Unityで「Cancel」を押して閉じてください。"
+        + "「Import」を押すと、このアプリの記録には残りません。";
 
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
@@ -331,7 +331,7 @@ public static class UnityImportQueue
 
             if (dialog == IntPtr.Zero || FindFileNameBox(dialog) is not { } box)
             {
-                stop = "Unityのファイル選択の画面が表示されませんでした（Unityが作業中だった可能性があります）";
+                stop = "Unityのファイル選択の画面が表示されませんでした。Unityが作業中だった可能性があります";
                 outcomes.Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }

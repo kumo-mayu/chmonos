@@ -159,8 +159,8 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
     public string TargetText => Plan switch
     {
         null => string.Empty,
-        { TargetExistsLocally: true } plan => $"移し先：{plan.TargetName}（ID {plan.ToId}・既に手元にあります）",
-        { TargetFoundOnBooth: true } plan => $"移し先：ID {plan.ToId}（BOOTHにあります。移すときに取得します）",
+        { TargetExistsLocally: true } plan => $"移し先：{plan.TargetName}（ID {plan.ToId}）。手元にある商品です。",
+        { TargetFoundOnBooth: true } plan => $"移し先：ID {plan.ToId}。移すときにBOOTHから商品情報を取得します。",
         var plan => $"移し先：ID {plan.ToId}",
     };
 
@@ -168,7 +168,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
     public bool IsNotOnBooth => Plan is { TargetExistsLocally: false, TargetFoundOnBooth: false };
 
     public string NotOnBoothText =>
-        "BOOTHでは見つかりませんでした。このIDで登録することもできます（情報は取り直されません）。";
+        "BOOTHでは見つかりませんでした。このIDでも登録できますが、商品情報は取得できません。";
 
     public bool IsEmptySource => Plan is { IsEmpty: true };
 

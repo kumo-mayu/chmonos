@@ -99,7 +99,7 @@ public sealed partial class ItemViewModel
                 CanReattach = file.Detached && owner is null,
                 ReattachTip = owner is null
                     ? "このファイルをこの商品に戻します。未確定からは消えます。"
-                    : $"外した後で「{owner.DisplayName}」に紐付けてあるので、戻せません。先にそちらの商品から外してください。",
+                    : $"「{owner.DisplayName}」に紐付けてあるので戻せません。先にそちらから外してください。",
                 UnityPackageRows = packages.Select(package => new UnityPackageRow { Entry = package }).ToList(),
             });
         }
@@ -232,7 +232,7 @@ public sealed partial class ItemViewModel
         ArchiveNoticeText = archive is null
             ? string.Empty
             : $"{System.IO.Path.GetFileName(archive)} が見つかりました。"
-                + "そちらを取り込めば展開先は自動で対象から外れるので、この登録は解除してください。",
+                + "zipを取り込めば展開先は対象から外れるので、このフォルダの登録は外してください。",
     };
 
     private static bool s_filesExpanded = true;
