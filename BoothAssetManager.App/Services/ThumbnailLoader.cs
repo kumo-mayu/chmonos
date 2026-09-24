@@ -118,6 +118,7 @@ public sealed class ThumbnailLoader
             entry.Width, entry.Height, 96, 96, PixelFormats.Bgra32, null, entry.Pixels, entry.Width * 4);
         bitmap.Freeze();
         _live[key] = (bitmap, _clock);
+        CollectAfterBitmaps(entry.Pixels.Length);
 
         if (_live.Count > MaxLiveBitmaps)
         {
@@ -128,6 +129,56 @@ public sealed class ThumbnailLoader
         }
 
         return bitmap;
+    }
+
+    /// <summary>前回GCを頼んでから作ったWPFの絵の画素の量。</summary>
+    private long _createdSinceCollect;
+
+    /// <summary>
+    /// 作った絵がこれだけ溜まったら裏のGCを頼む。画面に並ぶカード（多くて40枚・150%の画面で1枚約0.45MB）の
+    /// 1画面ぶん余りで、流している間だけ数秒に1回になる
+    /// </summary>
+    private const long CreatedBytesPerCollect = 24L * 1024 * 1024;
+
+    /// <summary>
+    /// 作ったWPFの絵は、使われなくなっても画素がWPFの管理外に残り、GCが回って後片付けが走るまで返らない。
+    /// 流している間は、小さく読んだ絵を止まった所で大きく読み直して差し替えるので、捨てる絵が次々にできる。
+    /// 保持の画素を捨てたとき（<see cref="EvictIfNeeded"/>）の合図だけでは足りず、
+    /// 2000件を流す途中で、死んだ絵が438個・管理外に約50MB溜まっていた（2026-09-24 にダンプで数えた）。
+    /// 作った量で、画面を止めない形（背景のGC）で古い世代まで掃かせる
+    /// </summary>
+    private void CollectAfterBitmaps(long bytes)
+    {
+        _createdSinceCollect += bytes;
+        if (_createdSinceCollect < CreatedBytesPerCollect)
+        {
+            return;
+        }
+
+        _createdSinceCollect = 0;
+        GC.Collect(2, GCCollectionMode.Forced, blocking: false);
+    }
+
+    /// <summary>前回若い世代を掃かせてから復号した画素の量。</summary>
+    private long _decodedSinceYoungCollect;
+
+    private const long DecodedBytesPerYoungCollect = 8L * 1024 * 1024;
+
+    /// <summary>
+    /// 流している間は復号が続き、1枚ごとの作業の割り当てで若い世代が膨らんでから掃かれる。
+    /// 若い世代の大きさ（GCgen0size）を8MBにすると山が下がり固まりも減ったが、その設定は環境変数でしか効かず、
+    /// runtimeconfig に書いても読まれない（2026-09-24 に GC の回数で確かめた）。同じことを、復号した量で頼む
+    /// </summary>
+    private void CollectYoungAfterDecodes(long bytes)
+    {
+        _decodedSinceYoungCollect += bytes;
+        if (_decodedSinceYoungCollect < DecodedBytesPerYoungCollect)
+        {
+            return;
+        }
+
+        _decodedSinceYoungCollect = 0;
+        GC.Collect(1, GCCollectionMode.Forced, blocking: true);
     }
 
     /// <param name="budgetMegabytes">復号済み画像を保持する上限。</param>
@@ -548,6 +599,7 @@ public sealed class ThumbnailLoader
         _byKey[key] = entry;
         _usedBytes += entry.Bytes;
         EvictIfNeeded();
+        CollectYoungAfterDecodes(entry.Bytes);
         return entry;
     }
 
