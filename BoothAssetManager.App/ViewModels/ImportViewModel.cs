@@ -824,7 +824,7 @@ public sealed class ImportViewModel : ViewModelBase
         if (!kinds.Any(kind => kind.IsFolder || kind.IsFile))
         {
             _main.NoteImportNotStarted(
-                "ドロップしたファイルやフォルダが見つからず、取り込みを始めませんでした。動かしたか、ドライブがつながっていない可能性があります。場所を確かめて、もう一度ドロップしてください。");
+                "取り込みを始められませんでした。ドロップしたファイルやフォルダが見つかりません。場所を確かめて、もう一度ドロップしてください。");
             return;
         }
 
