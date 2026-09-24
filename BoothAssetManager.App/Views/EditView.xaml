@@ -661,7 +661,7 @@
                             <StackPanel>
                                 <TextBlock Text="買ったバリエーションに印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
-                                           ToolTip="空欄は未入力（支出に数えない）、0は無料配布です。同じバリエーションを2回買った（自分用に1つ、ギフトに1つなど）ときは［＋］で記録を足します。" />
+                                           ToolTip="空欄は未入力（支出に数えない）、0は無料配布です。同じバリエーションを2回買った（自分用に1つ、ギフトに1つなど）ときは［＋］で記録を追加します。" />
 
                                 <ItemsControl ItemsSource="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
@@ -706,7 +706,7 @@
                                                         <!-- 「＋」だけではファイルの結び付けか追加購入か分からなかった（ユーザ指摘）。何が起きるかを名乗らせる -->
                                                         <Button Content="＋ 追加購入" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 Command="{Binding AddPurchaseCommand}"
-                                                                ToolTip="この版をもう1回買った記録を足します（自分用に1つ、ギフトに1つなど）。" />
+                                                                ToolTip="この版をもう1回買った記録を追加します（自分用に1つ、ギフトに1つなど）。" />
                                                     </StackPanel>
 
                                                     <!--
@@ -835,7 +835,7 @@
                                                                       DisplayMemberPath="Display" Height="26" FontSize="11.5"
                                                                       ToolTip="このバリエーションのファイルを選びます。同じバリエーションに複数付けられます。" />
                                                             <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
-                                                            <TextBlock Text="ファイルを足す…" IsHitTestVisible="False" FontSize="11.5"
+                                                            <TextBlock Text="ファイルを追加…" IsHitTestVisible="False" FontSize="11.5"
                                                                        Foreground="{StaticResource TextFaint}" VerticalAlignment="Center" Margin="8,0,24,0"
                                                                        Visibility="{Binding Text, ElementName=FileChoiceBox,
                                                                                     Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />

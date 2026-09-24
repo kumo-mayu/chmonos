@@ -850,7 +850,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
             $"「{from}」を「{to}」に統合します。\n\n"
             + (preview.ItemCount == 0
                 ? "どの商品も評価していないので、商品側の書き換えはありません。\n"
-                : $"{preview.ItemCount} 件の商品を書き換えます。メモは「{to}」側へ書き足します。\n")
+                : $"{preview.ItemCount} 件の商品を書き換えます。メモは「{to}」側へ追記します。\n")
             + (preview.Conflicts > 0
                 ? $"両方に値が入っている {preview.Conflicts} 件は、"
                     + $"{(keep == AttributeMergeValue.KeepTarget ? $"「{to}」" : $"「{from}」")}の値を残します。\n"

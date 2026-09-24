@@ -189,7 +189,7 @@
                             -->
                             <TextBlock Text="編集画面で付けたユーザータグは、その場で一覧に入ります。ここに出ているのは、アプリの外で保存先のファイルを直したか、一覧から消した後に商品側が残っている場合です。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に足し、変わったなら既にあるユーザータグへ統合し、もう使わないなら外してください。"
+                            <TextBlock Text="このままでは絞り込みに出てきません。名前が正しければ一覧に追加し、変わったなら既にあるユーザータグへ統合し、もう使わないなら外してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
 
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
@@ -331,9 +331,9 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <ToggleButton x:Name="AddSubToggle" Width="30" Height="30" Cursor="Hand"
                                                               Focusable="False" IsChecked="{Binding IsAddingSub, Mode=TwoWay}"
-                                                              AutomationProperties.Name="小分類を足す"
+                                                              AutomationProperties.Name="小分類を追加"
                                                               ToolTipService.InitialShowDelay="250"
-                                                              ToolTip="小分類を足す（押すと名前の入力欄が出ます）">
+                                                              ToolTip="小分類を追加（押すと名前の入力欄が出ます）">
                                                     <ToggleButton.Template>
                                                         <ControlTemplate TargetType="ToggleButton">
                                                             <Grid Background="Transparent">

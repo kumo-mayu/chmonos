@@ -333,7 +333,7 @@
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
                                                                                                   ToolTip="開いているUnityへ送ります。送る内容はUnity側で確認できます。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                                        <MenuItem Header="改変に足して送る" CommandParameter="{Binding Entry}"
+                                                                                        <MenuItem Header="改変に追加して送る" CommandParameter="{Binding Entry}"
                                                                                                   ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                         <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->

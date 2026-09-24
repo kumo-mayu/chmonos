@@ -156,7 +156,7 @@
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="対応アバターを手で足します。出品者が書き漏らしている場合や、検出が拾えなかった場合に。"
+                                                            ToolTip="対応アバターを手で追加します。出品者が書き漏らしている場合や、検出が拾えなかった場合に。"
                                                             Visibility="{Binding DataContext.IsAddingAvatar,
                                                                          RelativeSource={RelativeSource AncestorType=UserControl},
                                                                          Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -167,7 +167,7 @@
                                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                          IconSelector="{Binding DataContext.AvatarIconSelector,
                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                         AllowNew="False" Placeholder="足すアバターの名前"
+                                                                         AllowNew="False" Placeholder="追加するアバターの名前"
                                                                          IsVisibleChanged="OnAddBoxVisibleChanged"
                                                                          Visibility="{Binding DataContext.IsAddingAvatar,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl},

@@ -1583,7 +1583,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     private static string MemoNotice(string? memo, string target)
         => string.IsNullOrWhiteSpace(memo)
             ? string.Empty
-            : $"メモは「{target}」側に「「元の名前」から統合：…」として書き足します。\n";
+            : $"メモは「{target}」側に「「元の名前」から統合：…」として追記します。\n";
 
     /// <summary>
     /// 人が押した操作の確認（アイコンは Question で揃える。`ui-rules.md`・D9）。

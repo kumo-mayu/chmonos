@@ -324,7 +324,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </summary>
     public bool IsEditLocked => _main.IsAwaitingDetection(Item.Id);
 
-    public string EditLockText => "取り込みの途中です。対応アバターの検出が終わると編集できます（見る・Unityへ送る・改変に足すは今でもできます）";
+    public string EditLockText => "取り込みの途中です。対応アバターの検出が終わると編集できます（見る・Unityへ送る・改変に追加は今でもできます）";
 
     public string EditButtonTip => IsEditLocked ? EditLockText : "分類・タグ・属性などを直す画面を開きます";
 

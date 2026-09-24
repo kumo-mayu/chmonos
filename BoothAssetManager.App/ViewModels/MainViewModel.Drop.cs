@@ -136,7 +136,7 @@ public sealed partial class MainViewModel
                     fetched is Core.Commands.CommandResult.Failed failure
                         ? failure.Message
                         : "BOOTHから画像を取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。",
-                    "画像を足す",
+                    "画像を追加",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);
                 return;
@@ -174,9 +174,9 @@ public sealed partial class MainViewModel
             "BOOTHの画像を受け取りました",
             "この画像をどうしますか？",
             $"商品を開く …… 商品{name}のページへ移ります\n"
-            + $"画像として足す …… いま開いている「{item.Name}」の画像に加えます",
+            + $"画像として追加 …… いま開いている「{item.Name}」の画像に加えます",
             "商品を開く",
-            "画像として足す");
+            "画像として追加");
 
         switch (answer)
         {

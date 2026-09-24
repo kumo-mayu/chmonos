@@ -176,7 +176,7 @@ public static class ItemIdChange
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.BoothImageChoice,
-                Text = $"BOOTHの画像に付けたサムネイルの指定・役割 {boothChoices} 件（自分で足した画像とその指定は移ります）",
+                Text = $"BOOTHの画像に付けたサムネイルの指定・役割 {boothChoices} 件（自分で追加した画像とその指定は移ります）",
             });
         }
 

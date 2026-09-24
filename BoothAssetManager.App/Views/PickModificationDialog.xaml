@@ -55,7 +55,7 @@
                                                    Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
 
-                                    <Button Grid.Column="1" Content="これに足す" Style="{StaticResource SmallButton}"
+                                    <Button Grid.Column="1" Content="これに追加" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding DataContext.PickCommand,
                                                       RelativeSource={RelativeSource AncestorType=Window}}"
@@ -72,7 +72,7 @@
                    Margin="0,18,0,0"
                    Visibility="{Binding HasRows, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-        <RadioButton Content="新しい改変を作って、そこに足す" GroupName="Where" Margin="0,14,0,0"
+        <RadioButton Content="新しい改変を作って、そこに追加" GroupName="Where" Margin="0,14,0,0"
                      IsChecked="{Binding MakingNew, Mode=TwoWay}"
                      Foreground="{StaticResource Text}" />
 

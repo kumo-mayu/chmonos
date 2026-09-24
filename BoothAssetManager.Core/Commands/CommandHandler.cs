@@ -365,7 +365,7 @@ public sealed class CommandHandler
                     ItemIdChangeOutcome.SameId => new CommandResult.Failed("同じIDです。"),
                     ItemIdChangeOutcome.SourceMissing => new CommandResult.Failed("元の商品が見つかりませんでした。"),
                     ItemIdChangeOutcome.ImagesNotMoved => new CommandResult.Failed(
-                        "自分で足した画像を移せなかったので、IDは変えていません（元の商品はそのままです）。ほかのアプリが画像を開いていないか確かめて、もう一度押してください。"),
+                        "自分で追加した画像を移せなかったので、IDは変えていません（元の商品はそのままです）。ほかのアプリが画像を開いていないか確かめて、もう一度押してください。"),
                     _ => new CommandResult.Failed("移した先を用意できませんでした。"),
                 };
 

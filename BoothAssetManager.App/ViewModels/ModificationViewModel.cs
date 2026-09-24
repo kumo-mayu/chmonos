@@ -460,10 +460,10 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             }
 
             ProjectFindText = FoundInProject.Count > 0
-                ? $"このプロジェクトに入っている手元の商品が {FoundInProject.Count} 件ありました。この改変に使ったものなら「足す」を押してください。"
+                ? $"このプロジェクトに入っている手元の商品が {FoundInProject.Count} 件ありました。この改変に使ったものなら「追加」を押してください。"
                 : matches.Count > 0
                     ? "このプロジェクトに入っている手元の商品は、すべて「使ったもの」に入っています。"
-                    : "このプロジェクトの中に、手元の商品のファイルは見つかりませんでした。数えられるのは zip の中に unitypackage がある商品だけです。使ったものは上の欄から商品名で足せます。";
+                    : "このプロジェクトの中に、手元の商品のファイルは見つかりませんでした。数えられるのは zip の中に unitypackage がある商品だけです。使ったものは上の欄から商品名で追加できます。";
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -493,7 +493,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         FoundInProject.Remove(row);
-        Status = $"「{row.Name}」を足しました。";
+        Status = $"「{row.Name}」を追加しました。";
         await ReloadAsync();
     }
 
@@ -795,7 +795,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// **次にやることを書く。**空欄だけだと、どうやって足すのか分からない。
     /// </summary>
     public string MembersEmptyText =>
-        "まだ足していません。下の欄から探して足すか、商品ページの「改変に足して送る」でUnityへ送ると自動で入ります。";
+        "まだ追加していません。下の欄から探して追加するか、商品ページの「改変に追加して送る」でUnityへ送ると自動で入ります。";
 
     public ObservableCollection<ModificationImageViewModel> Images { get; } = [];
 
@@ -869,7 +869,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public bool ShowsImageRoles => false;
 
-    public string AddImageTip => "この改変に写真を足す（ここへ落としても、Ctrl+Vで貼っても入ります）";
+    public string AddImageTip => "この改変に写真を追加（ここへ落としても、Ctrl+Vで貼っても入ります）";
 
     // 商品の画像にだけある案内（BOOTH からの取得・削除された画像・自分で足した枚数）は出さない
     public bool HasUserImages => false;
@@ -1323,7 +1323,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var how = canRelink
             ? $"戻すときは、下の「紐付ける先」から「{oldName}」をもう一度選んでください。"
             : $"「{oldName}」は Unity Hub・VRChat Creator Companion の一覧に無いので、この画面からは付け直せません"
-              + "（Hub か VCC にそのプロジェクトを足すと、「紐付ける先」に出ます）。";
+              + "（Hub か VCC にそのプロジェクトを追加すると、「紐付ける先」に出ます）。";
         var what = row is null
             ? $"Unityプロジェクト「{oldName}」の紐付けを外します。"
             : $"Unityプロジェクトの紐付けを「{oldName}」から「{row.Name}」に替えます。";
@@ -1511,7 +1511,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         Status = result is CommandResult.Failed failed
             ? failed.Message
-            : $"「{item.DisplayName}」を足しました。";
+            : $"「{item.DisplayName}」を追加しました。";
 
         await ReloadAsync();
     }
@@ -1551,7 +1551,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var answer = Services.Notice.Show(
             $"「{row.Name}」をこの改変から完全に消します。\n\n"
             + (row.IsFromUnity
-                ? $"使ったファイル（{row.SourceText}）の記録も消えます。足し直しても、Unity へ送るまで記録は戻りません。\n\n"
+                ? $"使ったファイル（{row.SourceText}）の記録も消えます。追加し直しても、Unity へ送るまで記録は戻りません。\n\n"
                 : string.Empty)
             + "この操作は元に戻せません。",
             "使ったものを削除",

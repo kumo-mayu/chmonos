@@ -68,7 +68,7 @@ public sealed partial class ItemViewModel
     public string GalleryCounter => Images.Count <= 1 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
 
     /// <summary>画像が1枚も無いとき、大きい絵の所に出す（ユーザ指示 2026-09-14：無いことが分かるようにする）。</summary>
-    public string GalleryEmptyText => Images.Count > 0 ? string.Empty : "この商品の画像はまだありません。\n「＋」で自分の画像を足せます。";
+    public string GalleryEmptyText => Images.Count > 0 ? string.Empty : "この商品の画像はまだありません。\n「＋」で自分の画像を追加できます。";
 
     /// <summary>サムネイル一覧にマウスを乗せるだけで切り替えるか。設定で変えられる。</summary>
     public bool SwitchOnHover => _services.Settings.GallerySwitchOnHover;
@@ -312,7 +312,7 @@ public sealed partial class ItemViewModel
 
     public bool ShowsImageRoles => true;
 
-    public string AddImageTip => "この商品に画像を足す";
+    public string AddImageTip => "この商品に画像を追加";
 
     // ---- 画像の役割 ----
 
@@ -443,7 +443,7 @@ public sealed partial class ItemViewModel
         var answer = Services.Notice.Show(
             "この画像を削除します。\n\n"
             + "ライブラリから消えるので、元に戻せません。\n"
-            + "（元のファイルが手元にあれば、もう一度足せます）",
+            + "（元のファイルが手元にあれば、もう一度追加できます）",
             "画像を削除",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -471,7 +471,7 @@ public sealed partial class ItemViewModel
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "この商品に足す画像を選ぶ",
+            Title = "この商品に追加する画像を選ぶ",
             Filter = "画像 (*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp",
             Multiselect = true,
         };
@@ -518,7 +518,7 @@ public sealed partial class ItemViewModel
 
         if (added > 0)
         {
-            RefreshStatus = $"画像を {added} 枚足しました。";
+            RefreshStatus = $"画像を {added} 枚追加しました。";
             await ReloadImagesAsync(last);
         }
     }
@@ -618,7 +618,7 @@ public sealed partial class ItemViewModel
     public bool HasUserImages => Images.Any(image => image.IsUserAdded);
 
     public string UserImageText
-        => $"自分で足した画像 {Images.Count(image => image.IsUserAdded)} 枚";
+        => $"自分で追加した画像 {Images.Count(image => image.IsUserAdded)} 枚";
     private void SelectImage(object? parameter)
     {
         if (parameter is GalleryImage image)

@@ -133,7 +133,7 @@
                                                   ToolTip="ファイルごと消します。元に戻せません（押すと確かめます）。"
                                                   Visibility="{Binding CurrentIsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <Separator />
-                                        <MenuItem Header="画像を足す…" Command="{Binding AddImageCommand}" />
+                                        <MenuItem Header="画像を追加…" Command="{Binding AddImageCommand}" />
                                     </ContextMenu>
                                 </Grid.ContextMenu>
 

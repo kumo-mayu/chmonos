@@ -430,8 +430,8 @@
                             <!-- 手で足す入口。手元にある商品だけを候補に出す -->
                             <controls:SuggestBox Source="{Binding ItemSuggestions}" AllowNew="False"
                                                  CommitCommand="{Binding AddMemberCommand}"
-                                                 AutomationProperties.Name="使ったものを足す"
-                                                 Placeholder="使ったものを足す（商品名で探す）"
+                                                 AutomationProperties.Name="使ったものを追加"
+                                                 Placeholder="使ったものを追加（商品名で探す）"
                                                  Margin="0,12,0,0" />
 
                             <!--
@@ -464,9 +464,9 @@
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                                     </StackPanel>
-                                                    <Button Grid.Column="1" Content="足す" Style="{StaticResource SmallButton}"
+                                                    <Button Grid.Column="1" Content="追加" Style="{StaticResource SmallButton}"
                                                             VerticalAlignment="Center"
-                                                            ToolTip="「使ったもの」の最後に足します。あとで並べ替えたり外したりできます。"
+                                                            ToolTip="「使ったもの」の最後に追加します。あとで並べ替えたり外したりできます。"
                                                             Command="{Binding DataContext.AddCandidateCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />

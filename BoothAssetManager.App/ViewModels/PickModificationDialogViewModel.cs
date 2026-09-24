@@ -217,7 +217,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
             ? NewName.Trim().Length == 0
                 ? "新しい改変の名前を入れてください。"
                 : "どのアバターの改変かを選んでください。"
-            : "足す先の改変を選んでください。";
+            : "追加する先の改変を選んでください。";
 
     private void Pick(PickModificationRowViewModel? row)
     {

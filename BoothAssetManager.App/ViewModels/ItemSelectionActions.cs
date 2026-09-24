@@ -180,7 +180,7 @@ internal static class ItemSelectionActions
     /// <returns>改変を書き換えたか（呼ぶ側が「着せているアバター」の絞り込みを読み直すため）。</returns>
     public static async Task<bool> AddToModificationAsync(AppServiceContainer services, IReadOnlyList<ItemCardViewModel> cards)
     {
-        const string title = "改変に足す";
+        const string title = "改変に追加";
         if (cards.Count == 0)
         {
             return false;
@@ -189,13 +189,13 @@ internal static class ItemSelectionActions
         var model = ModificationPicking.BuildDialog(
             services,
             title,
-            $"選んだ {cards.Count} 件を改変に足します。",
+            $"選んだ {cards.Count} 件を改変に追加します。",
             // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
             "どのファイルを使ったかは残りません（商品ページからUnityへ送ると残ります）。",
             (await services.Modifications.LoadAllAsync()).Modifications,
-            existingLabel: "今ある改変に足す",
-            commitLabel: "足す",
-            emptyText: "改変がまだありません。新しく作って、そこに足せます。");
+            existingLabel: "今ある改変に追加",
+            commitLabel: "追加",
+            emptyText: "改変がまだありません。新しく作って、そこに追加できます。");
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
@@ -220,8 +220,8 @@ internal static class ItemSelectionActions
         var skipped = cards.Count - added;
         Services.Notice.Show(
             skipped == 0
-                ? $"「{record.Name}」に {added} 件を足しました。"
-                : $"「{record.Name}」に {added} 件を足しました。{skipped} 件は既に入っていたので、重ねて足していません。",
+                ? $"「{record.Name}」に {added} 件を追加しました。"
+                : $"「{record.Name}」に {added} 件を追加しました。{skipped} 件は既に入っていたので、重ねて追加していません。",
             title,
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);

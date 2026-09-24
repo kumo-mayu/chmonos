@@ -64,7 +64,7 @@ public sealed partial class ItemViewModel
         if (parameter is Core.Services.UnityPackageEntry package)
         {
             await ItemUnityActions.SendWithRecordAsync(
-                _services, Item, package, Notices.LineOrWindow("改変に足して送る", text => UnityRecordNotice = text), SendUi);
+                _services, Item, package, Notices.LineOrWindow("改変に追加して送る", text => UnityRecordNotice = text), SendUi);
         }
     }
 
@@ -76,18 +76,18 @@ public sealed partial class ItemViewModel
     /// </summary>
     private async Task AddToModificationAsync()
     {
-        const string title = "改変に足す";
+        const string title = "改変に追加";
 
         var model = ModificationPicking.BuildDialog(
             _services,
             title,
-            $"「{Item.DisplayName}」を改変に足します。",
+            $"「{Item.DisplayName}」を改変に追加します。",
             // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
             "どのファイルを使ったかは残りません（Unityへ送ると残ります）。",
             (await _services.Modifications.LoadAllAsync()).Modifications,
-            existingLabel: "今ある改変に足す",
-            commitLabel: "足す",
-            emptyText: "改変がまだありません。新しく作って、そこに足せます。");
+            existingLabel: "今ある改変に追加",
+            commitLabel: "追加",
+            emptyText: "改変がまだありません。新しく作って、そこに追加できます。");
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
@@ -100,7 +100,7 @@ public sealed partial class ItemViewModel
             return;
         }
 
-        UnityRecordNotice = $"「{record.Name}」に足しました。";
+        UnityRecordNotice = $"「{record.Name}」に追加しました。";
         await LoadModificationsAsync();
     }
     private string? _unityRecordNotice;
@@ -136,7 +136,7 @@ public sealed partial class ItemViewModel
     public bool HasUsedInModifications => UsedInModifications.Count > 0;
 
     public string UsedInModificationsEmptyText =>
-        "まだどの改変にも入っていません。下の「改変に足す」で残せます。";
+        "まだどの改変にも入っていません。下の「改変に追加」で残せます。";
 
     /// <summary>改変の詳細へ。戻るとこの商品へ帰る（見比べに戻ってくる。画面の履歴・U23）。</summary>
     private void OpenModification(UsedInModificationRowViewModel? row)

@@ -45,7 +45,7 @@
             <MenuItem Header="Unityへ送る…" CommandParameter="{Binding}"
                       ToolTip="開いているUnityへ送ります。unitypackage が2つ以上あれば、どれを送るか選べます。"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-            <MenuItem Header="改変に足して送る…" CommandParameter="{Binding}"
+            <MenuItem Header="改変に追加して送る…" CommandParameter="{Binding}"
                       ToolTip="送ったうえで、どの改変に使ったかを残します。"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
             <MenuItem Header="選択（Unity のプロジェクトタブで示す）…" CommandParameter="{Binding}"
@@ -440,9 +440,9 @@
                     <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                             Command="{Binding AddSelectionToFavoritesCommand}"
                             ToolTip="選んだ商品に星を付けます。付いている物はそのままです。" />
-                    <Button Content="改変に足す…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                    <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding AddSelectionToModificationCommand}"
-                            ToolTip="どの改変に足すかを選んでから、選んだ商品をまとめて足します。" />
+                            ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
                     <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="選んだ商品の unitypackage を、開いているUnityへ1件ずつ送ります。Unity の取り込み画面を閉じると次の1件が出ます。" />

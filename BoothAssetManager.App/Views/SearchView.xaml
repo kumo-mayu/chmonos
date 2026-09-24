@@ -226,7 +226,7 @@
                                 Style="{StaticResource HistorySlotButton}" Foreground="{StaticResource Accent}"
                                 FontSize="12" VerticalAlignment="Center" Padding="4,2"
                                 AutomationProperties.Name="条件をクリア"
-                                ToolTip="打った文字と条件の値を戻します（足した条件は残ります）。押す前の条件は検索の履歴に積むので、履歴から戻せます。" />
+                                ToolTip="打った文字と条件の値を戻します（追加した条件は残ります）。押す前の条件は検索の履歴に残すので、履歴から戻せます。" />
                     </Grid>
                 </Border>
 
@@ -240,7 +240,7 @@
                             <MenuItem Header="＋ 条件を追加 ▾" ItemsSource="{Binding ModuleMenu}" Height="30" Padding="10,0"
                                       FontSize="12.5" Foreground="{StaticResource Accent}"
                                       AutomationProperties.Name="条件を追加"
-                                      ToolTip="絞り込みに使う条件を足します。足してある条件は選べません。">
+                                      ToolTip="絞り込みに使う条件を追加します。追加済みの条件は選べません。">
                                 <MenuItem.ItemContainerStyle>
                                     <Style TargetType="MenuItem">
                                         <Setter Property="Header" Value="{Binding Title}" />
@@ -298,7 +298,7 @@
                             </MenuItem>
                         </Menu>
 
-                        <TextBlock Text="条件がありません。「＋ 条件を追加」から足せます。" Style="{StaticResource Caption}"
+                        <TextBlock Text="条件がありません。「＋ 条件を追加」から追加できます。" Style="{StaticResource Caption}"
                                    TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding HasModules, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
@@ -592,8 +592,8 @@
                                 <DataTemplate DataType="{x:Type vm:AttributeModule}">
                                     <StackPanel>
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
-                                                             CommitCommand="{Binding AddCommand}" Placeholder="属性を選んで足す"
-                                                             AutomationProperties.Name="属性を選んで足す"
+                                                             CommitCommand="{Binding AddCommand}" Placeholder="属性を選んで追加"
+                                                             AutomationProperties.Name="属性を選んで追加"
                                                              Visibility="{Binding HasSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <TextBlock Text="属性がまだ登録されていません。編集画面から追加できます。" Style="{StaticResource Caption}"
                                                    TextWrapping="Wrap"
@@ -636,7 +636,7 @@
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{StaticResource Text}" />
                                         </CheckBox>
-                                        <TextBlock Text="足した属性は、評価済みの商品だけが対象になります。" Style="{StaticResource Caption}"
+                                        <TextBlock Text="追加した属性は、評価済みの商品だけが対象になります。" Style="{StaticResource Caption}"
                                                    TextWrapping="Wrap" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </DataTemplate>

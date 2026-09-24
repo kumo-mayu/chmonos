@@ -29,7 +29,7 @@ public sealed class MergeAttributeDialogViewModel : ViewModelBase
 
     public string ImpactText => Preview.ItemCount == 0
         ? "どの商品も評価していないので、商品側の書き換えはありません。"
-        : $"{Preview.ItemCount} 件の商品を書き換えます。メモは「{To}」側へ書き足します。";
+        : $"{Preview.ItemCount} 件の商品を書き換えます。メモは「{To}」側へ追記します。";
 
     /// <summary>値がぶつかるitemがあるときだけ、どちらを残すか聞く。</summary>
     public bool AsksAboutValues => Preview.Conflicts > 0;

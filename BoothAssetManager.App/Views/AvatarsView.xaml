@@ -658,13 +658,13 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBox Width="200" Padding="7,5"
                                                  MaxLength="60" Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="検出が拾えなかった呼び方を足せます。">
+                                                 ToolTip="検出が拾えなかった呼び方を追加できます。">
                                             <!-- Enter で決められるように揃える（I12） -->
                                             <TextBox.InputBindings>
                                                 <KeyBinding Key="Enter" Command="{Binding AddAliasCommand}" />
                                             </TextBox.InputBindings>
                                         </TextBox>
-                                        <Button Content="呼び方を足す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                        <Button Content="呼び方を追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                 Command="{Binding AddAliasCommand}" />
                                     </StackPanel>
                                         <StackPanel Margin="0,10,0,0"

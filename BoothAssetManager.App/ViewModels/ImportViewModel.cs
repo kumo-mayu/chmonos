@@ -189,7 +189,7 @@ public sealed class ImportViewModel : ViewModelBase
             if (result.StillMissing > 0)
             {
                 parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした"
-                    + "（監視対象に足してからもう一度押すと、その中も探します）");
+                    + "（監視対象に追加してからもう一度押すと、その中も探します）");
             }
 
             if (result.Unreachable.Count > 0)
@@ -296,7 +296,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 実行中は「積む」になる。押した先が別の取り込みではなく**今の取り込み**である
     /// ことが、文言だけで分かるようにする。
     /// </summary>
-    public string StartText => IsRunning ? "今の取り込みに積む" : "取り込みを開始";
+    public string StartText => IsRunning ? "今の取り込みに追加" : "取り込みを開始";
 
     private string? _interruptedText;
 
@@ -372,7 +372,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// <summary>「続きを捨てる」の説明（ボタンのツールチップ）。窓と同じことを短く言う。</summary>
     public static string DiscardInterruptedTip =>
         "前回の取り込みの続きの記録を捨てます。取り込めた商品はそのまま残ります。\n"
-        + "捨てた記録は戻せません。続きを取りたくなったら、同じフォルダを取り込み対象に積み直して始めてください。";
+        + "捨てた記録は戻せません。続きを取りたくなったら、同じフォルダをもう一度取り込み対象に追加して始めてください。";
 
     private async Task DiscardInterruptedAsync()
     {
@@ -381,7 +381,7 @@ public sealed class ImportViewModel : ViewModelBase
             + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取りに行きません。"
             // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う
             + "BOOTH の不調で取れなかった商品の記録も一緒に消えます（ファイルは消えません）。\n\n"
-            + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に積む」を押し、"
+            + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に追加」を押し、"
             + "「取り込みを開始」を押してください。",
             "取り込みの続きを捨てる",
             System.Windows.MessageBoxButton.OKCancel,
@@ -1094,7 +1094,7 @@ public sealed class ImportViewModel : ViewModelBase
                 Kind = Core.Models.NotificationKind.UnpackedFilesImported,
                 Title = "展開したフォルダの中のファイルを取り込みました",
                 Detail = $"自動で始めた取り込みで、zipを展開したフォルダの中のファイルが {count} 件ありました。"
-                    + "そのまま取り込んであります。元のzipの方で持ち直すなら、取り込み画面でそのzipを対象に積んでから"
+                    + "そのまま取り込んであります。元のzipの方で持ち直すなら、取り込み画面でそのzipを対象に追加してから"
                     + "「取り込みを開始」を押し、展開先は「展開先フォルダの削除」で片付けられます。",
                 CreatedAt = DateTimeOffset.Now,
             }));
@@ -1210,8 +1210,8 @@ public sealed class ImportViewModel : ViewModelBase
         await SaveFoldersAsync();
 
         StackNotice = added == 0
-            ? "積むものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
-            : $"{added} 件を今の取り込みに積みました。順番が来たらスキャンします。";
+            ? "追加するものはありませんでした。選んだフォルダはすべて今の取り込みに入っています。"
+            : $"{added} 件を今の取り込みに追加しました。順番が来たらスキャンします。";
     }
 
     private async Task RunAsync(bool ask = true)

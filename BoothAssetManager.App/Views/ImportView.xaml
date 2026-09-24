@@ -216,7 +216,7 @@
                             <StackPanel>
                                 <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" />
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に積む」を押すと、今回の取り込み対象に入ります。" />
+                                           Text="これまでに取り込んだフォルダとファイルです。ここに並んでいるだけでは取り込みません。「対象に追加」を押すと、今回の取り込み対象に入ります。" />
                             </StackPanel>
                         </Border>
 
@@ -232,7 +232,7 @@
                                         <Border.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
-                                                <MenuItem Header="取り込み対象に積む" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="取り込み対象に追加" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
                                                 <MenuItem Header="履歴から消す" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
@@ -247,7 +247,7 @@
                                                     Command="{Binding DataContext.ForgetHistoryCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button DockPanel.Dock="Right" Content="対象に積む" MinWidth="88" Height="27"
+                                            <Button DockPanel.Dock="Right" Content="対象に追加" MinWidth="88" Height="27"
                                                     FontSize="12"
                                                     ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
                                                     Command="{Binding DataContext.TakeFromHistoryCommand,

@@ -520,7 +520,7 @@
                             <Grid Margin="0,0,0,12">
                                 <TextBlock Text="この商品を使った改変" FontWeight="Bold"
                                            VerticalAlignment="Center" />
-                                <Button Content="改変に足す" Style="{StaticResource SmallButton}"
+                                <Button Content="改変に追加" Style="{StaticResource SmallButton}"
                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                         Command="{Binding AddToModificationCommand}"
                                         ToolTip="送らずに記録だけ残します。どの改変かはこのあと選べます。" />

@@ -120,7 +120,7 @@ internal static class ItemUnityActions
     public static async Task<ModificationRecord?> SendWithRecordAsync(
         AppServiceContainer services, ItemRecord item, UnityPackageEntry package, NoticeSink notify, UnitySendUi? ui = null)
     {
-        const string title = "改変に足して送る";
+        const string title = "改変に追加して送る";
 
         if (PickTarget(title) is not { } editor)
         {
@@ -136,15 +136,15 @@ internal static class ItemUnityActions
         var model = ModificationPicking.BuildDialog(
             services,
             title,
-            $"「{package.Name}」を送って、改変に足します。",
+            $"「{package.Name}」を送って、改変に追加します。",
             projectPath is not null
                 ? $"送り先：Unityの「{editor.ProjectName}」"
                 : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
                     + "（一覧に無いプロジェクトなので、改変は全部出しています）",
             records,
-            existingLabel: "このプロジェクトの改変に足す",
-            commitLabel: "足して送る",
-            emptyText: "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに足せます。");
+            existingLabel: "このプロジェクトの改変に追加",
+            commitLabel: "追加して送る",
+            emptyText: "このプロジェクトに紐付いた改変はまだありません。新しく作って、そこに追加できます。");
 
         if (new Views.PickModificationDialog(model).ShowDialog() != true)
         {
@@ -163,8 +163,8 @@ internal static class ItemUnityActions
         var sent = await SendOneAsync(services, item, editor, package, title, ui);
         notify(
             sent
-            ? $"「{record.Name}」に足して、Unityへ送りました。"
-            : $"「{record.Name}」に足しました。Unityへは送れませんでした。",
+            ? $"「{record.Name}」に追加して、Unityへ送りました。"
+            : $"「{record.Name}」に追加しました。Unityへは送れませんでした。",
             failed: !sent);
         return record;
     }
