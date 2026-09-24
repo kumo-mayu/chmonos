@@ -31,7 +31,7 @@
                                     <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
                                             BorderThickness="1" CornerRadius="4" Padding="7,1" Margin="10,0,0,0"
                                             VerticalAlignment="Center"
-                                            ToolTip="説明文の中のリンクから読み取った推定です。丸の付いた札を押して、合っていれば残し、違えば消してください。"
+                                            ToolTip="説明文のリンクから読み取った推定です。丸の付いた札を押して確かめてください。"
                                             Visibility="{Binding HasUnconfirmedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="{Binding UnconfirmedAvatarText}" FontSize="11" Foreground="{StaticResource Warn}" />
                                     </Border>
@@ -130,7 +130,7 @@
                                                                 Height="16" Background="Transparent" BorderThickness="0"
                                                                 Cursor="Hand" Foreground="{StaticResource TextMuted}"
                                                                 Command="{Binding RejectCommand}"
-                                                                ToolTip="この対応は違う、として消します。次の検出でも復活しません。下の「消したもの」から戻せます。">
+                                                                ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。">
                                                             <Button.Style>
                                                                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                                     <Setter Property="Visibility" Value="Hidden" />
@@ -156,7 +156,7 @@
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="対応アバターを手で追加します。出品者が書き漏らしている場合や、検出できなかった場合に。"
+                                                            ToolTip="対応アバターを手で追加します。"
                                                             Visibility="{Binding DataContext.IsAddingAvatar,
                                                                          RelativeSource={RelativeSource AncestorType=UserControl},
                                                                          Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -204,7 +204,7 @@
                                                             Height="16" Background="Transparent" BorderThickness="0"
                                                             Cursor="Hand" Foreground="{StaticResource TextMuted}"
                                                             Command="{Binding RejectCommand}"
-                                                            ToolTip="この共通素体は違う、として消します。次の検出でも復活しません。下の「消したもの」から戻せます。">
+                                                            ToolTip="違う共通素体として外します。再検出しても戻らず、「消したもの」から戻せます。">
                                                         <Button.Style>
                                                             <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                                 <Setter Property="Visibility" Value="Hidden" />
@@ -245,7 +245,7 @@
                                                                    Foreground="{StaticResource TextMuted}" />
                                                         <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 Command="{Binding RestoreCommand}"
-                                                                ToolTip="この対応を戻します。出どころは「手入力」になります（元の出どころには戻りません）。" />
+                                                                ToolTip="この対応を戻します。出どころは「手入力」になります。" />
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>
