@@ -190,6 +190,14 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// <summary>左の一覧。見方によって、見出しがプロジェクト・アバター・改変になる。</summary>
     public ObservableCollection<object> Groups { get; } = [];
 
+    /// <summary>
+    /// 画面に並べる平らな行（見出し・改変・使ったものを1本に並べて仮想化する。<see cref="HubLineBuilder"/>）。
+    /// 入れ子のまま並べていた頃は、改変300件で見方を切り替えると約8秒固まった（2026-09-24）
+    /// </summary>
+    public RangeObservableCollection<object> Lines { get; } = [];
+
+    private readonly HubLineBuilder _lineBuilder = new();
+
     public bool IsEmpty => Groups.Count == 0;
 
     /// <summary>空のときに次にやることを書く。</summary>

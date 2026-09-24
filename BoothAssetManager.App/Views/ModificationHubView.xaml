@@ -213,75 +213,83 @@
         </DataTemplate>
 
         <!-- 改変1件。見方によって、アバター・プロジェクトへの繋がりを出し分ける -->
-        <DataTemplate DataType="{x:Type vm:HubModificationRow}">
-            <StackPanel Margin="0,4,0,2">
-                <Border Style="{StaticResource HubPressableRow}">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick"
-                                  Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                  CommandParameter="{Binding}" />
-                </Border.InputBindings>
-                <DockPanel>
-                    <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
-                                  Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                    <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
-                            AutomationProperties.Name="{Binding Name}"
-                            ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
+        <!--
+            改変1件の見出しの部分。入れ子の一覧（右の詳細）と、左の平らな一覧（HubModLine）の両方から使う。
+            左の一覧は仮想化するために見出しと中身を別の行に分けた（2026-09-24）ので、見出しだけを切り出してある
+        -->
+        <DataTemplate x:Key="HubModHeader" DataType="{x:Type vm:HubModificationRow}">
+            <Border Style="{StaticResource HubPressableRow}">
+            <Border.InputBindings>
+                <MouseBinding MouseAction="LeftClick"
+                              Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              CommandParameter="{Binding}" />
+            </Border.InputBindings>
+            <DockPanel>
+                <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
+                              Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
+                        AutomationProperties.Name="{Binding Name}"
+                        ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
+                        Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}">
+                    <Button.ToolTip>
+                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                            <StackPanel Width="180">
+                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
+                                        Margin="0,0,0,8"
+                                        Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{StaticResource Text}" />
+                                <TextBlock Text="押すと、この改変を右に表示します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </ToolTip>
+                    </Button.ToolTip>
+                    <Border Width="38" Height="38" CornerRadius="5"
+                            Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                        <Grid>
+                            <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{StaticResource Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                        </Grid>
+                    </Border>
+                </Button>
+                <StackPanel VerticalAlignment="Center">
+                    <Button Style="{StaticResource HubLink}" ToolTip="この改変を右に表示します"
                             Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             CommandParameter="{Binding}">
-                        <Button.ToolTip>
-                            <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
-                                <StackPanel Width="180">
-                                    <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
-                                            Margin="0,0,0,8"
-                                            Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                        <Image Source="{Binding HoverImage}" Stretch="Uniform" />
-                                    </Border>
-                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                               Foreground="{StaticResource Text}" />
-                                    <TextBlock Text="押すと、この改変を右に表示します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                </StackPanel>
-                            </ToolTip>
-                        </Button.ToolTip>
-                        <Border Width="38" Height="38" CornerRadius="5"
-                                Background="{StaticResource AccentSoft}" ClipToBounds="True">
-                            <Grid>
-                                <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{StaticResource Accent}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <Image Source="{Binding Icon}" Stretch="UniformToFill" />
-                            </Grid>
-                        </Border>
+                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
                     </Button>
-                    <StackPanel VerticalAlignment="Center">
-                        <Button Style="{StaticResource HubLink}" ToolTip="この改変を右に表示します"
-                                Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}">
-                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
+                    <WrapPanel Margin="0,1,0,0">
+                        <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このアバターを右に表示します"
+                                Visibility="{Binding ShowsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding AvatarItemId}">
+                            <TextBlock Text="{Binding AvatarName}" FontSize="11" Foreground="{StaticResource Accent}"
+                                       TextDecorations="Underline" />
                         </Button>
-                        <WrapPanel Margin="0,1,0,0">
-                            <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このアバターを右に表示します"
-                                    Visibility="{Binding ShowsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                    Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding AvatarItemId}">
-                                <TextBlock Text="{Binding AvatarName}" FontSize="11" Foreground="{StaticResource Accent}"
-                                           TextDecorations="Underline" />
-                            </Button>
-                            <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このUnityプロジェクトを右に表示します"
-                                    Visibility="{Binding ShowsProjectLink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                    Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding ProjectPath}">
-                                <TextBlock Text="{Binding ProjectName}" FontSize="11" Foreground="{StaticResource Accent}"
-                                           TextDecorations="Underline" />
-                            </Button>
-                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
-                        </WrapPanel>
-                        <TextBlock Text="{Binding MemoText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
-                                   Margin="0,1,0,0"
-                                   Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    </StackPanel>
-                </DockPanel>
-                </Border>
+                        <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このUnityプロジェクトを右に表示します"
+                                Visibility="{Binding ShowsProjectLink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding ProjectPath}">
+                            <TextBlock Text="{Binding ProjectName}" FontSize="11" Foreground="{StaticResource Accent}"
+                                       TextDecorations="Underline" />
+                        </Button>
+                        <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                    </WrapPanel>
+                    <TextBlock Text="{Binding MemoText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                               Margin="0,1,0,0"
+                               Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </StackPanel>
+            </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:HubModificationRow}">
+            <StackPanel Margin="0,4,0,2">
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HubModHeader}" />
                 <!-- 畳んだ中身の字下げは、ユーザ指示（2026-09-13「少しだけ深く」）で見出しの下 14→22、改変の下 28→36 にした -->
                 <!-- 縦線は改変の三角の真下（三角の幅 18 の半分 = 9）。中身の位置は線が無かったときと同じ 36 -->
                 <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
@@ -292,45 +300,49 @@
         </DataTemplate>
 
         <!-- Unityプロジェクトの見出し -->
+        <DataTemplate x:Key="HubProjectHeader" DataType="{x:Type vm:HubProjectGroup}">
+            <Border Style="{StaticResource HubPressableHeader}">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick"
+                                  Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  CommandParameter="{Binding Path}" />
+                </Border.InputBindings>
+                <DockPanel>
+                    <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
+                                  IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
+                    <!-- 文言はユーザ指摘（2026-09-13「「Unityで開く」は「Unityを開く」ですね」） -->
+                    <Button DockPanel.Dock="Right" Content="Unityを開く" Style="{StaticResource SmallButton}"
+                            VerticalAlignment="Center" Margin="6,0,0,0"
+                            IsEnabled="{Binding CanOpen}"
+                            Visibility="{Binding IsProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding Path}"
+                            ToolTipService.ShowOnDisabled="True"
+                            ToolTip="{Binding OpenHint}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <Button Style="{StaticResource HubLink}"
+                                Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Path}">
+                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold"
+                                       Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
+                        </Button>
+                        <WrapPanel Margin="0,2,0,0">
+                            <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,6,0"
+                                    Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Text="開いている" FontSize="10" Foreground="{StaticResource Good}" />
+                            </Border>
+                            <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:HubProjectGroup}">
             <StackPanel Margin="0,0,0,8">
-                <Border Style="{StaticResource HubPressableHeader}">
-                    <Border.InputBindings>
-                        <MouseBinding MouseAction="LeftClick"
-                                      Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      CommandParameter="{Binding Path}" />
-                    </Border.InputBindings>
-                    <DockPanel>
-                        <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
-                                      IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                        <!-- 文言はユーザ指摘（2026-09-13「「Unityで開く」は「Unityを開く」ですね」） -->
-                        <Button DockPanel.Dock="Right" Content="Unityを開く" Style="{StaticResource SmallButton}"
-                                VerticalAlignment="Center" Margin="6,0,0,0"
-                                IsEnabled="{Binding CanOpen}"
-                                Visibility="{Binding IsProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding Path}"
-                                ToolTipService.ShowOnDisabled="True"
-                                ToolTip="{Binding OpenHint}" />
-                        <StackPanel VerticalAlignment="Center">
-                            <Button Style="{StaticResource HubLink}"
-                                    Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding Path}">
-                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold"
-                                           Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
-                            </Button>
-                            <WrapPanel Margin="0,2,0,0">
-                                <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
-                                        BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,6,0"
-                                        Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="開いている" FontSize="10" Foreground="{StaticResource Good}" />
-                                </Border>
-                                <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,0,8,0" />
-                                <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
-                            </WrapPanel>
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HubProjectHeader}" />
                 <!--
                     畳んだ中身の左に縦線を下ろし、どの見出しの中身かを分かりやすくする（ユーザ指示 2026-09-13）。
                     線は三角の真下（見出しの枠の左の余白 4 ＋ 三角の幅 18 の半分 = 13）。中身の位置は線が無かったときと同じ 22
@@ -343,71 +355,75 @@
         </DataTemplate>
 
         <!-- アバターの見出し -->
-        <DataTemplate DataType="{x:Type vm:HubAvatarGroup}">
-            <StackPanel Margin="0,0,0,8">
-                <Border Style="{StaticResource HubPressableHeader}">
-                    <Border.InputBindings>
-                        <MouseBinding MouseAction="LeftClick"
-                                      Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      CommandParameter="{Binding AvatarItemId}" />
-                    </Border.InputBindings>
-                    <DockPanel>
-                        <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
-                                      IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                        <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0"
-                                AutomationProperties.Name="{Binding Title}"
-                                ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
+        <DataTemplate x:Key="HubAvatarHeader" DataType="{x:Type vm:HubAvatarGroup}">
+            <Border Style="{StaticResource HubPressableHeader}">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick"
+                                  Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  CommandParameter="{Binding AvatarItemId}" />
+                </Border.InputBindings>
+                <DockPanel>
+                    <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}"
+                                  IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
+                    <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0"
+                            AutomationProperties.Name="{Binding Title}"
+                            ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
+                            Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding AvatarItemId}">
+                        <Button.ToolTip>
+                            <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                <StackPanel Width="180">
+                                    <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
+                                            Margin="0,0,0,8"
+                                            Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Text}" />
+                                    <TextBlock Text="押すと、このアバターを右に表示します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </ToolTip>
+                        </Button.ToolTip>
+                        <Border Width="34" Height="34" CornerRadius="17"
+                                Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
+                            <Grid>
+                                <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image Source="{Binding Icon}" Stretch="UniformToFill">
+                                    <Image.Clip>
+                                        <EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+                                    </Image.Clip>
+                                </Image>
+                            </Grid>
+                        </Border>
+                    </Button>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                Command="{Binding DataContext.StartCreateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding AvatarItemId}" />
+                        <Button Content="アバターの管理へ" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                Command="{Binding DataContext.OpenAvatarManageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding AvatarItemId}" />
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                        <Button Style="{StaticResource HubLink}" ToolTip="{Binding Title}"
                                 Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding AvatarItemId}">
-                            <Button.ToolTip>
-                                <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
-                                    <StackPanel Width="180">
-                                        <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True"
-                                                Margin="0,0,0,8"
-                                                Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <Image Source="{Binding HoverImage}" Stretch="Uniform" />
-                                        </Border>
-                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                                   Foreground="{StaticResource Text}" />
-                                        <TextBlock Text="押すと、このアバターを右に表示します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
-                                    </StackPanel>
-                                </ToolTip>
-                            </Button.ToolTip>
-                            <Border Width="34" Height="34" CornerRadius="17"
-                                    Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
-                                <Grid>
-                                    <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    <Image Source="{Binding Icon}" Stretch="UniformToFill">
-                                        <Image.Clip>
-                                            <EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
-                                        </Image.Clip>
-                                    </Image>
-                                </Grid>
-                            </Border>
+                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold"
+                                       Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
                         </Button>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                    Command="{Binding DataContext.StartCreateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding AvatarItemId}" />
-                            <Button Content="アバターの管理へ" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                    Command="{Binding DataContext.OpenAvatarManageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding AvatarItemId}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="{Binding OwnedText}" Style="{StaticResource Caption}" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
                         </StackPanel>
-                        <StackPanel VerticalAlignment="Center">
-                            <Button Style="{StaticResource HubLink}" ToolTip="{Binding Title}"
-                                    Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding AvatarItemId}">
-                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold"
-                                           Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
-                            </Button>
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock Text="{Binding OwnedText}" Style="{StaticResource Caption}" Margin="0,0,8,0" />
-                                <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:HubAvatarGroup}">
+            <StackPanel Margin="0,0,0,8">
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HubAvatarHeader}" />
                 <!--
                     畳んだ中身の左に縦線を下ろし、どの見出しの中身かを分かりやすくする（ユーザ指示 2026-09-13）。
                     線は三角の真下（見出しの枠の左の余白 4 ＋ 三角の幅 18 の半分 = 13）。中身の位置は線が無かったときと同じ 22
@@ -763,9 +779,70 @@
                            TextWrapping="Wrap" Margin="18,10,18,0"
                            Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{Binding Groups}" Margin="12,0,12,12" />
-                </ScrollViewer>
+                <!--
+                    見出し・改変・使ったものを平らな1本に並べて仮想化する（2026-09-24：3段の入れ子のまま並べていた頃は、
+                    改変300件で見方を切り替えると約8秒固まった）。字下げ・縦線・行の間は行ごとの余白で描き分け、
+                    見た目は入れ子の頃と同じ（数字は HubLineBuilder）。左右の 12 は行ごと、下の 12 は最後の行（HubEndLine）
+                -->
+                <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False"
+                                              VirtualizingPanel.IsVirtualizing="True"
+                                              VirtualizingPanel.VirtualizationMode="Recycling"
+                                              VirtualizingPanel.ScrollUnit="Pixel"
+                                              ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.Template>
+                        <ControlTemplate TargetType="ItemsControl">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          CanContentScroll="True">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="Margin" Value="12,0" />
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                    <ItemsControl.Resources>
+                        <!-- 余白は外の Border に付ける。ContentPresenter は中身を自分の DataContext にするので、そこに書いた Binding は行を見ない -->
+                        <DataTemplate DataType="{x:Type vm:HubProjectLine}">
+                            <Border Margin="{Binding InnerMargin}">
+                                <ContentPresenter Content="{Binding Group}" ContentTemplate="{StaticResource HubProjectHeader}" />
+                            </Border>
+                        </DataTemplate>
+                        <DataTemplate DataType="{x:Type vm:HubAvatarLine}">
+                            <Border Margin="{Binding InnerMargin}">
+                                <ContentPresenter Content="{Binding Group}" ContentTemplate="{StaticResource HubAvatarHeader}" />
+                            </Border>
+                        </DataTemplate>
+                        <!-- 改変の見出し。見出しの中なら左に見出しの縦線 -->
+                        <DataTemplate DataType="{x:Type vm:HubModLine}">
+                            <Border Margin="{Binding OuterMargin}" Padding="{Binding GroupRailPadding}"
+                                    BorderBrush="{StaticResource BorderStrong}" BorderThickness="{Binding GroupRail}">
+                                <Border Margin="{Binding InnerMargin}">
+                                    <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource HubModHeader}" />
+                                </Border>
+                            </Border>
+                        </DataTemplate>
+                        <!-- 使ったもの。改変の縦線の内側（見出しの中なら、その外に見出しの縦線） -->
+                        <DataTemplate DataType="{x:Type vm:HubMemberLine}">
+                            <Border Margin="{Binding OuterMargin}" Padding="{Binding GroupRailPadding}"
+                                    BorderBrush="{StaticResource BorderStrong}" BorderThickness="{Binding GroupRail}">
+                                <Border Margin="{Binding RailMargin}" Padding="26,0,0,0"
+                                        BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                                    <ContentPresenter Content="{Binding Row}" />
+                                </Border>
+                            </Border>
+                        </DataTemplate>
+                        <DataTemplate DataType="{x:Type vm:HubEndLine}">
+                            <Border Height="12" />
+                        </DataTemplate>
+                    </ItemsControl.Resources>
+                </controls:ContentItemsControl>
             </DockPanel>
         </Border>
 

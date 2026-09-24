@@ -35,8 +35,56 @@ public sealed partial class ModificationHubViewModel
             }
         }
 
+        // 画面に並べるのは平らな行（ModificationHubLines）。行を作り直したので、前の行は捨てて丸ごと入れ替える
+        _lineBuilder.Reset();
+        foreach (var expandable in Expandables())
+        {
+            expandable.PropertyChanged += OnExpandedChanged;
+        }
+
+        Lines.ReplaceAll(_lineBuilder.Build(Groups));
+
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+    }
+
+    /// <summary>開く・畳むで、平らな行を出し入れする（見えている行の部品は使い回す）。</summary>
+    private void OnExpandedChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(HubExpandable.IsExpanded))
+        {
+            CollectionSync.Apply(Lines, _lineBuilder.Build(Groups));
+        }
+    }
+
+    /// <summary>左の一覧の、開け閉めできる行（見出しと改変）。</summary>
+    private IEnumerable<HubExpandable> Expandables()
+    {
+        foreach (var entry in Groups)
+        {
+            switch (entry)
+            {
+                case HubProjectGroup project:
+                    yield return project;
+                    foreach (var mod in project.Modifications)
+                    {
+                        yield return mod;
+                    }
+
+                    break;
+                case HubAvatarGroup avatar:
+                    yield return avatar;
+                    foreach (var mod in avatar.Modifications)
+                    {
+                        yield return mod;
+                    }
+
+                    break;
+                case HubModificationRow mod:
+                    yield return mod;
+                    break;
+            }
+        }
     }
 
     /// <summary>
