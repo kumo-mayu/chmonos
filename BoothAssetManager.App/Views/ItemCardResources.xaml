@@ -445,7 +445,7 @@
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
                     <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding SendSelectionToUnityCommand}"
-                            ToolTip="選んだ商品の unitypackage を、開いているUnityへ1件ずつ送ります。Unity の取り込み画面を閉じると次の1件が出ます。" />
+                            ToolTip="選んだ商品の unitypackage を、開いているUnityへ1件ずつ送ります。Unity の取り込み画面を閉じると次の1件が表示されます。" />
                     <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
                             Command="{Binding SendSelectionToEditCommand}" />
                 </StackPanel>
@@ -691,7 +691,7 @@
                 <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
                 <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                         CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
-                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が出ます。"
+                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が表示されます。"
                         Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
                 </Border>

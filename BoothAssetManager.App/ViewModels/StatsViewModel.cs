@@ -684,7 +684,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>相関が出ない理由をその場に書く。空欄のまま置かない。</summary>
     public string CorrelationNote => _snapshot is null || HasCorrelations
         ? string.Empty
-        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件に満たない組は出していません。"
+        : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件に満たない組は表示していません。"
             + "件数が少ないと相関の数字が暴れるためです。";
 
     public string GiftText => _snapshot is null

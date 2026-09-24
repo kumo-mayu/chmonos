@@ -535,7 +535,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     public string SelectedUsageText => Selected is null
         ? string.Empty
         : Selected.ItemCount == 0
-            ? "まだどの商品にも付いていません。編集画面で付けると、ここに件数が出ます。"
+            ? "まだどの商品にも付いていません。編集画面で付けると、ここに件数が表示されます。"
             : $"{Selected.ItemCount} 件の商品に付いています";
 
     public string ShowItemsToolTip => SelectedIsUsed
@@ -773,7 +773,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     private int _subFilterHits;
 
     public string ItemFilterResultText => HasItemFilter
-        ? $"「{_itemFilter.Trim()}」に当たる小分類 {_subFilterHits} 件・商品 {_itemFilterHits} 件（当たった所だけを出しています）"
+        ? $"「{_itemFilter.Trim()}」に当たる小分類 {_subFilterHits} 件・商品 {_itemFilterHits} 件（当たったところだけを表示しています）"
         : string.Empty;
 
     /// <summary>絞り込んでいるか。絞っている間は、右の小分類と中の商品も同じ語で絞る。</summary>
@@ -1513,7 +1513,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             ? new UiCommand.AddUserTag(row.Top, row.Sub)
             : new UiCommand.AddUserTag(row.Top));
 
-        StatusText = $"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに出るようになります。";
+        StatusText = $"「{row.DisplayName}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。";
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
     }

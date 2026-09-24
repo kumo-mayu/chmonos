@@ -617,8 +617,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var confirm = Services.Notice.Show(
                 where + "\n\n"
-                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ Unity の取り込み画面が出るので、"
-                + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が出ます。"
+                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ Unity の取り込み画面が表示されるので、"
+                + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
                 System.Windows.MessageBoxButton.OKCancel,
@@ -1149,7 +1149,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public bool ProjectMissing { get; private set; }
 
     public string ProjectEmptyText =>
-        "Unityプロジェクトを紐付けると、ここから開けます。作業中のプロジェクトがあれば下に出ます。";
+        "Unityプロジェクトを紐付けると、ここから開けます。作業中のプロジェクトがあれば下に表示されます。";
 
     /// <summary>候補が1つも無いときに出す文。</summary>
     public string ProjectCandidatesEmptyText =>
@@ -1323,7 +1323,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var how = canRelink
             ? $"戻すときは、下の「紐付ける先」から「{oldName}」をもう一度選んでください。"
             : $"「{oldName}」は Unity Hub・VRChat Creator Companion の一覧に無いので、この画面からは付け直せません"
-              + "（Hub か VCC にそのプロジェクトを追加すると、「紐付ける先」に出ます）。";
+              + "（Hub か VCC にそのプロジェクトを追加すると、「紐付ける先」に表示されます）。";
         var what = row is null
             ? $"Unityプロジェクト「{oldName}」の紐付けを外します。"
             : $"Unityプロジェクトの紐付けを「{oldName}」から「{row.Name}」に替えます。";

@@ -25,7 +25,7 @@ public sealed partial class ResolveViewModel
     public bool HasHiddenByRegisteredZip => HiddenByRegisteredZipCount > 0;
 
     /// <summary>黙って減らさない（欠けや推定を隠さない）。</summary>
-    public string HiddenByRegisteredZipText => $"登録済みのzipを展開したファイル {HiddenByRegisteredZipCount} 件は出していません";
+    public string HiddenByRegisteredZipText => $"登録済みのzipを展開したファイル {HiddenByRegisteredZipCount} 件は表示していません";
 
     /// <summary>
     /// 商品が持っているファイルのパスを集める。主画面が読み込み済みの一覧を使い、まだ読み込んでいなければファイルから読む

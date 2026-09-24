@@ -138,7 +138,7 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
     public string CommitHint => HasPlan
         ? string.Empty
         : CanCheck
-            ? "「調べる」を押すと、何が移るかを出します。それから押せます。"
+            ? "「調べる」を押すと、何が移るかを表示します。それから押せます。"
             : "移し先の商品ID（またはBOOTHの商品ページのURL）を入れてください。";
 
     public string Status

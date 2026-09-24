@@ -255,9 +255,9 @@
                               Foreground="{StaticResource Text}" />
                     <StackPanel Orientation="Horizontal" Margin="22,6,0,0" IsEnabled="{Binding ShowItems}">
                         <CheckBox Content="管理対象" IsChecked="{Binding ShowManaged, Mode=TwoWay}" Margin="0,0,14,0"
-                                  Foreground="{StaticResource Text}" ToolTip="商品に紐付いているファイル・フォルダを木に出します" />
+                                  Foreground="{StaticResource Text}" ToolTip="商品に紐付いているファイル・フォルダを木に表示します" />
                         <CheckBox Content="未確定" IsChecked="{Binding ShowUnresolved, Mode=TwoWay}"
-                                  Foreground="{StaticResource Text}" ToolTip="商品が決まっていないファイルを「?」の印で木に出します" />
+                                  Foreground="{StaticResource Text}" ToolTip="商品が決まっていないファイルを「?」の印で木に表示します" />
                     </StackPanel>
                 </StackPanel>
 
@@ -292,7 +292,7 @@
 
         <!-- 右：選んだ物の詳細 -->
         <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False" />
-        <TextBlock Grid.Column="1" Text="左の木から、フォルダかファイルを選ぶと、ここに出ます。"
+        <TextBlock Grid.Column="1" Text="左の木から、フォルダかファイルを選ぶと、ここに表示されます。"
                    Style="{StaticResource Caption}" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
     </controls:PaneGrid>

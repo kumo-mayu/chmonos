@@ -156,7 +156,7 @@
                                     <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
-                                            ToolTip="上から順に1件ずつ Unity の取り込み画面を出します。Unity側で閉じると次の1件が出ます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                                            ToolTip="上から順に1件ずつ Unity の取り込み画面を表示します。Unity側で閉じると次の1件が表示されます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
                                 </StackPanel>
                             </Grid>
                             <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
@@ -584,7 +584,7 @@
                                             Margin="6,0,0,0" Command="{Binding OpenProjectFolderCommand}" />
                                     <Button Content="紐付けを外す" Style="{StaticResource SmallButton}"
                                             Margin="6,0,0,0" Command="{Binding UnlinkProjectCommand}"
-                                            ToolTip="改変の記録は残ります。外す前に、今の紐付け先と付け直し方を出して確かめます。" />
+                                            ToolTip="改変の記録は残ります。外す前に、今の紐付け先と付け直し方を表示して確かめます。" />
                                 </WrapPanel>
                             </StackPanel>
 

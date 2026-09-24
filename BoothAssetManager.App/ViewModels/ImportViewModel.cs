@@ -874,7 +874,7 @@ public sealed class ImportViewModel : ViewModelBase
         var answer = Services.Notice.Show(
             $"次のフォルダを監視対象に入れますか。\n\n{names}\n\n"
             + "入れておくと、次に開いたときに新しいファイルが増えていないかを見ます。\n"
-            + "見つかっても勝手には取り込まず、件数を出すだけです。",
+            + "見つかっても勝手には取り込まず、件数を表示するだけです。",
             "監視対象に入れますか",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question,

@@ -981,7 +981,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             const int shown = 8;
             var names = string.Join("・", siblings.Take(shown));
             var rest = siblings.Count > shown ? $" ほか {siblings.Count - shown} 体" : string.Empty;
-            return $"「{name}」の他のアバター（{names}{rest}）向けの衣装も、素体経由として一緒に出ます。";
+            return $"「{name}」の他のアバター（{names}{rest}）向けの衣装も、素体経由として一緒に表示されます。";
         }
     }
 

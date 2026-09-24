@@ -199,7 +199,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 
     public string? UnresolvedBadgeTip => FolderViewModel.ShowsUnresolvedNow
         ? null
-        : "この下に未確定のファイルがあります。左の「未確定」を入れると、件数と中身が出ます。";
+        : "この下に未確定のファイルがあります。左の「未確定」を入れると、件数と中身が表示されます。";
 
     public bool IsFolderLike => Kind is FolderViewRowKind.Volume or FolderViewRowKind.Root or FolderViewRowKind.Folder;
 
@@ -889,7 +889,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
                 // 読み替えた結果だと分かるように（ユーザ指示 2026-09-14）
                 SubText = volume.RecordedLetters.Count > 0
-                    ? $"{string.Join("・", volume.RecordedLetters)} として記録した物を {volume.Volume} で出しています"
+                    ? $"{string.Join("・", volume.RecordedLetters)} として記録した物を {volume.Volume} で表示しています"
                     : string.Empty,
                 CountText = $"商品 {volume.Summary.Items.Count}",
                 UnresolvedCount = volume.Summary.Unresolved.Count,
@@ -1356,7 +1356,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
         var answer = Notice.Show(
             $"「{detail.Title}」の下の未確定 {detail.Unresolved.Count} 件を管理対象から除外します。\n\n"
-            + "ファイル自体は消しません。次回以降のスキャンで未確定に出てこなくなります。",
+            + "ファイル自体は消しません。次回以降のスキャンで未確定に表示されなくなります。",
             "管理対象から除外する",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question,

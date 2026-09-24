@@ -380,7 +380,7 @@
                                         -->
                                         <CheckBox IsChecked="{Binding IncludeOn, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.Name="お気に入りのショップの商品を含める"
-                                                  ToolTip="ショップ画面で星を付けたショップを、まとめて選んだのと同じに扱います。ほかに選んだショップがあれば、そのどれかに当てはまる商品を出します。"
+                                                  ToolTip="ショップ画面で星を付けたショップを、まとめて選んだのと同じに扱います。ほかに選んだショップがあれば、そのどれかに当てはまる商品を表示します。"
                                                   Visibility="{Binding HasInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock FontSize="12" Foreground="{StaticResource Text}">
                                                 <Run Text="★" Foreground="#d99a00" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
@@ -388,7 +388,7 @@
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
                                                   AutomationProperties.Name="すべてに当てはまる商品だけ"
-                                                  ToolTip="切っているときは、どれか1つに当てはまる商品（OR）を出します。"
+                                                  ToolTip="切っているときは、どれか1つに当てはまる商品（OR）を表示します。"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{StaticResource Text}" />
                                         </CheckBox>
@@ -406,15 +406,15 @@
                                       -->
                                       <StackPanel Margin="0,8,0,0"
                                                   Visibility="{Binding HasGroups, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                          <TextBlock Text="出すもの" Style="{StaticResource Caption}" Margin="0,0,0,3" />
+                                          <TextBlock Text="表示するもの" Style="{StaticResource Caption}" Margin="0,0,0,3" />
                                           <CheckBox IsChecked="{Binding ShowMatched, Mode=TwoWay}"
-                                                    AutomationProperties.Name="対応している商品を出す"
-                                                    ToolTip="選んだアバターに対応している商品を出します。">
+                                                    AutomationProperties.Name="対応している商品を表示"
+                                                    ToolTip="選んだアバターに対応している商品を表示します。">
                                               <TextBlock Text="{Binding MatchedLabel}" FontSize="12" Foreground="{StaticResource Text}" />
                                           </CheckBox>
                                           <CheckBox IsChecked="{Binding ShowUnspecified, Mode=TwoWay}" Margin="0,3,0,0"
-                                                    AutomationProperties.Name="対応の指定が無い商品を出す"
-                                                    ToolTip="対応アバターが1つも書かれていない商品を、どのアバターにも使えるものとして出します。1つでも書いてある商品は、書いてあるとおりに絞ります。">
+                                                    AutomationProperties.Name="対応の指定が無い商品を表示"
+                                                    ToolTip="対応アバターが1つも書かれていない商品を、どのアバターにも使えるものとして表示します。1つでも書いてある商品は、書いてあるとおりに絞ります。">
                                               <TextBlock Text="{Binding UnspecifiedLabel}" FontSize="12" TextWrapping="Wrap"
                                                          Foreground="{StaticResource Text}" />
                                           </CheckBox>
@@ -471,7 +471,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MinEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると下限を見ません（それ以下も出します）"
+                                                      ToolTip="切ると下限を見ません（それ以下も表示します）"
                                                       AutomationProperties.Name="下限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding LowPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="TopLeft" IsSnapToTickEnabled="False" LargeChange="10"
@@ -482,7 +482,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding MaxEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると上限を見ません（それ以上も出します）"
+                                                      ToolTip="切ると上限を見ません（それ以上も表示します）"
                                                       AutomationProperties.Name="上限を効かせる" />
                                             <Slider Minimum="0" Maximum="100" Value="{Binding HighPosition, Mode=TwoWay}"
                                                     TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False" LargeChange="10"
@@ -529,7 +529,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding SinceEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると始まりの日を見ません（それより前も出します）"
+                                                      ToolTip="切ると始まりの日を見ません（それより前も表示します）"
                                                       AutomationProperties.Name="始まりの日を効かせる" />
                                             <ToggleButton x:Name="SinceCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding SinceEnabled}"
@@ -559,7 +559,7 @@
                                         <DockPanel>
                                             <CheckBox DockPanel.Dock="Left" IsChecked="{Binding TillEnabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                                      ToolTip="切ると終わりの日を見ません（それより後も出します）"
+                                                      ToolTip="切ると終わりの日を見ません（それより後も表示します）"
                                                       AutomationProperties.Name="終わりの日を効かせる" />
                                             <ToggleButton x:Name="TillCalendarButton" DockPanel.Dock="Right" Width="28" Height="26"
                                                           IsEnabled="{Binding TillEnabled}"
@@ -632,7 +632,7 @@
                                         </controls:ContentItemsControl>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}"
                                                   AutomationProperties.Name="すべての属性に当てはまる商品だけ"
-                                                  ToolTip="切っているときは、どれか1つの属性に当てはまる商品（OR）を出します。"
+                                                  ToolTip="切っているときは、どれか1つの属性に当てはまる商品（OR）を表示します。"
                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="すべてに当てはまる商品だけ（AND）" FontSize="12" Foreground="{StaticResource Text}" />
                                         </CheckBox>
@@ -871,7 +871,7 @@
                             <Separator />
                             <MenuItem Header="別表記でも検索" IsCheckable="True" StaysOpenOnClick="True"
                                       IsChecked="{Binding SearchAlternates, Mode=TwoWay}"
-                                      ToolTip="打った語を、読み・漢字・英語などの別の書き方でも探します。何で当たったかは結果の上に出ます。" />
+                                      ToolTip="打った語を、読み・漢字・英語などの別の書き方でも探します。何で当たったかは結果の上に表示されます。" />
                             <MenuItem Header="　ローマ字変換（tori → とり・トリ）" IsCheckable="True" StaysOpenOnClick="True"
                                       IsEnabled="{Binding SearchAlternates}" IsChecked="{Binding UseRomaji, Mode=TwoWay}" />
                             <MenuItem Header="　漢字変換（とり → 鳥）" IsCheckable="True" StaysOpenOnClick="True"

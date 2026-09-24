@@ -159,7 +159,7 @@ public static class UnityProjectTab
             if (IsInPackages(path))
             {
                 var name = segments.Length >= 2 ? PackageDisplayName(projectPath, segments[1]) ?? segments[1] : "Packages";
-                return (null, $"Packages の中（プロジェクトタブの左の木では Packages の下の「{name}」）は Unity の検索に出ないので");
+                return (null, $"Packages の中（プロジェクトタブの左の木では Packages の下の「{name}」）は Unity の検索に表示されないので");
             }
 
             if (UsesGlob(path))
@@ -295,7 +295,7 @@ public static class UnityProjectTab
                 var shown = FocusOf(main);
                 if (!UnityFocusWatch.IsProjectBrowser(shown))
                 {
-                    return new("Unity のプロジェクトタブを出せませんでした。Unity で Project タブを開いてから、もう一度押してください。", string.Empty);
+                    return new("Unity のプロジェクトタブを表示できませんでした。Unity で Project タブを開いてから、もう一度押してください。", string.Empty);
                 }
 
                 targets = [shown];

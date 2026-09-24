@@ -531,7 +531,7 @@
                     <Border Style="{StaticResource Card}" x:Name="DecisionCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="商品IDを決める" FontWeight="Bold" FontSize="13" />
-                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをこの画面に落とすと、その商品が下に出ます。確認してから確定してください。"
+                            <TextBlock Text="商品IDかURLを入れるか、BOOTHの商品ページをこの画面に落とすと、その商品が下に表示されます。確認してから確定してください。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
                             <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す。IDを入れる前（落とす前）から分かるよう欄の上に置く（ユーザ判断 2026-09-17） -->
                             <TextBlock Text="{Binding BlockedByZipText}" Style="{StaticResource Caption}" TextWrapping="Wrap"

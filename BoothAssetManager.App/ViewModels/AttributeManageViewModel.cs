@@ -594,7 +594,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
     public string SelectedUsageText => Selected is null
         ? string.Empty
         : Selected.ItemCount == 0
-            ? "まだどの商品にも付いていません。編集画面で値を入れると、ここに件数が出ます。"
+            ? "まだどの商品にも付いていません。編集画面で値を入れると、ここに件数が表示されます。"
             : $"{Selected.ItemCount} 件の商品に付いています（{Selected.AverageText}）";
 
     public string ShowItemsToolTip => SelectedIsUsed
@@ -1015,7 +1015,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
     private async Task AddOrphanToMasterAsync(OrphanAttributeRow row)
     {
         await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(row.Name));
-        StatusText = $"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに出るようになります。";
+        StatusText = $"「{row.Name}」を一覧に追加しました。{row.ItemCount} 件の商品が絞り込みに表示されるようになります。";
         await ReloadAsync();
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();

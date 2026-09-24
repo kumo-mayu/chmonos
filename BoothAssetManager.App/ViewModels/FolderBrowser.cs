@@ -236,7 +236,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
 
     /// <summary>外している商品があれば、そう書く（数えた商品が見当たらないと、壊れて見える）。</summary>
     public string ExcludedText => _excluded > 0
-        ? $"非表示・R-18 を出さない設定で {_excluded} 件を出していません（設定から変えられます）。"
+        ? $"非表示・R-18 を表示しない設定で {_excluded} 件を表示していません（設定から変えられます）。"
         : string.Empty;
 
     public bool HasExcluded => _excluded > 0;

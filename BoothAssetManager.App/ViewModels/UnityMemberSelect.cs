@@ -124,7 +124,7 @@ internal static class UnityMemberSelect
         {
             var answer = Services.Notice.Show(
                 $"「{name}」（{fileText}）は、Unityの「{projectName}」にまだ入っていません。Unityへ送りますか？\n\n"
-                + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
+                + "Unity側で取り込む内容の一覧が表示されるので、そこで確認してから取り込めます。",
                 title,
                 System.Windows.MessageBoxButton.OKCancel,
                 System.Windows.MessageBoxImage.Question,

@@ -181,7 +181,7 @@ public sealed class PickPackagesDialogViewModel : ViewModelBase
         NoteText = (records
                 ? "次の使ったものは、どのファイルを使ったかの記録が無く、Unityへ送れるものが2つ以上あります。"
                 : "次の商品には、Unityへ送れるものが2つ以上あります。")
-            + "送る物にチェックを付けてください。チェックした物を上から順に送り、1件ずつ取り込み画面を出します。チェックの無い商品は送りません。"
+            + "送る物にチェックを付けてください。チェックした物を上から順に送り、1件ずつ取り込み画面を表示します。チェックの無い商品は送りません。"
             + (records ? "\n選んだ物は、改変の使ったものとして記録します（次からは聞かずにそれを送ります）。" : string.Empty);
 
         foreach (var group in sections.SelectMany(section => section.Groups))

@@ -331,7 +331,7 @@ public static class UnityImportQueue
 
             if (dialog == IntPtr.Zero || FindFileNameBox(dialog) is not { } box)
             {
-                stop = "Unity のファイル選択の画面が出ませんでした（Unity が作業中だった可能性があります）";
+                stop = "Unity のファイル選択の画面が表示されませんでした（Unity が作業中だった可能性があります）";
                 outcomes.Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
@@ -441,7 +441,7 @@ public static class UnityImportQueue
             {
                 askedTitle = title;
                 progress?.Report(new UnityQueueProgress(index + 1, total,
-                    $"{index + 1}/{total}：「{package.Name}」— Unity 側で確認（「{title}」）が出ています。Unity で答えると次に進みます"));
+                    $"{index + 1}/{total}：「{package.Name}」— Unity 側で確認（「{title}」）が表示されています。Unity で答えると次に進みます"));
             }
 
             var state = watch.Evaluate(now);

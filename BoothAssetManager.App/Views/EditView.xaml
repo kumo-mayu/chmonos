@@ -331,7 +331,7 @@
                                 <!-- これは注意なので消さない。空欄にすると仮IDが名前として出てしまう -->
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
                                            Foreground="{StaticResource Warn}"
-                                           Text="BOOTHに無い商品なので、空欄にすると仮のIDが名前の代わりに出ます。"
+                                           Text="BOOTHに無い商品なので、空欄にすると仮のIDが名前の代わりに表示されます。"
                                            Visibility="{Binding IsLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
@@ -530,7 +530,7 @@
 
                         <!-- userTag：候補から選んで積む。マスタ全部は並べない -->
                         <TextBlock Text="ユーザータグ" FontWeight="Bold" FontSize="13" />
-                        <TextBlock Text="入力すると候補が出ます。候補に無い語はそのまま新しいユーザータグとして追加されます。"
+                        <TextBlock Text="入力すると候補が表示されます。候補に無い語はそのまま新しいユーザータグとして追加されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
                         <!-- 打ちかけの字も書きかけに残す（I4）。Text を結んでおくと、控えに入れられる -->

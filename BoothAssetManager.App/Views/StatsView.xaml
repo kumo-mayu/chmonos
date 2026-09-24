@@ -125,7 +125,7 @@
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <TextBlock Text="集計できる商品がまだありません" Foreground="{StaticResource TextMuted}"
                            HorizontalAlignment="Center" />
-                <TextBlock Text="取り込みを済ませると、ここに支出や容量の内訳が出ます。"
+                <TextBlock Text="取り込みを済ませると、ここに支出や容量の内訳が表示されます。"
                            Style="{StaticResource Caption}" Margin="0,7,0,0" HorizontalAlignment="Center" />
             </StackPanel>
 
@@ -311,7 +311,7 @@
                                     <!-- 紐付けが無いうちは0の棒を並べても読めないので、次にやることだけ出す -->
                                     <TextBlock TextWrapping="Wrap" Style="{StaticResource Caption}" MaxWidth="360"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
-                                               Text="対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が出ます。"
+                                               Text="対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。"
                                                Visibility="{Binding HasAvatars, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                 </Grid>
                             </DockPanel>

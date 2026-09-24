@@ -531,7 +531,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     public string CategoryPlaceholder => HasBoothCategory
         ? BoothCategory
-        : "BOOTHの分類名を入れると、統計と絞り込みに出てきます";
+        : "BOOTHの分類名を入れると、統計と絞り込みに表示されます";
 
     /// <summary>BOOTHに無い商品として登録したもの。名前を空欄にすると仮IDが出てしまう</summary>
     public bool IsLocalOnly => _item?.IsLocalOnly ?? false;

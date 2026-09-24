@@ -335,8 +335,8 @@ public sealed class CommandHandler
                 return new CommandResult.Failed(
                         $"商品ID {assign.ItemId} には確定できませんでした。"
                         + "同じ中身のファイルが他にもあって、そちらで既に確定済みかもしれません"
-                        + "（その場合は商品ページのファイル一覧に出ています）。"
-                        + $"出ていなければ、商品ID {assign.ItemId} がBOOTHで見つからなかった可能性があります。");
+                        + "（その場合は商品ページのファイル一覧に表示されています）。"
+                        + $"表示されていなければ、商品ID {assign.ItemId} がBOOTHで見つからなかった可能性があります。");
 
             case UiCommand.RegisterLocalItem local:
                 var localId = await _items.RegisterLocalItemAsync(

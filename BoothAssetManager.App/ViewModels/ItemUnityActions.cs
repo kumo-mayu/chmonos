@@ -56,7 +56,7 @@ internal static class ItemUnityActions
         var target = editor.ProjectName ?? "名前の分からないプロジェクト";
         var answer = Services.Notice.Show(
             $"「{package.Name}」を、Unityの「{target}」に送ります。\n\n"
-            + "Unity側で取り込む内容の一覧が出るので、そこで確認してから取り込めます。",
+            + "Unity側で取り込む内容の一覧が表示されるので、そこで確認してから取り込めます。",
             title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -140,7 +140,7 @@ internal static class ItemUnityActions
             projectPath is not null
                 ? $"送り先：Unityの「{editor.ProjectName}」"
                 : $"送り先：Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」"
-                    + "（一覧に無いプロジェクトなので、改変は全部出しています）",
+                    + "（一覧に無いプロジェクトなので、改変は全部表示しています）",
             records,
             existingLabel: "このプロジェクトの改変に追加",
             commitLabel: "追加して送る",

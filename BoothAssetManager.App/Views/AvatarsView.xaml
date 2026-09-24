@@ -874,7 +874,7 @@
                                     <controls:CommandRadioButton Grid.Column="2" Content="アバターとして扱わない" GroupName="AvatarJudgement" Style="{StaticResource SegmentLast}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
                                                  IsChecked="{Binding IsForcedNotAvatar, Mode=OneWay}"
-                                                 ToolTip="対応アバターの候補や検索に出さなくなります。一覧には「アバターとして扱わないもの」として残ります。" />
+                                                 ToolTip="対応アバターの候補や検索に表示しなくなります。一覧には「アバターとして扱わないもの」として残ります。" />
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -891,7 +891,7 @@
                                 <StackPanel>
                                     <TextBlock Text="この素体を使っているアバター" FontSize="13" FontWeight="Bold" />
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
-                                               Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に出ます。押すとそのアバターを開きます。" />
+                                               Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に表示されます。押すとそのアバターを開きます。" />
                                     <ItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">

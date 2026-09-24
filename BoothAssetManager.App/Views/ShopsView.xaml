@@ -31,7 +31,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <!-- ★だけ（ユーザ指示 2026-09-16）。星はカードの右上でも付けられる -->
                     <CheckBox IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
-                              AutomationProperties.Name="星を付けたショップだけ" ToolTip="星を付けたショップだけを出します。">
+                              AutomationProperties.Name="星を付けたショップだけ" ToolTip="星を付けたショップだけを表示します。">
                         <TextBlock FontSize="12.5" Foreground="{StaticResource Text}">
                             <Run Text="★" Foreground="#d99a00" /><Run Text=" だけ" />
                         </TextBlock>

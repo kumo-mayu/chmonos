@@ -239,7 +239,7 @@
                                     </Border>
                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{StaticResource Text}" />
-                                    <TextBlock Text="押すと、この改変を右に出します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                    <TextBlock Text="押すと、この改変を右に表示します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                 </StackPanel>
                             </ToolTip>
                         </Button.ToolTip>
@@ -253,21 +253,21 @@
                         </Border>
                     </Button>
                     <StackPanel VerticalAlignment="Center">
-                        <Button Style="{StaticResource HubLink}" ToolTip="この改変を右に出します"
+                        <Button Style="{StaticResource HubLink}" ToolTip="この改変を右に表示します"
                                 Command="{Binding DataContext.ShowModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}">
                             <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
                                        Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
                         </Button>
                         <WrapPanel Margin="0,1,0,0">
-                            <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このアバターを右に出します"
+                            <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このアバターを右に表示します"
                                     Visibility="{Binding ShowsAvatar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     Command="{Binding DataContext.ShowAvatarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding AvatarItemId}">
                                 <TextBlock Text="{Binding AvatarName}" FontSize="11" Foreground="{StaticResource Accent}"
                                            TextDecorations="Underline" />
                             </Button>
-                            <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このUnityプロジェクトを右に出します"
+                            <Button Style="{StaticResource HubLink}" Margin="0,0,8,0" ToolTip="このUnityプロジェクトを右に表示します"
                                     Visibility="{Binding ShowsProjectLink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     Command="{Binding DataContext.ShowProjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding ProjectPath}">
@@ -369,7 +369,7 @@
                                         </Border>
                                         <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
                                                    Foreground="{StaticResource Text}" />
-                                        <TextBlock Text="押すと、このアバターを右に出します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                        <TextBlock Text="押すと、このアバターを右に表示します" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                     </StackPanel>
                                 </ToolTip>
                             </Button.ToolTip>
@@ -771,7 +771,7 @@
 
         <!-- 右：押したもののビュー -->
         <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False" />
-        <TextBlock Grid.Column="1" Text="左の一覧から、プロジェクト・アバター・改変・使ったものを押すと、ここに出ます。"
+        <TextBlock Grid.Column="1" Text="左の一覧から、プロジェクト・アバター・改変・使ったものを押すと、ここに表示されます。"
                    Style="{StaticResource Caption}" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
     </controls:PaneGrid>

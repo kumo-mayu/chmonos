@@ -88,7 +88,7 @@
                             ★を付けた商品だけ別の絵になるのは筋が通らない
                         -->
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <TextBlock Text="サムネイルに出す画像" Style="{StaticResource RowLabel}" Width="220" />
+                            <TextBlock Text="サムネイルに表示する画像" Style="{StaticResource RowLabel}" Width="220" />
                             <ComboBox Width="120" ItemsSource="{x:Static vm:SettingsViewModel.ThumbnailRoles}"
                                       DisplayMemberPath="Label"
                                       SelectedItem="{Binding SelectedThumbnailRole, Mode=TwoWay}" />
@@ -97,12 +97,12 @@
                                    Text="「デフォルト」のとき、商品ページで★を付けた1枚が優先されます。役割を選ぶとそちらが優先され、その役割の画像が無い商品は今まで通りの1枚になります。" />
 
                         <Border Height="1" Background="#f0f1f4" Margin="0,14,0,12" />
-                        <CheckBox Content="一覧のカードに小分類のタグも出す" Style="{StaticResource SettingCheck}"
+                        <CheckBox Content="一覧のカードに小分類のタグも表示" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
                         <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowAdult, Mode=TwoWay}"
                                   ToolTip="オフにすると検索とショップの件数から外れます。統計の金額には含まれたままです。" />
-                        <CheckBox Content="非表示にしている件数を検索結果に出す" Style="{StaticResource SettingCheck}"
+                        <CheckBox Content="非表示にしている件数を検索結果に表示" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowHiddenCountInSearch, Mode=TwoWay}" />
 
                         <!--
@@ -136,7 +136,7 @@
                                   IsChecked="{Binding ReturnToSearchWhenEditDone, Mode=TwoWay}" />
                         <CheckBox Content="編集画面の上に、続く商品を小さな絵で並べる" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowEditQueueStrip, Mode=TwoWay}"
-                                  ToolTip="保存した商品には緑の印、飛ばした商品は薄く出ます。押すとその商品へ移れます。切ると帯を出しません（「1件目へ」「最初の未保存へ」は残ります）。" />
+                                  ToolTip="保存した商品には緑の印、飛ばした商品は薄く表示されます。押すとその商品へ移れます。切ると帯を表示しません（「1件目へ」「最初の未保存へ」は残ります）。" />
                     </StackPanel>
                 </Border>
 
@@ -187,7 +187,7 @@
                                   ToolTip="取り込みの最中に落とした分は、今の取り込みに追加します。" />
                         <CheckBox Content="起動したとき、監視フォルダに新しいファイルがあれば取り込みを始める" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
-                                  ToolTip="切っているときは、取り込み画面に件数を出して、押してから始めます。起動しただけでBOOTHへの通信が始まるのを避けたいときは切ってください。次に起動したときから効きます。" />
+                                  ToolTip="切っているときは、取り込み画面に件数を表示して、押してから始めます。起動しただけでBOOTHへの通信が始まるのを避けたいときは切ってください。次に起動したときから効きます。" />
 
                         <Grid Margin="0,8,0,6">
                             <TextBlock Text="取り込み元の履歴" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
@@ -227,7 +227,7 @@
                             Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="監視対象フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込まず、取り込み画面に件数を出します。ここに無いフォルダは、押されるまで見に行きません。" />
+                                   Text="開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込まず、取り込み画面に件数を表示します。ここに無いフォルダは、押されるまで見に行きません。" />
 
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
@@ -553,7 +553,7 @@
 
                         <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="打った語の別表記でも探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に出ます。" />
+                                   Text="打った語の別表記でも探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に表示されます。" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"

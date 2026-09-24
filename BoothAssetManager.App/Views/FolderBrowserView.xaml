@@ -54,7 +54,7 @@
                                             <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
                                             <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                                                     CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
-                                                    ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が出ます。"
+                                                    ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が表示されます。"
                                                     Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
                                             </Border>
@@ -89,7 +89,7 @@
                 <!-- 未確定を出していないとき：件数と案内は出さず、あることだけ（ユーザ指示 2026-09-15） -->
                 <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                         CornerRadius="9" Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center"
-                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が出ます。"
+                        ToolTip="この下に未確定のファイルがあります。左の「未確定」を入れると、件数と片付ける操作が表示されます。"
                         Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
                 </Border>
@@ -112,7 +112,7 @@
                 <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"
                         IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
                         Command="{Binding Owner.ImportHereCommand}" CommandParameter="{Binding}"
-                        ToolTip="このフォルダを取り込みの対象に追加して、取り込みを始めます。新しいファイルを探して商品を決めます。画面はこのままで、進み具合は下の帯に出ます（取り込み画面へはそこから移れます）。" />
+                        ToolTip="このフォルダを取り込みの対象に追加して、取り込みを始めます。新しいファイルを探して商品を決めます。画面はこのままで、進み具合は下の帯に表示されます（取り込み画面へはそこから移れます）。" />
 
                 <!-- 監視は状態を出し、足す・外すの両方をできるようにする（ユーザ指示 2026-09-14。前は足すだけで外せなかった） -->
                 <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,0,4,0" Margin="0,0,8,8"
@@ -146,7 +146,7 @@
                     <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
                         <Button Content="未確定として開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                                 Command="{Binding Owner.OpenUnresolvedCommand}" CommandParameter="{Binding}"
-                                ToolTip="この下の未確定だけを、未確定の画面と同じ形で右に出します（確定・フォルダの登録・管理対象から除外する）。" />
+                                ToolTip="この下の未確定だけを、未確定の画面と同じ形で右に表示します（確定・フォルダの登録・管理対象から除外する）。" />
                         <Button Content="{Binding ExcludeText}" Style="{StaticResource SmallButton}"
                                 Command="{Binding Owner.ExcludeUnresolvedCommand}" CommandParameter="{Binding}" />
                     </WrapPanel>
