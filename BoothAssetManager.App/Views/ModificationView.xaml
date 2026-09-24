@@ -253,7 +253,7 @@
                                                             <ContextMenu>
                                                                 <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding}"
+                                                                <MenuItem Header="Unityで選択" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                             </ContextMenu>
                                                         </Button.ContextMenu>
@@ -397,7 +397,7 @@
                                                                         <ContextMenu>
                                                                             <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                            <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding}"
+                                                                            <MenuItem Header="Unityで選択" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                         </ContextMenu>
                                                                     </Button.ContextMenu>

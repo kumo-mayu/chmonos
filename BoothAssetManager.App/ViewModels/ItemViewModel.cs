@@ -202,7 +202,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public string RefreshButtonTip => Item.IsLocalOnly
         ? "BOOTHに無い商品なので取り直せません。"
-        : "BOOTHの情報を取り直します。ファイルはダウンロードせず、入力も残ります。";
+        : "BOOTHの情報を取り直します。ファイルはダウンロードせず、メモやタグも残ります。";
 
     public string RefreshStatus
     {

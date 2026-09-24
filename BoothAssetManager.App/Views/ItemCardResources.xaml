@@ -48,7 +48,7 @@
             <MenuItem Header="改変に追加して送る…" CommandParameter="{Binding}"
                       ToolTip="送ったうえで、どの改変に使ったかを残します。"
                       Command="{Binding PlacementTarget.Tag.CardSendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-            <MenuItem Header="選択（Unityのプロジェクトタブで示す）…" CommandParameter="{Binding}"
+            <MenuItem Header="Unityで選択…" CommandParameter="{Binding}"
                       ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
                       Command="{Binding PlacementTarget.Tag.CardSelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </MenuItem>

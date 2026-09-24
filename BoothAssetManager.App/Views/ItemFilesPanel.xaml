@@ -337,7 +337,7 @@
                                                                                                   ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                         <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
-                                                                                        <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding Entry}"
+                                                                                        <MenuItem Header="Unityで選択" CommandParameter="{Binding Entry}"
                                                                                                   ToolTip="開いているUnityのプロジェクトタブで、入った場所を示します。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                     </ContextMenu>

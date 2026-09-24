@@ -394,11 +394,11 @@
                                 <TextBlock Text="{Binding Summary.FilesScanned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
-                                <TextBlock Text="ハッシュを計算" Style="{StaticResource Caption}" />
+                                <TextBlock Text="中身を確かめた" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.FilesHashed}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
-                                <TextBlock Text="ハッシュを省略" Style="{StaticResource Caption}" />
+                                <TextBlock Text="確かめを省いた" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.FilesReusedFromCache}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
