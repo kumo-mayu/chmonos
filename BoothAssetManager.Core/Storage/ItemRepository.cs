@@ -20,6 +20,35 @@ public sealed class ItemRepository
     /// </summary>
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _itemLocks = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// 読んだ商品の写し。鍵はファイル名の商品ID、値は「読んだときのファイルの大きさと更新日時」と読んだ中身。
+    ///
+    /// 全件の読み込みは画面・取り込み・検出・統計など約40か所から呼ばれ、起動だけで5〜6回走る。
+    /// 2000件で1回あたり約0.4〜0.6秒・割り当て45MB（2026-09-24 に stress-realcat で測った）で、
+    /// ほとんどは前の回から何も変わっていないファイルを読み直していた。
+    /// **大きさと更新日時が同じなら前に読んだ中身を返し、変わったファイルだけ読み直す。**
+    ///
+    /// 中身（<see cref="ItemRecord"/>）は書き換えられない形（init だけのレコードと読むだけの一覧）なので、
+    /// 呼んだ所どうし（画面どうし・裏の作業）で同じ物を共有してよい。変えるときは <c>with</c> で写しを作る。
+    ///
+    /// 新しさ：自分の書き込み（<see cref="WriteAsync"/>）は商品の錠の中で写しも差し替えるので、書いた直後の読み込みから新しい。
+    /// アプリの外で書き換えられた物（手で直した JSON）は更新日時か大きさが変わるので読み直す。
+    /// 見逃すのは「同じ大きさで、ファイルシステムの時刻の刻み（NTFS で最大約16ms）の中に外から2回書かれた」ときだけ。
+    /// </summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedItem> _cache = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 控えの1件。**参照で比べるためにクラスにしている**（<see cref="ReadThroughAsync"/> の <c>TryUpdate</c>）。
+    /// レコードにすると中身が同じ別の控えを「同じ」とみなし得る。
+    /// </summary>
+    private sealed class CachedItem(long length, DateTime lastWriteUtc, ItemRecord item)
+    {
+        public ItemRecord Item { get; } = item;
+
+        public bool Matches(long otherLength, DateTime otherLastWriteUtc)
+            => length == otherLength && lastWriteUtc == otherLastWriteUtc;
+    }
+
     public ItemRepository(AppPaths paths)
     {
         _paths = paths;
@@ -29,10 +58,57 @@ public sealed class ItemRepository
 
     /// <summary>
     /// 1件を読む。**古い形の読み替えはしない**（公開前は、今の形に合わないデータの側を問題にする・ユーザ判断 2026-09-12）。
-    /// 以前は旧形式の購入記録（orderedVariations）を読むたびに purchases へ移していた
+    /// 以前は旧形式の購入記録（orderedVariations）を読むたびに purchases へ移していた。
+    ///
+    /// ファイルが前に読んだときと同じ（大きさと更新日時）なら、読んだ写しを返す（<see cref="_cache"/>）。
     /// </summary>
     public Task<ItemRecord?> LoadAsync(string itemId, CancellationToken cancellationToken = default)
-        => JsonStore.ReadAsync<ItemRecord>(_paths.ItemFile(itemId), cancellationToken);
+    {
+        var path = _paths.ItemFile(itemId);
+        var info = new FileInfo(path);
+        return info.Exists
+            ? ReadThroughAsync(itemId, path, info.Length, info.LastWriteTimeUtc, cancellationToken)
+            : Task.FromResult<ItemRecord?>(null);
+    }
+
+    /// <summary>
+    /// 控えが今のファイルと合えば控えを、合わなければ読んで控える。
+    ///
+    /// **大きさと日時は読む前に取った物を渡す。**読む前に取れば、読んだ中身は必ずその日時と同じか新しい。
+    /// 逆（読んでから日時を取る）だと、読んだ後に書かれた新しい日時に古い中身を結び付けて、以後ずっと古い物を返す。
+    /// 控えを入れるのは、見たときから誰も差し替えていないときだけ（書き手が錠の中で入れた新しい控えを古い中身で潰さない）。
+    /// </summary>
+    private async Task<ItemRecord?> ReadThroughAsync(
+        string itemId,
+        string path,
+        long length,
+        DateTime lastWriteUtc,
+        CancellationToken cancellationToken)
+    {
+        _cache.TryGetValue(itemId, out var seen);
+        if (seen is not null && seen.Matches(length, lastWriteUtc))
+        {
+            return seen.Item;
+        }
+
+        var item = await JsonStore.ReadAsync<ItemRecord>(path, cancellationToken);
+        if (item is null)
+        {
+            return null;
+        }
+
+        var entry = new CachedItem(length, lastWriteUtc, item);
+        if (seen is null)
+        {
+            _cache.TryAdd(itemId, entry);
+        }
+        else
+        {
+            _cache.TryUpdate(itemId, entry, seen);
+        }
+
+        return item;
+    }
 
     public async Task SaveAsync(ItemRecord item, CancellationToken cancellationToken = default)
     {
@@ -48,8 +124,35 @@ public sealed class ItemRepository
         }
     }
 
-    private Task WriteAsync(ItemRecord item, CancellationToken cancellationToken)
-        => JsonStore.WriteAsync(_paths.ItemFile(item.Id), item, cancellationToken);
+    /// <summary>
+    /// 書いて、写しも書いた物に差し替える。**商品の錠を持った所から呼ぶ**（写しの差し替えを書いた順に並べるため）。
+    ///
+    /// 書いた後の大きさと日時で控えるので、直後の読み込みは読み直さずに書いた物を返す。
+    /// </summary>
+    private async Task WriteAsync(ItemRecord item, CancellationToken cancellationToken)
+    {
+        var path = _paths.ItemFile(item.Id);
+        try
+        {
+            await JsonStore.WriteAsync(path, item, cancellationToken);
+        }
+        catch
+        {
+            // 置き換えの途中で失敗すると、本体が新旧どちらか分からない。控えは捨てて次に読み直す
+            _cache.TryRemove(item.Id, out _);
+            throw;
+        }
+
+        var info = new FileInfo(path);
+        if (info.Exists)
+        {
+            _cache[item.Id] = new CachedItem(info.Length, info.LastWriteTimeUtc, item);
+        }
+        else
+        {
+            _cache.TryRemove(item.Id, out _);
+        }
+    }
 
     private SemaphoreSlim LockFor(string itemId)
         => _itemLocks.GetOrAdd(itemId, static _ => new SemaphoreSlim(1, 1));
@@ -205,6 +308,11 @@ public sealed class ItemRepository
     /// ファイルを開く所に非同期の指定が無いので <c>await</c> が同期で終わり、
     /// 呼んだスレッドを一度も手放さなかった。2000件ならその全部が1回の固まりになる
     /// （起動・取り込みの後・編集の後の読み直しで、毎回画面が止まっていた）。
+    ///
+    /// **何度呼んでも軽い**（2026-09-24）。変わっていないファイルは読まずに写しを返すので、
+    /// 2回目からは列挙と比べるだけ（2000件で1回 0.33〜0.67秒・45MB → 3〜13ms・1.4MB）。返す商品は呼んだ所どうしで共有される
+    /// （書き換えられない形なので安全）。新しさは「呼んだ時点のディスク」と同じで、このアプリが書いた物は書き終えた直後から入る。
+    /// 画面が全件を抱え続けて自分で差分を追う必要は無く、要るたびにこれを呼べばよい。
     /// </remarks>
     public Task<ItemLoadResult> LoadAllAsync(
         IProgress<int>? progress = null,
@@ -215,20 +323,47 @@ public sealed class ItemRepository
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
-        var items = new List<ItemRecord>();
         var failures = new List<string>();
-        var loaded = 0;
+        var read = await ReadAllAsync(failures, progress, cancellationToken);
+        return new ItemLoadResult { Items = read.Select(pair => pair.Item).ToList(), FailedItemIds = failures };
+    }
 
-        foreach (var itemId in EnumerateItemIds())
+    /// <summary>
+    /// 全件を「ファイル名の商品ID と中身」の組で読む。写しと合うファイルは読まない（<see cref="_cache"/>）。
+    ///
+    /// 大きさと日時は列挙で取れている物を使う（1件ずつ問い直すと、それだけで2000回ファイルシステムに問い合わせる）。
+    /// 列挙に出なかった商品（外した・手で消した）の控えはここで捨てる。
+    /// </summary>
+    private async Task<List<(string FileId, ItemRecord Item)>> ReadAllAsync(
+        List<string> failures,
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
+    {
+        var found = new List<(string, ItemRecord)>();
+        if (!Directory.Exists(_paths.ItemsDir))
+        {
+            _cache.Clear();
+            return found;
+        }
+
+        var listed = new HashSet<string>(StringComparer.Ordinal);
+        var loaded = 0;
+        foreach (var file in new DirectoryInfo(_paths.ItemsDir).EnumerateFiles("*.json"))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            var itemId = Path.GetFileNameWithoutExtension(file.Name);
+            if (string.IsNullOrEmpty(itemId))
+            {
+                continue;
+            }
+
+            listed.Add(itemId);
             try
             {
-                var item = await LoadAsync(itemId, cancellationToken);
-                if (item is not null)
+                if (await ReadThroughAsync(itemId, file.FullName, file.Length, file.LastWriteTimeUtc, cancellationToken) is { } item)
                 {
-                    items.Add(item);
+                    found.Add((itemId, item));
                 }
             }
             catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException)
@@ -239,8 +374,26 @@ public sealed class ItemRepository
             progress?.Report(++loaded);
         }
 
-        return new ItemLoadResult { Items = items, FailedItemIds = failures };
+        foreach (var gone in _cache.Keys.Where(id => !listed.Contains(id)).ToList())
+        {
+            // 列挙の後に作られた商品の控えまで捨てることがあるが、次に読むときに読み直すだけで害は無い
+            _cache.TryRemove(gone, out _);
+        }
+
+        return found;
     }
+
+    /// <summary>
+    /// ファイル名と中の商品IDが違う物（手で直したときのずれ・L6）。全件の読み込みと同じ写しから引く。
+    /// 読めなかったファイルは含めない（「読めなかった商品」として別に数えている）。
+    /// </summary>
+    public Task<IReadOnlyList<(string FileId, string ItemId)>> FindMisnamedAsync(CancellationToken cancellationToken = default)
+        => Task.Run<IReadOnlyList<(string FileId, string ItemId)>>(
+            async () => (await ReadAllAsync([], null, cancellationToken))
+                .Where(pair => !string.Equals(pair.FileId, pair.Item.Id, StringComparison.Ordinal))
+                .Select(pair => (pair.FileId, pair.Item.Id))
+                .ToList(),
+            cancellationToken);
 
     /// <summary>表示用の説明HTML。商品ページを開いた時だけ読む。</summary>
     public async Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken = default)
@@ -388,7 +541,14 @@ public sealed class ItemRepository
         }
 
         DeleteIfExists(_paths.ItemHtmlFile(itemId));
-        DeleteIfExists(_paths.ItemFile(itemId));
+        try
+        {
+            DeleteIfExists(_paths.ItemFile(itemId));
+        }
+        finally
+        {
+            _cache.TryRemove(itemId, out _);
+        }
 
         // 画像を消してから JSON を消すまでの間に、画像の取得がフォルダを作り直していることがある
         // （取得は JSON があるかを見てから作る）。JSON が消えた今なら、もう作り直されない
