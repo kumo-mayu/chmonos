@@ -296,11 +296,16 @@ public sealed class ImportPipeline : IImportPipeline
             // **走査は画面のスレッドの外で回す**（ユーザ判断 2026-09-21・C4）。
             // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
             // 全再帰列挙と展開先の実測が丸ごと走り、その間ずっと画面が固まっていた
+            //
+            // 走査と ID の特定は1ファイルごとに知らせるので、1秒に10回ほどに間引いて最新だけを渡す（LatestProgress）
+            var perFile = new LatestProgress<ImportProgress>(progress, report => report.Phase);
             var scan = await Task.Run(
-                () => ScanFolders(folders, exclusions, scanCache, registered, progress, cancellationToken),
+                () => ScanFolders(folders, exclusions, scanCache, registered, perFile, cancellationToken),
                 cancellationToken);
+            perFile.Flush();
             var resolution = await ResolveAsync(
-                scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
+                scan.Files, scanCache, exclusions, detached, owned, perFile, cancellationToken);
+            perFile.Flush();
             await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
 
             // 読むのは item に触らないので、①と同時に進めてよい。①に着くのを遅らせないよう、ここでは待たない
