@@ -453,11 +453,30 @@ public sealed class HubItemDetail : ViewModelBase
 /// 改変1件の行（使ったものの行を含む）を作る。改変の画面とアバターの管理の「このアバターの改変」で同じ形を使う
 /// （ユーザ指示 2026-09-17：アバターの管理の改変を、改変の画面のアバターの項目と同じくアイコン・名前・Unityプロジェクト・畳んだ中身にする）。
 /// </summary>
+/// <param name="thumbnailPaths">
+/// 商品ごとの1枚目の場所を裏で引いておいた物（<see cref="ThumbnailPathsOf"/>）。あればフォルダを見ずにそれを使う。
+/// 行を組むのは画面のスレッドなので、ここで商品ごとにフォルダを見ると、使ったものの多い改変の一覧で行の数だけ止まる
+/// </param>
 internal sealed class ModificationRowBuilder(
     AppServiceContainer services,
     ThumbnailLoader thumbnails,
-    IReadOnlyDictionary<string, ItemRecord> items)
+    IReadOnlyDictionary<string, ItemRecord> items,
+    IReadOnlyDictionary<string, string?>? thumbnailPaths = null)
 {
+    /// <summary>商品ごとの1枚目の場所をまとめて引く。**裏のスレッドで呼ぶ**（フォルダを見る）。</summary>
+    public static Dictionary<string, string?> ThumbnailPathsOf(
+        AppServiceContainer services, ThumbnailLoader thumbnails, IEnumerable<ItemRecord> targets)
+    {
+        var builder = new ModificationRowBuilder(services, thumbnails, new Dictionary<string, ItemRecord>());
+        var paths = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var item in targets)
+        {
+            paths[item.Id] = builder.ItemThumbnailPath(item);
+        }
+
+        return paths;
+    }
+
     /// <param name="key">畳んだ・開いたを覚える鍵（画面ごとに分ける）。</param>
     public HubModificationRow Build(ModificationRecord record, string key, bool openByDefault, string avatarName, bool showsAvatar, bool showsProject)
         => new(key, openByDefault, forceOpen: false)
@@ -523,6 +542,11 @@ internal sealed class ModificationRowBuilder(
     /// <summary>商品の1枚目。検索のカードと同じ選び方（BOOTHの並び・★・役割の指定）。</summary>
     public string? ItemThumbnailPath(ItemRecord item)
     {
+        if (thumbnailPaths is not null && thumbnailPaths.TryGetValue(item.Id, out var known))
+        {
+            return known;
+        }
+
         var directory = services.Paths.ItemImagesDir(item.Id);
         var ordered = Core.Images.ItemImageOrder.Arrange(
             directory, item.Booth.Images, thumbnails.ListFiles(directory), item.Local.UserImages);

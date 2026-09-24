@@ -45,6 +45,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     private Dictionary<string, AvatarSummary> _avatars = new(StringComparer.Ordinal);
     private Dictionary<string, ItemRecord> _items = new(StringComparer.Ordinal);
 
+    /// <summary>使ったものの商品ごとの1枚目の場所。読み込みのときに裏で引く（<see cref="ModificationRowBuilder.ThumbnailPathsOf"/>）。</summary>
+    private Dictionary<string, string?> _thumbnailPaths = new(StringComparer.Ordinal);
+
     public ModificationHubViewModel(
         AppServiceContainer services,
         MainViewModel main,
@@ -381,6 +384,15 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
         _records = modifications.Result.Modifications;
         _projects = await WithLinkedProjectsAsync(projects.Result);
+
+        // 使ったものの行の絵の場所は、行を組む前に裏でまとめて引く（行を組むのは画面のスレッドで、検索の1文字ごとにも組み直す）
+        var used = _records
+            .SelectMany(record => record.Members)
+            .Select(member => _items.GetValueOrDefault(member.ItemId))
+            .OfType<ItemRecord>()
+            .DistinctBy(item => item.Id)
+            .ToList();
+        _thumbnailPaths = await Task.Run(() => ModificationRowBuilder.ThumbnailPathsOf(_services, _thumbnails, used), token);
 
         if (modifications.Result.FailedIds.Count > 0)
         {

@@ -151,12 +151,19 @@ public sealed class ThumbnailLoader
     /// ファイルを足すと入れ物のフォルダの更新時刻が変わるので、時刻を1回見るだけで気付ける
     /// （画像の保存名はURLのハッシュなので、増えるときは必ず新しい名前になる）。
     /// </summary>
+    /// <remarks>
+    /// **どのスレッドからでも呼べる**（控えは錠で守る）。一覧の行を裏で組む画面（改変・タグの管理）が、
+    /// 行ごとの1枚目を画面のスレッドの外で引けるように。フォルダを見る所は錠の外で行う
+    /// </remarks>
     public IReadOnlyList<string> ListFiles(string imageDirectory)
     {
         var writtenAt = LastWriteOf(imageDirectory);
-        if (_filesByDirectory.TryGetValue(imageDirectory, out var cached) && cached.WrittenAt == writtenAt)
+        lock (_filesGate)
         {
-            return cached.Files;
+            if (_filesByDirectory.TryGetValue(imageDirectory, out var cached) && cached.WrittenAt == writtenAt)
+            {
+                return cached.Files;
+            }
         }
 
         IReadOnlyList<string> files;
@@ -174,14 +181,21 @@ public sealed class ThumbnailLoader
         // 覚えるフォルダに上限を付ける。商品を開くたび・カードを出すたびに1つずつ増え、
         // 起動している間は消えなかった（2000件を一巡すると2000件ぶんのパスの一覧を抱えたまま）。
         // 数え直しは時刻を見て一覧を取り直すだけなので、あふれたら全部忘れても重くならない
-        if (_filesByDirectory.Count >= MaxRememberedDirectories)
+        lock (_filesGate)
         {
-            _filesByDirectory.Clear();
+            if (_filesByDirectory.Count >= MaxRememberedDirectories)
+            {
+                _filesByDirectory.Clear();
+            }
+
+            _filesByDirectory[imageDirectory] = (files, writtenAt);
         }
 
-        _filesByDirectory[imageDirectory] = (files, writtenAt);
         return files;
     }
+
+    /// <summary><see cref="_filesByDirectory"/> の錠。</summary>
+    private readonly object _filesGate = new();
 
     /// <summary>
     /// 覚えておくフォルダの数。検索画面に一度に並ぶカードは多くて40枚ほどで、行き来する範囲を足しても
@@ -229,7 +243,13 @@ public sealed class ThumbnailLoader
     /// 「この商品の画像取得を優先」で枚数が増えたときに呼ぶ。
     /// 覚えたままだと、落としたばかりの画像が一覧に出てこない。
     /// </summary>
-    public void ForgetDirectory(string imageDirectory) => _filesByDirectory.Remove(imageDirectory);
+    public void ForgetDirectory(string imageDirectory)
+    {
+        lock (_filesGate)
+        {
+            _filesByDirectory.Remove(imageDirectory);
+        }
+    }
 
     /// <summary>1枚を保存された大きさのまま読む。読めなければ null。</summary>
     public BitmapSource? Load(string path) => Load(path, maxEdgePixels: null);

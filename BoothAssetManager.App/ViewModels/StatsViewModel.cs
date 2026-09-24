@@ -307,8 +307,26 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     ///
     /// **合計だけでは触る場所が分からない**ので、組ごとに出す。
     /// </summary>
-    public IReadOnlyList<DuplicateRowViewModel> Duplicates =>
-        _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group)).ToList() ?? [];
+    /// <remarks>
+    /// 集計1回につき1度だけ作る。前は読まれるたびに行を作り直していて、<see cref="HasDuplicates"/>・見出し・一覧の結び付けが
+    /// それぞれ読むので、1回の表示で3回以上作り、一覧は毎回別の行（＝部品の作り直し）になっていた
+    /// </remarks>
+    public IReadOnlyList<DuplicateRowViewModel> Duplicates
+    {
+        get
+        {
+            if (!ReferenceEquals(_duplicatesOf, _snapshot))
+            {
+                _duplicatesOf = _snapshot;
+                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group)).ToList() ?? [];
+            }
+
+            return _duplicates;
+        }
+    }
+
+    private object? _duplicatesOf;
+    private IReadOnlyList<DuplicateRowViewModel> _duplicates = [];
 
     public bool HasDuplicates => Duplicates.Count > 0;
 

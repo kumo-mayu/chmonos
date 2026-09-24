@@ -142,7 +142,7 @@ public sealed partial class ModificationHubViewModel
     /// 改変の行。プロジェクト・アバターの見方の中では畳んで出す（見出しの下が長くなりすぎないように）。
     /// 改変の見方では改変そのものが見出しなので開いて出す。
     /// </summary>
-    private ModificationRowBuilder Rows => new(_services, _thumbnails, _items);
+    private ModificationRowBuilder Rows => new(_services, _thumbnails, _items, _thumbnailPaths);
 
     private HubModificationRow ModRow(ModificationRecord record, ModificationHubLevel level, bool forceOpen)
         => Rows.Build(record, $"mod:{level}:{record.Id}", openByDefault: level == ModificationHubLevel.Modification,
