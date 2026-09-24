@@ -215,10 +215,24 @@ public sealed class ImportPipeline : IImportPipeline
     /// まとめの件数は周回をまたいで足し合わせる。ユーザにとっては
     /// 「1回の取り込み」なので、途中で足したぶんも同じ数字に入っていてほしい。
     /// </summary>
-    public async Task<ImportSummary> RunAsync(
+    /// <remarks>
+    /// **全体を画面のスレッドの外で回す**（2026-09-24）。Core は続きを元の文脈へ戻すので、画面から始めた取り込みは
+    /// 走査以外（全件の読み込み・登録したフォルダの測り直し・zip の後の組み立て・商品の書き込み・③の検出）を画面のスレッドで回していた
+    /// （作り物の 300 本の取り込み直しで、1回 2.5秒のうち 2.0秒が画面のスレッド）。
+    /// 画面への知らせは、進み具合（画面の <c>Progress</c>）・通信の様子・画像の保存とも画面のスレッドへ運んで受けている。
+    /// 積む（<see cref="ImportWorkSet"/>）は錠で守られている。優先度（Prioritize）は AsyncLocal なので中へ引き継がれる。
+    /// </remarks>
+    public Task<ImportSummary> RunAsync(
         ImportWorkSet work,
         IProgress<ImportProgress>? progress = null,
         CancellationToken cancellationToken = default)
+        // 取り消しの印は中で見る（Task.Run に渡すと、始まる前の取り消しで例外の種類と記録の残り方が変わる）
+        => Task.Run(() => RunCoreAsync(work, progress, cancellationToken));
+
+    private async Task<ImportSummary> RunCoreAsync(
+        ImportWorkSet work,
+        IProgress<ImportProgress>? progress,
+        CancellationToken cancellationToken)
     {
         _store.Paths.EnsureCreated();
 
