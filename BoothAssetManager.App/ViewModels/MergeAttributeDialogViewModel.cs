@@ -28,7 +28,7 @@ public sealed class MergeAttributeDialogViewModel : ViewModelBase
     public string HeadingText => $"「{From}」を「{To}」に統合します。";
 
     public string ImpactText => Preview.ItemCount == 0
-        ? "どの商品も評価していないので、商品側の書き換えはありません。"
+        ? "どの商品も評価していないので、商品は書き換わりません。"
         : $"{Preview.ItemCount} 件の商品を書き換えます。メモは「{To}」側へ追記します。";
 
     /// <summary>値がぶつかるitemがあるときだけ、どちらを残すか聞く。</summary>

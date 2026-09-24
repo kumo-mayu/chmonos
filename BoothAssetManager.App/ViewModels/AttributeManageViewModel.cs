@@ -748,7 +748,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
     public bool HasFilter => _filterText.Trim().Length > 0;
 
     public string FilterResultText => HasFilter
-        ? $"「{_filterText.Trim()}」に当たる属性 {Rows.Count} 件（この属性を持つ商品も探しています）"
+        ? $"「{_filterText.Trim()}」に当たる属性 {Rows.Count} 件"
         : string.Empty;
 
     private void RebuildOtherNames()
@@ -849,7 +849,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
         => Confirm(
             $"「{from}」を「{to}」に統合します。\n\n"
             + (preview.ItemCount == 0
-                ? "どの商品も評価していないので、商品側の書き換えはありません。\n"
+                ? "どの商品も評価していないので、商品は書き換わりません。\n"
                 : $"{preview.ItemCount} 件の商品を書き換えます。メモは「{to}」側へ追記します。\n")
             + (preview.Conflicts > 0
                 ? $"両方に値が入っている {preview.Conflicts} 件は、"
@@ -899,8 +899,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
         if (result is CommandResult.AttributesRewritten rewritten)
         {
             StatusText = rewritten.Result.WasMerged
-                ? $"「{target}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。"
-                : $"「{target}」に変更しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+                ? $"「{target}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。"
+                : $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
 
         var next = target;
@@ -927,8 +927,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
             ? $"「{Selected.Name}」を削除します。\n\nどの商品も評価していないので、影響はありません。"
             : $"「{Selected.Name}」を削除します。\n\n"
                 + $"{Selected.ItemCount} 件の商品から、この属性の評価が消えます。\n"
-                + $"\nこの操作は元に戻せません。同じ名前で作り直しても、{Selected.ItemCount} 件ぶんの評価は戻りません。\n"
-                + "入れ直すには、もう一度1件ずつ評価する必要があります。";
+                + $"\nこの操作は元に戻せません。同じ名前で作り直しても、{Selected.ItemCount} 件ぶんの評価は戻りません。";
 
         if (!Confirm(message, "属性を削除する"))
         {
@@ -938,7 +937,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(Selected.Name));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"削除しました（{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました）。";
+            StatusText = $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました。";
         }
 
         Selected = null;
@@ -1049,7 +1048,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
         var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameAttribute(row.Name, name, keep));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"「{name}」に統合しました（{rewritten.Result.ItemsUpdated} 件の商品を書き換え）。";
+            StatusText = $"「{name}」に統合し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
 
         await ReloadAsync();
@@ -1069,7 +1068,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
         var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(row.Name));
         if (result is CommandResult.AttributesRewritten rewritten)
         {
-            StatusText = $"「{row.Name}」を外しました（{rewritten.Result.ItemsUpdated} 件の商品から消しました）。";
+            StatusText = $"「{row.Name}」を {rewritten.Result.ItemsUpdated} 件の商品から外しました。";
         }
 
         await ReloadAsync();
