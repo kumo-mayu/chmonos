@@ -83,7 +83,7 @@ public sealed partial class ItemViewModel
             title,
             $"「{Item.DisplayName}」を改変に追加します。",
             // 送らないので、どのファイルを使ったかは分からない。**推定で埋めない**
-            "どのファイルを使ったかは残りません（Unityへ送ると残ります）。",
+            "使ったファイルは記録されません。記録するには「改変に追加して送る」を使ってください。",
             (await _services.Modifications.LoadAllAsync()).Modifications,
             existingLabel: "今ある改変に追加",
             commitLabel: "追加",
@@ -196,10 +196,10 @@ public sealed partial class ItemViewModel
             var editors = Services.UnityEditors.Open();
             return editors.Count switch
             {
-                0 => "Unityが開いていません（開いてから送れます）",
+                0 => "Unityが開いていません。開くと送れます。",
                 1 => $"送り先：Unityの「{editors[0].ProjectName ?? "名前不明のプロジェクト"}」",
                 // 窓を名指しして送るので、複数開いていても送るときに選べる（U14）
-                _ => $"Unityが {editors.Count} つ開いています（送るときにどれへ送るか選べます）",
+                _ => $"Unityが {editors.Count} つ開いています。送るときに送り先を選べます。",
             };
         }
     }
