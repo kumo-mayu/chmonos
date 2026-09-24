@@ -215,6 +215,36 @@ public sealed class NotificationGroup : ViewModelBase
 }
 
 /// <summary>
+/// 要確認の平らな一覧の1行（仮想化の単位）。
+///
+/// 束の中に行を入れ子にした一覧は、見えていない行まで全部作る（知らせ1000件で開くのに約7秒固まった。2026-09-24）。
+/// 束の見出しと行を1本に並べて仮想化し、束の枠（角丸・左右の線・束の間の余白）は行ごとに描き分ける。
+/// <see cref="IsLast"/> は束の最後の行か（畳んだ束では見出し）で、そこだけ枠の下を閉じる。
+/// </summary>
+public abstract class InboxLine : ViewModelBase
+{
+    private bool _isLast;
+
+    public bool IsLast
+    {
+        get => _isLast;
+        set => SetField(ref _isLast, value);
+    }
+}
+
+/// <summary>束の見出しの行。見た目の結び先は束そのもの。</summary>
+public sealed class InboxHeadLine(NotificationGroup group) : InboxLine
+{
+    public NotificationGroup Group { get; } = group;
+}
+
+/// <summary>知らせ1件の行。見た目の結び先は知らせの行そのもの。</summary>
+public sealed class InboxRowLine(NotificationRow row) : InboxLine
+{
+    public NotificationRow Row { get; } = row;
+}
+
+/// <summary>
 /// 要確認画面。「今すぐ困らないが知っておきたいこと」の受信箱。
 ///
 /// 未確定や編集が「残っている作業量」なのに対し、こちらは「新しく起きたこと」。
@@ -246,6 +276,16 @@ public sealed class InboxViewModel : ViewModelBase
     }
 
     public ObservableCollection<NotificationGroup> Groups { get; } = [];
+
+    /// <summary>
+    /// 画面に並べる平らな一覧（先頭は状況の1行を出すこの画面そのもの、続いて束の見出しと行）。
+    /// 束と行の出し入れのたびに差分で寄せる（<see cref="CollectionSync"/>）。仮想化しているので、
+    /// 作られるのは見えている行だけ
+    /// </summary>
+    public ObservableCollection<object> Lines { get; } = [];
+
+    private readonly Dictionary<NotificationGroup, InboxHeadLine> _headLines = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<NotificationRow, InboxRowLine> _rowLines = new(ReferenceEqualityComparer.Instance);
 
     public RelayCommand MarkAllReadCommand { get; }
 
@@ -581,6 +621,15 @@ public sealed class InboxViewModel : ViewModelBase
                 created.MarkGroupReadCommand = new RelayCommand(
                     () => MarkGroupReadAsync(created).Forget(),
                     () => created.UnreadCount > 0);
+
+                // 畳む・開くで、平らな一覧の行を出し入れする
+                created.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(NotificationGroup.IsExpanded))
+                    {
+                        RebuildLines();
+                    }
+                };
                 built = created;
             }
 
@@ -590,6 +639,7 @@ public sealed class InboxViewModel : ViewModelBase
         }
 
         CollectionSync.Apply(Groups, target);
+        RebuildLines();
 
         OnPropertyChanged(nameof(TotalCount));
         OnPropertyChanged(nameof(UnreadCount));
@@ -597,6 +647,63 @@ public sealed class InboxViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
         RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 束の並びと開き具合から、平らな一覧を組み直す。行の器は使い回すので、同じ束・同じ知らせには同じ行を渡す
+    /// （差し替えると、見えている行の部品が作り直される）。
+    /// </summary>
+    private void RebuildLines()
+    {
+        var target = new List<object> { this };
+        var usedHeads = new HashSet<NotificationGroup>(ReferenceEqualityComparer.Instance);
+        var usedRows = new HashSet<NotificationRow>(ReferenceEqualityComparer.Instance);
+
+        foreach (var group in Groups)
+        {
+            if (!_headLines.TryGetValue(group, out var head))
+            {
+                head = new InboxHeadLine(group);
+                _headLines[group] = head;
+            }
+
+            usedHeads.Add(group);
+            target.Add(head);
+            InboxLine last = head;
+
+            if (group.IsExpanded)
+            {
+                foreach (var row in group.Rows)
+                {
+                    if (!_rowLines.TryGetValue(row, out var line))
+                    {
+                        line = new InboxRowLine(row);
+                        _rowLines[row] = line;
+                    }
+
+                    usedRows.Add(row);
+                    line.IsLast = false;
+                    target.Add(line);
+                    last = line;
+                }
+            }
+
+            head.IsLast = ReferenceEquals(last, head);
+            last.IsLast = true;
+        }
+
+        // 消えた束・知らせの行は持ち続けない（読み直しのたびに溜まる）
+        foreach (var gone in _headLines.Keys.Where(group => !usedHeads.Contains(group)).ToList())
+        {
+            _headLines.Remove(gone);
+        }
+
+        foreach (var gone in _rowLines.Keys.Where(row => !usedRows.Contains(row)).ToList())
+        {
+            _rowLines.Remove(gone);
+        }
+
+        CollectionSync.Apply(Lines, target);
     }
 
     private static string KindLabel(NotificationKind kind) => kind switch

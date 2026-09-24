@@ -2,10 +2,167 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:InboxViewModel}">
+    <UserControl.Resources>
+        <!-- 知らせ1件の中身。平らな一覧の行（InboxRowLine）が、束の枠の中にこれを出す -->
+        <DataTemplate x:Key="InboxRowTemplate" DataType="{x:Type vm:NotificationRow}">
+                <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
+                <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
+                    <!--
+                        行を押すと、その商品を開く（ユーザ指示 2026-09-20・B3）。
+                        行を押す意味はアプリ全体で「選ぶ」か「開く」の2つだけで、この画面は「開く」。
+                        以前はどこを押しても何も起きず、乗せたときだけ色が変わるので押せるように見えていた。
+                        中のボタン（既読の印・商品ページを開く・直しに行く）は自分で受け止めるので、ここまで上がってこない
+                    -->
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenItemCommand}" />
+                    </Border.InputBindings>
+                    <Border.Style>
+                        <!-- 読んだ行は薄くする。未読が浮き上がって、どこまで読んだかが分かる -->
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRead}" Value="True">
+                                    <Setter Property="Opacity" Value="0.62" />
+                                </DataTrigger>
+                                <!-- 商品のある行だけが押せる。押せない行に手の形を出さない -->
+                                <DataTrigger Binding="{Binding HasItem}" Value="True">
+                                    <Setter Property="Cursor" Value="Hand" />
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Border.Triggers>
+                        <EventTrigger RoutedEvent="MouseEnter">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
+                                                                   Storyboard.TargetProperty="Visibility">
+                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Visible}" />
+                                    </ObjectAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                        <EventTrigger RoutedEvent="MouseLeave">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
+                                                                   Storyboard.TargetProperty="Visibility">
+                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Collapsed}" />
+                                    </ObjectAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Border.Triggers>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+            
+                        <!--
+                            既読の印は「読んだ」という状態なので、右の「何かをする」ボタンとは分ける
+                            （ユーザ判断 2026-09-18）。タイトルの左に置き、押すと既読・もう一度押すと未読
+                        -->
+                        <ToggleButton Grid.Column="0" Width="16" Height="16" Margin="0,2,11,0"
+                                      VerticalAlignment="Top" Cursor="Hand" Focusable="False"
+                                      AutomationProperties.Name="{Binding ReadButtonText}"
+                                      ToolTip="{Binding ReadButtonText}"
+                                      IsChecked="{Binding IsRead, Mode=TwoWay}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Grid Background="Transparent">
+                                        <Ellipse x:Name="Ring" Width="14" Height="14"
+                                                 Stroke="{StaticResource BorderStrong}" StrokeThickness="1.4"
+                                                 Fill="Transparent" />
+                                        <Ellipse x:Name="Dot" Width="7" Height="7" Visibility="Collapsed"
+                                                 Fill="{StaticResource TextMuted}" />
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Border}" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Unread}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+            
+                        <StackPanel Grid.Column="1" Margin="0,0,14,0">
+                            <StackPanel Orientation="Horizontal">
+                                <!-- 見落とすと困る側にだけ印を付ける -->
+                                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                        BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
+                                        Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="重要" FontSize="10" Foreground="{StaticResource Warn}" />
+                                </Border>
+                                <!-- 用が済んだもの。消さずに印を付ける（ユーザ判断 2026-09-18） -->
+                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                        BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
+                                        Visibility="{Binding IsResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="解消済み" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                </Border>
+                                <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                            </StackPanel>
+                
+                            <!--
+                                行の中身は、どの種別も同じ札で出す（ユーザ指示 2026-09-18）。
+                                変化を持つ知らせは変わったところを1つずつ、持たない知らせは「見出し：中身」を1枚で
+                            -->
+                            <ItemsControl ItemsSource="{Binding Cards}" Margin="0,7,0,0"
+                                          Visibility="{Binding HasCards, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                                BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium"
+                                                           Visibility="{Binding Field, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                <TextBlock Text="{Binding Text}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                
+                            <!--
+                                操作は本文のすぐ下、日時と同じ行に置く（ユーザ判断 2026-09-18）。
+                                指した行にだけ出すが、**行の高さは変えない**——出し入れで行が伸び縮みすると、
+                                境目にマウスがあるときに出たり消えたりして画面が揺れる。
+                                日時の行をボタンの高さ（28）で確保しておき、その中に出す
+                            -->
+                            <StackPanel Orientation="Horizontal" MinHeight="28" Margin="0,6,0,0">
+                                <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Caption}"
+                                           FontSize="11" VerticalAlignment="Center" ToolTip="{Binding CreatedTip}" />
+                                <StackPanel x:Name="RowActions" Orientation="Horizontal" Margin="14,0,0,0"
+                                            VerticalAlignment="Center" Visibility="Collapsed">
+                                <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
+                                <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
+                                        Command="{Binding OpenItemCommand}"
+                                        ToolTip="このアプリの中で商品ページを開きます。"
+                                        Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
+                                <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
+                                        Margin="8,0,0,0" Command="{Binding ActionCommand}"
+                                        ToolTip="{Binding ActionTip}"
+                                        Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+        </DataTemplate>
+    </UserControl.Resources>
     <DockPanel Background="{StaticResource Bg}">
 
         <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
@@ -50,255 +207,144 @@
                         Command="{Binding RefreshCommand}"
                         Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
-                    <!-- 束の幅は中身の長さで変えない（畳むと札の幅が縮んで目が泳ぐ） -->
-                    <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
-                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-    
-                        <!-- 種別ごとに束ねる。何が起きた話なのかで分けて読む -->
-                        <ItemsControl ItemsSource="{Binding Groups}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                                        <StackPanel>
+                <!--
+                    束の見出しと行を平らな1本に並べて仮想化する（2026-09-24：束の中に行を入れ子にしていた頃は、
+                    知らせ1000件で開くのに約7秒固まった）。束の枠は行ごとに描き分け、見た目は1枚の札のまま。
+                    束の幅は中身の長さで変えない（畳むと札の幅が縮んで目が泳ぐ）ので、どの行も同じ上限の幅で真ん中に置く
+                -->
+                <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False"
+                                              VirtualizingPanel.IsVirtualizing="True"
+                                              VirtualizingPanel.VirtualizationMode="Recycling"
+                                              VirtualizingPanel.ScrollUnit="Pixel"
+                                              ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.Template>
+                        <ControlTemplate TargetType="ItemsControl">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          Padding="20" CanContentScroll="True">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="MaxWidth" Value="{StaticResource ReadingMaxWidth}" />
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                    <ItemsControl.Resources>
+                        <!-- 先頭の1行：状況の文（この画面そのものに結ぶ） -->
+                        <DataTemplate DataType="{x:Type vm:InboxViewModel}">
+                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </DataTemplate>
+
+                        <!-- 束の見出し。束の枠の上側（畳んだ束・中身の無い束では枠を閉じる） -->
+                        <DataTemplate DataType="{x:Type vm:InboxHeadLine}">
+                            <Border x:Name="Frame" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1,1,1,0" CornerRadius="8,8,0,0">
+                                <Grid DataContext="{Binding Group}">
+                                    <!--
+                                        見出しごと畳めるようにする（ユーザ指示 2026-09-18）。見出しのどこを押しても開閉できるよう、
+                                        ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）
+                                    -->
+                                    <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
+                                                  AutomationProperties.Name="{Binding KindText}"
+                                                  HorizontalContentAlignment="Stretch" Padding="0">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border x:Name="Back" Background="Transparent"
+                                                        BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,13,18,13">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Back" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,400,0">
+                                                <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                                                      Width="6" Height="9" Stretch="Fill" VerticalAlignment="Top" Margin="0,4,10,0"
+                                                      Visibility="{Binding IsExpanded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                                                <Path Data="M0,0 L9,0 L4.5,6 Z" Fill="{StaticResource TextMuted}"
+                                                      Width="9" Height="6" Stretch="Fill" VerticalAlignment="Top" Margin="0,6,7,0"
+                                                      Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13"
+                                                               Foreground="{StaticResource Text}" />
+                                                    <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
+                                                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </StackPanel>
                                             <!--
-                                                見出しごと畳めるようにする（ユーザ指示 2026-09-18）。見出しのどこを押しても開閉できるよう、
-                                                ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）
+                                                件数は行の札と同じ色・同じ言葉で出す（ユーザ指示 2026-09-18）。
+                                                畳んでいる間もここだけで「何件あって、何を先に読むか」が分かるようにする
                                             -->
-                                            <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
-                                                          AutomationProperties.Name="{Binding KindText}"
-                                                          HorizontalContentAlignment="Stretch" Padding="0">
-                                                <ToggleButton.Template>
-                                                    <ControlTemplate TargetType="ToggleButton">
-                                                        <Border x:Name="Back" Background="Transparent"
-                                                                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,13,18,13">
-                                                            <ContentPresenter />
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="Back" Property="Background" Value="{StaticResource SurfaceAlt}" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </ToggleButton.Template>
-                                                <Grid>
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,400,0">
-                                                        <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
-                                                              Width="6" Height="9" Stretch="Fill" VerticalAlignment="Top" Margin="0,4,10,0"
-                                                              Visibility="{Binding IsExpanded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                                        <Path Data="M0,0 L9,0 L4.5,6 Z" Fill="{StaticResource TextMuted}"
-                                                              Width="9" Height="6" Stretch="Fill" VerticalAlignment="Top" Margin="0,6,7,0"
-                                                              Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                        <StackPanel>
-                                                            <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13"
-                                                                       Foreground="{StaticResource Text}" />
-                                                            <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
-                                                                       TextWrapping="Wrap" Margin="0,4,0,0" />
-                                                        </StackPanel>
-                                                    </StackPanel>
-                                                    <!--
-                                                        件数は行の札と同じ色・同じ言葉で出す（ユーザ指示 2026-09-18）。
-                                                        畳んでいる間もここだけで「何件あって、何を先に読むか」が分かるようにする
-                                                    -->
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                                                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
-                                                                Visibility="{Binding HasStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <TextBlock Text="{Binding StrongText}" FontSize="12" FontWeight="SemiBold"
-                                                                       Foreground="{StaticResource Warn}" />
-                                                        </Border>
-                                                        <Border Background="{StaticResource UnreadSoft}" BorderBrush="{StaticResource UnreadBorder}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
-                                                                Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <TextBlock Text="{Binding UnreadText}" FontSize="12" FontWeight="SemiBold"
-                                                                       Foreground="{StaticResource Unread}" />
-                                                        </Border>
-                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
-                                                                Visibility="{Binding HasResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <TextBlock Text="{Binding ResolvedText}" FontSize="12"
-                                                                       Foreground="{StaticResource TextMuted}" />
-                                                        </Border>
-                                                        <TextBlock Text="{Binding TotalText}" Style="{StaticResource Mono}" FontSize="12.5"
-                                                                   Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
-                                                        <!--
-                                                            束ごとの「まとめて既読」（ユーザ判断 2026-09-18：選んで既読にするより、
-                                                            束ごとにあれば十分）。未読がある束にだけ出す
-                                                        -->
-                                                        <Button Content="この束を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
-                                                                Command="{Binding MarkGroupReadCommand}"
-                                                                ToolTip="この種別の未読を、まとめて既読にします。"
-                                                                Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </ToggleButton>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
+                                                        Visibility="{Binding HasStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding StrongText}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Warn}" />
+                                                </Border>
+                                                <Border Background="{StaticResource UnreadSoft}" BorderBrush="{StaticResource UnreadBorder}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
+                                                        Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding UnreadText}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Unread}" />
+                                                </Border>
+                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
+                                                        Visibility="{Binding HasResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{Binding ResolvedText}" FontSize="12"
+                                                               Foreground="{StaticResource TextMuted}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding TotalText}" Style="{StaticResource Mono}" FontSize="12.5"
+                                                           Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
+                                                <!--
+                                                    束ごとの「まとめて既読」（ユーザ判断 2026-09-18：選んで既読にするより、
+                                                    束ごとにあれば十分）。未読がある束にだけ出す
+                                                -->
+                                                <Button Content="この束を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                        Command="{Binding MarkGroupReadCommand}"
+                                                        ToolTip="この種別の未読を、まとめて既読にします。"
+                                                        Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </ToggleButton>
+                                </Grid>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                    <Setter TargetName="Frame" Property="BorderThickness" Value="1" />
+                                    <Setter TargetName="Frame" Property="CornerRadius" Value="8" />
+                                    <Setter TargetName="Frame" Property="Margin" Value="0,0,0,16" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
 
-                                            <ItemsControl ItemsSource="{Binding Rows}"
-                                                          Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
-                                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
-                                                            <!--
-                                                                行を押すと、その商品を開く（ユーザ指示 2026-09-20・B3）。
-                                                                行を押す意味はアプリ全体で「選ぶ」か「開く」の2つだけで、この画面は「開く」。
-                                                                以前はどこを押しても何も起きず、乗せたときだけ色が変わるので押せるように見えていた。
-                                                                中のボタン（既読の印・商品ページを開く・直しに行く）は自分で受け止めるので、ここまで上がってこない
-                                                            -->
-                                                            <Border.InputBindings>
-                                                                <MouseBinding MouseAction="LeftClick" Command="{Binding OpenItemCommand}" />
-                                                            </Border.InputBindings>
-                                                            <Border.Style>
-                                                                <!-- 読んだ行は薄くする。未読が浮き上がって、どこまで読んだかが分かる -->
-                                                                <Style TargetType="Border">
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsRead}" Value="True">
-                                                                            <Setter Property="Opacity" Value="0.62" />
-                                                                        </DataTrigger>
-                                                                        <!-- 商品のある行だけが押せる。押せない行に手の形を出さない -->
-                                                                        <DataTrigger Binding="{Binding HasItem}" Value="True">
-                                                                            <Setter Property="Cursor" Value="Hand" />
-                                                                        </DataTrigger>
-                                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                                            <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
-                                                                        </Trigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Border.Style>
-                                                            <Border.Triggers>
-                                                                <EventTrigger RoutedEvent="MouseEnter">
-                                                                    <BeginStoryboard>
-                                                                        <Storyboard>
-                                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
-                                                                                                           Storyboard.TargetProperty="Visibility">
-                                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Visible}" />
-                                                                            </ObjectAnimationUsingKeyFrames>
-                                                                        </Storyboard>
-                                                                    </BeginStoryboard>
-                                                                </EventTrigger>
-                                                                <EventTrigger RoutedEvent="MouseLeave">
-                                                                    <BeginStoryboard>
-                                                                        <Storyboard>
-                                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
-                                                                                                           Storyboard.TargetProperty="Visibility">
-                                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Collapsed}" />
-                                                                            </ObjectAnimationUsingKeyFrames>
-                                                                        </Storyboard>
-                                                                    </BeginStoryboard>
-                                                                </EventTrigger>
-                                                            </Border.Triggers>
-                                                            <Grid>
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                </Grid.ColumnDefinitions>
-
-                                                                <!--
-                                                                    既読の印は「読んだ」という状態なので、右の「何かをする」ボタンとは分ける
-                                                                    （ユーザ判断 2026-09-18）。タイトルの左に置き、押すと既読・もう一度押すと未読
-                                                                -->
-                                                                <ToggleButton Grid.Column="0" Width="16" Height="16" Margin="0,2,11,0"
-                                                                              VerticalAlignment="Top" Cursor="Hand" Focusable="False"
-                                                                              AutomationProperties.Name="{Binding ReadButtonText}"
-                                                                              ToolTip="{Binding ReadButtonText}"
-                                                                              IsChecked="{Binding IsRead, Mode=TwoWay}">
-                                                                    <ToggleButton.Template>
-                                                                        <ControlTemplate TargetType="ToggleButton">
-                                                                            <Grid Background="Transparent">
-                                                                                <Ellipse x:Name="Ring" Width="14" Height="14"
-                                                                                         Stroke="{StaticResource BorderStrong}" StrokeThickness="1.4"
-                                                                                         Fill="Transparent" />
-                                                                                <Ellipse x:Name="Dot" Width="7" Height="7" Visibility="Collapsed"
-                                                                                         Fill="{StaticResource TextMuted}" />
-                                                                            </Grid>
-                                                                            <ControlTemplate.Triggers>
-                                                                                <Trigger Property="IsChecked" Value="True">
-                                                                                    <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
-                                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Border}" />
-                                                                                </Trigger>
-                                                                                <Trigger Property="IsMouseOver" Value="True">
-                                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Unread}" />
-                                                                                </Trigger>
-                                                                            </ControlTemplate.Triggers>
-                                                                        </ControlTemplate>
-                                                                    </ToggleButton.Template>
-                                                                </ToggleButton>
-
-                                                                <StackPanel Grid.Column="1" Margin="0,0,14,0">
-                                                                    <StackPanel Orientation="Horizontal">
-                                                                        <!-- 見落とすと困る側にだけ印を付ける -->
-                                                                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
-                                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
-                                                                                Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                            <TextBlock Text="重要" FontSize="10" Foreground="{StaticResource Warn}" />
-                                                                        </Border>
-                                                                        <!-- 用が済んだもの。消さずに印を付ける（ユーザ判断 2026-09-18） -->
-                                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
-                                                                                Visibility="{Binding IsResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                            <TextBlock Text="解消済み" FontSize="10" Foreground="{StaticResource TextMuted}" />
-                                                                        </Border>
-                                                                        <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
-                                                                    </StackPanel>
-    
-                                                                    <!--
-                                                                        行の中身は、どの種別も同じ札で出す（ユーザ指示 2026-09-18）。
-                                                                        変化を持つ知らせは変わったところを1つずつ、持たない知らせは「見出し：中身」を1枚で
-                                                                    -->
-                                                                    <ItemsControl ItemsSource="{Binding Cards}" Margin="0,7,0,0"
-                                                                                  Visibility="{Binding HasCards, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <ItemsControl.ItemTemplate>
-                                                                            <DataTemplate>
-                                                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
-                                                                                        BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
-                                                                                    <StackPanel>
-                                                                                        <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium"
-                                                                                                   Visibility="{Binding Field, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                                                                        <TextBlock Text="{Binding Text}" Style="{StaticResource Caption}"
-                                                                                                   TextWrapping="Wrap" Margin="0,3,0,0" />
-                                                                                    </StackPanel>
-                                                                                </Border>
-                                                                            </DataTemplate>
-                                                                        </ItemsControl.ItemTemplate>
-                                                                    </ItemsControl>
-    
-                                                                    <!--
-                                                                        操作は本文のすぐ下、日時と同じ行に置く（ユーザ判断 2026-09-18）。
-                                                                        指した行にだけ出すが、**行の高さは変えない**——出し入れで行が伸び縮みすると、
-                                                                        境目にマウスがあるときに出たり消えたりして画面が揺れる。
-                                                                        日時の行をボタンの高さ（28）で確保しておき、その中に出す
-                                                                    -->
-                                                                    <StackPanel Orientation="Horizontal" MinHeight="28" Margin="0,6,0,0">
-                                                                        <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Caption}"
-                                                                                   FontSize="11" VerticalAlignment="Center" ToolTip="{Binding CreatedTip}" />
-                                                                        <StackPanel x:Name="RowActions" Orientation="Horizontal" Margin="14,0,0,0"
-                                                                                    VerticalAlignment="Center" Visibility="Collapsed">
-                                                                        <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
-                                                                        <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
-                                                                                Command="{Binding OpenItemCommand}"
-                                                                                ToolTip="このアプリの中で商品ページを開きます。"
-                                                                                Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                        <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
-                                                                        <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
-                                                                                Margin="8,0,0,0" Command="{Binding ActionCommand}"
-                                                                                ToolTip="{Binding ActionTip}"
-                                                                                Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                                        </StackPanel>
-                                                                    </StackPanel>
-                                                                </StackPanel>
-                                                            </Grid>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </ScrollViewer>
+                        <!-- 知らせ1件。束の枠の左右の線（束の最後の行では枠の下を閉じ、次の束との間を空ける） -->
+                        <DataTemplate DataType="{x:Type vm:InboxRowLine}">
+                            <Border x:Name="Frame" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1,0,1,0">
+                                <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource InboxRowTemplate}" />
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                    <Setter TargetName="Frame" Property="BorderThickness" Value="1,0,1,1" />
+                                    <Setter TargetName="Frame" Property="CornerRadius" Value="0,0,8,8" />
+                                    <Setter TargetName="Frame" Property="Margin" Value="0,0,0,16" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.Resources>
+                </controls:ContentItemsControl>
             </DockPanel>
         </Grid>
     </DockPanel>
