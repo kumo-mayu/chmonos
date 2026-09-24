@@ -39,20 +39,6 @@ public sealed class FolderScanner
         ".mp4", ".mov", ".avi",
     };
 
-    /// <summary>
-    /// 再解析点は**種類を見て**飛ばす（点検 2026-09-23）。前は再解析点を全部飛ばしていたが、
-    /// OneDrive（ファイル オンデマンド）は同期フォルダの中のフォルダもファイルも全部が再解析点なので、
-    /// OneDrive に置いたアセットが1件も取り込まれていなかった（この機械の OneDrive で、フォルダも手元にあるファイルも
-    /// ReparsePoint を持つことを確かめた）。
-    /// 飛ばすのはジャンクションとシンボリックリンクだけ——自分の親を指せばループになり、別の場所を指せば同じファイルを二度読む。
-    /// </summary>
-    private static readonly EnumerationOptions RecursiveOptions = new()
-    {
-        RecurseSubdirectories = true,
-        IgnoreInaccessible = true,
-        AttributesToSkip = FileAttributes.System,
-    };
-
     // Windows の属性で .NET の列挙に名前が無い物。オンラインのみのクラウドのファイルに付く
     private const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
     private const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
@@ -67,7 +53,15 @@ public sealed class FolderScanner
     public static bool IsOnlineOnly(FileAttributes attributes)
         => (attributes & (FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess)) != 0;
 
-    /// <summary>ジャンクション・シンボリックリンクか（クラウドの再解析点は違う）。</summary>
+    /// <summary>
+    /// ジャンクション・シンボリックリンクか（クラウドの再解析点は違う）。走査はこれだけを飛ばす。
+    ///
+    /// 再解析点は**種類を見て**飛ばす（点検 2026-09-23）。前は再解析点を全部飛ばしていたが、
+    /// OneDrive（ファイル オンデマンド）は同期フォルダの中のフォルダもファイルも全部が再解析点なので、
+    /// OneDrive に置いたアセットが1件も取り込まれていなかった（この機械の OneDrive で、フォルダも手元にあるファイルも
+    /// ReparsePoint を持つことを確かめた）。
+    /// 飛ばすのはジャンクションとシンボリックリンクだけ——自分の親を指せばループになり、別の場所を指せば同じファイルを二度読む。
+    /// </summary>
     private static bool IsLink(ref FileSystemEntry entry)
     {
         if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
@@ -86,17 +80,6 @@ public sealed class FolderScanner
             return true;
         }
     }
-
-    /// <summary>リンクの先へ降りずに、ファイルかフォルダを再帰で並べる。</summary>
-    private static IEnumerable<(string Path, FileAttributes Attributes)> Walk(string root, bool directories)
-        => new FileSystemEnumerable<(string, FileAttributes)>(
-            root,
-            (ref FileSystemEntry entry) => (entry.ToFullPath(), entry.Attributes),
-            RecursiveOptions)
-        {
-            ShouldIncludePredicate = (ref FileSystemEntry entry) => entry.IsDirectory == directories && !IsLink(ref entry),
-            ShouldRecursePredicate = (ref FileSystemEntry entry) => !IsLink(ref entry),
-        };
 
     /// <summary>
     /// 指定フォルダ以下を再帰的に走査する。アクセスできないフォルダは飛ばして続行する
@@ -126,50 +109,164 @@ public sealed class FolderScanner
             return new ScanResult();
         }
 
-        var unpacked = FindUnpackedFolders(rootFolder, cancellationToken);
+        return ScanTree(rootFolder, cancellationToken);
+    }
+
+    /// <summary>1つのフォルダの中身1件（列挙で取れた物だけで足りる）。</summary>
+    private readonly record struct Entry(string Path, string Name, bool IsDirectory, FileAttributes Attributes, long Length, DateTimeOffset LastWriteUtc, bool IsLink);
+
+    /// <summary>走査の中で見つけた展開先。中のファイルの数と大きさは、木をたどりながら足していく。</summary>
+    private sealed class UnpackedTally(string path, string archivePath)
+    {
+        public string Path { get; } = path;
+
+        public string ArchivePath { get; } = archivePath;
+
+        public int Count { get; set; }
+
+        public long Bytes { get; set; }
+    }
+
+    /// <summary>
+    /// **木を1回だけたどる**（2026-09-24）。前は ①フォルダを全部並べる ②フォルダごとに親のファイルを全部並べ直す
+    /// ③展開先ごとに中を並べ直して測る ④ファイルを全部並べる、と同じ所を何度もたどり、
+    /// 見つけたファイルごとに大きさと日時をファイルシステムへ問い直していた（作り物の1万ファイル・400フォルダで1回 0.3〜0.4秒・148MB）。
+    ///
+    /// 1つのフォルダを1回だけ並べ、その一覧から「子のフォルダが展開先か（兄弟のファイル名）」「取り込むファイル」「展開先の中の数と大きさ」を全部決める。
+    /// **見つかる物は前と同じにする**：たどる順（幅優先・各フォルダの中はファイルシステムの返す順）・飛ばす物（システム属性・リンク）・
+    /// 入れ子の展開先・展開先の中の数え方を、前の <c>FileSystemEnumerable</c> の再帰と揃えてある。
+    /// 大きさと日時は列挙で取れた物を使う（前は1件ずつ <see cref="FileInfo"/> で問い直していた）。
+    /// </summary>
+    private static ScanResult ScanTree(string rootFolder, CancellationToken cancellationToken)
+    {
         var files = new List<ScannedFile>();
+        var unpacked = new List<UnpackedTally>();
         var skipped = 0;
-        var unreadable = 0;
         var onlineOnly = 0;
 
-        foreach (var (path, attributes) in Walk(rootFolder, directories: false))
+        // 前の再帰の列挙と同じく、並べ終えたフォルダの子を後ろに積む（幅優先）。
+        // 各フォルダは「どの展開先の中か」（外側から順に）を持って積む
+        var pending = new Queue<(string Path, IReadOnlyList<UnpackedTally> Inside)>();
+        pending.Enqueue((rootFolder, []));
+
+        while (pending.TryDequeue(out var current))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var extension = Path.GetExtension(path);
-            if (string.IsNullOrEmpty(extension) || !TargetExtensions.Contains(extension))
+            var entries = List(current.Path);
+            if (entries.Count == 0)
             {
                 continue;
             }
 
-            if (IsInsideUnpackedFolder(path, unpacked))
-            {
-                skipped++;
-                continue;
-            }
+            // 展開先かを見る兄弟のファイル名。前は Directory.GetFiles（属性で飛ばさない・リンクも入れる）で並べていたので、それと揃える
+            var siblings = entries.Where(entry => !entry.IsDirectory).Select(entry => entry.Name).ToList();
 
-            if (IsOnlineOnly(attributes))
+            foreach (var entry in entries)
             {
-                onlineOnly++;
-                continue;
-            }
+                // 前の走査（システム属性を飛ばす列挙）と同じく、システム属性の物は数えず降りない。リンクも降りない（ループの元）
+                if ((entry.Attributes & FileAttributes.System) != 0 || entry.IsLink)
+                {
+                    continue;
+                }
 
-            var scanned = Describe(path, ref unreadable);
-            if (scanned is not null)
-            {
-                files.Add(scanned);
+                if (entry.IsDirectory)
+                {
+                    var inside = current.Inside;
+                    if (UnpackedFolderDetector.FindMatchingArchive(entry.Name, siblings) is { } archive)
+                    {
+                        var tally = new UnpackedTally(entry.Path, System.IO.Path.Combine(System.IO.Path.GetDirectoryName(entry.Path)!, archive));
+                        unpacked.Add(tally);
+                        inside = [.. inside, tally];
+                    }
+
+                    pending.Enqueue((entry.Path, inside));
+                    continue;
+                }
+
+                // 展開先の中の数と大きさは、取り込む拡張子かに関わらず全部のファイルで数える（削除すれば空く量）
+                foreach (var tally in current.Inside)
+                {
+                    tally.Count++;
+                    tally.Bytes += entry.Length;
+                }
+
+                var extension = System.IO.Path.GetExtension(entry.Name);
+                if (string.IsNullOrEmpty(extension) || !TargetExtensions.Contains(extension))
+                {
+                    continue;
+                }
+
+                if (current.Inside.Count > 0)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                if (IsOnlineOnly(entry.Attributes))
+                {
+                    onlineOnly++;
+                    continue;
+                }
+
+                files.Add(new ScannedFile
+                {
+                    Path = entry.Path,
+                    SizeBytes = entry.Length,
+                    ModifiedAtUtc = entry.LastWriteUtc,
+                    Extension = extension.ToLowerInvariant(),
+                });
             }
         }
 
         return new ScanResult
         {
             Files = files,
-            UnpackedFolders = unpacked,
+            UnpackedFolders = [.. unpacked.Select(tally => new UnpackedFolder
+            {
+                Path = tally.Path,
+                ArchivePath = tally.ArchivePath,
+                FileCount = tally.Count,
+                TotalBytes = tally.Bytes,
+            })],
             SkippedInsideUnpackedFolders = skipped,
-            Unreadable = unreadable,
             OnlineOnly = onlineOnly,
         };
     }
+
+    /// <summary>
+    /// 1つのフォルダの中を、ファイルシステムの返す順で1回だけ並べる。読めないフォルダ（権限・途中で消えた）は空として飛ばす
+    /// （前の再帰の列挙の IgnoreInaccessible と同じ。1つの権限エラーで全体を止めない）。
+    /// </summary>
+    private static List<Entry> List(string directory)
+    {
+        try
+        {
+            return [.. new FileSystemEnumerable<Entry>(
+                directory,
+                (ref FileSystemEntry entry) => new Entry(
+                    entry.ToFullPath(),
+                    entry.FileName.ToString(),
+                    entry.IsDirectory,
+                    entry.Attributes,
+                    entry.Length,
+                    entry.LastWriteTimeUtc,
+                    IsLink(ref entry)),
+                ListOptions)];
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>1段だけ並べる。属性では飛ばさない（兄弟のファイル名には全部要る。飛ばすのは <see cref="ScanTree"/> で決める）。</summary>
+    private static readonly EnumerationOptions ListOptions = new()
+    {
+        RecurseSubdirectories = false,
+        IgnoreInaccessible = true,
+        AttributesToSkip = 0,
+    };
 
     /// <summary>1ファイルを見て取り込み対象なら情報を返す。対象外・読めない場合は null（読めなかったものは数える）。</summary>
     private static ScannedFile? Describe(string path, ref int unreadable)
@@ -197,93 +294,6 @@ public sealed class FolderScanner
             unreadable++;
             return null;
         }
-    }
-
-    private static List<UnpackedFolder> FindUnpackedFolders(string rootFolder, CancellationToken cancellationToken)
-    {
-        var found = new List<UnpackedFolder>();
-
-        foreach (var (directory, _) in Walk(rootFolder, directories: true))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var parent = Path.GetDirectoryName(directory);
-            if (parent is null)
-            {
-                continue;
-            }
-
-            string[] siblings;
-            try
-            {
-                siblings = Directory.GetFiles(parent);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                continue;
-            }
-
-            var archive = UnpackedFolderDetector.FindMatchingArchive(
-                Path.GetFileName(directory),
-                siblings.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!));
-
-            if (archive is null)
-            {
-                continue;
-            }
-
-            var (count, bytes) = MeasureFolder(directory);
-            found.Add(new UnpackedFolder
-            {
-                Path = directory,
-                ArchivePath = Path.Combine(parent, archive),
-                FileCount = count,
-                TotalBytes = bytes,
-            });
-        }
-
-        return found;
-    }
-
-    private static (int Count, long Bytes) MeasureFolder(string directory)
-    {
-        var count = 0;
-        long bytes = 0;
-
-        try
-        {
-            foreach (var (path, _) in Walk(directory, directories: false))
-            {
-                try
-                {
-                    bytes += new FileInfo(path).Length;
-                    count++;
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-                {
-                    // 個別のファイルが読めなくても集計は続ける
-                }
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // フォルダごと読めない場合はそこまでの集計で返す
-        }
-
-        return (count, bytes);
-    }
-
-    private static bool IsInsideUnpackedFolder(string path, List<UnpackedFolder> unpacked)
-    {
-        foreach (var folder in unpacked)
-        {
-            if (path.StartsWith(folder.Path + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
 

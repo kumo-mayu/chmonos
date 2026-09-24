@@ -38,7 +38,7 @@ public class BoothChangesTests
         };
 
     private static H2Section Section(string heading, string text)
-        => new() { Heading = heading, NormalizedHeading = heading, Text = text };
+        => new() { Heading = heading, Text = text };
 
     [Fact]
     public void SaysNothingChangedWhenNothingDid()

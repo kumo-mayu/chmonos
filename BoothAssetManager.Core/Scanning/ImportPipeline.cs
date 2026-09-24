@@ -149,7 +149,23 @@ public interface IImportPipeline
 /// </summary>
 public sealed class ImportPipeline : IImportPipeline
 {
-    private const int ScanCacheSaveInterval = 50;
+    /// <summary>
+    /// ハッシュの途中で走査の控えを書く間隔。落ちたときに計算し直すのは長くてもこの間の分だけ
+    /// （SSD で数GB。取り込み全体の数十分に比べれば小さい）で、控え全体を書き直すのは10秒に1回で済む。
+    /// </summary>
+    private const long ScanCacheSaveIntervalMs = 10_000;
+
+    /// <summary>
+    /// 走査の控えを、錠の中で今の控えに重ねて書く（<see cref="ScanCacheIndex.MergeInto"/>）。変えた物が無ければ書かない。
+    /// 見つからないファイルを探す所も同じ控えに足すので、取り込みの写しで丸ごと書くと相手の分を消す。
+    /// </summary>
+    private async Task SaveScanCacheAsync(ScanCacheIndex scanCache, CancellationToken cancellationToken)
+    {
+        if (scanCache.HasChanges)
+        {
+            await _store.ScanCache.UpdateAsync(scanCache.MergeInto, cancellationToken);
+        }
+    }
 
     private readonly DataStore _store;
     private readonly IBoothClient _client;
@@ -215,10 +231,24 @@ public sealed class ImportPipeline : IImportPipeline
     /// まとめの件数は周回をまたいで足し合わせる。ユーザにとっては
     /// 「1回の取り込み」なので、途中で足したぶんも同じ数字に入っていてほしい。
     /// </summary>
-    public async Task<ImportSummary> RunAsync(
+    /// <remarks>
+    /// **全体を画面のスレッドの外で回す**（2026-09-24）。Core は続きを元の文脈へ戻すので、画面から始めた取り込みは
+    /// 走査以外（全件の読み込み・登録したフォルダの測り直し・zip の後の組み立て・商品の書き込み・③の検出）を画面のスレッドで回していた
+    /// （作り物の 300 本の取り込み直しで、1回 2.5秒のうち 2.0秒が画面のスレッド）。
+    /// 画面への知らせは、進み具合（画面の <c>Progress</c>）・通信の様子・画像の保存とも画面のスレッドへ運んで受けている。
+    /// 積む（<see cref="ImportWorkSet"/>）は錠で守られている。優先度（Prioritize）は AsyncLocal なので中へ引き継がれる。
+    /// </remarks>
+    public Task<ImportSummary> RunAsync(
         ImportWorkSet work,
         IProgress<ImportProgress>? progress = null,
         CancellationToken cancellationToken = default)
+        // 取り消しの印は中で見る（Task.Run に渡すと、始まる前の取り消しで例外の種類と記録の残り方が変わる）
+        => Task.Run(() => RunCoreAsync(work, progress, cancellationToken));
+
+    private async Task<ImportSummary> RunCoreAsync(
+        ImportWorkSet work,
+        IProgress<ImportProgress>? progress,
+        CancellationToken cancellationToken)
     {
         _store.Paths.EnsureCreated();
 
@@ -241,6 +271,9 @@ public sealed class ImportPipeline : IImportPipeline
         var unresolvedBase = _store.Unresolved.Load();
         var offlineTargets = new List<string>();
 
+        // この取り込みで走査した取り込み元。終わりに、この下で無くなったパスを走査の控えから落とす
+        var scannedTargets = new List<string>();
+
         // unitypackage の中身を裏で読む（2026-09-13 ユーザ判断）。問い合わせは1本ずつ1.5秒空けるので、その間 CPU とディスクは空いている。
         // 前の取り込みで読み残した物（中断など）も、最初の周回で一緒に拾う
         var unityPending = _unityPackages is null ? null : await _unityPackages.FindPendingAsync(cancellationToken);
@@ -248,6 +281,7 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 周回の外で取る画像の列（④1枚目 ⑤残り ⑥ショップのアイコン）。周回をまたいで持ち越す
         var images = new ImageQueue();
+        var measuredFolders = false;
 
         while (true)
         {
@@ -270,21 +304,29 @@ public sealed class ImportPipeline : IImportPipeline
             // 「管理済み」なので未確定へ流す必要が無く、容量も別途数えている。
             // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
             // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
-            var (registered, owned, detached) = await LoadOwnedAsync(cancellationToken);
+            // 登録したフォルダを測り直すのは取り込み1回につき最初の周回だけ（周回ごとに全部を並べ直していた）
+            var (registered, owned, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
+            measuredFolders = true;
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
             await RecordVolumesAsync(folders, cancellationToken);
             offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
+            scannedTargets.AddRange(folders);
 
             // **走査は画面のスレッドの外で回す**（ユーザ判断 2026-09-21・C4）。
             // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
             // 全再帰列挙と展開先の実測が丸ごと走り、その間ずっと画面が固まっていた
+            //
+            // 走査と ID の特定は1ファイルごとに知らせるので、1秒に10回ほどに間引いて最新だけを渡す（LatestProgress）
+            var perFile = new LatestProgress<ImportProgress>(progress, report => report.Phase);
             var scan = await Task.Run(
-                () => ScanFolders(folders, exclusions, scanCache, registered, progress, cancellationToken),
+                () => ScanFolders(folders, exclusions, scanCache, registered, perFile, cancellationToken),
                 cancellationToken);
+            perFile.Flush();
             var resolution = await ResolveAsync(
-                scan.Files, scanCache, exclusions, detached, owned, progress, cancellationToken);
-            await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
+                scan.Files, scanCache, exclusions, detached, owned, perFile, cancellationToken);
+            perFile.Flush();
+            await SaveScanCacheAsync(scanCache, cancellationToken);
 
             // 読むのは item に触らないので、①と同時に進めてよい。①に着くのを遅らせないよう、ここでは待たない
             Task? unityReading = null;
@@ -333,6 +375,11 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 取り込みが終わったと言うのは、裏で読んでいた unitypackage も書き終えてから
         await Task.WhenAll(unityWork);
+
+        // 走査の控えから、今回の取り込み元の下で無くなったパスを落とす（移した・消したファイルの控えが際限なく残っていた）。
+        // つながっていないボリュームの上は落とさない（ScanCacheIndex.RemoveMissingUnder）
+        scanCache.RemoveMissingUnder(scannedTargets);
+        await SaveScanCacheAsync(scanCache, cancellationToken);
 
         // 最後まで来たので途中の記録は要らない。残すと次の起動で「中断した」と嘘をつく。
         // BOOTH の不調で取れなかった商品だけは残す——消すと、そのファイルは商品にも未確定にも入らず、
@@ -571,7 +618,13 @@ public sealed class ImportPipeline : IImportPipeline
     /// ついでに登録済みフォルダの中身を数え直して保存する
     /// （数えるのは列挙だけでハッシュは計算しないので速い）。
     /// </summary>
-    private async Task<(RegisteredFolderSet Registered, IReadOnlySet<string> OwnedHashes, DetachedIndex Detached)> LoadOwnedAsync(
+    /// <param name="remeasure">
+    /// 登録したフォルダを測り直し、zip が手に入っていないかを見るか。**取り込み1回につき最初の周回だけ**（2026-09-24）。
+    /// 周回は積むたびに増え、そのたびに登録したフォルダの中を全部並べ直していた。測った値は容量の表示に使うだけで、
+    /// 同じ取り込みの中で何度測っても変わらない。
+    /// </param>
+    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, DetachedIndex Detached)> LoadOwnedAsync(
+        bool remeasure,
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -580,10 +633,15 @@ public sealed class ImportPipeline : IImportPipeline
         // zipが手に入っていたフォルダ。知らせは測り終えてから、錠の中で今の一覧に足す
         var archivesFound = new List<(ItemRecord Item, string FolderPath, string ArchivePath)>();
 
-        var owned = loaded.Items
-            .SelectMany(item => item.Local.OwnedFiles)
-            .Select(file => file.Hash)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // 持っているハッシュと、その中身の一覧（持っている zip を開かずに済ませるため。ResolveAsync）
+        var owned = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in loaded.Items.SelectMany(item => item.Local.OwnedFiles))
+        {
+            if (!owned.TryGetValue(file.Hash, out var known) || (known.Count == 0 && file.Contents.Count > 0))
+            {
+                owned[file.Hash] = file.Contents;
+            }
+        }
 
         foreach (var item in loaded.Items.Where(item => item.Local.LocalFolders.Count > 0))
         {
@@ -599,6 +657,10 @@ public sealed class ImportPipeline : IImportPipeline
                 }
 
                 paths.Add(folder.Path);
+                if (!remeasure)
+                {
+                    continue;
+                }
 
                 // zipが手に入っていれば、フォルダ登録は役目を終えている。
                 // 黙っていると容量が二重に乗ったままなので知らせる。
@@ -770,7 +832,7 @@ public sealed class ImportPipeline : IImportPipeline
         ScanCacheIndex scanCache,
         ExclusionFilter exclusions,
         DetachedIndex detached,
-        IReadOnlySet<string> owned,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> owned,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -782,6 +844,7 @@ public sealed class ImportPipeline : IImportPipeline
         var alreadyOwned = 0;
         var unreadable = 0;
         var processed = 0;
+        var lastCacheSave = Environment.TickCount64;
 
         foreach (var file in scanned)
         {
@@ -820,9 +883,12 @@ public sealed class ImportPipeline : IImportPipeline
                 scanCache.Set(file.Path, file.SizeBytes, file.ModifiedAtUtc, hash);
                 hashed++;
 
-                if (hashed % ScanCacheSaveInterval == 0)
+                // 途中でも控えを書く（閉じても計算した分は残す）。**間隔は時間で決める**：本数で決めていた（50本ごと）ので、
+                // 小さいファイルが続くと1秒に何度も控え全体（1万件なら約2MB）を書き直していた
+                if (Environment.TickCount64 - lastCacheSave >= ScanCacheSaveIntervalMs)
                 {
-                    await _store.ScanCache.SaveAsync(scanCache.ToList(), cancellationToken);
+                    await SaveScanCacheAsync(scanCache, cancellationToken);
+                    lastCacheSave = Environment.TickCount64;
                 }
             }
 
@@ -834,13 +900,32 @@ public sealed class ImportPipeline : IImportPipeline
                 continue;
             }
 
-            // zip の中身読みは同期なので、画面のスレッドへ戻ってから走っていた（C19）。
-            // ハッシュ計算だけが本当に非同期で、その直後にここで引っかかる
-            var (clues, contents) = await Task.Run(() =>
+            // **持っている zip は開かない**（2026-09-24）。取り込み直すたびに持っているファイル全部の zip を開き直していた。
+            // 中身の一覧は商品が持ち、ID の手掛かりは走査の控えがハッシュと一緒に持つ（どちらも中身だけで決まる）。
+            // 商品の一覧が空の物（手で付けた等）は、前と同じく開いて一覧を取る
+            IReadOnlyList<BoothClue> clues;
+            IReadOnlyList<string> contents;
+            if (file.IsArchive
+                && owned.TryGetValue(hash, out var knownContents) && knownContents.Count > 0
+                && scanCache.TryGetClueItemIds(file, hash, out var knownClues))
             {
-                var found = InspectFile(file, out var inside);
-                return (found, inside);
-            }, cancellationToken);
+                clues = [.. knownClues.Select(ClueOf)];
+                contents = knownContents;
+            }
+            else
+            {
+                // zip の中身読みは同期なので、画面のスレッドへ戻ってから走っていた（C19）。
+                // ハッシュ計算だけが本当に非同期で、その直後にここで引っかかる
+                var inspected = await Task.Run(() => InspectFile(file), cancellationToken);
+                clues = inspected.Clues;
+                contents = inspected.Contents;
+                if (file.IsArchive && inspected.Read)
+                {
+                    // 開けなかった zip（ほかのアプリが開いている等）は控えない。次の取り込みでまた開く
+                    scanCache.SetClueItemIds(file, hash, ClueItemIdsOf(clues));
+                }
+            }
+
             var zone = ZoneIdentifierReader.Read(file.Path);
 
             // 商品ページで外したものは候補から落とす。
@@ -868,7 +953,7 @@ public sealed class ImportPipeline : IImportPipeline
 
                 list.Add(record);
             }
-            else if (owned.Contains(hash))
+            else if (owned.ContainsKey(hash))
             {
                 // 未確定画面で手作業で紐付けたファイル。手掛かりからは決まらないので、
                 // 毎回ここへ落ちてくる。既にitemが持っていると分かっているものを
@@ -905,25 +990,43 @@ public sealed class ImportPipeline : IImportPipeline
     }
 
     /// <summary>ZIPだけ中身を読む。それ以外の形式は Zone.Identifier だけが手掛かりになる。</summary>
-    private static IReadOnlyList<BoothClue> InspectFile(ScannedFile file, out IReadOnlyList<string> contents)
+    /// <returns>手掛かりと中身の一覧、読めたか（読めなかった zip と zip 以外は false）。</returns>
+    private static (IReadOnlyList<BoothClue> Clues, IReadOnlyList<string> Contents, bool Read) InspectFile(ScannedFile file)
     {
-        contents = [];
         if (!file.IsArchive)
         {
-            return [];
+            return ([], [], false);
         }
 
         try
         {
             var inspection = ZipInspector.Inspect(file.Path);
-            contents = inspection.Summary.Files.Select(entry => entry.RelativePath).ToList();
-            return inspection.Clues;
+            return (inspection.Clues, inspection.Summary.Files.Select(entry => entry.RelativePath).ToList(), true);
         }
         catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            return [];
+            return ([], [], false);
         }
     }
+
+    /// <summary>
+    /// 控えに書く手掛かり。ID を決めるのに使うのは「商品のURL」の手掛かりの商品IDだけ（<see cref="IdResolver.Resolve"/>）なので、
+    /// それだけを出てきた順に残す。
+    /// </summary>
+    private static IReadOnlyList<string> ClueItemIdsOf(IReadOnlyList<BoothClue> clues)
+        => [.. clues
+            .Where(clue => clue.Kind == BoothClueKind.ItemUrl && clue.ItemId is not null)
+            .Select(clue => clue.ItemId!)
+            .Distinct(StringComparer.Ordinal)];
+
+    /// <summary>控えた商品IDを、読んだときと同じ働きの手掛かりに戻す。</summary>
+    private static BoothClue ClueOf(string itemId) => new()
+    {
+        Kind = BoothClueKind.ItemUrl,
+        Url = IdResolver.ToItemUrl(itemId),
+        ItemId = itemId,
+        SourcePath = "（走査の控え）",
+    };
 
     /// <summary>
     /// 梯子を段ごとに降りる。**商品ごとに全部取るのではなく、段ごとに全商品を回る。**

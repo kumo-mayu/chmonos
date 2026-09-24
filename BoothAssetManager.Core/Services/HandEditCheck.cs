@@ -83,24 +83,10 @@ public static class HandEditCheck
 
         // 商品IDとファイル名のずれ（L6）。**書く先はJSONの中のIDなので、ずれていると
         // 以後の保存が別のファイルに書かれ、画面の変更が反映されない**（元のファイルは古いまま残る）
-        var mismatched = new List<string>();
-        foreach (var fileName in store.Items.EnumerateItemIds())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                if (await store.Items.LoadAsync(fileName, cancellationToken) is { } item
-                    && !string.Equals(item.Id, fileName, StringComparison.Ordinal))
-                {
-                    mismatched.Add($"{fileName}.json の中の id が「{item.Id}」");
-                }
-            }
-            catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException)
-            {
-                // 読めないファイルは「読めなかった商品」として別に数えている
-            }
-        }
+        // 全件の読み込みと同じ写しから引く（起動のたびに2000件を読み直していた）。読めないファイルは「読めなかった商品」として別に数えている
+        var mismatched = (await store.Items.FindMisnamedAsync(cancellationToken))
+            .Select(pair => $"{pair.FileId}.json の中の id が「{pair.ItemId}」")
+            .ToList();
 
         Add("items/", "ファイル名と中の商品IDが違います", mismatched);
 

@@ -356,7 +356,11 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
         try
         {
-            return await DetectUnguardedAsync(progress, cancellationToken);
+            // **画面のスレッドの外で回す。**Core は続きを元の文脈へ戻すので、画面から押した検出・取り込みの③は
+            // 全商品の走査（正規表現と名前の照合）を画面のスレッドで回していた（205件で1回0.37秒、2000件で数秒の固まり）。
+            // 進み具合は画面の Progress が画面のスレッドへ運ぶ。優先度（Prioritize）は AsyncLocal なので中へ引き継がれる。
+            // 取り消しの印は中で見る（Task.Run に渡すと、始まる前の取り消しで例外の種類が変わる）
+            return await Task.Run(() => DetectUnguardedAsync(progress, cancellationToken));
         }
         finally
         {
@@ -472,6 +476,11 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             new AvatarRegistry { Entries = entries.Values.ToList(), BaseGroups = seeded },
             IsAvatar);
 
+        // 走査の控えの鍵のうち、全商品に共通の分（索引・照合に使う素体・見出しの設定）
+        var scanContext = ScanContextOf(index, groups.Values);
+        var htmlStamps = HtmlStamps();
+        PruneScans(loaded.Items);
+
         // ── ① 手元の材料から候補を集める ──
         var candidates = new Dictionary<string, ItemScan>(StringComparer.Ordinal);
         var seenAs = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
@@ -491,7 +500,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                 Current = item.Booth.Name,
             });
 
-            var scan = ScanItem(item, index, groups.Values);
+            var scan = ScanItemCached(item, index, groups.Values, scanContext, htmlStamps);
             candidates[item.Id] = scan;
 
             foreach (var hit in scan.Description.Support)
@@ -750,22 +759,131 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         public IReadOnlyList<string> SupportLists { get; init; } = [];
     }
 
-    private ItemScan ScanItem(ItemRecord item, AvatarNameIndex index, IEnumerable<AvatarBaseGroup> groups)
+    /// <summary>
+    /// 商品ごとの走査の結果の控え。**検出を画面・取り込み・起動時の見直しから何度走らせても、変わっていない商品は走査し直さない。**
+    ///
+    /// 走査（説明の正規表現・名前の照合）は検出の時間の大半で、2000件（stress-realcat・説明は h2 から作った物）で
+    /// 1回約2秒・1.1GB を割り当てていた。取り込みの③は新しい商品が1件でも全商品を走査し直していた。
+    ///
+    /// 鍵は「その商品が走査に渡す物が全部同じか」：
+    /// <list type="bullet">
+    /// <item>booth（タグ・説明・種類の名前）は**参照で**比べる。商品の写し（<see cref="ItemRepository"/>）は変わっていないファイルに同じ物を返し、
+    /// local だけを書いたときも <c>with</c> で booth の参照を引き継ぐ。取り直した・手で直した booth は別の物になる。</item>
+    /// <item>購入した種類の名前（local の側）は中身で比べる。</item>
+    /// <item>説明HTMLはファイルの大きさと更新日時。</item>
+    /// <item>全商品に共通の分（索引の中身・素体・見出しの設定）は <see cref="ScanContextOf"/>。</item>
+    /// </list>
+    /// 検出の錠（<see cref="_detectGate"/>）の中でだけ触る。
+    /// </summary>
+    private readonly Dictionary<string, KeptScan> _scans = new(StringComparer.Ordinal);
+
+    private sealed record KeptScan(
+        BoothBlock Booth,
+        IReadOnlyList<string> VariationNames,
+        (long Length, DateTime LastWriteUtc)? Html,
+        string Context,
+        ItemScan Scan);
+
+    private ItemScan ScanItemCached(
+        ItemRecord item,
+        AvatarNameIndex index,
+        IEnumerable<AvatarBaseGroup> groups,
+        string context,
+        IReadOnlyDictionary<string, (long Length, DateTime LastWriteUtc)> htmlStamps)
     {
-        var html = ReadHtml(item.Id);
+        var variationNames = VariationNamesOf(item);
+        (long, DateTime)? html = htmlStamps.TryGetValue(item.Id, out var stamp) ? stamp : null;
 
-        var description = AvatarDetector.ScanDescription(
-            html, item.Id, SupportHeadings, _settings.AvatarIgnoredHeadings);
+        if (_scans.TryGetValue(item.Id, out var kept)
+            && ReferenceEquals(kept.Booth, item.Booth)
+            && kept.Html == html
+            && string.Equals(kept.Context, context, StringComparison.Ordinal)
+            && kept.VariationNames.SequenceEqual(variationNames, StringComparer.Ordinal))
+        {
+            return kept.Scan;
+        }
 
-        // 購入したvariationがあればそれを先に見る。買った版がそのままアバター名になっている
-        var variationNames = item.Local.Purchases
+        var scan = ScanItem(item, variationNames, index, groups);
+        _scans[item.Id] = new KeptScan(item.Booth, variationNames, html, context, scan);
+        return scan;
+    }
+
+    /// <summary>
+    /// 全商品に共通の鍵。索引は中身（<see cref="AvatarNameIndex.Fingerprint"/>）、素体と見出しの設定は書いたままの形で比べる。
+    /// 素体は照合（<see cref="AvatarDetector.ScanBaseDeclarations(AvatarDetector.ParsedDescription, IEnumerable{string}, IEnumerable{string}, IEnumerable{AvatarBaseGroup}, IReadOnlyList{string})"/>）に渡す物そのものを JSON にして比べる。
+    /// </summary>
+    private string ScanContextOf(AvatarNameIndex index, IEnumerable<AvatarBaseGroup> groups)
+    {
+        var text = new System.Text.StringBuilder()
+            .Append(index.Fingerprint).Append('\u0001')
+            .Append(System.Text.Json.JsonSerializer.Serialize(groups.ToList(), JsonStore.Options)).Append('\u0001')
+            .AppendJoin('\u0002', SupportHeadings).Append('\u0001')
+            .AppendJoin('\u0002', _settings.AvatarIgnoredHeadings)
+            .ToString();
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+    }
+
+    /// <summary>説明HTMLの大きさと更新日時を、1回の列挙でまとめて取る（1件ずつ問い合わせない）。</summary>
+    private Dictionary<string, (long Length, DateTime LastWriteUtc)> HtmlStamps()
+    {
+        const string suffix = ".h2.html";
+        var stamps = new Dictionary<string, (long, DateTime)>(StringComparer.Ordinal);
+        var directory = _store.Paths.ItemsDir;
+        if (!Directory.Exists(directory))
+        {
+            return stamps;
+        }
+
+        try
+        {
+            foreach (var file in new DirectoryInfo(directory).EnumerateFiles("*" + suffix))
+            {
+                stamps[file.Name[..^suffix.Length]] = (file.Length, file.LastWriteTimeUtc);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 列挙できなければ控えは使わずに走査する（空のままなら全件が「HTML無し」と比べられ、読み直しになる）
+            stamps.Clear();
+        }
+
+        return stamps;
+    }
+
+    /// <summary>もう無い商品の控えを捨てる。</summary>
+    private void PruneScans(IReadOnlyList<ItemRecord> items)
+    {
+        var present = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var gone in _scans.Keys.Where(id => !present.Contains(id)).ToList())
+        {
+            _scans.Remove(gone);
+        }
+    }
+
+    // 購入したvariationがあればそれを先に見る。買った版がそのままアバター名になっている
+    private static List<string> VariationNamesOf(ItemRecord item)
+        => item.Local.Purchases
             .Select(purchase => purchase.NameSnapshot)
             .Concat(item.Booth.Variations.Select(variation => variation.Name))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Select(name => name!)
             .ToList();
 
+    private ItemScan ScanItem(
+        ItemRecord item,
+        IReadOnlyList<string> variationNames,
+        AvatarNameIndex index,
+        IEnumerable<AvatarBaseGroup> groups)
+    {
+        var html = ReadHtml(item.Id);
+
+        var description = AvatarDetector.ScanDescription(
+            html, item.Id, SupportHeadings, _settings.AvatarIgnoredHeadings);
+
         var (fromTags, fromVariations) = AvatarDetector.ScanNames(index, item.Booth.Tags, variationNames);
+
+        // 見出しで区切るのは1回だけにして、素体の宣言と対応の一覧の両方で使う
+        var parsed = AvatarDetector.Parse(html, item.Booth.Description);
 
         return new ItemScan
         {
@@ -774,11 +892,11 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             FromVariations = fromVariations,
             BaseNames = AvatarDetector.ScanBaseTags(item.Booth.Tags)
                 .Concat(AvatarDetector.ScanBaseDeclarations(
-                    html, item.Booth.Description, item.Booth.Tags, variationNames, groups, SupportHeadings))
+                    parsed, item.Booth.Tags, variationNames, groups, SupportHeadings))
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .ToList(),
             SupportLists = AvatarDetector.ScanLists(
-                html, item.Booth.Description, item.Id, index, SupportHeadings, _settings.AvatarIgnoredHeadings),
+                parsed, item.Id, index, SupportHeadings, _settings.AvatarIgnoredHeadings),
         };
     }
 

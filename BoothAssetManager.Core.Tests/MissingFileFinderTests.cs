@@ -127,4 +127,40 @@ public class MissingFileFinderTests : IDisposable
         Assert.Equal(Path.Combine(_root, "外付け"), Assert.Single(result.Unreachable));
         Assert.Equal(0, result.Relinked);
     }
+
+    /// <summary>
+    /// 計算したハッシュは走査の控えに足す（2026-09-24）。前は捨てていたので、探すたびに同じファイルを読み直していた。
+    /// 控えにあった物は残す（錠の中で今の控えに足す）。
+    /// </summary>
+    [Fact]
+    public async Task HashesAreKeptInTheScanCache()
+    {
+        var path = await SaveItemWithFileAsync("111", "衣装.zip", "なかみ");
+        var moved = Path.Combine(_watched, "移した.zip");
+        File.Move(path, moved);
+        File.WriteAllText(Path.Combine(_watched, "別の.zip"), "べつの"); // 同じ大きさで中身が違う物
+        await _store.ScanCache.SaveAsync(
+        [
+            new ScanCacheEntry { Path = @"Z:\前から.zip", SizeBytes = 1, ModifiedAtUtc = DateTimeOffset.UnixEpoch, Hash = "ab" },
+        ]);
+
+        var first = await _finder.FindAsync([_watched]);
+
+        Assert.Equal((1, 1, 2), (first.MissingBefore, first.Relinked, first.Hashed));
+        var cached = _store.ScanCache.Load();
+        Assert.Contains(cached, entry => entry.Path == moved);
+        Assert.Contains(cached, entry => entry.Path == Path.Combine(_watched, "別の.zip"));
+        Assert.Contains(cached, entry => entry.Path == @"Z:\前から.zip");
+
+        // 記録がまた古い場所を指しても、控えから引けるので読み直さない
+        await _store.Items.ChangeLocalAsync(
+            "111",
+            local => local with { LocalFiles = [local.LocalFiles[0] with { Paths = [path] }] },
+            [LocalField.LocalFiles]);
+
+        var second = await _finder.FindAsync([_watched]);
+
+        Assert.Equal(1, second.Relinked);
+        Assert.Equal(0, second.Hashed);
+    }
 }

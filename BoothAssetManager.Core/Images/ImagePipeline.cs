@@ -746,9 +746,24 @@ public sealed class ImagePipeline
         CancellationToken cancellationToken,
         int? maxEdgeOverride = null)
     {
-        using var image = Image.Load(bytes);
-
         var maxEdge = maxEdgeOverride ?? _settings.ImageMaxEdgePixels;
+
+        // **縮めながら復号する**（2026-09-24）。前は元の大きさで復号してから縮めていたので、BOOTH の 3000px 級の JPEG は
+        // 1枚ごとに元の大きさの画素（3000×3000 で約36MB）を作っていた。JPEG は復号の段で 1/2・1/4・1/8 に縮められるので、
+        // 長辺の設定より大きい範囲で一番小さく復号し、残りを下の縮小で合わせる。縮め方（Bicubic）と、長辺・画質の設定は前と同じ。
+        // 復号の側の縮小は、片方の辺が既に目標と同じだと縮めないので、合わせるのは必ず下で行う。
+        // 目標より小さい絵に目標を渡すと復号の側が引き伸ばすので、頭だけ読んで大きいときだけ渡す
+        var header = Image.Identify(bytes);
+        using var image = header.Width > maxEdge || header.Height > maxEdge
+            ? Image.Load(
+                new SixLabors.ImageSharp.Formats.DecoderOptions
+                {
+                    TargetSize = new Size(maxEdge, maxEdge),
+                    Sampler = KnownResamplers.Bicubic,
+                },
+                bytes)
+            : Image.Load(bytes);
+
         if (image.Width > maxEdge || image.Height > maxEdge)
         {
             // 拡大はしない。元が小さい画像はそのままの大きさで保存する。

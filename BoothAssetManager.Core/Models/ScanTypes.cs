@@ -14,6 +14,15 @@ public sealed class ScanCacheEntry
     public required DateTimeOffset ModifiedAtUtc { get; init; }
 
     public required string Hash { get; init; }
+
+    /// <summary>
+    /// zip の中のテキストに書かれていた商品IDの並び（ID を決める手掛かり）。**まだ中を読んでいなければ null。**
+    ///
+    /// 取り込み直すたびに、持っているファイルの zip を全部開き直していた。手掛かりは中身だけで決まるので、
+    /// ハッシュと一緒に控えておけば開かずに済む（中身の一覧は商品の <c>contents</c> にある）。
+    /// ハッシュを計算し直したら（大きさか日時が変わった）捨てて読み直す。このファイルは消してもよい（読み直すだけ）。
+    /// </summary>
+    public IReadOnlyList<string>? ClueItemIds { get; init; }
 }
 
 /// <summary>

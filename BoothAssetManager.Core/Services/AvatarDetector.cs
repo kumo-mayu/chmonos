@@ -216,6 +216,42 @@ public sealed class AvatarNameIndex
     private static bool IsKatakanaWord(string text) => text.All(ch => ch is (>= 'ァ' and <= 'ヺ') or 'ー');
 
     public bool IsEmpty => _avatars.Count == 0 && _bases.Count == 0;
+
+    private string? _fingerprint;
+
+    /// <summary>
+    /// 索引の中身を並びごと1本にまとめた物（SHA-256）。**同じなら、どの商品に当てても同じ答えを返す。**
+    ///
+    /// 検出は1回の中で落ち着くまで最大4周し、周ごとに登録簿（見かけた回数など）が少しずつ変わる。
+    /// 登録簿そのものを鍵にすると索引に効かない変化でも全件を走査し直すので、索引の結果で比べる
+    /// （<c>AvatarService</c> の走査の控え）。並びも含めるのは、引いた結果の並びが後の数え方の順に効くため。
+    /// </summary>
+    internal string Fingerprint => _fingerprint ??= BuildFingerprint();
+
+    private string BuildFingerprint()
+    {
+        using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+
+        void Append(string text) => hash.AppendData(System.Text.Encoding.UTF8.GetBytes(text + "\u0001"));
+
+        foreach (var map in new[] { _avatars, _bases })
+        {
+            foreach (var (key, ids) in map)
+            {
+                Append(key);
+                foreach (var id in ids)
+                {
+                    Append(id);
+                }
+
+                Append("\u0002");
+            }
+
+            Append("\u0003");
+        }
+
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
 }
 
 /// <summary>
@@ -890,7 +926,40 @@ public static class AvatarDetector
     /// <summary>見出しが無くても一覧とみなす行数。クレジットは1〜3体のことが多い（試験データで3〜4行にすると誤りが増えた）。</summary>
     public const int MinListRun = 5;
 
-    private sealed record Section(string Heading, IReadOnlyList<string> Lines, bool IsPlain);
+    internal sealed record Section(string Heading, IReadOnlyList<string> Lines, bool IsPlain);
+
+    /// <summary>
+    /// 説明（HTML と平文）を見出しで区切った物。<see cref="ScanLists(ParsedDescription, string, AvatarNameIndex, IReadOnlyList{string}, IReadOnlyList{string})"/> と
+    /// <see cref="ScanBaseDeclarations(ParsedDescription, IEnumerable{string}, IEnumerable{string}, IEnumerable{AvatarBaseGroup}, IReadOnlyList{string})"/> で使い回す。
+    ///
+    /// 検出は1件ごとに両方を呼ぶので、区切り（正規表現を何本も当てる）が1件につき2回走っていた。
+    /// 区切った結果は説明だけで決まるので、1回区切って渡す。
+    /// </summary>
+    public sealed class ParsedDescription
+    {
+        internal ParsedDescription(string? html, string? description)
+        {
+            Description = description;
+            Sections = [.. AvatarDetector.Sections(html, description)];
+        }
+
+        internal string? Description { get; }
+
+        internal IReadOnlyList<Section> Sections { get; }
+    }
+
+    /// <summary>説明を見出しで区切る（<see cref="ParsedDescription"/>）。</summary>
+    public static ParsedDescription Parse(string? html, string? description) => new(html, description);
+
+    /// <inheritdoc cref="ScanLists(ParsedDescription, string, AvatarNameIndex, IReadOnlyList{string}, IReadOnlyList{string})"/>
+    public static IReadOnlyList<string> ScanLists(
+        string? html,
+        string? description,
+        string selfItemId,
+        AvatarNameIndex index,
+        IReadOnlyList<string> supportHeadings,
+        IReadOnlyList<string> ignoredHeadings)
+        => ScanLists(Parse(html, description), selfItemId, index, supportHeadings, ignoredHeadings);
 
     /// <summary>
     /// h2 を使わずに書かれた対応の一覧を読む。<see cref="ScanDescription"/> の取りこぼしを補う。
@@ -905,8 +974,7 @@ public static class AvatarDetector
     /// アバターでない商品のURLが混ざっても対応にはならない。
     /// </summary>
     public static IReadOnlyList<string> ScanLists(
-        string? html,
-        string? description,
+        ParsedDescription parsed,
         string selfItemId,
         AvatarNameIndex index,
         IReadOnlyList<string> supportHeadings,
@@ -928,7 +996,7 @@ public static class AvatarDetector
 
         bool IsCredit(string heading) => CreditHeading.IsMatch(heading) || Contains(heading, ignoredHeadings);
 
-        foreach (var section in Sections(html, description))
+        foreach (var section in parsed.Sections)
         {
             // ① 対応の見出し（h2 か見出し代わりの行）の下は、URLと名前だけの行を全部拾う
             if (Contains(section.Heading, supportHeadings) && !NotAvatarSupport.IsMatch(section.Heading) && !IsCredit(section.Heading))
@@ -953,7 +1021,7 @@ public static class AvatarDetector
             }
 
             // ② 平文の説明文の対応リスト。見出しが無いので、説明のどこかに「対応」とあるときだけ読む
-            if (section.IsPlain && (description ?? string.Empty).Contains("対応", StringComparison.Ordinal))
+            if (section.IsPlain && (parsed.Description ?? string.Empty).Contains("対応", StringComparison.Ordinal))
             {
                 Take(PlainSupport(section.Lines));
             }
@@ -1132,6 +1200,15 @@ public static class AvatarDetector
         IEnumerable<string> variationNames,
         IEnumerable<AvatarBaseGroup> groups,
         IReadOnlyList<string> supportHeadings)
+        => ScanBaseDeclarations(Parse(html, description), tags, variationNames, groups, supportHeadings);
+
+    /// <inheritdoc cref="ScanBaseDeclarations(string, string, IEnumerable{string}, IEnumerable{string}, IEnumerable{AvatarBaseGroup}, IReadOnlyList{string})"/>
+    public static IReadOnlyList<string> ScanBaseDeclarations(
+        ParsedDescription parsed,
+        IEnumerable<string> tags,
+        IEnumerable<string> variationNames,
+        IEnumerable<AvatarBaseGroup> groups,
+        IReadOnlyList<string> supportHeadings)
     {
         var lookup = AvatarBaseKeys.Lookup(groups);
         var found = new List<string>();
@@ -1152,7 +1229,7 @@ public static class AvatarDetector
             Take(AvatarBaseKeys.GroupsIn(text, lookup));
         }
 
-        foreach (var section in Sections(html, description))
+        foreach (var section in parsed.Sections)
         {
             var isSupport = Contains(section.Heading, supportHeadings) && !NotAvatarSupport.IsMatch(section.Heading);
 

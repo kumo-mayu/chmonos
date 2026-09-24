@@ -9,36 +9,45 @@ namespace BoothAssetManager.Core.Scanning;
 /// </summary>
 public sealed class RegisteredFolderSet
 {
-    private readonly List<string> _folders;
+    private readonly HashSet<string> _folders;
 
     public RegisteredFolderSet(IEnumerable<string> folders)
     {
         _folders = folders
             .Where(folder => !string.IsNullOrWhiteSpace(folder))
             .Select(Normalize)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     public int Count => _folders.Count;
 
-    /// <summary>このパスが登録済みフォルダの中（またはそのもの）か。</summary>
+    /// <summary>
+    /// このパスが登録済みフォルダの中（またはそのもの）か。
+    ///
+    /// **パスの区切りごとの頭の部分を集合で引く**（2026-09-24）。前は登録したフォルダを1つずつ前方一致で比べていたので、
+    /// 走査で見つけたファイルごとに登録の数だけ比べていた（ファイル数×登録数）。
+    /// 区切りまで見て一致を判定するのは前と同じ（前方一致だけだと "rurune_v1" が "rurune_v1.1.3" を巻き込む）。
+    /// </summary>
     public bool Contains(string path)
     {
-        var normalized = Normalize(path);
-
-        foreach (var folder in _folders)
+        if (_folders.Count == 0)
         {
-            if (normalized.Equals(folder, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return false;
+        }
 
-            // 区切りまで見て一致を判定する。
-            // 前方一致だけだと "rurune_v1" が "rurune_v1.1.3" を巻き込む。
-            if (normalized.Length > folder.Length
-                && normalized.StartsWith(folder, StringComparison.OrdinalIgnoreCase)
-                && normalized[folder.Length] == Path.DirectorySeparatorChar)
+        var normalized = Normalize(path);
+        if (_folders.Contains(normalized))
+        {
+            return true;
+        }
+
+        // 頭の部分は切り出さずに引く（ファイルごと・区切りごとに文字列を作らない）
+        var lookup = _folders.GetAlternateLookup<ReadOnlySpan<char>>();
+        for (var index = normalized.IndexOf(Path.DirectorySeparatorChar);
+             index >= 0;
+             index = normalized.IndexOf(Path.DirectorySeparatorChar, index + 1))
+        {
+            if (lookup.Contains(normalized.AsSpan(0, index)))
             {
                 return true;
             }

@@ -77,8 +77,16 @@ public sealed class H2Section
     /// <summary>見出しの原文（装飾記号を含む）。</summary>
     public required string Heading { get; init; }
 
-    /// <summary>装飾記号と空白を除いた見出し。更新履歴セクションの判定に使う。</summary>
-    public required string NormalizedHeading { get; init; }
+    /// <summary>
+    /// 装飾記号と空白を除いた見出し。更新履歴セクションの判定に使う。
+    ///
+    /// **見出しから計算で出せるので JSON に書かない**（2026-09-24。CLAUDE.md の決め事）。前は節ごとに書き出していた。
+    /// 前に書かれたファイルに残っていても、読むときに無視される（次にその商品を書いたときに消える）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string NormalizedHeading => _normalizedHeading ??= Booth.H2SectionExtractor.NormalizeHeading(Heading);
+
+    private string? _normalizedHeading;
 
     /// <summary>本文（タグ除去済み）。</summary>
     public required string Text { get; init; }

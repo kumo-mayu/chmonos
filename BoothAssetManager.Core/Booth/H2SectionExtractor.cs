@@ -121,7 +121,6 @@ public static class H2SectionExtractor
             sections.Add(new H2Section
             {
                 Heading = heading,
-                NormalizedHeading = NormalizeHeading(heading),
                 Text = body,
             });
         }

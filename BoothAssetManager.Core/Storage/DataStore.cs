@@ -7,18 +7,90 @@ public sealed class JsonFileStore<T> where T : class, new()
 {
     private readonly string _path;
 
+    /// <summary>読んだ物を呼んだ所どうしで共有してよいか（<see cref="_shared"/>）。</summary>
+    private readonly bool _shareLoaded;
+
+    /// <summary>
+    /// 読んだ値の写し（ファイルの大きさと更新日時・値）。<see cref="_shareLoaded"/> のときだけ持つ。
+    ///
+    /// 登録簿は商品ページを開くたびに画面のスレッドで2回読まれていた。中身が変わっていなければ読み直さない。
+    /// **書き換えられない型（init だけで、一覧も読むだけの型）に限る。**<c>List&lt;T&gt;</c> の入れ物は
+    /// 呼んだ所が足し引きして書き戻すので、共有すると別の呼び手の写しまで変わってしまう。
+    /// </summary>
+    private volatile Snapshot? _shared;
+
+    /// <summary>
+    /// 自分の書き込みの数。書き始めと書き終わりで1つずつ進める（奇数なら書いている最中）。
+    /// 読んでいる間に自分が書いたら、読んだ物を写しにしない——同じ大きさで同じ時刻の刻みの中に書き直すと、
+    /// 大きさと日時だけでは古い中身と見分けられないため。
+    /// </summary>
+    private int _writes;
+
+    private sealed record Snapshot(long Length, DateTime LastWriteUtc, int Writes, T Value);
+
     public JsonFileStore(string path)
+        : this(path, shareLoaded: false)
+    {
+    }
+
+    /// <param name="shareLoaded">
+    /// 真なら、ファイルが変わっていない間は読んだ物をそのまま返す。<typeparamref name="T"/> が書き換えられない型のときだけ真にする。
+    /// </param>
+    public JsonFileStore(string path, bool shareLoaded)
     {
         _path = path;
+        _shareLoaded = shareLoaded;
     }
 
     public string Path => _path;
 
-    /// <summary>ファイルが無ければ既定値を返す（初回起動をそのまま通す）。</summary>
-    public T Load() => JsonStore.Read<T>(_path) ?? new T();
+    /// <summary>
+    /// ファイルが無ければ既定値を返す（初回起動をそのまま通す）。
+    /// 共有してよい型なら、ファイルの大きさと更新日時が前に読んだときと同じ間は読み直さない。
+    /// </summary>
+    public T Load()
+    {
+        if (!_shareLoaded)
+        {
+            return JsonStore.Read<T>(_path) ?? new T();
+        }
 
-    public Task SaveAsync(T value, CancellationToken cancellationToken = default)
-        => JsonStore.WriteAsync(_path, value, cancellationToken);
+        // 大きさと日時は読む前に取る（読んだ中身がその日時より古くならないように。ItemRepository と同じ理由）
+        var writes = Volatile.Read(ref _writes);
+        var info = new FileInfo(_path);
+        if (!info.Exists)
+        {
+            return JsonStore.Read<T>(_path) ?? new T();
+        }
+
+        if (_shared is { } seen && seen.Writes == writes
+            && seen.Length == info.Length && seen.LastWriteUtc == info.LastWriteTimeUtc)
+        {
+            return seen.Value;
+        }
+
+        var value = JsonStore.Read<T>(_path) ?? new T();
+        if (writes % 2 == 0 && Volatile.Read(ref _writes) == writes)
+        {
+            _shared = new Snapshot(info.Length, info.LastWriteTimeUtc, writes, value);
+        }
+
+        return value;
+    }
+
+    public async Task SaveAsync(T value, CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _writes);
+        try
+        {
+            await JsonStore.WriteAsync(_path, value, cancellationToken);
+        }
+        finally
+        {
+            // 書いた物は写しにしない。次に読むときに読み直す（書くのは読むよりずっと少ない）
+            Interlocked.Increment(ref _writes);
+        }
+    }
 
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -90,9 +162,10 @@ public sealed class DataStore
     {
         Paths = paths;
         Items = new ItemRepository(paths);
-        UserTags = new JsonFileStore<UserTagMaster>(paths.UserTagsFile);
-        Attributes = new JsonFileStore<AttributeMaster>(paths.AttributesFile);
-        Avatars = new JsonFileStore<AvatarRegistry>(paths.AvatarRegistryFile);
+        // 書き換えられない型（init だけ・読むだけの一覧）は、読んだ物を共有して読み直しを省く（JsonFileStore の説明）
+        UserTags = new JsonFileStore<UserTagMaster>(paths.UserTagsFile, shareLoaded: true);
+        Attributes = new JsonFileStore<AttributeMaster>(paths.AttributesFile, shareLoaded: true);
+        Avatars = new JsonFileStore<AvatarRegistry>(paths.AvatarRegistryFile, shareLoaded: true);
         Settings = new JsonFileStore<AppSettings>(paths.SettingsFile);
         Unresolved = new JsonFileStore<List<UnresolvedFile>>(paths.UnresolvedFile);
         Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);

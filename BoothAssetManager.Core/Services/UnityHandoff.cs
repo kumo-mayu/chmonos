@@ -137,6 +137,13 @@ public static class UnityHandoff
     /// 同じ物を何度も読むので、zip の場所・中の名前・大きさ・更新時刻が同じなら読み直さない。覚えるのはパスの一覧だけで小さい
     /// </summary>
     public static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package)
+        => ReadAssetPaths(package, remember: true);
+
+    /// <param name="remember">
+    /// 読んだ結果をメモリの表（<see cref="PathMemory"/>）に覚えるか。取り込みの裏の読み取り（<see cref="UnityPackageCatalog.ReadAsync"/>）は
+    /// 手元の全部の unitypackage を1回ずつ読むだけで、結果は控えのファイルに書くので、表に入れない（入れると画面が使う物を押し出す）。
+    /// </param>
+    internal static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package, bool remember)
     {
         FileInfo? zip = null;
         try
@@ -149,12 +156,9 @@ public static class UnityHandoff
         }
 
         var key = (Zip: package.ZipPath.ToUpperInvariant(), Entry: package.EntryPath);
-        if (zip is { Exists: true }
-            && PathCache.TryGetValue(key, out var cached)
-            && cached.Length == zip.Length
-            && cached.Written == zip.LastWriteTimeUtc)
+        if (zip is { Exists: true } && PathMemory.TryGet(key, zip.Length, zip.LastWriteTimeUtc) is { } cached)
         {
-            return cached.Paths;
+            return cached;
         }
 
         // 取り込みの裏で読んだ控え（2026-09-13）。ハッシュが同じなら中身は変わらないので、zip を解かずに引ける
@@ -162,12 +166,19 @@ public static class UnityHandoff
             && s_pathStore?.Load(hash) is { } stored
             && stored.TryGetValue(package.EntryPath, out var storedPaths))
         {
-            Remember(key, zip, storedPaths);
+            if (remember)
+            {
+                Remember(key, zip, storedPaths);
+            }
+
             return storedPaths;
         }
 
         var paths = ReadAssetPathsFromDisk(package);
-        Remember(key, zip, paths);
+        if (remember)
+        {
+            Remember(key, zip, paths);
+        }
 
         // 取り込みの裏より先に読んだ物も控えに足す（次の起動では解かずに済む）
         if (package.ZipHash is { } readHash && paths.Count > 0 && s_pathStore is { } store)
@@ -192,13 +203,7 @@ public static class UnityHandoff
             return;
         }
 
-        // 覚えすぎない。手元の商品の数を大きく超えたら一度忘れる（読み直せば戻る）
-        if (PathCache.Count >= MaxCachedPackages)
-        {
-            PathCache.Clear();
-        }
-
-        PathCache[key] = (zip.Length, zip.LastWriteTimeUtc, paths);
+        PathMemory.Put(key, zip.Length, zip.LastWriteTimeUtc, paths);
     }
 
     private static Storage.UnityPackagePathStore? s_pathStore;
@@ -207,10 +212,113 @@ public static class UnityHandoff
     public static void UsePathStore(Storage.UnityPackagePathStore? store) => s_pathStore = store;
 
     /// <summary>読んだパスの一覧。キーは zip の場所（大文字小文字をそろえる）と中の名前。</summary>
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Zip, string Entry), (long Length, DateTime Written, IReadOnlyList<string> Paths)>
-        PathCache = new();
+    private static readonly PathTable PathMemory = new(PathMemoryBudgetBytes);
 
-    private const int MaxCachedPackages = 5000;
+    /// <summary>
+    /// 覚えておくパスの一覧の合計の上限（文字列の大きさの見積もり）。**件数ではなく大きさで決める**（2026-09-24）。
+    ///
+    /// 前は5000件まで覚えてから丸ごと忘れていた。大きな unitypackage は1件で数千のパス（数百KB〜数MB）を持つので、
+    /// 件数の上限では何百MBでも握れた。取り込みの裏で手元の全部を読むとそのたびに表が埋まってもいた。
+    /// 16MB は、画面が開く商品（商品ページ・改変・プロジェクトの突き合わせ）で使う分には足り、目標のメモリ（300〜400MB）の5%に収まる。
+    /// </summary>
+    private const long PathMemoryBudgetBytes = 16L * 1024 * 1024;
+
+    /// <summary>
+    /// 大きさの上限つきで、古く使った物から捨てる表。画面・Unity の送り・プロジェクトの突き合わせが別々のスレッドから引くので錠で守る。
+    /// </summary>
+    internal sealed class PathTable(long budgetBytes)
+    {
+        private readonly object _gate = new();
+        private readonly Dictionary<(string Zip, string Entry), LinkedListNode<Kept>> _byKey = new();
+        private readonly LinkedList<Kept> _recent = new();
+        private long _bytes;
+
+        private sealed record Kept((string Zip, string Entry) Key, long Length, DateTime Written, IReadOnlyList<string> Paths, long Bytes);
+
+        public long Bytes
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _bytes;
+                }
+            }
+        }
+
+        public int Count
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _byKey.Count;
+                }
+            }
+        }
+
+        /// <summary>zip の大きさと更新時刻が覚えたときと同じなら返す（使った物として前へ出す）。</summary>
+        public IReadOnlyList<string>? TryGet((string Zip, string Entry) key, long length, DateTime written)
+        {
+            lock (_gate)
+            {
+                if (!_byKey.TryGetValue(key, out var node))
+                {
+                    return null;
+                }
+
+                if (node.Value.Length != length || node.Value.Written != written)
+                {
+                    return null;
+                }
+
+                _recent.Remove(node);
+                _recent.AddFirst(node);
+                return node.Value.Paths;
+            }
+        }
+
+        public void Put((string Zip, string Entry) key, long length, DateTime written, IReadOnlyList<string> paths)
+        {
+            var bytes = SizeOf(key, paths);
+            lock (_gate)
+            {
+                if (_byKey.Remove(key, out var old))
+                {
+                    _recent.Remove(old);
+                    _bytes -= old.Value.Bytes;
+                }
+
+                // 1件だけで上限を超える物は覚えない（覚えると他を全部押し出す。読み直せば戻る）
+                if (bytes > budgetBytes)
+                {
+                    return;
+                }
+
+                while (_bytes + bytes > budgetBytes && _recent.Last is { } oldest)
+                {
+                    _recent.RemoveLast();
+                    _byKey.Remove(oldest.Value.Key);
+                    _bytes -= oldest.Value.Bytes;
+                }
+
+                _byKey[key] = _recent.AddFirst(new Kept(key, length, written, paths, bytes));
+                _bytes += bytes;
+            }
+        }
+
+        /// <summary>文字列の大きさの見積もり。1文字2バイトと、1本あたりの入れ物の分（約40バイト）。</summary>
+        private static long SizeOf((string Zip, string Entry) key, IReadOnlyList<string> paths)
+        {
+            long bytes = (key.Zip.Length + key.Entry.Length) * 2 + 64;
+            foreach (var path in paths)
+            {
+                bytes += path.Length * 2 + 40;
+            }
+
+            return bytes;
+        }
+    }
 
     private static IReadOnlyList<string> ReadAssetPathsFromDisk(UnityPackageEntry package)
     {

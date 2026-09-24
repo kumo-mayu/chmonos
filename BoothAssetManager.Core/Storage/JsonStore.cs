@@ -293,11 +293,17 @@ public static class JsonStore
     /// これは「落ちない」ための錠で、**読んでから書くまでを守る物ではない**。
     /// 書き手が複数いるファイルは <see cref="JsonFileStore{T}.UpdateAsync"/> の錠を通すこと。
     /// </summary>
-    private static SemaphoreSlim GateFor(string path)
-        => s_gates.GetOrAdd(Path.GetFullPath(path), static _ => new SemaphoreSlim(1, 1));
+    private static KeyedGate<string>.Handle GateFor(string path)
+        => s_gates.For(Path.GetFullPath(path));
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> s_gates
-        = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// ファイルごとの錠。使っている人がいなくなった錠は捨てる（<see cref="KeyedGate{TKey}"/>）。
+    /// 前は書いたファイルの数だけ溜まり続けた（商品・説明・控え・画像の印で、2000件の取り込みなら数千）。
+    /// </summary>
+    private static readonly KeyedGate<string> s_gates = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>今表にあるファイルごとの錠の数（試験で、捨てられたかを見る）。</summary>
+    internal static int GateCount => s_gates.Count;
 
     /// <summary>
     /// 一時ファイルの名前を決める。**同じ本体に対して毎回違う名前にする。**
