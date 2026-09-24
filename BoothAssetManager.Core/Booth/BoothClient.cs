@@ -426,8 +426,8 @@ public sealed class BoothClient : IBoothClient
                 SlowDown();
                 return BoothFetchResult<T>.RateLimited(
                     retryAfter is { } wait
-                        ? $"HTTP 429（{wait.TotalSeconds:0}秒待つよう指示されました。以降の間隔を{_currentIntervalMs}msに広げます）"
-                        : $"HTTP 429（以降の間隔を{_currentIntervalMs}msに広げます）",
+                        ? $"BOOTHが混み合っています。{wait.TotalSeconds:0} 秒待つよう指示されました"
+                        : "BOOTHが混み合っています",
                     retryAfter);
             }
 

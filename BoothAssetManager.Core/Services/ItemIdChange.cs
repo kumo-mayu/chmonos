@@ -146,7 +146,7 @@ public static class ItemIdChange
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.VariationLink,
-                Text = $"購入記録 {linkedPurchases} 件の「どのバリエーションか」の指定（金額は残ります）",
+                Text = $"購入記録 {linkedPurchases} 件の「どのバリエーションか」の指定。金額は残ります",
             });
         }
 
@@ -176,7 +176,7 @@ public static class ItemIdChange
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.BoothImageChoice,
-                Text = $"BOOTHの画像に付けたサムネイルの指定・役割 {boothChoices} 件（自分で追加した画像とその指定は移ります）",
+                Text = $"BOOTHの画像に付けたサムネイルの指定・役割 {boothChoices} 件。自分で追加した画像の分は移ります",
             });
         }
 
@@ -186,7 +186,7 @@ public static class ItemIdChange
             dropped.Add(new DroppedThing
             {
                 Reason = DroppedReason.FetchState,
-                Text = "BOOTHから取った情報と、取得の記録（最終取得・次回予定・販売終了の印）",
+                Text = "BOOTHから取得した情報と、最終取得・次回予定・販売終了の印",
             });
         }
 

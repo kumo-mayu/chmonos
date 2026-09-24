@@ -453,7 +453,7 @@ public sealed class ItemService : IItemService
         var id = $"item-back:{existing.Id}";
         var name = existing.Local.DisplayName;
         var detail = name is { Length: > 0 }
-            ? $"「販売終了」の印を外しました。名前は自分で付けた「{name}」のままです（編集画面で変えられます）。"
+            ? $"「販売終了」の印を外しました。名前は自分で付けた「{name}」のままです。編集画面で変えられます。"
             : "「販売終了」の印を外しました。";
 
         await _store.Notifications.UpdateAsync(

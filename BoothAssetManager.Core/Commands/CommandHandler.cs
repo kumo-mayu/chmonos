@@ -229,7 +229,7 @@ public sealed class CommandHandler
 
                     // 届かなかったのと、BOOTH にもう無いのとで次の一手が違う（E3）
                     return new CommandResult.Failed(fetched.Status == Booth.BoothFetchStatus.NotFound
-                        ? "この画像はBOOTHにありませんでした。商品ページから消えた画像かもしれません。"
+                        ? "この画像はBOOTHにありませんでした。商品ページから削除された可能性があります。"
                         : "BOOTHから画像を取れませんでした。通信を確かめて、少し待ってからもう一度お試しください。");
                 }
 
@@ -334,9 +334,8 @@ public sealed class CommandHandler
                 // そのときは既に済んでいるので、実は失敗ではない
                 return new CommandResult.Failed(
                         $"商品ID {assign.ItemId} には確定できませんでした。"
-                        + "同じ中身のファイルが他にもあって、そちらで既に確定済みかもしれません"
-                        + "（その場合は商品ページのファイル一覧に表示されています）。"
-                        + $"表示されていなければ、商品ID {assign.ItemId} がBOOTHで見つからなかった可能性があります。");
+                        + "同じ中身のファイルが確定済みなら、商品ページのファイル一覧に表示されています。"
+                        + "表示されていなければ、この商品IDがBOOTHで見つからなかった可能性があります。");
 
             case UiCommand.RegisterLocalItem local:
                 var localId = await _items.RegisterLocalItemAsync(
@@ -365,8 +364,8 @@ public sealed class CommandHandler
                     ItemIdChangeOutcome.SameId => new CommandResult.Failed("同じIDです。"),
                     ItemIdChangeOutcome.SourceMissing => new CommandResult.Failed("元の商品が見つかりませんでした。"),
                     ItemIdChangeOutcome.ImagesNotMoved => new CommandResult.Failed(
-                        "自分で追加した画像を移せなかったので、IDは変えていません（元の商品はそのままです）。ほかのアプリが画像を開いていないか確かめて、もう一度押してください。"),
-                    _ => new CommandResult.Failed("移した先を用意できませんでした。"),
+                        "自分で追加した画像を移せなかったので、商品IDは変えていません。ほかのアプリで画像を開いていないか確かめて、もう一度押してください。"),
+                    _ => new CommandResult.Failed("移動先を用意できませんでした。"),
                 };
 
             case UiCommand.AddUserImage addImage:
@@ -609,7 +608,7 @@ public sealed class CommandHandler
                 return await RunModificationAsync(
                     () => _modifications!.ReplaceMemberAsync(
                         recordFiles.Id, recordFiles.Member, recordFiles.Members, cancellationToken),
-                    "使ったファイルを記録できませんでした。選んでいる間に、改変の使ったものが変わったかもしれません。");
+                    "使ったファイルを記録できませんでした。選んでいる間に、改変の使ったものが変わった可能性があります。");
 
             case UiCommand.AddModificationImage addImage2:
                 if (_modifications is null)
@@ -752,7 +751,7 @@ public sealed class CommandHandler
                 return await _items.SetFileVariationsAsync(
                         setVariations.ItemId, setVariations.VariationByHash, cancellationToken)
                     ? new CommandResult.ItemSaved(setVariations.ItemId)
-                    : new CommandResult.Failed("対象の商品がローカルにありません。");
+                    : new CommandResult.Failed("対象の商品データが手元にありません。");
 
             case UiCommand.DetachFile detach:
             {
@@ -775,7 +774,7 @@ public sealed class CommandHandler
                     Services.ReattachOutcome.Reattached => new CommandResult.ItemSaved(reattach.ItemId),
                     Services.ReattachOutcome.OwnedElsewhere => new CommandResult.Failed(
                         "このファイルは外した後で別の商品に紐付けてあるので、戻せません。先にそちらの商品から外してください。"),
-                    _ => new CommandResult.Failed("そのファイルはこの商品から外したものではありませんでした。"),
+                    _ => new CommandResult.Failed("このファイルは、この商品から外したものではありません。"),
                 };
 
             case UiCommand.SetNotificationRead setRead:

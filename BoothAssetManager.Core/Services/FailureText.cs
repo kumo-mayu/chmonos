@@ -20,9 +20,9 @@ public static class FailureText
     public static string Cause(Exception exception) => exception switch
     {
         UnauthorizedAccessException =>
-            "読み書きの権限がありません。読み取り専用の場所か、権限の要るフォルダのことがあります。",
+            "読み書きの権限がありません。読み取り専用か、管理者の権限が要る場所のことがあります。",
         FileNotFoundException or DirectoryNotFoundException or DriveNotFoundException =>
-            "ファイルかフォルダが見つかりません。消したか移したか、外付けやネットワークのドライブがつながっていないことがあります。",
+            "ファイルかフォルダが見つかりません。削除・移動したか、外付けやネットワークのドライブがつながっていないことがあります。",
         PathTooLongException =>
             "パスが長すぎて扱えません。浅いフォルダへ移すと扱えることがあります。",
         InvalidDataException =>
