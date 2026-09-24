@@ -64,7 +64,15 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         _reservedBannerArea = shop.BannerState == ShopBannerState.Unknown;
         _isBannerPending = _reservedBannerArea;
 
-        _icon = shop.IconPath is null ? null : thumbnails.Load(shop.IconPath);
+        if (shop.IconPath is { } iconPath)
+        {
+            LoadIcon(iconPath);
+        }
+
+        if (shop.BannerPath is { } bannerPath)
+        {
+            LoadBanner(bannerPath);
+        }
 
         // 星とメモ（shops.json・ユーザ判断 2026-09-16）。読むのは直に、書くのは UiCommand で
         var note = Core.Services.ShopNotes.Of(services.Store.ShopNotes.Load(), shop.Subdomain);
@@ -259,13 +267,13 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 {
                     // バナーの置き場は固定なので、覚えている絵を捨てないと古いまま出る
                     _thumbnails.Forget(result.BannerPath);
-                    Banner = _thumbnails.Load(result.BannerPath);
+                    LoadBanner(result.BannerPath);
                 }
 
                 if (result.IconPath is not null)
                 {
                     _thumbnails.Forget(result.IconPath);
-                    Icon = _thumbnails.Load(result.IconPath);
+                    LoadIcon(result.IconPath);
                 }
 
                 IsBannerPending = false;
@@ -337,6 +345,37 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     }
 
     public bool HasIcon => Icon is not null;
+
+    /// <summary>
+    /// アイコンを裏で読み、届いたら入れる。枠は72DIPの四角で切り抜いて出すので、短い辺を72に合わせる。
+    /// 前は画面を開くときに画面のスレッドで原寸を読んでいた
+    /// </summary>
+    /// 読み終わるまでは今の絵のまま（取り直したときに頭文字へ一瞬戻らないように）。読み終わったら結果をそのまま入れる
+    private void LoadIcon(string path)
+    {
+        if (_thumbnails.PeekForFill(path, IconFrameDip, () => Icon = _thumbnails.PeekForFill(path, IconFrameDip, static () => { })) is { } ready)
+        {
+            Icon = ready;
+        }
+    }
+
+    /// <summary>画面の見出しのアイコンの枠（ShopView.xaml の 72×72）。</summary>
+    private const int IconFrameDip = 72;
+
+    /// <summary>
+    /// バナーを裏で、**出す大きさに縮めて**読む。枠は最大 960×320 DIP（BOOTH の見せ方）で、
+    /// 保存されたバナーは1200px前後ある。原寸のまま画面のスレッドで読んでいた
+    /// </summary>
+    private void LoadBanner(string path)
+    {
+        if (_thumbnails.PeekSized(path, BannerWidthDip, () => Banner = _thumbnails.PeekSized(path, BannerWidthDip, static () => { })) is { } ready)
+        {
+            Banner = ready;
+        }
+    }
+
+    /// <summary>バナーの枠の最大の幅（ShopView.xaml の MaxWidth）。</summary>
+    private const int BannerWidthDip = 960;
 
     public bool ShowInitial => Icon is null;
 
@@ -697,11 +736,6 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             OnCardSelectionChanged();
             Rebuild();
             OnPropertyChanged(nameof(SizeText));
-
-            if (Shop.BannerPath is not null)
-            {
-                Banner = _thumbnails.Load(Shop.BannerPath);
-            }
         });
 
         await EnsureBannerAsync();
@@ -736,7 +770,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             {
                 if (path is not null)
                 {
-                    Banner = _thumbnails.Load(path);
+                    LoadBanner(path);
                 }
 
                 // 結果が出たので待ちの表示はやめる。無かった場合も場所は畳まない

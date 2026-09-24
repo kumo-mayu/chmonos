@@ -115,9 +115,12 @@ public sealed class HubMemberRow : ViewModelBase
 
     public ThumbnailLoader? Thumbnails { get; init; }
 
-    /// <summary>裏で読み、届いたら描き直す（アバターの管理の頭の絵と同じ扱い）。</summary>
+    /// <summary>
+    /// 裏で読み、届いたら描き直す（アバターの管理の頭の絵と同じ扱い）。出すのは34DIPの枠だけなので、頭の絵の大きさで読む
+    /// （<see cref="ThumbnailLoader.IconShortEdgeDip"/>。96DIPで読んでいた）
+    /// </summary>
     public BitmapSource? Thumbnail => ThumbnailPath is { } path
-        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        ? Thumbnails?.PeekForIcon(path, () => OnPropertyChanged(nameof(Thumbnail)))
         : null;
 
     /// <summary>
@@ -172,9 +175,9 @@ public sealed class HubModificationRow(string key, bool openByDefault, bool forc
 
     public ThumbnailLoader? Thumbnails { get; init; }
 
-    /// <summary>頭の絵。改変に貼った写真の1枚目、無ければアバターの絵。</summary>
+    /// <summary>頭の絵。改変に貼った写真の1枚目、無ければアバターの絵。出すのは38DIPの枠だけなので頭の絵の大きさで読む。</summary>
     public BitmapSource? Icon => IconPath is { } path
-        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        ? Thumbnails?.PeekForIcon(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
 
     /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>
@@ -245,8 +248,9 @@ public sealed class HubAvatarGroup(string key, bool openByDefault, bool forceOpe
 
     public ThumbnailLoader? Thumbnails { get; init; }
 
+    /// <summary>見出しの頭の丸い絵（34DIP）。頭の絵の大きさで読む。</summary>
     public BitmapSource? Icon => IconPath is { } path
-        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        ? Thumbnails?.PeekForIcon(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
 
     /// <summary>ホバーで出す大きめの絵。窓が開いたときに初めて、カードの大きさで読む（使ったものの絵と同じ）。</summary>

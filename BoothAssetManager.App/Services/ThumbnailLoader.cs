@@ -64,6 +64,14 @@ public sealed class ThumbnailLoader
     /// </summary>
     public const int TileEdgeDip = 96;
 
+    /// <summary>
+    /// 一覧の行の頭に出す小さな絵（30〜38DIP の四角・UniformToFill）の**短い辺**。
+    /// 枠いっぱいに切り抜いて出すので、足りないと困るのは短い辺の方（長い辺で縮めると、横長の絵は短い辺が枠より小さくなりぼやける）。
+    /// 一番大きい枠（38DIP）に少し余らせて40。150%の画面では60pxで作られ、57pxの枠を満たす。
+    /// 96DIP の長辺で読んでいた頃に比べ、正方形の絵なら画素は約6分の1（150%で144×144 → 60×60）
+    /// </summary>
+    public const int IconShortEdgeDip = 40;
+
     /// <summary>キャッシュの鍵。同じファイルでもカード用と原寸は別物として持つ。</summary>
     private readonly Dictionary<string, Entry> _byKey = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>フォルダの中身と、数えたときのフォルダの更新時刻。</summary>
@@ -263,7 +271,11 @@ public sealed class ThumbnailLoader
 
         public required string Path { get; init; }
 
+        /// <summary>縮める先の辺（ピクセル）。0 なら保存された大きさのまま。</summary>
         public required int Edge { get; init; }
+
+        /// <summary><see cref="Edge"/> を短い辺に当てるか（頭の小さな絵）。既定は長い辺。</summary>
+        public bool ShortEdge { get; init; }
 
         public List<Action> Waiters { get; } = [];
 
@@ -339,11 +351,70 @@ public sealed class ThumbnailLoader
         return null;
     }
 
-    private void Request(string key, string path, int edge, Action onLoaded)
+    /// <summary>
+    /// 一覧の行の頭の小さな絵（<see cref="IconShortEdgeDip"/>）。手元にあればすぐ返し、無ければ裏で読む。
+    /// 大きく出す所（アバターのカード・ホバーの窓）と同じ値を使う行では使わない（小さく読んだ絵が引き伸ばされる）
+    /// </summary>
+    public BitmapSource? PeekForIcon(string path, Action onLoaded) => PeekForFill(path, IconShortEdgeDip, onLoaded);
+
+    /// <summary>
+    /// 四角い枠いっぱいに切り抜いて出す（UniformToFill）1枚を、**短い辺**を枠の大きさ（DIP）に合わせて裏で読む。
+    /// </summary>
+    public BitmapSource? PeekForFill(string path, int shortEdgeDip, Action onLoaded)
+    {
+        var edge = EdgePixels(shortEdgeDip);
+        var key = $"{path}|s{edge}";
+        if (_byKey.TryGetValue(key, out var cached))
+        {
+            return Materialize(key, cached);
+        }
+
+        Request(key, path, edge, onLoaded, shortEdge: true);
+        return null;
+    }
+
+    /// <summary>
+    /// 大きく出す1枚を保存された大きさのまま、裏で読む（商品ページ・改変の大きい絵）。
+    /// 前は画面のスレッドでその場で読み、絵を送るたび・なぞって切り替えるたびに1枚ぶん止まっていた
+    /// </summary>
+    public BitmapSource? PeekFull(string path, Action onLoaded)
+    {
+        if (_byKey.TryGetValue(path, out var cached))
+        {
+            return Materialize(path, cached);
+        }
+
+        Request(path, path, 0, onLoaded);
+        return null;
+    }
+
+    /// <summary>
+    /// 長辺を表示の大きさ（DIP）に縮めて、裏で読む（ショップのバナーなど、保存された大きさより小さく出す1枚）。
+    /// </summary>
+    public BitmapSource? PeekSized(string path, int edgeDip, Action onLoaded)
+    {
+        var edge = EdgePixels(edgeDip);
+        var key = $"{path}|{edge}";
+        if (_byKey.TryGetValue(key, out var cached))
+        {
+            return Materialize(key, cached);
+        }
+
+        Request(key, path, edge, onLoaded);
+        return null;
+    }
+
+    private void Request(string key, string path, int edge, Action onLoaded, bool shortEdge = false)
     {
         if (_requested.TryGetValue(key, out var existing))
         {
-            existing.Waiters.Add(onLoaded);
+            // 同じ持ち主の知らせは1つだけ持つ。カードは描き直すたびに同じ頼みを繰り返すので、
+            // 足し続けると1枚の読み終わりに同じ知らせが何十回も飛び、あふれて取り消されたときも
+            // 同じ数だけ知らせ直していた（知らせ直した先がまた頼んで積むので、件数の2乗で膨らむ）
+            if (!existing.Waiters.Contains(onLoaded))
+            {
+                existing.Waiters.Add(onLoaded);
+            }
 
             // もう一度頼まれた＝まだ見えている。列の先頭へ戻す
             if (existing.Node is { } node)
@@ -355,7 +426,7 @@ public sealed class ThumbnailLoader
             return;
         }
 
-        var request = new DecodeRequest { Key = key, Path = path, Edge = edge };
+        var request = new DecodeRequest { Key = key, Path = path, Edge = edge, ShortEdge = shortEdge };
         request.Waiters.Add(onLoaded);
         request.Node = _queue.AddFirst(request);
         _requested[key] = request;
@@ -367,8 +438,15 @@ public sealed class ThumbnailLoader
 
             // 取り消した頼みの持ち主には、列が空いたら知らせ直す。まだ見えていれば頼み直し、見えていなければ何も起きない。
             // 知らせないと、見えたまま取り消された絵が二度と来ない——ショップ一覧は広い窓で一度に56枚ほど並び、
-            // 最初に頼んだ上の段のアイコンが頭文字のままになった（ユーザ指摘 2026-09-12）
-            _dropped.AddRange(oldest.Value.Waiters);
+            // 最初に頼んだ上の段のアイコンが頭文字のままになった（ユーザ指摘 2026-09-12）。
+            // 同じ持ち主は1回だけ知らせる（何度取り消されても、知らせ直しは1回で足りる）
+            foreach (var waiter in oldest.Value.Waiters)
+            {
+                if (_droppedSet.Add(waiter))
+                {
+                    _dropped.Add(waiter);
+                }
+            }
         }
 
         Pump();
@@ -376,6 +454,9 @@ public sealed class ThumbnailLoader
 
     /// <summary>順番待ちからあふれて取り消した頼みの持ち主。列が空いたら知らせ直す。</summary>
     private readonly List<Action> _dropped = [];
+
+    /// <summary><see cref="_dropped"/> に同じ持ち主を二度入れないための控え（並びは <see cref="_dropped"/> が持つ）。</summary>
+    private readonly HashSet<Action> _droppedSet = [];
 
     /// <summary>列が空いたら、取り消した頼みの持ち主に知らせ直す（見えていれば頼み直す）。</summary>
     private void RetryDropped()
@@ -387,6 +468,7 @@ public sealed class ThumbnailLoader
 
         var retry = _dropped.ToList();
         _dropped.Clear();
+        _droppedSet.Clear();
         foreach (var waiter in retry)
         {
             waiter();
@@ -402,7 +484,7 @@ public sealed class ThumbnailLoader
             request.Node = null;
             _running++;
 
-            Task.Run(() => Decode(request.Path, request.Edge)).ContinueWith(
+            Task.Run(() => Decode(request.Path, request.Edge > 0 ? request.Edge : null, request.ShortEdge)).ContinueWith(
                 done =>
                 {
                     _running--;
@@ -512,14 +594,23 @@ public sealed class ThumbnailLoader
     /// 復号して、Bgra32 の画素を返す。**保持するのは画素そのもの**なので、配列は1枚ごとに作る
     /// （以前は借りた配列から WPF の絵へ写して返していた。今は絵を作るのは画面に出すときだけ）。
     /// </summary>
-    private static Decoded? Decode(string path, int? maxEdgePixels)
+    private static Decoded? Decode(string path, int? maxEdgePixels, bool shortEdge = false)
     {
         try
         {
             using var image = Image.Load<Bgra32>(path);
 
             // 拡大はしない。元が小さい画像はそのままの大きさで作る
-            if (maxEdgePixels is { } edge && (image.Width > edge || image.Height > edge))
+            if (shortEdge && maxEdgePixels is { } shortSide && Math.Min(image.Width, image.Height) > shortSide)
+            {
+                // 短い辺を合わせる（Min は短い辺が指定に届くまで縮め、拡大はしない）
+                image.Mutate(context => context.Resize(new ResizeOptions
+                {
+                    Mode = ResizeMode.Min,
+                    Size = new Size(shortSide, shortSide),
+                }));
+            }
+            else if (!shortEdge && maxEdgePixels is { } edge && (image.Width > edge || image.Height > edge))
             {
                 image.Mutate(context => context.Resize(new ResizeOptions
                 {

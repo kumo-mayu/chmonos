@@ -191,9 +191,12 @@ public sealed class TagItemRow : ViewModelBase
 
     public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
 
-    /// <summary>裏で読み、届いたら描き直す（改変の一覧・アバターの管理と同じ扱い）。</summary>
+    /// <summary>
+    /// 裏で読み、届いたら描き直す（改変の一覧・アバターの管理と同じ扱い）。出すのは30DIPの枠だけなので、
+    /// 頭の絵の大きさで読む（<see cref="BoothAssetManager.App.Services.ThumbnailLoader.IconShortEdgeDip"/>。96DIPで読んでいた）
+    /// </summary>
     public System.Windows.Media.Imaging.BitmapSource? Thumbnail => ThumbnailPath is { } path
-        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        ? Thumbnails?.PeekForIcon(path, () => OnPropertyChanged(nameof(Thumbnail)))
         : null;
 
     /// <summary>ホバーで出す大きめの絵（ユーザ指示 2026-09-18。ほかの一覧と同じ）。窓が開いたときに初めて読む。</summary>
