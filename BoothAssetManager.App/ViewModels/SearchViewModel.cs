@@ -232,6 +232,24 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// </summary>
     public IReadOnlyList<ItemRecord> SnapshotItems() => _allItems.ToList();
 
+    /// <summary>
+    /// 全商品。検索の写しがあればそれを、まだ読んでいなければ（起動直後・0件）ディスクから読む。
+    /// 候補・名前で引く・持っているファイルを集める、のような「最後に読み直した時点の姿で足りる」所のため。
+    /// 前はこうした所が開くたび・押すたびに全件のJSONを読み直していた（2000件で約0.6秒）。
+    /// **保存した直後の値が要る所では使わない**（写しが新しくなるのは検索の読み直し・1件の差し替えのとき）。
+    /// **画面のスレッドで呼ぶ**（写しを取り出すのは <see cref="SnapshotItems"/> と同じく画面のスレッド）
+    /// </summary>
+    public async Task<IReadOnlyList<ItemRecord>> ItemsAsync(CancellationToken cancellationToken = default)
+    {
+        var snapshot = SnapshotItems();
+        if (snapshot.Count > 0)
+        {
+            return snapshot;
+        }
+
+        return (await _services.Store.Items.LoadAllAsync(cancellationToken: cancellationToken)).Items;
+    }
+
     public ItemRecord? FindFileOwner(string hash, string exceptItemId) => _allItems.FirstOrDefault(item =>
         item.Id != exceptItemId
         && item.Local.OwnedFiles.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)));

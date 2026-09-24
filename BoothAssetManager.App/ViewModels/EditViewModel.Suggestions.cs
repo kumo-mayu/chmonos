@@ -105,8 +105,9 @@ public sealed partial class EditViewModel
         OnPropertyChanged(nameof(HasShopSuggestions));
     }
 
+    // 候補なので検索の写しで足りる（編集を開くたびに全件を読み直していた。保存した店名は下で足していく）
     private async Task<List<string>> LoadShopNamesAsync()
-        => (await _services.Store.Items.LoadAllAsync()).Items
+        => (await _main.Search.ItemsAsync())
             .Select(item => item.ShopName)
             .Where(name => name is { Length: > 0 })
             .Select(name => name!)

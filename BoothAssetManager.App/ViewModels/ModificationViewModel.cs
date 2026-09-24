@@ -1379,10 +1379,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     {
         ItemSuggestions.Clear();
 
-        Core.Storage.ItemLoadResult loaded;
+        // 候補なので検索の写しで足りる（開くたびに全件のJSONを読み直していた）
+        IReadOnlyList<ItemRecord> loaded;
         try
         {
-            loaded = await _services.Store.Items.LoadAllAsync(cancellationToken: _leaving.Token);
+            loaded = await _main.Search.ItemsAsync(_leaving.Token);
         }
         catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
         {
@@ -1390,7 +1391,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        foreach (var item in loaded.Items
+        foreach (var item in loaded
             .Where(item => item.IsDownloaded)
             .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture))
         {
@@ -1493,8 +1494,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        var loaded = await _services.Store.Items.LoadAllAsync();
-        var item = loaded.Items.FirstOrDefault(candidate =>
+        // 名前は候補（検索の写し）から選ぶので、引くのも同じ写しから（押すたびに全件を読み直していた）
+        var loaded = await _main.Search.ItemsAsync();
+        var item = loaded.FirstOrDefault(candidate =>
             string.Equals(candidate.DisplayName, name.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
         if (item is null)
