@@ -608,7 +608,7 @@
                                                              Text="{Binding BaseInput, Mode=TwoWay}"
                                                              AllowNew="True" KeepsCommittedText="True"
                                                              MaxLength="60"
-                                                             Placeholder="素体を選ぶか、名前を打って Enter" />
+                                                             Placeholder="素体を選ぶか、名前を打ってEnter" />
                                     </Grid>
                                     <Button Content="素体から外す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />

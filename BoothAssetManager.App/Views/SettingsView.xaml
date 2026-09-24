@@ -156,7 +156,7 @@
 
                         <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="欄を選んでキーを押すと、そのキーが割り当てられます。Backspace で外せます。文字の欄にいるときは、文字を打つ・カーソルを動かすキー（矢印・Home・End など）の割り当ては働きません。" />
+                                   Text="欄を選んでキーを押すと、そのキーが割り当てられます。Backspaceで外せます。文字の欄にいるときは、文字を打つ・カーソルを動かすキー（矢印・Home・Endなど）の割り当ては働きません。" />
                         <ItemsControl ItemsSource="{Binding ShortcutRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -549,11 +549,11 @@
                     <StackPanel>
                         <TextBlock Text="Chmonos（クモノス）について" Style="{StaticResource GroupTitle}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="BOOTH で買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTH はピクシブ株式会社のサービスです。" />
+                                   Text="BOOTHで買ったアセットを手元で管理するための、個人が作ったアプリです。ピクシブ株式会社が作成・配布しているものではありません。BOOTHはピクシブ株式会社のサービスです。" />
 
                         <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Text="打った語の別表記でも探します。tori なら「鳥」、shark なら「サメ」、nadeoto なら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に表示されます。" />
+                                   Text="打った語の別表記でも探します。toriなら「鳥」、sharkなら「サメ」、nadeotoなら「撫で音」。0件のときは自動で、検索画面の「別の表記も探す」を入れると常に働きます。通信はしません。何で当たったかは結果の上に表示されます。" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"

@@ -64,13 +64,13 @@ internal static class ItemFileActions
         if (zips.Count == 0)
         {
             Services.Notice.Show(
-                $"「{item.DisplayName}」には、一時的に展開できる zip が手元にありません。\n\n"
-                + "zip 以外のファイルやフォルダは、「エクスプローラで開く」でそのまま開けます。",
+                $"「{item.DisplayName}」には、一時的に展開できるzipが手元にありません。\n\n"
+                + "zip以外のファイルやフォルダは、「エクスプローラで開く」でそのまま開けます。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
 
-        if (Choose(title, $"「{item.DisplayName}」には zip が {zips.Count} 件あります。どれを展開しますか？", zips, "展開して開く")
+        if (Choose(title, $"「{item.DisplayName}」にはzipが {zips.Count} 件あります。どれを展開しますか？", zips, "展開して開く")
             is { } picked)
         {
             await UnpackAndOpenAsync(services, picked.Path);
@@ -112,7 +112,7 @@ internal static class ItemFileActions
         if (packages.Count == 0)
         {
             Services.Notice.Show(
-                $"「{item.DisplayName}」には、Unityに入れられるもの（zip の中の .unitypackage）が手元にありません。",
+                $"「{item.DisplayName}」には、Unityに入れられるもの（zipの中の .unitypackage）が手元にありません。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return null;
         }
@@ -124,7 +124,7 @@ internal static class ItemFileActions
 
         var picked = ListChoice.Ask(
             title,
-            $"「{item.DisplayName}」には unitypackage が {packages.Count} 件あります。どれにしますか？",
+            $"「{item.DisplayName}」にはunitypackageが {packages.Count} 件あります。どれにしますか？",
             PackageLabels(packages),
             okText);
 

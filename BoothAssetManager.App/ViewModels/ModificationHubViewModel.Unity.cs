@@ -11,12 +11,12 @@ public sealed partial class ModificationHubViewModel
     {
         Status = VccLaunch.Open() switch
         {
-            VccOpenResult.Launched => "VCC を起動しました。",
-            VccOpenResult.BroughtToFront => "VCC は開いていたので、手前に出しました。",
+            VccOpenResult.Launched => "VCCを起動しました。",
+            VccOpenResult.BroughtToFront => "VCCは開いていたので、手前に出しました。",
             VccOpenResult.AlreadyOpenNotFront =>
-                "VCC は開いています。手前に出せなかったので、タスクバーの VCC を押して切り替えてください。",
+                "VCCは開いています。手前に出せなかったので、タスクバーのVCCを押して切り替えてください。",
             VccOpenResult.NotInstalled => VccMissingText,
-            _ => "VCC を起動できませんでした。スタートメニューから開いてみてください。",
+            _ => "VCCを起動できませんでした。スタートメニューから開いてみてください。",
         };
     }
 

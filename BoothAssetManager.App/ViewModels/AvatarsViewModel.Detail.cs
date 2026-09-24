@@ -23,7 +23,7 @@ public sealed partial class AvatarsViewModel
                    || string.Equals(typed, Selected?.Summary.Entry.BaseName, StringComparison.CurrentCultureIgnoreCase)
                    || BaseNames.Any(name => string.Equals(name, typed, StringComparison.CurrentCultureIgnoreCase))
                 ? string.Empty
-                : $"Enter で新しい素体『{typed}』を作って入れます";
+                : $"Enterで新しい素体『{typed}』を作って入れます";
         }
     }
 

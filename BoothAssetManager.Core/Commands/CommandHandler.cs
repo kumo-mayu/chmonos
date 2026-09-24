@@ -421,7 +421,7 @@ public sealed class CommandHandler
                     RefreshOutcome.Delisted => new CommandResult.Failed("非公開または削除済みと判定しました。"),
                     RefreshOutcome.TemporaryFailure => new CommandResult.Failed("一時的に取得できませんでした。次回に再試行します。"),
                     RefreshOutcome.Unreadable => new CommandResult.Failed(
-                        "BOOTH から届いた商品情報を読めませんでした。BOOTH のメンテナンス中か、ページの形が変わったことがあります。"
+                        "BOOTHから届いた商品情報を読めませんでした。BOOTHのメンテナンス中か、ページの形が変わったことがあります。"
                         + "時間をおいてもう一度押してください。"),
                     RefreshOutcome.Missing => new CommandResult.Failed("対象の商品データが手元にありません。"),
                     RefreshOutcome.NotOnBooth =>

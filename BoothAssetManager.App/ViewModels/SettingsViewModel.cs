@@ -1280,7 +1280,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Title = "バックアップの書き出し先",
             FileName = $"BoothAssetManager-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip",
-            Filter = "zip ファイル|*.zip",
+            Filter = "zipファイル|*.zip",
             DefaultExt = ".zip",
         };
 
@@ -1292,8 +1292,8 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         var withImages = Views.ChoiceDialog.Ask(
             "バックアップを書き出す",
             $"画像も含めますか？（画像：{ImageUsageText}）",
-            "「画像も入れる」\n戻したときに取り直さずに済みますが、zip が大きくなります。\n\n"
-            + "「画像は入れない」\n戻した後、使っていない間に BOOTH から少しずつ取り直します。",
+            "「画像も入れる」\n戻したときに取り直さずに済みますが、zipが大きくなります。\n\n"
+            + "「画像は入れない」\n戻した後、使っていない間にBOOTHから少しずつ取り直します。",
             "画像も入れる",
             "画像は入れない");
 
@@ -1344,7 +1344,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         var open = new Microsoft.Win32.OpenFileDialog
         {
             Title = "戻すバックアップを選ぶ",
-            Filter = "zip ファイル|*.zip",
+            Filter = "zipファイル|*.zip",
         };
 
         if (open.ShowDialog() != true)
@@ -1356,7 +1356,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Services.Notice.Show(
                 "このアプリのバックアップではないようです（商品も設定も入っていません）。\n\n"
-                + "設定画面の「バックアップを書き出す」で作った zip を選んでください。",
+                + "設定画面の「バックアップを書き出す」で作ったzipを選んでください。",
                 "バックアップから戻す",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);

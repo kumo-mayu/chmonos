@@ -289,9 +289,9 @@ public sealed class HubProjectDetail
 
     public string SourceText => Candidate.Source switch
     {
-        UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity Hub と VCC の一覧",
-        UnityProjectSource.Hub => "Unity Hub の一覧",
-        UnityProjectSource.Vcc => "VCC の一覧",
+        UnityProjectSource.Hub | UnityProjectSource.Vcc => "Unity HubとVCCの一覧",
+        UnityProjectSource.Hub => "Unity Hubの一覧",
+        UnityProjectSource.Vcc => "VCCの一覧",
         _ => "どちらの一覧にも無い（改変から紐付けたもの）",
     };
 

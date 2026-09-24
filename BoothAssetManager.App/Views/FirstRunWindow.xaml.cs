@@ -32,7 +32,7 @@ public partial class FirstRunWindow : Window
         if (_fromEnvironment)
         {
             PickButton.IsEnabled = false;
-            Notice.Text = "環境変数 CHMONOS_HOME で保存先が指定されているため、ここからは変えられません。";
+            Notice.Text = "環境変数CHMONOS_HOMEで保存先が指定されているため、ここからは変えられません。";
         }
     }
 

@@ -127,7 +127,7 @@ public sealed class RenameTagDialogViewModel : ViewModelBase
     public string CommitHint => HasTarget
         ? string.Empty
         : IsTypedNewName
-            ? $"「{_input.Trim()}」を新しい名前にするときは、候補の「新規」の行を選んでください（Enter でも選べます）。"
+            ? $"「{_input.Trim()}」を新しい名前にするときは、候補の「新規」の行を選んでください（Enterでも選べます）。"
             : $"新しい名前を入れると押せます（今と同じ「{Name}」では押せません）。";
 
     /// <summary>打ってあるのが、まだ決めていない新しい名前か（押せない理由を言い分けるため）。</summary>

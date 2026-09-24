@@ -741,7 +741,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         {
             Backlog.Add(new BacklogRowViewModel
             {
-                Label = "商品ID が未確定",
+                Label = "商品IDが未確定",
                 Count = _snapshot.Backlog.UnresolvedCount,
                 Severity = "Warn",
                 OpenCommand = new RelayCommand(_main.ShowResolve),

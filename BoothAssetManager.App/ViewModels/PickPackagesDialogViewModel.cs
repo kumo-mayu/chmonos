@@ -18,7 +18,7 @@ public sealed class PackageChoiceRow : ViewModelBase
 
     public bool HasFolder => Package.Folder.Length > 0;
 
-    public string FolderText => HasFolder ? $"zip の中の {Package.Folder}" : string.Empty;
+    public string FolderText => HasFolder ? $"zipの中の {Package.Folder}" : string.Empty;
 
     public bool IsChecked
     {

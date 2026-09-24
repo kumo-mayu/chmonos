@@ -160,7 +160,7 @@
                         VerticalAlignment="Center" Margin="6,0,0,0"
                         Command="{Binding DataContext.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}"
-                        ToolTip="改変に紐付けたプロジェクトに入っていれば、Unity のプロジェクトタブの検索欄に入り先のフォルダ名を入れて示します。入っていなければ、取り込むか聞きます。" />
+                        ToolTip="改変に紐付けたプロジェクトに入っていれば、Unityのプロジェクトタブの検索欄に入り先のフォルダ名を入れて示します。入っていなければ、取り込むか聞きます。" />
                 <!-- 絵も名前と同じリンク（ユーザ指示 2026-09-13）。小さな名前だけを狙って押させない -->
                 <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,8,0"
                         AutomationProperties.Name="{Binding Name}"

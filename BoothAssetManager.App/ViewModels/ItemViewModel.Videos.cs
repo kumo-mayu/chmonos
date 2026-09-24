@@ -15,7 +15,7 @@ public sealed class VideoRow : ViewModelBase
 
     public string ThumbnailUrl => Link.ThumbnailUrl;
 
-    public string TitleText => _title ?? (_isLoading ? "タイトルを確かめています…" : "タイトルを取れませんでした（押すと YouTube で開きます。アプリの外へ出ます）");
+    public string TitleText => _title ?? (_isLoading ? "タイトルを確かめています…" : "タイトルを取れませんでした（押すとYouTubeで開きます。アプリの外へ出ます）");
 
     public RelayCommand OpenCommand => new(() => Shell.OpenUrl(Url));
 
@@ -56,7 +56,7 @@ public sealed partial class ItemViewModel
     public bool HasVideos => Videos.Count > 0;
 
     /// <summary>見出しに添える件数。無ければその旨を言い、欄は開けない（ユーザ指示）。</summary>
-    public string VideosHeaderText => HasVideos ? $"（{Videos.Count} 本）" : "（この商品の説明に YouTube の動画はありません）";
+    public string VideosHeaderText => HasVideos ? $"（{Videos.Count} 本）" : "（この商品の説明にYouTubeの動画はありません）";
 
     /// <summary>
     /// 動画の欄を開いているか。**既定は畳む**（ユーザ指示）。商品ごとに畳んだ状態で始める——

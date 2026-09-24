@@ -238,7 +238,7 @@ public class ImportStateTests : IDisposable
         Assert.Equal("222", unfetched.ItemId);
         Assert.Equal([Path.Combine(source, "item_222.zip")], unfetched.PathList);
         Assert.Equal(
-            "前回の取り込みで 1 件は BOOTH の不調で取れませんでした。少し待ってから「続きから進む」で取り直せます",
+            "前回の取り込みで 1 件はBOOTHの不調で取れませんでした。少し待ってから「続きから進む」で取り直せます",
             state.Text);
 
         // 「続きから進む」は、最後まで走った回なら取れなかったファイルだけを積む（全部を走査し直さない）
@@ -293,7 +293,7 @@ public class ImportStateTests : IDisposable
             Unfetched = [new UnfetchedItem { ItemId = "222", Paths = [@"D:\a.zip"] }],
         };
 
-        Assert.Equal("前回は 1 / 3 件まで進んで中断しました（うち 1 件は BOOTH の不調で取れませんでした）", state.Text);
+        Assert.Equal("前回は 1 / 3 件まで進んで中断しました（うち 1 件はBOOTHの不調で取れませんでした）", state.Text);
     }
 
     [Fact]

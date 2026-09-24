@@ -51,7 +51,7 @@ internal static class ItemSelectionActions
         if (steps.Count == 0)
         {
             Services.Notice.Show(
-                "選んだ商品には、Unityへ送れるもの（zip の中の .unitypackage）が入っていませんでした。",
+                "選んだ商品には、Unityへ送れるもの（zipの中の .unitypackage）が入っていませんでした。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -82,11 +82,11 @@ internal static class ItemSelectionActions
         {
             var (card, packages) = choosing[i];
             var labels = ItemFileActions.PackageLabels(packages);
-            labels.Add(new ListChoiceItem($"すべて（{packages.Count} 件を zip に入っている順に）", "依存するものが同じ zip に入っているときは、こちらを選びます"));
+            labels.Add(new ListChoiceItem($"すべて（{packages.Count} 件をzipに入っている順に）", "依存するものが同じzipに入っているときは、こちらを選びます"));
 
             var answer = ListChoice.Ask(
                 $"{title}（{i + 1}/{choosing.Count}）",
-                $"「{card.Name}」には unitypackage が {packages.Count} 件あります。Unityの「{target}」へどれを送りますか？\n"
+                $"「{card.Name}」にはunitypackageが {packages.Count} 件あります。Unityの「{target}」へどれを送りますか？\n"
                     + $"（選ぶ必要がある商品 {choosing.Count} 件のうち {i + 1} 件目）",
                 labels,
                 "これを送る",
@@ -122,7 +122,7 @@ internal static class ItemSelectionActions
         // 数えているのは unitypackage の数（選んだ商品の数ではない）。選び終えた後に、全体で何を送るかを1回だけ確かめる
         var confirm = Services.Notice.Show(
             $"unitypackage {queue.Count} 件を、Unityの「{target}」へ順に送ります。\n\n"
-            + "1件ずつ Unity の取り込み画面が表示されます。Unity側で「Import」（入れないものは「Cancel」）を押すと、次の1件が表示されます。"
+            + "1件ずつUnityの取り込み画面が表示されます。Unity側で「Import」（入れないものは「Cancel」）を押すと、次の1件が表示されます。"
             + (nothing.Count > 0 ? $"\n\n送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty)
             + (notSending.Count > 0 ? $"\n飛ばすと選んだ {notSending.Count} 件は送りません。" : string.Empty),
             title,

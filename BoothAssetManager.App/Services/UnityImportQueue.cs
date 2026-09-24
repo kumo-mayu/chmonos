@@ -52,12 +52,12 @@ public sealed record UnityQueueOutcome(
 
         if (outcomes.Count(outcome => outcome.Cancelled) is > 0 and var cancelled)
         {
-            notes.Add($"{cancelled} 件は Cancel されたので入っていません");
+            notes.Add($"{cancelled} 件はCancelされたので入っていません");
         }
 
         return notes.Count == 0
-            ? $"{opened} 件を Unity へ順に送りました。"
-            : $"{opened} 件を Unity へ順に送りました（うち {string.Join("、", notes)}）。";
+            ? $"{opened} 件をUnityへ順に送りました。"
+            : $"{opened} 件をUnityへ順に送りました（うち {string.Join("、", notes)}）。";
     }
 }
 
@@ -149,8 +149,8 @@ public static class UnityImportQueue
     public static void Stop() => _stop?.Cancel();
 
     /// <summary>止めたときの言い方（画面と記録で同じ文を使う）。</summary>
-    public const string StoppedMessage = "送るのをやめました。Unity の取り込み画面が残っていたら、"
-        + "Unity 側で「Cancel」を押してください（「Import」を押すと入りますが、このアプリの記録には残りません）。";
+    public const string StoppedMessage = "送るのをやめました。Unityの取り込み画面が残っていたら、"
+        + "Unity側で「Cancel」を押してください（「Import」を押すと入りますが、このアプリの記録には残りません）。";
 
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
@@ -268,7 +268,7 @@ public static class UnityImportQueue
             var main = MainWindowOf(processId);
             if (main == IntPtr.Zero)
             {
-                stop = "Unity が閉じられました";
+                stop = "Unityが閉じられました";
                 outcomes.Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
@@ -291,7 +291,7 @@ public static class UnityImportQueue
             {
                 Core.Diagnostics.AppLog.Error("Unityへ送る：zip から取り出す", exception);
                 outcomes.Add(new UnityQueueOutcome(package, false,
-                    $"zip から取り出せませんでした。{Core.Services.FailureText.Cause(exception)}"));
+                    $"zipから取り出せませんでした。{Core.Services.FailureText.Cause(exception)}"));
                 continue;
             }
 
@@ -310,7 +310,7 @@ public static class UnityImportQueue
             // 番号が1つずれた（古い番号を送ったら「Export Package」の画面が開いた §9-4b）
             if (FindMenuCommand(main, UnityHandoff.CustomPackageMenuPath) is not { } command)
             {
-                stop = "Unity のメニューに「Assets > Import Package > Custom Package...」が見つかりませんでした";
+                stop = "Unityのメニューに「Assets > Import Package > Custom Package...」が見つかりませんでした";
                 outcomes.Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
@@ -331,7 +331,7 @@ public static class UnityImportQueue
 
             if (dialog == IntPtr.Zero || FindFileNameBox(dialog) is not { } box)
             {
-                stop = "Unity のファイル選択の画面が表示されませんでした（Unity が作業中だった可能性があります）";
+                stop = "Unityのファイル選択の画面が表示されませんでした（Unityが作業中だった可能性があります）";
                 outcomes.Add(new UnityQueueOutcome(package, false, stop));
                 continue;
             }
@@ -346,11 +346,11 @@ public static class UnityImportQueue
                 cancellationToken,
                 busyProcessId: processId);
 
-            Report($"{index + 1}/{packages.Count}：「{package.Name}」— Unity の取り込み画面で「Import」か「Cancel」を押してください");
+            Report($"{index + 1}/{packages.Count}：「{package.Name}」— Unityの取り込み画面で「Import」か「Cancel」を押してください");
 
             if (alreadyThere)
             {
-                Report($"{index + 1}/{packages.Count}：「{package.Name}」は既にすべて入っています。Unity で「OK」を押すと次に進みます");
+                Report($"{index + 1}/{packages.Count}：「{package.Name}」は既にすべて入っています。Unityで「OK」を押すと次に進みます");
             }
 
             UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」の取り込み画面を出した"
@@ -361,7 +361,7 @@ public static class UnityImportQueue
             UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」→ {state}{(closed ? "（Unity が閉じた）" : string.Empty)}");
             if (closed)
             {
-                stop = "Unity が閉じられました";
+                stop = "Unityが閉じられました";
                 outcomes.Add(new UnityQueueOutcome(package, true, stop));
                 continue;
             }
@@ -441,7 +441,7 @@ public static class UnityImportQueue
             {
                 askedTitle = title;
                 progress?.Report(new UnityQueueProgress(index + 1, total,
-                    $"{index + 1}/{total}：「{package.Name}」— Unity 側で確認（「{title}」）が表示されています。Unity で答えると次に進みます"));
+                    $"{index + 1}/{total}：「{package.Name}」— Unity側で確認（「{title}」）が表示されています。Unityで答えると次に進みます"));
             }
 
             var state = watch.Evaluate(now);

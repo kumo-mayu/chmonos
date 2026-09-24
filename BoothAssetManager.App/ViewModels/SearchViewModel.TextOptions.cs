@@ -64,7 +64,7 @@ public sealed partial class SearchViewModel
         (SearchField.Id, "商品ID"),
         (SearchField.File, "ファイル名"),
         (SearchField.Path, "ファイルの場所（パス）"),
-        (SearchField.Content, "zip の中のファイル名"),
+        (SearchField.Content, "zipの中のファイル名"),
     ];
 
     /// <summary>文字列で探す対象。</summary>

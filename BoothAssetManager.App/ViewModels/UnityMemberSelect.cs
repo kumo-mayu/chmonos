@@ -53,7 +53,7 @@ internal static class UnityMemberSelect
         var packages = ModificationViewModel.PackagesFor(item, member);
         if (packages.Count == 0)
         {
-            setStatus($"「{name}」には、Unityに入れられるファイル（zip の中の unitypackage）が手元にありません。", failed: true);
+            setStatus($"「{name}」には、Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。", failed: true);
             return false;
         }
 
@@ -151,7 +151,7 @@ internal static class UnityMemberSelect
             failed.Count > 0
             ? $"Unityへ送れませんでした（{failed[0].Problem}）。"
             : outcomes.All(outcome => outcome.Cancelled)
-                ? "Cancel されたので、入っていません。"
+                ? "Cancelされたので、入っていません。"
                 : outcomes.All(outcome => outcome.AlreadyPresent)
                     ? $"「{projectName}」には既にすべて入っていました。もう一度押すと、プロジェクトタブで示します。"
                     : $"「{projectName}」へ送りました。入った後にもう一度押すと、プロジェクトタブで示します。",
@@ -202,7 +202,7 @@ internal static class UnityMemberSelect
         if (editor is null)
         {
             setStatus($"「{projectName}」の {root} に入っています。プロジェクトが開いていないので、"
-                + "「Unityを開く」で開いてからもう一度押すと、Unity のプロジェクトタブで示します。");
+                + "「Unityを開く」で開いてからもう一度押すと、Unityのプロジェクトタブで示します。");
             return true;
         }
 
@@ -218,13 +218,13 @@ internal static class UnityMemberSelect
         {
             // Packages の下は Unity の検索に出ないので探していない。見つける場所の名前を伝える
             { Searched: false, StopReason: { } where } =>
-                $"入り先は {root} です。{where}、Unity では探さずに手前に出しました。",
+                $"入り先は {root} です。{where}、Unityでは探さずに手前に出しました。",
 
             // 1件と言い切れないときは、一番上を開かずに検索の結果で止めている（ユーザ指示）。理由と、何をすればよいかを書く
             { StopReason: { } reason } =>
-                $"Unity の「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
-                + $"入り先は {root} です。Unity で選んでください。",
-            _ => $"Unity の「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。",
+                $"Unityの「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
+                + $"入り先は {root} です。Unityで選んでください。",
+            _ => $"Unityの「{projectName}」の{outcome.Where}で「{folder}」を開きました（入り先 {root}）。",
         });
         return true;
     }

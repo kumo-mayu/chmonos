@@ -380,7 +380,7 @@ public sealed class ImportViewModel : ViewModelBase
             "前回の取り込みの続きの記録を捨てますか。\n\n"
             + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取得しません。"
             // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う
-            + "BOOTH の不調で取れなかった商品の記録も一緒に消えます（ファイルは消えません）。\n\n"
+            + "BOOTHの不調で取れなかった商品の記録も一緒に消えます（ファイルは消えません）。\n\n"
             + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に追加」を押し、"
             + "「取り込みを開始」を押してください。",
             "取り込みの続きを捨てる",
@@ -1435,7 +1435,7 @@ public sealed class ImportViewModel : ViewModelBase
                 ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、下の「未確定を開く」から確かめてください。"
                 : string.Empty,
             summary.TemporaryFailures > 0
-                ? $"{summary.TemporaryFailures} 件は BOOTH の不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
+                ? $"{summary.TemporaryFailures} 件はBOOTHの不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
                 : string.Empty)
         : string.Empty;
 
@@ -1462,7 +1462,7 @@ public sealed class ImportViewModel : ViewModelBase
                     + "閉じてから、もう一度取り込んでください。"
                 : string.Empty,
             summary.FilesOnlineOnly > 0
-                ? $"{summary.FilesOnlineOnly} 件は OneDrive の「オンラインのみ」なので読めませんでした。"
+                ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
                     + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
                 : string.Empty)
         : string.Empty;

@@ -906,7 +906,7 @@
                                     前に付けると、その項目だけを探します（「対象」で切っていても探します）：<LineBreak />
                                     name: 商品名　shop: ショップ名　memo: メモ　subdomain: サブドメイン　main: 本文<LineBreak />
                                     tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
-                                    file: ファイル名　path: ファイルの場所　content: zip の中のファイル名<LineBreak />
+                                    file: ファイル名　path: ファイルの場所　content: zipの中のファイル名<LineBreak />
                                     name:&quot;夏 セット&quot; や tag:(夏 OR 冬) のようにも書けます。&quot;…&quot; の中の name: はそのままの文字として探します。
                                 </TextBlock>
                             </TextBlock.ToolTip>
@@ -1060,7 +1060,7 @@
                     <!-- 0件でも自動では広げない（ユーザ判断 2026-09-16）。広げるかはここで選ばせる -->
                     <Button Content="別表記でも検索する" Style="{StaticResource SmallButton}" HorizontalAlignment="Center"
                             Margin="0,10,0,0" Command="{Binding WidenCommand}"
-                            ToolTip="tori で「鳥」、shark で「サメ」のように、読み・漢字・英語などの別の書き方でも探します。"
+                            ToolTip="toriで「鳥」、sharkで「サメ」のように、読み・漢字・英語などの別の書き方でも探します。"
                             Visibility="{Binding ShowsWidenOffer, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
             </Grid>

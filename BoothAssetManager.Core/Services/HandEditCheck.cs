@@ -85,7 +85,7 @@ public static class HandEditCheck
         // 以後の保存が別のファイルに書かれ、画面の変更が反映されない**（元のファイルは古いまま残る）
         // 全件の読み込みと同じ写しから引く（起動のたびに2000件を読み直していた）。読めないファイルは「読めなかった商品」として別に数えている
         var mismatched = (await store.Items.FindMisnamedAsync(cancellationToken))
-            .Select(pair => $"{pair.FileId}.json の中の id が「{pair.ItemId}」")
+            .Select(pair => $"{pair.FileId}.jsonの中のidが「{pair.ItemId}」")
             .ToList();
 
         Add("items/", "ファイル名と中の商品IDが違います", mismatched);

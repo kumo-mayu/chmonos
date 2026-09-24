@@ -272,18 +272,18 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     internal static string ProjectEmptyText(UnityTools tools) => tools switch
     {
         { HasHub: false, HasVcc: false } =>
-            "Unity Hub も VCC も見つかりませんでした。どちらかを入れてプロジェクトを作るか開くと、ここに並びます。",
+            "Unity HubもVCCも見つかりませんでした。どちらかを入れてプロジェクトを作るか開くと、ここに並びます。",
         { HasHub: true, HasVcc: false } =>
-            "Unity Hub の一覧にプロジェクトがありません（VCC は見つかりませんでした）。Hub でプロジェクトを作るか開くと、ここに並びます。",
+            "Unity Hubの一覧にプロジェクトがありません（VCCは見つかりませんでした）。Hubでプロジェクトを作るか開くと、ここに並びます。",
         { HasHub: false, HasVcc: true } =>
-            "VCC の一覧にプロジェクトがありません（Unity Hub は見つかりませんでした）。VCC でプロジェクトを作るか開くと、ここに並びます。",
-        _ => "Unity Hub と VCC の一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
+            "VCCの一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。VCCでプロジェクトを作るか開くと、ここに並びます。",
+        _ => "Unity HubとVCCの一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
     };
 
     // ---- Unity Hub と VCC ----
 
     private const string VccMissingText =
-        "VCC（VRChat Creator Companion）が見つかりませんでした。VRChat の公式サイトから VCC を入れると、ここから開けます。";
+        "VCC（VRChat Creator Companion）が見つかりませんでした。VRChatの公式サイトからVCCを入れると、ここから開けます。";
 
     /// <summary>Unity Hub と VCC が手元にあるか。窓が手前に戻るたびに調べ直す。</summary>
     public UnityTools Tools
@@ -304,7 +304,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     public bool CanOpenVcc => Tools.HasVcc;
 
     public string VccHint => Tools.HasVcc
-        ? "VRChat Creator Companion を起動します。開いていれば手前に出します。"
+        ? "VRChat Creator Companionを起動します。開いていれば手前に出します。"
         : VccMissingText;
 
     // ---- 操作 ----
@@ -397,7 +397,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         if (modifications.Result.FailedIds.Count > 0)
         {
             Status = $"読めなかった改変の記録が {modifications.Result.FailedIds.Count} 件あります"
-                + "（保存先の modifications フォルダの JSON が壊れているかもしれません）。";
+                + "（保存先のmodificationsフォルダのJSONが壊れているかもしれません）。";
         }
 
         _isLoading = false;
@@ -660,7 +660,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         var packages = item is null ? [] : ModificationViewModel.PackagesFor(item, detail.Row.Member);
         if (packages.Count == 0)
         {
-            detail.DestinationText = "Unityに入れられるファイル（zip の中の unitypackage）が手元にありません。";
+            detail.DestinationText = "Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。";
             return;
         }
 

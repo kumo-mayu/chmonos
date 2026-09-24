@@ -156,7 +156,7 @@
                                     <Button Content="使ったものを順にUnityへ送る" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
-                                            ToolTip="上から順に1件ずつ Unity の取り込み画面を表示します。Unity側で閉じると次の1件が表示されます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
+                                            ToolTip="上から順に1件ずつUnityの取り込み画面を表示します。Unity側で閉じると次の1件が表示されます。紐付けたプロジェクトが開いていれば、そちらへ送ります。" />
                                 </StackPanel>
                             </Grid>
                             <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
@@ -166,7 +166,7 @@
                                         VerticalAlignment="Center"
                                         Command="{Binding StopUnityCommand}"
                                         Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="送るのをやめます。Unity の取り込み画面が残っていたら、Unity 側で「Cancel」を押してください。" />
+                                        ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
                                 <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
                                            TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
@@ -248,12 +248,12 @@
                                                     <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="Unityへ送るか、Unity のプロジェクトタブで選択します">
+                                                            ToolTip="Unityへ送るか、Unityのプロジェクトタブで選択します">
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
                                                                 <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding}"
+                                                                <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                             </ContextMenu>
                                                         </Button.ContextMenu>
@@ -392,12 +392,12 @@
                                                                 <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
                                                                         Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        ToolTip="Unityへ送るか、Unity のプロジェクトタブで選択します">
+                                                                        ToolTip="Unityへ送るか、Unityのプロジェクトタブで選択します">
                                                                     <Button.ContextMenu>
                                                                         <ContextMenu>
                                                                             <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                            <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding}"
+                                                                            <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                         </ContextMenu>
                                                                     </Button.ContextMenu>
@@ -446,7 +446,7 @@
                                     <Button Content="プロジェクトの中を調べる" Style="{StaticResource SmallButton}"
                                             HorizontalAlignment="Right" VerticalAlignment="Center"
                                             Command="{Binding FindInProjectCommand}"
-                                            ToolTip="プロジェクトの Assets と Packages にあるファイルを、手元の商品の unitypackage の中身と比べます。プロジェクトは書き換えません。" />
+                                            ToolTip="プロジェクトのAssetsとPackagesにあるファイルを、手元の商品のunitypackageの中身と比べます。プロジェクトは書き換えません。" />
                                 </Grid>
                                 <TextBlock Text="{Binding ProjectFindText}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" Margin="0,6,0,0"
@@ -527,14 +527,14 @@
                                 VRChat の blueprint ID（ユーザ指示 2026-09-19：改変の名前の下に）。
                                 VRChat の OSC に /avatar/change で送ると、このアバターに着替えられる
                             -->
-                            <TextBlock Text="VRChat の blueprint ID" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
-                            <TextBlock Text="アップロードしたアバターの ID（avtr_…）。入れておくと、VRChat をこのアバターに着替えられます。打ち終えると残ります。"
+                            <TextBlock Text="VRChatのblueprint ID" Style="{StaticResource SectionLabel}" Margin="0,16,0,4" />
+                            <TextBlock Text="アップロードしたアバターのID（avtr_…）。入れておくと、VRChatをこのアバターに着替えられます。打ち終えると残ります。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="VRChatで着替える" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                         VerticalAlignment="Center" Command="{Binding ChangeAvatarCommand}"
                                         IsEnabled="{Binding CanChangeAvatar}" ToolTipService.ShowOnDisabled="True"
-                                        ToolTip="VRChat の OSC（この PC の 9000 番）へ、このアバターに着替える合図を送ります。VRChat で OSC を有効にしておく必要があります。ID が空のときは押せません。" />
+                                        ToolTip="VRChatのOSC（このPCの 9000 番）へ、このアバターに着替える合図を送ります。VRChatでOSCを有効にしておく必要があります。IDが空のときは押せません。" />
                                 <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center" FontFamily="Consolas"
                                          Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
                             </DockPanel>

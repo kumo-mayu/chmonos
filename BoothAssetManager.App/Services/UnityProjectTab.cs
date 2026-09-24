@@ -159,7 +159,7 @@ public static class UnityProjectTab
             if (IsInPackages(path))
             {
                 var name = segments.Length >= 2 ? PackageDisplayName(projectPath, segments[1]) ?? segments[1] : "Packages";
-                return (null, $"Packages の中（プロジェクトタブの左の木では Packages の下の「{name}」）は Unity の検索に表示されないので");
+                return (null, $"Packagesの中（プロジェクトタブの左の木ではPackagesの下の「{name}」）はUnityの検索に表示されないので");
             }
 
             if (UsesGlob(path))
@@ -226,17 +226,17 @@ public static class UnityProjectTab
         }
         catch (ArgumentException)
         {
-            return new("Unity が閉じられたようです。", string.Empty);
+            return new("Unityが閉じられたようです。", string.Empty);
         }
 
         if (main == IntPtr.Zero)
         {
-            return new("Unity の窓が見つかりませんでした。", string.Empty);
+            return new("Unityの窓が見つかりませんでした。", string.Empty);
         }
 
         if (UnityImportQueue.FindMenuCommand(main, UnityHandoff.FindMenuPath) is not { } findCommand)
         {
-            return new("Unity のメニューに「Edit > Find」が見つかりませんでした。", string.Empty);
+            return new("Unityのメニューに「Edit > Find」が見つかりませんでした。", string.Empty);
         }
 
         // 最小化したままでは、タブへ送った押下が効かなかった（§13-6）
@@ -287,7 +287,7 @@ public static class UnityProjectTab
                 // 見えているタブが無い（閉じた・別のタブの裏に隠れた）。メニューで Unity に出してもらう
                 if (UnityImportQueue.FindMenuCommand(main, UnityHandoff.ProjectWindowMenuPath) is not { } projectCommand)
                 {
-                    return new("Unity のメニューに「Window > General > Project」が見つかりませんでした。", string.Empty);
+                    return new("Unityのメニューに「Window > General > Project」が見つかりませんでした。", string.Empty);
                 }
 
                 PostMessage(main, WmCommand, (IntPtr)projectCommand, IntPtr.Zero);
@@ -295,7 +295,7 @@ public static class UnityProjectTab
                 var shown = FocusOf(main);
                 if (!UnityFocusWatch.IsProjectBrowser(shown))
                 {
-                    return new("Unity のプロジェクトタブを表示できませんでした。Unity で Project タブを開いてから、もう一度押してください。", string.Empty);
+                    return new("Unityのプロジェクトタブを表示できませんでした。UnityでProjectタブを開いてから、もう一度押してください。", string.Empty);
                 }
 
                 targets = [shown];
@@ -316,7 +316,7 @@ public static class UnityProjectTab
 
             if (opened.Count == 0)
             {
-                return new("Unity のプロジェクトタブにフォーカスを移せませんでした。Unity を一度前に出してから、もう一度押してください。", where);
+                return new("Unityのプロジェクトタブにフォーカスを移せませんでした。Unityを一度前に出してから、もう一度押してください。", where);
             }
 
             // 開いたタブを、利用者はこれから見る。次もこのタブで開く（別のタブを使うなら、そのタブを触れば覚え直す）

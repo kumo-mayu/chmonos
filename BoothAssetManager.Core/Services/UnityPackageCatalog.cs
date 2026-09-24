@@ -189,7 +189,7 @@ public sealed class UnityPackageCatalog(DataStore store, UnityPackagePathStore p
         {
             IsBackground = true,
             Priority = ThreadPriority.BelowNormal,
-            Name = "unitypackage の読み取り",
+            Name = "unitypackageの読み取り",
         };
         thread.Start();
         return done.Task;

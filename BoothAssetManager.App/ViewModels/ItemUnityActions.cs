@@ -227,7 +227,7 @@ internal static class ItemUnityActions
         if (await ProjectPathOf(editor) is not { } projectPath)
         {
             notify($"Unityの「{editor.ProjectName ?? "名前の分からないプロジェクト"}」の場所が分からないので、中を調べられません"
-                + "（Unity Hub にも VRChat Creator Companion にも載っていないプロジェクトです）。", failed: true);
+                + "（Unity HubにもVRChat Creator Companionにも載っていないプロジェクトです）。", failed: true);
             return;
         }
 

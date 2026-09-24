@@ -23,7 +23,7 @@ public sealed record BackupInfo
     public required int Files { get; init; }
 
     public string Note { get; init; } =
-        "Chmonos のバックアップです。設定画面の「バックアップから戻す」で、空のフォルダに展開してそこへ移れます。";
+        "Chmonosのバックアップです。設定画面の「バックアップから戻す」で、空のフォルダに展開してそこへ移れます。";
 }
 
 /// <summary>

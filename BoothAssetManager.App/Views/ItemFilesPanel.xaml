@@ -233,7 +233,7 @@
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
                                                                 <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding FirstPath}"
-                                                                          ToolTip="このファイルのある場所を開きます。zip は中を見る形で開きます（取り出しはしません）。"
+                                                                          ToolTip="このファイルのある場所を開きます。zipは中を見る形で開きます（取り出しはしません）。"
                                                                           Command="{Binding PlacementTarget.Tag.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                 <!--
                                                                     unitypackage になっていない配布物（テクスチャ等）は展開しないと Unity に入れにくい（#56）。
@@ -327,7 +327,7 @@
                                                                             <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                                                     VerticalAlignment="Center" Click="OnMenuButtonClick"
                                                                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    ToolTip="開いているUnityへ送るか、Unity のプロジェクトタブで入り先を示します。">
+                                                                                    ToolTip="開いているUnityへ送るか、Unityのプロジェクトタブで入り先を示します。">
                                                                                 <Button.ContextMenu>
                                                                                     <ContextMenu>
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
@@ -337,8 +337,8 @@
                                                                                                   ToolTip="送ったうえで、どの改変に使ったかを残します。どの改変かはこのあと選べます。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SendToUnityWithRecordCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                         <!-- 改変の画面の「選択」と同じ（ユーザ指示 2026-09-19）。入っていなければ言うだけで、取り込みには進まない -->
-                                                                                        <MenuItem Header="選択（Unity のプロジェクトタブで示す）" CommandParameter="{Binding Entry}"
-                                                                                                  ToolTip="いま開いている Unity で、この unitypackage が入った場所をプロジェクトタブで示します。まだ入っていなければ、そう言うだけです。"
+                                                                                        <MenuItem Header="選択（Unityのプロジェクトタブで示す）" CommandParameter="{Binding Entry}"
+                                                                                                  ToolTip="いま開いているUnityで、このunitypackageが入った場所をプロジェクトタブで示します。まだ入っていなければ、そう言うだけです。"
                                                                                                   Command="{Binding PlacementTarget.Tag.SelectInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                                     </ContextMenu>
                                                                                 </Button.ContextMenu>
@@ -381,7 +381,7 @@
                                         VerticalAlignment="Center"
                                         Command="{Binding StopUnityCommand}"
                                         Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                        ToolTip="送るのをやめます。Unity の取り込み画面が残っていたら、Unity 側で「Cancel」を押してください。" />
+                                        ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
                                 <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" VerticalAlignment="Center"
                                            Foreground="{StaticResource Accent}" />

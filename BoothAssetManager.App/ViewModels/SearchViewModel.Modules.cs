@@ -212,7 +212,7 @@ public sealed partial class SearchViewModel
     {
         // R-18 は設定を優先する（ユーザ判断 Q11）。設定で隠しているときに「R-18のみ」を選べても0件になるだけなので、理由を書いて使わない
         module.DisabledReason = module.Kind == SearchModuleKind.Adult && !_services.Settings.ShowAdult
-            ? "設定で R-18 の商品を隠しているので、この条件は使えません。設定の「R-18 の商品を表示する」を入れると使えます。"
+            ? "設定でR-18 の商品を隠しているので、この条件は使えません。設定の「R-18 の商品を表示する」を入れると使えます。"
             : null;
 
         if (!_moduleSourcesReady)

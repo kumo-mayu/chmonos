@@ -134,7 +134,7 @@ public static class UnityLaunch
     {
         foreach (var root in EditorRoots())
         {
-            yield return ("Hub の置き場所", Path.Combine(root, version, "Editor", "Unity.exe"));
+            yield return ("Hubの置き場所", Path.Combine(root, version, "Editor", "Unity.exe"));
         }
 
         foreach (var file in new[] { "editors-v2.json", "editors.json" })
@@ -148,13 +148,13 @@ public static class UnityLaunch
             foreach (var entry in UnityEditorLocator.EditorsFromHubJson(json)
                 .Where(entry => string.Equals(entry.Version, version, StringComparison.OrdinalIgnoreCase)))
             {
-                yield return ($"Hub の一覧（{file}）", entry.ExePath);
+                yield return ($"Hubの一覧（{file}）", entry.ExePath);
             }
         }
 
         foreach (var location in InstalledApps.UnityInstallerLocations(version))
         {
-            yield return ("Unity の登録", UnityEditorLocator.ExeFromLocation(location));
+            yield return ("Unityの登録", UnityEditorLocator.ExeFromLocation(location));
         }
 
         foreach (var entry in InstalledApps.Uninstall()
@@ -179,7 +179,7 @@ public static class UnityLaunch
         if (UnityEditorLocator.ExeFromCommand(InstalledApps.FileAssociationCommand(".unitypackage")) is { } associated
             && HasVersion(associated, version))
         {
-            yield return (".unitypackage の関連付け", associated);
+            yield return (".unitypackageの関連付け", associated);
         }
     }
 

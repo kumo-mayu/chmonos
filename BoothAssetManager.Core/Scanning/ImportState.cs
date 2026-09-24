@@ -91,13 +91,13 @@ public sealed record ImportState
             if (WasInterrupted)
             {
                 var text = $"前回は {Done} / {Total} 件まで進んで中断しました";
-                return failed > 0 ? text + $"（うち {failed} 件は BOOTH の不調で取れませんでした）" : text;
+                return failed > 0 ? text + $"（うち {failed} 件はBOOTHの不調で取れませんでした）" : text;
             }
 
             // 次にやることまで書く（空表示とエラーには次の手を・ui-empty-and-errors.md）。
             // 不調はしばらくすると直るので、待ってから押せば取れる
             return failed > 0
-                ? $"前回の取り込みで {failed} 件は BOOTH の不調で取れませんでした。少し待ってから「続きから進む」で取り直せます"
+                ? $"前回の取り込みで {failed} 件はBOOTHの不調で取れませんでした。少し待ってから「続きから進む」で取り直せます"
                 : string.Empty;
         }
     }

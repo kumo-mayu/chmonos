@@ -500,7 +500,7 @@
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopUnityCommand}"
-                            ToolTip="送るのをやめます。Unity の取り込み画面が残っていたら、Unity 側で「Cancel」を押してください。" />
+                            ToolTip="送るのをやめます。Unityの取り込み画面が残っていたら、Unity側で「Cancel」を押してください。" />
                     <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="#28507f"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>

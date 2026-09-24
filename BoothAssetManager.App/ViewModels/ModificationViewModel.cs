@@ -463,7 +463,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
                 ? $"このプロジェクトに入っている手元の商品が {FoundInProject.Count} 件ありました。この改変に使ったものなら「追加」を押してください。"
                 : matches.Count > 0
                     ? "このプロジェクトに入っている手元の商品は、すべて「使ったもの」に入っています。"
-                    : "このプロジェクトの中に、手元の商品のファイルは見つかりませんでした。数えられるのは zip の中に unitypackage がある商品だけです。使ったものは上の欄から商品名で追加できます。";
+                    : "このプロジェクトの中に、手元の商品のファイルは見つかりませんでした。数えられるのはzipの中にunitypackageがある商品だけです。使ったものは上の欄から商品名で追加できます。";
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -567,7 +567,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         if (steps.Count == 0)
         {
             Services.Notice.Show(
-                "使ったものの中に、Unityへ送れるもの（手元の zip の中の .unitypackage）がありませんでした。",
+                "使ったものの中に、Unityへ送れるもの（手元のzipの中の .unitypackage）がありませんでした。",
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -617,7 +617,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var confirm = Services.Notice.Show(
                 where + "\n\n"
-                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ Unity の取り込み画面が表示されるので、"
+                + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつUnityの取り込み画面が表示されるので、"
                 + "Unity側で「Import」（入れないものは「Cancel」）を押すと次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
@@ -807,7 +807,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     public string GalleryEmptyText => _gallery.Count > 0
         ? string.Empty
-        : "この改変の写真はまだありません。\n「＋」でまとめて選ぶか、ここへドロップするか、Ctrl+V で貼ってください。";
+        : "この改変の写真はまだありません。\n「＋」でまとめて選ぶか、ここへドロップするか、Ctrl+Vで貼ってください。";
 
     // ---- ギャラリー（商品と同じ部品 ItemGalleryPanel・ユーザ指示 2026-09-13） ----
     //
@@ -1081,7 +1081,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>形が違うときだけ言う（保存は止めない。書き間違いに気付けるように）。</summary>
     public string BlueprintHint => BlueprintInput.Trim().Length > 0 && !VrcOsc.LooksLikeAvatarId(BlueprintInput)
-        ? "「avtr_」で始まる ID の形ではありません。VRChat のアバターの詳細（Web のアバターのページの URL など）からコピーしてください。"
+        ? "「avtr_」で始まるIDの形ではありません。VRChatのアバターの詳細（WebのアバターのページのURLなど）からコピーしてください。"
         : string.Empty;
 
     public bool HasBlueprintHint => BlueprintHint.Length > 0;
@@ -1102,7 +1102,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         // 送りっぱなしの UDP なので、着替えたかはこちらでは分からない。送ったことと、効かないときの確かめ方を言う
         Status = await VrcOsc.SendAvatarChangeAsync(id) is { } problem
             ? problem
-            : "VRChat に着替えを送りました。着替わらなければ、VRChat の設定で OSC を有効にしているか、"
+            : "VRChatに着替えを送りました。着替わらなければ、VRChatの設定でOSCを有効にしているか、"
                 + "このアバターを着られるか（自分でアップロードした・お気に入りにしている）を確かめてください。";
     }
 
@@ -1322,8 +1322,8 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var canRelink = ProjectCandidates.Any(candidate => ModificationService.SamePath(candidate.Candidate.Path, oldPath));
         var how = canRelink
             ? $"戻すときは、下の「紐付ける先」から「{oldName}」をもう一度選んでください。"
-            : $"「{oldName}」は Unity Hub・VRChat Creator Companion の一覧に無いので、この画面からは付け直せません"
-              + "（Hub か VCC にそのプロジェクトを追加すると、「紐付ける先」に表示されます）。";
+            : $"「{oldName}」はUnity Hub・VRChat Creator Companionの一覧に無いので、この画面からは付け直せません"
+              + "（HubかVCCにそのプロジェクトを追加すると、「紐付ける先」に表示されます）。";
         var what = row is null
             ? $"Unityプロジェクト「{oldName}」の紐付けを外します。"
             : $"Unityプロジェクトの紐付けを「{oldName}」から「{row.Name}」に替えます。";
@@ -1444,7 +1444,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
         Status = result is CommandResult.Failed failed
             ? failed.Message
-            : id.Length == 0 ? "blueprint ID を消しました。" : "blueprint ID を保存しました。";
+            : id.Length == 0 ? "blueprint IDを消しました。" : "blueprint IDを保存しました。";
         await RefreshRecordAsync();
     }
 
@@ -1551,7 +1551,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         var answer = Services.Notice.Show(
             $"「{row.Name}」をこの改変から完全に消します。\n\n"
             + (row.IsFromUnity
-                ? $"使ったファイル（{row.SourceText}）の記録も消えます。追加し直しても、Unity へ送るまで記録は戻りません。\n\n"
+                ? $"使ったファイル（{row.SourceText}）の記録も消えます。追加し直しても、Unityへ送るまで記録は戻りません。\n\n"
                 : string.Empty)
             + "この操作は元に戻せません。",
             "使ったものを削除",
