@@ -72,6 +72,34 @@ public static class UnityPackageInspector
         };
     }
 
+    /// <summary>pathname より先に来た本体を、中を見ずに取っておく大きさ（これより大きい物は頭が文字に見えるときだけ）。</summary>
+    private const int KeepWithoutLookingBytes = 16 * 1024;
+
+    /// <summary>頭が文字に見えるかを見る長さ。</summary>
+    private const int TextProbeBytes = 512;
+
+    /// <summary>
+    /// pathname を待って取っておく本体の合計の上限。超えた分は取っておかず、要ると分かったら読み直す（<see cref="ReadAgain"/>）。
+    /// </summary>
+    private const long PendingBudgetBytes = 32L * 1024 * 1024;
+
+    /// <summary>元の作りで、pathname を待って取っておいた本体の数の上限。これを超えた本体は手掛かりに使わない（結果を変えないために守る）。</summary>
+    private const int MaxPendingAssets = 2000;
+
+    /// <summary>
+    /// 1つの unitypackage を読む。
+    ///
+    /// **pathname より先に来た本体を、2MB までの物は全部メモリに写して取っておいていた**（最大2000件）。
+    /// 何の本体かは pathname が来るまで分からないので、画像やモデルの本体まで写し、しかも一旦書き溜めてから配列へ写し直していた
+    /// （作り物の unitypackage で割り当て 761MB）。手掛かりに使うのは文章の本体だけなので：
+    /// <list type="bullet">
+    /// <item>取っておくのは小さい物（16KB 以下）か、頭が文字に見える物だけ。合計 32MB まで</item>
+    /// <item>取っておかなかった本体が、後から来た pathname で文章と分かったら、その本体だけ2周目で読み直す</item>
+    /// <item>本体は大きさの分だけの配列へ直に読む（書き溜めを挟まない）</item>
+    /// </list>
+    /// **見つかる手掛かりとその並びは前と同じにする**：どの本体を使うか（取っておける数の上限を含む）は前の作りの決まりのまま数え、
+    /// 手掛かりは出てきた順に並べてから渡す（読み直した物も元の位置に入る）。
+    /// </summary>
     private static void ReadPackage(
         ZipArchiveEntry entry,
         List<string> authors,
@@ -79,7 +107,15 @@ public static class UnityPackageInspector
         BoothClueCollector collector)
     {
         var pathByGuid = new Dictionary<string, string>(StringComparer.Ordinal);
-        var pendingAssets = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+
+        // 前の作りで「取っておいた」本体の guid（数の上限はこれで数える）。中身を持っているのは kept だけ
+        var waiting = new HashSet<string>(StringComparer.Ordinal);
+        var kept = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        long keptBytes = 0;
+
+        // 手掛かりを出てきた順に。読み直す物は場所だけ取っておき、2周目で埋める
+        var found = new List<IReadOnlyList<BoothClue>?>();
+        var readAgain = new Dictionary<string, (int Slot, string AssetPath)>(StringComparer.Ordinal);
         var pathCount = 0;
 
         try
@@ -114,14 +150,27 @@ public static class UnityPackageInspector
                     AddNamespaces(assetPath, authors, products);
                     pathByGuid[guid] = assetPath;
 
-                    if (pendingAssets.Remove(guid, out var pending) && IsTextAsset(assetPath))
+                    if (waiting.Remove(guid))
                     {
-                        CollectClues(assetPath, pending, collector);
+                        var hasBytes = kept.Remove(guid, out var pending);
+                        keptBytes -= pending?.Length ?? 0;
+                        if (IsTextAsset(assetPath))
+                        {
+                            if (hasBytes)
+                            {
+                                found.Add(CluesOf(assetPath, pending!));
+                            }
+                            else
+                            {
+                                readAgain[guid] = (found.Count, assetPath);
+                                found.Add(null);
+                            }
+                        }
                     }
 
                     if (++pathCount > MaxAssetPaths)
                     {
-                        return;
+                        break;
                     }
                 }
                 else if (kind == "asset" && tarEntry.DataStream is not null && tarEntry.Length <= MaxTextAssetBytes)
@@ -130,13 +179,23 @@ public static class UnityPackageInspector
                     {
                         if (IsTextAsset(knownPath))
                         {
-                            CollectClues(knownPath, ReadAll(tarEntry.DataStream), collector);
+                            found.Add(CluesOf(knownPath, ReadUpTo(tarEntry.DataStream, (int)tarEntry.Length)));
                         }
                     }
-                    else if (pendingAssets.Count < 2000)
+                    else if (waiting.Count < MaxPendingAssets)
                     {
-                        // pathname がまだ来ていないので保留する（tarの出現順は保証されない）
-                        pendingAssets[guid] = ReadAll(tarEntry.DataStream);
+                        // pathname がまだ来ていないので保留する（tarの出現順は保証されない）。同じ guid なら後の物に差し替える
+                        waiting.Add(guid);
+                        if (kept.Remove(guid, out var replaced))
+                        {
+                            keptBytes -= replaced.Length;
+                        }
+
+                        if (TryKeep(tarEntry.DataStream, (int)tarEntry.Length, keptBytes) is { } bytes)
+                        {
+                            kept[guid] = bytes;
+                            keptBytes += bytes.Length;
+                        }
                     }
                 }
             }
@@ -145,12 +204,114 @@ public static class UnityPackageInspector
         // InvalidOperationException（GNU の長い名前の大きさが長すぎる）でも知らせる（作り物の tar で確かめた）。
         // 数の欄の読み方次第で FormatException・ArgumentOutOfRangeException も出うる。
         // 受けないと、壊れた unitypackage 1つで取り込みの解決が止まっていた（点検 2026-09-23）
-        catch (Exception exception) when (exception is InvalidDataException or IOException or FormatException
-                                              or ArgumentException or ArithmeticException or InvalidOperationException)
+        catch (Exception exception) when (IsBrokenPackage(exception))
         {
-            // 壊れた unitypackage は手掛かり無しとして扱い、取り込み全体は止めない
+            // 壊れた unitypackage は、そこまでに読めた手掛かりだけで扱い、取り込み全体は止めない
+        }
+
+        if (readAgain.Count > 0)
+        {
+            ReadAgain(entry, readAgain, found);
+        }
+
+        foreach (var clues in found)
+        {
+            if (clues is not null)
+            {
+                collector.AddRange(clues);
+            }
         }
     }
+
+    private static bool IsBrokenPackage(Exception exception)
+        => exception is InvalidDataException or IOException or FormatException
+            or ArgumentException or ArithmeticException or InvalidOperationException;
+
+    /// <summary>
+    /// 1周目で取っておかなかった文章の本体を、2周目で読み直して元の位置に入れる。
+    /// 使うのは1周目と同じ本体（その guid の pathname より前に来た最後の本体）。
+    /// </summary>
+    private static void ReadAgain(
+        ZipArchiveEntry entry,
+        Dictionary<string, (int Slot, string AssetPath)> wanted,
+        List<IReadOnlyList<BoothClue>?> found)
+    {
+        var bodies = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        var left = wanted.Count;
+
+        try
+        {
+            using var entryStream = entry.Open();
+            using var gzip = new GZipStream(entryStream, CompressionMode.Decompress);
+            using var tar = new TarReader(gzip);
+
+            while (left > 0 && tar.GetNextEntry(copyData: false) is { } tarEntry)
+            {
+                var parts = tarEntry.Name.TrimStart('.', '/').Split('/');
+                if (parts.Length < 2 || !wanted.TryGetValue(parts[0], out var place))
+                {
+                    continue;
+                }
+
+                var guid = parts[0];
+                if (parts[^1] == "asset" && tarEntry.DataStream is not null && tarEntry.Length <= MaxTextAssetBytes)
+                {
+                    bodies[guid] = ReadUpTo(tarEntry.DataStream, (int)tarEntry.Length);
+                }
+                else if (parts[^1] == "pathname")
+                {
+                    if (bodies.Remove(guid, out var body))
+                    {
+                        found[place.Slot] = CluesOf(place.AssetPath, body);
+                    }
+
+                    wanted.Remove(guid);
+                    left--;
+                }
+            }
+        }
+        catch (Exception exception) when (IsBrokenPackage(exception))
+        {
+            // 1周目で読めた所までは2周目でも読める。ここで壊れていたら読み直せた分だけ使う
+        }
+    }
+
+    /// <summary>
+    /// pathname を待つ本体を取っておくか決めて読む。小さい物はそのまま、大きい物は頭が文字に見えるときだけ。
+    /// 合計の上限を超えるなら取っておかない（要ると分かったら読み直す）。取っておかないときは null（残りは TarReader が読み飛ばす）。
+    /// </summary>
+    private static byte[]? TryKeep(Stream stream, int length, long keptBytes)
+    {
+        if (keptBytes + length > PendingBudgetBytes)
+        {
+            return null;
+        }
+
+        if (length <= KeepWithoutLookingBytes)
+        {
+            return ReadUpTo(stream, length);
+        }
+
+        // 頭は小さな入れ物に読んで見る。本体の大きさの配列は、取っておくと決めてから作る
+        var probe = new byte[TextProbeBytes];
+        var head = ReadInto(stream, probe, 0, TextProbeBytes);
+        if (!LooksLikeText(probe.AsSpan(0, head)))
+        {
+            return null;
+        }
+
+        var buffer = new byte[length];
+        probe.AsSpan(0, head).CopyTo(buffer);
+        var total = head + ReadInto(stream, buffer, head, length - head);
+        return total == length ? buffer : buffer[..total];
+    }
+
+    /// <summary>
+    /// 文章に見えるか。UTF-16 の印があるか、頭に 0 のバイトが無ければ文章とみなす（画像・モデル・バイナリの .asset は頭に 0 を含む）。
+    /// 外れても結果は変わらない（取っておかなかった文章は読み直す）。外れて損をするのは読み直す手間だけ。
+    /// </summary>
+    private static bool LooksLikeText(ReadOnlySpan<byte> head)
+        => head.StartsWith((ReadOnlySpan<byte>)[0xFF, 0xFE]) || head.StartsWith((ReadOnlySpan<byte>)[0xFE, 0xFF]) || !head.Contains((byte)0);
 
     private static void AddNamespaces(string assetPath, List<string> authors, List<string> products)
     {
@@ -167,11 +328,8 @@ public static class UnityPackageInspector
         }
     }
 
-    private static void CollectClues(string assetPath, byte[] bytes, BoothClueCollector collector)
-    {
-        var text = TextDecoder.Decode(bytes);
-        collector.AddRange(BoothUrlExtractor.ExtractFromText(text, assetPath));
-    }
+    private static IReadOnlyList<BoothClue> CluesOf(string assetPath, byte[] bytes)
+        => [.. BoothUrlExtractor.ExtractFromText(TextDecoder.Decode(bytes), assetPath)];
 
     private static bool IsTextAsset(string assetPath)
     {
@@ -185,10 +343,31 @@ public static class UnityPackageInspector
             || name.Contains("read me", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static byte[] ReadAll(Stream stream)
+    /// <summary>
+    /// 本体を大きさの分だけの配列へ直に読む（前は書き溜め（MemoryStream）に写してから配列へ写し直していた）。
+    /// 途中で尽きた（壊れた tar）ら、読めた所までを返す（前の作りと同じく、読めた分で手掛かりを探す）。
+    /// </summary>
+    private static byte[] ReadUpTo(Stream stream, int length)
     {
-        using var memory = new MemoryStream();
-        stream.CopyTo(memory);
-        return memory.ToArray();
+        var buffer = new byte[length];
+        var read = ReadInto(stream, buffer, 0, length);
+        return read == length ? buffer : buffer[..read];
+    }
+
+    private static int ReadInto(Stream stream, byte[] buffer, int offset, int count)
+    {
+        var total = 0;
+        while (total < count)
+        {
+            var read = stream.Read(buffer, offset + total, count - total);
+            if (read == 0)
+            {
+                break;
+            }
+
+            total += read;
+        }
+
+        return total;
     }
 }
