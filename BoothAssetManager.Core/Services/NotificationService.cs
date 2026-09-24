@@ -423,9 +423,13 @@ public sealed class NotificationService : INotificationService
                     return Pruned(records);
                 }
 
+                // 保存する文と同じ物で比べる。案内の文を足す前の文で比べていたので一致することが無く、
+                // 同じ食い違いでも確かめるたびに知らせを作り直していた（既読にしても新しい知らせとして戻る）
                 var detail = string.Join(
-                    "\n",
-                    issues.Select(issue => $"・{issue.Where}：{issue.What}"));
+                        "\n",
+                        issues.Select(issue => $"・{issue.Where}：{issue.What}"))
+                    + "\n\nJSONを開いて直してください。同じ名前は片方を削除するか名前を変え、"
+                    + "ファイル名と中の商品IDは揃えてください。";
 
                 if (existing >= 0 && !records[existing].IsResolved && records[existing].Detail == detail)
                 {
@@ -442,8 +446,7 @@ public sealed class NotificationService : INotificationService
                     Id = id,
                     Kind = NotificationKind.HandEditMismatch,
                     Title = "手で直したJSONに食い違いがあります",
-                    Detail = detail + "\n\nJSONを開いて直してください。同じ名前は片方を削除するか名前を変え、"
-                        + "ファイル名と中の商品IDは揃えてください。",
+                    Detail = detail,
                     CreatedAt = DateTimeOffset.Now,
                     IsStrong = true,
                 });

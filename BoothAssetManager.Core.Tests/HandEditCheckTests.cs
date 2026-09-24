@@ -103,4 +103,27 @@ public class HandEditCheckTests : IDisposable
 
         Assert.Equal("先", Assert.Single(map).Value.DisplayName);
     }
+
+    /// <summary>
+    /// 同じ食い違いのまま確かめ直しても、知らせを作り直さない（既読が未読に戻らない）。
+    /// 案内の文を足す前の文で比べていたので一致せず、確かめるたびに新しい知らせとして戻っていた。
+    /// </summary>
+    [Fact]
+    public async Task 同じ食い違いのままなら知らせを作り直さない()
+    {
+        await _store.UserTags.SaveAsync(new UserTagMaster
+        {
+            Tops = [new UserTagTop { Name = "衣装" }, new UserTagTop { Name = "衣装" }],
+        });
+        var notifications = new NotificationService(_store);
+
+        Assert.Equal(1, await notifications.DetectHandEditIssuesAsync());
+        var first = Assert.Single(_store.Notifications.Load()!, record => record.Id == "hand-edit");
+        await _store.Notifications.SaveAsync([first with { IsRead = true }]);
+
+        Assert.Equal(0, await notifications.DetectHandEditIssuesAsync());
+        var again = Assert.Single(_store.Notifications.Load()!, record => record.Id == "hand-edit");
+        Assert.True(again.IsRead);
+        Assert.Equal(first.CreatedAt, again.CreatedAt);
+    }
 }
