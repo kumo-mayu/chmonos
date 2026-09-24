@@ -150,7 +150,7 @@ public static class UnityImportQueue
 
     /// <summary>止めたときの言い方（画面と記録で同じ文を使う）。</summary>
     public const string StoppedMessage = "送るのをやめました。Unity の取り込み画面が残っていたら、"
-        + "Unity 側で「Cancel」を押してください（「Import」を押すと入りますが、こちらの記録には残りません）。";
+        + "Unity 側で「Cancel」を押してください（「Import」を押すと入りますが、このアプリの記録には残りません）。";
 
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 

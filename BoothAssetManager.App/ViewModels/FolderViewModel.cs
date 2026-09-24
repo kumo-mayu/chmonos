@@ -889,7 +889,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
                 // 読み替えた結果だと分かるように（ユーザ指示 2026-09-14）
                 SubText = volume.RecordedLetters.Count > 0
-                    ? $"{string.Join("・", volume.RecordedLetters)} として記録した物を {volume.Volume} で表示しています"
+                    ? $"{string.Join("・", volume.RecordedLetters)} として記録したものを {volume.Volume} で表示しています"
                     : string.Empty,
                 CountText = $"商品 {volume.Summary.Items.Count}",
                 UnresolvedCount = volume.Summary.Unresolved.Count,
@@ -1343,7 +1343,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         detail.IsWatched = watch;
         Status = watch
             ? $"「{detail.Path}」を監視しています。次に起動したとき、この中に新しいファイルが増えていないかを見ます。"
-            : $"「{detail.Path}」の監視をやめました。取り込んだ物はそのまま残ります。";
+            : $"「{detail.Path}」の監視をやめました。取り込んだものはそのまま残ります。";
     }
 
     /// <summary>その下の未確定を全部（子のフォルダも含む）管理対象から除外する（ユーザ判断 2026-09-13）。数を出して確かめる。</summary>

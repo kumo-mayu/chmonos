@@ -206,7 +206,7 @@
                                                     <!-- 外した行の印（ユーザ指示 2026-09-19：消していない物と外した物を見分けられるように） -->
                                                     <Border DockPanel.Dock="Left" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center"
-                                                            ToolTip="この改変から外した物です。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
+                                                            ToolTip="この改変から外したものです。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                     </Border>
@@ -354,7 +354,7 @@
                                                                     <!-- 外した行の印（カードと同じ） -->
                                                                     <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
                                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
-                                                                            ToolTip="この改変から外した物です。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
+                                                                            ToolTip="この改変から外したものです。送る・数えるには入りません。「戻す」で戻せ、「削除」で完全に消せます。"
                                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                         <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
                                                                     </Border>

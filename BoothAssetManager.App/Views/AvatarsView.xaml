@@ -172,14 +172,14 @@
                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="460"
                                      Padding="6,3" BorderThickness="0" Background="Transparent"
                                      VerticalAlignment="Center"
-                                     ToolTip="名前を変えると、この素体を名乗っている商品の宣言も一緒に書き換えます。">
+                                     ToolTip="名前を変えると、この素体の名前を使っている商品の宣言も一緒に書き換えます。">
                                 <TextBox.InputBindings>
                                     <KeyBinding Key="Enter" Command="{Binding RenameCommand}" />
                                 </TextBox.InputBindings>
                             </TextBox>
                             <Button Content="名前を保存" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding RenameCommand}"
-                                    ToolTip="この素体を名乗っている商品の宣言も一緒に書き換えます。"
+                                    ToolTip="この素体の名前を使っている商品の宣言も一緒に書き換えます。"
                                     Visibility="{Binding HasNameChange, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
@@ -517,7 +517,7 @@
                                             <!-- 判定の根拠（カテゴリ・最終確認）を疑うときの逃げ道なので、その横に置く（U17） -->
                                             <Button Content="商品情報を取り直す" Style="{StaticResource SmallButton}" Margin="12,0,0,0"
                                                     Command="{Binding RecheckCommand}"
-                                                    ToolTip="この商品をBOOTHに問い合わせ直し、カテゴリと名前を取り直します（商品のファイルはダウンロードしません）。販売終了から戻った物にも使えます。" />
+                                                    ToolTip="この商品をBOOTHに問い合わせ直し、カテゴリと名前を取り直します（商品のファイルはダウンロードしません）。販売終了から戻ったものにも使えます。" />
                                         </StackPanel>
 
                                         <!--
@@ -629,7 +629,7 @@
                                     </Expander.Header>
                                     <StackPanel Margin="0,6,0,0">
                                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620" HorizontalAlignment="Left"
-                                                   Text="タグやバリエーションの名前と照らし合わせて、対応アバターを見つけるのに使います。明らかに間違っている物以外は、消さなくてかまいません。括弧内は最後の検出で見かけた商品数です。" />
+                                                   Text="タグやバリエーションの名前と照らし合わせて、対応アバターを見つけるのに使います。明らかに間違っているもの以外は、消さなくてかまいません。括弧内は最後の検出で見かけた商品数です。" />
                                     <ItemsControl ItemsSource="{Binding Aliases}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -658,7 +658,7 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBox Width="200" Padding="7,5"
                                                  MaxLength="60" Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="検出が拾えなかった呼び方を追加できます。">
+                                                 ToolTip="検出できなかった呼び方を追加できます。">
                                             <!-- Enter で決められるように揃える（I12） -->
                                             <TextBox.InputBindings>
                                                 <KeyBinding Key="Enter" Command="{Binding AddAliasCommand}" />
@@ -870,7 +870,7 @@
                                     <controls:CommandRadioButton Grid.Column="1" Content="アバターとして扱う" GroupName="AvatarJudgement" Style="{StaticResource SegmentMiddle}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="true"
                                                  IsChecked="{Binding IsForcedAvatar, Mode=OneWay}"
-                                                 ToolTip="「3Dキャラクター」のカテゴリに無いアバター（販売終了で確かめられない物など）を、アバターとして扱います。" />
+                                                 ToolTip="「3Dキャラクター」のカテゴリに無いアバター（販売終了で確かめられないものなど）を、アバターとして扱います。" />
                                     <controls:CommandRadioButton Grid.Column="2" Content="アバターとして扱わない" GroupName="AvatarJudgement" Style="{StaticResource SegmentLast}"
                                                  Command="{Binding TreatAsAvatarCommand}" CommandParameter="false"
                                                  IsChecked="{Binding IsForcedNotAvatar, Mode=OneWay}"

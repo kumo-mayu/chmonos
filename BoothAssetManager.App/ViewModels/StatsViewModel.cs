@@ -685,7 +685,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     public string CorrelationNote => _snapshot is null || HasCorrelations
         ? string.Empty
         : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件に満たない組は表示していません。"
-            + "件数が少ないと相関の数字が暴れるためです。";
+            + "件数が少ないと相関の数字が安定しないためです。";
 
     public string GiftText => _snapshot is null
         ? string.Empty

@@ -450,7 +450,7 @@
                                             左の余白はトグルの幅ぶん（スライダの左端に揃える）
                                         -->
                                         <controls:ContentItemsControl ItemsSource="{Binding Histogram}" Height="22" Margin="24,0,0,1"
-                                                                      Focusable="False" ToolTip="商品が多い所（範囲を決める目印）"
+                                                                      Focusable="False" ToolTip="商品が多いところ（範囲を決める目印）"
                                                                       AutomationProperties.Name="商品の数の分布"
                                                                       Visibility="{Binding HasHistogram, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <ItemsControl.ItemsPanel>
@@ -851,7 +851,7 @@
 
                     <Menu Grid.Column="1" Background="Transparent" VerticalAlignment="Center" Margin="8,0,0,0">
                         <MenuItem Header="対象 ▾" ItemsSource="{Binding TargetOptions}" Height="34" Padding="10,0"
-                                  ToolTip="文字列で探す所を選びます。name: のように前置きを付けた語は、ここで切っていてもその所だけを探します。">
+                                  ToolTip="文字列で探す項目を選びます。name: のように前置きを付けた語は、ここで切っていてもその項目だけを探します。">
                             <MenuItem.ItemContainerStyle>
                                 <Style TargetType="MenuItem">
                                     <Setter Property="Header" Value="{Binding Header}" />
@@ -903,7 +903,7 @@
                                     括弧が無いと 衣装 夏 OR 冬 は「衣装かつ夏」または「冬」と読まれます。<LineBreak />
                                     衣装 (夏 OR 冬) と書けば「衣装かつ、夏か冬」になります。<LineBreak />
                                     <LineBreak />
-                                    前に付けると、その所だけを探します（「対象」で切っていても探します）：<LineBreak />
+                                    前に付けると、その項目だけを探します（「対象」で切っていても探します）：<LineBreak />
                                     name: 商品名　shop: ショップ名　memo: メモ　subdomain: サブドメイン　main: 本文<LineBreak />
                                     tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
                                     file: ファイル名　path: ファイルの場所　content: zip の中のファイル名<LineBreak />

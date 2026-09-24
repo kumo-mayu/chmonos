@@ -358,7 +358,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         ? string.Empty
         : IsPreviewOwned
             ? $"確定すると：{OutcomeSubject}が、既にある商品に加わります"
-            : $"確定すると：この商品を新しく登録して、{OutcomeSubject}を結び付けます";
+            : $"確定すると：この商品を新しく登録して、{OutcomeSubject}を紐付けます";
 
     /// <summary>束を選んでいるときは件数まで言う。1件のつもりで押して全件が動くことが無いように。</summary>
     private string OutcomeSubject => ActiveGroup is null
@@ -733,7 +733,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 ItemId = id,
                 Title = $"商品ID {id}",
-                Source = "取り込み時の手掛かり",
+                Source = "取り込み時に読み取った情報",
             }));
         }
 

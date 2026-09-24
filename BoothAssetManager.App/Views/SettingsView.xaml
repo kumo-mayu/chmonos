@@ -227,7 +227,7 @@
                             Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="監視対象フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込まず、取り込み画面に件数を表示します。ここに無いフォルダは、押されるまで見に行きません。" />
+                                   Text="開いたときに、この中に新しいファイルが増えていないかを見ます。見つけても勝手には取り込まず、取り込み画面に件数を表示します。ここに無いフォルダは、押されるまで確認しません。" />
 
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
@@ -325,7 +325,7 @@
                             <TextBlock Text="画像を取って保存する" />
                         </CheckBox>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="26,0,0,12"
-                                   Text="切ると取り込みがかなり速くなり、一覧とギャラリーが文字だけになります。検索・絞り込み・統計はこれまで通り使えます。入れ直すと、使っていない間に少しずつ取りに行きます。" />
+                                   Text="切ると取り込みがかなり速くなり、一覧とギャラリーが文字だけになります。検索・絞り込み・統計はこれまで通り使えます。入れ直すと、使っていない間に少しずつ取得します。" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="BOOTHへの問い合わせ間隔" Style="{StaticResource RowLabel}" Width="220" />
@@ -333,7 +333,7 @@
                                      Text="{Binding FetchIntervalMs, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="ミリ秒" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（1500〜10000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                            <TextBlock Text="1500ミリ秒より短くはできません（相手のサービスに負担をかけないため）" Style="{StaticResource Caption}"
+                            <TextBlock Text="1500ミリ秒より短くはできません（BOOTHに負担をかけないため）" Style="{StaticResource Caption}"
                                        Margin="14,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
 
@@ -459,7 +459,7 @@
                                         <Button Content="紐付けを戻す" Style="{StaticResource SmallButton}"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Command="{Binding RestoreCommand}"
-                                                ToolTip="外したのが間違いだったとき。次の取り込みで、手掛かりが指すならまたその商品へ紐付きます。" />
+                                                ToolTip="外したのが間違いだったとき。次の取り込みで、読み取った情報が指すならまたその商品へ紐付きます。" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

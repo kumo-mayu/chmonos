@@ -405,7 +405,7 @@
                                         <Button Content="{Binding ToggleAllText}" Style="{StaticResource SmallButton}"
                                                 Margin="16,0,0,0" VerticalAlignment="Center"
                                                 Command="{Binding ToggleAllCommand}"
-                                                ToolTip="中身のある小分類を、まとめて開くか畳みます。探している間は、出ている小分類だけが相手です。" />
+                                                ToolTip="中身のある小分類を、まとめて開くか折りたたみます。探している間は、表示されている小分類だけが対象です。" />
                                     </StackPanel>
 
                                     <controls:SearchSyntaxHint Margin="2,6,0,0" />

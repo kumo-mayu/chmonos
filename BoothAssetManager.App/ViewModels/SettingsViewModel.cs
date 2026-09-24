@@ -430,7 +430,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             Services.Notice.Show(
                 value
                     ? "これから取る商品から、画像も取ります。\n\n"
-                        + "今ある商品の画像は、次に開いたときから、使っていない間に少しずつ取りに行きます。"
+                        + "今ある商品の画像は、次に開いたときから、使っていない間に少しずつ取得します。"
                     : "これから取る商品は、画像を取りません。\n\n"
                         + "取り込みは速くなり、一覧とギャラリーは文字だけになります。\n"
                         + "検索・絞り込み・統計はこれまで通り使えます。\n"
@@ -963,7 +963,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     private async Task ForgetDetachedAsync(string hash, string itemId)
     {
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ForgetDetached(hash, itemId));
-        Status = "外した記録を消しました。次の取り込みで、手掛かりが指すならまたその商品に紐付きます。";
+        Status = "外した記録を消しました。次の取り込みで、読み取った情報が指すならまたその商品に紐付きます。";
         await LoadAsync();
     }
 
@@ -1116,7 +1116,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                 "選んだ場所には既にライブラリがあります。どちらを残しますか？",
                 $"【今の保存先】{source}\n{Describe(here)}\n\n"
                 + $"【選んだ場所】{picked}\n{Describe(there)}\n\n"
-                + "今のデータで置き換える …… 選んだ場所にあるものは消さず、「_置き換え前-（日時）」へ退けてから入れ替えます。\n"
+                + "今のデータで置き換える …… 選んだ場所にあるものは消さず、「_置き換え前-（日時）」へ移動してから入れ替えます。\n"
                 + "選んだ場所のデータを使う …… 今のデータは元の場所に残ります。混ぜることはしません。",
                 "今のデータで置き換える",
                 "選んだ場所のデータを使う");
@@ -1151,7 +1151,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
                     + "保存先は元のままです。データは失われていません。"
                     + (replaced.ParkedAt is null
                         ? string.Empty
-                        : $"\n\n選んだ場所のデータは「{replaced.ParkedAt}」に退けたままです。"),
+                        : $"\n\n選んだ場所のデータは「{replaced.ParkedAt}」に移動したままです。"),
                     "置き換えに失敗しました",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
@@ -1171,7 +1171,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         {
             Services.Notice.Show(
                 $"選んだ場所には別のファイルが入っています。\n\n{picked}\n\n"
-                + "取り違えると中身が混ざるので、空のフォルダか、このアプリのデータが入っている場所を選んでください。",
+                + "間違えて選ぶと中身が混ざるので、空のフォルダか、このアプリのデータが入っている場所を選んでください。",
                 "この場所は使えません",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);

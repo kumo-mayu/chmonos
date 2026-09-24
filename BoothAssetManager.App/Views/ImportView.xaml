@@ -164,7 +164,7 @@
                                     <Button DockPanel.Dock="Left" Content="見つからないファイルを探す"
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding FindMissingFilesCommand}"
-                                            ToolTip="手元に見つからなくなったファイルを、監視フォルダの中から中身で探して結び直します。ファイルには触りません。" />
+                                            ToolTip="手元に見つからなくなったファイルを、監視フォルダの中から中身で探して紐付け直します。ファイルには触りません。" />
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
                                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis" />

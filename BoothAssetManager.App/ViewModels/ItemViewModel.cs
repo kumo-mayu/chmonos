@@ -693,7 +693,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
                 + "残す：商品の情報を残します（価格やタグは見られます。贈った商品と同じ扱いです）。"
                 + "外した印も残るので、次の取り込みでこのファイルがこの商品に戻ることはありません。\n"
                 + "完全に削除：アプリ内の履歴から完全に削除します。メモや分類も一緒に消えます。"
-                + "外した印も消えるので、次の取り込みで手掛かりがこの商品を指せば、再取り込みの対象になります。",
+                + "外した印も消えるので、次の取り込みで読み取った情報がこの商品を指せば、再取り込みの対象になります。",
                 "非表示にして残す（おすすめ）",
                 "残す",
                 "完全に削除");
@@ -890,7 +890,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public RelayCommand ToggleSectionCommand { get; }
 
     public string ToggleAllSectionsText => Sections.Any(section => section.IsOpen)
-        ? "すべて畳む"
+        ? "すべて折りたたむ"
         : "すべて開く";
 
     private void ToggleAllSections()

@@ -119,7 +119,7 @@ public static class StoreMover
                 Succeeded = false,
                 Copied = 0,
                 Bytes = 0,
-                Error = $"選んだ場所のデータを退けられませんでした。{Services.FailureText.Cause(exception)}",
+                Error = $"選んだ場所のデータを移動できませんでした。{Services.FailureText.Cause(exception)}",
             };
         }
 
@@ -206,7 +206,7 @@ public static class StoreMover
     /// <summary>置き換えで、2つの場所が重なっていれば断る理由を返す。</summary>
     private static string? Overlap(string source, string destination)
         => IsSameOrInside(source, destination)
-            ? "今の保存先が、選んだ場所の中にあります。置き換えると今のデータごと退けてしまうので、別の場所を選んでください。"
+            ? "今の保存先が、選んだ場所の中にあります。置き換えると今のデータごと移動してしまうので、別の場所を選んでください。"
             : IsSameOrInside(destination, source)
                 ? "選んだ場所が今の保存先の中にあります。今の保存先の外の場所を選んでください。"
                 : null;

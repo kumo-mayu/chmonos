@@ -425,7 +425,7 @@ public sealed class HubItemDetail : ViewModelBase
     public bool IsMissing => Row.IsMissing;
 
     public string ProjectText => Row.ProjectPath is { } path
-        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{ModificationHubViewModel.ProjectNameOf(path)}」を相手にします。"
+        ? $"「Unityで選択」は、この改変に紐付けたプロジェクト「{ModificationHubViewModel.ProjectNameOf(path)}」を対象にします。"
         : "この改変はUnityプロジェクトに紐付いていないので、「Unityで選択」は使えません。改変を開いて紐付けてください。";
 
     public string? ThumbnailPath { get; init; }

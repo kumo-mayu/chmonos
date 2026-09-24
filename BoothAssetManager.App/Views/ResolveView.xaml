@@ -106,7 +106,7 @@
                 </Style>
             </StackPanel.Style>
             <TextBlock Text="未確定のファイルはありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
-            <TextBlock Text="取り込みで手掛かりが得られなかったファイルがここに並びます。"
+            <TextBlock Text="取り込みで情報を読み取れなかったファイルがここに並びます。"
                        Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
             <!-- 次の一手（ユーザ判断 2026-09-17：空になったときに何をすればよいかが弱かった） -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">

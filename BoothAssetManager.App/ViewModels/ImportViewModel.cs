@@ -182,8 +182,8 @@ public sealed class ImportViewModel : ViewModelBase
             var parts = new List<string>
             {
                 result.Relinked > 0
-                    ? $"{result.Relinked} 件を新しい場所に結び直しました"
-                    : "結び直せたものはありませんでした",
+                    ? $"{result.Relinked} 件を新しい場所に紐付け直しました"
+                    : "紐付け直せたものはありませんでした",
             };
 
             if (result.StillMissing > 0)
@@ -378,7 +378,7 @@ public sealed class ImportViewModel : ViewModelBase
     {
         var answer = Services.Notice.Show(
             "前回の取り込みの続きの記録を捨てますか。\n\n"
-            + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取りに行きません。"
+            + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取得しません。"
             // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う
             + "BOOTH の不調で取れなかった商品の記録も一緒に消えます（ファイルは消えません）。\n\n"
             + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に追加」を押し、"

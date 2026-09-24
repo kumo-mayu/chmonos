@@ -133,7 +133,7 @@
                         </TextBlock>
                         <Button Content="{Binding WatchButtonText}" Style="{StaticResource SmallButton}" Margin="0,3"
                                 Command="{Binding Owner.ToggleWatchCommand}" CommandParameter="{Binding}"
-                                ToolTip="監視しているフォルダは、起動したときに新しいファイルが増えていないかを見ます（見つけた後に取り込むかは設定しだい）。外しても、取り込んだ物はそのまま残ります。" />
+                                ToolTip="監視しているフォルダは、起動したときに新しいファイルが増えていないかを見ます（見つけた後に取り込むかは設定しだい）。外しても、取り込んだものはそのまま残ります。" />
                     </StackPanel>
                 </Border>
             </WrapPanel>

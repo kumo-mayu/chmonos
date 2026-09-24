@@ -169,7 +169,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
     }
 
     public string UnresolvedText => $"この下に未確定のファイルが {Unresolved.Count} 件あります。確定・フォルダの登録は「未確定として開く」から、"
-        + "要らない物は「管理対象から除外する」で片付けられます（ファイル自体は消しません）。";
+        + "要らないものは「管理対象から除外する」で片付けられます（ファイル自体は消しません）。";
 
     public string ExcludeText => $"この下の未確定 {Unresolved.Count} 件を管理対象から除外する";
 

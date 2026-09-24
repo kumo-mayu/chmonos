@@ -796,7 +796,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     /// <summary>開ける物が全部開いていれば「すべて畳む」、1つでも畳んでいれば「すべて開く」。</summary>
     public bool AllSubsExpanded => OpenableSubs.Any() && OpenableSubs.All(row => row.IsExpanded);
 
-    public string ToggleAllText => AllSubsExpanded ? "すべて畳む" : "すべて開く";
+    public string ToggleAllText => AllSubsExpanded ? "すべて折りたたむ" : "すべて開く";
 
     private void ToggleAll()
     {

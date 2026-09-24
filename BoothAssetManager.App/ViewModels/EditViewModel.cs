@@ -460,11 +460,11 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
             if (LocalShopKey.SubdomainFromUrl(ShopUrlInput) is { } subdomain)
             {
-                return $"BOOTHのショップ {subdomain} に束ねます。アイコンやバナーもそちらのものになります。";
+                return $"BOOTHのショップ {subdomain} と同じショップとして扱います。アイコンやバナーもそちらのものになります。";
             }
 
             return string.IsNullOrWhiteSpace(ShopUrlInput)
-                ? "URLが無いので、手元だけのショップになります。同じ名前を入れれば同じショップに束ねます。"
+                ? "URLが無いので、手元だけのショップになります。同じ名前を入れれば同じショップとして扱います。"
                 : "ショップのURLとして読めませんでした（https://〇〇.booth.pm/ の形）。このままだと手元だけのショップになります。";
         }
     }

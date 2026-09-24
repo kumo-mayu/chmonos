@@ -671,7 +671,7 @@
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
                                                                    VerticalAlignment="Center" Margin="8,0,0,0"
-                                                                   ToolTip="このバリエーションに付いたファイルの数です。付け分けは下の「バリエーション分け」で行います。" />
+                                                                   ToolTip="このバリエーションに付いたファイルの数です。付け分けは下の「バリエーション分け」でできます。" />
                                                         <StackPanel Orientation="Horizontal">
                                                             <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
                                                             <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
@@ -786,7 +786,7 @@
                                                      IsChecked="{Binding IsByVariationView, Mode=TwoWay}" />
                                     </StackPanel>
                                     <TextBlock Text="どのバリエーションのファイルかを選びます。" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                               ToolTip="「保存して次へ」で保存します。買ったバリエーションが1つのときは、すべてのファイルをそのバリエーションとして扱います（選ぶ必要はありません）。結び付けられるのは買ったバリエーションだけです。" />
+                                               ToolTip="「保存して次へ」で保存します。買ったバリエーションが1つのときは、すべてのファイルをそのバリエーションとして扱います（選ぶ必要はありません）。紐付けられるのは買ったバリエーションだけです。" />
                                 </DockPanel>
 
                                 <TextBlock Text="この商品に付いたファイルがありません。取り込みでファイルが付くと、ここでバリエーションを選べます。"

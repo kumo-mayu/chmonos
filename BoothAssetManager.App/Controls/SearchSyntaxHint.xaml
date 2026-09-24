@@ -17,7 +17,7 @@
                 夏 OR 冬 はどちらか。衣装 (夏 OR 冬) のように括弧でまとめられます。<LineBreak />
                 <LineBreak />
                 商品は、商品名・ショップ名・メモを探します。<LineBreak />
-                name: 商品名　shop: ショップ名　memo: メモ　のように前に付けると、その所だけを探します。
+                name: 商品名　shop: ショップ名　memo: メモ　のように前に付けると、その項目だけを探します。
             </TextBlock>
         </TextBlock.ToolTip>
     </TextBlock>

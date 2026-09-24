@@ -360,8 +360,8 @@ public sealed class AvatarRow : ChipTile
     /// </summary>
     public string SourceTooltip => (IsOwned ? "持っているアバターです。" : string.Empty)
         + (IsUnconfirmed
-            ? $"{SourceText}から拾いました（未確認）。押すとこのアバターを開きます"
-            : $"{SourceText}から拾いました。押すとこのアバターを開きます");
+            ? $"{SourceText}から読み取りました（未確認）。押すとこのアバターを開きます"
+            : $"{SourceText}から読み取りました。押すとこのアバターを開きます");
 
     /// <summary>この対応は違う、と消すための操作。行にホバーしたときだけ出す。</summary>
     public RelayCommand? RejectCommand { get; init; }

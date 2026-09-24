@@ -82,7 +82,7 @@
                                         <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                       IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
                                                       AutomationProperties.Name="ローカルファイルを開く"
-                                                      ToolTip="ローカルファイルの欄を開く・畳む（ほかの商品に移っても同じ開き方のままです）" />
+                                                      ToolTip="ローカルファイルの欄を開く・折りたたむ（ほかの商品に移っても同じ開き方のままです）" />
                                         <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding FileSummary}" Style="{StaticResource Mono}" FontSize="11"

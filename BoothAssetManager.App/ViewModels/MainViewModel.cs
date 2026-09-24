@@ -1007,7 +1007,7 @@ public sealed partial class MainViewModel : ViewModelBase
     public RelayCommand ShowStructureAlertCommand => _showStructureAlertCommand ??= new RelayCommand(
         () => Services.Notice.Show(
             StructureAlert
-                + "\n\n手元のデータはそのままです。説明文の見出しから読み取る所（対応アバターの検出・検索の手掛かり）だけが痩せます。"
+                + "\n\n手元のデータはそのままです。説明文の見出しから読み取るところ（対応アバターの検出・検索に使う情報）だけが少なくなります。"
                 + "\nBOOTHの商品ページの作りが元に戻れば、この知らせは自分で消えます。",
             "BOOTHから取得できる情報の形式が変化した可能性があります",
             System.Windows.MessageBoxButton.OK,

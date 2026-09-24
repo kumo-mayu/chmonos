@@ -626,7 +626,7 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ArchiveFoundForFolder => "展開したフォルダとzipの両方を持っています。登録を外すまで、同じ中身を二重に数えます（ファイルは消えません）。",
         NotificationKind.ItemBackOnBooth => "非公開と見なしていた商品が、BOOTHでまた見えるようになりました。",
         NotificationKind.UnpackedFilesImported => "自動で始めた取り込みで、zipを展開したフォルダの中のファイルを取り込みました。元のzipの方で持ち直せます。",
-        NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前が2つある／商品IDとファイル名が違う、といった食い違いがあります。直し方はこちらで決められないので、JSONを開いて直してください。",
+        NotificationKind.HandEditMismatch => "手で直したJSONに、同じ名前が2つある／商品IDとファイル名が違う、といった食い違いがあります。直し方は自動では決められないので、JSONを開いて直してください。",
         _ => string.Empty,
     };
 }

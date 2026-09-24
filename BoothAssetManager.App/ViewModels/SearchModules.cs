@@ -70,8 +70,8 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。"),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
-        new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰った物で、自分でも買った物は両方に表示されます。"),
-        new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方がある物は両方に表示されます。"),
+        new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰ったもので、自分でも買ったものは両方に表示されます。"),
+        new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければ BOOTH の価格）で絞ります。無料と有料の両方があるものは両方に表示されます。"),
         new(SearchModuleKind.UserTag, "ユーザタグ", "自分で付けたタグで絞ります。"),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
         new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。"),
@@ -1295,8 +1295,8 @@ public sealed class RangeModule : SearchModule
     public string MaxHint => MaxEnabled ? ScaleHint : "左の印を付けると、上限を使えます（今は上限を見ていません）。";
 
     public string ScaleHint => UsesFloor
-        ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数（多い所を広く）です。"
-        : "目盛は対数です（数の小さい所を広く取っています）。";
+        ? $"左の1目盛が 0〜{Floor}{Unit}、その先は対数（多いところを広く）です。"
+        : "目盛は対数です（数の小さいところを広く取っています）。";
 
     public string MaximumLabel => ((int)SliderMaximum).ToString("N0", CultureInfo.CurrentCulture) + Unit;
 

@@ -618,7 +618,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             var confirm = Services.Notice.Show(
                 where + "\n\n"
                 + $"unitypackage {fixedCount} 件を、上から順に送ります。1件ずつ Unity の取り込み画面が表示されるので、"
-                + "Unity側で「Import」（入れない物は「Cancel」）を押すと次の1件が表示されます。"
+                + "Unity側で「Import」（入れないものは「Cancel」）を押すと次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty),
                 title,
                 System.Windows.MessageBoxButton.OKCancel,

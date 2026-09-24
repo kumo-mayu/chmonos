@@ -156,7 +156,7 @@
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="対応アバターを手で追加します。出品者が書き漏らしている場合や、検出が拾えなかった場合に。"
+                                                            ToolTip="対応アバターを手で追加します。出品者が書き漏らしている場合や、検出できなかった場合に。"
                                                             Visibility="{Binding DataContext.IsAddingAvatar,
                                                                          RelativeSource={RelativeSource AncestorType=UserControl},
                                                                          Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />

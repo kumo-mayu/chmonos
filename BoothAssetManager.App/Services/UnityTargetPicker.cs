@@ -43,7 +43,7 @@ public static class UnityTargetPicker
         // 一覧から選ばせる窓はファイル・unitypackage を選ぶのと共用（ListChoice）
         var picked = ListChoice.Ask(
             title,
-            $"Unityが {editors.Count} つ開いています。どれを相手にしますか？\n選んだUnityの窓にだけ働くので、ほかのプロジェクトには入りません。",
+            $"Unityが {editors.Count} つ開いています。どれを対象にしますか？\n選んだUnityの窓にだけ働くので、ほかのプロジェクトには入りません。",
             [.. editors.Select(editor => new ListChoiceItem(
                 editor.ProjectName is { } name
                     ? editor.IsAmbiguous ? $"{name}（プロセス {editor.ProcessId}）" : name

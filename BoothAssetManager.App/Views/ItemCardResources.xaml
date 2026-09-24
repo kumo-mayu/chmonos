@@ -439,7 +439,7 @@
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
                     <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                             Command="{Binding AddSelectionToFavoritesCommand}"
-                            ToolTip="選んだ商品に星を付けます。付いている物はそのままです。" />
+                            ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
                     <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
