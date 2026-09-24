@@ -188,13 +188,13 @@ public sealed class ImportViewModel : ViewModelBase
 
             if (result.StillMissing > 0)
             {
-                parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした"
-                    + "（監視対象に追加してからもう一度押すと、その中も探します）");
+                parts.Add($"{result.StillMissing} 件は監視フォルダの中に見つかりませんでした。"
+                    + "移した先を監視フォルダに追加してから、もう一度押してください");
             }
 
             if (result.Unreachable.Count > 0)
             {
-                parts.Add($"{result.Unreachable.Count} 個のフォルダは今つながっていないので見ていません");
+                parts.Add($"{result.Unreachable.Count} 個のフォルダはつながっていないため探せませんでした");
             }
 
             return string.Join("。", parts) + "。";
@@ -371,18 +371,16 @@ public sealed class ImportViewModel : ViewModelBase
 
     /// <summary>「続きを捨てる」の説明（ボタンのツールチップ）。窓と同じことを短く言う。</summary>
     public static string DiscardInterruptedTip =>
-        "前回の取り込みの続きの記録を捨てます。取り込めた商品はそのまま残ります。\n"
-        + "捨てた記録は戻せません。続きを取りたくなったら、同じフォルダをもう一度取り込み対象に追加して始めてください。";
+        "続きの記録を捨てます。元に戻せませんが、取り込めた商品は残ります。";
 
     private async Task DiscardInterruptedAsync()
     {
         var answer = Services.Notice.Show(
             "前回の取り込みの続きの記録を捨てますか。\n\n"
-            + "取り込めた商品はそのまま残ります。まだ取れていない商品情報や画像は、このままでは取得しません。"
+            + "取り込めた商品とファイルはそのまま残ります。まだ取得していない商品情報と画像は取得しません。"
             // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う
-            + "BOOTHの不調で取れなかった商品の記録も一緒に消えます（ファイルは消えません）。\n\n"
-            + "捨てた記録は元に戻せません。続きを取りたくなったら、取り込み画面の履歴で同じフォルダの「対象に追加」を押し、"
-            + "「取り込みを開始」を押してください。",
+            + "BOOTHの不調で取れなかった商品の記録も消えます。\n\n"
+            + "記録は元に戻せません。続きは、同じフォルダをもう一度取り込むと始められます。",
             "取り込みの続きを捨てる",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -763,7 +761,7 @@ public sealed class ImportViewModel : ViewModelBase
     }
 
     public string ThrottleText =>
-        $"BOOTHから待つよう指示があったため、取得間隔を {_services.Client.CurrentIntervalMs / 1000.0:0.#} 秒に広げています。";
+        $"BOOTHの指示で、取得間隔を {_services.Client.CurrentIntervalMs / 1000.0:0.#} 秒に広げています。";
 
     public bool HasUnpackedFolders => UnpackedFolders.Count > 0;
 
@@ -962,7 +960,7 @@ public sealed class ImportViewModel : ViewModelBase
         {
             StackNotice = running.Remove(folder)
                 ? "今の取り込みから取り下げました。"
-                : "既にスキャンしたので、今の取り込みからは外せません。中断すると止まります。";
+                : "スキャン済みなので、今の取り込みからは外せません。止めるには中断してください。";
         }
     }
 
@@ -1037,7 +1035,7 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 var freed = removed.Results.Where(entry => entry.Removed).Sum(entry => entry.FreedBytes);
                 var removedCount = removed.Results.Count(entry => entry.Removed);
-                RemovalResults.Add($"{removedCount} フォルダを削除しました（{Core.Models.DisplayText.Size(freed)} 空きました）。");
+                RemovalResults.Add($"{removedCount} フォルダを削除し、{Core.Models.DisplayText.Size(freed)} 空きました。");
 
                 foreach (var entry in removed.Results.Where(entry => !entry.Removed))
                 {
@@ -1093,9 +1091,8 @@ public sealed class ImportViewModel : ViewModelBase
                 Id = "unpacked-imported",
                 Kind = Core.Models.NotificationKind.UnpackedFilesImported,
                 Title = "展開したフォルダの中のファイルを取り込みました",
-                Detail = $"自動で始めた取り込みで、zipを展開したフォルダの中のファイルが {count} 件ありました。"
-                    + "そのまま取り込んであります。元のzipの方で持ち直すなら、取り込み画面でそのzipを対象に追加してから"
-                    + "「取り込みを開始」を押し、展開先は「展開先フォルダの削除」で片付けられます。",
+                Detail = $"zipを展開したフォルダの中のファイルを {count} 件取り込みました。"
+                    + "元のzipで取り込み直すときは、そのzipを取り込んでから「展開先フォルダの削除」で片付けてください。",
                 CreatedAt = DateTimeOffset.Now,
             }));
 
@@ -1390,12 +1387,12 @@ public sealed class ImportViewModel : ViewModelBase
         // 走らなかったのに「見つかりませんでした」と言っていた（自動で走っていないと受け取られた）
         if (!summary.AvatarDetectRan)
         {
-            return "今回は対応アバターの検出をしていません（BOOTHから新しく取った商品が無いため）。";
+            return "BOOTHから新しく取得した商品が無いため、対応アバターの検出はしていません。";
         }
 
         return summary.AvatarItemsUpdated == 0
             ? "対応アバターは見つかりませんでした。"
-            : $"対応アバターを {summary.AvatarItemsUpdated} 件の商品に書きました（アバター {summary.AvatarsFound} 体）。";
+            : $"対応アバターを {summary.AvatarsFound} 体検出し、{summary.AvatarItemsUpdated} 件の商品に記録しました。";
     }
 
     private string _avatarSummaryText = string.Empty;
@@ -1432,7 +1429,7 @@ public sealed class ImportViewModel : ViewModelBase
         ? string.Join(
             string.Empty,
             summary.NotFound > 0
-                ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。未確定に置いてあるので、下の「未確定を開く」から確かめてください。"
+                ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。下の「未確定を開く」から確かめてください。"
                 : string.Empty,
             summary.TemporaryFailures > 0
                 ? $"{summary.TemporaryFailures} 件はBOOTHの不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"

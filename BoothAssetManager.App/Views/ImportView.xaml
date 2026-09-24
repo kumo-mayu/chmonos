@@ -31,7 +31,7 @@
                 <Border BorderBrush="#b9c6dc" BorderThickness="2" CornerRadius="10" Background="#f7faff" Padding="24,22">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="フォルダかファイルをここにドロップ" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
-                        <TextBlock Text="ファイルをドロップした場合は、そのファイルだけが対象になります（親フォルダには広げません）"
+                        <TextBlock Text="ファイルをドロップすると、そのファイルだけを取り込みます。"
                                    Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                             <Button Content="フォルダを選択" Style="{StaticResource PrimaryButton}"
@@ -61,7 +61,7 @@
                         -->
                         <Button DockPanel.Dock="Right" Content="知らせなくてよい" Margin="0,0,9,0"
                                 VerticalAlignment="Center" Command="{Binding Main.DismissWatchedNewCommand}"
-                                ToolTip="いま見つかっている分は、これ以上知らせません。新しいファイルが増えたらまた出ます。" />
+                                ToolTip="今あるファイルは、これ以上知らせません。新しいファイルは知らせます。" />
                     </DockPanel>
                 </Border>
 
@@ -164,7 +164,7 @@
                                     <Button DockPanel.Dock="Left" Content="見つからないファイルを探す"
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding FindMissingFilesCommand}"
-                                            ToolTip="手元に見つからなくなったファイルを、監視フォルダの中から中身で探して紐付け直します。ファイルには触りません。" />
+                                            ToolTip="監視フォルダから探して紐付け直します。ファイルは動かしません。" />
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
                                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis" />
@@ -287,7 +287,7 @@
                             走っている間はどの画面からでも見えるよう、常設の1行の横にも短い形で出している（MainWindow.xaml）
                         -->
                         <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Text="アプリを閉じても、取れた分は残ります。次に開いて「取り込みを開始」を押すと続きから進みます（画像は起動したときに自動で続きを取ります）。" />
+                                   Text="アプリを閉じても、取得した分は残ります。次に「取り込みを開始」を押すと続きから進みます。" />
                         <!--
                             残り時間の見込み（U1）。取り込みの時間のほとんどは問い合わせの間隔を待つ時間なので、
                             残りの問い合わせの数から出す。今の段／編集できるまで／画像を取り終わるまで、に分ける
@@ -328,7 +328,7 @@
                                      Value="{Binding Activity.BackgroundProgress, Mode=OneWay}"
                                      Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
                         <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Text="取り込みで取り切れなかった画像や、持っていないアバターの1枚目を、BOOTHへの間隔を空けながら少しずつ取っています。取り込みを始めると、そちらが先に進みます。" />
+                                   Text="取り込みで取得できなかった画像や、持っていないアバターの1枚目を、BOOTHから少しずつ取得しています。取り込みを始めると、そちらが先に進みます。" />
                     </StackPanel>
                 </Border>
 
@@ -384,7 +384,7 @@
                             <Button Content="取り込んだ商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,0,14"
                                     Command="{Binding ShowAddedCommand}"
                                     Visibility="{Binding HasAddedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                    ToolTip="検索を、最近手元に入った順に並べて開きます（ほかの条件は外します）。" />
+                                    ToolTip="最近手元に入った順に並べて、検索を開きます。ほかの条件は外します。" />
                         </StackPanel>
 
 
