@@ -314,7 +314,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// 一覧は1つにまとめ、所有/未所有はグループ見出しで分ける。
     /// ListBoxを2つ縦に積むと、ScrollViewerの中で高さが無限になって描画が壊れる。
     /// </summary>
-    public ObservableCollection<AvatarRowViewModel> Rows { get; } = [];
+    public RangeObservableCollection<AvatarRowViewModel> Rows { get; } = [];
 
     public ObservableCollection<AvatarBaseRowViewModel> Bases { get; } = [];
 
@@ -1134,11 +1134,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             row.GroupName = row.IsExcluded ? ExcludedGroup : row.IsOwned ? OwnedGroup : SeenGroup;
         }
 
-        Rows.Clear();
-        foreach (var row in matched)
-        {
-            Rows.Add(row);
-        }
+        // 1回で差し替える。1件ずつ足すと、見出しでまとめた一覧は1件ごとに振り分け直すので、
+        // 絞り込みの1文字ごとに約400回の知らせと振り分けが走っていた（知らせは Clear の分と合わせ401回 → 1回）
+        Rows.ReplaceAll(matched);
 
         OnPropertyChanged(nameof(HasBases));
         OnPropertyChanged(nameof(IsEmpty));

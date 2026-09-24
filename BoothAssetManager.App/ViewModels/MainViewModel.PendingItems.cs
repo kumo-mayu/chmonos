@@ -51,6 +51,11 @@ public sealed partial class MainViewModel
 
         var awaiting = work.AwaitingDetectionCount;
         var gateChanged = awaiting != _lastAwaitingCount;
+
+        // 待ちが**減った**＝③が済んで編集に出せる商品ができた。増えたのは①で商品を作っただけで、
+        // その商品はまだ一覧に無い（出すのは下の読み直しで、10秒の間引きに従えばよい）。
+        // 増えたときも間引きを飛ばしていたので、①の間は1件（約1.5秒）ごとに全件を読み直していた
+        var gateOpened = awaiting < _lastAwaitingCount;
         _lastAwaitingCount = awaiting;
 
         if (gateChanged)
@@ -59,7 +64,7 @@ public sealed partial class MainViewModel
         }
 
         var unseen = work.AddedCount - _reflectedAdded;
-        if (unseen <= 0 && !gateChanged)
+        if (unseen <= 0 && !gateOpened)
         {
             return;
         }
@@ -76,7 +81,7 @@ public sealed partial class MainViewModel
         }
 
         // ③が済んで編集に出せるようになったときは待たせない。札（取り込み中）を早く外す方が要る
-        if (!gateChanged && DateTime.UtcNow - _lastReflectAt < ReflectInterval)
+        if (!gateOpened && DateTime.UtcNow - _lastReflectAt < ReflectInterval)
         {
             return;
         }

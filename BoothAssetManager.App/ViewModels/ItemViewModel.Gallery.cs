@@ -47,9 +47,22 @@ public sealed partial class ItemViewModel
     /// 大きく出す1枚。一覧の方は小さく縮めたものなので、ここは保存された大きさで読み直す（キャッシュに乗る）。
     /// 末尾の「＋」は画像ではないので何も出さない。
     /// </summary>
+    /// <remarks>
+    /// 裏で読み、読み終わるまでは一覧の小さな絵を引き伸ばして出しておく（灰色に戻すと、なぞって送るたびにちらつく）。
+    /// 前は画面のスレッドで原寸をその場で読み、絵を送るたびに1枚ぶん止まっていた
+    /// </remarks>
     public BitmapSource? SelectedImage => Images.Count == 0 || Images[SelectedIndex] is not { IsImage: true } selected
         ? null
-        : _thumbnails.Load(selected.Path);
+        : _thumbnails.PeekFull(selected.Path, () => NoteFullImageLoaded(selected)) ?? selected.Image;
+
+    /// <summary>原寸が届いた。まだその絵を見ているときだけ描き直させる（送った後に届いた前の絵で上書きしない）。</summary>
+    private void NoteFullImageLoaded(GalleryImage image)
+    {
+        if (Images.Count > 0 && ReferenceEquals(Images[SelectedIndex], image))
+        {
+            OnPropertyChanged(nameof(SelectedImage));
+        }
+    }
 
     /// <summary>何枚目か。**2枚以上のときだけ出す**（空なら丸ごと隠す。1枚の「1 / 1」や、0枚の文字の無い黒い丸は要らない・U11 と同じ決まり）。</summary>
     public string GalleryCounter => Images.Count <= 1 ? string.Empty : $"{SelectedIndex + 1} / {Images.Count}";
@@ -216,17 +229,18 @@ public sealed partial class ItemViewModel
         {
             var fileName = System.IO.Path.GetFileName(entry.Path);
 
-            Images.Add(new GalleryImage
+            var tile = new GalleryImage
             {
                 Path = entry.Path,
                 FileName = fileName,
-                Image = _thumbnails.LoadForTile(entry.Path),
                 IsOrphaned = entry.IsOrphaned,
                 IsUserAdded = entry.IsUserAdded,
                 IsPinned = string.Equals(
                     fileName, Item.Local.ThumbnailImage, StringComparison.OrdinalIgnoreCase),
                 Role = Core.Images.ItemImageOrder.RoleOf(entry, Item.Local.ImageRoles),
-            });
+            };
+            tile.LoadTile(_thumbnails);
+            Images.Add(tile);
         }
 
         // 最初に出すのはサムネイルに指名した1枚。無ければ並びの1枚目。

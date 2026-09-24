@@ -59,7 +59,18 @@ public partial class SearchView : UserControl
 
         // 落ち着き待ちの間に画面を移ると、時計が鳴る頃には DataContext が外れていて解除が素通りしていた。
         // 印は絵の読み手（ThumbnailLoader）に共有なので、残るとほかの画面の絵まで粗いまま止まる。離れるときに下ろす
-        Unloaded += (_, _) => SettleFastScrolling();
+        Unloaded += (_, _) =>
+        {
+            SettleFastScrolling();
+
+            // この View は持ち回す（SearchViewHost）。付け直す途中の知らせを覚えないよう、出来上がりの印も下ろす
+            _ready = false;
+            _restoringScroll = false;
+
+            // 開いていた候補・日付の窓を閉じる。作り直していた頃は View ごと消えていたが、
+            // 持ち回すと Alt+← などで移ったときに次の画面の上へ残り得る
+            ClosePopups(this);
+        };
     }
 
     /// <summary>速く流している印を立てた検索の画面。DataContext が外れた後でも印を下ろせるように、立てた相手を覚える。</summary>
@@ -228,6 +239,13 @@ public partial class SearchView : UserControl
             return;
         }
 
+        // View を持ち回すようになってからは、戻ってきた時点で一覧はもう覚えた位置にいる（SearchViewHost）。
+        // 送り直しを待つ印を立てると、届いた知らせが来ないまま最初の数秒の操作を覚え損ねるので立てない
+        if (FindChild<ScrollViewer>(list) is { } current && Math.Abs(current.VerticalOffset - wanted) <= 1)
+        {
+            return;
+        }
+
         _restoreTarget = wanted;
         _restoringScroll = true;
         _restoreUntil = DateTime.UtcNow + RestoreGiveUp;
@@ -260,6 +278,20 @@ public partial class SearchView : UserControl
         if (e.ExtentHeightChange != 0)
         {
             viewer.ScrollToVerticalOffset(_restoreTarget);
+        }
+    }
+
+    private static void ClosePopups(DependencyObject parent)
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is System.Windows.Controls.Primitives.Popup { IsOpen: true } popup)
+            {
+                popup.IsOpen = false;
+            }
+
+            ClosePopups(child);
         }
     }
 

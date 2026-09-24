@@ -22,7 +22,21 @@ public sealed class GalleryImage : ViewModelBase
 
     public required string Path { get; init; }
 
-    public required BitmapSource? Image { get; init; }
+    private BitmapSource? _image;
+
+    /// <summary>一覧に出す小さな絵。裏で読み、届いたら入る（<see cref="LoadTile"/>）。</summary>
+    public BitmapSource? Image
+    {
+        get => _image;
+        set => SetField(ref _image, value);
+    }
+
+    /// <summary>
+    /// 小さな絵を裏で読み、届いたら入れる（編集の帯と同じ扱い）。
+    /// 前は一覧を組むときに画面のスレッドで1枚ずつ読み、画像の多い商品（20枚超）を開くたびにその分止まっていた
+    /// </summary>
+    public void LoadTile(Services.ThumbnailLoader thumbnails)
+        => Image = thumbnails.PeekForTile(Path, () => LoadTile(thumbnails));
 
     /// <summary>BOOTH側の一覧から消えた画像。手元には残しておく。</summary>
     public bool IsOrphaned { get; init; }

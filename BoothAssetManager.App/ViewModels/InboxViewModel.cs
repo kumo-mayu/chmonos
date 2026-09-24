@@ -33,32 +33,37 @@ public sealed class NotificationRow : ViewModelBase
     /// ほかの束は薄い1行だった）。変化を持つ知らせは変わったところを1つずつ、
     /// 持たない知らせは「見出し：中身」を1枚の札にする
     /// </summary>
-    public IReadOnlyList<DiffRow> Cards
+    /// <remarks>
+    /// 一度作ったら控える。記録は作った後に変わらない（init のみ）のに、読まれるたびに作り直していて、
+    /// 札の数を見る <see cref="HasCards"/> と一覧の結び付けで1行につき2回以上組み立てていた
+    /// </remarks>
+    public IReadOnlyList<DiffRow> Cards => _cards ??= BuildCards();
+
+    private IReadOnlyList<DiffRow>? _cards;
+
+    private IReadOnlyList<DiffRow> BuildCards()
     {
-        get
+        if (Record.Diffs.Count > 0)
         {
-            if (Record.Diffs.Count > 0)
-            {
-                return Record.Diffs
-                    .Select(diff => new DiffRow(
-                        diff.Field,
-                        diff.Before is { Length: > 0 } before
-                            ? $"{before} → {diff.After ?? "（無し）"}"
-                            : diff.After ?? string.Empty))
-                    .ToList();
-            }
-
-            if (Detail.Length == 0)
-            {
-                return [];
-            }
-
-            // 「消えたバリエーション：支援版（旧）」のように、見出しと中身に分けて書いてある
-            var separator = Detail.IndexOf('：');
-            return separator > 0
-                ? [new DiffRow(Detail[..separator], Detail[(separator + 1)..])]
-                : [new DiffRow(string.Empty, Detail)];
+            return Record.Diffs
+                .Select(diff => new DiffRow(
+                    diff.Field,
+                    diff.Before is { Length: > 0 } before
+                        ? $"{before} → {diff.After ?? "（無し）"}"
+                        : diff.After ?? string.Empty))
+                .ToList();
         }
+
+        if (Detail.Length == 0)
+        {
+            return [];
+        }
+
+        // 「消えたバリエーション：支援版（旧）」のように、見出しと中身に分けて書いてある
+        var separator = Detail.IndexOf('：');
+        return separator > 0
+            ? [new DiffRow(Detail[..separator], Detail[(separator + 1)..])]
+            : [new DiffRow(string.Empty, Detail)];
     }
 
     public bool HasCards => Cards.Count > 0;
@@ -157,7 +162,8 @@ public sealed class NotificationGroup : ViewModelBase
 
     public required string Description { get; init; }
 
-    public required IReadOnlyList<NotificationRow> Rows { get; init; }
+    /// <summary>束の行。組み直しでは差分だけを出し入れする（<see cref="CollectionSync"/>）。</summary>
+    public ObservableCollection<NotificationRow> Rows { get; } = [];
 
     public int UnreadCount => Rows.Count(row => !row.IsRead && !row.IsResolved);
 
@@ -198,6 +204,9 @@ public sealed class NotificationGroup : ViewModelBase
             nameof(UnreadCount), nameof(HasUnread), nameof(UnreadText),
             nameof(StrongCount), nameof(HasStrong), nameof(StrongText),
             nameof(ResolvedCount), nameof(HasResolved), nameof(ResolvedText),
+
+            // 束は組み直しで使い回すので、行の数も変わり得る
+            nameof(TotalText),
         })
         {
             OnPropertyChanged(name);
@@ -547,7 +556,9 @@ public sealed class InboxViewModel : ViewModelBase
             ? _all.Where(row => !row.IsRead && !row.IsResolved).ToList()
             : _all;
 
-        Groups.Clear();
+        // 束と行は差分だけを出し入れする。この一覧は仮想化していない（束の枠が行をまたいで1枚の札になっている）ので、
+        // 丸ごと作り直すと「未読のみ」を切り替えるたび・まとめて既読にするたびに全部の行の部品を作り直していた
+        var target = new List<NotificationGroup>();
         foreach (var group in rows
             // アプリ全体の話（取得できる情報の形式の変化）は、商品1件ごとの話と並べない。
             // ナビの「設定」の上の帯で知らせる（ユーザ判断 2026-09-18）
@@ -559,20 +570,28 @@ public sealed class InboxViewModel : ViewModelBase
             .ThenByDescending(group => group.Max(row => row.Record.CreatedAt))
             .ThenBy(group => group.Key))
         {
-            var built = new NotificationGroup
+            var built = Groups.FirstOrDefault(existing => existing.Kind == group.Key);
+            if (built is null)
             {
-                Kind = group.Key,
-                KindText = KindLabel(group.Key),
-                Description = KindDescription(group.Key),
-                Rows = group.ToList(),
-            };
+                var created = new NotificationGroup
+                {
+                    Kind = group.Key,
+                    KindText = KindLabel(group.Key),
+                    Description = KindDescription(group.Key),
+                };
 
-            built.MarkGroupReadCommand = new RelayCommand(
-                () => MarkGroupReadAsync(built).Forget(),
-                () => built.UnreadCount > 0);
+                created.MarkGroupReadCommand = new RelayCommand(
+                    () => MarkGroupReadAsync(created).Forget(),
+                    () => created.UnreadCount > 0);
+                built = created;
+            }
 
-            Groups.Add(built);
+            CollectionSync.Apply(built.Rows, group.ToList());
+            built.RefreshCount();
+            target.Add(built);
         }
+
+        CollectionSync.Apply(Groups, target);
 
         OnPropertyChanged(nameof(TotalCount));
         OnPropertyChanged(nameof(UnreadCount));

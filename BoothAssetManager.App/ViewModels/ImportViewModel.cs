@@ -1246,7 +1246,9 @@ public sealed class ImportViewModel : ViewModelBase
         _lastRequestPhase = null;
         ClearEstimate();
 
-        var progress = new Progress<ImportProgress>(report => RunOnUiThread(() =>
+        // 最新だけを1秒に10回まで出す（LatestProgress に理由）。走査はファイル1つごとに知らせてくるので、
+        // 全部を画面のスレッドへ積むと、1回ごとに下の欄を10前後知らせ直し、通信の帯も描き直していた
+        var progress = new Services.LatestProgress<ImportProgress>(report =>
         {
             // 何を待っているのかと、待たなくてよいことの両方が1行で分かるようにする。
             // ④以降は「取得できたものから使える」が要点で、そこを書かないと
@@ -1287,7 +1289,9 @@ public sealed class ImportViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(ThrottleText));
             }
-        }));
+        },
+        ProgressInterval,
+        System.Windows.Threading.Dispatcher.CurrentDispatcher);
 
         try
         {
@@ -1295,6 +1299,10 @@ public sealed class ImportViewModel : ViewModelBase
                 new UiCommand.ScanFolders(_work),
                 progress,
                 _cancellation.Token);
+
+            // 残っている最新の1件を出し切ってから「完了」などで上書きする（後から届いて上書きし返さないように）
+            progress.Complete();
+            Core.Services.UiTrace.Write("速さ", $"取り込みの進み具合：届いた {progress.ReportedCount} 回のうち画面で反映した {progress.AppliedCount} 回");
 
             if (result is CommandResult.Imported imported)
             {
@@ -1333,11 +1341,13 @@ public sealed class ImportViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
+            progress.Complete();
             PhaseText = "中断しました";
             DetailText = "再実行すると続きから進みます。";
         }
         finally
         {
+            progress.Complete();
             _cancellation?.Dispose();
             _cancellation = null;
             _work = null;
@@ -1346,6 +1356,12 @@ public sealed class ImportViewModel : ViewModelBase
             _main.BoothActivity.EndWork(WorkSource.Import);
         }
     }
+
+    /// <summary>
+    /// 進み具合を画面へ出す間隔の下限。人の目で追えるのは1秒に数回までで、①②は1件1.5秒なので件数の表示は遅れない。
+    /// 走査（ファイル1つごと）の間だけ、途中の値が捨てられる
+    /// </summary>
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(100);
 
     /// <summary>常設の1行に出す段の呼び名。取り込み画面の段の名前を1行に収まるよう短くしたもの。</summary>
     private static string LineLabelOf(ImportPhase phase) => phase switch

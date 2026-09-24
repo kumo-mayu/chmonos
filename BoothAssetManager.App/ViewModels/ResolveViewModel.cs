@@ -193,7 +193,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Selected = Files.FirstOrDefault();
     }
 
-    public ObservableCollection<UnresolvedRow> Files { get; } = [];
+    public RangeObservableCollection<UnresolvedRow> Files { get; } = [];
 
     /// <summary>フォルダごとに束ねた表示用のビュー。一覧の見出しがそのまま操作の単位になる。</summary>
     public System.ComponentModel.ICollectionView FilesView { get; }
@@ -504,6 +504,18 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 + Core.Services.FailureText.Cause(exception) + "　画面を開き直すともう一度試します。";
         }
 
+        // 行は裏で組む（ディスクを見る所を画面のスレッドに乗せない）。差し替えは下で画面のスレッドに戻してから
+        ReloadedRows? reloaded = null;
+        Exception? loadError = null;
+        try
+        {
+            reloaded = await BuildReloadAsync();
+        }
+        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+        {
+            loadError = exception;
+        }
+
         // 読み込みはUIスレッド以外で終わることがあるので、必ず戻してから触る
         RunOnUiThread(() =>
         {
@@ -512,16 +524,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 return;
             }
 
-            try
+            if (reloaded is not null)
             {
-                Reload();
+                ApplyReload(reloaded);
             }
-            catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+            else if (loadError is not null)
             {
                 // 読めなかったのを「未確定のファイルはありません」と見せない（E4：失敗を黙って捨てない）。
                 // 前はここで落ちると読み込み中の0件のまま残り、無いように見えた
-                Core.Diagnostics.AppLog.Error("未確定の画面：一覧の読み込み", exception);
-                failure = "未確定の一覧を読めませんでした。" + Core.Services.FailureText.Cause(exception)
+                Core.Diagnostics.AppLog.Error("未確定の画面：一覧の読み込み", loadError);
+                failure = "未確定の一覧を読めませんでした。" + Core.Services.FailureText.Cause(loadError)
                     + "　少し待ってから画面を開き直してください。";
                 LoadFailed = true;
             }
@@ -546,24 +558,78 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     private readonly Dictionary<string, bool> _originExists = new(StringComparer.OrdinalIgnoreCase);
 
-    private bool OriginExists(string archivePath)
+    private static bool OriginExists(string archivePath, Dictionary<string, bool> cache)
     {
-        if (!_originExists.TryGetValue(archivePath, out var exists))
+        if (!cache.TryGetValue(archivePath, out var exists))
         {
             exists = File.Exists(archivePath);
-            _originExists[archivePath] = exists;
+            cache[archivePath] = exists;
         }
 
         return exists;
     }
 
-    public void Reload()
-    {
-        var unresolved = _services.Store.Unresolved.Load().Where(file => _scope?.Invoke(file) ?? true).ToList();
-        _judgements.Clear();
-        _originExists.Clear();
+    /// <summary>裏で組んだ一覧。画面のスレッドでは <see cref="ApplyReload"/> で1回で差し替えるだけにする。</summary>
+    private sealed record ReloadedRows(
+        List<UnresolvedRow> Rows,
+        int HiddenByRegisteredZip,
+        Dictionary<string, ArchiveContentJudgement> Judgements,
+        Dictionary<string, bool> OriginExists);
 
-        Files.Clear();
+    /// <summary>
+    /// 一覧を読み直す。**ディスクを見る所は全部裏で行い、一覧は1回で差し替える**（2026-09-24）。
+    /// 前は画面のスレッドで、未確定の記録を同期で読み、フォルダごとに中を列挙し（展開物の見分け）、zip ごとに在るかを見て、
+    /// 一覧を空にしてから1件ずつ足していた（束でまとめた一覧は1件ごとに振り分け直す）。取り込み元が外付けだと1回に数秒止まり得た
+    /// </summary>
+    private async Task ReloadRowsAsync() => ApplyReload(await BuildReloadAsync());
+
+    /// <summary>行を裏で組む。画面の状態（商品が持っているファイル・取り込み元・範囲）は、ここで写してから渡す。</summary>
+    private Task<ReloadedRows> BuildReloadAsync()
+    {
+        var scope = _scope;
+        var owned = new HashSet<string>(_ownedPaths, StringComparer.OrdinalIgnoreCase);
+        var importFolders = _services.Settings.ImportFolders.ToList();
+        return Task.Run(() => BuildReload(scope, owned, importFolders));
+    }
+
+    private void ApplyReload(ReloadedRows reloaded)
+    {
+        // 見分けと zip の有無の控えは、この後の操作（元zipで登録した後に中身を外すなど）でも使う
+        _judgements.Clear();
+        foreach (var (key, value) in reloaded.Judgements)
+        {
+            _judgements[key] = value;
+        }
+
+        _originExists.Clear();
+        foreach (var (key, value) in reloaded.OriginExists)
+        {
+            _originExists[key] = value;
+        }
+
+        foreach (var row in reloaded.Rows)
+        {
+            row.SelectionChanged += OnCheckedChanged;
+        }
+
+        Files.ReplaceAll(reloaded.Rows);
+
+        HiddenByRegisteredZipCount = reloaded.HiddenByRegisteredZip;
+        OnPropertyChanged(nameof(HasHiddenByRegisteredZip));
+        OnPropertyChanged(nameof(HiddenByRegisteredZipText));
+        OnPropertyChanged(nameof(ShowsInlineHidden));
+
+        Selected = Files.FirstOrDefault();
+        OnPropertyChanged(nameof(RemainingCount));
+        OnPropertyChanged(nameof(RemainingText));
+    }
+
+    private ReloadedRows BuildReload(Func<UnresolvedFile, bool>? scope, IReadOnlySet<string> owned, IReadOnlyList<string> importFolders)
+    {
+        var unresolved = _services.Store.Unresolved.Load().Where(file => scope?.Invoke(file) ?? true).ToList();
+        var judgements = new Dictionary<string, ArchiveContentJudgement>(StringComparer.OrdinalIgnoreCase);
+        var originExists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        var rows = new List<UnresolvedRow>();
 
         // 元zipの分かるものを先に、zip名の順で並べる（一覧の束はこの並びで出る）。
         // 分からないものは従来どおりフォルダごとにまとめる。1つのアーカイブを展開した中身が
@@ -581,12 +647,14 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             .ToList();
 
         // 展開物の根が別の物まで巻き込んでいないかを見るための場所（zipの中身・zip自身・商品が持っているファイル）
-        _foreignPaths = withOrigin
-            .Where(entry => entry.Origin is not null && entry.File.Paths.Count > 0)
-            .Select(entry => entry.File.Paths[0])
-            .Concat(_ownedPaths)
-            .ToList();
-        _unpackRoots.Clear();
+        var rootContext = new UnpackRootContext(
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            withOrigin
+                .Where(entry => entry.Origin is not null && entry.File.Paths.Count > 0)
+                .Select(entry => entry.File.Paths[0])
+                .Concat(owned)
+                .ToList(),
+            importFolders);
 
         var hiddenByRegisteredZip = 0;
         foreach (var (file, origin) in withOrigin)
@@ -594,7 +662,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             var path = file.Paths.Count > 0 ? file.Paths[0] : string.Empty;
 
             // 元のzipが登録済みで今もあるなら、中身は出さない（同じ配布物の写し。zipを消せば戻ってくる）
-            if (IsCoveredByRegisteredZip(file, origin))
+            if (IsCoveredByRegisteredZip(file, origin, owned, originExists))
             {
                 hiddenByRegisteredZip++;
                 continue;
@@ -602,11 +670,11 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
             // 展開物の中身かどうかを見ておく。フォルダ単位で同じ結果になるので、
             // 1件ごとにディスクを叩き直さないようキャッシュする
-            var judgement = path.Length > 0 ? JudgeCached(path) : ArchiveContentJudgement.NotContent;
+            var judgement = path.Length > 0 ? JudgeCached(path, judgements) : ArchiveContentJudgement.NotContent;
 
             // 元のzipが今もあるか（zipごとに1回だけ見る）。あれば「zipが無い展開物」ではない——
             // フォルダの目印（.unitypackage・.url）だけで決めると、zipが残っていても「zipが無い」と出た（画面で確かめて見つけた 2026-09-17）
-            var originRemains = origin is not null && OriginExists(origin.ArchivePath);
+            var originRemains = origin is not null && OriginExists(origin.ArchivePath, originExists);
 
             var row = new UnresolvedRow
             {
@@ -619,23 +687,15 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 ContentReason = judgement.Reason,
                 ProductFolder = judgement.ProductFolder,
                 UnpackRoot = judgement.IsContent && !originRemains && path.Length > 0
-                    ? UnpackRootFor(path, judgement.ProductFolder)
+                    ? UnpackRootFor(path, judgement.ProductFolder, rootContext)
                     : null,
                 Origin = origin,
             };
 
-            row.SelectionChanged += OnCheckedChanged;
-            Files.Add(row);
+            rows.Add(row);
         }
 
-        HiddenByRegisteredZipCount = hiddenByRegisteredZip;
-        OnPropertyChanged(nameof(HasHiddenByRegisteredZip));
-        OnPropertyChanged(nameof(HiddenByRegisteredZipText));
-        OnPropertyChanged(nameof(ShowsInlineHidden));
-
-        Selected = Files.FirstOrDefault();
-        OnPropertyChanged(nameof(RemainingCount));
-        OnPropertyChanged(nameof(RemainingText));
+        return new ReloadedRows(rows, hiddenByRegisteredZip, judgements, originExists);
     }
 
     private void OnSelectionChanged()

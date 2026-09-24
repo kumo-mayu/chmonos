@@ -11,17 +11,20 @@ namespace BoothAssetManager.App.ViewModels;
 /// <summary>未確定画面：展開した中身の見分けとフォルダごとの登録（技術的負債 4-1：画面のクラスを関心ごとのファイルに分けた。中身は変えていない）</summary>
 public sealed partial class ResolveViewModel
 {
-    /// <summary>判定はフォルダ単位で同じになるので、フォルダをキーに覚えておく。</summary>
-    private ArchiveContentJudgement JudgeCached(string path)
+    /// <summary>
+    /// 判定はフォルダ単位で同じになるので、フォルダをキーに覚えておく。
+    /// 読み直しは裏のスレッドで組むので、覚える表は呼び手が渡す（組み終えてから画面の表へ移す）
+    /// </summary>
+    private static ArchiveContentJudgement JudgeCached(string path, Dictionary<string, ArchiveContentJudgement> judgements)
     {
         var directory = Path.GetDirectoryName(path) ?? string.Empty;
-        if (_judgements.TryGetValue(directory, out var cached))
+        if (judgements.TryGetValue(directory, out var cached))
         {
             return cached;
         }
 
         var judgement = ArchiveContentDetector.Judge(path);
-        _judgements[directory] = judgement;
+        judgements[directory] = judgement;
         return judgement;
     }
 
@@ -71,7 +74,14 @@ public sealed partial class ResolveViewModel
         await RegisterFolderAsync();
     }
 
-    private readonly Dictionary<string, string> _unpackRoots = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>読み直しの間だけ使う、展開物の根を探すための控え（裏のスレッドで行を組むので、画面の欄には置かない）。</summary>
+    /// <param name="UnpackRoots">目印のフォルダごとの根。</param>
+    /// <param name="ForeignPaths">根に入っていてはいけない場所（zipの中身・zip自身・商品が持っているファイル）。</param>
+    /// <param name="ImportFolders">取り込み元（ここ以上には広げない）。</param>
+    private sealed record UnpackRootContext(
+        Dictionary<string, string> UnpackRoots,
+        IReadOnlyList<string> ForeignPaths,
+        IReadOnlyList<string> ImportFolders);
 
     /// <summary>
     /// zipが無い展開物の根。目印（.unitypackage・.url）の見つかった一番外側から、中身がそのフォルダしか無い親を遡る
@@ -79,7 +89,7 @@ public sealed partial class ResolveViewModel
     /// **広くなりすぎないようにする**：ドライブの直下や取り込み元そのもの（またはその上）になったら、目印のフォルダ、
     /// それも駄目ならファイルが入っているフォルダに戻す。取り込み元の直下まで広げる決め方はやめた（別の展開物まで巻き込む）。
     /// </summary>
-    private string UnpackRootFor(string path, string? marker)
+    private static string UnpackRootFor(string path, string? marker, UnpackRootContext context)
     {
         var directory = Path.GetDirectoryName(path) ?? string.Empty;
         if (marker is null)
@@ -87,11 +97,11 @@ public sealed partial class ResolveViewModel
             return directory;
         }
 
-        if (!_unpackRoots.TryGetValue(marker, out var root))
+        if (!context.UnpackRoots.TryGetValue(marker, out var root))
         {
             var climbed = ClimbSingleChildFolders(marker);
-            root = IsUsableRoot(climbed) ? climbed : IsUsableRoot(marker) ? marker : string.Empty;
-            _unpackRoots[marker] = root;
+            root = IsUsableRoot(climbed, context) ? climbed : IsUsableRoot(marker, context) ? marker : string.Empty;
+            context.UnpackRoots[marker] = root;
         }
 
         return root.Length > 0 && (directory.Equals(root, StringComparison.OrdinalIgnoreCase)
@@ -104,21 +114,18 @@ public sealed partial class ResolveViewModel
     /// 根にしてよいか。広すぎず、**中に別の物が入っていない**こと——zipを展開した中身・zip自身・商品が持っているファイルが入っていれば、
     /// 無関係なファイルまで1つの束・1つの登録にまとめてしまう（作り物を %TEMP% に置くと、元からある .url を目印に Temp 全体が根になった・2026-09-17）。
     /// </summary>
-    private bool IsUsableRoot(string folder)
+    private static bool IsUsableRoot(string folder, UnpackRootContext context)
     {
-        if (IsTooWide(folder))
+        if (IsTooWide(folder, context.ImportFolders))
         {
             return false;
         }
 
         var prefix = Path.TrimEndingDirectorySeparator(folder) + Path.DirectorySeparatorChar;
-        return !_foreignPaths.Any(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        return !context.ForeignPaths.Any(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Reload のたびに作り直す。</summary>
-    private List<string> _foreignPaths = [];
-
-    private bool IsTooWide(string folder)
+    private static bool IsTooWide(string folder, IReadOnlyList<string> importFolders)
     {
         var trimmed = Path.TrimEndingDirectorySeparator(folder);
         if (string.Equals(trimmed, Path.TrimEndingDirectorySeparator(Path.GetPathRoot(folder) ?? string.Empty), StringComparison.OrdinalIgnoreCase))
@@ -126,7 +133,7 @@ public sealed partial class ResolveViewModel
             return true;
         }
 
-        return _services.Settings.ImportFolders
+        return importFolders
             .Select(Path.TrimEndingDirectorySeparator)
             .Any(importRoot => string.Equals(importRoot, trimmed, StringComparison.OrdinalIgnoreCase)
                 || importRoot.StartsWith(trimmed + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));

@@ -44,6 +44,17 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// 入力1文字ごとに作り直すと、全商品ぶんの説明文を毎回畳むことになる。
     /// </summary>
     private Dictionary<string, Core.Services.SearchHaystack> _haystacks = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// カードと検索用の文字列を作ったときの記録の指紋（<see cref="Core.Services.ItemFingerprint"/>）。
+    /// 読み直しで指紋が同じ商品は、カードも文字列も作り直さない。1件だけ差し替えた商品（編集の保存など）は
+    /// ここから外し、次の読み直しで必ず作り直させる（差し替えた記録とディスクの記録が同じとは限らない）
+    /// </summary>
+    private Dictionary<string, Guid> _fingerprints = new(StringComparer.Ordinal);
+
+    /// <summary>カードを作った・読み直させたときの、画像のフォルダの更新時刻。</summary>
+    private Dictionary<string, DateTime> _imageStamps = new(StringComparer.Ordinal);
+
     private List<ItemRecord> _allItems = [];
     private List<ItemCardViewModel> _matches = [];
     private string _queryText = string.Empty;
@@ -198,9 +209,17 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     public int TotalCount => _allItems.Count;
 
     /// <summary>読んである全商品から1件を引く。持っているアバターの絵に、その商品の1枚目を使うため（U18）。</summary>
-    public ItemRecord? FindItem(string itemId) => _allItems.FirstOrDefault(item => item.Id == itemId);
+    /// ID の表で引く。アバターの管理は行ごとに2回呼ぶ（約400行）ので、2000件を頭から探すと1回の組み直しで約160万回比べていた
+    public ItemRecord? FindItem(string itemId) => _itemsById.GetValueOrDefault(itemId);
 
-    /// <summary>その商品のカード（右クリックを借りる画面のため・M2）。手元に無ければ null。</summary>
+    /// <summary>ID から引く表。<see cref="_allItems"/> と同じ時機に作り直し、1件の差し替えも両方へ当てる。</summary>
+    private Dictionary<string, ItemRecord> _itemsById = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// その商品のカード（右クリックを借りる画面のため・M2）。手元に無ければ null。
+    /// 検索のカードは貸さない：カードの選ぶ箱を押すと検索の選択に数えられ、検索の全カードが「押すと選択の切り替え」に
+    /// 変わる（よその画面で押しても商品ページへ行かなくなる）。カードの ViewModel は部品を持たないので、作る代償は小さい
+    /// </summary>
     public ItemCardViewModel? CardFor(string itemId) => FindItem(itemId) is { } item ? ToCard(item) : null;
 
     /// <summary>
@@ -215,6 +234,24 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// 裏で数える側には取り出した写しを渡す。新しくなる時機は検索画面と同じ（取り込み後・編集を終えた後など）
     /// </summary>
     public IReadOnlyList<ItemRecord> SnapshotItems() => _allItems.ToList();
+
+    /// <summary>
+    /// 全商品。検索の写しがあればそれを、まだ読んでいなければ（起動直後・0件）ディスクから読む。
+    /// 候補・名前で引く・持っているファイルを集める、のような「最後に読み直した時点の姿で足りる」所のため。
+    /// 前はこうした所が開くたび・押すたびに全件のJSONを読み直していた（2000件で約0.6秒）。
+    /// **保存した直後の値が要る所では使わない**（写しが新しくなるのは検索の読み直し・1件の差し替えのとき）。
+    /// **画面のスレッドで呼ぶ**（写しを取り出すのは <see cref="SnapshotItems"/> と同じく画面のスレッド）
+    /// </summary>
+    public async Task<IReadOnlyList<ItemRecord>> ItemsAsync(CancellationToken cancellationToken = default)
+    {
+        var snapshot = SnapshotItems();
+        if (snapshot.Count > 0)
+        {
+            return snapshot;
+        }
+
+        return (await _services.Store.Items.LoadAllAsync(cancellationToken: cancellationToken)).Items;
+    }
 
     public ItemRecord? FindFileOwner(string hash, string exceptItemId) => _allItems.FirstOrDefault(item =>
         item.Id != exceptItemId
@@ -363,11 +400,17 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         {
             var loaded = await _services.Store.Items.LoadAllAsync();
 
+            // 前の指紋と文字列は画面のスレッドで写してから裏へ渡す（1件の差し替えが画面のスレッドで書き換えるため）
+            var previousPrints = new Dictionary<string, Guid>(_fingerprints, StringComparer.Ordinal);
+            var previousHaystacks = new Dictionary<string, Core.Services.SearchHaystack>(_haystacks, StringComparer.Ordinal);
+            var checkImagesPending = _main?.IsImporting == true && _services.Settings.SaveImages;
+
             // 並べ替えと検索用の文字列作りは、はっきり画面のスレッドの外で行う（夜の調査 2026-09-13）。
             // await の続きは画面のスレッドに戻るので、ここにそのまま書くと画面のスレッドで走り、
             // 2000件で約0.5秒、読み込むたびに画面が止まっていた（起動・取り込みや編集の後の読み直し）。
             // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
-            var (sorted, built) = await Task.Run(() =>
+            var previousStamps = _imageStamps;
+            var (sorted, built, prints, imagePending, stamps) = await Task.Run(() =>
             {
                 // 外付けのドライブ文字が変わっていないかを読み直す（通し番号を読むので、ここで）。
                 // 表は書かない：控えるのは取り込みとフォルダビューを開いた時（ユーザ判断 2026-09-14）
@@ -386,17 +429,57 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                     .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
                     .ToList();
 
+                // 記録が前と同じ商品は、文字列もカードも前の物を使う。取り込み中は10秒ごとに読み直すが、
+                // 変わるのはその間に増えた・進んだ数件だけで、残りの2000件ぶんの文字列作り（約0.5秒）とカード作りは無駄だった
+                var fingerprints = new Dictionary<string, Guid>(sortedItems.Count, StringComparer.Ordinal);
+                foreach (var item in sortedItems)
+                {
+                    fingerprints[item.Id] = Core.Services.ItemFingerprint.Of(item);
+                }
+
                 // 検索対象の文字列はここで作る。正規化は全商品の説明文を畳むので、
                 // UIスレッドに乗せると読み込みのたびに画面が固まる
                 var haystacks = sortedItems.ToDictionary(
                     item => item.Id,
-                    item => Core.Services.SearchText.Build(item, _services.KanjiReadings),
+                    item => previousPrints.TryGetValue(item.Id, out var print) && print == fingerprints[item.Id]
+                             && previousHaystacks.TryGetValue(item.Id, out var kept)
+                        ? kept
+                        : Core.Services.SearchText.Build(item, _services.KanjiReadings),
                     StringComparer.Ordinal);
 
-                return (sortedItems, haystacks);
+                // 画像のフォルダの更新時刻。使い回すカードは絵の並びを覚えているので、フォルダが変わった商品
+                // （商品ページで画像を消した・取り直したなど、記録は変わらずに絵だけ変わる）は読み直させる
+                var imageStamps = new Dictionary<string, DateTime>(sortedItems.Count, StringComparer.Ordinal);
+                foreach (var item in sortedItems)
+                {
+                    imageStamps[item.Id] = ThumbnailLoader.DirectoryStamp(_services.Paths.ItemImagesDir(item.Id));
+                }
+
+                // 取り込み中に「画像を取得中」を出す商品（絵がまだ1枚も無い）。フォルダを見るのはここで済ませる。
+                // 画面のスレッドでカードを作るたびに見ていて、2000件なら読み直しのたびに2000回フォルダを開いていた
+                var pending = new HashSet<string>(StringComparer.Ordinal);
+                if (checkImagesPending)
+                {
+                    foreach (var item in sortedItems.Where(item => item.Booth.Images.Count > 0))
+                    {
+                        if (!ThumbnailLoader.HasAnyImage(_services.Paths.ItemImagesDir(item.Id)))
+                        {
+                            pending.Add(item.Id);
+                        }
+                    }
+                }
+
+                return (sortedItems, haystacks, fingerprints, pending, imageStamps);
             });
 
             _allItems = sorted;
+            var byId = new Dictionary<string, ItemRecord>(sorted.Count, StringComparer.Ordinal);
+            foreach (var item in sorted)
+            {
+                byId[item.Id] = item;
+            }
+
+            _itemsById = byId;
             _haystacks = built;
             _favoriteShops = Core.Services.ShopNotes.FavoriteKeys(_services.Store.ShopNotes.Load());
 
@@ -404,13 +487,53 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             {
                 // カードは絞り込みのたびには作り直さず、itemごとに1つを使い回す。
                 // 作り直すと、件数に比例した生成コストがキー入力のたびに掛かる。
+                // 読み直しでも、記録とカードに効く値が前と同じ商品は前のカードを使う（見えているカードの絵や
+                // なぞりの途中の状態もそのまま残る）。選択だけは今までどおり読み直しで外す
+                var previousCards = new Dictionary<string, ItemCardViewModel>(_cards, StringComparer.Ordinal);
                 _cards.Clear();
+                var reused = 0;
                 foreach (var item in _allItems)
                 {
-                    var card = ToCard(item);
+                    var pendingImage = imagePending.Contains(item.Id);
+                    var imagesChanged = !previousStamps.TryGetValue(item.Id, out var stamp) || stamp != stamps[item.Id];
+                    if (previousCards.Remove(item.Id, out var kept)
+                        && previousPrints.TryGetValue(item.Id, out var print) && print == prints[item.Id]
+                        && CardStillFits(kept, item, pendingImage)
+                        // 絵の読み直しは「画像を取得中」の札も下ろすので、札を出したままにする物は作り直す
+                        && !(imagesChanged && pendingImage))
+                    {
+                        kept.SelectionChanged -= OnCardSelectionChanged;
+                        kept.IsSelected = false;
+                        kept.SelectionChanged += OnCardSelectionChanged;
+                        if (imagesChanged)
+                        {
+                            kept.RefreshImages();
+                        }
+
+                        _cards[item.Id] = kept;
+                        reused++;
+                        continue;
+                    }
+
+                    if (kept is not null)
+                    {
+                        kept.SelectionChanged -= OnCardSelectionChanged;
+                    }
+
+                    var card = ToCard(item, pendingImage);
                     card.SelectionChanged += OnCardSelectionChanged;
                     _cards[item.Id] = card;
                 }
+
+                foreach (var gone in previousCards.Values)
+                {
+                    gone.SelectionChanged -= OnCardSelectionChanged;
+                }
+
+                _fingerprints = prints;
+                _imageStamps = stamps;
+                // 効き目を画面なしで数えるための足跡（CHMONOS_UITRACE のときだけ書く）
+                Core.Services.UiTrace.Write("速さ", $"検索の読み直し：{_allItems.Count} 件のうちカードを作った {_allItems.Count - reused} 件");
 
                 OnCardSelectionChanged();
 

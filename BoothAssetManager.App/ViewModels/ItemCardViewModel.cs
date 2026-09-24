@@ -201,6 +201,22 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// <summary>止まっているときに出す1枚の場所。指名があればそれ、無ければ並びの1枚目（役割の指定があればそちらが勝つ）。</summary>
     private string? RestingImagePath()
     {
+        // 一度見つかったら覚える。描き直すたびにフォルダの時刻を見て並べ直していた（Thumbnail は描き直し・知らせのたびに読まれる）。
+        // 見つからない間は覚えない——絵が後から届いたときに出せるように。届いた・並びが変わったときは
+        // RefreshImages（裏の取得の知らせ）か、記録が変わってカードごと作り直されるので、覚えたままにはならない
+        if (_restingPath is { } remembered)
+        {
+            return remembered;
+        }
+
+        _restingPath = FindRestingImagePath();
+        return _restingPath;
+    }
+
+    private string? _restingPath;
+
+    private string? FindRestingImagePath()
+    {
         var ordered = BoothAssetManager.Core.Images.ItemImageOrder.Arrange(
             _imageDirectory,
             Item.Booth.Images,
@@ -329,6 +345,7 @@ public sealed class ItemCardViewModel : ViewModelBase
     public void RefreshImages()
     {
         _imageFiles = null;
+        _restingPath = null;
         _activePath = null;
         _activeIndex = 0;
         _stepCount = 0;

@@ -191,9 +191,12 @@ public sealed class TagItemRow : ViewModelBase
 
     public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
 
-    /// <summary>裏で読み、届いたら描き直す（改変の一覧・アバターの管理と同じ扱い）。</summary>
+    /// <summary>
+    /// 裏で読み、届いたら描き直す（改変の一覧・アバターの管理と同じ扱い）。出すのは30DIPの枠だけなので、
+    /// 頭の絵の大きさで読む（<see cref="BoothAssetManager.App.Services.ThumbnailLoader.IconShortEdgeDip"/>。96DIPで読んでいた）
+    /// </summary>
     public System.Windows.Media.Imaging.BitmapSource? Thumbnail => ThumbnailPath is { } path
-        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Thumbnail)))
+        ? Thumbnails?.PeekForIcon(path, () => OnPropertyChanged(nameof(Thumbnail)))
         : null;
 
     /// <summary>ホバーで出す大きめの絵（ユーザ指示 2026-09-18。ほかの一覧と同じ）。窓が開いたときに初めて読む。</summary>
@@ -627,6 +630,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
 
             RunOnUiThread(() =>
             {
+                _filterMaster = master;
+
                 var counts = usage.ToDictionary(entry => entry.Top, StringComparer.CurrentCultureIgnoreCase);
                 var keep = Selected?.Name;
 
@@ -669,6 +674,12 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
         }
     }
 
+    /// <summary>
+    /// 探すときに小分類の名前を引く一覧（<c>user-tags.json</c>）。画面の一覧を組んだときに読んだ物を控える。
+    /// 前は探す欄の1文字ごとに画面のスレッドでファイルを読み直していた。一覧を変える操作は済んだ後に読み直す（<see cref="ReloadAsync"/>）ので、ここも一緒に新しくなる
+    /// </summary>
+    private Core.Models.UserTagMaster? _filterMaster;
+
     private IReadOnlyDictionary<string, UserTagUsage> _subCounts =
         new Dictionary<string, UserTagUsage>(StringComparer.CurrentCultureIgnoreCase);
 
@@ -680,7 +691,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     {
         // 書き方は検索画面と同じ（ユーザ指示 2026-09-19）。大分類・小分類の名前にも同じ式を当てる
         var filter = ItemTextFilter.Create(_filterText);
-        var master = filter is null ? null : _services.Store.UserTags.Load();
+        var master = filter is null ? null : _filterMaster ?? _services.Store.UserTags.Load();
         var items = filter is null ? [] : _main.Search.SnapshotItems();
 
         // 作り直す間は、一覧が書き戻す「選択なし」を受けない。受けると、探すたびに右が空になっていた。
@@ -938,7 +949,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             row.Items.Clear();
             foreach (var item in matched)
             {
-                row.Items.Add(CreateItemRow(item));
+                row.Items.Add(CreateItemRow(item, ThumbnailPathFor(item)));
             }
 
             if (nameHit)
@@ -1438,28 +1449,55 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture)
             .ToList();
 
+        // 行ごとの1枚目の場所は裏で引く（画像のフォルダを見るので。小分類を開くたびに、中の商品の数だけ画面のスレッドで見ていた）
+        var paths = await Task.Run(() => ModificationRowBuilder.ThumbnailPathsOf(_services, _main.Thumbnails, items));
+
         RunOnUiThread(() =>
         {
+            foreach (var (itemId, path) in paths)
+            {
+                _thumbnailPaths[itemId] = path;
+            }
+
+            // 待つ間に開き直して中身が入っていれば、二重に足さない
+            if (row.Items.Count > 0)
+            {
+                return;
+            }
+
             foreach (var item in items)
             {
-                row.Items.Add(CreateItemRow(item));
+                row.Items.Add(CreateItemRow(item, paths.GetValueOrDefault(item.Id)));
             }
         });
-
-        await Task.CompletedTask;
     }
 
-    /// <summary>小分類の中に出す商品1件。絵の引き方は改変の一覧と同じものを使う。</summary>
-    private TagItemRow CreateItemRow(ItemRecord item)
+    /// <summary>
+    /// 商品の1枚目の場所。一度引いたら画面の間は覚える（小分類の中を探す欄は1文字ごとに行を組み直し、
+    /// そのたびに中の商品の数だけ画像のフォルダを見ていた）。この画面は開くたびに作り直すので、古い場所は残らない
+    /// </summary>
+    private string? ThumbnailPathFor(ItemRecord item)
     {
-        var builder = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>());
+        if (!_thumbnailPaths.TryGetValue(item.Id, out var path))
+        {
+            path = new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>()).ItemThumbnailPath(item);
+            _thumbnailPaths[item.Id] = path;
+        }
 
+        return path;
+    }
+
+    private readonly Dictionary<string, string?> _thumbnailPaths = new(StringComparer.Ordinal);
+
+    /// <summary>小分類の中に出す商品1件。絵の引き方は改変の一覧と同じものを使う（場所は呼び手が引いておく）。</summary>
+    private TagItemRow CreateItemRow(ItemRecord item, string? thumbnailPath)
+    {
         var entry = new TagItemRow
         {
             ItemId = item.Id,
             Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
-            ThumbnailPath = builder.ItemThumbnailPath(item),
+            ThumbnailPath = thumbnailPath,
             Thumbnails = _main.Thumbnails,
             CardFactory = () => _main.Search.CardFor(item.Id),
         };

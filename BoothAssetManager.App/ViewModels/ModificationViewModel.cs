@@ -826,8 +826,30 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public RelayCommand SelectImageCommand { get; }
 
-    /// <summary>大きく出す1枚。保存された大きさで読む（キャッシュに乗る）。</summary>
-    public BitmapSource? SelectedImage => _gallery.Count == 0 ? null : _thumbnails.Load(_gallery[_selectedIndex].Path);
+    /// <summary>
+    /// 大きく出す1枚。保存された大きさで、裏で読む（キャッシュに乗る）。読み終わるまでは一覧の小さな絵を出しておく
+    /// （商品の写真の欄と同じ。前は画面のスレッドでその場で読み、送るたびに1枚ぶん止まっていた）
+    /// </summary>
+    public BitmapSource? SelectedImage
+    {
+        get
+        {
+            if (_gallery.Count == 0)
+            {
+                return null;
+            }
+
+            var selected = _gallery[_selectedIndex];
+            return _thumbnails.PeekFull(selected.Path, () =>
+            {
+                // 送った後に届いた前の絵で描き直させない
+                if (_gallery.Count > _selectedIndex && ReferenceEquals(_gallery[_selectedIndex], selected))
+                {
+                    OnPropertyChanged(nameof(SelectedImage));
+                }
+            }) ?? selected.Image;
+        }
+    }
 
     /// <summary>何枚目か。**2枚以上のときだけ出す**（商品の写真の欄と同じ・U11 と同じ決まり）。</summary>
     public string GalleryCounter => _gallery.Count <= 1 ? string.Empty : $"{_selectedIndex + 1} / {_gallery.Count}";
@@ -926,12 +948,19 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         foreach (var image in Record.Images)
         {
             var path = Path.Combine(directory, image.FileName);
-            _gallery.Add(new GalleryImage
+            var tile = new GalleryImage
             {
                 Path = path,
                 FileName = image.FileName,
-                Image = File.Exists(path) ? _thumbnails.LoadForTile(path) : null,
-            });
+            };
+
+            // 小さな絵は裏で読む（商品の写真の欄と同じ）。無いファイルを頼むと「読めない」と覚えてしまうので、在るものだけ
+            if (File.Exists(path))
+            {
+                tile.LoadTile(_thumbnails);
+            }
+
+            _gallery.Add(tile);
         }
 
         foreach (var tile in _gallery)
@@ -1350,10 +1379,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     {
         ItemSuggestions.Clear();
 
-        Core.Storage.ItemLoadResult loaded;
+        // 候補なので検索の写しで足りる（開くたびに全件のJSONを読み直していた）
+        IReadOnlyList<ItemRecord> loaded;
         try
         {
-            loaded = await _services.Store.Items.LoadAllAsync(cancellationToken: _leaving.Token);
+            loaded = await _main.Search.ItemsAsync(_leaving.Token);
         }
         catch (OperationCanceledException) when (_leaving.IsCancellationRequested)
         {
@@ -1361,7 +1391,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        foreach (var item in loaded.Items
+        foreach (var item in loaded
             .Where(item => item.IsDownloaded)
             .OrderBy(item => item.DisplayName, StringComparer.CurrentCulture))
         {
@@ -1464,8 +1494,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
-        var loaded = await _services.Store.Items.LoadAllAsync();
-        var item = loaded.Items.FirstOrDefault(candidate =>
+        // 名前は候補（検索の写し）から選ぶので、引くのも同じ写しから（押すたびに全件を読み直していた）
+        var loaded = await _main.Search.ItemsAsync();
+        var item = loaded.FirstOrDefault(candidate =>
             string.Equals(candidate.DisplayName, name.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
         if (item is null)

@@ -47,11 +47,20 @@ public sealed partial class ResolveViewModel
 
     /// <summary>元のzipが商品に登録されていて、今もディスクにある中身か（未確定に出さない）。</summary>
     private bool IsCoveredByRegisteredZip(Core.Models.UnresolvedFile file, Core.Scanning.ArchiveOrigin? origin)
+        => IsCoveredByRegisteredZip(file, origin, _ownedPaths, _originExists);
+
+    /// <param name="owned">商品が持っているファイルの場所。</param>
+    /// <param name="originExists">元のzipが今もあるかの控え（zipごとに1回だけ見る）。読み直しは裏で組むので、呼び手が渡す。</param>
+    private static bool IsCoveredByRegisteredZip(
+        Core.Models.UnresolvedFile file,
+        Core.Scanning.ArchiveOrigin? origin,
+        IReadOnlySet<string> owned,
+        Dictionary<string, bool> originExists)
         => origin is not null
            && file.Paths.Count > 0
            && !string.Equals(origin.ArchivePath, file.Paths[0], StringComparison.OrdinalIgnoreCase)
-           && _ownedPaths.Contains(origin.ArchivePath)
-           && OriginExists(origin.ArchivePath);
+           && owned.Contains(origin.ArchivePath)
+           && OriginExists(origin.ArchivePath, originExists);
 
     /// <summary>
     /// zipを確定・登録した直後に、そのzipの中身を一覧から外す。開いたときにしか見ていなかったので、zipの行が消えた後に
@@ -124,7 +133,7 @@ public sealed partial class ResolveViewModel
         OnPropertyChanged(nameof(UndoExcludeText));
         OnPropertyChanged(nameof(ShowsInlineUndo));
 
-        Reload();
+        await ReloadRowsAsync();
         var first = files[0].Hash;
         Selected = Files.FirstOrDefault(row => string.Equals(row.File.Hash, first, StringComparison.OrdinalIgnoreCase)) ?? Selected;
         StatusText = $"{files.Count} 件を未確定に戻しました。";

@@ -150,7 +150,7 @@ public sealed partial class ItemViewModel
     private async Task LoadModificationsAsync()
     {
         var records = await _services.Modifications.LoadUsingItemAsync(Item.Id);
-        var registry = _services.Store.Avatars.Load();
+        var registry = _services.CachedAvatars.Load();
 
         RunOnUiThread(() =>
         {

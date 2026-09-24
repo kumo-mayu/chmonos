@@ -12,8 +12,9 @@
         PreviewKeyDown="OnWindowKeyDown">
 
     <Window.Resources>
+        <!-- 検索の View は作り直さず1つを持ち回す（SearchViewHost に理由） -->
         <DataTemplate DataType="{x:Type vm:SearchViewModel}">
-            <views:SearchView />
+            <views:SearchViewHost />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:ImportViewModel}">
             <views:ImportView />
