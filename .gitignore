@@ -44,3 +44,4 @@ research/PdfProbe/*
 .claude/*
 !.claude/skills/
 !.claude/rules/
+!.claude/settings.json
