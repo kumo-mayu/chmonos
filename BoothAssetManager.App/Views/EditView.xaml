@@ -888,11 +888,19 @@
                                  TextWrapping="Wrap" MinHeight="72" Padding="9,7" VerticalScrollBarVisibility="Auto" />
 
                         <TextBlock Text="入手日" FontWeight="Bold" FontSize="13" Margin="0,18,0,8" />
+                        <!--
+                            空欄のときに使われる日付は、欄の中の薄い字で出す（商品名・ショップ・カテゴリの欄と同じ）。
+                            前は欄の右の余白に置いていたが、文が余白より長く、欄の枠が字に掛かって浮いて見えた（ユーザ指摘 2026-09-27）
+                        -->
                         <Grid>
-                            <TextBox Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
-                                     VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,150,0" />
-                            <TextBlock Text="{Binding AcquiredHintText}" Style="{StaticResource Caption}"
-                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            <TextBox x:Name="AcquiredBox" Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
+                                     VerticalContentAlignment="Center" Padding="8,0" />
+                            <TextBlock Text="{Binding AcquiredHintText}" IsHitTestVisible="False"
+                                       VerticalAlignment="Center" Margin="10,0,10,0"
+                                       Foreground="{StaticResource TextFaint}" FontSize="12.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Text, ElementName=AcquiredBox,
+                                                    Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                         </Grid>
 
                         <CheckBox Content="更新を通知する" IsChecked="{Binding NotifyOnUpdate, Mode=TwoWay}"
