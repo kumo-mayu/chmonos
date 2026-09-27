@@ -150,6 +150,15 @@ public sealed class ItemCardViewModel : ViewModelBase
     /// <summary>取り込みの③（対応アバターの検出）がまだ。「未編集」の代わりに「取り込み中」と出す（U8・U10）。</summary>
     public bool IsAwaitingDetection { get; init; }
 
+    /// <summary>
+    /// 要確認に未読の「商品の更新」がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27：
+    /// ショップの一覧に「更新のあった商品が1件」と出ても、ショップの中でどれか分からなかった）
+    /// </summary>
+    public bool HasUpdate { get; init; }
+
+    /// <summary>「更新あり」を押したとき。<see cref="HasUpdate"/> を入れる画面だけが渡す</summary>
+    public RelayCommand? ShowUpdateCommand { get; init; }
+
     private bool _isImagePending;
 
     /// <summary>

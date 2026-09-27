@@ -406,6 +406,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public void ShowInbox() => CurrentViewModel = new InboxViewModel(_services, this);
 
+    /// <summary>要確認を開き、その商品の「商品の更新」の知らせまで送る（ショップの「更新あり」から）。</summary>
+    public void ShowInboxFor(string itemId) => CurrentViewModel = new InboxViewModel(_services, this, itemId);
+
     /// <summary>件数だけを数え直す。画面側から既読にしたときなどに呼ぶ。</summary>
     public void RefreshBadges() => RefreshCounts();
 

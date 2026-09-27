@@ -699,13 +699,24 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     private long _totalBytes;
 
+    /// <summary>
+    /// 要確認に未読の「商品の更新」がある商品。ショップの一覧の「更新のあった商品が {n} 件」と同じ数え方
+    /// （<c>ShopService.Summarize</c>）にして、一覧で見た件数と中の印の数を揃える。読むだけなので画面から直に引く
+    /// </summary>
+    private HashSet<string> UpdatedItemIds() => _services.Notifications.Load()
+        .Where(record => !record.IsRead
+            && record.Kind == Core.Models.NotificationKind.ItemUpdated
+            && record.ItemId is not null)
+        .Select(record => record.ItemId!)
+        .ToHashSet(StringComparer.Ordinal);
+
     public async Task ReloadAsync()
     {
         // 全商品のJSONは読み直さず、検索画面が起動時に読んだ写しから引く（ユーザ指示 2026-09-12）。
         // 写しは画面のスレッドで取り出し、引くのは裏で
         var items = _main.Search.SnapshotItems();
-        var (entries, excluded) = await Task.Run(() =>
-            (_services.Shops.ItemsOf(items, Shop.Subdomain), _services.Shops.ExcludedOf(items, Shop.Subdomain)));
+        var (entries, excluded, updatedIds) = await Task.Run(() =>
+            (_services.Shops.ItemsOf(items, Shop.Subdomain), _services.Shops.ExcludedOf(items, Shop.Subdomain), UpdatedItemIds()));
 
         RunOnUiThread(() =>
         {
@@ -725,6 +736,10 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 IsOwned = entry.IsOwned,
                 NeedsEdit = entry.Item.Local.UserTags.Count == 0,
                 UserTagText = ItemCardViewModel.UserTagLine(entry.Item.Local.UserTags, _services.Settings.ShowSubTagsInList),
+                HasUpdate = updatedIds.Contains(entry.Item.Id),
+                ShowUpdateCommand = updatedIds.Contains(entry.Item.Id)
+                    ? new RelayCommand(() => _main.ShowInboxFor(entry.Item.Id))
+                    : null,
             }).ToList();
 
             // 読み直すとカードを作り直すので、選んでいた物は外れる。帯もそれに合わせて畳む

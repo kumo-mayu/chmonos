@@ -182,6 +182,30 @@
         キーボードで止まったカードの印。既定の点線は角丸の白いカードの上で見分けにくいので、選んだ色の枠を外側に出す
         （枠の太さを変えると中身がずれるので、飾りの層に描く FocusVisualStyle にする）
     -->
+    <!--
+        「更新あり」の札。ほかの札（未編集・所持）と同じ形で、押せる所だけが違う。
+        暗黙の Button スタイルは中央揃えと枠を持っていて setter では外せないので、テンプレートごと置き換える（docs/dev/wpf.md）
+    -->
+    <Style x:Key="UpdateBadgeButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Frame" Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                            BorderThickness="1" CornerRadius="9" Padding="7,1">
+                        <TextBlock Text="更新あり" FontSize="10" Foreground="{StaticResource Accent}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="CardFocusVisual">
         <Setter Property="Control.Template">
             <Setter.Value>
@@ -264,6 +288,12 @@
                                                             Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
                                                     </Border>
+                                                    <!-- 要確認に未読の更新がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27） -->
+                                                    <Button Style="{StaticResource UpdateBadgeButton}" Margin="4,0,0,0"
+                                                            Command="{Binding ShowUpdateCommand}"
+                                                            AutomationProperties.Name="更新あり"
+                                                            ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
+                                                            Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
                                                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                             BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="4,0,0,0"
@@ -662,6 +692,11 @@
                         Visibility="{Binding HasMissingFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="見つからない" FontSize="10" Foreground="{StaticResource Bad}" />
                 </Border>
+                <Button Style="{StaticResource UpdateBadgeButton}" Margin="0,1,4,1"
+                        Command="{Binding ShowUpdateCommand}"
+                        AutomationProperties.Name="更新あり"
+                        ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
+                        Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                         BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="0,1,4,1"
                         ToolTip="取り込みの途中です。対応アバターの検出が終わると編集できます"

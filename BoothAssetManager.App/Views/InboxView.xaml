@@ -212,7 +212,7 @@
                     知らせ1000件で開くのに約7秒固まった）。束の枠は行ごとに描き分け、見た目は1枚の札のまま。
                     束の幅は中身の長さで変えない（畳むと札の幅が縮んで目が泳ぐ）ので、どの行も同じ上限の幅で真ん中に置く
                 -->
-                <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False"
+                <controls:ContentItemsControl x:Name="LinesList" ItemsSource="{Binding Lines}" Focusable="False"
                                               VirtualizingPanel.IsVirtualizing="True"
                                               VirtualizingPanel.VirtualizationMode="Recycling"
                                               VirtualizingPanel.ScrollUnit="Pixel"

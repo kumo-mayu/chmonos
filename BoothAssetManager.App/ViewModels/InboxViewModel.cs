@@ -262,10 +262,26 @@ public sealed class InboxViewModel : ViewModelBase
     private bool _unreadOnly;
     private string _statusText = string.Empty;
 
-    public InboxViewModel(AppServiceContainer services, MainViewModel main)
+    /// <summary>開いたら送る先の商品。送ったら忘れる（読み直すたびに同じ所へ戻されないように）。</summary>
+    private string? _focusItemId;
+
+    private InboxLine? _focusLine;
+
+    /// <summary>
+    /// 画面がそこまで送る行。一覧は仮想化していて、行の部品は見えている分しか無いので、
+    /// 送るのは一覧を持つ画面（View）が行う。送ったら View が null に戻す
+    /// </summary>
+    public InboxLine? FocusLine
+    {
+        get => _focusLine;
+        set => SetField(ref _focusLine, value);
+    }
+
+    public InboxViewModel(AppServiceContainer services, MainViewModel main, string? focusItemId = null)
     {
         _services = services;
         _main = main;
+        _focusItemId = focusItemId;
 
         _unreadOnly = services.UiState.InboxUnreadOnly;
 
@@ -361,6 +377,7 @@ public sealed class InboxViewModel : ViewModelBase
         RunOnUiThread(() =>
         {
             Load();
+            FocusRequestedItem();
 
             // 検出で通知が増えることがあるので、ナビの件数も数え直す
             _main.RefreshBadges();
@@ -385,6 +402,37 @@ public sealed class InboxViewModel : ViewModelBase
             .ToList();
 
         Rebuild();
+    }
+
+    /// <summary>
+    /// 頼まれた商品の「商品の更新」の知らせの束を開き、その行を画面に送らせる。
+    /// 未読を先に選ぶ（ショップの「更新あり」は未読の知らせから出している）
+    /// </summary>
+    private void FocusRequestedItem()
+    {
+        if (_focusItemId is not { } itemId)
+        {
+            return;
+        }
+
+        _focusItemId = null;
+        var candidates = Groups
+            .Where(group => group.Kind == NotificationKind.ItemUpdated)
+            .SelectMany(group => group.Rows.Select(row => (group, row)))
+            .Where(pair => pair.row.ItemId == itemId)
+            .OrderBy(pair => pair.row.IsRead)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var (group, row) = candidates[0];
+        group.IsExpanded = true;
+        if (_rowLines.TryGetValue(row, out var line))
+        {
+            FocusLine = line;
+        }
     }
 
     private NotificationRow CreateRow(NotificationRecord record)
