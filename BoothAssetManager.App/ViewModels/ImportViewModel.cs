@@ -1249,7 +1249,9 @@ public sealed class ImportViewModel : ViewModelBase
         {
             // 何を待っているのかと、待たなくてよいことの両方が1行で分かるようにする。
             // ④以降は「取得できたものから使える」が要点で、そこを書かないと
-            // 全部終わるまで待つものだと読まれてしまう
+            // 全部終わるまで待つものだと読まれてしまう。
+            // サムネイルの段に「編集できます」と書いていたが、編集できるのは③が終わった時点で、サムネイルは待たない。
+            // 段の名前から「編集できるまでにサムネイルの時間も要る」と読まれた（ユーザ判断 2026-09-27）
             PhaseText = report.Phase switch
             {
                 ImportPhase.Scanning => "1. ファイルをスキャン",
@@ -1258,7 +1260,7 @@ public sealed class ImportViewModel : ViewModelBase
                 ImportPhase.FetchingHtml => "4. 商品ページを取得",
                 // リンクだけでなくタグ・種類の名前も見ているので「タグ」を入れる（ユーザ判断）
                 ImportPhase.Detecting => "5. 商品ページとタグから対応アバターを検出",
-                ImportPhase.FetchingThumbnails => "6. サムネイルを取得（取得できたものから編集できます）",
+                ImportPhase.FetchingThumbnails => "6. サムネイルを取得。取得できたものから一覧に表示されます",
                 ImportPhase.FetchingGallery => "7. ギャラリーを取得",
                 _ => "8. ショップのアイコンを取得",
             };
