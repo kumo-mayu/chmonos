@@ -352,15 +352,28 @@
                     <!--
                         戻る・進む（ユーザ指示 2026-09-20・M7：ブラウザと同じく左上に）。
                         画面の中の「← ○○に戻る」は残す（行き先の名前が出せるのはあちらだけ）。
-                        畳んでいる間は幅が足りないので出さない——キー（Alt+←／Alt+→）とマウスのボタンは畳んでいても効く
+                        畳んでいる間は幅（56）に2つは入らないので、戻るだけを残す（ユーザ判断 2026-09-27。畳むと両方消えていた）。
+                        進むはキー（Alt+→）とマウスのボタンで効く
                     -->
-                    <StackPanel Orientation="Horizontal" Margin="16,2,10,6" Style="{StaticResource NavExpandedOnly}">
+                    <StackPanel Orientation="Horizontal" Margin="16,2,10,6">
                         <Button Content="←" Command="{Binding GoBackCommand}" Style="{StaticResource RailSmallButton}"
                                 ToolTip="{Binding BackTip}" ToolTipService.ShowOnDisabled="True"
                                 AutomationProperties.Name="戻る" />
-                        <Button Content="→" Command="{Binding GoForwardCommand}" Style="{StaticResource RailSmallButton}" Margin="6,0,0,0"
-                                ToolTip="{Binding ForwardTip}" ToolTipService.ShowOnDisabled="True"
-                                AutomationProperties.Name="進む" />
+                        <!-- 隠すだけ（Hidden）だと幅を取り続け、畳んだナビから右へはみ出す -->
+                        <Border Margin="6,0,0,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Button Content="→" Command="{Binding GoForwardCommand}" Style="{StaticResource RailSmallButton}"
+                                    ToolTip="{Binding ForwardTip}" ToolTipService.ShowOnDisabled="True"
+                                    AutomationProperties.Name="進む" />
+                        </Border>
                     </StackPanel>
                     <Button Command="{Binding ToggleNavCommand}" Margin="10,0,10,2">
                         <Button.Style>
