@@ -539,9 +539,6 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>見つからないファイルの札から、取り込みへ（動線の点検 D7）。移した先のフォルダを取り込むと付け直す。</summary>
     public RelayCommand ShowImportCommand => _main.ShowImportCommand;
 
-    /// <summary>非表示にしている商品の、戻す場所へ（動線の点検 D9）。</summary>
-    public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
-
     public RelayCommand OpenModificationCommand { get; }
 
     public RelayCommand UnregisterFolderCommand { get; }
@@ -1050,6 +1047,32 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     public string HiddenText => Item.Local.IsHidden ? "している" : "していない";
 
     public bool IsHidden => Item.Local.IsHidden;
+
+    private RelayCommand? _toggleHidden;
+
+    /// <summary>
+    /// 「検索から除く」の行で、非表示にする・解除する（ユーザ判断 2026-09-27・動線の洗い出し C5）。
+    /// 状態のすぐ横で戻せるので、カードの右クリックのような「元に戻す」の帯は出さない
+    /// </summary>
+    public RelayCommand ToggleHiddenCommand => _toggleHidden ??= new RelayCommand(() => ToggleHiddenAsync().Forget());
+
+    public string ToggleHiddenText => IsHidden ? "非表示を解除" : "非表示にする";
+
+    public string ToggleHiddenTip => IsHidden
+        ? "検索とショップに表示されるようにします。"
+        : "検索とショップに表示しなくなります。ここで戻せます。";
+
+    private async Task ToggleHiddenAsync()
+    {
+        await SaveLocalAsync(Item.Local with { IsHidden = !Item.Local.IsHidden }, LocalOwners.Visibility);
+        OnPropertyChanged(nameof(HiddenText));
+        OnPropertyChanged(nameof(IsHidden));
+        OnPropertyChanged(nameof(ToggleHiddenText));
+        OnPropertyChanged(nameof(ToggleHiddenTip));
+
+        // 検索とショップの一覧は写しを持っているので読み直す（読み直さないと、非表示にした商品が一覧に残る）
+        await _main.ReloadLibraryAsync();
+    }
 
     /// <summary>
     /// 販売終了かどうか。

@@ -117,7 +117,7 @@
                     <!-- 説明文。欄ごと畳める（ユーザ指示 2026-09-14）。畳んだかどうかは商品を移っても保つ -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <Grid>
-                        <Expander IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsDescriptionExpanded, Mode=TwoWay}">
                             <Expander.Header>
                                 <TextBlock Text="商品説明" FontWeight="Bold" VerticalAlignment="Center" />
                             </Expander.Header>
@@ -198,7 +198,7 @@
                         既定は畳み、開いたときだけ YouTube へ絵とタイトルを取りに行く。動画が無ければその旨を出し、開けない
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,14">
-                        <Expander IsExpanded="{Binding IsVideosExpanded, Mode=TwoWay}" IsEnabled="{Binding HasVideos}">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsVideosExpanded, Mode=TwoWay}" IsEnabled="{Binding HasVideos}">
                             <Expander.Header>
                                 <TextBlock VerticalAlignment="Center">
                                     <Run Text="動画" FontWeight="Bold" /><Run Text="{Binding VideosHeaderText, Mode=OneWay}"
@@ -287,7 +287,7 @@
                                 BOOTHのタグは畳める（ユーザ指示 2026-09-12：数百ある商品がある）。
                                 畳んだかどうかは編集画面と共通で、商品を移っても保つ。件数は見出しに出す
                             -->
-                            <Expander Margin="0,14,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}">
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,14,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}">
                                 <Expander.Header>
                                     <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
                                 </Expander.Header>
@@ -607,10 +607,14 @@
                                 </StackPanel>
                                 <StackPanel Margin="0,0,28,10">
                                     <TextBlock Text="検索から除く" Style="{StaticResource SectionLabel}" />
-                                    <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" Margin="0,3,0,0" />
-                                    <!-- どこから戻すのかを言う（動線の点検 D9）。戻せるのは設定の一覧だけ -->
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,3,0,0"
-                                               Visibility="{Binding IsHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"><Run Text="戻すときは" /><Hyperlink Command="{Binding ShowSettingsCommand}">設定</Hyperlink><Run Text="の「非表示にした商品」から" /></TextBlock>
+                                    <!--
+                                        状態の横で切り替える（ユーザ判断 2026-09-27・動線の洗い出し C5）。前は戻すのに設定の一覧まで行く必要があった
+                                    -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                        <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                                        <Button Content="{Binding ToggleHiddenText}" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                Command="{Binding ToggleHiddenCommand}" ToolTip="{Binding ToggleHiddenTip}" />
+                                    </StackPanel>
                                 </StackPanel>
                                 <StackPanel Margin="0,0,0,10">
                                     <TextBlock Text="更新通知" Style="{StaticResource SectionLabel}" />

@@ -20,7 +20,8 @@
                         畳んだかどうかは商品ページと編集画面で共通で、商品を移っても保つ（アプリを閉じるまで）
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
-                        <Expander IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}">
+                        <!-- 三角の見た目は、置かれた画面が持っていれば使う（商品ページ。編集画面は既定のまま揃える） -->
+                        <Expander Style="{DynamicResource TriangleExpander}" IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock FontWeight="Bold" VerticalAlignment="Center"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
@@ -227,7 +228,7 @@
                                     消したもの（ユーザ判断 2026-09-12）。以前は消すと画面のどこにも出ず、
                                     消したことも戻せることも分からなかった。普段は畳んで末尾に置き、1件ずつ戻せる
                                 -->
-                                <Expander Header="{Binding RejectedAvatarsHeader}" Margin="0,10,0,0"
+                                <Expander Style="{DynamicResource TriangleExpander}" Header="{Binding RejectedAvatarsHeader}" Margin="0,10,0,0"
                                           IsExpanded="{Binding IsRejectedAvatarsExpanded, Mode=TwoWay}"
                                           Visibility="{Binding HasRejectedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl ItemsSource="{Binding RejectedAvatars}" Margin="4,6,0,0">
