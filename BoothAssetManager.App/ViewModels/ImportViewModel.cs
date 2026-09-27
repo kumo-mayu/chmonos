@@ -207,9 +207,16 @@ public sealed class ImportViewModel : ViewModelBase
         {
             if (parameter is string path)
             {
+                var index = History.IndexOf(path);
                 History.Remove(path);
                 OnPropertyChanged(nameof(HasHistory));
                 ChangeFolderListsAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
+                _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す", async () =>
+                {
+                    History.Insert(Math.Min(Math.Max(index, 0), History.Count), path);
+                    OnPropertyChanged(nameof(HasHistory));
+                    await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path]));
+                });
             }
         },
         parameter => parameter is string);
@@ -902,8 +909,16 @@ public sealed class ImportViewModel : ViewModelBase
     /// <summary>見つかったぶんを取り込み対象へ積む。ここを押して初めて通信が始まる。</summary>
     public RelayCommand TakeWatchedNewCommand { get; }
 
-    private Task RemoveWatchedAsync(string? folder)
-        => folder is null ? Task.CompletedTask : SetWatchedAsync(folder, watch: false);
+    private async Task RemoveWatchedAsync(string? folder)
+    {
+        if (folder is null)
+        {
+            return;
+        }
+
+        await SetWatchedAsync(folder, watch: false);
+        _main.NoteFolderRemoved($"「{folder}」の監視をやめました。", "監視を再開", () => SetWatchedAsync(folder, watch: true));
+    }
 
     /// <summary>
     /// 監視対象に足す・外す。取り込み画面とフォルダビューの両方がここを通る（ユーザ指摘 2026-09-14：フォルダビューで足せるのに外せなかった）。

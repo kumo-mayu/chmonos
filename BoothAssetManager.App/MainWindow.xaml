@@ -656,6 +656,24 @@
                 </DockPanel>
             </Border>
 
+            <!--
+                取り込み元・監視フォルダを外した知らせ（ユーザ判断 2026-09-27・動線の洗い出し B4）。
+                外すのは確かめずに行うので、外した直後にその場で戻せるようにする（非表示の帯と同じ場所・同じ見た目）
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
+                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasFolderRemovedNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissFolderRemovedCommand}" AutomationProperties.Name="外した知らせを閉じる"
+                            ToolTip="この知らせを閉じます。" />
+                    <Button DockPanel.Dock="Right" Content="{Binding FolderRemovedUndoText}" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding UndoFolderRemovalCommand}" />
+                    <TextBlock Text="{Binding FolderRemovedText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding FolderRemovedText}" />
+                </DockPanel>
+            </Border>
+
             <!-- 画面内検索（U20）の帯を今の画面の上に重ねるため、同じ枠に置く -->
             <Grid>
                 <!--

@@ -816,6 +816,12 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
         Watched.Remove(row);
         OnPropertyChanged(nameof(HasWatched));
+        _main.NoteFolderRemoved($"「{path}」の監視をやめました。", "監視を再開", async () =>
+        {
+            Watched.Add(row);
+            OnPropertyChanged(nameof(HasWatched));
+            await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: true));
+        });
         await SaveAsync(settings => Core.Services.FolderListChange.SetWatched(settings, path, watch: false));
     }
 
@@ -935,8 +941,16 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
+        var index = Folders.IndexOf(row);
         Folders.Remove(row);
         SaveAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
+
+        // 戻すと設定の並びでは末尾に足される。画面の行は元の位置へ戻す
+        _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す", async () =>
+        {
+            Folders.Insert(Math.Min(index, Folders.Count), row);
+            await SaveAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path]));
+        });
     }
 
     private RelayCommand? _resetPaneWidthsCommand;
