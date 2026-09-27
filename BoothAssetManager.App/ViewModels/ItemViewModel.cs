@@ -746,6 +746,29 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     public ObservableCollection<VariationRow> Variations { get; } = [];
 
+    private static bool s_variationsExpanded = true;
+
+    /// <summary>
+    /// バリエーションの欄を開いているか（ユーザ判断 2026-09-27：「アイテムのバリエーションは折り畳めるべき」）。
+    /// 種類の多い商品では欄が縦に長く伸び、下の対応アバターや属性まで遠くなる。
+    /// 商品を移っても保つ（アプリを閉じるまで。ローカルファイル・編集画面の購入した欄と同じ）
+    /// </summary>
+    public bool IsVariationsExpanded
+    {
+        get => s_variationsExpanded;
+        set
+        {
+            if (s_variationsExpanded != value)
+            {
+                s_variationsExpanded = value;
+                OnPropertyChanged(nameof(IsVariationsExpanded));
+            }
+        }
+    }
+
+    /// <summary>見出しの右に出す数。畳んでいても何件あるかは分かるように。</summary>
+    public string VariationsCountText => $"{Variations.Count} 件";
+
     public ObservableCollection<LocalFileRow> LocalFiles { get; } = [];
 
     public string Name => Item.DisplayName;
