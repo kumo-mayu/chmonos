@@ -14,6 +14,8 @@
         <!-- 続く商品の帯の右クリックは、カードと同じメニュー（ユーザ指示 2026-09-20・M2） -->
         <ResourceDictionary.MergedDictionaries>
             <views:ItemCardResources />
+            <!-- 畳む印は商品ページと同じ三角（ユーザ判断 2026-09-27）。対応アバターの部品もここから見た目を引く -->
+            <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
       </ResourceDictionary>
     </UserControl.Resources>
@@ -480,7 +482,7 @@
                             </StackPanel>
 
                             <!-- BOOTHのタグは畳める（ユーザ指示 2026-09-12）。畳んだかどうかは商品ページと共通 -->
-                            <Expander Margin="0,16,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}">
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,16,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}">
                                 <Expander.Header>
                                     <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
                                 </Expander.Header>
@@ -645,7 +647,7 @@
                             ファイルの結び付けは下の「ファイルの種類分け」だけで行い、ここには数だけ出す。
                             種類の多い商品では膨大になるので、この欄だけ畳める。畳んだかどうかは次の商品へ進んでも保つ
                         -->
-                        <Expander IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock FontWeight="Bold" FontSize="13" VerticalAlignment="Center"><Run Text="購入したバリエーション" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
@@ -757,7 +759,7 @@
                         -->
                         <Expander IsExpanded="{Binding IsFileSortExpanded, Mode=TwoWay}" IsEnabled="{Binding CanSortFiles}">
                             <Expander.Style>
-                                <Style TargetType="Expander">
+                                <Style TargetType="Expander" BasedOn="{StaticResource TriangleExpander}">
                                     <Style.Triggers>
                                         <Trigger Property="IsEnabled" Value="False">
                                             <Setter Property="Opacity" Value="0.6" />
