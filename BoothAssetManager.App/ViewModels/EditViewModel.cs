@@ -991,6 +991,12 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             if (await _services.Store.Items.LoadAsync(_item.Id) is { } savedRecord)
             {
                 _main.Search.NoteItemChanged(savedRecord);
+
+                // 写しに無い商品は帯が自分で読んだ記録を持っている。名前を変えたら帯にも当てる
+                if (_tileRecords.ContainsKey(savedRecord.Id))
+                {
+                    _tileRecords[savedRecord.Id] = savedRecord;
+                }
             }
 
             // 上の帯で、保存した物と飛ばした物を見分けるための印。未編集の順番はファイルに残し、

@@ -20,6 +20,9 @@ public sealed class EditQueueTile : ViewModelBase, IHasItemCard
     /// <summary>編集の順番の中の位置。</summary>
     public required int Index { get; init; }
 
+    /// <summary>この札の商品。画像が届いた知らせを、どの札へ当てるかを見分けるため。</summary>
+    public required string ItemId { get; init; }
+
     public Func<string>? NameFactory { get; init; }
 
     public string Name => NameFactory?.Invoke() ?? string.Empty;
@@ -47,6 +50,18 @@ public sealed class EditQueueTile : ViewModelBase, IHasItemCard
     public BitmapSource? Preview => PreviewFactory?.Invoke(() => OnPropertyChanged(nameof(Preview)));
 
     public string Title => $"{Index + 1} 件目　{Name}";
+
+    /// <summary>
+    /// 名前と絵を引き直させる。記録が後から読めたとき・画像が後から届いたときに呼ぶ。
+    /// 引くのは画面に出ている札だけ（出ていない札は、出たときに初めて引く）
+    /// </summary>
+    public void Refresh()
+    {
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Image));
+        OnPropertyChanged(nameof(Preview));
+    }
 
     public string StateText => IsCurrent
         ? "いま開いている商品"

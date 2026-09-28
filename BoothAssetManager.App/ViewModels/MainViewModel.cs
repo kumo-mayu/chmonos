@@ -39,12 +39,14 @@ public sealed partial class MainViewModel : ViewModelBase
         Search.AttachMain(this);
 
         // 裏の取得が画像を置いたら、開いている画面へ知らせる。知らせないと起動し直すまで空のままだった。
-        // 検索画面は持ち回るので常に、商品ページはそれが今の画面のときだけ。
+        // 検索画面は持ち回るので常に、商品ページはそれが今の画面のときだけ。編集画面の上の帯も同じ
+        // （確定の直後に移ると帯の札は絵の無いまま作られ、知らせないと空のままだった。2026-09-28 の総チェック）。
         // ここ（アプリと同じ寿命）で1回だけ繋ぐので、画面ごとに外し忘れて残ることが無い
         services.Images.ItemImagesSaved += itemId => RunOnUiThread(() =>
         {
             Search.NoteItemImagesSaved(itemId);
             CurrentItemPage?.NoteImagesSaved(itemId);
+            (CurrentViewModel as EditViewModel)?.NoteImagesSaved(itemId);
         });
 
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
