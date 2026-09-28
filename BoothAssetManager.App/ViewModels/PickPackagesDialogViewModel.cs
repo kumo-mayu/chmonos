@@ -121,7 +121,7 @@ public sealed class PackageChoiceSection
 
                 var (key, label, order) = variationIndex >= 0
                     ? ($"バリエーション:{file.VariationId}",
-                        $"バリエーション：{(variations[variationIndex].Name is { Length: > 0 } name ? name : "名前が分かりません")}",
+                        variations[variationIndex].Name is { Length: > 0 } name ? $"バリエーション：{name}" : DisplayText.NoVariationName,
                         variationIndex)
                     : ($"zip:{zip}", $"zip：{Path.GetFileName(zip)}", variations.Count + fileOrder);
 

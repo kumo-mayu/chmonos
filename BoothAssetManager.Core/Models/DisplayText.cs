@@ -72,6 +72,17 @@ public static class DisplayText
         => variationId is not null ? "名前の分からないバリエーション" : "バリエーションを選ばない購入";
 
     /// <summary>
+    /// BOOTH が名前を持たせていないバリエーション（種類が1つだけの商品に多い）の呼び方（ユーザ判断 2026-09-29）。
+    /// 「（名前のないバリエーション）」は、名前を付け忘れた物のようで分かりにくかった。
+    /// 種類を指さない購入（<see cref="VariationLabel"/> の null）とも、BOOTH から消えて名前が引けない種類とも別物なので混ぜない
+    /// </summary>
+    public const string NoVariationName = "バリエーションなし";
+
+    /// <summary>今あるバリエーションの行の名前。名前が無ければ <see cref="NoVariationName"/>。</summary>
+    public static string VariationName(string? name)
+        => string.IsNullOrWhiteSpace(name) ? NoVariationName : name;
+
+    /// <summary>
     /// **ユーザが入れたものを優先する**という決まり。名前・ショップ・分類で共通。
     /// 空白だけの入力は「入れていない」として扱う。
     /// </summary>

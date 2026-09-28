@@ -29,7 +29,7 @@ public sealed partial class ItemViewModel
             var group = ordered[variation.Id].ToList();
             Variations.Add(new VariationRow
             {
-                Name = variation.Name ?? "（名前のないバリエーション）",
+                Name = DisplayText.VariationName(variation.Name),
                 PriceText = group.Count > 0 ? PurchaseText(group) : $"¥{variation.Price:N0}",
                 IsPurchased = group.Count > 0,
             });

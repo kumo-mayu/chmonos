@@ -1368,7 +1368,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
 
         var variation = item?.Booth.Variations.FirstOrDefault(candidate => candidate.Id == id);
-        return variation?.Name is { Length: > 0 } name ? name : "バリエーションの名前が分かりません";
+        return variation is null ? "バリエーションの名前が分かりません" : DisplayText.VariationName(variation.Name);
     }
 
     /// <summary>
