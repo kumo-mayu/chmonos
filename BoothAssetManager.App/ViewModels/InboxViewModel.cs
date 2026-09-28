@@ -519,17 +519,38 @@ public sealed class InboxViewModel : ViewModelBase
             case NotificationKind.ItemBackOnBooth:
             case NotificationKind.OrphanVariationLink:
             case NotificationKind.VariationBackOnBooth:
-                if (row.ItemId is { } target)
+                if (row.ItemId is { } target && !_isRefreshing)
                 {
+                    // 取り直しは1.5秒の間隔を空けて並ぶので数秒かかる。待つ間の2度押しで同じ商品を2回取りに行かせない
+                    _isRefreshing = true;
                     StatusText = "商品情報を取り直しています…";
-                    await _services.Commands.ExecuteAsync(new UiCommand.RefreshItem(target));
-                    StatusText = "BOOTHの商品ページから情報を取り直しました。";
-                    await ReloadAsync();
+                    try
+                    {
+                        var result = await _services.Commands.ExecuteAsync(new UiCommand.RefreshItem(target));
+
+                        // 前は結果を見ずに「取り直しました」と出していたので、商品ページが消えていても成功に見えた
+                        StatusText = result is CommandResult.Failed failed
+                            ? failed.Message
+                            : "BOOTHの商品ページから情報を取り直しました。";
+                        await ReloadAsync();
+                    }
+                    catch (Exception exception)
+                    {
+                        // 受けないと「取り直しています…」のまま残り、止まったように見えた
+                        Core.Diagnostics.AppLog.Error("要確認からの商品情報の取り直し", exception);
+                        StatusText = $"取り直せませんでした。{Core.Services.FailureText.Cause(exception)}";
+                    }
+                    finally
+                    {
+                        _isRefreshing = false;
+                    }
                 }
 
                 return;
         }
     }
+
+    private bool _isRefreshing;
 
     /// <summary>
     /// 行に「既読」の印を付けるが、**行からの知らせは受け取らない**（ユーザ判断 2026-09-21・P16）。
