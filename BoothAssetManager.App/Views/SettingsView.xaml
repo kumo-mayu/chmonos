@@ -7,6 +7,11 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}">
     <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む三角（TriangleExpander）は商品ページ・編集画面と同じ物を引く（ユーザ判断 2026-09-27：畳む印を三角に揃える） -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
 
         <Style x:Key="GroupTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
@@ -39,6 +44,7 @@
             <Setter Property="Padding" Value="7,4" />
             <Setter Property="TextAlignment" Value="Right" />
         </Style>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <DockPanel Background="{StaticResource Bg}">
@@ -189,11 +195,22 @@
                                   IsChecked="{Binding StartImportOnLaunch, Mode=TwoWay}"
                                   ToolTip="オフにすると、取り込み画面で押すまで始まりません。" />
 
-                        <Grid Margin="0,8,0,6">
-                            <TextBlock Text="取り込み元の履歴" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
-                            <Button Content="フォルダを追加" Style="{StaticResource SmallButton}"
-                                    HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
-                        </Grid>
+                        <!--
+                            取り込み元の履歴は取り込むたびに増え、全部を縦に並べると膨大になる（ユーザ判断 2026-09-28：畳めるようにする）。
+                            畳む印は商品ページ・編集画面と同じ三角。畳んでも件数は見出しに残す。
+                            「フォルダを追加」は見出しの上に重ねる——見出しは押すと開閉するボタンなので、その中にボタンを入れられない
+                        -->
+                        <Grid Margin="0,8,0,0">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsFoldersExpanded, Mode=TwoWay}"
+                                  AutomationProperties.Name="取り込み元の履歴">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="取り込み元の履歴" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding FoldersCountText}" Style="{StaticResource Mono}" FontSize="11"
+                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                        <StackPanel Margin="0,6,0,0">
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="これまでに取り込んだフォルダとファイルです。取り込むのは、取り込み画面で「対象に追加」を押したものだけです。" />
 
@@ -218,6 +235,11 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </StackPanel>
+                        </Expander>
+                            <Button Content="フォルダを追加" Style="{StaticResource SmallButton}" VerticalAlignment="Top"
+                                    HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
+                        </Grid>
 
                 <!--
                     監視対象。取り込み元（履歴）とは意味が違うので小見出しで分ける。
