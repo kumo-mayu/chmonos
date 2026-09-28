@@ -89,6 +89,19 @@ public sealed record AvatarBaseSummary
     public required int ItemCount { get; init; }
 }
 
+/// <summary>共通素体を手で足した結果。画面が何と知らせるかを分ける。</summary>
+public enum AvatarBaseAddOutcome
+{
+    /// <summary>新しく足した。</summary>
+    Added,
+
+    /// <summary>消していた素体を戻した。</summary>
+    Restored,
+
+    /// <summary>もう一覧にあった。何も書いていない。</summary>
+    AlreadyThere,
+}
+
 public interface IAvatarService
 {
     Task<AvatarDetectResult> DetectAsync(
@@ -128,6 +141,9 @@ public interface IAvatarRegistryEditor
 
     /// <returns>書き換えた商品の数。</returns>
     Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default);
+
+    /// <summary>共通素体を手で足す（どのアバターにもまだ結ばない）。</summary>
+    Task<AvatarBaseAddOutcome> AddBaseAsync(string name, CancellationToken cancellationToken = default);
 
     Task AddAliasAsync(string itemId, string text, CancellationToken cancellationToken = default);
 

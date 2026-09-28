@@ -73,6 +73,9 @@ public abstract record UiCommand
     /// <summary>共通素体を消す。取り消せない（結果は書き換えた商品の数）。</summary>
     public record DeleteBase(string Name) : UiCommand;
 
+    /// <summary>共通素体を手で足す（結果は <see cref="CommandResult.BaseAdded"/>）。検出し直しでは消えない。</summary>
+    public record AddBase(string Name) : UiCommand;
+
     public record AddAvatarAlias(string ItemId, string Text) : UiCommand;
 
     public record RemoveAvatarAlias(string ItemId, string Text) : UiCommand;
@@ -465,6 +468,9 @@ public abstract record CommandResult
 
     /// <summary>済んだ。数を持つ（書き換えた商品の数・取り除いた数など）。</summary>
     public record Counted(int Count) : CommandResult;
+
+    /// <summary>共通素体を手で足した。足したか・戻したか・もうあったかを持つ。</summary>
+    public record BaseAdded(Services.AvatarBaseAddOutcome Outcome) : CommandResult;
 
     /// <summary>ドライブ文字の組を確かめた。元の文字 → 今の文字の読み替えを持つ。</summary>
     public record VolumesObserved(IReadOnlyDictionary<string, string> Remap) : CommandResult;
