@@ -175,7 +175,7 @@ public sealed record AppSettings
 
     /// <summary>
     /// ショートカットの割り当て（#43）。設定画面で変えられる（ユーザ判断）。
-    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+→、検索欄へ＝Ctrl+F、戻る＝Alt+←。
+    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+Shift+→、検索欄へ＝Ctrl+F、戻る＝Alt+←。
     /// </summary>
     public ShortcutSettings Shortcuts { get; init; } = new();
 
