@@ -235,4 +235,69 @@ public class AvatarBaseManualTests : IDisposable
         Assert.DoesNotContain("ある素体の別名", names);
         Assert.Equal(names.Count, names.Distinct(StringComparer.CurrentCultureIgnoreCase).Count());
     }
+
+    /// <summary>
+    /// 商品ページの「＋ 追加」に混ぜる素体の候補（ユーザ判断 2026-09-28）：登録簿の素体のうち削除していない物で、
+    /// この商品にまだ付いていない物。外した素体は選び直せるように残す。初期辞書だけの素体は出さない。
+    /// </summary>
+    [Fact]
+    public void ItemBaseCandidatesSkipDeletedAndAttachedButKeepRejectedLinks()
+    {
+        var registry = new AvatarRegistry
+        {
+            BaseGroups =
+            [
+                new AvatarBaseGroup { Name = "付いている素体" },
+                new AvatarBaseGroup { Name = "外した素体" },
+                new AvatarBaseGroup { Name = "まだの素体" },
+                new AvatarBaseGroup { Name = "削除した素体", Rejected = true },
+            ],
+        };
+        AvatarBaseLink[] links =
+        [
+            new() { BaseName = "付いている素体", Source = AvatarLinkSource.Tag, Confirmed = true },
+            new() { BaseName = "外した素体", Source = AvatarLinkSource.Manual, Confirmed = true, Rejected = true },
+        ];
+
+        var names = AvatarService.ItemBaseCandidates(registry, links);
+
+        Assert.Equal(2, names.Count);
+        Assert.Contains("まだの素体", names);
+        Assert.Contains("外した素体", names);
+        Assert.DoesNotContain(AvatarBaseSeed.Groups[0].Name, names);
+    }
+
+    /// <summary>選んだ素体は手で付けた印（Manual・確定）で足す。次の検出で作り直されないように。</summary>
+    [Fact]
+    public void WithManualBaseLinkAddsManualConfirmedLink()
+    {
+        AvatarBaseLink[] links = [new() { BaseName = "元からの素体", Source = AvatarLinkSource.Tag, Confirmed = true }];
+
+        var result = AvatarService.WithManualBaseLink(links, "足す素体");
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(links[0], result[0]);
+        var added = result[1];
+        Assert.Equal("足す素体", added.BaseName);
+        Assert.Equal(AvatarLinkSource.Manual, added.Source);
+        Assert.True(added.Confirmed);
+        Assert.False(added.Rejected);
+    }
+
+    /// <summary>外した素体を選び直すと、行を増やさずに消した印を下ろす（「消したもの」の［戻す］と同じ）。</summary>
+    [Fact]
+    public void WithManualBaseLinkRestoresRejectedLinkWithoutDuplicating()
+    {
+        AvatarBaseLink[] links =
+        [
+            new() { BaseName = "外した素体", Source = AvatarLinkSource.Manual, Confirmed = true, Rejected = true },
+        ];
+
+        var result = AvatarService.WithManualBaseLink(links, "外した素体");
+
+        var link = Assert.Single(result);
+        Assert.False(link.Rejected);
+        Assert.Equal(AvatarLinkSource.Manual, link.Source);
+        Assert.True(link.Confirmed);
+    }
 }

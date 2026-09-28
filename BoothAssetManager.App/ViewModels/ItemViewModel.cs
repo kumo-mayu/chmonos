@@ -267,7 +267,7 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>対応アバターを手で足す。検出が拾えなかったときの補い。</summary>
     public RelayCommand AddAvatarCommand { get; }
 
-    /// <summary>「対応アバターを足す」の候補。既に宣言されているものは出さない。</summary>
+    /// <summary>「対応アバターを足す」の候補。既に宣言されているものは出さない。共通素体は「（共通素体）」を添えて混ぜる。</summary>
     public IReadOnlyList<string> SupportSuggestions { get; private set; } = [];
 
     /// <summary>候補に出した名前から登録簿のIDを引く（U18：候補の頭に絵を出すため）。</summary>
