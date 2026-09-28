@@ -55,9 +55,12 @@ public static class SearchModuleCatalog
     public const string Slider = "スライダー";
     public const string Usage = "利用状況";
 
-    /// <summary>最初の起動で出しておく最低限の条件（ユーザ判断 2026-09-16 Q9）。</summary>
+    /// <summary>
+    /// 保存された並びが無いときに出しておく条件（ユーザ指示 2026-09-29。前は 所持・ユーザータグ・対応アバター＝2026-09-16 Q9）。
+    /// どれも足しただけでは絞らない形（カテゴリは空・お気に入りは「両方」）なので、最初に全件が見える。
+    /// </summary>
     public static IReadOnlyList<SearchModuleKind> Defaults { get; } =
-        [SearchModuleKind.Owned, SearchModuleKind.UserTag, SearchModuleKind.Avatar];
+        [SearchModuleKind.Category, SearchModuleKind.UserTag, SearchModuleKind.Favorite];
 
     public static IReadOnlyList<SearchModuleInfo> All { get; } =
     [
