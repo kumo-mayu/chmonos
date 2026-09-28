@@ -1,7 +1,6 @@
 using System.IO;
 using System.Net.Http;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.Core.Services;
 
@@ -821,7 +820,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             return;
         }
 
-        Process.Start(new ProcessStartInfo(Shop.Url) { UseShellExecute = true });
+        // 開けなくても落ちないよう、ほかの画面と同じ受け口を通す（ブラウザが無い・関連付けが壊れている）
+        Shell.OpenUrl(Shop.Url);
     }
 
     /// <summary>
