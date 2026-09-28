@@ -1044,31 +1044,26 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// **自分で設定したものなので、設定した本人に見えていないといけない。**
     /// 件数が合わないときに、除いたせいなのかを確かめる先がここ以外に無い。
     /// </summary>
-    public string HiddenText => Item.Local.IsHidden ? "している" : "していない";
-
     public bool IsHidden => Item.Local.IsHidden;
 
     private RelayCommand? _toggleHidden;
 
     /// <summary>
-    /// 「検索から除く」の行で、非表示にする・解除する（ユーザ判断 2026-09-27・動線の洗い出し C5）。
+    /// 「検索から除く」のチェックで、非表示にする・解除する（ユーザ判断 2026-09-27・動線の洗い出し C5、
+    /// チェック1つにしたのは 2026-09-28）。
     /// 状態のすぐ横で戻せるので、カードの右クリックのような「元に戻す」の帯は出さない
     /// </summary>
     public RelayCommand ToggleHiddenCommand => _toggleHidden ??= new RelayCommand(() => ToggleHiddenAsync().Forget());
-
-    public string ToggleHiddenText => IsHidden ? "非表示を解除" : "非表示にする";
-
-    public string ToggleHiddenTip => IsHidden
-        ? "検索とショップに表示されるようにします。"
-        : "検索とショップに表示しなくなります。ここで戻せます。";
 
     private bool _isTogglingHidden;
 
     private async Task ToggleHiddenAsync()
     {
-        // 反転の値は保存し終えた後の Item から作るので、保存中の2回目は同じ値を書いてしまう（点検 2026-09-28）
+        // 反転の値は保存し終えた後の Item から作るので、保存中の2回目は同じ値を書いてしまう（点検 2026-09-28）。
+        // 受けなかった2回目もチェックの見た目は動くので、知らせ直して今の値に戻す
         if (_isTogglingHidden)
         {
+            OnPropertyChanged(nameof(IsHidden));
             return;
         }
 
@@ -1080,12 +1075,10 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         finally
         {
             _isTogglingHidden = false;
-        }
 
-        OnPropertyChanged(nameof(HiddenText));
-        OnPropertyChanged(nameof(IsHidden));
-        OnPropertyChanged(nameof(ToggleHiddenText));
-        OnPropertyChanged(nameof(ToggleHiddenTip));
+            // チェックは押した時点で見た目だけ先に動く。保存に失敗しても、保存した値に合わせ直す
+            OnPropertyChanged(nameof(IsHidden));
+        }
 
         // 検索とショップの一覧は写しを持っているので読み直す（読み直さないと、非表示にした商品が一覧に残る）
         await _main.ReloadLibraryAsync();

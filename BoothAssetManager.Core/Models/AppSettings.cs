@@ -175,7 +175,7 @@ public sealed record AppSettings
 
     /// <summary>
     /// ショートカットの割り当て（#43）。設定画面で変えられる（ユーザ判断）。
-    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+Shift+→、検索欄へ＝Ctrl+F、戻る＝Alt+←。
+    /// 既定：保存して次へ＝Ctrl+Enter、スキップ＝Ctrl+Shift+→、前へ＝Ctrl+Shift+←、検索欄へ＝Ctrl+F、戻る＝Alt+←。
     /// </summary>
     public ShortcutSettings Shortcuts { get; init; } = new();
 
@@ -317,10 +317,18 @@ public sealed record ShortcutSettings
     /// </summary>
     public string Skip { get; init; } = "Ctrl+Shift+Right";
 
+    /// <summary>
+    /// 編集画面の「← 前へ」（ユーザ判断 2026-09-28）。**スキップと違い、文字の欄の中では働かない。**
+    /// 欄の中の Ctrl+Shift+← は1語ずつ選ぶ操作で、スキップと両方を取ると欄で語を選ぶ手が矢印キーから消える。
+    /// 前へ戻るのは入力を終えてからで足りる、とユーザが決めた。
+    /// 前の版の settings.json にはこの項目が無い。読むと既定が入る
+    /// </summary>
+    public string Previous { get; init; } = "Ctrl+Shift+Left";
+
     /// <summary>画面の中の文字を探す帯を出す（どの画面でも同じ・B2）。</summary>
     public string FindInPage { get; init; } = "Ctrl+F";
 
-    /// <summary>直前の画面へ戻る（どの画面でも。編集画面の「前の1件へ」は「← 前へ」ボタン）。</summary>
+    /// <summary>直前の画面へ戻る（どの画面でも。編集画面の「前の1件へ」は「← 前へ」ボタンと <see cref="Previous"/>）。</summary>
     public string Back { get; init; } = "Alt+Left";
 
     /// <summary>戻った先からまた進む（ユーザ指示 2026-09-20・M7。ブラウザと同じ形）。</summary>

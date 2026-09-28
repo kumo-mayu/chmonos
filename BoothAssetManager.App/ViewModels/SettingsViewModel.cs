@@ -112,6 +112,9 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         // 外さないと捨てたはずの設定画面が生き残り、取り込みのたびに開いた回数ぶん同じ知らせが走る
         _main.PropertyChanged += OnMainChanged;
 
+        // 取り込み元の数は、読み込み・追加・外す・外したのを戻すのどれでも変わる。1か所で見出しの数を合わせる
+        Folders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FoldersCountText));
+
         AddFolderCommand = new RelayCommand(AddFolder);
         OpenRootCommand = new RelayCommand(OpenRoot);
         ChangeRootCommand = new RelayCommand(() => ChangeRootAsync().Forget(), () => CanChangeRoot);
@@ -179,6 +182,28 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     public RelayCommand RestartCommand { get; }
 
     public ObservableCollection<ImportFolderRow> Folders { get; } = [];
+
+    /// <summary>
+    /// 取り込み元の履歴を開いているか（ユーザ判断 2026-09-28：取り込むたびに増えて膨大になるので畳めるようにする）。
+    /// 設定画面は開くたびに作り直されるので、アプリを閉じるまでここに持つ（商品ページのバリエーションの欄と同じ）
+    /// </summary>
+    public bool IsFoldersExpanded
+    {
+        get => s_foldersExpanded;
+        set
+        {
+            if (s_foldersExpanded != value)
+            {
+                s_foldersExpanded = value;
+                OnPropertyChanged(nameof(IsFoldersExpanded));
+            }
+        }
+    }
+
+    private static bool s_foldersExpanded = true;
+
+    /// <summary>見出しの右に出す数。畳んでいても何件あるかは分かるように。</summary>
+    public string FoldersCountText => $"{Folders.Count} 件";
 
     private bool _startImportOnDrop;
 
@@ -924,6 +949,9 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
 
         var path = dialog.FolderName;
+
+        // 畳んだまま足すと、足した行が見えず何も起きなかったように見える
+        IsFoldersExpanded = true;
         Folders.Add(new ImportFolderRow
         {
             Path = path,

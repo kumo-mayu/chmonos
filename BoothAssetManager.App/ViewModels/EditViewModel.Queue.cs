@@ -189,7 +189,8 @@ public sealed partial class EditViewModel
             tiles.Add(new EditQueueTile
             {
                 Index = index,
-                NameFactory = () => _main.Search.FindItem(itemId)?.DisplayName ?? itemId,
+                ItemId = itemId,
+                NameFactory = () => TileRecord(itemId)?.DisplayName ?? itemId,
                 IsCurrent = index == _index,
                 IsPast = index < _index,
                 IsSaved = _saved.Contains(itemId),
@@ -217,7 +218,7 @@ public sealed partial class EditViewModel
     /// </summary>
     private BitmapSource? TileImage(string itemId, Action onLoaded, bool preview)
     {
-        if (_main.Search.FindItem(itemId) is not { } record)
+        if (TileRecord(itemId) is not { } record)
         {
             return null;
         }
@@ -234,6 +235,69 @@ public sealed partial class EditViewModel
         }
 
         return preview ? _thumbnails.PeekForCard(path, onLoaded) : _thumbnails.PeekForTile(path, onLoaded);
+    }
+
+    /// <summary>検索の写しに無かったので、ファイルから読んだ商品。帯の札が名前と絵を引くためだけに持つ。</summary>
+    private readonly Dictionary<string, ItemRecord> _tileRecords = new(StringComparer.Ordinal);
+
+    /// <summary>ファイルから読んでいる最中の商品。札は何度も絵を引くので、同じ商品を重ねて読まない。</summary>
+    private readonly HashSet<string> _tileRecordLoads = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 帯の札が名前と絵を引く記録。ふだんは検索が読んである写しから引く（1件進むたびに JSON を読み直さない）。
+    ///
+    /// **写しに無い商品はファイルから読んで札を描き直す。**未確定で確定したばかりの商品は写しにまだ入っておらず
+    /// （確定しても一覧は読み直さない）、写しからだけ引いていたので「確定したものを編集する」で移ると帯の絵が出なかった
+    /// （2026-09-28 の総チェック）。読み終えたら札へ知らせ、そこで初めて絵を引く
+    /// </summary>
+    private ItemRecord? TileRecord(string itemId)
+    {
+        if (_main.Search.FindItem(itemId) is { } record)
+        {
+            return record;
+        }
+
+        if (_tileRecords.TryGetValue(itemId, out var loaded))
+        {
+            return loaded;
+        }
+
+        if (_tileRecordLoads.Add(itemId))
+        {
+            LoadTileRecordAsync(itemId).Forget();
+        }
+
+        return null;
+    }
+
+    private async Task LoadTileRecordAsync(string itemId)
+    {
+        var record = await _services.Store.Items.LoadAsync(itemId);
+        if (record is null)
+        {
+            // 消えた商品は読み直しても出てこない。引くたびに読みに行かないよう、読みかけの印は残す
+            return;
+        }
+
+        _tileRecords[itemId] = record;
+        RefreshTiles(itemId);
+    }
+
+    /// <summary>
+    /// 裏の取得がこの商品の画像を置いた（UIスレッドで呼ばれる）。帯の札の絵を引き直す。
+    /// 札は作ったときに一度だけ絵を引くので、確定の直後のように絵がまだ無かった札は、知らせないと空のままになる
+    /// </summary>
+    public void NoteImagesSaved(string itemId) => RefreshTiles(itemId);
+
+    private void RefreshTiles(string itemId)
+    {
+        foreach (var tile in QueueTiles)
+        {
+            if (string.Equals(tile.ItemId, itemId, StringComparison.Ordinal))
+            {
+                tile.Refresh();
+            }
+        }
     }
 
     private async Task<List<string>> BuildDefaultQueueAsync()

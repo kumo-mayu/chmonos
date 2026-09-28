@@ -39,12 +39,14 @@ public sealed partial class MainViewModel : ViewModelBase
         Search.AttachMain(this);
 
         // 裏の取得が画像を置いたら、開いている画面へ知らせる。知らせないと起動し直すまで空のままだった。
-        // 検索画面は持ち回るので常に、商品ページはそれが今の画面のときだけ。
+        // 検索画面は持ち回るので常に、商品ページはそれが今の画面のときだけ。編集画面の上の帯も同じ
+        // （確定の直後に移ると帯の札は絵の無いまま作られ、知らせないと空のままだった。2026-09-28 の総チェック）。
         // ここ（アプリと同じ寿命）で1回だけ繋ぐので、画面ごとに外し忘れて残ることが無い
         services.Images.ItemImagesSaved += itemId => RunOnUiThread(() =>
         {
             Search.NoteItemImagesSaved(itemId);
             CurrentItemPage?.NoteImagesSaved(itemId);
+            (CurrentViewModel as EditViewModel)?.NoteImagesSaved(itemId);
         });
 
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
@@ -729,10 +731,12 @@ public sealed partial class MainViewModel : ViewModelBase
                 return Run(edit.SaveAndNextCommand);
             case ShortcutAction.Skip when CurrentViewModel is EditViewModel edit:
                 return Run(edit.SkipCommand);
+            case ShortcutAction.Previous when CurrentViewModel is EditViewModel edit:
+                return Run(edit.BackCommand);
             case ShortcutAction.Back:
                 // どの画面でも直前の画面へ（U23）。編集画面も同じ（ユーザ判断 2026-09-12）——
                 // 以前は編集画面だけ「前の1件へ」にしていたが、入力欄にいると効かず、他の画面と食い違っていた。
-                // 前の1件へは「← 前へ」ボタンで行く。離れるときに書きかけは控えるので、戻っても入力は消えない
+                // 前の1件へは「← 前へ」ボタンか、入力欄の外での Ctrl+Shift+←（Previous）で行く。離れるときに書きかけは控えるので、戻っても入力は消えない
                 if (!CanGoBack)
                 {
                     return false;

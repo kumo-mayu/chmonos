@@ -339,11 +339,13 @@ public partial class MainWindow : Window
             // 文字の欄に譲る矢印は、素の矢印・Shift＋矢印（選ぶ）・Ctrl＋矢印（1語ずつ）まで。
             // Alt＋矢印（戻る・進む）と Ctrl+Shift＋矢印（スキップ）は**欄の中でも横取りする**——
             // 譲ると、入力欄だらけの編集画面では一度も効かない（Alt＋← は 2026-09-12、Ctrl+Shift+→ は B11）。
-            // 代償は欄の「1語ずつ選ぶ」で、Shift＋矢印とマウスで足りる
+            // 代償は欄の「1語ずつ選ぶ」で、Shift＋矢印とマウスで足りる。
+            // 前へ（Ctrl+Shift+←）だけは欄に譲る（ユーザ判断 2026-09-28）——スキップと両方を取ると、欄で語を選ぶ手が
+            // 矢印キーから消える。前へ戻るのは入力を終えてからで足りる
             var control = (modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
             var shift = (modifiers & System.Windows.Input.ModifierKeys.Shift) != 0;
             var alt = (modifiers & System.Windows.Input.ModifierKeys.Alt) != 0;
-            var appTakesArrow = (alt && !control) || (control && shift);
+            var appTakesArrow = (alt && !control) || (control && shift && action != Services.ShortcutAction.Previous);
             if (inText && (typing || (Services.Shortcuts.IsTextEditingKey(key) && !appTakesArrow)))
             {
                 return false;

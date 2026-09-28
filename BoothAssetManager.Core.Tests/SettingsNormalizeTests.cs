@@ -23,14 +23,26 @@ public sealed class SettingsNormalizeTests
         => Assert.Equal(expected, new AppSettings { FetchIntervalMs = saved }.Normalized().FetchIntervalMs);
 
     [Fact]
-    public void ショートカットの既定はユーザが決めた4つ()
+    public void ショートカットの既定はユーザが決めた5つ()
     {
         var shortcuts = new AppSettings().Shortcuts;
 
         Assert.Equal("Ctrl+Enter", shortcuts.SaveAndNext);
         Assert.Equal("Ctrl+Shift+Right", shortcuts.Skip);
+        Assert.Equal("Ctrl+Shift+Left", shortcuts.Previous);
         Assert.Equal("Ctrl+F", shortcuts.FindInPage);
         Assert.Equal("Alt+Left", shortcuts.Back);
+    }
+
+    [Fact]
+    public void 前への割り当てが無い設定を読むと既定が入る()
+    {
+        // 前へ（2026-09-28）を足す前に保存した settings.json には項目が無い。空のまま読むと割り当てなしになってしまう
+        const string json = """{ "shortcuts": { "skip": "Ctrl+Shift+Right", "back": "Alt+Left" } }""";
+
+        var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json, BoothAssetManager.Core.Storage.JsonStore.Options)!;
+
+        Assert.Equal("Ctrl+Shift+Left", settings.Shortcuts.Previous);
     }
 
     [Fact]

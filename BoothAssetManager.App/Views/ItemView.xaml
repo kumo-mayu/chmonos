@@ -608,13 +608,13 @@
                                 <StackPanel Margin="0,0,28,10">
                                     <TextBlock Text="検索から除く" Style="{StaticResource SectionLabel}" />
                                     <!--
-                                        状態の横で切り替える（ユーザ判断 2026-09-27・動線の洗い出し C5）。前は戻すのに設定の一覧まで行く必要があった
+                                        状態の横で切り替える（ユーザ判断 2026-09-27・動線の洗い出し C5）。前は戻すのに設定の一覧まで行く必要があった。
+                                        状態の文字と2つのボタンは分かりにくかったので、隣の「更新通知」と同じチェック1つにした（ユーザ判断 2026-09-28）。
+                                        一方向に結ぶのは、書き込みを持ち主を宣言する道（ToggleHiddenCommand）だけに通すため。
+                                        押した瞬間はチェックだけが先に動き、保存し終えたら IsHidden の知らせで今の値に合わせ直す
                                     -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                        <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                                        <Button Content="{Binding ToggleHiddenText}" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
-                                                Command="{Binding ToggleHiddenCommand}" ToolTip="{Binding ToggleHiddenTip}" />
-                                    </StackPanel>
+                                    <CheckBox IsChecked="{Binding IsHidden, Mode=OneWay}" Command="{Binding ToggleHiddenCommand}" Margin="0,4,0,0"
+                                              ToolTip="検索とショップに表示しなくなります。" AutomationProperties.Name="検索から除く" />
                                 </StackPanel>
                                 <StackPanel Margin="0,0,0,10">
                                     <TextBlock Text="更新通知" Style="{StaticResource SectionLabel}" />
