@@ -19,6 +19,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     private readonly ThumbnailLoader _thumbnails;
 
     private bool _ownedOnly;
+    private bool _updatedOnly;
     private List<ItemCardViewModel> _all = [];
     private bool _isFavorite;
     private string _memo = string.Empty;
@@ -455,6 +456,27 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     }
 
     /// <summary>
+    /// 「更新あり」の札が付いた商品だけに絞る（2026-09-28 の総チェックのメモ「変更のあるもののみで絞り込むトグルがあってよい」）。
+    /// 既定は全部。
+    /// </summary>
+    public bool UpdatedOnly
+    {
+        get => _updatedOnly;
+        set
+        {
+            if (SetField(ref _updatedOnly, value))
+            {
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 更新のある商品が1件でもあるか。無い店ではチェックを出さない——押しても必ず0件になる絞り込みは、置く意味が無い。
+    /// </summary>
+    public bool HasUpdatedItems { get; private set; }
+
+    /// <summary>
     /// カードを開く。検索画面と同じく、ビューからカードを渡してもらう。
     /// 戻り先はこのショップにする（検索へ戻されると、見ていた場所を失う）。
     /// </summary>
@@ -673,9 +695,22 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         get
         {
             var lines = new List<string>();
-            if (_ownedOnly && _all.Count > 0)
+
+            // 名前はチェックの文言と同じにする（前は「持っているものだけ」で、画面のどこにも無い名前を指していた）
+            var filters = new List<string>();
+            if (_ownedOnly)
             {
-                lines.Add($"「持っているものだけ」を外すと {_all.Count} 件出ます。");
+                filters.Add("「所持しているものだけ」");
+            }
+
+            if (_updatedOnly)
+            {
+                filters.Add("「更新があるものだけ」");
+            }
+
+            if (filters.Count > 0 && _all.Count > 0)
+            {
+                lines.Add($"{string.Join("と", filters)}を外すと {_all.Count} 件表示されます。");
             }
 
             if (_excluded.Hidden > 0)
@@ -748,6 +783,16 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 card.SelectionChanged += OnCardSelectionChanged;
             }
 
+            // 知らせを読むと更新は0件になり得る。チェックを隠したまま絞りが効いて空になるのを避け、外しておく
+            HasUpdatedItems = _all.Any(card => card.HasUpdate);
+            if (!HasUpdatedItems && _updatedOnly)
+            {
+                _updatedOnly = false;
+                OnPropertyChanged(nameof(UpdatedOnly));
+            }
+
+            OnPropertyChanged(nameof(HasUpdatedItems));
+
             OnCardSelectionChanged();
             Rebuild();
             OnPropertyChanged(nameof(SizeText));
@@ -802,7 +847,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     private void Rebuild()
     {
-        _matches = _all.Where(card => !_ownedOnly || card.IsOwned).ToList();
+        _matches = _all.Where(card => (!_ownedOnly || card.IsOwned) && (!_updatedOnly || card.HasUpdate)).ToList();
         FillRows();
         _listItems = _matches.Cast<object>().ToList();
         OnPropertyChanged(nameof(ListItems));
