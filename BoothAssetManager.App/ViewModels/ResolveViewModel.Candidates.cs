@@ -124,14 +124,16 @@ public sealed partial class ResolveViewModel
 
     private async Task ProposeAsync()
     {
-        if (SearchTargetPath is not { } searchTarget)
+        if (SearchTargetPath is not { } searchTarget || Selected is not { } startedWith)
         {
             return;
         }
 
-        // 検索は分単位かかり、その間も左の一覧は選び直せる。始めた時点の選択を覚えておき、
-        // 戻ったときに違っていれば捨てる（前のファイルの候補が今のファイルに並んでいた）
-        var startedWith = Selected;
+        // 検索は分単位かかり、その間も左の一覧は選び直せる。結果は始めた対象の分として覚え、
+        // 今も同じ対象を選んでいるときだけ並べる（前は今のファイルに前のファイルの候補が並び、
+        // それを止めた後は結果を捨てていたので、戻っても検索し直すしかなかった・ユーザ判断 2026-09-28）。
+        // 行ではなく対象で比べる：一覧を読み直すと行は作り直されるが、同じファイルなら対象は同じ
+        bool StillShowing() => string.Equals(SearchTargetPath, searchTarget, StringComparison.OrdinalIgnoreCase);
 
         IsBusy = true;
         StatusText = string.Empty;
@@ -160,35 +162,26 @@ public sealed partial class ResolveViewModel
             var result = await _services.Commands.ExecuteAsync(
                 new UiCommand.ProposeCandidates(searchTarget, progress), cancellationToken: stop.Token);
 
-            if (!ReferenceEquals(Selected, startedWith))
-            {
-                return;
-            }
-
             if (result is CommandResult.CandidatesProposed proposed)
             {
-                foreach (var candidate in proposed.Candidates)
-                {
-                    Candidates.Add(ToRow(candidate));
-                }
+                RememberedSearches.Remember(searchTarget, proposed, SearchOwners(startedWith));
 
-                SearchPhase = string.Empty;
-                HasSearched = true;
-                BoothUnreachable = proposed.BoothUnreachable;
-                // 0件のときは候補の欄の「候補がありません…」が同じことを言うので、状態の1行には出さない（ユーザ指示 2026-09-17）
-                StatusText = proposed.Candidates.Count == 0
-                    ? string.Empty
-                    : $"候補を {proposed.Candidates.Count} 件見つけました。";
+                if (StillShowing())
+                {
+                    SearchPhase = string.Empty;
+                    ShowSearchResult(proposed);
+                }
             }
-            else if (result is CommandResult.Failed failed)
+            else if (result is CommandResult.Failed failed && StillShowing())
             {
                 StatusText = failed.Message;
             }
         }
         catch (OperationCanceledException)
         {
-            // 中止。もう一度押せばやり直せる（何も書いていない）。選び直した後なら、今のファイルの話ではないので出さない
-            StatusText = ReferenceEquals(Selected, startedWith)
+            // 中止。もう一度押せばやり直せる（何も書いていない）。選び直した後なら、今のファイルの話ではないので出さない。
+            // 前に覚えた結果があれば、それは残しておく（中止したのは探し直しの方）
+            StatusText = StillShowing()
                 ? "候補の検索を中止しました。もう一度「候補を検索」を押すとやり直せます。"
                 : StatusText;
         }
