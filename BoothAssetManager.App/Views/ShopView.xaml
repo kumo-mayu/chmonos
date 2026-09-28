@@ -16,6 +16,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <views:ItemCardResources />
+                <!-- バナーを畳む三角（TriangleExpander）。商品ページ・編集画面と同じ物を使う -->
+                <ResourceDictionary Source="ManageResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -54,11 +56,18 @@
             切り取らずに全体を出す（作者が作った絵なので、勝手に一部だけ見せない）。
             大きさはBOOTHの見せ方（960x320）に合わせ、縦横比が違うバナーは
             その枠に収まるところまで縮める。
+            高さ320を取るので、見出しの三角で畳める（ユーザ指示 2026-09-29）。畳んだかは全部のショップで同じで、閉じても覚える。
+            三角は商品ページ・編集画面と同じ物（TriangleExpander）
         -->
         <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowBannerArea, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <Grid Height="320">
+            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsBannerExpanded, Mode=TwoWay}"
+                      Padding="0" Margin="20,6,20,6" AutomationProperties.Name="バナー">
+                <Expander.Header>
+                    <TextBlock Text="バナー" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+                </Expander.Header>
+            <Grid Height="320" Margin="0,6,0,0">
                 <!--
                     有無が分からない間は、同じ高さの場所を空けて待つ。
                     空けておかないと、後からバナーが差し込まれて中身が下へずれる。
@@ -73,6 +82,7 @@
                        MaxWidth="960" MaxHeight="320" HorizontalAlignment="Center"
                        Visibility="{Binding HasBanner, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </Grid>
+            </Expander>
         </Border>
 
         <!-- ショップの見出しと集計 -->

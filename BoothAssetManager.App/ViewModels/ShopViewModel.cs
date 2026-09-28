@@ -488,6 +488,30 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     /// </summary>
     public bool ShowBannerArea => HasBanner || _reservedBannerArea;
 
+    private bool? _isBannerExpanded;
+
+    /// <summary>
+    /// バナーを出すか（ユーザ指示 2026-09-29：バナーが場所を取りすぎる）。見出しの三角で開け閉めする。
+    /// 全部のショップで同じ値で、閉じても覚える（<c>ui-state.json</c> の <c>shopBannerHidden</c>。ほかの畳み方と同じ置き場所）。
+    /// 既定は出す（ユーザ判断 2026-09-29：今と同じ見た目から始め、消したい人が畳む）
+    /// </summary>
+    public bool IsBannerExpanded
+    {
+        get => _isBannerExpanded ??= !_services.UiState.ShopBannerHidden;
+        set
+        {
+            if (IsBannerExpanded == value)
+            {
+                return;
+            }
+
+            _isBannerExpanded = value;
+            OnPropertyChanged();
+            var hidden = !value;
+            _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(state => state with { ShopBannerHidden = hidden })).Forget();
+        }
+    }
+
     /// <summary>場所を空けている間に出す文言。何を待っているのか、何が無かったのかを書く。</summary>
     public string BannerPlaceholderText => IsBannerPending
         ? "バナーを確認しています…"
