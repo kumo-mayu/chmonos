@@ -520,6 +520,17 @@ public sealed class CommandHandler
                 return new CommandResult.UserTagsRewritten(await _userTags.MoveSubAsync(
                     move.FromTop, move.Sub, move.ToTop, move.DropEmptySourceTop, cancellationToken));
 
+            case UiCommand.NestUserTagTop nest:
+                if (_userTags is null)
+                {
+                    return MissingService("ユーザータグの編集");
+                }
+
+                var nested = await _userTags.NestTopAsync(nest.Top, nest.IntoTop, cancellationToken);
+                return nested.WasRefused
+                    ? new CommandResult.Failed($"「{nest.Top}」には小分類があるため、小分類にできませんでした。")
+                    : new CommandResult.UserTagsRewritten(nested);
+
             case UiCommand.RenameAttribute renameAttribute:
                 if (_attributes is null)
                 {

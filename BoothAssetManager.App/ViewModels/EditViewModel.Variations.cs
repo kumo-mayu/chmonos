@@ -30,7 +30,7 @@ public sealed partial class EditViewModel
             var row = new OrderedVariationInput
             {
                 VariationId = variation.Id,
-                Name = variation.Name ?? "（名前のないバリエーション）",
+                Name = DisplayText.VariationName(variation.Name),
                 ListPrice = variation.Price,
                 ListPriceText = $"¥{variation.Price:N0}",
                 IsPurchased = first is not null,

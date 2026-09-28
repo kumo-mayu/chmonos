@@ -607,4 +607,118 @@ public class UserTagServiceTests : IDisposable
         Assert.Equal(0, (await _service.RenameTopAsync("衣装", "衣装")).ItemsUpdated);
         Assert.Equal("衣装", Assert.Single(_store.UserTags.Load().Tops).Name);
     }
+
+    // ---- 大分類を別の大分類の小分類にする（ユーザ要望 2026-09-29） ----
+
+    /// <summary>
+    /// 付いていた商品は「入れ先＋小分類（元の名前）」になる。入れ先が既に付いていれば、そこへ小分類を足すだけで大分類を2つにしない。
+    /// 一覧では元の大分類が消え、入れ先の小分類にメモごと入る
+    /// </summary>
+    [Fact]
+    public async Task NestsATopUnderAnotherTopAndRewritesItems()
+    {
+        await SaveMasterAsync(
+            new UserTagTop { Name = "制服", Memo = "学校のもの" },
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "私服" }] });
+
+        await SaveItemAsync("1", new UserTagAssignment { Top = "制服" }, new UserTagAssignment { Top = "小物" });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "制服" }, new UserTagAssignment { Top = "衣装", Subs = ["私服"] });
+        await SaveItemAsync("3", new UserTagAssignment { Top = "衣装", Subs = ["私服"] });
+
+        var preview = await _service.PreviewNestTopAsync("制服", "衣装");
+        Assert.Equal(2, preview.ItemCount);
+        Assert.Equal(1, preview.ItemsAlreadyHavingTarget);
+        Assert.False(preview.IsMerge);
+        Assert.False(preview.HasSubs);
+
+        var result = await _service.NestTopAsync("制服", "衣装");
+
+        Assert.False(result.WasRefused);
+        Assert.False(result.WasMerged);
+        Assert.Equal(2, result.ItemsUpdated);
+
+        var top = Assert.Single(result.Master.Tops);
+        Assert.Equal("衣装", top.Name);
+        Assert.Equal(["私服", "制服"], top.Subs.Select(sub => sub.Name));
+        Assert.Equal("学校のもの", top.Subs[1].Memo);
+
+        // 元の位置で置き換える（付けた順が編集画面の並び）
+        var first = await UserTagsOfAsync("1");
+        Assert.Equal(["衣装", "小物"], first.Select(entry => entry.Top));
+        Assert.Equal(["制服"], first[0].Subs);
+
+        var second = Assert.Single(await UserTagsOfAsync("2"));
+        Assert.Equal("衣装", second.Top);
+        Assert.Equal(["私服", "制服"], second.Subs);
+
+        // 元の大分類が付いていない商品は書かない
+        Assert.Equal(["私服"], Assert.Single(await UserTagsOfAsync("3")).Subs);
+    }
+
+    /// <summary>入れ先に同じ名前の小分類があれば統合する。メモは捨てずに書き足し、商品では重ねて付けない</summary>
+    [Fact]
+    public async Task MergesIntoASameNamedSubWhenNesting()
+    {
+        await SaveMasterAsync(
+            new UserTagTop { Name = "制服", Memo = "学校のもの" },
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服", Memo = "ブレザー" }] });
+
+        await SaveItemAsync(
+            "1",
+            new UserTagAssignment { Top = "衣装", Subs = ["制服"] },
+            new UserTagAssignment { Top = "制服" });
+
+        Assert.True((await _service.PreviewNestTopAsync("制服", "衣装")).IsMerge);
+
+        var result = await _service.NestTopAsync("制服", "衣装");
+
+        Assert.True(result.WasMerged);
+        var sub = Assert.Single(Assert.Single(result.Master.Tops).Subs);
+        Assert.Equal("制服", sub.Name);
+        Assert.Contains("ブレザー", sub.Memo);
+        Assert.Contains("学校のもの", sub.Memo);
+
+        var assignment = Assert.Single(await UserTagsOfAsync("1"));
+        Assert.Equal("衣装", assignment.Top);
+        Assert.Equal(["制服"], assignment.Subs);
+    }
+
+    /// <summary>
+    /// 小分類を持つ大分類では断る。小分類の下にもう1段は作れず、持っている小分類の行き場が無い。
+    /// 一覧に小分類が無くても、商品の側に付いていれば（一覧に無い小分類）同じく断る
+    /// </summary>
+    [Fact]
+    public async Task RefusesToNestATopThatHasSubs()
+    {
+        await SaveMasterAsync(
+            new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "制服" }] },
+            new UserTagTop { Name = "小物" },
+            new UserTagTop { Name = "髪型" });
+
+        await SaveItemAsync("1", new UserTagAssignment { Top = "衣装", Subs = ["制服"] });
+        await SaveItemAsync("2", new UserTagAssignment { Top = "小物", Subs = ["一覧に無い小分類"] });
+
+        Assert.True((await _service.PreviewNestTopAsync("衣装", "髪型")).HasSubs);
+        Assert.True((await _service.PreviewNestTopAsync("小物", "髪型")).HasSubs);
+
+        var withMasterSubs = await _service.NestTopAsync("衣装", "髪型");
+        var withItemSubs = await _service.NestTopAsync("小物", "髪型");
+
+        Assert.True(withMasterSubs.WasRefused);
+        Assert.True(withItemSubs.WasRefused);
+        Assert.Equal(0, withMasterSubs.ItemsUpdated);
+        Assert.Equal(3, _store.UserTags.Load().Tops.Count);
+        Assert.Equal("衣装", Assert.Single(await UserTagsOfAsync("1")).Top);
+        Assert.Equal("小物", Assert.Single(await UserTagsOfAsync("2")).Top);
+    }
+
+    /// <summary>自分自身へは入れない</summary>
+    [Fact]
+    public async Task RefusesToNestATopIntoItself()
+    {
+        await SaveMasterAsync(new UserTagTop { Name = "衣装" });
+
+        Assert.True((await _service.NestTopAsync("衣装", "衣装")).WasRefused);
+        Assert.Single(_store.UserTags.Load().Tops);
+    }
 }

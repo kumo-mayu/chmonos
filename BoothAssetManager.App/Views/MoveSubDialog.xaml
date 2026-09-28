@@ -7,17 +7,17 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MoveSubDialogViewModel}"
-        Title="小分類を移す"
+        Title="{Binding DialogTitle}"
         Width="460" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{StaticResource Surface}">
     <StackPanel Margin="22,20">
 
-        <TextBlock Text="小分類を移す" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="{Binding DialogTitle}" FontWeight="Bold" FontSize="14" />
         <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
                    TextWrapping="Wrap" Margin="0,7,0,0" />
 
-        <TextBlock Text="移動先" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
+        <TextBlock Text="{Binding TargetLabel}" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
         <controls:SuggestBox Source="{Binding Targets}" CommitCommand="{Binding PickTargetCommand}"
                              AllowNew="False" Placeholder="大分類を選ぶ" />
 
@@ -51,7 +51,7 @@
                    TextAlignment="Right" Margin="0,14,0,0" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
-            <Button Content="移す" Style="{StaticResource PrimaryButton}"
+            <Button Content="{Binding CommitText}" Style="{StaticResource PrimaryButton}"
                     IsDefault="True" IsEnabled="{Binding HasTarget}" Click="OnMove" />
             <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
         </StackPanel>
