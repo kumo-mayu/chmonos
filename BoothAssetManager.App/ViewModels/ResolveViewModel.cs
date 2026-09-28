@@ -858,13 +858,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var itemId = Preview.Id;
 
         IsBusy = true;
+        StartRegistering(RegisteringArea.Decision, targets.Count);
         try
         {
             var settled = new List<UnresolvedRow>();
             string? failure = null;
+            var done = 0;
             foreach (var row in targets)
             {
                 var result = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId));
+                StepRegistering(++done);
                 if (result is CommandResult.Failed failed)
                 {
                     failure ??= failed.Message;
@@ -902,6 +905,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
         finally
         {
+            EndRegistering();
             IsBusy = false;
         }
     }
@@ -943,10 +947,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
 
         IsBusy = true;
+        StartRegistering(RegisteringArea.Local, targets.Count);
         try
         {
             var result = await _services.Commands.ExecuteAsync(
                 new UiCommand.RegisterLocalItem(targets[0].File.Hash, name));
+            StepRegistering(1);
 
             if (result is CommandResult.Failed failed)
             {
@@ -969,9 +975,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
             // 残りの中身は、できた仮の商品に加える（BOOTHへは行かない）
             var settled = new List<UnresolvedRow> { targets[0] };
+            var done = 1;
             foreach (var row in targets.Skip(1))
             {
-                if (await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, created.ItemId)) is not CommandResult.Failed)
+                var assigned = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, created.ItemId));
+                StepRegistering(++done);
+                if (assigned is not CommandResult.Failed)
                 {
                     settled.Add(row);
                 }
@@ -986,6 +995,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
         finally
         {
+            EndRegistering();
             IsBusy = false;
         }
     }

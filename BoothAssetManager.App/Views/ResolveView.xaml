@@ -19,6 +19,21 @@
             <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
+        <!--
+            登録している間の帯（ユーザ指示 2026-09-29：押した後に何も出ず、どうなっているのか分からなかった）。
+            押したボタンのすぐ下に出すので、置く所ごとに Visibility だけを変えて使い回す。中身は画面の ViewModel に結ぶ
+        -->
+        <DataTemplate x:Key="RegisteringStrip" DataType="{x:Type vm:ResolveViewModel}">
+            <StackPanel Margin="0,10,0,0">
+                <TextBlock Text="{Binding RegisteringText}" Style="{StaticResource Caption}" />
+                <ProgressBar Height="5" Margin="0,6,0,0" Minimum="0"
+                             Maximum="{Binding RegisteringTotal, Mode=OneWay}"
+                             Value="{Binding RegisteringDone, Mode=OneWay}"
+                             IsIndeterminate="{Binding HasRegisteringTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                             Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
     <DockPanel Background="{StaticResource Bg}">
 
@@ -480,6 +495,8 @@
                                 </StackPanel>
                                 <TextBlock Text="元のzipで登録するのがおすすめです。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
+                                                Visibility="{Binding IsRegisteringFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
 
                             <TextBlock Text="{Binding ContentsSummary}" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
@@ -565,6 +582,8 @@
                                 <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding AssignCommand}" />
                             </StackPanel>
+                            <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
+                                            Visibility="{Binding IsRegisteringInDecision, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 例外（1つのzipに複数の商品が入っているなど）のために、zipの単位にしない。選び直すと切れる（ユーザ判断 2026-09-17） -->
                             <CheckBox Content="このファイルだけを扱う" Margin="0,9,0,0" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
                                       ToolTip="1つのzipに複数の商品があるときに使います。オフならzipごと登録します。"
@@ -695,6 +714,8 @@
                                     <Button Content="{Binding RegisterFolderText}" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
                                             ToolTip="先に商品IDを決めてください。フォルダを移動したら登録し直してください。" />
+                                    <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
+                                                    Visibility="{Binding IsRegisteringFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
 
@@ -750,6 +771,8 @@
 
                                     <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Command="{Binding RegisterLocalCommand}" />
+                                    <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
+                                                    Visibility="{Binding IsRegisteringLocal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <TextBlock Text="元のzipが未確定にあるため、zipで登録してください。1件だけ扱うときは「このファイルだけを扱う」をオンにします。"
                                                Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{StaticResource Warn}" Margin="0,6,0,0"
                                                Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
