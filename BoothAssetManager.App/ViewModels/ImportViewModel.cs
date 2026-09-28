@@ -207,16 +207,12 @@ public sealed class ImportViewModel : ViewModelBase
         {
             if (parameter is string path)
             {
-                var index = History.IndexOf(path);
                 History.Remove(path);
                 OnPropertyChanged(nameof(HasHistory));
                 ChangeFolderListsAsync(settings => Core.Services.FolderListChange.RemoveImportFolder(settings, path)).Forget();
-                _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す", async () =>
-                {
-                    History.Insert(Math.Min(Math.Max(index, 0), History.Count), path);
-                    OnPropertyChanged(nameof(HasHistory));
-                    await ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path]));
-                });
+                // 戻すと設定の末尾に足され、保存の後に一覧が設定の並びへ揃う
+                _main.NoteFolderRemoved($"「{path}」を取り込み元から外しました。", "取り込み元に戻す",
+                    () => ChangeFolderListsAsync(settings => Core.Services.FolderListChange.AddImportFolders(settings, [path])));
             }
         },
         parameter => parameter is string);

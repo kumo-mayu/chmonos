@@ -186,6 +186,7 @@ public sealed class ShopService : IShopService
     {
         var updatedIds = _store.Notifications.Load()
             .Where(record => !record.IsRead
+                && !record.IsResolved
                 && record.Kind == NotificationKind.ItemUpdated
                 && record.ItemId is not null)
             .Select(record => record.ItemId!)

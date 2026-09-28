@@ -472,6 +472,13 @@ public sealed partial class MainViewModel : ViewModelBase
                 ClearForward();
             }
 
+            // 取り込み元・監視を外した知らせは、外したその画面でだけ戻せるようにする。画面を移った後に戻すと、
+            // 開き直した画面の一覧は読み直されず、戻ったのに一覧に出ない（点検 2026-09-28）
+            if (!ReferenceEquals(_currentViewModel, value))
+            {
+                DismissFolderRemovedCommand.Execute(null);
+            }
+
             // 編集画面を離れるときは、今の商品の入力を書きかけとして控える（別の画面へ移っても消さない・ユーザ判断）
             if (_currentViewModel is EditViewModel leavingEdit && !ReferenceEquals(leavingEdit, value))
             {

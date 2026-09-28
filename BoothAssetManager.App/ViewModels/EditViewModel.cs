@@ -555,12 +555,13 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
     /// <summary>
     /// 空欄のときに実際に使われる日付。何が採用されるのかを伏せない。
+    /// 欄の中の薄い字で、空欄のときだけ出る（書式は入力欄の吹き出しに出す）
     /// </summary>
     public string AcquiredHintText
     {
         get
         {
-            if (_acquiredAt.Trim().Length > 0 || _item is null)
+            if (_item is null)
             {
                 return "yyyy-MM-dd";
             }

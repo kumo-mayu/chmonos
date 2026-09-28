@@ -894,6 +894,7 @@
                         -->
                         <Grid>
                             <TextBox x:Name="AcquiredBox" Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
+                                     ToolTip="yyyy-MM-dd の形で入れてください。"
                                      VerticalContentAlignment="Center" Padding="8,0" />
                             <TextBlock Text="{Binding AcquiredHintText}" IsHitTestVisible="False"
                                        VerticalAlignment="Center" Margin="10,0,10,0"

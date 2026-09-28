@@ -1062,9 +1062,26 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
         ? "検索とショップに表示されるようにします。"
         : "検索とショップに表示しなくなります。ここで戻せます。";
 
+    private bool _isTogglingHidden;
+
     private async Task ToggleHiddenAsync()
     {
-        await SaveLocalAsync(Item.Local with { IsHidden = !Item.Local.IsHidden }, LocalOwners.Visibility);
+        // 反転の値は保存し終えた後の Item から作るので、保存中の2回目は同じ値を書いてしまう（点検 2026-09-28）
+        if (_isTogglingHidden)
+        {
+            return;
+        }
+
+        _isTogglingHidden = true;
+        try
+        {
+            await SaveLocalAsync(Item.Local with { IsHidden = !Item.Local.IsHidden }, LocalOwners.Visibility);
+        }
+        finally
+        {
+            _isTogglingHidden = false;
+        }
+
         OnPropertyChanged(nameof(HiddenText));
         OnPropertyChanged(nameof(IsHidden));
         OnPropertyChanged(nameof(ToggleHiddenText));

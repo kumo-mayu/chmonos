@@ -705,6 +705,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     /// </summary>
     private HashSet<string> UpdatedItemIds() => _services.Notifications.Load()
         .Where(record => !record.IsRead
+            && !record.IsResolved
             && record.Kind == Core.Models.NotificationKind.ItemUpdated
             && record.ItemId is not null)
         .Select(record => record.ItemId!)

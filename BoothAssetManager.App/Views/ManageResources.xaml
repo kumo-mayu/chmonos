@@ -78,7 +78,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Expander">
                     <DockPanel>
-                        <ToggleButton DockPanel.Dock="Top" Focusable="False" Cursor="Hand"
+                        <ToggleButton DockPanel.Dock="Top" Cursor="Hand"
                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
