@@ -28,7 +28,17 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     /// </summary>
     private readonly CancellationTokenSource _leaving = new();
 
-    public void OnLeaving() => _leaving.Cancel();
+    public void OnLeaving()
+    {
+        _leaving.Cancel();
+
+        // 新しく確定した商品は、検索の写しを読み直すまで検索に出ない。確定のたびに読み直すと
+        // 2000件で数秒ずつ待つので、画面を離れるときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）
+        if (_settledItemIds.Any(id => _main.Search.FindItem(id) is null))
+        {
+            _main.ReloadLibraryAsync().Forget();
+        }
+    }
 
     /// <summary>「取り込み中に n 件増えました」の1行を出すために見る。</summary>
     public MainViewModel Main => _main;

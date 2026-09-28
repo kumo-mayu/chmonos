@@ -289,9 +289,14 @@ public sealed partial class SearchViewModel
             yield return (AvatarSuggestionText.Format(name, entry.ItemId), AvatarKey + entry.ItemId);
         }
 
-        foreach (var baseName in registry.BaseGroups.Select(group => group.Name)
+        // 削除した素体（印の付いたグループ）は候補に出さない。一覧にも照合にも出さない約束で、
+        // アバターの記録に同じ名前が残っていても出さない（点検 2026-09-28：削除した素体が候補に出ていた）
+        var deleted = registry.BaseGroups.Where(group => group.Rejected)
+            .Select(group => group.Name)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var baseName in registry.BaseGroups.Where(group => !group.Rejected).Select(group => group.Name)
             .Concat(registry.Entries.Select(entry => entry.BaseName))
-            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Where(name => !string.IsNullOrWhiteSpace(name) && !deleted.Contains(name!))
             .Select(name => name!)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(name => name, StringComparer.CurrentCulture))
