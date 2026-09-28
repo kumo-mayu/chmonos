@@ -44,6 +44,17 @@ public sealed record ImportState
     /// </summary>
     public IReadOnlyList<UnfetchedItem> Unfetched { get; init; } = [];
 
+    /// <summary>
+    /// BOOTH から応答の無い失敗が続いたので、問い合わせを打ち切ったか（ユーザ判断 2026-09-29）。
+    ///
+    /// ネットにつながっていないと1件ごとに再試行で長く待つ（つながらないとき約13秒・応答が無いとき最長約100秒）ので、
+    /// 全件を回ると止まって見えた。打ち切った分は取れなかった商品と同じく「続きから」に残す。
+    /// 立っているときは <see cref="Targets"/> も残す——②（説明文）を打ち切った商品は①が済んでいて
+    /// <see cref="Unfetched"/> に載らないので、対象を走査し直さないと②へ戻れない。
+    /// 起きたことの記録で、ほかの値からは導けないので書き出す。
+    /// </summary>
+    public bool StoppedOffline { get; init; }
+
     /// <summary>①が途中で止まったままか（最後まで走っていれば 0 / 0 で書く）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool WasInterrupted => Total > 0 && Done < Total;
@@ -64,7 +75,7 @@ public sealed record ImportState
     /// BOOTH の不調で取れなかった商品が残っていれば、最後まで走っていても出す。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasProgress => WasInterrupted || UnfetchedItems.Count > 0;
+    public bool HasProgress => WasInterrupted || UnfetchedItems.Count > 0 || StoppedOffline;
 
     /// <summary>
     /// 「続きから進む」で積み直す物。前回の対象と、取れなかった商品のファイル。
@@ -88,6 +99,14 @@ public sealed record ImportState
         get
         {
             var failed = UnfetchedItems.Count;
+
+            // つながっていないのに「BOOTHの不調」「少し待ってから」と言うと、待っても直らない。
+            // 事象（つながっていない）と次の一手（つないでから押す）だけを言う
+            if (StoppedOffline)
+            {
+                return "前回の取り込みは途中で止めました。ネットにつながっていないようです。つながってから「続きから進む」を押してください";
+            }
+
             if (WasInterrupted)
             {
                 var text = $"前回は {Done} / {Total} 件まで進んで中断しました";

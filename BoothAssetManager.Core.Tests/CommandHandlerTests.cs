@@ -318,6 +318,7 @@ public class CommandHandlerTests
     [InlineData(RefreshOutcome.NotFound)]
     [InlineData(RefreshOutcome.Delisted)]
     [InlineData(RefreshOutcome.TemporaryFailure)]
+    [InlineData(RefreshOutcome.Unreachable)]
     [InlineData(RefreshOutcome.Unreadable)]
     [InlineData(RefreshOutcome.Missing)]
     public async Task ReportsFailureForNonUpdatedRefreshOutcomes(RefreshOutcome outcome)
@@ -328,6 +329,25 @@ public class CommandHandlerTests
         var result = await handler.ExecuteAsync(new UiCommand.RefreshItem("5813187"));
 
         Assert.IsType<CommandResult.Failed>(result);
+    }
+
+    /// <summary>
+    /// つながっていないのと BOOTH の不調とは次の一手が違う（つなぐ／待つ）ので、文を言い分ける（点検 2026-09-28 の 9）。
+    /// 押した人に「次回に再試行します」とは言わない。
+    /// </summary>
+    [Fact]
+    public async Task TellsUnreachableApartFromBoothTrouble()
+    {
+        var (handler, _, items) = Create();
+
+        items.Outcome = RefreshOutcome.Unreachable;
+        var offline = Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.RefreshItem("5813187")));
+        items.Outcome = RefreshOutcome.TemporaryFailure;
+        var trouble = Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.RefreshItem("5813187")));
+
+        Assert.Contains("ネットにつながっていない", offline.Message, StringComparison.Ordinal);
+        Assert.Contains("BOOTHの不調", trouble.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("次回", trouble.Message, StringComparison.Ordinal);
     }
 
     [Fact]

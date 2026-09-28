@@ -29,6 +29,15 @@ public sealed class BoothFetchResult<T>
     /// <summary>Retry-Afterで指示された待ち時間。ヘッダが無ければnull。</summary>
     public TimeSpan? RetryAfter { get; init; }
 
+    /// <summary>
+    /// BOOTH から応答が1つも来なかったか（接続できない・タイムアウト）。状態としては一時エラー。
+    ///
+    /// 5xx・429・読めない応答は BOOTH が応答しているので立てない。
+    /// 取り込みはこれが続いたら段を打ち切り（ネットにつながっていないのに全件を再試行で回ると、止まって見える）、
+    /// 画面は「BOOTHの不調」ではなく「ネットにつながっていない」と言い分ける（ユーザ判断 2026-09-29）。
+    /// </summary>
+    public bool IsUnreachable { get; init; }
+
     public bool IsSuccess => Status == BoothFetchStatus.Success;
 
     public static BoothFetchResult<T> Success(T value) => new() { Status = BoothFetchStatus.Success, Value = value };
@@ -37,6 +46,9 @@ public sealed class BoothFetchResult<T>
 
     public static BoothFetchResult<T> Temporary(string error, TimeSpan? retryAfter = null)
         => new() { Status = BoothFetchStatus.TemporaryFailure, Error = error, RetryAfter = retryAfter };
+
+    public static BoothFetchResult<T> Unreachable(string error)
+        => new() { Status = BoothFetchStatus.TemporaryFailure, Error = error, IsUnreachable = true };
 
     public static BoothFetchResult<T> RateLimited(string error, TimeSpan? retryAfter)
         => new()
@@ -452,11 +464,13 @@ public sealed class BoothClient : IBoothClient
         {
             // 理由は画面や取り込みの結果にそのまま出る。.NET の文（英語・内部の名前）は出さず、中身はログへ
             Diagnostics.AppLog.Error("BOOTHへの問い合わせ", exception);
-            return BoothFetchResult<T>.Temporary(Services.FailureText.Cause(exception));
+            // 応答が来なかったことも結果に載せる。受け取る側が「BOOTHの不調」と「つながっていない」を言い分け、
+            // 取り込みは続いたら段を打ち切る（ユーザ判断 2026-09-29）
+            return BoothFetchResult<T>.Unreachable(Services.FailureText.Cause(exception));
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return BoothFetchResult<T>.Temporary("タイムアウトしました");
+            return BoothFetchResult<T>.Unreachable("タイムアウトしました");
         }
         finally
         {

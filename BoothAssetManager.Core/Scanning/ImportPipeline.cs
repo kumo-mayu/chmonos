@@ -108,6 +108,12 @@ public sealed class ImportSummary
 
     public int TemporaryFailures { get; init; }
 
+    /// <summary>
+    /// BOOTH から応答の無い失敗が続いたので、問い合わせを打ち切ったか（ユーザ判断 2026-09-29）。
+    /// 立っていれば、<see cref="TemporaryFailures"/> には打ち切って問い合わせなかった商品も入る。
+    /// </summary>
+    public bool StoppedOffline { get; init; }
+
     public int ImagesDownloaded { get; init; }
 
     /// <summary>③ 検出が対応アバターを書き込んだ商品数。</summary>
@@ -289,7 +295,8 @@ public sealed class ImportPipeline : IImportPipeline
 
             if (work.TakePending() is not { Count: > 0 } folders)
             {
-                if (images.IsEmpty)
+                // 応答の無い失敗が続いて打ち切ったなら、前の周回で積んだ画像も取りに行かない（FetchAsync の画像の見込みと同じ理由）
+                if (images.IsEmpty || totals.StoppedOffline)
                 {
                     break;
                 }
@@ -384,10 +391,21 @@ public sealed class ImportPipeline : IImportPipeline
         // 最後まで来たので途中の記録は要らない。残すと次の起動で「中断した」と嘘をつく。
         // BOOTH の不調で取れなかった商品だけは残す——消すと、そのファイルは商品にも未確定にも入らず、
         // 走査の控えに載っているので監視も新しいと数えず、どこにも出てこなくなる（#10）
+        //
+        // 応答の無い失敗が続いて打ち切った回は、対象も残す（ユーザ判断 2026-09-29）。②を打ち切った商品は①が済んでいて
+        // 取れなかった商品に載らないので、「続きから進む」で対象を走査し直して②へ戻す
         await _store.ImportState.SaveAsync(
-            totals.Unfetched.Count == 0
-                ? new ImportState()
-                : new ImportState { Unfetched = totals.Unfetched, StoppedAt = DateTimeOffset.Now },
+            totals.StoppedOffline
+                ? new ImportState
+                {
+                    Unfetched = totals.Unfetched,
+                    StoppedAt = DateTimeOffset.Now,
+                    Targets = work.Accepted,
+                    StoppedOffline = true,
+                }
+                : totals.Unfetched.Count == 0
+                    ? new ImportState()
+                    : new ImportState { Unfetched = totals.Unfetched, StoppedAt = DateTimeOffset.Now },
             cancellationToken);
 
         return totals.ToSummary();
@@ -541,6 +559,37 @@ public sealed class ImportPipeline : IImportPipeline
         /// <summary>取れた・既に商品がある・BOOTH に無かった（未確定へ回した）。どれも取り直す物ではない。</summary>
         public void NoteSettled(string itemId) => _unfetched.Remove(itemId);
 
+        /// <summary>
+        /// 応答の無い失敗がこの数だけ続いたら、この回の問い合わせを打ち切る（ユーザ判断 2026-09-29）。
+        /// ネットにつながっていないと1件ごとに再試行で長く待ち（つながらないとき約13秒・応答が無いとき最長約100秒）、
+        /// 全件を回るので止まって見えた。1〜2件なら BOOTH の一瞬の不調でも起きるので、3件で見切る
+        /// </summary>
+        public const int UnreachableLimit = 3;
+
+        private int _unreachableStreak;
+
+        /// <summary>応答の無い失敗が続いて、この回の問い合わせを打ち切ったか。</summary>
+        public bool StoppedOffline { get; private set; }
+
+        /// <summary>
+        /// 1件の問い合わせの結果を数える。**応答が無かった物だけを続けて数え、BOOTH が何か返したら数え直す**。
+        /// 429（混雑）・5xx・404・読めない応答は BOOTH が応答しているのでつながってはいる——429 は今の扱い
+        /// （間隔を広げて待つ）のまま、打ち切りには数えない。
+        /// </summary>
+        public void NoteResponse<T>(BoothFetchResult<T> result)
+        {
+            if (!result.IsUnreachable)
+            {
+                _unreachableStreak = 0;
+                return;
+            }
+
+            if (++_unreachableStreak >= UnreachableLimit)
+            {
+                StoppedOffline = true;
+            }
+        }
+
         private readonly List<UnpackedFolder> _unpacked = [];
         private int _scanned;
         private int _skippedUnpacked;
@@ -605,6 +654,7 @@ public sealed class ImportPipeline : IImportPipeline
             ItemsAlreadyKnown = _alreadyKnown,
             NotFound = _notFound,
             TemporaryFailures = _temporaryFailures,
+            StoppedOffline = StoppedOffline,
             ImagesDownloaded = _imagesDownloaded,
             AvatarItemsUpdated = _avatarItemsUpdated,
             AvatarsFound = _avatarsFound,
@@ -1116,8 +1166,19 @@ public sealed class ImportPipeline : IImportPipeline
             cancellationToken.ThrowIfCancellationRequested();
             Report(progress, ImportPhase.FetchingJson, ++done, pending.Count, itemId);
 
+            // 応答の無い失敗が続いたら、残りは問い合わせずに「続きから」へ残す（ユーザ判断 2026-09-29）。
+            // 取れなかった商品と同じ扱いなので、下の帯の「続きから進む」で取り直せる
+            if (totals.StoppedOffline)
+            {
+                temporaryFailures++;
+                work.PlanRequests(json: -1, pages: -1);
+                totals.NoteUnfetched(itemId, discovered);
+                continue;
+            }
+
             var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
             work.PlanRequests(json: -1);
+            totals.NoteResponse(jsonResult);
 
             if (jsonResult.Status == BoothFetchStatus.NotFound)
             {
@@ -1214,6 +1275,14 @@ public sealed class ImportPipeline : IImportPipeline
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // ①と同じく、応答の無い失敗が続いたら残りは問い合わせない。説明の無い商品は、
+            // 「続きから進む」で対象を走査し直したときに②へ戻る（取得済みで説明が無い商品は②の対象・U9）
+            if (totals.StoppedOffline)
+            {
+                work.PlanRequests(pages: -(pages.Count - index));
+                break;
+            }
+
             var item = pages[index];
             Report(progress, ImportPhase.FetchingHtml, ++done, pages.Count, item.Id);
 
@@ -1221,6 +1290,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 見込みは問い合わせが済んでから減らす（①と揃える）。取っている最中の1件は残りに数える
             work.PlanRequests(pages: -1);
+            totals.NoteResponse(htmlResult);
             if (!htmlResult.IsSuccess || htmlResult.Value is null)
             {
                 // 節が取れなくても商品自体は使える。次の段へ進む
@@ -1266,7 +1336,17 @@ public sealed class ImportPipeline : IImportPipeline
         // 以前は周回の最後（③の後）に足していたので、①②③の間ずっと画像の残りが 0 のままで、
         // 「画像を取り終わるまで」が「編集できるまで」と同じ数字になっていた（ユーザ指摘 2026-09-21）。
         // 画像の枚数は②まで済めば分かるので、そこで数える
-        if (_images.SavesImages)
+        //
+        // 応答の無い失敗が続いて打ち切ったなら、この回は画像も取りに行かない（取れない物を1件ずつ再試行で待つだけになる）。
+        // 取り残した画像は起動時の⑤か「足りない情報を取得」で取れる（ImageBacklog は手元の JSON とディスクの差で対象を決める）。
+        // 打ち切った記録は③の間に閉じても残るよう、ここで書いておく
+        var takesImages = _images.SavesImages && !totals.StoppedOffline;
+        if (totals.StoppedOffline)
+        {
+            await SaveProgressAsync(totals, work, cancellationToken);
+        }
+
+        if (takesImages)
         {
             var planned = pages.Where(item => item.Booth.Images.Count > 0).ToList();
             work.PlanRequests(
@@ -1310,7 +1390,7 @@ public sealed class ImportPipeline : IImportPipeline
         // **並びは検索・編集の待ち行列と同じ規則にそろえる**（ItemOrder.ByAcquired。2026-09-21 ユーザ判断）。
         // 走査した順のままだと、絵が埋まっていく順と、人が上から片付けていく順が無関係になり、
         // 待ち行列の先頭の商品の絵だけがいつまでも来ない、という見え方になっていた
-        var withImages = _images.SavesImages
+        var withImages = takesImages
             ? ItemOrder.ByAcquired(pages.Where(item => item.Booth.Images.Count > 0), descending: true).ToList()
             : [];
 
@@ -1322,7 +1402,7 @@ public sealed class ImportPipeline : IImportPipeline
             NotFoundFiles = notFoundFiles,
             TemporaryFailures = temporaryFailures,
             WithImages = withImages,
-            ShopIcons = _images.SavesImages ? shopIcons : new Dictionary<string, string>(),
+            ShopIcons = takesImages ? shopIcons : new Dictionary<string, string>(),
             AvatarItemsUpdated = avatarItemsUpdated,
             AvatarsFound = avatarsFound,
             AvatarDetectError = avatarDetectError,
@@ -1345,6 +1425,7 @@ public sealed class ImportPipeline : IImportPipeline
                 StoppedAt = DateTimeOffset.Now,
                 Targets = work.Accepted,
                 Unfetched = totals.Unfetched,
+                StoppedOffline = totals.StoppedOffline,
             },
             cancellationToken);
 
