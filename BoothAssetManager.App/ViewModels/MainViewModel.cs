@@ -22,8 +22,8 @@ public sealed partial class MainViewModel : ViewModelBase
         _services = services;
         Thumbnails = new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
 
-        // カードの大きさ（設定の「サムネイルの大きさ」）。検索画面が列を割る前に決めておく
-        CardMetrics.Apply(services.Settings.ThumbnailSize);
+        // カードの大きさとリストの行の高さ（一覧の右下のスライダー）。検索画面が列を割る前に決めておく
+        ItemViewSize.Initialize(services);
 
         // 検索画面は使い捨てにせず1つだけ持ち回る。
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
@@ -598,8 +598,11 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <returns>書き終わりまでの待ち。閉じる前は待つ——投げっぱなしにすると、窓が閉じた時点で切られる。</returns>
     public Task FlushPendingWritesAsync()
     {
-        // 組み込んだ物は、組み込んだ画面が自分で拾う（フォルダ・改変・編集の中の商品ページ）
-        return (CurrentViewModel as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
+        // 組み込んだ物は、組み込んだ画面が自分で拾う（フォルダ・改変・編集の中の商品ページ）。
+        // 一覧の大きさ（右下のスライダー）は画面に属さないので、ここで一緒に書く
+        return Task.WhenAll(
+            (CurrentViewModel as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask,
+            ItemViewSize.Current.FlushAsync());
     }
 
     /// <summary>

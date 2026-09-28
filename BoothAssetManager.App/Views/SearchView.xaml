@@ -1038,6 +1038,9 @@
                 </controls:SplitRowPanel>
             </Border>
 
+            <!-- 右下の大きさのスライダー（ユーザ判断 2026-09-29）。下から積むので、選択中の帯より先に書いて一番下に置く -->
+            <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
+
             <!--
                 選択中だけ出る操作バー。下端に重ねて出す。
                 上に差し込むと結果の位置がずれて、選んでいる最中に操作が途切れる。

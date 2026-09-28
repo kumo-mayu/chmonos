@@ -211,6 +211,9 @@
             </controls:SplitRowPanel>
         </Border>
 
+        <!-- 右下の大きさのスライダー（検索と同じ・ユーザ判断 2026-09-29）。下から積むので、まとめて操作の帯より先に書く -->
+        <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
+
         <!-- 選んでいる間と、Unity へ送っている間に出す、まとめて操作の帯（検索・フォルダビューと同じ。動線の点検 C1） -->
         <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" Focusable="False"
                         Visibility="{Binding ShowsSelectionBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />

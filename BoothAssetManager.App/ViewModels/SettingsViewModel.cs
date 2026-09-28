@@ -6,17 +6,6 @@ using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.App.ViewModels;
 
-/// <summary>サムネイルの大きさの選択肢。</summary>
-public sealed class ThumbnailSizeOption
-{
-    public required string Label { get; init; }
-
-    public required ThumbnailSize Value { get; init; }
-
-    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
-    public override string ToString() => Label;
-}
-
 /// <summary>サムネイルに出す画像の役割の選択肢。</summary>
 public sealed class ThumbnailRoleOption
 {
@@ -128,7 +117,6 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _showSubTagsInList = settings.ShowSubTagsInList;
         _showAdult = settings.ShowAdult;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
-        _thumbnailSize = settings.ThumbnailSize;
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
@@ -276,13 +264,6 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     public ObservableCollection<RestorableRow> Detached { get; } = [];
 
-    public static IReadOnlyList<ThumbnailSizeOption> ThumbnailSizes { get; } =
-    [
-        new ThumbnailSizeOption { Label = "小", Value = ThumbnailSize.Small },
-        new ThumbnailSizeOption { Label = "中", Value = ThumbnailSize.Medium },
-        new ThumbnailSizeOption { Label = "大", Value = ThumbnailSize.Large },
-    ];
-
     public bool IsLoading
     {
         get => _isLoading;
@@ -329,23 +310,6 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showHiddenCountInSearch, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
-    private ThumbnailSize _thumbnailSize;
-    public ThumbnailSize ThumbnailSize
-    {
-        get => _thumbnailSize;
-        set
-        {
-            if (SetField(ref _thumbnailSize, value))
-            {
-                OnPropertyChanged(nameof(SelectedThumbnailSize));
-
-                // その場でカードの大きさを変える（前は保存されるだけで、どこにも効いていなかった。R2）
-                global::BoothAssetManager.App.Services.CardMetrics.Apply(value);
-                Save();
-            }
-        }
-    }
-
     private ThumbnailRole _thumbnailRole;
 
     /// <summary>
@@ -379,13 +343,6 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get => ThumbnailRoles.First(option => option.Value == ThumbnailRole);
         set { if (value is not null) { ThumbnailRole = value.Value; } }
-    }
-
-    /// <summary>ComboBoxに出す選択肢。enum名をそのまま見せない。</summary>
-    public ThumbnailSizeOption SelectedThumbnailSize
-    {
-        get => ThumbnailSizes.First(option => option.Value == ThumbnailSize);
-        set { if (value is not null) { ThumbnailSize = value.Value; } }
     }
 
     private bool _gallerySwitchOnHover;
@@ -879,7 +836,6 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowSubTagsInList = ShowSubTagsInList,
             ShowAdult = ShowAdult,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
-            ThumbnailSize = ThumbnailSize,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,

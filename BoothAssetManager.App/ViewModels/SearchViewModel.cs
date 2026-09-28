@@ -26,7 +26,7 @@ public sealed class CardRow
 /// </summary>
 public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISelectionScreen
 {
-    /// <summary>カード1枚が占める幅（カードの幅 + 右の間。設定の「サムネイルの大きさ」で変わる）。列数の計算に使う。</summary>
+    /// <summary>カード1枚が占める幅（カードの幅 + 右の間。一覧の右下のスライダーで変わる）。列数の計算に使う。</summary>
     private static double CardSlotWidth => global::BoothAssetManager.App.Services.CardMetrics.SlotWidth;
 
     /// <summary>最後に知らされた一覧の幅。カードの大きさが変わったときに、幅の知らせを待たずに割り直すため。</summary>
@@ -348,17 +348,29 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     }
 
     /// <summary>
-    /// カードの大きさが変わった。検索画面は使い回すので、設定から戻っても一覧の幅は変わらず知らせが来ない。
-    /// 覚えている幅で割り直す
+    /// カードの大きさが変わった（一覧の右下のスライダー）。一覧の幅は変わらないので知らせが来ない。覚えている幅で割り直す。
+    /// **列数が変わらなければ行に触らない**——カードの大きさは見た目の側（DynamicResource）が変えるので、
+    /// ドラッグの間に行を組み直し続けるとカクつく
     /// </summary>
     private void RelayoutForCardSize()
     {
         if (_viewportWidth > 0)
         {
-            _columns = 0;
             SetViewportWidth(_viewportWidth);
         }
+
+        if (_cardEdgeDip != global::BoothAssetManager.App.Services.CardMetrics.EdgeDip)
+        {
+            _cardEdgeDip = global::BoothAssetManager.App.Services.CardMetrics.EdgeDip;
+            foreach (var card in _cards.Values)
+            {
+                card.NoteCardEdgeChanged();
+            }
+        }
     }
+
+    /// <summary>絵を読んだ大きさ。刻みを越えたときだけカードに読み直させる（ドラッグの間に毎回読み直さない）。</summary>
+    private int _cardEdgeDip = global::BoothAssetManager.App.Services.CardMetrics.EdgeDip;
 
     /// <summary>
     /// 読み直しは投げっぱなしの道が複数ある（取り込みの進捗・起動時の裏の作業・編集の後・商品ページの操作）。

@@ -44,15 +44,14 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["modifications.item.left"] = new(480, 360, 1000),
 
         // 商品をリストで出すときの列（ユーザ指示 2026-09-14：列の幅もドラッグで変え、その画面の一覧で共通にする）。
+        // 絵の列は覚えない（行の高さに合わせて決まる。一覧の右下のスライダー・ItemViewSize・ユーザ判断 2026-09-29）。
         // 画面ごと（検索・フォルダビュー）に覚える。名前は長い物が多いので広く、札は「見つからない・未編集・所持」が並ぶ幅
         ["search.col.select"] = new(36, 28, 60),
-        ["search.col.icon"] = new(56, 44, 120),
         ["search.col.fav"] = new(36, 28, 60),
         ["search.col.name"] = new(460, 160, 1000),
         ["search.col.shop"] = new(200, 80, 500),
         ["search.col.chips"] = new(220, 100, 420),
         ["folder.col.select"] = new(36, 28, 60),
-        ["folder.col.icon"] = new(56, 44, 120),
         ["folder.col.fav"] = new(36, 28, 60),
         ["folder.col.name"] = new(420, 160, 1000),
         ["folder.col.shop"] = new(260, 80, 600),
@@ -60,12 +59,10 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
 
         // 改変のページの使ったもの（ユーザ指示 2026-09-14）。左の列の中（既定 560 で中身は 500 ほど）なので名前は狭め。
         // 順・絵・星・名前・操作（右端 200）が、既定の幅で横に送らずに収まるようにする。使ったファイルは名前の下に置く（列にしない）
-        ["modification.col.icon"] = new(56, 44, 120),
         ["modification.col.fav"] = new(36, 28, 60),
         ["modification.col.name"] = new(160, 100, 800),
         // ショップ画面のリスト（ユーザ指示 2026-09-15）。ショップの列には入手日を出す
         ["shop.col.select"] = new(36, 28, 60),
-        ["shop.col.icon"] = new(56, 44, 120),
         ["shop.col.fav"] = new(36, 28, 60),
         ["shop.col.name"] = new(420, 160, 1000),
         ["shop.col.shop"] = new(200, 80, 600),

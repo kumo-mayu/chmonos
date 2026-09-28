@@ -208,7 +208,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     private int _columns = 1;
 
-    /// <summary>カード1枚ぶんの幅（カードの幅＋間。設定の「サムネイルの大きさ」で変わる）。</summary>
+    /// <summary>カード1枚ぶんの幅（カードの幅＋間。一覧の右下のスライダーで変わる）。</summary>
     private static double CardStride => CardMetrics.SlotWidth;
 
     /// <summary>一覧の左右の余白（24×2）と縦のスクロールバーのぶん。</summary>
@@ -217,6 +217,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     /// <summary>一覧の幅から列数を決める（WPFには仮想化するWrapPanelが無いので、行に切って並べる）。</summary>
     public void SetViewportWidth(double width)
     {
+        _viewportWidth = width;
         var columns = Math.Max(1, (int)((width - ListChrome) / CardStride));
         if (columns == _columns)
         {
@@ -227,21 +228,34 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         FillRows();
     }
 
-    /// <summary>行に切り直す。1店の商品は多くても数百なので、丸ごと作り直す。</summary>
-    private void FillRows()
-    {
-        Rows.Clear();
-        for (var start = 0; start < _matches.Count; start += _columns)
-        {
-            var row = new CardRow();
-            foreach (var card in _matches.Skip(start).Take(_columns))
-            {
-                row.Cards.Add(card);
-            }
+    /// <summary>
+    /// 行に切り直す。ずれた所だけを抜き差しする（検索と同じ）——一覧の右下のスライダーでカードの大きさを変えると
+    /// 列数が続けて変わり、丸ごと作り直すと見えているカードを毎回作り直してカクつく
+    /// </summary>
+    private void FillRows() => CardRowLayout.Apply(Rows, _matches, _columns, () => new CardRow(), row => row.Cards);
 
-            Rows.Add(row);
+    private double _viewportWidth;
+
+    /// <summary>カードの大きさが変わった。一覧の幅は変わらないので、覚えている幅で割り直す（列数が同じなら何もしない）。</summary>
+    public void RelayoutForCardSize()
+    {
+        if (_viewportWidth > 0)
+        {
+            SetViewportWidth(_viewportWidth);
+        }
+
+        // 読む大きさの刻みを越えたときだけ読み直させる（検索と同じ）
+        if (_cardEdgeDip != CardMetrics.EdgeDip)
+        {
+            _cardEdgeDip = CardMetrics.EdgeDip;
+            foreach (var card in _all)
+            {
+                card.NoteCardEdgeChanged();
+            }
         }
     }
+
+    private int _cardEdgeDip = CardMetrics.EdgeDip;
 
     public RelayCommand BackCommand { get; }
 
