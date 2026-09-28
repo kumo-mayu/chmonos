@@ -675,7 +675,7 @@ public sealed partial class MainViewModel : ViewModelBase
         ShowSearch();
     }
 
-    /// <summary>未確定ファイルの総件数。「残っている作業量」を示す。</summary>
+    /// <summary>未確定の件数。「残っている作業量」を示すので、ファイルの数ではなく登録する回数で数える（<see cref="CountUnresolvedUnits"/>）。</summary>
     public int UnresolvedCount
     {
         get => _unresolvedCount;
@@ -959,10 +959,14 @@ public sealed partial class MainViewModel : ViewModelBase
         var turn = Interlocked.Increment(ref _countsRead);
         var store = _services.Store;
         var notificationService = _services.Notifications;
+
+        // 未確定の画面と同じ単位で数えるための材料。検索の写しは画面のスレッドで写してから渡す
+        var items = Search.SnapshotItems();
+        var importFolders = _services.Settings.ImportFolders.ToList();
         Task.Run(() =>
             {
                 // 読めなければ投げる（Forget がログに残す）。数は古いまま残るだけ
-                var unresolved = store.Unresolved.Load().Count;
+                var unresolved = CountUnresolvedUnits(store.Unresolved.Load(), items, importFolders);
                 var notifications = notificationService.Load();
 
                 // 解消済みは一覧（未読のみ）に出ないので、バッジにも乗せない。
@@ -993,6 +997,59 @@ public sealed partial class MainViewModel : ViewModelBase
 
     /// <summary>件数の読み直しの番号。</summary>
     private int _countsRead;
+
+    /// <summary>未確定の単位の数を、材料が同じ間は覚えておく（<see cref="CountUnresolvedUnits"/>）。</summary>
+    private sealed record UnitCountMemo(int Signature, int Count);
+
+    private UnitCountMemo? _unitCountMemo;
+
+    /// <summary>
+    /// ナビの札の未確定の数。**未確定の画面の見出しと同じく、登録する回数で数える**（ユーザ指示 2026-09-29：
+    /// zipの中身・展開したフォルダは1件。実際にIDを登録する回数を想像できるように）。
+    /// 画面と同じ行の組み方（<see cref="ResolveViewModel.BuildRows"/>）を通すので、登録済みのzipの中身も同じく数えない。
+    ///
+    /// 行を組むにはファイルごとに展開元の記録を読み、フォルダの中を見る（ディスクを見る）。札は取り込み中に何度も読み直すので、
+    /// **未確定の記録・商品が持っているファイルの数・取り込み元が前と同じなら、前の数を使う**。裏のスレッドで呼ぶ。
+    /// </summary>
+    private int CountUnresolvedUnits(
+        IReadOnlyList<Core.Models.UnresolvedFile> files,
+        IReadOnlyList<Core.Models.ItemRecord> items,
+        IReadOnlyList<string> importFolders)
+    {
+        if (files.Count == 0)
+        {
+            return 0;
+        }
+
+        var owned = items
+            .SelectMany(item => item.Local.OwnedFiles)
+            .SelectMany(file => file.Paths)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var signature = new HashCode();
+        foreach (var file in files)
+        {
+            signature.Add(file.Hash, StringComparer.OrdinalIgnoreCase);
+            signature.Add(file.Paths.Count > 0 ? file.Paths[0] : string.Empty, StringComparer.OrdinalIgnoreCase);
+        }
+
+        signature.Add(owned.Count);
+        foreach (var folder in importFolders)
+        {
+            signature.Add(folder, StringComparer.OrdinalIgnoreCase);
+        }
+
+        var key = signature.ToHashCode();
+        if (Volatile.Read(ref _unitCountMemo) is { } memo && memo.Signature == key)
+        {
+            return memo.Count;
+        }
+
+        var rows = ResolveViewModel.BuildRows([.. files], owned, importFolders);
+        var count = Core.Scanning.UnresolvedUnits.Count(rows.Rows.Select(row => row.UnitKey));
+        Volatile.Write(ref _unitCountMemo, new UnitCountMemo(key, count));
+        return count;
+    }
 
     private string _structureAlert = string.Empty;
 

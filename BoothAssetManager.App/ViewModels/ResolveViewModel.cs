@@ -194,6 +194,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingToolTip));
         OnPropertyChanged(nameof(SettledCount));
         OnPropertyChanged(nameof(HasSettled));
         OnPropertyChanged(nameof(SettledText));
@@ -405,7 +406,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Fixed = IsEmbedded ? new System.Windows.GridLength(0) : null,
     };
 
-    public string RemainingText => $"未確定 {Files.Count} 件";
+    /// <summary>
+    /// 見出しの件数は登録する回数（zipの中身・展開したフォルダは1件）で数える（ユーザ指示 2026-09-29）。
+    /// ナビの札も同じ数え方（<see cref="MainViewModel"/> の件数の読み直し）。ファイルの数は吹き出しに出す
+    /// </summary>
+    public string RemainingText => $"未確定 {UnresolvedUnits.Count(Files.Select(row => row.UnitKey))} 件";
+
+    public string RemainingToolTip => $"ファイルは {Files.Count} 件です。zipやフォルダでまとまるファイルは1件と数えます。";
 
     public int SettledCount => _settledItemIds.Count;
 
@@ -583,7 +590,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     }
 
     /// <summary>裏で組んだ一覧。画面のスレッドでは <see cref="ApplyReload"/> で1回で差し替えるだけにする。</summary>
-    private sealed record ReloadedRows(
+    internal sealed record ReloadedRows(
         List<UnresolvedRow> Rows,
         int HiddenByRegisteredZip,
         Dictionary<string, ArchiveContentJudgement> Judgements,
@@ -647,11 +654,20 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Selected = Files.FirstOrDefault();
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingToolTip));
     }
 
     private ReloadedRows BuildReload(Func<UnresolvedFile, bool>? scope, IReadOnlySet<string> owned, IReadOnlyList<string> importFolders)
+        => BuildRows(_services.Store.Unresolved.Load().Where(file => scope?.Invoke(file) ?? true).ToList(), owned, importFolders);
+
+    /// <summary>
+    /// 未確定の記録から一覧の行を組む。ディスクを見るので裏のスレッドで呼ぶ。
+    /// ナビの札の件数（<see cref="MainViewModel"/>）も、画面と同じ単位で数えるためにこれで組む。
+    /// </summary>
+    /// <param name="owned">商品が持っているファイルの場所（元のzipが登録済みの中身は出さない）。</param>
+    /// <param name="importFolders">取り込み元（展開物の根をここより広げない）。</param>
+    internal static ReloadedRows BuildRows(List<UnresolvedFile> unresolved, IReadOnlySet<string> owned, IReadOnlyList<string> importFolders)
     {
-        var unresolved = _services.Store.Unresolved.Load().Where(file => scope?.Invoke(file) ?? true).ToList();
         var judgements = new Dictionary<string, ArchiveContentJudgement>(StringComparer.OrdinalIgnoreCase);
         var originExists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         var rows = new List<UnresolvedRow>();
@@ -1066,6 +1082,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingToolTip));
         OnPropertyChanged(nameof(SettledCount));
         OnPropertyChanged(nameof(HasSettled));
         OnPropertyChanged(nameof(SettledText));

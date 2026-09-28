@@ -52,7 +52,7 @@
                     </StackPanel>
                     <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
-                    <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding RemainingText}" ToolTip="{Binding RemainingToolTip}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
                     <!-- 元のzipが登録済みなので出していない中身。黙って減らさない（ユーザ判断 2026-09-17） -->
