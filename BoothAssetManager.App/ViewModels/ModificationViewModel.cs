@@ -447,7 +447,9 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             }, token);
 
             var members = Record.UsedMembers.Select(member => member.ItemId).ToHashSet(StringComparer.Ordinal);
-            var names = items.ToDictionary(item => item.Id, item => item.DisplayName, StringComparer.Ordinal);
+            // 同じ ID が2件あると ToDictionary が投げ、照合の結果が黙って出なくなる（改変の一覧・アバターの画面と同じ備え。点検 2026-09-28）
+            var names = items.GroupBy(item => item.Id, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().DisplayName, StringComparer.Ordinal);
             foreach (var match in matches.Where(match => !members.Contains(match.ItemId)))
             {
                 FoundInProject.Add(new ProjectCandidateRowViewModel
