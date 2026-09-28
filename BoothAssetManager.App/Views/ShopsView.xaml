@@ -104,7 +104,7 @@
                 列数をViewModel側で幅から決めて行に切り、その行をListBoxに並べる。
                 画面外の行のカードは作られないので、アイコンの読み込みも走らない
             -->
-            <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+            <ListBox x:Name="ShopList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
                      Padding="18" HorizontalContentAlignment="Stretch"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"

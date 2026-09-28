@@ -158,6 +158,51 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     /// </summary>
     public ObservableCollection<CardRow> Rows { get; } = [];
 
+    // ---- 戻ったときの一覧の位置と絞り（ユーザ判断 2026-09-28） ----
+    // 画面は開くたびに作り直すので、離れるときの状態は画面の履歴に預け、戻る・進むで開き直したときだけ当てる。
+    // 絞り（所持しているものだけ・更新があるものだけ）も預ける。位置だけ戻しても、絞りが外れていると並びが違い、
+    // 見ていた商品の前後に別の商品が挟まって「戻った」ように見えない。
+    // カードかリストかはショップ画面として既に覚えている（ItemListMode）ので預けない
+
+    private ListAnchor? _pendingAnchor;
+
+    /// <summary>View が今の位置を読む手順（位置は View の一覧しか知らない）。</summary>
+    public Func<ListAnchor?>? AnchorReader { get; set; }
+
+    /// <summary>一覧を初めて組み終えたか。View が後から付いたときに、待たずに当ててよいかを見る。</summary>
+    public bool IsListReady { get; private set; }
+
+    /// <summary>一覧を組み終えた。位置を戻すのはこの後（組む前に当てると、当てる先の行がまだ無い）。</summary>
+    public event EventHandler? ListReady;
+
+    /// <summary>離れるときの状態。画面の履歴が控えに入れる。</summary>
+    public ShopViewState CaptureState() => new(_ownedOnly, _updatedOnly, AnchorReader?.Invoke());
+
+    /// <summary>
+    /// 戻る・進むで開き直したときに、離れたときの状態を預ける。**一覧を読み終える前に呼ぶ**
+    /// （作った直後は裏で読んでいる最中なので、絞りは読み終えた所の組み立てで効く）。
+    /// </summary>
+    public void RestoreState(ShopViewState state)
+    {
+        _ownedOnly = state.OwnedOnly;
+        _updatedOnly = state.UpdatedOnly;
+        _pendingAnchor = state.Anchor;
+        OnPropertyChanged(nameof(OwnedOnly));
+        OnPropertyChanged(nameof(UpdatedOnly));
+        if (IsListReady)
+        {
+            Rebuild();
+        }
+    }
+
+    /// <summary>預かった位置を1回だけ渡す（組み直すたびに引き戻さないように）。</summary>
+    public ListAnchor? TakePendingAnchor()
+    {
+        var anchor = _pendingAnchor;
+        _pendingAnchor = null;
+        return anchor;
+    }
+
     /// <summary>絞り込んだ後の商品（「所持しているものだけ」）。</summary>
     private List<ItemCardViewModel> _matches = [];
 
@@ -796,6 +841,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             OnCardSelectionChanged();
             Rebuild();
             OnPropertyChanged(nameof(SizeText));
+            IsListReady = true;
+            ListReady?.Invoke(this, EventArgs.Empty);
         });
 
         await EnsureBannerAsync();
@@ -880,3 +927,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
             : date.ToString("yyyy-MM-dd");
 
 }
+
+/// <summary>ショップの画面を離れたときの状態（画面の履歴に預け、戻る・進むで開き直したときに当てる）。</summary>
+/// <param name="Anchor">一覧の位置。先頭にいたときは null。</param>
+public sealed record ShopViewState(bool OwnedOnly, bool UpdatedOnly, ListAnchor? Anchor);
