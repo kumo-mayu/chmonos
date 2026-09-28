@@ -824,7 +824,7 @@
                     <Border BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6"
                             Height="34" HorizontalAlignment="Stretch" Background="White">
                         <Grid>
-                            <TextBox x:Name="QueryBox" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                            <TextBox x:Name="QueryBox" MaxLength="500" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0,34,0"
                                      FontSize="13" Background="Transparent" />
                             <!-- 打った文字を消す（ユーザ指示 2026-09-16）。絞り込みの条件は消さない -->

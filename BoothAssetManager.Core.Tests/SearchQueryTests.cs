@@ -329,4 +329,14 @@ public class SearchQueryTests
         Assert.True(Match("black or white", Hay("Black or White Parka")));
         Assert.False(Match("black or white", Hay("Black Parka")));
     }
+
+    /// <summary>括弧や「-」を大量に貼っても落ちない（前は1つごとに1段深く読み、スタックが溢れた）。</summary>
+    [Theory]
+    [InlineData('(')]
+    [InlineData('-')]
+    public void VeryLongQueriesDoNotOverflow(char repeated)
+    {
+        var node = SearchQuery.Parse(new string(repeated, 100_000));
+        Assert.NotNull(node);
+    }
 }

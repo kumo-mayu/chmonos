@@ -309,11 +309,22 @@ public static class SearchQuery
         return builder.ToString();
     }
 
+    /// <summary>
+    /// 読む語の長さの上限。括弧と「-」は1つごとに1段深く読み進めるので、括弧を数千個貼るとスタックが溢れて落ちた（点検 2026-09-28）。
+    /// 人が打つ検索の語は長くても数十字で、500字あれば足りる。深さもこの字数までに収まる
+    /// </summary>
+    public const int MaxQueryLength = 500;
+
     public static SearchNode Parse(string? query)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return new SearchNode.All();
+        }
+
+        if (query.Length > MaxQueryLength)
+        {
+            query = query[..MaxQueryLength];
         }
 
         var tokens = DropUnmatchedClose(Tokenize(query));
