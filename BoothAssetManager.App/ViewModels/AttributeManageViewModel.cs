@@ -63,7 +63,7 @@ public sealed class OrphanAttributeRow : ViewModelBase
 /// 違いはitem側が名前だけでなく 0〜100 の値を持つこと。統合すると
 /// 「両方に値が入っているitemでどちらを残すか」が出るので、そこだけ聞く。
 /// </summary>
-public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
+public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, IItemCardHost
 {
     private readonly AppServiceContainer _services;
 
@@ -547,6 +547,48 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
 
         entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
         return entry;
+    }
+
+    // ---- カードの操作（検索画面と同じ・IItemCardHost） ----
+    // この属性を持つ商品のカードは、枠の Tag にこの画面が入る。受け先が無いと、右クリックのメニューは出るのに押しても何も起きなかった。
+    // 中身は検索画面の物をそのまま借りる（タグの管理・ショップ・フォルダビュー・改変と同じ形）
+
+    public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+
+    public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
+
+    public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
+
+    public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;
+
+    public RelayCommand OpenShopCommand => _main.Search.OpenShopCommand;
+
+    public RelayCommand CopyLinkCommand => _main.Search.CopyLinkCommand;
+
+    public RelayCommand EditItemCommand => _main.Search.EditItemCommand;
+
+    public RelayCommand RevealCommand => _main.Search.RevealCommand;
+
+    public RelayCommand CardUnpackCommand => _main.Search.CardUnpackCommand;
+
+    public RelayCommand CardSendToUnityCommand => _main.Search.CardSendToUnityCommand;
+
+    public RelayCommand CardSendToUnityWithRecordCommand => _main.Search.CardSendToUnityWithRecordCommand;
+
+    public RelayCommand CardSelectInUnityCommand => _main.Search.CardSelectInUnityCommand;
+
+    private RelayCommand? _hideItem;
+
+    /// <summary>
+    /// 非表示にする。書くのは検索画面と同じ命令で、検索の写しを読み直し終えてからこの画面を組み直す
+    /// （中の商品は検索の写しから引くので、先に組み直すと古い商品のまま残る）
+    /// </summary>
+    public RelayCommand HideItemCommand => _hideItem ??= new RelayCommand(parameter => HideItemAsync(parameter as ItemCardViewModel).Forget());
+
+    private async Task HideItemAsync(ItemCardViewModel? card)
+    {
+        await _main.Search.HideItemAsync(card);
+        await ReloadAsync();
     }
 
     public ObservableCollection<AttributeMasterRow> Rows { get; } = [];

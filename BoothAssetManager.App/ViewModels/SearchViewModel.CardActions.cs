@@ -211,8 +211,9 @@ public sealed partial class SearchViewModel
 
     /// <summary>
     /// 検索とショップの件数から外す。設定画面から戻せるので確認は挟まない。
+    /// 検索の写しを読み直し終えるまで待てるよう公開する（タグ・属性の管理は、読み直した写しから自分の一覧を組み直すため）
     /// </summary>
-    private async Task HideItemAsync(ItemCardViewModel? card)
+    public async Task HideItemAsync(ItemCardViewModel? card)
     {
         if (card is null)
         {
