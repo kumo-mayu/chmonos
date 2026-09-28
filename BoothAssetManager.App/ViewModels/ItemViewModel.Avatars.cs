@@ -259,7 +259,7 @@ public sealed partial class ItemViewModel
                 .Where(link => link.Rejected)
                 .Select(link => new RejectedAvatarRow
                 {
-                    Name = $"{link.BaseName}（共通素体）",
+                    Name = BaseSuggestionText(link.BaseName),
                     RestoreCommand = new RelayCommand(() => RestoreBaseAsync(link.BaseName).Forget(), () => !IsEditLocked),
                 }))
             .ToList();
@@ -273,9 +273,18 @@ public sealed partial class ItemViewModel
 
         // 対応アバターの候補。既に宣言されているものは出さない
         var declared = Avatars.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
-        SupportSuggestions = registry.Entries
+        var avatarSuggestions = registry.Entries
             .Where(entry => AvatarService.IsAvatar(entry) && !declared.Contains(entry.ItemId))
-            .Select(entry => names[entry.ItemId])
+            .Select(entry => names[entry.ItemId]);
+
+        // 共通素体も同じ欄から付ける（ユーザ判断 2026-09-28：素体は外す・戻すしかできず、付ける口が無かった）。
+        // アバターと素体に同じ名前がありうるので、素体には「（共通素体）」を添えて別の行にし、
+        // 選ばれた文字列を名前で引き直さず、この表で素体と分かった物だけを素体として足す
+        _baseNamesBySuggestion = AvatarService.ItemBaseCandidates(registry, Item.Local.AvatarBases)
+            .ToDictionary(BaseSuggestionText, name => name, StringComparer.CurrentCultureIgnoreCase);
+
+        SupportSuggestions = avatarSuggestions
+            .Concat(_baseNamesBySuggestion.Keys)
             .OrderBy(name => name, StringComparer.CurrentCulture)
             .ToList();
 
@@ -377,6 +386,14 @@ public sealed partial class ItemViewModel
     /// </summary>
     private async Task AddAvatarAsync(string? name)
     {
+        if (name is not null && _baseNamesBySuggestion.TryGetValue(name.Trim(), out var baseName))
+        {
+            await SaveLocalAsync(
+                Item.Local with { AvatarBases = AvatarService.WithManualBaseLink(Item.Local.AvatarBases, baseName) },
+                LocalOwners.AvatarBases);
+            return;
+        }
+
         if (FindAvatarByName(name) is not { } match)
         {
             return;
@@ -401,6 +418,11 @@ public sealed partial class ItemViewModel
 
         await SaveLocalAsync(Item.Local with { Avatars = links }, LocalOwners.SupportedAvatars);
     }
+
+    /// <summary>「＋ 追加」の候補に出した素体の行から素体の名前を引く表。アバターの名前と取り違えないように分けて持つ。</summary>
+    private Dictionary<string, string> _baseNamesBySuggestion = new(StringComparer.CurrentCultureIgnoreCase);
+
+    private static string BaseSuggestionText(string baseName) => $"{baseName}（共通素体）";
 
     private AvatarRegistryEntry? FindAvatarByName(string? name)
     {

@@ -157,7 +157,7 @@
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            ToolTip="対応アバターを手で追加します。"
+                                                            ToolTip="対応アバターか共通素体を手で追加します。"
                                                             Visibility="{Binding DataContext.IsAddingAvatar,
                                                                          RelativeSource={RelativeSource AncestorType=UserControl},
                                                                          Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -168,7 +168,7 @@
                                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                          IconSelector="{Binding DataContext.AvatarIconSelector,
                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                         AllowNew="False" Placeholder="追加するアバターの名前"
+                                                                         AllowNew="False" Placeholder="アバターか共通素体の名前"
                                                                          IsVisibleChanged="OnAddBoxVisibleChanged"
                                                                          Visibility="{Binding DataContext.IsAddingAvatar,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl},

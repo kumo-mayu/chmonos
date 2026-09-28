@@ -152,6 +152,48 @@ public sealed partial class AvatarService
             .ToList();
 
     /// <summary>
+    /// 商品ページの「＋ 追加」に混ぜる共通素体の候補（ユーザ判断 2026-09-28）。
+    /// 登録簿の素体のうち、削除していない物で、この商品にまだ付いていない物。
+    ///
+    /// 足す欄（<see cref="BaseNameCandidates"/>）と違い、消した素体と初期辞書の素体は出さない：
+    /// 商品の対応素体は検索で素体の兄弟をつなぐためにあり、登録簿に無い素体を付けてもつなぐ先が無い。
+    /// 商品から外した（Rejected の）素体は候補に残す——選び直すと戻る（「消したもの」の［戻す］と同じ）。
+    /// </summary>
+    public static IReadOnlyList<string> ItemBaseCandidates(AvatarRegistry registry, IEnumerable<AvatarBaseLink> links)
+    {
+        var attached = links
+            .Where(link => !link.Rejected)
+            .Select(link => link.BaseName)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+
+        return registry.BaseGroups
+            .Where(group => !group.Rejected && group.Name.Trim().Length > 0 && !attached.Contains(group.Name))
+            .Select(group => group.Name)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 商品の対応素体に、人が選んだ素体を足す。手で足した物は <see cref="AvatarLinkSource.Manual"/>
+    /// （検出し直しは Manual 以外を作り直すので、出どころを変えないと次の検出で消える）。
+    /// 外した素体を選び直したときは、行を増やさず消した印を下ろす（「消したもの」の［戻す］と同じ形）。
+    /// </summary>
+    public static IReadOnlyList<AvatarBaseLink> WithManualBaseLink(IReadOnlyList<AvatarBaseLink> links, string baseName)
+    {
+        if (links.Any(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return links
+                .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
+                    ? link with { Source = AvatarLinkSource.Manual, Rejected = false, Confirmed = true }
+                    : link)
+                .ToList();
+        }
+
+        return [.. links, new AvatarBaseLink { BaseName = baseName, Source = AvatarLinkSource.Manual, Confirmed = true }];
+    }
+
+    /// <summary>
     /// このグループの一致から衣装の互換を推し量ってよいかを切り替える。
     /// 同じ素体を名乗っていても衣装が合わない組は false にする。
     /// </summary>
