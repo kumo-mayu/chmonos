@@ -432,6 +432,17 @@ public sealed class ImportViewModel : ViewModelBase
 
     public bool HasStackNotice => !string.IsNullOrEmpty(StackNotice);
 
+    private RelayCommand? _fetchMissing;
+
+    /// <summary>
+    /// 起動時と同じ「足りない情報の取得」（残った画像・アバターの画像・期限の来た商品）を今始める（ユーザ判断 2026-09-28）。
+    /// 進み具合は常設の1行に出る。走っている最中は二重に始めない
+    /// </summary>
+    public RelayCommand FetchMissingCommand => _fetchMissing ??= new RelayCommand(() =>
+        StackNotice = _main.StartBacklogNow()
+            ? "足りない情報の取得を始めました。進み具合は左下に表示されます。"
+            : "足りない情報の取得は、もう進めています。");
+
     public string PhaseText
     {
         get => _phaseText;

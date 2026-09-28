@@ -25,11 +25,30 @@ public sealed partial class MainViewModel
     /// 邪魔をしてまで知らせる価値がない（どちらも次の起動でまた試す）。**ログには残す。**
     /// **段ごとに受け止める。**前は1つの try でつないでいて、⑤で落ちると⑦まで何も言わずに止まっていた（技術的負債 2-3）。
     /// </summary>
-    private void StartBacklogResume()
+    private void StartBacklogResume() => StartBacklog(force: false);
+
+    /// <summary>走っている裏の作業。終わるまで次を始めない（同じ段を2本走らせると、同じ画像を2回取りに行く）。</summary>
+    private Task? _backlogRun;
+
+    /// <summary>
+    /// 取り込み画面の「足りない情報を取得」から、起動時と同じ裏の作業を今始める（ユーザ判断 2026-09-28）。
+    /// 設定で裏の取得を切っていても始める——人が頼んだので。
+    /// 優先度は起動時と同じ低い段のまま：量が多い取得で、取り込みや商品ページで押した取り直しを先に通したいため
+    /// （CLAUDE.md の「UiCommand を通さない例外」にこのボタンも入る）。
+    /// </summary>
+    /// <returns>始めたか。既に走っていれば始めない。</returns>
+    public bool StartBacklogNow() => StartBacklog(force: true);
+
+    private bool StartBacklog(bool force)
     {
-        if (!_services.Settings.ResumeFetchInBackground)
+        if (!force && !_services.Settings.ResumeFetchInBackground)
         {
-            return;
+            return false;
+        }
+
+        if (_backlogRun is { IsCompleted: false })
+        {
+            return false;
         }
 
         _backlog = new CancellationTokenSource();
@@ -48,7 +67,7 @@ public sealed partial class MainViewModel
         var detection = new Progress<Core.Services.AvatarDetectProgress>(
             report => BoothActivity.ReportWork(WorkSource.Background, "対応アバターを検出中", report.Done, report.Total));
 
-        Task.Run(async () =>
+        _backlogRun = Task.Run(async () =>
         {
             try
             {
@@ -100,7 +119,9 @@ public sealed partial class MainViewModel
             {
                 // 閉じたときに止めた
             }
-        }, token).Forget();
+        }, token);
+        _backlogRun.Forget();
+        return true;
     }
 
     /// <summary>

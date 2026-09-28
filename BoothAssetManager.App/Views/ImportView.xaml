@@ -109,6 +109,9 @@
                                 <Button Content="{Binding StartText}" Style="{StaticResource PrimaryButton}"
                                         Command="{Binding StartCommand}" />
                                 <Button Content="中断" Margin="9,0,0,0" Command="{Binding CancelCommand}" />
+                                <!-- 起動時の裏の作業を今始める（ユーザ判断 2026-09-28）。取り込みとは別の作業なので少し離す -->
+                                <Button Content="足りない情報を取得" Margin="18,0,0,0" Command="{Binding FetchMissingCommand}"
+                                        ToolTip="取り切れなかった画像と、期限の来た商品の情報を取得します。" />
                             </StackPanel>
                             <TextBlock Text="{Binding StackNotice}" Style="{StaticResource Caption}"
                                        Margin="0,9,0,0" TextWrapping="Wrap"
@@ -267,12 +270,16 @@
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,16"
                         Visibility="{Binding IsRunning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
+                        <!-- 進み具合を見ている目の先に中断を置く（ユーザ指摘 2026-09-28。上の「取り込みを開始」の横だけでは気付きにくい） -->
+                        <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="中断" Command="{Binding CancelCommand}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{Binding PhaseText}" FontWeight="Bold" FontSize="13" />
                             <!-- 何を数えているか。件数だけだと検出の「346 / 599」がアバターの数に見えた -->
                             <TextBlock Text="{Binding StepText}" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Mono}" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
+                        </DockPanel>
                         <!-- ProgressBar.Value は RangeBase 由来で既定が TwoWay。読み取り専用プロパティに繋ぐので明示的に OneWay にする -->
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0"
                                      Maximum="{Binding Total, Mode=OneWay}" Value="{Binding Current, Mode=OneWay}"
