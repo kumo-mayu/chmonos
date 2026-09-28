@@ -213,13 +213,18 @@ public sealed partial class MainViewModel
     /// 取り込みはBOOTHへの通信で1件あたり十数秒かかる。起動した瞬間に黙って始めると、
     /// ユーザがこれからやろうとしていた操作と行列を取り合う。件数を出して押させる。
     ///
-    /// 設定「起動時に監視フォルダの新着を取り込む」を入れた人だけ、そのまま始める（#38）。
+    /// 設定「起動時に自動で取り込む」を入れた人だけ、そのまま始める（#38）。対象は監視フォルダの新着と、
+    /// 前回途中で止まった取り込みの続き（ユーザ判断 2026-09-29。<see cref="Core.Scanning.LaunchImportTargets"/>）。
     /// そのときも画面は切り替えない——起動した直後に画面が飛ぶと、しようとしていた操作の邪魔になる。
     /// 進み具合は常設の1行に出る。
     /// </summary>
     private void StartWatchScan()
     {
-        if (_services.Settings.WatchedFolders.Count == 0)
+        var watched = _services.Settings.WatchedFolders;
+        var importsOnLaunch = _services.Settings.StartImportOnLaunch;
+
+        // 監視フォルダが無くても、自動で取り込む人には続きを見る（続きは監視フォルダと関係なく残る）
+        if (watched.Count == 0 && !importsOnLaunch)
         {
             return;
         }
@@ -231,20 +236,36 @@ public sealed partial class MainViewModel
         {
             try
             {
-                var result = await _services.Watch.FindNewAsync(_services.Settings.WatchedFolders, token);
-                if (!result.HasNew)
+                var result = await _services.Watch.FindNewAsync(watched, token);
+
+                if (importsOnLaunch)
                 {
+                    // **対象は監視フォルダの新着と、前回の続きだけ**（ユーザ判断 2026-09-21・G1、2026-09-29）。
+                    // 取り込み画面が起動時に履歴を全部「対象」に積んでいたため、
+                    // 新着を足して走らせると履歴も丸ごと舐め直していた（設定の説明と真逆）。
+                    // 前は新着だけを見ていて、①の途中で閉じた回は走査の控えに載っているので新着に数えられず、
+                    // 続きが残っていても何も始まらなかった
+                    var targets = Core.Scanning.LaunchImportTargets.Collect(result.NewFiles, LoadImportStateOrNull());
+
+                    // 外付けを外している・消した物は積まない。積むと、取り込み画面の「見つかりません。もう一度ドロップして」が
+                    // 起動しただけで出る（ドロップしていないのに）。在るかは画面のスレッドの外で見る
+                    var present = targets
+                        .Where(path => Core.Services.DiskCheck.FileExists(path) || Core.Services.DiskCheck.FolderExists(path))
+                        .ToList();
+                    if (present.Count == 0)
+                    {
+                        return;
+                    }
+
+                    // 押してもいないので、展開先のファイルがあっても窓で尋ねない（G2）。
+                    // 続きの対象には監視していないフォルダもあるが、起動時に「監視しますか」とも聞かない
+                    RunOnUiThread(() => Import.AddDroppedPaths(
+                        present, startImmediately: true, offerWatch: false, askAboutUnpacked: false));
                     return;
                 }
 
-                if (_services.Settings.StartImportOnLaunch)
+                if (!result.HasNew)
                 {
-                    // **対象は監視フォルダの新着だけ**（ユーザ判断 2026-09-21・G1）。
-                    // 取り込み画面が起動時に履歴を全部「対象」に積んでいたため、
-                    // 新着を足して走らせると履歴も丸ごと舐め直していた（設定の説明と真逆）。
-                    // 押してもいないので、展開先のファイルがあっても窓で尋ねない（G2）
-                    RunOnUiThread(() => Import.AddDroppedPaths(
-                        result.NewFiles, startImmediately: true, askAboutUnpacked: false));
                     return;
                 }
 
@@ -270,6 +291,20 @@ public sealed partial class MainViewModel
                 Core.Diagnostics.AppLog.Error("監視フォルダの新着を見る", exception);
             }
         }, token).Forget();
+    }
+
+    /// <summary>取り込みの続きの記録。読めなければ「続きは無い」と同じに扱う（下の帯と同じ。起動は妨げない）。</summary>
+    private Core.Scanning.ImportState? LoadImportStateOrNull()
+    {
+        try
+        {
+            return _services.Store.ImportState.Load();
+        }
+        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+        {
+            Core.Diagnostics.AppLog.Error("起動時の取り込み：続きの記録を読む", exception);
+            return null;
+        }
     }
 
     /// <summary>

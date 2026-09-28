@@ -216,7 +216,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     private bool _startImportOnLaunch;
 
-    /// <summary>起動時に監視フォルダの新着を取り込む（#38）。次に起動したときから効く。</summary>
+    /// <summary>起動時に監視フォルダの新着と前回の取り込みの続きを取り込む（#38・続きはユーザ判断 2026-09-29）。次に起動したときから効く。</summary>
     public bool StartImportOnLaunch
     {
         get => _startImportOnLaunch;
