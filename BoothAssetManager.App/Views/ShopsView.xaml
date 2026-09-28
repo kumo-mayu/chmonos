@@ -36,11 +36,16 @@
                             <Run Text="★" Foreground="#d99a00" /><Run Text=" だけ" />
                         </TextBlock>
                     </CheckBox>
-                    <!-- 透かしにも今の対象を出す（打つ前にも、何で探すかが読める） -->
+                    <!--
+                        透かしにも今の対象を出す（打つ前にも、何で探すかが読める）。
+                        書き方は検索画面と同じ（ユーザ判断 2026-09-28）。欄が狭く見本の行を置けないので、吹き出しで示す。
+                        言い方は検索画面の見本の行に揃える
+                    -->
                     <Grid VerticalAlignment="Center">
-                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" MaxLength="500"
                                  Width="200" Padding="9,5" BorderBrush="{StaticResource BorderStrong}"
-                                 AutomationProperties.Name="ショップを探す" />
+                                 AutomationProperties.Name="ショップを探す"
+                                 ToolTip="スペースで両方、-で除く、&quot;&quot;でひとまとまり、ORでどちらか" />
                         <TextBlock Text="{Binding SearchPlaceholder}" Margin="12,0,0,0" VerticalAlignment="Center"
                                    IsHitTestVisible="False">
                             <TextBlock.Style>

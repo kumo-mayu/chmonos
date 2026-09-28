@@ -201,6 +201,10 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox Content="所持しているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
                               VerticalAlignment="Center" Foreground="{StaticResource Text}" />
+                    <!-- 「更新あり」の札の付いた商品だけ。札が1枚も無い店では出さない（押しても必ず0件になる） -->
+                    <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}"
+                              VerticalAlignment="Center" Foreground="{StaticResource Text}" Margin="14,0,0,0"
+                              Visibility="{Binding HasUpdatedItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
                                     Margin="16,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>

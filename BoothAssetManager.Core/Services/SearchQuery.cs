@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using BoothAssetManager.Core.Models;
 
 namespace BoothAssetManager.Core.Services;
 
@@ -815,4 +816,68 @@ public static class SearchQuery
         SearchNode.Or or => new SearchNode.Or(or.Parts.Select(part => WithField(part, field)).ToList()),
         _ => node,
     };
+}
+
+/// <summary>
+/// ショップの一覧の検索欄。検索画面と同じ書き方（除く <c>-</c>・ひとまとまり <c>"…"</c>・<c>OR</c>・括弧・前置き）を受け付ける
+/// （ユーザ判断 2026-09-28）。前は打った文字をそのまま含むかだけを見ていて、同じアプリの中で検索欄ごとに書き方が違っていた。
+/// 読み方と照らし方は検索画面の物をそのまま使い、探す材料だけをショップの物にする。
+/// </summary>
+public static class ShopSearch
+{
+    private static readonly SearchOptions NamesOnly = Make(names: true, memos: false);
+    private static readonly SearchOptions MemosOnly = Make(names: false, memos: true);
+    private static readonly SearchOptions Both = Make(names: true, memos: true);
+
+    /// <summary>
+    /// ショップ1件の探す材料。ショップ名は <c>shop:</c> でも <c>name:</c> でも探せる——ショップの一覧で「名前」と言えばショップ名なので。
+    /// </summary>
+    public static SearchHaystack Haystack(string name, string subdomain, string? memo)
+    {
+        string[] nameValues = string.IsNullOrEmpty(name) ? [] : [name];
+
+        // 手で名前だけ入れたショップの鍵（local-…）は、人が打つサブドメインではない（商品の検索と同じ扱い）
+        string[] subdomainValues = string.IsNullOrEmpty(subdomain) || LocalShopKey.IsLocal(subdomain) ? [] : [subdomain];
+        string[] memoValues = string.IsNullOrEmpty(memo) ? [] : [memo];
+
+        return new SearchHaystack(field => field switch
+        {
+            SearchField.Name or SearchField.Shop => nameValues,
+            SearchField.Subdomain => subdomainValues,
+            SearchField.Memo => memoValues,
+            _ => [],
+        });
+    }
+
+    /// <summary>
+    /// 前置きの無い語を、ショップ名（とサブドメイン）とメモのどちらで探すか。
+    /// 同じ組には同じ物を返す——照らした答えは式と切り替えの参照で覚えるので、打つたびに作り直すと覚えた答えが使われない。
+    /// </summary>
+    public static SearchOptions Options(bool names, bool memos) => (names, memos) switch
+    {
+        (true, false) => NamesOnly,
+        (false, true) => MemosOnly,
+        _ => Both,
+    };
+
+    /// <summary>ショップが式に当たるか。空の式なら全部当たる。</summary>
+    public static bool Matches(SearchNode query, SearchHaystack shop, bool names, bool memos)
+        => SearchQuery.Matches(query, shop, Options(names, memos));
+
+    private static SearchOptions Make(bool names, bool memos)
+    {
+        var targets = new HashSet<SearchField>();
+        if (names)
+        {
+            targets.Add(SearchField.Shop);
+            targets.Add(SearchField.Subdomain);
+        }
+
+        if (memos)
+        {
+            targets.Add(SearchField.Memo);
+        }
+
+        return new SearchOptions { Targets = targets };
+    }
 }

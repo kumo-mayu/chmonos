@@ -79,6 +79,11 @@ public sealed class ShopCardViewModel : ViewModelBase
     /// <summary>ショップのメモ（shops.json）。一覧の検索で、ショップ名と合わせて探す。</summary>
     public string? Memo { get; init; }
 
+    private SearchHaystack? _haystack;
+
+    /// <summary>検索欄で探す材料。名前もメモも作った後は変わらないので、初めて探すときに1度だけ作る。</summary>
+    public SearchHaystack Haystack => _haystack ??= ShopSearch.Haystack(Shop.Name, Shop.Subdomain, Memo);
+
     /// <summary>
     /// ショップのドメイン。**手元だけのショップには付けない**——
     /// BOOTHに無い鍵に .booth.pm を足すと、実在しないURLを名乗ることになる。
@@ -512,14 +517,12 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
         s_favoritesOnly = _favoritesOnly;
         s_sortLabel = _sort.Label;
 
-        var filter = _filterText.Trim();
+        // 検索画面と同じ書き方（-・"…"・OR・括弧）で読む（ユーザ判断 2026-09-28）
+        var query = SearchQuery.Parse(_filterText);
 
         var matches = _all.Where(card =>
             (!_favoritesOnly || card.IsFavorite)
-            && (filter.Length == 0
-                || (_searchNames && (card.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
-                    || card.Shop.Subdomain.Contains(filter, StringComparison.OrdinalIgnoreCase)))
-                || (_searchMemos && card.Memo is { } memo && memo.Contains(filter, StringComparison.CurrentCultureIgnoreCase))));
+            && ShopSearch.Matches(query, card.Haystack, _searchNames, _searchMemos));
 
         var sorted = _sort.Descending
             ? matches.OrderByDescending(card => _sort.Key(card.Shop))

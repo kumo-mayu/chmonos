@@ -1349,7 +1349,7 @@ public sealed class ImportPipeline : IImportPipeline
             cancellationToken);
 
     /// <summary>
-    /// 「手元に入った」時刻を <c>recent.json</c> に打つ。
+    /// 「取り込んだ」時刻を <c>recent.json</c> に打つ。
     ///
     /// **itemのJSONには書かない。**足跡（追加・使った・閲覧）は
     /// 人が入力したものと混ぜない方針（<see cref="Services.RecentActivity"/>）。

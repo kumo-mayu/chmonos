@@ -3,7 +3,7 @@ namespace BoothAssetManager.Core.Services;
 /// <summary>足跡の種類。</summary>
 public enum RecentKind
 {
-    /// <summary>手元に入った。</summary>
+    /// <summary>このアプリに取り込んだ。</summary>
     Added,
 
     /// <summary>使った。いまはUnityへ送ったときだけ（ユーザ判断）。</summary>

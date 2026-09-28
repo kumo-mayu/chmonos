@@ -67,7 +67,7 @@ public enum SortKind
     WishList,
     Attribute,
 
-    /// <summary>手元に入った順。足跡が無い商品は後ろに置く</summary>
+    /// <summary>取り込んだ順。足跡が無い商品は後ろに置く</summary>
     RecentlyAdded,
 
     /// <summary>使った順。いまはUnityへ送った記録だけ</summary>

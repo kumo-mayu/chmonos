@@ -232,11 +232,11 @@ public sealed partial class SearchViewModel
         });
         SortFields.Add(new SortField
         {
-            Label = "手元に入った日",
+            Label = "取り込んだ日",
             Kind = SortKind.RecentlyAdded,
             DescendingLabel = "新しい順",
             AscendingLabel = "古い順",
-            FullLabel = descending => descending ? "最近手元に入った順" : "手元に入ったのが古い順",
+            FullLabel = descending => descending ? "最近取り込んだ順" : "取り込んだのが古い順",
         });
 
         foreach (var name in _attributeNames)

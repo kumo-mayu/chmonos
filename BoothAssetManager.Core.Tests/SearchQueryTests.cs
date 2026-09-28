@@ -339,4 +339,55 @@ public class SearchQueryTests
         var node = SearchQuery.Parse(new string(repeated, 100_000));
         Assert.NotNull(node);
     }
+
+    // ショップの一覧の検索欄（ユーザ判断 2026-09-28：検索画面と同じ書き方を受け付ける）
+
+    private static bool MatchShop(string query, string name, string subdomain = "sample", string? memo = null,
+        bool names = true, bool memos = false)
+        => ShopSearch.Matches(SearchQuery.Parse(query), ShopSearch.Haystack(name, subdomain, memo), names, memos);
+
+    [Fact]
+    public void ShopSearchAcceptsTheSearchScreenSyntax()
+    {
+        Assert.True(MatchShop("", "衣装の店"));
+        Assert.True(MatchShop("衣装", "衣装の店"));
+        Assert.False(MatchShop("衣装 -無料", "無料衣装の店"));
+        Assert.True(MatchShop("夏 OR 冬", "冬の店"));
+        Assert.False(MatchShop("\"衣装 店\"", "衣装の店"));
+        Assert.True(MatchShop("店 (夏 OR 冬)", "夏の店"));
+        Assert.False(MatchShop("店 (夏 OR 冬)", "秋の店"));
+    }
+
+    [Fact]
+    public void ShopSearchFoldsCaseAndWidthLikeTheSearchScreen()
+        => Assert.True(MatchShop("ｓｈｏｐ", "My Shop"));
+
+    [Fact]
+    public void ShopSearchLooksAtSubdomainWithNames()
+    {
+        Assert.True(MatchShop("sample", "衣装の店"));
+        Assert.True(MatchShop("subdomain:sample", "衣装の店", names: false, memos: true));
+    }
+
+    [Fact]
+    public void ShopSearchIgnoresTheKeyOfShopsEnteredByHand()
+        => Assert.False(MatchShop("local", "衣装の店", subdomain: LocalShopKeyFor("衣装の店")));
+
+    [Fact]
+    public void ShopSearchFollowsTheChosenTargets()
+    {
+        Assert.False(MatchShop("お気に入り", "衣装の店", memo: "お気に入り"));
+        Assert.True(MatchShop("お気に入り", "衣装の店", memo: "お気に入り", memos: true));
+        Assert.False(MatchShop("衣装", "衣装の店", memo: "メモ", names: false, memos: true));
+    }
+
+    [Fact]
+    public void ShopSearchReadsNameAndShopPrefixesAsTheShopName()
+    {
+        Assert.True(MatchShop("name:衣装", "衣装の店", names: false, memos: true));
+        Assert.True(MatchShop("shop:衣装", "衣装の店", names: false, memos: true));
+        Assert.True(MatchShop("memo:夏", "衣装の店", memo: "夏に買う"));
+    }
+
+    private static string LocalShopKeyFor(string name) => BoothAssetManager.Core.Models.LocalShopKey.For(name);
 }
