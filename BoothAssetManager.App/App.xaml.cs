@@ -221,17 +221,20 @@ public partial class App : Application
 
         var placement = window.CurrentPlacement();
 
-        try
+        // **画面のスレッドで同期に待たない。**保存は書き込みの門を待つので、保存先を運んでいる間
+        // （門は分単位で閉じ、運び終えると開き直すまで開かない）に閉じると、終わりのない「応答なし」になった（点検 2026-09-28）。
+        // メモの自動保存と同じく、画面を止めずに待ち、5秒で諦める。位置を覚えられなくても終了は妨げない
+        WaitForPendingWrites(Task.Run(async () =>
         {
-            Task.Run(() => main.SaveUiStateAsync(state => state with { Window = placement }))
-                .GetAwaiter()
-                .GetResult();
-        }
-        catch (Exception exception)
-        {
-            // 位置を覚えられなくても終了は妨げない
-            Core.Diagnostics.AppLog.Error("閉じるときの窓の位置の保存", exception);
-        }
+            try
+            {
+                await main.SaveUiStateAsync(state => state with { Window = placement });
+            }
+            catch (Exception exception)
+            {
+                Core.Diagnostics.AppLog.Error("閉じるときの窓の位置の保存", exception);
+            }
+        }));
     }
 
     protected override void OnExit(ExitEventArgs e)

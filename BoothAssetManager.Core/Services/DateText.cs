@@ -30,7 +30,9 @@ public static class DateText
             .Trim('/', ' ');
 
         var parts = folded.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0 || parts.Any(part => !part.All(char.IsAsciiDigit)))
+        // 桁の多すぎる数（「20260920000」など）は int に入らず、Parse が投げて編集画面から抜けられなくなった（点検 2026-09-28）。
+        // 日付の部分は多くても8桁（yyyyMMdd）なので、それを超える物は読めない入力として返す
+        if (parts.Length == 0 || parts.Any(part => part.Length > 8 || !part.All(char.IsAsciiDigit)))
         {
             return null;
         }

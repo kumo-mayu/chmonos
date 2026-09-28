@@ -138,9 +138,15 @@ public partial class FirstRunWindow : Window
             Directory.CreateDirectory(_root);
 
             // 既定値の上に、聞いた1つだけを乗せて書く。
-            // ここでファイルができるので、次からこの画面は出ない
-            var settings = new AppSettings { SaveImages = SaveImagesCheck.IsChecked == true };
-            JsonStore.Write(Path.Combine(_root, "settings.json"), settings);
+            // ここでファイルができるので、次からこの画面は出ない。
+            // **既にあるライブラリを選んだときは書かない。**丸ごと書き直すと、そのライブラリの取り込み元・監視・
+            // 間隔などの設定が既定値に戻っていた（点検 2026-09-28）。そのライブラリの設定をそのまま使う
+            var settingsFile = Path.Combine(_root, "settings.json");
+            if (!File.Exists(settingsFile))
+            {
+                var settings = new AppSettings { SaveImages = SaveImagesCheck.IsChecked == true };
+                JsonStore.Write(settingsFile, settings);
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

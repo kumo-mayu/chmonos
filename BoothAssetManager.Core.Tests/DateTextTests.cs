@@ -57,5 +57,8 @@ public class DateTextTests
     [InlineData("2026/13/01")]
     [InlineData("2026/02/30")]
     [InlineData("1/2/3/4")]
+    // int に入らない桁の数。前は Parse が投げて、編集画面から抜けられなくなった（点検 2026-09-28）
+    [InlineData("20260920000")]
+    [InlineData("2026/99999999999/1")]
     public void UnreadableTextIsNull(string text) => Assert.Null(Since(text));
 }
