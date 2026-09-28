@@ -427,7 +427,16 @@
                     <!-- 手掛かり -->
                     <Border Style="{StaticResource Card}" Padding="18,16">
                         <StackPanel>
-                            <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" Margin="0,0,0,10" />
+                            <!--
+                                自動検索はファイルの情報を見てすぐ押す物なので、候補の欄（決める欄の下）ではなくここに置く（ユーザ指示 2026-09-29）。
+                                押すと候補の欄まで画面を送る（進み具合と結果はそこに出る）
+                            -->
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                <Button Content="自動検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        ToolTip="このファイル名でBOOTHを検索し、下の「候補」に表示します。"
+                                        Command="{Binding ProposeCommand}" />
+                            </Grid>
 
                             <!-- 中身を見て判断したいときのために、場所を開ける（以前の動線の記録 C3） -->
                             <Grid>
@@ -615,17 +624,13 @@
                     </Border>
 
                     <!-- 候補 -->
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
+                    <Border Style="{StaticResource Card}" x:Name="CandidatesCard" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <Grid Margin="0,0,0,10">
                                 <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="自動検索" Style="{StaticResource SmallButton}"
-                                            Command="{Binding ProposeCommand}" />
-                                    <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
-                                            ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
-                                            Command="{Binding OpenBoothCommand}" />
-                                </StackPanel>
+                                <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
+                                        Command="{Binding OpenBoothCommand}" />
                             </Grid>
 
                             <TextBlock Text="{Binding SearchTargetText}" Style="{StaticResource Caption}"

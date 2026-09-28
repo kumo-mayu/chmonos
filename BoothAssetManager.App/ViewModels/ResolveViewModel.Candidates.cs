@@ -119,8 +119,8 @@ public sealed partial class ResolveViewModel
 
     /// <summary>候補が0件のときに出す文。届かなかったときは次の一手が違う。</summary>
     public string CandidatesEmptyText => BoothUnreachable
-        ? "BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度「候補を検索」を押してください。商品IDが分かっていれば、「商品IDを決める」に直接入れられます。"
-        : "候補がありません。上のボタンで検索するか、「商品IDを決める」に商品IDを直接入れてください。";
+        ? "BOOTHに問い合わせできませんでした。通信を確かめて、少し待ってからもう一度「自動検索」を押してください。商品IDが分かっていれば、「商品IDを決める」に直接入れられます。"
+        : "候補がありません。上の「自動検索」を押すか、「商品IDを決める」に商品IDを直接入れてください。";
 
     private async Task ProposeAsync()
     {
@@ -128,6 +128,8 @@ public sealed partial class ResolveViewModel
         {
             return;
         }
+
+        CandidatesFocusRequested?.Invoke();
 
         // 検索は分単位かかり、その間も左の一覧は選び直せる。結果は始めた対象の分として覚え、
         // 今も同じ対象を選んでいるときだけ並べる（前は今のファイルに前のファイルの候補が並び、
@@ -292,6 +294,12 @@ public sealed partial class ResolveViewModel
     /// 候補は決める欄より下にあるので、押した結果が画面の外に出て、何も起きなかったように見える（ユーザ判断 2026-09-17）。
     /// </summary>
     public event Action? DecisionFocusRequested;
+
+    /// <summary>
+    /// 「候補」の欄を見せてほしいとき（自動検索を押したとき）。ボタンは上の「分かっていること」にあり、
+    /// 進み具合と結果は決める欄より下の候補の欄に出るので、送らないと押しても何も起きないように見える（ユーザ指示 2026-09-29）。
+    /// </summary>
+    public event Action? CandidatesFocusRequested;
 
     private async Task UseCandidateAsync(object? parameter)
     {
