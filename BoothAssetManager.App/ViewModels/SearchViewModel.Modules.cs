@@ -7,9 +7,6 @@ namespace BoothAssetManager.App.ViewModels;
 /// <summary>検索画面：絞り込みのモジュール（ユーザ案 2026-09-15・`docs/history/search-redesign.md`）</summary>
 public sealed partial class SearchViewModel
 {
-    /// <summary>ユーザタグの「親›子」の鍵の区切り。名前で繋ぐので、タグの名前に入らない字にする。</summary>
-    private const char UserTagSeparator = '›';
-
     private readonly Dictionary<SearchModuleKind, SearchModuleMenuEntry> _moduleMenuEntries = [];
 
     /// <summary>候補の元（全商品・マスタ）を読み終えたか。読む前に候補を入れると、戻した値（属性など）が「候補に無い」として外れる。</summary>
@@ -228,6 +225,10 @@ public sealed partial class SearchViewModel
             case AttributeModule attribute:
                 attribute.SetNames(_attributeNames);
                 break;
+            case UserTagModule userTag:
+                userTag.SetMasters(_services.Store.UserTags.Load().Tops
+                    .Select(top => (top.Name, (IReadOnlyList<string>)top.Subs.Select(sub => sub.Name).ToList())));
+                break;
             case RangeModule range:
                 range.RefreshBounds();
                 break;
@@ -249,7 +250,6 @@ public sealed partial class SearchViewModel
             .Select(name => (name, name)),
         SearchModuleKind.BoothTag => _boothTagNames.Select(name => (name, name)),
         SearchModuleKind.Shop => ShopCandidates(),
-        SearchModuleKind.UserTag => UserTagCandidates(),
         SearchModuleKind.Avatar => AvatarCandidates(),
         SearchModuleKind.Modification => ModificationCandidates(),
         SearchModuleKind.UnityProject => UnityProjectCandidates(),
@@ -265,18 +265,6 @@ public sealed partial class SearchViewModel
             .Select(group => (Name: group.Select(item => item.ShopName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? group.Key, group.Key))
             .OrderBy(pair => pair.Name, StringComparer.CurrentCulture)
             .Select(pair => ($"{pair.Name}（{pair.Key}）", pair.Key));
-
-    private IEnumerable<(string Text, string Key)> UserTagCandidates()
-    {
-        foreach (var top in _services.Store.UserTags.Load().Tops)
-        {
-            yield return (top.Name, top.Name);
-            foreach (var sub in top.Subs)
-            {
-                yield return ($"{top.Name} {UserTagSeparator} {sub.Name}", $"{top.Name}{UserTagSeparator}{sub.Name}");
-            }
-        }
-    }
 
     /// <summary>
     /// 対応アバターの候補。並びは 持っているアバター → 共通素体 → 持っていないアバター（ユーザ判断 Q1）。
@@ -447,8 +435,8 @@ public sealed partial class SearchViewModel
             [new("free", "無料のみ"), new("paid", "有料のみ"), new("both", "両方")],
             "both", (item, key, _) => FreePaidMatches(item, key)),
 
-        SearchModuleKind.UserTag => new ListModule(kind, allowsAnd: true, "ユーザータグで絞り込む",
-            "ユーザータグがまだ登録されていません。編集画面から追加できます。", (item, _, key, _) => UserTagMatches(item, key)),
+        // 大分類 → 小分類の2段（ユーザ指示 2026-09-28）。照合は Core の UserTagCondition
+        SearchModuleKind.UserTag => new UserTagModule(),
 
         SearchModuleKind.Attribute => new AttributeModule(),
 
@@ -601,17 +589,6 @@ public sealed partial class SearchViewModel
             "selling" => !ended,
             _ => true,
         };
-    }
-
-    private static bool UserTagMatches(ItemRecord item, string key)
-    {
-        var separator = key.IndexOf(UserTagSeparator);
-        var top = separator < 0 ? key : key[..separator];
-        var assignment = item.Local.UserTags.FirstOrDefault(entry =>
-            string.Equals(entry.Top, top, StringComparison.CurrentCultureIgnoreCase));
-
-        return assignment is not null
-            && (separator < 0 || assignment.Subs.Contains(key[(separator + 1)..], StringComparer.CurrentCultureIgnoreCase));
     }
 
     /// <summary>

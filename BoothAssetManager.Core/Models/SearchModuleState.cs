@@ -74,6 +74,12 @@ public sealed record SearchModuleState
     /// <summary>属性の幅（属性だけ）。</summary>
     public IReadOnlyList<AttributeRange> Ranges { get; init; } = [];
 
+    /// <summary>
+    /// ユーザータグの大分類ごとの条件（ユーザータグだけ・2026-09-28）。大分類どうしの結び方は <see cref="MatchAll"/>。
+    /// 前は <see cref="Items"/> に「大分類」「大分類›小分類」の鍵を積んでいた。その形の状態は読まない（公開前なので読み替えを作らない）。
+    /// </summary>
+    public IReadOnlyList<UserTagCondition> UserTags { get; init; } = [];
+
     /// <summary>一覧に出す1行（検索の履歴の要約に使う・見るだけ）。</summary>
     public string? Summary { get; init; }
 
@@ -100,6 +106,14 @@ public sealed record SearchModuleState
             text.Append(string.Join(
                 (char)0x1E,
                 Ranges.OrderBy(range => range.Name, StringComparer.Ordinal).Select(range => $"{range.Name}:{range.Min}-{range.Max}")));
+            text.Append(Separator);
+
+            // 足した順は結果を変えないので、大分類も小分類も並べ替えてから比べる
+            text.Append(string.Join(
+                (char)0x1E,
+                UserTags.OrderBy(tag => tag.Top, StringComparer.Ordinal).Select(tag =>
+                    $"{tag.Top}:{(tag.MatchAll ? '1' : '0')}{(tag.NoSub ? '1' : '0')}:"
+                    + string.Join((char)0x1C, tag.Subs.OrderBy(sub => sub, StringComparer.Ordinal)))));
             return text.ToString();
         }
     }
