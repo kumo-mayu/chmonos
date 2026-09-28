@@ -418,7 +418,12 @@ public sealed class CommandHandler
                     RefreshOutcome.Updated => new CommandResult.ItemSaved(refresh.ItemId),
                     RefreshOutcome.NotFound => new CommandResult.Failed("BOOTHで見つかりませんでした。"),
                     RefreshOutcome.Delisted => new CommandResult.Failed("非公開または削除済みと判定しました。"),
-                    RefreshOutcome.TemporaryFailure => new CommandResult.Failed("一時的に取得できませんでした。次回に再試行します。"),
+                    // 押した人には「次回に再試行します」ではなく次の一手を言う。待てば直る不調と、
+                    // つながっていないのとは一手が違う（待つ／つなぐ）ので言い分ける（点検 2026-09-28 の 9）
+                    RefreshOutcome.TemporaryFailure => new CommandResult.Failed(
+                        "BOOTHの不調で取得できませんでした。少し待ってからもう一度押してください。"),
+                    RefreshOutcome.Unreachable => new CommandResult.Failed(
+                        "取得できませんでした。ネットにつながっていないようです。つながってからもう一度押してください。"),
                     RefreshOutcome.Unreadable => new CommandResult.Failed(
                         "BOOTHから届いた商品情報を読めませんでした。BOOTHのメンテナンス中か、ページの形が変わったことがあります。"
                         + "時間をおいてもう一度押してください。"),

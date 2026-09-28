@@ -381,8 +381,9 @@ public sealed class ImportViewModel : ViewModelBase
         var answer = Services.Notice.Show(
             "前回の取り込みの続きの記録を捨てますか。\n\n"
             + "取り込めた商品とファイルはそのまま残ります。まだ取得していない商品情報と画像は取得しません。"
-            // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う
-            + "BOOTHの不調で取れなかった商品の記録も消えます。\n\n"
+            // BOOTH の不調で取れなかった商品もこの記録に載っている（2026-09-23）。捨てると一緒に消えるので、それも言う。
+            // ネットにつながらず取れなかった物も載る（2026-09-29）ので、原因は言わない
+            + "取得できなかった商品の記録も消えます。\n\n"
             + "記録は元に戻せません。続きは、同じフォルダをもう一度取り込むと始められます。",
             "取り込みの続きを捨てる",
             System.Windows.MessageBoxButton.OKCancel,
@@ -1448,6 +1449,10 @@ public sealed class ImportViewModel : ViewModelBase
     /// 前は数えるだけで画面のどこにも出ず、そのファイルは商品にも未確定にも入らないまま黙って消えたように見えた。
     /// 取れなかった物は「続きから」の記録に残してあるので、次の手（待ってから下の帯の「続きから進む」）まで書く。
     /// どちらも BOOTH 側の事情で取れなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
+    ///
+    /// 応答の無い失敗が続いて途中で止めた回は、「BOOTHの不調」「少し待ってから」とは言わない（ユーザ判断 2026-09-29）。
+    /// つながっていないなら待っても直らないので、事象と次の一手（つないでから押す）を言う。
+    /// 件数は付けない——②（説明文）で止めた回は①が済んでいて、取れなかった数に入らない。
     /// </remarks>
     public string NotFoundText => Summary is { } summary
         ? string.Join(
@@ -1455,9 +1460,11 @@ public sealed class ImportViewModel : ViewModelBase
             summary.NotFound > 0
                 ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。下の「未確定を開く」から確かめてください。"
                 : string.Empty,
-            summary.TemporaryFailures > 0
-                ? $"{summary.TemporaryFailures} 件はBOOTHの不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
-                : string.Empty)
+            summary.StoppedOffline
+                ? "途中で止めました。ネットにつながっていないようです。つながってから、下の帯の「続きから進む」を押してください。"
+                : summary.TemporaryFailures > 0
+                    ? $"{summary.TemporaryFailures} 件はBOOTHの不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
+                    : string.Empty)
         : string.Empty;
 
     public bool HasNotFound => NotFoundText.Length > 0;

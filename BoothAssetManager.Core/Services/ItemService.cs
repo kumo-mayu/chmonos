@@ -211,8 +211,9 @@ public sealed class ItemService : IItemService
 
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
-            // BOOTH側の一時的な不調。カウントも更新予定も動かさず、そのまま次回へ回す。
-            return RefreshOutcome.TemporaryFailure;
+            // BOOTH側の一時的な不調か、つながっていない。カウントも更新予定も動かさず、そのまま次回へ回す。
+            // 押した人への次の一手が違う（待つ／つなぐ）ので、結果は分けて返す
+            return jsonResult.IsUnreachable ? RefreshOutcome.Unreachable : RefreshOutcome.TemporaryFailure;
         }
 
         var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
@@ -1853,7 +1854,12 @@ public enum RefreshOutcome
     NotOnBooth,
     NotFound,
     Delisted,
+
+    /// <summary>BOOTH が応答したが一時的に取れなかった（5xx・429）。待てば取れる。</summary>
     TemporaryFailure,
+
+    /// <summary>BOOTH から応答が来なかった（接続できない・タイムアウト）。ネットにつながっていないことがある。</summary>
+    Unreachable,
 
     /// <summary>
     /// BOOTH は応答したが読めなかった（JSON でない・形が変わった）。待てば直る一時失敗とは言い分ける
