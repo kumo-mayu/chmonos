@@ -1158,16 +1158,10 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </summary>
     private void CopyId()
     {
-        try
-        {
-            System.Windows.Clipboard.SetText(Item.Id);
-            RefreshStatus = $"{Item.Id} をコピーしました。";
-        }
-        catch (System.Runtime.InteropServices.ExternalException)
-        {
-            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
-            RefreshStatus = "コピーできませんでした。もう一度押してください。";
-        }
+        // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+        RefreshStatus = Services.ClipboardText.TrySet(Item.Id)
+            ? $"{Item.Id} をコピーしました。"
+            : "コピーできませんでした。もう一度押してください。";
     }
 
     private void OpenBooth()

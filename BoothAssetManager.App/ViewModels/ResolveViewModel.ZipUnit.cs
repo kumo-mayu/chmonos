@@ -172,15 +172,9 @@ public sealed partial class ResolveViewModel
             return;
         }
 
-        try
-        {
-            System.Windows.Clipboard.SetText(row.FileName);
-            CopyNote = "コピーしました";
-        }
-        catch (System.Runtime.InteropServices.ExternalException)
-        {
-            CopyNote = "コピーできませんでした。もう一度押してください。";
-        }
+        CopyNote = Services.ClipboardText.TrySet(row.FileName)
+            ? "コピーしました"
+            : "コピーできませんでした。もう一度押してください。";
     }
 
     private bool _singleFileOnly;

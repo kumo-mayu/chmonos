@@ -76,14 +76,8 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        try
-        {
-            System.Windows.Clipboard.SetText(url);
-        }
-        catch (System.Runtime.InteropServices.ExternalException)
-        {
-            // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
-        }
+        // 他のアプリがクリップボードを掴んでいることがある。次に押せば入る
+        Services.ClipboardText.TrySet(url);
     }
 
     /// <summary>ショップはアプリ内の画面へ送る（外のBOOTHではなく、手持ちが見える方）。</summary>
