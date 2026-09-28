@@ -7,7 +7,8 @@
     <Grid>
         <TextBox x:Name="Input" Height="30" VerticalContentAlignment="Center" Padding="8,0"
                  TextChanged="OnTextChanged" PreviewKeyDown="OnInputKeyDown"
-                 GotKeyboardFocus="OnInputFocused" LostKeyboardFocus="OnInputLostFocus" />
+                 GotKeyboardFocus="OnInputFocused" LostKeyboardFocus="OnInputLostFocus"
+                 PreviewMouseLeftButtonUp="OnInputClicked" />
 
         <TextBlock x:Name="Watermark" IsHitTestVisible="False" VerticalAlignment="Center"
                    Margin="10,0,0,0" Foreground="{StaticResource TextFaint}" FontSize="12.5" />

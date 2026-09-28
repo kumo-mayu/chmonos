@@ -291,6 +291,28 @@ public partial class SuggestBox : UserControl
         Dispatcher.BeginInvoke(new Action(Refresh), System.Windows.Threading.DispatcherPriority.Input);
     }
 
+    /// <summary>
+    /// フォーカスが残っている欄を押し直したときも、候補を開く。
+    ///
+    /// 決めた後はフォーカスを欄に残す（続けて足せるように）ので、次の1件を足そうと同じ欄を押しても
+    /// GotKeyboardFocus は来ない。検索のユーザータグで、2つ目の大分類・小分類を足すときだけ候補が出なかった
+    /// （ユーザ指摘 2026-09-29）。押し直しは人が候補を見たい合図なので開く。
+    /// 文字を選んでいる（ドラッグで範囲を取った）ときは、選ぶ操作の邪魔をしないよう開かない。
+    ///
+    /// 離す直前（Preview）にその場で開く。まだ TextBox がマウスを掴んでいるので、候補の窓はマウスを掴まない。
+    /// 離した後へ回すと候補の窓がマウスを掴み、次に別の欄を押した1回目が「候補を閉じる」だけに食われる
+    /// （フォーカスで開くときと同じ掴まない形に揃える）
+    /// </summary>
+    private void OnInputClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (DropDown.IsOpen || !Input.IsKeyboardFocused || Input.SelectionLength > 0)
+        {
+            return;
+        }
+
+        Refresh();
+    }
+
     private void OnInputLostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         // 候補の側へフォーカスが移っただけなら閉じない
