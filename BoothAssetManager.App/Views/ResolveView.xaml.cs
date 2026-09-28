@@ -16,6 +16,7 @@ public partial class ResolveView : UserControl
             if (_model is not null)
             {
                 _model.DecisionFocusRequested -= OnDecisionFocusRequested;
+                _model.CandidatesFocusRequested -= OnCandidatesFocusRequested;
                 _model.PropertyChanged -= OnModelPropertyChanged;
             }
 
@@ -23,6 +24,7 @@ public partial class ResolveView : UserControl
             if (_model is not null)
             {
                 _model.DecisionFocusRequested += OnDecisionFocusRequested;
+                _model.CandidatesFocusRequested += OnCandidatesFocusRequested;
                 _model.PropertyChanged += OnModelPropertyChanged;
             }
         };
@@ -52,6 +54,35 @@ public partial class ResolveView : UserControl
     }
 
     /// <summary>
+    /// 「BOOTHに無い商品として登録する」の枠に落とした画像は、登録と一緒に入れる画像として添える（ユーザ判断 2026-09-29）。
+    /// **画像だけのときに限って受ける。**zip や商品ページはいつも通りウィンドウの振り分け（取り込み・商品IDとして入れる）に任せる。
+    /// 画像も普段は振り分けで「取り込み」に積まれてしまうので、この枠の上だけは先に受けて止める。
+    /// </summary>
+    private void OnLocalBoxPreviewDragOver(object sender, DragEventArgs e)
+    {
+        if (DroppedImages(e) is not null)
+        {
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+    }
+
+    private void OnLocalBoxPreviewDrop(object sender, DragEventArgs e)
+    {
+        if (DroppedImages(e) is { } images && _model is not null)
+        {
+            e.Handled = true;
+            _model.AddLocalImages(images);
+        }
+    }
+
+    private static string[]? DroppedImages(DragEventArgs e)
+        => e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } paths
+            && paths.All(Core.Services.DropRouting.LooksLikeImage)
+                ? paths
+                : null;
+
+    /// <summary>
     /// 選んだ行まで一覧を送る。「元zipで登録」や確定の後に選ぶ行が画面の外だと、左で何を選んでいるか分からなかった（ユーザ判断 2026-09-17）。
     /// 選択が変わった直後は検索を消した後の並べ直しが済んでいないことがあるので、描画の後に送る。
     /// </summary>
@@ -78,4 +109,7 @@ public partial class ResolveView : UserControl
 
     /// <summary>「商品IDを決める」の欄を画面に入れる。候補は欄より下にあり、押した結果が見えなかった（ユーザ判断 2026-09-17）。</summary>
     private void OnDecisionFocusRequested() => DecisionCard.BringIntoView();
+
+    /// <summary>「候補」の欄を画面に入れる。自動検索のボタンは上にあり、進み具合と結果は下の候補の欄に出る（ユーザ指示 2026-09-29）。</summary>
+    private void OnCandidatesFocusRequested() => CandidatesCard.BringIntoView();
 }

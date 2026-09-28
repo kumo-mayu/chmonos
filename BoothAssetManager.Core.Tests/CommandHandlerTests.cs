@@ -53,11 +53,27 @@ public class CommandHandlerTests
         public Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
             => Task.FromResult<ItemPreview?>(new ItemPreview { Id = itemId, Name = "テスト商品" });
 
-        public Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(
+        /// <summary>BOOTHが「無い」と答えた形を返す（見つからないIDのまま登録する道の入口）。</summary>
+        public bool PreviewNotOnBooth { get; set; }
+
+        public Task<(ItemPreview? Preview, string? Error, bool NotOnBooth)> PreviewWithReasonAsync(
             string itemId,
             CancellationToken cancellationToken = default)
-            => Task.FromResult<(ItemPreview?, string?)>(
-                (new ItemPreview { Id = itemId, Name = "テスト商品" }, null));
+            => Task.FromResult<(ItemPreview?, string?, bool)>(PreviewNotOnBooth
+                ? (null, "見つかりませんでした", true)
+                : (new ItemPreview { Id = itemId, Name = "テスト商品" }, null, false));
+
+        public (string Hash, string ItemId, string Name)? AssignedUnpublished { get; private set; }
+
+        public Task<bool> AssignUnpublishedItemIdAsync(
+            string hash,
+            string itemId,
+            string displayName,
+            CancellationToken cancellationToken = default)
+        {
+            AssignedUnpublished = (hash, itemId, displayName);
+            return Task.FromResult(AssignSucceeds);
+        }
 
         public RefreshOutcome Outcome { get; set; } = RefreshOutcome.Updated;
 
@@ -298,6 +314,43 @@ public class CommandHandlerTests
         items.AssignSucceeds = false;
 
         var result = await handler.ExecuteAsync(new UiCommand.AssignItemId("AAAA", "5813187"));
+
+        Assert.IsType<CommandResult.Failed>(result);
+    }
+
+    /// <summary>
+    /// BOOTHが「無い」と答えたときだけ、見つからないIDのまま登録する道を出す（ユーザ判断 2026-09-29）。
+    /// 一時的に届かないときに出すと、実はある商品を空のまま登録してしまう。
+    /// </summary>
+    [Fact]
+    public async Task TellsThePreviewThatBoothSaidTheItemIsNotThere()
+    {
+        var (handler, _, items) = Create();
+        items.PreviewNotOnBooth = true;
+
+        var result = await handler.ExecuteAsync(new UiCommand.PreviewItem("5813187"));
+
+        Assert.Equal("5813187", Assert.IsType<CommandResult.PreviewNotOnBooth>(result).ItemId);
+    }
+
+    [Fact]
+    public async Task RoutesAssignUnpublishedItemIdAndReportsSavedItem()
+    {
+        var (handler, _, items) = Create();
+
+        var result = await handler.ExecuteAsync(new UiCommand.AssignUnpublishedItemId("AAAA", "5813187", "季節の衣装"));
+
+        Assert.Equal(("AAAA", "5813187", "季節の衣装"), items.AssignedUnpublished);
+        Assert.Equal("5813187", Assert.IsType<CommandResult.ItemSaved>(result).ItemId);
+    }
+
+    [Fact]
+    public async Task ReportsFailureWhenUnpublishedAssignmentIsRejected()
+    {
+        var (handler, _, items) = Create();
+        items.AssignSucceeds = false;
+
+        var result = await handler.ExecuteAsync(new UiCommand.AssignUnpublishedItemId("AAAA", "5813187", "季節の衣装"));
 
         Assert.IsType<CommandResult.Failed>(result);
     }

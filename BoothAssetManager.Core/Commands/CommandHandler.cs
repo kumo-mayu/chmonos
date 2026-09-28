@@ -349,6 +349,17 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(localId)
                     : new CommandResult.Failed("対象のファイルが未確定に見つかりませんでした。");
 
+            case UiCommand.AssignUnpublishedItemId unpublished:
+                if (await _items.AssignUnpublishedItemIdAsync(
+                        unpublished.Hash, unpublished.ItemId, unpublished.DisplayName, cancellationToken))
+                {
+                    // BOOTHの情報は無いので対応アバターの検出はしない（説明文もタグも無い）。unitypackage の控えだけ埋める
+                    FillUnityPackagesInBackground(unpublished.ItemId);
+                    return new CommandResult.ItemSaved(unpublished.ItemId);
+                }
+
+                return new CommandResult.Failed("対象のファイルが未確定に見つかりませんでした。");
+
             case UiCommand.PlanItemIdChange plan:
                 var planned = await _items.PlanItemIdChangeAsync(plan.FromId, plan.ToId, cancellationToken);
                 return planned is not null
@@ -667,10 +678,16 @@ public sealed class CommandHandler
                     await _attributes.ReorderAsync(reorderAttributes.Names, cancellationToken));
 
             case UiCommand.PreviewItem preview:
-                var (loaded, error) = await _items.PreviewWithReasonAsync(preview.ItemId, cancellationToken);
-                return loaded is null
-                    ? new CommandResult.Failed(error ?? $"商品ID {preview.ItemId} を取得できませんでした。")
-                    : new CommandResult.PreviewLoaded(loaded);
+                var (loaded, error, notOnBooth) = await _items.PreviewWithReasonAsync(preview.ItemId, cancellationToken);
+                if (loaded is not null)
+                {
+                    return new CommandResult.PreviewLoaded(loaded);
+                }
+
+                var previewFailure = error ?? $"商品ID {preview.ItemId} を取得できませんでした。";
+                return notOnBooth
+                    ? new CommandResult.PreviewNotOnBooth(preview.ItemId, previewFailure)
+                    : new CommandResult.Failed(previewFailure);
 
             case UiCommand.RegisterFolder register:
                 return await _items.RegisterFolderAsync(register.ItemId, register.FolderPath, cancellationToken)

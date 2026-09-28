@@ -35,8 +35,11 @@ public interface IItemService
 
     Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default);
 
-    /// <summary>取得できなかった理由まで返す版。画面はこちらを使う。</summary>
-    Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(
+    /// <summary>
+    /// 取得できなかった理由まで返す版。画面はこちらを使う。
+    /// <c>NotOnBooth</c> は BOOTH が「無い」と答えたとき（一時的に届かないのとは分ける。見つからないIDのまま登録できるのはこのときだけ）。
+    /// </summary>
+    Task<(ItemPreview? Preview, string? Error, bool NotOnBooth)> PreviewWithReasonAsync(
         string itemId,
         CancellationToken cancellationToken = default);
 
@@ -60,6 +63,17 @@ public interface IItemService
         CancellationToken cancellationToken = default);
 
     Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 未確定のファイルを、BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。
+    /// **BOOTHへは問い合わせない**（直前の確かめで見つからなかったID）。⑦で確かめ直し、公開されたら情報を取って知らせる。
+    /// </summary>
+    /// <returns>登録できたか。対象のファイルが未確定に無い・仮IDを渡されたら false。</returns>
+    Task<bool> AssignUnpublishedItemIdAsync(
+        string hash,
+        string itemId,
+        string displayName,
+        CancellationToken cancellationToken = default);
 
     /// <summary>自分で足す画像を1枚入れる。BOOTHと同じ圧縮を通す。</summary>
     /// <returns>保存したファイル名。画像として読めなければ null。</returns>
@@ -789,32 +803,32 @@ public sealed class ItemService : IItemService
     /// 呼び出し側からは区別できなかった。最大100秒待たされた末に
     /// 「取得できませんでした」の1行だけ、という状態だったので理由を渡す。
     /// </summary>
-    public async Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(
+    public async Task<(ItemPreview? Preview, string? Error, bool NotOnBooth)> PreviewWithReasonAsync(
         string itemId,
         CancellationToken cancellationToken = default)
     {
         var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
         if (existing is not null)
         {
-            return (ToPreview(itemId, existing.Booth, isAlreadyOwned: true), null);
+            return (ToPreview(itemId, existing.Booth, isAlreadyOwned: true), null, false);
         }
 
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
 
         if (jsonResult.Status == BoothFetchStatus.NotFound)
         {
-            return (null, $"商品ID {itemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。");
+            return (null, $"商品ID {itemId} はBOOTHに見つかりませんでした。IDが違うか、販売が終わって非公開になっています。", true);
         }
 
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
             var detail = string.IsNullOrWhiteSpace(jsonResult.Error) ? string.Empty : $"（{jsonResult.Error}）";
-            return (null, $"BOOTHに問い合わせできませんでした{detail}。通信を確かめて、もう一度お試しください。");
+            return (null, $"BOOTHに問い合わせできませんでした{detail}。通信を確かめて、もう一度お試しください。", false);
         }
 
         return BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, [], itemId) is { } booth
-            ? (ToPreview(itemId, booth, isAlreadyOwned: false), null)
-            : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。");
+            ? (ToPreview(itemId, booth, isAlreadyOwned: false), null, false)
+            : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。", false);
     }
 
     private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned) => new()
@@ -966,6 +980,79 @@ public sealed class ItemService : IItemService
         // ユーザが改めて選び直したのだから、こちらが覚えていて弾き続ける方がおかしい
         await RemoveUnresolvedAsync(target.Hash, cancellationToken);
 
+        return true;
+    }
+
+    /// <summary>
+    /// 未確定のファイルを、BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。
+    ///
+    /// 商品IDが分かっているのに仮ID（<see cref="LocalItemId"/>）で登録すると、⑦の対象から外れるので、
+    /// 後で再び公開されても情報を取れない（季節ものは1ヶ月ほどだけ公開されることがある）。本物のIDで持っておけば、
+    /// 今ある「販売終了」の商品と同じ道に乗る：
+    /// <list type="bullet">
+    /// <item><c>Booth</c> は空（<c>FetchedAt</c> が null＝一度も取れていない。観測していないので、それが正しい）。名前は <c>Local.DisplayName</c></item>
+    /// <item><c>IsDelisted</c> を立て、見つからない回数は非公開と確定する回数にしておく。⑦で見つからなければ回数が増えるだけで
+    ///   印は外れない（回数を1で始めると、次に見つからなかったとき「3回未満」で印が外れてしまう）。確かめ直しの間隔も販売終了と同じ</item>
+    /// <item>公開されたら <see cref="RefreshAsync"/> が booth を埋め、印を外し、要確認に「BOOTHに現れました」を出す（<c>NoteBackOnBoothAsync</c>）</item>
+    /// </list>
+    /// **BOOTHへは問い合わせない。**直前の確かめ（<see cref="PreviewWithReasonAsync"/>）で見つからなかったIDで、もう一度聞いても同じ答えになる。
+    /// </summary>
+    public async Task<bool> AssignUnpublishedItemIdAsync(
+        string hash,
+        string itemId,
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        // 仮IDは BOOTH に存在しないので、⑦に乗せても意味が無い（そちらは RegisterLocalItemAsync）
+        if (LocalItemId.IsLocal(itemId))
+        {
+            return false;
+        }
+
+        var target = _store.Unresolved.Load()
+            .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            return false;
+        }
+
+        var record = new LocalFileRecord
+        {
+            Hash = target.Hash,
+            Paths = target.Paths,
+            SizeBytes = target.SizeBytes,
+            Contents = target.Contents,
+        };
+
+        var threshold = Math.Max(1, _settings.NotFoundThreshold);
+        var name = displayName.Trim();
+
+        // 在るかを見てから作るまでを商品の錠の中で行う（取り込みや別の道が同じIDを作っていることがある・L13 と同じ形）。
+        // 在れば、ファイルを足すだけにする。取得の記録（見つからない回数・予定日）は持ち主の⑦に任せ、名前も上書きしない
+        var written = await _store.Items.CreateOrChangeLocalAsync(
+            itemId,
+            () => new ItemRecord
+            {
+                Id = itemId,
+                Booth = new BoothBlock(),
+                Local = new LocalBlock
+                {
+                    DisplayName = name.Length > 0 ? name : null,
+                    NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
+                    ConsecutiveNotFoundCount = threshold,
+                    IsDelisted = true,
+                    NextFetchDueAt = NextDue(itemId, threshold),
+                },
+            },
+            local => local with { LocalFiles = LocalFileMerger.Merge(local.LocalFiles, [record]) },
+            LocalOwners.Import,
+            cancellationToken);
+        if (!written)
+        {
+            return false;
+        }
+
+        await RemoveUnresolvedAsync(target.Hash, cancellationToken);
         return true;
     }
 

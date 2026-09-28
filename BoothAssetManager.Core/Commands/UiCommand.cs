@@ -37,6 +37,12 @@ public abstract record UiCommand
     public record RegisterLocalItem(string Hash, string DisplayName) : UiCommand;
 
     /// <summary>
+    /// 未確定ファイルを、BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。
+    /// 「BOOTHで公開されていない」商品として持ち、⑦で確かめ直して、公開されたら情報を取る。BOOTHへは問い合わせない。
+    /// </summary>
+    public record AssignUnpublishedItemId(string Hash, string ItemId, string DisplayName) : UiCommand;
+
+    /// <summary>
     /// 設定を変える。変え方を関数で渡し、ディスクの今の設定に錠の中で当てる（技術的負債 1-1・1-4）。
     /// 画面は自分の写しを丸ごと書かない——別の画面が書いた項目を古い値で消してしまう。
     /// </summary>
@@ -500,6 +506,12 @@ public abstract record CommandResult
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;
 
     public record PreviewLoaded(Services.ItemPreview Preview) : CommandResult;
+
+    /// <summary>
+    /// BOOTHが「その商品は無い」と答えた（一時的に届かないのとは分ける）。
+    /// このときだけ、見つからないIDのまま登録する道（<see cref="UiCommand.AssignUnpublishedItemId"/>）を出す。
+    /// </summary>
+    public record PreviewNotOnBooth(string ItemId, string Message) : CommandResult;
 
     /// <param name="BoothUnreachable">BOOTH に届かなかったか（E3）。0件でも「無い」と言い切らないため。</param>
     public record CandidatesProposed(

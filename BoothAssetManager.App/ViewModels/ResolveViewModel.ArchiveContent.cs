@@ -266,6 +266,7 @@ public sealed partial class ResolveViewModel
         }
 
         IsBusy = true;
+        StartRegistering(RegisteringArea.Folder, 1);
         try
         {
             var result = await _services.Commands.ExecuteAsync(
@@ -293,6 +294,7 @@ public sealed partial class ResolveViewModel
         }
         finally
         {
+            EndRegistering();
             IsBusy = false;
         }
     }

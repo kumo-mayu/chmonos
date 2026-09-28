@@ -242,13 +242,16 @@ public sealed partial class ResolveViewModel
         }
 
         IsBusy = true;
+        StartRegistering(RegisteringArea.Decision, targets.Count);
         try
         {
             var settled = new List<UnresolvedRow>();
+            var done = 0;
             foreach (var row in targets)
             {
                 var result = await _services.Commands.ExecuteAsync(
                     new UiCommand.AssignItemId(row.File.Hash, Preview.Id));
+                StepRegistering(++done);
 
                 if (result is not CommandResult.Failed)
                 {
@@ -269,6 +272,7 @@ public sealed partial class ResolveViewModel
         }
         finally
         {
+            EndRegistering();
             IsBusy = false;
             OnPropertyChanged(nameof(HasStatus));
         }

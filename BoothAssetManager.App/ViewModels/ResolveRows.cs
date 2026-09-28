@@ -90,6 +90,12 @@ public sealed class UnresolvedRow : ViewModelBase
         && File.Paths.Count > 0
         && string.Equals(origin.ArchivePath, File.Paths[0], StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 登録の単位の鍵。未確定の件数はこれで数える（ユーザ指示 2026-09-29：登録する回数を想像できるように）。
+    /// まとめて扱う単位（<see cref="ResolveViewModel"/> の ZipUnit）と同じく、zipの中身はzipの名前、zipが無い展開物は束の鍵、ほかは1件ずつ。
+    /// </summary>
+    public string UnitKey => UnresolvedUnits.KeyOf(File.Hash, Origin, IsArchiveContent ? UnpackRoot ?? DirectoryText : null);
+
     /// <summary>元zipの束は畳んでおく。基本はzip単位で扱い、1件ずつ見たいときだけ開く。</summary>
     public bool StartsExpanded => Origin is null;
 

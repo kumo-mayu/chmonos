@@ -143,6 +143,46 @@ public sealed partial class ResolveViewModel
     /// <summary>選んだファイルの場所をエクスプローラで開く（画面をまたいで同じ開き方）。</summary>
     private void RevealSelected() => Services.Shell.Reveal(Selected?.File.Paths.FirstOrDefault());
 
+    private string _copyNote = string.Empty;
+
+    /// <summary>コピーした直後の一言。押した場所（「分かっていること」）の横に出し、選び直すと消す。</summary>
+    public string CopyNote
+    {
+        get => _copyNote;
+        private set
+        {
+            if (SetField(ref _copyNote, value))
+            {
+                OnPropertyChanged(nameof(HasCopyNote));
+            }
+        }
+    }
+
+    public bool HasCopyNote => CopyNote.Length > 0;
+
+    /// <summary>
+    /// ファイル名をクリップボードへ（ユーザ指示 2026-09-29：BOOTHやブラウザで探すときに貼りたい）。
+    /// **名前だけを写す**（フォルダまで写すと、検索欄に貼ったときに消す手間が要る）。ほかの画面の「リンクをコピー」と同じく、
+    /// 他のアプリがクリップボードを掴んでいて入らなければ、もう一度押してもらう
+    /// </summary>
+    private void CopyFileName()
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(row.FileName);
+            CopyNote = "コピーしました";
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            CopyNote = "コピーできませんでした。もう一度押してください。";
+        }
+    }
+
     private bool _singleFileOnly;
 
     /// <summary>「このファイルだけを扱う」。zipやフォルダの単位にせず、選んだ1件だけを登録・管理対象から除外するの対象にする。</summary>

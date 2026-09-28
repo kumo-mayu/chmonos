@@ -31,9 +31,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public void OnLeaving()
     {
         _leaving.Cancel();
+        ReflectSettledInSearch();
+    }
 
-        // 新しく確定した商品は、検索の写しを読み直すまで検索に出ない。確定のたびに読み直すと
-        // 2000件で数秒ずつ待つので、画面を離れるときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）
+    /// <summary>
+    /// 新しく確定・登録した商品（BOOTHに無い商品の仮IDも含む）は、検索の写しを読み直すまで検索に出ない。確定のたびに読み直すと
+    /// 2000件で数秒ずつ待つので、画面を離れるとき・編集へ送るときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）。
+    /// 編集へ送ると溜めたIDは空になるので、離れる時点では見えない。送る前にここを通す
+    /// </summary>
+    private void ReflectSettledInSearch()
+    {
         if (_settledItemIds.Any(id => _main.Search.FindItem(id) is null))
         {
             _main.ReloadLibraryAsync().Forget();
@@ -97,6 +104,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         TreatAsOriginZipCommand = new RelayCommand(TreatAsOriginZip, parameter => parameter is not null);
         UndoExcludeCommand = new RelayCommand(() => UndoExcludeAsync().Forget(), () => HasUndoExclude && !IsBusy);
         RevealCommand = new RelayCommand(RevealSelected, () => HasSelection);
+        CopyFileNameCommand = new RelayCommand(CopyFileName, () => HasSelection);
         OpenImportCommand = new RelayCommand(_main.ShowImport);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
@@ -125,6 +133,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public RelayCommand UndoExcludeCommand { get; }
 
     public RelayCommand RevealCommand { get; }
+
+    public RelayCommand CopyFileNameCommand { get; }
 
     public RelayCommand OpenImportCommand { get; }
 
@@ -194,6 +204,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingToolTip));
         OnPropertyChanged(nameof(SettledCount));
         OnPropertyChanged(nameof(HasSettled));
         OnPropertyChanged(nameof(SettledText));
@@ -405,7 +416,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Fixed = IsEmbedded ? new System.Windows.GridLength(0) : null,
     };
 
-    public string RemainingText => $"未確定 {Files.Count} 件";
+    /// <summary>
+    /// 見出しの件数は登録する回数（zipの中身・展開したフォルダは1件）で数える（ユーザ指示 2026-09-29）。
+    /// ナビの札も同じ数え方（<see cref="MainViewModel"/> の件数の読み直し）。ファイルの数は吹き出しに出す
+    /// </summary>
+    public string RemainingText => $"未確定 {UnresolvedUnits.Count(Files.Select(row => row.UnitKey))} 件";
+
+    public string RemainingToolTip => $"ファイルは {Files.Count} 件です。zipやフォルダでまとまるファイルは1件と数えます。";
 
     public int SettledCount => _settledItemIds.Count;
 
@@ -583,7 +600,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     }
 
     /// <summary>裏で組んだ一覧。画面のスレッドでは <see cref="ApplyReload"/> で1回で差し替えるだけにする。</summary>
-    private sealed record ReloadedRows(
+    internal sealed record ReloadedRows(
         List<UnresolvedRow> Rows,
         int HiddenByRegisteredZip,
         Dictionary<string, ArchiveContentJudgement> Judgements,
@@ -647,11 +664,20 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Selected = Files.FirstOrDefault();
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingToolTip));
     }
 
     private ReloadedRows BuildReload(Func<UnresolvedFile, bool>? scope, IReadOnlySet<string> owned, IReadOnlyList<string> importFolders)
+        => BuildRows(_services.Store.Unresolved.Load().Where(file => scope?.Invoke(file) ?? true).ToList(), owned, importFolders);
+
+    /// <summary>
+    /// 未確定の記録から一覧の行を組む。ディスクを見るので裏のスレッドで呼ぶ。
+    /// ナビの札の件数（<see cref="MainViewModel"/>）も、画面と同じ単位で数えるためにこれで組む。
+    /// </summary>
+    /// <param name="owned">商品が持っているファイルの場所（元のzipが登録済みの中身は出さない）。</param>
+    /// <param name="importFolders">取り込み元（展開物の根をここより広げない）。</param>
+    internal static ReloadedRows BuildRows(List<UnresolvedFile> unresolved, IReadOnlySet<string> owned, IReadOnlyList<string> importFolders)
     {
-        var unresolved = _services.Store.Unresolved.Load().Where(file => scope?.Invoke(file) ?? true).ToList();
         var judgements = new Dictionary<string, ArchiveContentJudgement>(StringComparer.OrdinalIgnoreCase);
         var originExists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         var rows = new List<UnresolvedRow>();
@@ -739,7 +765,10 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         ItemIdInput = string.Empty;
         Preview = null;
+        NotOnBoothItemId = null;
         StatusText = string.Empty;
+        CopyNote = string.Empty;
+        ClearLocalImages();
 
         // 名前は下書きを入れておく。そのままでも通る形にしておかないと、
         // 「登録できる」と言いながら毎回入力を強いることになる。
@@ -818,6 +847,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var startedWith = Selected;
 
         IsBusy = true;
+        NotOnBoothItemId = null;
         StatusText = "商品情報を取得しています…";
         try
         {
@@ -831,6 +861,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 Preview = loaded.Preview;
                 StatusText = string.Empty;
+            }
+            else if (result is CommandResult.PreviewNotOnBooth notOnBooth)
+            {
+                // BOOTHが「無い」と答えたときだけ、このIDのまま登録する道を出す（一時的に届かないときは出さない）
+                Preview = null;
+                StatusText = notOnBooth.Message;
+                NotOnBoothItemId = notOnBooth.ItemId;
             }
             else if (result is CommandResult.Failed failed)
             {
@@ -858,13 +895,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var itemId = Preview.Id;
 
         IsBusy = true;
+        StartRegistering(RegisteringArea.Decision, targets.Count);
         try
         {
             var settled = new List<UnresolvedRow>();
             string? failure = null;
+            var done = 0;
             foreach (var row in targets)
             {
                 var result = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, itemId));
+                StepRegistering(++done);
                 if (result is CommandResult.Failed failed)
                 {
                     failure ??= failed.Message;
@@ -902,6 +942,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
         finally
         {
+            EndRegistering();
             IsBusy = false;
         }
     }
@@ -928,9 +969,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var targets = ActiveRows;
         var name = LocalNameInput.Trim();
         var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
+
+        // 添えた画像は押した時点の分。登録の後は選び直しで消えるので、先に控える
+        var images = LocalImages.ToList();
         var answer = Services.Notice.Show(
             $"{what} を「{name}」として登録します。\n\n"
-            + $"仮のID（{LocalIdPreview}）を付けます。BOOTHから情報を取得しないので、名前も画像も増えません。\n\n"
+            + $"仮のID（{LocalIdPreview}）を付けます。BOOTHから情報を取得しないので、名前も画像も自動では増えません。\n\n"
+            + (images.Count > 0 ? $"選んだ画像 {images.Count} 枚を追加します。\n\n" : string.Empty)
             + "あとで商品IDが分かったら、編集画面の「IDを変える」で移せます。",
             "BOOTHに無い商品として登録する",
             System.Windows.MessageBoxButton.OKCancel,
@@ -943,10 +988,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
 
         IsBusy = true;
+        StartRegistering(RegisteringArea.Local, targets.Count);
         try
         {
             var result = await _services.Commands.ExecuteAsync(
                 new UiCommand.RegisterLocalItem(targets[0].File.Hash, name));
+            StepRegistering(1);
 
             if (result is CommandResult.Failed failed)
             {
@@ -961,31 +1008,51 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 _settledItemIds.Add(saved.ItemId);
             }
 
+            // 商品ができてから画像を入れる。入らなかった分があっても登録は取り消さない（商品ページの「＋」で足し直せる）
+            var imagesFailed = result is CommandResult.ItemSaved withImages && images.Count > 0
+                ? await AddLocalImagesToAsync(withImages.ItemId, images)
+                : 0;
+            var imagesNote = imagesFailed > 0
+                ? $"画像 {imagesFailed} 枚を追加できませんでした。商品ページの「＋」から追加してください。"
+                : string.Empty;
+
             if (targets.Count == 1 || result is not CommandResult.ItemSaved created)
             {
                 AfterSettled();
+
+                // 次の行を選ぶと知らせは消えるので、選び直した後に出す
+                if (imagesNote.Length > 0)
+                {
+                    StatusText = imagesNote;
+                    OnPropertyChanged(nameof(HasStatus));
+                }
+
                 return;
             }
 
             // 残りの中身は、できた仮の商品に加える（BOOTHへは行かない）
             var settled = new List<UnresolvedRow> { targets[0] };
+            var done = 1;
             foreach (var row in targets.Skip(1))
             {
-                if (await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, created.ItemId)) is not CommandResult.Failed)
+                var assigned = await _services.Commands.ExecuteAsync(new UiCommand.AssignItemId(row.File.Hash, created.ItemId));
+                StepRegistering(++done);
+                if (assigned is not CommandResult.Failed)
                 {
                     settled.Add(row);
                 }
             }
 
             RemoveRows(settled);
-            StatusText = settled.Count == targets.Count
+            StatusText = (settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"
-                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。";
+                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。") + imagesNote;
             OnPropertyChanged(nameof(HasStatus));
             HideCoveredContents(settled);
         }
         finally
         {
+            EndRegistering();
             IsBusy = false;
         }
     }
@@ -1056,6 +1123,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingToolTip));
         OnPropertyChanged(nameof(SettledCount));
         OnPropertyChanged(nameof(HasSettled));
         OnPropertyChanged(nameof(SettledText));
@@ -1081,6 +1149,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             return;
         }
+
+        // 編集を「終える」で抜ければ読み直されるが、ナビで別の画面へ移ると読み直されず、登録した商品が検索に出なかった
+        ReflectSettledInSearch();
 
         var ids = _settledItemIds.ToList();
         _settledItemIds.Clear();
