@@ -516,11 +516,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>空のときに次にやることを書く。</summary>
-    public string EmptyText => _isLoading
+    public string EmptyText => _loadFailure ?? (_isLoading
         ? "読み込んでいます…"
         : IsFiltering
             ? "当てはまるものがありません。絞り込みを変えてみてください。"
-            : "まだ手元のファイルがありません。「取り込み」でフォルダを選ぶと、ここに置き場所ごとに並びます。";
+            : "まだ手元のファイルがありません。「取り込み」でフォルダを選ぶと、ここに置き場所ごとに並びます。");
 
     // ---- 操作 ----
 
@@ -573,7 +573,25 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         {
             // 画面を離れた。投げ直さないのは、除外の後に読み直していた呼び手を失敗に見せないため
         }
+        catch (Exception exception)
+        {
+            // 読み込み中を下ろさないと「読み込んでいます…」のまま戻らなかった（統計・アバターの画面と同じ直し・N6）。
+            // 木が空なら空の表示の代わりに、前に読めた木が残っていれば状態の行に出す
+            AppLog.Error("フォルダビューの読み込み", exception);
+            var failure = $"フォルダの一覧を読み込めませんでした。{Core.Services.FailureText.Cause(exception)}";
+            _isLoading = false;
+            _loadFailure = failure;
+            if (!IsEmpty)
+            {
+                Status = failure;
+            }
+
+            OnPropertyChanged(nameof(EmptyText));
+        }
     }
+
+    /// <summary>読み込みに失敗したときの文。空の表示の代わりに出す。次に読めたら消す。</summary>
+    private string? _loadFailure;
 
     private async Task LoadCoreAsync(CancellationToken token)
     {
@@ -617,6 +635,12 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         token.ThrowIfCancellationRequested();
         _volumes = built;
         _isLoading = false;
+        if (_loadFailure is not null && Status == _loadFailure)
+        {
+            Status = string.Empty;
+        }
+
+        _loadFailure = null;
 
         if (_pendingSelect is { } pending)
         {

@@ -201,7 +201,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     public bool IsEmpty => Groups.Count == 0;
 
     /// <summary>空のときに次にやることを書く。</summary>
-    public string EmptyText => _isLoading
+    public string EmptyText => _loadFailure ?? (_isLoading
         ? "読み込んでいます…"
         : Query.Trim().Length > 0
             ? $"「{Query.Trim()}」に当てはまるものはありません。"
@@ -211,7 +211,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
                 ModificationHubLevel.Avatar =>
                     "持っているアバターがまだありません。アバターの管理で検出するか、アバターの商品を取り込むと出ます。",
                 _ => "改変はまだありません。「アバター」の見方で、アバターの行の「改変を作る」から作れます。",
-            };
+            });
 
     // ---- 右側 ----
 
@@ -361,7 +361,19 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         {
             // 画面を離れた（取り消した読み込みを失敗としてログに残さない）
         }
+        catch (Exception exception)
+        {
+            // 読み込み中を下ろさないと「読み込んでいます…」のまま戻らなかった（統計・アバターの画面と同じ直し・N6）。
+            // 一覧は空なので、空の表示の代わりに失敗を出す（「改変はまだありません」と言うと、無くしたように見える）
+            Core.Diagnostics.AppLog.Error("改変の一覧の読み込み", exception);
+            _loadFailure = $"改変の一覧を読み込めませんでした。{Core.Services.FailureText.Cause(exception)}";
+            _isLoading = false;
+            OnPropertyChanged(nameof(EmptyText));
+        }
     }
+
+    /// <summary>読み込みに失敗したときの文。空の表示の代わりに出す。</summary>
+    private string? _loadFailure;
 
     private async Task LoadCoreAsync(CancellationToken token)
     {
@@ -460,6 +472,14 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     {
         if (_isLoading || _isRefreshing)
         {
+            return;
+        }
+
+        // 最初の読み込みが失敗していれば、商品の写しも無いので、差分ではなく最初から読み直す
+        if (_loadFailure is not null)
+        {
+            _loadFailure = null;
+            await LoadAsync();
             return;
         }
 
