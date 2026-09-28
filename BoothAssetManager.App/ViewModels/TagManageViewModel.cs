@@ -750,7 +750,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         var result = await RewriteTagsAsync(new UiCommand.NestUserTagTop(source.Name, into), "小分類にできませんでした。");
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
-            StatusText = $"「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
+            StatusText = $"「{source.Name}」を「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
         }
 
         await ReloadAsync();
