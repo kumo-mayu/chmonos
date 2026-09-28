@@ -736,7 +736,8 @@
                                 入れると統計からも検索からも消えてしまう。
                             -->
                             <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
-                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0">
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0"
+                                    AllowDrop="True" PreviewDragOver="OnLocalBoxPreviewDragOver" PreviewDrop="OnLocalBoxPreviewDrop">
                                 <StackPanel>
                                     <TextBlock Text="BOOTHに無い商品として登録する" FontWeight="Bold" FontSize="12.5" />
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
@@ -777,10 +778,38 @@
                                     <!-- 押す前に言う。商品ページにも常設で出す（半年後に理由を思い出せるように） -->
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
                                                Foreground="{StaticResource Warn}"
-                                               Text="BOOTHから情報を取り直さないので、名前も画像も増えません。" />
+                                               Text="BOOTHから情報を取り直さないので、名前も画像も自動では増えません。" />
 
-                                    <Button Content="この名前で登録する" Margin="0,10,0,0" HorizontalAlignment="Left"
-                                            Command="{Binding RegisterLocalCommand}" />
+                                    <!--
+                                        画像は登録と一緒に入れる（ユーザ判断 2026-09-29：BOOTHから取らない商品は画像が1枚も無い）。
+                                        この枠に画像を落としても添えられる（View の OnLocalBoxDrop。画像以外はウィンドウの振り分けに任せる）。
+                                        登録の後に足すのは商品ページの「＋」
+                                    -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button Content="この名前で登録する" Command="{Binding RegisterLocalCommand}" />
+                                        <Button Content="画像を選ぶ" Margin="7,0,0,0"
+                                                ToolTip="登録と一緒に追加する画像を選びます。この枠にドロップしても追加できます。"
+                                                Command="{Binding ChooseLocalImagesCommand}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,8,0,0"
+                                                Visibility="{Binding HasLocalImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <TextBlock Text="{Binding LocalImagesText}" Style="{StaticResource Caption}" />
+                                        <ItemsControl ItemsSource="{Binding LocalImages}" Margin="0,4,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,0,0,2">
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource ClearFieldButton}"
+                                                                ToolTip="この画像を外します。"
+                                                                Command="{Binding DataContext.RemoveLocalImageCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Mono}" FontSize="11"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                     <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                                     Visibility="{Binding IsRegisteringLocal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <TextBlock Text="元のzipが未確定にあるため、zipで登録してください。1件だけ扱うときは「このファイルだけを扱う」をオンにします。"

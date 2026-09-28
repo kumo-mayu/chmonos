@@ -760,6 +760,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         Preview = null;
         StatusText = string.Empty;
         CopyNote = string.Empty;
+        ClearLocalImages();
 
         // 名前は下書きを入れておく。そのままでも通る形にしておかないと、
         // 「登録できる」と言いながら毎回入力を強いることになる。
@@ -952,9 +953,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var targets = ActiveRows;
         var name = LocalNameInput.Trim();
         var what = targets.Count == 1 ? Selected.FileName : GroupSubject;
+
+        // 添えた画像は押した時点の分。登録の後は選び直しで消えるので、先に控える
+        var images = LocalImages.ToList();
         var answer = Services.Notice.Show(
             $"{what} を「{name}」として登録します。\n\n"
-            + $"仮のID（{LocalIdPreview}）を付けます。BOOTHから情報を取得しないので、名前も画像も増えません。\n\n"
+            + $"仮のID（{LocalIdPreview}）を付けます。BOOTHから情報を取得しないので、名前も画像も自動では増えません。\n\n"
+            + (images.Count > 0 ? $"選んだ画像 {images.Count} 枚を追加します。\n\n" : string.Empty)
             + "あとで商品IDが分かったら、編集画面の「IDを変える」で移せます。",
             "BOOTHに無い商品として登録する",
             System.Windows.MessageBoxButton.OKCancel,
@@ -987,9 +992,25 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 _settledItemIds.Add(saved.ItemId);
             }
 
+            // 商品ができてから画像を入れる。入らなかった分があっても登録は取り消さない（商品ページの「＋」で足し直せる）
+            var imagesFailed = result is CommandResult.ItemSaved withImages && images.Count > 0
+                ? await AddLocalImagesToAsync(withImages.ItemId, images)
+                : 0;
+            var imagesNote = imagesFailed > 0
+                ? $"画像 {imagesFailed} 枚を追加できませんでした。商品ページの「＋」から追加してください。"
+                : string.Empty;
+
             if (targets.Count == 1 || result is not CommandResult.ItemSaved created)
             {
                 AfterSettled();
+
+                // 次の行を選ぶと知らせは消えるので、選び直した後に出す
+                if (imagesNote.Length > 0)
+                {
+                    StatusText = imagesNote;
+                    OnPropertyChanged(nameof(HasStatus));
+                }
+
                 return;
             }
 
@@ -1007,9 +1028,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             }
 
             RemoveRows(settled);
-            StatusText = settled.Count == targets.Count
+            StatusText = (settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"
-                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。";
+                : $"{settled.Count} / {targets.Count} 件を登録しました。残りは失敗しました。") + imagesNote;
             OnPropertyChanged(nameof(HasStatus));
             HideCoveredContents(settled);
         }
