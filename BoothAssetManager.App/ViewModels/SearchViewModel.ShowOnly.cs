@@ -17,8 +17,11 @@ public sealed partial class SearchViewModel
     public void ShowOnly(string top, string? sub = null)
     {
         ClearFilters(apply: false);
-        EnsureModule<ListModule>(SearchModuleKind.UserTag)
-            .AddKey(sub is null ? top : $"{top}{UserTagSeparator}{sub}", notify: false);
+        var row = EnsureModule<UserTagModule>(SearchModuleKind.UserTag).AddTop(top, notify: false);
+        if (sub is not null)
+        {
+            row?.AddSubQuietly(sub);
+        }
         FinishShowOnly();
     }
 
