@@ -44,9 +44,13 @@ public sealed class ItemViewSize : ViewModelBase
     {
         _services = services;
         _listRowHeight = ClampRow(settings.ListRowHeight);
-        CardMetrics.Apply(settings.CardWidth);
+
+        // 設定を持たない既定の値（Current の初期化子）はカードの大きさに触れない。静的な初期化子は、Initialize で
+        // Current へ代入する瞬間に遅れて走ることがあり、ここで当てると読んだ設定の幅を既定の228で上書きしていた
+        // （起動し直すとスライダーの大きさを忘れた。2026-09-29 に画面で確かめて見つけた）。CardMetrics の既定も同じ228
         if (services is not null)
         {
+            CardMetrics.Apply(settings.CardWidth);
             _save = new Debounced(SaveDelay, SaveAsync);
         }
     }
