@@ -143,8 +143,37 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>欄を今の名前から変えたか。「名前を保存」はそのときだけ出す（アバターと同じ作法）。</summary>
+    /// <summary>欄を今の名前から変えたか。「名前を変える」はそのときだけ押せる（アバターと同じ作法）。</summary>
     public bool HasNameChange => NameInput.Trim().Length > 0 && NameInput.Trim() != Name;
+
+    private bool _isEditingName;
+
+    /// <summary>
+    /// 名前を欄にしているか。普段は名前を文字で出し、「名前を変更」を押したときだけ欄にする
+    /// （ユーザ判断 2026-09-29：常に欄だと、名前を変えられることが分からなかった）。アバターの名前と同じ作法
+    /// </summary>
+    public bool IsEditingName
+    {
+        get => _isEditingName;
+        set => SetField(ref _isEditingName, value);
+    }
+
+    private RelayCommand? _startRenameCommand;
+
+    public RelayCommand StartRenameCommand => _startRenameCommand ??= new RelayCommand(() =>
+    {
+        NameInput = Name;
+        IsEditingName = true;
+    });
+
+    private RelayCommand? _cancelRenameCommand;
+
+    /// <summary>取り消したら欄を今の名前に戻す。打ちかけを残すと、次に開いたときに前の打ちかけが出る</summary>
+    public RelayCommand CancelRenameCommand => _cancelRenameCommand ??= new RelayCommand(() =>
+    {
+        IsEditingName = false;
+        NameInput = Name;
+    });
 
     public string MemberText => $"アバター {Summary.MemberCount}（所有 {Summary.OwnedMemberCount}）";
 
@@ -272,7 +301,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         _saveMemo = new Debounced(TimeSpan.FromMilliseconds(800), SaveMemoAsync);
         RenameCommand = new RelayCommand(() => RenameAsync().Forget());
         UseNameSuggestionCommand = new RelayCommand(
-            parameter => { if (parameter is string name) { NameInput = name; } },
+            parameter =>
+            {
+                if (parameter is string name)
+                {
+                    NameInput = name;
+                    IsEditingName = true;
+                }
+            },
             parameter => parameter is string);
         RemoveAliasCommand = new RelayCommand(parameter => RemoveAliasAsync(parameter as string).Forget());
         ToggleOwnedCommand = new RelayCommand(() => ToggleOwnedAsync().Forget());
@@ -748,6 +784,45 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// </summary>
     public bool HasNameChange => Selected is not null && NameInput.Trim().Length > 0 && NameInput.Trim() != Selected.Name;
 
+    private bool _isEditingName;
+
+    /// <summary>
+    /// 名前を欄にしているか。普段は名前を文字で出し、「名前を変更」を押したときだけ欄にする
+    /// （ユーザ判断 2026-09-29：常に欄だと枠も地も無く、名前を変えられることが分からなかった）。
+    /// 言い方と作法はタグの管理の「名前を変更」に揃える（Enter で確定・Esc で取り消し）
+    /// </summary>
+    public bool IsEditingName
+    {
+        get => _isEditingName;
+        set => SetField(ref _isEditingName, value);
+    }
+
+    private RelayCommand? _startRenameCommand;
+
+    public RelayCommand StartRenameCommand => _startRenameCommand ??= new RelayCommand(() =>
+    {
+        if (Selected is null)
+        {
+            return;
+        }
+
+        NameInput = Selected.Name;
+        IsEditingName = true;
+    });
+
+    private RelayCommand? _cancelRenameCommand;
+
+    /// <summary>取り消したら欄を今の名前に戻し、打ちかけの控えも捨てる（次に開いたときに前の打ちかけが出ないように）</summary>
+    public RelayCommand CancelRenameCommand => _cancelRenameCommand ??= new RelayCommand(() =>
+    {
+        IsEditingName = false;
+        if (Selected is not null)
+        {
+            _drafts.Remove(Selected.ItemId);
+            NameInput = Selected.Name;
+        }
+    });
+
     private string _memoInput = string.Empty;
 
     /// <summary>
@@ -819,6 +894,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 BaseInput = draft?.Base ?? value?.Summary.Entry.BaseName ?? string.Empty;
                 AliasInput = draft?.Alias ?? string.Empty;
                 NameInput = draft?.Name ?? value?.Name ?? string.Empty;
+                // 打ちかけの名前があれば欄のまま戻す（I5）。無ければ文字で出す
+                IsEditingName = value is not null && NameInput != value.Name;
                 _swappingMemo = true;
                 MemoInput = value is null ? string.Empty
                     : _writtenMemos.TryGetValue(value.ItemId, out var written) ? written : value.Summary.Entry.Memo ?? string.Empty;
@@ -1396,6 +1473,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         if (newName == oldName)
         {
+            // 変えずに Enter を押したら、何も書かずに文字へ戻す
+            Bases.FirstOrDefault(row => row.Name == oldName)?.CancelRenameCommand.Execute(null);
             return;
         }
 
@@ -1471,6 +1550,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, string.Empty));
         _drafts.Remove(Selected.ItemId);
+        IsEditingName = false;
         await LoadAsync();
     }
 
@@ -1494,8 +1574,16 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
+        // 変えずに Enter を押したら、何も書かずに文字へ戻す（窓の「名前を変える」が押せないのと同じ扱い）
+        if (newName == Selected.Name)
+        {
+            CancelRenameCommand.Execute(null);
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SetAvatarName(Selected.ItemId, newName));
         _drafts.Remove(Selected.ItemId);
+        IsEditingName = false;
         await LoadAsync();
     }
 
