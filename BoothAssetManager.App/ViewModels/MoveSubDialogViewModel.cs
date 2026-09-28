@@ -10,6 +10,9 @@ namespace BoothAssetManager.App.ViewModels;
 ///
 /// 空になったトップをどうするかをアプリで決めないのは、そのトップが
 /// このサブのためだけに付いていたとは限らないため（サブなしの単独指定もあり得る）。
+///
+/// **大分類を別の大分類の小分類にするときも、この窓を使う**（<see cref="ForNestingTop"/>。ユーザ要望 2026-09-29）。
+/// どちらも「入れ先の大分類を1つ選ぶ」操作なので、窓の形を1つにしておく。
 /// </summary>
 public sealed class MoveSubDialogViewModel : ViewModelBase
 {
@@ -17,9 +20,15 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
     private string? _target;
     private MoveSubPreview? _preview;
+    private NestTopPreview? _nestPreview;
     private bool _dropEmptySourceTop;
 
     public MoveSubDialogViewModel(IUserTagService userTags, string fromTop, string sub, IReadOnlyList<string> targets)
+        : this(userTags, fromTop, targets, sub)
+    {
+    }
+
+    private MoveSubDialogViewModel(IUserTagService userTags, string fromTop, IReadOnlyList<string> targets, string? sub)
     {
         _userTags = userTags;
         FromTop = fromTop;
@@ -29,15 +38,33 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
         PickTargetCommand = new RelayCommand(parameter => PickAsync(parameter as string).Forget());
     }
 
+    /// <summary>小分類を持たない大分類 <paramref name="top"/> を、選んだ大分類の小分類にする窓。</summary>
+    public static MoveSubDialogViewModel ForNestingTop(IUserTagService userTags, string top, IReadOnlyList<string> targets)
+        => new(userTags, top, targets, sub: null);
+
     public string FromTop { get; }
 
-    public string Sub { get; }
+    /// <summary>移す小分類。null なら大分類そのものを小分類にする窓。</summary>
+    public string? Sub { get; }
+
+    public bool IsNestingTop => Sub is null;
 
     public IReadOnlyList<string> Targets { get; }
 
     public RelayCommand PickTargetCommand { get; }
 
-    public string HeadingText => $"「{Sub}」を「{FromTop}」から別の大分類へ移します。";
+    public string DialogTitle => IsNestingTop ? "別の大分類の小分類にする" : "小分類を移す";
+
+    public string HeadingText => IsNestingTop
+        ? $"「{FromTop}」を、選んだ大分類の小分類にします。"
+        : $"「{Sub}」を「{FromTop}」から別の大分類へ移します。";
+
+    public string TargetLabel => IsNestingTop ? "入れ先" : "移動先";
+
+    /// <summary>同じ名前の小分類があれば統合になるので、名前の変更の窓と同じく「統合する」に変える。</summary>
+    public string CommitText => IsNestingTop
+        ? _nestPreview is { IsMerge: true } ? "統合する" : "小分類にする"
+        : "移す";
 
     public string? Target
     {
@@ -50,6 +77,7 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TargetText));
                 OnPropertyChanged(nameof(UndoText));
                 OnPropertyChanged(nameof(CommitHint));
+                OnPropertyChanged(nameof(CommitText));
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
@@ -57,13 +85,15 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
 
     public bool HasTarget => !string.IsNullOrEmpty(Target);
 
-    public string TargetText => HasTarget ? $"移動先： {Target}" : "移動先をまだ選んでいません";
+    public string TargetText => HasTarget ? $"{TargetLabel}： {Target}" : $"{TargetLabel}をまだ選んでいません";
 
     /// <summary>押せないときに、何が足りないかを書く（`ui-dialogs.md`・E9）。</summary>
-    public string CommitHint => HasTarget ? string.Empty : "上の欄で移動先の大分類を選ぶと押せます。";
+    public string CommitHint => HasTarget ? string.Empty : $"上の欄で{TargetLabel}の大分類を選ぶと押せます。";
 
     /// <summary>移動後に何が起きるか。押す前に見えていないと判断できない。</summary>
-    public string ImpactText
+    public string ImpactText => IsNestingTop ? NestImpactText : MoveImpactText;
+
+    private string MoveImpactText
     {
         get
         {
@@ -83,6 +113,29 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
             {
                 lines.Add($"うち {_preview.ItemsGainingTop} 件には「{Target}」が新しく付きます。");
             }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+    }
+
+    private string NestImpactText
+    {
+        get
+        {
+            if (_nestPreview is null)
+            {
+                return string.Empty;
+            }
+
+            var lines = new List<string>();
+            if (_nestPreview.IsMerge)
+            {
+                lines.Add($"「{Target}」には同じ名前の小分類があるので、統合します。");
+            }
+
+            lines.Add(_nestPreview.ItemCount == 0
+                ? "どの商品にも付いていないので、商品は書き換わりません。"
+                : $"{_nestPreview.ItemCount} 件の商品を「{Target}」の「{FromTop}」に書き換えます。");
 
             return string.Join(Environment.NewLine, lines);
         }
@@ -118,12 +171,15 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
     /// 取り返しがつくかを、押す前に出す（`ui-rules.md`・D4：属性の統合の窓にだけ出ていた）。
     /// **移すだけなら戻せる。**戻せなくなるのは「大分類も外す」を選んだときで、
     /// 小分類なしで単独に付いていた分まで消え、どの商品がそうだったかを残していない。
+    /// 大分類を小分類にしたときは、小分類を大分類へ戻す操作が無いので戻せない。
     /// </summary>
     public string UndoText => !HasTarget
         ? string.Empty
-        : DropEmptySourceTop
-            ? $"「{FromTop}」を外した分は元に戻せません。単独で付いていた商品も一緒に外れます。"
-            : "移した後は、同じ手順で元の大分類へ戻せます。";
+        : IsNestingTop
+            ? "小分類にした後は、元に戻せません。"
+            : DropEmptySourceTop
+                ? $"「{FromTop}」を外した分は元に戻せません。単独で付いていた商品も一緒に外れます。"
+                : "移した後は、同じ手順で元の大分類へ戻せます。";
 
     public bool KeepEmptySourceTop
     {
@@ -137,6 +193,9 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
         }
     }
 
+    /// <summary>下見の件数。窓を閉じた後の確認でも同じ数を言う。</summary>
+    public NestTopPreview? NestPreview => _nestPreview;
+
     private async Task PickAsync(string? name)
     {
         var target = name?.Trim();
@@ -146,12 +205,20 @@ public sealed class MoveSubDialogViewModel : ViewModelBase
             return;
         }
 
-        _preview = await _userTags.PreviewMoveSubAsync(FromTop, Sub, target);
+        if (Sub is { } sub)
+        {
+            _preview = await _userTags.PreviewMoveSubAsync(FromTop, sub, target);
+        }
+        else
+        {
+            _nestPreview = await _userTags.PreviewNestTopAsync(FromTop, target);
+        }
 
         RunOnUiThread(() =>
         {
             Target = target;
             OnPropertyChanged(nameof(ImpactText));
+            OnPropertyChanged(nameof(CommitText));
             OnPropertyChanged(nameof(AsksAboutEmptySourceTop));
             OnPropertyChanged(nameof(EmptySourceTopText));
         });

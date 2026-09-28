@@ -461,6 +461,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
         AddSubCommand = new RelayCommand(parameter => AddSubAsync(parameter as string).Forget(), _ => Selected is not null);
         RenameTopCommand = new RelayCommand(() => AskRenameTopAsync().Forget(), () => Selected is not null);
         DeleteTopCommand = new RelayCommand(() => DeleteTopAsync().Forget(), () => Selected is not null);
+        NestTopCommand = new RelayCommand(() => NestTopAsync().Forget());
         RefreshCommand = new RelayCommand(() => ReloadAsync().Forget());
         ToggleAllCommand = new RelayCommand(ToggleAll);
         ShowItemsCommand = new RelayCommand(
@@ -618,6 +619,9 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     public RelayCommand DeleteTopCommand { get; }
 
+    /// <summary>大分類を別の大分類の小分類にする。押せるかは <see cref="CanNestTop"/> を見た目（IsEnabled）で出す（wpf.md：CanExecute は止まることがある）</summary>
+    public RelayCommand NestTopCommand { get; }
+
     public RelayCommand RefreshCommand { get; }
 
     /// <summary>この分類が付いているitemを検索で見せる。消す・統合するの判断は中身を見ないとできない。</summary>
@@ -662,6 +666,8 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             OnPropertyChanged(nameof(SelectedUsageText));
             OnPropertyChanged(nameof(SelectedIsUsed));
             OnPropertyChanged(nameof(ShowItemsToolTip));
+            OnPropertyChanged(nameof(CanNestTop));
+            OnPropertyChanged(nameof(NestTopToolTip));
             RebuildSubs();
             RebuildOtherNames();
             RelayCommand.RaiseCanExecuteChanged();
@@ -681,6 +687,78 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
     public string ShowItemsToolTip => SelectedIsUsed
         ? "この大分類が付いている商品を、検索で開きます。"
         : "この大分類はまだどの商品にも付いていません。編集画面で付けると開けます。";
+
+    /// <summary>
+    /// 大分類を別の大分類の小分類にできるか。小分類を持つ大分類ではできない（ユーザ要望 2026-09-29：
+    /// 小分類の下にもう1段は作れず、持っている小分類の行き場が無い）。入れ先が無い（大分類が1つだけ）ときもできない。
+    /// ボタンは消さずに押せない形で置き、理由を吹き出しで言う（タグの管理の決め事）
+    /// </summary>
+    public bool CanNestTop => Selected is { SubCount: 0 } && _allTops.Count > 1;
+
+    public string NestTopToolTip => Selected is { SubCount: > 0 }
+        ? "小分類がある大分類は、小分類にできません。"
+        : _allTops.Count > 1
+            ? "この大分類を、別の大分類の小分類にします。"
+            : "入れ先にする大分類が、ほかにありません。";
+
+    /// <summary>
+    /// 大分類を別の大分類の小分類にする。窓（小分類を移す窓と同じ物）で入れ先を選び、
+    /// 戻せない操作なので閉じた後に件数を書いてもう一度確かめる（大分類の統合と同じ作法）。
+    /// </summary>
+    private async Task NestTopAsync()
+    {
+        if (Selected is not { } source || !CanNestTop)
+        {
+            return;
+        }
+
+        var targets = _allTops
+            .Where(entry => !string.Equals(entry.Name, source.Name, StringComparison.CurrentCultureIgnoreCase))
+            .Select(entry => entry.Name)
+            .ToList();
+
+        var model = MoveSubDialogViewModel.ForNestingTop(_services.UserTags, source.Name, targets);
+        if (new Views.MoveSubDialog(model).ShowDialog() != true
+            || model is not { Target: { } into, NestPreview: { } preview })
+        {
+            return;
+        }
+
+        // 一覧に無い小分類が商品の側に付いていると、一覧の数だけでは分からない。下見で分かったらここで止める
+        if (preview.HasSubs)
+        {
+            StatusText = $"「{source.Name}」には小分類が付いた商品があるため、小分類にできませんでした。";
+            return;
+        }
+
+        var impact = preview.ItemCount == 0
+            ? "どの商品にも付いていないので、商品は書き換わりません。\n"
+            : $"{preview.ItemCount} 件の商品を「{into}」の「{source.Name}」に書き換えます。\n";
+
+        if (!Confirm(
+                $"「{source.Name}」を「{into}」の小分類にします。\n\n"
+                + impact
+                + (preview.IsMerge
+                    ? $"「{into}」の同じ名前の小分類と統合します。\n" + MemoNotice(source.Memo, $"{into}／{source.Name}")
+                    : string.Empty)
+                + "この操作は元に戻せません。",
+                "別の大分類の小分類にする"))
+        {
+            return;
+        }
+
+        var result = await RewriteTagsAsync(new UiCommand.NestUserTagTop(source.Name, into), "小分類にできませんでした。");
+        if (result is CommandResult.UserTagsRewritten rewritten)
+        {
+            StatusText = $"「{into}」の小分類にし、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
+        }
+
+        await ReloadAsync();
+        Selected = _allTops.FirstOrDefault(row =>
+            string.Equals(row.Name, into, StringComparison.CurrentCultureIgnoreCase)) ?? Selected;
+        _main.RefreshMasters();
+        await _main.ReloadLibraryAsync();
+    }
 
     public string FilterText
     {

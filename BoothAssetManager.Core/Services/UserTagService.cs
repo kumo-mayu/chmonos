@@ -56,6 +56,31 @@ public sealed record UserTagEditResult
 
     /// <summary>既存の名前へ寄せた（統合した）かどうか。</summary>
     public bool WasMerged { get; init; }
+
+    /// <summary>
+    /// 前提が崩れていて何もしなかったか（大分類を小分類にする操作で、元の大分類が小分類を持っていたときなど）。
+    /// 下見から押すまでの間に編集画面で小分類が足されることがあるので、書く直前にも確かめて断る
+    /// </summary>
+    public bool WasRefused { get; init; }
+}
+
+/// <summary>大分類を別の大分類の小分類にしたら何が起きるかの下見。確認の文に件数を出すため。</summary>
+public sealed record NestTopPreview
+{
+    /// <summary>元の大分類が付いている商品の数。すべて書き換わる。</summary>
+    public required int ItemCount { get; init; }
+
+    /// <summary>そのうち、入れ先の大分類が既に付いている商品の数（入れ先の側へ小分類として足す）。</summary>
+    public required int ItemsAlreadyHavingTarget { get; init; }
+
+    /// <summary>入れ先に同じ名前の小分類が既にあり、統合になるか。</summary>
+    public required bool IsMerge { get; init; }
+
+    /// <summary>
+    /// 元の大分類が小分類を持っているか（一覧か、商品の側に）。持っていればこの操作はできない——
+    /// 小分類の下にもう1段は作れないので、持っている小分類の行き場が無い
+    /// </summary>
+    public required bool HasSubs { get; init; }
 }
 
 /// <summary>
@@ -100,6 +125,10 @@ public interface IUserTagService
         string toTop,
         bool dropEmptySourceTop,
         CancellationToken cancellationToken = default);
+
+    Task<NestTopPreview> PreviewNestTopAsync(string top, string intoTop, CancellationToken cancellationToken = default);
+
+    Task<UserTagEditResult> NestTopAsync(string top, string intoTop, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -530,6 +559,158 @@ public sealed class UserTagService : IUserTagService
             ItemsGainedTop = gained,
             ItemsSourceTopRemoved = sourceRemoved,
         };
+    }
+
+    /// <summary>
+    /// 大分類を別の大分類の小分類にしたら何が起きるかを数える。確認の文に件数を書き、
+    /// 小分類を持つ大分類ならボタンの側で断るため。
+    /// </summary>
+    public async Task<NestTopPreview> PreviewNestTopAsync(
+        string top,
+        string intoTop,
+        CancellationToken cancellationToken = default)
+    {
+        var master = _store.UserTags.Load();
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var locals = loaded.Items.Select(item => item.Local).ToList();
+
+        var source = master.Tops.FirstOrDefault(entry => Same(entry.Name, top));
+        var target = master.Tops.FirstOrDefault(entry => Same(entry.Name, intoTop));
+
+        return new NestTopPreview
+        {
+            ItemCount = locals.Count(local => local.UserTags.Any(assignment => Same(assignment.Top, top))),
+            ItemsAlreadyHavingTarget = locals.Count(local =>
+                local.UserTags.Any(assignment => Same(assignment.Top, top))
+                && local.UserTags.Any(assignment => Same(assignment.Top, intoTop))),
+            IsMerge = target?.Subs.Any(sub => Same(sub.Name, source?.Name ?? top)) ?? false,
+            HasSubs = (source?.Subs.Count ?? 0) > 0 || HasItemSubs(locals, top),
+        };
+    }
+
+    /// <summary>
+    /// 大分類を、別の大分類の小分類にする（ユーザ要望 2026-09-29：作ってから、別の大分類の下に置くべきだったと気付く）。
+    /// 付いていた商品は「入れ先の大分類＋小分類（元の大分類の名前）」に書き換える。入れ先に同じ名前の小分類があれば統合する（メモは書き足す）。
+    ///
+    /// **小分類を持つ大分類ではしない。**小分類の下にもう1段は作れないので、持っている小分類の行き場が無い。
+    /// 一覧の小分類は錠の中で、商品の側の小分類（一覧に無い名前）は書き換える前に確かめて断る。
+    /// 小分類へ変えた後に元へ戻す操作は無いので、画面は押す前に件数を言って確かめる。
+    /// </summary>
+    public async Task<UserTagEditResult> NestTopAsync(
+        string top,
+        string intoTop,
+        CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        if (Same(top, intoTop) || HasItemSubs(loaded.Items.Select(item => item.Local), top))
+        {
+            return new UserTagEditResult { Master = _store.UserTags.Load(), ItemsUpdated = 0, WasRefused = true };
+        }
+
+        string? subName = null;
+        var merged = false;
+        var updated = await ChangeMasterAsync(
+            master =>
+            {
+                var tops = master.Tops.ToList();
+                var from = tops.FindIndex(entry => Same(entry.Name, top));
+                var into = tops.FindIndex(entry => Same(entry.Name, intoTop));
+
+                if (from < 0 || into < 0 || from == into || tops[from].Subs.Count > 0)
+                {
+                    return null;
+                }
+
+                var source = tops[from];
+                subName = source.Name;
+
+                var subs = tops[into].Subs.ToList();
+                var existing = subs.FindIndex(entry => Same(entry.Name, source.Name));
+                if (existing >= 0)
+                {
+                    // 同じ名前の小分類があれば統合する。メモは捨てずに書き足す（大分類の統合と同じ）
+                    merged = true;
+                    subs[existing] = new UserTagSub
+                    {
+                        Name = subs[existing].Name,
+                        Memo = MergeMemo(subs[existing].Memo, source.Name, source.Memo),
+                    };
+                    subName = subs[existing].Name;
+                }
+                else
+                {
+                    subs.Add(new UserTagSub { Name = source.Name, Memo = source.Memo });
+                }
+
+                tops[into] = Replace(tops[into], tops[into].Name, subs);
+                tops.RemoveAt(from);
+                return new UserTagMaster { Tops = tops };
+            },
+            cancellationToken);
+
+        if (subName is null)
+        {
+            return new UserTagEditResult { Master = updated, ItemsUpdated = 0, WasRefused = true };
+        }
+
+        var targetName = updated.Tops.First(entry => Same(entry.Name, intoTop)).Name;
+        var rewritten = await RewriteItemsAsync(
+            local => NestTopIn(local, top, targetName, subName),
+            cancellationToken);
+
+        return new UserTagEditResult
+        {
+            Master = updated,
+            ItemsUpdated = rewritten.Updated,
+            ItemsLeftUntagged = rewritten.LeftUntagged,
+            WasMerged = merged,
+        };
+    }
+
+    /// <summary>商品の側で、その大分類の下に小分類が付いているか（一覧に無い小分類も含む）。</summary>
+    private static bool HasItemSubs(IEnumerable<LocalBlock> locals, string top)
+        => locals.Any(local => local.UserTags.Any(assignment => Same(assignment.Top, top) && assignment.Subs.Count > 0));
+
+    /// <summary>
+    /// 商品1件の「元の大分類」を「入れ先＋小分類」に置き換える。入れ先が既に付いていれば、そこへ小分類を足す。
+    /// 置き換えは元の位置で行う（付けた順が編集画面の並びになるので、勝手に末尾へ動かさない）。
+    ///
+    /// 書く直前に元の大分類へ小分類が付いていたら（下見の後に編集画面で足された）、この商品は触らない。
+    /// 付いた小分類を捨てずに、一覧に無い名前として管理の画面に出して人に決めてもらう
+    /// </summary>
+    private static LocalBlock? NestTopIn(LocalBlock local, string top, string intoTop, string sub)
+    {
+        var source = local.UserTags.FirstOrDefault(assignment => Same(assignment.Top, top));
+        if (source is null || source.Subs.Count > 0)
+        {
+            return null;
+        }
+
+        var result = new List<UserTagAssignment>();
+        var hasTarget = local.UserTags.Any(assignment => Same(assignment.Top, intoTop));
+
+        foreach (var assignment in local.UserTags)
+        {
+            if (Same(assignment.Top, top))
+            {
+                if (!hasTarget)
+                {
+                    result.Add(new UserTagAssignment { Top = intoTop, Subs = [sub] });
+                }
+
+                continue;
+            }
+
+            if (Same(assignment.Top, intoTop) && !assignment.Subs.Any(entry => Same(entry, sub)))
+            {
+                result.Add(assignment with { Subs = [.. assignment.Subs, sub] });
+                continue;
+            }
+
+            result.Add(assignment);
+        }
+
+        return local with { UserTags = result };
     }
 
     /// <summary>メモだけを書き換える。item側は名前しか参照していないので影響しない。</summary>

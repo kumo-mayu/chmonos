@@ -240,6 +240,12 @@ public abstract record UiCommand
     public record MoveUserTagSub(string FromTop, string Sub, string ToTop, bool DropEmptySourceTop) : UiCommand;
 
     /// <summary>
+    /// 小分類を持たない大分類を、別の大分類の小分類にする。付いていた商品は「入れ先＋小分類（元の名前）」に書き換わる。
+    /// 小分類を持つ大分類では断る（<see cref="CommandResult.Failed"/>）。
+    /// </summary>
+    public record NestUserTagTop(string Top, string IntoTop) : UiCommand;
+
+    /// <summary>
     /// 属性を改名する。既存の名前を指すと統合になり、両方に値が入っているitemでは
     /// <paramref name="Keep"/> の側の値を残す。
     /// </summary>
