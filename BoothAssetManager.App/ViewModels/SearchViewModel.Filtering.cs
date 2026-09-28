@@ -230,61 +230,7 @@ public sealed partial class SearchViewModel
         // リストで出しているときは、同じ並び（_matches）をそのまま渡す
         OnPropertyChanged(nameof(ListItems));
 
-        var needed = (_matches.Count + _columns - 1) / _columns;
-
-        while (Rows.Count > needed)
-        {
-            Rows.RemoveAt(Rows.Count - 1);
-        }
-
-        while (Rows.Count < needed)
-        {
-            Rows.Add(new CardRow());
-        }
-
-        for (var row = 0; row < needed; row++)
-        {
-            var cards = Rows[row].Cards;
-            var start = row * _columns;
-            var count = Math.Min(_columns, _matches.Count - start);
-
-            for (var index = 0; index < count; index++)
-            {
-                var card = _matches[start + index];
-                if (index < cards.Count && ReferenceEquals(cards[index], card))
-                {
-                    continue;
-                }
-
-                // 同じ行の後ろにあるなら、手前のずれた物を抜いて詰める（列が増えたときの普通の形）
-                var later = -1;
-                for (var look = index + 1; look < cards.Count; look++)
-                {
-                    if (ReferenceEquals(cards[look], card))
-                    {
-                        later = look;
-                        break;
-                    }
-                }
-
-                if (later > 0)
-                {
-                    for (var remove = later - 1; remove >= index; remove--)
-                    {
-                        cards.RemoveAt(remove);
-                    }
-                }
-                else
-                {
-                    cards.Insert(index, card);
-                }
-            }
-
-            while (cards.Count > count)
-            {
-                cards.RemoveAt(cards.Count - 1);
-            }
-        }
+        CardRowLayout.Apply(Rows, _matches, _columns, () => new CardRow(), row => row.Cards);
     }
 
     /// <summary>

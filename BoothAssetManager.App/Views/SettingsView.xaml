@@ -79,13 +79,10 @@
                     <StackPanel>
                         <TextBlock Text="一覧と検索" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="サムネイルの大きさ" Style="{StaticResource RowLabel}" Width="220" />
-                            <ComboBox Width="120" ItemsSource="{x:Static vm:SettingsViewModel.ThumbnailSizes}"
-                                      DisplayMemberPath="Label"
-                                      SelectedItem="{Binding SelectedThumbnailSize, Mode=TwoWay}" />
-                        </StackPanel>
-
+                        <!--
+                            「サムネイルの大きさ（小・中・大）」は、一覧の右下のスライダーへ移した（ユーザ判断 2026-09-29）。
+                            一覧を見ながら大きさを決められる。
+                        -->
                         <!--
                             サムネイルに出す画像の役割。
 
@@ -93,7 +90,7 @@
                             特定の役割を選ぶと役割が勝つ——「改変例を出す」と決めたのに
                             ★を付けた商品だけ別の絵になるのは筋が通らない
                         -->
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal">
                             <TextBlock Text="サムネイルに表示する画像" Style="{StaticResource RowLabel}" Width="220" />
                             <ComboBox Width="120" ItemsSource="{x:Static vm:SettingsViewModel.ThumbnailRoles}"
                                       DisplayMemberPath="Label"

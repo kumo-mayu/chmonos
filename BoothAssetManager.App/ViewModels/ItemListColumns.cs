@@ -40,6 +40,7 @@ public sealed class ItemListColumns : ViewModelBase
         _screen = screen;
         HasSelect = hasSelect;
         ShopHeader = shopHeader;
+        System.ComponentModel.PropertyChangedEventManager.AddHandler(ItemViewSize.Current, OnSizeChanged, string.Empty);
     }
 
     public bool HasSelect { get; }
@@ -59,21 +60,31 @@ public sealed class ItemListColumns : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 絵の列の幅。画面ごとには覚えず、一覧の右下のスライダー（リストの行の高さ）から決まる（ユーザ判断 2026-09-29）。
+    /// 境目をドラッグしたときは行の高さを変える——前の「絵の欄を大きくしたら縦の幅も変える」（2026-09-14）を残す
+    /// </summary>
     public double IconWidth
     {
-        get => Get("icon");
-        set
+        get => ItemViewSize.Current.ListIconColumnWidth;
+        set => ItemViewSize.Current.ListIconColumnWidth = value;
+    }
+
+    /// <summary>絵の大きさ。行の高さに合わせた正方形（既定の行52で40px）。</summary>
+    public double IconSize => ItemViewSize.Current.ListIconSize;
+
+    /// <summary>
+    /// 共有の大きさが変わった（別の画面のスライダー・この一覧の境目）。弱い参照で聞くので、
+    /// 使い捨ての画面（ショップ・フォルダ）の列がアプリの終わりまで残ることはない
+    /// </summary>
+    private void OnSizeChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ItemViewSize.ListRowHeight) || e.PropertyName == nameof(ItemViewSize.ListIconColumnWidth))
         {
-            Set("icon", value);
+            OnPropertyChanged(nameof(IconWidth));
             OnPropertyChanged(nameof(IconSize));
         }
     }
-
-    /// <summary>
-    /// 絵の大きさ。絵の列の幅から余白を引いた正方形で、行の高さもこれで決まる
-    /// （ユーザ指示 2026-09-14：絵の欄を大きくしたら縦の幅も変える）。既定の列56で40px
-    /// </summary>
-    public double IconSize => Math.Max(28, IconWidth - 16);
 
     public double FavWidth
     {

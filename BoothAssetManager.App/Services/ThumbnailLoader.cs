@@ -383,9 +383,21 @@ public sealed class ThumbnailLoader
     /// 流しながらでも絵で見つけられるように（ユーザ判断）。正規の大きさを頼まれたときに
     /// 小さい方しか無ければ、読み終わるまでそれを出しておく（灰色に戻すとちらつく）。
     /// </summary>
+    /// <summary>カードの絵を読む今の大きさ（画素）と、その1つ前。前の大きさの絵は、今の大きさを読み終わるまでの代わりに出す。</summary>
+    private int _cardEdgePixels;
+
+    private int _previousCardEdgePixels;
+
     public BitmapSource? PeekForCard(string path, Action onLoaded)
     {
-        var normalKey = $"{path}|{EdgePixels(CardEdgeDip)}";
+        var normalEdge = EdgePixels(CardEdgeDip);
+        if (normalEdge != _cardEdgePixels)
+        {
+            _previousCardEdgePixels = _cardEdgePixels;
+            _cardEdgePixels = normalEdge;
+        }
+
+        var normalKey = $"{path}|{normalEdge}";
         if (_byKey.TryGetValue(normalKey, out var normal))
         {
             return Materialize(normalKey, normal);
@@ -394,20 +406,32 @@ public sealed class ThumbnailLoader
         var fastEdge = EdgePixels(FastCardEdgeDip);
         var fastKey = $"{path}|{fastEdge}";
         _byKey.TryGetValue(fastKey, out var small);
+        var smallKey = fastKey;
+
+        // カードの大きさを変えて読む大きさの刻みを越えたときは、前の大きさで読んだ絵を読み終わるまで出しておく
+        // （灰色に戻すと、スライダーを動かすたびに見えている絵が全部ちらつく）
+        if (small is null && _previousCardEdgePixels > 0 && _previousCardEdgePixels != normalEdge)
+        {
+            var previousKey = $"{path}|{_previousCardEdgePixels}";
+            if (_byKey.TryGetValue(previousKey, out small))
+            {
+                smallKey = previousKey;
+            }
+        }
 
         if (IsFastScrolling)
         {
             if (small is not null)
             {
-                return Materialize(fastKey, small);
+                return Materialize(smallKey, small);
             }
 
             Request(fastKey, path, fastEdge, onLoaded);
             return null;
         }
 
-        Request(normalKey, path, EdgePixels(CardEdgeDip), onLoaded);
-        return small is null ? null : Materialize(fastKey, small);
+        Request(normalKey, path, normalEdge, onLoaded);
+        return small is null ? null : Materialize(smallKey, small);
     }
 
     /// <summary>

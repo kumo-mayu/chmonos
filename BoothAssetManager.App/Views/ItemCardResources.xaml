@@ -513,6 +513,35 @@
     </DataTemplate>
 
     <!--
+        一覧の右下の大きさのスライダー（ユーザ判断 2026-09-29）。カードで出しているときはカードの大きさ、
+        リストで出しているときは行の高さ（行の頭の絵も一緒に変わる）。値はアプリに1つで、どの画面で動かしても同じ（ItemViewSize）。
+        一覧の下の細い帯に置く——一覧の上に浮かせると、狭い窓でカードに重なった（切り替えのボタンで点検 2026-09-23 に踏んだ）。
+        両端の小さい四角と大きい四角で、どちらへ動かすと大きくなるかを見せる
+    -->
+    <DataTemplate x:Key="ItemSizeBar">
+        <Border Padding="18,3,24,5">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Rectangle Width="8" Height="8" RadiusX="1.5" RadiusY="1.5" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2"
+                           VerticalAlignment="Center" />
+                <Slider Width="140" Margin="8,0" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                        Minimum="{x:Static vm:ItemViewSize.MinCardWidth}" Maximum="{x:Static vm:ItemViewSize.MaxCardWidth}"
+                        SmallChange="4" LargeChange="20"
+                        Value="{Binding CardWidth, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}"
+                        ToolTip="カードの大きさ" AutomationProperties.Name="カードの大きさ"
+                        Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Slider Width="140" Margin="8,0" VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                        Minimum="{x:Static vm:ItemViewSize.MinListRowHeight}" Maximum="{x:Static vm:ItemViewSize.MaxListRowHeight}"
+                        SmallChange="2" LargeChange="8"
+                        Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}"
+                        ToolTip="行の高さ" AutomationProperties.Name="リストの行の高さ"
+                        Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <Rectangle Width="14" Height="14" RadiusX="2" RadiusY="2" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
+    <!--
         リストの行。押す・右クリック・中クリックはカードと同じ（入れ物の画面は Tag から引く）。
         フォルダの行（フォルダビュー）は押すとそのフォルダへ移り、右クリックのメニューは出さない
     -->
@@ -523,7 +552,8 @@
     <Style x:Key="ItemListRowStyle" TargetType="ListViewItem">
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Stretch" />
-        <Setter Property="MinHeight" Value="52" />
+        <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29）。絵がこの高さに合わせて大きさを変える -->
+        <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
         <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
@@ -576,7 +606,7 @@
         <Setter Property="BorderThickness" Value="1,0,0,0" />
         <Setter Property="Padding" Value="10,0,6,0" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
-        <Setter Property="MinHeight" Value="40" />
+        <!-- 行の高さの下限は行（ItemListRowStyle）が持つ。ここに40が残ると、スライダーで小さくしても行が縮まない -->
         <Setter Property="Background" Value="Transparent" />
     </Style>
 
@@ -598,8 +628,9 @@
     </DataTemplate>
 
     <!--
-        絵。乗せると大きな絵を出す（カードと同じ1枚）。大きさは絵の列の幅に合わせ、行の高さもそれで決まる
-        （ユーザ指示 2026-09-14：絵の欄を大きくしたら縦の幅も変える）。絵はカードと同じ大きさで読む（列を広げてもぼやけない）
+        絵。乗せると大きな絵を出す（カードと同じ1枚）。大きさは行の高さ（一覧の右下のスライダー・ユーザ判断 2026-09-29）に合わせ、
+        絵の列の境目をドラッグしても行の高さが変わる（ユーザ指示 2026-09-14：絵の欄を大きくしたら縦の幅も変える）。
+        絵はカードと同じ大きさで読む（いちばん大きい行でもぼやけない）
     -->
     <DataTemplate x:Key="ItemListIconCell">
         <Grid Style="{StaticResource ItemListCellFill}">

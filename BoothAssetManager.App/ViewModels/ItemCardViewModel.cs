@@ -259,6 +259,12 @@ public sealed class ItemCardViewModel : ViewModelBase
     private bool _peekedWhileFast;
 
     /// <summary>
+    /// 絵を読む大きさが変わった（一覧の右下のスライダーで、カードの大きさが読む大きさの刻みを越えた）。頼み直させる。
+    /// 画面に出ていないカードは誰も聞いていないので、呼んでも読みには行かない
+    /// </summary>
+    public void NoteCardEdgeChanged() => OnPropertyChanged(nameof(Thumbnail));
+
+    /// <summary>
     /// スクロールが止まった。速く流している間に小さく読んだカードだけ、正規の大きさで頼み直させる。
     /// 読み終わるまでは小さい絵をそのまま出しておくので、灰色には戻らない
     /// </summary>

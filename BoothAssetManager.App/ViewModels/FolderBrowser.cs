@@ -246,6 +246,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
     /// <summary>一覧の幅から列数を決める（WPFには仮想化するWrapPanelが無いので、行に切って並べる）。</summary>
     public void SetViewportWidth(double width)
     {
+        _viewportWidth = width;
         var columns = Math.Max(1, (int)((width - ListChrome) / CardSlotWidth));
         if (columns == _columns && Rows.Count > 0)
         {
@@ -253,8 +254,43 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         }
 
         _columns = columns;
-        Rebuild();
+
+        // 並べる物はまだ探し直さなくてよい（幅とカードの大きさだけが変わった）。行に切り直すだけにする
+        if (_listItems.Count > 0)
+        {
+            LayoutRows();
+        }
+        else
+        {
+            Rebuild();
+        }
     }
+
+    private double _viewportWidth;
+
+    /// <summary>カードの大きさが変わった（一覧の右下のスライダー）。覚えている幅で割り直す（列数が同じなら何もしない）。</summary>
+    public void RelayoutForCardSize()
+    {
+        if (_viewportWidth > 0)
+        {
+            SetViewportWidth(_viewportWidth);
+        }
+
+        // 読む大きさの刻みを越えたときだけ読み直させる（検索と同じ）
+        if (_cardEdgeDip != CardMetrics.EdgeDip)
+        {
+            _cardEdgeDip = CardMetrics.EdgeDip;
+            foreach (var card in _cards.Values)
+            {
+                card.NoteCardEdgeChanged();
+            }
+        }
+    }
+
+    private int _cardEdgeDip = CardMetrics.EdgeDip;
+
+    /// <summary>ずれた所だけを抜き差しする（検索と同じ。丸ごと作り直すと、見えているカードを毎回作り直してカクつく）。</summary>
+    private void LayoutRows() => CardRowLayout.Apply(Rows, _listItems, _columns, () => new FolderBrowserRow(), row => row.Cards);
 
     internal void Rebuild()
     {
@@ -273,17 +309,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         var cards = folders.Cast<object>().Concat(visible.Select(CardFor)).ToList();
         _listItems = cards;
         OnPropertyChanged(nameof(ListItems));
-        Rows.Clear();
-        for (var start = 0; start < cards.Count; start += _columns)
-        {
-            var row = new FolderBrowserRow();
-            foreach (var card in cards.Skip(start).Take(_columns))
-            {
-                row.Cards.Add(card);
-            }
-
-            Rows.Add(row);
-        }
+        LayoutRows();
 
         IsEmpty = cards.Count == 0;
         EmptyText = needle.Length > 0

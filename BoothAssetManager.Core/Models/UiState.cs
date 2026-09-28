@@ -75,6 +75,12 @@ public sealed record UiState
     public IReadOnlyList<string> ItemListScreens { get; init; } = [];
 
     /// <summary>
+    /// ショップの中の画面でバナーを畳んでいるか（ユーザ指示 2026-09-29：バナーが場所を取りすぎる）。
+    /// ショップごとではなく全部のショップで同じ値——1店ずつ畳み直すのは手間なので。既定は出す（今までと同じ見た目から始まる）
+    /// </summary>
+    public bool ShopBannerHidden { get; init; }
+
+    /// <summary>
     /// 「この新着はもう知らせなくてよい」と言われたときの、新着の顔つき（ユーザ判断 2026-09-21・G16）。
     ///
     /// 監視フォルダに取り込むつもりの無いファイルがあると、起動のたびに同じ件数を知らされ続け、

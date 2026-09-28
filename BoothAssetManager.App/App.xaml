@@ -5,7 +5,7 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <Application.Resources>
         <!--
-            商品カードの大きさ。起動時と設定の「サムネイルの大きさ」を変えたときに CardMetrics が書き換える
+            商品カードの大きさ。起動時と一覧の右下のスライダーを動かしたときに CardMetrics が書き換える
             （ユーザ判断 2026-09-15）。ここの値は「中」＝前からの大きさ。カードは DynamicResource で読む
         -->
         <!--

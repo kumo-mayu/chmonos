@@ -1,12 +1,5 @@
 namespace BoothAssetManager.Core.Models;
 
-public enum ThumbnailSize
-{
-    Small,
-    Medium,
-    Large,
-}
-
 /// <summary>
 /// 設定（<c>settings.json</c>）。既定値はそのまま初回起動時の設定になる。
 /// recordにしているのは、1項目だけ変えて保存し直す（<c>with</c>）用途があるため。
@@ -23,7 +16,18 @@ public sealed record AppSettings
     /// <summary>非表示中の件数を検索結果に出すか。既定はオフ（人前で開いても気付かれないように）。</summary>
     public bool ShowHiddenCountInSearch { get; init; }
 
-    public ThumbnailSize ThumbnailSize { get; init; } = ThumbnailSize.Medium;
+    /// <summary>
+    /// 商品カードの幅（DIP）。一覧の右下のスライダーで変え、カードを並べる画面すべてで共有する（ユーザ判断 2026-09-29）。
+    /// 前の設定の「サムネイルの大きさ（小・中・大）」を置き換えた。228 はその「中」で、ずっと使ってきた大きさ。
+    /// 範囲の外の値（手で書き換えた JSON）は、使う側（<c>CardMetrics</c>）が範囲に収めて読む
+    /// </summary>
+    public int CardWidth { get; init; } = 228;
+
+    /// <summary>
+    /// 商品のリストの1行の高さ（DIP）。行の頭の絵はこの高さに合わせて大きさが変わる。カードと同じスライダーで、
+    /// リストで出しているときに変える（ユーザ判断 2026-09-29）。52 は前の既定（絵40＋上下の余白）
+    /// </summary>
+    public int ListRowHeight { get; init; } = 52;
 
     /// <summary>
     /// サムネイルにどの役割の画像を出すか。

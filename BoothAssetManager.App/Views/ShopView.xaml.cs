@@ -12,7 +12,19 @@ public partial class ShopView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+
+        // カードの大きさ（一覧の右下のスライダー）が変わったら列を割り直す。一覧の幅は変わらないので SizeChanged は来ない。
+        // 知らせは静的なので、出ている間だけ聞く（離れた画面を掴んだままにしない）
+        Loaded += (_, _) =>
+        {
+            // Loaded は出し直すたびに来る。2重に聞かないよう、外してから付ける
+            Services.CardMetrics.Changed -= OnCardSizeChanged;
+            Services.CardMetrics.Changed += OnCardSizeChanged;
+        };
+        Unloaded += (_, _) => Services.CardMetrics.Changed -= OnCardSizeChanged;
     }
+
+    private void OnCardSizeChanged() => (DataContext as ShopViewModel)?.RelayoutForCardSize();
 
     /// <summary>一覧の幅が変わったら列数を決め直す（行を仮想化の単位にしているため）。</summary>
     private void OnListSizeChanged(object sender, SizeChangedEventArgs e)
