@@ -307,11 +307,13 @@ public sealed partial class MainViewModel
         // 控えないと、戻っても「この商品だけ出す」で全消しされた後の条件のままだった
         SearchViewModel search => new HistoryEntry("検索", RestoreSearch(search.CaptureFilters())),
         ItemViewModel item => ItemEntry(Shorten(item.Name), item.Item.Id),
-        ShopViewModel shop => ShopEntry(shop.Shop),
+        // ショップの一覧とショップの中は、見ていた位置（と中の絞り）も控える（ユーザ判断 2026-09-28）。
+        // 開き直すと一覧が先頭に戻り、商品を1件見て戻るたびに探し直していた
+        ShopViewModel shop => ShopEntry(shop.Shop, shop.CaptureState()),
         ModificationViewModel modification => ModificationEntry(Shorten(modification.Record.Name), modification.Record.Id),
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId)),
         ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
-        ShopsViewModel => new HistoryEntry("ショップ一覧", ShowShops),
+        ShopsViewModel shops => ShopsEntry(shops.CaptureListAnchor()),
         FolderViewModel folders => FolderEntry(folders.SelectedKey),
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
@@ -328,8 +330,19 @@ public sealed partial class MainViewModel
     private HistoryEntry ItemEntry(string label, string itemId)
         => new(label, () => RunAsyncRestore(() => RestoreItemAsync(itemId)).Forget());
 
-    private HistoryEntry ShopEntry(Core.Services.ShopSummary shop)
-        => new(Shorten(shop.Name), () => RunAsyncRestore(() => RestoreShopAsync(shop)).Forget());
+    private HistoryEntry ShopEntry(Core.Services.ShopSummary shop, ShopViewState state)
+        => new(Shorten(shop.Name), () => RunAsyncRestore(() => RestoreShopAsync(shop, state)).Forget());
+
+    private HistoryEntry ShopsEntry(ListAnchor? anchor) => new("ショップ一覧", () =>
+    {
+        ShowShops();
+
+        // 作った直後は一覧を裏で読んでいる最中。位置は View が一覧を組み終えてから当てる
+        if (anchor is not null && CurrentViewModel is ShopsViewModel shops)
+        {
+            shops.RestoreListAnchor(anchor);
+        }
+    });
 
     private HistoryEntry ModificationEntry(string label, string modificationId)
         => new(label, () => RunAsyncRestore(() => RestoreModificationAsync(modificationId)).Forget());
@@ -453,7 +466,7 @@ public sealed partial class MainViewModel
     /// ショップも開き直した時点で数え直す。覚えた時の集計をそのまま出していたので、
     /// その後に外した商品が並んだままになっていた。無くなっていれば飛ばす
     /// </summary>
-    private async Task RestoreShopAsync(Core.Services.ShopSummary remembered)
+    private async Task RestoreShopAsync(Core.Services.ShopSummary remembered, ShopViewState state)
     {
         var forward = _nextNavigation == Navigation.Forward;
         var restoring = BeginAsyncRestore();
@@ -472,6 +485,13 @@ public sealed partial class MainViewModel
         if (fresh is not null)
         {
             ShowShop(fresh);
+
+            // 作った直後は商品を裏で読んでいる最中なので、絞りは読み終えた所の組み立てで効く
+            if (CurrentViewModel is ShopViewModel shop)
+            {
+                shop.RestoreState(state);
+            }
+
             return;
         }
 

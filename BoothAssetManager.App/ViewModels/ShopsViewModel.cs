@@ -245,6 +245,35 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>行に切った一覧。見えている行のカードだけが作られる。</summary>
     public ObservableCollection<ShopCardRow> Rows { get; } = [];
 
+    // ---- 戻ったときの一覧の位置（ユーザ判断 2026-09-28） ----
+    // 画面は開くたびに作り直すので、離れるときの位置は画面の履歴に預け、戻る・進むで開き直したときだけ当てる。
+    // ナビから開いたときは預かりが無いので先頭から出る
+
+    private ListAnchor? _pendingAnchor;
+
+    /// <summary>View が今の位置を読む手順（位置は View の一覧しか知らない）。</summary>
+    public Func<ListAnchor?>? AnchorReader { get; set; }
+
+    /// <summary>一覧を初めて組み終えたか。View が後から付いたときに、待たずに当ててよいかを見る。</summary>
+    public bool IsListReady { get; private set; }
+
+    /// <summary>一覧を組み終えた。位置を戻すのはこの後（組む前に当てると、当てる先の行がまだ無い）。</summary>
+    public event EventHandler? ListReady;
+
+    /// <summary>離れるときの位置。画面の履歴が控えに入れる。</summary>
+    public ListAnchor? CaptureListAnchor() => AnchorReader?.Invoke();
+
+    /// <summary>戻る・進むで開き直したときに、覚えていた位置を預ける。</summary>
+    public void RestoreListAnchor(ListAnchor? anchor) => _pendingAnchor = anchor;
+
+    /// <summary>預かった位置を1回だけ渡す（組み直すたびに引き戻さないように）。</summary>
+    public ListAnchor? TakePendingAnchor()
+    {
+        var anchor = _pendingAnchor;
+        _pendingAnchor = null;
+        return anchor;
+    }
+
     public IReadOnlyList<ShopSortOption> SortOptions { get; }
 
     public RelayCommand RefreshCommand { get; }
@@ -419,6 +448,8 @@ public sealed class ShopsViewModel : ViewModelBase, ILeavingScreen
 
                 Rebuild();
                 OnPropertyChanged(nameof(HeaderText));
+                IsListReady = true;
+                ListReady?.Invoke(this, EventArgs.Empty);
             });
         }
         finally

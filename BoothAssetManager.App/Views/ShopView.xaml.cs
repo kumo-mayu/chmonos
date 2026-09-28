@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using BoothAssetManager.App.ViewModels;
 
 namespace BoothAssetManager.App.Views;
@@ -10,6 +11,7 @@ public partial class ShopView : UserControl
     public ShopView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
     }
 
     /// <summary>一覧の幅が変わったら列数を決め直す（行を仮想化の単位にしているため）。</summary>
@@ -20,4 +22,78 @@ public partial class ShopView : UserControl
             shop.SetViewportWidth(e.NewSize.Width);
         }
     }
+
+    // ---- 戻ったときの一覧の位置（ユーザ判断 2026-09-28） ----
+    // 同じ型の画面が続くと View は使い回されるので、Loaded ではなく DataContext の付け替えで結び直す
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is ShopViewModel old)
+        {
+            old.ListReady -= OnListReady;
+            old.AnchorReader = null;
+        }
+
+        if (e.NewValue is ShopViewModel shop)
+        {
+            shop.AnchorReader = () => ListScrollAnchor.Capture(VisibleList(shop), KeyOf);
+            shop.ListReady += OnListReady;
+
+            // 裏の読み込みが View より先に済むことがある（商品の少ない店だと一瞬）
+            if (shop.IsListReady)
+            {
+                ScheduleRestore();
+            }
+        }
+    }
+
+    /// <summary>カードかリストか、今出ている方の一覧（隠れている方は位置を持たない）。</summary>
+    private ItemsControl VisibleList(ShopViewModel shop) => shop.IsListMode ? ItemList : CardList;
+
+    private void OnListReady(object? sender, EventArgs e) => ScheduleRestore();
+
+    /// <summary>
+    /// 位置は一覧を組み終えてから当てる。組んだ直後は、幅から列数を決めて行を切り直す分がまだ済んでいない
+    /// （開いた直後は1列で組まれる）。Loaded の優先度で待つと、配置の処理が先に全部済む。
+    /// </summary>
+    private void ScheduleRestore()
+    {
+        if (!IsLoaded)
+        {
+            Loaded += RestoreWhenLoaded;
+            return;
+        }
+
+        Dispatcher.InvokeAsync(Restore, DispatcherPriority.Loaded);
+    }
+
+    private void RestoreWhenLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= RestoreWhenLoaded;
+        ScheduleRestore();
+    }
+
+    private void Restore()
+    {
+        if (DataContext is ShopViewModel { IsListReady: true } shop && shop.TakePendingAnchor() is { } anchor)
+        {
+            ListScrollAnchor.Restore(VisibleList(shop), anchor, KeysOf);
+        }
+    }
+
+    // カードの行は先頭のカード、リストの行は商品そのものを鍵にする。鍵はどちらも商品の ID なので、
+    // 離れている間に見方を切り替えても（ショップ画面として覚えている）同じ商品を探し当てられる
+    private static string? KeyOf(object entry) => entry switch
+    {
+        CardRow { Cards.Count: > 0 } row => row.Cards[0].Item.Id,
+        ItemCardViewModel card => card.Item.Id,
+        _ => null,
+    };
+
+    private static IEnumerable<string> KeysOf(object entry) => entry switch
+    {
+        CardRow row => row.Cards.Select(card => card.Item.Id),
+        ItemCardViewModel card => [card.Item.Id],
+        _ => [],
+    };
 }
