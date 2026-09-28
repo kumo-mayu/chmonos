@@ -502,37 +502,6 @@
                     </Border>
 
                     <!--
-                        展開元のzipファイルが無いフォルダの片付け方。選んだファイルがそういうフォルダにあるときだけ出す。
-                        前は左の束の中に出していたが、束ごとに大きな枠が並んでごちゃごちゃした（ユーザ指示 2026-09-17）。
-                        色は付けない（広い面を黄色くすると違和感があった。見出しと重なる「zipが無い」の札も文言の見直しで外した）。
-                        zipを取り込む形が一番きれい（配布単位と一致し、移動にも強く、展開先は自動で対象外になる）なので、まずそれを勧める
-                    -->
-                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16"
-                            Visibility="{Binding Selected.IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
-                        <StackPanel>
-                            <!--
-                                説明は1文にまとめ、補足はボタンのツールチップへ（ユーザ判断 2026-09-17 案A：枠が長かった）。
-                                「どの商品か調べる」「ブラウザで検索」は下の「候補」の枠と同じ動きなので置かない。判断の根拠は見出しのツールチップ
-                            -->
-                            <TextBlock Text="展開元のzipファイルが無いフォルダ" FontWeight="Bold" FontSize="13"
-                                       ToolTip="{Binding Selected.ContentReason}" />
-                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
-                                       Text="BOOTHからzipをダウンロードし直すのがおすすめです（下の「候補」でどの商品か探せます）。ダウンロードし直せないときは、フォルダのまま登録するか、「その他」から管理対象から除外します。" />
-                            <!--
-                                対象は左の束・まとめて扱う単位と同じ展開物の根（ユーザ判断 2026-09-17 案A）。どこまで広いかを押す前に見せる。
-                                外すは「その他」の「管理対象から除外する」が同じ対象に効くので、ここには置かない
-                            -->
-                            <TextBlock Text="{Binding RegisterTargetSummary}" Style="{StaticResource Mono}" FontSize="11"
-                                       TextWrapping="Wrap" Margin="0,6,0,0" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}"
-                                        Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
-                                        ToolTip="先に商品IDを決めてください。フォルダを移動したら登録し直してください。" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!--
                         並びは「分かっていること → 商品IDを決める → 候補 → その他」（ユーザ指示 2026-09-17）。
                         前は候補が決める欄より上にあり、決める道が「確定」「管理対象から除外する」「BOOTHに無い商品」と1枚の中に混ざっていた
                     -->
@@ -705,6 +674,29 @@
                             <TextBlock Text="その他" FontWeight="Bold" FontSize="13" />
                             <TextBlock Text="商品IDで確定できないときに使います。" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,5,0,0" />
+
+                            <!--
+                                展開元のzipファイルが無いフォルダの片付け方。選んだファイルがそういうフォルダにあるときだけ出す。
+                                前は「分かっていること」の下に大きな枠で出していたが、大きくせず「その他」に説明を足すので十分（ユーザ指示 2026-09-29）。
+                                zipを取り込む形が一番きれい（配布単位と一致し、移動にも強く、展開先は自動で対象外になる）なので、まずそれを勧める。
+                                判断の根拠は説明のツールチップ。対象は左の束・まとめて扱う単位と同じ展開物の根（ユーザ判断 2026-09-17 案A）で、
+                                どこまで広いかを押す前に見せる。外すは下の「管理対象から除外する」が同じ対象に効くので、ここには置かない
+                            -->
+                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0"
+                                    Visibility="{Binding Selected.IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                                <StackPanel>
+                                    <TextBlock Text="フォルダのまま登録する" FontWeight="Bold" FontSize="12.5" />
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                               ToolTip="{Binding Selected.ContentReason}"
+                                               Text="展開元のzipが無いフォルダです。zipをダウンロードし直せないときは、フォルダのまま登録します。" />
+                                    <TextBlock Text="{Binding RegisterTargetSummary}" Style="{StaticResource Mono}" FontSize="11"
+                                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                                    <Button Content="{Binding RegisterFolderText}" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
+                                            ToolTip="先に商品IDを決めてください。フォルダを移動したら登録し直してください。" />
+                                </StackPanel>
+                            </Border>
 
                             <!--
                                 第三の出口。確定でも除外でもないものが実在する——
