@@ -179,6 +179,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             Files.Remove(row);
         }
 
+        // 片付いた物の検索の結果は、もう選ばれないので忘れる（開いている間に膨らみ続けないように）
+        RememberedSearches.Forget(rows.Select(row => row.File.Hash));
+
         OnPropertyChanged(nameof(RemainingCount));
         OnPropertyChanged(nameof(RemainingText));
         OnPropertyChanged(nameof(SettledCount));
@@ -612,6 +615,18 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             row.SelectionChanged += OnCheckedChanged;
         }
 
+        // 読み直して消えたファイルの検索の結果を忘れる（元zipで登録して中身が隠れた・別の画面で片付いたなど）。
+        // 絞った一覧（フォルダビューの右側）は一部しか持たないので、見えない物まで消えたと扱わず、この画面で消えた物だけにする
+        var remaining = reloaded.Rows.Select(row => row.File.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (_scope is null)
+        {
+            RememberedSearches.KeepOnly(remaining);
+        }
+        else
+        {
+            RememberedSearches.Forget(Files.Select(row => row.File.Hash).Where(hash => !remaining.Contains(hash)));
+        }
+
         Files.ReplaceAll(reloaded.Rows);
 
         HiddenByRegisteredZipCount = reloaded.HiddenByRegisteredZip;
@@ -709,8 +724,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             FilesView.Refresh();
         }
 
-        HasSearched = false;
-
         // 行を選び直したら、束ではなくその1件を扱う。束は見出しのボタンからだけ立つ
         ActiveGroup = null;
 
@@ -738,6 +751,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         }
 
         AddRegistryCandidates();
+
+        // 前に探した物なら、その結果と「候補を N 件見つけました」を戻す。探し直しはしない（BOOTHへの問い合わせを増やさない）
+        ShowRememberedSearch();
 
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(RegisterTargetFolder));
@@ -1025,6 +1041,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             Files.Remove(Selected);
             visible.Remove(Selected);
+            RememberedSearches.Forget([Selected.File.Hash]);
         }
 
         OnPropertyChanged(nameof(RemainingCount));
