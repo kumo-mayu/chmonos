@@ -74,7 +74,7 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 条件の値を戻し、最近手元に入った順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
+    /// 条件の値を戻し、最近取り込んだ順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
     /// 絞らずに並べるだけにするのは、取り込みの前からあった物も一緒に見えていた方が、何が増えたかが分かるため
     /// </summary>
     public void ShowRecentlyAddedFirst()

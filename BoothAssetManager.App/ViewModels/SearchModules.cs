@@ -83,7 +83,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。"),
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。"),
-        new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・手元に入った商品で絞ります。"),
+        new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
     ];
 
     /// <summary>
@@ -1957,7 +1957,7 @@ public sealed class AttributeModule : SearchModule
 }
 
 /// <summary>
-/// 最近（ユーザ判断 2026-09-16 Q1：プルダウンと日数）。使った（Unityへ送った）・見た（商品ページを開いた）・手元に入った。
+/// 最近（ユーザ判断 2026-09-16 Q1：プルダウンと日数）。使った（Unityへ送った）・見た（商品ページを開いた）・取り込んだ。
 /// 記録が無い商品は、日数を入れた時点で外す（「値が小さい」ではなく「値が無い」）。
 /// </summary>
 public sealed class RecentModule : SearchModule
@@ -1972,7 +1972,7 @@ public sealed class RecentModule : SearchModule
         [
             new ChoiceOption("used", "Unityへ送った"),
             new ChoiceOption("viewed", "商品ページを開いた"),
-            new ChoiceOption("added", "手元に入った"),
+            new ChoiceOption("added", "取り込んだ"),
         ];
         _selected = Options[0];
     }

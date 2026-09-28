@@ -479,7 +479,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// </summary>
     public RelayCommand OpenResolveCommand { get; }
 
-    /// <summary>取り込んだ物を検索で見る。最近手元に入った順に並べて開く。</summary>
+    /// <summary>取り込んだ物を検索で見る。最近取り込んだ順に並べて開く。</summary>
     public RelayCommand ShowAddedCommand { get; }
 
     /// <summary>商品が決まらなかったファイルが残ったか。取り込み中は出さない（まだ増える）。</summary>
