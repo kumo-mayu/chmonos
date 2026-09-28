@@ -129,6 +129,10 @@ public sealed partial class ResolveViewModel
             return;
         }
 
+        // 検索は分単位かかり、その間も左の一覧は選び直せる。始めた時点の選択を覚えておき、
+        // 戻ったときに違っていれば捨てる（前のファイルの候補が今のファイルに並んでいた）
+        var startedWith = Selected;
+
         IsBusy = true;
         StatusText = string.Empty;
         SearchCurrent = 0;
@@ -156,6 +160,11 @@ public sealed partial class ResolveViewModel
             var result = await _services.Commands.ExecuteAsync(
                 new UiCommand.ProposeCandidates(searchTarget, progress), cancellationToken: stop.Token);
 
+            if (!ReferenceEquals(Selected, startedWith))
+            {
+                return;
+            }
+
             if (result is CommandResult.CandidatesProposed proposed)
             {
                 foreach (var candidate in proposed.Candidates)
@@ -178,8 +187,10 @@ public sealed partial class ResolveViewModel
         }
         catch (OperationCanceledException)
         {
-            // 中止。もう一度押せばやり直せる（何も書いていない）
-            StatusText = "候補の検索を中止しました。もう一度「候補を検索」を押すとやり直せます。";
+            // 中止。もう一度押せばやり直せる（何も書いていない）。選び直した後なら、今のファイルの話ではないので出さない
+            StatusText = ReferenceEquals(Selected, startedWith)
+                ? "候補の検索を中止しました。もう一度「候補を検索」を押すとやり直せます。"
+                : StatusText;
         }
         finally
         {

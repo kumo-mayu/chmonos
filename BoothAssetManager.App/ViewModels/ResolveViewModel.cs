@@ -787,11 +787,20 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             ItemIdInput = trimmed;
         }
 
+        // 取得の間も左の一覧は選び直せる。選び直した後に届いた結果を入れると、
+        // 別のファイルに対して「確定」が押せてしまう。始めた時点の選択と違えば捨てる
+        var startedWith = Selected;
+
         IsBusy = true;
         StatusText = "商品情報を取得しています…";
         try
         {
             var result = await _services.Commands.ExecuteAsync(new UiCommand.PreviewItem(trimmed));
+            if (!ReferenceEquals(Selected, startedWith))
+            {
+                return;
+            }
+
             if (result is CommandResult.PreviewLoaded loaded)
             {
                 Preview = loaded.Preview;
