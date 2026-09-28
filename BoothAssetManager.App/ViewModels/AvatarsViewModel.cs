@@ -921,6 +921,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                     OnPropertyChanged(name);
                 }
 
+                // 「BOOTHの名前に戻す」の押せるかは WPF が入力のたびにしか問い直さない。
+                // 名前を変えた後の読み直しは入力を伴わないので、押せないまま残っていた
+                RelayCommand.RaiseCanExecuteChanged();
+
                 // 選んだアバターの改変を読み直す。待たせないので投げっぱなしにする
                 ModificationNameInput = string.Empty;
                 LoadModificationsAsync().Forget();
