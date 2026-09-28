@@ -45,7 +45,8 @@
             <Style x:Key="MemberListRowStyle" TargetType="ListViewItem">
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                <Setter Property="MinHeight" Value="52" />
+                <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29） -->
+                <Setter Property="MinHeight" Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}}" />
                 <!--
                     カード表示と同じ右クリック（ユーザ指示 2026-09-20・M1：表示を切り替えただけで操作が消えていた）。
                     行はカードそのものではないので、メニューは行から Card を取り出す（SearchViewModel.AsCard）
@@ -426,6 +427,9 @@
                                     </ListView.View>
                                 </ListView>
                             </Grid>
+                            <!-- 大きさのスライダーは検索と同じ部品（カードとリストの切り替えのある画面すべてに置く・ユーザ判断 2026-09-29） -->
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False"
+                                            Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <!-- 手で足す入口。手元にある商品だけを候補に出す -->
                             <controls:SuggestBox Source="{Binding ItemSuggestions}" AllowNew="False"
