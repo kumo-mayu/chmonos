@@ -264,6 +264,12 @@ public sealed partial class ItemViewModel
             path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Core.Services.DiskCheck.FileExists(path)));
         if (zip is null)
         {
+            // 行を出した後で外付けを外すと、押しても黙って何も起きなかった（カードの右クリックは言っていた）
+            if (row is not null)
+            {
+                TellNotFound(row.FileName, "一時的に展開して開く");
+            }
+
             return;
         }
 
@@ -279,9 +285,25 @@ public sealed partial class ItemViewModel
     {
         if (parameter is string path)
         {
-            Shell.Reveal(path);
+            OpenInExplorerAsync(path).Forget();
         }
     }
+
+    private static async Task OpenInExplorerAsync(string path)
+    {
+        // 行を出した後で外付けを外すと、記録の場所も親フォルダも無く、押しても黙って何も起きなかった
+        if (!await Shell.TryRevealAsync(path))
+        {
+            TellNotFound(Path.GetFileName(path.TrimEnd('\\', '/')), "エクスプローラで開く");
+        }
+    }
+
+    /// <summary>開く先が無いときの知らせ。カードの右クリック（<see cref="ItemFileActions"/>）と同じ窓・同じ言い方にそろえる</summary>
+    private static void TellNotFound(string name, string title)
+        => Services.Notice.Show(
+            $"「{name}」が、記録にある場所に見つかりません。\n\n"
+            + "外付けのドライブなら、つないでからもう一度お試しください。移した場合は、移した先のフォルダを取り込むと付け直します。",
+            title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
 
     private static void TryStart(ProcessStartInfo startInfo)
     {

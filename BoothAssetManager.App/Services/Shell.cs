@@ -40,26 +40,36 @@ public static class Shell
         }
     }
 
-    private static void RevealCore(string path)
+    /// <summary>
+    /// <see cref="Reveal"/> と同じ開き方で、開く先があったかを返す。
+    /// 外付けを外すと、記録の場所も親フォルダも無く黙って何も起きない。押した人に「見つかりません」を言うための版
+    /// </summary>
+    public static Task<bool> TryRevealAsync(string? path)
+        => string.IsNullOrWhiteSpace(path) ? Task.FromResult(false) : Task.Run(() => RevealCore(path));
+
+    private static bool RevealCore(string path)
     {
         if (Directory.Exists(path))
         {
             OpenInExplorer($"\"{path}\"");
-            return;
+            return true;
         }
 
         if (File.Exists(path))
         {
             // zip は explorer に場所として渡すと、関連付け（7-Zip など）に関係なく中を開く
             OpenInExplorer(path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? $"\"{path}\"" : $"/select,\"{path}\"");
-            return;
+            return true;
         }
 
         var directory = Path.GetDirectoryName(path);
         if (Directory.Exists(directory))
         {
             OpenInExplorer($"\"{directory}\"");
+            return true;
         }
+
+        return false;
     }
 
     private static void OpenInExplorer(string arguments)
