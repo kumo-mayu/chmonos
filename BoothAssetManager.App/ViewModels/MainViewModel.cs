@@ -729,10 +729,12 @@ public sealed partial class MainViewModel : ViewModelBase
                 return Run(edit.SaveAndNextCommand);
             case ShortcutAction.Skip when CurrentViewModel is EditViewModel edit:
                 return Run(edit.SkipCommand);
+            case ShortcutAction.Previous when CurrentViewModel is EditViewModel edit:
+                return Run(edit.BackCommand);
             case ShortcutAction.Back:
                 // どの画面でも直前の画面へ（U23）。編集画面も同じ（ユーザ判断 2026-09-12）——
                 // 以前は編集画面だけ「前の1件へ」にしていたが、入力欄にいると効かず、他の画面と食い違っていた。
-                // 前の1件へは「← 前へ」ボタンで行く。離れるときに書きかけは控えるので、戻っても入力は消えない
+                // 前の1件へは「← 前へ」ボタンか、入力欄の外での Ctrl+Shift+←（Previous）で行く。離れるときに書きかけは控えるので、戻っても入力は消えない
                 if (!CanGoBack)
                 {
                     return false;
