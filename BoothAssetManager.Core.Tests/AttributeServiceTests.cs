@@ -95,6 +95,23 @@ public class AttributeServiceTests : IDisposable
         Assert.Equal(80, (await AttributesOfAsync("1"))["可愛い"]);
     }
 
+    /// <summary>大文字と小文字だけの変更は、統合ではなく改名として通し、値もそのまま移す。</summary>
+    [Fact]
+    public async Task RenamesWhenOnlyTheLetterCaseChanges()
+    {
+        await SaveMasterAsync(new AttributeDefinition { Name = "cute" });
+        await SaveItemAsync("1", ("cute", 80));
+
+        var result = await _service.RenameAsync("cute", "Cute");
+
+        Assert.False(result.WasMerged);
+        Assert.Equal(1, result.ItemsUpdated);
+        Assert.Equal("Cute", Assert.Single(result.Master.Attributes).Name);
+        var attributes = await AttributesOfAsync("1");
+        Assert.Equal("Cute", Assert.Single(attributes.Keys));
+        Assert.Equal(80, attributes["Cute"]);
+    }
+
     /// <summary>マスタに無い名前も改名できる。参照が壊れたitemを直す唯一の手段なので。</summary>
     [Fact]
     public async Task CanRenameANameThatOnlyItemsReference()

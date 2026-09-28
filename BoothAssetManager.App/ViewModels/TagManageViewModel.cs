@@ -1232,7 +1232,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     {
         var target = newName?.Trim();
         if (Selected is null || string.IsNullOrEmpty(target)
-            || string.Equals(target, Selected.Name, StringComparison.CurrentCultureIgnoreCase))
+            || string.Equals(target, Selected.Name, StringComparison.Ordinal))
         {
             return;
         }
@@ -1337,7 +1337,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
     {
         var target = newName?.Trim();
         if (string.IsNullOrEmpty(target)
-            || string.Equals(target, row.Name, StringComparison.CurrentCultureIgnoreCase))
+            || string.Equals(target, row.Name, StringComparison.Ordinal))
         {
             return;
         }

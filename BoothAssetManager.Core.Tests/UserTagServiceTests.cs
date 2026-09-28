@@ -281,6 +281,23 @@ public class UserTagServiceTests : IDisposable
         Assert.Equal("制服", Assert.Single(Assert.Single(await UserTagsOfAsync("1")).Subs));
     }
 
+    /// <summary>大文字と小文字だけの変更は、統合ではなく改名として通す（前は黙って何もしなかった）。</summary>
+    [Fact]
+    public async Task RenamesWhenOnlyTheLetterCaseChanges()
+    {
+        await SaveMasterAsync(new UserTagTop { Name = "vrchat", Subs = [new UserTagSub { Name = "ギミック" }] });
+        await SaveItemAsync("1", new UserTagAssignment { Top = "vrchat", Subs = ["ギミック"] });
+
+        var top = await _service.RenameTopAsync("vrchat", "VRChat");
+        var sub = await _service.RenameSubAsync("VRChat", "ギミック", "ギミック改");
+
+        Assert.False(top.WasMerged);
+        Assert.Equal(1, top.ItemsUpdated);
+        Assert.Equal("VRChat", Assert.Single(_store.UserTags.Load().Tops).Name);
+        Assert.Equal("VRChat", Assert.Single(await UserTagsOfAsync("1")).Top);
+        Assert.Equal(1, sub.ItemsUpdated);
+    }
+
     /// <summary>マスタに無い名前も改名できる。参照が壊れたitemを直す唯一の手段なので。</summary>
     [Fact]
     public async Task CanRenameANameThatOnlyItemsReference()

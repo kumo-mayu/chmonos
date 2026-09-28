@@ -178,7 +178,9 @@ public sealed class AttributeService : IAttributeService
     {
         var target = newName.Trim();
 
-        if (target.Length == 0 || Same(oldName, target))
+        // 表記まで同じときだけ何もしない。大文字と小文字だけの変更（vrchat → VRChat）は改名として通す
+        // （前は同じ名前と見なして黙って何もせず、画面では窓が閉じるのに名前が変わらなかった。点検 2026-09-28）
+        if (target.Length == 0 || string.Equals(oldName, target, StringComparison.Ordinal))
         {
             return new AttributeEditResult { Master = _store.Attributes.Load(), ItemsUpdated = 0 };
         }
