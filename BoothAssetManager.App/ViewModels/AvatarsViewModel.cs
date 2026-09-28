@@ -422,7 +422,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         if (Selected is { } row)
         {
             // 改変の画面のアバターの項目と同じ行（絵・名前・Unityプロジェクト・畳んだ使ったもの）。絵の読み込みに商品が要る
-            var items = _main.Search.SnapshotItems().ToDictionary(item => item.Id, StringComparer.Ordinal);
+            // 同じ ID が2件あると ToDictionary が投げ、改変の一覧が黙って空になった。改変の画面（ModificationHubViewModel）と同じく先の1件を使う
+            var items = _main.Search.SnapshotItems()
+                .GroupBy(item => item.Id, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
             var builder = new ModificationRowBuilder(_services, _main.Thumbnails, items);
             foreach (var record in await _services.Modifications.LoadForAvatarAsync(row.ItemId))
             {
