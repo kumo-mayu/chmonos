@@ -169,22 +169,44 @@ public sealed partial class SearchViewModel
     /// </summary>
     public async Task ToggleFavoriteAsync(ItemCardViewModel card)
     {
+        if (await TryToggleFavoriteAsync(card) is { } failure)
+        {
+            Tell("お気に入り", failure, failed: true);
+        }
+    }
+
+    /// <summary>星を切り替え、書けなかったら元に戻して失敗の文を返す。まとめて付けるときに窓を1回で済ませるため、知らせは呼ぶ側が出す。</summary>
+    private async Task<string?> TryToggleFavoriteAsync(ItemCardViewModel card)
+    {
         var next = !card.IsFavorite;
         card.IsFavorite = next;
 
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
-            card.Item.Id, card.Item.Local with { IsFavorite = next }, LocalOwners.Favorite));
+        string? failure;
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.SaveItemLocal(
+                card.Item.Id, card.Item.Local with { IsFavorite = next }, LocalOwners.Favorite));
+            failure = result is Core.Commands.CommandResult.Failed failed ? failed.Message : null;
+        }
+        catch (Exception exception)
+        {
+            // 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げる。
+            // 受けないと星が付いたまま残り、次に開くと消えていた
+            Core.Diagnostics.AppLog.Error("お気に入りの切り替え", exception);
+            failure = $"お気に入りを保存できませんでした。{Core.Services.FailureText.Cause(exception)}";
+        }
 
-        if (result is Core.Commands.CommandResult.Failed)
+        if (failure is not null)
         {
             // 書けなかったら戻す。付いたように見えて次に開くと消えている、を起こさない
             card.IsFavorite = !next;
-            return;
+            return failure;
         }
 
         // 写し・この画面のカード・「お気に入り」の絞り込みをまとめて直す（商品ページの星と同じ道）。
         // 押されたカードがフォルダビューの物だと、この画面のカードは別の物なので、前は検索に戻っても古い星が出ていた（ユーザ指摘 2026-09-14）
         NoteFavoriteChanged(card.Item.Id, next);
+        return null;
     }
 
     /// <summary>

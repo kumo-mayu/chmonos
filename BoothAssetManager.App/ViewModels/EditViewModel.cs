@@ -943,6 +943,8 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             return;
         }
 
+        // 保存できた後（次の商品へ移る途中）で落ちたときに「保存できませんでした」と言わないための印
+        var stored = false;
         IsSaving = true;
         try
         {
@@ -994,6 +996,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             // 上の帯で、保存した物と飛ばした物を見分けるための印。未編集の順番はファイルに残し、
             // 指定して入った順番は履歴に預けた控え（_saved がそのまま控えの集合）に残る
             _saved.Add(_item.Id);
+            stored = true;
             if (_run is null)
             {
                 await _services.Commands.ExecuteAsync(new UiCommand.NoteEditSaved(_item.Id));
@@ -1004,6 +1007,16 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             _baseline = null;
 
             await AdvanceAsync();
+        }
+        catch (Exception exception)
+        {
+            // 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げる。
+            // 受けないと入口の Forget() がログに残すだけで、押しても何も起きなかったように見えた
+            Core.Diagnostics.AppLog.Error("編集画面の保存", exception);
+            StatusIsProblem = true;
+            StatusText = stored
+                ? Core.Services.FailureText.Cause(exception)
+                : $"保存できませんでした。{Core.Services.FailureText.Cause(exception)}";
         }
         finally
         {

@@ -1251,7 +1251,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameUserTag(Selected.Name, null, target));
+        var result = await RewriteTagsAsync(new UiCommand.RenameUserTag(Selected.Name, null, target), "名前を変更できませんでした。");
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.WasMerged
@@ -1289,7 +1289,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteUserTag(Selected.Name));
+        var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(Selected.Name), "削除できませんでした。");
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = rewritten.Result.ItemsLeftUntagged > 0
@@ -1355,7 +1355,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target));
+        var result = await RewriteTagsAsync(new UiCommand.RenameUserTag(row.Top, row.Name, target), "名前を変更できませんでした。");
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = $"「{target}」に変更し、{rewritten.Result.ItemsUpdated} 件の商品を書き換えました。";
@@ -1378,7 +1378,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteUserTag(row.Top, row.Name));
+        var result = await RewriteTagsAsync(new UiCommand.DeleteUserTag(row.Top, row.Name), "削除できませんでした。");
         if (result is CommandResult.UserTagsRewritten rewritten)
         {
             StatusText = $"「{row.Name}」を削除し、{rewritten.Result.ItemsUpdated} 件の商品から外しました。";
@@ -1386,6 +1386,33 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites
 
         await ReloadAsync();
         await _main.ReloadLibraryAsync();
+    }
+
+    /// <summary>
+    /// 改名・削除の命令を送り、できなかったら状態の行に出す。
+    ///
+    /// 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
+    /// 前は押しても何も起きなかったように見えた。「できなかった」の結果も受けずに捨てていた。
+    /// 例外でも読み直しは続ける——途中まで書き換えた商品があり得るので、今の数を見せる
+    /// </summary>
+    private async Task<CommandResult?> RewriteTagsAsync(UiCommand command, string failedText)
+    {
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(command);
+            if (result is CommandResult.Failed failed)
+            {
+                StatusText = failed.Message;
+            }
+
+            return result;
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("ユーザータグの書き換え", exception);
+            StatusText = failedText + Core.Services.FailureText.Cause(exception);
+            return null;
+        }
     }
 
     /// <summary>

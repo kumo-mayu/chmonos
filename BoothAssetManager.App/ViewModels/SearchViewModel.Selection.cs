@@ -100,9 +100,17 @@ public sealed partial class SearchViewModel
     /// </summary>
     private async Task AddSelectionToFavoritesAsync()
     {
-        foreach (var card in SelectedCards().Where(card => !card.IsFavorite))
+        // 書けなかった物は1件ずつ窓にしない（ドライブが外れていると選んだ数だけ窓が出る）。最初の失敗を1回だけ出す
+        string? firstFailure = null;
+        foreach (var card in SelectedCards().Where(card => !card.IsFavorite).ToList())
         {
-            await ToggleFavoriteAsync(card);
+            var failure = await TryToggleFavoriteAsync(card);
+            firstFailure ??= failure;
+        }
+
+        if (firstFailure is not null)
+        {
+            Tell("お気に入り", firstFailure, failed: true);
         }
     }
 

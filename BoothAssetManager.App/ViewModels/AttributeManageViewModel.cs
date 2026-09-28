@@ -957,8 +957,8 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
             }
         }
 
-        var result = await _services.Commands.ExecuteAsync(
-            new UiCommand.RenameAttribute(Selected.Name, target, keep));
+        var result = await RewriteAttributesAsync(
+            new UiCommand.RenameAttribute(Selected.Name, target, keep), "名前を変更できませんでした。");
 
         if (result is CommandResult.AttributesRewritten rewritten)
         {
@@ -998,7 +998,7 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new UiCommand.DeleteAttribute(Selected.Name));
+        var result = await RewriteAttributesAsync(new UiCommand.DeleteAttribute(Selected.Name), "削除できませんでした。");
         if (result is CommandResult.AttributesRewritten rewritten)
         {
             StatusText = $"削除し、{rewritten.Result.ItemsUpdated} 件の商品から評価を外しました。";
@@ -1008,6 +1008,33 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites
         await ReloadAsync();
         _main.RefreshMasters();
         await _main.ReloadLibraryAsync();
+    }
+
+    /// <summary>
+    /// 改名・削除の命令を送り、できなかったら状態の行に出す。
+    ///
+    /// 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
+    /// 前は押しても何も起きなかったように見えた。「できなかった」の結果も受けずに捨てていた。
+    /// 例外でも読み直しは続ける——途中まで書き換えた商品があり得るので、今の数を見せる
+    /// </summary>
+    private async Task<CommandResult?> RewriteAttributesAsync(UiCommand command, string failedText)
+    {
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(command);
+            if (result is CommandResult.Failed failed)
+            {
+                StatusText = failed.Message;
+            }
+
+            return result;
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("属性の書き換え", exception);
+            StatusText = failedText + Core.Services.FailureText.Cause(exception);
+            return null;
+        }
     }
 
     /// <summary>待っているメモを今書く。選び直す前に呼ぶ。</summary>
