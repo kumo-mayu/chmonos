@@ -107,11 +107,11 @@ public sealed partial class EditViewModel
                 JumpAsync(tile.Index).Forget();
             }
         },
-        parameter => parameter is EditQueueTile && !IsSaving);
+        parameter => parameter is EditQueueTile && !IsSaving && !IsMoving);
 
     private async Task JumpAsync(int index)
     {
-        if (index == _index || index < 0 || index >= _queue.Count)
+        if (index == _index || index < 0 || index >= _queue.Count || IsMoving)
         {
             return;
         }
@@ -139,11 +139,26 @@ public sealed partial class EditViewModel
 
     private async Task MoveToAsync(int index)
     {
-        StopReturnTimer();
-        CaptureDraft();
-        _index = index;
-        await SavePositionAsync();
-        await LoadCurrentAsync();
+        // 次・前と同じく、動いている間の2度目は受けない。帯で飛ぶのは移る印を立てていなかったので、
+        // スキップの直後や連打で読み込みが二重に走り、2本が同じ位置を別々に進めて1件飛び得た
+        if (IsMoving)
+        {
+            return;
+        }
+
+        IsMoving = true;
+        try
+        {
+            StopReturnTimer();
+            CaptureDraft();
+            _index = index;
+            await SavePositionAsync();
+            await LoadCurrentAsync();
+        }
+        finally
+        {
+            IsMoving = false;
+        }
     }
 
     /// <summary>
