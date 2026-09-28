@@ -214,6 +214,9 @@
                                           ToolTipService.ShowOnDisabled="True"
                                           Command="{Binding PlacementTarget.DataContext.RevealCommand,
                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <MenuItem Header="ファイル名をコピー"
+                                          Command="{Binding PlacementTarget.DataContext.CopyFileNameCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 <MenuItem Header="管理対象から除外する"
                                           ToolTip="未確定の一覧から外します。設定の「隠したもの」から戻せます。"
                                           ToolTipService.ShowOnDisabled="True"
@@ -454,10 +457,17 @@
                             </Grid>
 
                             <!-- 中身を見て判断したいときのために、場所を開ける（以前の動線の記録 C3） -->
+                            <!-- ファイル名は BOOTH やブラウザの検索に貼りたい（ユーザ指示 2026-09-29）。一覧の右クリックにも同じ物がある -->
                             <Grid>
                                 <TextBlock Text="保存場所" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
-                                <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
-                                        Command="{Binding RevealCommand}" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding CopyNote}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                               Visibility="{Binding HasCopyNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <Button Content="ファイル名をコピー" Style="{StaticResource SmallButton}"
+                                            Command="{Binding CopyFileNameCommand}" />
+                                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                            Command="{Binding RevealCommand}" />
+                                </StackPanel>
                             </Grid>
                             <ItemsControl ItemsSource="{Binding SelectedPaths}" Margin="0,5,0,0">
                                 <ItemsControl.ItemTemplate>

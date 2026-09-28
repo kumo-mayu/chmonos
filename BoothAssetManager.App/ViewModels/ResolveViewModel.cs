@@ -97,6 +97,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         TreatAsOriginZipCommand = new RelayCommand(TreatAsOriginZip, parameter => parameter is not null);
         UndoExcludeCommand = new RelayCommand(() => UndoExcludeAsync().Forget(), () => HasUndoExclude && !IsBusy);
         RevealCommand = new RelayCommand(RevealSelected, () => HasSelection);
+        CopyFileNameCommand = new RelayCommand(CopyFileName, () => HasSelection);
         OpenImportCommand = new RelayCommand(_main.ShowImport);
         RegisterFolderCommand = new RelayCommand(() => RegisterFolderAsync().Forget(), () => CanRegisterFolder);
         ClearChecksCommand = new RelayCommand(ClearChecks);
@@ -125,6 +126,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public RelayCommand UndoExcludeCommand { get; }
 
     public RelayCommand RevealCommand { get; }
+
+    public RelayCommand CopyFileNameCommand { get; }
 
     public RelayCommand OpenImportCommand { get; }
 
@@ -756,6 +759,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         ItemIdInput = string.Empty;
         Preview = null;
         StatusText = string.Empty;
+        CopyNote = string.Empty;
 
         // 名前は下書きを入れておく。そのままでも通る形にしておかないと、
         // 「登録できる」と言いながら毎回入力を強いることになる。
