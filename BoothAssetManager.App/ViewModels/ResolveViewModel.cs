@@ -31,9 +31,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public void OnLeaving()
     {
         _leaving.Cancel();
+        ReflectSettledInSearch();
+    }
 
-        // 新しく確定した商品は、検索の写しを読み直すまで検索に出ない。確定のたびに読み直すと
-        // 2000件で数秒ずつ待つので、画面を離れるときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）
+    /// <summary>
+    /// 新しく確定・登録した商品（BOOTHに無い商品の仮IDも含む）は、検索の写しを読み直すまで検索に出ない。確定のたびに読み直すと
+    /// 2000件で数秒ずつ待つので、画面を離れるとき・編集へ送るときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）。
+    /// 編集へ送ると溜めたIDは空になるので、離れる時点では見えない。送る前にここを通す
+    /// </summary>
+    private void ReflectSettledInSearch()
+    {
         if (_settledItemIds.Any(id => _main.Search.FindItem(id) is null))
         {
             _main.ReloadLibraryAsync().Forget();
@@ -1142,6 +1149,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         {
             return;
         }
+
+        // 編集を「終える」で抜ければ読み直されるが、ナビで別の画面へ移ると読み直されず、登録した商品が検索に出なかった
+        ReflectSettledInSearch();
 
         var ids = _settledItemIds.ToList();
         _settledItemIds.Clear();

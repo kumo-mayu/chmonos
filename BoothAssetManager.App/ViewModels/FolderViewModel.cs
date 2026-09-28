@@ -420,8 +420,13 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         get => _detail;
         private set
         {
+            var leaving = _detail as ResolveViewModel;
             if (SetField(ref _detail, value))
             {
+                // 右に組み込んだ未確定を別の物に差し替えたら、未確定の画面を離れたのと同じ後始末をさせる
+                // （読み込みの取り消しと、登録した商品を検索へ反映する読み直し）。フォルダビューを離れるときの OnLeaving は
+                // 今の右側にしか届かないので、先に差し替えた未確定で登録した商品（仮IDを含む）が検索に出なかった
+                leaving?.OnLeaving();
                 OnPropertyChanged(nameof(HasDetail));
             }
         }
