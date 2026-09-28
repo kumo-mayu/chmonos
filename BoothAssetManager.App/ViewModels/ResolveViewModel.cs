@@ -758,6 +758,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         ItemIdInput = string.Empty;
         Preview = null;
+        NotOnBoothItemId = null;
         StatusText = string.Empty;
         CopyNote = string.Empty;
         ClearLocalImages();
@@ -839,6 +840,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var startedWith = Selected;
 
         IsBusy = true;
+        NotOnBoothItemId = null;
         StatusText = "商品情報を取得しています…";
         try
         {
@@ -852,6 +854,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             {
                 Preview = loaded.Preview;
                 StatusText = string.Empty;
+            }
+            else if (result is CommandResult.PreviewNotOnBooth notOnBooth)
+            {
+                // BOOTHが「無い」と答えたときだけ、このIDのまま登録する道を出す（一時的に届かないときは出さない）
+                Preview = null;
+                StatusText = notOnBooth.Message;
+                NotOnBoothItemId = notOnBooth.ItemId;
             }
             else if (result is CommandResult.Failed failed)
             {

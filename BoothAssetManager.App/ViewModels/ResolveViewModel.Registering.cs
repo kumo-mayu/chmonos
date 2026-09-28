@@ -15,7 +15,7 @@ public sealed partial class ResolveViewModel
     {
         None,
 
-        /// <summary>「商品IDを決める」の欄（このIDで確定・まとめて確定）。</summary>
+        /// <summary>「商品IDを決める」の欄（このIDで確定・まとめて確定・見つからないIDのまま登録）。</summary>
         Decision,
 
         /// <summary>「その他」の「BOOTHに無い商品として登録する」。</summary>

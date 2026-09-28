@@ -583,6 +583,24 @@
                             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
+                            <!--
+                                BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。仮IDで登録すると再び公開されても情報を取れない。
+                                BOOTHが「無い」と答えたときだけ出す（一時的に届かないときに出すと、実はある商品を空のまま登録してしまう）
+                            -->
+                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0"
+                                    Visibility="{Binding HasNotOnBoothItemId, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                               Text="このIDのまま登録できます。BOOTHで公開されたら情報を取得し、要確認でお知らせします。" />
+                                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0">
+                                        <Run Text="名前：" /><Run Text="{Binding UnpublishedNameDraft, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <Button Content="{Binding UnpublishedButtonText}" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            Command="{Binding AssignUnpublishedCommand}" />
+                                </StackPanel>
+                            </Border>
+
                             <!-- 押したら何が起きるかを、ボタンのすぐ上に必ず出す -->
                             <TextBlock Text="{Binding AssignOutcomeText}" Style="{StaticResource Caption}"
                                        TextWrapping="Wrap" Margin="0,14,0,0"

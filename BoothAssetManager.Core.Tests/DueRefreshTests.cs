@@ -65,8 +65,11 @@ public class DueRefreshTests : IDisposable
         public Task<ItemPreview?> PreviewAsync(string itemId, CancellationToken cancellationToken = default)
             => Task.FromResult<ItemPreview?>(null);
 
-        public Task<(ItemPreview? Preview, string? Error)> PreviewWithReasonAsync(string itemId, CancellationToken cancellationToken = default)
-            => Task.FromResult<(ItemPreview?, string?)>((null, null));
+        public Task<(ItemPreview? Preview, string? Error, bool NotOnBooth)> PreviewWithReasonAsync(string itemId, CancellationToken cancellationToken = default)
+            => Task.FromResult<(ItemPreview?, string?, bool)>((null, null, false));
+
+        public Task<bool> AssignUnpublishedItemIdAsync(string hash, string itemId, string displayName, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
 
         public Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
 
