@@ -70,24 +70,86 @@ public sealed partial class AvatarService
                 var entries = registry.Entries
                     .Select(entry => entry.ItemId == itemId ? entry with { BaseName = trimmed } : entry);
 
-                // 一度消したものを付け直したときは、印を下ろすだけ（別名の付け直しと同じ作法）
-                var groups = registry.BaseGroups
-                    .Select(group => trimmed is not null
-                        && string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)
-                            ? group with { Rejected = false }
-                            : group)
-                    .ToList();
-
-                if (trimmed is not null
-                    && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
-                {
-                    groups.Add(new AvatarBaseGroup { Name = trimmed });
-                }
-
-                return Sorted(registry, entries, groups);
+                return Sorted(registry, entries, trimmed is null ? registry.BaseGroups : WithManualBase(registry.BaseGroups, trimmed));
             },
             cancellationToken);
     }
+
+    /// <summary>
+    /// 共通素体を手で足す（アバターの管理の「共通素体」の一覧の上の欄・ユーザ判断 2026-09-28）。
+    /// どのアバターにもまだ結ばない。足した素体は検出の照合にも使われ、検出し直しでは消えない。
+    /// </summary>
+    public async Task<AvatarBaseAddOutcome> AddBaseAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var trimmed = NameText.Normalize(name);
+        if (trimmed.Length == 0)
+        {
+            return AvatarBaseAddOutcome.AlreadyThere;
+        }
+
+        var outcome = AvatarBaseAddOutcome.Added;
+
+        await _store.Avatars.UpdateAsync(
+            registry =>
+            {
+                var existing = registry.BaseGroups.FirstOrDefault(group =>
+                    string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase));
+
+                outcome = existing switch
+                {
+                    null => AvatarBaseAddOutcome.Added,
+                    { Rejected: true } => AvatarBaseAddOutcome.Restored,
+                    _ => AvatarBaseAddOutcome.AlreadyThere,
+                };
+
+                // 既に一覧にある素体は、書き換えない（手で足した印を後から立てると、検出が作った物と見分けが付かなくなる）
+                return outcome == AvatarBaseAddOutcome.AlreadyThere
+                    ? registry
+                    : Sorted(registry, registry.Entries, WithManualBase(registry.BaseGroups, trimmed));
+            },
+            cancellationToken);
+
+        return outcome;
+    }
+
+    /// <summary>
+    /// 名前の素体を「人が決めた物」として一覧に入れる。
+    /// 無ければ手で足した印を付けて作る。消した印が付いていれば、印を下ろして手で足した物にする
+    /// （人が同じ名前をもう一度選んだので、別名の付け直しと同じく印を下ろす・X1）。
+    /// 既にある素体はそのまま（検出が作った物に印を立てない）。
+    /// </summary>
+    private static List<AvatarBaseGroup> WithManualBase(IEnumerable<AvatarBaseGroup> groups, string name)
+    {
+        var list = groups
+            .Select(group => group.Rejected && string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
+                ? group with { Rejected = false, IsManual = true }
+                : group)
+            .ToList();
+
+        if (!list.Any(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            list.Add(new AvatarBaseGroup { Name = name, IsManual = true });
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// 共通素体を足す欄の候補。今ある物から出す：一覧にある素体（選ぶとその素体へ移る）、
+    /// 消した素体（選ぶと戻る）、同梱の初期辞書でまだ入っていない素体。
+    ///
+    /// 商品の対応素体と、アバターの所属の名前は、どちらもグループの名前から来るので登録簿の名前に含まれる
+    /// （グループを消すと商品の宣言も消し、改名すると一緒に書き換える）。
+    /// 別名は入れない：別名を素体として足すと、同じ素体が2つに割れる。
+    /// </summary>
+    public static IReadOnlyList<string> BaseNameCandidates(AvatarRegistry registry)
+        => registry.BaseGroups.Select(group => group.Name)
+            .Concat(registry.Entries.Select(entry => entry.BaseName).OfType<string>())
+            .Concat(AvatarBaseSeed.Groups.Select(group => group.Name))
+            .Where(name => name.Trim().Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCulture)
+            .ToList();
 
     /// <summary>
     /// このグループの一致から衣装の互換を推し量ってよいかを切り替える。
@@ -145,6 +207,15 @@ public sealed partial class AvatarService
                     && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
                 {
                     groups.Add(renamed with { Name = trimmed });
+                }
+                else if (renamed is { IsManual: true })
+                {
+                    // 統合先へ手で足した印を移す。落とすと、人が足した素体が検出の作った物として扱われる
+                    groups = groups
+                        .Select(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)
+                            ? group with { IsManual = true }
+                            : group)
+                        .ToList();
                 }
 
                 return Sorted(registry, entries, groups);

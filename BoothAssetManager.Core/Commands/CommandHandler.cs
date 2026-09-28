@@ -155,7 +155,7 @@ public sealed class CommandHandler
 
             case UiCommand.SetAvatarName or UiCommand.SetAvatarMemo or UiCommand.SetAvatarOwned
                 or UiCommand.SetAvatarOverride or UiCommand.SetAvatarBase or UiCommand.SetBaseInferClothing
-                or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase
+                or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase or UiCommand.AddBase
                 or UiCommand.AddAvatarAlias or UiCommand.RemoveAvatarAlias or UiCommand.RecheckAvatar:
                 return _avatarEditor is null
                     ? MissingService("アバターの登録簿の編集")
@@ -931,6 +931,8 @@ public sealed class CommandHandler
                 return new CommandResult.Counted(await editor.RenameBaseAsync(rename.OldName, rename.NewName, cancellationToken));
             case UiCommand.DeleteBase delete:
                 return new CommandResult.Counted(await editor.DeleteBaseAsync(delete.Name, cancellationToken));
+            case UiCommand.AddBase add:
+                return new CommandResult.BaseAdded(await editor.AddBaseAsync(add.Name, cancellationToken));
             case UiCommand.AddAvatarAlias add:
                 await editor.AddAliasAsync(add.ItemId, add.Text, cancellationToken);
                 break;

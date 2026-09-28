@@ -220,6 +220,14 @@ public sealed record AvatarBaseGroup
     /// </summary>
     public bool Rejected { get; init; }
 
+    /// <summary>
+    /// 人が手で足した印（ユーザ判断 2026-09-28）。欄が無ければ手で足していない（検出か初期辞書が作った）。
+    ///
+    /// 検出の結果（素体の名前が挙がったか）からは出せない事実なので、保存する。
+    /// 手で足した素体は、対応アバターの検出し直しで消さない。消えるのは人が消したときだけ。
+    /// </summary>
+    public bool IsManual { get; init; }
+
     public IReadOnlyList<AvatarAlias> Aliases { get; init; } = [];
 }
 

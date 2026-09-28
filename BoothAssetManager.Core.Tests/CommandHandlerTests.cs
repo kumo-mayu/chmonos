@@ -177,6 +177,12 @@ public class CommandHandlerTests
 
         public Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(3);
 
+        public Task<AvatarBaseAddOutcome> AddBaseAsync(string name, CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"base+ {name}");
+            return Task.FromResult(AvatarBaseAddOutcome.Added);
+        }
+
         public Task AddAliasAsync(string itemId, string text, CancellationToken cancellationToken = default) => Note($"alias+ {itemId}");
 
         public Task RemoveAliasAsync(string itemId, string text, CancellationToken cancellationToken = default) => Note($"alias- {itemId}");
@@ -205,6 +211,19 @@ public class CommandHandlerTests
 
         Assert.Equal(7, renamed.Count);
         Assert.Equal(["base 111 素体A", "rename 素体A 素体B"], editor.Calls);
+    }
+
+    /// <summary>共通素体を手で足す操作も UiCommand から通り、足したかどうかを返す（2026-09-28）。</summary>
+    [Fact]
+    public async Task RoutesAddingABaseByHand()
+    {
+        var editor = new FakeAvatarEditor();
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatarEditor: editor);
+
+        var added = Assert.IsType<CommandResult.BaseAdded>(await handler.ExecuteAsync(new UiCommand.AddBase("素体C")));
+
+        Assert.Equal(AvatarBaseAddOutcome.Added, added.Outcome);
+        Assert.Equal(["base+ 素体C"], editor.Calls);
     }
 
     [Fact]
