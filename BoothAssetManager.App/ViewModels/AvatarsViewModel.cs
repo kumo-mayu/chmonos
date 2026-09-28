@@ -592,6 +592,57 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     public RelayCommand ShowBaseModeCommand => _showBaseModeCommand ??= new RelayCommand(() => IsBaseMode = true);
 
+    // ---- 共通素体を手で足す（ユーザ判断 2026-09-28） ----
+    //
+    // 一覧には検出で見つかった素体しか並ばず、人が素体を足す口が無かった。
+    // アバターを選ばずに、一覧の上の欄から素体だけを足せるようにする
+
+    private RelayCommand? _addBaseCommand;
+
+    /// <summary>足す欄の候補。一覧の素体・消した素体・初期辞書の素体（<see cref="AvatarService.BaseNameCandidates"/>）。</summary>
+    public ObservableCollection<string> BaseNameCandidates { get; } = [];
+
+    /// <summary>一覧の上の欄から共通素体を足す。候補を選んでも、新しい名前を打って Enter でも、ここへ来る。</summary>
+    public RelayCommand AddBaseCommand => _addBaseCommand ??= new RelayCommand(parameter => AddBaseAsync(parameter as string).Forget());
+
+    private async Task AddBaseAsync(string? input)
+    {
+        // 改行やタブは空白に寄せて1行にする（I13）
+        var name = Core.Services.NameText.Normalize(input);
+
+        // 空のまま押したときに黙って終わらない（I1）
+        if (name.Length == 0)
+        {
+            Status = "共通素体の名前を入れてから押してください。";
+            return;
+        }
+
+        if (Core.Services.NameText.IsTooLong(name))
+        {
+            Status = Core.Services.NameText.TooLongMessage("共通素体の名前");
+            return;
+        }
+
+        var outcome = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.AddBase(name))
+            is Core.Commands.CommandResult.BaseAdded added
+                ? added.Outcome
+                : AvatarBaseAddOutcome.AlreadyThere;
+
+        // 足していないのに「追加しました」と言わない（I2）。もうある素体は、選んで見せる
+        Status = outcome switch
+        {
+            AvatarBaseAddOutcome.Added => $"共通素体「{name}」を追加しました。",
+            AvatarBaseAddOutcome.Restored => $"削除していた共通素体「{name}」を戻しました。",
+            _ => $"共通素体「{name}」は既にあります。",
+        };
+
+        await LoadAsync();
+
+        // 足した素体を右に出す。名前は一覧の表記に合わせる（大文字小文字を変えて打っても同じ素体）
+        SelectedBase = Bases.FirstOrDefault(row => string.Equals(row.Name, name, StringComparison.CurrentCultureIgnoreCase))
+            ?? SelectedBase;
+    }
+
     /// <summary>素体を見ているときに選んでいる1つ。</summary>
     public AvatarBaseRowViewModel? SelectedBase
     {
@@ -1034,6 +1085,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         var avatars = await Task.Run(() => _services.Avatars.LoadAsync(token), token);
         var bases = await Task.Run(() => _services.Avatars.LoadBasesAsync(token), token);
+        // 読むだけなので UiCommand を通さない（手元の JSON を読む・ユーザ判断 2026-09-14）
+        var baseCandidates = await Task.Run(() => AvatarService.BaseNameCandidates(_services.Store.Avatars.Load()), token);
 
         RunOnUiThread(() =>
         {
@@ -1082,6 +1135,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 baseRow.RenameCommand = new RelayCommand(() => RenameBase(name, baseRow.NameInput));
                 Bases.Add(baseRow);
                 BaseNames.Add(name);
+            }
+
+            BaseNameCandidates.Clear();
+            foreach (var candidate in baseCandidates)
+            {
+                BaseNameCandidates.Add(candidate);
             }
 
             // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す

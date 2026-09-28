@@ -377,6 +377,16 @@
                         </Grid>
 
                         <!--
+                            共通素体を手で足す欄（ユーザ判断 2026-09-28）。一覧には検出で見つかった素体しか並ばず、足す口が無かった。
+                            候補は今ある名前から出し、候補に無い名前は「（新規）」の行で選ばせる（入力欄の決まり）
+                        -->
+                        <controls:SuggestBox DockPanel.Dock="Top" Margin="14,12,14,0"
+                                             Source="{Binding BaseNameCandidates}" CommitCommand="{Binding AddBaseCommand}"
+                                             MaxLength="60" Placeholder="追加する共通素体の名前"
+                                             AutomationProperties.Name="共通素体を追加"
+                                             Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+
+                        <!--
                             一覧は1つのListBoxにまとめ、所有／未所有はグループ見出しで分ける。
                             ListBoxを2つ縦に積んでScrollViewerへ入れると高さが無限になり、描画が壊れる。
                         -->
@@ -444,7 +454,7 @@
 
                             <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
                                        Visibility="{Binding ShowsNoBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                       Text="共通素体はまだありません。「アバター」でアバターを選び、「共通素体」の欄に素体の名前を入れると作れます。" />
+                                       Text="共通素体はまだありません。上の欄に素体の名前を入れると追加できます。" />
                         </Grid>
                     </DockPanel>
                 </Border>
