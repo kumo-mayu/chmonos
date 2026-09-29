@@ -24,6 +24,9 @@ public sealed record UnityRootLocation(string Root, bool Moved);
 /// **まずパスで、見つからない物だけ GUID で探す**（2026-09-29 ユーザ指示）。利用者がフォルダを移した・名前を変えた物は
 /// パスでは見つからないが、<c>.meta</c> の GUID は変わらない（<see cref="UnityProjectGuids"/>）。GUID の表を作るのは重いので、
 /// パスで全部見つかったときは作らない。
+/// ショップが Assets の先頭に並べるために付けた頭の記号（<c>_FUKA</c>・<c>!FUKA</c>）を利用者が消した物も、名前を変えた物として
+/// GUID で見つける。前は記号を外した名前で読み替えていたが（ユーザ指摘 2026-09-16）、名前の当て推量は記号の付け方しだいで外れ、
+/// 取り違えもあり得た。Unity 自身も GUID で同じ物と見る（2026-09-29 に Unity 2022.3 で確かめた）ので、GUID に置き換えた。
 ///
 /// **ファイルだけを数える。**unitypackage のパスにはフォルダも入っているが、
 /// <c>Assets/FUKA</c> のような上のフォルダは同じ作者の別の商品とも重なる。
@@ -38,17 +41,15 @@ public static class UnityProjectMatcher
     /// <param name="projectPath">Unity プロジェクトのフォルダ（<c>Assets</c> を持つ所）。</param>
     /// <param name="items">商品ごとの、unitypackage に入っているアセット（複数のパッケージはまとめて渡す）。</param>
     /// <param name="exists">ファイルがあるか。既定はディスクを見る。試験では差し替える。</param>
-    /// <param name="childDirectories">フォルダの直下のフォルダの名前。既定はディスクを見る。試験では差し替える。</param>
     /// <param name="guids">プロジェクトの GUID → 今のパスの表。パスで見つからない物があったときだけ1度呼ぶ。既定はディスクを見る。</param>
     public static IReadOnlyList<UnityProjectMatch> Match(
         string projectPath,
         IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> items,
         Func<string, bool>? exists = null,
-        Func<string, IEnumerable<string>>? childDirectories = null,
         Func<IReadOnlyDictionary<string, string>>? guids = null)
     {
         exists ??= File.Exists;
-        var disk = new Disk(projectPath, exists, childDirectories, guids);
+        var disk = new Disk(projectPath, exists, guids);
 
         var files = items.ToDictionary(
             pair => pair.Key,
@@ -85,8 +86,9 @@ public static class UnityProjectMatcher
     /// <summary>
     /// 「Unityで選択」で開くフォルダを決める。<paramref name="root"/> はパッケージの入り先（<c>Assets/FUKA</c>）。
     ///
-    /// - 入り先（頭の記号の読み替えも含む。<see cref="UnityFolderNames"/>）に、その商品のファイルがパスで1つでもあればそこ
-    /// - 無ければ GUID で探す。入り先のフォルダ自身の GUID が見つかればその場所（フォルダを丸ごと移した・名前を変えた）
+    /// - 入り先に、その商品のファイルがパスで1つでもあればそこ
+    /// - 無ければ GUID で探す。入り先のフォルダ自身の GUID が見つかればその場所（フォルダを丸ごと移した・名前を変えた。
+    ///   ショップが並べるために付けた頭の記号（<c>_FUKA</c>）を利用者が消した物もここで見つかる）
     /// - フォルダが見つからなければ、GUID で見つかったファイルの今の場所から、入り先に当たるフォルダを推す
     ///   （<c>Assets/FUKA/撫で音/a.fbx</c> が <c>Assets/Mine/撫で音/a.fbx</c> にあれば <c>Assets/Mine</c>。下の段まで同じでなければそのファイルのあるフォルダ）。
     ///   いちばん多くのファイルが指す所を選ぶ
@@ -98,13 +100,11 @@ public static class UnityProjectMatcher
         IReadOnlyList<UnityPackageAsset> assets,
         Func<string, bool>? exists = null,
         Func<string, bool>? directoryExists = null,
-        Func<string, IEnumerable<string>>? childDirectories = null,
         Func<IReadOnlyDictionary<string, string>>? guids = null)
     {
         exists ??= File.Exists;
         directoryExists ??= Directory.Exists;
-        var disk = new Disk(projectPath, exists, childDirectories, guids);
-        var resolved = UnityFolderNames.ResolveRoot(root, disk.Children);
+        var disk = new Disk(projectPath, exists, guids);
 
         var prefix = root.TrimEnd('/') + "/";
         var inside = assets
@@ -114,7 +114,7 @@ public static class UnityProjectMatcher
         // 入り先に1つでもパスで入っていれば、そこを開く（移したのは一部だけ・別の商品と同じフォルダを使う、などはここに入る）
         if (inside.Count == 0 || inside.Any(asset => disk.FileAtPath(asset.Path)))
         {
-            return new UnityRootLocation(resolved, false);
+            return new UnityRootLocation(root, false);
         }
 
         var table = disk.Guids();
@@ -145,7 +145,7 @@ public static class UnityProjectMatcher
 
         if (votes.Count == 0)
         {
-            return new UnityRootLocation(resolved, false);
+            return new UnityRootLocation(root, false);
         }
 
         var best = votes
@@ -170,52 +170,28 @@ public static class UnityProjectMatcher
         => (path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
            && Path.HasExtension(path);
 
-    /// <summary>プロジェクトのディスクの見方。直下の一覧と GUID の表は、1回の照らし合わせの中で1度だけ読む。</summary>
-    private sealed class Disk
+    /// <summary>プロジェクトのディスクの見方。GUID の表は、1回の照らし合わせの中で1度だけ読む。</summary>
+    private sealed class Disk(string projectPath, Func<string, bool> exists, Func<IReadOnlyDictionary<string, string>>? guids)
     {
-        private readonly string _projectPath;
-        private readonly Func<string, bool> _exists;
-        private readonly Func<string, IEnumerable<string>> _read;
-        private readonly Func<IReadOnlyDictionary<string, string>> _guids;
-        private readonly Dictionary<string, List<string>> _listed = new(StringComparer.OrdinalIgnoreCase);
-
-        // 利用者が入り先のフォルダの頭の記号を消していても、入っていると数える（UnityFolderNames）
-        private readonly Dictionary<string, string> _renamed = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Func<IReadOnlyDictionary<string, string>> _guids = guids ?? (() => UnityProjectGuids.ForProject(projectPath).Current());
         private IReadOnlyDictionary<string, string>? _table;
 
-        public Disk(
-            string projectPath,
-            Func<string, bool> exists,
-            Func<string, IEnumerable<string>>? childDirectories,
-            Func<IReadOnlyDictionary<string, string>>? guids)
-        {
-            _projectPath = projectPath;
-            _exists = exists;
-            _read = childDirectories ?? UnityFolderNames.DiskChildren(projectPath);
-            _guids = guids ?? (() => UnityProjectGuids.ForProject(projectPath).Current());
-        }
-
-        // 直下の一覧は、読み替えるルートごとではなく1度だけ読む（プロジェクトを調べるときは商品の数だけルートがある）
-        public IEnumerable<string> Children(string folder)
-            => _listed.TryGetValue(folder, out var names) ? names : _listed[folder] = _read(folder).ToList();
-
-        public string Full(string unityPath) => Path.Combine(_projectPath, unityPath.Replace('/', Path.DirectorySeparatorChar));
+        public string Full(string unityPath) => Path.Combine(projectPath, unityPath.Replace('/', Path.DirectorySeparatorChar));
 
         public IReadOnlyDictionary<string, string> Guids() => _table ??= _guids();
 
-        /// <summary>パス（頭の記号の読み替えも含む）でそこにあるか。</summary>
-        public bool FileAtPath(string path) => _exists(Full(UnityFolderNames.ResolvePath(path, Children, _renamed)));
+        /// <summary>パッケージの中のパスのままそこにあるか。</summary>
+        public bool FileAtPath(string path) => exists(Full(path));
 
         /// <summary>今どこにあるか。パスで無ければ GUID で探す。どちらでも無ければ null。</summary>
         public string? FindFile(UnityPackageAsset asset)
         {
-            var byPath = UnityFolderNames.ResolvePath(asset.Path, Children, _renamed);
-            if (_exists(Full(byPath)))
+            if (exists(Full(asset.Path)))
             {
-                return byPath;
+                return asset.Path;
             }
 
-            return asset.Guid.Length > 0 && Guids().TryGetValue(asset.Guid, out var now) && _exists(Full(now)) ? now : null;
+            return asset.Guid.Length > 0 && Guids().TryGetValue(asset.Guid, out var now) && exists(Full(now)) ? now : null;
         }
     }
 }

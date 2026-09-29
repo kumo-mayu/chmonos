@@ -100,7 +100,13 @@ public sealed class PackageChoiceSection
         })
         .ToList();
 
-    /// <summary>候補が2つ以上あるときだけ作る。1つなら選ぶまでもないので null（今までどおり聞かずに送る）。</summary>
+    /// <summary>
+    /// 候補が2つ以上あるときだけ作る。1つなら選ぶまでもないので null（今までどおり聞かずに送る）。
+    ///
+    /// **包みの一覧は item の要約から引く**（<see cref="UnityHandoff.PlacesOf(LocalFileRecord)"/>。2026-09-29）。前は商品の zip を1つずつ開いて
+    /// 数えていて、1GB 級の zip が HDD にあると窓が出るまで止まって見えた。要約が無い・欠けているときだけ zip を読むが、
+    /// それでも止まらないよう**画面のスレッドで呼ばない**（呼び手が裏へ出す）。
+    /// </summary>
     public static PackageChoiceSection? Build(ItemRecord item)
     {
         var variations = item.Booth.Variations;
@@ -110,9 +116,10 @@ public sealed class PackageChoiceSection
         // 手元のファイルの順に見る（全部送っていたときの順 UnityImportQueue.PackagesOf と同じ）
         foreach (var file in item.Local.OwnedFiles)
         {
-            var zip = file.Paths.FirstOrDefault(File.Exists);
-            if (zip is not null && zip.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            var places = UnityHandoff.PlacesOf(file);
+            if (places.Count > 0)
             {
+                var zip = places[0].Entry.ZipPath;
                 var variationIndex = file.VariationId is { } id
                     ? variations.Select((variation, index) => (variation, index)).FirstOrDefault(pair => pair.variation.Id == id) is { variation: not null } found
                         ? found.index
@@ -125,9 +132,9 @@ public sealed class PackageChoiceSection
                         variationIndex)
                     : ($"zip:{zip}", $"zip：{Path.GetFileName(zip)}", variations.Count + fileOrder);
 
-                foreach (var package in UnityHandoff.FindPackages(zip))
+                foreach (var place in places)
                 {
-                    candidates.Add((new PackageChoiceRow { Package = package with { ZipHash = file.Hash }, Owner = file }, key, label, order));
+                    candidates.Add((new PackageChoiceRow { Package = place.Entry, Owner = file }, key, label, order));
                 }
             }
 

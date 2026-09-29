@@ -50,7 +50,8 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        var packages = ModificationViewModel.PackagesFor(item, member);
+        // 要約が無い・欠けている商品は zip を開いて数えるので、画面のスレッドでは読まない
+        var packages = await Task.Run(() => ModificationViewModel.PackagesFor(item, member));
         if (packages.Count == 0)
         {
             setStatus($"「{name}」には、Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。", failed: true);
@@ -99,7 +100,7 @@ internal static class UnityMemberSelect
 
         IReadOnlyList<UnityPackageEntry> toSend = packages;
         var recorded = false;
-        if (member.FileHash is null && packages.Count > 1 && PackageChoiceSection.Build(item) is { } choice)
+        if (member.FileHash is null && packages.Count > 1 && await Task.Run(() => PackageChoiceSection.Build(item)) is { } choice)
         {
             // どのファイルを使ったか記録が無く、送れる物が2つ以上ある。全部送ると古い版や別の種類まで入るので選ばせ、
             // 選んだ物をこの行に記録する（ユーザ判断 2026-09-13）
@@ -181,7 +182,7 @@ internal static class UnityMemberSelect
             var assets = packages.SelectMany(reads.ReadAssets).ToList();
             var matches = UnityProjectMatcher.Match(
                 project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [itemId] = assets });
-            // 入り先の頭の記号（_FUKA）を利用者が消していれば実際の名前（FUKA）で、フォルダごと移していれば GUID で見つけた今の場所で探す
+            // 利用者がフォルダを移した・名前を変えた（頭の記号 _FUKA を消したのも含む）なら、GUID で見つけた今の場所を開く
             var roots = UnityHandoff.DestinationRoots(assets.Select(asset => asset.Path));
             var location = roots.Count == 0 ? null : UnityProjectMatcher.LocateRoot(project, roots[0], assets);
             return (location, roots.FirstOrDefault(), matches.FirstOrDefault()?.Present ?? 0);
