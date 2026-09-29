@@ -168,6 +168,8 @@
     <SolidColorBrush x:Key="ColumnHeaderBack" Color="#1e2127" />
     <SolidColorBrush x:Key="ColumnHeaderHover" Color="#272c35" />
     <SolidColorBrush x:Key="ColumnHeaderBorder" Color="#343943" />
+    <!-- カレンダーの「今日」の地（白い文字 OnAccent を載せる）。面より明るい灰で、白が AA に届く濃さ -->
+    <SolidColorBrush x:Key="CalendarToday" Color="#5d6470" />
 
     <!-- Windows の色（SystemColors）の置き換え。自前の見た目を持たない所が読む -->
     <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#1e2127" />

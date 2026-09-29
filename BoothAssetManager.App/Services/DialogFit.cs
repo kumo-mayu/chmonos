@@ -15,10 +15,22 @@ namespace BoothAssetManager.App.Services;
 /// </summary>
 internal static class DialogFit
 {
-    public static void Prepare(Window dialog)
+    /// <param name="scrollsItself">
+    /// 送る入れ物を窓が自分で持つ（知らせの窓は本文だけを送り、ボタンの帯は常に見せる）。
+    /// 包まずに、表示の大きさだけを中身に当てる。窓の高さの頭打ちは同じにする（それで中の入れ物が送り始める）
+    /// </param>
+    public static void Prepare(Window dialog, bool scrollsItself = false)
     {
+        if (scrollsItself)
+        {
+            if (dialog.Content is FrameworkElement root)
+            {
+                root.SetResourceReference(FrameworkElement.LayoutTransformProperty, ViewModels.AppZoom.TransformResourceKey);
+            }
+        }
+
         // 中身を送る入れ物で包む。作った直後（まだ出していない）なので、包み直しても読み込みの知らせは1回だけ来る
-        if (dialog.Content is UIElement content and not ScrollViewer)
+        else if (dialog.Content is UIElement content and not ScrollViewer)
         {
             dialog.Content = null;
             var scroll = new ScrollViewer

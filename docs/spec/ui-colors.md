@@ -25,7 +25,7 @@
   Windows の白い型に戻る（`SettingCheck`・`NumberBox`・メニューの項目のスタイル）
 - **小窓の地**は `DialogFit.Prepare` が、書いていなければ `Surface` を指す（書かないと Windows の既定の白で出る）
 
-## 鍵（127。ほかに Windows の色の置き換え5つ）
+## 鍵（128。ほかに Windows の色の置き換え5つ）
 
 値は表のファイルにある。役割ごとに並べ、各行にコメントで何に使うかを書いてある。
 
@@ -48,6 +48,7 @@
 | スクロールバー | `ScrollTrack`・`ScrollThumb`・`ScrollThumbHover`・`ScrollThumbPressed`・`ScrollArrow`・`ScrollArrowHoverBack` |
 | スライダー | `SliderTrack`・`SliderTrackBorder`・`SliderThumb`・`SliderThumbBorder`・`SliderThumbHover`・`SliderThumbHoverBorder`・`SliderTick` |
 | 表の見出し | `ColumnHeaderBack`・`ColumnHeaderHover`・`ColumnHeaderBorder` |
+| カレンダー | `CalendarToday`（「今日」の地。文字は `OnAccent`）。ほかは面・文字・一覧の行の鍵を使う（選んだ日は `ListSelectedBack`／`Border`、乗せたときは `ListHoverBack`、前後の月は `TextFaint`、曜日は `TextMuted`） |
 | Windows の色 | `SystemColors` の `Window`・`WindowText`・`Control`・`ControlText`・`GrayText`（自前の見た目を持たない所：スクロールバーの角・フォーカスの点線など）。明るい表の値は Windows の既定と同じ |
 
 ### 明るい表を作ったときにまとめた色（見て差の分からない物だけ）
@@ -99,8 +100,11 @@ WPF の既定（Aero2）は色を型の中に直に持つので、色の表の�
 
 - 描き直した：吹き出し・右クリックのメニューと項目（上のメニューの見出し・下の段・区切り）・入力欄・チェックボックス・ラジオボタン・
   切り替えボタン（自前の見た目の無いもの）・プルダウンと一覧の行・一覧（ListBox・ListView の地）と行・表の見出し（列の幅のつまみ付き）・
-  スクロールバー・スライダー（横）・進み具合の棒の既定・畳める欄（自前の見た目の無いもの）
+  スクロールバー・スライダー（横）・進み具合の棒の既定・畳める欄（自前の見た目の無いもの）・
+  カレンダー（検索の日付の絞り込み。日付・月・年のボタンと見出し。部品の名前と日付の状態は Windows の型と同じに持つ。2026-09-29）
 - 部品の中の文字は部品の `Foreground` に従う（`FollowOwnerForeground`）。アプリ全体の TextBlock の既定（色 `Text`）が勝って、
-  押せない項目・危ない項目の色が出ていなかった
-- **白いまま残る物**：Windows の確認の窓（`MessageBox`・`Services.Notice`。自前にするのは後で・ユーザ判断）、
-  ファイルとフォルダを選ぶ窓（Windows が描く）、カレンダー（検索の日付の絞り込み。Windows の型が日付の文字色を直に持つので、暗い表でも明るいまま出す）
+  押せない項目・危ない項目の色が出ていなかった。**テンプレートの中の文字には、外のスタイルの資源が届かない**（アプリ全体の既定を拾う）。
+  文字の見た目は、そのテンプレートの中身（`ContentPresenter.Resources`）に置く（カレンダーの日付で、前後の月が薄くならず大きさも膨らんでいた）
+- **知らせと確認の窓**は自前の窓（`Views/NoticeWindow`。2026-09-29）で、面・文字・印を表の鍵で描く。印は情報・質問が `AccentFill`、警告が `Warn`、エラーが `BadFill`。
+  決まりは [ui-dialogs.md](ui-dialogs.md)「知らせの窓」
+- **白いまま残る物**：ファイルとフォルダを選ぶ窓（Windows が描く）

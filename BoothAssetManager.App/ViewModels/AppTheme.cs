@@ -27,7 +27,7 @@ public sealed class ColorThemeOption
 /// 保持は参照1つあたり約120バイト（カード1枚に約60の参照で、2000枚すべてを作っても +14MB。一覧は見えている分しか作らない）。
 ///
 /// 窓の題の帯（Windows が描く所）は色の表が届かないので、窓ごとに DWM に暗くするよう頼む（<see cref="Watch"/>）。
-/// Windows の確認の窓（MessageBox）は Windows が描くので、暗い表の間も白いまま（自前の窓にするのは後で・ユーザ判断）。
+/// 知らせと確認の窓は自前の窓（<c>Views/NoticeWindow</c>）なので表に従う。白いまま残るのは、Windows が描くファイルとフォルダを選ぶ窓だけ。
 /// </summary>
 public sealed class AppTheme : ViewModelBase
 {
