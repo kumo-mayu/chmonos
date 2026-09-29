@@ -98,7 +98,10 @@ public sealed class AvatarNameIndex
 
         foreach (Match quoted in Regex.Matches(booth, @"[「『｢]([^「」『』｢｣]{1,24})[」』｣]"))
         {
-            yield return quoted.Groups[1].Value;
+            foreach (var name in WithSplitReadings(quoted.Groups[1].Value))
+            {
+                yield return name;
+            }
         }
 
         foreach (Match latin in Regex.Matches(booth, @"-\s?([A-Za-z][A-Za-z .]{1,20}?)\s?-"))
@@ -106,10 +109,19 @@ public sealed class AvatarNameIndex
             yield return latin.Groups[1].Value;
         }
 
+        // 括りの後ろに閉じずに添えた英字の読み（「『ヌクモ』 - Nukumo」）。対応の一覧が英字で書かれると当たらなかった
+        foreach (Match latin in Regex.Matches(booth, @"[」』｣]\s*[-‐]\s*([A-Za-z][A-Za-z .]{1,20}?)\s*$"))
+        {
+            yield return latin.Groups[1].Value;
+        }
+
         // 画面に出す名前。「Ciel（シエル）」ならどちらの書き方で呼ばれても当たるよう、分けて渡す
         foreach (var part in AvatarNames.Parts(AvatarNames.ShownName(entry)))
         {
-            yield return part;
+            foreach (var name in WithSplitReadings(part))
+            {
+                yield return name;
+            }
         }
 
         // 人が「この表記は違う」と消したものは照合に使わない。
@@ -124,10 +136,51 @@ public sealed class AvatarNameIndex
         }
     }
 
+    /// <summary>
+    /// 名前そのものと、2通りの書き方を並べた名前（「月白/Tsukishiro」「ソラネ / SORANE」「ポルカ Polka」）の片方ずつ。
+    ///
+    /// 正式名が2通りを並べて書いていると、表示名も呼び名もその並びのまま1語になり、
+    /// タグ「月白」や一覧の「-Polka」のように片方だけで呼ばれると当たらなかった
+    /// （友人のデータの2回目の評価で、対応の一覧・タグから4組を取りこぼした。2026-09-29）。
+    /// 空白で分けるのは、2語の片方だけが英字のとき（読みを添えた形）に限る。
+    /// 「Lumiere Rose」のような英字2語の名前や「ナナセ ノワール」は分けない。
+    /// </summary>
+    internal static IEnumerable<string> WithSplitReadings(string name)
+    {
+        yield return name;
+
+        var bySlash = name.Split(['/', '／'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (bySlash.Length == 2)
+        {
+            yield return bySlash[0];
+            yield return bySlash[1];
+            yield break;
+        }
+
+        // 数字を含む語は版の表記（「ポルカ V2」）なので分けない。分けると「V2」が他の商品の版に当たる
+        var words = name.Split([' ', '　'], StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 2 && !words.Any(word => word.Any(char.IsDigit)) && IsLatinWord(words[0]) != IsLatinWord(words[1]))
+        {
+            yield return words[0];
+            yield return words[1];
+        }
+    }
+
+    private static bool IsLatinWord(string word)
+        => word.Any(char.IsLetter) && word.Where(char.IsLetter).All(ch => ch is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= 'À' and <= 'ÿ'));
+
     private void Add(Dictionary<string, HashSet<string>> into, string? text, string key)
     {
         var normalized = AvatarText.StripForMatch(text);
         if (normalized.Length < MinAliasLength || AvatarText.IsGenericName(text) || AvatarText.IsGenericName(normalized))
+        {
+            return;
+        }
+
+        // 数字だけの名前は照合に使わない。「27アバター対応」「【27 avatars】」の数に当たり、
+        // 数字だけの名前のアバターが対応に入っていた（友人のデータの2回目の評価で3組・2026-09-29）。
+        // そのアバターは説明文のURLでは今までどおり拾える
+        if (normalized.All(char.IsDigit))
         {
             return;
         }
@@ -1001,12 +1054,18 @@ public static class AvatarDetector
             // ① 対応の見出し（h2 か見出し代わりの行）の下は、URLと名前だけの行を全部拾う
             if (Contains(section.Heading, supportHeadings) && !NotAvatarSupport.IsMatch(section.Heading) && !IsCredit(section.Heading))
             {
+                var decoration = LeadingDecoration.Match(section.Heading).Value;
                 foreach (var line in section.Lines)
                 {
                     // 対応一覧のすぐ下に「使用アバター：URL」のようなクレジットが続く書き方がある
                     if (AnyItemUrl.IsMatch(line) && CreditLine.IsMatch(line))
                     {
                         continue;
+                    }
+
+                    if (IsNextHeading(line, decoration))
+                    {
+                        break;
                     }
 
                     Take(IdsOnLine(line, index));
@@ -1032,6 +1091,29 @@ public static class AvatarDetector
 
         return found;
     }
+
+    /// <summary>見出しの頭の飾り（「◇対応モデル」の ◇）。括弧は飾りに数えない（名前を括る「【ポルカ】」と見分けられない）。</summary>
+    private static readonly Regex LeadingDecoration = new(@"^[^\p{L}\p{N}\s【\[［(（「『<＜《〈]+", RegexOptions.Compiled);
+
+    /// <summary>対応の一覧の後ろに続く、別の話の見出しの語。</summary>
+    private static readonly Regex OtherTopicHeading = new(
+        "クレジット|credit|サムネ|使用|お借り|撮影|協力|素材|thanks|規約|更新|バリエーション|注意|免責|内容|仕様|導入|同梱|関連",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// 対応の見出しと同じ飾りで始まる、別の話の短い見出し行（「◇対応モデル」の後ろの「◇利用規約」「◇バリエーション」）。
+    /// **ここで対応の一覧を終える。**
+    ///
+    /// 本文中の見出し行は、次の対応の見出し行が来るまで節が続くとみなしていたので、
+    /// 同じ飾りで書かれた「バリエーション」の節にある「for 名前」（別の商品の案内）まで対応に数えていた
+    /// （前と新しい評価で合わせて4組・2026-09-29）。飾りが同じで、別の話の語を含む短い行だけを見出しとみなす。
+    /// </summary>
+    private static bool IsNextHeading(string line, string decoration)
+        => decoration.Length > 0
+           && line.Length <= 20
+           && line.StartsWith(decoration, StringComparison.Ordinal)
+           && !AnyItemUrl.IsMatch(line)
+           && OtherTopicHeading.IsMatch(line);
 
     private static IEnumerable<Section> Sections(string? html, string? description)
     {

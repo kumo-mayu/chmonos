@@ -17,6 +17,13 @@
 //
 // --store は評価フォルダの中の写しを選ぶ（既定は store）。store-clean は友人の登録簿の
 // 汚れ（自分の正式名に出ない別名・読めない表示名）を直した版で、同じ正解で測れる。
+//
+// 評価フォルダは2つある（どちらもリポジトリの外）：
+//   BoothAssetManager-eval   … 207件（2026-09-11）。settings.json の見出しが既定に語を足す前の物なので、
+//                              今の規則を測るときは --default-headings を付ける
+//   BoothAssetManager-eval2  … 同じ友人のライブラリの後の版（2026-09-29）。前の正解を引き継ぎ、増えた商品に正解を足した
+// --manual <file>：手付けの対応アバター（商品ID → アバターIDの一覧）への見落とし率も出す（既定は評価フォルダの manual.json）
+// --only <案の名前の一部>：その案だけ走らせる。--pred <file>：--show の案が対応と数えた組を書き出す
 
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -29,7 +36,7 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 // 値を取るオプション（--show 平文）の値を、評価フォルダと取り違えないようにする
 var optionValues = args.Select((arg, index) => (arg, index))
-    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump" or "--store")
+    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump" or "--store" or "--manual" or "--only" or "--pred")
     .Select(pair => pair.index + 1)
     .ToHashSet();
 var evalDir = args.Where((arg, index) => !arg.StartsWith("--") && !optionValues.Contains(index)).FirstOrDefault()
@@ -45,6 +52,27 @@ var storeName = storeIndex >= 0 && storeIndex + 1 < args.Length ? args[storeInde
 
 var context = EvalContext.Load(evalDir, storeName);
 Console.WriteLine($"写し: {storeName}");
+
+// --default-headings：写しの settings.json の見出しの一覧を、今の既定に置き換えて測る。
+// 見出しの設定は保存された物をそのまま使う（2026-09-21・G13）ので、既定に語を足す前に作った写し
+// （前の評価フォルダ）では「検索用」などを読まず、規則の良し悪しと関係なく再現率が下がって見える
+if (args.Contains("--default-headings"))
+{
+    context = context.WithSettings(context.Settings with
+    {
+        AvatarSupportHeadings = AppSettings.DefaultAvatarSupportHeadings,
+        AvatarIgnoredHeadings = new AppSettings().AvatarIgnoredHeadings,
+    });
+    Console.WriteLine("見出し: 今の既定");
+}
+
+// 手付けの対応アバター（manual.json：商品ID → アバターIDの一覧）。付いている組が拾えているか（見落とし）だけを見る。
+// 持っていないアバターは付けていないことがあるので、付いていない組を「違う」とは扱わない
+var manualIndex = Array.IndexOf(args, "--manual");
+var manualPath = manualIndex >= 0 && manualIndex + 1 < args.Length ? args[manualIndex + 1] : Path.Combine(evalDir, "manual.json");
+var manual = File.Exists(manualPath)
+    ? JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(manualPath))!
+    : null;
 
 // --exclude 123,456：その商品を測らない。1商品に巨大な一覧があると数字がそれに引きずられるので、
 // 除いた場合と並べて読むために使う
@@ -100,12 +128,27 @@ IVariant[] variants =
     new ProposalVariant(best with { ListRun = 5, MarkerBlocks = true, BaseInference = true, Phrases = true }),
 ];
 
-Console.WriteLine($"{"案",-44} {"適合率",7} {"再現率",7} {"F1",6}  正/誤(参考・違う・未ラベル)/漏れ");
+// --only <案の名前の一部>：その案だけを走らせる（本体の再実行だけを直すたびに測るとき）
+var onlyIndex = Array.IndexOf(args, "--only");
+if (onlyIndex >= 0 && onlyIndex + 1 < args.Length)
+{
+    variants = [.. variants.Where(variant => variant.Name.Contains(args[onlyIndex + 1], StringComparison.OrdinalIgnoreCase))];
+}
+
+Console.WriteLine($"{"案",-44} {"適合率",7} {"再現率",7} {"F1",6}  正/誤(参考・違う・未ラベル)/漏れ{(manual is null ? "" : "  手付けの見落とし")}");
 foreach (var variant in variants)
 {
     var prediction = await variant.RunAsync(context);
     var score = Score.Of(context, prediction);
-    Console.WriteLine($"{variant.Name,-44} {score.Precision,7:P1} {score.Recall,7:P1} {score.F1,6:F3}  {score.TruePositive}/{score.FalseReference}・{score.FalseWrong}・{score.FalseUnlabeled}/{score.FalseNegative}");
+    var manualText = manual is null ? "" : "  " + ManualMiss.Of(context, manual, prediction);
+    Console.WriteLine($"{variant.Name,-44} {score.Precision,7:P1} {score.Recall,7:P1} {score.F1,6:F3}  {score.TruePositive}/{score.FalseReference}・{score.FalseWrong}・{score.FalseUnlabeled}/{score.FalseNegative}{manualText}");
+
+    // --pred <file>：この案が対応と数えた組を書き出す（正解の無い組を見つけて足すため）。評価フォルダの中に置く
+    var predIndex = Array.IndexOf(args, "--pred");
+    if (predIndex >= 0 && predIndex + 1 < args.Length && show is not null && variant.Name.Contains(show, StringComparison.OrdinalIgnoreCase))
+    {
+        File.WriteAllText(args[predIndex + 1], JsonSerializer.Serialize(prediction.ToDictionary(pair => pair.Key, pair => pair.Value.Order().ToList())));
+    }
 
     if (show is not null && variant.Name.Contains(show, StringComparison.OrdinalIgnoreCase))
     {
@@ -148,6 +191,15 @@ namespace AvatarEvalBench
         public required AppSettings Settings { get; init; }
 
         public int PositiveCount => Labels.Values.Sum(label => label.Avatars.Count(pair => pair.Value == "対応"));
+
+        public EvalContext WithSettings(AppSettings settings) => new()
+        {
+            StoreDir = StoreDir,
+            Items = Items,
+            Labels = Labels,
+            Registry = Registry,
+            Settings = settings,
+        };
 
         public string? HtmlOf(string itemId)
         {
@@ -1045,6 +1097,43 @@ namespace AvatarEvalBench
     }
 
     /// <summary>適合率・再現率と、誤りの内訳。</summary>
+    /// <summary>
+    /// 手付けの対応アバターに対する見落とし率。正解のある商品（<see cref="EvalContext.Labels"/>）だけで数える。
+    /// 手付けの組のうち正解が「違う」「参考」の物は、見落としても誤りではないので分けて出す。
+    /// </summary>
+    public static class ManualMiss
+    {
+        public static string Of(EvalContext context, Dictionary<string, List<string>> manual, Dictionary<string, HashSet<string>> prediction)
+        {
+            int total = 0, missed = 0, missedNotPositive = 0;
+            foreach (var (itemId, avatars) in manual)
+            {
+                if (!context.Labels.TryGetValue(itemId, out var label))
+                {
+                    continue;
+                }
+
+                var predicted = prediction.TryGetValue(itemId, out var set) ? set : [];
+                foreach (var avatar in avatars.Where(avatar => avatar != itemId))
+                {
+                    total++;
+                    if (!predicted.Contains(avatar))
+                    {
+                        missed++;
+                        if (!label.Avatars.TryGetValue(avatar, out var truth) || truth != "対応")
+                        {
+                            missedNotPositive++;
+                        }
+                    }
+                }
+            }
+
+            return total == 0
+                ? "—"
+                : $"{(double)missed / total:P1}（{missed}/{total}、うち正解が対応でない {missedNotPositive}）";
+        }
+    }
+
     public sealed class Score
     {
         public int TruePositive { get; private set; }
