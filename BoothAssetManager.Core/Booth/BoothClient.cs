@@ -38,6 +38,13 @@ public sealed class BoothFetchResult<T>
     /// </summary>
     public bool IsUnreachable { get; init; }
 
+    /// <summary>
+    /// BOOTH が 5xx（サーバの不調）を返したか。状態としては一時エラー。
+    /// 続いたら打ち切りに数える（<see cref="BoothOutageWatch"/>）。落ちている間も全件を再試行で回ると、
+    /// 復旧に時間の掛かる相手へ問い合わせを重ね続けるため（ユーザ判断 2026-09-29）
+    /// </summary>
+    public bool IsServerError { get; init; }
+
     public bool IsSuccess => Status == BoothFetchStatus.Success;
 
     public static BoothFetchResult<T> Success(T value) => new() { Status = BoothFetchStatus.Success, Value = value };
@@ -453,7 +460,16 @@ public sealed class BoothClient : IBoothClient
                     SlowDown();
                 }
 
-                return BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}", retryAfter);
+                var failed = BoothFetchResult<T>.Temporary($"HTTP {(int)response.StatusCode}", retryAfter);
+                return (int)response.StatusCode >= 500
+                    ? new BoothFetchResult<T>
+                    {
+                        Status = failed.Status,
+                        Error = failed.Error,
+                        RetryAfter = failed.RetryAfter,
+                        IsServerError = true,
+                    }
+                    : failed;
             }
 
             // 広げた間隔は、成功が続いたら少しずつ戻す（C16）
