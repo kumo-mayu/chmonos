@@ -1134,12 +1134,14 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 次に選ぶのは、検索で見えている行の中の次（隠れている行を選ぶと、左で何を選んでいるか分からない）
         var visible = FilesView.Cast<UnresolvedRow>().ToList();
         var index = Selected is null ? -1 : visible.IndexOf(Selected);
+        // 外す前に控えた行を使う。選んでいる行を一覧から外すと、一覧の側が選択を空にして Selected が null になる
+        // （最後の1件を登録したときに落ち、見出しの件数と0件の表示が古いまま残っていた。2026-09-29 に画面で確かめて見つけた）
         var settledRow = Selected;
-        if (Selected is not null)
+        if (settledRow is not null)
         {
-            Files.Remove(Selected);
-            visible.Remove(Selected);
-            RememberedSearches.Forget([Selected.File.Hash]);
+            Files.Remove(settledRow);
+            visible.Remove(settledRow);
+            RememberedSearches.Forget([settledRow.File.Hash]);
         }
 
         OnPropertyChanged(nameof(RemainingCount));
