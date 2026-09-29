@@ -196,17 +196,18 @@ internal static class UnityMemberSelect
 
         if (location is null)
         {
-            setStatus("入り先のフォルダを読めませんでした。", failed: true);
+            setStatus("フォルダの場所を読めませんでした。", failed: true);
             return true;
         }
 
         var root = location.Root;
         var folder = root.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
 
-        // 利用者がフォルダを移していれば、パッケージの入り先ではなく今の場所を開く。黙って別の名前のフォルダを開くと戸惑うので、移っていると言う
+        // 利用者がフォルダを移していれば、パッケージの入り先ではなく今の場所を開く。黙って別の名前のフォルダを開くと戸惑うので、
+        // 元の場所と今の場所を矢印でつないで見せる（ユーザ指示 2026-09-29：「移動されています」の文は長い。場所を矢印でつなぐだけで伝わる）
         var destination = location.Moved
-            ? $"入り先の {packageRoot} は {root} に移動されています。"
-            : $"入り先は {root} です。";
+            ? $"場所：{packageRoot} → {root}。"
+            : $"場所：{root}。";
         if (editor is null)
         {
             setStatus((location.Moved ? destination : $"「{projectName}」の {root} に入っています。")

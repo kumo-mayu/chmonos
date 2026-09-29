@@ -327,7 +327,7 @@
                                                                             <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                                                     VerticalAlignment="Center" Click="OnMenuButtonClick"
                                                                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    ToolTip="開いているUnityへ送るか、Unityのプロジェクトタブで入り先を示します。">
+                                                                                    ToolTip="開いているUnityへ送るか、Unityのプロジェクトタブで場所を示します。">
                                                                                 <Button.ContextMenu>
                                                                                     <ContextMenu>
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
