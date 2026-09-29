@@ -520,16 +520,34 @@
                             <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}" BorderThickness="1"
                                     CornerRadius="6" Padding="11,9" MaxHeight="150"
                                     Visibility="{Binding HasContents, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl ItemsSource="{Binding SelectedContents}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
+                                <!--
+                                    見える行だけ作る（大容量の確かめ 2026-09-30：仮想化していない一覧を ScrollViewer で包んでいたので、
+                                    中身7万件の zip の行を選ぶと7万行を作って約49秒止まり、メモリが約1GBまで上がっていた）
+                                -->
+                                <controls:ContentItemsControl ItemsSource="{Binding SelectedContents}" Focusable="False"
+                                                              VirtualizingPanel.IsVirtualizing="True"
+                                                              VirtualizingPanel.VirtualizationMode="Recycling"
+                                                              VirtualizingPanel.ScrollUnit="Pixel"
+                                                              ScrollViewer.CanContentScroll="True">
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
+                                                <ItemsPresenter />
+                                            </ScrollViewer>
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
                             </Border>
                         </StackPanel>
                     </Border>
