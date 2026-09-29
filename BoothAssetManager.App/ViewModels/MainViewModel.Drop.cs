@@ -237,6 +237,36 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>
+    /// 落としたURLの商品を登録している数。続けて落とすと順番に並ぶので、1つの帯に数でまとめる
+    /// （登録ごとに帯を足すと画面の下が何段も積み上がる）。
+    /// </summary>
+    private int _droppedRegistering;
+
+    public bool IsRegisteringDropped => _droppedRegistering > 0;
+
+    public string DroppedRegisteringText => _droppedRegistering > 1
+        ? $"{_droppedRegistering} 件の商品を登録しています…"
+        : "商品を登録しています…";
+
+    private void BeginDroppedRegistering()
+    {
+        _droppedRegistering++;
+        NotifyDroppedRegistering();
+    }
+
+    private void EndDroppedRegistering()
+    {
+        _droppedRegistering = Math.Max(0, _droppedRegistering - 1);
+        NotifyDroppedRegistering();
+    }
+
+    private void NotifyDroppedRegistering()
+    {
+        OnPropertyChanged(nameof(IsRegisteringDropped));
+        OnPropertyChanged(nameof(DroppedRegisteringText));
+    }
+
+    /// <summary>
     /// 手元に無い商品のURLを受けたとき。
     ///
     /// この経路が、**贈答品や気になっている未購入品を登録する道**にもなる。
@@ -256,7 +286,31 @@ public sealed partial class MainViewModel
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RegisterItem(itemId));
+        // 登録は BOOTH の順番を待つ（1本ずつ・取り込み中は今の1本の後ろ）ので、「はい」を押してから数秒かかる。
+        // 前は済むまで何も出ず、押せたのかも分からなかった（洗い出し 12。未確定の登録の進み具合 bbefef4 と同じ直し）。
+        // 窓を閉じた後は別の画面へ移れるので、どの画面でも見える下の帯に出す
+        Core.Commands.CommandResult result;
+        BeginDroppedRegistering();
+        try
+        {
+            result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RegisterItem(itemId));
+        }
+        catch (Exception exception)
+        {
+            // 落とした操作は裏で待つので、例外を投げっぱなしにすると帯が「登録しています…」のまま残り、理由も出ない
+            Core.Diagnostics.AppLog.Error("落としたURLの商品の登録", exception);
+            Services.Notice.Show(
+                Core.Services.FailureText.Cause(exception),
+                "登録できませんでした",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+
+            return;
+        }
+        finally
+        {
+            EndDroppedRegistering();
+        }
 
         if (result is Core.Commands.CommandResult.Failed failure)
         {
