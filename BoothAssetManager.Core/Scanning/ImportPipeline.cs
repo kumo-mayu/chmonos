@@ -320,7 +320,7 @@ public sealed class ImportPipeline : IImportPipeline
             // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
             // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
             // 登録したフォルダを測り直すのは取り込み1回につき最初の周回だけ（周回ごとに全部を並べ直していた）
-            var (registered, owned, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
+            var (registered, owned, owners, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
             measuredFolders = true;
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
@@ -345,9 +345,10 @@ public sealed class ImportPipeline : IImportPipeline
                 cancellationToken);
             perFile.Flush();
             var resolution = await ResolveAsync(
-                scan.Files, scanCache, exclusions, detached, owned, perFile, cancellationToken);
+                scan.Files, scanCache, exclusions, detached, owned, owners, perFile, cancellationToken);
             perFile.Flush();
             await SaveScanCacheAsync(scanCache, cancellationToken);
+            await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
 
             // 読むのは item に触らないので、①と同時に進めてよい。①に着くのを遅らせないよう、ここでは待たない
             Task? unityReading = null;
@@ -670,7 +671,7 @@ public sealed class ImportPipeline : IImportPipeline
     /// 周回は積むたびに増え、そのたびに登録したフォルダの中を全部並べ直していた。測った値は容量の表示に使うだけで、
     /// 同じ取り込みの中で何度測っても変わらない。
     /// </param>
-    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, DetachedIndex Detached)> LoadOwnedAsync(
+    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, IReadOnlyDictionary<string, List<FileOwner>> Owners, DetachedIndex Detached)> LoadOwnedAsync(
         bool remeasure,
         CancellationToken cancellationToken)
     {
@@ -682,11 +683,26 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 持っているハッシュと、その中身の一覧（持っている zip を開かずに済ませるため。ResolveAsync）
         var owned = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in loaded.Items.SelectMany(item => item.Local.OwnedFiles))
+
+        // 持っているハッシュと、それを持つ商品・記録している場所（移したファイルを結び直すため。ResolveAsync）。
+        // 外した印の行は入れない——外した商品へ戻すと、人が外した判断を取り込みが覆す
+        var owners = new Dictionary<string, List<FileOwner>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in loaded.Items)
         {
-            if (!owned.TryGetValue(file.Hash, out var known) || (known.Count == 0 && file.Contents.Count > 0))
+            foreach (var file in item.Local.OwnedFiles)
             {
-                owned[file.Hash] = file.Contents;
+                if (!owned.TryGetValue(file.Hash, out var known) || (known.Count == 0 && file.Contents.Count > 0))
+                {
+                    owned[file.Hash] = file.Contents;
+                }
+
+                if (!owners.TryGetValue(file.Hash, out var list))
+                {
+                    list = [];
+                    owners[file.Hash] = list;
+                }
+
+                list.Add(new FileOwner(item.Id, file.Paths));
             }
         }
 
@@ -764,7 +780,39 @@ public sealed class ImportPipeline : IImportPipeline
                 cancellationToken);
         }
 
-        return (new RegisteredFolderSet(paths), owned, DetachedIndex.From(loaded.Items));
+        return (new RegisteredFolderSet(paths), owned, owners, DetachedIndex.From(loaded.Items));
+    }
+
+    /// <summary>そのハッシュを持つ商品と、その商品が記録している場所。</summary>
+    private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths);
+
+    /// <summary>
+    /// 手掛かりからは決まらないが、同じ中身を商品が持っているファイルの場所を、その商品に足す（大容量の確かめ A・2026-09-30）。
+    /// 実在しなくなった場所は <see cref="LocalFileMerger"/> が落とすので、移した物は新しい場所に置き換わる。
+    ///
+    /// 錠の中で今の値に当て、読んでからここまでの間に人がこの商品から外した（印を付けた）なら足さない。
+    /// 足すと <see cref="LocalFileMerger"/> が印を下ろしてしまい、外した判断を取り込みが覆す。
+    /// </summary>
+    private async Task RelinkMovedFilesAsync(
+        IReadOnlyDictionary<string, List<LocalFileRecord>> relinked,
+        CancellationToken cancellationToken)
+    {
+        foreach (var (itemId, discovered) in relinked)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _store.Items.ChangeLocalAsync(
+                itemId,
+                current =>
+                {
+                    var stillOwned = current.OwnedFiles.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var files = discovered.Where(file => stillOwned.Contains(file.Hash)).ToList();
+                    return files.Count == 0
+                        ? null
+                        : current with { LocalFiles = LocalFileMerger.Merge(current.LocalFiles, files) };
+                },
+                LocalOwners.Import,
+                cancellationToken);
+        }
     }
 
     /// <summary>
@@ -891,10 +939,12 @@ public sealed class ImportPipeline : IImportPipeline
         ExclusionFilter exclusions,
         DetachedIndex detached,
         IReadOnlyDictionary<string, IReadOnlyList<string>> owned,
+        IReadOnlyDictionary<string, List<FileOwner>> owners,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
         var filesByItemId = new Dictionary<string, List<LocalFileRecord>>(StringComparer.Ordinal);
+        var relinked = new Dictionary<string, List<LocalFileRecord>>(StringComparer.Ordinal);
         var unresolved = new List<UnresolvedFile>();
         var hashed = 0;
         var reused = 0;
@@ -1011,12 +1061,34 @@ public sealed class ImportPipeline : IImportPipeline
 
                 list.Add(record);
             }
-            else if (owned.ContainsKey(hash))
+            else if (owners.TryGetValue(hash, out var holders))
             {
                 // 未確定画面で手作業で紐付けたファイル。手掛かりからは決まらないので、
                 // 毎回ここへ落ちてくる。既にitemが持っていると分かっているものを
-                // 作業として出し直すのは嘘なので、黙って飛ばす。
+                // 作業として出し直すのは嘘なので、未確定には出さない。
+                //
+                // ただし**記録に無い場所で見つかったら、その商品に足す**（大容量の確かめ A・2026-09-30）。
+                // 同一性はハッシュなので、別の取り込み元へ移した・写しを置いただけなら同じ物と言える。
+                // 前は黙って飛ばしていたので、移した後は商品の記録が古い場所のまま「見つからない」になっていた。
+                // 同じ中身を2つの商品が持つなら両方へ足す（どちらの物かは人が決めたことで、場所は中身の場所）
                 alreadyOwned++;
+                foreach (var holder in holders.Where(holder =>
+                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)))
+                {
+                    if (!relinked.TryGetValue(holder.ItemId, out var list))
+                    {
+                        list = [];
+                        relinked[holder.ItemId] = list;
+                    }
+
+                    list.Add(new LocalFileRecord
+                    {
+                        Hash = hash,
+                        Paths = [file.Path],
+                        SizeBytes = file.SizeBytes,
+                        Contents = contents,
+                    });
+                }
             }
             else
             {
@@ -1038,6 +1110,7 @@ public sealed class ImportPipeline : IImportPipeline
         return new ResolutionResult
         {
             FilesByItemId = filesByItemId,
+            Relinked = relinked,
             Unresolved = unresolved,
             Hashed = hashed,
             ReusedFromCache = reused,
@@ -1475,6 +1548,9 @@ public sealed class ImportPipeline : IImportPipeline
     private sealed class ResolutionResult
     {
         public required Dictionary<string, List<LocalFileRecord>> FilesByItemId { get; init; }
+
+        /// <summary>手掛かりからは決まらず、同じ中身を持つ商品へ場所を足す物（商品ID → ファイル）。</summary>
+        public required Dictionary<string, List<LocalFileRecord>> Relinked { get; init; }
 
         public required List<UnresolvedFile> Unresolved { get; init; }
 
