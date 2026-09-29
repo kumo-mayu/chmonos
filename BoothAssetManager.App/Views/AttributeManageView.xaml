@@ -19,10 +19,10 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 戻る（V3）。ほかの画面と同じ見た目・同じ出し方 -->
@@ -30,10 +30,10 @@
                                 Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
                                 BorderThickness="0" Background="Transparent" />
-                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                        <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     </StackPanel>
                     <TextBlock Text="属性の管理" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="値は商品ごとに 0〜100 で付けます。名前の変更と削除は、この属性を持つ商品の書き換えを伴います。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -58,13 +58,13 @@
                                    ResetCommand="{Binding ListPane.ResetCommand}" />
 
             <!-- 左：属性の一覧。件数を並べるのは、消す前に影響が見えるように -->
-            <Border Grid.Column="0" Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14">
                         <TextBlock Text="属性を検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="9,6" BorderBrush="{StaticResource BorderStrong}"
+                                 Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                  ToolTip="この属性を持つ商品の商品名・ショップ名・メモでも探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
@@ -119,21 +119,21 @@
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
                                             <Border x:Name="Root" Background="Transparent"
-                                                    BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
+                                                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
                                                 <Grid>
                                                     <ContentPresenter />
-                                                    <Border Height="2" VerticalAlignment="Top" Background="{StaticResource Accent}"
+                                                    <Border Height="2" VerticalAlignment="Top" Background="{DynamicResource Accent}"
                                                             Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Accent}"
                                                             Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 </Grid>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                                                 </Trigger>
                                                 <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentSoft}" />
+                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -194,10 +194,10 @@
 
                     <!-- マスタに無い名前をitemが参照したまま。要確認は知らせるだけで、直せるのはここ -->
                     <Border Style="{StaticResource Card}" Margin="0,0,0,16"
-                            Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                            Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                             Visibility="{Binding HasOrphans, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="18,15">
-                            <TextBlock Text="一覧に無い属性" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
+                            <TextBlock Text="一覧に無い属性" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Warn}" />
                             <!-- 分類側と同じ理由。通常の流れに手動追加の手順があるように読ませない -->
                             <TextBlock Text="商品に付いていますが、一覧に無い属性です。保存先のファイルを直接直したときなどに起きます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
@@ -207,7 +207,7 @@
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource WarnBorder}"
+                                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource WarnBorder}"
                                                 BorderThickness="1" CornerRadius="6" Padding="14,11" Margin="0,0,0,8">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -225,7 +225,7 @@
                                                         <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
                                                         <Button Content="商品から外す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0" Foreground="{StaticResource DangerText}"
+                                                                Margin="6,0,0,0" Foreground="{DynamicResource DangerText}"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
@@ -272,14 +272,14 @@
                                         Command="{Binding DeleteCommand}" />
                             </Grid>
 
-                            <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
+                            <Border Height="1" Background="{DynamicResource Border}" Margin="0,16" />
 
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
                             <TextBlock Text="どのくらいで何%にするかの基準を書いておきます。打ち終えると保存されます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
                             <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Padding="10,8"
-                                     VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource BorderStrong}" />
+                                     VerticalScrollBarVisibility="Auto" BorderBrush="{DynamicResource BorderStrong}" />
                         </StackPanel>
                     </Border>
 
@@ -288,7 +288,7 @@
                         同じ三角・同じ商品の行・同じ書き方の探す欄。値の高い順に並べ、値を札で出す
                     -->
                     <!-- 商品を囲む枠の上側。段と下の枠（ManageFoot）が続きを描く -->
-                    <Border Margin="0,14,0,0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                    <Border Margin="0,14,0,0" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                             BorderThickness="1,1,1,0" CornerRadius="8,8,0,0"
                             Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="20,16,20,0">
@@ -340,10 +340,10 @@
 
                             <Grid Width="360" HorizontalAlignment="Left" Margin="30,10,0,0">
                                 <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
-                                         Padding="9,6" BorderBrush="{StaticResource BorderStrong}"
+                                         Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                          IsEnabled="{Binding SelectedIsUsed}" />
                                 <TextBlock Text="この属性を持つ商品の中を探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                            Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                             </Grid>
                             <controls:SearchSyntaxHint Margin="32,6,0,0" />
@@ -363,8 +363,8 @@
                         リスト（詰まった行）とカードを選べる（ユーザ指示 2026-09-20・M4）
                     -->
                     <DataTemplate DataType="{x:Type vm:ManageListLine}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
-                            <Border Margin="31,0,20,0" Padding="19,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="31,0,20,0" Padding="19,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0">
                                 <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -377,8 +377,8 @@
                     </DataTemplate>
 
                     <DataTemplate DataType="{x:Type vm:ManageCardLine}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
-                            <Border Margin="31,0,20,0" Padding="19,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="31,0,20,0" Padding="19,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0">
                                 <controls:ContentItemsControl ItemsSource="{Binding Items}" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -394,7 +394,7 @@
                                     <Grid>
                                         <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
                                         <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
-                                                Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                                 BorderThickness="1" CornerRadius="4" Padding="6,1"
                                                 Visibility="{Binding HasValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="11" />
@@ -411,7 +411,7 @@
                     <DataTemplate DataType="{x:Type vm:ManageFoot}">
                         <StackPanel DataContext="{Binding Owner}"
                                     Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <Border Height="17" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                            <Border Height="17" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1,0,1,1" CornerRadius="0,0,8,8" />
 
                 <!--

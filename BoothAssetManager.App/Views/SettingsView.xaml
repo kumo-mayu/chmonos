@@ -16,25 +16,25 @@
         <Style x:Key="GroupTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
         </Style>
 
         <!-- 枠の中の小見出し。同じ枠に入れた2つのまとまり（取り込み元と監視、更新と画像）を分ける -->
         <Style x:Key="SubTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
         </Style>
 
         <!-- 設定1項目。左に見出しと説明、右に操作 -->
         <Style x:Key="RowLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
         </Style>
 
         <Style x:Key="SettingCheck" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="Margin" Value="0,0,0,10" />
         </Style>
@@ -47,10 +47,10 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="設定" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
@@ -99,7 +99,7 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="「デフォルト」では、商品ページで★を付けた画像を使います。役割を選ぶと、その役割の画像を優先します。" />
 
-                        <Border Height="1" Background="{StaticResource Divider}" Margin="0,14,0,12" />
+                        <Border Height="1" Background="{DynamicResource Divider}" Margin="0,14,0,12" />
                         <CheckBox Content="一覧のカードに小分類のタグも表示" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowSubTagsInList, Mode=TwoWay}" />
                         <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"
@@ -162,7 +162,19 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="アプリ全体の文字と絵をまとめて大きくします。下のショートカットでも変えられます。" />
 
-                        <Border Height="1" Background="{StaticResource Divider}" Margin="0,14,0,12" />
+                        <!--
+                            表示の色（ユーザ指示 2026-09-29）。値はアプリに1つ（AppTheme）。変えるとすぐ全体の色が変わり、すぐ保存する。
+                            既定の「Windows に合わせる」は、Windows の色の設定を変えたときも追う
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <TextBlock Text="表示の色" Style="{StaticResource RowLabel}" Width="220" />
+                            <ComboBox Width="160" ItemsSource="{x:Static vm:AppTheme.Options}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Mode"
+                                      SelectedValue="{Binding Source={x:Static vm:AppTheme.Current}, Path=Mode, Mode=TwoWay}"
+                                      AutomationProperties.Name="表示の色" />
+                        </StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource Divider}" Margin="0,14,0,12" />
 
                         <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
                         <StackPanel Orientation="Horizontal">
@@ -241,7 +253,7 @@
                                                    FontSize="11.5" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,12,0"
-                                                   FontSize="11.5" Foreground="{StaticResource Warn}"
+                                                   FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                    VerticalAlignment="Center" />
                                         <Button Grid.Column="2" Content="外す" Style="{StaticResource SmallButton}"
                                                 Command="{Binding RemoveCommand}" />
@@ -278,7 +290,7 @@
                                                    FontSize="11.5" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,12,0"
-                                                   FontSize="11.5" Foreground="{StaticResource Warn}"
+                                                   FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                    VerticalAlignment="Center" />
                                         <Button Grid.Column="2" Content="外す" Style="{StaticResource SmallButton}"
                                                 Command="{Binding RemoveCommand}" />
@@ -528,12 +540,12 @@
                             実行中に差し替えるには全部を作り直す必要がある。
                             押した後に何も変わらないように見えないよう、結果と次の一手をここに出す。
                         -->
-                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,12"
                                 Visibility="{Binding HasPendingRoot, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <StackPanel>
                                 <TextBlock Text="{Binding RootNotice}" FontSize="12" TextWrapping="Wrap"
-                                           Foreground="{StaticResource AccentText}" />
+                                           Foreground="{DynamicResource AccentText}" />
                                 <Button Content="今すぐ再起動" Style="{StaticResource SmallButton}"
                                         HorizontalAlignment="Left" Margin="0,9,0,0"
                                         Command="{Binding RestartCommand}" />

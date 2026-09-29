@@ -16,7 +16,7 @@
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -31,15 +31,15 @@
                              Maximum="{Binding RegisteringTotal, Mode=OneWay}"
                              Value="{Binding RegisteringDone, Mode=OneWay}"
                              IsIndeterminate="{Binding HasRegisteringTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                             Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0" />
+                             Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
             </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
         <!-- フォルダビューに組み込んだときは上の帯と左の一覧を隠す（ShowsChrome・ListColumnWidth） -->
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -48,10 +48,10 @@
                                 Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
                                 BorderThickness="0" Background="Transparent" />
-                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                        <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     </StackPanel>
                     <TextBlock Text="未確定" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding RemainingText}" ToolTip="{Binding RemainingToolTip}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="商品IDが決まらなかったファイルです。商品のIDを登録するか、管理対象から除外します。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -86,7 +86,7 @@
         <Border DockPanel.Dock="Top"
                 Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Button Margin="20,12,20,0" FontSize="12"
-                    Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                    Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                     Content="{Binding Main.PendingItemText}"
                     Command="{Binding ReloadCommand}"
                     Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -120,7 +120,7 @@
                     </Style.Triggers>
                 </Style>
             </StackPanel.Style>
-            <TextBlock Text="未確定のファイルはありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
+            <TextBlock Text="未確定のファイルはありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
             <TextBlock Text="取り込みで情報を読み取れなかったファイルがここに並びます。"
                        Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
             <!-- 次の一手（ユーザ判断 2026-09-17：空になったときに何をすればよいかが弱かった） -->
@@ -160,16 +160,16 @@
                                    Visibility="{Binding ListPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <!-- 左：未確定の一覧（フォルダごとにまとめる） -->
-            <Border Grid.Column="0" Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0"
+            <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
                     Visibility="{Binding ShowsChrome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel>
-                    <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="12,8">
                       <StackPanel>
                         <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->
                         <Grid Margin="0,0,0,8">
                             <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
-                                     BorderBrush="{StaticResource BorderStrong}" AutomationProperties.Name="未確定を探す" />
+                                     BorderBrush="{DynamicResource BorderStrong}" AutomationProperties.Name="未確定を探す" />
                             <TextBlock Text="ファイル名・フォルダ・zipの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False">
                                 <TextBlock.Style>
@@ -238,8 +238,8 @@
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="GroupItem">
                                                     <Expander IsExpanded="{Binding Items[0].StartsExpanded, Mode=OneTime}"
-                                                              Background="{StaticResource SurfaceAlt}"
-                                                              BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                                                              Background="{DynamicResource SurfaceAlt}"
+                                                              BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                                                               Padding="0">
                                                         <Expander.Header>
                                                             <!-- 見出しは中身に合わせて縮まないので、束の幅（左の列の幅）から開け閉めの印の分を引いた幅にする。前は270で固定で、列を広げても長いパスが切れたままだった（ユーザ指示 2026-09-17） -->
@@ -251,25 +251,25 @@
                                                                             <Style.Triggers>
                                                                                 <DataTrigger Binding="{Binding Items[0].HasOrigin}" Value="True">
                                                                                     <Setter Property="FontWeight" Value="Bold" />
-                                                                                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource Text}" />
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
                                                                     </TextBlock.Style>
                                                                 </TextBlock>
                                                                 <WrapPanel Margin="0,4,0,0">
-                                                                    <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
+                                                                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
                                                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
                                                                             VerticalAlignment="Center"
                                                                             Visibility="{Binding Items[0].HasOrigin, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="zipの中身" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                                        <TextBlock Text="zipの中身" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                                     </Border>
                                                                     <!-- 展開元のzipが無いフォルダ。畳んでいても分かるように見出しに出す -->
-                                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                                             BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,7,0"
                                                                             VerticalAlignment="Center"
                                                                             Visibility="{Binding Items[0].IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="zipが無い" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                                        <TextBlock Text="zipが無い" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                                     </Border>
                                                                     <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
                                                                                Style="{StaticResource Mono}" FontSize="11"
@@ -299,8 +299,8 @@
                                                             </StackPanel>
                                                         </Expander.Header>
                                                         <!-- 開いた中身は深く字下げし、左に線を引く。束と中身が同じ密度で並ぶと、どこを見ればよいか分からなかった（ユーザ指摘 2026-09-17） -->
-                                                        <Border Background="{StaticResource Surface}">
-                                                            <Border Margin="22,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="2,0,0,0">
+                                                        <Border Background="{DynamicResource Surface}">
+                                                            <Border Margin="22,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="2,0,0,0">
                                                                 <ItemsPresenter />
                                                             </Border>
                                                         </Border>
@@ -317,7 +317,7 @@
                                                 <Setter Property="Template">
                                                     <Setter.Value>
                                                         <ControlTemplate TargetType="GroupItem">
-                                                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+                                                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
                                                                 <ItemsPresenter />
                                                             </Border>
                                                         </ControlTemplate>
@@ -375,16 +375,16 @@
                                         </TextBlock>
                                         <WrapPanel Margin="0,4,0,0">
                                             <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
-                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
                                                     Visibility="{Binding HasCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}" />
                                             </Border>
                                             <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
-                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource BorderStrong}"
+                                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource BorderStrong}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
                                                     Visibility="{Binding IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="展開" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                <TextBlock Text="展開" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                             </Border>
                                         </WrapPanel>
                                         <!-- 1行で出ている中身にも「元zipとして扱う」（束の見出しと同じ動き） -->
@@ -431,12 +431,12 @@
                                Visibility="{Binding ShowsInlineHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                     <!-- 元zipの束を選んでいるとき。下の確定・「管理対象から除外する」が全件に効くことを先に言う -->
-                    <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                             BorderThickness="1" CornerRadius="8" Padding="16,13" Margin="0,0,0,14"
                             Visibility="{Binding HasActiveGroup, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel>
                             <TextBlock Text="{Binding ActiveGroupText}" FontWeight="Bold" FontSize="12.5"
-                                       Foreground="{StaticResource AccentText}" TextWrapping="Wrap" />
+                                       Foreground="{DynamicResource AccentText}" TextWrapping="Wrap" />
                             <TextBlock Text="下の「確定」と「管理対象から除外する」は、この中身すべてに効きます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                         </StackPanel>
@@ -511,7 +511,7 @@
 
                             <TextBlock Text="{Binding ContentsSummary}" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasContents, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
+                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}" BorderThickness="1"
                                     CornerRadius="6" Padding="11,9" MaxHeight="150"
                                     Visibility="{Binding HasContents, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -540,7 +540,7 @@
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,10" />
                             <!-- 元のzipが未確定にある中身は、zipで登録するよう止めている。押せない理由を出す。IDを入れる前（落とす前）から分かるよう欄の上に置く（ユーザ判断 2026-09-17） -->
                             <TextBlock Text="{Binding BlockedByZipText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       Foreground="{StaticResource Warn}" Margin="0,0,0,10"
+                                       Foreground="{DynamicResource Warn}" Margin="0,0,0,10"
                                        Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <Grid>
@@ -559,7 +559,7 @@
                             </Grid>
 
                             <!-- プレビュー -->
-                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                            <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,12,0,0"
                                     Visibility="{Binding HasPreview, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
@@ -567,11 +567,11 @@
                                         <TextBlock Text="このIDの商品" Style="{StaticResource SectionLabel}"
                                                    VerticalAlignment="Center" />
                                         <!-- 状態はチップにする。文で出すと「だから登録できない」に読める -->
-                                        <Border Background="{StaticResource GoodSoft}" BorderBrush="{StaticResource GoodBorder}"
+                                        <Border Background="{DynamicResource GoodSoft}" BorderBrush="{DynamicResource GoodBorder}"
                                                 BorderThickness="1" CornerRadius="9" Padding="7,1" Margin="8,0,0,0"
                                                 Visibility="{Binding IsPreviewOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding PreviewOwnedNote}" FontSize="10"
-                                                       Foreground="{StaticResource Good}" />
+                                                       Foreground="{DynamicResource Good}" />
                                         </Border>
                                     </StackPanel>
                                     <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" />
@@ -587,7 +587,7 @@
                                 BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。仮IDで登録すると再び公開されても情報を取れない。
                                 BOOTHが「無い」と答えたときだけ出す（一時的に届かないときに出すと、実はある商品を空のまま登録してしまう）
                             -->
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0"
                                     Visibility="{Binding HasNotOnBoothItemId, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
@@ -621,11 +621,11 @@
                                 選択中だけ出る一括操作。
                                 展開先の中身が10件以上並ぶことがあり、1件ずつでは捌けない。
                             -->
-                            <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                            <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,14,0,0"
                                     Visibility="{Binding HasChecked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource AccentText}" />
+                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AccentText}" />
                                     <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                                         <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" />
                                         <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
@@ -664,13 +664,13 @@
                                              Maximum="{Binding SearchTotal, Mode=OneWay}"
                                              Value="{Binding SearchCurrent, Mode=OneWay}"
                                              IsIndeterminate="{Binding HasSearchTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                             Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0" />
+                                             Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
                             </StackPanel>
 
                             <ItemsControl ItemsSource="{Binding Candidates}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
                                                 Padding="12,10" Margin="0,0,0,7">
                                             <Grid>
                                                 <StackPanel Margin="0,0,200,0">
@@ -729,7 +729,7 @@
                                 判断の根拠は説明のツールチップ。対象は左の束・まとめて扱う単位と同じ展開物の根（ユーザ判断 2026-09-17 案A）で、
                                 どこまで広いかを押す前に見せる。外すは下の「管理対象から除外する」が同じ対象に効くので、ここには置かない
                             -->
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0"
                                     Visibility="{Binding Selected.IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
                                 <StackPanel>
@@ -753,7 +753,7 @@
                                 除外は「これはBOOTH商品ではない」に使う語なので、
                                 入れると統計からも検索からも消えてしまう。
                             -->
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,16,0,0"
                                     AllowDrop="True" PreviewDragOver="OnLocalBoxPreviewDragOver" PreviewDrop="OnLocalBoxPreviewDrop">
                                 <StackPanel>
@@ -795,7 +795,7 @@
 
                                     <!-- 押す前に言う。商品ページにも常設で出す（半年後に理由を思い出せるように） -->
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0"
-                                               Foreground="{StaticResource Warn}"
+                                               Foreground="{DynamicResource Warn}"
                                                Text="BOOTHから情報を取り直さないので、名前も画像も自動では増えません。" />
 
                                     <!--
@@ -831,13 +831,13 @@
                                     <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                                     Visibility="{Binding IsRegisteringLocal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <TextBlock Text="元のzipが未確定にあるため、zipで登録してください。1件だけ扱うときは「このファイルだけを扱う」をオンにします。"
-                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{StaticResource Warn}" Margin="0,6,0,0"
+                                               Style="{StaticResource Caption}" TextWrapping="Wrap" Foreground="{DynamicResource Warn}" Margin="0,6,0,0"
                                                Visibility="{Binding IsBlockedByListedZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                             </Border>
 
                             <!-- 除外。取り返しがつくことを押す前に書く（押した後の確認の窓にも同じ旨） -->
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,10,0,0">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"

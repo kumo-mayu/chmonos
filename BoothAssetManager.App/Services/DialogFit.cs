@@ -45,6 +45,9 @@ internal static class DialogFit
         }
 
         dialog.SourceInitialized += (_, _) => FitToWorkArea(dialog);
+
+        // 題の帯を表示の色に合わせる（暗い表のとき暗くする）。帯は Windows が描くので色の表が届かない
+        ViewModels.AppTheme.Watch(dialog);
     }
 
     /// <summary>

@@ -18,7 +18,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -39,9 +39,9 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
                     <Grid Background="Transparent">
-                        <Ellipse x:Name="Ring" Width="22" Height="22" Fill="{StaticResource SurfaceAlt}"
-                                 Stroke="{StaticResource Border}" StrokeThickness="1" />
-                        <Path x:Name="Mark" Data="M0,0 L8,6 L0,12 Z" Fill="{StaticResource TextMuted}"
+                        <Ellipse x:Name="Ring" Width="22" Height="22" Fill="{DynamicResource SurfaceAlt}"
+                                 Stroke="{DynamicResource Border}" StrokeThickness="1" />
+                        <Path x:Name="Mark" Data="M0,0 L8,6 L0,12 Z" Fill="{DynamicResource TextMuted}"
                               Width="8" Height="12" Stretch="Fill" Margin="2,0,0,0"
                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
@@ -53,13 +53,13 @@
                             <Setter TargetName="Mark" Property="Margin" Value="0" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
-                            <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource Accent}" />
                         </Trigger>
                         <!-- 中身の無い物。消さずに薄くして、押せないことを見せる（ユーザ指示 2026-09-19） -->
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Ring" Property="Opacity" Value="0.5" />
-                            <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Border}" />
+                            <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource Border}" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -84,8 +84,8 @@
                                 <ControlTemplate TargetType="ToggleButton">
                                     <DockPanel Background="Transparent">
                                         <Grid Width="22" Height="22" Margin="0,0,8,0" VerticalAlignment="Center">
-                                            <Ellipse x:Name="Ring" Fill="{StaticResource SurfaceAlt}" Stroke="{StaticResource Border}" StrokeThickness="1" />
-                                            <Path x:Name="Mark" Data="M0,0 L8,6 L0,12 Z" Fill="{StaticResource TextMuted}"
+                                            <Ellipse x:Name="Ring" Fill="{DynamicResource SurfaceAlt}" Stroke="{DynamicResource Border}" StrokeThickness="1" />
+                                            <Path x:Name="Mark" Data="M0,0 L8,6 L0,12 Z" Fill="{DynamicResource TextMuted}"
                                                   Width="8" Height="12" Stretch="Fill" Margin="2,0,0,0"
                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Grid>
@@ -99,12 +99,12 @@
                                             <Setter TargetName="Mark" Property="Margin" Value="0" />
                                         </Trigger>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
-                                            <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Accent}" />
+                                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}" />
+                                            <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource Accent}" />
                                         </Trigger>
                                         <Trigger Property="IsEnabled" Value="False">
                                             <Setter TargetName="Ring" Property="Opacity" Value="0.5" />
-                                            <Setter TargetName="Mark" Property="Fill" Value="{StaticResource Border}" />
+                                            <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource Border}" />
                                             <Setter Property="Cursor" Value="Arrow" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
@@ -134,9 +134,9 @@
         <Setter Property="Height" Value="28" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="11.5" />
-        <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
-        <Setter Property="Background" Value="{StaticResource Surface}" />
-        <Setter Property="BorderBrush" Value="{StaticResource BorderStrong}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+        <Setter Property="Background" Value="{DynamicResource Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Margin" Value="-1,0,0,0" />
         <Setter Property="Template">
@@ -149,13 +149,13 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                         </Trigger>
                         <!-- 選んでいる物は色で埋め、上に重ねて枠の色が隣に隠れないようにする -->
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentSoft}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Text}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                             <Setter Property="Panel.ZIndex" Value="1" />
                         </Trigger>
@@ -200,24 +200,24 @@
                 Command="{Binding OpenCommand}"
                 ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Left">
             <Button.ToolTip>
-                <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
                     <StackPanel Width="180">
-                        <Border Width="180" Height="180" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
+                        <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                 Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                         </Border>
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                   Foreground="{StaticResource Text}" />
+                                   Foreground="{DynamicResource Text}" />
                         <TextBlock Text="押すと、この商品のページを開きます" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                     </StackPanel>
                 </ToolTip>
             </Button.ToolTip>
             <StackPanel Orientation="Horizontal" Width="230">
                 <Border Width="30" Height="30" CornerRadius="4" ClipToBounds="True"
-                        Background="{StaticResource SurfaceAlt}">
+                        Background="{DynamicResource SurfaceAlt}">
                     <Grid>
                         <TextBlock Text="{Binding Initial}" FontSize="11"
-                                   Foreground="{StaticResource TextMuted}"
+                                   Foreground="{DynamicResource TextMuted}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                     </Grid>
@@ -234,7 +234,7 @@
                                    FontSize="10.5" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <Border Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center"
-                            Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                            Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                             BorderThickness="1" CornerRadius="4" Padding="5,0"
                             Visibility="{Binding HasValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="10.5" />
@@ -256,7 +256,7 @@
         <Setter Property="Cursor" Value="SizeAll" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="HorizontalAlignment" Value="Left" />
-        <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
         <Setter Property="ToolTip" Value="ドラッグで順番を変えられます" />
     </Style>
 </ResourceDictionary>

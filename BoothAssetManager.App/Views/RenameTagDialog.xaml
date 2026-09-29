@@ -10,7 +10,7 @@
         Title="名前を変更"
         Width="460" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Surface}">
+        Background="{DynamicResource Surface}">
     <StackPanel Margin="22,20">
 
         <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" />

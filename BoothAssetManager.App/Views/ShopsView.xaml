@@ -7,10 +7,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ShopsViewModel}">
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <!-- 右の操作に幅を先に渡し、左の説明は残りに収める（操作が増えて重なっていた・2026-09-16） -->
                 <Grid.ColumnDefinitions>
@@ -19,7 +19,7 @@
                 </Grid.ColumnDefinitions>
                 <DockPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                     <TextBlock DockPanel.Dock="Left" Text="ショップ" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <!-- 数え方を隠さない。件数の意味が変わってしまう。狭いときは「…」で詰め、全文はツールチップで読む -->
                     <TextBlock Text="非表示を除き、ファイルを持つ商品を数えています。※ はファイルの日付です。"
@@ -32,8 +32,8 @@
                     <!-- ★だけ（ユーザ指示 2026-09-16）。星はカードの右上でも付けられる -->
                     <CheckBox IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
                               AutomationProperties.Name="星を付けたショップだけ" ToolTip="星を付けたショップだけを表示します。">
-                        <TextBlock FontSize="12.5" Foreground="{StaticResource Text}">
-                            <Run Text="★" Foreground="{StaticResource Star}" /><Run Text=" だけ" />
+                        <TextBlock FontSize="12.5" Foreground="{DynamicResource Text}">
+                            <Run Text="★" Foreground="{DynamicResource Star}" /><Run Text=" だけ" />
                         </TextBlock>
                     </CheckBox>
                     <!--
@@ -43,7 +43,7 @@
                     -->
                     <Grid VerticalAlignment="Center">
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" MaxLength="500"
-                                 Width="200" Padding="9,5" BorderBrush="{StaticResource BorderStrong}"
+                                 Width="200" Padding="9,5" BorderBrush="{DynamicResource BorderStrong}"
                                  AutomationProperties.Name="ショップを探す"
                                  ToolTip="スペースで両方、-で除く、&quot;&quot;でひとまとまり、ORでどちらか" />
                         <TextBlock Text="{Binding SearchPlaceholder}" Margin="12,0,0,0" VerticalAlignment="Center"
@@ -85,16 +85,16 @@
         </Border>
 
         <!-- アイコンは裏で1件ずつ取りに行く。待たせずに、進み具合だけ見せる -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource AccentSoft}"
-                BorderBrush="{StaticResource AccentBorder}" BorderThickness="0,0,0,1" Padding="20,7"
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AccentSoft}"
+                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,0,0,1" Padding="20,7"
                 Visibility="{Binding HasIconStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <TextBlock Text="{Binding IconStatus}" FontSize="11.5" Foreground="{StaticResource Accent}" />
+            <TextBlock Text="{Binding IconStatus}" FontSize="11.5" Foreground="{DynamicResource Accent}" />
         </Border>
 
         <Grid SizeChanged="OnListSizeChanged">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="{Binding EmptyText}" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding EmptyText}" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
                 <TextBlock Text="「取り込み」で商品を読み込むと、ショップごとにまとまります。"
                            Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
             </StackPanel>
@@ -169,7 +169,7 @@
                                                 Background="{Binding InitialBrush}">
                                             <Grid>
                                                 <TextBlock Text="{Binding Initial}" FontSize="18" FontWeight="Bold"
-                                                           Foreground="{StaticResource TileText}"
+                                                           Foreground="{DynamicResource TileText}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Visibility="{Binding ShowInitial, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <Image Source="{Binding Icon}" Stretch="UniformToFill"
@@ -184,12 +184,12 @@
                                             <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding DomainText}" Style="{StaticResource Mono}"
-                                                       FontSize="10.5" Foreground="{StaticResource TextFaint}"
+                                                       FontSize="10.5" Foreground="{DynamicResource TextFaint}"
                                                        TextTrimming="CharacterEllipsis" Margin="0,3,0,0" />
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <Border Height="1" Background="{StaticResource Divider}" Margin="0,13,0,11" />
+                                    <Border Height="1" Background="{DynamicResource Divider}" Margin="0,13,0,11" />
 
                                     <Grid>
                                         <StackPanel Orientation="Horizontal">
@@ -212,7 +212,7 @@
                                                 <TextBlock Text="{Binding LastAcquiredText}" Style="{StaticResource Mono}"
                                                            FontSize="11.5" />
                                                 <!-- ファイルの日付で代えたものは、手入力と同じ顔で出さない -->
-                                                <TextBlock Text="※" FontSize="10" Foreground="{StaticResource TextFaint}"
+                                                <TextBlock Text="※" FontSize="10" Foreground="{DynamicResource TextFaint}"
                                                            Margin="3,0,0,0" VerticalAlignment="Center"
                                                            Visibility="{Binding LastAcquiredIsFallback, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </StackPanel>
@@ -222,10 +222,10 @@
                                     <TextBlock Text="{Binding UnownedText}" Style="{StaticResource Caption}" Margin="0,9,0,0"
                                                Visibility="{Binding HasUnowned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                    <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                             BorderThickness="1" CornerRadius="6" Padding="9,7" Margin="0,9,0,0"
                                             Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                        <TextBlock Text="{Binding UpdateText}" FontSize="11" Foreground="{StaticResource Accent}" />
+                                        <TextBlock Text="{Binding UpdateText}" FontSize="11" Foreground="{DynamicResource Accent}" />
                                     </Border>
                                 </StackPanel>
                             </Border>
@@ -248,10 +248,10 @@
                               <TextBlock Text="{Binding FavoriteGlyph}" FontSize="17">
                                   <TextBlock.Style>
                                       <Style TargetType="TextBlock">
-                                          <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                          <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
                                           <Style.Triggers>
                                               <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                  <Setter Property="Foreground" Value="{StaticResource Star}" />
+                                                  <Setter Property="Foreground" Value="{DynamicResource Star}" />
                                               </DataTrigger>
                                           </Style.Triggers>
                                       </Style>

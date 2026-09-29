@@ -9,7 +9,7 @@
         Title="{Binding Title}"
         Width="560" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Surface}">
+        Background="{DynamicResource Surface}">
     <!--
         送る unitypackage を選ぶ（ユーザ指示 2026-09-13）。商品 → 横に添えるもの（種類、無ければ zip の名前）が同じ塊 → unitypackage。
         塊は見出しで畳める。最初はどれにもチェックを付けない
@@ -26,14 +26,14 @@
                         <Border x:Name="Root" Background="Transparent" CornerRadius="4" Padding="2,3">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Left" Width="18" Text="{Binding ExpandGlyph}" FontSize="12"
-                                           Foreground="{StaticResource TextMuted}" TextAlignment="Center"
+                                           Foreground="{DynamicResource TextMuted}" TextAlignment="Center"
                                            VerticalAlignment="Center" />
                                 <ContentPresenter VerticalAlignment="Center" />
                             </DockPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -47,7 +47,7 @@
         <TextBlock Text="{Binding HeadingText}" FontSize="12.5" TextWrapping="Wrap" Margin="0,7,0,0" />
         <TextBlock Text="{Binding NoteText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
-        <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
                 Margin="0,14,0,0" Padding="10,4,4,4">
             <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Sections}" Margin="0,0,6,0">
@@ -67,7 +67,7 @@
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}"
                                                                    Style="{StaticResource Caption}" Margin="8,0,0,0" />
                                                         <TextBlock Text="{Binding Label}" FontSize="12"
-                                                                   Foreground="{StaticResource TextMuted}"
+                                                                   Foreground="{DynamicResource TextMuted}"
                                                                    TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}" />
                                                     </DockPanel>
                                                 </ToggleButton>
@@ -80,7 +80,7 @@
                                                                       AutomationProperties.Name="{Binding Name}">
                                                                 <StackPanel Margin="4,0,0,0">
                                                                     <TextBlock Text="{Binding Name}" FontSize="12.5"
-                                                                               Foreground="{StaticResource Text}"
+                                                                               Foreground="{DynamicResource Text}"
                                                                                TextTrimming="CharacterEllipsis" MaxWidth="420"
                                                                                ToolTip="{Binding Name}" />
                                                                     <TextBlock Text="{Binding FolderText}" Style="{StaticResource Caption}"

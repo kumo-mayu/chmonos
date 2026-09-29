@@ -37,6 +37,12 @@ public sealed record AppSettings
     public int DisplayZoomPercent { get; init; } = DisplayZoom.DefaultPercent;
 
     /// <summary>
+    /// 表示の色（明るい／暗い／Windows に合わせる。ユーザ指示 2026-09-29）。変えるとその場で全体の色が変わる。
+    /// 既定を Windows に合わせるにしたのは、暗い色で使っている人は Windows の側で既に選んでいるため
+    /// </summary>
+    public ColorThemeMode ColorTheme { get; init; } = ColorThemeMode.System;
+
+    /// <summary>
     /// サムネイルにどの役割の画像を出すか。
     ///
     /// 既定は「デフォルト」。商品ごとの★の指名が効くのはこのときだけ。

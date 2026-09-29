@@ -20,7 +20,7 @@
         -->
         <Style x:Key="FileNameLink" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -28,7 +28,7 @@
                                    Foreground="{TemplateBinding Foreground}" TextTrimming="CharacterEllipsis" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Accent}" />
+                                <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource Accent}" />
                                 <Setter TargetName="Label" Property="TextDecorations" Value="Underline" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
@@ -76,7 +76,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0">
                         <StackPanel>
                             <!-- 畳める（ユーザ指示 2026-09-19）。件数と容量は畳んでも見出しに出す -->
-                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
+                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal">
                                         <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -95,7 +95,7 @@
                                           Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -103,9 +103,9 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Grid.Column="0" Margin="0,0,10,0">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0">
-                                                            <TextBlock Text="フォルダ" FontSize="10" Foreground="{StaticResource AccentText}" />
+                                                            <TextBlock Text="フォルダ" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                                         </Border>
                                                         <!-- 名前を押すとエクスプローラで開く。場所は乗せたときに出す（ユーザ指示 2026-09-19） -->
                                                         <Button Content="{Binding Name}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center"
@@ -131,11 +131,11 @@
                                                             見つからないファイル。直し方を言う（動線の点検 D7）。取り込みで読み直せば
                                                             置き場所を付け直す仕組みはあるのに、札が「見つかりません」だけで伝わっていなかった
                                                         -->
-                                                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                        <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                                 Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                 ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
-                                                            <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                            <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                         </Border>
                                                         <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
                                                                    Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -144,11 +144,11 @@
                                                         </TextBlock>
                                                     </StackPanel>
                                                     <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
-                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,7,0,0"
                                                             Visibility="{Binding HasArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="{Binding ArchiveNoticeText}" FontSize="11.5"
-                                                                   Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+                                                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
                                                     </Border>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -167,7 +167,7 @@
                             <ItemsControl ItemsSource="{Binding LocalFiles}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
                                             <StackPanel>
                                               <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -187,32 +187,32 @@
                                                             Command="{Binding DataContext.OpenInExplorerCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding FirstPath}" />
-                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             ToolTip="この商品から外したファイルです。所持や容量には数えません。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="外したファイル" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                        <TextBlock Text="外したファイル" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
-                                                    <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding HasVariationLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="{StaticResource AccentText}" />
+                                                        <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                                     </Border>
                                                     <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="{Binding DuplicateNote}" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                        <TextBlock Text="{Binding DuplicateNote}" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
                                                     <!--
                                                         見つからないファイル（取り込みで読み直したら、記録の場所がどれも無かった）。直し方を言う（動線の点検 D7）。
                                                         以前はファイルの行には札が無く、置き場所の欄が空になるだけだった
                                                     -->
-                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
-                                                        <TextBlock Text="見つかりません" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                        <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
                                                     <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -280,7 +280,7 @@
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <!-- ボタンは場所のすぐ横に（右端に寄せない。ユーザ判断 2026-09-19） -->
-                                                            <Border BorderBrush="{StaticResource Divider}" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
+                                                            <Border BorderBrush="{DynamicResource Divider}" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
                                                                 <StackPanel Orientation="Horizontal">
                                                                     <TextBlock Text="{Binding}" Style="{StaticResource DetachedDimPath}" FontSize="11" MaxWidth="640"
                                                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"
@@ -313,7 +313,7 @@
                                                     <ItemsControl ItemsSource="{Binding UnityPackageRows}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Border BorderBrush="{StaticResource AccentBorder}" BorderThickness="2,0,0,0"
+                                                                <Border BorderBrush="{DynamicResource AccentBorder}" BorderThickness="2,0,0,0"
                                                                         Padding="10,3" Margin="0,0,0,4">
                                                                     <!--
                                                                         名前のすぐ横に「Unity ▾」（ユーザ判断 2026-09-19：右端に並ぶと視線が往復した。「Unityへ送る」は選択も入るので「Unity」に改めた）。
@@ -349,7 +349,7 @@
                                                                             入ったかを忘れる**（友人の要望）。送る前にも後にも見える所に置く
                                                                         -->
                                                                         <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Mono}"
-                                                                                   FontSize="10.5" Foreground="{StaticResource TextMuted}"
+                                                                                   FontSize="10.5" Foreground="{DynamicResource TextMuted}"
                                                                                    TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
                                                                                    ToolTip="{Binding DestinationText}"
                                                                                    Visibility="{Binding HasDestination, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -384,7 +384,7 @@
                                         ToolTip="送るのを中止します。残った取り込み画面は「Cancel」で閉じてください。" />
                                 <TextBlock Text="{Binding UnityRecordNotice}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" VerticalAlignment="Center"
-                                           Foreground="{StaticResource Accent}" />
+                                           Foreground="{DynamicResource Accent}" />
                             </DockPanel>
                             </StackPanel>
                         </StackPanel>

@@ -11,7 +11,7 @@
         <!-- 知らせ1件の中身。平らな一覧の行（InboxRowLine）が、束の枠の中にこれを出す -->
         <DataTemplate x:Key="InboxRowTemplate" DataType="{x:Type vm:NotificationRow}">
                 <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
-                <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
+                <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
                     <!--
                         行を押すと、その商品を開く（ユーザ指示 2026-09-20・B3）。
                         行を押す意味はアプリ全体で「選ぶ」か「開く」の2つだけで、この画面は「開く」。
@@ -33,7 +33,7 @@
                                     <Setter Property="Cursor" Value="Hand" />
                                 </DataTrigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                    <Setter Property="Background" Value="{DynamicResource SurfaceAlt}" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -79,18 +79,18 @@
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Grid Background="Transparent">
                                         <Ellipse x:Name="Ring" Width="14" Height="14"
-                                                 Stroke="{StaticResource BorderStrong}" StrokeThickness="1.4"
+                                                 Stroke="{DynamicResource BorderStrong}" StrokeThickness="1.4"
                                                  Fill="Transparent" />
                                         <Ellipse x:Name="Dot" Width="7" Height="7" Visibility="Collapsed"
-                                                 Fill="{StaticResource TextMuted}" />
+                                                 Fill="{DynamicResource TextMuted}" />
                                     </Grid>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsChecked" Value="True">
                                             <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
-                                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Border}" />
+                                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Border}" />
                                         </Trigger>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Unread}" />
+                                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Unread}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -100,16 +100,16 @@
                         <StackPanel Grid.Column="1" Margin="0,0,14,0">
                             <StackPanel Orientation="Horizontal">
                                 <!-- 見落とすと困る側にだけ印を付ける -->
-                                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                         BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
                                         Visibility="{Binding IsStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="重要" FontSize="10" Foreground="{StaticResource Warn}" />
+                                    <TextBlock Text="重要" FontSize="10" Foreground="{DynamicResource Warn}" />
                                 </Border>
                                 <!-- 用が済んだもの。消さずに印を付ける（ユーザ判断 2026-09-18） -->
-                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                         BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
                                         Visibility="{Binding IsResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="解消済み" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                    <TextBlock Text="解消済み" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                 </Border>
                                 <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
                             </StackPanel>
@@ -122,7 +122,7 @@
                                           Visibility="{Binding HasCards, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}"
+                                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
                                                 BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium"
@@ -163,14 +163,14 @@
                 </Border>
         </DataTemplate>
     </UserControl.Resources>
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="要確認" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="確認しても消えません" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -178,7 +178,7 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <CheckBox Content="未読のみ" IsChecked="{Binding UnreadOnly, Mode=TwoWay}"
-                              VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{StaticResource Text}" />
+                              VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource Text}" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
                     <Button Content="すべて既読にする" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding MarkAllReadCommand}" />
@@ -190,7 +190,7 @@
         <Grid>
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="{Binding EmptyText}" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding EmptyText}" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
                 <TextBlock Text="商品の更新、一覧との食い違い、BOOTH側の構造変化などがここに表示されます。"
                            Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,6,0,0" />
             </StackPanel>
@@ -202,7 +202,7 @@
             <DockPanel>
                 <!-- 検索と同じ理由。読んでいる最中に一覧を動かさない -->
                 <Button DockPanel.Dock="Top" Margin="20,14,20,0" FontSize="12"
-                        Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                         Content="{Binding Main.PendingItemText}"
                         Command="{Binding RefreshCommand}"
                         Visibility="{Binding Main.HasPendingItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -244,7 +244,7 @@
 
                         <!-- 束の見出し。束の枠の上側（畳んだ束・中身の無い束では枠を閉じる） -->
                         <DataTemplate DataType="{x:Type vm:InboxHeadLine}">
-                            <Border x:Name="Frame" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                            <Border x:Name="Frame" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1,1,1,0" CornerRadius="8,8,0,0">
                                 <Grid DataContext="{Binding Group}">
                                     <!--
@@ -257,27 +257,27 @@
                                         <ToggleButton.Template>
                                             <ControlTemplate TargetType="ToggleButton">
                                                 <Border x:Name="Back" Background="Transparent"
-                                                        BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,13,18,13">
+                                                        BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="14,13,18,13">
                                                     <ContentPresenter />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Back" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                        <Setter TargetName="Back" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </ToggleButton.Template>
                                         <Grid>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,400,0">
-                                                <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                                                <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
                                                       Width="6" Height="9" Stretch="Fill" VerticalAlignment="Top" Margin="0,4,10,0"
                                                       Visibility="{Binding IsExpanded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                                <Path Data="M0,0 L9,0 L4.5,6 Z" Fill="{StaticResource TextMuted}"
+                                                <Path Data="M0,0 L9,0 L4.5,6 Z" Fill="{DynamicResource TextMuted}"
                                                       Width="9" Height="6" Stretch="Fill" VerticalAlignment="Top" Margin="0,6,7,0"
                                                       Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding KindText}" FontWeight="Bold" FontSize="13"
-                                                               Foreground="{StaticResource Text}" />
+                                                               Foreground="{DynamicResource Text}" />
                                                     <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
                                                                TextWrapping="Wrap" Margin="0,4,0,0" />
                                                 </StackPanel>
@@ -287,26 +287,26 @@
                                                 畳んでいる間もここだけで「何件あって、何を先に読むか」が分かるようにする
                                             -->
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                                                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                         BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
                                                         Visibility="{Binding HasStrong, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                     <TextBlock Text="{Binding StrongText}" FontSize="12" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Warn}" />
+                                                               Foreground="{DynamicResource Warn}" />
                                                 </Border>
-                                                <Border Background="{StaticResource UnreadSoft}" BorderBrush="{StaticResource UnreadBorder}"
+                                                <Border Background="{DynamicResource UnreadSoft}" BorderBrush="{DynamicResource UnreadBorder}"
                                                         BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
                                                         Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                     <TextBlock Text="{Binding UnreadText}" FontSize="12" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Unread}" />
+                                                               Foreground="{DynamicResource Unread}" />
                                                 </Border>
-                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                         BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
                                                         Visibility="{Binding HasResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                     <TextBlock Text="{Binding ResolvedText}" FontSize="12"
-                                                               Foreground="{StaticResource TextMuted}" />
+                                                               Foreground="{DynamicResource TextMuted}" />
                                                 </Border>
                                                 <TextBlock Text="{Binding TotalText}" Style="{StaticResource Mono}" FontSize="12.5"
-                                                           Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
+                                                           Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
                                                 <!--
                                                     束ごとの「まとめて既読」（ユーザ判断 2026-09-18：選んで既読にするより、
                                                     束ごとにあれば十分）。未読がある束にだけ出す
@@ -331,7 +331,7 @@
 
                         <!-- 知らせ1件。束の枠の左右の線（束の最後の行では枠の下を閉じ、次の束との間を空ける） -->
                         <DataTemplate DataType="{x:Type vm:InboxRowLine}">
-                            <Border x:Name="Frame" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                            <Border x:Name="Frame" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1,0,1,0">
                                 <ContentPresenter Content="{Binding Row}" ContentTemplate="{StaticResource InboxRowTemplate}" />
                             </Border>

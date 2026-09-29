@@ -5,7 +5,7 @@
         タグの管理・属性の管理の商品の検索に付ける書き方の案内（ユーザ指示 2026-09-19：検索画面と同じ書き方を使う）。
         検索画面の見本の1行と同じ言葉で、詳しくはホバーで。探す所の前置きは、ここで効く物だけを挙げる
     -->
-    <TextBlock Style="{StaticResource Caption}" Foreground="{StaticResource TextFaint}" TextWrapping="Wrap"
+    <TextBlock Style="{StaticResource Caption}" Foreground="{DynamicResource TextFaint}" TextWrapping="Wrap"
                ToolTipService.InitialShowDelay="250"
                Text="スペースで両方、-で除く、&quot;&quot;でひとまとまり、OR でどちらか">
         <TextBlock.ToolTip>

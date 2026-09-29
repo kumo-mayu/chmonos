@@ -9,7 +9,7 @@
         Title="属性を統合する"
         Width="460" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Surface}">
+        Background="{DynamicResource Surface}">
     <StackPanel Margin="22,20">
 
         <TextBlock Text="属性を統合する" FontWeight="Bold" FontSize="14" />
@@ -19,7 +19,7 @@
                    TextWrapping="Wrap" Margin="0,6,0,0" />
 
         <!-- 平均を取ると本人が付けていない数字ができてしまうので、必ず選ばせる -->
-        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                 BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,14,0,0"
                 Visibility="{Binding AsksAboutValues, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <StackPanel>
@@ -28,9 +28,9 @@
                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,9" />
 
                 <RadioButton Content="{Binding KeepTargetText}" IsChecked="{Binding KeepTarget, Mode=TwoWay}"
-                             Foreground="{StaticResource Text}" />
+                             Foreground="{DynamicResource Text}" />
                 <RadioButton Content="{Binding UseSourceText}" IsChecked="{Binding UseSource, Mode=TwoWay}"
-                             Foreground="{StaticResource Text}" Margin="0,6,0,0" />
+                             Foreground="{DynamicResource Text}" Margin="0,6,0,0" />
             </StackPanel>
         </Border>
 

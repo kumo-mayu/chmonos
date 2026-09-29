@@ -7,7 +7,7 @@
         Title="Chmonos"
         Height="900" Width="1440"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}"
+        Background="{DynamicResource Bg}"
         AllowDrop="True" Drop="OnWindowDrop" DragOver="OnWindowDragOver"
         PreviewKeyDown="OnWindowKeyDown">
 
@@ -103,7 +103,7 @@
                     Value="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource Self}}" />
             <Setter Property="Height" Value="34" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Foreground" Value="{StaticResource RailText}" />
+            <Setter Property="Foreground" Value="{DynamicResource RailText}" />
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="Cursor" Value="Hand" />
@@ -125,14 +125,14 @@
                                         <Path x:Name="Icon" Data="{Binding Path=(views:Nav.Icon), RelativeSource={RelativeSource TemplatedParent}}"
                                               Fill="{x:Null}" StrokeThickness="1.8"
                                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                              Stroke="{StaticResource RailText}" />
+                                              Stroke="{DynamicResource RailText}" />
                                     </Canvas>
                                 </Viewbox>
 
                                 <TextBlock x:Name="Label" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"
                                            Text="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource TemplatedParent}}"
-                                           Foreground="{StaticResource RailText}" />
+                                           Foreground="{DynamicResource RailText}" />
 
                                 <!--
                                     0件のときは出さない。残っている作業を示すものなので、
@@ -143,7 +143,7 @@
                                         Visibility="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent},
                                                              Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
                                     <!-- 頭の名前（「未:」など）は、件数が2つ並ぶ項目にだけ付く。無い項目では空で、数字だけになる -->
-                                    <TextBlock x:Name="BadgeText" Foreground="{StaticResource OnAccent}" FontSize="11" FontWeight="Bold"
+                                    <TextBlock x:Name="BadgeText" Foreground="{DynamicResource OnAccent}" FontSize="11" FontWeight="Bold"
                                                FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="{Binding Path=(views:Nav.BadgePrefix), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
 
@@ -155,7 +155,7 @@
                                         Background="{Binding Path=(views:Nav.SubBadgeBrush), RelativeSource={RelativeSource TemplatedParent}}"
                                         Visibility="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent},
                                                              Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
-                                    <TextBlock x:Name="SubBadgeText" Foreground="{StaticResource OnAccent}" FontSize="11" FontWeight="Bold"
+                                    <TextBlock x:Name="SubBadgeText" Foreground="{DynamicResource OnAccent}" FontSize="11" FontWeight="Bold"
                                                FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="{Binding Path=(views:Nav.SubBadgePrefix), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
                             </Grid>
@@ -166,11 +166,11 @@
                                 作り直されず古い色のまま残るので、鍵を指すトリガーにした
                             -->
                             <Trigger Property="views:Nav.IsActive" Value="True">
-                                <Setter TargetName="Icon" Property="Stroke" Value="{StaticResource RailTextActive}" />
-                                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource RailTextActive}" />
+                                <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource RailTextActive}" />
+                                <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource RailTextActive}" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource RailHover}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource RailHover}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.35" />
@@ -196,7 +196,7 @@
                                 <Setter TargetName="Badge" Property="HorizontalAlignment" Value="Right" />
                                 <Setter TargetName="Badge" Property="VerticalAlignment" Value="Top" />
                                 <Setter TargetName="Badge" Property="BorderThickness" Value="2" />
-                                <Setter TargetName="Badge" Property="BorderBrush" Value="{StaticResource Rail}" />
+                                <Setter TargetName="Badge" Property="BorderBrush" Value="{DynamicResource Rail}" />
                                 <!-- 2つ目の件数は右下の点。右上の点（残っている作業）と重ならない -->
                                 <Setter TargetName="SubBadgeText" Property="Visibility" Value="Collapsed" />
                                 <Setter TargetName="SubBadge" Property="Grid.Column" Value="0" />
@@ -207,7 +207,7 @@
                                 <Setter TargetName="SubBadge" Property="HorizontalAlignment" Value="Right" />
                                 <Setter TargetName="SubBadge" Property="VerticalAlignment" Value="Bottom" />
                                 <Setter TargetName="SubBadge" Property="BorderThickness" Value="2" />
-                                <Setter TargetName="SubBadge" Property="BorderBrush" Value="{StaticResource Rail}" />
+                                <Setter TargetName="SubBadge" Property="BorderBrush" Value="{DynamicResource Rail}" />
                                 <Setter Property="ToolTip"
                                         Value="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource Self}}" />
                             </DataTrigger>
@@ -222,7 +222,7 @@
             開閉のたびに上下へずれた（U2）。畳んだときは同じ高さに細い線（NavGroupRule）を出す
         -->
         <Style x:Key="NavGroupLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource RailLabel}" />
+            <Setter Property="Foreground" Value="{DynamicResource RailLabel}" />
             <Setter Property="FontSize" Value="10" />
             <Setter Property="Margin" Value="22,12,0,4" />
             <Style.Triggers>
@@ -239,7 +239,7 @@
             <Setter Property="Width" Value="16" />
             <Setter Property="HorizontalAlignment" Value="Left" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Background" Value="{StaticResource RailLabel}" />
+            <Setter Property="Background" Value="{DynamicResource RailLabel}" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
@@ -258,11 +258,11 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="{StaticResource RailText}" />
+            <Setter Property="Foreground" Value="{DynamicResource RailText}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Box" Background="Transparent" BorderBrush="{StaticResource RailNoticeFrame}"
+                        <Border x:Name="Box" Background="Transparent" BorderBrush="{DynamicResource RailNoticeFrame}"
                                 BorderThickness="1" CornerRadius="6">
                             <!--
                                 文字は TextBlock で直に描く。ContentPresenter に任せると、暗いナビの上で見えなかった
@@ -274,12 +274,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Box" Property="Background" Value="{StaticResource RailHover}" />
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource RailHover}" />
                             </Trigger>
                             <!-- 行き先が無いときは薄く。理由はツールチップで出す -->
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="{StaticResource RailLabel}" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource RailButtonDimBorder}" />
+                                <Setter Property="Foreground" Value="{DynamicResource RailLabel}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource RailButtonDimBorder}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -324,7 +324,7 @@
                                Visibility="{Binding NavPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <!-- ナビゲーション -->
-        <Border Grid.Column="0" Background="{StaticResource Rail}">
+        <Border Grid.Column="0" Background="{DynamicResource Rail}">
             <!--
                 窓が低いと下の「設定」が窓の外に出て押せなかった（点検 2026-09-23・高さ700px）。溢れたときだけ縦に送る。
                 高さが足りている間は、送る入れ物が中身を窓の高さまで伸ばすので「設定」は下端に付いたまま
@@ -343,11 +343,11 @@
                                 読みを添える（ユーザ判断 2026-09-14）。綴りから「クモノス」とは読めない（ch をクと読むのはギリシャ語から来た綴りの約束）。
                                 行を増やすとナビの頭の高さが変わる（U2）ので、同じ行に小さく薄く続ける
                             -->
-                            <TextBlock Foreground="{StaticResource RailTitle}" FontSize="13">
-                                <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="{StaticResource RailSubtitle}" />
+                            <TextBlock Foreground="{DynamicResource RailTitle}" FontSize="13">
+                                <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="{DynamicResource RailSubtitle}" />
                             </TextBlock>
                             <!-- 日本語にして英語の頃より幅が要る。万単位でもナビの幅からはみ出さないよう、溢れたら「…」で切る -->
-                            <TextBlock Text="{Binding LibrarySummary}" Foreground="{StaticResource RailMuted}" FontSize="11" Margin="0,2,0,0"
+                            <TextBlock Text="{Binding LibrarySummary}" Foreground="{DynamicResource RailMuted}" FontSize="11" Margin="0,2,0,0"
                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding LibrarySummary}" />
                         </StackPanel>
                         <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -355,7 +355,7 @@
                             <Canvas Width="24" Height="24">
                                 <Path Data="{StaticResource IconApp}" Fill="{x:Null}" StrokeThickness="1.8"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                      Stroke="{StaticResource RailText}" />
+                                      Stroke="{DynamicResource RailText}" />
                             </Canvas>
                         </Viewbox>
                     </Grid>
@@ -437,12 +437,12 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}"
                             views:Nav.Label="未確定" views:Nav.Icon="{StaticResource IconResolve}"
                             views:Nav.IsActive="{Binding IsResolveActive}"
-                            views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="{StaticResource NeedsWorkFill}" />
+                            views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="{DynamicResource NeedsWorkFill}" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
                             views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
                             views:Nav.IsActive="{Binding IsEditActive}"
-                            views:Nav.Badge="{Binding NeedsEditBadgeCount}" views:Nav.BadgeBrush="{StaticResource NeedsWorkFill}" views:Nav.BadgePrefix="未:"
-                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{StaticResource AccentFill}" views:Nav.SubBadgePrefix="編:" />
+                            views:Nav.Badge="{Binding NeedsEditBadgeCount}" views:Nav.BadgeBrush="{DynamicResource NeedsWorkFill}" views:Nav.BadgePrefix="未:"
+                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{DynamicResource AccentFill}" views:Nav.SubBadgePrefix="編:" />
 
                     <Grid>
                         <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}" />
@@ -455,7 +455,7 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}"
                             views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
                             views:Nav.IsActive="{Binding IsInboxActive}"
-                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="{StaticResource UnreadFill}" />
+                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="{DynamicResource UnreadFill}" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}"
                             views:Nav.Label="アバター" views:Nav.Icon="{StaticResource IconAvatars}"
                             views:Nav.IsActive="{Binding IsAvatarsActive}" />
@@ -479,8 +479,8 @@
                 -->
                 <Button DockPanel.Dock="Bottom" Margin="10,0,10,10" Padding="9,8" FontSize="11.5"
                         Height="Auto" HorizontalContentAlignment="Left" Cursor="Hand"
-                        Background="{StaticResource RailNoticeBack}" BorderBrush="{StaticResource RailNoticeFrame}"
-                        Foreground="{StaticResource RailNoticeText}"
+                        Background="{DynamicResource RailNoticeBack}" BorderBrush="{DynamicResource RailNoticeFrame}"
+                        Foreground="{DynamicResource RailNoticeText}"
                         Command="{Binding ShowStructureAlertCommand}"
                         ToolTip="{Binding StructureAlert}"
                         Visibility="{Binding HasStructureAlert, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -490,13 +490,13 @@
                     -->
                     <DockPanel>
                         <Border DockPanel.Dock="Left" Width="3" CornerRadius="2" Margin="0,1,8,1"
-                                Background="{StaticResource RailNoticeEdge}" />
+                                Background="{DynamicResource RailNoticeEdge}" />
                         <Grid>
                             <TextBlock Text="BOOTHの情報の形式が変わったかもしれません" Width="150" TextWrapping="Wrap" LineHeight="16"
-                                       Foreground="{StaticResource RailNoticeText}"
+                                       Foreground="{DynamicResource RailNoticeText}"
                                        Style="{StaticResource NavExpandedOnly}" />
                             <TextBlock Text="!" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
-                                       Foreground="{StaticResource RailNoticeText}"
+                                       Foreground="{DynamicResource RailNoticeText}"
                                        Style="{StaticResource NavCollapsedOnly}" />
                         </Grid>
                     </DockPanel>
@@ -516,15 +516,15 @@
                 ここに置く。前は「中止」が送信を始めた画面にしか無く、移ると止める手立てが無くなっていた。
                 通信の帯とは別に出す（押しても画面は移らない。ここは止めるための場所）
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="30">
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopUnityCommand}"
                             ToolTip="送るのをやめます。Unityの取り込み画面は「Cancel」で閉じてください。" />
-                    <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="{StaticResource AccentText}"
+                    <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>
@@ -535,8 +535,8 @@
                 始めた画面にしか止める手立てが無いと、画面を移った時点で止められなくなる。
                 この間できなくなることも1行で言う（黙って押せなくしない）
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding IsLongJobRunning, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="30">
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
@@ -544,9 +544,9 @@
                             Command="{Binding StopLongJobCommand}"
                             ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
                     <TextBlock DockPanel.Dock="Right" Text="{Binding LongJobNote}" Style="{StaticResource Caption}"
-                               Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding LongJobText}" Style="{StaticResource Caption}" Foreground="{StaticResource AccentText}"
+                    <TextBlock Text="{Binding LongJobText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>
@@ -556,8 +556,8 @@
                 （ユーザ指摘 2026-09-22）。**帯は常設ではない**——続きが残っている間と、通信している間だけ出す。
                 走っている間は下の通信の帯が同じ場所に出るので、こちらは引っ込む（2本並べない）
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding HasInterruptedImport, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="34">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -572,8 +572,8 @@
             </Border>
 
             <!-- 押すと取り込みの画面へ（U24）。通信の話を見に行く先は1つにしておく -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAlt}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceAlt}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Cursor="Hand" ToolTip="取り込みの画面を開く"
                     Visibility="{Binding BoothActivity.IsActive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <Border.InputBindings>
@@ -599,7 +599,7 @@
                                                 Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     </StackPanel>
                     <TextBlock Text="混み合っています" Style="{StaticResource Caption}" HorizontalAlignment="Right"
-                               VerticalAlignment="Center" Foreground="{StaticResource Warn}"
+                               VerticalAlignment="Center" Foreground="{DynamicResource Warn}"
                                ToolTip="BOOTHの指示で、問い合わせの間隔を広げています。"
                                Visibility="{Binding BoothActivity.IsThrottled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </Grid>
@@ -610,8 +610,8 @@
                 通信の帯のすぐ上に出し、開くかを選ばせる。通信が終わって通信の帯が畳まれても、押すか閉じるまでは残す。
                 商品ページを離れた後に取り直しが済んだときも同じ帯で知らせる（画面を引き戻さない）
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding HasRegisteredNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
@@ -633,8 +633,8 @@
                 落とした物・フォルダビューから始めた取り込みの知らせ（点検 2026-09-23・動線の点検 A2・A3）。
                 前は取り込み画面へ移り、見ていた画面が勝手に替わった。画面は移さず、進み具合と入口をここに出す（登録の帯と同じ場所・同じ見た目）
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding HasImportNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
@@ -651,8 +651,8 @@
                 カードの右クリックで非表示にした知らせ（点検 2026-09-23・動線の点検 B2）。戻せる操作なので窓では聞かず、
                 戻す場所とその場の解除をここに出す（登録の帯と同じ場所・同じ見た目）。押すか閉じるまで残す
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding HasHiddenNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
@@ -670,8 +670,8 @@
                 取り込み元・監視フォルダを外した知らせ（ユーザ判断 2026-09-27・動線の洗い出し B4）。
                 外すのは確かめずに行うので、外した直後にその場で戻せるようにする（非表示の帯と同じ場所・同じ見た目）
             -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding HasFolderRemovedNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
@@ -697,8 +697,8 @@
                     </controls:ViewportFitHost>
                 </ScrollViewer>
                 <Border x:Name="FindBar" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
-                        Margin="0,58,24,0" Padding="10,7" CornerRadius="8" Background="{StaticResource Surface}"
-                        BorderBrush="{StaticResource Border}" BorderThickness="1">
+                        Margin="0,58,24,0" Padding="10,7" CornerRadius="8" Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource Border}" BorderThickness="1">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.18" />
                     </Border.Effect>

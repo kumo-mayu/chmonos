@@ -28,7 +28,7 @@
             Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる。
             開いた行は幅いっぱいを使う（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）
         -->
-        <Border x:Name="Row" BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,0" Padding="20,13"
+        <Border x:Name="Row" BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0" Padding="20,13"
                 Background="Transparent">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -43,10 +43,10 @@
 
                 <!-- ドラッグ中の落ち先。行の枠まで届くよう、Paddingの分だけ外へ出す -->
                 <Border Height="2" VerticalAlignment="Top" Margin="-20,-13,-20,0"
-                        Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
+                        Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{DynamicResource Accent}"
                         Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Border x:Name="DropAfterLine" Height="2" VerticalAlignment="Bottom" Margin="-20,0,-20,-13"
-                        Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{StaticResource Accent}"
+                        Grid.ColumnSpan="2" Panel.ZIndex="1" Background="{DynamicResource Accent}"
                         Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <StackPanel Grid.Column="0" Margin="0,0,14,0" VerticalAlignment="Center">
@@ -74,10 +74,10 @@
                 <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="23,7,0,0">
                         <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                  Padding="8,5" FontSize="11.5"
-                                 BorderBrush="{StaticResource Border}" />
+                                 BorderBrush="{DynamicResource Border}" />
                         <TextBlock Text="何をここに入れるかのメモ" Margin="10,0,0,0"
                                    IsHitTestVisible="False" VerticalAlignment="Center"
-                                   Foreground="{StaticResource TextFaint}" FontSize="11.5"
+                                   Foreground="{DynamicResource TextFaint}" FontSize="11.5"
                                    Visibility="{Binding MemoDraft, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                 </Grid>
 
@@ -118,10 +118,10 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 戻る（V3）。要確認などから飛んで来られるのに、戻る道が無かった -->
@@ -129,10 +129,10 @@
                                 Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
                                 BorderThickness="0" Background="Transparent" />
-                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                        <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     </StackPanel>
                     <TextBlock Text="ユーザータグの管理" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <TextBlock Text="名前の変更と削除は、付いている商品もすべて書き換えます。"
                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -156,13 +156,13 @@
                                    ResetCommand="{Binding ListPane.ResetCommand}" />
 
             <!-- 左：トップレベルの一覧。件数を並べるのは、消す前に影響が見えるように -->
-            <Border Grid.Column="0" Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14" >
                         <TextBlock Text="ユーザータグを検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="9,6" BorderBrush="{StaticResource BorderStrong}"
+                                 Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                  ToolTip="小分類の名前と、商品名・ショップ名・メモでも探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
                         <TextBlock Text="{Binding FilterResultText}" Style="{StaticResource Caption}" Margin="2,5,0,0"
@@ -224,22 +224,22 @@
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
                                             <Border x:Name="Root" Background="Transparent"
-                                                    BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
+                                                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
                                                 <Grid>
                                                     <ContentPresenter />
                                                     <!-- ドラッグ中に、どこへ落ちるかを示す線 -->
-                                                    <Border Height="2" VerticalAlignment="Top" Background="{StaticResource Accent}"
+                                                    <Border Height="2" VerticalAlignment="Top" Background="{DynamicResource Accent}"
                                                             Visibility="{Binding DropBefore, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                                                    <Border Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Accent}"
                                                             Visibility="{Binding DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 </Grid>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                                                 </Trigger>
                                                 <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentSoft}" />
+                                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -311,10 +311,10 @@
 
                     <!-- マスタに無い名前をitemが参照したまま。要確認は知らせるだけで、直せるのはここ -->
                     <Border Style="{StaticResource Card}" Margin="0,0,0,16"
-                            Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                            Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                             Visibility="{Binding HasOrphans, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="18,15">
-                            <TextBlock Text="一覧に無いユーザータグ" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Warn}" />
+                            <TextBlock Text="一覧に無いユーザータグ" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Warn}" />
                             <!--
                                 編集画面で打った分類はその場で一覧に入る（EditViewModel）。
                                 ここに出るのは、JSONを直接直したか、一覧から消した後に商品側が残っている場合だけ。
@@ -328,7 +328,7 @@
                             <ItemsControl ItemsSource="{Binding Orphans}" Margin="0,12,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource WarnBorder}"
+                                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource WarnBorder}"
                                                 BorderThickness="1" CornerRadius="6" Padding="14,11" Margin="0,0,0,8">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -339,11 +339,11 @@
                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                     <StackPanel Orientation="Horizontal">
                                                         <!-- トップかサブかで直し方が変わるので、種別を出す -->
-                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0"
                                                                 VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding KindText}" FontSize="10"
-                                                                       Foreground="{StaticResource TextMuted}" />
+                                                                       Foreground="{DynamicResource TextMuted}" />
                                                         </Border>
                                                         <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="Medium"
                                                                    TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -356,7 +356,7 @@
                                                         <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
                                                         <Button Content="商品から外す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0" Foreground="{StaticResource DangerText}"
+                                                                Margin="6,0,0,0" Foreground="{DynamicResource DangerText}"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
@@ -420,20 +420,20 @@
                                             Command="{Binding DeleteTopCommand}" />
                                 </Grid>
 
-                                <Border Height="1" Background="{StaticResource Border}" Margin="0,16" />
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,16" />
 
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="何をここに入れるかの基準。分け方に迷ったときに読み返す場所です。打ち終えると保存されます。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,7" />
                                 <TextBox MaxLength="10000" Text="{Binding MemoDraft, UpdateSourceTrigger=PropertyChanged}"
                                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Padding="10,8"
-                                         VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource BorderStrong}" />
+                                         VerticalScrollBarVisibility="Auto" BorderBrush="{DynamicResource BorderStrong}" />
                             </StackPanel>
                         </Border>
 
                         <!-- サブレベル -->
                         <!-- 小分類を囲む札の上側。小分類の行と下の枠（ManageFoot）が続きを描く -->
-                        <Border Margin="0,16,0,0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                        <Border Margin="0,16,0,0" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                 BorderThickness="1,1,1,0" CornerRadius="8,8,0,0">
                             <StackPanel Margin="20,16,20,14">
                                 <DockPanel>
@@ -458,9 +458,9 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                 <Grid Width="360">
                                     <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
-                                             Padding="9,6" BorderBrush="{StaticResource BorderStrong}" />
+                                             Padding="9,6" BorderBrush="{DynamicResource BorderStrong}" />
                                     <TextBlock Text="この大分類の中を小分類名・商品で探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                               VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                                Visibility="{Binding ItemFilter, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                 </Grid>
 
@@ -469,7 +469,7 @@
                                         隠れていた欄が別の場所に現れるより、押した物が育つ方が繋がりが分かる
                                     -->
                                     <Border Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="16" Height="32"
-                                            Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
+                                            Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
                                             BorderThickness="1">
                                         <StackPanel Orientation="Horizontal">
                                             <ToggleButton x:Name="AddSubToggle" Width="30" Height="30" Cursor="Hand"
@@ -481,8 +481,8 @@
                                                     <ControlTemplate TargetType="ToggleButton">
                                                         <Grid Background="Transparent">
                                                             <Ellipse x:Name="Ring" Width="26" Height="26"
-                                                                     Fill="{StaticResource SurfaceAlt}" Stroke="{StaticResource Border}" />
-                                                            <Path x:Name="Mark" Data="M7,0 L7,14 M0,7 L14,7" Stroke="{StaticResource Text}"
+                                                                     Fill="{DynamicResource SurfaceAlt}" Stroke="{DynamicResource Border}" />
+                                                            <Path x:Name="Mark" Data="M7,0 L7,14 M0,7 L14,7" Stroke="{DynamicResource Text}"
                                                                   StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                                                   Width="14" Height="14" Stretch="Fill"
                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -491,10 +491,10 @@
                                                             <!-- 開いている間は×（もう一度押すと閉じる、と分かるように） -->
                                                             <Trigger Property="IsChecked" Value="True">
                                                                 <Setter TargetName="Mark" Property="Data" Value="M0,0 L14,14 M14,0 L0,14" />
-                                                                <Setter TargetName="Ring" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                                                <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource AccentSoft}" />
                                                             </Trigger>
                                                             <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}" />
+                                                                <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}" />
                                                             </Trigger>
                                                         </ControlTemplate.Triggers>
                                                     </ControlTemplate>
@@ -562,7 +562,7 @@
 
                     <!-- 畳んだ小分類のひと続き。前と同じく幅に応じて列に並べる -->
                     <DataTemplate DataType="{x:Type vm:TagSubRunLine}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <!--
                                 幅が広いときは2列に流す（ユーザ指示 2026-09-18：縦に全部並ぶと、
                                 小分類の多い大分類で上の情報が画面の外へ出る）。1件の幅を決めて折り返す
@@ -593,7 +593,7 @@
 
                     <!-- 開いた小分類の見出し（中身は続く段） -->
                     <DataTemplate DataType="{x:Type vm:TagSubRow}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TagSubTemplate}" />
                         </Border>
                     </DataTemplate>
@@ -603,8 +603,8 @@
                         位置は前と同じ：小分類の行の余白 20 ＋ 字下げ 23 の所に線、線から 16 右に中身
                     -->
                     <DataTemplate DataType="{x:Type vm:ManageListLine}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
-                            <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0">
                                 <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -617,8 +617,8 @@
                     </DataTemplate>
 
                     <DataTemplate DataType="{x:Type vm:ManageCardLine}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
-                            <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
+                            <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0">
                                 <controls:ContentItemsControl ItemsSource="{Binding Items}" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -637,9 +637,9 @@
 
                     <!-- 開いた小分類の下の余白（小分類の行の下の余白 13）。並べ替えで「この後ろ」に落とすときの線もここ -->
                     <DataTemplate DataType="{x:Type vm:TagSubFootLine}">
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1,0,1,0">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <Grid Height="13">
-                                <Border Height="2" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                                <Border Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Accent}"
                                         Visibility="{Binding Sub.DropAfter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </Grid>
                         </Border>
@@ -649,7 +649,7 @@
                     <DataTemplate DataType="{x:Type vm:ManageFoot}">
                         <Border DataContext="{Binding Owner}"
                                 Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                 BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
                         <TextBlock Text="小分類はまだありません。" Style="{StaticResource Caption}" Margin="20,0,20,18"
                                    Visibility="{Binding HasSubs, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />

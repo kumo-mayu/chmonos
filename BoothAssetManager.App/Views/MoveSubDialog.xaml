@@ -10,7 +10,7 @@
         Title="{Binding DialogTitle}"
         Width="460" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Surface}">
+        Background="{DynamicResource Surface}">
     <StackPanel Margin="22,20">
 
         <TextBlock Text="{Binding DialogTitle}" FontWeight="Bold" FontSize="14" />
@@ -28,7 +28,7 @@
                    Visibility="{Binding HasTarget, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
         <!-- 空になったトップの扱いは、アプリでは決められないので聞く -->
-        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                 BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,14,0,0"
                 Visibility="{Binding AsksAboutEmptySourceTop, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <StackPanel>
@@ -37,9 +37,9 @@
                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,9" />
 
                 <RadioButton Content="{Binding KeepSourceTopText}" IsChecked="{Binding KeepEmptySourceTop, Mode=TwoWay}"
-                             Foreground="{StaticResource Text}" />
+                             Foreground="{DynamicResource Text}" />
                 <RadioButton Content="{Binding DropSourceTopText}" IsChecked="{Binding DropEmptySourceTop, Mode=TwoWay}"
-                             Foreground="{StaticResource Text}" Margin="0,6,0,0" />
+                             Foreground="{DynamicResource Text}" Margin="0,6,0,0" />
             </StackPanel>
         </Border>
 

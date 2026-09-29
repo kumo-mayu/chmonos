@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Width="540" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Surface}">
+        Background="{DynamicResource Surface}">
     <!--
         意図を聞く三択。MessageBox の「はい／いいえ」は、本文を読んで対応を覚えないと押せない。
         ボタンそのものに何が起きるかを名乗らせる（#18・ユーザ指摘）

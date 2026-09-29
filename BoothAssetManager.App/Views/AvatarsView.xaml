@@ -33,9 +33,9 @@
 
                 <!-- 頭に絵を出す（U18）。まだ取れていないアバターは頭文字のまま -->
                 <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" Margin="0,0,10,0"
-                        Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                        Background="{DynamicResource AccentSoft}" ClipToBounds="True">
                     <Grid>
-                        <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="{StaticResource AccentSoftText}"
+                        <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding Icon}" Stretch="UniformToFill"
                                Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -50,7 +50,7 @@
                 </StackPanel>
 
                 <TextBlock Grid.Column="2" Text="{Binding CountText}" Style="{StaticResource Mono}"
-                           FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" />
+                           FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
 
@@ -89,10 +89,10 @@
                                            TextTrimming="CharacterEllipsis"
                                            Visibility="{Binding HasBase, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <TextBlock Text="この名前の商品は手元にありません" Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                           Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" />
+                                           Foreground="{DynamicResource TextFaint}" TextWrapping="Wrap" />
                             </StackPanel>
-                            <Grid Background="{StaticResource ImageBack}">
-                                <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="{StaticResource PlaceholderGlyph}"
+                            <Grid Background="{DynamicResource ImageBack}">
+                                <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="{DynamicResource PlaceholderGlyph}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <Image Source="{Binding Icon}" Stretch="Uniform"
                                        Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -100,7 +100,7 @@
                         </DockPanel>
                     </Border>
                     <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
-                            Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                            Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                             BorderThickness="1" CornerRadius="4" Padding="6,1"
                             ToolTip="{Binding BaseText}" ToolTipService.ShowOnDisabled="True">
                         <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11" />
@@ -141,7 +141,7 @@
                             （ユーザ指摘 2026-09-13「折り畳みの三角が少し小さいかも」）。幅18の枠の真ん中に置くのは同じ（縦線を三角の真下に下ろしている）
                         -->
                         <Border Background="Transparent">
-                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
                                   Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
                                   Visibility="{Binding HasGlyph, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Border>
@@ -242,7 +242,7 @@
                                     </TextBox.InputBindings>
                                 </TextBox>
                                 <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                            Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                             </Grid>
                             <Button Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
@@ -251,7 +251,7 @@
                         <!-- 説明が無く何のことか分からず、実例も無いので隠す（ユーザ判断 2026-09-17）。仕組み（inferClothing）は残す -->
                         <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}" Visibility="Collapsed"
                                   Command="{Binding ToggleInferCommand}" Margin="0,12,0,0"
-                                  Foreground="{StaticResource Text}"
+                                  Foreground="{DynamicResource Text}"
                                   ToolTip="衣装が合わない組だけ外してください。外すと素体経由の衣装が表示されなくなります。" />
                     </StackPanel>
 
@@ -267,17 +267,17 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 戻る（U23）。商品ページの札から来たときに、元の商品へ戻れるように -->
                     <StackPanel Orientation="Horizontal"
                                 Visibility="{Binding CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent" />
-                        <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                        <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     </StackPanel>
                     <TextBlock Text="アバターの管理" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                     <TextBlock Text="対応アバターの名前と、共通素体の関係を管理します"
@@ -296,14 +296,14 @@
         </Border>
 
         <Grid>
-            <TextBlock Text="読み込んでいます…" Foreground="{StaticResource TextMuted}"
+            <TextBlock Text="読み込んでいます…" Foreground="{DynamicResource TextMuted}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <!-- まだ1体も無いとき。数字ではなく次にやることを出す -->
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="{Binding EmptyTitle}" Foreground="{StaticResource TextMuted}"
+                <TextBlock Text="{Binding EmptyTitle}" Foreground="{DynamicResource TextMuted}"
                            HorizontalAlignment="Center" />
 
                 <!-- 探して0件と、そもそも1体も無いのを言い分ける（E2） -->
@@ -340,8 +340,8 @@
                                        ResetCommand="{Binding ListPane.ResetCommand}" />
 
                 <!-- 左：アバターの一覧。所有しているものを先に出す -->
-                <Border Grid.Column="0" Background="{StaticResource Surface}"
-                        BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+                <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
                     <DockPanel>
                         <!--
                             見る物の切り替え（U16）。以前は共通素体の管理がどのアバターの詳細の下にも付いて回り、
@@ -355,8 +355,8 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsBaseMode}" Value="False">
                                                 <Setter Property="FontWeight" Value="Bold" />
-                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -369,8 +369,8 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsBaseMode}" Value="True">
                                                 <Setter Property="FontWeight" Value="Bold" />
-                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -395,7 +395,7 @@
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
                             <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" IsHitTestVisible="False"
-                                       VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                        Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                         </Grid>
 
@@ -506,10 +506,10 @@
                                         なので、この大きさなら拡大でぼやけない
                                     -->
                                     <Border Grid.Column="0" Grid.RowSpan="2" Width="84" Height="84" CornerRadius="10" Margin="0,2,16,0"
-                                            VerticalAlignment="Top" Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                                            VerticalAlignment="Top" Background="{DynamicResource AccentSoft}" ClipToBounds="True">
                                         <Grid>
                                             <TextBlock Text="{Binding Selected.Initial}" FontSize="30" FontWeight="Bold"
-                                                       Foreground="{StaticResource AccentSoftText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                       Foreground="{DynamicResource AccentSoftText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             <Image Source="{Binding Selected.Icon}" Stretch="UniformToFill"
                                                    Visibility="{Binding Selected.HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </Grid>
@@ -560,7 +560,7 @@
                                                    Visibility="{Binding HasSelectedBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <StackPanel Orientation="Horizontal" Margin="6,6,0,0">
                                             <TextBlock Text="{Binding SelectedIdText}" Style="{StaticResource Mono}"
-                                                       FontSize="11.5" Foreground="{StaticResource TextFaint}" />
+                                                       FontSize="11.5" Foreground="{DynamicResource TextFaint}" />
                                             <TextBlock Text="{Binding SelectedCategoryText}" Style="{StaticResource Caption}"
                                                        Margin="14,0,0,0" />
                                             <TextBlock Text="{Binding SelectedCheckedText}" Style="{StaticResource Caption}"
@@ -623,7 +623,7 @@
                                     </WrapPanel>
                                 </Grid>
 
-                                <Border Height="1" Background="{StaticResource Border}" Margin="0,16,0,14" />
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,16,0,14" />
 
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding SelectedCountText}" Style="{StaticResource Mono}" FontSize="12"
@@ -667,7 +667,7 @@
                                 <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                            Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
-                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource AccentText}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource AccentText}"
                                            Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!--
@@ -689,13 +689,13 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                                         BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
                                                         <Button Content="×" Margin="7,0,0,0" Padding="2,0" FontSize="11"
                                                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                                Foreground="{StaticResource TextMuted}"
+                                                                Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding DataContext.RemoveAliasCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"
@@ -729,11 +729,11 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                                 BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center"
-                                                                           Foreground="{StaticResource TextMuted}" TextDecorations="Strikethrough" />
+                                                                           Foreground="{DynamicResource TextMuted}" TextDecorations="Strikethrough" />
                                                                 <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                         Command="{Binding DataContext.RestoreAliasCommand,
                                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -771,7 +771,7 @@
                                             </TextBox.InputBindings>
                                         </TextBox>
                                         <TextBlock Text="新しい改変の名前（例：普段着）" Margin="10,0,0,0" IsHitTestVisible="False"
-                                                   VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" FontSize="12"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                                    Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                                     </Grid>
                                     <Button Content="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
@@ -797,20 +797,20 @@
                                                         Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}">
                                                     <Button.ToolTip>
-                                                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                                        <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
                                                             <StackPanel Width="180">
-                                                                <Border Width="180" Height="180" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
+                                                                <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                                                         Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                     <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                                                                 </Border>
                                                                 <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                                                           Foreground="{StaticResource Text}" />
+                                                                           Foreground="{DynamicResource Text}" />
                                                             </StackPanel>
                                                         </ToolTip>
                                                     </Button.ToolTip>
-                                                    <Border Width="34" Height="34" CornerRadius="4" Background="{StaticResource SurfaceAlt}" ClipToBounds="True">
+                                                    <Border Width="34" Height="34" CornerRadius="4" Background="{DynamicResource SurfaceAlt}" ClipToBounds="True">
                                                         <Grid>
-                                                            <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{StaticResource TextMuted}"
+                                                            <TextBlock Text="{Binding Initial}" FontSize="12" Foreground="{DynamicResource TextMuted}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                                                         </Grid>
@@ -820,14 +820,14 @@
                                                     <Button Style="{StaticResource HubLink}" ToolTip="{Binding Name}"
                                                             Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}">
-                                                        <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
                                                     </Button>
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="手元にありません" FontSize="10.5" Margin="6,0,0,0"
-                                                                   Foreground="{StaticResource Warn}"
+                                                                   Foreground="{DynamicResource Warn}"
                                                                    Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                         <TextBlock Text="{Binding FileText}" Style="{StaticResource Mono}" FontSize="10.5"
-                                                                   Foreground="{StaticResource TextMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileText}" />
+                                                                   Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileText}" />
                                                     </DockPanel>
                                                 </StackPanel>
                                             </DockPanel>
@@ -845,21 +845,21 @@
                                                             Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}">
                                                         <Button.ToolTip>
-                                                            <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                                                            <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
                                                                 <StackPanel Width="180">
-                                                                    <Border Width="180" Height="180" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
+                                                                    <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                                                             Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                         <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                                                                     </Border>
                                                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                                                               Foreground="{StaticResource Text}" />
+                                                                               Foreground="{DynamicResource Text}" />
                                                                     <TextBlock Text="押すと、この改変を開きます" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                                                 </StackPanel>
                                                             </ToolTip>
                                                         </Button.ToolTip>
-                                                        <Border Width="38" Height="38" CornerRadius="5" Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                                                        <Border Width="38" Height="38" CornerRadius="5" Background="{DynamicResource AccentSoft}" ClipToBounds="True">
                                                             <Grid>
-                                                                <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{StaticResource Accent}"
+                                                                <TextBlock Text="{Binding Initial}" FontSize="13" Foreground="{DynamicResource Accent}"
                                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                 <Image Source="{Binding Icon}" Stretch="UniformToFill" />
                                                             </Grid>
@@ -870,16 +870,16 @@
                                                                 Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}">
                                                             <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" />
+                                                                       Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
                                                         </Button>
                                                         <WrapPanel Margin="0,1,0,0">
-                                                            <TextBlock Text="{Binding ProjectName}" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,0,8,0"
+                                                            <TextBlock Text="{Binding ProjectName}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,0,8,0"
                                                                        Visibility="{Binding Record.HasUnityProject, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
                                                         </WrapPanel>
                                                     </StackPanel>
                                                 </DockPanel>
-                                                <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{StaticResource BorderStrong}" BorderThickness="1,0,0,0"
+                                                <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0"
                                                         Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                     <ItemsControl ItemsSource="{Binding Members}" />
                                                 </Border>
