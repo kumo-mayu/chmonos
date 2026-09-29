@@ -406,6 +406,9 @@ public sealed class BaseMentionRow
         : "この商品の共通素体に追加します。";
 
     public RelayCommand? AddCommand { get; init; }
+
+    /// <summary>違う候補として消す（「消したもの」に入り、戻せる。ユーザ判断 2026-09-29）。</summary>
+    public RelayCommand? DismissCommand { get; init; }
 }
 
 /// <summary>

@@ -194,6 +194,21 @@ public sealed partial class AvatarService
     }
 
     /// <summary>
+    /// 説明文の素体の候補を「違う」として消す（ユーザ判断 2026-09-29：対応アバターの消し方と同じ作法）。
+    /// 商品に消した印付きの手入力の行を残す——候補は商品に付いている素体（消した物も）を出さないので二度と出ず、
+    /// 「消したもの」の欄に並んで戻せる。既に行があれば何もしない（付いている物・消した物を上書きしない）
+    /// </summary>
+    public static IReadOnlyList<AvatarBaseLink> WithDismissedBaseMention(IReadOnlyList<AvatarBaseLink> links, string baseName)
+    {
+        if (links.Any(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return links;
+        }
+
+        return [.. links, new AvatarBaseLink { BaseName = baseName, Source = AvatarLinkSource.Manual, Confirmed = true, Rejected = true }];
+    }
+
+    /// <summary>
     /// このグループの一致から衣装の互換を推し量ってよいかを切り替える。
     /// 同じ素体を名乗っていても衣装が合わない組は false にする。
     /// </summary>

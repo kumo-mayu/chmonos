@@ -322,6 +322,11 @@ public sealed partial class ItemViewModel
                 Name = mention.Name,
                 IsNew = !mention.IsRegistered,
                 AddCommand = new RelayCommand(() => AddMentionedBaseAsync(mention).Forget(), () => !IsEditLocked),
+                DismissCommand = new RelayCommand(
+                    () => SaveLocalAsync(
+                        Item.Local with { AvatarBases = AvatarService.WithDismissedBaseMention(Item.Local.AvatarBases, mention.Name) },
+                        LocalOwners.AvatarBases).Forget(),
+                    () => !IsEditLocked),
             })
             .ToList();
 
@@ -434,6 +439,17 @@ public sealed partial class ItemViewModel
     /// <summary>消した共通素体を戻す（「消したもの」の欄の［戻す］）。</summary>
     private async Task RestoreBaseAsync(string baseName)
     {
+        // 説明文の候補を消した物は、一覧に無い素体のことがある。［追加］と同じく先に一覧へ足す
+        // （一覧に無い素体を商品に付けても、検索でつなぐ先が無い）。
+        // 一覧から削除した素体は足し直さない——削除は人が決めたことで、商品の行を戻しただけで一覧に復活させない
+        var known = _services.CachedAvatars.Load().BaseGroups
+            .Any(group => string.Equals(group.Name, baseName, StringComparison.CurrentCultureIgnoreCase));
+        if (!known)
+        {
+            await AddMentionedBaseAsync(new AvatarBaseMention(baseName, IsRegistered: false));
+            return;
+        }
+
         var links = Item.Local.AvatarBases
             .Select(link => string.Equals(link.BaseName, baseName, StringComparison.CurrentCultureIgnoreCase)
                 ? link with { Rejected = false, Confirmed = true }

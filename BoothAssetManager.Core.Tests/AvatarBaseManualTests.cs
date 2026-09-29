@@ -300,4 +300,28 @@ public class AvatarBaseManualTests : IDisposable
         Assert.Equal(AvatarLinkSource.Manual, link.Source);
         Assert.True(link.Confirmed);
     }
+
+    /// <summary>説明文の素体の候補を消すと、消した印付きの手入力の行が残る（「消したもの」に並び、次の検出でも戻らない）。</summary>
+    [Fact]
+    public void WithDismissedBaseMentionLeavesRejectedManualLink()
+    {
+        AvatarBaseLink[] links = [new() { BaseName = "元からの素体", Source = AvatarLinkSource.Tag, Confirmed = true }];
+
+        var result = AvatarService.WithDismissedBaseMention(links, "候補の素体");
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(links[0], result[0]);
+        Assert.Equal("候補の素体", result[1].BaseName);
+        Assert.Equal(AvatarLinkSource.Manual, result[1].Source);
+        Assert.True(result[1].Rejected);
+    }
+
+    /// <summary>既に付いている素体（消した物も）は上書きしない。付いている物を消すのは × の役目。</summary>
+    [Fact]
+    public void WithDismissedBaseMentionKeepsExistingLink()
+    {
+        AvatarBaseLink[] links = [new() { BaseName = "付いている素体", Source = AvatarLinkSource.Tag, Confirmed = true }];
+
+        Assert.Same(links, AvatarService.WithDismissedBaseMention(links, "付いている素体"));
+    }
 }

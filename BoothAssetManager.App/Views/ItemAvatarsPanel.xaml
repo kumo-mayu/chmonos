@@ -249,6 +249,24 @@
                                                                    Visibility="{Binding IsNew, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                         <Button Content="追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 Command="{Binding AddCommand}" ToolTip="{Binding AddTooltip}" />
+                                                        <!-- 違う候補は消せる（ユーザ判断 2026-09-29。付いている素体の × と同じ形で、乗せたときだけ出す） -->
+                                                        <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
+                                                                Height="16" Background="Transparent" BorderThickness="0"
+                                                                Cursor="Hand" Foreground="{DynamicResource TextMuted}"
+                                                                Command="{Binding DismissCommand}"
+                                                                ToolTip="違う候補として消します。「消したもの」から戻せます。">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                                    <Setter Property="Visibility" Value="Hidden" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Value="True"
+                                                                                     Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>
