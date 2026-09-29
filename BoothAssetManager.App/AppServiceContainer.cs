@@ -80,7 +80,9 @@ public sealed class AppServiceContainer : IDisposable
         // 検索の「名前」「ショップ」の並べ替えの鍵（名前の読み）。名前ごとに1度だけ作って控える
         NameOrder = new Core.Services.NameCollation(KanjiReadings);
         Due = new DueRefresh(Store, Items);
-        Resolver = new FallbackResolver(Client, Bridge, KanjiReadings);
+        // 登録簿を渡すと、ファイル名の中のアバターの名前を検索語から外す（「商品名_アバター名」で AND 検索が0件になっていた。
+        // 2026-09-29 の再調整で最も効いた分）。押すたびに読み直すので、検出で登録簿が増えればそのまま効く
+        Resolver = new FallbackResolver(Client, Bridge, KanjiReadings, () => Store.Avatars.Load());
         Edit = new EditService(Store);
         Notifications = new NotificationService(Store, () => Settings);
         UserTags = new UserTagService(Store);

@@ -26,7 +26,7 @@
 | `AvatarNameBench` | 登録簿の表示名の付け方を、人が付け直した正解の名前と比べる（#54） | `docs/history/avatars.md`「表示名の付け方を変えた」 |
 | `CategoryFetch` | BOOTH のカテゴリ表を1度だけ取り、同梱できる形に落とす（計測ではなく取得の道具） | `docs/history/private-items.md` §8 |
 | `FallbackSearchProbe` | 候補検索を別の表記で引き直す価値があるか（正解の分かる10ファイル） | `docs/research/id-resolution.md`「§7 候補検索に表記の橋渡し」 |
-| `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位） | `docs/research/id-resolution.md` §15 |
+| `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位）。`--make-pairs` で写しから正解の組を作り、BOOTH の答えは `--cache` に控えて `--offline` で通信なしに測り直せる（`--no-avatars` でアバター名を外す直しを切って比べる）。使い方は `Program.cs` の冒頭 | `docs/research/id-resolution.md` §15・§16 |
 | `QueryVariantProbe` | 上位3件に正解が出なかったファイルで、検索語の変え方ごとの当たりを比べる | `docs/research/id-resolution.md` §15 |
 | `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
 | `ThesaurusBridgeProbe` | 類義語辞書2つに表記の橋渡しを重ねたときの広がりと、関係の無い物の割合 | `docs/research/fuzzy-search.md` §8・§9 |
