@@ -83,6 +83,7 @@
 | [fuzzy-search.md](research/fuzzy-search.md) | 曖昧検索・類義語の調査（入れない推し） |
 | [ui-wording.md](research/ui-wording.md) | UI 文言の総調査と用語（2026-09-09 の時点。今の用語表は spec/ui-terms.md） |
 | [memory-budget.md](research/memory-budget.md) | メモリの上限と測り方 |
+| [large-files-2026-09-30.md](research/large-files-2026-09-30.md) | 大容量のファイル（大きな zip・中身の多い zip・重い unitypackage・大量のファイル）での固まりとメモリ |
 | [antivirus.md](research/antivirus.md) | セキュリティソフトに怪しまれない作り |
 | [youtube-terms.md](research/youtube-terms.md) | YouTube の絵とタイトルを手元に置いてよいか（絵は置かない・題は30日） |
 | [booth-terms.md](research/booth-terms.md) | BOOTH・pixiv の規約とアプリの通信・名前（通信は許される範囲・名前は公開前に見直す） |
