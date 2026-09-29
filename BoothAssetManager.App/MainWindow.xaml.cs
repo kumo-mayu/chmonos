@@ -377,8 +377,7 @@ public partial class MainWindow : Window
         foreach (var action in Enum.GetValues<Services.ShortcutAction>())
         {
             if (Services.Shortcuts.Parse(Services.Shortcuts.GestureOf(main.Shortcuts, action)) is not { } gesture
-                || gesture.Key != key
-                || gesture.Modifiers != modifiers)
+                || !Services.Shortcuts.Matches(gesture, key, modifiers))
             {
                 continue;
             }

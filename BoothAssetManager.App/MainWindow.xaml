@@ -301,7 +301,11 @@
         <PathGeometry x:Key="IconApp" Figures="M4,8 L12,4 L20,8 V16 L12,20 L4,16 Z M4,8 L12,12 L20,8 M12,12 V20" />
     </Window.Resources>
 
-    <Grid>
+    <!--
+        表示の大きさ（AppZoom）で中身を丸ごと縮尺する。縮尺の内側は 100% と同じ DIP で並ぶので、
+        上げた分だけ中身に渡る幅と高さが減り、足りない分はナビが縦に・本文が横に送る（窓の最小の大きさは変えない）
+    -->
+    <Grid LayoutTransform="{DynamicResource AppZoomTransform}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding NavPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding NavPane.MinWidth}" MaxWidth="{Binding NavPane.MaxWidth}" />

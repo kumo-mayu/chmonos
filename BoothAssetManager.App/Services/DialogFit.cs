@@ -21,7 +21,7 @@ internal static class DialogFit
         if (dialog.Content is UIElement content and not ScrollViewer)
         {
             dialog.Content = null;
-            dialog.Content = new ScrollViewer
+            var scroll = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
@@ -31,6 +31,17 @@ internal static class DialogFit
                 IsTabStop = false,
                 Content = content,
             };
+
+            // 表示の大きさ（AppZoom）。小窓は主の窓の縮尺の外なので、中身に同じ倍率を当てる
+            scroll.SetResourceReference(FrameworkElement.LayoutTransformProperty, ViewModels.AppZoom.TransformResourceKey);
+            dialog.Content = scroll;
+        }
+
+        // 幅は決め打ちなので倍率を掛ける（掛けないと、中身だけが大きくなって同じ幅に押し込まれ、折り返しが増える）。
+        // 小窓は主の窓を止めて出すので、出ている間に倍率は変わらない
+        if (!double.IsNaN(dialog.Width))
+        {
+            dialog.Width *= DisplayScale.Zoom;
         }
 
         dialog.SourceInitialized += (_, _) => FitToWorkArea(dialog);

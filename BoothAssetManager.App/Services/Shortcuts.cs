@@ -12,6 +12,9 @@ public enum ShortcutAction
     FindInPage,
     Back,
     Forward,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
 }
 
 /// <summary>
@@ -30,6 +33,9 @@ public static class Shortcuts
         ShortcutAction.FindInPage => "画面の中を探す",
         ShortcutAction.Back => "直前の画面へ戻る",
         ShortcutAction.Forward => "戻った先から進む",
+        ShortcutAction.ZoomIn => "表示を大きくする",
+        ShortcutAction.ZoomOut => "表示を小さくする",
+        ShortcutAction.ZoomReset => "表示の大きさを100%に戻す",
         _ => action.ToString(),
     };
 
@@ -41,6 +47,9 @@ public static class Shortcuts
         ShortcutAction.FindInPage => settings.FindInPage,
         ShortcutAction.Back => settings.Back,
         ShortcutAction.Forward => settings.Forward,
+        ShortcutAction.ZoomIn => settings.ZoomIn,
+        ShortcutAction.ZoomOut => settings.ZoomOut,
+        ShortcutAction.ZoomReset => settings.ZoomReset,
         _ => string.Empty,
     };
 
@@ -52,6 +61,9 @@ public static class Shortcuts
         ShortcutAction.FindInPage => settings with { FindInPage = gesture },
         ShortcutAction.Back => settings with { Back = gesture },
         ShortcutAction.Forward => settings with { Forward = gesture },
+        ShortcutAction.ZoomIn => settings with { ZoomIn = gesture },
+        ShortcutAction.ZoomOut => settings with { ZoomOut = gesture },
+        ShortcutAction.ZoomReset => settings with { ZoomReset = gesture },
         _ => settings,
     };
 
@@ -113,9 +125,48 @@ public static class Shortcuts
                 "Left" => "左矢印",
                 "Up" => "上矢印",
                 "Down" => "下矢印",
+
+                // 記号のキーは .NET の名前（OemPlus・D0）のままだと読めない。矢印と同じく言葉で書く
+                // （「Ctrl + +」は区切りと見分けにくい）
+                "OemPlus" => "プラス",
+                "OemMinus" => "マイナス",
+                "Add" => "テンキーのプラス",
+                "Subtract" => "テンキーのマイナス",
+                ['D', >= '0' and <= '9'] => part[1..],
+                _ when part.StartsWith("NumPad", StringComparison.Ordinal) => "テンキーの" + part["NumPad".Length..],
                 _ => part,
             });
         return string.Join(" + ", parts);
+    }
+
+    /// <summary>
+    /// 押されたキーが割り当てに当たるか。同じ記号を打つキーは同じものとみなす：
+    /// テンキーの＋－0 は上の段の＋－0 と同じ（ブラウザの拡大と同じ）。
+    /// さらに「プラス」の割り当ては Shift を足して押しても当たる——「＋」を打つのに、US 配列は Shift＋「=」、
+    /// JIS 配列は Shift＋「;」が要り、Ctrl＋＋ と覚えた人はそのまま Shift も押すため。
+    /// </summary>
+    public static bool Matches((Key Key, ModifierKeys Modifiers) gesture, Key key, ModifierKeys modifiers)
+    {
+        var wanted = SameSymbol(gesture.Key);
+        if (wanted != SameSymbol(key))
+        {
+            return false;
+        }
+
+        if (wanted == Key.OemPlus && (gesture.Modifiers & ModifierKeys.Shift) == 0)
+        {
+            modifiers &= ~ModifierKeys.Shift;
+        }
+
+        return gesture.Modifiers == modifiers;
+
+        static Key SameSymbol(Key key) => key switch
+        {
+            Key.Add => Key.OemPlus,
+            Key.Subtract => Key.OemMinus,
+            >= Key.NumPad0 and <= Key.NumPad9 => Key.D0 + (key - Key.NumPad0),
+            _ => key,
+        };
     }
 
     /// <summary>
