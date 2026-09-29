@@ -30,9 +30,9 @@
     <!-- 説明文の本文・札の文字・数の列。Text より一段柔らかい -->
     <SolidColorBrush x:Key="TextBody" Color="#454b57" />
     <!-- 補足・ラベル -->
-    <SolidColorBrush x:Key="TextMuted" Color="#6a7180" />
+    <SolidColorBrush x:Key="TextMuted" Color="#656c7a" />
     <!-- いちばん弱い補足・押せない物の文字 -->
-    <SolidColorBrush x:Key="TextFaint" Color="#9aa1ae" />
+    <SolidColorBrush x:Key="TextFaint" Color="#6a6f78" />
 
     <!-- ===== 強調（青） ===== -->
     <!-- 面の上に置く青：リンク・選んだ枠・挿す位置の線・棒 -->
@@ -55,7 +55,7 @@
 
     <!-- ===== 状態の色：文字（無印）・札の地（Soft）・札の枠（Border）・白い文字を載せる地（Fill） ===== -->
     <!-- 所持・保存した・手元にある -->
-    <SolidColorBrush x:Key="Good" Color="#2f7d5a" />
+    <SolidColorBrush x:Key="Good" Color="#2c7856" />
     <SolidColorBrush x:Key="GoodSoft" Color="#e7f2ec" />
     <SolidColorBrush x:Key="GoodBorder" Color="#c9e2d5" />
     <SolidColorBrush x:Key="GoodFill" Color="#2f7d5a" />
@@ -79,7 +79,7 @@
     <!-- ナビの「未確定」「未:n」の件数の地 -->
     <SolidColorBrush x:Key="NeedsWorkFill" Color="#9a6b1f" />
     <!-- お気に入りの★ -->
-    <SolidColorBrush x:Key="Star" Color="#d99a00" />
+    <SolidColorBrush x:Key="Star" Color="#bf8800" />
 
     <!-- ===== 札（BOOTHのタグ・対応アバター） ===== -->
     <SolidColorBrush x:Key="ChipBack" Color="#ffffff" />
@@ -96,13 +96,13 @@
     <!-- 選んでいる項目の文字とアイコン -->
     <SolidColorBrush x:Key="RailTextActive" Color="#ffffff" />
     <!-- 見出し・押せないボタンの文字 -->
-    <SolidColorBrush x:Key="RailLabel" Color="#5d6675" />
+    <SolidColorBrush x:Key="RailLabel" Color="#68707e" />
     <!-- アプリの名前（ナビの頭と初回の窓の頭） -->
     <SolidColorBrush x:Key="RailTitle" Color="#ffffff" />
     <!-- 名前に添える読み「クモノス」 -->
     <SolidColorBrush x:Key="RailSubtitle" Color="#8a93a3" />
     <!-- 名前の下の件数、初回の窓の断り書き -->
-    <SolidColorBrush x:Key="RailMuted" Color="#767f8e" />
+    <SolidColorBrush x:Key="RailMuted" Color="#858d9a" />
     <!-- 初回の窓の頭の説明 -->
     <SolidColorBrush x:Key="RailIntro" Color="#a8b0be" />
     <!-- 押せない小さなボタンの枠 -->
@@ -159,7 +159,7 @@
     <SolidColorBrush x:Key="FindCurrent" Color="#a0ff9f2e" />
     <!-- ===== 標準の部品（Themes/Controls.xaml が描く）。明るい表の値は Windows の既定の見た目（Aero2）に合わせた ===== -->
     <!-- 入力欄 -->
-    <SolidColorBrush x:Key="InputBorder" Color="#abadb3" />
+    <SolidColorBrush x:Key="InputBorder" Color="#909297" />
     <SolidColorBrush x:Key="InputBorderHover" Color="#7eb4ea" />
     <SolidColorBrush x:Key="InputBorderFocus" Color="#569de5" />
     <!-- 選んだ文字の地（欄は 40% の濃さで重ねる）と文字入れの印 -->
@@ -201,7 +201,7 @@
     <SolidColorBrush x:Key="ListSelectedInactiveBorder" Color="#dadada" />
     <!-- スクロールバー -->
     <SolidColorBrush x:Key="ScrollTrack" Color="#f0f0f0" />
-    <SolidColorBrush x:Key="ScrollThumb" Color="#cdcdcd" />
+    <SolidColorBrush x:Key="ScrollThumb" Color="#8a8a8a" />
     <SolidColorBrush x:Key="ScrollThumbHover" Color="#a6a6a6" />
     <SolidColorBrush x:Key="ScrollThumbPressed" Color="#606060" />
     <SolidColorBrush x:Key="ScrollArrow" Color="#606060" />
