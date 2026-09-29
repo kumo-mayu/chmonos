@@ -176,7 +176,9 @@ internal static class UnityMemberSelect
         setStatus($"「{projectName}」の中を調べています…");
         var (location, packageRoot, present) = await Task.Run(() =>
         {
-            var assets = packages.SelectMany(UnityHandoff.ReadAssets).ToList();
+            // 同じ zip の包みは控えを1回だけ読んで配る（UnityPackageReads）
+            var reads = new UnityPackageReads();
+            var assets = packages.SelectMany(reads.ReadAssets).ToList();
             var matches = UnityProjectMatcher.Match(
                 project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [itemId] = assets });
             // 入り先の頭の記号（_FUKA）を利用者が消していれば実際の名前（FUKA）で、フォルダごと移していれば GUID で見つけた今の場所で探す

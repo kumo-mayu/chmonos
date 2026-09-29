@@ -174,13 +174,16 @@ public static class UnityImportQueue
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int max);
 
     /// <summary>この商品の zip に入っている、Unity へ送れるもの（zip に入っている順）。</summary>
+    /// <remarks>
+    /// 中の一覧は item に書いてあればそれを使い、zip を開かない（<see cref="UnityHandoff.PlacesOf(LocalFileRecord)"/>）。
+    /// zip のハッシュを持たせるので、中身のパスは取り込みの裏で読んだ控えから引ける（zip を解き直さない）
+    /// </remarks>
     public static IReadOnlyList<UnityPackageEntry> PackagesOf(ItemRecord item)
-        => item.Local.OwnedFiles
-            .Select(file => (file.Hash, Path: file.Paths.FirstOrDefault(File.Exists)))
-            .Where(pair => pair.Path is not null && pair.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-            // zip のハッシュを持たせる。中身のパスを取り込みの裏で読んだ控えから引ける（zip を解き直さない）
-            .SelectMany(pair => UnityHandoff.FindPackages(pair.Path!).Select(package => package with { ZipHash = pair.Hash }))
-            .ToList();
+        => PlacesOf(item).Select(place => place.Entry).ToList();
+
+    /// <summary><see cref="PackagesOf"/> に、item に書いてある入る先を添えた物。</summary>
+    public static IReadOnlyList<UnityPackagePlace> PlacesOf(ItemRecord item)
+        => item.Local.OwnedFiles.SelectMany(UnityHandoff.PlacesOf).ToList();
 
     /// <summary>
     /// 順に送る。途中で続けられなくなったら（エディタが閉じた・メニューが見つからない）、
@@ -222,6 +225,8 @@ public static class UnityImportQueue
     {
         var outcomes = new List<UnityQueueOutcome>();
         var unpacker = new TemporaryUnpacker();
+        // 同じ zip の包みを続けて送るとき、中身の控えを zip ごとに1回だけ読む
+        var reads = new UnityPackageReads();
         string? stop = null;
 
         // 送り先のプロジェクトの場所。「既に全部入っているか」を調べるのに使う（引けなければ調べない）
@@ -286,7 +291,7 @@ public static class UnityImportQueue
             {
                 path = await Task.Run(() => unpacker.ExtractEntry(package.ZipPath, package.EntryPath, cancellationToken), cancellationToken);
                 // ログの行が送った物の取り込みかを見分けるため、中身のパスを先に読んでおく
-                assets = await Task.Run(() => UnityHandoff.ReadAssets(package), cancellationToken);
+                assets = await Task.Run(() => reads.ReadAssets(package), cancellationToken);
                 expected = assets.Select(asset => asset.Path).ToList();
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
