@@ -237,9 +237,13 @@ public sealed partial class AvatarService
                         ? entry with { BaseName = trimmed }
                         : entry);
 
-                // 同名のグループが既にあれば統合する
+                // 同名のグループが既にあれば統合する。
+                // **ただし消した印の付いた同名の行は統合先にしない**（ユーザ判断 2026-09-29）：統合すると、改名した素体が
+                // 一覧に出ない行へ吸い込まれ、「改名したら消えた」ように見えた。人が今その名前を付け直したのだから、
+                // 消した意思より今の操作を優先し、消した行を片付けて名前を引き継がせる（手で付け直したら印を下ろす今の作法と同じ）
                 var groups = registry.BaseGroups
                     .Where(group => !string.Equals(group.Name, oldName, StringComparison.CurrentCultureIgnoreCase))
+                    .Where(group => !(group.Rejected && string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
                     .ToList();
 
                 var renamed = registry.BaseGroups

@@ -87,6 +87,40 @@ public class AvatarBaseRenameTests : IDisposable
         Assert.DoesNotContain(registry.BaseGroups, group => group.Name == "素体A");
     }
 
+    /// <summary>
+    /// 消した素体と同じ名前に改名すると、消した行へ吸い込まれず、名前を引き継いで一覧に残る（ユーザ判断 2026-09-29）。
+    /// 前は消した行へ統合され、改名した素体が一覧から消えた。所属と商品の宣言も新しい名前で残る
+    /// </summary>
+    [Fact]
+    public async Task RenamingToADeletedBasesNameTakesOverTheName()
+    {
+        await _store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [new AvatarRegistryEntry { ItemId = "1", BoothName = "アバター1", BaseName = "素体A" }],
+            BaseGroups =
+            [
+                new AvatarBaseGroup { Name = "素体A", IsManual = true },
+                new AvatarBaseGroup { Name = "消した素体", Rejected = true },
+            ],
+        });
+        await SaveItemAsync("10", "素体A");
+
+        await _service.RenameBaseAsync("素体A", "消した素体");
+
+        var registry = _store.Avatars.Load();
+        var group = Assert.Single(registry.BaseGroups, group => group.Name == "消した素体");
+        Assert.False(group.Rejected);
+        Assert.True(group.IsManual);
+        Assert.DoesNotContain(registry.BaseGroups, group => group.Name == "素体A");
+        Assert.Equal("消した素体", Assert.Single(registry.Entries).BaseName);
+        Assert.Equal(1, await _service.CountItemsUsingBaseAsync("消した素体"));
+    }
+
+    /// <summary>確認の窓は一覧に出ている素体の名前だけで見分けるので、消した素体の名前は統合と数えない。</summary>
+    [Fact]
+    public void ADeletedBasesNameIsNotAMergeWhenOnlyListedNamesArePassed()
+        => Assert.Null(AvatarBaseRename.MergeTarget(["素体A"], "素体A", "消した素体"));
+
     private async Task SaveItemAsync(string id, string baseName)
         => await _store.Items.SaveAsync(new ItemRecord
         {

@@ -12,6 +12,8 @@ public static class AvatarBaseRename
     /// <summary>
     /// 新しい名前が、変える素体とは別の既にある素体を指していれば、その素体の名前（統合先）。ただの名前の変更なら null。
     /// 大文字小文字だけを変えるのは自分自身なので統合ではない。
+    /// <paramref name="existingNames"/> には一覧に出ている素体だけを渡す。消した印の付いた素体は、改名では統合先にせず名前を引き継ぐ
+    /// （<c>RenameBaseAsync</c>・ユーザ判断 2026-09-29）ので、渡すと統合しないのに確認を出してしまう。
     /// </summary>
     public static string? MergeTarget(IEnumerable<string> existingNames, string oldName, string newName)
     {
