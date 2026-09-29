@@ -415,18 +415,25 @@ public sealed class ItemService : IItemService
     /// <remarks>
     /// 消えたバリエーションの名前は**BOOTHにはもう無い**。
     /// 取り直す前の <c>booth</c> ブロックと、購入時に写し取った名前（<see cref="Purchase.NameSnapshot"/>）から引く。
-    /// どちらも無ければIDで言う（黙って落とすと、どれのことか辿れなくなる）。
+    /// BOOTH が名前を持たせていなかったもの（種類が1つだけの商品に多い）は、ほかの画面と同じく <see cref="DisplayText.NoVariationName"/> と呼ぶ
+    /// （ユーザ判断 2026-09-29。「ID 12345」では何のことか分からない）。
+    /// どちらでもない（在ったかも分からない）ものだけIDで言う（黙って落とすと、どれのことか辿れなくなる）。
     /// </remarks>
     private static string NameVariations(IReadOnlyList<long> ids, ItemRecord existing, BoothBlock? booth = null)
     {
         const int shown = 3;
 
         var names = new Dictionary<long, string>();
+        var unnamed = new HashSet<long>();
         foreach (var variation in (booth ?? existing.Booth).Variations.Concat(existing.Booth.Variations))
         {
-            if (variation.Name is { Length: > 0 } text)
+            if (variation.Name is { Length: > 0 } text && !string.IsNullOrWhiteSpace(text))
             {
                 names.TryAdd(variation.Id, text);
+            }
+            else
+            {
+                unnamed.Add(variation.Id);
             }
         }
 
@@ -439,7 +446,9 @@ public sealed class ItemService : IItemService
         }
 
         var labels = ids
-            .Select(id => names.TryGetValue(id, out var text) ? text : $"ID {id}")
+            .Select(id => names.TryGetValue(id, out var text) ? text
+                : unnamed.Contains(id) ? DisplayText.NoVariationName
+                : $"ID {id}")
             .ToList();
 
         return labels.Count <= shown

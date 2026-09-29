@@ -376,6 +376,38 @@ public class ItemRefreshTests : IDisposable
         Assert.Equal("旧・支援版・旧・通常版", gone.Detail["消えたバリエーション：".Length..]);
     }
 
+    /// <summary>
+    /// 名前を持たなかったバリエーションは、ほかの画面と同じく「バリエーション選択なし」と言う（ユーザ判断 2026-09-29）。
+    /// 在ったかも分からないものだけIDで言う。
+    /// </summary>
+    [Fact]
+    public async Task CallsAnUnnamedVariationByTheSharedWord()
+    {
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = ItemId,
+            Booth = new BoothBlock
+            {
+                Name = "取り直す前の名前",
+                FetchedAt = DateTimeOffset.Now,
+                Variations = [new BoothVariation { Id = 99999999, Name = null }],
+            },
+            Local = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = "AAAA", Paths = ["x.zip"], SizeBytes = 1, VariationId = 99999999 }],
+                Purchases = [new Purchase { VariationId = 77777777, Price = 500 }],
+            },
+        });
+
+        await _service.RefreshAsync(ItemId);
+
+        var gone = Assert.Single(
+            _store.Notifications.Load(),
+            entry => entry.Kind == NotificationKind.OrphanVariationLink);
+
+        Assert.Equal($"{DisplayText.NoVariationName}・ID 77777777", gone.Detail["消えたバリエーション：".Length..]);
+    }
+
     /// <summary>「知らせる」を切ってある商品には出さない。</summary>
     [Fact]
     public async Task StaysQuietForAnItemTheUserMuted()

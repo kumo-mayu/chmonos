@@ -63,7 +63,7 @@
 
   | 画面の語 | 何の行か |
   |---|---|
-  | バリエーションなし | BOOTH が名前を持たせていないバリエーション（種類が1つだけの商品に多い）。`DisplayText.VariationName` |
+  | バリエーション選択なし | BOOTH が名前を持たせていないバリエーション（種類が1つだけの商品に多い）。`DisplayText.VariationName` |
   | バリエーションを選ばない購入 | 種類を指さない購入の記録（`DisplayText.VariationLabel(null)`） |
   | 名前の分からないバリエーション | BOOTH から消え、名前を控えていなかった種類 |
 

@@ -76,7 +76,7 @@ public static class DisplayText
     /// 「（名前のないバリエーション）」は、名前を付け忘れた物のようで分かりにくかった。
     /// 種類を指さない購入（<see cref="VariationLabel"/> の null）とも、BOOTH から消えて名前が引けない種類とも別物なので混ぜない
     /// </summary>
-    public const string NoVariationName = "バリエーションなし";
+    public const string NoVariationName = "バリエーション選択なし";
 
     /// <summary>今あるバリエーションの行の名前。名前が無ければ <see cref="NoVariationName"/>。</summary>
     public static string VariationName(string? name)

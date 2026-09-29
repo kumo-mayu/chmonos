@@ -64,15 +64,15 @@ public class DisplayTextTests
     }
 
     /// <summary>
-    /// BOOTH が名前を持たせていないバリエーションは「バリエーションなし」と呼ぶ（ユーザ判断 2026-09-29）。
+    /// BOOTH が名前を持たせていないバリエーションは「バリエーション選択なし」と呼ぶ（ユーザ判断 2026-09-29）。
     /// 種類を指さない購入の行とは別の言い方のままにする（混ぜると、どちらの行か分からなくなる）
     /// </summary>
     [Fact]
     public void CallsAnUnnamedVariationNoVariation()
     {
-        Assert.Equal("バリエーションなし", DisplayText.VariationName(null));
-        Assert.Equal("バリエーションなし", DisplayText.VariationName(""));
-        Assert.Equal("バリエーションなし", DisplayText.VariationName("  "));
+        Assert.Equal("バリエーション選択なし", DisplayText.VariationName(null));
+        Assert.Equal("バリエーション選択なし", DisplayText.VariationName(""));
+        Assert.Equal("バリエーション選択なし", DisplayText.VariationName("  "));
         Assert.Equal("Aセット", DisplayText.VariationName("Aセット"));
         Assert.NotEqual(DisplayText.VariationName(null), DisplayText.VariationLabel(null));
     }
