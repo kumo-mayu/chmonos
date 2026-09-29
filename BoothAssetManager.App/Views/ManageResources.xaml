@@ -243,4 +243,20 @@
             </StackPanel>
         </Button>
     </DataTemplate>
+
+    <!--
+        並べ替えられる行の頭のつまみ（ユーザ指示 2026-09-29：並べ替えられると分かるように、検索の条件と同じ六点を出す）。
+        見た目だけの印で、掴むのは今までどおり行のどこでもよい（一覧の PreviewMouseLeftButtonDown が行ごと掴む）。
+        名前の位置をずらさないよう、置く側で行の左の余白の中へ負の Margin で出す
+    -->
+    <Style x:Key="ReorderGrip" TargetType="TextBlock">
+        <Setter Property="Text" Value="⋮⋮" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Width" Value="12" />
+        <Setter Property="Cursor" Value="SizeAll" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+        <Setter Property="ToolTip" Value="ドラッグで順番を変えられます" />
+    </Style>
 </ResourceDictionary>

@@ -89,9 +89,10 @@
                                          IsChecked="{Binding SortsByName, Mode=TwoWay}" />
                             <RadioButton Grid.Column="1" Content="件数順" GroupName="AttributeSort" Style="{StaticResource SegmentMiddle}"
                                          IsChecked="{Binding SortsByCount, Mode=TwoWay}" />
-                            <RadioButton Grid.Column="2" Content="手で並べた順" GroupName="AttributeSort" Style="{StaticResource SegmentLast}"
+                            <!-- 「手で並べた順」では何の順か・並べ替えられるかが伝わらなかった（ユーザ指示 2026-09-29） -->
+                            <RadioButton Grid.Column="2" Content="候補の並べ替え" GroupName="AttributeSort" Style="{StaticResource SegmentLast}"
                                          IsChecked="{Binding SortsManually, Mode=TwoWay}"
-                                         ToolTip="ドラッグで並べ替えると、自動でこれになります。" />
+                                         ToolTip="検索と編集の候補に表示する順です。行をドラッグして並べ替えます。" />
                         </Grid>
                     </StackPanel>
 
@@ -142,7 +143,8 @@
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="16,13">
+                                <Grid Margin="28,13,16,13">
+                                    <TextBlock Style="{StaticResource ReorderGrip}" Margin="-18,0,0,0" />
                                     <StackPanel Margin="0,0,50,0">
                                         <TextBlock Text="{Binding Name}" FontSize="13.5" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding AverageText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
