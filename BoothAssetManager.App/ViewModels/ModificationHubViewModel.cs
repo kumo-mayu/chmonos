@@ -64,7 +64,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         OpenVccCommand = new RelayCommand(OpenVcc);
         OpenAlcomCommand = new RelayCommand(OpenAlcom);
         OpenProjectCommand = new RelayCommand(parameter => OpenProject(PathOf(parameter)));
-        OpenProjectFolderCommand = new RelayCommand(parameter => Shell.Reveal(PathOf(parameter)));
+        OpenProjectFolderCommand = new RelayCommand(parameter => ExplorerReveal.RevealAsync(PathOf(parameter)).Forget());
         ShowProjectCommand = new RelayCommand(parameter => ShowProject(PathOf(parameter)));
         ShowModificationCommand = new RelayCommand(parameter =>
         {

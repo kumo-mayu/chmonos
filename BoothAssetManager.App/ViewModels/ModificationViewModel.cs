@@ -233,7 +233,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         UnlinkProjectCommand = new RelayCommand(() => LinkProjectAsync(null).Forget(), () => HasProject);
         RefreshProjectsCommand = new RelayCommand(() => LoadProjectsAsync().Forget());
         OpenProjectFolderCommand = new RelayCommand(
-            () => Shell.Reveal(Record.UnityProject), () => HasProject);
+            () => ExplorerReveal.RevealAsync(Record.UnityProject).Forget(), () => HasProject);
         SendAllToUnityCommand = new RelayCommand(
             // 外した行は送らない（今は使っていない物）
             () => SendToUnityAsync(Members.Where(row => row.IsUsed).ToList(), "使ったものを順にUnityへ送る").Forget(),

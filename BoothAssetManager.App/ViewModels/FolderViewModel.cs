@@ -343,7 +343,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
         ToggleCommand = new RelayCommand(parameter => Toggle(parameter as FolderViewRow));
         ShowOtherCommand = new RelayCommand(parameter => ShowOther(parameter as FolderViewRow));
-        RevealExtractedCommand = new RelayCommand(parameter => Shell.Reveal((parameter as FolderViewRow)?.Entry?.ExtractedFolder));
+        RevealExtractedCommand = new RelayCommand(parameter => ExplorerReveal.RevealAsync((parameter as FolderViewRow)?.Entry?.ExtractedFolder).Forget());
         SearchHereCommand = new RelayCommand(parameter =>
         {
             if (parameter is FolderViewDetail detail)
@@ -358,7 +358,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         {
             if (parameter is FolderViewDetail detail)
             {
-                Shell.Reveal(detail.Path);
+                ExplorerReveal.RevealAsync(detail.Path).Forget();
                 return;
             }
 
