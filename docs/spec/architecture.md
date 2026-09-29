@@ -61,6 +61,11 @@
 - **取り込み（`ImportPipeline.RunAsync`）と対応アバターの検出（`AvatarService.DetectAsync`）は、中身を `Task.Run` で裏へ出す**（2026-09-24）。
   Core は `ConfigureAwait(false)` を使わないので、画面から呼ぶと続きが画面のスレッドへ戻り、全件の読み込み・走査・書き込みがそこで走っていた。
   画面への知らせ（進み具合の `Progress`・通信の様子・画像の保存）は、受ける側が画面のスレッドへ運んでいる。優先度（`Prioritize`）は AsyncLocal なので中へ引き継がれる。
+- **何度も読まれる JSON は、ファイルの大きさと更新日時で写しを持つ**（読むだけの道に限る）。商品（`ItemRepository`）・改変（`ModificationRepository`）・
+  登録簿・タグ・属性・足跡（`JsonFileStore` の `shareLoaded`。中身が init だけの型なのでそのまま共有）・知らせ（`copyOnLoad`。入れ物の `List` だけ複製して渡す）。
+  **錠の中の読み直し（`UpdateAsync` など）は写しを使わずディスクから読む**（古い写しに当てて外で直した分を消さないため）。
+  ナビの件数は、未確定と知らせのファイルが前と同じ（大きさ・日時・自分の書き込みの数）なら読まずに前の数を使う（`NavCountReader`。2026-09-29）。
+  測った数字は `docs/research/memory-budget.md` の末尾。
 - 鍵（商品・ファイル）ごとの錠は `KeyedGate` で持ち、使う人がいなくなったら捨てる。
 - 待たない作業は `〜.Forget()`（失敗をログへ）。`_ = 〜Async()` は書かない。
 - パスの比較は `PathText.Same`（大文字小文字を無視）。
