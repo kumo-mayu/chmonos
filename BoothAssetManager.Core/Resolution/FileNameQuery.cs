@@ -196,14 +196,36 @@ public static partial class FileNameQuery
 
     /// <summary>
     /// いちばん特徴のある1語。AND 検索が全滅したときに、これだけで引き直す。
-    /// 日本語は2文字以上、英字は4文字以上で最長のもの（日本語は1文字の情報量が多いので倍に数える）。
+    /// 語が2つ以上あれば**最初の語**（英字は4文字以上、日本語は2文字以上なら）。配布ファイルは「商品名_色や版の名前」の順が多く、
+    /// 最長の語を選ぶと後ろの付け足し（色・セット・アバター名の別の綴り）が選ばれていた。正解の分かる472本で、
+    /// 商品名に無い語が混ざって1ページに正解が無かった外れの9割で、最初の語は商品名にあり、最長の語は無かった（2026-09-29）。
+    /// 最初の語が短ければ、日本語は2文字以上、英字は4文字以上で最長のもの（日本語は1文字の情報量が多いので倍に数える）。
+    /// **1語だけのファイルは空**（引き直さない）。分かち書きした中の最長の語（HeartBeatGimmick → Gimmick）で引くと、
+    /// 候補に正解が来る本数は変わらず、その語だけを名前に持つ別の商品が画面の1位を6本奪った（正解の分かる318本、2026-09-29）。
     /// </summary>
     /// <param name="isAvatarName">
     /// 渡せばアバターの名前を選ばない。英字のアバター名は7字前後と長いことが多く、
     /// 最長の1語を選ぶと商品名の語より先に選ばれて、そのアバターの商品ばかりが出ていた（2026-09-29）。
     /// </param>
     public static string MostDistinctiveToken(string fileNameOrPath, Func<string, bool>? isAvatarName = null)
-        => WithoutAvatarNames(Tokens(fileNameOrPath), isAvatarName)
+    {
+        var tokens = WithoutAvatarNames(Tokens(fileNameOrPath), isAvatarName);
+        if (tokens.Count < 2)
+        {
+            return string.Empty;
+        }
+
+        var first = SplitCamelCase(tokens[0]);
+        if (first.All(char.IsAscii) ? first.Length >= 4 : first.Length >= 2)
+        {
+            return first;
+        }
+
+        return LongestToken(tokens);
+    }
+
+    private static string LongestToken(IReadOnlyList<string> tokens)
+        => tokens
             .SelectMany(token => SplitCamelCase(token).Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Where(token => token.All(char.IsAscii) ? token.Length >= 4 : token.Length >= 2)
             .OrderByDescending(token => token.All(char.IsAscii) ? token.Length : token.Length * 2)

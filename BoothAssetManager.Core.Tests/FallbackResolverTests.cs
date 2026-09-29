@@ -102,11 +102,11 @@ public class FallbackResolverTests
         Assert.Equal(["222", "111", "333"], FallbackResolver.Rerank(cards, @"C:\dl\sampleflow_hair.zip").Select(card => card.ItemId));
     }
 
-    /// <summary>引き直しは、まず特徴のある1語。検索語と同じなら引き直さない。</summary>
+    /// <summary>引き直しは、まず特徴のある1語（語が2つ以上なら最初の語）。検索語と同じなら引き直さない。</summary>
     [Fact]
     public void RetriesWithTheMostDistinctiveTokenFirst()
     {
-        Assert.Equal(["Caramel"], FallbackResolver.RetryQueries(@"C:\dl\Braid_Caramel.zip", "Braid Caramel", null));
+        Assert.Equal(["Braid"], FallbackResolver.RetryQueries(@"C:\dl\Braid_Caramel.zip", "Braid Caramel", null));
         Assert.Empty(FallbackResolver.RetryQueries(@"C:\dl\Kipfel_1.2.0.zip", "Kipfel", null));
     }
 

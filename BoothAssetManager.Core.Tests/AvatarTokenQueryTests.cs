@@ -68,8 +68,8 @@ public class AvatarTokenQueryTests(RegistryCandidateBridgeFixture dictionary) : 
     [Fact]
     public void RetriesWithAProductWordRatherThanTheLongerAvatarName()
     {
-        Assert.Equal("Mofurin", FileNameQuery.MostDistinctiveToken("Cape_Mofurin.zip"));
-        Assert.Equal("Cape", FileNameQuery.MostDistinctiveToken("Cape_Mofurin.zip", Tokens().IsAvatarName));
+        Assert.Equal("Mofurin", FileNameQuery.MostDistinctiveToken("Mofurin_Cape_Ribbon.zip"));
+        Assert.Equal("Cape", FileNameQuery.MostDistinctiveToken("Mofurin_Cape_Ribbon.zip", Tokens().IsAvatarName));
     }
 
     /// <summary>
