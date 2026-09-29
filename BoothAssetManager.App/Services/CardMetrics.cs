@@ -55,8 +55,21 @@ public static class CardMetrics
     /// </summary>
     public static int EdgeDip { get; private set; } = EdgeFor(DefaultWidth);
 
-    /// <summary>大きさが変わった（一覧は列を割り直す）。</summary>
+    /// <summary>
+    /// カードの絵を読む長辺（画素）。<see cref="EdgeDip"/> に絵を読む倍率（画面の拡大率×表示の大きさ）を掛ける。
+    /// 一覧はこれが変わったときだけ見えているカードに読み直させる（スライダーの刻みを越えたとき・
+    /// 拡大率の違うモニターへ窓を移したとき・表示の大きさを変えたとき）
+    /// </summary>
+    public static int EdgePixels => DisplayScale.Pixels(EdgeDip);
+
+    /// <summary>
+    /// 大きさか、絵を読む倍率が変わった（一覧は列を割り直し、<see cref="EdgePixels"/> が変わっていれば読み直す）。
+    /// 倍率の知らせをここへ寄せるのは、カードを並べる画面がすでにこの知らせで「割り直し・読み直し」を持っているため
+    /// （倍率だけのために3つの画面へ別の知らせを足さない）
+    /// </summary>
     public static event Action? Changed;
+
+    static CardMetrics() => DisplayScale.Changed += () => Changed?.Invoke();
 
     public static double Clamp(double width)
         => double.IsNaN(width) ? DefaultWidth : Math.Clamp(Math.Round(width), MinWidth, MaxWidth);

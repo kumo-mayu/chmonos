@@ -339,7 +339,11 @@ public sealed record ShortcutSettings
     public string Forward { get; init; } = "Alt+Right";
 }
 
-/// <summary>ウィンドウの位置・大きさ・最大化。</summary>
+/// <summary>
+/// ウィンドウの位置・大きさ・最大化。**位置と大きさは画面の画素（物理ピクセル）**で持つ（2026-09-29）。
+/// 前は WPF の DIP で持っていたが、モニターごとの拡大率（Per-Monitor V2）では DIP の座標がモニターの間で重なり、
+/// 拡大率の違うモニターで閉じると別の場所・別の大きさで開いた。
+/// </summary>
 public sealed record WindowPlacement
 {
     public double Left { get; init; }

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Linq;
+using BoothAssetManager.App.Services;
 using BoothAssetManager.App.ViewModels;
 using BoothAssetManager.Core.Models;
 
@@ -44,6 +45,13 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 前回の位置と大きさ（画素）。窓ができた所（<see cref="OnSourceInitialized"/>）で置く。
+    /// WPF の Left・Top は拡大率の違うモニターの間で値が重なるので、作る前に DIP で渡すと
+    /// 別のモニターに開いたり、大きさが拡大率の比だけずれたりする（<see cref="Services.WindowNative"/>）
+    /// </summary>
+    private WindowNative.NativeRect? _pendingPlacement;
+
+    /// <summary>
     /// 前回の位置と大きさで開く。
     ///
     /// 保存した矩形が今あるモニタのどれとも重ならなければ捨てて中央に開く。
@@ -57,16 +65,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!IsOnAnyScreen(placement))
+        var rect = new WindowNative.NativeRect
+        {
+            Left = (int)Math.Round(placement.Left),
+            Top = (int)Math.Round(placement.Top),
+            Right = (int)Math.Round(placement.Left + placement.Width),
+            Bottom = (int)Math.Round(placement.Top + placement.Height),
+        };
+
+        // 少しでも掛かっていればよい。掴んで動かせるなら、そこから直せる
+        if (!WindowNative.IsOnAnyMonitor(rect))
         {
             return;
         }
 
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Left = placement.Left;
-        Top = placement.Top;
-        Width = placement.Width;
-        Height = placement.Height;
+        _pendingPlacement = rect;
 
         if (placement.IsMaximized)
         {
@@ -75,43 +89,48 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 今の姿を保存できる形にする。
-    /// 最大化中は <see cref="Window.RestoreBounds"/>（解除したときの姿）を採る。
-    /// 最大化中の値を書くと、次に解除したときに画面いっぱいのまま戻らなくなる。
+    /// 今の姿を保存できる形にする（画素）。窓が無ければ null（覚え直さない）。
+    /// 最大化中は「解除したときの姿」を採る。最大化中の値を書くと、次に解除したときに画面いっぱいのまま戻らなくなる。
     /// </summary>
-    public WindowPlacement CurrentPlacement()
+    public WindowPlacement? CurrentPlacement()
     {
-        var maximized = WindowState == WindowState.Maximized;
-        var bounds = maximized || WindowState == WindowState.Minimized ? RestoreBounds : new Rect(Left, Top, Width, Height);
+        if (WindowNative.ReadPlacement(this) is not { } current)
+        {
+            return null;
+        }
 
         return new WindowPlacement
         {
-            Left = bounds.Left,
-            Top = bounds.Top,
-            Width = bounds.Width,
-            Height = bounds.Height,
-            IsMaximized = maximized,
+            Left = current.Normal.Left,
+            Top = current.Normal.Top,
+            Width = current.Normal.Width,
+            Height = current.Normal.Height,
+            IsMaximized = current.Maximized,
         };
     }
 
-    /// <summary>
-    /// 今の画面の範囲に掛かっているか。
-    ///
-    /// 全モニタを囲む矩形（仮想画面）と重なるかで見る。WinFormsのScreenやWin32を使うと
-    /// 物理ピクセルで返るので、DIPで持っているこちらの値と混ざる（複数DPIだと実際にずれる）。
-    /// 判定は緩いが、狙いは「モニタを外したときに画面外へ開かない」ことなので、これで足りる。
-    ///
-    /// 少しでも掛かっていればよい。掴んで動かせるなら、そこから直せる。
-    /// </summary>
-    private static bool IsOnAnyScreen(WindowPlacement placement)
+    protected override void OnSourceInitialized(EventArgs e)
     {
-        var screen = new Rect(
-            SystemParameters.VirtualScreenLeft,
-            SystemParameters.VirtualScreenTop,
-            SystemParameters.VirtualScreenWidth,
-            SystemParameters.VirtualScreenHeight);
+        base.OnSourceInitialized(e);
 
-        return screen.IntersectsWith(new Rect(placement.Left, placement.Top, placement.Width, placement.Height));
+        if (_pendingPlacement is { } placement)
+        {
+            WindowNative.ApplyPlacement(this, placement);
+            _pendingPlacement = null;
+        }
+
+        // 置いた後のモニターで読む（前回を別のモニターで閉じていれば、ここで初めてそちらの拡大率になる）
+        Services.DisplayScale.SetMonitor(System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX);
+    }
+
+    /// <summary>
+    /// 拡大率の違うモニターへ移った（Per-Monitor V2）。描き直しは WPF がするので、
+    /// ここでは絵を読む倍率を替える（見えているカードが読み直す）。
+    /// </summary>
+    protected override void OnDpiChanged(System.Windows.DpiScale oldDpi, System.Windows.DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        Services.DisplayScale.SetMonitor(newDpi.DpiScaleX);
     }
 
     /// <summary>

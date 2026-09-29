@@ -219,7 +219,11 @@ public partial class App : Application
         // （1件ずつ保存しているので、どこで止めても壊れない）
         main.StopBackgroundWork();
 
-        var placement = window.CurrentPlacement();
+        // 窓が無ければ（閉じる途中で既に壊れているなど）覚え直さず、前回の値を残す
+        if (window.CurrentPlacement() is not { } placement)
+        {
+            return;
+        }
 
         // **画面のスレッドで同期に待たない。**保存は書き込みの門を待つので、保存先を運んでいる間
         // （門は分単位で閉じ、運び終えると開き直すまで開かない）に閉じると、終わりのない「応答なし」になった（点検 2026-09-28）。
