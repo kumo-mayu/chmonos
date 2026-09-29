@@ -1,0 +1,231 @@
+<!--
+    明るい色の表。暗い色の表（Dark.xaml）と同じ鍵を持つ。画面は鍵でしか色を指さない（docs/spec/ui-colors.md）。
+    値はモックで決めた配色と、画面に直に書いていた色をそのまま移したもの。鍵を足すときは Dark.xaml にも同じ鍵を足す
+    （片方に無いと、その色の間だけ参照が空になって黙って透明になる。ThemeTests が鍵の揃いを見る）
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ===== 面：画面の地・カード・枠 ===== -->
+    <!-- 画面の地。カード（Surface）より一段沈める -->
+    <SolidColorBrush x:Key="Bg" Color="#f2f3f5" />
+    <!-- カード・帯・窓の面 -->
+    <SolidColorBrush x:Key="Surface" Color="#ffffff" />
+    <!-- 乗せたとき・押せない物・一段下げた箱の面 -->
+    <SolidColorBrush x:Key="SurfaceAlt" Color="#fafafb" />
+    <!-- カードと帯の枠 -->
+    <SolidColorBrush x:Key="Border" Color="#e2e4e9" />
+    <!-- ボタン・入力欄の枠、強めの区切り -->
+    <SolidColorBrush x:Key="BorderStrong" Color="#cdd0d8" />
+    <!-- カードの中の行と行の間の細い線。枠（Border）より薄い -->
+    <SolidColorBrush x:Key="Divider" Color="#f0f1f4" />
+    <!-- 棒と進み具合の、まだ埋まっていない所 -->
+    <SolidColorBrush x:Key="BarTrack" Color="#f0f1f4" />
+    <!-- 文字を入れる欄の地 -->
+    <SolidColorBrush x:Key="InputBack" Color="#ffffff" />
+
+    <!-- ===== 文字 ===== -->
+    <!-- 本文・見出し -->
+    <SolidColorBrush x:Key="Text" Color="#1c1f26" />
+    <!-- 説明文の本文・札の文字・数の列。Text より一段柔らかい -->
+    <SolidColorBrush x:Key="TextBody" Color="#454b57" />
+    <!-- 補足・ラベル -->
+    <SolidColorBrush x:Key="TextMuted" Color="#6a7180" />
+    <!-- いちばん弱い補足・押せない物の文字 -->
+    <SolidColorBrush x:Key="TextFaint" Color="#9aa1ae" />
+
+    <!-- ===== 強調（青） ===== -->
+    <!-- 面の上に置く青：リンク・選んだ枠・挿す位置の線・棒 -->
+    <SolidColorBrush x:Key="Accent" Color="#3767a6" />
+    <!-- 青の文字の小さな札（新規・フォルダ・件数・常設の1行） -->
+    <SolidColorBrush x:Key="AccentText" Color="#28507f" />
+    <!-- 選んだ物・青の札の地 -->
+    <SolidColorBrush x:Key="AccentSoft" Color="#eaf0f9" />
+    <SolidColorBrush x:Key="AccentBorder" Color="#c6d6ec" />
+    <!-- AccentSoft の地に載せる文字（頭文字・導入の順） -->
+    <SolidColorBrush x:Key="AccentSoftText" Color="#4a5160" />
+    <!-- 白い文字（OnAccent）を載せる青の地：重要なボタン・選んだ切り替え・件数の丸 -->
+    <SolidColorBrush x:Key="AccentFill" Color="#3767a6" />
+    <!-- 重要なボタンに乗せたときの青。AccentFill より一段濃くして、白い文字が読めるままにする -->
+    <SolidColorBrush x:Key="AccentHover" Color="#2b5487" />
+    <!-- 色の地（AccentFill・GoodFill・BadFill・ナビの件数）に載せる文字 -->
+    <SolidColorBrush x:Key="OnAccent" Color="#ffffff" />
+    <!-- 絵の上に置く青の札（サムネイル） -->
+    <SolidColorBrush x:Key="AccentOverlay" Color="#cc3767a6" />
+
+    <!-- ===== 状態の色：文字（無印）・札の地（Soft）・札の枠（Border）・白い文字を載せる地（Fill） ===== -->
+    <!-- 所持・保存した・手元にある -->
+    <SolidColorBrush x:Key="Good" Color="#2f7d5a" />
+    <SolidColorBrush x:Key="GoodSoft" Color="#e7f2ec" />
+    <SolidColorBrush x:Key="GoodBorder" Color="#c9e2d5" />
+    <SolidColorBrush x:Key="GoodFill" Color="#2f7d5a" />
+    <!-- 注意・書きかけ -->
+    <SolidColorBrush x:Key="Warn" Color="#8a5f1a" />
+    <SolidColorBrush x:Key="WarnSoft" Color="#fbf1de" />
+    <SolidColorBrush x:Key="WarnBorder" Color="#eddcbb" />
+    <!-- 「見つからない」のような、注意ではなく異常を示す色。Good/Warn と同じ彩度に揃える -->
+    <SolidColorBrush x:Key="Bad" Color="#a33c3c" />
+    <SolidColorBrush x:Key="BadSoft" Color="#fbeaea" />
+    <SolidColorBrush x:Key="BadBorder" Color="#eec9c9" />
+    <SolidColorBrush x:Key="BadFill" Color="#a33c3c" />
+    <!-- 取り返しのつかない操作のボタンと右クリックの項目（V4） -->
+    <SolidColorBrush x:Key="DangerText" Color="#9a3232" />
+    <SolidColorBrush x:Key="DangerBorder" Color="#e2bcbc" />
+    <!-- 未読の件数。ナビのバッジと要確認の束の件数（ユーザ指示 2026-09-18） -->
+    <SolidColorBrush x:Key="Unread" Color="#8a3f6b" />
+    <SolidColorBrush x:Key="UnreadSoft" Color="#f8edf4" />
+    <SolidColorBrush x:Key="UnreadBorder" Color="#e6cddd" />
+    <SolidColorBrush x:Key="UnreadFill" Color="#8a3f6b" />
+    <!-- ナビの「未確定」「未:n」の件数の地 -->
+    <SolidColorBrush x:Key="NeedsWorkFill" Color="#9a6b1f" />
+    <!-- お気に入りの★ -->
+    <SolidColorBrush x:Key="Star" Color="#d99a00" />
+
+    <!-- ===== 札（BOOTHのタグ・対応アバター） ===== -->
+    <SolidColorBrush x:Key="ChipBack" Color="#ffffff" />
+    <SolidColorBrush x:Key="ChipText" Color="#454b57" />
+    <SolidColorBrush x:Key="ChipBorder" Color="#e2e4e9" />
+    <!-- 札の中の「×」（外す） -->
+    <SolidColorBrush x:Key="ChipRemove" Color="#7d8fa8" />
+
+    <!-- ===== ナビ（左の暗い帯）。明るい表でも暗い ===== -->
+    <SolidColorBrush x:Key="Rail" Color="#22262e" />
+    <SolidColorBrush x:Key="RailActive" Color="#313745" />
+    <SolidColorBrush x:Key="RailHover" Color="#2b303a" />
+    <SolidColorBrush x:Key="RailText" Color="#cfd4dd" />
+    <!-- 選んでいる項目の文字とアイコン -->
+    <SolidColorBrush x:Key="RailTextActive" Color="#ffffff" />
+    <!-- 見出し・押せないボタンの文字 -->
+    <SolidColorBrush x:Key="RailLabel" Color="#5d6675" />
+    <!-- アプリの名前（ナビの頭と初回の窓の頭） -->
+    <SolidColorBrush x:Key="RailTitle" Color="#ffffff" />
+    <!-- 名前に添える読み「クモノス」 -->
+    <SolidColorBrush x:Key="RailSubtitle" Color="#8a93a3" />
+    <!-- 名前の下の件数、初回の窓の断り書き -->
+    <SolidColorBrush x:Key="RailMuted" Color="#767f8e" />
+    <!-- 初回の窓の頭の説明 -->
+    <SolidColorBrush x:Key="RailIntro" Color="#a8b0be" />
+    <!-- 押せない小さなボタンの枠 -->
+    <SolidColorBrush x:Key="RailButtonDimBorder" Color="#2a2f3c" />
+    <!--
+        ナビの中の知らせ（BOOTHの形式の変化）。明るいクリーム色（WarnSoft）を置くと暗い帯から浮いたので、
+        背景はナビと同系の暗い色のまま少し持ち上げ、注意の色は文字と左の縁だけに使う（ユーザ指摘 2026-09-18）
+    -->
+    <SolidColorBrush x:Key="RailNoticeBack" Color="#2a2f3c" />
+    <SolidColorBrush x:Key="RailNoticeFrame" Color="#3b4354" />
+    <SolidColorBrush x:Key="RailNoticeEdge" Color="#c39a55" />
+    <SolidColorBrush x:Key="RailNoticeText" Color="#e2bd83" />
+
+    <!-- ===== 絵の周り ===== -->
+    <!-- 絵を置く枠の地（カード・商品ページ・アバター）。絵が届く前と、余白に見える -->
+    <SolidColorBrush x:Key="ImageBack" Color="#e9edf4" />
+    <!-- 小さな絵の枠の地（180px の一覧・編集の絵・絵の帯） -->
+    <SolidColorBrush x:Key="ThumbBack" Color="#edeff3" />
+    <!-- 絵が無いときの大きな頭文字 -->
+    <SolidColorBrush x:Key="PlaceholderGlyph" Color="#b9c1cf" />
+    <!-- 絵の代わりのフォルダの形の中 -->
+    <SolidColorBrush x:Key="FolderIconFill" Color="#f7f8fa" />
+    <!-- ショップの頭文字のタイル（色は名前から決まる淡い色で、どちらの表でも同じ）に載せる文字 -->
+    <SolidColorBrush x:Key="TileText" Color="#4a5160" />
+    <!-- 絵の上の文字と矢印。絵は色の表で変わらないので、どちらの表でも白 -->
+    <SolidColorBrush x:Key="OnImage" Color="#ffffff" />
+    <!-- 絵の上の件数の丸 -->
+    <SolidColorBrush x:Key="ImageScrim" Color="#99000000" />
+    <!-- 絵の上の「削除済」 -->
+    <SolidColorBrush x:Key="ImageScrimLight" Color="#66000000" />
+    <!-- 絵の左右の送る帯に乗せたとき -->
+    <SolidColorBrush x:Key="ImageHoverShade" Color="#2b000000" />
+    <!-- 絵の何枚目かの点（今の1枚が Active） -->
+    <SolidColorBrush x:Key="ImageDotIdle" Color="#66ffffff" />
+    <SolidColorBrush x:Key="ImageDotActive" Color="#f2ffffff" />
+    <!-- カードの絵の上に置く選ぶ印・「中を見る」の地 -->
+    <SolidColorBrush x:Key="ImagePill" Color="#d6ffffff" />
+    <!-- 絵の上の矢印に付ける影 -->
+    <Color x:Key="GlyphShadowColor">#ff000000</Color>
+
+    <!-- ===== その他 ===== -->
+    <!-- 取り込みのドロップ先 -->
+    <SolidColorBrush x:Key="DropZoneBack" Color="#f7faff" />
+    <SolidColorBrush x:Key="DropZoneBorder" Color="#b9c6dc" />
+    <!-- 札の並びの右端で、はみ出した札を面の色へ消していく帯 -->
+    <LinearGradientBrush x:Key="SurfaceFade" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#00ffffff" Offset="0" />
+        <GradientStop Color="#ffffffff" Offset="0.45" />
+    </LinearGradientBrush>
+    <!-- 入力欄の候補の一覧の影 -->
+    <Color x:Key="PopupShadowColor">#22000000</Color>
+    <!-- 画面内検索の印（今の一致だけ濃く） -->
+    <SolidColorBrush x:Key="FindMatch" Color="#70ffe066" />
+    <SolidColorBrush x:Key="FindCurrent" Color="#a0ff9f2e" />
+    <!-- ===== 標準の部品（Themes/Controls.xaml が描く）。明るい表の値は Windows の既定の見た目（Aero2）に合わせた ===== -->
+    <!-- 入力欄 -->
+    <SolidColorBrush x:Key="InputBorder" Color="#abadb3" />
+    <SolidColorBrush x:Key="InputBorderHover" Color="#7eb4ea" />
+    <SolidColorBrush x:Key="InputBorderFocus" Color="#569de5" />
+    <!-- 選んだ文字の地（欄は 40% の濃さで重ねる）と文字入れの印 -->
+    <SolidColorBrush x:Key="SelectionBack" Color="#0078d7" />
+    <SolidColorBrush x:Key="Caret" Color="#1c1f26" />
+    <!-- チェックボックスとラジオボタンの箱 -->
+    <SolidColorBrush x:Key="CheckBack" Color="#ffffff" />
+    <SolidColorBrush x:Key="CheckBackHover" Color="#f3f9ff" />
+    <SolidColorBrush x:Key="CheckBackPressed" Color="#d9ecff" />
+    <SolidColorBrush x:Key="CheckBorder" Color="#707070" />
+    <SolidColorBrush x:Key="CheckBorderHover" Color="#5593ff" />
+    <SolidColorBrush x:Key="CheckMark" Color="#212121" />
+    <!-- プルダウン（閉じている箱） -->
+    <SolidColorBrush x:Key="ComboBack" Color="#eaeaea" />
+    <SolidColorBrush x:Key="ComboBackHover" Color="#e3eefb" />
+    <SolidColorBrush x:Key="ComboBorder" Color="#acacac" />
+    <SolidColorBrush x:Key="ComboBorderHover" Color="#7eb4ea" />
+    <SolidColorBrush x:Key="ComboArrow" Color="#606060" />
+    <!-- 右クリックのメニュー・プルダウンの一覧・上のメニュー -->
+    <SolidColorBrush x:Key="MenuBack" Color="#f0f0f0" />
+    <SolidColorBrush x:Key="MenuBorder" Color="#999999" />
+    <SolidColorBrush x:Key="MenuHover" Color="#3d26a0da" />
+    <SolidColorBrush x:Key="MenuHoverBorder" Color="#26a0da" />
+    <SolidColorBrush x:Key="MenuText" Color="#1c1f26" />
+    <SolidColorBrush x:Key="MenuTextDisabled" Color="#707070" />
+    <SolidColorBrush x:Key="MenuSeparator" Color="#d7d7d7" />
+    <!-- メニューのチェックの印と、下の段がある項目の矢印 -->
+    <SolidColorBrush x:Key="MenuGlyph" Color="#212121" />
+    <!-- 吹き出し -->
+    <SolidColorBrush x:Key="ToolTipBack" Color="#ffffff" />
+    <SolidColorBrush x:Key="ToolTipBorder" Color="#767676" />
+    <SolidColorBrush x:Key="ToolTipText" Color="#1c1f26" />
+    <!-- 一覧の行（自前の見た目を持たない一覧） -->
+    <SolidColorBrush x:Key="ListHoverBack" Color="#1f26a0da" />
+    <SolidColorBrush x:Key="ListHoverBorder" Color="#a826a0da" />
+    <SolidColorBrush x:Key="ListSelectedBack" Color="#3d26a0da" />
+    <SolidColorBrush x:Key="ListSelectedBorder" Color="#26a0da" />
+    <SolidColorBrush x:Key="ListSelectedInactiveBack" Color="#3ddadada" />
+    <SolidColorBrush x:Key="ListSelectedInactiveBorder" Color="#dadada" />
+    <!-- スクロールバー -->
+    <SolidColorBrush x:Key="ScrollTrack" Color="#f0f0f0" />
+    <SolidColorBrush x:Key="ScrollThumb" Color="#cdcdcd" />
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="#a6a6a6" />
+    <SolidColorBrush x:Key="ScrollThumbPressed" Color="#606060" />
+    <SolidColorBrush x:Key="ScrollArrow" Color="#606060" />
+    <SolidColorBrush x:Key="ScrollArrowHoverBack" Color="#dadada" />
+    <!-- スライダー -->
+    <SolidColorBrush x:Key="SliderTrack" Color="#e7eaea" />
+    <SolidColorBrush x:Key="SliderTrackBorder" Color="#d6d6d6" />
+    <SolidColorBrush x:Key="SliderThumb" Color="#f0f0f0" />
+    <SolidColorBrush x:Key="SliderThumbBorder" Color="#acacac" />
+    <SolidColorBrush x:Key="SliderThumbHover" Color="#dcecfc" />
+    <SolidColorBrush x:Key="SliderThumbHoverBorder" Color="#7eb4ea" />
+    <SolidColorBrush x:Key="SliderTick" Color="#c4c4c4" />
+    <!-- 表の見出し（リスト表示の列） -->
+    <SolidColorBrush x:Key="ColumnHeaderBack" Color="#ffffff" />
+    <SolidColorBrush x:Key="ColumnHeaderHover" Color="#d9ebf9" />
+    <SolidColorBrush x:Key="ColumnHeaderBorder" Color="#e5e5e5" />
+
+    <!--
+        Windows の色（SystemColors）の置き換え。自前の見た目を持たない所（窓の地・一覧の地・スクロールバーの角・カレンダー以外の既定の部品）が読む。
+        明るい表の値は Windows の既定と同じ
+    -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#ffffff" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#f0f0f0" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#6d6d6d" />
+</ResourceDictionary>

@@ -28,7 +28,7 @@
                     <ControlTemplate TargetType="Button">
                         <!-- 三角は図形で描く（改変の画面と同じ。文字の ▸▾ は字を大きくしても小さく見えた） -->
                         <Border Background="Transparent">
-                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{StaticResource TextMuted}"
+                            <Path x:Name="Mark" Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
                                   Width="6" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
                                   Visibility="{Binding CanExpand, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Border>
@@ -108,21 +108,21 @@
                         CommandParameter="{Binding}" />
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,2,0">
-                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
                             CornerRadius="8" Padding="6,0" Margin="0,0,6,0" ToolTip="{Binding UnresolvedBadgeTip}"
                             Visibility="{Binding HasUnresolvedBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="{Binding UnresolvedBadgeText}" FontSize="10" Foreground="{StaticResource Warn}" />
+                        <TextBlock Text="{Binding UnresolvedBadgeText}" FontSize="10" Foreground="{DynamicResource Warn}" />
                     </Border>
                     <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" />
                 </StackPanel>
 
                 <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top">
-                    <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.3"
+                    <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.3"
                           Stretch="Uniform" Width="17" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
 
                 <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{StaticResource Text}"
+                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
                     <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -133,20 +133,20 @@
         <!-- ファイルの行の下の1行（見つからない・ほかの場所・展開したフォルダ）。商品のファイルと未確定で同じ -->
         <DataTemplate x:Key="FolderRowFileNotes" DataType="{x:Type vm:FolderViewRow}">
             <WrapPanel>
-                <TextBlock Text="{Binding MissingText}" FontSize="10.5" Foreground="{StaticResource Warn}" Margin="0,0,8,0"
+                <TextBlock Text="{Binding MissingText}" FontSize="10.5" Foreground="{DynamicResource Warn}" Margin="0,0,8,0"
                            Visibility="{Binding HasMissingText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Button Style="{StaticResource FolderLink}" Margin="0,0,8,0"
                         Visibility="{Binding HasOthers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.ShowOtherCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="同じ中身のファイルが置いてある、もう1つの場所へ移ります">
-                    <TextBlock Text="{Binding OthersText}" FontSize="10.5" Foreground="{StaticResource Accent}" TextDecorations="Underline" />
+                    <TextBlock Text="{Binding OthersText}" FontSize="10.5" Foreground="{DynamicResource Accent}" TextDecorations="Underline" />
                 </Button>
                 <!-- zip の横の展開したフォルダ（ユーザ判断：zip の下に薄く出す） -->
                 <Button Style="{StaticResource FolderLink}"
                         Visibility="{Binding HasExtracted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.RevealExtractedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="横にある、このzipを展開したフォルダをエクスプローラで開きます">
-                    <TextBlock Text="展開したフォルダあり" FontSize="10.5" Foreground="{StaticResource TextFaint}" TextDecorations="Underline" />
+                    <TextBlock Text="展開したフォルダあり" FontSize="10.5" Foreground="{DynamicResource TextFaint}" TextDecorations="Underline" />
                 </Button>
             </WrapPanel>
         </DataTemplate>
@@ -162,29 +162,29 @@
                     改変の画面の使ったものの行と同じ出し方・180px）
                 -->
                 <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
-                        CornerRadius="4" Background="{StaticResource SurfaceAlt}" ClipToBounds="True"
+                        CornerRadius="4" Background="{DynamicResource SurfaceAlt}" ClipToBounds="True"
                         ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right">
                     <Grid>
-                        <TextBlock Text="{Binding Initial}" FontSize="10" Foreground="{StaticResource TextMuted}"
+                        <TextBlock Text="{Binding Initial}" FontSize="10" Foreground="{DynamicResource TextMuted}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                     </Grid>
                     <Border.ToolTip>
-                        <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
+                        <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
                             <StackPanel Width="180">
-                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                         Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                                 </Border>
                                 <TextBlock Text="{Binding ItemName}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
-                                           Foreground="{StaticResource Text}" />
+                                           Foreground="{DynamicResource Text}" />
                             </StackPanel>
                         </ToolTip>
                     </Border.ToolTip>
                 </Border>
 
                 <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{StaticResource Text}"
+                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
                     <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -199,13 +199,13 @@
                 <FrameworkElement DockPanel.Dock="Left" Width="18" />
 
                 <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
-                        CornerRadius="4" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1">
-                    <TextBlock Text="?" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Warn}"
+                        CornerRadius="4" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1">
+                    <TextBlock Text="?" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Warn}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
 
                 <StackPanel Style="{StaticResource FolderRowText}">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{StaticResource Text}"
+                    <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
                     <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasSubText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -221,7 +221,7 @@
       </ResourceDictionary>
     </UserControl.Resources>
 
-    <controls:PaneGrid Background="{StaticResource Bg}" Pane="{Binding ListPane}">
+    <controls:PaneGrid Background="{DynamicResource Bg}" Pane="{Binding ListPane}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                               MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
@@ -233,7 +233,7 @@
                                ResetCommand="{Binding ListPane.ResetCommand}" />
 
         <!-- 左：絞り込みとフォルダの木 -->
-        <Border Grid.Column="0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+        <Border Grid.Column="0" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                 BorderThickness="0,0,1,0">
             <DockPanel>
                 <!-- 今どの画面にいるかを、ほかの画面の上の帯と同じく太字の名前で出す（ユーザ指示 2026-09-14） -->
@@ -244,7 +244,7 @@
                                  VerticalContentAlignment="Center" Padding="7,0"
                                  AutomationProperties.Name="ファイル名・商品名・フォルダ名で絞り込む" />
                         <TextBlock Text="ファイル名・商品名・フォルダ名で絞り込む" IsHitTestVisible="False" Margin="10,0,0,0"
-                                   VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextFaint}"
+                                   VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}"
                                    Visibility="{Binding HasFilter, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                     </Grid>
                     <!--
@@ -252,18 +252,18 @@
                         「管理対象」「未確定」は、商品を出すときだけ効く。商品は右の一覧（検索画面と同じカード）でも見られる
                     -->
                     <CheckBox Content="商品を表示する" IsChecked="{Binding ShowItems, Mode=TwoWay}" Margin="0,10,0,0"
-                              Foreground="{StaticResource Text}" />
+                              Foreground="{DynamicResource Text}" />
                     <StackPanel Orientation="Horizontal" Margin="22,6,0,0" IsEnabled="{Binding ShowItems}">
                         <CheckBox Content="管理対象" IsChecked="{Binding ShowManaged, Mode=TwoWay}" Margin="0,0,14,0"
-                                  Foreground="{StaticResource Text}" ToolTip="商品に紐付いているファイル・フォルダを木に表示します" />
+                                  Foreground="{DynamicResource Text}" ToolTip="商品に紐付いているファイル・フォルダを木に表示します" />
                         <CheckBox Content="未確定" IsChecked="{Binding ShowUnresolved, Mode=TwoWay}"
-                                  Foreground="{StaticResource Text}" ToolTip="商品が決まっていないファイルを「?」の印で木に表示します" />
+                                  Foreground="{DynamicResource Text}" ToolTip="商品が決まっていないファイルを「?」の印で木に表示します" />
                     </StackPanel>
                 </StackPanel>
 
                 <!-- 状態の1行は下に置く（改変の画面と同じ理由：文が出ても一覧が動かない） -->
-                <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0"
-                        Background="{StaticResource Bg}" Padding="16,8"
+                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
+                        Background="{DynamicResource Bg}" Padding="16,8"
                         Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                 </Border>

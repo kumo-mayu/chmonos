@@ -51,6 +51,9 @@ public partial class App : Application
             }
         };
 
+        // 表示の色は窓を1つでも出す前に当てる（保存先の確かめ・初回の窓も同じ色で出す）。設定はまだ読めないので、まず Windows に合わせる
+        ViewModels.AppTheme.Start();
+
         if (!EnsureStoreReachable())
         {
             Shutdown();
@@ -85,8 +88,12 @@ public partial class App : Application
             return;
         }
 
+        // 設定の表示の色。主の窓を作る前に当てる（作るときに色を読む）
+        ViewModels.AppTheme.Initialize(_services);
+
         var main = new MainViewModel(_services);
         var mainWindow = new MainWindow { DataContext = main };
+        ViewModels.AppTheme.Watch(mainWindow);
 
         mainWindow.RestorePlacement(_services.UiState.Window);
 
@@ -250,6 +257,7 @@ public partial class App : Application
         }
 
         Services.UnityFocusWatch.Stop();
+        ViewModels.AppTheme.Stop();
         _services?.Dispose();
         base.OnExit(e);
     }

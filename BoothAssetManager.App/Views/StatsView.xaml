@@ -23,7 +23,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Hit" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                <Setter TargetName="Hit" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -34,7 +34,7 @@
         <Style x:Key="PanelTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
         </Style>
 
         <!--
@@ -54,10 +54,10 @@
                            ToolTip="{Binding Label}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Text}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsResidual}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -65,7 +65,7 @@
                 </TextBlock>
 
                 <Border Grid.Column="1" Height="9" CornerRadius="4" Margin="11,0" ClipToBounds="True"
-                        Background="#f0f1f4" VerticalAlignment="Center">
+                        Background="{DynamicResource BarTrack}" VerticalAlignment="Center">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{Binding BarLength}" />
@@ -74,10 +74,10 @@
                         <Border Grid.Column="0" CornerRadius="4">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Background" Value="{StaticResource Accent}" />
+                                    <Setter Property="Background" Value="{DynamicResource Accent}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsResidual}" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource BorderStrong}" />
+                                            <Setter Property="Background" Value="{DynamicResource BorderStrong}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -88,19 +88,19 @@
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="11.5"
-                               Foreground="#454b57" TextAlignment="Right" MinWidth="62" />
+                               Foreground="{DynamicResource TextBody}" TextAlignment="Right" MinWidth="62" />
                     <TextBlock Text="{Binding SubText}" Style="{StaticResource Mono}" FontSize="11"
-                               Foreground="{StaticResource TextFaint}" TextAlignment="Right"
+                               Foreground="{DynamicResource TextFaint}" TextAlignment="Right"
                                MinWidth="38" Margin="6,0,0,0" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="統計" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
@@ -117,13 +117,13 @@
         </Border>
 
         <Grid>
-            <TextBlock Text="集計しています…" Foreground="{StaticResource TextMuted}"
+            <TextBlock Text="集計しています…" Foreground="{DynamicResource TextMuted}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="集計できる商品がまだありません" Foreground="{StaticResource TextMuted}"
+                <TextBlock Text="集計できる商品がまだありません" Foreground="{DynamicResource TextMuted}"
                            HorizontalAlignment="Center" />
                 <TextBlock Text="取り込みを済ませると、ここに支出や容量の内訳が表示されます。"
                            Style="{StaticResource Caption}" Margin="0,7,0,0" HorizontalAlignment="Center" />
@@ -183,11 +183,11 @@
                     </UniformGrid>
 
                     <!-- 総額に入っていない分。数字の隣ではなく、独立した断り書きとして出す -->
-                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                             BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,14,0,0"
                             Visibility="{Binding HasUnpricedNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <TextBlock Text="{Binding UnpricedNote}" FontSize="12"
-                                   Foreground="{StaticResource Warn}" TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- 月別の支出 -->
@@ -213,22 +213,22 @@
                                 <!-- 縦軸。目盛りは棒の帯（上14px・下32px〔月18＋年14〕を除いた140px）に合わせる -->
                                 <Grid Grid.Column="0" Width="52" Height="140" Margin="0,14,0,32">
                                     <TextBlock Text="{Binding AxisTopText}" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{StaticResource TextFaint}" HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
                                                VerticalAlignment="Top" Margin="0,-7,8,0" />
                                     <TextBlock Text="{Binding AxisMidText}" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{StaticResource TextFaint}" HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
                                                VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <TextBlock Text="¥0" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{StaticResource TextFaint}" HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource TextFaint}" HorizontalAlignment="Right"
                                                VerticalAlignment="Bottom" Margin="0,0,8,-7" />
                                 </Grid>
 
                                 <Grid Grid.Column="1">
                                     <!-- 目盛り線。棒と同じ帯にだけ重ねる -->
                                     <Grid Margin="0,14,0,32">
-                                        <Border Height="1" VerticalAlignment="Top" Background="#f0f1f4" />
-                                        <Border Height="1" VerticalAlignment="Center" Background="#f0f1f4" />
-                                        <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource Border}" />
+                                        <Border Height="1" VerticalAlignment="Top" Background="{DynamicResource Divider}" />
+                                        <Border Height="1" VerticalAlignment="Center" Background="{DynamicResource Divider}" />
+                                        <Border Height="1" VerticalAlignment="Bottom" Background="{DynamicResource Border}" />
                                     </Grid>
 
                                     <ItemsControl ItemsSource="{Binding Chart}">
@@ -246,11 +246,11 @@
                                                     -->
                                                     <Canvas DockPanel.Dock="Bottom" Height="14" ClipToBounds="False">
                                                         <TextBlock Text="{Binding YearLabel}" Style="{StaticResource Mono}" FontSize="10"
-                                                                   Foreground="{StaticResource TextMuted}" Canvas.Left="2" />
+                                                                   Foreground="{DynamicResource TextMuted}" Canvas.Left="2" />
                                                     </Canvas>
                                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Label}" Height="18"
                                                                Style="{StaticResource Mono}" FontSize="10.5"
-                                                               Foreground="{StaticResource TextFaint}"
+                                                               Foreground="{DynamicResource TextFaint}"
                                                                HorizontalAlignment="Center" Margin="0,4,0,0" />
                                                     <Grid Height="154">
                                                         <StackPanel VerticalAlignment="Bottom" Margin="4,0">
@@ -259,10 +259,10 @@
                                                                        HorizontalAlignment="Center">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Mono}">
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding IsPeak}" Value="True">
-                                                                                <Setter Property="Foreground" Value="#28507f" />
+                                                                                <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
@@ -274,7 +274,7 @@
                                                             -->
                                                             <Border Height="{Binding BarHeight}" CornerRadius="4,4,0,0"
                                                                     MaxWidth="72"
-                                                                    Background="{StaticResource Accent}" />
+                                                                    Background="{DynamicResource Accent}" />
                                                         </StackPanel>
                                                     </Grid>
                                                 </DockPanel>
@@ -365,10 +365,10 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
                                         BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,6,0,0"
                                         Visibility="{Binding SizeSubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}">
-                                    <TextBlock FontSize="11.5" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap">
+                                    <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap">
                                         <Run Text="{Binding SizeSubText, Mode=OneWay}" />
                                         <Run Text="。同じ中身のファイルを2箇所以上に置いている分です。" />
                                     </TextBlock>
@@ -384,7 +384,7 @@
                                     **無いことも言う。**黙って消すと、調べた結果ゼロなのか
                                     機能が無いのか分からない
                                 -->
-                                <Border BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0"
+                                <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
                                         Padding="0,12,0,0" Margin="0,14,0,0">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
@@ -398,7 +398,7 @@
                                                       Visibility="{Binding HasDuplicates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type vm:DuplicateRowViewModel}">
-                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Divider}"
                                                             BorderThickness="1" CornerRadius="6"
                                                             Padding="11,9" Margin="0,0,0,7">
                                                         <StackPanel>
@@ -451,16 +451,16 @@
                                                 <Border BorderThickness="1" CornerRadius="6" Padding="12,10">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{StaticResource Surface}" />
-                                                            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+                                                            <Setter Property="Background" Value="{DynamicResource Surface}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Severity}" Value="Warn">
-                                                                    <Setter Property="Background" Value="{StaticResource WarnSoft}" />
-                                                                    <Setter Property="BorderBrush" Value="{StaticResource WarnBorder}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Severity}" Value="Bad">
-                                                                    <Setter Property="Background" Value="#fbeaea" />
-                                                                    <Setter Property="BorderBrush" Value="#eecccc" />
+                                                                    <Setter Property="Background" Value="{DynamicResource BadSoft}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -476,8 +476,8 @@
                                                         <TextBlock Grid.Column="0" Text="{Binding Count}" Style="{StaticResource Mono}"
                                                                    FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
                                                         <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5"
-                                                                   Foreground="#454b57" VerticalAlignment="Center" />
-                                                        <TextBlock Grid.Column="2" Text="→" Foreground="{StaticResource TextFaint}"
+                                                                   Foreground="{DynamicResource TextBody}" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="2" Text="→" Foreground="{DynamicResource TextFaint}"
                                                                    VerticalAlignment="Center" />
                                                     </Grid>
                                                 </Border>
@@ -506,7 +506,7 @@
                                 <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" />
                                 <ItemsControl ItemsSource="{Binding PriceBuckets}" Margin="0,14,0,0"
                                               ItemTemplate="{StaticResource BarRow}" />
-                                <Border Height="1" Background="#f0f1f4" Margin="0,10,0,10" />
+                                <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
                                 <Grid Margin="0,0,0,6">
                                     <TextBlock Text="無料で手に入れたもの" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding FreeText}" Style="{StaticResource Mono}" FontSize="12"
@@ -543,8 +543,8 @@
                                                                Margin="0,0,10,0" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                                                         <TextBlock Text="{Binding PaidText}" Style="{StaticResource Mono}"
-                                                                   FontSize="11" Foreground="{StaticResource TextFaint}" />
-                                                        <TextBlock Text="→" Margin="5,0" Foreground="{StaticResource TextFaint}"
+                                                                   FontSize="11" Foreground="{DynamicResource TextFaint}" />
+                                                        <TextBlock Text="→" Margin="5,0" Foreground="{DynamicResource TextFaint}"
                                                                    FontSize="11" />
                                                         <TextBlock Text="{Binding CurrentText}" Style="{StaticResource Mono}"
                                                                    FontSize="11" />
@@ -553,10 +553,10 @@
                                                                    FontFamily="Consolas, Yu Gothic UI">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Good}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Good}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#9a3232" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -622,7 +622,7 @@
                                 </StackPanel>
                                 <ItemsControl ItemsSource="{Binding ShopsByCount}" Margin="0,12,0,0"
                                               ItemTemplate="{StaticResource BarRow}" />
-                                <Border Height="1" Background="#f0f1f4" Margin="0,10,0,10" />
+                                <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
                                 <Grid>
                                     <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
@@ -662,7 +662,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:AttributeDistributionRowViewModel}">
-                                        <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6"
+                                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
                                                 Padding="14,11" Margin="0,0,12,12" Width="248">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" />
@@ -678,7 +678,7 @@
                                                         <DataTemplate>
                                                             <Border Height="{Binding}" CornerRadius="3,3,0,0" MaxWidth="34"
                                                                     Margin="3,0" VerticalAlignment="Bottom"
-                                                                    Background="{StaticResource Accent}" />
+                                                                    Background="{DynamicResource Accent}" />
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
@@ -751,7 +751,7 @@
                                                HorizontalAlignment="Right" />
                                 </Grid>
 
-                                <Border Height="1" Background="#f0f1f4" Margin="0,4,0,10" />
+                                <Border Height="1" Background="{DynamicResource Divider}" Margin="0,4,0,10" />
 
                                 <TextBlock Text="もう買えないもの" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="{Binding EndOfSaleText}" Style="{StaticResource Mono}" FontSize="12"

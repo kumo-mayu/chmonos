@@ -61,6 +61,16 @@ public sealed class PaneSplitter : GridSplitter
         e.Handled = true;
     }
 
+    // 鍵で指す。色を取り出して入れると、掴んでいる間に色の表を差し替えたとき古い色のまま残る
     private void Highlight(bool on)
-        => Background = on ? TryFindResource("BorderStrong") as Brush ?? Brushes.LightGray : Brushes.Transparent;
+    {
+        if (on)
+        {
+            SetResourceReference(BackgroundProperty, "BorderStrong");
+        }
+        else
+        {
+            Background = Brushes.Transparent;
+        }
+    }
 }

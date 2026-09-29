@@ -22,10 +22,10 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <!-- 戻るの見た目はどの画面でも同じ（枠なし・透明。V2）。ここだけ枠付きの小さいボタンだった -->
                 <Button Content="{Binding BackText}" Command="{Binding BackCommand}"
@@ -59,8 +59,8 @@
             高さ320を取るので、見出しの三角で畳める（ユーザ指示 2026-09-29）。畳んだかは全部のショップで同じで、閉じても覚える。
             三角は商品ページ・編集画面と同じ物（TriangleExpander）
         -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                 Visibility="{Binding ShowBannerArea, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsBannerExpanded, Mode=TwoWay}"
                       Padding="0" Margin="20,6,20,6" AutomationProperties.Name="バナー">
@@ -72,7 +72,7 @@
                     有無が分からない間は、同じ高さの場所を空けて待つ。
                     空けておかないと、後からバナーが差し込まれて中身が下へずれる。
                 -->
-                <Border Background="{StaticResource SurfaceAlt}" Width="960"
+                <Border Background="{DynamicResource SurfaceAlt}" Width="960"
                         Visibility="{Binding HasBanner, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                     <TextBlock Text="{Binding BannerPlaceholderText}" Style="{StaticResource Caption}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -86,15 +86,15 @@
         </Border>
 
         <!-- ショップの見出しと集計 -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="24,20">
                 <StackPanel Orientation="Horizontal">
                     <Border Width="72" Height="72" CornerRadius="12" ClipToBounds="True"
-                            Background="{StaticResource AccentSoft}">
+                            Background="{DynamicResource AccentSoft}">
                         <Grid>
                             <TextBlock Text="{Binding Initial}" FontSize="30" FontWeight="Bold"
-                                       Foreground="#4a5160"
+                                       Foreground="{DynamicResource AccentSoftText}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding ShowInitial, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <Image Source="{Binding Icon}" Stretch="UniformToFill"
@@ -121,10 +121,10 @@
                                 <TextBlock Text="{Binding FavoriteGlyph}" FontSize="22">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                    <Setter Property="Foreground" Value="#d99a00" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Star}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -133,7 +133,7 @@
                             </Button>
                         </StackPanel>
                         <TextBlock Text="{Binding DomainText}" Style="{StaticResource Mono}" FontSize="12"
-                                   Foreground="{StaticResource TextFaint}" Margin="0,5,0,0" />
+                                   Foreground="{DynamicResource TextFaint}" Margin="0,5,0,0" />
                     </StackPanel>
                 </StackPanel>
 
@@ -166,8 +166,8 @@
             ショップのメモ（ユーザ判断 2026-09-16）。利用規約・問い合わせ先・作者の別名義など、ショップ単位でしか持てない知識。
             止まってから書く（打つたびには書かない）
         -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="24,10,24,12">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,5" />
                 <Grid>
@@ -210,10 +210,10 @@
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox Content="所持しているものだけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}"
-                              VerticalAlignment="Center" Foreground="{StaticResource Text}" />
+                              VerticalAlignment="Center" Foreground="{DynamicResource Text}" />
                     <!-- 「更新あり」の札の付いた商品だけ。札が1枚も無い店では出さない（押しても必ず0件になる） -->
                     <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}"
-                              VerticalAlignment="Center" Foreground="{StaticResource Text}" Margin="14,0,0,0"
+                              VerticalAlignment="Center" Foreground="{DynamicResource Text}" Margin="14,0,0,0"
                               Visibility="{Binding HasUpdatedItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
                                     Margin="16,0,0,0" VerticalAlignment="Center" />
@@ -231,7 +231,7 @@
         <Grid SizeChanged="OnListSizeChanged">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="表示する商品がありません" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
+                <TextBlock Text="表示する商品がありません" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center" />
                 <!-- なぜ無いのかと戻し方（動線の点検 D8）。空表示には次にやることを書く -->
                 <TextBlock Text="{Binding EmptyReasonText}" Style="{StaticResource Caption}" HorizontalAlignment="Center"
                            TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" Margin="0,6,0,0" />

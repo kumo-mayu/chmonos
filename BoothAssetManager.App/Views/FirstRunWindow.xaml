@@ -3,24 +3,24 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Chmonos" Width="620" SizeToContent="Height"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
-        Background="{StaticResource Bg}">
+        Background="{DynamicResource Bg}">
     <DockPanel>
-        <Border DockPanel.Dock="Top" Background="{StaticResource Rail}" Padding="26,20">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Rail}" Padding="26,20">
             <StackPanel>
-                <TextBlock Text="Chmonos（クモノス）" Foreground="White" FontWeight="Bold" FontSize="16" />
+                <TextBlock Text="Chmonos（クモノス）" Foreground="{DynamicResource RailTitle}" FontWeight="Bold" FontSize="16" />
                 <TextBlock Text="はじめに2つ決めてください。どちらも後から設定で変えられます。"
-                           Foreground="#a8b0be" FontSize="12" Margin="0,5,0,0" />
+                           Foreground="{DynamicResource RailIntro}" FontSize="12" Margin="0,5,0,0" />
                 <!--
                     非公式である旨（pixiv の登録商標のガイドライン：公式と混同されないよう、pixiv が作成・配布していない旨を書く。
                     docs/research/booth-terms.md §3）。設定画面にも同じ旨を出す
                 -->
                 <TextBlock Text="個人が作ったアプリです。ピクシブ株式会社（BOOTHの運営）が作成・配布しているものではありません。"
-                           Foreground="#767f8e" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource RailMuted}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="26,14">
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="26,14">
             <DockPanel LastChildFill="False">
                 <!--
                     理由の文は折り返して全文を出す（点検 2026-09-23：「…ここからは変えられません。」が途中で切れ、
@@ -43,7 +43,7 @@
             <TextBlock Text="データの保存先" Style="{StaticResource SectionLabel}" />
             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,8"
                        Text="商品の情報と画像を置く場所です。後から変えると、データを移すことになります。" />
-            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                     BorderThickness="1" CornerRadius="6" Padding="12,9">
                 <DockPanel>
                     <Button x:Name="PickButton" DockPanel.Dock="Right" Content="選び直す" Click="OnPickFolder" Margin="10,0,0,0" />
@@ -58,7 +58,7 @@
             -->
             <TextBlock Text="画像" Style="{StaticResource SectionLabel}" Margin="0,22,0,0" />
             <CheckBox x:Name="SaveImagesCheck" IsChecked="True" Margin="0,8,0,0"
-                      Foreground="{StaticResource Text}">
+                      Foreground="{DynamicResource Text}">
                 <TextBlock Text="画像を取って保存する（おすすめ）" />
             </CheckBox>
             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="24,6,0,0"

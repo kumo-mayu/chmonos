@@ -35,11 +35,11 @@
                                 <DockPanel>
                                     <!-- パスはカードの下の空いた所に出す（名前は名前だけ・ユーザ指示 2026-09-14） -->
                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="10.5"
-                                               Foreground="{StaticResource TextMuted}" Margin="11,0,11,11" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextMuted}" Margin="11,0,11,11" TextWrapping="Wrap"
                                                MaxHeight="42" TextTrimming="CharacterEllipsis" />
-                                    <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="#e9edf4">
-                                        <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2"
-                                              Fill="#f7f8fa" Stretch="Uniform" Width="96" Height="80"
+                                    <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="{DynamicResource ImageBack}">
+                                        <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2"
+                                              Fill="{DynamicResource FolderIconFill}" Stretch="Uniform" Width="96" Height="80"
                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Grid>
                                     <StackPanel Margin="11,10,11,0">
@@ -52,11 +52,11 @@
                                         <WrapPanel Margin="0,8,0,0">
                                             <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                                             <!-- 未確定を出していないとき：件数は出さず、あることだけ（ユーザ指示 2026-09-15） -->
-                                            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                                            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
                                                     CornerRadius="9" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Center"
                                                     ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
                                                     Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                <TextBlock Text="未確定あり" FontSize="10" Foreground="{DynamicResource Warn}" />
                                             </Border>
                                         </WrapPanel>
                                     </StackPanel>
@@ -64,7 +64,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Face" Property="BorderBrush" Value="{StaticResource AccentBorder}" />
+                                    <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
                                 </Trigger>
                                 <DataTrigger Binding="{Binding IsDim}" Value="True">
                                     <Setter TargetName="Face" Property="Opacity" Value="0.55" />
@@ -77,26 +77,26 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
         <!-- フォルダの見出しと操作（今までの右側と同じ） -->
         <StackPanel DockPanel.Dock="Top" Margin="28,20,28,0">
             <TextBlock Text="フォルダ" Style="{StaticResource SectionLabel}" />
             <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold" Margin="0,4,0,0" TextWrapping="Wrap" />
             <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="11" Margin="0,4,0,0"
-                       Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" />
+                       Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBlock Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                 <!-- 未確定を出していないとき：件数と案内は出さず、あることだけ（ユーザ指示 2026-09-15） -->
-                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
                         CornerRadius="9" Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center"
                         ToolTip="この下に未確定のファイルがあります。左の「未確定」をオンにすると表示されます。"
                         Visibility="{Binding HasUnresolvedMark, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="未確定あり" FontSize="10" Foreground="{StaticResource Warn}" />
+                    <TextBlock Text="未確定あり" FontSize="10" Foreground="{DynamicResource Warn}" />
                 </Border>
-                <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
                         CornerRadius="9" Padding="7,0" Margin="8,0,0,0"
                         Visibility="{Binding IsOffline, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="取り外しているか、見つかりません" FontSize="11" Foreground="{StaticResource Warn}" />
+                    <TextBlock Text="取り外しているか、見つかりません" FontSize="11" Foreground="{DynamicResource Warn}" />
                 </Border>
             </StackPanel>
 
@@ -115,17 +115,17 @@
                         ToolTip="このフォルダを取り込みます。進み具合は下の帯に表示されます。" />
 
                 <!-- 監視は状態を出し、足す・外すの両方をできるようにする（ユーザ指示 2026-09-14。前は足すだけで外せなかった） -->
-                <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,0,4,0" Margin="0,0,8,8"
-                        Background="{StaticResource Surface}">
+                <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,0,4,0" Margin="0,0,8,8"
+                        Background="{DynamicResource Surface}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="監視：" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding WatchStateText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsWatched}" Value="True">
-                                            <Setter Property="Foreground" Value="{StaticResource Good}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Good}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -139,7 +139,7 @@
             </WrapPanel>
 
             <!-- 未確定（ユーザ指示：未確定のフォルダには「管理対象から除外する」ボタンなども付ける） -->
-            <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+            <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1"
                     CornerRadius="6" Padding="14,10" Margin="0,4,0,0"
                     Visibility="{Binding HasUnresolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel>
@@ -165,7 +165,7 @@
                              VerticalContentAlignment="Center" Padding="7,0"
                              AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
                     <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" IsHitTestVisible="False" Margin="10,0,0,0"
-                               VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextFaint}"
+                               VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}"
                                Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                 </Grid>
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"

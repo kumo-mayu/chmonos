@@ -4,6 +4,17 @@
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <Application.Resources>
+      <ResourceDictionary>
+        <!--
+            色の表。鍵は明るい表と暗い表で同じで、起動時と設定を変えたときに AppTheme がこの1つ（Light.xaml）を差し替える。
+            画面は色を直に書かず、DynamicResource で鍵を指す（docs/spec/ui-colors.md）
+        -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="Themes/Light.xaml" />
+            <!-- 標準の部品（チェックボックス・プルダウン・メニュー・吹き出し・スクロールバーなど）を色の表の鍵で描く -->
+            <ResourceDictionary Source="Themes/Controls.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+
         <!--
             商品カードの大きさ。起動時と一覧の右下のスライダーを動かしたときに CardMetrics が書き換える
             （ユーザ判断 2026-09-15）。ここの値は「中」＝前からの大きさ。カードは DynamicResource で読む
@@ -22,16 +33,10 @@
         <!--
             表示の大きさ（設定・Ctrl＋＋／Ctrl＋－・ユーザ指示 2026-09-29）。起動時と変えたときに AppZoom が書き換える。
             主の窓の中身はこれで丸ごと縮尺する。吹き出しとメニューは別の窓（ポップアップ）で、
-            主の窓の縮尺が届かないので、下の既定の見た目で同じ倍率を当てる。
+            主の窓の縮尺が届かないので、Themes/Controls.xaml の既定の見た目で同じ倍率を当てる。
             ComboBox の一覧・入力欄の候補・日付の選択のように、窓の中に置いたポップアップは置いた場所の縮尺を WPF が引き継ぐので当てない（当てると2重になる）
         -->
         <ScaleTransform x:Key="AppZoomTransform" ScaleX="1" ScaleY="1" />
-        <Style TargetType="ToolTip">
-            <Setter Property="LayoutTransform" Value="{DynamicResource AppZoomTransform}" />
-        </Style>
-        <Style TargetType="ContextMenu">
-            <Setter Property="LayoutTransform" Value="{DynamicResource AppZoomTransform}" />
-        </Style>
 
         <!--
             畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
@@ -40,58 +45,15 @@
         <PathGeometry x:Key="IconCollapse" Figures="M14,7 L9,12 L14,17" />
         <PathGeometry x:Key="IconExpand" Figures="M10,7 L15,12 L10,17" />
 
-        <!-- モックで決めた配色をそのまま持ち込む -->
-        <SolidColorBrush x:Key="Bg" Color="#f2f3f5" />
-        <SolidColorBrush x:Key="Surface" Color="#ffffff" />
-        <SolidColorBrush x:Key="SurfaceAlt" Color="#fafafb" />
-        <SolidColorBrush x:Key="Border" Color="#e2e4e9" />
-        <SolidColorBrush x:Key="BorderStrong" Color="#cdd0d8" />
-        <SolidColorBrush x:Key="Text" Color="#1c1f26" />
-        <SolidColorBrush x:Key="TextMuted" Color="#6a7180" />
-        <SolidColorBrush x:Key="TextFaint" Color="#9aa1ae" />
-        <SolidColorBrush x:Key="Accent" Color="#3767a6" />
-        <SolidColorBrush x:Key="AccentSoft" Color="#eaf0f9" />
-        <SolidColorBrush x:Key="AccentBorder" Color="#c6d6ec" />
-        <!-- 重要なボタンに乗せたときの青。Accent より一段濃くして、白い文字が読めるままにする -->
-        <SolidColorBrush x:Key="AccentHover" Color="#2b5487" />
-        <SolidColorBrush x:Key="Rail" Color="#22262e" />
-        <SolidColorBrush x:Key="RailActive" Color="#313745" />
-        <SolidColorBrush x:Key="RailText" Color="#cfd4dd" />
-        <SolidColorBrush x:Key="RailLabel" Color="#5d6675" />
-
-        <!--
-            ナビの中の知らせ（BOOTHの形式の変化）。明るいクリーム色（WarnSoft）を置くと暗い帯から浮いたので、
-            背景はナビと同系の暗い色のまま少し持ち上げ、注意の色は文字と左の縁だけに使う（ユーザ指摘 2026-09-18）
-        -->
-        <SolidColorBrush x:Key="RailNoticeBack" Color="#2a2f3c" />
-        <SolidColorBrush x:Key="RailNoticeFrame" Color="#3b4354" />
-        <SolidColorBrush x:Key="RailNoticeEdge" Color="#c39a55" />
-        <SolidColorBrush x:Key="RailNoticeText" Color="#e2bd83" />
-        <SolidColorBrush x:Key="Good" Color="#2f7d5a" />
-        <SolidColorBrush x:Key="GoodSoft" Color="#e7f2ec" />
-        <SolidColorBrush x:Key="GoodBorder" Color="#c9e2d5" />
-        <SolidColorBrush x:Key="Warn" Color="#8a5f1a" />
-
-        <!-- 未読の件数。ナビのバッジ（#8a3f6b）と同じ色で、要確認の束の件数にも使う（ユーザ指示 2026-09-18） -->
-        <SolidColorBrush x:Key="Unread" Color="#8a3f6b" />
-        <SolidColorBrush x:Key="UnreadSoft" Color="#f8edf4" />
-        <SolidColorBrush x:Key="UnreadBorder" Color="#e6cddd" />
-        <SolidColorBrush x:Key="WarnSoft" Color="#fbf1de" />
-        <SolidColorBrush x:Key="WarnBorder" Color="#eddcbb" />
-        <!-- 「見つからない」のような、注意ではなく異常を示す色。Good/Warn と同じ彩度に揃える -->
-        <SolidColorBrush x:Key="Bad" Color="#a33c3c" />
-        <SolidColorBrush x:Key="BadSoft" Color="#fbeaea" />
-        <SolidColorBrush x:Key="BadBorder" Color="#eec9c9" />
-
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
         </Style>
 
         <Style x:Key="Caption" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="FontSize" Value="11" />
         </Style>
@@ -99,11 +61,11 @@
         <Style x:Key="Mono" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
         </Style>
 
         <Style x:Key="SectionLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -123,7 +85,7 @@
             <Setter Property="Margin" Value="-2,0,0,0" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="Foreground" Value="#454b57" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBody}" />
             <Setter Property="Cursor" Value="IBeam" />
             <!-- 本文なのでTabの行き先にはしない（選択とリンクはマウスで足りる） -->
             <Setter Property="IsTabStop" Value="False" />
@@ -133,15 +95,15 @@
         </Style>
 
         <Style TargetType="Hyperlink">
-            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
             <Setter Property="TextDecorations" Value="Underline" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
         <!-- 角丸・枠線つきのカード -->
         <Style x:Key="Card" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Surface}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
         </Style>
@@ -151,9 +113,9 @@
             <Setter Property="Padding" Value="14,0" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
-            <Setter Property="Background" Value="{StaticResource Surface}" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderStrong}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -179,7 +141,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                             </Trigger>
                             <!--
                                 無効の表現は薄さだけに頼らない。0.45まで落とすと何のボタンか読めなくなる。
@@ -187,9 +149,9 @@
                             -->
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.75" />
-                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Border}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Border}" />
                                 <Setter Property="Cursor" Value="Arrow" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -199,9 +161,9 @@
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="{StaticResource Accent}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource AccentFill}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
             <!-- 白文字を色地に載せると細い字画が沈むので、少し太らせる -->
             <Setter Property="FontWeight" Value="SemiBold" />
             <!--
@@ -223,14 +185,14 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentHover}" />
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentHover}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentHover}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentHover}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.75" />
-                                <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Border}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Border}" />
                                 <Setter Property="Cursor" Value="Arrow" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -257,13 +219,13 @@
             色は「見つからない」と同じ異常の色（`Bad`）に揃える
         -->
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
-            <Setter Property="Foreground" Value="#9a3232" />
-            <Setter Property="BorderBrush" Value="#e2bcbc" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerBorder}" />
         </Style>
 
         <!-- 右クリックの中の、取り返しのつかない項目（V4）。ボタンと同じ色にする -->
         <Style x:Key="DangerMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
-            <Setter Property="Foreground" Value="#9a3232" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>
 
         <!--
@@ -271,10 +233,10 @@
             作った札は隠すだけで捨てない（ChipStrip・ユーザ判断 2026-09-12）ので、見えるかどうかは札の IsShown で決める
         -->
         <DataTemplate DataType="{x:Type vm:TagTile}">
-            <Border BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12"
-                    Padding="10,3" Margin="0,0,6,6" Background="White"
+            <Border BorderBrush="{DynamicResource ChipBorder}" BorderThickness="1" CornerRadius="12"
+                    Padding="10,3" Margin="0,0,6,6" Background="{DynamicResource ChipBack}"
                     Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="#454b57" />
+                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="{DynamicResource ChipText}" />
             </Border>
         </DataTemplate>
         <!-- 「残り n を表示」⇔「最初の 40 だけにする」（ユーザ指示：可逆にする）。1枚のまま文字だけ変わる -->
@@ -283,5 +245,6 @@
                     Command="{Binding Command}" ToolTip="{Binding Hint}"
                     Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </DataTemplate>
+      </ResourceDictionary>
     </Application.Resources>
 </Application>

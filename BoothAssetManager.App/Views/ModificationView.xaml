@@ -56,14 +56,14 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <Border x:Name="Row" Background="Transparent" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                            <Border x:Name="Row" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                                     Padding="0,5">
                                 <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}"
                                                       VerticalAlignment="Stretch" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -72,11 +72,11 @@
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <DockPanel Background="{StaticResource Bg}">
+    <DockPanel Background="{DynamicResource Bg}">
 
         <!-- 上部バー。商品ページと同じ格の画面なので、戻る導線も同じ形にする -->
-        <Border DockPanel.Dock="Top" Height="52" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 改変の画面の右側に組み込んだときは出さない。左の一覧が行き来の役をする -->
@@ -91,10 +91,10 @@
                                MaxWidth="420" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}" FontSize="11"
-                               VerticalAlignment="Center" Foreground="{StaticResource TextMuted}" />
+                               VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
                     <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource Mono}" FontSize="11"
                                VerticalAlignment="Center" Margin="12,0,0,0"
-                               Foreground="{StaticResource TextMuted}" />
+                               Foreground="{DynamicResource TextMuted}" />
                     <!-- 改変の画面の右側では、ここで消す（ユーザ判断 2026-09-13：作るのはアバターの行、消すのは右のビュー） -->
                     <Button Content="この改変を削除" Style="{StaticResource DangerButton}" Margin="14,0,0,0"
                             Command="{Binding DeleteCommand}"
@@ -168,7 +168,7 @@
                                         Command="{Binding StopUnityCommand}"
                                         Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                         ToolTip="送るのを中止します。残った取り込み画面は「Cancel」で閉じてください。" />
-                                <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="#28507f"
+                                <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Foreground="{DynamicResource AccentText}"
                                            TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
@@ -200,16 +200,16 @@
                                                 <!-- 導入の順（人が読む番号なので1から）と、使ったファイル（空欄の意味を言い分ける。推定で埋めない） -->
                                                 <DockPanel Width="{DynamicResource CardWidth}" HorizontalAlignment="Left" Margin="0,0,0,6">
                                                     <Border DockPanel.Dock="Left" MinWidth="24" Height="24" CornerRadius="6" Padding="6,0"
-                                                            Background="{StaticResource AccentSoft}" Margin="0,0,8,0">
-                                                        <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="#4a5160"
+                                                            Background="{DynamicResource AccentSoft}" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="{DynamicResource AccentSoftText}"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                     </Border>
                                                     <!-- 外した行の印（ユーザ指示 2026-09-19：消していない物と外した物を見分けられるように） -->
-                                                    <Border DockPanel.Dock="Left" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                    <Border DockPanel.Dock="Left" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center"
                                                             ToolTip="この改変から外したものです。「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                        <TextBlock Text="外した" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
                                                     <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
@@ -224,7 +224,7 @@
                                                         Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextWrapping="Wrap" />
-                                                        <TextBlock Text="手元にありません。記録は残っています。" FontSize="11" Foreground="{StaticResource Warn}"
+                                                        <TextBlock Text="手元にありません。記録は残っています。" FontSize="11" Foreground="{DynamicResource Warn}"
                                                                    Margin="0,6,0,0" />
                                                     </StackPanel>
                                                 </Border>
@@ -293,8 +293,8 @@
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border MinWidth="24" Height="24" CornerRadius="6" Padding="6,0"
-                                                                Background="{StaticResource AccentSoft}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="#4a5160"
+                                                                Background="{DynamicResource AccentSoft}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding OrderText}" FontSize="11" Foreground="{DynamicResource AccentSoftText}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                         </Border>
                                                     </DataTemplate>
@@ -337,10 +337,10 @@
                                                                     <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis">
                                                                         <TextBlock.Style>
                                                                             <Style TargetType="TextBlock">
-                                                                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                                                <Setter Property="Foreground" Value="{DynamicResource Text}" />
                                                                                 <Style.Triggers>
                                                                                     <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                                                                         <Setter Property="TextDecorations" Value="Underline" />
                                                                                     </DataTrigger>
                                                                                 </Style.Triggers>
@@ -353,17 +353,17 @@
                                                                            TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
                                                                 <WrapPanel Margin="0,3,0,0">
                                                                     <!-- 外した行の印（カードと同じ） -->
-                                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                                    <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
                                                                             ToolTip="この改変から外したものです。「戻す」で元に戻せます。"
                                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="外した" FontSize="10" Foreground="{StaticResource TextMuted}" />
+                                                                        <TextBlock Text="外した" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                                     </Border>
                                                                     <!-- 手元に無くても記録は残す。そのとき使ったのは事実 -->
-                                                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0"
                                                                             Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                        <TextBlock Text="手元に無い" FontSize="10" Foreground="{StaticResource Warn}" />
+                                                                        <TextBlock Text="手元に無い" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                                     </Border>
                                                                     <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}"
                                                                                TextTrimming="CharacterEllipsis" ToolTip="{Binding VariationText}"
@@ -458,7 +458,7 @@
                                 <ItemsControl ItemsSource="{Binding FoundInProject}" Margin="0,4,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:ProjectCandidateRowViewModel}">
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                            <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -497,17 +497,17 @@
                                     ToolTip="このアバターをアバターの管理で開きます。同じアバターのほかの改変も見られます。">
                                 <DockPanel>
                                     <Border DockPanel.Dock="Left" Width="48" Height="48" CornerRadius="6" Margin="0,0,12,0"
-                                            Background="{StaticResource AccentSoft}" ClipToBounds="True">
+                                            Background="{DynamicResource AccentSoft}" ClipToBounds="True">
                                         <Image Source="{Binding AvatarIcon}" Stretch="UniformToFill" />
                                     </Border>
                                     <TextBlock Text="{Binding AvatarText}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
                                                VerticalAlignment="Center">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Text}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                                         <Setter Property="TextDecorations" Value="Underline" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -542,7 +542,7 @@
                                 <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center" FontFamily="Consolas"
                                          Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
                             </DockPanel>
-                            <TextBlock Text="{Binding BlueprintHint}" FontSize="11" Foreground="{StaticResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0"
+                            <TextBlock Text="{Binding BlueprintHint}" FontSize="11" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0"
                                        Visibility="{Binding HasBlueprintHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </StackPanel>
                     </Border>
@@ -570,14 +570,14 @@
                                            HorizontalAlignment="Left" />
 
                                 <!-- 消えていても黙って外さない。指し直す導線を残す -->
-                                <Border Background="{StaticResource WarnSoft}"
-                                        BorderBrush="{StaticResource WarnBorder}"
+                                <Border Background="{DynamicResource WarnSoft}"
+                                        BorderBrush="{DynamicResource WarnBorder}"
                                         BorderThickness="1" CornerRadius="4" Padding="8,5"
                                         Margin="0,8,0,0" HorizontalAlignment="Left"
                                         Visibility="{Binding ProjectMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <TextBlock Text="このフォルダが見つかりません。移したのなら下から指し直せます。"
                                                FontSize="11" TextWrapping="Wrap"
-                                               Foreground="{StaticResource Warn}" />
+                                               Foreground="{DynamicResource Warn}" />
                                 </Border>
 
                                 <WrapPanel Margin="0,10,0,0">
@@ -592,7 +592,7 @@
                                 </WrapPanel>
                             </StackPanel>
 
-                            <Border Height="1" Background="{StaticResource Border}" Margin="0,14,0,12" />
+                            <Border Height="1" Background="{DynamicResource Border}" Margin="0,14,0,12" />
 
                             <Grid Margin="0,0,0,8">
                                 <TextBlock Text="紐付ける先" Style="{StaticResource SectionLabel}"
@@ -620,7 +620,7 @@
                                 </ItemsControl.Template>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:UnityProjectRowViewModel}">
-                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -645,20 +645,20 @@
                                                                    HorizontalAlignment="Left"
                                                                    TextTrimming="CharacterEllipsis" />
 
-                                                        <Border Grid.Column="1" Background="{StaticResource AccentSoft}"
+                                                        <Border Grid.Column="1" Background="{DynamicResource AccentSoft}"
                                                                 CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                                 Visibility="{Binding IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                             <TextBlock Text="開いています" FontSize="10"
-                                                                       Foreground="#4a5160" />
+                                                                       Foreground="{DynamicResource AccentSoftText}" />
                                                         </Border>
 
-                                                        <Border Grid.Column="2" Background="{StaticResource WarnSoft}"
-                                                                BorderBrush="{StaticResource WarnBorder}"
+                                                        <Border Grid.Column="2" Background="{DynamicResource WarnSoft}"
+                                                                BorderBrush="{DynamicResource WarnBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1"
                                                                 Margin="8,0,0,0"
                                                                 Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                             <TextBlock Text="見つかりません" FontSize="10"
-                                                                       Foreground="{StaticResource Warn}" />
+                                                                       Foreground="{DynamicResource Warn}" />
                                                         </Border>
                                                     </Grid>
 

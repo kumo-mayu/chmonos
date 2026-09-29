@@ -7,16 +7,16 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ImportViewModel}"
              AllowDrop="True">
-    <DockPanel Background="{StaticResource Bg}">
-        <Border DockPanel.Dock="Top" Height="60" Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
+    <DockPanel Background="{DynamicResource Bg}">
+        <Border DockPanel.Dock="Top" Height="60" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0">
                 <!-- 戻る（V3）。未確定・フォルダから飛んで来られるのに、戻る道が無かった -->
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding Main.CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <Button Content="{Binding Main.BackButtonText}" Command="{Binding Main.GoBackCommand}"
                             BorderThickness="0" Background="Transparent" />
-                    <Border Width="1" Height="20" Background="{StaticResource Border}" Margin="12,0" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                 </StackPanel>
                 <TextBlock Text="取り込み" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                 <TextBlock Text="フォルダやファイルをスキャンして、zipから商品IDを特定します"
@@ -28,7 +28,7 @@
             <StackPanel Margin="24,20" MaxWidth="{StaticResource ReadingMaxWidth}">
 
                 <!-- 取り込み元 -->
-                <Border BorderBrush="#b9c6dc" BorderThickness="2" CornerRadius="10" Background="#f7faff" Padding="24,22">
+                <Border BorderBrush="{DynamicResource DropZoneBorder}" BorderThickness="2" CornerRadius="10" Background="{DynamicResource DropZoneBack}" Padding="24,22">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="フォルダかファイルをここにドロップ" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
                         <TextBlock Text="ファイルをドロップすると、そのファイルだけを取り込みます。"
@@ -46,7 +46,7 @@
                     取り込みはBOOTHへの通信で1件あたり十数秒かかる。
                 -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
-                        Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                         Visibility="{Binding Main.HasWatchedNew, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <DockPanel LastChildFill="False">
                         <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
@@ -68,7 +68,7 @@
                 <!-- 対象フォルダ -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>
-                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <TextBlock Text="取り込み対象" FontWeight="Bold" FontSize="13" />
                         </Border>
 
@@ -80,7 +80,7 @@
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                    <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <!-- 右クリック（ユーザ指示 2026-09-20・M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
@@ -122,7 +122,7 @@
                                 **押せるボタンを横に置く**（2026-09-22）。前は「もう一度押すと続きから進みます」と
                                 書いてあるだけで、指していた「取り込みを開始」は対象が空なので押せなかった
                             -->
-                            <Border Background="{StaticResource AccentSoft}" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
+                            <Border Background="{DynamicResource AccentSoft}" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                     Visibility="{Binding HasInterrupted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
@@ -146,7 +146,7 @@
                 -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>
-                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <StackPanel>
                                 <TextBlock Text="監視対象" FontWeight="Bold" FontSize="13" />
                                 <!--
@@ -181,7 +181,7 @@
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                    <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <!-- 右クリック（M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
@@ -215,7 +215,7 @@
                 -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>
-                        <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <StackPanel>
                                 <TextBlock Text="取り込み元の履歴" FontWeight="Bold" FontSize="13" />
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
@@ -230,7 +230,7 @@
                         <ItemsControl ItemsSource="{Binding History}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                    <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <Border.ContextMenu>
                                             <ContextMenu>
@@ -283,7 +283,7 @@
                         <!-- ProgressBar.Value は RangeBase 由来で既定が TwoWay。読み取り専用プロパティに繋ぐので明示的に OneWay にする -->
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0"
                                      Maximum="{Binding Total, Mode=OneWay}" Value="{Binding Current, Mode=OneWay}"
-                                     Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0"
+                                     Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0"
                                      Visibility="{Binding HasTotal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <!--
                             閉じても大丈夫だと先に書く（U9・ユーザ判断）。中断を知らせるのは閉じた後だけだった。
@@ -309,10 +309,10 @@
                                    TextTrimming="CharacterEllipsis" />
 
                         <!-- 黙って遅くなると原因が分からないので、減速中はその旨を出す -->
-                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                        <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding IsThrottled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBlock Text="{Binding ThrottleText}" FontSize="12" Foreground="{StaticResource Warn}"
+                            <TextBlock Text="{Binding ThrottleText}" FontSize="12" Foreground="{DynamicResource Warn}"
                                        TextWrapping="Wrap" />
                         </Border>
                     </StackPanel>
@@ -333,7 +333,7 @@
                         </StackPanel>
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0" Maximum="1"
                                      Value="{Binding Activity.BackgroundProgress, Mode=OneWay}"
-                                     Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                                     Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
                         <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Text="取り込みで取得できなかった画像や、持っていないアバターの1枚目を、BOOTHから少しずつ取得しています。取り込みを始めると、そちらが先に進みます。" />
                     </StackPanel>
@@ -341,9 +341,9 @@
 
                 <!-- エラー -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
-                        Background="#fbeaea" BorderBrush="#eecccc"
+                        Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                         Visibility="{Binding HasError, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="{Binding ErrorText}" Foreground="#9a3232" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource DangerText}" TextWrapping="Wrap" />
                 </Border>
 
                 <!-- 結果 -->
@@ -353,29 +353,29 @@
                         <TextBlock Text="結果" FontWeight="Bold" FontSize="13" Margin="0,0,0,12" />
 
                         <!-- 取り込みの続きに走らせた対応アバターの検出。何をしたか分かるように出す -->
-                        <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                        <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,0,0,14"
                                 Visibility="{Binding HasAvatarSummary, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding AvatarSummaryText}" FontSize="12" TextWrapping="Wrap"
-                                       Foreground="#28507f" />
+                                       Foreground="{DynamicResource AccentText}" />
                         </Border>
                         <!--
                             BOOTHに無かったもの。タイルを増やさず1行で出す。
                             普段0の数字が常設で並ぶのを避けるため（ナビのバッジと同じ理由）。
                         -->
-                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                        <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding HasNotFound, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding NotFoundText}" FontSize="12" TextWrapping="Wrap"
-                                       Foreground="{StaticResource Warn}" />
+                                       Foreground="{DynamicResource Warn}" />
                         </Border>
 
                         <!-- 読めずに飛ばしたもの（E4）。同じく1行で、0のときは出さない -->
-                        <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                        <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding HasUnreadable, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding UnreadableText}" FontSize="12" TextWrapping="Wrap"
-                                       Foreground="{StaticResource Warn}" />
+                                       Foreground="{DynamicResource Warn}" />
                         </Border>
 
                         <!--
@@ -423,7 +423,7 @@
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="未確定" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.UnresolvedFiles}" FontSize="20" FontWeight="Bold"
-                                           FontFamily="Consolas" Foreground="{StaticResource Warn}" />
+                                           FontFamily="Consolas" Foreground="{DynamicResource Warn}" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="取得した画像" Style="{StaticResource Caption}" />
@@ -448,7 +448,7 @@
                         <ItemsControl ItemsSource="{Binding UnpackedFolders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,9">
+                                    <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,9">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="26" />

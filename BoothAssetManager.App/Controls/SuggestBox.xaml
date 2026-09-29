@@ -11,15 +11,15 @@
                  PreviewMouseLeftButtonUp="OnInputClicked" />
 
         <TextBlock x:Name="Watermark" IsHitTestVisible="False" VerticalAlignment="Center"
-                   Margin="10,0,0,0" Foreground="{StaticResource TextFaint}" FontSize="12.5" />
+                   Margin="10,0,0,0" Foreground="{DynamicResource TextFaint}" FontSize="12.5" />
 
         <Popup x:Name="DropDown" StaysOpen="False" AllowsTransparency="True"
                Placement="Bottom" PlacementTarget="{Binding ElementName=Input}"
                Width="{Binding ActualWidth, ElementName=Input}">
-            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderStrong}"
+            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}"
                     BorderThickness="1" CornerRadius="6" Padding="3" Margin="0,3,0,0">
                 <Border.Effect>
-                    <DropShadowEffect Color="#22000000" BlurRadius="10" ShadowDepth="2" Direction="270" />
+                    <DropShadowEffect Color="{DynamicResource PopupShadowColor}" BlurRadius="10" ShadowDepth="2" Direction="270" />
                 </Border.Effect>
                 <ListBox x:Name="Candidates" MaxHeight="230" BorderThickness="0" Background="Transparent"
                          PreviewMouseLeftButtonUp="OnCandidateClicked">
@@ -28,15 +28,15 @@
                             <StackPanel Orientation="Horizontal" Margin="2,3">
                                 <!-- アバターの候補の頭の絵（U18）。見えた行だけで読む -->
                                 <Border Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4" ClipToBounds="True"
-                                        Background="{StaticResource SurfaceAlt}" Visibility="{Binding IconVisibility}">
+                                        Background="{DynamicResource SurfaceAlt}" Visibility="{Binding IconVisibility}">
                                     <Image Source="{Binding Icon}" Stretch="UniformToFill" />
                                 </Border>
                                 <TextBlock Text="{Binding Display}" FontSize="12.5" VerticalAlignment="Center" />
                                 <!-- 候補に無い語は「新規追加」であることを明示する -->
-                                <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
+                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                         BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="7,0,0,0"
                                         Visibility="{Binding NewBadgeVisibility}">
-                                    <TextBlock Text="新規" FontSize="10" Foreground="#28507f" />
+                                    <TextBlock Text="新規" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                 </Border>
                             </StackPanel>
                         </DataTemplate>

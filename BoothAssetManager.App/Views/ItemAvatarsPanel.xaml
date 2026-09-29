@@ -24,17 +24,17 @@
                         <Expander Style="{DynamicResource TriangleExpander}" IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontWeight="Bold" VerticalAlignment="Center"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{StaticResource TextFaint}" /></TextBlock>
+                                    <TextBlock FontWeight="Bold" VerticalAlignment="Center"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
                                     <!--
                                         確かめていない推定の数（ユーザ判断 2026-09-18）。対応と数えていないので、
                                         確かめるまで検索にも統計にも出てこない。畳んでいても気付けるよう見出しに出す
                                     -->
-                                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnBorder}"
+                                    <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                             BorderThickness="1" CornerRadius="4" Padding="7,1" Margin="10,0,0,0"
                                             VerticalAlignment="Center"
                                             ToolTip="説明文のリンクから読み取った推定です。丸の付いた札を押して確かめてください。"
                                             Visibility="{Binding HasUnconfirmedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                        <TextBlock Text="{Binding UnconfirmedAvatarText}" FontSize="11" Foreground="{StaticResource Warn}" />
+                                        <TextBlock Text="{Binding UnconfirmedAvatarText}" FontSize="11" Foreground="{DynamicResource Warn}" />
                                     </Border>
                                 </StackPanel>
                             </Expander.Header>
@@ -50,7 +50,7 @@
                                                  Text="{Binding AvatarFilter, UpdateSourceTrigger=PropertyChanged}" />
                                         <TextBlock Text="{Binding AvatarFilterPlaceholder}" IsHitTestVisible="False"
                                                    Margin="10,0,0,0" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource TextFaint}">
+                                                   Foreground="{DynamicResource TextFaint}">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -101,12 +101,12 @@
                                                         ToolTip="{Binding SourceTooltip}" ToolTipOpening="OnChipToolTipOpening">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{StaticResource AccentSoft}" />
-                                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBorder}" />
+                                                            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsOwned}" Value="True">
-                                                                    <Setter Property="Background" Value="{StaticResource GoodSoft}" />
-                                                                    <Setter Property="BorderBrush" Value="{StaticResource GoodBorder}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource GoodSoft}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource GoodBorder}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -120,7 +120,7 @@
                                                             ただし語ではなく印にして、幅を取らない形にする
                                                         -->
                                                         <Ellipse Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                                 Fill="{StaticResource Warn}"
+                                                                 Fill="{DynamicResource Warn}"
                                                                  Visibility="{Binding IsUnconfirmed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                         <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                         <!--
@@ -129,7 +129,7 @@
                                                         -->
                                                         <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                                 Height="16" Background="Transparent" BorderThickness="0"
-                                                                Cursor="Hand" Foreground="{StaticResource TextMuted}"
+                                                                Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding RejectCommand}"
                                                                 ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。">
                                                             <Button.Style>
@@ -194,16 +194,16 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                            <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                     BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                     <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
-                                                               VerticalAlignment="Center" Foreground="{StaticResource TextFaint}" />
+                                                               VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" />
                                                     <!-- 対応アバターと同じ形で消せる（X4）。乗せたときだけ出す -->
                                                     <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                             Height="16" Background="Transparent" BorderThickness="0"
-                                                            Cursor="Hand" Foreground="{StaticResource TextMuted}"
+                                                            Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                             Command="{Binding RejectCommand}"
                                                             ToolTip="違う共通素体として外します。再検出しても戻らず、「消したもの」から戻せます。">
                                                         <Button.Style>
@@ -239,11 +239,11 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:RejectedAvatarRow}">
-                                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
+                                                <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                         BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,6,6">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center"
-                                                                   Foreground="{StaticResource TextMuted}" />
+                                                                   Foreground="{DynamicResource TextMuted}" />
                                                         <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                 Command="{Binding RestoreCommand}"
                                                                 ToolTip="この対応を戻します。出どころは「手入力」になります。" />
