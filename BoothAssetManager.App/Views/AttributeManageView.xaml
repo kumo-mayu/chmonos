@@ -63,7 +63,7 @@
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="16,14">
                         <TextBlock Text="属性を検索" Style="{StaticResource Caption}" Margin="2,0,0,4" />
-                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox MaxLength="500" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                  Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                  ToolTip="この属性を持つ商品の商品名・ショップ名・メモでも探します。" />
                         <controls:SearchSyntaxHint Margin="2,5,0,0" />
@@ -339,7 +339,7 @@
                                        Visibility="{Binding ShowsUnusedReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <Grid Width="360" HorizontalAlignment="Left" Margin="30,10,0,0">
-                                <TextBox Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox MaxLength="500" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}"
                                          Padding="9,6" BorderBrush="{DynamicResource BorderStrong}"
                                          IsEnabled="{Binding SelectedIsUsed}" />
                                 <TextBlock Text="この属性を持つ商品の中を探す" Margin="11,0,0,0" IsHitTestVisible="False"

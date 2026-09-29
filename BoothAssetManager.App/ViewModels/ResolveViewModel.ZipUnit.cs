@@ -141,7 +141,7 @@ public sealed partial class ResolveViewModel
     }
 
     /// <summary>選んだファイルの場所をエクスプローラで開く（画面をまたいで同じ開き方）。</summary>
-    private void RevealSelected() => Services.Shell.Reveal(Selected?.File.Paths.FirstOrDefault());
+    private void RevealSelected() => ExplorerReveal.RevealAsync(Selected?.File.Paths.FirstOrDefault()).Forget();
 
     private string _copyNote = string.Empty;
 

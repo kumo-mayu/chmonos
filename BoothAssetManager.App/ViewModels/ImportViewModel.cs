@@ -90,7 +90,7 @@ public sealed class ImportViewModel : ViewModelBase
         RemoveFolderCommand = new RelayCommand(RemoveFolder, parameter => parameter is string);
         // 右クリックから、そのフォルダをエクスプローラで開く（ユーザ指示 2026-09-20・M2）
         RevealFolderCommand = new RelayCommand(
-            parameter => Services.Shell.Reveal(parameter as string), parameter => parameter is string);
+            parameter => ExplorerReveal.RevealAsync(parameter as string).Forget(), parameter => parameter is string);
         StartCommand = new RelayCommand(() => StartOrStackAsync().Forget(), () => Folders.Count > 0 && !IsRemovingUnpacked);
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
         SelectAllUnpackedCommand = new RelayCommand(SelectAllUnpacked, () => HasUnpackedFolders);

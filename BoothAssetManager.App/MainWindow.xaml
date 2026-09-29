@@ -606,6 +606,20 @@
             </Border>
 
             <!--
+                落とした URL の商品を登録している間（洗い出し 12）。登録は BOOTH の順番を待つので、「はい」を押してから数秒かかる。
+                窓を閉じた後は別の画面へ移れるので、どの画面でも見える所に出す。済んだら「登録しました」の帯に替わる
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding IsRegisteringDropped, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <StackPanel Orientation="Horizontal" Height="26">
+                    <ProgressBar Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center" IsIndeterminate="True" />
+                    <TextBlock Text="{Binding DroppedRegisteringText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <!--
                 登録し終えた商品への入口（ユーザ指示 2026-09-15）。前は登録が終わると商品ページへ移り、検索を進めていた画面が勝手に替わっていた。
                 通信の帯のすぐ上に出し、開くかを選ばせる。通信が終わって通信の帯が畳まれても、押すか閉じるまでは残す。
                 商品ページを離れた後に取り直しが済んだときも同じ帯で知らせる（画面を引き戻さない）

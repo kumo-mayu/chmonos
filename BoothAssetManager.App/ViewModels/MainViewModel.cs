@@ -44,12 +44,14 @@ public sealed partial class MainViewModel : ViewModelBase
         // 裏の取得が画像を置いたら、開いている画面へ知らせる。知らせないと起動し直すまで空のままだった。
         // 検索画面は持ち回るので常に、商品ページはそれが今の画面のときだけ。編集画面の上の帯も同じ
         // （確定の直後に移ると帯の札は絵の無いまま作られ、知らせないと空のままだった。2026-09-28 の総チェック）。
-        // ここ（アプリと同じ寿命）で1回だけ繋ぐので、画面ごとに外し忘れて残ることが無い
+        // ここ（アプリと同じ寿命）で1回だけ繋ぐので、画面ごとに外し忘れて残ることが無い。
+        // フォルダビュー・改変の画面（組み込んだ商品ページ）とショップ（カード）は、画面の側の受け口へ配る（洗い出し 6）
         services.Images.ItemImagesSaved += itemId => RunOnUiThread(() =>
         {
             Search.NoteItemImagesSaved(itemId);
             CurrentItemPage?.NoteImagesSaved(itemId);
             (CurrentViewModel as EditViewModel)?.NoteImagesSaved(itemId);
+            (CurrentViewModel as IItemImagesListener)?.NoteItemImagesSaved(itemId);
         });
 
         // 前回の履歴をスロットに出す。検索画面は使い回すので1回読めばよい
