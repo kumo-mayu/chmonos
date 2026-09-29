@@ -94,6 +94,7 @@ public partial class App : Application
         var main = new MainViewModel(_services);
         var mainWindow = new MainWindow { DataContext = main };
         ViewModels.AppTheme.Watch(mainWindow);
+        ViewModels.AppTheme.HideUntilFirstFrame(mainWindow);
 
         mainWindow.RestorePlacement(_services.UiState.Window);
 

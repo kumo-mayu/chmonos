@@ -104,7 +104,29 @@ public sealed partial class ItemViewModel
             });
         }
 
+        MarkMissingFilesAsync().Forget();
         MarkUnpackableFilesAsync().Forget();
+    }
+
+    /// <summary>
+    /// 記録の場所に無いファイルに「見つかりません」を付ける（点検 2026-09-30 の B）。
+    /// 前は記録のパスが空のときだけ出していたが、取り込みは移したファイルのパスをすぐには落とさないので、
+    /// 移した後も普通の行と［開く ▾］が出ていた。**在るかは画面のスレッドの外で見る**（外付け・ネットワークで待たされないように）。
+    /// 改変の画面の「プロジェクトが見つかりません」と同じく、読み込みのときに1回確かめて覚える
+    /// </summary>
+    private async Task MarkMissingFilesAsync()
+    {
+        var rows = LocalFiles.Where(row => row.Paths.Count > 0).ToList();
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        var presence = await Task.Run(() => rows.Select(row => LocalFilePresence.Of(row.Paths)).ToList());
+        for (var i = 0; i < rows.Count; i++)
+        {
+            rows[i].Presence = presence[i];
+        }
     }
 
     /// <summary>

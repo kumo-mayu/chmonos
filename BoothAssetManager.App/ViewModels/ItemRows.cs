@@ -219,12 +219,38 @@ public sealed class LocalFileRow : ViewModelBase
     // 「実体」は内部の言葉に読めた（ユーザ指摘 2026-09-19）。ほかの場所の見出し・ツールチップと同じ「同じ中身」で言う
     public string DuplicateNote => $"同じ中身が {Paths.Count} 箇所に";
 
-    public bool IsMissing => Paths.Count == 0;
+    private Core.Services.FilePresence _presence = Core.Services.FilePresence.Present;
+
+    /// <summary>
+    /// 記録の場所に今あるか（点検 2026-09-30 の B：前は記録のパスが空のときだけ「見つかりません」を出し、
+    /// 移したファイルも普通の行と［開く ▾］で出ていた）。
+    /// **行を出した後で、画面のスレッドの外で確かめて付ける**（外付け・ネットワークで待たされないように。技術的負債 4-2）。
+    /// 確かめるまでは在るとして出す——ほとんどの行は在るので、全部の［開く ▾］を一度隠してから出すとちらつく
+    /// </summary>
+    public Core.Services.FilePresence Presence
+    {
+        get => _presence;
+        set
+        {
+            if (SetField(ref _presence, value))
+            {
+                OnPropertyChanged(nameof(IsMissing));
+                OnPropertyChanged(nameof(IsOnDetachedDrive));
+                OnPropertyChanged(nameof(CanReveal));
+                OnPropertyChanged(nameof(PathToolTip));
+            }
+        }
+    }
+
+    public bool IsMissing => Paths.Count == 0 || Presence == Core.Services.FilePresence.Missing;
+
+    /// <summary>つながっていないドライブの上にしか場所が無い。無くなったとは限らないので「見つかりません」と分ける</summary>
+    public bool IsOnDetachedDrive => Paths.Count > 0 && Presence == Core.Services.FilePresence.OnDetachedDrive;
 
     /// <summary>名前を押したときに開く場所（1つめ）。見つからないファイルには無い。</summary>
     public string? FirstPath => Paths.Count > 0 ? Paths[0] : null;
 
-    public bool CanReveal => Paths.Count > 0;
+    public bool CanReveal => Paths.Count > 0 && Presence == Core.Services.FilePresence.Present;
 
     /// <summary>
     /// 名前に乗せたときに出す場所（ユーザ指示 2026-09-19：名前の下に場所の行が続くと、同じ名前が2回並んで読みにくい）。
@@ -233,6 +259,9 @@ public sealed class LocalFileRow : ViewModelBase
     public string PathToolTip => Paths.Count switch
     {
         0 => "ファイルが見つかりません。",
+        _ when Presence == Core.Services.FilePresence.Missing => $"{string.Join("\n", Paths)}\nファイルが見つかりません。",
+        _ when Presence == Core.Services.FilePresence.OnDetachedDrive
+            => $"{string.Join("\n", Paths)}\nドライブをつなぐと開けます。",
         1 => $"{Paths[0]}\n押すと、エクスプローラでこのファイルの場所を開きます。",
         _ => $"同じ中身が {Paths.Count} 箇所にあります：\n{string.Join("\n", Paths)}\n"
             + "押すと1つめの場所を開きます。ほかは下の行から開けます。",

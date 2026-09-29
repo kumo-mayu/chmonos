@@ -72,14 +72,20 @@
         見出しの左に TagToggle と同じ三角を出す Expander（ユーザ判断 2026-09-27：商品ページの畳む印が
         WPF の既定の山形と三角の2種類混ざっていたのを、三角に揃える）。
         既定と同じく見出し全体（三角と見出しの文字）が押せる所。開閉の状態・UI Automation の開閉は Expander のまま。
-        地・枠・内の余白は Expander の指定を描く（未確定の束は地の色と下の線を Expander に持たせている。ユーザ判断 2026-09-29 で三角を全画面に広げた）
+        地・枠・内の余白は Expander の指定を描く（未確定の束は地の色と下の線を Expander に持たせている。ユーザ判断 2026-09-29 で三角を全画面に広げた）。
+        枠を描く所（未確定の束）は Expander に SnapsToDevicePixels を付けて画素に合わせる。合わせないと、見出しの高さが画素の途中で終わったときに
+        1px の線が2pxにぼけ、暗い表では束の間の線がほとんど見えなくなった（点検 2026-09-30 の D。既定の型の枠は合わせていた）。
+        型の既定にしないのは、ほかの画面の三角の縁の滲みまで変わるため。
+        枠の太さは既定で 0 にする。Windows の既定の型は透明な 1px の枠を持たせるので、指定しない画面まで1px ずつ広がっていた
     -->
     <Style x:Key="TriangleExpander" TargetType="Expander">
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Expander">
                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
                     <DockPanel>
                         <ToggleButton DockPanel.Dock="Top" Cursor="Hand"
                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
