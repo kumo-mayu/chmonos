@@ -59,6 +59,33 @@ public sealed class TemporaryUnpacker
         }
 
         var destination = Path.Combine(_root, $"{SafeName(Path.GetFileNameWithoutExtension(zipPath))}-{Stamp(info)}");
+
+        // **同じ展開先は1本ずつ**（大容量の確かめ #3・2026-09-30）。展開の途中にもう一度押すと、
+        // 2本目が1本目の書きかけ（終わった印がまだ無い）を「途中で止まった展開」と見て消し、
+        // 1本目が自分の消された・掴まれたファイルで失敗して「別のアプリがファイルを開いています」と出していた（掴んでいたのはこのアプリ）。
+        // 2本目は1本目を待ち、終わった印を見てそのまま返す。印を作る元の値（場所・大きさ・更新時刻）が同じなら展開先も同じなので、
+        // 展開先の名前で錠を分ける（別の zip の展開は待たせない）。錠は展開ごとに作らず持ち続ける——数は押した zip の数だけ
+        var gate = Gates.GetOrAdd(Path.GetFullPath(destination).ToUpperInvariant(), _ => new SemaphoreSlim(1, 1));
+        gate.Wait(cancellationToken);
+        try
+        {
+            OnGateEntered?.Invoke();
+            return UnpackInto(zipPath, destination, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>展開先ごとの錠。命令は展開のたびに新しい <see cref="TemporaryUnpacker"/> を作るので、インスタンスをまたいで持つ。</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> Gates = new();
+
+    /// <summary>錠に入った直後に呼ぶ（試験で、1本目が展開している最中に2本目を押した状況を作る）。</summary>
+    internal Action? OnGateEntered { get; init; }
+
+    private static string UnpackInto(string zipPath, string destination, CancellationToken cancellationToken)
+    {
         var doneMarker = destination + ".done";
         if (Directory.Exists(destination) && File.Exists(doneMarker))
         {
