@@ -15,6 +15,16 @@ namespace BoothAssetManager.Core.Services;
 /// </summary>
 public static class MoneyText
 {
+    /// <summary>
+    /// 払った額の欄を読む。**空欄は 0円**（ユーザ判断 2026-09-29：未入力を無くす）。読めない文字だけ null（呼ぶ側が捨てたことを言う）。
+    ///
+    /// 前は空欄を「未入力」（null）として持ち、0 を無料と分けていた。未入力は検索の「払った額」「有料・無料」で値の無い物として
+    /// 絞り込み・並べ替えから抜け落ち、探しにくかった。印を付けると今の値段が入るので、空欄になるのは BOOTH の値段が無い行
+    /// （種類を指さない購入・消えた版）か、わざわざ消したときだけ。支出の合計はもともと未入力を 0 で足していたので変わらない
+    /// </summary>
+    public static int? ParsePaid(string? text)
+        => string.IsNullOrWhiteSpace(text) ? 0 : Parse(text);
+
     public static int? Parse(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))

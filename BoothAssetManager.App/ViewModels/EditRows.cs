@@ -32,6 +32,9 @@ public sealed class OrderedVariationInput : ViewModelBase
 
     public int? ListPrice { get; init; }
 
+    /// <summary>BOOTH の今の値段があるか。無い行（種類を指さない購入・消えた版）では「現在 -」を出さない。</summary>
+    public bool HasListPrice => ListPrice is not null;
+
     /// <summary>BOOTH側に現存しない購入記録か。</summary>
     public bool IsGone { get; init; }
 

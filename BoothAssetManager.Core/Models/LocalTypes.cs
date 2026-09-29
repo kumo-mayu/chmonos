@@ -131,7 +131,7 @@ public sealed record Purchase
     /// <summary>購入時点のvariation名。BOOTH側に現存しない場合はこちらを表示に使う。</summary>
     public string? NameSnapshot { get; init; }
 
-    /// <summary>購入価格。null は未入力、0 は無料配布。</summary>
+    /// <summary>購入価格。0 は無料。編集画面の空欄は 0 で記録する（2026-09-29）。null は読めなかった値・手で消した JSON。</summary>
     public int? Price { get; init; }
 
     public PurchaseKind Kind { get; init; } = PurchaseKind.ForSelf;

@@ -874,7 +874,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
                 {
                     VariationId = variation.VariationId,
                     NameSnapshot = variation.Name,
-                    Price = Core.Services.MoneyText.Parse(variation.Price),
+                    Price = Core.Services.MoneyText.ParsePaid(variation.Price),
                     Kind = variation.Kind,
                     ExistsOnBooth = !variation.IsGone,
                 },
@@ -882,7 +882,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             {
                 VariationId = variation.VariationId,
                 NameSnapshot = extra.NameSnapshot ?? variation.Name,
-                Price = Core.Services.MoneyText.Parse(extra.Price),
+                Price = Core.Services.MoneyText.ParsePaid(extra.Price),
                 Kind = extra.Kind,
                 Note = extra.Note,
                 ExistsOnBooth = !variation.IsGone,

@@ -38,4 +38,18 @@ public class MoneyTextTests
         Assert.False(MoneyText.IsUnreadable("¥1,200"));
         Assert.True(MoneyText.IsUnreadable("だいたい千円"));
     }
+
+    /// <summary>払った額の欄は、空欄を 0円として読む（ユーザ判断 2026-09-29：未入力を無くす）。読めない文字は今までどおり null。</summary>
+    [Theory]
+    [InlineData("", 0)]
+    [InlineData("   ", 0)]
+    [InlineData(null, 0)]
+    [InlineData("¥1,200", 1200)]
+    [InlineData("0", 0)]
+    public void ReadsAPaidFieldWithBlankAsZero(string? text, int expected)
+        => Assert.Equal(expected, MoneyText.ParsePaid(text));
+
+    [Fact]
+    public void KeepsAnUnreadablePaidFieldAsNull()
+        => Assert.Null(MoneyText.ParsePaid("だいたい千円"));
 }

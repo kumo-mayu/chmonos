@@ -663,7 +663,7 @@
                             <StackPanel>
                                 <TextBlock Text="買ったバリエーションに印を付けます。値段は現在価格が入るので、支払額が違うときは書き換えてください。"
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
-                                           ToolTip="空欄は未入力、0は無料です。2回買ったときは［＋］で追加します。" />
+                                           ToolTip="空欄は0円として記録します。2回買ったときは［＋］で追加します。" />
 
                                 <ItemsControl ItemsSource="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
@@ -689,11 +689,19 @@
                                                     <!-- 値段・誰のためか・［＋］。印が無いときも出して灰色にする（印を付けるたびに行が膨らまないように） -->
                                                     <StackPanel Orientation="Horizontal" Margin="22,6,0,0" IsEnabled="{Binding IsPurchased}">
                                                         <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
-                                                        <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
-                                                                 Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
-                                                                 VerticalContentAlignment="Center" />
+                                                        <!-- 空欄は0円として記録する（ユーザ判断 2026-09-29：未入力を無くす）。空欄のときは薄い 0 を出す -->
+                                                        <Grid>
+                                                            <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
+                                                                     Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                     VerticalContentAlignment="Center" />
+                                                            <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
+                                                                       Foreground="{StaticResource TextFaint}"
+                                                                       Visibility="{Binding Price, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                                        </Grid>
+                                                        <!-- BOOTH の値段が無い行（種類を指さない購入・消えた版）は「現在 -」になるだけなので出さない -->
                                                         <TextBlock Text="{Binding ListPriceText, StringFormat=現在 {0}}" Style="{StaticResource Caption}"
-                                                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                                   VerticalAlignment="Center" Margin="8,0,0,0"
+                                                                   Visibility="{Binding HasListPrice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                         <!--
                                                             「ギフト」のチェック1つでは、貰ったのか贈ったのかが書き分けられない。
                                                             貰い物は支出に数えず、贈答は支出に入るが所持には入らないので、集計上まったく別の扱いになる。
@@ -722,9 +730,14 @@
                                                             <DataTemplate>
                                                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                                                     <TextBlock Text="¥" VerticalAlignment="Center" Style="{StaticResource Caption}" />
-                                                                    <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
-                                                                             Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
-                                                                             VerticalContentAlignment="Center" />
+                                                                    <Grid>
+                                                                        <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
+                                                                                 Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                                 VerticalContentAlignment="Center" />
+                                                                        <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
+                                                                                   Foreground="{StaticResource TextFaint}"
+                                                                                   Visibility="{Binding Price, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
+                                                                    </Grid>
                                                                     <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
                                                                               Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
                                                                               VerticalContentAlignment="Center">
