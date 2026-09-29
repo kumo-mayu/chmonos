@@ -195,6 +195,28 @@ public class ItemIdChangeTests : IDisposable
         Assert.Equal("とりさん", moved.Local.DisplayName);
     }
 
+    /// <summary>
+    /// 移し先の問い合わせが一時的に届かなかったときは、販売終了の印を付けず、予定日を今にして次の⑦で取りに行く
+    /// （ユーザ判断 2026-09-29）。前は予定日を持たない空の商品のままで、後から情報を取りに行かなかった
+    /// </summary>
+    [Fact]
+    public async Task MovingWhileBoothIsUnreachableFetchesItOnTheNextRefresh()
+    {
+        var paths = new AppPaths(Path.Combine(_root, "library"));
+        var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
+        var offline = new OffUiThreadTests.OfflineClient();
+        var service = new ItemService(_store, offline, new ImagePipeline(offline, paths, settings), settings);
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await service.ChangeItemIdAsync(LocalId, "9999999"));
+
+        var moved = (await _store.Items.LoadAsync("9999999"))!;
+        Assert.False(moved.Local.IsDelisted);
+        Assert.Equal(0, moved.Local.ConsecutiveNotFoundCount);
+        Assert.True(moved.Local.NextFetchDueAt <= DateTimeOffset.Now);
+        Assert.Single(moved.Local.LocalFiles);
+    }
+
     /// <summary>既に手元にある商品へ移すときは、その商品の取得の記録を触らない（持ち主は⑦）。</summary>
     [Fact]
     public async Task MovingOntoAnExistingItemKeepsItsFetchRecord()

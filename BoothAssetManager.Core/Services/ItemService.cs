@@ -1134,9 +1134,18 @@ public sealed class ItemService : IItemService
         // BOOTHが「無い」と答えたIDは、未確定の「見つからないIDのまま登録」と同じ状態で作る（⑦で確かめ直し、公開されたら情報を取る）。
         // 一時的に届かなかっただけのIDに販売終了の印を付けると、統計や検索で販売終了として数えてしまうので空の商品のまま。
         // 仮IDは BOOTH に存在しないので⑦に乗せない
-        ItemRecord NewItem() => fetchStatus == Booth.BoothFetchStatus.NotFound && !LocalItemId.IsLocal(toId)
-            ? UnpublishedItem(toId, null)
-            : EmptyItem(toId);
+        // 一時的に届かなかったIDは、販売終了の印を付けず、予定日を今にして次の⑦で取りに行く（ユーザ判断 2026-09-29）。
+        // 予定日を持たない空の商品は⑦に乗らず、後から情報を取りに行かなかった
+        ItemRecord NewItem() => LocalItemId.IsLocal(toId)
+            ? EmptyItem(toId)
+            : fetchStatus switch
+            {
+                Booth.BoothFetchStatus.NotFound => UnpublishedItem(toId, null),
+                Booth.BoothFetchStatus.TemporaryFailure => EmptyItem(toId) is var empty
+                    ? empty with { Local = empty.Local with { NextFetchDueAt = DateTimeOffset.Now } }
+                    : empty,
+                _ => EmptyItem(toId),
+            };
 
         var skipped = skippedPurchases ?? new HashSet<int>();
         var refused = ItemIdChangeOutcome.TargetUnavailable;
