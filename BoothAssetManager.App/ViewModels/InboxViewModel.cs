@@ -501,30 +501,26 @@ public sealed class InboxViewModel : ViewModelBase
 
             case NotificationKind.ArchiveFoundForFolder:
                 // 通知のIDに、外したいフォルダの場所が入っている（archive-found:{パス}）
-                if (row.ItemId is { } itemId && row.Record.Id.Split(':', 2) is [_, { Length: > 0 } path])
+                if (row.ItemId is { } itemId && row.Record.Id.Split(':', 2) is [_, { Length: > 0 } path] && !_isRefreshing)
                 {
-                    // zipを付けるところまでやる（ユーザ判断 2026-09-18）。大きいzipはハッシュに数秒かかる
+                    // zipを付けるところまでやる（ユーザ判断 2026-09-18）。大きいzipはハッシュに数秒かかるので、
+                    // 待つ間の2度押しで同じzipを2回読ませない（「商品情報を取り直す」と同じ守り・40b3863）
+                    _isRefreshing = true;
                     StatusText = "zipを読んで登録しています…";
-                    var outcome = await _services.Commands.ExecuteAsync(new UiCommand.SwapFolderForArchive(itemId, path));
-
-                    StatusText = outcome is CommandResult.ArchiveSwapped { Outcome: { } swapped }
-                        ? swapped.Result switch
-                        {
-                            Core.Services.ArchiveSwapResult.Registered =>
-                                $"「{swapped.ArchiveName}」で登録し直しました。展開したフォルダのファイルは削除していません。",
-                            Core.Services.ArchiveSwapResult.AlreadyRegistered =>
-                                $"「{swapped.ArchiveName}」は登録済みなので、展開したフォルダの登録だけ外しました。"
-                                + "ファイルは削除していません。",
-                            Core.Services.ArchiveSwapResult.ArchiveMissing =>
-                                "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。"
-                                + "登録はそのままにしてあります。",
-                            Core.Services.ArchiveSwapResult.ArchiveUnreadable =>
-                                "zipを読めませんでした。ほかのアプリが開いている可能性があります。登録はそのままです。",
-                            _ => "この商品は見つかりませんでした。",
-                        }
-                        : "登録しなおせませんでした。";
-
-                    await ReloadAsync();
+                    try
+                    {
+                        await SwapFolderForArchiveAsync(itemId, path);
+                    }
+                    catch (Exception exception)
+                    {
+                        // 受けないと「zipを読んで登録しています…」のまま残り、止まったように見えた
+                        Core.Diagnostics.AppLog.Error("要確認からのzipでの登録しなおし", exception);
+                        StatusText = $"登録しなおせませんでした。{Core.Services.FailureText.Cause(exception)}";
+                    }
+                    finally
+                    {
+                        _isRefreshing = false;
+                    }
                 }
 
                 return;
@@ -545,6 +541,7 @@ public sealed class InboxViewModel : ViewModelBase
                         StatusText = result is CommandResult.Failed failed
                             ? failed.Message
                             : "BOOTHの商品ページから情報を取り直しました。";
+                        await NoteItemChangedAsync(target);
                         await ReloadAsync();
                     }
                     catch (Exception exception)
@@ -563,6 +560,44 @@ public sealed class InboxViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 書き換えた商品を読み直して検索へ渡す。検索の一覧は読み込んだ写しを持っているので、知らせないと
+    /// 全件の読み直しまでカードと所持・容量の絞り込みが古いままだった（点検 2026-09-29）。全件は読み直さない（2000件で数秒かかる）
+    /// </summary>
+    private async Task NoteItemChangedAsync(string itemId)
+    {
+        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
+        {
+            _main.Search.NoteItemChanged(item);
+        }
+    }
+
+    private async Task SwapFolderForArchiveAsync(string itemId, string path)
+    {
+        var outcome = await _services.Commands.ExecuteAsync(new UiCommand.SwapFolderForArchive(itemId, path));
+
+        StatusText = outcome is CommandResult.ArchiveSwapped { Outcome: { } swapped }
+            ? swapped.Result switch
+            {
+                Core.Services.ArchiveSwapResult.Registered =>
+                    $"「{swapped.ArchiveName}」で登録し直しました。展開したフォルダのファイルは削除していません。",
+                Core.Services.ArchiveSwapResult.AlreadyRegistered =>
+                    $"「{swapped.ArchiveName}」は登録済みなので、展開したフォルダの登録だけ外しました。"
+                    + "ファイルは削除していません。",
+                Core.Services.ArchiveSwapResult.ArchiveMissing =>
+                    "隣にzipが見つかりませんでした。移動したか、外付けを外している可能性があります。"
+                    + "登録はそのままにしてあります。",
+                Core.Services.ArchiveSwapResult.ArchiveUnreadable =>
+                    "zipを読めませんでした。ほかのアプリが開いている可能性があります。登録はそのままです。",
+                _ => "この商品は見つかりませんでした。",
+            }
+            : "登録しなおせませんでした。";
+
+        await NoteItemChangedAsync(itemId);
+        await ReloadAsync();
+    }
+
+    /// <summary>「商品情報を取り直す」か「zipで登録しなおす」が走っているか。どちらも数秒かかるので、終わるまで次を受けない</summary>
     private bool _isRefreshing;
 
     /// <summary>
