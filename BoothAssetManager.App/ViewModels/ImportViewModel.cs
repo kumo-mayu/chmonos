@@ -1,5 +1,6 @@
 using System.IO;
 using System.Collections.ObjectModel;
+using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Scanning;
 using BoothAssetManager.Core.Services;
@@ -1453,6 +1454,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 応答の無い失敗が続いて途中で止めた回は、「BOOTHの不調」「少し待ってから」とは言わない（ユーザ判断 2026-09-29）。
     /// つながっていないなら待っても直らないので、事象と次の一手（つないでから押す）を言う。
     /// 件数は付けない——②（説明文）で止めた回は①が済んでいて、取れなかった数に入らない。
+    /// BOOTH が 5xx を返し続けて止めた回は、つなぎ直しても直らないので、時間をおくことを言う（ユーザ判断 2026-09-29）。
     /// </remarks>
     public string NotFoundText => Summary is { } summary
         ? string.Join(
@@ -1460,11 +1462,16 @@ public sealed class ImportViewModel : ViewModelBase
             summary.NotFound > 0
                 ? $"BOOTHで見つからなかったものが {summary.NotFound} 件あります。下の「未確定を開く」から確かめてください。"
                 : string.Empty,
-            summary.StoppedOffline
-                ? "途中で止めました。ネットにつながっていないようです。つながってから、下の帯の「続きから進む」を押してください。"
-                : summary.TemporaryFailures > 0
+            summary.Stopped switch
+            {
+                BoothOutageKind.Offline =>
+                    "途中で止めました。ネットにつながっていないようです。つながってから、下の帯の「続きから進む」を押してください。",
+                BoothOutageKind.ServerDown =>
+                    "途中で止めました。BOOTHが不調のようです。時間をおいて、下の帯の「続きから進む」を押してください。",
+                _ => summary.TemporaryFailures > 0
                     ? $"{summary.TemporaryFailures} 件はBOOTHの不調で取れませんでした。少し待ってから、下の帯の「続きから進む」で取り直せます。"
-                    : string.Empty)
+                    : string.Empty,
+            })
         : string.Empty;
 
     public bool HasNotFound => NotFoundText.Length > 0;

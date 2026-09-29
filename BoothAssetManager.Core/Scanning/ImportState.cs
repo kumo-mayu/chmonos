@@ -1,3 +1,5 @@
+using BoothAssetManager.Core.Booth;
+
 namespace BoothAssetManager.Core.Scanning;
 
 /// <summary>
@@ -45,15 +47,18 @@ public sealed record ImportState
     public IReadOnlyList<UnfetchedItem> Unfetched { get; init; } = [];
 
     /// <summary>
-    /// BOOTH から応答の無い失敗が続いたので、問い合わせを打ち切ったか（ユーザ判断 2026-09-29）。
+    /// 問い合わせを打ち切ったなら、その理由（<c>offline</c>＝応答が無い／<c>serverDown</c>＝BOOTH が 5xx。ユーザ判断 2026-09-29）。
     ///
     /// ネットにつながっていないと1件ごとに再試行で長く待つ（つながらないとき約13秒・応答が無いとき最長約100秒）ので、
-    /// 全件を回ると止まって見えた。打ち切った分は取れなかった商品と同じく「続きから」に残す。
-    /// 立っているときは <see cref="Targets"/> も残す——②（説明文）を打ち切った商品は①が済んでいて
+    /// 全件を回ると止まって見えた。BOOTH が落ちている間に全件を回すと、復旧に時間の掛かる相手へ問い合わせを重ね続ける。
+    /// 打ち切った分は取れなかった商品と同じく「続きから」に残す。
+    /// 打ち切ったときは <see cref="Targets"/> も残す——②（説明文）を打ち切った商品は①が済んでいて
     /// <see cref="Unfetched"/> に載らないので、対象を走査し直さないと②へ戻れない。
-    /// 起きたことの記録で、ほかの値からは導けないので書き出す。
+    /// 理由を持つのは、次の一手が違うから（つないでから押す／時間をおいて押す）。
+    /// 起きたことの記録で、ほかの値からは導けないので書き出す。打ち切っていない回は書かない（普段の記録を読みやすく保つ）。
     /// </summary>
-    public bool StoppedOffline { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public BoothOutageKind Stopped { get; init; }
 
     /// <summary>①が途中で止まったままか（最後まで走っていれば 0 / 0 で書く）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -75,7 +80,7 @@ public sealed record ImportState
     /// BOOTH の不調で取れなかった商品が残っていれば、最後まで走っていても出す。
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasProgress => WasInterrupted || UnfetchedItems.Count > 0 || StoppedOffline;
+    public bool HasProgress => WasInterrupted || UnfetchedItems.Count > 0 || Stopped != BoothOutageKind.None;
 
     /// <summary>
     /// 「続きから進む」で積み直す物。前回の対象と、取れなかった商品のファイル。
@@ -101,10 +106,14 @@ public sealed record ImportState
             var failed = UnfetchedItems.Count;
 
             // つながっていないのに「BOOTHの不調」「少し待ってから」と言うと、待っても直らない。
-            // 事象（つながっていない）と次の一手（つないでから押す）だけを言う
-            if (StoppedOffline)
+            // 事象（つながっていない）と次の一手（つないでから押す）だけを言う。
+            // BOOTH が 5xx を返し続けて止めたときは、つなぎ直しても直らない。待つことを言う（ユーザ判断 2026-09-29）
+            switch (Stopped)
             {
-                return "前回の取り込みは途中で止めました。ネットにつながっていないようです。つながってから「続きから進む」を押してください";
+                case BoothOutageKind.Offline:
+                    return "前回の取り込みは途中で止めました。ネットにつながっていないようです。つながってから「続きから進む」を押してください";
+                case BoothOutageKind.ServerDown:
+                    return "前回の取り込みは途中で止めました。BOOTHが不調のようです。時間をおいて「続きから進む」を押してください";
             }
 
             if (WasInterrupted)

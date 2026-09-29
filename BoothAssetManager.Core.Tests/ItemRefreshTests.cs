@@ -49,6 +49,9 @@ public class ItemRefreshTests : IDisposable
     /// <summary>商品JSONの代わりに返す本文。200 でも JSON でない応答を作る。</summary>
     private string? _itemJsonBody;
 
+    /// <summary>商品JSONの代わりに返す失敗の状態。5xx や 429 の状況を作る。</summary>
+    private HttpStatusCode? _itemJsonFailure;
+
     public ItemRefreshTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "bam-refresh-" + Guid.NewGuid().ToString("N"));
@@ -57,7 +60,8 @@ public class ItemRefreshTests : IDisposable
         _store = new DataStore(paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new StubHandler(this)), settings);
+        // 再試行の間合い（2秒→8秒）は待たない（5xx を返す試験がある）
+        var client = new BoothClient(new HttpClient(new StubHandler(this)), settings, delay: (_, _) => Task.CompletedTask);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths, settings), settings);
     }
 
@@ -89,6 +93,11 @@ public class ItemRefreshTests : IDisposable
 
             if (url.EndsWith(".json", StringComparison.Ordinal))
             {
+                if (owner._itemJsonFailure is { } failure)
+                {
+                    return new HttpResponseMessage(failure);
+                }
+
                 return owner._itemJsonNotFound
                     ? new HttpResponseMessage(HttpStatusCode.NotFound)
                     : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(owner._itemJsonBody ?? ItemJson) };
@@ -119,6 +128,25 @@ public class ItemRefreshTests : IDisposable
             Booth = new BoothBlock { Name = "取り直す前の名前", FetchedAt = DateTimeOffset.Now },
             Local = local,
         });
+
+    /// <summary>
+    /// 5xx は <see cref="RefreshOutcome.ServerError"/>、429 は <see cref="RefreshOutcome.TemporaryFailure"/> で返す。
+    /// ⑦は 5xx だけを打ち切りに数える（429 はこちらの出し過ぎなので数えない。ユーザ判断 2026-09-29）。
+    /// どちらも予定日は動かさない。
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable, RefreshOutcome.ServerError)]
+    [InlineData(HttpStatusCode.InternalServerError, RefreshOutcome.ServerError)]
+    [InlineData(HttpStatusCode.TooManyRequests, RefreshOutcome.TemporaryFailure)]
+    public async Task TellsServerErrorsApartFromOtherTemporaryFailures(HttpStatusCode status, RefreshOutcome expected)
+    {
+        var due = DateTimeOffset.Now.AddDays(-3);
+        await SaveItemAsync(new LocalBlock { NextFetchDueAt = due });
+        _itemJsonFailure = status;
+
+        Assert.Equal(expected, await _service.RefreshAsync(ItemId));
+        Assert.Equal(due, (await _store.Items.LoadAsync(ItemId))!.Local.NextFetchDueAt);
+    }
 
     /// <summary>
     /// 200 で JSON でない応答が来たら、投げずに「読めなかった」として返す。

@@ -109,10 +109,10 @@ public sealed class ImportSummary
     public int TemporaryFailures { get; init; }
 
     /// <summary>
-    /// BOOTH から応答の無い失敗が続いたので、問い合わせを打ち切ったか（ユーザ判断 2026-09-29）。
-    /// 立っていれば、<see cref="TemporaryFailures"/> には打ち切って問い合わせなかった商品も入る。
+    /// 応答の無い失敗か 5xx が続いたので、問い合わせを打ち切ったか。打ち切ったならその理由（ユーザ判断 2026-09-29）。
+    /// 打ち切っていれば、<see cref="TemporaryFailures"/> には打ち切って問い合わせなかった商品も入る。
     /// </summary>
-    public bool StoppedOffline { get; init; }
+    public BoothOutageKind Stopped { get; init; }
 
     public int ImagesDownloaded { get; init; }
 
@@ -296,7 +296,7 @@ public sealed class ImportPipeline : IImportPipeline
             if (work.TakePending() is not { Count: > 0 } folders)
             {
                 // 応答の無い失敗が続いて打ち切ったなら、前の周回で積んだ画像も取りに行かない（FetchAsync の画像の見込みと同じ理由）
-                if (images.IsEmpty || totals.StoppedOffline)
+                if (images.IsEmpty || totals.Outage.IsStopped)
                 {
                     break;
                 }
@@ -395,13 +395,13 @@ public sealed class ImportPipeline : IImportPipeline
         // 応答の無い失敗が続いて打ち切った回は、対象も残す（ユーザ判断 2026-09-29）。②を打ち切った商品は①が済んでいて
         // 取れなかった商品に載らないので、「続きから進む」で対象を走査し直して②へ戻す
         await _store.ImportState.SaveAsync(
-            totals.StoppedOffline
+            totals.Outage.IsStopped
                 ? new ImportState
                 {
                     Unfetched = totals.Unfetched,
                     StoppedAt = DateTimeOffset.Now,
                     Targets = work.Accepted,
-                    StoppedOffline = true,
+                    Stopped = totals.Outage.Stopped,
                 }
                 : totals.Unfetched.Count == 0
                     ? new ImportState()
@@ -560,35 +560,13 @@ public sealed class ImportPipeline : IImportPipeline
         public void NoteSettled(string itemId) => _unfetched.Remove(itemId);
 
         /// <summary>
-        /// 応答の無い失敗がこの数だけ続いたら、この回の問い合わせを打ち切る（ユーザ判断 2026-09-29）。
-        /// ネットにつながっていないと1件ごとに再試行で長く待ち（つながらないとき約13秒・応答が無いとき最長約100秒）、
-        /// 全件を回るので止まって見えた。1〜2件なら BOOTH の一瞬の不調でも起きるので、3件で見切る
+        /// ①②の1件ごとの結果（再試行の後）を続けて数える。応答の無い失敗か 5xx が3件続いたら、この回の問い合わせを打ち切る
+        /// （ユーザ判断 2026-09-29）。ネットにつながっていないと1件ごとに再試行で長く待ち
+        /// （つながらないとき約13秒・応答が無いとき最長約100秒）、全件を回るので止まって見えた。
+        /// BOOTH が落ちている間に全件を回すと、復旧に時間の掛かる相手へ問い合わせを重ね続ける。
+        /// 数え方は画像の段と同じ部品に揃える（どこで止まっても同じ決まりで止まる）
         /// </summary>
-        public const int UnreachableLimit = 3;
-
-        private int _unreachableStreak;
-
-        /// <summary>応答の無い失敗が続いて、この回の問い合わせを打ち切ったか。</summary>
-        public bool StoppedOffline { get; private set; }
-
-        /// <summary>
-        /// 1件の問い合わせの結果を数える。**応答が無かった物だけを続けて数え、BOOTH が何か返したら数え直す**。
-        /// 429（混雑）・5xx・404・読めない応答は BOOTH が応答しているのでつながってはいる——429 は今の扱い
-        /// （間隔を広げて待つ）のまま、打ち切りには数えない。
-        /// </summary>
-        public void NoteResponse<T>(BoothFetchResult<T> result)
-        {
-            if (!result.IsUnreachable)
-            {
-                _unreachableStreak = 0;
-                return;
-            }
-
-            if (++_unreachableStreak >= UnreachableLimit)
-            {
-                StoppedOffline = true;
-            }
-        }
+        public BoothOutageWatch Outage { get; } = new();
 
         private readonly List<UnpackedFolder> _unpacked = [];
         private int _scanned;
@@ -654,7 +632,7 @@ public sealed class ImportPipeline : IImportPipeline
             ItemsAlreadyKnown = _alreadyKnown,
             NotFound = _notFound,
             TemporaryFailures = _temporaryFailures,
-            StoppedOffline = StoppedOffline,
+            Stopped = Outage.Stopped,
             ImagesDownloaded = _imagesDownloaded,
             AvatarItemsUpdated = _avatarItemsUpdated,
             AvatarsFound = _avatarsFound,
@@ -1168,7 +1146,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 応答の無い失敗が続いたら、残りは問い合わせずに「続きから」へ残す（ユーザ判断 2026-09-29）。
             // 取れなかった商品と同じ扱いなので、下の帯の「続きから進む」で取り直せる
-            if (totals.StoppedOffline)
+            if (totals.Outage.IsStopped)
             {
                 temporaryFailures++;
                 work.PlanRequests(json: -1, pages: -1);
@@ -1178,7 +1156,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
             work.PlanRequests(json: -1);
-            totals.NoteResponse(jsonResult);
+            totals.Outage.Note(jsonResult);
 
             if (jsonResult.Status == BoothFetchStatus.NotFound)
             {
@@ -1277,7 +1255,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // ①と同じく、応答の無い失敗が続いたら残りは問い合わせない。説明の無い商品は、
             // 「続きから進む」で対象を走査し直したときに②へ戻る（取得済みで説明が無い商品は②の対象・U9）
-            if (totals.StoppedOffline)
+            if (totals.Outage.IsStopped)
             {
                 work.PlanRequests(pages: -(pages.Count - index));
                 break;
@@ -1290,7 +1268,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 見込みは問い合わせが済んでから減らす（①と揃える）。取っている最中の1件は残りに数える
             work.PlanRequests(pages: -1);
-            totals.NoteResponse(htmlResult);
+            totals.Outage.Note(htmlResult);
             if (!htmlResult.IsSuccess || htmlResult.Value is null)
             {
                 // 節が取れなくても商品自体は使える。次の段へ進む
@@ -1340,8 +1318,8 @@ public sealed class ImportPipeline : IImportPipeline
         // 応答の無い失敗が続いて打ち切ったなら、この回は画像も取りに行かない（取れない物を1件ずつ再試行で待つだけになる）。
         // 取り残した画像は起動時の⑤か「足りない情報を取得」で取れる（ImageBacklog は手元の JSON とディスクの差で対象を決める）。
         // 打ち切った記録は③の間に閉じても残るよう、ここで書いておく
-        var takesImages = _images.SavesImages && !totals.StoppedOffline;
-        if (totals.StoppedOffline)
+        var takesImages = _images.SavesImages && !totals.Outage.IsStopped;
+        if (totals.Outage.IsStopped)
         {
             await SaveProgressAsync(totals, work, cancellationToken);
         }
@@ -1425,7 +1403,7 @@ public sealed class ImportPipeline : IImportPipeline
                 StoppedAt = DateTimeOffset.Now,
                 Targets = work.Accepted,
                 Unfetched = totals.Unfetched,
-                StoppedOffline = totals.StoppedOffline,
+                Stopped = totals.Outage.Stopped,
             },
             cancellationToken);
 
