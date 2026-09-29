@@ -173,4 +173,31 @@ public sealed class TemporaryUnpackerTests : IDisposable
         Assert.True(TemporaryUnpacker.IsInsideDefaultRoot(Path.Combine(TemporaryUnpacker.DefaultRoot, "x-1234", "a.png")));
         Assert.False(TemporaryUnpacker.IsInsideDefaultRoot(@"D:\dl\a.png"));
     }
+
+    /// <summary>
+    /// 展開の途中でもう一度押しても、2本目は1本目の書きかけを消さずに待ち、同じ展開先を返す（大容量の確かめ #3）。
+    /// 前は2本目が書きかけを消して展開し直し、1本目が「別のアプリがファイルを開いています」で失敗していた。
+    /// </summary>
+    [Fact]
+    public async Task 展開の途中の2本目は1本目を待つ()
+    {
+        var zip = MakeZip("重ねる.zip", ("a/1.png", "一"), ("b/2.png", "二"));
+        Task<string>? second = null;
+        var secondFinishedEarly = true;
+
+        var first = new TemporaryUnpacker(Root)
+        {
+            OnGateEntered = () =>
+            {
+                // 1本目が錠の中にいる間に、別のインスタンス（押し直しで作られる命令と同じ）で押す
+                second = Task.Run(() => new TemporaryUnpacker(Root).Unpack(zip));
+                secondFinishedEarly = second.Wait(200);
+            },
+        }.Unpack(zip);
+
+        Assert.False(secondFinishedEarly);
+        Assert.Equal(first, await second!);
+        Assert.Equal("一", File.ReadAllText(Path.Combine(first, "a", "1.png")));
+        Assert.Equal("二", File.ReadAllText(Path.Combine(first, "b", "2.png")));
+    }
 }

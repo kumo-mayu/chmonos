@@ -88,6 +88,12 @@ public sealed class ImportSummary
     public int FilesUnreadable { get; init; }
 
     /// <summary>
+    /// 権限などで中を読めず、取り込めなかったフォルダの数（大容量の確かめ #5・2026-09-30）。**0 でないときだけ画面に出す。**
+    /// 前は黙って空として飛ばしていた。中に何件あったかは読めないので、ファイルの数には足さず別に数える。
+    /// </summary>
+    public int FoldersUnreadable { get; init; }
+
+    /// <summary>
     /// 中身が手元に無いクラウドのファイル（OneDrive の「オンラインのみ」）で、読まなかった数。
     /// 読むとダウンロードが始まるので取り込まないが、黙って飛ばすと取り込んだつもりの物が入っていないことに
     /// 気付けない。数と次の手（「常にこのデバイスに保持する」）を結果に出す（ユーザ判断 2026-09-23）。
@@ -321,6 +327,12 @@ public sealed class ImportPipeline : IImportPipeline
             await RecordVolumesAsync(folders, cancellationToken);
             offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
             scannedTargets.AddRange(folders);
+
+            // **走査に入る前に、対象と「走査の途中」を書く**（2026-09-30・大容量の確かめ #2）。
+            // 前は記録を書くのが①で1件取れたときだけだったので、走査・ID の特定の途中（大きなライブラリでは最も長い段）で
+            // 閉じるか中止すると、始めに書いた空の記録のまま残り、次の起動で帯も起動時の続きも出なかった。
+            // 走査の控えは10秒ごとに書くので、続きから走査し直してもハッシュを取り直すのは閉じる直前の分だけ
+            await SaveProgressAsync(totals, work, cancellationToken, scanning: true);
 
             // **走査は画面のスレッドの外で回す**（ユーザ判断 2026-09-21・C4）。
             // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
@@ -574,6 +586,7 @@ public sealed class ImportPipeline : IImportPipeline
         private int _scanned;
         private int _skippedUnpacked;
         private int _unreadable;
+        private int _unreadableFolders;
         private int _onlineOnly;
         private int _hashed;
         private int _reused;
@@ -595,6 +608,7 @@ public sealed class ImportPipeline : IImportPipeline
             _unpacked.AddRange(scan.UnpackedFolders);
             _skippedUnpacked += scan.SkippedInsideUnpackedFolders;
             _unreadable += scan.Unreadable;
+            _unreadableFolders += scan.UnreadableFolders;
             _onlineOnly += scan.OnlineOnly;
 
             _hashed += resolution.Hashed;
@@ -624,6 +638,7 @@ public sealed class ImportPipeline : IImportPipeline
             UnpackedFolders = _unpacked,
             FilesSkippedAsUnpacked = _skippedUnpacked,
             FilesUnreadable = _unreadable,
+            FoldersUnreadable = _unreadableFolders,
             FilesOnlineOnly = _onlineOnly,
             FilesHashed = _hashed,
             FilesReusedFromCache = _reused,
@@ -790,6 +805,7 @@ public sealed class ImportPipeline : IImportPipeline
         var unpacked = new List<UnpackedFolder>();
         var skippedUnpacked = 0;
         var unreadable = 0;
+        var unreadableFolders = 0;
         var onlineOnly = 0;
 
         foreach (var folder in folders)
@@ -798,6 +814,13 @@ public sealed class ImportPipeline : IImportPipeline
             unpacked.AddRange(result.UnpackedFolders);
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
             unreadable += result.Unreadable;
+
+            // 中を並べられなかったフォルダは数を結果に出し、どれかはログに残す（ハッシュを取れなかったファイルと同じ・大容量の確かめ #5）
+            unreadableFolders += result.UnreadableFolders.Count;
+            foreach (var denied in result.UnreadableFolders)
+            {
+                Diagnostics.AppLog.Warn("取り込みの走査", $"{denied}：フォルダの中を読めませんでした");
+            }
 
             // 中身が手元に無いクラウドのファイルは、読むとダウンロードが始まるので飛ばした。
             // 数は結果に出す（ユーザ判断 2026-09-23）。結果は全体の数だけなので、どのフォルダで何件かはログに残す
@@ -840,6 +863,7 @@ public sealed class ImportPipeline : IImportPipeline
             UnpackedFolders = unpacked,
             SkippedInsideUnpackedFolders = skippedUnpacked,
             Unreadable = unreadable,
+            UnreadableFolders = unreadableFolders,
             OnlineOnly = onlineOnly,
         };
     }
@@ -853,6 +877,8 @@ public sealed class ImportPipeline : IImportPipeline
         public int SkippedInsideUnpackedFolders { get; init; }
 
         public int Unreadable { get; init; }
+
+        public int UnreadableFolders { get; init; }
 
         public int OnlineOnly { get; init; }
     }
@@ -1130,6 +1156,10 @@ public sealed class ImportPipeline : IImportPipeline
 
         // 中断の記録は周回をまたいで足し合わせる（C12）
         totals.PlanFetch(pending.Count);
+
+        // 走査が済んだことをここで書く。①で取る物が無い周回は①の中で書かないので、
+        // 書かないと②③や画像の間に閉じた回に「途中で中断した」と嘘をつく
+        await SaveProgressAsync(totals, work, cancellationToken);
 
         // ── ① 商品JSON（全商品）。ここが終われば検索も統計も成立する ──
         //
@@ -1410,7 +1440,9 @@ public sealed class ImportPipeline : IImportPipeline
     /// 件数だけでも残しておかないと、中断したこと自体が黙って起きる。
     /// BOOTH の不調で取れなかった商品も一緒に書く（#10）
     /// </summary>
-    private Task SaveProgressAsync(ImportTotals totals, ImportWorkSet work, CancellationToken cancellationToken)
+    /// <param name="scanning">走査・ID の特定に入るところか（<see cref="ImportState.Scanning"/>）。</param>
+    private Task SaveProgressAsync(
+        ImportTotals totals, ImportWorkSet work, CancellationToken cancellationToken, bool scanning = false)
         => _store.ImportState.SaveAsync(
             new ImportState
             {
@@ -1420,6 +1452,7 @@ public sealed class ImportPipeline : IImportPipeline
                 Targets = work.Accepted,
                 Unfetched = totals.Unfetched,
                 Stopped = totals.Outage.Stopped,
+                Scanning = scanning,
             },
             cancellationToken);
 

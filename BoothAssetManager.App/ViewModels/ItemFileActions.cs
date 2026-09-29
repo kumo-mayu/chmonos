@@ -18,6 +18,9 @@ internal static class ItemFileActions
 {
     private sealed record Target(string Path, ListChoiceItem Label);
 
+    /// <summary>展開している zip。足し引きは画面のスレッドだけなので錠は要らない。</summary>
+    private static readonly HashSet<string> Unpacking = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>手元にある物（ファイルとフォルダ）を、選んでエクスプローラで開く。</summary>
     public static async Task RevealAsync(ItemRecord item)
     {
@@ -83,7 +86,25 @@ internal static class ItemFileActions
     /// </summary>
     public static async Task UnpackAndOpenAsync(AppServiceContainer services, string zip)
     {
-        var result = await services.Commands.ExecuteAsync(new UiCommand.UnpackToTemporary(zip));
+        // 展開の途中の2度押しは弾く（大容量の確かめ #3・2026-09-30。要確認の「商品情報を取り直す」と同じ守り・40b3863）。
+        // 1本目が終われば開くので、2本目まで通すとエクスプローラが2つ開く。
+        // 商品ページとカードの右クリックはどちらもここを通るので、画面をまたいだ押し直しもここで止まる
+        // （展開そのものの重なりは TemporaryUnpacker が錠で防いでいる）
+        if (!Unpacking.Add(zip))
+        {
+            return;
+        }
+
+        CommandResult result;
+        try
+        {
+            result = await services.Commands.ExecuteAsync(new UiCommand.UnpackToTemporary(zip));
+        }
+        finally
+        {
+            Unpacking.Remove(zip);
+        }
+
         if (result is CommandResult.Unpacked unpacked)
         {
             try

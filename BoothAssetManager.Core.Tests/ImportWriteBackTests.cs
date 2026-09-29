@@ -154,6 +154,42 @@ public class ImportWriteBackTests : IDisposable
     }
 
     /// <summary>
+    /// 読む権限の無いフォルダも、黙って飛ばさず結果に数える（大容量の確かめ #5）。
+    /// 中に何件あったかは読めないので、ファイルの数には足さない。
+    /// </summary>
+    [Fact]
+    public async Task CountsAFolderThatCouldNotBeListed()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var source = CreateSource();
+        var denied = new DirectoryInfo(Path.Combine(source, "denied"));
+        denied.Create();
+        var security = denied.GetAccessControl();
+        var rule = new System.Security.AccessControl.FileSystemAccessRule(
+            System.Security.Principal.WindowsIdentity.GetCurrent().User!,
+            System.Security.AccessControl.FileSystemRights.ListDirectory,
+            System.Security.AccessControl.AccessControlType.Deny);
+        security.AddAccessRule(rule);
+        denied.SetAccessControl(security);
+        try
+        {
+            var summary = await _pipeline.RunAsync(new ImportWorkSet([source]));
+
+            Assert.Equal(1, summary.FoldersUnreadable);
+            Assert.Equal(0, summary.FilesUnreadable);
+        }
+        finally
+        {
+            security.RemoveAccessRule(rule);
+            denied.SetAccessControl(security);
+        }
+    }
+
+    /// <summary>
     /// OneDrive の「オンラインのみ」のファイルは読まずに飛ばすが（読むとダウンロードが始まる）、
     /// 黙って飛ばすと取り込んだつもりの物が入っていないことに気付けない。数を結果に出す（ユーザ判断 2026-09-23）。
     /// 読めなかった物とは直し方が違うので、そちらには数えない。
