@@ -75,6 +75,18 @@ public sealed class AvatarRowViewModel : ViewModelBase, IHasItemCard
     /// <summary>頭に絵を出すか。無ければ頭文字を出す（U18）。</summary>
     public bool HasIcon => IconPath is not null;
 
+    /// <summary>
+    /// 裏の取得がこの商品の画像を置いた。頭の絵の場所を探し直し、カードも引き直す（洗い出し 6。
+    /// 場所は見えた行で一度だけ探すので、取り込みの④⑤の最中に開くと、知らせないと頭文字のまま残る）
+    /// </summary>
+    public void RefreshImages()
+    {
+        _iconPathLoaded = false;
+        OnPropertyChanged(nameof(HasIcon));
+        OnPropertyChanged(nameof(Icon));
+        _card?.RefreshImages();
+    }
+
     /// <summary>頭の絵。持っているアバターは商品の1枚目、持っていないアバターは控えの1枚（U18）。</summary>
     /// <remarks>裏で読み、届いたら描き直す。その場で読むと、画面を開くのが遅れた（<see cref="BoothAssetManager.App.Services.ThumbnailLoader.PeekForTile"/>）。</remarks>
     public System.Windows.Media.Imaging.BitmapSource? Icon => IconPath is { } path
@@ -221,7 +233,7 @@ public sealed record BaseItemCandidate(string ItemId, string Label, RelayCommand
 /// 素体でグループ化した一覧にすると「素体の指定なし」に大半が落ちて読めなくなる
 /// （実データでは独自素体が大半）。素体の管理は別の欄に分ける。
 /// </summary>
-public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen, IItemCardHost
+public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen, IItemCardHost, IItemImagesListener
 {
     /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
     private const int MaxNameSuggestions = 5;
@@ -270,6 +282,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private string _aliasInput = string.Empty;
     private string _nameInput = string.Empty;
     private List<AvatarRowViewModel> _all = [];
+
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        foreach (var row in _all)
+        {
+            if (string.Equals(row.ItemId, itemId, StringComparison.Ordinal))
+            {
+                row.RefreshImages();
+            }
+        }
+    }
 
     /// <summary>開いたときに選んでおくアバター。最初の読み込みで1回だけ使う。</summary>
     private string? _openWith;

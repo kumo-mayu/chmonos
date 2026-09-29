@@ -63,7 +63,7 @@ public sealed class OrphanAttributeRow : ViewModelBase
 /// 違いはitem側が名前だけでなく 0〜100 の値を持つこと。統合すると
 /// 「両方に値が入っているitemでどちらを残すか」が出るので、そこだけ聞く。
 /// </summary>
-public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, IItemCardHost
+public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, IItemCardHost, IItemImagesListener
 {
     private readonly AppServiceContainer _services;
 
@@ -545,8 +545,29 @@ public sealed class AttributeManageViewModel : ViewModelBase, IPendingWrites, II
             CardFactory = () => _main.Search.CardFor(item.Id),
         };
 
+        _itemRows.Add(entry);
         entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
         return entry;
+    }
+
+    /// <summary>作った商品の行。画像が届いたときに引き直す先（タグの管理と同じ）。</summary>
+    private readonly ItemRowRegistry<TagItemRow> _itemRows = new(row => row.ItemId);
+
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        var rows = _itemRows.Find(itemId);
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        var path = _main.Search.FindItem(itemId) is { } item
+            ? new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>()).ItemThumbnailPath(item)
+            : null;
+        foreach (var row in rows)
+        {
+            row.RefreshImages(path);
+        }
     }
 
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----

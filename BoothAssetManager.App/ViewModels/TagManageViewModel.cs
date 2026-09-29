@@ -202,9 +202,29 @@ public sealed class TagItemRow : ViewModelBase
 
     public bool HasValue => ValueText is not null;
 
-    public string? ThumbnailPath { get; init; }
+    private string? _thumbnailPath;
+
+    public string? ThumbnailPath
+    {
+        get => _thumbnailPath;
+        init => _thumbnailPath = value;
+    }
 
     public BoothAssetManager.App.Services.ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>
+    /// 裏の取得がこの商品の画像を置いた。行の絵とカードを引き直す（洗い出し 6。作ったときに一度だけ場所を探すので、
+    /// 取り込みの④⑤の最中に開くと、知らせないと絵の無いまま残る）
+    /// </summary>
+    public void RefreshImages(string? thumbnailPath)
+    {
+        _thumbnailPath = thumbnailPath;
+        OnPropertyChanged(nameof(ThumbnailPath));
+        OnPropertyChanged(nameof(Thumbnail));
+        OnPropertyChanged(nameof(HoverImage));
+        OnPropertyChanged(nameof(HasHoverImage));
+        _card?.RefreshImages();
+    }
 
     /// <summary>
     /// 裏で読み、届いたら描き直す（改変の一覧・アバターの管理と同じ扱い）。出すのは30DIPの枠だけなので、
@@ -277,7 +297,7 @@ public sealed class OrphanTagRow : ViewModelBase
 /// マスタに無い名前をitemが参照したままの状態もここに出す。
 /// 要確認はそれを知らせるだけで、直せる場所はこの画面しかないため。
 /// </summary>
-public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCardHost
+public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCardHost, IItemImagesListener
 {
     private readonly AppServiceContainer _services;
 
@@ -1744,6 +1764,27 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
 
     private readonly Dictionary<string, string?> _thumbnailPaths = new(StringComparer.Ordinal);
 
+    /// <summary>作った商品の行。画像が届いたときに引き直す先（弱く持つ。探す欄は1文字ごとに行を作り直すので、強く持つと溜まり続ける）。</summary>
+    private readonly ItemRowRegistry<TagItemRow> _itemRows = new(row => row.ItemId);
+
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        var rows = _itemRows.Find(itemId);
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        var path = _main.Search.FindItem(itemId) is { } item
+            ? new ModificationRowBuilder(_services, _main.Thumbnails, new Dictionary<string, ItemRecord>()).ItemThumbnailPath(item)
+            : null;
+        _thumbnailPaths[itemId] = path;
+        foreach (var row in rows)
+        {
+            row.RefreshImages(path);
+        }
+    }
+
     /// <summary>小分類の中に出す商品1件。絵の引き方は改変の一覧と同じものを使う（場所は呼び手が引いておく）。</summary>
     private TagItemRow CreateItemRow(ItemRecord item, string? thumbnailPath)
     {
@@ -1757,6 +1798,7 @@ public sealed class TagManageViewModel : ViewModelBase, IPendingWrites, IItemCar
             CardFactory = () => _main.Search.CardFor(item.Id),
         };
 
+        _itemRows.Add(entry);
         entry.OpenCommand = new RelayCommand(() => _main.ShowItem(item));
         return entry;
     }
