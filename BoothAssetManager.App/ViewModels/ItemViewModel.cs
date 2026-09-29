@@ -423,6 +423,14 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </remarks>
     private void ReplaceSelf(ItemRecord? updated, string? awayText = null)
     {
+        // 検索の一覧は読み込んだ写しを持っている。取り直し・フォルダの登録を外す・外したファイルを戻すの結果は、
+        // 知らせないと全件の読み直しまでカードと所持・容量の絞り込みに出なかった（点検 2026-09-29）。
+        // ここは開き直すどの道も通るので、1か所で知らせる。消えた商品は、呼ぶ側が全件を読み直してある
+        if (updated is not null)
+        {
+            _main.Search.NoteItemChanged(updated);
+        }
+
         if (Replaced is { } replaced)
         {
             // 知らせるかは差し替えの前に聞く（持ち主が差し替えると、このページは出ていないことになる）。
