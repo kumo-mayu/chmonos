@@ -287,10 +287,9 @@
 
                             <!-- IDと「IDを変える」（ユーザ指示：商品ページの欄に倣う）。IDそのものを押すと写せる -->
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0" DataContext="{Binding ItemPage}">
-                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="{Binding IdCopyTip}">
                                     <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
-                                               Foreground="{DynamicResource TextMuted}"
-                                               ToolTip="{Binding IdCopyTip}">
+                                               Foreground="{DynamicResource TextMuted}">
                                         <Run Text="{Binding IdText, Mode=OneWay}" />
                                     </Hyperlink>
                                 </TextBlock>

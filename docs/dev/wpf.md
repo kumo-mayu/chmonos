@@ -9,6 +9,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - `DockPanel` の子は既定で `Dock="Left"` に落ちる。`Dock="Bottom"` の子は**書いた順に下から積む**（ナビの帯が「設定」の下に出た。帯は「設定」のボタンより後に書く）
 - `ContentControl` に見た目（`ContentTemplate`）を当てる前に中身を渡すと、型の名前を出す文字の部品が作られて見える
 - 同じ要素に同じ属性を2回書くと MC3000 でビルドが落ちる（`Foreground` を Style と要素の両方に書いたとき）
+- 文字の中のリンク（`Hyperlink`）に付けた `ToolTip` は出ない。**囲む `TextBlock` に付ける**（商品ページの ID の「クリックすると商品IDをコピーします」が、付いていたのに出ていなかった。2026-09-29）
 - 添付プロパティで並べ方を変える部品（`ColumnsPanel.FullWidth`）は、`ItemsControl` の中では**項目を包む `ContentPresenter` に**付ける（`ItemContainerStyle`）。テンプレートの中の `Border` に付けても効かない
 
 ## 一覧と速さ

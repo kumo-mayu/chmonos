@@ -339,10 +339,9 @@
                                        TextWrapping="Wrap" Margin="0,6,0,0"
                                        Visibility="{Binding HasUserName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 作者名からはアプリ内のショップ画面へ。外部BOOTHには飛ばさない -->
-                            <TextBlock Margin="0,8,0,0">
+                            <TextBlock Margin="0,8,0,0" ToolTip="このショップの商品を見る">
                                 <Hyperlink Command="{Binding OpenShopCommand}" TextDecorations="{x:Null}"
-                                           Foreground="{DynamicResource Accent}"
-                                           ToolTip="このショップの商品を見る">
+                                           Foreground="{DynamicResource Accent}">
                                     <TextBlock Text="{Binding ShopName}" FontSize="13" />
                                 </Hyperlink>
                             </TextBlock>
@@ -354,10 +353,9 @@
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <!-- IDそのものを押せるようにする。統合先の指定に要るので、
                                      手で書き写させない。UI要素は増やさない -->
-                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0">
+                                <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" ToolTip="{Binding IdCopyTip}">
                                     <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
-                                               Foreground="{DynamicResource TextMuted}"
-                                               ToolTip="{Binding IdCopyTip}">
+                                               Foreground="{DynamicResource TextMuted}">
                                         <Run Text="{Binding IdText, Mode=OneWay}" />
                                     </Hyperlink>
                                 </TextBlock>

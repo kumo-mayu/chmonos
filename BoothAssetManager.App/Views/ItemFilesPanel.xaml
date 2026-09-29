@@ -138,9 +138,8 @@
                                                             <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                         </Border>
                                                         <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
-                                                                   Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                            <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                       ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">取り込みを開く</Hyperlink>
+                                                                   Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                            <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">取り込みを開く</Hyperlink>
                                                         </TextBlock>
                                                     </StackPanel>
                                                     <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
@@ -215,9 +214,8 @@
                                                         <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
                                                     <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
-                                                               Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                   ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">取り込みを開く</Hyperlink>
+                                                               Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                        <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">取り込みを開く</Hyperlink>
                                                     </TextBlock>
                                                 </StackPanel>
                                                     <!--
