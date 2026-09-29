@@ -411,8 +411,8 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <summary>要確認を開き、その商品の「商品の更新」の知らせまで送る（ショップの「更新あり」から）。</summary>
     public void ShowInboxFor(string itemId) => CurrentViewModel = new InboxViewModel(_services, this, itemId);
 
-    /// <summary>件数だけを数え直す。画面側から既読にしたときなどに呼ぶ。</summary>
-    public void RefreshBadges() => RefreshCounts();
+    /// <summary>件数だけを数え直す。画面側から既読にしたときなどに呼ぶ（待ちの控えは画面のスレッドで触るので運ぶ）。</summary>
+    public void RefreshBadges() => RunOnUiThread(RefreshCounts);
 
     /// <summary>
     /// 未確定画面を開く。毎回作り直すのは、取り込みや除外で中身が変わるため。
@@ -953,15 +953,64 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <remarks>
     /// ファイル（未確定・要確認）は裏で読み、数だけを画面のスレッドで入れる（2026-09-24）。
     /// 前は画面のスレッドで2つのファイルを同期で読んでいて、取り込み中は③待ちが変わるたび（1件ごと）に呼ばれていた。
-    /// 呼ばれた順と届く順が入れ替わっても古い数で上書きしないよう、最後に頼んだ読みだけを当てる
+    /// 呼ばれた順と届く順が入れ替わっても古い数で上書きしないよう、最後に頼んだ読みだけを当てる。
+    ///
+    /// ファイルから数える分は、2つのファイルが前と同じなら読まない（<see cref="Core.Services.NavCountReader"/>）うえに、
+    /// 間を詰めて頼まれたら <see cref="CountsInterval"/> に1回へまとめる（2026-09-29）。
+    /// 「未:」の数（検索が抱える一覧から数える・ファイルを読まない）は、頼まれるたびにすぐ入れる。
+    /// 画面のスレッドから呼ぶ。
     /// </remarks>
     private void RefreshCounts()
     {
         NeedsEditCount = Search.NeedsEditCount;
 
+        if (_countsQueued)
+        {
+            // 後でまとめて読む分がもう待っている。その読みが今の頼みも拾う
+            return;
+        }
+
+        var wait = _lastCountsAt + CountsInterval - DateTime.UtcNow;
+        if (wait > TimeSpan.Zero)
+        {
+            _countsQueued = true;
+            ReadCountsLaterAsync(wait).Forget();
+            return;
+        }
+
+        ReadCounts();
+    }
+
+    /// <summary>
+    /// ナビの件数を数え直す間隔の下限。取り込み中は商品1件ごと（BOOTH の間隔で約1.5秒おき）に、
+    /// ①で③待ちが増え③で減るので、1件につき2回ほど頼まれる。その2回を1回にまとめるのに1.5秒の間隔より短く、
+    /// バッジの数が遅れても人が気付かない長さとして1秒にした。間が空いていれば頼まれてすぐ読む（遅らせるのは続けて来た分だけ）。
+    /// </summary>
+    private static readonly TimeSpan CountsInterval = TimeSpan.FromSeconds(1);
+
+    private DateTime _lastCountsAt = DateTime.MinValue;
+
+    /// <summary>まとめて後で読む分が待っているか。画面のスレッドだけが触る。</summary>
+    private bool _countsQueued;
+
+    private async Task ReadCountsLaterAsync(TimeSpan wait)
+    {
+        await Task.Delay(wait);
+        RunOnUiThread(() =>
+        {
+            _countsQueued = false;
+            ReadCounts();
+        });
+    }
+
+    private Core.Services.NavCountReader? _countReader;
+
+    private void ReadCounts()
+    {
+        _lastCountsAt = DateTime.UtcNow;
         var turn = Interlocked.Increment(ref _countsRead);
+        var reader = _countReader ??= new Core.Services.NavCountReader(_services.Store);
         var store = _services.Store;
-        var notificationService = _services.Notifications;
 
         // 未確定の画面と同じ単位で数えるための材料。検索の写しは画面のスレッドで写してから渡す
         var items = Search.SnapshotItems();
@@ -969,19 +1018,13 @@ public sealed partial class MainViewModel : ViewModelBase
         Task.Run(() =>
             {
                 // 読めなければ投げる（Forget がログに残す）。数は古いまま残るだけ
-                var unresolved = CountUnresolvedUnits(store.Unresolved.Load(), items, importFolders);
-                var notifications = notificationService.Load();
+                var read = reader.Read();
 
-                // 解消済みは一覧（未読のみ）に出ないので、バッジにも乗せない。
-                // 乗せると「バッジは残っているのに画面に出ない」状態になる（ユーザ指摘 2026-09-18）
-                var unread = notifications.Count(record => !record.IsRead && !record.IsResolved);
-
-                // BOOTH側の作りが変わった疑いは、商品1件ごとの話と並べずにナビの帯で出す（ユーザ判断 2026-09-18）
-                var alert = notifications
-                    .Where(record => record.Kind == Core.Models.NotificationKind.PageStructureChanged && !record.IsResolved)
-                    .OrderByDescending(record => record.CreatedAt)
-                    .FirstOrDefault()
-                    ?.Detail ?? string.Empty;
+                // 札の未確定は登録する回数で数える（CountUnresolvedUnits）。読み手が数えるのはファイルの数なので、
+                // 0件なら記録を読まずに0、そうでなければ記録を読んで単位に直す（単位の数は材料が同じ間は覚えてある）
+                var counts = read.Unresolved == 0
+                    ? read
+                    : read with { Unresolved = CountUnresolvedUnits(store.Unresolved.Load(), items, importFolders) };
 
                 RunOnUiThread(() =>
                 {
@@ -990,9 +1033,9 @@ public sealed partial class MainViewModel : ViewModelBase
                         return;
                     }
 
-                    UnresolvedCount = unresolved;
-                    UnreadCount = unread;
-                    StructureAlert = alert;
+                    UnresolvedCount = counts.Unresolved;
+                    UnreadCount = counts.Unread;
+                    StructureAlert = counts.StructureAlert;
                 });
             })
             .Forget();
