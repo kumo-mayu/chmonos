@@ -505,21 +505,33 @@ public partial class MainWindow : Window
 
         // ドロップと同じ読み方をする。クリップボードにも、素のテキストを持たず
         // URLの形式だけが置かれることがある（ブラウザからのコピーがそう）
-        var data = Clipboard.GetDataObject();
-        if (data is null)
+        List<string>? paths;
+        string? text;
+        bool hasBitmap;
+        try
         {
+            var data = Clipboard.GetDataObject();
+            if (data is null)
+            {
+                return;
+            }
+
+            paths = data.GetDataPresent(DataFormats.FileDrop)
+                ? (data.GetData(DataFormats.FileDrop) as string[])?.ToList()
+                : null;
+
+            text = ReadText(data);
+
+            // スクリーンショットは絵そのものとして置かれる。
+            // 商品ページならこれをそのまま画像として足せる
+            hasBitmap = data.GetDataPresent(DataFormats.Bitmap);
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            // 他のアプリがクリップボードを掴んでいると読めない。黙って返し、次に押せば入る
+            // （絵を読む所 MainViewModel.ReadClipboardImage と同じ守り。守りが無いと「予期しないエラー」の窓が出た。洗い出し 13）
             return;
         }
-
-        var paths = data.GetDataPresent(DataFormats.FileDrop)
-            ? (data.GetData(DataFormats.FileDrop) as string[])?.ToList()
-            : null;
-
-        var text = ReadText(data);
-
-        // スクリーンショットは絵そのものとして置かれる。
-        // 商品ページならこれをそのまま画像として足せる
-        var hasBitmap = data.GetDataPresent(DataFormats.Bitmap);
 
         if (paths is { Count: > 0 } || hasBitmap || !string.IsNullOrWhiteSpace(text))
         {
