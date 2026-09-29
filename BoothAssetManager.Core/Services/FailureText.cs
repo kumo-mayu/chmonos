@@ -39,4 +39,16 @@ public static class FailureText
             "ファイルの読み書きに失敗しました。別のアプリが開いているか、ドライブがつながっていないことがあります。",
         _ => "予期しないエラーが発生しました。",
     };
+
+    /// <summary>
+    /// 問い合わせを打ち切った理由の見当（1文。句点まで含む）。打ち切っていなければ null。
+    /// 対応アバターの検出の結果（アバターの管理・取り込みの③）で同じ言い方にするため1か所に置く。
+    /// つながっていないときに「BOOTHの不調」と言うと、待っても直らない物を待たせる（ユーザ判断 2026-09-29）
+    /// </summary>
+    public static string? Outage(Booth.BoothOutageKind kind) => kind switch
+    {
+        Booth.BoothOutageKind.Offline => "ネットにつながっていないようです。",
+        Booth.BoothOutageKind.ServerDown => "BOOTHが不調のようです。",
+        _ => null,
+    };
 }

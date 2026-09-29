@@ -308,6 +308,62 @@ public class AvatarDetectFetchTests : IDisposable
         Assert.False(AvatarService.IsNotFoundRecheckDue(notFound with { Category = "衣装" }, inLibrary: false, intervalDays: 30, now));
     }
 
+    /// <summary>
+    /// ネットにつながらないのが3件続いたら、残りは問い合わせずに抜け、打ち切ったことを返す。
+    /// 問い合わせなかったIDは登録簿に何も書かない（次の検出でまた試す）。
+    /// </summary>
+    [Fact]
+    public async Task StopsAskingWhenBoothCannotBeReached()
+    {
+        await SeedAsync(Ids(10));
+        var client = new ScriptedClient { Answer = _ => BoothFetchResult<string>.Unreachable("試験") };
+
+        var result = await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Equal(BoothOutageWatch.Limit, client.Asked.Count);
+        Assert.Equal(BoothOutageKind.Offline, result.Outage);
+        Assert.Equal(10, result.Unresolved);
+        Assert.Empty(_store.Avatars.Load().Entries);
+    }
+
+    /// <summary>BOOTH が 5xx を返し続けても打ち切る（落ちている相手へ問い合わせを重ねない）。</summary>
+    [Fact]
+    public async Task StopsAskingWhenBoothKeepsFailing()
+    {
+        await SeedAsync(Ids(10));
+        var client = new ScriptedClient
+        {
+            Answer = _ => new BoothFetchResult<string>
+            {
+                Status = BoothFetchStatus.TemporaryFailure,
+                Error = "HTTP 503",
+                IsServerError = true,
+            },
+        };
+
+        var result = await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Equal(BoothOutageWatch.Limit, client.Asked.Count);
+        Assert.Equal(BoothOutageKind.ServerDown, result.Outage);
+    }
+
+    /// <summary>間に取れた物があれば数え直す（1件だけ届かない商品で全体を止めない）。</summary>
+    [Fact]
+    public async Task CountsAgainAfterASuccess()
+    {
+        await SeedAsync(Ids(9));
+        var client = new ScriptedClient();
+        client.Answer = id => client.Asked.Count % 3 == 0
+            ? BoothFetchResult<string>.Success(AvatarJson(id))
+            : BoothFetchResult<string>.Unreachable("試験");
+
+        var result = await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Equal(BoothOutageKind.None, result.Outage);
+        // 届かないのは2件ずつしか続かないので、1回目で9件を全部聞いている
+        Assert.Equal(9, client.Asked.Take(9).Distinct().Count());
+    }
+
     /// <summary>途中で書くときは、人が消した別名の印・メモを最新のまま残す（最新に重ねる）。</summary>
     [Fact]
     public void MergeFetchedKeepsWhatAPersonChanged()

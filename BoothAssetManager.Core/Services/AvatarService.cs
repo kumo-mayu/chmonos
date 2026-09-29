@@ -39,6 +39,12 @@ public sealed record AvatarDetectResult
 
     /// <summary>この回で登録簿に新しく入った件数。商品が変わらなくても、次の回で効いてくる。</summary>
     public int RegistryAdded { get; init; }
+
+    /// <summary>
+    /// BOOTH に届かない失敗が続いて、問い合わせを打ち切ったか（その理由）。打ち切った後のIDは <see cref="Unresolved"/> に入る。
+    /// 画面は「ネットにつながっていない」と「BOOTHが不調」を言い分ける。
+    /// </summary>
+    public BoothOutageKind Outage { get; init; }
 }
 
 /// <summary>アバター1体の一覧表示用。</summary>
@@ -410,14 +416,17 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var requests = 0;
         var updated = 0;
 
+        // 打ち切りは1回の検出（落ち着くまでの全部の回）で数える。一度打ち切ったら、次の回も問い合わせない
+        var outage = new BoothOutageWatch();
+
         for (var pass = 0; pass < 4; pass++)
         {
-            var current = await DetectOnceAsync(progress, cancellationToken);
+            var current = await DetectOnceAsync(progress, outage, cancellationToken);
             requests += current.Requests;
             updated += current.ItemsUpdated;
 
             // 何回で落ち着いたかではなく、合計で何件書き換えたかを返す
-            result = current with { Requests = requests, ItemsUpdated = updated };
+            result = current with { Requests = requests, ItemsUpdated = updated, Outage = outage.Stopped };
 
             // 商品が変わらなくても、登録簿が増えていれば次の回で拾えるものが増える
             if (current.ItemsUpdated == 0 && current.RegistryAdded == 0)
@@ -431,6 +440,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
     private async Task<AvatarDetectResult> DetectOnceAsync(
         IProgress<AvatarDetectProgress>? progress,
+        BoothOutageWatch outage,
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -627,7 +637,10 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                     continue;
                 }
 
-                if (_client is null)
+                // **ネットにつながらない・BOOTH の 5xx が続いたら、残りは問い合わせない**（ユーザ判断 2026-09-29）。
+                // つながらないと1件ごとに再試行で長く待って全件を回り、止まって見える。落ちている BOOTH へ問い合わせを重ね続けもする。
+                // 問い合わせなかったIDは登録簿に何も書かない（次の検出でまた試す）。手元に持っている分は上で通信せずに済んでいる
+                if (_client is null || outage.IsStopped)
                 {
                     unresolved++;
                     continue;
@@ -635,6 +648,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
                 requests++;
                 var fetched = await _client.GetItemJsonAsync(id, cancellationToken);
+                outage.Note(fetched);
                 var answered = Answered(id, fetched, entries.GetValueOrDefault(id));
                 if (answered is null)
                 {
@@ -785,6 +799,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             Requests = requests,
             Unresolved = unresolved,
             RegistryAdded = entries.Count - entriesBefore,
+            Outage = outage.Stopped,
         };
     }
 
