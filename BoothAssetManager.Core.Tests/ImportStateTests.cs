@@ -309,5 +309,85 @@ public class ImportStateTests : IDisposable
         Assert.DoesNotContain("wasInterrupted", json, StringComparison.Ordinal);
         Assert.DoesNotContain("pathList", json, StringComparison.Ordinal);
         Assert.DoesNotContain("unfetchedItems", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("scanning", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>決まった段の知らせが来たところで取り消す（閉じる・中止を押すのと同じ）。時計に左右されない。</summary>
+    private sealed class CancelAt(ImportPhase phase, CancellationTokenSource cancel) : IProgress<ImportProgress>
+    {
+        public void Report(ImportProgress value)
+        {
+            if (value.Phase == phase)
+            {
+                cancel.Cancel();
+            }
+        }
+    }
+
+    /// <summary>
+    /// **走査・ID の特定の途中で閉じても、続きの対象が残る**（大容量の確かめ #2・2026-09-30）。
+    /// 前は①で1件取れるまで何も書かなかったので、対象が空のまま残り、帯も起動時の続きも出なかった。
+    /// </summary>
+    [Theory]
+    [InlineData(ImportPhase.Scanning)]
+    [InlineData(ImportPhase.Resolving)]
+    public async Task RemembersTheTargetsWhenClosedWhileScanning(ImportPhase phase)
+    {
+        var source = CreateSource("111", "222");
+        using var cancel = new CancellationTokenSource();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _pipeline.RunAsync([source], new CancelAt(phase, cancel), cancel.Token));
+
+        var state = _store.ImportState.Load();
+        Assert.True(state.HasProgress);
+        Assert.Equal([source], state.ResumeTargets);
+        Assert.Equal("前回の取り込みは途中で中断しました", state.Text);
+
+        // 起動時の続きも同じ対象を積む
+        Assert.Equal([source], LaunchImportTargets.Collect([], state));
+
+        // 続きから進めて最後まで走れば、記録は消える
+        await _pipeline.RunAsync(state.ResumeTargets);
+        Assert.False(_store.ImportState.Load().HasProgress);
+        Assert.Equal(2, Directory.GetFiles(_paths.ItemsDir, "*.json").Length);
+    }
+
+    /// <summary>
+    /// 走査が済んだ後（②の途中）で閉じたら、走査の途中とは言わない。
+    /// ①が全部済んでいれば失われた物は無いので、帯を出さない決まり（上の試験）のまま。
+    /// </summary>
+    [Fact]
+    public async Task ForgetsTheScanOnceTheFetchBegins()
+    {
+        using var cancel = new CancellationTokenSource();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _pipeline.RunAsync([CreateSource("111")], new CancelAt(ImportPhase.FetchingHtml, cancel), cancel.Token));
+
+        var state = _store.ImportState.Load();
+        Assert.False(state.Scanning);
+        Assert.False(state.HasProgress);
+    }
+
+    /// <summary>
+    /// 取る物が1件も無い周回（全部取得済み）でも、①に入るところで走査の途中を外す。
+    /// 外さないと、その後の段で閉じた回に「途中で中断しました」と嘘をつく。
+    /// </summary>
+    [Fact]
+    public async Task ForgetsTheScanEvenWhenNothingIsNew()
+    {
+        var source = CreateSource("111");
+        await _pipeline.RunAsync([source]);
+
+        // 説明のファイルを消すと、取得済みの商品が②へ戻る（①は通らない）。その②で閉じる
+        File.Delete(_paths.ItemHtmlFile("111"));
+        using var cancel = new CancellationTokenSource();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _pipeline.RunAsync([source], new CancelAt(ImportPhase.FetchingHtml, cancel), cancel.Token));
+
+        var state = _store.ImportState.Load();
+        Assert.False(state.Scanning);
+        Assert.False(state.HasProgress);
     }
 }

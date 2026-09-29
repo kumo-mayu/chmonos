@@ -10,7 +10,7 @@ namespace BoothAssetManager.Core.Scanning;
 /// 次に取り込みを押せば走査からやり直して残りを取得するが、
 /// **中断したこと自体は黙って起きる**ので、閉じた時に何件残っていたかをユーザは覚えていない。
 ///
-/// 持つのは3項目だけ。設計方針の「保存するデータは増やさない」に反しない——
+/// 持つのは起きたことの記録だけ。設計方針の「保存するデータは増やさない」に反しない——
 /// あれは**実態とずれる恐れのあるフラグを持たない**という意味（画像の取得済みフラグの話）で、
 /// これは**過去に起きたことの記録**であり、突き合わせる相手がいないのでずれようがない。
 ///
@@ -60,9 +60,21 @@ public sealed record ImportState
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public BoothOutageKind Stopped { get; init; }
 
-    /// <summary>①が途中で止まったままか（最後まで走っていれば 0 / 0 で書く）。</summary>
+    /// <summary>
+    /// 走査・商品 ID の特定の途中で止まったか（2026-09-30・大容量の確かめ #2）。
+    ///
+    /// 周回が走査に入るときに <see cref="Targets"/> と一緒に書き、①に入るところで外す。
+    /// 前は①で1件取れるまで何も書かなかったので、走査の途中で閉じると <see cref="Targets"/> が空のまま残り、
+    /// 次の起動で帯も起動時の続きも出なかった（大きなライブラリでは走査が最も長い段なので、閉じる人は珍しくない）。
+    /// <see cref="Done"/>・<see cref="Total"/> は①の数なので、走査の途中は 0 / 0 のままで、そこからは導けない。
+    /// 起きたことの記録なので書き出す。途中でない回は書かない（普段の記録を読みやすく保つ）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Scanning { get; init; }
+
+    /// <summary>①か、その手前の走査が途中で止まったままか（最後まで走っていれば 0 / 0 で書く）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool WasInterrupted => Total > 0 && Done < Total;
+    public bool WasInterrupted => (Total > 0 && Done < Total) || Scanning;
 
     /// <summary>取れなかった商品（手で直した JSON の null も空として読む）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -114,6 +126,13 @@ public sealed record ImportState
                     return "前回の取り込みは途中で止めました。ネットにつながっていないようです。つながってから「続きから進む」を押してください";
                 case BoothOutageKind.ServerDown:
                     return "前回の取り込みは途中で止めました。BOOTHが不調のようです。時間をおいて「続きから進む」を押してください";
+            }
+
+            // 走査の途中では①の件数がまだ無いので、数を言わない。
+            // 前の回から引き継いだ取れなかった商品も「続きから進む」が一緒に積むので、ここでは言い分けない
+            if (Scanning)
+            {
+                return "前回の取り込みは途中で中断しました";
             }
 
             if (WasInterrupted)

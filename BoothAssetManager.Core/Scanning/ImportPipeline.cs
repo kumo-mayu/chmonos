@@ -322,6 +322,12 @@ public sealed class ImportPipeline : IImportPipeline
             offlineTargets.AddRange(folders.Where(UnresolvedMerge.IsOnMissingVolume));
             scannedTargets.AddRange(folders);
 
+            // **走査に入る前に、対象と「走査の途中」を書く**（2026-09-30・大容量の確かめ #2）。
+            // 前は記録を書くのが①で1件取れたときだけだったので、走査・ID の特定の途中（大きなライブラリでは最も長い段）で
+            // 閉じるか中止すると、始めに書いた空の記録のまま残り、次の起動で帯も起動時の続きも出なかった。
+            // 走査の控えは10秒ごとに書くので、続きから走査し直してもハッシュを取り直すのは閉じる直前の分だけ
+            await SaveProgressAsync(totals, work, cancellationToken, scanning: true);
+
             // **走査は画面のスレッドの外で回す**（ユーザ判断 2026-09-21・C4）。
             // `ScanFolders` には `await` が1つも無いので、押した側のスレッドで
             // 全再帰列挙と展開先の実測が丸ごと走り、その間ずっと画面が固まっていた
@@ -1131,6 +1137,10 @@ public sealed class ImportPipeline : IImportPipeline
         // 中断の記録は周回をまたいで足し合わせる（C12）
         totals.PlanFetch(pending.Count);
 
+        // 走査が済んだことをここで書く。①で取る物が無い周回は①の中で書かないので、
+        // 書かないと②③や画像の間に閉じた回に「途中で中断した」と嘘をつく
+        await SaveProgressAsync(totals, work, cancellationToken);
+
         // ── ① 商品JSON（全商品）。ここが終われば検索も統計も成立する ──
         //
         // 段ごとに優先度を切り替える。人が押した操作はこれより上なので、
@@ -1410,7 +1420,9 @@ public sealed class ImportPipeline : IImportPipeline
     /// 件数だけでも残しておかないと、中断したこと自体が黙って起きる。
     /// BOOTH の不調で取れなかった商品も一緒に書く（#10）
     /// </summary>
-    private Task SaveProgressAsync(ImportTotals totals, ImportWorkSet work, CancellationToken cancellationToken)
+    /// <param name="scanning">走査・ID の特定に入るところか（<see cref="ImportState.Scanning"/>）。</param>
+    private Task SaveProgressAsync(
+        ImportTotals totals, ImportWorkSet work, CancellationToken cancellationToken, bool scanning = false)
         => _store.ImportState.SaveAsync(
             new ImportState
             {
@@ -1420,6 +1432,7 @@ public sealed class ImportPipeline : IImportPipeline
                 Targets = work.Accepted,
                 Unfetched = totals.Unfetched,
                 Stopped = totals.Outage.Stopped,
+                Scanning = scanning,
             },
             cancellationToken);
 
