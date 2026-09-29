@@ -64,6 +64,30 @@ public class FileNameQueryTests
         Assert.Equal(expected, FileNameQuery.ToSearchQuery(fileName));
     }
 
+    /// <summary>
+    /// 英単語の尻に続けて書かれた番号と、同じ商品の中の分け方の語（2026-09-29 の再調整）。
+    /// 型番（全部大文字）と、番号の後にも字が続く名前は割らない。
+    /// </summary>
+    [Theory]
+    [InlineData("SampleCape2_Mat_Tex_v1.0.zip", "Sample Cape")]
+    [InlineData("WidgetStand12b.zip", "Widget Stand")]
+    [InlineData("SampleBow_All_Ver1.00.zip", "Sample Bow")]
+    [InlineData("Common_SampleBow.zip", "Sample Bow")]
+    [InlineData("SampleCape_おまけ.zip", "Sample Cape")]
+    [InlineData("shop7xy_Thing.zip", "shop7xy Thing")]
+    [InlineData("ABC123_Thing.zip", "ABC123 Thing")]
+    public void SplitsNumbersOffWordsAndDropsVariantWords(string fileName, string expected)
+    {
+        Assert.Equal(expected, FileNameQuery.ToSearchQuery(fileName));
+    }
+
+    /// <summary>割った番号もシリーズの番号としては残る（並べ直しと点数に使う）。</summary>
+    [Fact]
+    public void KeepsTheSplitNumberAsASeriesNumber()
+    {
+        Assert.Equal(["2"], FileNameQuery.SeriesNumbers("SampleCape2_Mat.zip"));
+    }
+
     /// <summary>日本語と英数字の境目で分ける。続けて書かれていると、BOOTHはそれを1語として探す。</summary>
     [Fact]
     public void SplitsBetweenJapaneseAndLatin()

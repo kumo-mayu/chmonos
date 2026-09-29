@@ -40,6 +40,17 @@ public static partial class FileNameQuery
     [GeneratedRegex(@"(?<=[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}ー])(?=[A-Za-z0-9])|(?<=[A-Za-z0-9])(?=[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}])")]
     private static partial Regex ScriptBoundaryRegex { get; }
 
+    /// <summary>
+    /// 英字の語の尻に続けて書かれた番号。「Cape2」「Stand12b」を語と番号に分ける。
+    /// 1語のままだと商品名（「Cape 2」や日本語の名前）に無い語として AND 検索を0件にしていた（2026-09-29）。
+    /// 番号は版番号の語として落ち、シリーズの番号としては <see cref="SeriesNumbers"/> が元の名前から拾う。
+    /// 割るのは**小文字を含む英字3文字以上＋語の尻の番号（＋小文字1字）**だけ。
+    /// 全部大文字の型番（「ABC123」）や、番号の後にも字が続く名前（「shop7xy」）は1語のまま——
+    /// 最初は境目で全部割り、ショップ名や型番を崩した（2026-09-29 の実測で4本）。
+    /// </summary>
+    [GeneratedRegex(@"^(?=[A-Za-z]*[a-z])([A-Za-z]{3,})(\d{1,3}[a-z]?)$")]
+    private static partial Regex TrailingNumberWordRegex { get; }
+
     [GeneratedRegex(@"[\s_\-.　・＿~〜+＋,&]+")]
     private static partial Regex TokenSeparatorRegex { get; }
 
@@ -72,6 +83,9 @@ public static partial class FileNameQuery
         // 英語の機能語。検索の役に立たないうえ、別表記で引き直すと英語の辞書で「for → 対して」になり、
         // 「対して」を含む無関係な商品が正解より高い点を取った（やわらか影システム…PCSS For VRC、2026-09-11）
         "for", "the", "of", "and", "with", "to", "in", "on", "by", "a", "an",
+
+        // 同じ商品の中の分け方（全部入り・共通・マテリアルだけ・おまけ）。商品名には出てこない（2026-09-29 の実測）
+        "all", "common", "mat", "tex", "おまけ", "先にインポート",
         "無料", "改", "改変用", "修正版", "調整版", "更新", "最新", "配布",
     };
 
@@ -115,6 +129,9 @@ public static partial class FileNameQuery
 
         return TokenSeparatorRegex.Split(stripped)
             .Where(token => token.Length > 0)
+            .SelectMany(token => TrailingNumberWordRegex.Match(token) is { Success: true } match
+                ? [match.Groups[1].Value, match.Groups[2].Value]
+                : new[] { token })
             .Where(token => !NoiseTokens.Contains(token))
             .Where(token => !VersionTokenRegex.IsMatch(token))
             .Where(token => !AuthorInitialRegex.IsMatch(token))
@@ -122,9 +139,13 @@ public static partial class FileNameQuery
     }
 
     /// <summary>検索に使う語を作る。作れない場合は空文字。</summary>
-    public static string ToSearchQuery(string fileNameOrPath)
+    /// <param name="isAvatarName">
+    /// アバターの名前の語か（<see cref="AvatarTokens.IsAvatarName"/>）。渡せば検索語から外す。
+    /// 「商品名_アバター名」のファイルで AND 検索が0件になるため。**全部が名前なら外さない**（アバターそのものの zip）。
+    /// </param>
+    public static string ToSearchQuery(string fileNameOrPath, Func<string, bool>? isAvatarName = null)
     {
-        var tokens = Tokens(fileNameOrPath);
+        var tokens = WithoutAvatarNames(Tokens(fileNameOrPath), isAvatarName);
         if (tokens.Count > 0)
         {
             return string.Join(' ', tokens.Select(SplitCamelCase)).Trim();
@@ -177,8 +198,12 @@ public static partial class FileNameQuery
     /// いちばん特徴のある1語。AND 検索が全滅したときに、これだけで引き直す。
     /// 日本語は2文字以上、英字は4文字以上で最長のもの（日本語は1文字の情報量が多いので倍に数える）。
     /// </summary>
-    public static string MostDistinctiveToken(string fileNameOrPath)
-        => Tokens(fileNameOrPath)
+    /// <param name="isAvatarName">
+    /// 渡せばアバターの名前を選ばない。英字のアバター名は7字前後と長いことが多く、
+    /// 最長の1語を選ぶと商品名の語より先に選ばれて、そのアバターの商品ばかりが出ていた（2026-09-29）。
+    /// </param>
+    public static string MostDistinctiveToken(string fileNameOrPath, Func<string, bool>? isAvatarName = null)
+        => WithoutAvatarNames(Tokens(fileNameOrPath), isAvatarName)
             .SelectMany(token => SplitCamelCase(token).Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Where(token => token.All(char.IsAscii) ? token.Length >= 4 : token.Length >= 2)
             .OrderByDescending(token => token.All(char.IsAscii) ? token.Length : token.Length * 2)
@@ -217,6 +242,22 @@ public static partial class FileNameQuery
         }
 
         return current;
+    }
+
+    /// <summary><see cref="Tokens"/> からアバターの名前の語を外したもの。商品名を指している語。</summary>
+    public static IReadOnlyList<string> ProductTokens(string fileNameOrPath, Func<string, bool>? isAvatarName)
+        => WithoutAvatarNames(Tokens(fileNameOrPath), isAvatarName);
+
+    /// <summary>アバターの名前の語を外す。全部が名前なら外さない（アバターそのものの zip は名前で引くしかない）。</summary>
+    private static IReadOnlyList<string> WithoutAvatarNames(IReadOnlyList<string> tokens, Func<string, bool>? isAvatarName)
+    {
+        if (isAvatarName is null)
+        {
+            return tokens;
+        }
+
+        var kept = tokens.Where(token => !isAvatarName(token)).ToList();
+        return kept.Count > 0 ? kept : tokens;
     }
 
     /// <summary>末尾のバージョンを繰り返し落とす（Tori_v1_1_1 → Tori）。</summary>

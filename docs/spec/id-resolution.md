@@ -4,7 +4,7 @@
 > ファイル名だけでは「確度が高い」に届かない設計（誤って確定しない）。決まらない物は未確定へ置き、人が ID 確定をまとめて片付けてから編集へ送る。
 > **ログイン（cookie）は使わない**。
 >
-> **コード**：`BoothIdResolver`（手掛かり）・`BoothZipInspector`・`Core/Scanning/UnresolvedOrigin.cs`、`Core/Services/FallbackResolver.cs`・`FileNameQuery`・`AlternateQueries`・`RegistryCandidates`・`ExclusionFilter`、
+> **コード**：`BoothIdResolver`（手掛かり）・`BoothZipInspector`・`Core/Scanning/UnresolvedOrigin.cs`、`Core/Resolution/FallbackResolver.cs`・`FileNameQuery`・`AlternateQueries`・`AvatarTokens`・`RegistryCandidates`・`ExclusionFilter`、
 > `App/ViewModels/ResolveViewModel*.cs`、`experiments/ResolveAccuracyProbe`・`QueryVariantProbe`・`ZipOriginProbe`
 >
 > **経緯**：`docs/research/id-resolution.md`（18本の実ZIP・319本での実測）、`docs/research/zip-linking.md`・`zip-linking-followup.md`（並行調査）、`docs/history/grill-2-ui-and-data-model.md`（Resolve → Edit）
@@ -25,11 +25,19 @@
 
 - **検索語を整える**（`FileNameQuery.Tokens`）：版番号・括弧の付け足し・#タグ・作者の略号・配布形態の語・ダウンロードの重複番号・英語の機能語（for・the・of）を落とす。「」の中身は残す。日本語と英字の続きは割る。
   BOOTH の検索はスペースを AND で読み、余計な1語で全滅する。
-- 1ページ（最大60件）をファイル名との近さ（語・番号・ショップ名）で**並べ直す**（通信は増えない）。語に直接付いた番号（「ポーズ集13」）も使う。
-- 裏付けが出なければ、特徴のある**1語だけ**で、次に**別の表記**（読み→漢字・隣り合う2語をつないだ英語→日本語。日本語の表記を先に）で引き直す。別表記が作れなければ何もしない。
+  英単語の尻の番号（「Cape2」）は割り、同じ商品の中の分け方の語（全部入り・共通・マテリアル・おまけ）も落とす。型番（全部大文字）と番号の後にも字の続く名前は割らない。
+- **アバターの名前の語は検索語から外す**（`AvatarTokens`。2026-09-29）：「商品名_アバター名」のファイルで AND が0件になるため。名前は対応アバターの検出と同じ呼び名から取り、
+  かな・漢字だけの名前にはローマ字の読みが名前全体と一致するとき当てる（3字以上）。**全部が名前なら外さない**（アバター本体の zip）。
+  外した名前は並べ直しに1点だけ使う（同じアバターを名前に出す商品へ。本体には足さない。名前だけのファイルなら本体へ）。
+  `FallbackResolver` に登録簿を読む関数を渡したときだけ効く（**アプリへのつなぎ込みは未。判断待ち**）。
+- 1ページ（最大60件）をファイル名との近さ（語・番号・ショップ名）で**並べ直す**（通信は増えない）。語に直接付いた番号（「ポーズ集13」）も使う。商品名の版番号（ver2.1.0）の中の数字には当てない。
+  名前は検索カードの見出しから取る（属性の名前は25字前後で切れている）。
+- 裏付けが出なければ、特徴のある**1語だけ**（アバターの名前は選ばない）で、次に**別の表記**（読み→漢字・隣り合う2語をつないだ英語→日本語。日本語の表記を先に）で引き直す。別表記が作れなければ何もしない。
 - 候補ごとに商品 JSON を取って点数を付ける（無料の種類のファイル名一致・名前空間とショップ・商品名の語・番号の照合・種類名）。7点以上が「確度が高い」。
 - **手元の登録簿からも候補を出す**（通信なし。非公開になった商品でも名前が残っている）。一般的な語・短い語・2項目以上が持つ表記では当てない。
 - 実測（友人の正解の分かる319本）：上位3件に正解 54% → 76%。画面の1位が正解 13/30 → 19/30。
+  再調整（2026-09-29、318本・全件を端から端まで）：上位3件 76% → 83%、画面の1位 161 → 187、候補のどこかに 244 → 264。
+  測るときは BOOTH の答えの控え（`ResolveAccuracyProbe --cache`）を使い、並べ直し・点数の直しは通信なしで試す。
 
 ## 未確定の画面
 
