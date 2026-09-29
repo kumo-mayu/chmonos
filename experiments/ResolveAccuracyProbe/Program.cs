@@ -20,7 +20,10 @@
 //   dotnet run --project experiments/ResolveAccuracyProbe -- <保存先> <pairs.json> --make-pairs
 //       保存先の items/*.json から、商品に紐付いた zip の名前と正解の組を書き出す（保存先は読むだけ）
 //   dotnet run --project experiments/ResolveAccuracyProbe -- <保存先> <pairs.json> [--search] [--propose <本数|all>]
-//       [--cache <控えの置き場>] [--offline] [--no-avatars] [--out <第2部の結果.tsv>] [--detail <第3部の結果.tsv>] [--names <名前>...]
+//       [--cache <控えの置き場>] [--offline] [--no-avatars] [--siblings] [--second-page]
+//       [--out <第2部の結果.tsv>] [--detail <第3部の結果.tsv>] [--names <名前>...]
+//   --second-page は、引き直しでも外れたとき最初の1語の検索の2ページ目も見る（本体の SearchSecondPage。research §19）。
+//   第3部の結果の最後の列 secondPage に、2ページ目を引いた本は「2」
 //   pairs.json は [{ "file": "...zip", "id": "123", "itemName": "...", "shop": "subdomain" }, ...]
 //
 // 結果の TSV には正解の商品名とファイル名が入る。友人のデータで測るときは、リポジトリの外に置く。
@@ -54,6 +57,9 @@ if (args.Contains("--make-pairs"))
 }
 
 var doSearch = args.Contains("--search");
+
+// 引き直しでも外れたとき、最初の1語の検索の2ページ目も見る（本体の FallbackResolver.SearchSecondPage。research §19）
+var secondPage = args.Contains("--second-page");
 var outPath = Option("--out");
 var detailPath = Option("--detail");
 var cacheDir = Option("--cache") ?? Path.Combine(Path.GetTempPath(), "chmonos-resolve-probe-cache");
@@ -237,16 +243,28 @@ if (doSearch)
         // 本体と同じく、並べ直した後で上位3件に来なければ引き直す
         if (ranked.Reranked is < 0 or >= 3)
         {
+            var firstWord = FileNameQuery.MostDistinctiveToken(row.Pair.File, NotProductOf(row.Pair.File));
+            var firstWordFilled = false;
             foreach (var alternate in FallbackResolver.RetryQueries(row.Pair.File, row.Query, bridge, avatars, varying))
             {
                 queries++;
                 var alt = await RankOfAsync(client, alternate, row.Pair.Id, row.Pair.File, avatars, varying);
                 row.Alternates.Add($"{alternate}:{(alt.Reranked < 0 ? "-" : (alt.Reranked + 1).ToString())}({alt.Count})");
+                firstWordFilled |= string.Equals(alternate, firstWord, StringComparison.OrdinalIgnoreCase) && alt.Count >= 60;
                 if (alt.Reranked is >= 0 and < 3)
                 {
                     row.AlternateHit = true;
                     break;
                 }
+            }
+
+            // 本体の SearchSecondPage と同じく、最初の1語の検索が60件埋まっていれば2ページ目を見る
+            if (secondPage && !row.AlternateHit && firstWordFilled)
+            {
+                queries++;
+                var alt = await RankOfAsync(client, firstWord, row.Pair.Id, row.Pair.File, avatars, varying, page: 2);
+                row.Alternates.Add($"{firstWord}#2:{(alt.Reranked < 0 ? "-" : (alt.Reranked + 1).ToString())}({alt.Count})");
+                row.AlternateHit = alt.Reranked is >= 0 and < 3;
             }
         }
 
@@ -279,7 +297,10 @@ var propose = Option("--propose");
 if (propose is not null)
 {
     var before = client.NetworkRequests;
-    var resolver = new FallbackResolver(client, bridge, readings, avatars is null ? null : () => registry);
+    var resolver = new FallbackResolver(client, bridge, readings, avatars is null ? null : () => registry)
+    {
+        SearchSecondPage = secondPage,
+    };
 
     var sample = propose == "all"
         ? pairs
@@ -299,6 +320,7 @@ if (propose is not null)
     {
         var fake = FakePath(pair.File);
         var missesBefore = client.Misses;
+        var secondBefore = client.SecondPageRequests;
         var candidates = (await resolver.ProposeAsync(fake, listed: listing?.All)).Candidates;
         if (client.Misses > missesBefore)
         {
@@ -337,7 +359,8 @@ if (propose is not null)
         details.Add(string.Join('\t',
             pair.File, pair.Id, pair.ItemName, FileNameQuery.ToSearchQuery(pair.File, NotProductOf(pair.File)), index,
             string.Join(" | ", candidates.Select(candidate =>
-                $"{(candidate.ItemId == pair.Id ? "○" : "")}{candidate.Score}点 {candidate.Name} [{string.Join("・", candidate.Reasons)}]"))));
+                $"{(candidate.ItemId == pair.Id ? "○" : "")}{candidate.Score}点 {candidate.Name} [{string.Join("・", candidate.Reasons)}]")),
+            client.SecondPageRequests > secondBefore ? "2" : ""));
     }
 
     Console.WriteLine($"  1位が正解: {top1}/{sample.Count}　候補に正解: {listed}　候補なし: {empty}");
@@ -347,7 +370,7 @@ if (propose is not null)
 
     if (detailPath is not null)
     {
-        File.WriteAllLines(detailPath, ["file\tid\titemName\tquery\tindex\tcandidates", .. details], new System.Text.UTF8Encoding(false));
+        File.WriteAllLines(detailPath, ["file\tid\titemName\tquery\tindex\tcandidates\tsecondPage", .. details], new System.Text.UTF8Encoding(false));
     }
 
     foreach (var name in args.SkipWhile(arg => arg != "--names").Skip(1).TakeWhile(arg => !arg.StartsWith("--")))
@@ -362,7 +385,7 @@ if (propose is not null)
     }
 }
 
-Console.WriteLine($"\nBOOTH へ出た問い合わせ（合計）: {client.NetworkRequests} 本／控えから: {client.CacheHits} 本");
+Console.WriteLine($"\nBOOTH へ出た問い合わせ（合計）: {client.NetworkRequests} 本／控えから: {client.CacheHits} 本／2ページ目の検索: {client.SecondPageRequests} 本");
 
 if (outPath is not null)
 {
@@ -380,9 +403,9 @@ if (outPath is not null)
 
 /// 同じ検索結果から、BOOTHの並びでの順位と、本体と同じ並べ直しの後の順位を数える（検索1本）
 static async Task<(int Rank, int Count, int Reranked, string Top)> RankOfAsync(
-    CachingBoothClient client, string query, string itemId, string file, AvatarTokens? avatars, IReadOnlySet<string>? varying)
+    CachingBoothClient client, string query, string itemId, string file, AvatarTokens? avatars, IReadOnlySet<string>? varying, int page = 1)
 {
-    var result = await client.SearchAsync(query);
+    var result = await client.SearchAsync(query, page);
     if (!result.IsSuccess || result.Value is null)
     {
         return (-1, -1, -1, "");
