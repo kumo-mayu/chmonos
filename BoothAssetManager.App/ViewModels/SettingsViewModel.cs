@@ -17,6 +17,25 @@ public sealed class ThumbnailRoleOption
     public override string ToString() => Label;
 }
 
+/// <summary>改変の画面から開くアプリの選択肢。見つからない方は選べない。</summary>
+public sealed class ProjectManagerOption : ViewModelBase
+{
+    private bool _isAvailable;
+
+    public required ProjectManagerChoice Value { get; init; }
+
+    public required string Label { get; init; }
+
+    public bool IsAvailable
+    {
+        get => _isAvailable;
+        set => SetField(ref _isAvailable, value);
+    }
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
+}
+
 /// <summary>取り込み元フォルダの1行。</summary>
 /// <summary>ショートカット1件の割り当て（#43）。</summary>
 public sealed class ShortcutRow : ViewModelBase
@@ -136,6 +155,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _avatarDetectRecheckDays = settings.AvatarDetectRecheckDays;
         _startImportOnDrop = settings.StartImportOnDrop;
         _startImportOnLaunch = settings.StartImportOnLaunch;
+        _projectManager = settings.ProjectManager;
 
         foreach (var action in Enum.GetValues<Services.ShortcutAction>())
         {
@@ -146,6 +166,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _suppressSave = false;
 
         LoadAsync().Forget();
+        DetectProjectManagersAsync().Forget();
     }
 
     private void OnMainChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -343,6 +364,56 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get => ThumbnailRoles.First(option => option.Value == ThumbnailRole);
         set { if (value is not null) { ThumbnailRole = value.Value; } }
+    }
+
+    private ProjectManagerChoice _projectManager;
+    private Services.UnityTools? _projectManagerTools;
+
+    /// <summary>
+    /// VCC と ALCOM の両方があるとき、改変の画面から開く方（ユーザ指示 2026-09-29）。
+    /// 選べるのは見つかった方だけ。見つからない方を選んでいても（後で消した）、改変の画面は見つかった方を開く
+    /// </summary>
+    public ProjectManagerChoice ProjectManager
+    {
+        get => _projectManager;
+        set
+        {
+            if (SetField(ref _projectManager, value))
+            {
+                OnPropertyChanged(nameof(ProjectManagerNote));
+                Save();
+            }
+        }
+    }
+
+    /// <summary>選択肢。VCC・ALCOM は見つかるまで選べない（調べ終わるのは画面を開いた直後）。</summary>
+    public IReadOnlyList<ProjectManagerOption> ProjectManagers { get; } =
+    [
+        new ProjectManagerOption { Value = ProjectManagerChoice.VccLink, Label = "vcc:// に合わせる", IsAvailable = true },
+        new ProjectManagerOption { Value = ProjectManagerChoice.Vcc, Label = "VCC" },
+        new ProjectManagerOption { Value = ProjectManagerChoice.Alcom, Label = "ALCOM" },
+    ];
+
+    /// <summary>今、改変の画面でどちらを開くか。調べ終わるまでは空。</summary>
+    public string ProjectManagerNote => _projectManagerTools switch
+    {
+        null => string.Empty,
+        { HasVcc: true, HasAlcom: true } tools => ProjectManager == ProjectManagerChoice.VccLink
+            ? $"改変の画面から開くアプリです。vcc:// に合わせると、今は{(tools.LinkOpensAlcom ? "ALCOM" : "VCC")}を開きます。"
+            : "改変の画面から開くアプリです。",
+        { HasVcc: true } => "見つかったのはVCCだけなので、改変の画面からはVCCを開きます。",
+        { HasAlcom: true } => "見つかったのはALCOMだけなので、改変の画面からはALCOMを開きます。",
+        _ => "VCCかALCOMを入れると、改変の画面から開けます。",
+    };
+
+    /// <summary>レジストリとファイルを見るので裏で調べる（改変の画面と同じ <see cref="Services.UnityTools.Detect"/>）。</summary>
+    private async Task DetectProjectManagersAsync()
+    {
+        var tools = await Task.Run(Services.UnityTools.Detect);
+        _projectManagerTools = tools;
+        ProjectManagers[1].IsAvailable = tools.HasVcc;
+        ProjectManagers[2].IsAvailable = tools.HasAlcom;
+        OnPropertyChanged(nameof(ProjectManagerNote));
     }
 
     private bool _gallerySwitchOnHover;
@@ -856,6 +927,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             Shortcuts = shortcuts,
             StartImportOnDrop = StartImportOnDrop,
             StartImportOnLaunch = StartImportOnLaunch,
+            ProjectManager = ProjectManager,
         }), then).Forget();
     }
 

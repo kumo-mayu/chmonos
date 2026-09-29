@@ -1,3 +1,5 @@
+using BoothAssetManager.Core.Models;
+
 namespace BoothAssetManager.Core.Services;
 
 /// <summary>アンインストール情報の1件。Windows の記録を読むのは App の <c>InstalledApps</c>。</summary>
@@ -5,15 +7,11 @@ namespace BoothAssetManager.Core.Services;
 public sealed record UninstallRecord(
     string KeyName, string DisplayName, string? Publisher, string? InstallLocation, string? DisplayIcon);
 
-/// <summary>「VCCを開く」「ALCOMを開く」のどれを出すか。</summary>
+/// <summary>「VCCを開く」「ALCOMを開く」のどちらを出すか。出すのはいつも1つ。</summary>
 /// <param name="ShowVcc">「VCCを開く」を出すか。</param>
 /// <param name="CanOpenVcc">「VCCを開く」を押せるか。どちらも無いときは押せない形で出して、入れ方を吹き出しに書く。</param>
 /// <param name="ShowAlcom">「ALCOMを開く」を出すか。</param>
-public sealed record ProjectManagerButtons(bool ShowVcc, bool CanOpenVcc, bool ShowAlcom)
-{
-    /// <summary>2つとも出るか。並べると切り替えと同じ段に収まらないので、画面は段を分ける。</summary>
-    public bool Both => ShowVcc && ShowAlcom;
-}
+public sealed record ProjectManagerButtons(bool ShowVcc, bool CanOpenVcc, bool ShowAlcom);
 
 /// <summary>
 /// VCC と ALCOM（どちらも VRChat のプロジェクトを管理するアプリ）の実行ファイルの候補を、見る順に並べる。
@@ -128,12 +126,27 @@ public static class ProjectManagerApps
         => candidates.FirstOrDefault(exists);
 
     /// <summary>
-    /// ボタンの出し分け（ユーザと決めた形 2026-09-29）。
-    /// 片方だけならその1つ、両方なら2つ。どちらも無いときは今までどおり「VCCを開く」を押せない形で出す——
-    /// ボタンごと消すと、ここから開けることに気付けない。
+    /// ボタンの出し分け（ユーザ指示 2026-09-29）。出すのはいつも1つ。
+    /// 片方だけならその方。両方あれば設定の <paramref name="choice"/> の方で、既定は <c>vcc://</c> を引き受けている方
+    /// ——2つ並べると、どちらで開くかを毎回選ばせることになる。
+    /// どちらも無いときは今までどおり「VCCを開く」を押せない形で出す（ボタンごと消すと、ここから開けることに気付けない）。
     /// </summary>
-    public static ProjectManagerButtons Buttons(bool hasVcc, bool hasAlcom)
-        => new(ShowVcc: hasVcc || !hasAlcom, CanOpenVcc: hasVcc, ShowAlcom: hasAlcom);
+    public static ProjectManagerButtons Buttons(bool hasVcc, bool hasAlcom, bool linkOpensAlcom, ProjectManagerChoice choice)
+    {
+        var alcom = hasVcc && hasAlcom
+            ? choice switch
+            {
+                ProjectManagerChoice.Vcc => false,
+                ProjectManagerChoice.Alcom => true,
+                _ => linkOpensAlcom,
+            }
+            : hasAlcom;
+        return new(ShowVcc: !alcom, CanOpenVcc: hasVcc, ShowAlcom: alcom);
+    }
+
+    /// <summary><c>vcc://</c> を ALCOM が引き受けているか。関連付けが無い・VCC のままなら false。</summary>
+    public static bool LinkOpensAlcom(string? vccLinkCommand)
+        => UnityEditorLocator.ExeFromCommand(vccLinkCommand) is { } linked && IsAlcomExe(linked);
 
     private static bool IsAlcomExe(string path)
         => string.Equals(Path.GetFileName(path), AlcomExeName, StringComparison.OrdinalIgnoreCase);

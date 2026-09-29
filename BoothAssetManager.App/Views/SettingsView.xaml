@@ -185,6 +185,28 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                    Text="一覧と詳細の境目などをドラッグして変えた幅を、すべて元に戻します。1か所だけ戻すときは、その境目をダブルクリックします。" />
 
+                        <Border Height="1" Background="{DynamicResource Divider}" Margin="0,14,0,12" />
+
+                        <!--
+                            改変の画面の「VCCを開く」「ALCOMを開く」のどちらを出すか（ユーザ指示 2026-09-29）。
+                            選べるのは見つかった方だけ（IsAvailable）。既定は vcc:// を引き受けている方
+                        -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="プロジェクトの管理に使うアプリ" Style="{StaticResource RowLabel}" Width="220" />
+                            <ComboBox Width="160" ItemsSource="{Binding ProjectManagers}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Value"
+                                      SelectedValue="{Binding ProjectManager, Mode=TwoWay}"
+                                      AutomationProperties.Name="プロジェクトの管理に使うアプリ">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                        <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
+                            </ComboBox>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                   Text="{Binding ProjectManagerNote}" />
+
                         <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="欄を選んでキーを押すと割り当てられます。Backspaceで外せます。入力欄では、矢印・Home・Endなど文字の入力に使うキーの割り当ては働きません。" />

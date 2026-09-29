@@ -42,6 +42,9 @@ public sealed record AppSettings
     /// </summary>
     public ColorThemeMode ColorTheme { get; init; } = ColorThemeMode.System;
 
+    /// <summary>VCC と ALCOM の両方があるとき、改変の画面から開く方（ユーザ指示 2026-09-29）。</summary>
+    public ProjectManagerChoice ProjectManager { get; init; } = ProjectManagerChoice.VccLink;
+
     /// <summary>
     /// サムネイルにどの役割の画像を出すか。
     ///

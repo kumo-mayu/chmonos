@@ -127,13 +127,38 @@ public class ProjectManagerAppsTests
     [Theory]
     [InlineData(true, false, true, true, false)]
     [InlineData(false, true, false, false, true)]
-    [InlineData(true, true, true, true, true)]
     [InlineData(false, false, true, false, false)]
-    public void ボタンの出し分け(bool hasVcc, bool hasAlcom, bool showVcc, bool canOpenVcc, bool showAlcom)
+    public void 片方だけならその方を出し_設定は見ない(bool hasVcc, bool hasAlcom, bool showVcc, bool canOpenVcc, bool showAlcom)
     {
-        var buttons = ProjectManagerApps.Buttons(hasVcc, hasAlcom);
+        foreach (var choice in Enum.GetValues<Core.Models.ProjectManagerChoice>())
+        {
+            foreach (var link in new[] { false, true })
+            {
+                Assert.Equal(
+                    new ProjectManagerButtons(showVcc, canOpenVcc, showAlcom),
+                    ProjectManagerApps.Buttons(hasVcc, hasAlcom, link, choice));
+            }
+        }
+    }
 
-        Assert.Equal(new ProjectManagerButtons(showVcc, canOpenVcc, showAlcom), buttons);
-        Assert.Equal(hasVcc && hasAlcom, buttons.Both);
+    [Theory]
+    [InlineData(Core.Models.ProjectManagerChoice.VccLink, false, false)]
+    [InlineData(Core.Models.ProjectManagerChoice.VccLink, true, true)]
+    [InlineData(Core.Models.ProjectManagerChoice.Vcc, true, false)]
+    [InlineData(Core.Models.ProjectManagerChoice.Alcom, false, true)]
+    public void 両方あれば設定の方を1つだけ出す(Core.Models.ProjectManagerChoice choice, bool linkOpensAlcom, bool alcom)
+    {
+        Assert.Equal(
+            new ProjectManagerButtons(ShowVcc: !alcom, CanOpenVcc: true, ShowAlcom: alcom),
+            ProjectManagerApps.Buttons(hasVcc: true, hasAlcom: true, linkOpensAlcom, choice));
+    }
+
+    [Theory]
+    [InlineData(@"""C:\Users\u\AppData\Local\Programs\ALCOM\ALCOM.exe"" ""%1""", true)]
+    [InlineData(@"""C:\Users\u\AppData\Local\Programs\VRChat Creator Companion\CreatorCompanion.exe"" ""%1""", false)]
+    [InlineData(null, false)]
+    public void vccのリンクをALCOMが引き受けているか(string? command, bool expected)
+    {
+        Assert.Equal(expected, ProjectManagerApps.LinkOpensAlcom(command));
     }
 }

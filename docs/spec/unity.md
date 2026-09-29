@@ -118,7 +118,7 @@
 - **VCC と ALCOM は起動するだけ**（中身を管理しない。ALCOM はユーザ指示 2026-09-29・`docs/research/alcom.md` §6 案 A）。起動中なら窓を戻して手前に出す（2回目の起動は VCC が前に出さない。ALCOM も同じ作法で出す。`DesktopAppLaunch`）。
   - VCC の場所：アンインストール情報の場所 → アイコンの欄 → `vcc://` の関連付け（先が `ALCOM.exe` なら VCC の候補にしない。「ALCOMを開く」と同じ物を開いてしまう）。
   - ALCOM の場所：アンインストール情報の鍵 `{4C3D0631-…}_is1` の場所・アイコン → 作者 `anatawa12` の記録（`ALCOM.exe` の物だけ）→ `%LOCALAPPDATA%\Programs\ALCOM\` → 古い `%LOCALAPPDATA%\ALCOM\` → `vcc://` の先が `ALCOM.exe` ならそれ。表示名は言語で変わるので見分けに使わない。プロセス名は `ALCOM`。
-  - 並びは `ProjectManagerApps`（Core・試験付き）、ボタンの出し分けは `ProjectManagerApps.Buttons`：VCC だけ→「VCCを開く」、ALCOM だけ→「ALCOMを開く」、両方→2つ並べる（切り替えと1段に収まらないので下の段の右）、どちらも無い→「VCCを開く」を押せない形で、吹き出しに「VCCかALCOMを入れると、ここから開けます。」。
+  - 並びは `ProjectManagerApps`（Core・試験付き）、ボタンの出し分けは `ProjectManagerApps.Buttons`：VCC だけ→「VCCを開く」、ALCOM だけ→「ALCOMを開く」、両方→設定「プロジェクトの管理に使うアプリ」（`projectManager`）で選んだ1つ。既定は「vcc:// に合わせる」で、`vcc://` を引き受けている方（ユーザ指示 2026-09-29。2つ並べると、どちらで開くかを毎回選ばせる）。設定で選べるのは見つかった方だけで、見つからない方を選んでいても見つかった方を開く、どちらも無い→「VCCを開く」を押せない形で、吹き出しに「VCCかALCOMを入れると、ここから開けます。」。
   - 見つかったかは画面を開いたとき・窓が手前に戻ったときに調べ直す。ALCOM だけの PC でも、ALCOM が同じ `%LOCALAPPDATA%\VRChatCreatorCompanion\settings.json` の `userProjects` を書くので、プロジェクトの一覧は今の読み方で読める（試験あり）。
 
 ## そのほか
