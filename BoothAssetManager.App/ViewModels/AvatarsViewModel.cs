@@ -1487,10 +1487,41 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     private async Task RenameBaseAsync(string oldName, string newName)
     {
+        // **ほかの素体の名前を指したら統合になるので聞く**（ユーザ判断 2026-09-29）。前は確認なしで統合され、
+        // 統合は所属と宣言がどちらの素体の物だったかを残さないので分け直せない。
+        // 名前の変更だけなら同じ手順で戻せるので聞かない（タグの管理の統合と同じ作法・D5）
+        var mergeInto = Core.Services.AvatarBaseRename.MergeTarget(Bases.Select(row => row.Name), oldName, newName);
+        if (mergeInto is not null && !await ConfirmMergeBaseAsync(oldName, mergeInto))
+        {
+            return;
+        }
+
         var updated = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RenameBase(oldName, newName))
             is Core.Commands.CommandResult.Counted renamed ? renamed.Count : 0;
-        Status = $"「{oldName}」を「{newName}」に変え、商品 {updated} 件を書き換えました。";
+        Status = mergeInto is null
+            ? $"「{oldName}」を「{newName}」に変え、商品 {updated} 件を書き換えました。"
+            : $"「{oldName}」を「{mergeInto}」に統合し、商品 {updated} 件を書き換えました。";
         await LoadAsync();
+    }
+
+    /// <summary>
+    /// 統合してよいかを聞く。所属しているアバターと宣言している商品の数を出す（消すときの確認と同じく、押す前に規模を見せる）。
+    /// </summary>
+    private async Task<bool> ConfirmMergeBaseAsync(string oldName, string into)
+    {
+        var members = Bases.FirstOrDefault(row => row.Name == oldName)?.Summary.MemberCount ?? 0;
+        var items = await Task.Run(() => _services.Avatars.CountItemsUsingBaseAsync(oldName));
+
+        var answer = Services.Notice.Show(
+            $"共通素体「{oldName}」を「{into}」に統合します。\n\n"
+            + $"アバター {members} 体の所属と、商品 {items} 件の素体の宣言を「{into}」に書き換えます。\n\n"
+            + "この操作は元に戻せません。",
+            "共通素体を統合する",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Cancel);
+
+        return answer == System.Windows.MessageBoxResult.OK;
     }
 
     /// <summary>

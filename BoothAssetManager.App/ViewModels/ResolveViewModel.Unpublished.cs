@@ -85,14 +85,10 @@ public sealed partial class ResolveViewModel
                 return;
             }
 
-            // 確定と同じ扱いで溜める（まとめて編集へ送れる・離れるときに検索へ反映する）
-            if (!_settledItemIds.Contains(itemId))
-            {
-                _settledItemIds.Add(itemId);
-            }
-
+            // 確定と同じ扱いで溜める（まとめて編集へ送れる）。検索にもその場で出す
             if (targets.Count == 1)
             {
+                await NoteSettledAsync(itemId);
                 AfterSettled();
                 return;
             }
@@ -109,6 +105,8 @@ public sealed partial class ResolveViewModel
                 }
             }
 
+            // 残りの中身まで加えた後の商品を写しへ足す
+            await NoteSettledAsync(itemId);
             RemoveRows(settled);
             StatusText = settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"

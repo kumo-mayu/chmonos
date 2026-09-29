@@ -436,10 +436,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                     Core.Diagnostics.AppLog.Error("検索：ドライブ文字の読み替えを確かめる", exception);
                 }
 
-                var sortedItems = loaded.Items
-                    .OrderByDescending(item => item.Local.AcquiredAt ?? DateOnly.MinValue)
-                    .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
-                    .ToList();
+                // 未確定で登録した1件を足す所（NoteItemAdded）と同じ決まりで並べる
+                var sortedItems = Core.Services.ItemOrder.LibraryOrder(loaded.Items);
 
                 // 記録が前と同じ商品は、文字列もカードも前の物を使う。取り込み中は10秒ごとに読み直すが、
                 // 変わるのはその間に増えた・進んだ数件だけで、残りの2000件ぶんの文字列作り（約0.5秒）とカード作りは無駄だった

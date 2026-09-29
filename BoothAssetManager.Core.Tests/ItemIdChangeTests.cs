@@ -172,6 +172,49 @@ public class ItemIdChangeTests : IDisposable
         Assert.Null(moved.Booth.FetchedAt);
     }
 
+    /// <summary>
+    /// BOOTHが「無い」と答えたIDへ移した商品は、未確定の「見つからないIDのまま登録」と同じ状態になる
+    /// （ユーザ判断 2026-09-29）。前は空の商品を作るだけで印も予定日も持たず、⑦に乗らないので公開されても情報を取れなかった。
+    /// 回数は非公開と確定する回数から始める（1から始めると次の404で印が外れる）。
+    /// </summary>
+    [Fact]
+    public async Task MovingToAnIdMissingOnBoothPutsItOnTheRecheckLikeADelistedItem()
+    {
+        await SaveLocalItemAsync(new LocalBlock { DisplayName = "とりさん", LocalFiles = [File("aaa")] });
+
+        await _service.ChangeItemIdAsync(LocalId, "9999999");
+
+        var moved = (await _store.Items.LoadAsync("9999999"))!;
+
+        Assert.True(moved.Local.IsDelisted);
+        Assert.Equal(new AppSettings().NotFoundThreshold, moved.Local.ConsecutiveNotFoundCount);
+        Assert.NotNull(moved.Local.NextFetchDueAt);
+        Assert.Null(moved.Local.LastFetchedAt);
+
+        // 人が付けた名前は移る（空の商品の側に名前は無い）
+        Assert.Equal("とりさん", moved.Local.DisplayName);
+    }
+
+    /// <summary>既に手元にある商品へ移すときは、その商品の取得の記録を触らない（持ち主は⑦）。</summary>
+    [Fact]
+    public async Task MovingOntoAnExistingItemKeepsItsFetchRecord()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9999999",
+            Booth = new BoothBlock(),
+            Local = new LocalBlock { ConsecutiveNotFoundCount = 1 },
+        });
+
+        await _service.ChangeItemIdAsync(LocalId, "9999999");
+
+        var moved = (await _store.Items.LoadAsync("9999999"))!;
+
+        Assert.False(moved.Local.IsDelisted);
+        Assert.Equal(1, moved.Local.ConsecutiveNotFoundCount);
+    }
+
     [Fact]
     public async Task RefusesToMoveOntoItself()
         => Assert.Equal(ItemIdChangeOutcome.SameId, await _service.ChangeItemIdAsync(LocalId, LocalId));

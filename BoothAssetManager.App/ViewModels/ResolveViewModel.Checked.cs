@@ -259,9 +259,9 @@ public sealed partial class ResolveViewModel
                 }
             }
 
-            if (!_settledItemIds.Contains(Preview.Id))
+            if (settled.Count > 0)
             {
-                _settledItemIds.Add(Preview.Id);
+                await NoteSettledAsync(Preview.Id);
             }
 
             RemoveRows(settled);

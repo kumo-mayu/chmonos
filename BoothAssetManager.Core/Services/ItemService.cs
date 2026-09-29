@@ -1024,26 +1024,11 @@ public sealed class ItemService : IItemService
             Contents = target.Contents,
         };
 
-        var threshold = Math.Max(1, _settings.NotFoundThreshold);
-        var name = displayName.Trim();
-
         // 在るかを見てから作るまでを商品の錠の中で行う（取り込みや別の道が同じIDを作っていることがある・L13 と同じ形）。
         // 在れば、ファイルを足すだけにする。取得の記録（見つからない回数・予定日）は持ち主の⑦に任せ、名前も上書きしない
         var written = await _store.Items.CreateOrChangeLocalAsync(
             itemId,
-            () => new ItemRecord
-            {
-                Id = itemId,
-                Booth = new BoothBlock(),
-                Local = new LocalBlock
-                {
-                    DisplayName = name.Length > 0 ? name : null,
-                    NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
-                    ConsecutiveNotFoundCount = threshold,
-                    IsDelisted = true,
-                    NextFetchDueAt = NextDue(itemId, threshold),
-                },
-            },
+            () => UnpublishedItem(itemId, displayName),
             local => local with { LocalFiles = LocalFileMerger.Merge(local.LocalFiles, [record]) },
             LocalOwners.Import,
             cancellationToken);
@@ -1136,8 +1121,19 @@ public sealed class ItemService : IItemService
             return ItemIdChangeOutcome.ImagesNotMoved;
         }
 
-        var prepared = await _store.Items.LoadAsync(toId, cancellationToken)
-            ?? (await FetchNewItemAsync(toId, cancellationToken)).Item;
+        var prepared = await _store.Items.LoadAsync(toId, cancellationToken);
+        var fetchStatus = Booth.BoothFetchStatus.Success;
+        if (prepared is null)
+        {
+            (prepared, fetchStatus) = await FetchNewItemAsync(toId, cancellationToken);
+        }
+
+        // BOOTHが「無い」と答えたIDは、未確定の「見つからないIDのまま登録」と同じ状態で作る（⑦で確かめ直し、公開されたら情報を取る）。
+        // 一時的に届かなかっただけのIDに販売終了の印を付けると、統計や検索で販売終了として数えてしまうので空の商品のまま。
+        // 仮IDは BOOTH に存在しないので⑦に乗せない
+        ItemRecord NewItem() => fetchStatus == Booth.BoothFetchStatus.NotFound && !LocalItemId.IsLocal(toId)
+            ? UnpublishedItem(toId, null)
+            : EmptyItem(toId);
 
         var skipped = skippedPurchases ?? new HashSet<int>();
         var refused = ItemIdChangeOutcome.TargetUnavailable;
@@ -1168,7 +1164,7 @@ public sealed class ItemService : IItemService
                 // 取って作った物が取った後で消されていれば、作り直さずに断る（元は消さずに残す）
                 return prepared is null
                     ? await _store.Items.CreateOrChangeLocalAsync(
-                        toId, () => EmptyItem(toId), Merge, Enum.GetValues<LocalField>(), cancellationToken)
+                        toId, NewItem, Merge, Enum.GetValues<LocalField>(), cancellationToken)
                     : await _store.Items.ChangeLocalAsync(toId, Merge, Enum.GetValues<LocalField>(), cancellationToken);
             },
             cancellationToken);
@@ -1575,6 +1571,32 @@ public sealed class ItemService : IItemService
         Booth = new BoothBlock(),
         Local = new LocalBlock(),
     };
+
+    /// <summary>
+    /// BOOTHで見つからなかった本物のIDのために作る商品。**販売終了の商品と同じ状態**にして⑦に乗せる：
+    /// <c>Booth</c> は空（観測していない）、<c>IsDelisted</c>、見つからない回数は非公開と確定する回数、予定日は確かめ直しの間隔。
+    /// 回数を1で始めると、次に見つからなかったとき「回数が足りない」として印が外れる。
+    /// 未確定の「見つからないIDのまま登録」と、商品ページの「IDを変更」で見つからないIDへ移したときの両方がここを通る
+    /// （IDの変更の側は空の商品を作るだけで予定日を持たず、公開されても情報を取れなかった）。
+    /// </summary>
+    private ItemRecord UnpublishedItem(string itemId, string? displayName)
+    {
+        var threshold = Math.Max(1, _settings.NotFoundThreshold);
+        var name = displayName?.Trim() ?? "";
+        return new ItemRecord
+        {
+            Id = itemId,
+            Booth = new BoothBlock(),
+            Local = new LocalBlock
+            {
+                DisplayName = name.Length > 0 ? name : null,
+                NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
+                ConsecutiveNotFoundCount = threshold,
+                IsDelisted = true,
+                NextFetchDueAt = NextDue(itemId, threshold),
+            },
+        };
+    }
 
     public async Task<string?> RegisterLocalItemAsync(
         string hash,

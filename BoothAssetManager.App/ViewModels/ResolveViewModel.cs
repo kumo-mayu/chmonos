@@ -35,8 +35,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     }
 
     /// <summary>
-    /// 新しく確定・登録した商品（BOOTHに無い商品の仮IDも含む）は、検索の写しを読み直すまで検索に出ない。確定のたびに読み直すと
-    /// 2000件で数秒ずつ待つので、画面を離れるとき・編集へ送るときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）。
+    /// 登録の後で1件だけ読んで検索の写しに足せなかった商品（読み直しの途中に足した分が上書きされたなど）の保険。
+    /// 画面を離れるとき・編集へ送るときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）。
     /// 編集へ送ると溜めたIDは空になるので、離れる時点では見えない。送る前にここを通す
     /// </summary>
     private void ReflectSettledInSearch()
@@ -44,6 +44,27 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         if (_settledItemIds.Any(id => _main.Search.FindItem(id) is null))
         {
             _main.ReloadLibraryAsync().Forget();
+        }
+    }
+
+    /// <summary>
+    /// 確定・登録した商品を溜め、その商品だけを読んで検索の写しに足す（既にあれば差し替える）。
+    ///
+    /// 前は画面を離れるまで検索に出なかった（ユーザ判断 2026-09-29）。全件の読み直しは2000件で数秒かかり、
+    /// 確定のたびに重ねると固まるので1件だけ読む。写しの件数が変わるのでナビの「商品 n 件」も合う。
+    /// 一覧から外す（<see cref="AfterSettled"/>）より前に呼ぶ：フォルダビューに組み込んだときは残りの数が減ったのを見て、
+    /// 検索の写しから木を組み直すので、その前に写しへ入っている必要がある
+    /// </summary>
+    private async Task NoteSettledAsync(string itemId)
+    {
+        if (!_settledItemIds.Contains(itemId))
+        {
+            _settledItemIds.Add(itemId);
+        }
+
+        if (await _services.Store.Items.LoadAsync(itemId) is { } item)
+        {
+            _main.Search.NoteItemSaved(item);
         }
     }
 
@@ -922,10 +943,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             }
 
             // 確定したものはここで溜めて、最後にまとめて編集へ送る
-            if (!_settledItemIds.Contains(itemId))
-            {
-                _settledItemIds.Add(itemId);
-            }
+            await NoteSettledAsync(itemId);
 
             if (targets.Count == 1)
             {
@@ -1002,12 +1020,6 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 return;
             }
 
-            // 確定と同じ扱いで溜める。まとめて編集へ送れば、支払額もそのまま入れられる
-            if (result is CommandResult.ItemSaved saved && !_settledItemIds.Contains(saved.ItemId))
-            {
-                _settledItemIds.Add(saved.ItemId);
-            }
-
             // 商品ができてから画像を入れる。入らなかった分があっても登録は取り消さない（商品ページの「＋」で足し直せる）
             var imagesFailed = result is CommandResult.ItemSaved withImages && images.Count > 0
                 ? await AddLocalImagesToAsync(withImages.ItemId, images)
@@ -1018,6 +1030,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
             if (targets.Count == 1 || result is not CommandResult.ItemSaved created)
             {
+                // 確定と同じ扱いで溜める。まとめて編集へ送れば、支払額もそのまま入れられる。
+                // 検索の写しへ足すのは画像を入れた後（カードに入れた画像を出す）
+                if (result is CommandResult.ItemSaved saved)
+                {
+                    await NoteSettledAsync(saved.ItemId);
+                }
+
                 AfterSettled();
 
                 // 次の行を選ぶと知らせは消えるので、選び直した後に出す
@@ -1043,6 +1062,8 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 }
             }
 
+            // 残りの中身まで加えた後の商品を写しへ足す（大きさ・ファイルの数がカードに合う）
+            await NoteSettledAsync(created.ItemId);
             RemoveRows(settled);
             StatusText = (settled.Count == targets.Count
                 ? $"{settled.Count} 件を登録しました。"
