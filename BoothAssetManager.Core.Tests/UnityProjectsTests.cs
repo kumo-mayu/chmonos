@@ -87,6 +87,55 @@ public sealed class UnityProjectsTests : IDisposable
         Assert.Equal([@"D:\work\VRChatProjects\kip01", @"D:\work\Unity\ring_test"], paths);
     }
 
+    /// <summary>
+    /// VCC が入っておらず ALCOM だけのとき、ALCOM が同じ場所に作る <c>settings.json</c> の形
+    /// （docs/research/alcom.md §2-2・§4-2 の鍵。VCC の書かない値は空か null で、足したリポジトリの物が並ぶ）
+    /// </summary>
+    private const string AlcomOnlyJson = """
+        {
+          "pathToUnityExe": "",
+          "pathToUnityHub": "",
+          "userProjects": [
+            "D:\\work\\ALCOM\\avatar01"
+          ],
+          "unityEditors": [],
+          "preferredUnityEditors": {},
+          "defaultProjectPath": null,
+          "lastUIState": 0,
+          "skipUnityAutoFind": false,
+          "userPackageFolders": [],
+          "windowSizeData": null,
+          "skipRequirements": false,
+          "lastNewsUpdate": null,
+          "allowPii": false,
+          "projectBackupPath": null,
+          "showPrereleasePackages": false,
+          "trackCommunityRepos": true,
+          "selectedProviders": 3,
+          "lastSelectedProject": null,
+          "userRepos": [
+            { "localPath": "C:\\Repos\\a.json", "name": "作り物", "url": "https://example.com/index.json", "id": "com.example" }
+          ]
+        }
+        """;
+
+    [Fact]
+    public void ALCOMだけが作ったVCCの設定からもパスを引ける()
+    {
+        Assert.Equal([@"D:\work\ALCOM\avatar01"], UnityProjects.PathsFromVccSettings(AlcomOnlyJson));
+    }
+
+    [Fact]
+    public void ALCOMだけが作ったVCCの設定もファイルから一覧に入る()
+    {
+        var file = Path.Combine(_dir, "alcom-settings.json");
+        File.WriteAllText(file, AlcomOnlyJson);
+
+        var paths = UnityProjects.KnownPaths(Path.Combine(_dir, "no-hub.json"), file);
+
+        Assert.Equal([@"D:\work\ALCOM\avatar01"], paths);
+    }
+
     [Fact]
     public void バージョンはハッシュ無しの行から読む()
     {

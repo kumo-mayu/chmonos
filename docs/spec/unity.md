@@ -115,7 +115,11 @@
 
 - エディタの探し方（`UnityLaunch.EditorCandidates`）：Hub の置き場所 → Hub の一覧（`editors-v2.json`・`editors.json`）→ Unity の登録 → アンインストール情報 → 起動中のエディタ → `.unitypackage` の関連付け。後の2つは実行ファイルの版の欄で見分ける。
 - 開いていれば手前に出す／版が無ければ `unityhub://`／Hub も無ければ渡さず、Hub を入れれば開けると言う。
-- **VCC は起動するだけ**（中身を管理しない）。場所はアンインストール情報の場所 → アイコンの欄 → `vcc://` の関連付け。起動中なら窓を戻して手前に出す（2回目の起動は VCC が前に出さない）。見つからなければボタンを押せない状態で理由と入れ方を添える。
+- **VCC と ALCOM は起動するだけ**（中身を管理しない。ALCOM はユーザ指示 2026-09-29・`docs/research/alcom.md` §6 案 A）。起動中なら窓を戻して手前に出す（2回目の起動は VCC が前に出さない。ALCOM も同じ作法で出す。`DesktopAppLaunch`）。
+  - VCC の場所：アンインストール情報の場所 → アイコンの欄 → `vcc://` の関連付け（先が `ALCOM.exe` なら VCC の候補にしない。「ALCOMを開く」と同じ物を開いてしまう）。
+  - ALCOM の場所：アンインストール情報の鍵 `{4C3D0631-…}_is1` の場所・アイコン → 作者 `anatawa12` の記録（`ALCOM.exe` の物だけ）→ `%LOCALAPPDATA%\Programs\ALCOM\` → 古い `%LOCALAPPDATA%\ALCOM\` → `vcc://` の先が `ALCOM.exe` ならそれ。表示名は言語で変わるので見分けに使わない。プロセス名は `ALCOM`。
+  - 並びは `ProjectManagerApps`（Core・試験付き）、ボタンの出し分けは `ProjectManagerApps.Buttons`：VCC だけ→「VCCを開く」、ALCOM だけ→「ALCOMを開く」、両方→2つ並べる（切り替えと1段に収まらないので下の段の右）、どちらも無い→「VCCを開く」を押せない形で、吹き出しに「VCCかALCOMを入れると、ここから開けます。」。
+  - 見つかったかは画面を開いたとき・窓が手前に戻ったときに調べ直す。ALCOM だけの PC でも、ALCOM が同じ `%LOCALAPPDATA%\VRChatCreatorCompanion\settings.json` の `userProjects` を書くので、プロジェクトの一覧は今の読み方で読める（試験あり）。
 
 ## そのほか
 

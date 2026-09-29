@@ -62,6 +62,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         _pendingSelection = selection;
 
         OpenVccCommand = new RelayCommand(OpenVcc);
+        OpenAlcomCommand = new RelayCommand(OpenAlcom);
         OpenProjectCommand = new RelayCommand(parameter => OpenProject(PathOf(parameter)));
         OpenProjectFolderCommand = new RelayCommand(parameter => Shell.Reveal(PathOf(parameter)));
         ShowProjectCommand = new RelayCommand(parameter => ShowProject(PathOf(parameter)));
@@ -288,12 +289,15 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         _ => "Unity HubとVCCの一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
     };
 
-    // ---- Unity Hub と VCC ----
+    // ---- Unity Hub・VCC・ALCOM ----
 
-    private const string VccMissingText =
-        "VCC（VRChat Creator Companion）が見つかりませんでした。VRChatの公式サイトからVCCを入れると、ここから開けます。";
+    /// <summary>
+    /// どちらも無いときの吹き出し。VCC だけを勧めると、ALCOM を使う人に遠回りをさせる
+    /// （ALCOM は VCC と同じ一覧を書くので、どちらを入れてもここに並ぶ。alcom.md §2-2）
+    /// </summary>
+    private const string ProjectManagerMissingText = "VCCかALCOMを入れると、ここから開けます。";
 
-    /// <summary>Unity Hub と VCC が手元にあるか。窓が手前に戻るたびに調べ直す。</summary>
+    /// <summary>Unity Hub・VCC・ALCOM が手元にあるか。窓が手前に戻るたびに調べ直す。</summary>
     public UnityTools Tools
     {
         get => _tools;
@@ -301,23 +305,42 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         {
             if (SetField(ref _tools, value))
             {
+                OnPropertyChanged(nameof(ShowVccButton));
                 OnPropertyChanged(nameof(CanOpenVcc));
                 OnPropertyChanged(nameof(VccHint));
+                OnPropertyChanged(nameof(ShowAlcomButton));
+                OnPropertyChanged(nameof(ProjectManagerButtonsOnOwnRow));
                 OnPropertyChanged(nameof(EmptyText));
             }
         }
     }
 
+    /// <summary>「VCCを開く」を出すか。ALCOM だけがあるときは出さない（ユーザと決めた形 2026-09-29）。</summary>
+    public bool ShowVccButton => Tools.Buttons.ShowVcc;
+
     /// <summary>VCC が見つからなければ「VCCを開く」は押せない状態で出す（押してから見つからないと言わない・ユーザ判断 2026-09-13）。</summary>
-    public bool CanOpenVcc => Tools.HasVcc;
+    public bool CanOpenVcc => Tools.Buttons.CanOpenVcc;
 
     public string VccHint => Tools.HasVcc
         ? "VRChat Creator Companionを起動するか、手前に表示します。"
-        : VccMissingText;
+        : ProjectManagerMissingText;
+
+    public bool ShowAlcomButton => Tools.Buttons.ShowAlcom;
+
+    public string AlcomHint => "ALCOMを起動するか、手前に表示します。";
+
+    /// <summary>
+    /// 2つのボタンを切り替えの下の段に並べるか。切り替え（約237px）と2つのボタン（約68px・86px）を1段に置くと約407pxで、
+    /// 一覧の既定の幅400px（余白を除いて367px）に収まらない。1つなら約313〜331pxで収まるので、今までどおり切り替えの右に置く
+    /// （2026-09-29 に Yu Gothic UI の字の幅で測った）
+    /// </summary>
+    public bool ProjectManagerButtonsOnOwnRow => Tools.Buttons.Both;
 
     // ---- 操作 ----
 
     public RelayCommand OpenVccCommand { get; }
+
+    public RelayCommand OpenAlcomCommand { get; }
 
     public RelayCommand OpenProjectCommand { get; }
 

@@ -1,11 +1,9 @@
 using System.IO;
 using System.Security;
+using BoothAssetManager.Core.Services;
 using Microsoft.Win32;
 
 namespace BoothAssetManager.App.Services;
-
-/// <summary>アンインストール情報の1件。</summary>
-internal sealed record InstalledEntry(string DisplayName, string? InstallLocation, string? DisplayIcon);
 
 /// <summary>
 /// Windows に残っている、入れたアプリの記録を読む（アンインストール情報・関連付け・Unity の登録）。
@@ -25,9 +23,9 @@ internal static class InstalledApps
     ];
 
     /// <summary>アンインストール情報を全部。</summary>
-    public static IReadOnlyList<InstalledEntry> Uninstall()
+    public static IReadOnlyList<UninstallRecord> Uninstall()
     {
-        var entries = new List<InstalledEntry>();
+        var entries = new List<UninstallRecord>();
         foreach (var (hive, path) in UninstallRoots)
         {
             try
@@ -45,8 +43,12 @@ internal static class InstalledApps
                         using var key = root.OpenSubKey(name);
                         if (key?.GetValue("DisplayName") is string display)
                         {
-                            entries.Add(new InstalledEntry(
-                                display, key.GetValue("InstallLocation") as string, key.GetValue("DisplayIcon") as string));
+                            entries.Add(new UninstallRecord(
+                                name,
+                                display,
+                                key.GetValue("Publisher") as string,
+                                key.GetValue("InstallLocation") as string,
+                                key.GetValue("DisplayIcon") as string));
                         }
                     }
                     catch (Exception exception) when (IsUnreadable(exception))
