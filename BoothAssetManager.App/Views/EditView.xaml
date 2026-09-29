@@ -502,6 +502,8 @@
                     -->
                     <views:ItemAvatarsPanel DataContext="{Binding ItemPage}" />
                     <views:ItemFilesPanel DataContext="{Binding ItemPage}" />
+                    <!-- 説明文に載っている YouTube の動画。商品ページと同じ部品（ユーザ判断 2026-09-29） -->
+                    <views:ItemVideosPanel DataContext="{Binding ItemPage}" />
 
                     <Border Style="{StaticResource Card}" Margin="0,14,0,20" Padding="18,16">
                         <StackPanel>

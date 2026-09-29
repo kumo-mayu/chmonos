@@ -1,0 +1,70 @@
+<UserControl x:Class="BoothAssetManager.App.Views.ItemVideosPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ItemViewModel}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む三角はほかの欄と同じ物 -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <!-- 商品ページと編集画面で同じ部品（ユーザ判断 2026-09-29「編集画面にも動画を出す」） -->
+    <!--
+        動画（ユーザ指示 2026-09-14）。説明に載っている YouTube の動画を、絵とタイトル付きのリンクで出す。
+        既定は畳み、開いたときだけ YouTube へ絵とタイトルを取りに行く。動画が無ければその旨を出し、開けない
+    -->
+    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,14">
+        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsVideosExpanded, Mode=TwoWay}" IsEnabled="{Binding HasVideos}">
+            <Expander.Header>
+                <TextBlock VerticalAlignment="Center">
+                    <Run Text="動画" FontWeight="Bold" /><Run Text="{Binding VideosHeaderText, Mode=OneWay}"
+                                                           FontSize="12" Foreground="{DynamicResource TextMuted}" />
+                </TextBlock>
+            </Expander.Header>
+            <ItemsControl ItemsSource="{Binding Videos}" Margin="0,12,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <!--
+                            高さは中身に合わせる。アプリ全体のボタンの既定の高さ（32）が効くと、90px の絵が上だけ残して切れる
+                            （2026-09-14・ユーザ指摘「サムネの縦幅が足りていない」。編集画面の帯で踏んだのと同じ）
+                        -->
+                        <Button Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,0,10" ToolTip="{Binding Url}"
+                                Height="Auto" MinHeight="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                AutomationProperties.Name="{Binding TitleText}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Face" Background="Transparent" CornerRadius="6" Padding="4">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <DockPanel>
+                                <Border DockPanel.Dock="Left" Width="160" Height="90" CornerRadius="4" ClipToBounds="True"
+                                        Background="{DynamicResource ImageBack}" Margin="0,0,12,0">
+                                    <Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill" />
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding TitleText}" FontSize="13" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource Accent}" TextDecorations="Underline" />
+                                    <TextBlock Text="{Binding Url}" Style="{StaticResource Mono}" FontSize="10.5"
+                                               Foreground="{DynamicResource TextMuted}" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Expander>
+    </Border>
+</UserControl>
