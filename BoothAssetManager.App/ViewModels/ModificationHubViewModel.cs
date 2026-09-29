@@ -278,16 +278,26 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// Unityプロジェクトの見方で一覧が空のとき。**Hub・VCC が見つからないのか、あるがプロジェクトが無いのかを言い分ける**
     /// （ユーザ判断 2026-09-13）。前は同じ文で、入れれば済むのか作れば済むのか分からなかった
     /// </summary>
-    internal static string ProjectEmptyText(UnityTools tools) => tools switch
+    /// <remarks>
+    /// ALCOM は VCC と同じ一覧を書く（alcom.md §2-2）ので、ALCOM だけの PC でも一覧はあるものとして言う（ユーザ判断 2026-09-29）。
+    /// 一覧の名前は手元にある方で呼び、作る先は両方あれば「VCCかALCOM」
+    /// </remarks>
+    internal static string ProjectEmptyText(UnityTools tools)
     {
-        { HasHub: false, HasVcc: false } =>
-            "Unity HubもVCCも見つかりませんでした。どちらかを入れてプロジェクトを作るか開くと、ここに並びます。",
-        { HasHub: true, HasVcc: false } =>
-            "Unity Hubの一覧にプロジェクトがありません（VCCは見つかりませんでした）。Hubでプロジェクトを作るか開くと、ここに並びます。",
-        { HasHub: false, HasVcc: true } =>
-            "VCCの一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。VCCでプロジェクトを作るか開くと、ここに並びます。",
-        _ => "Unity HubとVCCの一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
-    };
+        var hasManager = tools.HasVcc || tools.HasAlcom;
+        var list = tools.HasVcc ? "VCC" : "ALCOM";
+        var maker = tools.HasVcc && tools.HasAlcom ? "VCCかALCOM" : list;
+        return (tools.HasHub, hasManager) switch
+        {
+            (false, false) =>
+                "Unity HubもVCCもALCOMも見つかりませんでした。どれかを入れてプロジェクトを作るか開くと、ここに並びます。",
+            (true, false) =>
+                "Unity Hubの一覧にプロジェクトがありません（VCCとALCOMは見つかりませんでした）。Hubでプロジェクトを作るか開くと、ここに並びます。",
+            (false, true) =>
+                $"{list}の一覧にプロジェクトがありません（Unity Hubは見つかりませんでした）。{maker}でプロジェクトを作るか開くと、ここに並びます。",
+            _ => $"Unity Hubと{list}の一覧にプロジェクトがありません。どちらかでプロジェクトを作るか開くと、ここに並びます。",
+        };
+    }
 
     // ---- Unity Hub・VCC・ALCOM ----
 

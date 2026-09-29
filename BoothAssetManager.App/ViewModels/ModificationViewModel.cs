@@ -1180,7 +1180,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>候補が1つも無いときに出す文。</summary>
     public string ProjectCandidatesEmptyText =>
-        "Unity HubとVRChat Creator Companionの一覧を見ましたが、プロジェクトが見つかりませんでした。"
+        "Unity Hubと、VCCかALCOMの一覧を見ましたが、プロジェクトが見つかりませんでした。"
         + "一度Unityで開いたプロジェクトなら出ます。";
 
     public bool HasProjectCandidates => ProjectCandidates.Count > 0;

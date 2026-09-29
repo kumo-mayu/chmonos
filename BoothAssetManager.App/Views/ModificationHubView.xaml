@@ -719,29 +719,9 @@
                 <!-- 今どの画面にいるかを、ほかの画面の上の帯と同じく太字の名前で出す（ユーザ指示 2026-09-14） -->
                 <TextBlock DockPanel.Dock="Top" Text="改変" FontWeight="Bold" Margin="16,16,16,0" />
                 <StackPanel DockPanel.Dock="Top" Margin="16,10,16,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <!--
-                            VCC・ALCOM は起動するだけ（中身の管理はしない・ユーザ仕様）。Unityプロジェクトの見方の時だけ、
-                            切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）。
-                            出すのは入っている方の1つ。両方あれば設定で選んだ方で、既定は vcc:// を引き受けている方（ユーザ指示 2026-09-29）
-                        -->
-                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,0" Orientation="Horizontal" VerticalAlignment="Center"
-                                    Visibility="{Binding IsProjectLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <Button Content="VCCを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                                    Command="{Binding OpenVccCommand}" IsEnabled="{Binding CanOpenVcc}"
-                                    ToolTip="{Binding VccHint}" ToolTipService.ShowOnDisabled="True"
-                                    AutomationProperties.HelpText="{Binding VccHint}"
-                                    Visibility="{Binding ShowVccButton, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <Button Content="ALCOMを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                                    Command="{Binding OpenAlcomCommand}"
-                                    ToolTip="{Binding AlcomHint}" AutomationProperties.HelpText="{Binding AlcomHint}"
-                                    Visibility="{Binding ShowAlcomButton, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        </StackPanel>
-                        <Border Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Surface}"
+                    <!-- 切り替えは縮めない（MinLeftWidth を大きく取り、要る幅のまま測る） -->
+                    <controls:SplitRowPanel Gap="8" MinLeftWidth="10000">
+                        <Border HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Surface}"
                                 BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Content="Unityプロジェクト" Style="{StaticResource HubSegment}"
@@ -766,7 +746,25 @@
                                 </RadioButton>
                             </StackPanel>
                         </Border>
-                    </Grid>
+                        <!--
+                            VCC・ALCOM は起動するだけ（中身の管理はしない・ユーザ仕様）。Unityプロジェクトの見方の時だけ、
+                            切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）。
+                            入り切らない幅（一覧を狭めたとき）では切り替えの下の段の右へ送る（SplitRowPanel。ユーザ判断 2026-09-29）。
+                            出すのは入っている方の1つ。両方あれば設定で選んだ方で、既定は vcc:// を引き受けている方（ユーザ指示 2026-09-29）
+                        -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                    Visibility="{Binding IsProjectLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <Button Content="VCCを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                    Command="{Binding OpenVccCommand}" IsEnabled="{Binding CanOpenVcc}"
+                                    ToolTip="{Binding VccHint}" ToolTipService.ShowOnDisabled="True"
+                                    AutomationProperties.HelpText="{Binding VccHint}"
+                                    Visibility="{Binding ShowVccButton, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <Button Content="ALCOMを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                    Command="{Binding OpenAlcomCommand}"
+                                    ToolTip="{Binding AlcomHint}" AutomationProperties.HelpText="{Binding AlcomHint}"
+                                    Visibility="{Binding ShowAlcomButton, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        </StackPanel>
+                    </controls:SplitRowPanel>
 
                     <!-- 「読み直す」のボタンは置かない。窓が手前に戻るたびに読み直す（ユーザ判断 2026-09-13） -->
                     <DockPanel Margin="0,12,0,0">
