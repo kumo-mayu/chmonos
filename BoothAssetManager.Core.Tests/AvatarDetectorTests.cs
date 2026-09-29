@@ -326,6 +326,90 @@ public class AvatarDetectorTests
         Assert.Equal(["rurune"], index.FindExact("Rurune"));
     }
 
+    private static AvatarNameIndex IndexOfBoothNames(params (string Id, string BoothName)[] avatars)
+        => AvatarNameIndex.Build(new AvatarRegistry
+        {
+            Entries = [.. avatars.Select(avatar => new AvatarRegistryEntry
+            {
+                ItemId = avatar.Id,
+                BoothName = avatar.BoothName,
+                Category = "3Dキャラクター",
+            })],
+        });
+
+    /// <summary>
+    /// 正式名が2通りの書き方を並べていたら、片方だけで呼ばれても当たる
+    /// （「『名前/英字』」「『名前 / 英字』」「カナ 英字【…】」「『名前』 - 英字」）。
+    /// </summary>
+    [Theory]
+    [InlineData("オリジナル3Dモデル『月白/Tsukishiro』", "月白")]
+    [InlineData("オリジナル3Dモデル『月白/Tsukishiro』", "Tsukishiro")]
+    [InlineData("3Dアバター『ソラネ / SORANE』", "ソラネ")]
+    [InlineData("3Dアバター『ソラネ / SORANE』", "sorane")]
+    [InlineData("ポルカ Polka【オリジナル3Dモデル】", "ポルカ")]
+    [InlineData("ポルカ Polka【オリジナル3Dモデル】", "Polka")]
+    [InlineData("オリジナル3Dモデル『ヌクモ』 - Nukumo", "Nukumo")]
+    public void MatchesEitherWritingOfATwoWayName(string boothName, string called)
+    {
+        var index = IndexOfBoothNames(("1", boothName));
+
+        Assert.Equal(["1"], index.FindExact(called));
+    }
+
+    /// <summary>版の表記（「V2」）は名前の片方とみなさない。他の商品の「V2」に当たるため。</summary>
+    [Fact]
+    public void DoesNotSplitOffAVersion()
+    {
+        var index = IndexOfBoothNames(("1", "ポルカ V2【オリジナル3Dモデル】"));
+
+        Assert.Empty(index.FindExact("V2"));
+        Assert.Empty(index.FindAvatars("ヘアピン V2"));
+    }
+
+    /// <summary>
+    /// 数字だけの名前のアバターは、名前では引かない。「27アバター対応」「【27 avatars】」の数に当たるため。
+    /// URLでは今までどおり拾える。
+    /// </summary>
+    [Fact]
+    public void DoesNotMatchADigitOnlyName()
+    {
+        var index = IndexOfBoothNames(("1", "【3Dモデル】27"));
+
+        Assert.Empty(index.FindExact("27"));
+        Assert.Empty(index.FindAvatars("フルセット（27アバター対応）"));
+
+        var html = "<h2>対応アバター</h2><p>27<br>https://booth.pm/ja/items/1</p>";
+        Assert.Equal(["1"], AvatarDetector.ScanLists(html, null, "999", index, Support, Ignored2));
+    }
+
+    /// <summary>
+    /// 本文中の対応の見出し行と同じ飾りで始まる、別の話の見出し行（「◇バリエーション」）で対応の一覧を終える。
+    /// その下の「for 名前」は別の商品の案内で、この商品の対応ではない。
+    /// </summary>
+    [Fact]
+    public void StopsTheSupportListAtASiblingHeadingLine()
+    {
+        var index = IndexOf(("1", "ポルカ", ["ポルカ"]), ("2", "ヌクモ", ["ヌクモ"]));
+        var html = "<p>◇対応モデル<br>ポルカ<br>◇利用規約<br>ご利用の前にご確認ください。<br>"
+            + "◇バリエーション<br>for ヌクモ<br>https://booth.pm/ja/items/5555</p>";
+
+        var ids = AvatarDetector.ScanLists(html, null, "999", index, Support, Ignored2);
+
+        Assert.Equal(["1"], ids);
+    }
+
+    /// <summary>飾りが違う行・別の話の語を含まない行では終えない（一覧の中の小見出しやグループ名）。</summary>
+    [Fact]
+    public void KeepsReadingPastGroupLabels()
+    {
+        var index = IndexOf(("1", "ポルカ", ["ポルカ"]), ("2", "ヌクモ", ["ヌクモ"]));
+        var html = "<p>◇対応モデル<br>◇ポルカ工房様<br>ポルカ<br>◆利用規約の対象外<br>ヌクモ</p>";
+
+        var ids = AvatarDetector.ScanLists(html, null, "999", index, Support, Ignored2);
+
+        Assert.Equal(["1", "2"], ids);
+    }
+
     private static readonly string[] Ignored2 = ["クレジット", "利用規約"];
 
     /// <summary>
