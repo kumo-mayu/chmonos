@@ -441,7 +441,7 @@
                                                 <Setter Property="Template">
                                                     <Setter.Value>
                                                         <ControlTemplate TargetType="GroupItem">
-                                                            <Expander IsExpanded="True" Margin="0,8,0,2"
+                                                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" Margin="0,8,0,2"
                                                                       Loaded="GroupExpander_Loaded"
                                                                       Expanded="GroupExpander_Changed"
                                                                       Collapsed="GroupExpander_Changed">
@@ -674,7 +674,7 @@
                                     呼ばれ方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
                                     消した表記は、商品の対応アバターと同じく末尾に出して1件ずつ戻せるようにする
                                 -->
-                                <Expander Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}">
+                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}">
                                     <Expander.Header>
                                         <TextBlock Text="{Binding AliasesTitle}" Style="{StaticResource SectionLabel}" />
                                     </Expander.Header>

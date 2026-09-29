@@ -71,12 +71,15 @@
     <!--
         見出しの左に TagToggle と同じ三角を出す Expander（ユーザ判断 2026-09-27：商品ページの畳む印が
         WPF の既定の山形と三角の2種類混ざっていたのを、三角に揃える）。
-        既定と同じく見出し全体（三角と見出しの文字）が押せる所。開閉の状態・UI Automation の開閉は Expander のまま
+        既定と同じく見出し全体（三角と見出しの文字）が押せる所。開閉の状態・UI Automation の開閉は Expander のまま。
+        地・枠・内の余白は Expander の指定を描く（未確定の束は地の色と下の線を Expander に持たせている。ユーザ判断 2026-09-29 で三角を全画面に広げた）
     -->
     <Style x:Key="TriangleExpander" TargetType="Expander">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Expander">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
                     <DockPanel>
                         <ToggleButton DockPanel.Dock="Top" Cursor="Hand"
                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
@@ -115,6 +118,7 @@
                         </ToggleButton>
                         <ContentPresenter x:Name="Body" Visibility="Collapsed" />
                     </DockPanel>
+                    </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsExpanded" Value="True">
                             <Setter TargetName="Body" Property="Visibility" Value="Visible" />

@@ -8,6 +8,11 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ResolveViewModel}">
     <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む印の三角（TriangleExpander）を使う。ほかの画面と同じ物 -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <!-- 入力が残る欄を消す ×（検索画面の ClearFieldButton と同じ見た目）。暗黙のボタンの見た目（高さ32など）を当てないため明示する -->
         <Style x:Key="ClearFieldButton" TargetType="Button">
             <Setter Property="Content" Value="×" />
@@ -34,6 +39,7 @@
                              Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
             </StackPanel>
         </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
 
@@ -237,7 +243,7 @@
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="GroupItem">
-                                                    <Expander IsExpanded="{Binding Items[0].StartsExpanded, Mode=OneTime}"
+                                                    <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Items[0].StartsExpanded, Mode=OneTime}"
                                                               Background="{DynamicResource SurfaceAlt}"
                                                               BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
                                                               Padding="0">

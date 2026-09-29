@@ -14,6 +14,11 @@
         右のビューの中身はこれまでの画面から程よい量で作った（ユーザ：後から修正を指示する）。
     -->
     <UserControl.Resources>
+        <ResourceDictionary>
+        <!-- 畳む印の三角（TriangleExpander）を使う。ほかの画面と同じ物 -->
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="ManageResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <!--
             文字だけのボタン。暗黙の Button スタイルは中央揃えと枠を持っていて上書きが効かないので、型ごと差し替える
         -->
@@ -619,7 +624,7 @@
                         <TextBlock Text="{Binding VariationText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
                                    Visibility="{Binding HasVariation, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
-                        <Expander Header="{Binding UsedInHeader}" Margin="0,6,0,0" FontSize="12">
+                        <Expander Style="{StaticResource TriangleExpander}" Header="{Binding UsedInHeader}" Margin="0,6,0,0" FontSize="12">
                             <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
                                 <ItemsControl ItemsSource="{Binding UsedIn}" />
                             </ScrollViewer>
@@ -693,6 +698,7 @@
         <DataTemplate DataType="{x:Type vm:ModificationViewModel}">
             <views:ModificationView />
         </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <controls:PaneGrid Background="{DynamicResource Bg}" Pane="{Binding ListPane}">
