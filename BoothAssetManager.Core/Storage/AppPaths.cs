@@ -158,6 +158,12 @@ public sealed class AppPaths
             .FirstOrDefault();
     }
 
+    /// <summary>
+    /// アイコンの置き場を1回だけ列挙した表。多くの店を続けて引く所（ショップ一覧の集計）で使う。
+    /// 店ごとに <see cref="FindShopIcon"/> を呼ぶと置き場を店の数だけ列挙してしまう。
+    /// </summary>
+    public ShopIconIndex ReadShopIconIndex() => ShopIconIndex.Read(ShopIconsDir);
+
     /// <summary>元URLから短いハッシュを作る。同じURLなら常に同じ名前になる。</summary>
     private static string ShortHash(string value)
     {
@@ -169,7 +175,7 @@ public sealed class AppPaths
         => Path.Combine(ShopIconsDir, $"{Sanitize(subdomain)}_banner.webp");
 
     /// <summary>サブドメインはURLの一部なので概ね安全だが、念のためファイル名に使えない字を落とす。</summary>
-    private static string Sanitize(string name)
+    internal static string Sanitize(string name)
         => string.Concat(name.Select(character =>
             Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
 

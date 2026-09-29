@@ -55,6 +55,12 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// <summary>カードを作った・読み直させたときの、画像のフォルダの更新時刻。</summary>
     private Dictionary<string, DateTime> _imageStamps = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// 前の読み直しで「絵が1枚でもあるか」を調べた答えと、そのときのフォルダの日時。
+    /// 取り込み中の読み直し（10秒ごと）で、日時の変わっていない商品のフォルダを列挙し直さないため
+    /// </summary>
+    private Dictionary<string, (DateTime Stamp, bool HasImage)> _imagePresence = new(StringComparer.Ordinal);
+
     private List<ItemRecord> _allItems = [];
     private List<ItemCardViewModel> _matches = [];
     private string _queryText = string.Empty;
@@ -422,7 +428,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             // 2000件で約0.5秒、読み込むたびに画面が止まっていた（起動・取り込みや編集の後の読み直し）。
             // 作り終えてから画面のスレッドで差し替えるので、作っている途中の表を画面が読むことは無い
             var previousStamps = _imageStamps;
-            var (sorted, built, prints, imagePending, stamps) = await Task.Run(() =>
+            var previousPresence = _imagePresence;
+            var (sorted, built, prints, imagePending, stamps, presenceMemo) = await Task.Run(() =>
             {
                 // 外付けのドライブ文字が変わっていないかを読み直す（通し番号を読むので、ここで）。
                 // 表は書かない：控えるのは取り込みとフォルダビューを開いた時（ユーザ判断 2026-09-14）
@@ -462,24 +469,26 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 var imageStamps = new Dictionary<string, DateTime>(sortedItems.Count, StringComparer.Ordinal);
                 foreach (var item in sortedItems)
                 {
-                    imageStamps[item.Id] = ThumbnailLoader.DirectoryStamp(_services.Paths.ItemImagesDir(item.Id));
+                    imageStamps[item.Id] = Core.Images.ImageFolderPresence.Stamp(_services.Paths.ItemImagesDir(item.Id));
                 }
 
                 // 取り込み中に「画像を取得中」を出す商品（絵がまだ1枚も無い）。フォルダを見るのはここで済ませる。
-                // 画面のスレッドでカードを作るたびに見ていて、2000件なら読み直しのたびに2000回フォルダを開いていた
+                // 画面のスレッドでカードを作るたびに見ていて、2000件なら読み直しのたびに2000回フォルダを開いていた。
+                // さらに、上で取った日時が前の読み直しと同じ商品は前の答えを使う（取り込み中の読み直し 201ms → 40ms。
+                // ImageFolderPresence）
                 var pending = new HashSet<string>(StringComparer.Ordinal);
+                var presence = previousPresence;
                 if (checkImagesPending)
                 {
-                    foreach (var item in sortedItems.Where(item => item.Booth.Images.Count > 0))
-                    {
-                        if (!ThumbnailLoader.HasAnyImage(_services.Paths.ItemImagesDir(item.Id)))
-                        {
-                            pending.Add(item.Id);
-                        }
-                    }
+                    (pending, presence) = Core.Images.ImageFolderPresence.FindWithoutImages(
+                        sortedItems
+                            .Where(item => item.Booth.Images.Count > 0)
+                            .Select(item => (item.Id, imageStamps[item.Id])),
+                        previousPresence,
+                        id => Core.Images.ImageFolderPresence.HasAnyImage(_services.Paths.ItemImagesDir(id)));
                 }
 
-                return (sortedItems, haystacks, fingerprints, pending, imageStamps);
+                return (sortedItems, haystacks, fingerprints, pending, imageStamps, presence);
             });
 
             _allItems = sorted;
@@ -542,6 +551,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
 
                 _fingerprints = prints;
                 _imageStamps = stamps;
+                _imagePresence = presenceMemo;
                 // 効き目を画面なしで数えるための足跡（CHMONOS_UITRACE のときだけ書く）
                 Core.Services.UiTrace.Write("速さ", $"検索の読み直し：{_allItems.Count} 件のうちカードを作った {_allItems.Count - reused} 件");
 

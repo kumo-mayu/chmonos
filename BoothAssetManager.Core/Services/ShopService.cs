@@ -194,12 +194,16 @@ public sealed class ShopService : IShopService
 
         var bannerRecords = _store.ShopBanners.Load();
 
+        // アイコンとバナーは置き場を1回だけ列挙して引く。店ごとに探すと「店の数×置き場の中の数」で伸び、
+        // 500店・1000枚で集計が 372ms かかっていた（ShopIconIndex）
+        var icons = _store.Paths.ReadShopIconIndex();
+
         return items
             // 束ねる鍵はユーザが入れたショップも見る。**商品が非公開でも
             // ショップは見られる場合がある**ので、URLを貼れば本物のショップに正しく入る
             .Where(item => item.ShopSubdomain is not null)
             .GroupBy(item => item.ShopSubdomain!, StringComparer.OrdinalIgnoreCase)
-            .Select(group => Summarize(group, updatedIds, bannerRecords))
+            .Select(group => Summarize(group, updatedIds, bannerRecords, icons))
             .OrderByDescending(shop => shop.OwnedCount)
             .ThenBy(shop => shop.Name, StringComparer.CurrentCulture)
             .ToList();
@@ -275,7 +279,8 @@ public sealed class ShopService : IShopService
     private ShopSummary Summarize(
         IGrouping<string, ItemRecord> group,
         IReadOnlySet<string> updatedIds,
-        IReadOnlyList<ShopBannerRecord> bannerRecords)
+        IReadOnlyList<ShopBannerRecord> bannerRecords,
+        ShopIconIndex icons)
     {
         // 名前は最後に取得したものを採る。改名されたら新しい方に寄せたい。
         // BOOTHから取れていない商品だけのショップは、ユーザが入れた名前しか無い
@@ -301,6 +306,8 @@ public sealed class ShopService : IShopService
             .OrderByDescending(acquired => acquired.Value)
             .FirstOrDefault();
 
+        var hasBanner = icons.HasBanner(subdomain);
+
         return new ShopSummary
         {
             Subdomain = subdomain,
@@ -308,9 +315,9 @@ public sealed class ShopService : IShopService
             Uuid = observed?.Uuid,
             Url = observed?.Url,
             ThumbnailUrl = observed?.ThumbnailUrl,
-            IconPath = _store.Paths.FindShopIcon(subdomain),
-            BannerPath = Existing(_store.Paths.ShopBannerFile(subdomain)),
-            BannerState = BannerStateOf(subdomain, bannerRecords),
+            IconPath = icons.FindIcon(subdomain),
+            BannerPath = hasBanner ? _store.Paths.ShopBannerFile(subdomain) : null,
+            BannerState = BannerStateOf(subdomain, hasBanner, bannerRecords),
             KnownCount = counted.Count,
             OwnedCount = owned.Count,
             SpentYen = owned.Sum(item => (long)Spent(item)),
@@ -329,9 +336,9 @@ public sealed class ShopService : IShopService
     /// 記録が無いか、確かめ直す時期が来ているなら Unknown
     /// （見に行った結果バナーが現れることがあるので、答えが変わり得る間は「分からない」扱いにする）。
     /// </summary>
-    private ShopBannerState BannerStateOf(string subdomain, IReadOnlyList<ShopBannerRecord> records)
+    private ShopBannerState BannerStateOf(string subdomain, bool hasBanner, IReadOnlyList<ShopBannerRecord> records)
     {
-        if (File.Exists(_store.Paths.ShopBannerFile(subdomain)))
+        if (hasBanner)
         {
             return ShopBannerState.Present;
         }
