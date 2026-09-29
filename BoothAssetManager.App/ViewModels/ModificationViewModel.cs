@@ -436,10 +436,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             {
                 var paths = new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);
                 var done = 0;
+                // 同じ zip の包みは控えを1回だけ読んで配る（前は包みごとに控えを丸ごと読んでいた）
+                var reads = new UnityPackageReads();
                 foreach (var item in items)
                 {
                     token.ThrowIfCancellationRequested();
-                    paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(UnityHandoff.ReadAssets).ToList();
+                    paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(reads.ReadAssets).ToList();
                     progress.Report(++done);
                 }
 
@@ -694,16 +696,21 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// 手で足した分は、どのファイルを使ったかが分からないので、今ある zip の中身を zip の順に送る。
     /// </summary>
     internal static IReadOnlyList<UnityPackageEntry> PackagesFor(ItemRecord item, ModificationMember member)
+        => PlacesFor(item, member).Select(place => place.Entry).ToList();
+
+    /// <summary><see cref="PackagesFor"/> に、item に書いてある入る先を添えた物（書いていなければ null）。</summary>
+    internal static IReadOnlyList<UnityPackagePlace> PlacesFor(ItemRecord item, ModificationMember member)
     {
         if (member.FileHash is { } hash && member.Package is { } package
-            && item.Local.OwnedFiles
-                .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase))
-                ?.Paths.FirstOrDefault(File.Exists) is { } zip)
+            && item.Local.OwnedFiles.FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) is { } owner
+            && owner.Paths.FirstOrDefault(File.Exists) is { } zip)
         {
-            return [new UnityPackageEntry(zip, package, 0) { ZipHash = hash }];
+            // 要約は zip のハッシュについて書いた物なので、記録した包みの分だけ引けば足りる（全部そろっているかは問わない）
+            var roots = owner.UnityPackages?.FirstOrDefault(summary => string.Equals(summary.Entry, package, StringComparison.Ordinal))?.Roots;
+            return [new UnityPackagePlace(new UnityPackageEntry(zip, package, 0) { ZipHash = hash }, roots)];
         }
 
-        return UnityImportQueue.PackagesOf(item);
+        return UnityImportQueue.PlacesOf(item);
     }
 
     /// <summary>使ったもの1件を Unity のプロジェクトタブで示す（改変の画面の「Unityで選択」と同じ道・<see cref="UnityMemberSelect"/>）。</summary>

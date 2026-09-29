@@ -49,6 +49,87 @@ public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long Si
 /// <param name="Path">Unity 上のパス（<c>Assets/FUKA/…</c>）。</param>
 public sealed record UnityPackageAsset(string Guid, string Path);
 
+/// <summary>zip の中の unitypackage 1つと、入る先（<see cref="UnityHandoff.PlacesOf(Models.LocalFileRecord)"/>）。</summary>
+/// <param name="Roots">
+/// 入る先の一番上（<see cref="UnityHandoff.DestinationRoots"/> の形）。item に書いてあればそれ、無ければ null（使う側が読んで埋める）。
+/// </param>
+public sealed record UnityPackagePlace(UnityPackageEntry Entry, IReadOnlyList<string>? Roots);
+
+/// <summary>
+/// 1回の操作・1回の画面表示の中の、中身の読み（2026-09-29）。**同じ zip の控えを1回だけ読んで、包みに配る。**
+///
+/// 控え（<c>unitypackages/&lt;ハッシュ&gt;.json</c>）は zip ごとに1つで、中の全部の包みの全部のパスを持つ（手元で最大 136KB ほど）。
+/// 前は包みを1つ読むたびに控えを丸ごと読んでいて、1つの zip に包みが N 個あると N 回読んでいた（包み数の2乗の読み）。
+///
+/// **覚えるのは直前に読んだ zip の控え1つだけ。**呼ぶ側は包みを zip ごとに続けて並べる（<see cref="UnityHandoff.PlacesOf(Models.LocalFileRecord)"/> の順）ので足り、
+/// プロジェクトの中を調べるような手元の全商品を読む操作でも、控えを全部抱え込まない。
+/// 前の形の控え（読めない）は無いのと同じで、包みごとに zip を解いて控えを書き直す（<see cref="Storage.UnityPackagePathStore.Add"/>）作りは変えない。
+/// </summary>
+public sealed class UnityPackageReads
+{
+    private readonly object _gate = new();
+    private readonly Func<string, IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>?> _loadStored;
+    private readonly Func<UnityPackageEntry, IReadOnlyList<UnityPackageAsset>> _readZip;
+    private readonly Action<string, string, IReadOnlyList<UnityPackageAsset>> _addStored;
+    private string? _hash;
+    private Dictionary<string, IReadOnlyList<UnityPackageAsset>>? _stored;
+
+    public UnityPackageReads()
+        : this(UnityHandoff.LoadStored, UnityHandoff.ReadAssetsFromDisk, UnityHandoff.AddStored)
+    {
+    }
+
+    /// <param name="loadStored">控えを読む（試験ではディスクを見ない物に差し替える）。</param>
+    /// <param name="readZip">zip を解いて中身を読む（同上）。</param>
+    /// <param name="addStored">zip から読んだ物を控えに足す（同上）。</param>
+    internal UnityPackageReads(
+        Func<string, IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>?> loadStored,
+        Func<UnityPackageEntry, IReadOnlyList<UnityPackageAsset>> readZip,
+        Action<string, string, IReadOnlyList<UnityPackageAsset>> addStored)
+    {
+        _loadStored = loadStored;
+        _readZip = readZip;
+        _addStored = addStored;
+    }
+
+    /// <summary>中身のアセットを全部返す（<see cref="UnityHandoff.ReadAssets(UnityPackageEntry)"/> と同じ答え）。</summary>
+    public IReadOnlyList<UnityPackageAsset> ReadAssets(UnityPackageEntry package) => UnityHandoff.ReadAssets(package, remember: true, this);
+
+    /// <summary>入る先の一番上（<see cref="UnityHandoff.ReadDestinations"/> と同じ答え）。</summary>
+    public IReadOnlyList<string> ReadDestinations(UnityPackageEntry package)
+        => UnityHandoff.DestinationRoots(ReadAssets(package).Select(asset => asset.Path));
+
+    /// <summary>控えにある、この包みの中身。控えに無ければ null。同じ zip の控えは読み直さない。</summary>
+    internal IReadOnlyList<UnityPackageAsset>? Stored(string hash, string entry)
+    {
+        lock (_gate)
+        {
+            if (!string.Equals(_hash, hash, StringComparison.OrdinalIgnoreCase))
+            {
+                _hash = hash;
+                _stored = _loadStored(hash)?.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            }
+
+            return _stored is not null && _stored.TryGetValue(entry, out var assets) ? assets : null;
+        }
+    }
+
+    internal IReadOnlyList<UnityPackageAsset> ReadZip(UnityPackageEntry package) => _readZip(package);
+
+    /// <summary>zip から読んだ物を控えに足し、手元の写しにも入れる（同じ操作でもう一度引いても zip を解かない）。</summary>
+    internal void Added(string hash, string entry, IReadOnlyList<UnityPackageAsset> assets)
+    {
+        _addStored(hash, entry, assets);
+        lock (_gate)
+        {
+            if (string.Equals(_hash, hash, StringComparison.OrdinalIgnoreCase))
+            {
+                (_stored ??= new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal))[entry] = assets;
+            }
+        }
+    }
+}
+
 /// <summary>Unity の窓の題から言い当てたプロジェクト（<see cref="UnityHandoff.IdentifyProject"/>）。</summary>
 /// <param name="Name">プロジェクト名。題から読めなければ null。</param>
 /// <param name="Path">場所。一覧で言い当てられたときだけ。</param>
@@ -160,6 +241,12 @@ public static class UnityHandoff
     /// 手元の全部の unitypackage を1回ずつ読むだけで、結果は控えのファイルに書くので、表に入れない（入れると画面が使う物を押し出す）。
     /// </param>
     internal static IReadOnlyList<UnityPackageAsset> ReadAssets(UnityPackageEntry package, bool remember)
+        => ReadAssets(package, remember, new UnityPackageReads());
+
+    /// <param name="reads">
+    /// 控えの読みを配る入れ物（<see cref="UnityPackageReads"/>）。同じ zip の包みを続けて読むとき、控えを1回だけ読む。
+    /// </param>
+    internal static IReadOnlyList<UnityPackageAsset> ReadAssets(UnityPackageEntry package, bool remember, UnityPackageReads reads)
     {
         FileInfo? zip = null;
         try
@@ -178,9 +265,7 @@ public static class UnityHandoff
         }
 
         // 取り込みの裏で読んだ控え（2026-09-13）。ハッシュが同じなら中身は変わらないので、zip を解かずに引ける
-        if (package.ZipHash is { } hash
-            && s_pathStore?.Load(hash) is { } stored
-            && stored.TryGetValue(package.EntryPath, out var storedAssets))
+        if (package.ZipHash is { } hash && reads.Stored(hash, package.EntryPath) is { } storedAssets)
         {
             if (remember)
             {
@@ -190,26 +275,103 @@ public static class UnityHandoff
             return storedAssets;
         }
 
-        var assets = ReadAssetsFromDisk(package);
+        var assets = reads.ReadZip(package);
         if (remember)
         {
             Remember(key, zip, assets);
         }
 
         // 取り込みの裏より先に読んだ物も控えに足す（次の起動では解かずに済む）
-        if (package.ZipHash is { } readHash && assets.Count > 0 && s_pathStore is { } store)
+        if (package.ZipHash is { } readHash && assets.Count > 0)
         {
-            try
-            {
-                store.Add(readHash, package.EntryPath, assets);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // 控えは無くても動く。次に読んだときに足し直す
-            }
+            reads.Added(readHash, package.EntryPath, assets);
         }
 
         return assets;
+    }
+
+    internal static IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>? LoadStored(string hash) => s_pathStore?.Load(hash);
+
+    internal static void AddStored(string hash, string entry, IReadOnlyList<UnityPackageAsset> assets)
+    {
+        if (s_pathStore is not { } store)
+        {
+            return;
+        }
+
+        try
+        {
+            store.Add(hash, entry, assets);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 控えは無くても動く。次に読んだときに足し直す
+        }
+    }
+
+    /// <summary>
+    /// 手元のファイルが zip なら、中の Unity へ送れる物と、分かっていれば入る先を返す（zip に入っている順）。
+    ///
+    /// **item に書いてある要約（<see cref="Models.LocalFileRecord.UnityPackages"/>）があれば zip を開かない**（2026-09-29）。
+    /// 前は商品ページを開くたびに zip を開いて中の一覧を読み、包みごとに控えの JSON を丸ごと読んでいた。大きな zip が HDD にあると開くだけで重い。
+    /// 中身は zip のハッシュで決まり、要約はそのハッシュについて取り込みの裏で書いた物なので、zip を読み直しても同じ答えになる
+    /// （同じ場所の zip が差し替えられた物は別のハッシュ＝別の手元のファイルで、取り込み直すまでこの記録のハッシュの物ではない。
+    /// 前の読み方もこの記録のハッシュで控えを引いていた）。
+    ///
+    /// **zip が在ることは今までどおり見る**（無ければ送れないので行を出さない）。
+    /// </summary>
+    public static IReadOnlyList<UnityPackagePlace> PlacesOf(Models.LocalFileRecord file) => PlacesOf(file, File.Exists, FindPackages);
+
+    /// <param name="exists">ファイルが在るか（試験ではディスクを見ない物に差し替える）。</param>
+    /// <param name="find">zip を開いて中の unitypackage を数える（同上）。</param>
+    internal static IReadOnlyList<UnityPackagePlace> PlacesOf(
+        Models.LocalFileRecord file, Func<string, bool> exists, Func<string, IReadOnlyList<UnityPackageEntry>> find)
+    {
+        var zip = file.Paths.FirstOrDefault(exists);
+        if (zip is null || !zip.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        if (KnownPackages(file) is { } known)
+        {
+            // 大きさは要約に無い。行には出さず、送るときも zip の中の場所で取り出すので 0 にする（改変の記録から作る物と同じ）
+            return known
+                .Select(summary => new UnityPackagePlace(new UnityPackageEntry(zip, summary.Entry, 0) { ZipHash = file.Hash }, summary.Roots ?? []))
+                .ToList();
+        }
+
+        return find(zip).Select(package => new UnityPackagePlace(package with { ZipHash = file.Hash }, null)).ToList();
+    }
+
+    /// <summary>
+    /// item の要約を、zip の中の順に並べて返す。**要約が zip の中の unitypackage を全部覆っていなければ null**（zip を読む）。
+    ///
+    /// 要約は控えから写すが、控えは商品ページなどで包みを1つずつ足しても作られる（<see cref="Storage.UnityPackagePathStore.Add"/>）。
+    /// 取り込みの裏はその控えを「ある」と見て読み直さないので、一部の包みしか載っていない要約があり得る。
+    /// 中身の一覧（<see cref="Models.LocalFileRecord.Contents"/>。zip の中の順）と名前がそろうときだけ使い、そろわなければ今までどおり zip を読む
+    /// （包みが黙って消えるより、1回 zip を開く方がよい）。
+    /// </summary>
+    internal static IReadOnlyList<Models.UnityPackageSummary>? KnownPackages(Models.LocalFileRecord file)
+    {
+        if (file.UnityPackages is not { } summaries)
+        {
+            return null;
+        }
+
+        var inZip = file.Contents
+            .Where(name => name.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var byEntry = summaries
+            .GroupBy(summary => summary.Entry, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        if (inZip.Count != byEntry.Count || !inZip.All(byEntry.ContainsKey))
+        {
+            return null;
+        }
+
+        return inZip.Take(MaxPackages).Select(name => byEntry[name]).ToList();
     }
 
     private static void Remember((string Zip, string Entry) key, FileInfo? zip, IReadOnlyList<UnityPackageAsset> assets)
@@ -339,7 +501,7 @@ public static class UnityHandoff
         }
     }
 
-    private static IReadOnlyList<UnityPackageAsset> ReadAssetsFromDisk(UnityPackageEntry package)
+    internal static IReadOnlyList<UnityPackageAsset> ReadAssetsFromDisk(UnityPackageEntry package)
     {
         try
         {
@@ -411,6 +573,32 @@ public static class UnityHandoff
             .OrderByDescending(group => group.Count())
             .Select(group => group.First())
             .ToList();
+
+    /// <summary>
+    /// 包み全部の入る先（改変の画面の構成物の欄）。**item に書いてある入る先で言い切れるときは中身を読まない。**
+    ///
+    /// 入る先は全部のパスを数えて多い順に並べる（<see cref="DestinationRoots(IEnumerable{string})"/>）ので、包みが2つ以上で入る先が分かれると、
+    /// 包みごとの要約（数を持たない）からは並びを決められない。そのときと、書いていない包みがあるときだけ読む（控えは zip ごとに1回）。
+    /// 並びを変えると、3か所を超えたときに出る3か所が変わる。
+    /// </summary>
+    public static IReadOnlyList<string> DestinationRoots(IReadOnlyList<UnityPackagePlace> places, UnityPackageReads reads)
+    {
+        if (places.All(place => place.Roots is not null))
+        {
+            if (places.Count == 1)
+            {
+                return places[0].Roots!;
+            }
+
+            var union = places.SelectMany(place => place.Roots!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (union.Count <= 1)
+            {
+                return union;
+            }
+        }
+
+        return DestinationRoots(places.SelectMany(place => reads.ReadAssets(place.Entry)).Select(asset => asset.Path));
+    }
 
     /// <summary>入る先を1文にする。多すぎるときは3か所まで出して残りは数だけ言う。</summary>
     public static string DescribeDestinations(IReadOnlyList<string> roots) => roots.Count switch

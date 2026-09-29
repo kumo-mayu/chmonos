@@ -685,14 +685,15 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     /// <summary>Unity のどこに入るか。unitypackage を解くのは重い（大きな物は1件0.2秒ほど）ので裏で読む。</summary>
     private async Task FillDestinationAsync(HubItemDetail detail, ItemRecord? item)
     {
-        var packages = item is null ? [] : ModificationViewModel.PackagesFor(item, detail.Row.Member);
-        if (packages.Count == 0)
+        // 在るかを見るのも zip の中の一覧も画面のスレッドの外で（前は画面のスレッドで zip を開いていた）
+        var places = item is null ? [] : await Task.Run(() => ModificationViewModel.PlacesFor(item, detail.Row.Member));
+        if (places.Count == 0)
         {
             detail.DestinationText = "Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。";
             return;
         }
 
-        var roots = await Task.Run(() => UnityHandoff.DestinationRoots(packages.SelectMany(UnityHandoff.ReadAssetPaths)));
+        var roots = await Task.Run(() => UnityHandoff.DestinationRoots(places, new UnityPackageReads()));
         detail.DestinationText = roots.Count == 0 ? "Unityのどこに入るかを読めませんでした。" : UnityHandoff.DescribeDestinations(roots);
     }
 

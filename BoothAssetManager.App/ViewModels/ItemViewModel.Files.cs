@@ -141,21 +141,22 @@ public sealed partial class ItemViewModel
     /// 分からない（手元の実測で 40MB の物が 0.2 秒ほど）。1つずつ順に読むのは、
     /// 同じzipを並んで開いてディスクを取り合わないため。
     /// </summary>
-    private async Task LoadUnityDestinationsAsync()
+    /// <remarks>
+    /// item に入る先が書いてある物（<see cref="Core.Services.UnityPackagePlace.Roots"/>）は読まずにそれを出し、無い物だけ読む。
+    /// 読むときは控えを zip ごとに1回だけ読む（<see cref="Core.Services.UnityPackageReads"/>。前は包みごとに控えを丸ごと読んでいた）
+    /// </remarks>
+    private async Task LoadUnityDestinationsAsync(IReadOnlyDictionary<UnityPackageRow, IReadOnlyList<string>> known)
     {
+        var reads = new Core.Services.UnityPackageReads();
         foreach (var row in LocalFiles.SelectMany(file => file.UnityPackageRows).ToList())
         {
-            var roots = await Task.Run(() => Core.Services.UnityHandoff.ReadDestinations(row.Entry));
+            var roots = known.TryGetValue(row, out var written)
+                ? written
+                : await Task.Run(() => reads.ReadDestinations(row.Entry));
             row.DestinationText = Core.Services.UnityHandoff.DescribeDestinations(roots);
         }
     }
 
-    /// <summary>
-    /// このファイルがzipなら、中の <c>.unitypackage</c> を数える。
-    ///
-    /// **1箇所目だけ見る。**同じ中身が複数箇所にあっても中身は同じなので、
-    /// 全部開くのは無駄。zip以外（展開済みのフォルダやpdf）は対象外。
-    /// </summary>
     /// <summary>
     /// zip の中の、Unityへ送れるものを読んで行に付け、続けて入る先を埋める。
     /// **画面のスレッドの外で読む**（技術的負債 4-2）。前は商品ページを組むときに画面のスレッドで zip を開いていた。
@@ -167,25 +168,29 @@ public sealed partial class ItemViewModel
         var files = rows
             .Select(row => Item.Local.LocalFiles.FirstOrDefault(file => string.Equals(file.Hash, row.Hash, StringComparison.OrdinalIgnoreCase)))
             .ToList();
-        var found = await Task.Run(() => files.Select(file => file is null ? [] : FindUnityPackages(file)).ToList());
+        // zip の中の一覧は、item に書いてあればそれを使い、zip を開かない（Core.Services.UnityHandoff.PlacesOf）。
+        // 1箇所目の在る zip だけ見る。同じ中身が複数箇所にあっても中身は同じ。zip以外（展開済みのフォルダやpdf）は対象外
+        var found = await Task.Run(() => files
+            .Select(file => file is null ? [] : Core.Services.UnityHandoff.PlacesOf(file))
+            .ToList());
 
+        var known = new Dictionary<UnityPackageRow, IReadOnlyList<string>>();
         for (var i = 0; i < rows.Count; i++)
         {
-            rows[i].UnityPackages = found[i];
-            rows[i].UnityPackageRows = found[i].Select(package => new UnityPackageRow { Entry = package }).ToList();
+            var packageRows = found[i].Select(place => (Place: place, Row: new UnityPackageRow { Entry = place.Entry })).ToList();
+            foreach (var (place, row) in packageRows)
+            {
+                if (place.Roots is { } roots)
+                {
+                    known[row] = roots;
+                }
+            }
+
+            rows[i].UnityPackages = found[i].Select(place => place.Entry).ToList();
+            rows[i].UnityPackageRows = packageRows.Select(pair => pair.Row).ToList();
         }
 
-        await LoadUnityDestinationsAsync();
-    }
-
-    private static IReadOnlyList<Core.Services.UnityPackageEntry> FindUnityPackages(Core.Models.LocalFileRecord file)
-    {
-        var path = file.Paths.FirstOrDefault(File.Exists);
-
-        // zip のハッシュを持たせる。入り先を取り込みの裏で読んだ控えから引ける（zip を解き直さない）
-        return path is not null && Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase)
-            ? Core.Services.UnityHandoff.FindPackages(path).Select(package => package with { ZipHash = file.Hash }).ToList()
-            : [];
+        await LoadUnityDestinationsAsync(known);
     }
 
     /// <summary>
