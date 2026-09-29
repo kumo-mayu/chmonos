@@ -20,14 +20,14 @@ public sealed class UnityPackagePathsFile
 /// unitypackage の中身の全部のパスと GUID の控え（2026-09-13 ユーザ判断。GUID は 2026-09-29 に足した）。**鍵は zip のハッシュ**なので、控えが古くなることは無い
 /// （中身が変われば別のハッシュ＝別の手元のファイル）。消しても、取り込みの裏か、使うときに zip を解き直すだけで壊れない。
 ///
-/// パスだけの前の形（中身が文字の並び）は読めない物として扱い、使うときに zip を解いて書き直す（控えは作り直せる物なので、古い形を読む道は持たない）。
+/// 読めない控え（無い・壊れている）は、使うときに zip を解いて書き直す。控えは作り直せる写しなので、読めなくても壊れない。
 /// </summary>
 public sealed class UnityPackagePathStore(AppPaths paths)
 {
-    /// <summary>読める控えがあるか。前の形の控えは無いのと同じ（読み直して書き直す）。</summary>
+    /// <summary>読める控えがあるか。読めない控えは無いのと同じ（読み直して書き直す）。</summary>
     public bool Has(string hash) => File.Exists(paths.UnityPackageFile(hash)) && Load(hash) is not null;
 
-    /// <summary>読めなければ null（無い・壊れている・前の形）。</summary>
+    /// <summary>読めなければ null（無い・壊れている）。</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>? Load(string hash)
     {
         try
@@ -83,7 +83,7 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         gate.Wait();
         try
         {
-            // 前の形の控え（読めない）は捨てて、今読んだ分から書き直す。ほかの物は使うときに読み直して足す
+            // 読めない控えは捨てて、今読んだ分から書き直す。ほかの物は使うときに読み直して足す
             var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
                 ?? new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);
             packages[entry] = assets;

@@ -298,9 +298,9 @@ public sealed class UnityPackageCatalogTests : IDisposable
     }
 
     [Fact]
-    public async Task パスだけの前の形の控えは無いのと同じで読み直す()
+    public async Task 読めない控えは無いのと同じで読み直す()
     {
-        // GUID を持たない控えは使えない。控えは作り直せる物なので、前の形を読む道は持たず、zip を解き直して書き直す
+        // 読めない控え（ここでは GUID を持たない形）は使えない。控えは作り直せる写しなので、zip を解き直して書き直す
         var file = MakeZip("o.zip", "OOO", ("O.unitypackage", MakeUnityPackage("Assets/O/a.prefab")));
         Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("OOO"))!);
         await File.WriteAllTextAsync(
@@ -315,7 +315,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
     }
 
     [Fact]
-    public void 使うときに読んだ物も前の形の控えを書き直す()
+    public void 使うときに読んだ物も読めない控えを書き直す()
     {
         var file = MakeZip("u.zip", "UUU", ("U.unitypackage", MakeUnityPackage("Assets/U/a.prefab")));
         Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("UUU"))!);
