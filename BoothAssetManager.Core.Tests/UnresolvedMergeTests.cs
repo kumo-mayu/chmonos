@@ -9,6 +9,9 @@ public sealed class UnresolvedMergeTests
 {
     private static readonly RegisteredFolderSet NoOffline = new([]);
 
+    /// <summary>この取り込みが走査した取り込み元。<see cref="File"/> の既定のパスはこの下。</summary>
+    private static readonly RegisteredFolderSet Scanned = new([@"D:\BOOTH"]);
+
     private static UnresolvedFile File(string hash, string path = @"D:\BOOTH\a.zip") => new()
     {
         Hash = hash,
@@ -23,7 +26,7 @@ public sealed class UnresolvedMergeTests
     [Fact]
     public void 取り込みの最中に人が割り当てた物を未確定に戻さない()
     {
-        var result = UnresolvedMerge.ForImport(current: [], lastWritten: [File("A")], found: [File("A")], NoOffline);
+        var result = UnresolvedMerge.ForImport(current: [], lastWritten: [File("A")], found: [File("A")], Scanned, NoOffline);
 
         Assert.Empty(result);
     }
@@ -31,7 +34,7 @@ public sealed class UnresolvedMergeTests
     [Fact]
     public void 取り込みの最中に人が足した物を消さない()
     {
-        var result = UnresolvedMerge.ForImport(current: [File("B")], lastWritten: [], found: [File("A")], NoOffline);
+        var result = UnresolvedMerge.ForImport(current: [File("B")], lastWritten: [], found: [File("A")], Scanned, NoOffline);
 
         Assert.Equal(["A", "B"], Hashes(result));
     }
@@ -39,7 +42,7 @@ public sealed class UnresolvedMergeTests
     [Fact]
     public void 今回見つからなかった物は取り込みが判じ直したので落とす()
     {
-        var result = UnresolvedMerge.ForImport(current: [File("A")], lastWritten: [File("A")], found: [], NoOffline);
+        var result = UnresolvedMerge.ForImport(current: [File("A")], lastWritten: [File("A")], found: [], Scanned, NoOffline);
 
         Assert.Empty(result);
     }
@@ -52,7 +55,28 @@ public sealed class UnresolvedMergeTests
             current: [onExternal],
             lastWritten: [onExternal],
             found: [],
+            new RegisteredFolderSet([@"Q:\BOOTH"]),
             new RegisteredFolderSet([@"Q:\BOOTH"]));
+
+        Assert.Equal(["A"], Hashes(result));
+    }
+
+    [Fact]
+    public void 今回走査していない取り込み元の物は残す()
+    {
+        // 対象は「今積んだ物」だけ。別のフォルダを取り込んだだけで、前に取り込んだフォルダの未確定を消さない（大容量の確かめ E）
+        var elsewhere = File("A", @"E:\Other\a.zip");
+        var result = UnresolvedMerge.ForImport(current: [elsewhere], lastWritten: [elsewhere], found: [], Scanned, NoOffline);
+
+        Assert.Equal(["A"], Hashes(result));
+    }
+
+    [Fact]
+    public void 走査した取り込み元の中でも_区切りの途中で一致するだけの物は走査していないと見る()
+    {
+        // "D:\BOOTH" を走査しても "D:\BOOTH2" は見ていない
+        var sibling = File("A", @"D:\BOOTH2\a.zip");
+        var result = UnresolvedMerge.ForImport(current: [sibling], lastWritten: [sibling], found: [], Scanned, NoOffline);
 
         Assert.Equal(["A"], Hashes(result));
     }
@@ -61,7 +85,7 @@ public sealed class UnresolvedMergeTests
     public void 同じファイルは今回見つけた方を使う()
     {
         var fresh = File("A", @"D:\BOOTH\moved.zip");
-        var result = UnresolvedMerge.ForImport(current: [File("A")], lastWritten: [File("A")], found: [fresh], NoOffline);
+        var result = UnresolvedMerge.ForImport(current: [File("A")], lastWritten: [File("A")], found: [fresh], Scanned, NoOffline);
 
         Assert.Same(fresh, Assert.Single(result));
     }

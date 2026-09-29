@@ -19,11 +19,13 @@ public static class UnresolvedMerge
     /// <param name="current">今の一覧（錠の中で読んだ物）。</param>
     /// <param name="lastWritten">この取り込みが前に書いた一覧。まだ書いていなければ始めに読んだ一覧。</param>
     /// <param name="found">この取り込みがここまでに未確定と判じた物。</param>
+    /// <param name="scannedTargets">この取り込みがここまでに走査した取り込み元（ファイルかフォルダ）。</param>
     /// <param name="offlineTargets">取り込み元のうち、ボリュームがつながっていない物。</param>
     public static List<UnresolvedFile> ForImport(
         IReadOnlyList<UnresolvedFile> current,
         IReadOnlyList<UnresolvedFile> lastWritten,
         IReadOnlyList<UnresolvedFile> found,
+        RegisteredFolderSet scannedTargets,
         RegisteredFolderSet offlineTargets)
     {
         var before = Hashes(lastWritten);
@@ -48,10 +50,13 @@ public static class UnresolvedMerge
                 continue;
             }
 
-            // 前に書いた後で人が足した物（外して戻した）と、外付けを外していて今回見られなかった物は残す。
-            // それ以外で今回見つからなかった物は、この取り込みが判じ直した（片付いた・消えた）ので落とす
+            // 前に書いた後で人が足した物（外して戻した）と、今回見ていない物は残す。
+            // 見ていないのは、今回走査していない取り込み元の物（対象は「今積んだ物」だけ・G1）と、外付けを外していて見られなかった物。
+            // 走査した対象の中で見つからなかった物だけが、この取り込みが判じ直した（片付いた・消えた）物なので落とす。
+            // 前は外付けだけを見ていて、フォルダ乙を取り込むとフォルダ甲の未確定が消え、甲の物は走査の控えに載るので
+            // 監視も新しいと数えず、商品にも未確定にも出なくなっていた（大容量の確かめ E・2026-09-30）
             var addedByPerson = !before.Contains(file.Hash);
-            var unseen = file.Paths.Any(offlineTargets.Contains);
+            var unseen = file.Paths.Any(path => !scannedTargets.Contains(path) || offlineTargets.Contains(path));
             if ((addedByPerson || unseen) && seen.Add(file.Hash))
             {
                 result.Add(file);

@@ -148,6 +148,40 @@ public class ImportStackingTests : IDisposable
         Assert.Equal(3, unresolved.Count);
     }
 
+    /// <summary>
+    /// **別の取り込みで別のフォルダを取り込んでも、前に取り込んだフォルダの未確定は消さない**（大容量の確かめ E・2026-09-30）。
+    /// 対象は「今積んだ物」だけなので、今回走査していない取り込み元の物は、見つからなかったのではなく見ていないだけ。
+    /// 落とすと、走査の控えに載っているので監視も新しいと数えず、商品にも未確定にも出なくなっていた
+    /// </summary>
+    [Fact]
+    public async Task KeepsUnresolvedFilesOfAFolderImportedEarlier()
+    {
+        var first = CreateFolder("first", 4);
+        var second = CreateFolder("second", 2);
+
+        await _pipeline.RunAsync(new ImportWorkSet([first]));
+        await _pipeline.RunAsync(new ImportWorkSet([second]));
+
+        var unresolved = new DataStore(new AppPaths(Path.Combine(_root, "library"))).Unresolved.Load();
+        Assert.Equal(6, unresolved.Count);
+    }
+
+    /// <summary>今回走査したフォルダの中で無くなった物は、片付いたとして今のとおり落とす。</summary>
+    [Fact]
+    public async Task DropsUnresolvedFilesThatAreGoneFromAFolderScannedAgain()
+    {
+        var first = CreateFolder("first", 3);
+        var second = CreateFolder("second", 1);
+        await _pipeline.RunAsync(new ImportWorkSet([first, second]));
+
+        File.Delete(Path.Combine(first, "first_0.zip"));
+        await _pipeline.RunAsync(new ImportWorkSet([first]));
+
+        var unresolved = new DataStore(new AppPaths(Path.Combine(_root, "library"))).Unresolved.Load();
+        Assert.Equal(3, unresolved.Count);
+        Assert.DoesNotContain(unresolved, file => file.Paths.Any(path => path.EndsWith("first_0.zip", StringComparison.Ordinal)));
+    }
+
     /// <summary>実行中に同じフォルダを積み直しても、二度は走査しない。</summary>
     [Fact]
     public async Task DoesNotRescanAFolderStackedTwice()

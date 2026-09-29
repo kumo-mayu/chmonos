@@ -368,7 +368,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             // 未確定は積み上げる。前の周回で残ったものを消してはいけない
             totals.Unresolved.AddRange(resolution.Unresolved);
-            unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, offlineTargets, cancellationToken);
+            unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, offlineTargets, cancellationToken);
 
             var fetchResult = await FetchAsync(resolution.FilesByItemId, work, totals, progress, cancellationToken);
 
@@ -383,7 +383,7 @@ public sealed class ImportPipeline : IImportPipeline
             if (fetchResult.NotFoundFiles.Count > 0)
             {
                 totals.Unresolved.AddRange(fetchResult.NotFoundFiles);
-                unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, offlineTargets, cancellationToken);
+                unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, offlineTargets, cancellationToken);
             }
 
             totals.Add(scan, resolution, fetchResult);
@@ -429,10 +429,12 @@ public sealed class ImportPipeline : IImportPipeline
     private Task<List<UnresolvedFile>> SaveUnresolvedAsync(
         IReadOnlyList<UnresolvedFile> found,
         IReadOnlyList<UnresolvedFile> lastWritten,
+        IReadOnlyList<string> scannedTargets,
         IReadOnlyList<string> offlineTargets,
         CancellationToken cancellationToken)
         => _store.Unresolved.UpdateAsync(
-            current => UnresolvedMerge.ForImport(current, lastWritten, found, new RegisteredFolderSet(offlineTargets)),
+            current => UnresolvedMerge.ForImport(
+                current, lastWritten, found, new RegisteredFolderSet(scannedTargets), new RegisteredFolderSet(offlineTargets)),
             cancellationToken);
 
     /// <summary>控えられなくても取り込みは止めない（次に開いたフォルダビューで控え直す）。</summary>
