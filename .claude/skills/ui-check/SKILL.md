@@ -39,8 +39,8 @@ description: Chmonos の画面を確かめる（写しの保存先で起動し�
 | `Invoke-ChmonosMenuItem -Like 'Unityへ送る*' [-Expand] -UserWasTold` | 右クリックや「開く ▾」のメニューの項目（窓の外の別窓に出るので主の窓からは探せない）。`-Expand` は下の段を開くだけ |
 | `Wait-ChmonosText -Like '*件*' [-TimeoutSeconds 15]` | 文言が出るまで待つ（出た瞬間に返る。`Start-Sleep` をやめる） |
 | `Wait-ChmonosElement -Type Button -Name '送る'` / `Wait-ChmonosDialog [-Like]` | 要素・小窓が出るまで待つ |
-| `Get-ChmonosDialog` / `Get-ChmonosDialogText $dialog` | 持ち主付きの小窓（MessageBox・選ぶ窓）と、その中の文字 |
-| `Close-ChmonosDialog -Button 'OK' [-Like '題'] -UserWasTold` | 小窓を閉じる。閉じたかを確かめ、駄目ならもう一度押し、最後に Enter |
+| `Get-ChmonosDialog` / `Get-ChmonosDialogText $dialog` | 小窓（知らせの窓・選ぶ窓）と、その中の文字。持ち主の無い知らせの窓も拾う |
+| `Close-ChmonosDialog -Button 'OK' [-Like '題'] -UserWasTold` | 小窓をボタンの名前（「OK」「キャンセル」「はい」「いいえ」など）で押して閉じる。閉じたかを確かめ、駄目ならもう一度押し、最後に Enter（既定のボタン） |
 | `Get-ChmonosTrace [-Kind 知らせ] [-Like '*入っていました*']` / `Wait-ChmonosTrace -Like '…'` | 確かめ用の足跡（下） |
 
 `scripts/unity-kit.ps1`（Unity を相手にするとき。ui-kit を読んだ後にドットで読み込む）：
@@ -57,7 +57,8 @@ Get-ChmonosTrace -Kind 知らせ -Last 5
 Wait-ChmonosTrace -Like '*既に全部入っていました*'   # 出るまで待つ
 ```
 
-Win32 の MessageBox は中身が UI Automation に出ないので、文言の確かめは足跡で行う（撮って読むのは、並びや色を見るときだけ）。
+知らせの窓（`Services.Notice`）は自前の WPF の窓（`Views/NoticeWindow`・AutomationId `ChmonosNotice`）で、本文もボタンも UI Automation に出る（本文は入力欄の名前）。
+それでも文言の確かめは足跡が速くて確か（撮って読むのは、並びや色を見るときだけ）。ファイルやフォルダを選ぶ窓だけは Windows が描く。
 
 ## 流れ
 
@@ -88,8 +89,9 @@ Win32 の MessageBox は中身が UI Automation に出ないので、文言の�
 - GridView の一覧（リスト表示）の行は `ListItem` ではなく `DataItem`。改変の画面のように1画面に複数の一覧があると、別の一覧の行も混ざる。行の中の固有のボタン（「Unity ▾」など）で絞る
 - 仮想化した一覧は画面に見えている行しか数えない。「畳んだら減るはず」を数で確かめると、下の行が見えて逆に増える。畳んだ中の行が在るか無いかで見る
 - 画面の外の要素は四角が空か無限大になる。座標に使う前に `Get-ChmonosCenter` を通す
-- 持ち主付きの窓（`ShowDialog` の窓・`MessageBox`）は主の窓の子として出る（デスクトップの直下には無い）。撮るときは `-Element` に Window の要素を渡す
-- モーダルの `MessageBox` が開くと、以降の `SendKeys` が全部詰まる（ボタンは `WM_COMMAND` で押せる）
+- 持ち主付きの窓（`ShowDialog` の窓・知らせの窓）は主の窓の子として出る（デスクトップの直下には無い）。撮るときは `-Element` に Window の要素を渡す。
+  知らせの窓は、主の窓より前やアプリが後ろにいたときは持ち主なしでデスクトップの直下に出る（`Get-ChmonosDialog` は両方を探す）
+- 「はい・いいえ」だけの知らせの窓は Esc も × も効かない（MessageBox と同じ）。閉じるにはどちらかのボタンを押す
 - `SendMessage` 系の合成クリックは WPF に届かない
 - GridSplitter を継いだ部品は、クラス名が `GridSplitter` のまま出る
 

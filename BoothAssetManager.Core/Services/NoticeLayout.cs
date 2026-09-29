@@ -31,7 +31,7 @@ public sealed record NoticeChoice(NoticeAnswer Answer, string Label);
 /// 確認の窓（<c>Services.Notice</c>）のボタンの並び・既定のボタン・Esc と × の答え。
 ///
 /// **Windows の MessageBox と同じに決める。**知らせの窓は自前の窓にした（暗い表で白いまま残っていた。ユーザ指示 2026-09-29）が、
-/// 呼ぶ所は73か所あり、どれも MessageBox の動きを前に書かれている（「既定をキャンセルに倒して止める」など）。
+/// 呼ぶ所は約70か所（2026-09-29）あり、どれも MessageBox の動きを前に書かれている（「既定をキャンセルに倒して止める」など）。
 /// 並びや Esc の答えを変えると、呼ぶ所の前提が黙って崩れる
 /// </summary>
 public sealed record NoticeLayout(IReadOnlyList<NoticeChoice> Choices, NoticeAnswer Default, NoticeAnswer? Dismiss)

@@ -28,7 +28,7 @@ public static class ChmonosWin {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   // 別のプロセスの窓は SetForegroundWindow だけでは前に出ない。前面の窓の入力に一時的につなぐ
-  // 主の窓の上に出ている小窓（MessageBox・選ぶ窓）。主の窓を前に出すとその下に隠れるので、前に出すのはこちら
+  // 主の窓の上に出ている小窓（知らせの窓・選ぶ窓）。主の窓を前に出すとその下に隠れるので、前に出すのはこちら
   public static IntPtr ActivePopup(IntPtr owner) {
     var popup = GetLastActivePopup(owner);
     return popup != IntPtr.Zero && IsWindow(popup) ? popup : owner;
@@ -257,7 +257,7 @@ function Invoke-ChmonosRealClick {
   param([Parameter(Mandatory)][int]$X, [Parameter(Mandatory)][int]$Y, [Parameter(Mandatory)][switch]$UserWasTold, [switch]$Right)
   if (-not $UserWasTold) { throw '実入力の前にユーザへ告げる（CLAUDE.md「確かめ方」）' }
   $h = (Get-ChmonosApp).MainWindowHandle
-  # 前に出すのは、開いていれば小窓の方（主の窓を前に出すと MessageBox がその下に隠れ、押しても届かなかった。2026-09-19）
+  # 前に出すのは、開いていれば小窓の方（主の窓を前に出すと知らせの窓がその下に隠れ、押しても届かなかった。2026-09-19。当時は MessageBox）
   [void][ChmonosWin]::Bring([ChmonosWin]::ActivePopup($h)); Start-Sleep -Milliseconds 500
   $fgRoot = [ChmonosWin]::GetAncestor([ChmonosWin]::GetForegroundWindow(), 3)   # 3 = GA_ROOTOWNER（ダイアログなら主の窓）
   if ($fgRoot -ne $h) { return '実入力をやめた：アプリが前面に無い' }
@@ -303,11 +303,30 @@ function Wait-ChmonosElement {
   }
 }
 
-# 持ち主付きの小窓（MessageBox・ListChoice の窓）。主の窓の子として出るので、デスクトップからは探さない
+# 小窓（知らせの窓・ListChoice の窓・ShowDialog の窓）。どれも WPF の窓で、中の文字もボタンも UI Automation に出る。
+# 持ち主付きは主の窓の子として出る。持ち主の無い知らせ（主の窓より前・アプリが後ろにいたとき）はデスクトップの直下に出るので、
+# このアプリのプロセスの窓のうち、主の窓でない物と知らせの窓（AutomationId が ChmonosNotice）も拾う
 function Get-ChmonosDialog {
   param([string]$Like = '*')
-  $cond = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Window)
-  foreach ($w in $(Get-ChmonosRoot).FindAll($TS_::Children, $cond)) {
+  $app = Get-ChmonosApp
+  $windowType = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Window)
+  $seen = @{}
+
+  if ($app.MainWindowHandle -ne [IntPtr]::Zero) {
+    foreach ($w in $A_::FromHandle($app.MainWindowHandle).FindAll($TS_::Children, $windowType)) {
+      $seen[$w.Current.NativeWindowHandle] = $true
+      if ($w.Current.Name -like $Like) { $w }
+    }
+  }
+
+  $mine = New-Object System.Windows.Automation.AndCondition(
+    $windowType,
+    (New-Object System.Windows.Automation.PropertyCondition($A_::ProcessIdProperty, $app.Id)))
+  foreach ($w in $A_::RootElement.FindAll($TS_::Children, $mine)) {
+    $h = $w.Current.NativeWindowHandle
+    if ($seen.ContainsKey($h)) { continue }
+    # 主の窓より前は、Windows が知らせの窓を「主の窓」と答えることがある。印（AutomationId）で見分ける
+    if ([IntPtr]$h -eq $app.MainWindowHandle -and $w.Current.AutomationId -ne 'ChmonosNotice') { continue }
     if ($w.Current.Name -like $Like) { $w }
   }
 }
@@ -317,7 +336,7 @@ function Wait-ChmonosDialog {
   Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { Get-ChmonosDialog -Like $Like | Select-Object -First 1 }
 }
 
-# 小窓の中の文字（知らせの文言を確かめる）。-Like で絞る
+# 小窓の中の文字（知らせの文言を確かめる）。-Like で絞る。知らせの窓の本文は入力欄の名前に丸ごと出る（改行も含む）
 function Get-ChmonosDialogText {
   param($Dialog, [string]$Like = '*')
   if (-not $Dialog) { return }
@@ -387,7 +406,12 @@ function Close-ChmonosDialog {
 
   $handle = [IntPtr]$dialog.Current.NativeWindowHandle
   $title = $dialog.Current.Name
-  $target = $dialog.FindFirst($TS_::Descendants, (New-Object System.Windows.Automation.PropertyCondition($A_::NameProperty, $Button)))
+  # ボタンを名前で探す（知らせの窓は本文も名前に出すので、本文の中の「はい」などを掴まないように型で絞る）
+  $byName = New-Object System.Windows.Automation.PropertyCondition($A_::NameProperty, $Button)
+  $asButton = New-Object System.Windows.Automation.AndCondition($byName,
+    (New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+  $target = $dialog.FindFirst($TS_::Descendants, $asButton)
+  if (-not $target) { $target = $dialog.FindFirst($TS_::Descendants, $byName) }
   if (-not $target) { return "「$title」に「$Button」が無い" }
 
   for ($try = 1; $try -le 2; $try++) {

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False"
         UseLayoutRounding="True"
+        AutomationProperties.AutomationId="ChmonosNotice"
         Background="{DynamicResource Surface}">
     <!--
         知らせと確認の窓（Services.Notice。Windows の MessageBox の代わり）。
