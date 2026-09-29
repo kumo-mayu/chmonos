@@ -578,6 +578,10 @@ public sealed partial class ItemViewModel
         _thumbnails.ForgetDirectory(_services.Paths.ItemImagesDir(Item.Id));
         BuildGallery();
 
+        // 検索のカードは読み込んだ写しを持っている。知らせないと、消した画像のファイルを指したまま残り、
+        // 足した画像もカードに出なかった（点検 2026-09-29）。フォルダの写しを捨てた後に渡すので、カードは今の画像で作り直る
+        _main.Search.NoteItemChanged(reloaded);
+
         if (keepFileName is not null)
         {
             var found = Images.FirstOrDefault(image =>
