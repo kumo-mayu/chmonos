@@ -24,6 +24,8 @@
 //   BoothAssetManager-eval2  … 同じ友人のライブラリの後の版（2026-09-29）。前の正解を引き継ぎ、増えた商品に正解を足した
 // --manual <file>：手付けの対応アバター（商品ID → アバターIDの一覧）への見落とし率も出す（既定は評価フォルダの manual.json）
 // --only <案の名前の一部>：その案だけ走らせる。--pred <file>：--show の案が対応と数えた組を書き出す
+// --head-infer-clothing：写しの +Head を兄弟に広げる形にして測る。--relabel <file>：正解の一部を重ねて測る
+// --base-mentions：本文の「〇〇共通素体」の候補の数と、正解から読める正誤を出す
 
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -36,7 +38,7 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 // 値を取るオプション（--show 平文）の値を、評価フォルダと取り違えないようにする
 var optionValues = args.Select((arg, index) => (arg, index))
-    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump" or "--store" or "--manual" or "--only" or "--pred")
+    .Where(pair => pair.arg is "--show" or "--limit" or "--exclude" or "--dump" or "--store" or "--manual" or "--only" or "--pred" or "--relabel")
     .Select(pair => pair.index + 1)
     .ToHashSet();
 var evalDir = args.Where((arg, index) => !arg.StartsWith("--") && !optionValues.Contains(index)).FirstOrDefault()
@@ -64,6 +66,59 @@ if (args.Contains("--default-headings"))
         AvatarIgnoredHeadings = new AppSettings().AvatarIgnoredHeadings,
     });
     Console.WriteLine("見出し: 今の既定");
+}
+
+// --head-infer-clothing：写しの登録簿の「+Head」の素体を、今の初期値（兄弟に広げる）にして測る。
+// 前の評価フォルダの写しは古い初期値のままなので、写しそのものを直すまでの間も今の規則を測れるように、写しの外で当てる
+if (args.Contains("--head-infer-clothing"))
+{
+    context = context.WithRegistry(new AvatarRegistry
+    {
+        DetectedAt = context.Registry.DetectedAt,
+        Entries = context.Registry.Entries,
+        BaseGroups = context.Registry.BaseGroups
+            .Select(group => AvatarBaseKeys.Key(group.Name) == "+head" ? group with { InferClothing = true } : group)
+            .ToList(),
+    });
+    Console.WriteLine("+Head: 兄弟に広げる");
+}
+
+// --relabel <file>：正解の一部を付け直して測る（{"商品ID": {"アバターID": "対応"}}）。
+// 正解の方針が決まった組を、評価フォルダの labels.json を書き換える前に試すため。ファイルはリポジトリの外に置く
+var relabelIndex = Array.IndexOf(args, "--relabel");
+if (relabelIndex >= 0 && relabelIndex + 1 < args.Length)
+{
+    var overlay = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(args[relabelIndex + 1]))!;
+    var changed = 0;
+    foreach (var (itemId, pairs) in overlay)
+    {
+        if (!context.Labels.TryGetValue(itemId, out var label))
+        {
+            continue;
+        }
+
+        var avatars = label.Avatars.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        foreach (var (avatarId, value) in pairs)
+        {
+            if (!avatars.TryGetValue(avatarId, out var before) || before != value)
+            {
+                changed++;
+            }
+
+            avatars[avatarId] = value;
+        }
+
+        context.Labels[itemId] = label with { Avatars = avatars };
+    }
+
+    Console.WriteLine($"正解の付け直し: {changed} 組");
+}
+
+// --base-mentions：本文の「〇〇共通素体」の候補（AvatarBaseMentions）が何件出て、何件が正しいかを数える
+if (args.Contains("--base-mentions"))
+{
+    BaseMentionCount.Print(context);
+    return;
 }
 
 // 手付けの対応アバター（manual.json：商品ID → アバターIDの一覧）。付いている組が拾えているか（見落とし）だけを見る。
@@ -192,6 +247,9 @@ namespace AvatarEvalBench
 
         public int PositiveCount => Labels.Values.Sum(label => label.Avatars.Count(pair => pair.Value == "対応"));
 
+        /// <summary>写しの登録簿と違う物を使うか。本体の再実行は写しを複製して走るので、複製にも書く。</summary>
+        public bool RegistryOverridden { get; init; }
+
         public EvalContext WithSettings(AppSettings settings) => new()
         {
             StoreDir = StoreDir,
@@ -199,6 +257,17 @@ namespace AvatarEvalBench
             Labels = Labels,
             Registry = Registry,
             Settings = settings,
+            RegistryOverridden = RegistryOverridden,
+        };
+
+        public EvalContext WithRegistry(AvatarRegistry registry) => new()
+        {
+            StoreDir = StoreDir,
+            Items = Items,
+            Labels = Labels,
+            Registry = registry,
+            Settings = Settings,
+            RegistryOverridden = true,
         };
 
         public string? HtmlOf(string itemId)
@@ -283,6 +352,11 @@ namespace AvatarEvalBench
         {
             var temp = Path.Combine(Path.GetTempPath(), "avatar-eval-" + Guid.NewGuid().ToString("N")[..8]);
             CopyDirectory(context.StoreDir, temp);
+            if (context.RegistryOverridden)
+            {
+                JsonStore.Write(Path.Combine(temp, "avatar-registry.json"), context.Registry);
+            }
+
             try
             {
                 var store = new DataStore(new AppPaths(temp));

@@ -393,6 +393,21 @@ public sealed class RejectedAvatarRow
     public RelayCommand? RestoreCommand { get; init; }
 }
 
+/// <summary>説明文に書かれた共通素体の候補1件（ユーザ判断 2026-09-29：自動では入れず、押したときだけ入れる）。</summary>
+public sealed class BaseMentionRow
+{
+    public required string Name { get; init; }
+
+    /// <summary>共通素体の一覧にまだ無い素体。押すと一覧にも足す。</summary>
+    public bool IsNew { get; init; }
+
+    public string AddTooltip => IsNew
+        ? "共通素体の一覧とこの商品に追加します。"
+        : "この商品の共通素体に追加します。";
+
+    public RelayCommand? AddCommand { get; init; }
+}
+
 /// <summary>
 /// 商品が対応している共通素体の1件（ユーザ判断 2026-09-21・X3/X4）。
 /// 足す道（検出）しか無く、誤検出を消せなかったので、対応アバターと同じ形にした。
