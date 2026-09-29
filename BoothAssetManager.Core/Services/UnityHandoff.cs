@@ -359,10 +359,7 @@ public static class UnityHandoff
             return null;
         }
 
-        var inZip = file.Contents
-            .Where(name => name.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
+        var inZip = PackageEntriesIn(file);
         var byEntry = summaries
             .GroupBy(summary => summary.Entry, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
@@ -371,8 +368,19 @@ public static class UnityHandoff
             return null;
         }
 
-        return inZip.Take(MaxPackages).Select(name => byEntry[name]).ToList();
+        return inZip.Select(name => byEntry[name]).ToList();
     }
+
+    /// <summary>
+    /// 中身の一覧（<see cref="Models.LocalFileRecord.Contents"/>）にある unitypackage の zip の中の場所（zip の中の順）。
+    /// zip を開いて数える <see cref="FindPackages"/> と同じ数で切る（切らないと、多すぎる zip は要約も控えも永久にそろわないと見える）。
+    /// </summary>
+    internal static IReadOnlyList<string> PackageEntriesIn(Models.LocalFileRecord file)
+        => file.Contents
+            .Where(name => name.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.Ordinal)
+            .Take(MaxPackages)
+            .ToList();
 
     private static void Remember((string Zip, string Entry) key, FileInfo? zip, IReadOnlyList<UnityPackageAsset> assets)
     {

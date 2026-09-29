@@ -217,7 +217,7 @@ public sealed class UnityPackageCatalogTests : IDisposable
     {
         var pending = MakeZip("a.zip", "FFF", ("A.unitypackage", MakeUnityPackage("Assets/A/a.prefab")));
         var done = MakeZip("b.zip", "GGG", ("B.unitypackage", MakeUnityPackage("Assets/B/b.prefab")))
-            with { UnityPackages = [] };
+            with { UnityPackages = [new UnityPackageSummary { Entry = "B.unitypackage", Roots = ["Assets/B"] }] };
         var none = MakeZip("c.zip", "HHH", ("c.fbx", Encoding.UTF8.GetBytes("fbx")));
         await SaveItemAsync("1", pending, none);
         await SaveItemAsync("2", done);
@@ -312,6 +312,105 @@ public sealed class UnityPackageCatalogTests : IDisposable
 
         Assert.Equal(1, await _catalog.ReadAsync([file]));
         Assert.Equal([new UnityPackageAsset(0.ToString("x32"), "Assets/O/a.prefab")], _paths.Load("OOO")!["O.unitypackage"]);
+    }
+
+    // ---- 一部の包みしか載っていない要約（2026-09-29） ----
+    // 控えは商品ページなどで包みを1つずつ足しても作られる（UnityPackagePathStore.Add）。前の取り込みの裏はそれを「ある」と見て読み直さず、
+    // 一部の包みしか載っていない要約を書き得た
+
+    /// <summary>包みが2つの zip。商品ページで A だけ読んで控えに足し、要約にも A だけが載った形。</summary>
+    private async Task<LocalFileRecord> PartialAsync(string id, string hash, IReadOnlyList<UnityPackageAsset>? storedA = null)
+    {
+        var file = MakeZip($"{hash}.zip", hash,
+            ("A.unitypackage", MakeUnityPackage("Assets/A/a.prefab")),
+            ("B/B.unitypackage", MakeUnityPackage("Assets/B/b.prefab")));
+        _paths.Add(hash, "A.unitypackage", storedA ?? [new UnityPackageAsset(0.ToString("x32"), "Assets/A/a.prefab")]);
+        file = file with { UnityPackages = [new UnityPackageSummary { Entry = "A.unitypackage", Roots = ["Assets/A"] }] };
+        await SaveItemAsync(id, file);
+        return file;
+    }
+
+    [Fact]
+    public async Task 一部しか書いていない要約も探す()
+    {
+        var partial = await PartialAsync("1", "PPP");
+
+        var found = await _catalog.FindPendingAsync();
+
+        Assert.Equal([partial.Hash], found.Files.Select(file => file.Hash));
+        Assert.Equal(["1"], found.ItemIds);
+    }
+
+    [Fact]
+    public async Task 一部しか載っていない控えを読み直して要約を埋める()
+    {
+        var partial = await PartialAsync("1", "QQQ");
+
+        Assert.Equal(1, await _catalog.ReadAsync([partial]));
+        Assert.Equal(1, await _catalog.ApplyAsync(["1"]));
+
+        var summaries = (await LoadFileAsync("1")).UnityPackages!;
+        Assert.Equal(["A.unitypackage", "B/B.unitypackage"], summaries.Select(summary => summary.Entry).Order(StringComparer.Ordinal));
+        Assert.Equal(["Assets/B"], summaries.Single(summary => summary.Entry == "B/B.unitypackage").Roots);
+        Assert.Equal(["A.unitypackage", "B/B.unitypackage"], _paths.Load("QQQ")!.Keys.Order(StringComparer.Ordinal));
+
+        // そろった後は、表示の側が item の要約だけで足りる（zip を開かない）
+        Assert.NotNull(UnityHandoff.KnownPackages(await LoadFileAsync("1")));
+        Assert.Empty((await _catalog.FindPendingAsync()).Files);
+        Assert.Equal(0, await _catalog.ReadAsync([await LoadFileAsync("1")]));
+    }
+
+    [Fact]
+    public async Task 控えにある包みは読み直すときも解き直さない()
+    {
+        // 控えの A は zip の中身と違う印の値にしておく。解き直していれば zip の中身に戻る
+        var marker = new UnityPackageAsset("ffffffffffffffffffffffffffffffff", "Assets/控えの値/a.prefab");
+        var partial = await PartialAsync("1", "RRR", [marker]);
+
+        await _catalog.ReadAsync([partial]);
+
+        Assert.Equal([marker], _paths.Load("RRR")!["A.unitypackage"]);
+    }
+
+    [Fact]
+    public async Task 要約がそろっていれば控えが欠けていても要約は書き直さない()
+    {
+        // 要約は2つともある。控えだけ A しか無い（控えを消した・古い）。控えは読み直して埋めるが、要約はそのまま
+        var file = MakeZip("s.zip", "SSS",
+            ("A.unitypackage", MakeUnityPackage("Assets/A/a.prefab")),
+            ("B.unitypackage", MakeUnityPackage("Assets/B/b.prefab")))
+            with
+            {
+                UnityPackages =
+                [
+                    new UnityPackageSummary { Entry = "A.unitypackage", Roots = ["Assets/前の値A"] },
+                    new UnityPackageSummary { Entry = "B.unitypackage", Roots = ["Assets/前の値B"] },
+                ],
+            };
+        _paths.Add("SSS", "A.unitypackage", [new UnityPackageAsset(0.ToString("x32"), "Assets/A/a.prefab")]);
+        await SaveItemAsync("1", file);
+
+        Assert.Equal(1, await _catalog.ReadAsync([file]));
+        Assert.Equal(0, await _catalog.ApplyAsync(["1"]));
+
+        Assert.Equal(2, _paths.Load("SSS")!.Count);
+        Assert.Equal(["Assets/前の値B"], (await LoadFileAsync("1")).UnityPackages!.Single(summary => summary.Entry == "B.unitypackage").Roots);
+    }
+
+    [Fact]
+    public async Task 開けないzipは控えずに次の取り込みでまた開く()
+    {
+        // 空の控えを書くと、入り先の無い要約が書かれる。控えなければ、開けるようになった取り込みで読める
+        var path = Path.Combine(_files, "notzip.zip");
+        await File.WriteAllTextAsync(path, "zip ではない");
+        var file = new LocalFileRecord { Hash = "TTT", Paths = [path], SizeBytes = 1, Contents = ["T.unitypackage"] };
+        await SaveItemAsync("1", file);
+
+        Assert.Equal(0, await _catalog.ReadAsync([file]));
+        Assert.Equal(0, await _catalog.ApplyAsync(["1"]));
+
+        Assert.False(_paths.Has("TTT"));
+        Assert.Null((await LoadFileAsync("1")).UnityPackages);
     }
 
     [Fact]
