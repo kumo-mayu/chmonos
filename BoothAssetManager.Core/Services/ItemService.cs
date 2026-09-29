@@ -1079,14 +1079,24 @@ public sealed class ItemService : IItemService
         if (target is not null)
         {
             // 既に手元にあるなら聞きに行かない。通信を増やさない
-            return ItemIdChange.Plan(source, target, toId, foundOnBooth: true);
+            return ItemIdChange.Plan(source, target, toId, ItemIdTargetStatus.Found);
         }
 
         // 仮IDへ移すことはない（BOOTHに無いIDへ寄せる意味がない）ので、そこは聞きに行かない
-        var found = !LocalItemId.IsLocal(toId)
-            && (await _client.GetItemJsonAsync(toId, cancellationToken)).Status != BoothFetchStatus.NotFound;
+        if (LocalItemId.IsLocal(toId))
+        {
+            return ItemIdChange.Plan(source, target: null, toId, ItemIdTargetStatus.NotFound);
+        }
 
-        return ItemIdChange.Plan(source, target: null, toId, found);
+        // 一時的に届かないのを「BOOTHにある」と読まない。窓が「移すときに取得します」と言い切ってしまう（点検 2026-09-29・19）
+        var onBooth = (await _client.GetItemJsonAsync(toId, cancellationToken)).Status switch
+        {
+            BoothFetchStatus.Success => ItemIdTargetStatus.Found,
+            BoothFetchStatus.NotFound => ItemIdTargetStatus.NotFound,
+            _ => ItemIdTargetStatus.Unknown,
+        };
+
+        return ItemIdChange.Plan(source, target: null, toId, onBooth);
     }
 
     /// <summary>
