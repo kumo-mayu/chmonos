@@ -374,9 +374,19 @@ public sealed class InboxViewModel : ViewModelBase
             // 検出に失敗しても、既にある通知は読めるようにする
         }
 
+        // 知らせのファイル（上限2000件で約1MB）は裏で読む。前は画面のスレッドで同期で読んでいた。
+        // 開き直しが重なったら、最後に頼んだ読みだけを当てる（先に頼んだ古い一覧で上書きしない）
+        var turn = ++_loadTurn;
+        var records = await Task.Run(() => _services.Notifications.Load());
+
         RunOnUiThread(() =>
         {
-            Load();
+            if (turn != _loadTurn)
+            {
+                return;
+            }
+
+            Load(records);
             FocusRequestedItem();
 
             // 検出で通知が増えることがあるので、ナビの件数も数え直す
@@ -389,14 +399,17 @@ public sealed class InboxViewModel : ViewModelBase
         });
     }
 
-    private void Load()
+    /// <summary>知らせの読み込みの番号。画面のスレッドだけが触る。</summary>
+    private int _loadTurn;
+
+    private void Load(IReadOnlyList<NotificationRecord> records)
     {
         foreach (var row in _all)
         {
             row.ReadChanged -= OnRowReadChanged;
         }
 
-        _all = _services.Notifications.Load()
+        _all = records
             .OrderByDescending(record => record.CreatedAt)
             .Select(CreateRow)
             .ToList();
@@ -647,10 +660,11 @@ public sealed class InboxViewModel : ViewModelBase
         // 宛先が無い通知は、もう手当てのしようがないので解消済みにする
         StatusText = "この商品は見つかりませんでした。商品IDを変えたか、管理対象から除外した可能性があります。この知らせは解消済みにしました。";
 
-        var ids = _services.Notifications.Load()
+        // 知らせのファイルは画面のスレッドで読まない
+        var ids = await Task.Run(() => _services.Notifications.Load()
             .Where(notification => notification.ItemId == itemId && !notification.IsResolved)
             .Select(notification => notification.Id)
-            .ToList();
+            .ToList());
 
         await _services.Commands.ExecuteAsync(new UiCommand.ResolveNotifications(ids));
         await ReloadAsync();

@@ -7,15 +7,21 @@ public sealed class JsonFileStore<T> where T : class, new()
 {
     private readonly string _path;
 
-    /// <summary>読んだ物を呼んだ所どうしで共有してよいか（<see cref="_shared"/>）。</summary>
+    /// <summary>読んだ物を写しとして持つか（<see cref="_shared"/>）。</summary>
     private readonly bool _shareLoaded;
+
+    /// <summary>
+    /// 写しを呼び手へ渡すときの複製の作り方。null なら写しそのものを渡す（書き換えられない型）。
+    /// </summary>
+    private readonly Func<T, T>? _copy;
 
     /// <summary>
     /// 読んだ値の写し（ファイルの大きさと更新日時・値）。<see cref="_shareLoaded"/> のときだけ持つ。
     ///
     /// 登録簿は商品ページを開くたびに画面のスレッドで2回読まれていた。中身が変わっていなければ読み直さない。
-    /// **書き換えられない型（init だけで、一覧も読むだけの型）に限る。**<c>List&lt;T&gt;</c> の入れ物は
+    /// **書き換えられない型（init だけで、一覧も読むだけの型）はそのまま共有する。**<c>List&lt;T&gt;</c> の入れ物は
     /// 呼んだ所が足し引きして書き戻すので、共有すると別の呼び手の写しまで変わってしまう。
+    /// 中の1件が書き換えられない型なら、入れ物だけ複製して渡す（<see cref="_copy"/>。知らせ2000件でも参照の並び16KB）。
     /// </summary>
     private volatile Snapshot? _shared;
 
@@ -40,6 +46,18 @@ public sealed class JsonFileStore<T> where T : class, new()
     {
         _path = path;
         _shareLoaded = shareLoaded;
+    }
+
+    /// <param name="path">ファイル。</param>
+    /// <param name="copyOnLoad">
+    /// ファイルが変わっていない間は読んだ物を写しとして持ち、呼び手にはこれで作った複製を渡す。
+    /// 入れ物（<c>List&lt;T&gt;</c>）だけが書き換えられ、中の1件は書き換えられない型のときに使う。
+    /// </param>
+    public JsonFileStore(string path, Func<T, T> copyOnLoad)
+    {
+        _path = path;
+        _shareLoaded = true;
+        _copy = copyOnLoad;
     }
 
     public string Path => _path;
@@ -72,7 +90,7 @@ public sealed class JsonFileStore<T> where T : class, new()
         if (_shared is { } seen && seen.Writes == writes
             && seen.Length == info.Length && seen.LastWriteUtc == info.LastWriteTimeUtc)
         {
-            return seen.Value;
+            return Handed(seen.Value);
         }
 
         var value = JsonStore.Read<T>(_path) ?? new T();
@@ -81,8 +99,18 @@ public sealed class JsonFileStore<T> where T : class, new()
             _shared = new Snapshot(info.Length, info.LastWriteTimeUtc, writes, value);
         }
 
-        return value;
+        return Handed(value);
     }
+
+    /// <summary>写しを呼び手へ渡す形にする。書き換えられる入れ物なら複製（読んだ直後の値も写しと同じ物なので複製する）。</summary>
+    private T Handed(T value) => _copy is null ? value : _copy(value);
+
+    /// <summary>
+    /// 錠の中で書き換える元を読む。入れ物を複製して渡す形（<see cref="_copy"/>）は、写しを使わずディスクから読む。
+    /// この形にしたのは前は写しを持たなかった物（知らせ）で、錠の中の読み直しは前のまま残す
+    /// （古い写しに変更を当てて書くと、外で直した分を消すため）。
+    /// </summary>
+    private T LoadForUpdate() => _copy is null ? Load() : JsonStore.Read<T>(_path) ?? new T();
 
     public async Task SaveAsync(T value, CancellationToken cancellationToken = default)
     {
@@ -123,7 +151,7 @@ public sealed class JsonFileStore<T> where T : class, new()
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            var updated = change(Load());
+            var updated = change(LoadForUpdate());
             await SaveAsync(updated, cancellationToken);
             written?.Invoke(updated);
             return updated;
@@ -144,7 +172,7 @@ public sealed class JsonFileStore<T> where T : class, new()
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (change(Load()) is not { } updated)
+            if (change(LoadForUpdate()) is not { } updated)
             {
                 return false;
             }
@@ -175,7 +203,10 @@ public sealed class DataStore
         Settings = new JsonFileStore<AppSettings>(paths.SettingsFile);
         Unresolved = new JsonFileStore<List<UnresolvedFile>>(paths.UnresolvedFile);
         Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);
-        Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile);
+        // 知らせは要確認を開くたび・既読にするたびのナビの数え直しで読まれる（上限2000件で約1MB）。
+        // 入れ物は呼び手が足し引きするので複製して渡す。写しが持つ量は1000件で約570KB（stress-manage で測った）、
+        // 知らせは2000件で古い既読から捨てるので、多くても約1.1MB
+        Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile, copyOnLoad: list => [.. list]);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
         Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile);
         Modifications = new ModificationRepository(paths);
