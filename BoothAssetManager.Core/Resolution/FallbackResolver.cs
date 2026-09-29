@@ -502,7 +502,8 @@ public sealed class FallbackResolver
             reasons.Add("unitypackageの作者名前空間がショップ名と一致");
         }
 
-        if (itemName is not null && FileNameQuery.LooksRelated(itemName, query))
+        var nameRelated = itemName is not null && FileNameQuery.LooksRelated(itemName, query);
+        if (nameRelated)
         {
             score += 2;
             reasons.Add("商品名がファイル名と一致");
@@ -510,7 +511,7 @@ public sealed class FallbackResolver
 
         // 商品名の一致と同じ重み。読みで一致するのは、表記が違うだけで
         // 同じものを指していることが多い（tori ↔ 鳥、Sin ↔ 真）
-        if (readingMatch is not null)
+        if (readingMatch is not null && !nameRelated)
         {
             score += 2;
             reasons.Add($"ファイル名が商品名と読みで一致（{readingMatch}）");
