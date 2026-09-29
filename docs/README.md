@@ -87,3 +87,4 @@
 | [youtube-terms.md](research/youtube-terms.md) | YouTube の絵とタイトルを手元に置いてよいか（絵は置かない・題は30日） |
 | [booth-terms.md](research/booth-terms.md) | BOOTH・pixiv の規約とアプリの通信・名前（通信は許される範囲・名前は公開前に見直す） |
 | [modification-canvas.md](research/modification-canvas.md) | 改変キャンバス（未実装） |
+| [alcom.md](research/alcom.md) | ALCOM（VCC の代わりのツール）の置き場所・外から呼ぶ口・この PC の入り方と連携の案（未実装） |
