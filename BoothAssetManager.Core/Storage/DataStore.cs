@@ -45,6 +45,12 @@ public sealed class JsonFileStore<T> where T : class, new()
     public string Path => _path;
 
     /// <summary>
+    /// 自分の書き込みの数（書き始めと書き終わりで1つずつ進む）。読んだ物から計算した値を控える所が、
+    /// 大きさと日時と合わせて「前と同じか」を見るのに使う（同じ大きさで同じ時刻の刻みの中に書き直しても見分けるため）。
+    /// </summary>
+    public int WriteCount => Volatile.Read(ref _writes);
+
+    /// <summary>
     /// ファイルが無ければ既定値を返す（初回起動をそのまま通す）。
     /// 共有してよい型なら、ファイルの大きさと更新日時が前に読んだときと同じ間は読み直さない。
     /// </summary>
