@@ -38,11 +38,16 @@ public sealed class BoothOutageWatch
 
     /// <summary>1件の問い合わせの結果（再試行を終えた後の物）を数える。</summary>
     public void Note<T>(BoothFetchResult<T> result)
-    {
-        var kind = result.IsUnreachable ? BoothOutageKind.Offline
+        => Note(result.IsUnreachable ? BoothOutageKind.Offline
             : result.IsServerError ? BoothOutageKind.ServerDown
-            : BoothOutageKind.None;
+            : BoothOutageKind.None);
 
+    /// <summary>
+    /// 1件の結果を種類で数える。<see cref="BoothOutageKind.None"/> は BOOTH が意味のある物を返した（数え直す）。
+    /// 問い合わせの結果を直に持たない所（⑦は取り直しの結果 <c>RefreshOutcome</c> しか受け取らない）が使う。
+    /// </summary>
+    public void Note(BoothOutageKind kind)
+    {
         if (kind == BoothOutageKind.None)
         {
             _streak = 0;
@@ -52,6 +57,24 @@ public sealed class BoothOutageWatch
         if (++_streak >= Limit)
         {
             Stopped = kind;
+        }
+    }
+
+    /// <summary>
+    /// 打ち切ったことをログに残す（打ち切っていなければ何もしない）。
+    /// 裏の作業は画面に窓を出さない決まりなので、残りを取りに行かなかった理由はログで追えるようにする
+    /// （止まって見える・画像が埋まらない、と言われたときに、手元の不具合と区別できるように）
+    /// </summary>
+    public void LogIfStopped(string where)
+    {
+        switch (Stopped)
+        {
+            case BoothOutageKind.Offline:
+                Diagnostics.AppLog.Warn(where, $"応答の無い失敗が {Limit} 件続いたので、この回の残りは問い合わせませんでした（ネットにつながっていないようです）");
+                break;
+            case BoothOutageKind.ServerDown:
+                Diagnostics.AppLog.Warn(where, $"BOOTHがサーバの不調（5xx）を {Limit} 件続けて返したので、この回の残りは問い合わせませんでした");
+                break;
         }
     }
 }

@@ -372,6 +372,7 @@ public class CommandHandlerTests
     [InlineData(RefreshOutcome.Delisted)]
     [InlineData(RefreshOutcome.TemporaryFailure)]
     [InlineData(RefreshOutcome.Unreachable)]
+    [InlineData(RefreshOutcome.ServerError)]
     [InlineData(RefreshOutcome.Unreadable)]
     [InlineData(RefreshOutcome.Missing)]
     public async Task ReportsFailureForNonUpdatedRefreshOutcomes(RefreshOutcome outcome)

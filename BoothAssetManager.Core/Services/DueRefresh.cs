@@ -93,9 +93,18 @@ public sealed class DueRefresh
         // 1件目が終わるまで何も出ないと、何をしているのか分からない
         progress?.Report((0, due.Count));
 
+        // 届かない失敗（応答が無い・5xx）が3件続いたら、この回の残りは取り直さない（ユーザ判断 2026-09-29）。
+        // 200件の上限だけでは、圏外の間も1件ごとに再試行で長く待ちながら200件を回っていた。
+        // 予定日は動かさない（一時失敗と同じ）ので、残りは次の起動で期限の古い順にまた来る
+        var outage = new BoothOutageWatch();
+
         foreach (var itemId in due)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (outage.IsStopped)
+            {
+                break;
+            }
 
             // **1件ずつ受け止める。**前は1件が投げると残りが全部止まり、しかも期限の古い順に並ぶので
             // 次の起動でも同じ商品が先頭に来て、毎回そこで止まっていた。
@@ -107,6 +116,8 @@ public sealed class DueRefresh
                 {
                     refreshed++;
                 }
+
+                NoteOutage(outage, outcome);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -116,6 +127,29 @@ public sealed class DueRefresh
             progress?.Report((++done, due.Count));
         }
 
+        outage.LogIfStopped("起動時の裏の作業：期限の来た商品の取り直し");
         return refreshed;
+    }
+
+    /// <summary>
+    /// 取り直しの結果を打ち切りの数えに入れる。問い合わせていない結果（BOOTHに無い商品・手元に無い）は数えも数え直しもしない。
+    /// 429 は <see cref="RefreshOutcome.TemporaryFailure"/> で来て、こちらの出し過ぎなので数え直す側に入る
+    /// </summary>
+    private static void NoteOutage(BoothOutageWatch outage, RefreshOutcome outcome)
+    {
+        switch (outcome)
+        {
+            case RefreshOutcome.NotOnBooth or RefreshOutcome.Missing:
+                return;
+            case RefreshOutcome.Unreachable:
+                outage.Note(BoothOutageKind.Offline);
+                return;
+            case RefreshOutcome.ServerError:
+                outage.Note(BoothOutageKind.ServerDown);
+                return;
+            default:
+                outage.Note(BoothOutageKind.None);
+                return;
+        }
     }
 }

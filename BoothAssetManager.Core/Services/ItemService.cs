@@ -226,8 +226,11 @@ public sealed class ItemService : IItemService
         if (!jsonResult.IsSuccess || jsonResult.Value is null)
         {
             // BOOTH側の一時的な不調か、つながっていない。カウントも更新予定も動かさず、そのまま次回へ回す。
-            // 押した人への次の一手が違う（待つ／つなぐ）ので、結果は分けて返す
-            return jsonResult.IsUnreachable ? RefreshOutcome.Unreachable : RefreshOutcome.TemporaryFailure;
+            // 押した人への次の一手が違う（待つ／つなぐ）ので、結果は分けて返す。
+            // 5xx も分けて返す——⑦が続いたら打ち切りに数える（429 は数えない）
+            return jsonResult.IsUnreachable ? RefreshOutcome.Unreachable
+                : jsonResult.IsServerError ? RefreshOutcome.ServerError
+                : RefreshOutcome.TemporaryFailure;
         }
 
         var htmlResult = await _client.GetItemHtmlAsync(itemId, cancellationToken);
@@ -1964,8 +1967,15 @@ public enum RefreshOutcome
     NotFound,
     Delisted,
 
-    /// <summary>BOOTH が応答したが一時的に取れなかった（5xx・429）。待てば取れる。</summary>
+    /// <summary>BOOTH が応答したが一時的に取れなかった（429 など、5xx 以外）。待てば取れる。</summary>
     TemporaryFailure,
+
+    /// <summary>
+    /// BOOTH が 5xx（サーバの不調）を返した。待てば取れる。
+    /// <see cref="TemporaryFailure"/> と分けるのは、⑦が続いたら打ち切りに数えるため（<see cref="Booth.BoothOutageWatch"/>。
+    /// 429 はこちらの出し過ぎなので数えない。ユーザ判断 2026-09-29）
+    /// </summary>
+    ServerError,
 
     /// <summary>BOOTH から応答が来なかった（接続できない・タイムアウト）。ネットにつながっていないことがある。</summary>
     Unreachable,

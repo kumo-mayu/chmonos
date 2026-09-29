@@ -104,13 +104,21 @@ public sealed class AvatarImageSync
         var done = 0;
         progress?.Report((0, targets.Count));
 
+        // 画像の段と同じく、届かない失敗（応答が無い・5xx）が3件続いたらこの回の残りは取りに行かない
+        // （ユーザ判断 2026-09-29）。何も覚えずに抜けるので、残りは次の起動でまた対象になる
+        var outage = new BoothOutageWatch();
+
         try
         {
             foreach (var entry in targets)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (outage.IsStopped)
+                {
+                    break;
+                }
 
-                if (await SyncOneAsync(entry, observed, cancellationToken))
+                if (await SyncOneAsync(entry, observed, outage, cancellationToken))
                 {
                     saved++;
                     AvatarImageSaved?.Invoke(entry.ItemId);
@@ -125,6 +133,7 @@ public sealed class AvatarImageSync
             await FlushAsync(observed, CancellationToken.None);
         }
 
+        outage.LogIfStopped("持っていないアバターの画像");
         return saved;
     }
 
@@ -135,6 +144,7 @@ public sealed class AvatarImageSync
     private async Task<bool> SyncOneAsync(
         AvatarRegistryEntry entry,
         Dictionary<string, string> observed,
+        BoothOutageWatch outage,
         CancellationToken cancellationToken)
     {
         var directory = _store.Paths.AvatarImagesDir(entry.ItemId);
@@ -142,6 +152,7 @@ public sealed class AvatarImageSync
         if (url is null)
         {
             var fetched = await _client.GetItemJsonAsync(entry.ItemId, cancellationToken);
+            outage.Note(fetched);
             if (fetched.Status == BoothFetchStatus.NotFound)
             {
                 url = string.Empty;
@@ -173,7 +184,7 @@ public sealed class AvatarImageSync
             return false;
         }
 
-        return await _images.SyncOneToAsync(directory, url, cancellationToken) && FirstImage(directory) is not null;
+        return await _images.SyncOneToAsync(directory, url, outage, cancellationToken) && FirstImage(directory) is not null;
     }
 
     /// <summary>

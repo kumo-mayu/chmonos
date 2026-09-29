@@ -48,12 +48,15 @@ public class DueRefreshTests : IDisposable
         /// <summary>取り直しが投げる商品（想定外の応答・ディスクの失敗の代わり）。</summary>
         public HashSet<string> Throws { get; } = [];
 
+        /// <summary>商品ごとの取り直しの結果。無ければ取れた（Updated）。</summary>
+        public Dictionary<string, RefreshOutcome> Outcomes { get; } = [];
+
         public Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default)
         {
             Refreshed.Add(itemId);
             return Throws.Contains(itemId)
                 ? throw new IOException("想定外")
-                : Task.FromResult(RefreshOutcome.Updated);
+                : Task.FromResult(Outcomes.GetValueOrDefault(itemId, RefreshOutcome.Updated));
         }
 
         public Task<Booth.BoothFetchStatus> RegisterItemAsync(string itemId, CancellationToken cancellationToken = default)
@@ -240,5 +243,78 @@ public class DueRefreshTests : IDisposable
 
         Assert.Equal(0, await _due.RunAsync());
         Assert.Empty(_items.Refreshed);
+    }
+
+    /// <summary>
+    /// 届かない失敗（応答が無い・5xx）が3件続いたら、この回の残りは取り直さない（ユーザ判断 2026-09-29）。
+    /// 予定日は動かさない決まりなので、残りは次の起動でまた来る。
+    /// </summary>
+    [Theory]
+    [InlineData(RefreshOutcome.Unreachable)]
+    [InlineData(RefreshOutcome.ServerError)]
+    public async Task StopsAfterThreeFailuresThatNeverReachedBooth(RefreshOutcome failure)
+    {
+        var past = DateTimeOffset.Now.AddDays(-10);
+        for (var index = 1; index <= 5; index++)
+        {
+            await SaveAsync($"due{index}", past.AddMinutes(index));
+            _items.Outcomes[$"due{index}"] = failure;
+        }
+
+        Assert.Equal(0, await _due.RunAsync());
+        Assert.Equal(["due1", "due2", "due3"], _items.Refreshed);
+    }
+
+    /// <summary>
+    /// 途中で取れた・429（こちらの出し過ぎ）なら数え直す。問い合わせていない結果（手元に無い）は数えも数え直しもしない。
+    /// </summary>
+    [Fact]
+    public async Task CountsAgainAfterAnAnswerFromBooth()
+    {
+        var past = DateTimeOffset.Now.AddDays(-10);
+        RefreshOutcome[] outcomes =
+        [
+            RefreshOutcome.ServerError,
+            RefreshOutcome.Unreachable,
+            RefreshOutcome.TemporaryFailure,
+            RefreshOutcome.ServerError,
+            RefreshOutcome.Missing,
+            RefreshOutcome.ServerError,
+            RefreshOutcome.Updated,
+            RefreshOutcome.ServerError,
+        ];
+        for (var index = 0; index < outcomes.Length; index++)
+        {
+            await SaveAsync($"due{index}", past.AddMinutes(index));
+            _items.Outcomes[$"due{index}"] = outcomes[index];
+        }
+
+        await _due.RunAsync();
+
+        Assert.Equal(outcomes.Length, _items.Refreshed.Count);
+    }
+
+    /// <summary>手元に無い結果は数え直しにもならない：失敗2件・手元に無い・失敗1件で打ち切る。</summary>
+    [Fact]
+    public async Task OutcomesWithoutAskingDoNotBreakTheStreak()
+    {
+        var past = DateTimeOffset.Now.AddDays(-10);
+        RefreshOutcome[] outcomes =
+        [
+            RefreshOutcome.Unreachable,
+            RefreshOutcome.Unreachable,
+            RefreshOutcome.Missing,
+            RefreshOutcome.Unreachable,
+            RefreshOutcome.Updated,
+        ];
+        for (var index = 0; index < outcomes.Length; index++)
+        {
+            await SaveAsync($"due{index}", past.AddMinutes(index));
+            _items.Outcomes[$"due{index}"] = outcomes[index];
+        }
+
+        await _due.RunAsync();
+
+        Assert.Equal(4, _items.Refreshed.Count);
     }
 }

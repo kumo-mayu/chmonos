@@ -26,6 +26,9 @@ public class ImportOfflineTests : IDisposable
 
         /// <summary>429（混雑）。BOOTH は応答している。</summary>
         Busy,
+
+        /// <summary>503（BOOTH の不調）。</summary>
+        ServerDown,
     }
 
     private readonly string _root;
@@ -115,6 +118,11 @@ public class ImportOfflineTests : IDisposable
                 {
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests));
                 }
+
+                if (answer == Answer.ServerDown)
+                {
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+                }
             }
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -161,7 +169,7 @@ public class ImportOfflineTests : IDisposable
         // 3件目で打ち切り、4件目・5件目は問い合わせない
         Assert.Equal(3, _jsonAsked.Count);
         Assert.Equal(3 * AttemptsPerItem, _jsonRequests);
-        Assert.True(summary.StoppedOffline);
+        Assert.Equal(BoothOutageKind.Offline, summary.Stopped);
         Assert.Equal(5, summary.TemporaryFailures);
     }
 
@@ -176,7 +184,7 @@ public class ImportOfflineTests : IDisposable
 
         var state = _store.ImportState.Load();
         Assert.True(state.HasProgress);
-        Assert.True(state.StoppedOffline);
+        Assert.Equal(BoothOutageKind.Offline, state.Stopped);
         Assert.Equal(
             ["111", "222", "333", "444", "555"],
             state.UnfetchedItems.Select(item => item.ItemId).ToArray());
@@ -207,11 +215,11 @@ public class ImportOfflineTests : IDisposable
         var summary = await _pipeline.RunAsync([source]);
 
         Assert.Equal(5, _jsonAsked.Count);
-        Assert.False(summary.StoppedOffline);
+        Assert.Equal(BoothOutageKind.None, summary.Stopped);
         Assert.Equal(4, summary.TemporaryFailures);
 
         var state = _store.ImportState.Load();
-        Assert.False(state.StoppedOffline);
+        Assert.Equal(BoothOutageKind.None, state.Stopped);
         Assert.Equal(4, state.UnfetchedItems.Count);
     }
 
@@ -225,7 +233,7 @@ public class ImportOfflineTests : IDisposable
         var summary = await _pipeline.RunAsync([source]);
 
         Assert.Equal(4, _jsonAsked.Count);
-        Assert.False(summary.StoppedOffline);
+        Assert.Equal(BoothOutageKind.None, summary.Stopped);
         Assert.Contains("不調", _store.ImportState.Load().Text, StringComparison.Ordinal);
     }
 
@@ -242,7 +250,7 @@ public class ImportOfflineTests : IDisposable
         var summary = await _pipeline.RunAsync([source]);
 
         Assert.Equal(5, _jsonAsked.Count);
-        Assert.False(summary.StoppedOffline);
+        Assert.Equal(BoothOutageKind.None, summary.Stopped);
     }
 
     /// <summary>
@@ -260,7 +268,7 @@ public class ImportOfflineTests : IDisposable
         Assert.Equal(5, _jsonAsked.Count);
         Assert.Equal(3, _htmlAsked.Count);
         Assert.Equal(3 * AttemptsPerItem, _htmlRequests);
-        Assert.True(summary.StoppedOffline);
+        Assert.Equal(BoothOutageKind.Offline, summary.Stopped);
 
         var state = _store.ImportState.Load();
         Assert.True(state.HasProgress);
@@ -289,6 +297,85 @@ public class ImportOfflineTests : IDisposable
 
         var json = await File.ReadAllTextAsync(_paths.ImportStateFile);
 
-        Assert.Contains("\"stoppedOffline\": true", json, StringComparison.Ordinal);
+        Assert.Contains("\"stopped\": \"offline\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// BOOTH が 5xx を返し続けるときも3件で打ち切る（ユーザ判断 2026-09-29）。
+    /// 理由は記録に残り、帯の文は「つないでから」ではなく「時間をおいて」を言う。
+    /// </summary>
+    [Fact]
+    public async Task StopsAfterThreeServerErrorsInARow()
+    {
+        _jsonAnswers.AddRange(Enumerable.Repeat(Answer.ServerDown, 5));
+        var source = CreateSource("111", "222", "333", "444", "555");
+
+        var summary = await _pipeline.RunAsync([source]);
+
+        Assert.Equal(3, _jsonAsked.Count);
+        Assert.Equal(3 * AttemptsPerItem, _jsonRequests);
+        Assert.Equal(BoothOutageKind.ServerDown, summary.Stopped);
+        Assert.Equal(5, summary.TemporaryFailures);
+
+        var state = _store.ImportState.Load();
+        Assert.Equal(BoothOutageKind.ServerDown, state.Stopped);
+        Assert.Equal(5, state.UnfetchedItems.Count);
+        Assert.Contains("BOOTHが不調", state.Text, StringComparison.Ordinal);
+        Assert.Contains("時間をおいて", state.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ネット", state.Text, StringComparison.Ordinal);
+
+        var json = await File.ReadAllTextAsync(_paths.ImportStateFile);
+        Assert.Contains("\"stopped\": \"serverDown\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>②（説明文）でも 5xx が3件続けば止める。</summary>
+    [Fact]
+    public async Task StopsThePageStageOnServerErrors()
+    {
+        _htmlAnswers.AddRange(Enumerable.Repeat(Answer.ServerDown, 5));
+        var source = CreateSource("111", "222", "333", "444", "555");
+
+        var summary = await _pipeline.RunAsync([source]);
+
+        Assert.Equal(5, _jsonAsked.Count);
+        Assert.Equal(3, _htmlAsked.Count);
+        Assert.Equal(BoothOutageKind.ServerDown, summary.Stopped);
+        Assert.Equal([source], _store.ImportState.Load().ResumeTargets);
+    }
+
+    /// <summary>
+    /// 応答が無いのと 5xx とは、どちらも BOOTH に届いていない失敗なので混ざっても続けて数える。
+    /// 理由は最後に数えた失敗の種類（今の様子に近い方）。
+    /// </summary>
+    [Fact]
+    public async Task CountsServerErrorsAndUnreachableTogether()
+    {
+        _jsonAnswers.AddRange(
+            [Answer.ServerDown, Answer.Unreachable, Answer.ServerDown, Answer.Unreachable, Answer.Unreachable]);
+        var source = CreateSource("111", "222", "333", "444", "555");
+
+        var summary = await _pipeline.RunAsync([source]);
+
+        Assert.Equal(3, _jsonAsked.Count);
+        Assert.Equal(BoothOutageKind.ServerDown, summary.Stopped);
+    }
+
+    /// <summary>途中で1件取れたら、5xx の数えも戻る。</summary>
+    [Fact]
+    public async Task ServerErrorStreakResetsAfterAFetch()
+    {
+        _jsonAnswers.AddRange(
+            [Answer.ServerDown, Answer.ServerDown, Answer.Ok, Answer.ServerDown, Answer.ServerDown]);
+        var source = CreateSource("111", "222", "333", "444", "555");
+
+        var summary = await _pipeline.RunAsync([source]);
+
+        Assert.Equal(5, _jsonAsked.Count);
+        Assert.Equal(BoothOutageKind.None, summary.Stopped);
+
+        // 打ち切っていない回は理由を書かない（普段の記録に "stopped": "none" を並べない）
+        var json = await File.ReadAllTextAsync(_paths.ImportStateFile);
+        Assert.DoesNotContain("\"stopped\":", json, StringComparison.Ordinal);
+        Assert.Contains("BOOTHの不調で取れませんでした", _store.ImportState.Load().Text, StringComparison.Ordinal);
     }
 }
