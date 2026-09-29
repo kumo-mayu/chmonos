@@ -225,6 +225,38 @@
                                 </ItemsControl>
 
                                 <!--
+                                    説明文に「〇〇共通素体」と書かれた素体の候補（ユーザ判断 2026-09-29）。
+                                    「共通素体ではありません」のような書き方の揺れを規則で吸収しきれないので、自動では入れない。
+                                    札の形は共通素体の札に揃え、押したときだけ入れる。推定を確定と同じ顔で出さないよう、塗らずに枠だけにして見出しの下に分ける
+                                -->
+                                <StackPanel Margin="0,4,0,0"
+                                            Visibility="{Binding HasBaseMentions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="説明文にある共通素体" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                                    <ItemsControl ItemsSource="{Binding BaseMentions}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:BaseMentionRow}">
+                                                <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10"
+                                                        Padding="9,2" Margin="0,0,6,6">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                                                        <TextBlock Text="新規" FontSize="10" Margin="7,0,0,0"
+                                                                   VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}"
+                                                                   Visibility="{Binding IsNew, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <Button Content="追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                Command="{Binding AddCommand}" ToolTip="{Binding AddTooltip}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!--
                                     消したもの（ユーザ判断 2026-09-12）。以前は消すと画面のどこにも出ず、
                                     消したことも戻せることも分からなかった。普段は畳んで末尾に置き、1件ずつ戻せる
                                 -->

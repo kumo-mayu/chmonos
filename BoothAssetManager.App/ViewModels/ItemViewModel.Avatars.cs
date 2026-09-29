@@ -181,6 +181,75 @@ public sealed partial class ItemViewModel
 
     public bool HasAvatarBases => AvatarBases.Count > 0;
 
+    /// <summary>
+    /// 説明文に「〇〇共通素体」と書かれていて、この商品にまだ付いていない素体（ユーザ判断 2026-09-29）。
+    /// 否定の書き方の揺れを規則で吸収しきれないので、自動では入れずに候補として見せ、押したときだけ入れる
+    /// </summary>
+    public IReadOnlyList<BaseMentionRow> BaseMentions { get; private set; } = [];
+
+    public bool HasBaseMentions => BaseMentions.Count > 0;
+
+    private (string Id, string? Description, DateTime HtmlWritten, AvatarDetector.ParsedDescription Parsed)? _parsedDescription;
+
+    /// <summary>
+    /// 説明を見出しで区切った物。何か保存するたびに <see cref="BuildAvatars"/> を通るので、
+    /// 説明が変わっていなければ前に区切った物を使う（h2.html を読んで正規表現を何本も当て直さない）
+    /// </summary>
+    private AvatarDetector.ParsedDescription ParsedDescription()
+    {
+        var path = _services.Paths.ItemHtmlFile(Item.Id);
+        var written = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
+        if (_parsedDescription is { } cached
+            && cached.Id == Item.Id && cached.Description == Item.Booth.Description && cached.HtmlWritten == written)
+        {
+            return cached.Parsed;
+        }
+
+        string? html = null;
+        try
+        {
+            html = written == DateTime.MinValue ? null : Core.Storage.JsonStore.ReadText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 読めなくても候補が出ないだけ。平文の説明からは拾う
+        }
+
+        var parsed = AvatarDetector.Parse(html, Item.Booth.Description);
+        _parsedDescription = (Item.Id, Item.Booth.Description, written, parsed);
+        return parsed;
+    }
+
+    /// <summary>
+    /// 説明文の素体の候補を、この商品の共通素体に入れる。
+    /// 一覧に無い素体は、先に一覧へ足す（一覧に無い素体を商品に付けても、検索でつなぐ先が無い）。
+    /// </summary>
+    private async Task AddMentionedBaseAsync(AvatarBaseMention mention)
+    {
+        if (!mention.IsRegistered)
+        {
+            try
+            {
+                var result = await _services.Commands.ExecuteAsync(new UiCommand.AddBase(mention.Name));
+                if (result is CommandResult.Failed failed)
+                {
+                    RefreshStatus = failed.Message;
+                    return;
+                }
+            }
+            catch (Exception exception)
+            {
+                Core.Diagnostics.AppLog.Error("商品ページ：説明文の共通素体を一覧に追加", exception);
+                RefreshStatus = $"共通素体を追加できませんでした。{Core.Services.FailureText.Cause(exception)}";
+                return;
+            }
+        }
+
+        await SaveLocalAsync(
+            Item.Local with { AvatarBases = AvatarService.WithManualBaseLink(Item.Local.AvatarBases, mention.Name) },
+            LocalOwners.AvatarBases);
+    }
+
     public string AvatarSectionNote => HasAvatars || HasAvatarBases
         ? "出品者が対応と書いているアバターです。"
         : "出品者の対応表明は見つかっていません。アバターの管理から検出できます。";
@@ -246,6 +315,16 @@ public sealed partial class ItemViewModel
             })
             .ToList();
 
+        BaseMentions = AvatarBaseMentions.Find(
+                ParsedDescription(), registry.BaseGroups, Item.Local.AvatarBases, _services.Settings.AvatarIgnoredHeadings)
+            .Select(mention => new BaseMentionRow
+            {
+                Name = mention.Name,
+                IsNew = !mention.IsRegistered,
+                AddCommand = new RelayCommand(() => AddMentionedBaseAsync(mention).Forget(), () => !IsEditLocked),
+            })
+            .ToList();
+
         // 消した対応は畳んだ欄に並べ、1件ずつ戻せるようにする（ユーザ判断 2026-09-12）。
         // 共通素体も同じ欄に混ぜる（ユーザ判断 2026-09-21・X4：同じ「消したもの」として扱う）
         RejectedAvatars = Item.Local.Avatars
@@ -296,7 +375,7 @@ public sealed partial class ItemViewModel
             nameof(AvatarSectionNote), nameof(ShowsAvatarFilter), nameof(AvatarFilterPlaceholder),
             nameof(RejectedAvatars), nameof(HasRejectedAvatars), nameof(RejectedAvatarsHeader),
             nameof(AvatarsCountText), nameof(UnconfirmedAvatarCount), nameof(HasUnconfirmedAvatars),
-            nameof(UnconfirmedAvatarText),
+            nameof(UnconfirmedAvatarText), nameof(BaseMentions), nameof(HasBaseMentions),
         })
         {
             OnPropertyChanged(name);

@@ -950,7 +950,7 @@ public static class AvatarDetector
         }
     }
 
-    private static bool Contains(string heading, IReadOnlyList<string> words)
+    internal static bool Contains(string heading, IReadOnlyList<string> words)
         => words.Any(word => heading.Contains(word, StringComparison.OrdinalIgnoreCase));
 
     private static string StripTags(string html)
@@ -966,15 +966,15 @@ public static class AvatarDetector
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>クレジット・サムネ・使用素材の見出し。ここの一覧は対応の宣言ではない。</summary>
-    private static readonly Regex CreditHeading = new(
+    internal static readonly Regex CreditHeading = new(
         "クレジット|credit|サムネ|使用|お借り|撮影|着用|協力|素材|thanks|規約|更新",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>「対応」を含んでいても、アバターの一覧ではない見出し。</summary>
-    private static readonly Regex NotAvatarSupport = new("非対応|対応シェーダー|対応環境|対応バージョン|対応機種", RegexOptions.Compiled);
+    internal static readonly Regex NotAvatarSupport = new("非対応|対応シェーダー|対応環境|対応バージョン|対応機種", RegexOptions.Compiled);
 
     /// <summary>平文でURLと同じ行に書かれたクレジット（「使用アバター：URL」）。</summary>
-    private static readonly Regex CreditLine = new("使用アバター|着用アバター|サムネ|撮影|お借り|使用させ|レプリカ|参考に", RegexOptions.Compiled);
+    internal static readonly Regex CreditLine = new("使用アバター|着用アバター|サムネ|撮影|お借り|使用させ|レプリカ|参考に", RegexOptions.Compiled);
 
     /// <summary>見出しが無くても一覧とみなす行数。クレジットは1〜3体のことが多い（試験データで3〜4行にすると誤りが増えた）。</summary>
     public const int MinListRun = 5;
