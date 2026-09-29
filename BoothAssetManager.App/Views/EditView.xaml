@@ -42,7 +42,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- ボタンの段と帯の段の境目。帯を消しても2段目には「1件目へ」などが残るので、常に出す -->
-                <Border Grid.Row="1" Height="1" VerticalAlignment="Top" Background="#f0f1f4" />
+                <Border Grid.Row="1" Height="1" VerticalAlignment="Top" Background="{StaticResource Divider}" />
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="編集" FontWeight="Bold" VerticalAlignment="Center" />
@@ -50,7 +50,7 @@
                     <TextBlock Text="{Binding StepText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                     <ProgressBar Width="160" Height="5" Margin="12,0,0,0" Minimum="0" Maximum="100"
                                  Value="{Binding StepProgress, Mode=OneWay}"
-                                 Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                                 Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0" />
                     <!--
                         保存していない入力が残っている商品へ戻る入口（ユーザ指示）。書きかけが無ければ出さない。
                         書きかけはアプリを閉じるまで残る（閉じるときに残っていれば尋ねる）
@@ -118,7 +118,7 @@
                                 <Button.ToolTip>
                                     <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
                                         <StackPanel Width="200">
-                                            <Border Width="200" Height="200" CornerRadius="6" Background="#edeff3" ClipToBounds="True">
+                                            <Border Width="200" Height="200" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True">
                                                 <Image Source="{Binding Preview}" Stretch="Uniform" />
                                             </Border>
                                             <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12" TextWrapping="Wrap"
@@ -132,16 +132,16 @@
                                     <ControlTemplate TargetType="Button">
                                         <Grid Width="56" Height="56" Background="Transparent">
                                             <Border x:Name="Frame" CornerRadius="8" BorderThickness="2"
-                                                    BorderBrush="Transparent" Background="#edeff3">
+                                                    BorderBrush="Transparent" Background="{StaticResource ThumbBack}">
                                                 <Border CornerRadius="6" ClipToBounds="True">
                                                     <Image x:Name="Picture" Source="{Binding Image}" Stretch="UniformToFill" />
                                                 </Border>
                                             </Border>
                                             <Border x:Name="SavedMark" Width="18" Height="18" CornerRadius="9"
-                                                    Background="{StaticResource Good}" BorderBrush="{StaticResource Surface}"
+                                                    Background="{StaticResource GoodFill}" BorderBrush="{StaticResource Surface}"
                                                     BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                                     Margin="0,0,1,1" Visibility="Collapsed">
-                                                <TextBlock Text="✓" FontSize="10.5" FontWeight="Bold" Foreground="White"
+                                                <TextBlock Text="✓" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource OnAccent}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                             <!-- 書きかけ（保存していない入力が残っている）。保存の印の対角に置く -->
@@ -274,7 +274,7 @@
                                                 <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                        <Setter Property="Foreground" Value="#d99a00" />
+                                                        <Setter Property="Foreground" Value="{StaticResource Star}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -336,7 +336,7 @@
                                            Text="BOOTHに無い商品なので、空欄にすると仮のIDが名前の代わりに表示されます。"
                                            Visibility="{Binding IsLocalOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                                <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
+                                <Border Height="1" Background="{StaticResource Divider}" Margin="0,16,0,16" />
 
                                 <!--
                                     ショップ。**商品が非公開でもショップは見られる場合がある。**
@@ -426,7 +426,7 @@
                                     </TextBlock.Style>
                                 </TextBlock>
 
-                                <Border Height="1" Background="#f0f1f4" Margin="0,16,0,16" />
+                                <Border Height="1" Background="{StaticResource Divider}" Margin="0,16,0,16" />
 
                                 <!--
                                     BOOTHのカテゴリ。検索の絞り込みと並べ替えと同じ「カテゴリ」と呼ぶ（ユーザ指示 2026-09-24。
@@ -564,9 +564,9 @@
                                                         <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                                 BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,5,5">
                                                             <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding}" FontSize="11.5" Foreground="#28507f" />
+                                                                <TextBlock Text="{Binding}" FontSize="11.5" Foreground="{StaticResource AccentText}" />
                                                                 <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                           Foreground="#7d8fa8" VerticalAlignment="Center">
+                                                                           Foreground="{StaticResource ChipRemove}" VerticalAlignment="Center">
                                                                     <TextBlock.InputBindings>
                                                                         <MouseBinding MouseAction="LeftClick"
                                                                                       Command="{Binding DataContext.RemoveSubCommand,
@@ -588,7 +588,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+                        <Border Height="1" Background="{StaticResource Divider}" Margin="0,18,0,16" />
 
                         <!-- 属性：評価したものだけを積む。未評価は行が無いことで表す -->
                         <TextBlock Text="属性" FontWeight="Bold" FontSize="13" />
@@ -638,7 +638,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+                        <Border Height="1" Background="{StaticResource Divider}" Margin="0,18,0,16" />
 
                         <!--
                             購入記録（案A・ユーザ判断）。**種類の行はお金のことだけ**にし、印を付けても形を変えない：
@@ -668,7 +668,7 @@
                                 <ItemsControl ItemsSource="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                            <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <StackPanel>
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding FileCountText}" Style="{StaticResource Caption}"
@@ -761,7 +761,7 @@
                             </StackPanel>
                         </Expander>
 
-                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+                        <Border Height="1" Background="{StaticResource Divider}" Margin="0,18,0,16" />
 
                         <!--
                             ファイルの種類分け（ユーザ指示・案A）。ファイルの結び付けはこの欄だけで行う。
@@ -813,7 +813,7 @@
                                               Visibility="{Binding IsByFileView, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:FileSortRow}">
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                            <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <DockPanel>
                                                     <ComboBox DockPanel.Dock="Right" Width="170" Height="26" FontSize="11.5" Margin="10,0,0,0"
                                                               VerticalAlignment="Top" ItemsSource="{Binding Choices}"
@@ -840,7 +840,7 @@
                                               Visibility="{Binding IsByVariationView, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,7">
+                                            <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <StackPanel>
                                                     <DockPanel>
                                                         <Grid DockPanel.Dock="Right" Width="170" Margin="10,0,0,0" VerticalAlignment="Top"
@@ -872,7 +872,7 @@
                                                                         <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
                                                                                    MaxWidth="360" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                                                         <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                                   Foreground="#7d8fa8" VerticalAlignment="Center" ToolTip="このバリエーションから外す"
+                                                                                   Foreground="{StaticResource ChipRemove}" VerticalAlignment="Center" ToolTip="このバリエーションから外す"
                                                                                    Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                             <TextBlock.InputBindings>
                                                                                 <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />
@@ -893,7 +893,7 @@
                             </StackPanel>
                         </Expander>
 
-                        <Border Height="1" Background="#f0f1f4" Margin="0,18,0,16" />
+                        <Border Height="1" Background="{StaticResource Divider}" Margin="0,18,0,16" />
 
                         <!-- メモ・入手日・その他 -->
                         <TextBlock Text="メモ" FontWeight="Bold" FontSize="13" Margin="0,0,0,8" />
@@ -932,7 +932,7 @@
                                     <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding StatusIsProblem}" Value="True">
-                                            <Setter Property="Foreground" Value="#9a3232" />
+                                            <Setter Property="Foreground" Value="{StaticResource DangerText}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

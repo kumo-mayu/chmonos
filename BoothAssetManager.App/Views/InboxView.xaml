@@ -122,7 +122,7 @@
                                           Visibility="{Binding HasCards, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}"
                                                 BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium"

@@ -119,7 +119,7 @@
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
                                             <Border x:Name="Root" Background="Transparent"
-                                                    BorderBrush="#f0f1f4" BorderThickness="0,0,0,1">
+                                                    BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
                                                 <Grid>
                                                     <ContentPresenter />
                                                     <Border Height="2" VerticalAlignment="Top" Background="{StaticResource Accent}"
@@ -225,7 +225,7 @@
                                                         <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
                                                         <Button Content="商品から外す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0" Foreground="#9a3232"
+                                                                Margin="6,0,0,0" Foreground="{StaticResource DangerText}"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"

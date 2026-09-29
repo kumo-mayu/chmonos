@@ -37,9 +37,9 @@
                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="10.5"
                                                Foreground="{StaticResource TextMuted}" Margin="11,0,11,11" TextWrapping="Wrap"
                                                MaxHeight="42" TextTrimming="CharacterEllipsis" />
-                                    <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="#e9edf4">
+                                    <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="{StaticResource ImageBack}">
                                         <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2"
-                                              Fill="#f7f8fa" Stretch="Uniform" Width="96" Height="80"
+                                              Fill="{StaticResource FolderIconFill}" Stretch="Uniform" Width="96" Height="80"
                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Grid>
                                     <StackPanel Margin="11,10,11,0">

@@ -28,7 +28,7 @@
             <StackPanel Margin="24,20" MaxWidth="{StaticResource ReadingMaxWidth}">
 
                 <!-- 取り込み元 -->
-                <Border BorderBrush="#b9c6dc" BorderThickness="2" CornerRadius="10" Background="#f7faff" Padding="24,22">
+                <Border BorderBrush="{StaticResource DropZoneBorder}" BorderThickness="2" CornerRadius="10" Background="{StaticResource DropZoneBack}" Padding="24,22">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="フォルダかファイルをここにドロップ" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
                         <TextBlock Text="ファイルをドロップすると、そのファイルだけを取り込みます。"
@@ -80,7 +80,7 @@
                         <ItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                    <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <!-- 右クリック（ユーザ指示 2026-09-20・M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
@@ -181,7 +181,7 @@
                         <ItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                    <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <!-- 右クリック（M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
@@ -230,7 +230,7 @@
                         <ItemsControl ItemsSource="{Binding History}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,11"
+                                    <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <Border.ContextMenu>
                                             <ContextMenu>
@@ -283,7 +283,7 @@
                         <!-- ProgressBar.Value は RangeBase 由来で既定が TwoWay。読み取り専用プロパティに繋ぐので明示的に OneWay にする -->
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0"
                                      Maximum="{Binding Total, Mode=OneWay}" Value="{Binding Current, Mode=OneWay}"
-                                     Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0"
+                                     Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0"
                                      Visibility="{Binding HasTotal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <!--
                             閉じても大丈夫だと先に書く（U9・ユーザ判断）。中断を知らせるのは閉じた後だけだった。
@@ -333,7 +333,7 @@
                         </StackPanel>
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0" Maximum="1"
                                      Value="{Binding Activity.BackgroundProgress, Mode=OneWay}"
-                                     Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                                     Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0" />
                         <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Text="取り込みで取得できなかった画像や、持っていないアバターの1枚目を、BOOTHから少しずつ取得しています。取り込みを始めると、そちらが先に進みます。" />
                     </StackPanel>
@@ -341,9 +341,9 @@
 
                 <!-- エラー -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
-                        Background="#fbeaea" BorderBrush="#eecccc"
+                        Background="{StaticResource BadSoft}" BorderBrush="{StaticResource BadBorder}"
                         Visibility="{Binding HasError, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="{Binding ErrorText}" Foreground="#9a3232" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource DangerText}" TextWrapping="Wrap" />
                 </Border>
 
                 <!-- 結果 -->
@@ -357,7 +357,7 @@
                                 BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,0,0,14"
                                 Visibility="{Binding HasAvatarSummary, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding AvatarSummaryText}" FontSize="12" TextWrapping="Wrap"
-                                       Foreground="#28507f" />
+                                       Foreground="{StaticResource AccentText}" />
                         </Border>
                         <!--
                             BOOTHに無かったもの。タイルを増やさず1行で出す。
@@ -448,7 +448,7 @@
                         <ItemsControl ItemsSource="{Binding UnpackedFolders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,9">
+                                    <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="0,9">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="26" />

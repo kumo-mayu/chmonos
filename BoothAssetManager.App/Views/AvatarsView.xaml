@@ -35,7 +35,7 @@
                 <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" Margin="0,0,10,0"
                         Background="{StaticResource AccentSoft}" ClipToBounds="True">
                     <Grid>
-                        <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="#4a5160"
+                        <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="{StaticResource AccentSoftText}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding Icon}" Stretch="UniformToFill"
                                Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -91,8 +91,8 @@
                                 <TextBlock Text="この名前の商品は手元にありません" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                            Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" />
                             </StackPanel>
-                            <Grid Background="#e9edf4">
-                                <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="#b9c1cf"
+                            <Grid Background="{StaticResource ImageBack}">
+                                <TextBlock Text="{Binding Initial}" FontSize="44" FontWeight="Bold" Foreground="{StaticResource PlaceholderGlyph}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <Image Source="{Binding Icon}" Stretch="Uniform"
                                        Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -509,7 +509,7 @@
                                             VerticalAlignment="Top" Background="{StaticResource AccentSoft}" ClipToBounds="True">
                                         <Grid>
                                             <TextBlock Text="{Binding Selected.Initial}" FontSize="30" FontWeight="Bold"
-                                                       Foreground="#4a5160" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                       Foreground="{StaticResource AccentSoftText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             <Image Source="{Binding Selected.Icon}" Stretch="UniformToFill"
                                                    Visibility="{Binding Selected.HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </Grid>
@@ -667,7 +667,7 @@
                                 <TextBlock Text="{Binding NewBaseHint}" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                            Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <TextBlock Text="{Binding SelectedBaseNote}" Style="{StaticResource Caption}"
-                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#28507f"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource AccentText}"
                                            Visibility="{Binding HasSelectedBaseNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!--
@@ -799,7 +799,7 @@
                                                     <Button.ToolTip>
                                                         <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
                                                             <StackPanel Width="180">
-                                                                <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                                                <Border Width="180" Height="180" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                                                         Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                     <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                                                                 </Border>
@@ -847,7 +847,7 @@
                                                         <Button.ToolTip>
                                                             <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
                                                                 <StackPanel Width="180">
-                                                                    <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                                                                    <Border Width="180" Height="180" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                                                             Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                                         <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                                                                     </Border>

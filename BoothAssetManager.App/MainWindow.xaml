@@ -122,19 +122,17 @@
 
                                 <Viewbox Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center">
                                     <Canvas Width="24" Height="24">
-                                        <Path Data="{Binding Path=(views:Nav.Icon), RelativeSource={RelativeSource TemplatedParent}}"
+                                        <Path x:Name="Icon" Data="{Binding Path=(views:Nav.Icon), RelativeSource={RelativeSource TemplatedParent}}"
                                               Fill="{x:Null}" StrokeThickness="1.8"
                                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                              Stroke="{Binding Path=(views:Nav.IsActive), RelativeSource={RelativeSource TemplatedParent},
-                                                               Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
+                                              Stroke="{StaticResource RailText}" />
                                     </Canvas>
                                 </Viewbox>
 
                                 <TextBlock x:Name="Label" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"
                                            Text="{Binding Path=(views:Nav.Label), RelativeSource={RelativeSource TemplatedParent}}"
-                                           Foreground="{Binding Path=(views:Nav.IsActive), RelativeSource={RelativeSource TemplatedParent},
-                                                                Converter={x:Static vm:BoolToRailBrushConverter.Instance}}" />
+                                           Foreground="{StaticResource RailText}" />
 
                                 <!--
                                     0件のときは出さない。残っている作業を示すものなので、
@@ -145,7 +143,7 @@
                                         Visibility="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent},
                                                              Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
                                     <!-- 頭の名前（「未:」など）は、件数が2つ並ぶ項目にだけ付く。無い項目では空で、数字だけになる -->
-                                    <TextBlock x:Name="BadgeText" Foreground="White" FontSize="11" FontWeight="Bold"
+                                    <TextBlock x:Name="BadgeText" Foreground="{StaticResource OnAccent}" FontSize="11" FontWeight="Bold"
                                                FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="{Binding Path=(views:Nav.BadgePrefix), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text="{Binding Path=(views:Nav.Badge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
 
@@ -157,14 +155,22 @@
                                         Background="{Binding Path=(views:Nav.SubBadgeBrush), RelativeSource={RelativeSource TemplatedParent}}"
                                         Visibility="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent},
                                                              Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
-                                    <TextBlock x:Name="SubBadgeText" Foreground="White" FontSize="11" FontWeight="Bold"
+                                    <TextBlock x:Name="SubBadgeText" Foreground="{StaticResource OnAccent}" FontSize="11" FontWeight="Bold"
                                                FontFamily="Yu Gothic UI, Meiryo, Segoe UI"><Run Text="{Binding Path=(views:Nav.SubBadgePrefix), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text="{Binding Path=(views:Nav.SubBadge), RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /></TextBlock>
                                 </Border>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <!--
+                                選んでいる項目は白。前は変換器が色を作っていたが、色の表を差し替えても変換器は
+                                作り直されず古い色のまま残るので、鍵を指すトリガーにした
+                            -->
+                            <Trigger Property="views:Nav.IsActive" Value="True">
+                                <Setter TargetName="Icon" Property="Stroke" Value="{StaticResource RailTextActive}" />
+                                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource RailTextActive}" />
+                            </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#2b303a" />
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource RailHover}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.35" />
@@ -268,12 +274,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Box" Property="Background" Value="#2b303a" />
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource RailHover}" />
                             </Trigger>
                             <!-- 行き先が無いときは薄く。理由はツールチップで出す -->
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="{StaticResource RailLabel}" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="#2a2f3c" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource RailButtonDimBorder}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -337,11 +343,11 @@
                                 読みを添える（ユーザ判断 2026-09-14）。綴りから「クモノス」とは読めない（ch をクと読むのはギリシャ語から来た綴りの約束）。
                                 行を増やすとナビの頭の高さが変わる（U2）ので、同じ行に小さく薄く続ける
                             -->
-                            <TextBlock Foreground="White" FontSize="13">
-                                <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="#8a93a3" />
+                            <TextBlock Foreground="{StaticResource RailTitle}" FontSize="13">
+                                <Run Text="Chmonos" FontWeight="Bold" /><Run Text=" クモノス" FontSize="10.5" Foreground="{StaticResource RailSubtitle}" />
                             </TextBlock>
                             <!-- 日本語にして英語の頃より幅が要る。万単位でもナビの幅からはみ出さないよう、溢れたら「…」で切る -->
-                            <TextBlock Text="{Binding LibrarySummary}" Foreground="#767f8e" FontSize="11" Margin="0,2,0,0"
+                            <TextBlock Text="{Binding LibrarySummary}" Foreground="{StaticResource RailMuted}" FontSize="11" Margin="0,2,0,0"
                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding LibrarySummary}" />
                         </StackPanel>
                         <Viewbox Width="16" Height="16" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -431,12 +437,12 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}"
                             views:Nav.Label="未確定" views:Nav.Icon="{StaticResource IconResolve}"
                             views:Nav.IsActive="{Binding IsResolveActive}"
-                            views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="#9a6b1f" />
+                            views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="{StaticResource NeedsWorkFill}" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
                             views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
                             views:Nav.IsActive="{Binding IsEditActive}"
-                            views:Nav.Badge="{Binding NeedsEditBadgeCount}" views:Nav.BadgeBrush="#9a6b1f" views:Nav.BadgePrefix="未:"
-                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{StaticResource Accent}" views:Nav.SubBadgePrefix="編:" />
+                            views:Nav.Badge="{Binding NeedsEditBadgeCount}" views:Nav.BadgeBrush="{StaticResource NeedsWorkFill}" views:Nav.BadgePrefix="未:"
+                            views:Nav.SubBadge="{Binding Drafts.Count}" views:Nav.SubBadgeBrush="{StaticResource AccentFill}" views:Nav.SubBadgePrefix="編:" />
 
                     <Grid>
                         <TextBlock Text="管理" Style="{StaticResource NavGroupLabel}" />
@@ -449,7 +455,7 @@
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}"
                             views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
                             views:Nav.IsActive="{Binding IsInboxActive}"
-                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="#8a3f6b" />
+                            views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="{StaticResource UnreadFill}" />
                     <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}"
                             views:Nav.Label="アバター" views:Nav.Icon="{StaticResource IconAvatars}"
                             views:Nav.IsActive="{Binding IsAvatarsActive}" />
@@ -518,7 +524,7 @@
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopUnityCommand}"
                             ToolTip="送るのをやめます。Unityの取り込み画面は「Cancel」で閉じてください。" />
-                    <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="#28507f"
+                    <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="{StaticResource AccentText}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>
@@ -538,9 +544,9 @@
                             Command="{Binding StopLongJobCommand}"
                             ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
                     <TextBlock DockPanel.Dock="Right" Text="{Binding LongJobNote}" Style="{StaticResource Caption}"
-                               Foreground="#28507f" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding LongJobText}" Style="{StaticResource Caption}" Foreground="#28507f"
+                    <TextBlock Text="{Binding LongJobText}" Style="{StaticResource Caption}" Foreground="{StaticResource AccentText}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>

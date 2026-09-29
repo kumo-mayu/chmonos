@@ -31,7 +31,7 @@
                              Maximum="{Binding RegisteringTotal, Mode=OneWay}"
                              Value="{Binding RegisteringDone, Mode=OneWay}"
                              IsIndeterminate="{Binding HasRegisteringTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                             Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                             Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0" />
             </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
@@ -436,7 +436,7 @@
                             Visibility="{Binding HasActiveGroup, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel>
                             <TextBlock Text="{Binding ActiveGroupText}" FontWeight="Bold" FontSize="12.5"
-                                       Foreground="#28507f" TextWrapping="Wrap" />
+                                       Foreground="{StaticResource AccentText}" TextWrapping="Wrap" />
                             <TextBlock Text="下の「確定」と「管理対象から除外する」は、この中身すべてに効きます。"
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                         </StackPanel>
@@ -511,7 +511,7 @@
 
                             <TextBlock Text="{Binding ContentsSummary}" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasContents, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
+                            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
                                     CornerRadius="6" Padding="11,9" MaxHeight="150"
                                     Visibility="{Binding HasContents, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -625,7 +625,7 @@
                                     BorderThickness="1" CornerRadius="6" Padding="13,11" Margin="0,14,0,0"
                                     Visibility="{Binding HasChecked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="#28507f" />
+                                    <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource AccentText}" />
                                     <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                                         <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" />
                                         <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
@@ -664,7 +664,7 @@
                                              Maximum="{Binding SearchTotal, Mode=OneWay}"
                                              Value="{Binding SearchCurrent, Mode=OneWay}"
                                              IsIndeterminate="{Binding HasSearchTotal, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                                             Foreground="{StaticResource Accent}" Background="#edeff3" BorderThickness="0" />
+                                             Foreground="{StaticResource Accent}" Background="{StaticResource BarTrack}" BorderThickness="0" />
                             </StackPanel>
 
                             <ItemsControl ItemsSource="{Binding Candidates}">

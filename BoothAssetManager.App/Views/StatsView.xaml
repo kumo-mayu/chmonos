@@ -65,7 +65,7 @@
                 </TextBlock>
 
                 <Border Grid.Column="1" Height="9" CornerRadius="4" Margin="11,0" ClipToBounds="True"
-                        Background="#f0f1f4" VerticalAlignment="Center">
+                        Background="{StaticResource BarTrack}" VerticalAlignment="Center">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{Binding BarLength}" />
@@ -88,7 +88,7 @@
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="11.5"
-                               Foreground="#454b57" TextAlignment="Right" MinWidth="62" />
+                               Foreground="{StaticResource TextBody}" TextAlignment="Right" MinWidth="62" />
                     <TextBlock Text="{Binding SubText}" Style="{StaticResource Mono}" FontSize="11"
                                Foreground="{StaticResource TextFaint}" TextAlignment="Right"
                                MinWidth="38" Margin="6,0,0,0" />
@@ -226,8 +226,8 @@
                                 <Grid Grid.Column="1">
                                     <!-- 目盛り線。棒と同じ帯にだけ重ねる -->
                                     <Grid Margin="0,14,0,32">
-                                        <Border Height="1" VerticalAlignment="Top" Background="#f0f1f4" />
-                                        <Border Height="1" VerticalAlignment="Center" Background="#f0f1f4" />
+                                        <Border Height="1" VerticalAlignment="Top" Background="{StaticResource Divider}" />
+                                        <Border Height="1" VerticalAlignment="Center" Background="{StaticResource Divider}" />
                                         <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource Border}" />
                                     </Grid>
 
@@ -262,7 +262,7 @@
                                                                         <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding IsPeak}" Value="True">
-                                                                                <Setter Property="Foreground" Value="#28507f" />
+                                                                                <Setter Property="Foreground" Value="{StaticResource AccentText}" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
@@ -365,7 +365,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}"
                                         BorderThickness="1" CornerRadius="6" Padding="11,9" Margin="0,6,0,0"
                                         Visibility="{Binding SizeSubText, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}">
                                     <TextBlock FontSize="11.5" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap">
@@ -398,7 +398,7 @@
                                                       Visibility="{Binding HasDuplicates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type vm:DuplicateRowViewModel}">
-                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4"
+                                                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}"
                                                             BorderThickness="1" CornerRadius="6"
                                                             Padding="11,9" Margin="0,0,0,7">
                                                         <StackPanel>
@@ -459,8 +459,8 @@
                                                                     <Setter Property="BorderBrush" Value="{StaticResource WarnBorder}" />
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Severity}" Value="Bad">
-                                                                    <Setter Property="Background" Value="#fbeaea" />
-                                                                    <Setter Property="BorderBrush" Value="#eecccc" />
+                                                                    <Setter Property="Background" Value="{StaticResource BadSoft}" />
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource BadBorder}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -476,7 +476,7 @@
                                                         <TextBlock Grid.Column="0" Text="{Binding Count}" Style="{StaticResource Mono}"
                                                                    FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
                                                         <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5"
-                                                                   Foreground="#454b57" VerticalAlignment="Center" />
+                                                                   Foreground="{StaticResource TextBody}" VerticalAlignment="Center" />
                                                         <TextBlock Grid.Column="2" Text="→" Foreground="{StaticResource TextFaint}"
                                                                    VerticalAlignment="Center" />
                                                     </Grid>
@@ -506,7 +506,7 @@
                                 <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" />
                                 <ItemsControl ItemsSource="{Binding PriceBuckets}" Margin="0,14,0,0"
                                               ItemTemplate="{StaticResource BarRow}" />
-                                <Border Height="1" Background="#f0f1f4" Margin="0,10,0,10" />
+                                <Border Height="1" Background="{StaticResource Divider}" Margin="0,10,0,10" />
                                 <Grid Margin="0,0,0,6">
                                     <TextBlock Text="無料で手に入れたもの" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding FreeText}" Style="{StaticResource Mono}" FontSize="12"
@@ -556,7 +556,7 @@
                                                                     <Setter Property="Foreground" Value="{StaticResource Good}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#9a3232" />
+                                                                            <Setter Property="Foreground" Value="{StaticResource DangerText}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -622,7 +622,7 @@
                                 </StackPanel>
                                 <ItemsControl ItemsSource="{Binding ShopsByCount}" Margin="0,12,0,0"
                                               ItemTemplate="{StaticResource BarRow}" />
-                                <Border Height="1" Background="#f0f1f4" Margin="0,10,0,10" />
+                                <Border Height="1" Background="{StaticResource Divider}" Margin="0,10,0,10" />
                                 <Grid>
                                     <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
@@ -751,7 +751,7 @@
                                                HorizontalAlignment="Right" />
                                 </Grid>
 
-                                <Border Height="1" Background="#f0f1f4" Margin="0,4,0,10" />
+                                <Border Height="1" Background="{StaticResource Divider}" Margin="0,4,0,10" />
 
                                 <TextBlock Text="もう買えないもの" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="{Binding EndOfSaleText}" Style="{StaticResource Mono}" FontSize="12"

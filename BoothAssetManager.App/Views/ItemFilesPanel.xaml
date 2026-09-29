@@ -95,7 +95,7 @@
                                           Visibility="{Binding HasLocalFolders, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,12">
+                                        <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -105,7 +105,7 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0">
-                                                            <TextBlock Text="フォルダ" FontSize="10" Foreground="#28507f" />
+                                                            <TextBlock Text="フォルダ" FontSize="10" Foreground="{StaticResource AccentText}" />
                                                         </Border>
                                                         <!-- 名前を押すとエクスプローラで開く。場所は乗せたときに出す（ユーザ指示 2026-09-19） -->
                                                         <Button Content="{Binding Name}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center"
@@ -167,7 +167,7 @@
                             <ItemsControl ItemsSource="{Binding LocalFiles}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,12">
+                                        <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
                                             <StackPanel>
                                               <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -196,7 +196,7 @@
                                                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             Visibility="{Binding HasVariationLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="#28507f" />
+                                                        <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="{StaticResource AccentText}" />
                                                     </Border>
                                                     <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
                                                     <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}"
@@ -280,7 +280,7 @@
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <!-- ボタンは場所のすぐ横に（右端に寄せない。ユーザ判断 2026-09-19） -->
-                                                            <Border BorderBrush="#f0f1f4" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
+                                                            <Border BorderBrush="{StaticResource Divider}" BorderThickness="2,0,0,0" Padding="10,3" Margin="0,0,0,4">
                                                                 <StackPanel Orientation="Horizontal">
                                                                     <TextBlock Text="{Binding}" Style="{StaticResource DetachedDimPath}" FontSize="11" MaxWidth="640"
                                                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"

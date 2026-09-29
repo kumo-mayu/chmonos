@@ -94,7 +94,7 @@
                             Background="{StaticResource AccentSoft}">
                         <Grid>
                             <TextBlock Text="{Binding Initial}" FontSize="30" FontWeight="Bold"
-                                       Foreground="#4a5160"
+                                       Foreground="{StaticResource AccentSoftText}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding ShowInitial, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <Image Source="{Binding Icon}" Stretch="UniformToFill"
@@ -124,7 +124,7 @@
                                             <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                    <Setter Property="Foreground" Value="#d99a00" />
+                                                    <Setter Property="Foreground" Value="{StaticResource Star}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

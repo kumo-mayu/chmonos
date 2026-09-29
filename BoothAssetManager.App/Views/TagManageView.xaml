@@ -28,7 +28,7 @@
             Backgroundが無いとヒットテストに乗らず、行の余白でドラッグが途切れる。
             開いた行は幅いっぱいを使う（ユーザ指摘 2026-09-18：列の中で開くと並びが飛んで順番が読めない）
         -->
-        <Border x:Name="Row" BorderBrush="#f0f1f4" BorderThickness="0,1,0,0" Padding="20,13"
+        <Border x:Name="Row" BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,0" Padding="20,13"
                 Background="Transparent">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -224,7 +224,7 @@
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
                                             <Border x:Name="Root" Background="Transparent"
-                                                    BorderBrush="#f0f1f4" BorderThickness="0,0,0,1">
+                                                    BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
                                                 <Grid>
                                                     <ContentPresenter />
                                                     <!-- ドラッグ中に、どこへ落ちるかを示す線 -->
@@ -356,7 +356,7 @@
                                                         <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
                                                         <Button Content="商品から外す" Style="{StaticResource SmallButton}"
-                                                                Margin="6,0,0,0" Foreground="#9a3232"
+                                                                Margin="6,0,0,0" Foreground="{StaticResource DangerText}"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
                                                     <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"

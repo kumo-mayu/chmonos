@@ -175,8 +175,6 @@ public static class FindInPage
 /// <summary>画面内検索の印。今の一致だけ濃くする。押す操作は下の画面へ通す。</summary>
 public sealed class FindHighlightAdorner : Adorner
 {
-    private static readonly Brush MatchBrush = Frozen(Color.FromArgb(0x70, 0xFF, 0xE0, 0x66));
-    private static readonly Brush CurrentBrush = Frozen(Color.FromArgb(0xA0, 0xFF, 0x9F, 0x2E));
 
     public FindHighlightAdorner(UIElement host)
         : base(host)
@@ -190,19 +188,17 @@ public sealed class FindHighlightAdorner : Adorner
 
     protected override void OnRender(DrawingContext drawingContext)
     {
+        // 色は描くたびに色の表から引く。印は検索のたびに描き直すので、表を差し替えた後の色で出る
+        var matchBrush = TryFindResource("FindMatch") as Brush;
+        var currentBrush = TryFindResource("FindCurrent") as Brush;
+
         for (var index = 0; index < Matches.Count; index++)
         {
             foreach (var rect in FindInPage.RectsOf(Matches[index], AdornedElement))
             {
-                drawingContext.DrawRectangle(index == Current ? CurrentBrush : MatchBrush, null, rect);
+                drawingContext.DrawRectangle(index == Current ? currentBrush : matchBrush, null, rect);
             }
         }
     }
-
-    private static Brush Frozen(Color color)
-    {
-        var brush = new SolidColorBrush(color);
-        brush.Freeze();
-        return brush;
-    }
 }
+

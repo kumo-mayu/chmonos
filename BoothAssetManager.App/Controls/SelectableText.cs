@@ -170,10 +170,8 @@ public static class SelectableText
         if (navigator?.CanNavigate(uri) == true)
         {
             link.ToolTip = "ライブラリ内の商品ページを開きます";
-            if (Application.Current?.TryFindResource("Good") is Brush brush)
-            {
-                link.Foreground = brush;
-            }
+            // 鍵で指す。色を取り出して入れると、色の表を差し替えたときに古い色のまま残る
+            link.SetResourceReference(TextElement.ForegroundProperty, "Good");
 
             link.RequestNavigate += (_, args) =>
             {

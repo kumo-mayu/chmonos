@@ -74,10 +74,10 @@
                         <Border Height="3" CornerRadius="2" Margin="1,0">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#66ffffff" />
+                                    <Setter Property="Background" Value="{StaticResource ImageDotIdle}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                            <Setter Property="Background" Value="#f2ffffff" />
+                                            <Setter Property="Background" Value="{StaticResource ImageDotActive}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -88,9 +88,9 @@
             </ItemsControl>
 
             <!-- 区切りを絞っている場合でも、全体で何枚あるかが分かるようにする -->
-            <Border Background="#99000000" CornerRadius="9" Padding="7,1"
+            <Border Background="{StaticResource ImageScrim}" CornerRadius="9" Padding="7,1"
                     HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8">
-                <TextBlock Text="{Binding CounterText}" FontSize="10" Foreground="White" />
+                <TextBlock Text="{Binding CounterText}" FontSize="10" Foreground="{StaticResource OnImage}" />
                 <!-- 画像が1枚だと文字が空になり、余白だけの黒い丸が出ていた（U11）。空なら出さない -->
                 <Border.Style>
                     <Style TargetType="Border">
@@ -111,7 +111,7 @@
                 まとめて編集へ送るための選択。
                 マウスが乗っているか、既に選んでいるときだけ出す。
             -->
-            <Border Background="#d6ffffff" BorderBrush="{StaticResource BorderStrong}"
+            <Border Background="{StaticResource ImagePill}" BorderBrush="{StaticResource BorderStrong}"
                     BorderThickness="1" CornerRadius="5" Padding="7"
                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7">
                 <!-- カード全体でも切り替わるが、状態を示す印としても要る -->
@@ -139,7 +139,7 @@
             </Border>
 
             <!-- 選択中のとき、商品ページへの出口をここに置く -->
-            <Border Background="#d6ffffff" BorderBrush="{StaticResource BorderStrong}"
+            <Border Background="{StaticResource ImagePill}" BorderBrush="{StaticResource BorderStrong}"
                     BorderThickness="1" CornerRadius="5" Padding="8,4" Cursor="Hand"
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="7"
                     MouseLeftButtonUp="OnOpenItemClick">
@@ -254,7 +254,7 @@
                                             マウスの横位置でギャラリー画像を切り替える（BOOTHのサイトと同じ操作感）。
                                             正方形の画像が多いので、枠は正方形寄りにして Uniform で全体を見せる（切り取らない）。
                                         -->
-                                        <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="#e9edf4" Cursor="Hand"
+                                        <Grid DockPanel.Dock="Top" Height="{DynamicResource CardImageHeight}" Background="{StaticResource ImageBack}" Cursor="Hand"
                                               MouseMove="OnThumbnailMouseMove" MouseLeave="OnThumbnailMouseLeave">
                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
                                             <!-- 取り込みの途中で絵がまだ無いカード（U8）。灰色の枠だけだと壊れて見える -->
@@ -274,7 +274,7 @@
                                             下段は必ず下端に置く。カードの高さを固定しているので位置が揃う。
                                             状態はここに集める。サムネイルに重ねると写真によっては読めない。
                                         -->
-                                        <Border DockPanel.Dock="Bottom" BorderBrush="#f0f1f4" BorderThickness="0,1,0,0"
+                                        <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,0"
                                                 Margin="11,0,11,11" Padding="0,6,0,0">
                                             <Grid>
                                                 <!-- 未所持のときは左下の襷が同じことを言うので、重ねて出さない -->
@@ -343,7 +343,7 @@
                                                             BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4"
                                                             Visibility="{Binding HasUserTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <!-- userTagが長くても2行に折り返さないよう、幅で切る。右下の星に重ならない幅にする -->
-                                                        <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="#28507f"
+                                                        <TextBlock Text="{Binding UserTagText}" FontSize="10" Foreground="{StaticResource AccentText}"
                                                                    MaxWidth="130" TextTrimming="CharacterEllipsis" />
                                                     </Border>
                                                 </WrapPanel>
@@ -358,7 +358,7 @@
                                                             <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#d99a00" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource Star}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -375,14 +375,14 @@
                                         所持が大半なので、所持の側に札を付けても「無い」ことに気付けなかった（友人の要望 #42）。
                                         カードの角で切れるよう、カード自体の ClipToBounds に任せる。押した操作はカードへ通す
                                     -->
-                                    <Border Width="150" Height="22" Background="{StaticResource Bad}"
+                                    <Border Width="150" Height="22" Background="{StaticResource BadFill}"
                                             HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-45,0,0,19"
                                             RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"
                                             Visibility="{Binding IsOwned, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                         <Border.RenderTransform>
                                             <RotateTransform Angle="45" />
                                         </Border.RenderTransform>
-                                        <TextBlock Text="未所持" Foreground="White" FontSize="11" FontWeight="Bold"
+                                        <TextBlock Text="未所持" Foreground="{StaticResource OnAccent}" FontSize="11" FontWeight="Bold"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     </Grid>
@@ -422,8 +422,8 @@
                             <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAlt}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Accent}" />
-                            <Setter Property="Foreground" Value="White" />
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentFill}" />
+                            <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -442,14 +442,14 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
-                               Foreground="#28507f" VerticalAlignment="Center"
+                               Foreground="{StaticResource AccentText}" VerticalAlignment="Center"
                                Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!--
                         Unityへ送っている最中の進み具合（#69）。取り込み画面は Unity 側に出る。
                         1件だけ送るとき（カードの右クリック）もここに出す（E10）
                     -->
                     <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Margin="14,0,0,0"
-                               Foreground="#28507f" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
+                               Foreground="{StaticResource AccentText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
                                Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 送っている間だけ出す（E7）。いちばん長い待ちは、人が Unity の取り込み画面を見ている時間 -->
                     <Button Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
@@ -637,7 +637,7 @@
         <Grid Width="{Binding DataContext.ListColumns.IconSize, RelativeSource={RelativeSource AncestorType=ListView}}"
               Height="{Binding DataContext.ListColumns.IconSize, RelativeSource={RelativeSource AncestorType=ListView}}"
               HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Border CornerRadius="4" Background="#e9edf4" ClipToBounds="True" ToolTipService.InitialShowDelay="250"
+            <Border CornerRadius="4" Background="{StaticResource ImageBack}" ClipToBounds="True" ToolTipService.InitialShowDelay="250"
                     ToolTipService.Placement="Right"
                     Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                 <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
@@ -653,7 +653,7 @@
             -->
             <Border Background="Transparent" ToolTipService.InitialShowDelay="250" ToolTipService.Placement="Right"
                     Visibility="{Binding IsFolder, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2" Fill="#f7f8fa"
+                <Path Data="M3,6 H9.5 L11.5,8 H21 V19 H3 Z" Stroke="{StaticResource TextMuted}" StrokeThickness="1.2" Fill="{StaticResource FolderIconFill}"
                       Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <Border.ToolTip>
                     <ToolTip Padding="10,8">
@@ -682,7 +682,7 @@
                         <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                <Setter Property="Foreground" Value="#d99a00" />
+                                <Setter Property="Foreground" Value="{StaticResource Star}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

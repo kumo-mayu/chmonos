@@ -80,7 +80,7 @@
                     Visibility="{Binding HasDuplicates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <StackPanel>
                     <TextBlock Text="同じ買い物かもしれない記録" FontWeight="Bold" FontSize="12.5"
-                               Foreground="#28507f" />
+                               Foreground="{StaticResource AccentText}" />
                     <TextBlock Text="移し先に同じ金額の記録があります。同じ買い物なら印を付けてください。印を付けた記録は移しません。"
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 

@@ -57,14 +57,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid>
-                            <Rectangle x:Name="Fade">
-                                <Rectangle.Fill>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                        <GradientStop Color="#00ffffff" Offset="0" />
-                                        <GradientStop Color="#ffffffff" Offset="0.45" />
-                                    </LinearGradientBrush>
-                                </Rectangle.Fill>
-                            </Rectangle>
+                            <Rectangle x:Name="Fade" Fill="{StaticResource SurfaceFade}" />
                             <Border x:Name="Face" Width="22" Height="22" CornerRadius="11" HorizontalAlignment="Right"
                                     Background="{StaticResource Surface}" BorderBrush="{StaticResource AccentBorder}" BorderThickness="1">
                                 <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
@@ -195,10 +188,10 @@
                 開くつまみは境の線の上（上の Border）にあるので、その下から並べる
             -->
             <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                <Border DockPanel.Dock="Top" Background="{StaticResource Accent}" CornerRadius="8" Padding="5,1"
+                <Border DockPanel.Dock="Top" Background="{StaticResource AccentFill}" CornerRadius="8" Padding="5,1"
                         Margin="0,48,0,0" HorizontalAlignment="Center" ToolTip="{Binding FilterSummary}"
                         Visibility="{Binding ActiveFilterCount, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}">
-                    <TextBlock Text="{Binding ActiveFilterCount}" Foreground="White" FontSize="11" FontWeight="Bold" />
+                    <TextBlock Text="{Binding ActiveFilterCount}" Foreground="{StaticResource OnAccent}" FontSize="11" FontWeight="Bold" />
                 </Border>
                 <TextBlock Text="絞り込み" Style="{StaticResource Caption}" Margin="0,14,0,0"
                            HorizontalAlignment="Center" VerticalAlignment="Top">
@@ -312,14 +305,14 @@
                                     <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                             BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="0,0,5,4">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Text}" FontSize="11" Foreground="#28507f"
+                                            <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{StaticResource AccentText}"
                                                        MaxWidth="200" TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Text}" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding CountText}" FontSize="10.5" Foreground="#28507f"
+                                            <TextBlock Text="{Binding CountText}" FontSize="10.5" Foreground="{StaticResource AccentText}"
                                                        Opacity="0.7" Margin="5,0,0,0" VerticalAlignment="Center" />
                                             <!-- 形は呼ばれ方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
                                             <Button Content="×" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
-                                                    Background="Transparent" BorderThickness="0" Foreground="#28507f"
+                                                    Background="Transparent" BorderThickness="0" Foreground="{StaticResource AccentText}"
                                                     ToolTip="この値を外す"
                                                     AutomationProperties.Name="{Binding Text, StringFormat={}{0}を外す}"
                                                     Command="{Binding RemoveCommand}" />
@@ -384,7 +377,7 @@
                                                   ToolTip="お気に入りのショップをすべて選んだのと同じに絞ります。"
                                                   Visibility="{Binding HasInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock FontSize="12" Foreground="{StaticResource Text}">
-                                                <Run Text="★" Foreground="#d99a00" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
+                                                <Run Text="★" Foreground="{StaticResource Star}" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
                                             </TextBlock>
                                         </CheckBox>
                                         <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
@@ -885,7 +878,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Border BorderBrush="{StaticResource BorderStrong}" BorderThickness="1" CornerRadius="6"
-                            Height="34" HorizontalAlignment="Stretch" Background="White">
+                            Height="34" HorizontalAlignment="Stretch" Background="{StaticResource InputBack}">
                         <Grid>
                             <TextBox x:Name="QueryBox" MaxLength="500" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      BorderThickness="0" VerticalContentAlignment="Center" Padding="10,0,34,0"
@@ -997,7 +990,7 @@
                                 BorderThickness="1" CornerRadius="9" Padding="8,1" Margin="12,0,0,0"
                                 VerticalAlignment="Center"
                                 Visibility="{Binding HasWidened, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBlock Text="{Binding WidenedText}" FontSize="11" Foreground="#28507f"
+                            <TextBlock Text="{Binding WidenedText}" FontSize="11" Foreground="{StaticResource AccentText}"
                                        TextTrimming="CharacterEllipsis" MaxWidth="420" />
                         </Border>
                         <!-- なぜこの結果になったかを結果の隣で読めるようにする。幅が足りなければ省略して縮む（全文は吹き出し） -->

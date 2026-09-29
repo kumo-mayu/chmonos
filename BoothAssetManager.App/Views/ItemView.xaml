@@ -229,7 +229,7 @@
                                             </Button.Template>
                                             <DockPanel>
                                                 <Border DockPanel.Dock="Left" Width="160" Height="90" CornerRadius="4" ClipToBounds="True"
-                                                        Background="#e9edf4" Margin="0,0,12,0">
+                                                        Background="{StaticResource ImageBack}" Margin="0,0,12,0">
                                                     <Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill" />
                                                 </Border>
                                                 <StackPanel VerticalAlignment="Center">
@@ -265,7 +265,7 @@
                                     <DataTemplate>
                                         <Border Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentBorder}"
                                                 BorderThickness="1" CornerRadius="6" Padding="10,3" Margin="0,0,6,6">
-                                            <TextBlock Text="{Binding Top}" FontSize="12" Foreground="#28507f" />
+                                            <TextBlock Text="{Binding Top}" FontSize="12" Foreground="{StaticResource AccentText}" />
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -302,7 +302,7 @@
                                 </ItemsControl>
                             </Expander>
 
-                            <Border Height="1" Background="#f0f1f4" Margin="0,10,0,14" />
+                            <Border Height="1" Background="{StaticResource Divider}" Margin="0,10,0,14" />
 
                             <!--
                                 お気に入りの星は商品名の先頭（ユーザ指示 2026-09-12。以前は右＝U21）。編集画面も同じ位置。
@@ -321,7 +321,7 @@
                                                 <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                        <Setter Property="Foreground" Value="#d99a00" />
+                                                        <Setter Property="Foreground" Value="{StaticResource Star}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -406,7 +406,7 @@
                                           Visibility="{Binding IsVariationsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="18,12">
+                                        <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="18,12">
                                             <Grid>
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal">
@@ -457,7 +457,7 @@
                                                 <ColumnDefinition Width="38" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextAlignment="Right" Margin="0,0,10,0" />
-                                            <Border Grid.Column="1" Height="8" CornerRadius="4" Background="#f0f1f4">
+                                            <Border Grid.Column="1" Height="8" CornerRadius="4" Background="{StaticResource BarTrack}">
                                                 <Border Height="8" CornerRadius="4" Background="{StaticResource Accent}"
                                                         Width="{Binding BarWidth}" HorizontalAlignment="Left" />
                                             </Border>
@@ -499,7 +499,7 @@
                             <StackPanel Visibility="{Binding ShowsMemoEditor, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                 <TextBlock Text="未設定。右の欄で書けます。" Style="{StaticResource Caption}"
                                            Visibility="{Binding HasMemo, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="#f0f1f4" BorderThickness="1"
+                                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Divider}" BorderThickness="1"
                                         CornerRadius="6" Padding="12,10"
                                         Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <RichTextBox Style="{StaticResource SelectableBody}"
@@ -552,7 +552,7 @@
                                           Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:UsedInModificationRowViewModel}">
-                                        <Border BorderBrush="#f0f1f4" BorderThickness="0,0,0,1" Padding="0,8">
+                                        <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1" Padding="0,8">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />

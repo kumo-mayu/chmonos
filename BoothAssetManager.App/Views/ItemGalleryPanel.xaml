@@ -15,7 +15,7 @@
     -->
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <StackPanel>
-                            <Grid Height="420" Background="#e9edf4">
+                            <Grid Height="420" Background="{StaticResource ImageBack}">
                                 <!--
                                     絵を送る矢印。**普段は出さない。**
                                     常に置いておくと絵の上に黒い箱が居座るので、
@@ -36,7 +36,7 @@
                                         -->
                                         <Setter Property="Width" Value="90" />
                                         <Setter Property="FontSize" Value="26" />
-                                        <Setter Property="Foreground" Value="White" />
+                                        <Setter Property="Foreground" Value="{StaticResource OnImage}" />
                                         <Setter Property="VerticalAlignment" Value="Stretch" />
                                         <Setter Property="Cursor" Value="Hand" />
 
@@ -64,14 +64,14 @@
                                                                 字にだけ影を付ければ、明るい絵でも輪郭が残る
                                                             -->
                                                             <TextBlock.Effect>
-                                                                <DropShadowEffect Color="Black" BlurRadius="6"
+                                                                <DropShadowEffect Color="{StaticResource GlyphShadowColor}" BlurRadius="6"
                                                                                   ShadowDepth="0" Opacity="0.7" />
                                                             </TextBlock.Effect>
                                                         </TextBlock>
                                                     </Border>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="Face" Property="Background" Value="#2b000000" />
+                                                            <Setter TargetName="Face" Property="Background" Value="{StaticResource ImageHoverShade}" />
                                                             <Setter TargetName="Glyph" Property="Opacity" Value="1" />
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
@@ -148,9 +148,9 @@
                                            HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" MaxWidth="380"
                                            IsHitTestVisible="False" />
 
-                                <Border Background="#99000000" CornerRadius="9" Padding="8,2"
+                                <Border Background="{StaticResource ImageScrim}" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
-                                    <TextBlock Text="{Binding GalleryCounter}" Foreground="White" FontSize="11" />
+                                    <TextBlock Text="{Binding GalleryCounter}" Foreground="{StaticResource OnImage}" FontSize="11" />
                                     <!-- 2枚以上のときだけ出す（0枚は文字の無い黒い丸、1枚は「1 / 1」が常に出ていた・U11 と同じ決まり） -->
                                     <Border.Style>
                                         <Style TargetType="Border">
@@ -164,10 +164,10 @@
                                 </Border>
 
                                 <!-- いまサムネイルに使っている1枚。検索カードに出る絵がどれか分かるように -->
-                                <Border Background="#cc3767a6" CornerRadius="9" Padding="8,2"
+                                <Border Background="{StaticResource AccentOverlay}" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
                                         Visibility="{Binding CurrentIsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <TextBlock Text="サムネイル" Foreground="White" FontSize="11" />
+                                    <TextBlock Text="サムネイル" Foreground="{StaticResource OnAccent}" FontSize="11" />
                                 </Border>
 
                                 <!--
@@ -212,7 +212,7 @@
                                                 クリックなら待たずに即座に切り替わる。
                                             -->
                                             <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
-                                                    Background="#eef0f2" Cursor="Hand"
+                                                    Background="{StaticResource ThumbBack}" Cursor="Hand"
                                                     Visibility="{Binding IsImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                     MouseEnter="OnThumbnailMouseEnter"
                                                     MouseLeave="OnThumbnailMouseLeave"
@@ -235,9 +235,9 @@
                                                     <Image Source="{Binding Image}" Stretch="Uniform" />
 
                                                     <!-- BOOTH側から消えた画像は控えめに示す -->
-                                                    <Border Background="#66000000"
+                                                    <Border Background="{StaticResource ImageScrimLight}"
                                                             Visibility="{Binding IsOrphaned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="削除済" Foreground="White" FontSize="9"
+                                                        <TextBlock Text="削除済" Foreground="{StaticResource OnImage}" FontSize="9"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" />
                                                     </Border>
 
@@ -249,10 +249,10 @@
                                                         角の小さな札にする。★（サムネイル）と対になり、
                                                         絵がいちばん見える。
                                                     -->
-                                                    <Border Background="{StaticResource Good}" CornerRadius="0,4,0,0"
+                                                    <Border Background="{StaticResource GoodFill}" CornerRadius="0,4,0,0"
                                                             Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                                                             Visibility="{Binding IsUserAdded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="自分" Foreground="White" FontSize="8.5" />
+                                                        <TextBlock Text="自分" Foreground="{StaticResource OnAccent}" FontSize="8.5" />
                                                     </Border>
 
                                                     <!--
@@ -262,17 +262,17 @@
                                                         出すと全タイルが札で埋まる。空いている右下に置くので
                                                         「自分」（左下）と★（右上）とも重ならない
                                                     -->
-                                                    <Border Background="{StaticResource Accent}" CornerRadius="4,0,0,0"
+                                                    <Border Background="{StaticResource AccentFill}" CornerRadius="4,0,0,0"
                                                             Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                                             Visibility="{Binding HasRoleLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="{Binding RoleLabel}" Foreground="White" FontSize="8.5" />
+                                                        <TextBlock Text="{Binding RoleLabel}" Foreground="{StaticResource OnAccent}" FontSize="8.5" />
                                                     </Border>
 
                                                     <!-- サムネイルに指名した1枚 -->
-                                                    <Border Background="{StaticResource Accent}" CornerRadius="0,0,0,4"
+                                                    <Border Background="{StaticResource AccentFill}" CornerRadius="0,0,0,4"
                                                             Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top"
                                                             Visibility="{Binding IsPinned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="★" Foreground="White" FontSize="9" />
+                                                        <TextBlock Text="★" Foreground="{StaticResource OnAccent}" FontSize="9" />
                                                     </Border>
                                                 </Grid>
                                             </Button>

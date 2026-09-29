@@ -202,7 +202,7 @@
             <Button.ToolTip>
                 <ToolTip Padding="8" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}">
                     <StackPanel Width="180">
-                        <Border Width="180" Height="180" CornerRadius="6" Background="#edeff3" ClipToBounds="True" Margin="0,0,0,8"
+                        <Border Width="180" Height="180" CornerRadius="6" Background="{StaticResource ThumbBack}" ClipToBounds="True" Margin="0,0,0,8"
                                 Visibility="{Binding HasHoverImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Image Source="{Binding HoverImage}" Stretch="Uniform" />
                         </Border>
