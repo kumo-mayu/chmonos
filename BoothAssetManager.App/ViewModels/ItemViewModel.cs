@@ -423,6 +423,14 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </remarks>
     private void ReplaceSelf(ItemRecord? updated, string? awayText = null)
     {
+        // 検索の一覧は読み込んだ写しを持っている。取り直し・フォルダの登録を外す・外したファイルを戻すの結果は、
+        // 知らせないと全件の読み直しまでカードと所持・容量の絞り込みに出なかった（点検 2026-09-29）。
+        // ここは開き直すどの道も通るので、1か所で知らせる。消えた商品は、呼ぶ側が全件を読み直してある
+        if (updated is not null)
+        {
+            _main.Search.NoteItemChanged(updated);
+        }
+
         if (Replaced is { } replaced)
         {
             // 知らせるかは差し替えの前に聞く（持ち主が差し替えると、このページは出ていないことになる）。
@@ -1112,13 +1120,31 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// </summary>
     private async Task SaveLocalAsync(LocalBlock local, IReadOnlyCollection<LocalField> owns)
     {
-        await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(Item.Id, local, owns));
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new UiCommand.SaveItemLocal(Item.Id, local, owns));
+            if (result is CommandResult.Failed failed)
+            {
+                RefreshStatus = failed.Message;
+            }
+        }
+        catch (Exception exception)
+        {
+            // 命令は書けなかった例外（ファイルを掴まれた・ドライブが外れた）をそのまま投げ、入口は Forget() でログに残すだけなので、
+            // 対応アバターを消した・足したのに何も起きなかったように見えた（b94dd15 と同じ直し）。
+            // 書けなくても下で読み直す：見た目を保存した値に合わせる
+            Core.Diagnostics.AppLog.Error("商品ページの保存", exception);
+            RefreshStatus = $"保存できませんでした。{Core.Services.FailureText.Cause(exception)}";
+        }
 
         var reloaded = await _services.Store.Items.LoadAsync(Item.Id);
         if (reloaded is not null)
         {
             Item = reloaded;
             BuildAvatars();
+
+            // 検索の一覧は読み込んだ写しを持っている。知らせないと、戻っても対応アバターの絞り込みに出ない（メモの保存と同じ）
+            _main.Search.NoteItemChanged(reloaded);
         }
     }
 
