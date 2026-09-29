@@ -136,27 +136,12 @@ public sealed partial class SearchViewModel
     /// <summary>
     /// 1件を保存し直したことを知る（編集画面の「保存して次へ」）。写しの1件・検索用の文字列・カードだけを差し替え、
     /// 一覧ごとは読み直さない（全件の読み直しは2000件で重い）。
-    /// これでナビの「未:」がその場で減る（ユーザ指示 2026-09-12：以前は編集を終えるまで減らなかった）
+    /// これでナビの「未:」がその場で減る（ユーザ指示 2026-09-12：以前は編集を終えるまで減らなかった）。
+    /// 全件の読み直しの最中なら覚えておき、読み直しが写しを差し替えた後に当て直す（<see cref="_notedSinceLoad"/>）
     /// </summary>
-    /// <summary>
-    /// 全件の読み直しの最中に1件を差し替えた・足したら、その読み直しが終わった後にもう1周させる。
-    ///
-    /// 読み直しは初めにファイルを全部読み、裏で並べ替えと検索用の文字列を作ってから写しを丸ごと差し替える。
-    /// その間に編集画面で保存した1件の差し替えは、読み直しが先に読んだ古い中身で上書きされ、次に読み直すまで古いまま残った
-    /// （大量の未編集を片付けているときに、保存した一部が検索に出ない・「未:」が減らない、と報告された。取り込みの最中は10秒ごとに読み直すので重なりやすい）。
-    /// もう1周はファイルから読み直すので、保存した中身が入る。重なったときだけで、1周は裏で数百ms
-    /// </summary>
-    private void AskReloadAgainIfReloading()
-    {
-        if (_reloadGate.CurrentCount == 0)
-        {
-            _reloadAgain = true;
-        }
-    }
-
     public void NoteItemChanged(ItemRecord item)
     {
-        AskReloadAgainIfReloading();
+        RememberNoted(item);
 
         var index = _allItems.FindIndex(entry => entry.Id == item.Id);
         if (index < 0)
@@ -189,11 +174,11 @@ public sealed partial class SearchViewModel
     /// 前は画面を離れるまで検索に出なかった。登録のたびに全件を読み直すと2000件で数秒待つので、1件だけを写しの並び
     /// （<see cref="Core.Services.ItemOrder.Library"/>。読み込みと同じ決まり）の位置へ足し、検索用の文字列とカードを作って絞り込みをかけ直す。
     /// 件数（ナビの「商品 n 件」）は <see cref="TotalCount"/> の知らせで主画面が合わせる。
-    /// 読み直しの途中に足した分は、読み直しが読んだ時点の一覧で上書きされることがあるので、その読み直しの後にもう1周させる
+    /// 読み直しの途中に足した分は、読み直しが読んだ時点の一覧で上書きされることがあるので、読み直しの後に当て直す（<see cref="_notedSinceLoad"/>）
     /// </summary>
     public void NoteItemSaved(ItemRecord item)
     {
-        AskReloadAgainIfReloading();
+        RememberNoted(item);
 
         if (_itemsById.ContainsKey(item.Id))
         {

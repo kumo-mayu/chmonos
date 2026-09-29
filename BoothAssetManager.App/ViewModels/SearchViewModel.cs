@@ -388,6 +388,26 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
 
     private bool _reloadAgain;
 
+    /// <summary>
+    /// 読み直しがファイルを読み始めてから、1件の差し替え・足し（<see cref="NoteItemChanged"/>・<see cref="NoteItemSaved"/>）で
+    /// 変えた商品。読み直しの最中だけ持つ（null なら読み直していない）。
+    ///
+    /// 読み直しは初めにファイルを全部読み、裏で並べ替えと検索用の文字列を作ってから写しを丸ごと差し替える。
+    /// その間に編集画面で保存した1件は、読み直しが先に読んだ古い中身で上書きされ、次に読み直すまで古いまま残った
+    /// （大量の未編集を片付けているときに、保存した一部が検索に出ない・「未:」が減らない、と報告された）。
+    /// 差し替え終えたところで、ここに覚えた商品を当て直す。覚えた中身は保存の直後にファイルから読んだ物で、
+    /// 読み直しが読んだ物より後なので新しい（ユーザ判断 2026-09-29：もう1周読み直すより、新しい方を残す）
+    /// </summary>
+    private Dictionary<string, ItemRecord>? _notedSinceLoad;
+
+    private void RememberNoted(ItemRecord item)
+    {
+        if (_notedSinceLoad is { } noted)
+        {
+            noted[item.Id] = item;
+        }
+    }
+
     public async Task ReloadAsync()
     {
         if (!await _reloadGate.WaitAsync(0))
@@ -414,6 +434,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     private async Task ReloadCoreAsync()
     {
         IsLoading = true;
+
+        // 読む前に覚え始める（読んだ後に始めると、読んでから覚え始めるまでの間の保存を取りこぼす）
+        _notedSinceLoad = new Dictionary<string, ItemRecord>(StringComparer.Ordinal);
         try
         {
             var loaded = await _services.Store.Items.LoadAllAsync();
@@ -491,6 +514,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 return (sortedItems, haystacks, fingerprints, pending, imageStamps, presence);
             });
 
+            var noted = _notedSinceLoad;
             _allItems = sorted;
             var byId = new Dictionary<string, ItemRecord>(sorted.Count, StringComparer.Ordinal);
             foreach (var item in sorted)
@@ -564,12 +588,26 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                 OnPropertyChanged(nameof(ShopCount));
                 OnPropertyChanged(nameof(NeedsEditCount));
 
+                // 読み直しの最中に保存した商品を、保存した中身で当て直す（読み直しが読んだ古い中身を残さない）。
+                // 入れ物は差し替える前に受け取っておく——別のスレッドから呼ばれたときはここが後回しになり、
+                // 先に finally が覚えるのをやめるため
+                if (noted is { Count: > 0 })
+                {
+                    // 当て直しの中でも覚える（その入れ物がまだ生きていれば書き足す）ので、写しを取ってから回す
+                    foreach (var item in noted.Values.ToList())
+                    {
+                        NoteItemSaved(item);
+                    }
+                }
+
                 // 全件の読み込みと検索対象の文字列作りが出したゴミを、ここでOSへ返させる（#71）
                 BoothAssetManager.App.Services.MemoryTrim.Request();
             });
         }
         finally
         {
+            // 読めずに抜けたときも覚えるのをやめる（1件の差し替えはもう写しに入っている）
+            _notedSinceLoad = null;
             IsLoading = false;
         }
     }
