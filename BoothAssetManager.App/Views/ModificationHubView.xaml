@@ -713,17 +713,60 @@
                 <!-- 今どの画面にいるかを、ほかの画面の上の帯と同じく太字の名前で出す（ユーザ指示 2026-09-14） -->
                 <TextBlock DockPanel.Dock="Top" Text="改変" FontWeight="Bold" Margin="16,16,16,0" />
                 <StackPanel DockPanel.Dock="Top" Margin="16,10,16,8">
-                    <DockPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <!--
-                            VCC は起動するだけ（中身の管理はしない・ユーザ仕様）。Unityプロジェクトの見方の時だけ、
-                            切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）
+                            VCC・ALCOM は起動するだけ（中身の管理はしない・ユーザ仕様）。Unityプロジェクトの見方の時だけ、
+                            切り替えの右に出す（ユーザ指示 2026-09-13。検索欄の横に並べると、何に効くボタンか分かりにくかった）。
+                            入っている方だけを出し、両方あれば並べる（ユーザと決めた形 2026-09-29）。2つだと切り替えと1段に
+                            収まらないので、そのときだけ下の段の右に並べる（ProjectManagerButtonsOnOwnRow）
                         -->
-                        <Button DockPanel.Dock="Right" Content="VCCを開く" Style="{StaticResource SmallButton}" Margin="8,0,0,0" VerticalAlignment="Center"
-                                Command="{Binding OpenVccCommand}" IsEnabled="{Binding CanOpenVcc}"
-                                ToolTip="{Binding VccHint}" ToolTipService.ShowOnDisabled="True"
-                                AutomationProperties.HelpText="{Binding VccHint}"
-                                Visibility="{Binding IsProjectLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Surface}"
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                    Visibility="{Binding IsProjectLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Grid.Row" Value="0" />
+                                    <Setter Property="Grid.Column" Value="1" />
+                                    <Setter Property="Margin" Value="8,0,0,0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ProjectManagerButtonsOnOwnRow}" Value="True">
+                                            <Setter Property="Grid.Row" Value="1" />
+                                            <Setter Property="Grid.Column" Value="0" />
+                                            <Setter Property="Grid.ColumnSpan" Value="2" />
+                                            <Setter Property="HorizontalAlignment" Value="Right" />
+                                            <Setter Property="Margin" Value="0,8,0,0" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Button Content="VCCを開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                    Command="{Binding OpenVccCommand}" IsEnabled="{Binding CanOpenVcc}"
+                                    ToolTip="{Binding VccHint}" ToolTipService.ShowOnDisabled="True"
+                                    AutomationProperties.HelpText="{Binding VccHint}"
+                                    Visibility="{Binding ShowVccButton, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <Button Content="ALCOMを開く" VerticalAlignment="Center"
+                                    Command="{Binding OpenAlcomCommand}"
+                                    ToolTip="{Binding AlcomHint}" AutomationProperties.HelpText="{Binding AlcomHint}"
+                                    Visibility="{Binding ShowAlcomButton, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ShowVccButton}" Value="True">
+                                                <Setter Property="Margin" Value="8,0,0,0" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                        <Border Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Surface}"
                                 BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Content="Unityプロジェクト" Style="{StaticResource HubSegment}"
@@ -748,7 +791,7 @@
                                 </RadioButton>
                             </StackPanel>
                         </Border>
-                    </DockPanel>
+                    </Grid>
 
                     <!-- 「読み直す」のボタンは置かない。窓が手前に戻るたびに読み直す（ユーザ判断 2026-09-13） -->
                     <DockPanel Margin="0,12,0,0">

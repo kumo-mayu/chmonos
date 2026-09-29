@@ -9,16 +9,25 @@ public sealed partial class ModificationHubViewModel
 
     private void OpenVcc()
     {
-        Status = VccLaunch.Open() switch
-        {
-            VccOpenResult.Launched => "VCCを起動しました。",
-            VccOpenResult.BroughtToFront => "VCCは開いていたので、手前に出しました。",
-            VccOpenResult.AlreadyOpenNotFront =>
-                "VCCは開いています。手前に出せなかったので、タスクバーのVCCを押して切り替えてください。",
-            VccOpenResult.NotInstalled => VccMissingText,
-            _ => "VCCを起動できませんでした。スタートメニューから開いてみてください。",
-        };
+        Status = OpenResultText(VccLaunch.Open(), "VCC");
     }
+
+    private void OpenAlcom()
+    {
+        Status = OpenResultText(AlcomLaunch.Open(), "ALCOM");
+    }
+
+    /// <summary>VCC と ALCOM で同じ結果を同じ文で言う（どちらも起動するだけで、結果の種類が同じ）。</summary>
+    internal static string OpenResultText(AppOpenResult result, string app) => result switch
+    {
+        AppOpenResult.Launched => $"{app}を起動しました。",
+        AppOpenResult.BroughtToFront => $"{app}は開いていたので、手前に出しました。",
+        AppOpenResult.AlreadyOpenNotFront =>
+            $"{app}は開いています。手前に出せなかったので、タスクバーの{app}を押して切り替えてください。",
+        // 画面を開いたときにはあったが、押すまでの間に消された（アンインストールなど）
+        AppOpenResult.NotInstalled => $"{app}が見つかりませんでした。{app}を入れ直すと、ここから開けます。",
+        _ => $"{app}を起動できませんでした。スタートメニューから開いてみてください。",
+    };
 
     /// <summary>プロジェクトを開く。**結果を必ず言う**（開いていたら手前に出るだけで、何も起きなかったように見える）。</summary>
     private void OpenProject(string? path)
