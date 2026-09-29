@@ -142,6 +142,21 @@ public sealed partial class MainViewModel
             }
         }).Forget();
 
+    /// <summary>手元に無くなった商品の「最近」の足跡を落とす（<see cref="Services.RecentTracker.PruneMissingItemsAsync"/>）。通信しない。</summary>
+    private void PruneRecent()
+        => Task.Run(async () =>
+        {
+            try
+            {
+                var dropped = await _services.Recent.PruneMissingItemsAsync();
+                Core.Services.UiTrace.Write("速さ", $"起動時の片付け：無い商品の足跡 {dropped} 行を消した");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Core.Diagnostics.AppLog.Error("起動時の裏の作業：最近の足跡の整理", exception);
+            }
+        }).Forget();
+
     /// <summary>裏の作業の1段。落ちてもログに残して次の段へ進む。止まるのは閉じたとき（取り消し）だけ。</summary>
     private async Task RunBackgroundStageAsync(string name, Func<Task> stage)
     {

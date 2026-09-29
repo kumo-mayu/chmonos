@@ -50,6 +50,35 @@ public sealed class RecentTracker
         }
     }
 
+    /// <summary>
+    /// 手元に無くなった商品の行を落とす。起動時に裏で1回（ユーザ判断 2026-09-29）。
+    ///
+    /// 落とす関数（<see cref="RecentActivity.KeepOnly"/>）はあったが、どこからも呼ばれておらず、
+    /// 消した商品・IDを変えた元の商品の行が残り続けていた（1商品1行なので、消すほど少しずつ溜まる）。
+    /// **在るかは錠の中で1行ずつ見る**：先に商品の一覧を読んでから落とすと、その間に取り込みが作った商品の行を落とし得る。
+    /// 行は商品を保存した後にしか書かれないので、錠の中で在るかを見れば取り違えない。落とす物が無ければ書かない。
+    /// 通信しないので、裏の取得を設定で切っていても行う
+    /// </summary>
+    /// <returns>落とした行の数。</returns>
+    public async Task<int> PruneMissingItemsAsync()
+    {
+        await Core.Storage.StoreWriteGate.WaitAsync();
+
+        var dropped = 0;
+        await _store.Recent.TryUpdateAsync(log =>
+        {
+            var present = log.Entries
+                .Select(entry => entry.ItemId)
+                .Distinct(StringComparer.Ordinal)
+                .Where(_store.Items.Exists)
+                .ToHashSet(StringComparer.Ordinal);
+            var kept = RecentActivity.KeepOnly(log.Entries, present);
+            dropped = log.Entries.Count - kept.Count;
+            return dropped == 0 ? null : new RecentLog { Entries = kept };
+        });
+        return dropped;
+    }
+
     /// <summary>その種類の時刻を商品IDから引ける形で返す。並べ替えのために読む。</summary>
     public IReadOnlyDictionary<string, DateTimeOffset> Times(RecentKind kind)
     {
