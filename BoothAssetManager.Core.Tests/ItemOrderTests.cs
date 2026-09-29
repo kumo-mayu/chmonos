@@ -269,4 +269,52 @@ public sealed class ItemOrderTests
 
         Assert.Equal(["a", "b", "c"], Ids(ItemOrder.ByAcquired(items, descending: true)));
     }
+
+    // ---- 検索の写しの並びと、未確定で登録した1件を足す位置（ユーザ判断 2026-09-29） ----
+
+    /// <summary>写しの並び：入手日の新しい順、入手日が無い物は後ろ、同じ日は名前順。</summary>
+    [Fact]
+    public void 写しは入手日の新しい順で無い物は後ろ()
+    {
+        var items = new[]
+        {
+            Item("none"),
+            Item("old", acquired: new DateOnly(2025, 1, 1)),
+            Item("new-b", acquired: new DateOnly(2026, 9, 1)),
+            Item("new-a", acquired: new DateOnly(2026, 9, 1)),
+        };
+
+        Assert.Equal(["new-a", "new-b", "old", "none"], Ids(ItemOrder.LibraryOrder(items)));
+    }
+
+    /// <summary>
+    /// 1件を足す位置は、足した後で全件を並べ直したのと同じ並びになる（読み直す前と後で並びが変わらない）。
+    /// 入手日の無い物（未確定で登録した直後の商品）・間の日付・先頭・同じ日の名前の間のどれでも。
+    /// </summary>
+    [Theory]
+    [InlineData("added", null)]
+    [InlineData("added", "2025-06-01")]
+    [InlineData("added", "2027-01-01")]
+    [InlineData("new-aa", "2026-09-01")]
+    [InlineData("zzz", "2025-01-01")]
+    public void 足す位置は並べ直したのと同じ(string id, string? acquired)
+    {
+        var sorted = ItemOrder.LibraryOrder(
+        [
+            Item("none"),
+            Item("old", acquired: new DateOnly(2025, 1, 1)),
+            Item("new-b", acquired: new DateOnly(2026, 9, 1)),
+            Item("new-a", acquired: new DateOnly(2026, 9, 1)),
+        ]);
+        var added = Item(id, acquired: acquired is null ? null : DateOnly.Parse(acquired, System.Globalization.CultureInfo.InvariantCulture));
+
+        var inserted = sorted.ToList();
+        inserted.Insert(ItemOrder.LibraryInsertIndex(sorted, added), added);
+
+        Assert.Equal(Ids(ItemOrder.LibraryOrder([.. sorted, added])), Ids(inserted));
+    }
+
+    [Fact]
+    public void 空の写しには先頭に足す()
+        => Assert.Equal(0, ItemOrder.LibraryInsertIndex([], Item("a")));
 }

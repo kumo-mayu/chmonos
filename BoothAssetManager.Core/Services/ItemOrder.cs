@@ -13,6 +13,46 @@ namespace BoothAssetManager.Core.Services;
 /// </summary>
 public static class ItemOrder
 {
+    /// <summary>
+    /// 検索の写し（全件を読み込んだ一覧）の並び：入手日の新しい順、入手日が無い物は後ろ、同じ日は名前順。
+    /// 画面に出す並びは絞り込みのたびに選んだ項目で並べ直すので、これは写しの持ち方の決まり。
+    /// 読み込みと、未確定で登録した1件をその場で足す所（<see cref="LibraryInsertIndex"/>）が同じ決まりを使うためにここに置く
+    /// （ずれると、読み直す前と後で並びが変わる）。
+    /// </summary>
+    public static IComparer<ItemRecord> Library { get; } = Comparer<ItemRecord>.Create((left, right) =>
+    {
+        var byDate = (right.Local.AcquiredAt ?? DateOnly.MinValue).CompareTo(left.Local.AcquiredAt ?? DateOnly.MinValue);
+        return byDate != 0 ? byDate : StringComparer.CurrentCulture.Compare(left.DisplayName, right.DisplayName);
+    });
+
+    /// <summary>検索の写しの並びに並べる（<see cref="Library"/>。同じ順位の物は元の順を保つ）。</summary>
+    public static List<ItemRecord> LibraryOrder(IEnumerable<ItemRecord> items)
+        => items.OrderBy(item => item, Library).ToList();
+
+    /// <summary>
+    /// 写しの並び（<see cref="Library"/>）に並んだ一覧へ1件を足すときの位置。同じ順位の物の後ろ。
+    /// 並びを崩さずに足せるので、全件を読み直さずに済む（2000件の読み直しは数秒）。
+    /// </summary>
+    public static int LibraryInsertIndex(IReadOnlyList<ItemRecord> sorted, ItemRecord item)
+    {
+        var low = 0;
+        var high = sorted.Count;
+        while (low < high)
+        {
+            var middle = (low + high) / 2;
+            if (Library.Compare(sorted[middle], item) <= 0)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
+    }
+
     /// <summary>名前の読みの順。</summary>
     public static IEnumerable<ItemRecord> ByName(IEnumerable<ItemRecord> items, bool descending, NameCollation? names = null)
     {

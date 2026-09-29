@@ -279,14 +279,9 @@ public sealed partial class ResolveViewModel
                 return;
             }
 
-            if (!_settledItemIds.Contains(Preview.Id))
-            {
-                _settledItemIds.Add(Preview.Id);
-            }
-
-            // itemの中身が変わったので、持ち回っているライブラリも読み直す。
-            // これをしないと商品ページに登録したフォルダが出てこない
-            await _main.ReloadLibraryAsync();
+            // itemの中身が変わったので、持ち回っているライブラリの写しにもその1件を当てる。
+            // これをしないと商品ページに登録したフォルダが出てこない。全件は読み直さない（2000件で数秒。確定のたびに重ねると固まる）
+            await NoteSettledAsync(Preview.Id);
 
             await ReloadAsync();
             StatusText = $"「{RegisterTargetName}」を登録しました。配下の未確定は一覧から外れます。";

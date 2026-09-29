@@ -163,4 +163,38 @@ public sealed partial class SearchViewModel
         ApplyFilters();
         OnPropertyChanged(nameof(NeedsEditCount));
     }
+
+    /// <summary>
+    /// 未確定で登録した商品を知る（ユーザ判断 2026-09-29）。写しに無ければ1件だけ足し、あれば <see cref="NoteItemChanged"/> で差し替える
+    /// （既にある商品へファイルを足しただけのとき）。
+    ///
+    /// 前は画面を離れるまで検索に出なかった。登録のたびに全件を読み直すと2000件で数秒待つので、1件だけを写しの並び
+    /// （<see cref="Core.Services.ItemOrder.Library"/>。読み込みと同じ決まり）の位置へ足し、検索用の文字列とカードを作って絞り込みをかけ直す。
+    /// 件数（ナビの「商品 n 件」）は <see cref="TotalCount"/> の知らせで主画面が合わせる。
+    /// 読み直しの途中に足した分は、読み直しが読んだ時点の一覧で上書きされることがある。そのときは未確定の画面を離れるときの読み直しが拾う
+    /// </summary>
+    public void NoteItemSaved(ItemRecord item)
+    {
+        if (_itemsById.ContainsKey(item.Id))
+        {
+            NoteItemChanged(item);
+            return;
+        }
+
+        _allItems.Insert(Core.Services.ItemOrder.LibraryInsertIndex(_allItems, item), item);
+        _itemsById[item.Id] = item;
+        _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
+        _fingerprints.Remove(item.Id);
+
+        var card = ToCard(item);
+        card.SelectionChanged += OnCardSelectionChanged;
+        _cards[item.Id] = card;
+
+        // 新しいショップ・カテゴリ・BOOTHタグを絞り込みの候補に出す（読み直しと同じく全件から組み直す）
+        BuildFacets();
+        ApplyFilters();
+        OnPropertyChanged(nameof(TotalCount));
+        OnPropertyChanged(nameof(ShopCount));
+        OnPropertyChanged(nameof(NeedsEditCount));
+    }
 }
