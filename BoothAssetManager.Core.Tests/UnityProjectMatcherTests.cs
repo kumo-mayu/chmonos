@@ -27,9 +27,8 @@ public sealed class UnityProjectMatcherTests
     private static IReadOnlyList<UnityProjectMatch> Match(
         IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> items,
         Func<string, bool> exists,
-        Func<string, IEnumerable<string>>? childDirectories = null,
         IReadOnlyDictionary<string, string>? guids = null)
-        => UnityProjectMatcher.Match(Project, items, exists, childDirectories ?? (_ => []), () => guids ?? NoGuids);
+        => UnityProjectMatcher.Match(Project, items, exists, () => guids ?? NoGuids);
 
     [Fact]
     public void 入っているファイルを数えて割合で並べる()
@@ -87,18 +86,6 @@ public sealed class UnityProjectMatcherTests
     [Fact]
     public void パッケージを読めなかった商品は飛ばす()
         => Assert.Empty(Match(Items(("a", [])), Has("Assets/A/A.fbx")));
-
-    [Fact]
-    public void 入り先の頭の記号を消したプロジェクトでも入っていると数える()
-    {
-        // ショップが先頭に並べるために付けた記号（_FUKA）を、利用者が消していることがある
-        var items = Items(("a", ["Assets/_FUKA/Addon/Sound.wav", "Assets/_FUKA/Addon/Sound.mat"]));
-
-        var only = Assert.Single(Match(items,
-            Has("Assets/FUKA/Addon/Sound.wav"), _ => ["FUKA"]));
-
-        Assert.Equal((1, 2), (only.Present, only.Total));
-    }
 
     // ---- GUID で探す（2026-09-29） ----
 
@@ -162,7 +149,7 @@ public sealed class UnityProjectMatcherTests
         var items = Items(("a", ["Assets/A/A.fbx"]));
         var built = 0;
 
-        UnityProjectMatcher.Match(Project, items, Has("Assets/A/A.fbx"), _ => [], () =>
+        UnityProjectMatcher.Match(Project, items, Has("Assets/A/A.fbx"), () =>
         {
             built++;
             return NoGuids;
@@ -177,7 +164,7 @@ public sealed class UnityProjectMatcherTests
         var items = Items(("a", ["Assets/A/A.fbx", "Assets/A/B.fbx"]), ("b", ["Assets/B/C.fbx"]));
         var built = 0;
 
-        UnityProjectMatcher.Match(Project, items, Has(), _ => [], () =>
+        UnityProjectMatcher.Match(Project, items, Has(), () =>
         {
             built++;
             return NoGuids;
@@ -192,8 +179,8 @@ public sealed class UnityProjectMatcherTests
 
     private static UnityRootLocation Locate(
         string root, IReadOnlyList<UnityPackageAsset> assets, Func<string, bool> files, Func<string, bool> folders,
-        IReadOnlyDictionary<string, string>? guids = null, Func<string, IEnumerable<string>>? children = null)
-        => UnityProjectMatcher.LocateRoot(Project, root, assets, files, folders, children ?? (_ => []), () => guids ?? NoGuids);
+        IReadOnlyDictionary<string, string>? guids = null)
+        => UnityProjectMatcher.LocateRoot(Project, root, assets, files, folders, () => guids ?? NoGuids);
 
     [Fact]
     public void 入り先にパスで入っていればそのまま開く()
@@ -258,20 +245,100 @@ public sealed class UnityProjectMatcherTests
         Assert.Equal(new UnityRootLocation("Assets/FUKA", false), location);
     }
 
-    [Fact]
-    public void 頭の記号を消しただけならGUIDを見ずに読み替える()
+    // ---- 頭の記号を消したプロジェクト（2026-09-29 に GUID へ置き換えた） ----
+    // ショップが Assets の先頭に並べるために付けた記号（_FUKA）を、利用者が消していることがある（ユーザ指摘 2026-09-16）。
+    // 前は記号を外した名前で読み替えていた。今は名前を変えた物の1つとして、.meta の GUID で見つける
+
+    /// <summary>パッケージ：<c>Assets/_FUKA</c> に入る音の商品（フォルダも GUID を持つ）。</summary>
+    private static readonly IReadOnlyList<UnityPackageAsset> FukaPackage = Items(("fuka",
+        ["Assets/_FUKA", "Assets/_FUKA/Addon", "Assets/_FUKA/Addon/Sound.wav", "Assets/_FUKA/Addon/Sound.mat"]))["fuka"];
+
+    /// <summary>
+    /// <c>_FUKA</c> を <c>.meta</c> ごと <c>FUKA</c> に名前を変えたプロジェクトのディスク。
+    /// GUID の表は本物の <see cref="UnityProjectGuids"/> で、<c>.meta</c> の一覧と中身だけを差し替えて作る。
+    /// </summary>
+    private sealed class RenamedProject
     {
-        var assets = Items(("a", ["Assets/_FUKA/Addon/Sound.wav"]))["a"];
-        var built = 0;
+        public readonly Dictionary<string, string> Metas = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Assets/FUKA.meta"] = GuidOf("Assets/_FUKA"),
+            ["Assets/FUKA/Addon.meta"] = GuidOf("Assets/_FUKA/Addon"),
+            ["Assets/FUKA/Addon/Sound.wav.meta"] = GuidOf("Assets/_FUKA/Addon/Sound.wav"),
+            ["Assets/FUKA/Addon/Sound.mat.meta"] = GuidOf("Assets/_FUKA/Addon/Sound.mat"),
+        };
 
-        var location = UnityProjectMatcher.LocateRoot(Project, "Assets/_FUKA", assets,
-            Has("Assets/FUKA/Addon/Sound.wav"), HasFolder("Assets/FUKA"), _ => ["FUKA"], () =>
-            {
-                built++;
-                return NoGuids;
-            });
+        public Func<string, bool> Files => Has("Assets/FUKA/Addon/Sound.wav", "Assets/FUKA/Addon/Sound.mat");
 
-        Assert.Equal(new UnityRootLocation("Assets/FUKA", false), location);
-        Assert.Equal(0, built);
+        public Func<string, bool> Folders => HasFolder("Assets/FUKA", "Assets/FUKA/Addon");
+
+        public Func<IReadOnlyDictionary<string, string>> Guids()
+        {
+            // 更新時刻は決まった値（時計に依らない）。表は変わった .meta だけ読み直すが、ここでは1回しか作らない
+            var written = new DateTime(2026, 9, 29, 0, 0, 0, DateTimeKind.Utc);
+            var table = new UnityProjectGuids(
+                () => Metas.Keys.Select(path => new UnityMetaFile(path, written)).ToList(),
+                path => Metas.GetValueOrDefault(path));
+            return table.Current;
+        }
+    }
+
+    [Fact]
+    public void 頭の記号を消したプロジェクトでもGUIDで入っていると数える()
+    {
+        var project = new RenamedProject();
+
+        var only = Assert.Single(UnityProjectMatcher.Match(
+            Project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>> { ["fuka"] = FukaPackage }, project.Files, project.Guids()));
+
+        Assert.Equal((2, 2), (only.Present, only.Total));
+    }
+
+    [Fact]
+    public void 頭の記号を消したプロジェクトでも既に全部入っていると分かる()
+    {
+        // 連続送りの前の「既に全部入っているか」（UnityImportQueue）は、この照らし合わせの Present == Total で決める。
+        // Unity も GUID で同じ物と見て「Nothing to import!」を出す（2026-09-29 に Unity 2022.3 で確かめた）
+        var project = new RenamedProject();
+
+        var match = UnityProjectMatcher.Match(
+            Project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>> { ["fuka"] = FukaPackage }, project.Files, project.Guids()).Single();
+
+        Assert.True(match.Total > 0 && match.Present == match.Total);
+    }
+
+    [Fact]
+    public void 頭の記号を消したプロジェクトではUnityで選択が名前を変えたフォルダを開く()
+    {
+        var project = new RenamedProject();
+
+        var location = UnityProjectMatcher.LocateRoot(
+            Project, "Assets/_FUKA", FukaPackage, project.Files, project.Folders, project.Guids());
+
+        Assert.Equal(new UnityRootLocation("Assets/FUKA", true), location);
+    }
+
+    [Fact]
+    public void 頭の記号を消したフォルダのmetaが無くても中のファイルのGUIDで開く()
+    {
+        // エクスプローラで名前を変えると、フォルダの .meta（_FUKA.meta）は元の名前のまま残り、Unity が新しい GUID を振る。
+        // 中のファイルの .meta はフォルダと一緒に動くので、そこから入り先に当たるフォルダを推す
+        var project = new RenamedProject();
+        project.Metas["Assets/FUKA.meta"] = "0123456789abcdef0123456789abcdef";
+
+        var location = UnityProjectMatcher.LocateRoot(
+            Project, "Assets/_FUKA", FukaPackage, project.Files, project.Folders, project.Guids());
+
+        Assert.Equal(new UnityRootLocation("Assets/FUKA", true), location);
+    }
+
+    [Fact]
+    public void 頭の記号を消してファイルのmetaも無ければ入っていると言わない()
+    {
+        // .meta を持たずに写した物は、Unity が新しい GUID を振るので別の物になる（Unity も取り込み直す）。前の名前の読み替えなら当たっていた
+        var project = new RenamedProject();
+        project.Metas.Clear();
+
+        Assert.Empty(UnityProjectMatcher.Match(
+            Project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>> { ["fuka"] = FukaPackage }, project.Files, project.Guids()));
     }
 }

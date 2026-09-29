@@ -181,7 +181,7 @@ internal static class UnityMemberSelect
             var assets = packages.SelectMany(reads.ReadAssets).ToList();
             var matches = UnityProjectMatcher.Match(
                 project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [itemId] = assets });
-            // 入り先の頭の記号（_FUKA）を利用者が消していれば実際の名前（FUKA）で、フォルダごと移していれば GUID で見つけた今の場所で探す
+            // 利用者がフォルダを移した・名前を変えた（頭の記号 _FUKA を消したのも含む）なら、GUID で見つけた今の場所を開く
             var roots = UnityHandoff.DestinationRoots(assets.Select(asset => asset.Path));
             var location = roots.Count == 0 ? null : UnityProjectMatcher.LocateRoot(project, roots[0], assets);
             return (location, roots.FirstOrDefault(), matches.FirstOrDefault()?.Present ?? 0);
