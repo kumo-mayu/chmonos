@@ -1852,17 +1852,46 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         await _main.ReloadLibraryAsync();
     }
 
+    private bool _isRechecking;
+
     private async Task RecheckAsync()
     {
-        if (Selected is null)
+        // 問い合わせは1.5秒の間隔を空けて並ぶので数秒かかる。待つ間の2度押しで同じアバターを2回取りに行かせない
+        // （要確認の「商品情報を取り直す」と同じ・40b3863）
+        if (Selected is null || _isRechecking)
         {
             return;
         }
 
+        _isRechecking = true;
         Status = "BOOTHに問い合わせています…";
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RecheckAvatar(Selected.ItemId));
-        Status = result is Core.Commands.CommandResult.Failed failed ? failed.Message : "確認し直しました。";
-        await LoadAsync();
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new UiCommand.RecheckAvatar(Selected.ItemId));
+            if (result is CommandResult.Failed failed)
+            {
+                Status = failed.Message;
+            }
+            else
+            {
+                Status = "確認し直しました。";
+
+                // BOOTHの名前や非公開の印が変わると、検索の対応アバターの候補の名前も変わる
+                NoteRegistryChanged();
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            // 受けないと「問い合わせています…」のまま残り、止まったように見えた
+            Core.Diagnostics.AppLog.Error("アバターの画面：確認し直す", exception);
+            Status = $"確認し直せませんでした。{Core.Services.FailureText.Cause(exception)}";
+        }
+        finally
+        {
+            _isRechecking = false;
+        }
     }
 
     /// <summary>
