@@ -24,6 +24,25 @@ public sealed class ImageSyncResult
     public IReadOnlyList<string> OrphanedFiles { get; init; } = [];
 }
 
+/// <summary>ショップのアイコンを取りに行った結果。</summary>
+public enum ShopIconFetch
+{
+    /// <summary>手元にある（元から持っていた・今回保存した）。</summary>
+    Present,
+
+    /// <summary>問い合わせていない（画像を保存しない設定・URLが無い・打ち切った後）。</summary>
+    NotAsked,
+
+    /// <summary>404。BOOTH が「無い」と答えた。</summary>
+    NotFound,
+
+    /// <summary>BOOTH は答えたが、絵として読めなかった。</summary>
+    Unreadable,
+
+    /// <summary>届かない・5xx・429・手元に書けなかった。次の機会に取り直せば取れ得る。</summary>
+    TemporaryFailure,
+}
+
 /// <summary>
 /// 商品画像をローカルへ取り込む。長辺384pxのWebPに変換して <c>images/{itemId}/{URLハッシュ}.webp</c> に置く。
 ///
@@ -164,7 +183,7 @@ public sealed class ImagePipeline
         => SyncShopIconAsync(subdomain, thumbnailUrl, outage: null, cancellationToken);
 
     /// <param name="outage">
-    /// 取り込み・裏の作業の画像の段で、届かない失敗を続けて数える物（ユーザ判断 2026-09-29）。
+    /// 取り込み・裏の作業・ショップ一覧で、届かない失敗を続けて数える物（ユーザ判断 2026-09-29）。
     /// 打ち切った後は問い合わせずに false を返す（まだ取っていない扱いのまま残り、次の機会に取る）。
     /// </param>
     public async Task<bool> SyncShopIconAsync(
@@ -172,15 +191,22 @@ public sealed class ImagePipeline
         string? thumbnailUrl,
         BoothOutageWatch? outage,
         CancellationToken cancellationToken = default)
-    {
-        if (!_settings.SaveImages)
-        {
-            return false;
-        }
+        => await FetchShopIconAsync(subdomain, thumbnailUrl, outage, cancellationToken) == ShopIconFetch.Present;
 
-        if (string.IsNullOrEmpty(thumbnailUrl))
+    /// <summary>
+    /// ショップのアイコンを落とし、どうなったかを状態で返す。
+    /// 「取れなかった」を1つにまとめると、ショップ一覧が「確かめた」と控えてよい失敗（404・読めない絵）と、
+    /// 控えてはいけない失敗（届かない・一時的な不調）を分けられない（点検 2026-09-29・8）。
+    /// </summary>
+    public async Task<ShopIconFetch> FetchShopIconAsync(
+        string subdomain,
+        string? thumbnailUrl,
+        BoothOutageWatch? outage,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_settings.SaveImages || string.IsNullOrEmpty(thumbnailUrl))
         {
-            return false;
+            return ShopIconFetch.NotAsked;
         }
 
         // 取得するURLで名前を決める。商品JSON（48x48）とショップページ（128x128）の
@@ -190,30 +216,42 @@ public sealed class ImagePipeline
 
         if (File.Exists(path))
         {
-            return true;
+            return ShopIconFetch.Present;
         }
 
         if (outage is { IsStopped: true })
         {
-            return false;
+            return ShopIconFetch.NotAsked;
         }
 
         var result = await _client.GetBinaryAsync(source, cancellationToken);
         outage?.Note(result);
+
+        if (result.Status == BoothFetchStatus.NotFound)
+        {
+            return ShopIconFetch.NotFound;
+        }
+
         if (!result.IsSuccess || result.Value is null)
         {
-            return false;
+            return ShopIconFetch.TemporaryFailure;
         }
 
         try
         {
             Directory.CreateDirectory(_paths.ShopIconsDir);
             await SaveAsWebpAsync(result.Value, path, cancellationToken);
-            return true;
+            return ShopIconFetch.Present;
         }
-        catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException or IOException)
+        catch (Exception exception) when (exception is UnknownImageFormatException or InvalidImageContentException)
         {
-            return false;
+            // BOOTH は答えたが絵として読めない。すぐ取り直しても同じ物が返る
+            return ShopIconFetch.Unreadable;
+        }
+        catch (IOException)
+        {
+            // 書けなかったのは手元の都合（空きが無い・掴まれている）。BOOTH の答えとは関係が無い
+            return ShopIconFetch.TemporaryFailure;
         }
     }
 
