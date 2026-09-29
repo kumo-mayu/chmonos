@@ -80,7 +80,38 @@ var readings = new KanjiReadings(Path.Combine(assets, "kanjidic2.xml.gz"));
 var avatars = args.Contains("--no-avatars") ? null : AvatarTokens.From(registry, readings);
 Func<string, bool>? isAvatarName = avatars is null ? null : avatars.IsAvatarName;
 
+// 兄弟の zip（--siblings）。画面では未確定の一覧の同じフォルダ・同じ種類のファイルを渡すので、ここでも
+// 保存先の商品が持つ zip の**元の場所**から、同じフォルダにある zip を兄弟にする（全部が未確定だった状態の再現）。
+// 正解の商品IDではまとめない（答えを見て測ることになる）
+// 手元に無い場所として扱う（中身を読まない）ため、元のフォルダごとに temp の下の番号のフォルダへ置き換える
+var absentRoot = Path.Combine(Path.GetTempPath(), "resolve-accuracy-absent");
+var listing = args.Contains("--siblings") ? ListedPaths(storeDir, absentRoot) : null;
+string FakePath(string file) => listing is not null && listing.PathOf.TryGetValue(file, out var path)
+    ? path
+    : Path.Combine(absentRoot, file);
+var varyingCache = new Dictionary<string, IReadOnlySet<string>?>(StringComparer.OrdinalIgnoreCase);
+IReadOnlySet<string>? VaryingOf(string file)
+{
+    if (listing is null)
+    {
+        return null;
+    }
+
+    if (!varyingCache.TryGetValue(file, out var varying))
+    {
+        varyingCache[file] = varying = SiblingTokens.Varying(FakePath(file), listing.All, isAvatarName);
+    }
+
+    return varying;
+}
+
+Func<string, bool>? NotProductOf(string file) => SiblingTokens.NotProductName(avatars, VaryingOf(file));
+
 Console.WriteLine($"zip {pairs.Count} 本（重複名を除く）／登録簿 {registry.Entries.Count} 件／控え {cacheDir}\n");
+if (listing is not null)
+{
+    Console.WriteLine($"一覧 {listing.All.Count} 本／変わる語を外す: {pairs.Count(pair => VaryingOf(pair.File) is { Count: > 0 })} 本\n");
+}
 
 // 1本の中身を見る（語ごとにアバターの名前とみなしたか・並べ直しの上位）。控えにある検索だけを見る
 if (Option("--explain") is { } explain)
@@ -116,7 +147,7 @@ var rows = new List<Row>();
 
 foreach (var pair in pairs)
 {
-    var query = FileNameQuery.ToSearchQuery(pair.File, isAvatarName);
+    var query = FileNameQuery.ToSearchQuery(pair.File, NotProductOf(pair.File));
     if (query.Length == 0)
     {
         emptyQuery++;
@@ -196,7 +227,8 @@ if (doSearch)
         }
 
         queries++;
-        var ranked = await RankOfAsync(client, row.Query, row.Pair.Id, row.Pair.File, avatars);
+        var varying = VaryingOf(row.Pair.File);
+        var ranked = await RankOfAsync(client, row.Query, row.Pair.Id, row.Pair.File, avatars, varying);
         row.SearchRank = ranked.Rank;
         row.SearchCount = ranked.Count;
         row.RerankRank = ranked.Reranked;
@@ -205,10 +237,10 @@ if (doSearch)
         // 本体と同じく、並べ直した後で上位3件に来なければ引き直す
         if (ranked.Reranked is < 0 or >= 3)
         {
-            foreach (var alternate in FallbackResolver.RetryQueries(row.Pair.File, row.Query, bridge, avatars))
+            foreach (var alternate in FallbackResolver.RetryQueries(row.Pair.File, row.Query, bridge, avatars, varying))
             {
                 queries++;
-                var alt = await RankOfAsync(client, alternate, row.Pair.Id, row.Pair.File, avatars);
+                var alt = await RankOfAsync(client, alternate, row.Pair.Id, row.Pair.File, avatars, varying);
                 row.Alternates.Add($"{alternate}:{(alt.Reranked < 0 ? "-" : (alt.Reranked + 1).ToString())}({alt.Count})");
                 if (alt.Reranked is >= 0 and < 3)
                 {
@@ -258,13 +290,21 @@ if (propose is not null)
     var strongRight = 0;
     var strongWrong = 0;
     var empty = 0;
+    var missedPairs = 0;
+    var missedTop1 = 0;
     var details = new List<string>();
 
     Console.WriteLine($"\n第3部（端から端まで）標本 {sample.Count} 本");
     foreach (var pair in sample)
     {
-        var fake = Path.Combine(Path.GetTempPath(), "resolve-accuracy-absent", pair.File);
-        var candidates = (await resolver.ProposeAsync(fake)).Candidates;
+        var fake = FakePath(pair.File);
+        var missesBefore = client.Misses;
+        var candidates = (await resolver.ProposeAsync(fake, listed: listing?.All)).Candidates;
+        if (client.Misses > missesBefore)
+        {
+            missedPairs++;
+            missedTop1 += candidates.Count > 0 && candidates[0].ItemId == pair.Id ? 1 : 0;
+        }
         var index = candidates.Select(candidate => candidate.ItemId).ToList().IndexOf(pair.Id);
 
         if (candidates.Count == 0)
@@ -295,7 +335,7 @@ if (propose is not null)
         }
 
         details.Add(string.Join('\t',
-            pair.File, pair.Id, pair.ItemName, FileNameQuery.ToSearchQuery(pair.File, isAvatarName), index,
+            pair.File, pair.Id, pair.ItemName, FileNameQuery.ToSearchQuery(pair.File, NotProductOf(pair.File)), index,
             string.Join(" | ", candidates.Select(candidate =>
                 $"{(candidate.ItemId == pair.Id ? "○" : "")}{candidate.Score}点 {candidate.Name} [{string.Join("・", candidate.Reasons)}]"))));
     }
@@ -303,6 +343,7 @@ if (propose is not null)
     Console.WriteLine($"  1位が正解: {top1}/{sample.Count}　候補に正解: {listed}　候補なし: {empty}");
     Console.WriteLine($"  1位が「確度が高い」: 正解 {strongRight} ／ 外れ {strongWrong}");
     Console.WriteLine($"  BOOTH へ出た問い合わせ: {client.NetworkRequests - before} 本・控えに無く飛ばした {client.Misses} 本");
+    Console.WriteLine($"  控えに無い問い合わせを含んだ本数: {missedPairs}（うち1位が正解 {missedTop1}）");
 
     if (detailPath is not null)
     {
@@ -339,7 +380,7 @@ if (outPath is not null)
 
 /// 同じ検索結果から、BOOTHの並びでの順位と、本体と同じ並べ直しの後の順位を数える（検索1本）
 static async Task<(int Rank, int Count, int Reranked, string Top)> RankOfAsync(
-    CachingBoothClient client, string query, string itemId, string file, AvatarTokens? avatars)
+    CachingBoothClient client, string query, string itemId, string file, AvatarTokens? avatars, IReadOnlySet<string>? varying)
 {
     var result = await client.SearchAsync(query);
     if (!result.IsSuccess || result.Value is null)
@@ -349,7 +390,7 @@ static async Task<(int Rank, int Count, int Reranked, string Top)> RankOfAsync(
 
     var ids = FallbackResolver.ExtractSearchResultIds(result.Value).ToList();
     var cards = FallbackResolver.ExtractSearchCards(result.Value);
-    var reranked = cards.Count > 0 ? FallbackResolver.Rerank(cards, file, avatars).ToList() : [];
+    var reranked = cards.Count > 0 ? FallbackResolver.Rerank(cards, file, avatars, varying).ToList() : [];
     var rerankedIds = cards.Count > 0 ? reranked.Select(card => card.ItemId).ToList() : ids;
     var top = string.Join(" | ", reranked.Take(3).Select(card => $"{card.Name}@{card.ShopSubdomain}"));
     return (ids.IndexOf(itemId), ids.Count, rerankedIds.IndexOf(itemId), top);
@@ -401,6 +442,48 @@ static void MakePairs(string storeDir, string outPath)
 
     Console.WriteLine($"組 {pairs.Count} 件（zip の名前の重複を除くと {pairs.Select(pair => pair.File).Distinct(StringComparer.OrdinalIgnoreCase).Count()} 本）→ {outPath}");
 }
+
+/// <summary>
+/// 全部の zip が未確定だったときの一覧を再現する。保存先の商品が持つ zip の**元の場所**から組み（読むだけ）、
+/// 元のフォルダを temp の下の番号のフォルダに置き換える（同じフォルダの物は同じ番号）。
+/// 正解の商品IDは使わない（画面の一覧で手に入るのは場所と名前だけ）。
+/// 同じ名前の zip が2つのフォルダにあるときは、最初に見たフォルダの物を測る対象にする。
+/// </summary>
+static Listing ListedPaths(string storeDir, string absentRoot)
+{
+    var folders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    var all = new List<string>();
+    var pathOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var path in Directory.EnumerateFiles(Path.Combine(storeDir, "items"), "*.json").Order(StringComparer.Ordinal))
+    {
+        if (JsonStore.Read<ItemRecord>(path) is not { } item)
+        {
+            continue;
+        }
+
+        foreach (var filePath in item.Local.OwnedFiles.SelectMany(file => file.Paths))
+        {
+            if (!filePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || Path.GetDirectoryName(filePath) is not { } folder)
+            {
+                continue;
+            }
+
+            if (!folders.TryGetValue(folder, out var fakeFolder))
+            {
+                folders[folder] = fakeFolder = Path.Combine(absentRoot, folders.Count.ToString("D3"));
+            }
+
+            var fake = Path.Combine(fakeFolder, Path.GetFileName(filePath));
+            all.Add(fake);
+            pathOf.TryAdd(Path.GetFileName(filePath), fake);
+        }
+    }
+
+    return new Listing(all, pathOf);
+}
+
+sealed record Listing(IReadOnlyList<string> All, Dictionary<string, string> PathOf);
 
 sealed class Pair
 {
