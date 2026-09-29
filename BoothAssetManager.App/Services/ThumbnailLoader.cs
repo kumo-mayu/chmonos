@@ -254,28 +254,6 @@ public sealed class ThumbnailLoader
     /// </summary>
     private const int MaxRememberedDirectories = 512;
 
-    /// <summary>
-    /// そのフォルダに絵が1枚でもあるか。**どのスレッドからでも呼べる**（覚えた一覧は使わず、触らない）。
-    /// 検索の読み直しが、裏で「画像を取得中」の商品をまとめて見るのに使う
-    /// </summary>
-    public static bool HasAnyImage(string imageDirectory)
-    {
-        try
-        {
-            return Directory.Exists(imageDirectory) && Directory.EnumerateFiles(imageDirectory, "*.webp").Any();
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// フォルダの更新時刻（中のファイルを足す・消すと変わる）。**どのスレッドからでも呼べる。**
-    /// 検索の読み直しが、使い回すカードの絵を読み直させるかを裏でまとめて見るのに使う
-    /// </summary>
-    public static DateTime DirectoryStamp(string directory) => LastWriteOf(directory);
-
     /// <summary>フォルダの更新時刻。無ければ最小値（作られたら変わったと分かる）。</summary>
     private static DateTime LastWriteOf(string directory)
     {
