@@ -62,6 +62,12 @@ vrc-get は winget（`anatawa12.vrc-get`）・Scoop・Homebrew・cargo など。
 - vrc-get は「今は `settings.json` が正、将来の VCC は `userProjects` を消して `vcc.liteDb` が正になる」と見て、`userProjects` が無ければ写さない・書くときは必ず `userProjects` を出す作りにしている
 - `vcc.liteDb` を開くときは、LiteDB の共有エンジンと同じ名前の OS のミューテックス（`Global\<パスの小文字の SHA1>.Mutex`）を取る（`litedb.rs`）
 
+**VCC が入っていないとき**（2026-09-29 にソースで確かめた。ユーザの問い：「vccが無い場合はどうなるのでしょうか？」）：
+- 置き場所は **VCC の有無にかかわらず決め打ち**で、Windows ではいつも `%LOCALAPPDATA%\VRChatCreatorCompanion\`（`vrc-get-vpm/src/io/tokio.rs` の `new_default`。VCC が入っているかは見ない）
+- 読む順（`environment/settings.rs` の `Settings::load`）：`settings.json` → 無ければ自前の控え `vrc-get\vcc-settings-backup.json`（戻したときは「VCC の設定が無いか壊れていたので控えから戻した」と知らせる）→ それも無ければ空の設定。`vcc.liteDb` も無ければ空から始める（`litedb.rs`）
+- 保存すると、同じ場所に `settings.json` と `vcc.liteDb` を VCC と同じ形で作る
+- **Chmonos への意味**：ALCOM だけを使う人でも、プロジェクトの一覧は同じ場所・同じ形に入るので、今の読み方で読める。違いは「VCCを開く」で、VCC が無いと「見つからない」になり ALCOM は開けない（案 A で解ける）
+
 ## 3. 外から呼ぶ口
 
 ### 3-1. URL（`vcc://`）
