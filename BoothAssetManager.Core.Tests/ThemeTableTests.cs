@@ -134,6 +134,7 @@ public class ThemeTableTests
     [InlineData("Text", "ListHoverBack", 4.5)]
     [InlineData("Text", "ListSelectedBack", 4.5)]
     [InlineData("Text", "ColumnHeaderBack", 4.5)]
+    [InlineData("OnAccent", "CalendarToday", 4.5)]
     // 部品と印（3:1）
     [InlineData("InputBorder", "InputBack", 3)]
     [InlineData("CheckBorder", "Surface", 3)]

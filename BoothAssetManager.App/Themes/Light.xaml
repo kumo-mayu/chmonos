@@ -218,6 +218,11 @@
     <SolidColorBrush x:Key="ColumnHeaderBack" Color="#ffffff" />
     <SolidColorBrush x:Key="ColumnHeaderHover" Color="#d9ebf9" />
     <SolidColorBrush x:Key="ColumnHeaderBorder" Color="#e5e5e5" />
+    <!--
+        カレンダーの「今日」の地（白い文字 OnAccent を載せる）。Windows の既定は灰（#aaaaaa）に白で、白が 2.3:1 と読めなかった。
+        灰のまま AA（4.5:1）に届く所まで濃くした
+    -->
+    <SolidColorBrush x:Key="CalendarToday" Color="#6e737c" />
 
     <!--
         Windows の色（SystemColors）の置き換え。自前の見た目を持たない所（窓の地・一覧の地・スクロールバーの角・カレンダー以外の既定の部品）が読む。
