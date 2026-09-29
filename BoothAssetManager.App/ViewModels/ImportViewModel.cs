@@ -1491,11 +1491,7 @@ public sealed class ImportViewModel : ViewModelBase
     public string UnreadableText => Summary is { } summary
         ? string.Join(
             string.Empty,
-            summary.FilesUnreadable > 0
-                ? $"読めなかったファイルが {summary.FilesUnreadable} 件あります（取り込めていません）。"
-                    + "別のアプリが開いている、ネットワーク越しでつながっていない、権限が無い、のいずれかです。"
-                    + "閉じてから、もう一度取り込んでください。"
-                : string.Empty,
+            UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable),
             summary.FilesOnlineOnly > 0
                 ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
                     + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
@@ -1503,5 +1499,24 @@ public sealed class ImportViewModel : ViewModelBase
         : string.Empty;
 
     public bool HasUnreadable => UnreadableText.Length > 0;
+
+    /// <summary>
+    /// 読めなかったファイルとフォルダの1文（大容量の確かめ #5・2026-09-30）。
+    /// フォルダは中に何件あったか読めないので、ファイルの数に足さず「フォルダが n 件」と並べる。
+    /// フォルダだけのときは「別のアプリが開いている」「閉じてから」が当たらない（フォルダの中を読めないのは権限かつながり）ので、次の手を分ける
+    /// </summary>
+    internal static string UnreadableFilesText(int files, int folders) => (files, folders) switch
+    {
+        (> 0, > 0) => $"読めなかったファイルが {files} 件、フォルダが {folders} 件あります（取り込めていません）。" + UnreadableFilesNext,
+        (> 0, _) => $"読めなかったファイルが {files} 件あります（取り込めていません）。" + UnreadableFilesNext,
+        (_, > 0) => $"読めなかったフォルダが {folders} 件あります（取り込めていません）。"
+            + "権限が無いか、ネットワーク越しでつながっていないかのどちらかです。"
+            + "エクスプローラで開けるか確かめてから、もう一度取り込んでください。",
+        _ => string.Empty,
+    };
+
+    private const string UnreadableFilesNext =
+        "別のアプリが開いている、ネットワーク越しでつながっていない、権限が無い、のいずれかです。"
+        + "閉じてから、もう一度取り込んでください。";
 
 }

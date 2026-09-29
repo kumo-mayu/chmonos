@@ -162,4 +162,43 @@ public class FolderScannerTests : IDisposable
     [InlineData(FileAttributes.Archive, false)]
     public void TellsOnlineOnlyCloudFilesApart(FileAttributes attributes, bool expected)
         => Assert.Equal(expected, FolderScanner.IsOnlineOnly(attributes));
+
+    /// <summary>
+    /// 読む権限の無いフォルダは、黙って空にせず数えてパスを返す（大容量の確かめ #5・2026-09-30）。
+    /// 前は IgnoreInaccessible で空として飛ばし、取り込みの結果にもログにも出なかった。ほかのフォルダは読み続ける。
+    /// </summary>
+    [Fact]
+    public void ReportsAFolderItCannotList()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        Write("open/a.zip");
+        var denied = Path.GetDirectoryName(Write("denied/b.zip"))!;
+
+        // 自分に「フォルダの一覧」を拒む。拒否は許可より先に効くので、継いだ許可があっても読めなくなる
+        var info = new DirectoryInfo(denied);
+        var security = info.GetAccessControl();
+        var rule = new System.Security.AccessControl.FileSystemAccessRule(
+            System.Security.Principal.WindowsIdentity.GetCurrent().User!,
+            System.Security.AccessControl.FileSystemRights.ListDirectory,
+            System.Security.AccessControl.AccessControlType.Deny);
+        security.AddAccessRule(rule);
+        info.SetAccessControl(security);
+        try
+        {
+            var result = _scanner.Scan(_root);
+
+            Assert.Equal([Path.Combine(_root, "open", "a.zip")], result.Files.Select(file => file.Path));
+            Assert.Equal([denied], result.UnreadableFolders);
+        }
+        finally
+        {
+            // 戻さないと後片付けで消せない
+            security.RemoveAccessRule(rule);
+            info.SetAccessControl(security);
+        }
+    }
 }

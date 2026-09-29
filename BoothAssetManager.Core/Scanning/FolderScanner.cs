@@ -143,6 +143,7 @@ public sealed class FolderScanner
         var unpacked = new List<UnpackedTally>();
         var skipped = 0;
         var onlineOnly = 0;
+        var unreadableFolders = new List<string>();
 
         // 前の再帰の列挙と同じく、並べ終えたフォルダの子を後ろに積む（幅優先）。
         // 各フォルダは「どの展開先の中か」（外側から順に）を持って積む
@@ -153,7 +154,7 @@ public sealed class FolderScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var entries = List(current.Path);
+            var entries = List(current.Path, unreadableFolders);
             if (entries.Count == 0)
             {
                 continue;
@@ -231,14 +232,20 @@ public sealed class FolderScanner
             })],
             SkippedInsideUnpackedFolders = skipped,
             OnlineOnly = onlineOnly,
+            UnreadableFolders = unreadableFolders,
         };
     }
 
     /// <summary>
     /// 1つのフォルダの中を、ファイルシステムの返す順で1回だけ並べる。読めないフォルダ（権限・途中で消えた）は空として飛ばす
-    /// （前の再帰の列挙の IgnoreInaccessible と同じ。1つの権限エラーで全体を止めない）。
+    /// （1つの権限エラーで全体を止めない）。
+    ///
+    /// **読めなかったフォルダは <paramref name="unreadable"/> に足す**（大容量の確かめ #5・2026-09-30）。
+    /// 前は IgnoreInaccessible で権限の無いフォルダを黙って空にしていたので、取り込みの結果の「読めなかった」にも数えられず、
+    /// ログにも残らなかった（読めないファイルは数えていたのに、フォルダごと読めないと何も言わない）。
+    /// 途中で消えたフォルダは数えない——中の物は無くなっていて、取り込めていない物が無い。
     /// </summary>
-    private static List<Entry> List(string directory)
+    private static List<Entry> List(string directory, List<string> unreadable)
     {
         try
         {
@@ -254,17 +261,26 @@ public sealed class FolderScanner
                     IsLink(ref entry)),
                 ListOptions)];
         }
+        catch (DirectoryNotFoundException)
+        {
+            return [];
+        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            unreadable.Add(directory);
             return [];
         }
     }
 
-    /// <summary>1段だけ並べる。属性では飛ばさない（兄弟のファイル名には全部要る。飛ばすのは <see cref="ScanTree"/> で決める）。</summary>
+    /// <summary>
+    /// 1段だけ並べる。属性では飛ばさない（兄弟のファイル名には全部要る。飛ばすのは <see cref="ScanTree"/> で決める）。
+    /// 読めないフォルダで投げさせる（IgnoreInaccessible を入にすると、権限の無いフォルダが黙って空になり、数えられない）。
+    /// 1段だけ並べるので、投げるのは並べようとしたそのフォルダが読めないときだけ。
+    /// </summary>
     private static readonly EnumerationOptions ListOptions = new()
     {
         RecurseSubdirectories = false,
-        IgnoreInaccessible = true,
+        IgnoreInaccessible = false,
         AttributesToSkip = 0,
     };
 
@@ -313,6 +329,12 @@ public sealed class ScanResult
     /// （`SkippedInsideUnpackedFolders` と同じ道）。
     /// </summary>
     public int Unreadable { get; init; }
+
+    /// <summary>
+    /// 権限などで中を並べられなかったフォルダ（大容量の確かめ #5）。ファイルと違って数件で済むので、パスを持ってログに残す。
+    /// 中にいくつファイルがあったかは読めないので分からない——ファイルの数（<see cref="Unreadable"/>）とは別に数える。
+    /// </summary>
+    public IReadOnlyList<string> UnreadableFolders { get; init; } = [];
 
     /// <summary>
     /// 中身が手元に無いクラウドのファイル（OneDrive の「オンラインのみ」）で、読まなかった数。

@@ -88,6 +88,12 @@ public sealed class ImportSummary
     public int FilesUnreadable { get; init; }
 
     /// <summary>
+    /// 権限などで中を読めず、取り込めなかったフォルダの数（大容量の確かめ #5・2026-09-30）。**0 でないときだけ画面に出す。**
+    /// 前は黙って空として飛ばしていた。中に何件あったかは読めないので、ファイルの数には足さず別に数える。
+    /// </summary>
+    public int FoldersUnreadable { get; init; }
+
+    /// <summary>
     /// 中身が手元に無いクラウドのファイル（OneDrive の「オンラインのみ」）で、読まなかった数。
     /// 読むとダウンロードが始まるので取り込まないが、黙って飛ばすと取り込んだつもりの物が入っていないことに
     /// 気付けない。数と次の手（「常にこのデバイスに保持する」）を結果に出す（ユーザ判断 2026-09-23）。
@@ -580,6 +586,7 @@ public sealed class ImportPipeline : IImportPipeline
         private int _scanned;
         private int _skippedUnpacked;
         private int _unreadable;
+        private int _unreadableFolders;
         private int _onlineOnly;
         private int _hashed;
         private int _reused;
@@ -601,6 +608,7 @@ public sealed class ImportPipeline : IImportPipeline
             _unpacked.AddRange(scan.UnpackedFolders);
             _skippedUnpacked += scan.SkippedInsideUnpackedFolders;
             _unreadable += scan.Unreadable;
+            _unreadableFolders += scan.UnreadableFolders;
             _onlineOnly += scan.OnlineOnly;
 
             _hashed += resolution.Hashed;
@@ -630,6 +638,7 @@ public sealed class ImportPipeline : IImportPipeline
             UnpackedFolders = _unpacked,
             FilesSkippedAsUnpacked = _skippedUnpacked,
             FilesUnreadable = _unreadable,
+            FoldersUnreadable = _unreadableFolders,
             FilesOnlineOnly = _onlineOnly,
             FilesHashed = _hashed,
             FilesReusedFromCache = _reused,
@@ -796,6 +805,7 @@ public sealed class ImportPipeline : IImportPipeline
         var unpacked = new List<UnpackedFolder>();
         var skippedUnpacked = 0;
         var unreadable = 0;
+        var unreadableFolders = 0;
         var onlineOnly = 0;
 
         foreach (var folder in folders)
@@ -804,6 +814,13 @@ public sealed class ImportPipeline : IImportPipeline
             unpacked.AddRange(result.UnpackedFolders);
             skippedUnpacked += result.SkippedInsideUnpackedFolders;
             unreadable += result.Unreadable;
+
+            // 中を並べられなかったフォルダは数を結果に出し、どれかはログに残す（ハッシュを取れなかったファイルと同じ・大容量の確かめ #5）
+            unreadableFolders += result.UnreadableFolders.Count;
+            foreach (var denied in result.UnreadableFolders)
+            {
+                Diagnostics.AppLog.Warn("取り込みの走査", $"{denied}：フォルダの中を読めませんでした");
+            }
 
             // 中身が手元に無いクラウドのファイルは、読むとダウンロードが始まるので飛ばした。
             // 数は結果に出す（ユーザ判断 2026-09-23）。結果は全体の数だけなので、どのフォルダで何件かはログに残す
@@ -846,6 +863,7 @@ public sealed class ImportPipeline : IImportPipeline
             UnpackedFolders = unpacked,
             SkippedInsideUnpackedFolders = skippedUnpacked,
             Unreadable = unreadable,
+            UnreadableFolders = unreadableFolders,
             OnlineOnly = onlineOnly,
         };
     }
@@ -859,6 +877,8 @@ public sealed class ImportPipeline : IImportPipeline
         public int SkippedInsideUnpackedFolders { get; init; }
 
         public int Unreadable { get; init; }
+
+        public int UnreadableFolders { get; init; }
 
         public int OnlineOnly { get; init; }
     }
