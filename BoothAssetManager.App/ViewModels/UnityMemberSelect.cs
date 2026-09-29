@@ -50,7 +50,8 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        var packages = ModificationViewModel.PackagesFor(item, member);
+        // 要約が無い・欠けている商品は zip を開いて数えるので、画面のスレッドでは読まない
+        var packages = await Task.Run(() => ModificationViewModel.PackagesFor(item, member));
         if (packages.Count == 0)
         {
             setStatus($"「{name}」には、Unityに入れられるファイル（zipの中のunitypackage）が手元にありません。", failed: true);
@@ -99,7 +100,7 @@ internal static class UnityMemberSelect
 
         IReadOnlyList<UnityPackageEntry> toSend = packages;
         var recorded = false;
-        if (member.FileHash is null && packages.Count > 1 && PackageChoiceSection.Build(item) is { } choice)
+        if (member.FileHash is null && packages.Count > 1 && await Task.Run(() => PackageChoiceSection.Build(item)) is { } choice)
         {
             // どのファイルを使ったか記録が無く、送れる物が2つ以上ある。全部送ると古い版や別の種類まで入るので選ばせ、
             // 選んだ物をこの行に記録する（ユーザ判断 2026-09-13）

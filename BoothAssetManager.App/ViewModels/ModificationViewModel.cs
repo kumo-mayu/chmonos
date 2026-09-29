@@ -555,16 +555,22 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         foreach (var row in rows)
         {
             var item = await _services.Store.Items.LoadAsync(row.Member.ItemId);
-            var packages = item is null ? [] : PackagesFor(item, row.Member);
+
+            // 包みの一覧は item の要約から引くが、要約が無い・欠けている商品は zip を開いて数える。
+            // 1GB 級の zip が HDD にあると止まって見えるので、画面のスレッドでは読まない
+            var (packages, choice) = item is null
+                ? ([], null)
+                : await Task.Run(() =>
+                {
+                    var found = PackagesFor(item, row.Member);
+                    return (found, row.Member.FileHash is null && found.Count > 1 ? PackageChoiceSection.Build(item) : null);
+                });
             if (packages.Count == 0)
             {
                 nothing.Add(row.Name);
                 continue;
             }
 
-            var choice = row.Member.FileHash is null && packages.Count > 1
-                ? PackageChoiceSection.Build(item!)
-                : null;
             steps.Add((row.Index, row.Member, row.Member.ItemId, choice is null ? packages : [], choice));
         }
 
