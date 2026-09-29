@@ -4,7 +4,7 @@
 > ファイル名だけでは「確度が高い」に届かない設計（誤って確定しない）。決まらない物は未確定へ置き、人が ID 確定をまとめて片付けてから編集へ送る。
 > **ログイン（cookie）は使わない**。
 >
-> **コード**：`BoothIdResolver`（手掛かり）・`BoothZipInspector`・`Core/Scanning/UnresolvedOrigin.cs`、`Core/Resolution/FallbackResolver.cs`・`FileNameQuery`・`AlternateQueries`・`AvatarTokens`・`RegistryCandidates`・`ExclusionFilter`、
+> **コード**：`BoothIdResolver`（手掛かり）・`BoothZipInspector`・`Core/Scanning/UnresolvedOrigin.cs`、`Core/Resolution/FallbackResolver.cs`・`FileNameQuery`・`AlternateQueries`・`AvatarTokens`・`SiblingTokens`・`RegistryCandidates`・`ExclusionFilter`、
 > `App/ViewModels/ResolveViewModel*.cs`、`experiments/ResolveAccuracyProbe`・`QueryVariantProbe`・`ZipOriginProbe`
 >
 > **経緯**：`docs/research/id-resolution.md`（18本の実ZIP・319本での実測）、`docs/research/zip-linking.md`・`zip-linking-followup.md`（並行調査）、`docs/history/grill-2-ui-and-data-model.md`（Resolve → Edit）
@@ -30,6 +30,11 @@
   かな・漢字だけの名前にはローマ字の読みが名前全体と一致するとき当てる（3字以上）。**全部が名前なら外さない**（アバター本体の zip）。
   外した名前は並べ直しに1点だけ使う（同じアバターを名前に出す商品へ。本体には足さない。名前だけのファイルなら本体へ）。
   `FallbackResolver` に登録簿を読む関数を渡したときだけ効く（アプリはつないである。`AppServiceContainer`）。
+- **兄弟の zip の間で変わる語も外す**（`SiblingTokens`。ユーザ判断 2026-09-29「案1」）：持っていないアバターの名前は登録簿で見分けられないため。
+  未確定の画面は一覧にあるファイルの場所（検索で隠れた行・展開した中身の元zipも）を自動検索に渡す。**兄弟**は同じフォルダ・同じ拡張子で頭の語が同じファイル（商品IDは見ない）。
+  語の並びを頭と尻から突き合わせ、両方に入れ替わる語があるときだけ外す（版の数字だけ違う・片方に語が足されただけなら外さない）。
+  **外すのは、頭の語が違うほかのファイル（同じ拡張子）2本以上にも出る語だけ**（アバター名は別の商品にも出る。同じショップの別の商品を並べた「ショップ名_帽子」「ショップ名_靴」の語は出ない）。
+  外すと英字3字以上・日本語2字以上の語が残らないなら外さない。通信は増えない。効き目は小さい（research §18：画面の1位 +1本・減り0）。
 - 1ページ（最大60件）をファイル名との近さ（語・番号・ショップ名）で**並べ直す**（通信は増えない）。語に直接付いた番号（「ポーズ集13」）も使う。商品名の版番号（ver2.1.0）の中の数字には当てない。
   名前は検索カードの見出しから取る（属性の名前は25字前後で切れている）。
 - 裏付けが出なければ、**1語だけ**（語が2つ以上なら**ファイル名の最初の語**。短ければ最長の語。1語だけのファイルはしない。アバターの名前は選ばない。2026-09-29）で、次に**別の表記**（読み→漢字・隣り合う2語をつないだ英語→日本語。日本語の表記を先に）で引き直す。別表記が作れなければ何もしない。
@@ -42,6 +47,7 @@
   友人の新しい写しで測り直し（2026-09-29、472本＝前の318本＋増えた154本。research §17）：前の318本で上位3件 264 → 270・画面の1位 187 → 230、
   増えた154本で上位3件 91 → 94・画面の1位 41 → 86。
   測るときは BOOTH の答えの控え（`ResolveAccuracyProbe --cache`）を使い、並べ直し・点数の直しは通信なしで試す。
+  兄弟の zip は `--siblings`（保存先の商品が持つ zip の元の場所から、全部が未確定だったときの一覧を再現する）。
 
 ## 未確定の画面
 
