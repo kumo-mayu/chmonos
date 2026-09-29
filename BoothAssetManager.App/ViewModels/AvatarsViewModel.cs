@@ -221,7 +221,7 @@ public sealed record BaseItemCandidate(string ItemId, string Label, RelayCommand
 /// 素体でグループ化した一覧にすると「素体の指定なし」に大半が落ちて読めなくなる
 /// （実データでは独自素体が大半）。素体の管理は別の欄に分ける。
 /// </summary>
-public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen
+public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen, IItemCardHost
 {
     /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
     private const int MaxNameSuggestions = 5;
@@ -315,7 +315,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         OpenItemCommand = new RelayCommand(() => OpenItemAsync().Forget());
         RecheckCommand = new RelayCommand(() => RecheckAsync().Forget());
         TreatAsAvatarCommand = new RelayCommand(parameter => SetOverrideAsync(parameter as string).Forget());
-        OpenBoothCommand = new RelayCommand(parameter => OpenBooth(parameter));
+        OpenBoothCommand = new RelayCommand(parameter => OpenBoothPage(parameter));
         ShowItemsCommand = new RelayCommand(ShowItems);
         CreateModificationCommand = new RelayCommand(
             () => CreateModificationAsync().Forget(),
@@ -1896,12 +1896,17 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     /// <summary>
     /// BOOTHの商品ページを開く。右の詳細のボタンからは選んでいるアバター、
-    /// 一覧の行の右クリックからはその行（ユーザ指示 2026-09-20・M2）。
+    /// 一覧の行の右クリックからはその行（ユーザ指示 2026-09-20・M2）、カードの右クリックと中クリックからはそのカードの商品。
     /// </summary>
-    private void OpenBooth(object? parameter = null)
+    private void OpenBoothPage(object? parameter = null)
     {
-        var target = parameter as AvatarRowViewModel ?? Selected;
-        if (target is null)
+        var itemId = parameter switch
+        {
+            AvatarRowViewModel row => row.ItemId,
+            ItemCardViewModel card => card.Item.Id,
+            _ => Selected?.ItemId,
+        };
+        if (itemId is null)
         {
             return;
         }
@@ -1910,7 +1915,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = $"https://booth.pm/ja/items/{target.ItemId}",
+                FileName = $"https://booth.pm/ja/items/{itemId}",
                 UseShellExecute = true,
             });
         }
@@ -1931,6 +1936,27 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         _main.Search.ShowOnlyAvatar(Selected.ItemId, Selected.Name);
         _main.ShowSearch();
     }
+
+    // ---- カードの操作（IItemCardHost） ----
+    // カード表示のカードは、枠の Tag にこの画面が入る。受け先が無いと、星・中クリック・Enter が黙って効かなかった
+    // （タグ・属性の管理と同じ直し・01aaac3）。星は検索画面の物をそのまま借りる
+
+    /// <summary>
+    /// カードを押した（Enter・読み上げの「押す」も）。**商品ページへは移らず、そのアバターを選んで右に詳細を出す。**
+    /// この画面のカードは一覧の行そのもので、リスト表示と同じく押したら選ぶ（M4：選ぶ・右に詳細を出すはどちらでも同じに効く）。
+    /// マウスでは一覧が先に選んでいるので、ここはキーボードで押したときに効く。商品ページへは詳細の「商品ページを開く」から行ける
+    /// </summary>
+    public void OpenItem(ItemCardViewModel card)
+    {
+        if (Rows.FirstOrDefault(row => row.ItemId == card.Item.Id) is { } row)
+        {
+            Selected = row;
+        }
+    }
+
+    public void OpenBooth(ItemCardViewModel? card) => OpenBoothPage(card);
+
+    public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
 
     // ---- 一覧の行の右クリック（ユーザ指示 2026-09-20・M2）。中身は検索画面と同じ命令を借りる ----
 
