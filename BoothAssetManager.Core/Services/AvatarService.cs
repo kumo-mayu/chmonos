@@ -565,9 +565,12 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             }
         }
 
-        // ── ② 未知のIDだけBOOTHへ問い合わせる ──
+        // ── ② 未知のIDと、確かめ直す時期の来た404の項目だけBOOTHへ問い合わせる ──
+        var libraryIds = loaded.Items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var now = DateTimeOffset.Now;
         var unknown = seenAs.Keys
-            .Where(id => !entries.ContainsKey(id))
+            .Where(id => !entries.TryGetValue(id, out var known)
+                         || IsNotFoundRecheckDue(known, libraryIds.Contains(id), _settings.DelistedRecheckDays, now))
             .ToList();
 
         var requests = 0;
@@ -632,7 +635,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
                 requests++;
                 var fetched = await _client.GetItemJsonAsync(id, cancellationToken);
-                var answered = Answered(id, fetched);
+                var answered = Answered(id, fetched, entries.GetValueOrDefault(id));
                 if (answered is null)
                 {
                     unresolved++;
@@ -792,7 +795,48 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     /// 問い合わせの答えを登録簿の項目にする。**何も決められない答え（通信の失敗・読めない応答）は null**
     /// ——次回また試す（投げると検出全体が止まる）。
     /// </summary>
-    private static AvatarRegistryEntry? Answered(string id, BoothFetchResult<string> fetched)
+    private static AvatarRegistryEntry? Answered(string id, BoothFetchResult<string> fetched, AvatarRegistryEntry? known)
+    {
+        var fresh = AnsweredFresh(id, fetched);
+        if (known is null || fresh is null)
+        {
+            return fresh;
+        }
+
+        // 確かめ直した404の項目（IsNotFoundRecheckDue）。まだ404なら確かめた日だけ進める。
+        // 人が付けた名前・メモ・素体は項目ごと引き継ぐ（作り直すと、最後に重ねるまでの間に消えて見える）
+        if (fetched.Status == BoothFetchStatus.NotFound)
+        {
+            return known with { CheckedAt = fresh.CheckedAt };
+        }
+
+        // 再公開されていた。名前・カテゴリを埋める
+        return known with
+        {
+            BoothName = fresh.BoothName,
+            ShopName = fresh.ShopName ?? known.ShopName,
+            Category = fresh.Category,
+            CheckedAt = fresh.CheckedAt,
+            Aliases = MergeDetectedAliases(known.Aliases, fresh.Aliases),
+            ImageUrl = string.IsNullOrEmpty(fresh.ImageUrl) ? known.ImageUrl : fresh.ImageUrl,
+        };
+    }
+
+    /// <summary>
+    /// 404 だった項目を、次の検出で問い合わせ直す時期か（ユーザ判断 2026-09-29）。
+    ///
+    /// 404 の項目は一度入ると二度と問い合わせず、再公開されても名前もカテゴリも埋まらなかった。
+    /// 間隔は販売終了と見なした商品の確かめ直し（<see cref="AppSettings.DelistedRecheckDays"/>）と同じ：
+    /// 確かめる間隔が再公開されている期間より長いと原理的に取り逃し、季節物は1ヶ月ほどしか公開されない。
+    /// **問い合わせを増やす向き**なので、対象は問い合わせで作った404の項目だけにする。
+    /// 手元に持っている商品の項目はカテゴリが無くても含めない（その商品は⑦が取り直す）。
+    /// </summary>
+    public static bool IsNotFoundRecheckDue(AvatarRegistryEntry entry, bool inLibrary, int intervalDays, DateTimeOffset now)
+        => entry.Category is null
+           && !inLibrary
+           && (entry.CheckedAt is not { } checkedAt || now - checkedAt >= TimeSpan.FromDays(Math.Max(1, intervalDays)));
+
+    private static AvatarRegistryEntry? AnsweredFresh(string id, BoothFetchResult<string> fetched)
     {
         if (fetched.Status == BoothFetchStatus.NotFound)
         {

@@ -16,6 +16,8 @@
 - ツール・テクスチャ・衣装・髪型・装飾品・素材は除く。登録簿は `IsAvatar=false` の負のキャッシュも持つ（lilToon など）。
 - `AvatarOverride`（`null`＝規則／`true`・`false`＝人の上書き）が最優先。判定結果は保存しない（規則を直せば手元の JSON だけで全件計算し直せる）。
 - 404 で category が引けない物は `category: null` で残し、勝手にどちらにも扱わない。
+  **`checkedAt` から30日を過ぎたら、次の検出で問い合わせ直す**（ユーザ判断 2026-09-29。間隔は販売終了の確かめ直し `DelistedRecheckDays` と同じ）。
+  再公開されていれば名前・category を埋め、まだ 404 なら `checkedAt` だけ進める。対象は問い合わせで作った項目だけで、手元に持っている商品は含めない（`IsNotFoundRecheckDue`）。
 
 ## 検出
 

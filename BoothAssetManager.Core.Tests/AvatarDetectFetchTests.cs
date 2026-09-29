@@ -207,6 +207,107 @@ public class AvatarDetectFetchTests : IDisposable
         Assert.NotNull(_store.Avatars.Load().DetectedAt);
     }
 
+    private static AvatarRegistry NotFoundEntry(string id, int daysAgo) => new()
+    {
+        Entries =
+        [
+            new AvatarRegistryEntry
+            {
+                ItemId = id,
+                Category = null,
+                CheckedAt = DateTimeOffset.Now.AddDays(-daysAgo),
+                DisplayName = "手で付けた名前",
+                Memo = "メモ",
+            },
+        ],
+    };
+
+    /// <summary>
+    /// 404 だった項目は、30日を過ぎたら問い合わせ直し、再公開されていたら名前とカテゴリを埋める。
+    /// 以前は一度 404 で入ると二度と問い合わせなかった。
+    /// </summary>
+    [Fact]
+    public async Task AsksAgainAboutANotFoundEntryAfter30Days()
+    {
+        const string id = "3001";
+        await SeedAsync([id], NotFoundEntry(id, daysAgo: 31));
+        var client = new ScriptedClient();
+
+        await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Equal([id], client.Asked);
+        var entry = Entry(id)!;
+        Assert.Equal("3Dキャラクター", entry.Category);
+        Assert.Equal($"アバター{id}", entry.BoothName);
+        Assert.True(entry.CheckedAt > DateTimeOffset.Now.AddDays(-1));
+        // 人が付けた物は残す
+        Assert.Equal("手で付けた名前", entry.DisplayName);
+        Assert.Equal("メモ", entry.Memo);
+    }
+
+    /// <summary>30日以内の 404 は問い合わせない（問い合わせを増やす向きなので、間隔を守る）。</summary>
+    [Fact]
+    public async Task DoesNotAskAboutANotFoundEntryWithin30Days()
+    {
+        const string id = "3001";
+        await SeedAsync([id], NotFoundEntry(id, daysAgo: 29));
+        var client = new ScriptedClient();
+
+        await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Empty(client.Asked);
+        Assert.Null(Entry(id)!.Category);
+    }
+
+    /// <summary>まだ 404 なら、確かめた日だけ進める（次の30日は問い合わせない）。</summary>
+    [Fact]
+    public async Task MovesTheCheckedDateWhenStillNotFound()
+    {
+        const string id = "3001";
+        await SeedAsync([id], NotFoundEntry(id, daysAgo: 31));
+        var client = new ScriptedClient { Answer = _ => BoothFetchResult<string>.NotFound() };
+
+        await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Single(client.Asked);
+        var entry = Entry(id)!;
+        Assert.Null(entry.Category);
+        Assert.Null(entry.BoothName);
+        Assert.True(entry.CheckedAt > DateTimeOffset.Now.AddDays(-1));
+        Assert.Equal("手で付けた名前", entry.DisplayName);
+    }
+
+    /// <summary>手元に持っている商品の項目は、カテゴリが無くても問い合わせ直さない（その商品は⑦が取り直す）。</summary>
+    [Fact]
+    public async Task DoesNotAskAgainAboutAnItemInTheLibrary()
+    {
+        const string id = "3001";
+        await SeedAsync([id], NotFoundEntry(id, daysAgo: 400));
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "カテゴリの無い商品" },
+            Local = new LocalBlock(),
+        });
+        var client = new ScriptedClient();
+
+        await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Empty(client.Asked);
+    }
+
+    [Fact]
+    public void RecheckIsDueOnlyForNotFoundEntriesOutsideTheLibraryAfterTheInterval()
+    {
+        var now = new DateTimeOffset(2026, 9, 29, 0, 0, 0, TimeSpan.FromHours(9));
+        var notFound = new AvatarRegistryEntry { ItemId = "1", CheckedAt = now.AddDays(-30) };
+
+        Assert.True(AvatarService.IsNotFoundRecheckDue(notFound, inLibrary: false, intervalDays: 30, now));
+        Assert.False(AvatarService.IsNotFoundRecheckDue(notFound with { CheckedAt = now.AddDays(-29) }, inLibrary: false, intervalDays: 30, now));
+        Assert.False(AvatarService.IsNotFoundRecheckDue(notFound, inLibrary: true, intervalDays: 30, now));
+        Assert.False(AvatarService.IsNotFoundRecheckDue(notFound with { Category = "衣装" }, inLibrary: false, intervalDays: 30, now));
+    }
+
     /// <summary>途中で書くときは、人が消した別名の印・メモを最新のまま残す（最新に重ねる）。</summary>
     [Fact]
     public void MergeFetchedKeepsWhatAPersonChanged()
