@@ -575,9 +575,12 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             }
         }
 
-        // ── ② 未知のIDと、確かめ直す時期の来た404の項目だけBOOTHへ問い合わせる ──
         var libraryIds = loaded.Items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         var now = DateTimeOffset.Now;
+
+        FillNotFoundFromLibrary(entries, loaded.Items, now);
+
+        // ── ② 未知のIDと、確かめ直す時期の来た404の項目だけBOOTHへ問い合わせる ──
         var unknown = seenAs.Keys
             .Where(id => !entries.TryGetValue(id, out var known)
                          || IsNotFoundRecheckDue(known, libraryIds.Contains(id), _settings.DelistedRecheckDays, now))
@@ -801,6 +804,50 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             RegistryAdded = entries.Count - entriesBefore,
             Outage = outage.Stopped,
         };
+    }
+
+    /// <summary>
+    /// 404 で登録簿に入った項目（カテゴリが空）を、手元に持っている商品の情報で埋める。**通信しない**（ユーザ判断 2026-09-29）。
+    ///
+    /// 手元の情報で項目を作るのは、登録簿に項目が**無い**ときだけだった。一度 404 で空の項目ができた商品を、
+    /// あとで（再公開などで）買って取り込んでも埋まらず、404 の確かめ直し（<see cref="IsNotFoundRecheckDue"/>）も
+    /// 手元に持っている商品を外すので、カテゴリも名前も空のまま残った。空のままだとアバターと判断されず、名前での照合にも使われない。
+    /// 埋めるのは BOOTH から取った欄（名前・ショップ・カテゴリ・タグから作る別名・1枚目のURL）だけで、人が付けた名前・メモは触らない
+    /// </summary>
+    internal static int FillNotFoundFromLibrary(
+        Dictionary<string, AvatarRegistryEntry> entries,
+        IReadOnlyList<ItemRecord> library,
+        DateTimeOffset now)
+    {
+        var filled = 0;
+        foreach (var item in library)
+        {
+            if (!entries.TryGetValue(item.Id, out var entry)
+                || entry.Category is not null
+                || item.Booth.Category?.Name is not { } category)
+            {
+                continue;
+            }
+
+            var aliases = string.Equals(category, AvatarCategory, StringComparison.Ordinal)
+                ? BuildAliasesFromTags(item.Booth)
+                : [];
+
+            entries[item.Id] = entry with
+            {
+                BoothName = item.Booth.Name,
+                ShopName = item.Booth.Shop?.Name ?? entry.ShopName,
+                Category = category,
+                CheckedAt = now,
+                Aliases = MergeDetectedAliases(entry.Aliases, aliases),
+                ImageUrl = string.IsNullOrEmpty(entry.ImageUrl)
+                    ? item.Booth.Images.FirstOrDefault()?.OriginalUrl ?? string.Empty
+                    : entry.ImageUrl,
+            };
+            filled++;
+        }
+
+        return filled;
     }
 
     /// <summary>途中で登録簿へ書く間隔（問い合わせの件数）。根拠は書く所のコメント。</summary>

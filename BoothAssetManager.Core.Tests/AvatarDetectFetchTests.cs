@@ -296,6 +296,59 @@ public class AvatarDetectFetchTests : IDisposable
         Assert.Empty(client.Asked);
     }
 
+    /// <summary>
+    /// 404 で空の項目ができた商品を、あとで買って取り込んだら、手元の情報で埋める。問い合わせない（ユーザ判断 2026-09-29）。
+    /// 前は手元の情報で埋めるのが項目の無いときだけで、404 の確かめ直しからも外れるので、ずっと空のまま残った
+    /// </summary>
+    [Fact]
+    public async Task FillsANotFoundEntryFromTheLibraryWithoutAsking()
+    {
+        const string id = "3001";
+        await SeedAsync([id], NotFoundEntry(id, daysAgo: 5));
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock
+            {
+                FetchedAt = DateTimeOffset.Now,
+                Name = "再公開されたアバター",
+                Category = new BoothCategory { Id = 208, Name = "3Dキャラクター" },
+                Shop = new BoothShop { Name = "手元のショップ", Subdomain = "local-shop" },
+            },
+            Local = new LocalBlock(),
+        });
+        var client = new ScriptedClient();
+
+        await new AvatarService(_store, client: client).DetectAsync();
+
+        Assert.Empty(client.Asked);
+        var entry = Entry(id)!;
+        Assert.Equal("3Dキャラクター", entry.Category);
+        Assert.Equal("再公開されたアバター", entry.BoothName);
+        Assert.Equal("手元のショップ", entry.ShopName);
+        // 人が付けた物は残す
+        Assert.Equal("手で付けた名前", entry.DisplayName);
+        Assert.Equal("メモ", entry.Memo);
+    }
+
+    /// <summary>手元の商品にもカテゴリが無いときは、空のまま（埋める材料が無い）。</summary>
+    [Fact]
+    public async Task LeavesANotFoundEntryEmptyWhenTheLibraryHasNoCategoryEither()
+    {
+        const string id = "3001";
+        await SeedAsync([id], NotFoundEntry(id, daysAgo: 5));
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "カテゴリの無い商品" },
+            Local = new LocalBlock(),
+        });
+
+        await new AvatarService(_store, client: new ScriptedClient()).DetectAsync();
+
+        Assert.Null(Entry(id)!.Category);
+    }
+
     [Fact]
     public void RecheckIsDueOnlyForNotFoundEntriesOutsideTheLibraryAfterTheInterval()
     {
