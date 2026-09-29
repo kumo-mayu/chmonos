@@ -434,12 +434,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             // 共有の部品（lilToon など）を見分けるため、使ったものに入っている商品も含めて全部読む
             var matches = await Task.Run(() =>
             {
-                var paths = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                var paths = new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);
                 var done = 0;
                 foreach (var item in items)
                 {
                     token.ThrowIfCancellationRequested();
-                    paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(UnityHandoff.ReadAssetPaths).ToList();
+                    paths[item.Id] = UnityImportQueue.PackagesOf(item).SelectMany(UnityHandoff.ReadAssets).ToList();
                     progress.Report(++done);
                 }
 

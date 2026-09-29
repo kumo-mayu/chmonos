@@ -74,7 +74,7 @@ public sealed class StoreGateCommandTests : IDisposable
 
             var saving = pathStore.SaveAsync(
                 "0123abcd",
-                new Dictionary<string, IReadOnlyList<string>> { ["a.unitypackage"] = ["Assets/A/a.prefab"] });
+                new Dictionary<string, IReadOnlyList<UnityPackageAsset>> { ["a.unitypackage"] = [new UnityPackageAsset("00000000000000000000000000000001", "Assets/A/a.prefab")] });
 
             await saving;
             return await exporting;

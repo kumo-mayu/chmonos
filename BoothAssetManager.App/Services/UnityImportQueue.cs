@@ -280,12 +280,14 @@ public static class UnityImportQueue
             Report($"{index + 1}/{packages.Count}：「{package.Name}」を送っています…");
 
             string path;
+            IReadOnlyList<UnityPackageAsset> assets;
             IReadOnlyList<string> expected;
             try
             {
                 path = await Task.Run(() => unpacker.ExtractEntry(package.ZipPath, package.EntryPath, cancellationToken), cancellationToken);
                 // ログの行が送った物の取り込みかを見分けるため、中身のパスを先に読んでおく
-                expected = await Task.Run(() => UnityHandoff.ReadAssetPaths(package), cancellationToken);
+                assets = await Task.Run(() => UnityHandoff.ReadAssets(package), cancellationToken);
+                expected = assets.Select(asset => asset.Path).ToList();
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
             {
@@ -297,12 +299,13 @@ public static class UnityImportQueue
 
             // 中身がプロジェクトに全部あれば、Unity は取り込み画面に「Nothing to import!」しか出さない。
             // その窓を OK で閉じても Unity は1行も書かないので、ログだけでは Cancel と見分けられない（2026-09-19 に実機で確かめた）。
-            // 入っているかは「Unityで選択」と同じ調べ方（<see cref="UnityProjectMatcher"/>。パスの一覧は控えがある）
-            var alreadyThere = project is not null && expected.Count > 0
+            // 入っているかは「Unityで選択」と同じ調べ方（<see cref="UnityProjectMatcher"/>。パスの一覧は控えがある）。
+            // 利用者が移した物も GUID で見つけて「入っている」と数える（Unity も GUID で同じ物と見て取り込まない）
+            var alreadyThere = project is not null && assets.Count > 0
                 && await Task.Run(
                     () => UnityProjectMatcher.Match(
                         project,
-                        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [package.Name] = expected })
+                        new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [package.Name] = assets })
                         .FirstOrDefault() is { Total: > 0 } match && match.Present == match.Total,
                     cancellationToken);
 
