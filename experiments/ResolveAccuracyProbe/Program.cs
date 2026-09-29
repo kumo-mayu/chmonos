@@ -20,7 +20,7 @@
 //   dotnet run --project experiments/ResolveAccuracyProbe -- <保存先> <pairs.json> --make-pairs
 //       保存先の items/*.json から、商品に紐付いた zip の名前と正解の組を書き出す（保存先は読むだけ）
 //   dotnet run --project experiments/ResolveAccuracyProbe -- <保存先> <pairs.json> [--search] [--propose <本数|all>]
-//       [--cache <控えの置き場>] [--offline] [--out <第2部の結果.tsv>] [--detail <第3部の結果.tsv>] [--names <名前>...]
+//       [--cache <控えの置き場>] [--offline] [--no-avatars] [--out <第2部の結果.tsv>] [--detail <第3部の結果.tsv>] [--names <名前>...]
 //   pairs.json は [{ "file": "...zip", "id": "123", "itemName": "...", "shop": "subdomain" }, ...]
 //
 // 結果の TSV には正解の商品名とファイル名が入る。友人のデータで測るときは、リポジトリの外に置く。
@@ -76,7 +76,33 @@ var bridge = new SearchBridge(new JapaneseDictionary(
     Path.Combine(Path.GetTempPath(), "resolve-accuracy-bridge.cache")));
 var readings = new KanjiReadings(Path.Combine(assets, "kanjidic2.xml.gz"));
 
+// 本体と同じく、ファイル名の中のアバターの名前を検索語から外す（--no-avatars で外さない＝2026-09-29 より前の形）
+var avatars = args.Contains("--no-avatars") ? null : AvatarTokens.From(registry, readings);
+Func<string, bool>? isAvatarName = avatars is null ? null : avatars.IsAvatarName;
+
 Console.WriteLine($"zip {pairs.Count} 本（重複名を除く）／登録簿 {registry.Entries.Count} 件／控え {cacheDir}\n");
+
+// 1本の中身を見る（語ごとにアバターの名前とみなしたか・並べ直しの上位）。控えにある検索だけを見る
+if (Option("--explain") is { } explain)
+{
+    var query = FileNameQuery.ToSearchQuery(explain, isAvatarName);
+    Console.WriteLine($"検索語: {query}");
+    foreach (var token in FileNameQuery.Tokens(explain))
+    {
+        Console.WriteLine($"  {token}: 名前={avatars?.IsAvatarName(token)} → {string.Join(",", avatars?.AvatarsNamedBy(token) ?? [])}");
+    }
+
+    var page = await client.SearchAsync(query);
+    if (page.IsSuccess && page.Value is not null)
+    {
+        foreach (var card in FallbackResolver.Rerank(FallbackResolver.ExtractSearchCards(page.Value), explain, avatars).Take(5))
+        {
+            Console.WriteLine($"  {card.ItemId} {card.Name} → {string.Join(",", avatars?.AvatarsIn(card.Name) ?? [])}");
+        }
+    }
+
+    return;
+}
 
 // ── 第1部：通信なし ──
 var inRegistry = 0;
@@ -90,7 +116,7 @@ var rows = new List<Row>();
 
 foreach (var pair in pairs)
 {
-    var query = FileNameQuery.ToSearchQuery(pair.File);
+    var query = FileNameQuery.ToSearchQuery(pair.File, isAvatarName);
     if (query.Length == 0)
     {
         emptyQuery++;
@@ -170,7 +196,7 @@ if (doSearch)
         }
 
         queries++;
-        var ranked = await RankOfAsync(client, row.Query, row.Pair.Id, row.Pair.File);
+        var ranked = await RankOfAsync(client, row.Query, row.Pair.Id, row.Pair.File, avatars);
         row.SearchRank = ranked.Rank;
         row.SearchCount = ranked.Count;
         row.RerankRank = ranked.Reranked;
@@ -179,10 +205,10 @@ if (doSearch)
         // 本体と同じく、並べ直した後で上位3件に来なければ引き直す
         if (ranked.Reranked is < 0 or >= 3)
         {
-            foreach (var alternate in FallbackResolver.RetryQueries(row.Pair.File, row.Query, bridge))
+            foreach (var alternate in FallbackResolver.RetryQueries(row.Pair.File, row.Query, bridge, avatars))
             {
                 queries++;
-                var alt = await RankOfAsync(client, alternate, row.Pair.Id, row.Pair.File);
+                var alt = await RankOfAsync(client, alternate, row.Pair.Id, row.Pair.File, avatars);
                 row.Alternates.Add($"{alternate}:{(alt.Reranked < 0 ? "-" : (alt.Reranked + 1).ToString())}({alt.Count})");
                 if (alt.Reranked is >= 0 and < 3)
                 {
@@ -221,7 +247,7 @@ var propose = Option("--propose");
 if (propose is not null)
 {
     var before = client.NetworkRequests;
-    var resolver = new FallbackResolver(client, bridge, readings);
+    var resolver = new FallbackResolver(client, bridge, readings, avatars is null ? null : () => registry);
 
     var sample = propose == "all"
         ? pairs
@@ -269,7 +295,7 @@ if (propose is not null)
         }
 
         details.Add(string.Join('\t',
-            pair.File, pair.Id, pair.ItemName, FileNameQuery.ToSearchQuery(pair.File), index,
+            pair.File, pair.Id, pair.ItemName, FileNameQuery.ToSearchQuery(pair.File, isAvatarName), index,
             string.Join(" | ", candidates.Select(candidate =>
                 $"{(candidate.ItemId == pair.Id ? "○" : "")}{candidate.Score}点 {candidate.Name} [{string.Join("・", candidate.Reasons)}]"))));
     }
@@ -313,7 +339,7 @@ if (outPath is not null)
 
 /// 同じ検索結果から、BOOTHの並びでの順位と、本体と同じ並べ直しの後の順位を数える（検索1本）
 static async Task<(int Rank, int Count, int Reranked, string Top)> RankOfAsync(
-    CachingBoothClient client, string query, string itemId, string file)
+    CachingBoothClient client, string query, string itemId, string file, AvatarTokens? avatars)
 {
     var result = await client.SearchAsync(query);
     if (!result.IsSuccess || result.Value is null)
@@ -323,7 +349,7 @@ static async Task<(int Rank, int Count, int Reranked, string Top)> RankOfAsync(
 
     var ids = FallbackResolver.ExtractSearchResultIds(result.Value).ToList();
     var cards = FallbackResolver.ExtractSearchCards(result.Value);
-    var reranked = cards.Count > 0 ? FallbackResolver.Rerank(cards, file).ToList() : [];
+    var reranked = cards.Count > 0 ? FallbackResolver.Rerank(cards, file, avatars).ToList() : [];
     var rerankedIds = cards.Count > 0 ? reranked.Select(card => card.ItemId).ToList() : ids;
     var top = string.Join(" | ", reranked.Take(3).Select(card => $"{card.Name}@{card.ShopSubdomain}"));
     return (ids.IndexOf(itemId), ids.Count, rerankedIds.IndexOf(itemId), top);

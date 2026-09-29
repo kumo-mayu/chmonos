@@ -72,17 +72,24 @@ public sealed class FallbackResolver
     private readonly IBoothClient _client;
     private readonly Search.SearchBridge? _bridge;
     private readonly Search.KanjiReadings? _readings;
+    private readonly Func<Models.AvatarRegistry>? _avatarRegistry;
 
     /// <param name="bridge">読みから別表記を作るもの。渡さなければ読みの照合をしないだけ。</param>
     /// <param name="readings">商品名の読みを作るもの。造語の照合に要る。</param>
+    /// <param name="avatarRegistry">
+    /// 手元の登録簿を読むもの。渡せばファイル名の中のアバターの名前を検索語から外す（<see cref="AvatarTokens"/>）。
+    /// 検索のたびに読む（取り込みで登録簿は増える）。
+    /// </param>
     public FallbackResolver(
         IBoothClient client,
         Search.SearchBridge? bridge = null,
-        Search.KanjiReadings? readings = null)
+        Search.KanjiReadings? readings = null,
+        Func<Models.AvatarRegistry>? avatarRegistry = null)
     {
         _client = client;
         _bridge = bridge;
         _readings = readings;
+        _avatarRegistry = avatarRegistry;
     }
 
     /// <summary>検索結果の商品カード1枚。名前とショップが載っているので、通信せずに並べ直せる。</summary>
@@ -90,19 +97,42 @@ public sealed class FallbackResolver
 
     private static readonly Regex CardTagRegex = new(@"<li[^>]*class=""item-card[^""]*""[^>]*>", RegexOptions.Compiled);
 
-    /// <summary>検索結果HTMLから商品カードを表示順に取り出す。</summary>
+    /// <summary>カードの見出しのリンク。商品名が切らずに入っている。</summary>
+    private static readonly Regex CardTitleRegex = new(
+        @"class=""item-card__title-anchor[^""]*""[^>]*>([^<]*)</a>", RegexOptions.Compiled);
+
+    /// <summary>
+    /// 検索結果HTMLから商品カードを表示順に取り出す。
+    ///
+    /// 名前はカードの見出しから取る。<c>data-product-name</c> は25字前後で「…」に切られていて、
+    /// 長い商品名の後ろの語（「〇〇 - Long Na...」の Name）が並べ直しに効いていなかった
+    /// （正解の分かる318本で測って見付けた。2026-09-29）。見出しが無ければ属性の名前を使う。
+    /// </summary>
     public static IReadOnlyList<SearchCard> ExtractSearchCards(string html)
     {
         var cards = new List<SearchCard>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var tags = CardTagRegex.Matches(html);
 
-        foreach (Match tag in CardTagRegex.Matches(html))
+        for (var i = 0; i < tags.Count; i++)
         {
+            var tag = tags[i];
             var id = Attribute(tag.Value, "data-product-id");
-            if (id.Length > 0 && seen.Add(id))
+            if (id.Length == 0 || !seen.Add(id))
             {
-                cards.Add(new SearchCard(id, Attribute(tag.Value, "data-product-name"), Attribute(tag.Value, "data-product-brand")));
+                continue;
             }
+
+            var end = i + 1 < tags.Count ? tags[i + 1].Index : html.Length;
+            var title = CardTitleRegex.Match(html, tag.Index, end - tag.Index);
+            var name = title.Success
+                ? System.Net.WebUtility.HtmlDecode(title.Groups[1].Value).Trim()
+                : string.Empty;
+
+            cards.Add(new SearchCard(
+                id,
+                name.Length > 0 ? name : Attribute(tag.Value, "data-product-name"),
+                Attribute(tag.Value, "data-product-brand")));
         }
 
         return cards;
@@ -122,16 +152,44 @@ public sealed class FallbackResolver
     /// ファイル名の頭や尻に付いたショップ名（sampleflow_ / _samplecat）も効かない。
     /// 点が同じならBOOTHの並びを保つ。
     /// </summary>
-    public static IReadOnlyList<SearchCard> Rerank(IReadOnlyList<SearchCard> cards, string filePath)
+    /// <param name="avatars">
+    /// 渡せば、ファイル名の中のアバターの名前は商品名の語として数えず、**同じアバターを名前に出す商品に1点だけ**足す。
+    /// 「【A専用】髪のグラデーション」と「【B専用】髪のグラデーション」のように、アバターだけが違う同じ作者の商品が
+    /// 並ぶと、商品名の語では決まらない。英字のファイル名と、かなの商品名も同じアバターの名前として結ぶ。
+    /// 1点にしたのは、商品名の語（2点）より弱くするため——アバターが同じだけの別商品は多い。
+    /// アバターそのものの商品には足さない（衣装のファイルでアバター本体が上に来ないように）。
+    /// ファイル名が名前だけのときは逆に本体にだけ足す。
+    /// </param>
+    public static IReadOnlyList<SearchCard> Rerank(IReadOnlyList<SearchCard> cards, string filePath, AvatarTokens? avatars = null)
     {
-        var tokens = FileNameQuery.Tokens(filePath);
+        var tokens = FileNameQuery.ProductTokens(filePath, avatars is null ? null : avatars.IsAvatarName);
         var numbers = FileNameQuery.SeriesNumbers(filePath).Concat(FileNameQuery.SignificantNumbers(filePath)).Distinct().ToList();
         var raw = Path.GetFileNameWithoutExtension(filePath).ToLowerInvariant();
+
+        var fileAvatars = avatars is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : FileNameQuery.Tokens(filePath)
+                .SelectMany(avatars.AvatarsNamedBy)
+                .Concat(avatars.AvatarsIn(Path.GetFileNameWithoutExtension(filePath)))
+                .ToHashSet(StringComparer.Ordinal);
+
+        // ファイル名の語が全部アバターの名前なら、そのファイルはアバター本体（「名前_PSD」「名前_PC」）。
+        // このときは向きを逆にして本体の方に足す。同じアバター向けの商品に足すと、本体がその下に沈んだ（2026-09-29）
+        var isAvatarItself = avatars is not null && fileAvatars.Count > 0
+            && FileNameQuery.Tokens(filePath).All(avatars.IsAvatarName);
 
         return cards
             .Select((card, position) =>
             {
                 var score = tokens.Count(token => FileNameQuery.LooksRelated(card.Name, token)) * 2;
+
+                if (fileAvatars.Count > 0
+                    && (isAvatarItself
+                        ? fileAvatars.Contains(card.ItemId)
+                        : !fileAvatars.Contains(card.ItemId) && avatars!.AvatarsIn(card.Name).Any(fileAvatars.Contains)))
+                {
+                    score += 1;
+                }
 
                 if (numbers.Any(number => ContainsNumber(card.Name, number)))
                 {
@@ -159,11 +217,14 @@ public sealed class FallbackResolver
     ///   <item><b>別の表記</b>（<see cref="AlternateQueries"/>）。ローマ字や英単語の商品名</item>
     /// </list>
     /// </summary>
-    public static IReadOnlyList<string> RetryQueries(string filePath, string query, Search.SearchBridge? bridge)
+    public static IReadOnlyList<string> RetryQueries(
+        string filePath, string query, Search.SearchBridge? bridge, AvatarTokens? avatars = null)
     {
         var results = new List<string>();
 
-        var distinctive = FileNameQuery.MostDistinctiveToken(filePath);
+        // アバターの名前を外す前の語では引き直さない。試すと（正解の分かる318本）候補のどこかに正解は2本増えたが、
+        // アバターの名前を持つ別の商品が点を取り、画面の1位の正解が5本減った（2026-09-29）
+        var distinctive = FileNameQuery.MostDistinctiveToken(filePath, avatars is null ? null : avatars.IsAvatarName);
         if (distinctive.Length > 0 && !string.Equals(distinctive, query, StringComparison.OrdinalIgnoreCase))
         {
             results.Add(distinctive);
@@ -181,9 +242,13 @@ public sealed class FallbackResolver
         return results;
     }
 
-    /// <summary>数字として含むか。「13」が「113」や「2013」に当たらないように、前後が数字でないことを見る。</summary>
+    /// <summary>
+    /// 数字として含むか。「13」が「113」や「2013」に当たらないように、前後が数字でないことを見る。
+    /// 商品名の版番号（「ver2.1.0」）の中の数字にも当てない。検索カードの名前を切らずに読むようにしたら、
+    /// 版番号を名前に書く商品がシリーズの番号の3点を取り、正解の上に来た（2026-09-29）。
+    /// </summary>
     private static bool ContainsNumber(string text, string number)
-        => Regex.IsMatch(text, $@"(?<![0-9]){Regex.Escape(number)}(?![0-9])");
+        => Regex.IsMatch(text, $@"(?<![0-9]|[0-9]\.){Regex.Escape(number)}(?![0-9]|\.[0-9])");
 
     /// <summary>
     /// 検索結果HTMLから商品IDを表示順に取り出す。
@@ -217,7 +282,9 @@ public sealed class FallbackResolver
         CancellationToken cancellationToken = default,
         IProgress<ResolveProgress>? progress = null)
     {
-        var query = FileNameQuery.ToSearchQuery(filePath);
+        // 登録簿は取り込みで増えるので、押すたびに読み直す（索引を組むのは数百件で数ミリ秒）
+        var avatars = _avatarRegistry is null ? null : AvatarTokens.From(_avatarRegistry(), _readings);
+        var query = FileNameQuery.ToSearchQuery(filePath, avatars is null ? null : avatars.IsAvatarName);
         if (query.Length == 0)
         {
             return new ResolutionProposal([], false);
@@ -241,7 +308,7 @@ public sealed class FallbackResolver
 
         progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
-        var (searchIds, searched) = await SearchIdsAsync(query, filePath, cancellationToken);
+        var (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, cancellationToken);
 
         var orderedIds = direct
             .Concat(searchIds)
@@ -284,13 +351,13 @@ public sealed class FallbackResolver
         {
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
 
-            foreach (var alternate in RetryQueries(filePath, query, _bridge))
+            foreach (var alternate in RetryQueries(filePath, query, _bridge, avatars))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
-                var alternateIds = (await SearchIdsAsync(alternate, filePath, cancellationToken)).Ids;
+                var alternateIds = (await SearchIdsAsync(alternate, filePath, avatars, cancellationToken)).Ids;
                 var extraIds = alternateIds
                     .Where(id => seen.Add(id))
                     .Take(MaxCandidates)
@@ -329,7 +396,7 @@ public sealed class FallbackResolver
     /// **届いたかどうかも返す**（E3：届かなかったのを0件と同じに扱っていた）。
     /// </summary>
     private async Task<(IReadOnlyList<string> Ids, bool Searched)> SearchIdsAsync(
-        string query, string filePath, CancellationToken cancellationToken)
+        string query, string filePath, AvatarTokens? avatars, CancellationToken cancellationToken)
     {
         var result = await _client.SearchAsync(query, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
@@ -339,7 +406,7 @@ public sealed class FallbackResolver
 
         var cards = ExtractSearchCards(result.Value);
         return (cards.Count > 0
-            ? Rerank(cards, filePath).Select(card => card.ItemId).ToList()
+            ? Rerank(cards, filePath, avatars).Select(card => card.ItemId).ToList()
             : ExtractSearchResultIds(result.Value), true);
     }
 

@@ -44,6 +44,37 @@ public class FallbackResolverTests
         Assert.Equal("posepose", cards[1].ShopSubdomain);
     }
 
+    /// <summary>商品名の版番号の中の数字は、シリーズの番号として数えない（2026-09-29）。</summary>
+    [Fact]
+    public void RerankIgnoresNumbersInsideVersionStrings()
+    {
+        var cards = new[]
+        {
+            new FallbackResolver.SearchCard("111", "サンプルモデル ver2.1.0", "other"),
+            new FallbackResolver.SearchCard("222", "撫でるサンプルギミック", "maker"),
+        };
+
+        Assert.Equal("222", FallbackResolver.Rerank(cards, @"C:\dl\撫でるサンプルギミック1_01.zip")[0].ItemId);
+    }
+
+    /// <summary>属性の名前は途中で切られているので、カードの見出しの名前を使う（2026-09-29）。</summary>
+    [Fact]
+    public void ReadsTheUntruncatedNameFromTheCardTitle()
+    {
+        const string html = """
+            <li class="item-card l-card" data-product-id="111" data-product-name="Sample Avatar - Long Na..." data-product-brand="maker">
+              <div class="item-card__title"><a class="item-card__title-anchor--multiline nav" href="https://booth.pm/ja/items/111">Sample Avatar - Long Name &amp; Add-on</a></div>
+            </li>
+            <li class="item-card l-card" data-product-id="222" data-product-name="見出しの無いカード" data-product-brand="maker">
+            </li>
+            """;
+
+        var cards = FallbackResolver.ExtractSearchCards(html);
+
+        Assert.Equal("Sample Avatar - Long Name & Add-on", cards[0].Name);
+        Assert.Equal("見出しの無いカード", cards[1].Name);
+    }
+
     /// <summary>連番のシリーズ物は、番号の合うものを先に。BOOTHの並びでは十数位に沈んでいた。</summary>
     [Fact]
     public void RerankPutsTheMatchingSeriesNumberFirst()
