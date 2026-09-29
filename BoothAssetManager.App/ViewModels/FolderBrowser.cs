@@ -62,7 +62,7 @@ public sealed class FolderBrowserFolderCard
 /// 文字で探しているときは、**この下の全部**から探す（どこにあったか覚えていないときに探せるように）。
 /// 非表示・R-18 を出さない設定は、検索画面・ショップの画面と同じ決め事で外す。
 /// </summary>
-public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
+public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImagesListener
 {
     /// <summary>カード1枚ぶんの幅（カード228＋間14）。検索画面と同じ。</summary>
     private static double CardSlotWidth => CardMetrics.SlotWidth;
@@ -474,6 +474,15 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
     // ---- カードの操作（検索画面と同じ・IItemCardHost） ----
 
     public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+
+    /// <summary>裏の取得がこの商品の画像を置いた。作ってあるカードだけ描き直す（まだ作っていないカードは作るときに絵を探す）。</summary>
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        if (_cards.TryGetValue(itemId, out var card))
+        {
+            card.RefreshImages();
+        }
+    }
 
     public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
 

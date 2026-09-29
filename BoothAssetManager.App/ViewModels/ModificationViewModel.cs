@@ -148,7 +148,7 @@ public sealed class ProjectCandidateRowViewModel
 /// （アバター詳細の中で展開すると縦に伸び続ける）。決めた理由は
 /// <c>docs/history/modifications.md</c>。
 /// </summary>
-public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost, IPendingWrites, ILeavingScreen
+public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCardHost, IPendingWrites, ILeavingScreen, IItemImagesListener
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -770,6 +770,18 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     // カードの操作は検索と同じ（フォルダビューと同じく検索の画面の操作を借りる）
     public void OpenItem(ItemCardViewModel card) => _main.ShowItem(card.Item);
+
+    /// <summary>裏の取得がこの商品の画像を置いた。使ったものの行のカードを描き直す（作ったときに一度だけ絵を探すので）。</summary>
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        foreach (var member in Members)
+        {
+            if (member.Card is { } card && string.Equals(card.Item.Id, itemId, StringComparison.Ordinal))
+            {
+                card.RefreshImages();
+            }
+        }
+    }
 
     public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
 

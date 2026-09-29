@@ -12,7 +12,7 @@ namespace BoothAssetManager.App.ViewModels;
 /// BOOTHのショップにある全商品ではない。取りに行っていないものは存在自体を知らないので、
 /// その旨は画面に書いておく（件数を全商品数と誤解されると数字の意味が変わる）。
 /// </summary>
-public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen
+public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites, ISelectionScreen, IItemImagesListener
 {
     private readonly AppServiceContainer _services;
     private readonly MainViewModel _main;
@@ -569,6 +569,21 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public void OpenBooth(ItemCardViewModel? card) => _main.Search.OpenBooth(card);
 
     public Task ToggleFavoriteAsync(ItemCardViewModel card) => _main.Search.ToggleFavoriteAsync(card);
+
+    /// <summary>
+    /// 裏の取得がこの商品の画像を置いた。カードだけ描き直す（一覧ごと組み直すと絞り込みとスクロール位置が崩れる。検索と同じ）。
+    /// カードは作ったときに一度だけ絵を探すので、取り込みの④⑤の最中に開くと、知らせないと「画像を取得中」のまま残る
+    /// </summary>
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        foreach (var card in _all)
+        {
+            if (string.Equals(card.Item.Id, itemId, StringComparison.Ordinal))
+            {
+                card.RefreshImages();
+            }
+        }
+    }
 
     // 右クリックのメニューはカードの Tag（＝この画面）から同じ名前で引く。中身は検索画面の物をそのまま使う
     public RelayCommand OpenBoothCommand => _main.Search.OpenBoothCommand;

@@ -303,7 +303,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 /// 未確定のファイルは未確定の画面の右側を、そのまま組み込む。根の決め方は <see cref="FolderViewRoots"/>。
 /// **木は保存した記録のパスから組み、ディスクを読み回らない**（取り外したドライブも最後に分かっていた形で出す）。
 /// </summary>
-public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites, ILeavingScreen
+public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingWrites, ILeavingScreen, IItemImagesListener
 {
     // 開いた・畳んだはアプリを閉じるまで覚える（改変の画面と同じ・ユーザ判断）
     private static readonly HashSet<string> s_expanded = new(StringComparer.OrdinalIgnoreCase);
@@ -414,6 +414,23 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     /// </summary>
     public Task FlushPendingWritesAsync()
         => (Detail as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 画像が届いた知らせを右に組み込んだ物へ渡す。組み込んだ商品ページは主画面から見えない（今の画面はこちら）ので、
+    /// 自分が渡さないと、取得の最中に開いた商品の絵が空のまま残る
+    /// </summary>
+    void IItemImagesListener.NoteItemImagesSaved(string itemId)
+    {
+        switch (Detail)
+        {
+            case ItemViewModel page:
+                page.NoteImagesSaved(itemId);
+                break;
+            case IItemImagesListener listener:
+                listener.NoteItemImagesSaved(itemId);
+                break;
+        }
+    }
 
     public object? Detail
     {
