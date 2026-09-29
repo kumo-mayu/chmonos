@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="BoothAssetManager.App.Views.SearchView"
+<UserControl x:Class="BoothAssetManager.App.Views.SearchView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
@@ -235,14 +235,14 @@
                                       AutomationProperties.Name="条件を追加"
                                       ToolTip="絞り込みに使う条件を追加します。追加済みの条件は選べません。">
                                 <MenuItem.ItemContainerStyle>
-                                    <Style TargetType="MenuItem">
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                                         <Setter Property="Header" Value="{Binding Title}" />
                                         <Setter Property="ItemsSource" Value="{Binding Entries}" />
                                         <Setter Property="Foreground" Value="{DynamicResource Text}" />
                                         <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
                                         <Setter Property="ItemContainerStyle">
                                             <Setter.Value>
-                                                <Style TargetType="MenuItem">
+                                                <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                                                     <Setter Property="Header" Value="{Binding Label}" />
                                                     <Setter Property="Command" Value="{Binding AddCommand}" />
                                                     <Setter Property="ToolTip" Value="{Binding Hint}" />
@@ -909,7 +909,7 @@
                         <MenuItem Header="対象 ▾" ItemsSource="{Binding TargetOptions}" Height="34" Padding="10,0"
                                   ToolTip="探す項目を選びます。name: などを付けた語は、その項目を探します。">
                             <MenuItem.ItemContainerStyle>
-                                <Style TargetType="MenuItem">
+                                <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                                     <Setter Property="Header" Value="{Binding Header}" />
                                     <Setter Property="IsCheckable" Value="True" />
                                     <Setter Property="IsChecked" Value="{Binding IsOn, Mode=TwoWay}" />

@@ -48,6 +48,13 @@ internal static class DialogFit
 
         // 題の帯を表示の色に合わせる（暗い表のとき暗くする）。帯は Windows が描くので色の表が届かない
         ViewModels.AppTheme.Watch(dialog);
+
+        // 地を書いていない小窓は Windows の既定の白で出る。暗い表では文字だけ明るくなって読めなくなるので、面の色を指す
+        // （明るい表の面は白なので、明るいときの見た目は変わらない）
+        if (dialog.ReadLocalValue(Control.BackgroundProperty) == DependencyProperty.UnsetValue)
+        {
+            dialog.SetResourceReference(Control.BackgroundProperty, "Surface");
+        }
     }
 
     /// <summary>

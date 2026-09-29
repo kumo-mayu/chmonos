@@ -33,13 +33,13 @@
             <Setter Property="Foreground" Value="{DynamicResource Text}" />
         </Style>
 
-        <Style x:Key="SettingCheck" TargetType="CheckBox">
+        <Style x:Key="SettingCheck" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
             <Setter Property="Foreground" Value="{DynamicResource Text}" />
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="Margin" Value="0,0,0,10" />
         </Style>
 
-        <Style x:Key="NumberBox" TargetType="TextBox">
+        <Style x:Key="NumberBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="Width" Value="76" />
             <Setter Property="Padding" Value="7,4" />
             <Setter Property="TextAlignment" Value="Right" />

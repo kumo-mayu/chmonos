@@ -115,4 +115,64 @@
     <!-- 明るい黄色を暗い地に薄く敷くと濁った緑に見えるので、色を濃くして重ねる量を減らす -->
     <SolidColorBrush x:Key="FindMatch" Color="#5cc7a431" />
     <SolidColorBrush x:Key="FindCurrent" Color="#8ce0892e" />
+    <!-- ===== 標準の部品（Themes/Controls.xaml が描く） ===== -->
+    <!-- 入力欄の枠は、欄の地に対して部品の 3:1 を満たす -->
+    <SolidColorBrush x:Key="InputBorder" Color="#666d7a" />
+    <SolidColorBrush x:Key="InputBorderHover" Color="#838b98" />
+    <SolidColorBrush x:Key="InputBorderFocus" Color="#6fa5ee" />
+    <SolidColorBrush x:Key="SelectionBack" Color="#4a8fe0" />
+    <SolidColorBrush x:Key="Caret" Color="#e6e8ec" />
+    <SolidColorBrush x:Key="CheckBack" Color="#17191e" />
+    <SolidColorBrush x:Key="CheckBackHover" Color="#212836" />
+    <SolidColorBrush x:Key="CheckBackPressed" Color="#29344a" />
+    <SolidColorBrush x:Key="CheckBorder" Color="#8a919d" />
+    <SolidColorBrush x:Key="CheckBorderHover" Color="#6fa5ee" />
+    <SolidColorBrush x:Key="CheckMark" Color="#e6e8ec" />
+    <SolidColorBrush x:Key="ComboBack" Color="#2a2e36" />
+    <SolidColorBrush x:Key="ComboBackHover" Color="#323845" />
+    <SolidColorBrush x:Key="ComboBorder" Color="#666d7a" />
+    <SolidColorBrush x:Key="ComboBorderHover" Color="#838b98" />
+    <SolidColorBrush x:Key="ComboArrow" Color="#b4bac4" />
+    <!-- メニューは面より一段上げる（地と同じ暗さだと、どこまでがメニューか分からない） -->
+    <SolidColorBrush x:Key="MenuBack" Color="#262a31" />
+    <SolidColorBrush x:Key="MenuBorder" Color="#454b56" />
+    <SolidColorBrush x:Key="MenuHover" Color="#2f3e53" />
+    <SolidColorBrush x:Key="MenuHoverBorder" Color="#3f5a7e" />
+    <SolidColorBrush x:Key="MenuText" Color="#e6e8ec" />
+    <SolidColorBrush x:Key="MenuTextDisabled" Color="#858d9a" />
+    <SolidColorBrush x:Key="MenuSeparator" Color="#3a3f4a" />
+    <SolidColorBrush x:Key="MenuGlyph" Color="#d5d9e0" />
+    <SolidColorBrush x:Key="ToolTipBack" Color="#2b2f37" />
+    <SolidColorBrush x:Key="ToolTipBorder" Color="#4b515d" />
+    <SolidColorBrush x:Key="ToolTipText" Color="#e6e8ec" />
+    <SolidColorBrush x:Key="ListHoverBack" Color="#262f3c" />
+    <SolidColorBrush x:Key="ListHoverBorder" Color="#34445a" />
+    <SolidColorBrush x:Key="ListSelectedBack" Color="#1f3a5c" />
+    <SolidColorBrush x:Key="ListSelectedBorder" Color="#3f6ea8" />
+    <SolidColorBrush x:Key="ListSelectedInactiveBack" Color="#2c313a" />
+    <SolidColorBrush x:Key="ListSelectedInactiveBorder" Color="#3a404b" />
+    <!-- つまみは溝に対して部品の 3:1 を満たす -->
+    <SolidColorBrush x:Key="ScrollTrack" Color="#1b1e23" />
+    <SolidColorBrush x:Key="ScrollThumb" Color="#666d79" />
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="#7f8793" />
+    <SolidColorBrush x:Key="ScrollThumbPressed" Color="#9aa1ad" />
+    <SolidColorBrush x:Key="ScrollArrow" Color="#a3aab6" />
+    <SolidColorBrush x:Key="ScrollArrowHoverBack" Color="#30343c" />
+    <SolidColorBrush x:Key="SliderTrack" Color="#30353e" />
+    <SolidColorBrush x:Key="SliderTrackBorder" Color="#454b56" />
+    <SolidColorBrush x:Key="SliderThumb" Color="#aab1bc" />
+    <SolidColorBrush x:Key="SliderThumbBorder" Color="#d0d4db" />
+    <SolidColorBrush x:Key="SliderThumbHover" Color="#c3cad4" />
+    <SolidColorBrush x:Key="SliderThumbHoverBorder" Color="#6fa5ee" />
+    <SolidColorBrush x:Key="SliderTick" Color="#5d6471" />
+    <SolidColorBrush x:Key="ColumnHeaderBack" Color="#1e2127" />
+    <SolidColorBrush x:Key="ColumnHeaderHover" Color="#272c35" />
+    <SolidColorBrush x:Key="ColumnHeaderBorder" Color="#343943" />
+
+    <!-- Windows の色（SystemColors）の置き換え。自前の見た目を持たない所が読む -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#1e2127" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#e6e8ec" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#1b1e23" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#e6e8ec" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#868e9b" />
 </ResourceDictionary>

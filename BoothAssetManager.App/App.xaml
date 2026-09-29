@@ -6,11 +6,13 @@
     <Application.Resources>
       <ResourceDictionary>
         <!--
-            色の表。鍵は明るい表と暗い表で同じで、起動時と設定を変えたときに ThemeManager がこの1つを差し替える。
+            色の表。鍵は明るい表と暗い表で同じで、起動時と設定を変えたときに AppTheme がこの1つ（Light.xaml）を差し替える。
             画面は色を直に書かず、DynamicResource で鍵を指す（docs/spec/ui-colors.md）
         -->
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="Themes/Light.xaml" />
+            <!-- 標準の部品（チェックボックス・プルダウン・メニュー・吹き出し・スクロールバーなど）を色の表の鍵で描く -->
+            <ResourceDictionary Source="Themes/Controls.xaml" />
         </ResourceDictionary.MergedDictionaries>
 
         <!--
@@ -31,16 +33,10 @@
         <!--
             表示の大きさ（設定・Ctrl＋＋／Ctrl＋－・ユーザ指示 2026-09-29）。起動時と変えたときに AppZoom が書き換える。
             主の窓の中身はこれで丸ごと縮尺する。吹き出しとメニューは別の窓（ポップアップ）で、
-            主の窓の縮尺が届かないので、下の既定の見た目で同じ倍率を当てる。
+            主の窓の縮尺が届かないので、Themes/Controls.xaml の既定の見た目で同じ倍率を当てる。
             ComboBox の一覧・入力欄の候補・日付の選択のように、窓の中に置いたポップアップは置いた場所の縮尺を WPF が引き継ぐので当てない（当てると2重になる）
         -->
         <ScaleTransform x:Key="AppZoomTransform" ScaleX="1" ScaleY="1" />
-        <Style TargetType="ToolTip">
-            <Setter Property="LayoutTransform" Value="{DynamicResource AppZoomTransform}" />
-        </Style>
-        <Style TargetType="ContextMenu">
-            <Setter Property="LayoutTransform" Value="{DynamicResource AppZoomTransform}" />
-        </Style>
 
         <!--
             畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、

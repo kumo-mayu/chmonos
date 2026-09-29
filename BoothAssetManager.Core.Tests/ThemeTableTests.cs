@@ -41,7 +41,7 @@ public class ThemeTableTests
         .EnumerateFiles(AppDir, "*.xaml", SearchOption.AllDirectories)
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                        && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
-                       && !path.Contains($"{Path.DirectorySeparatorChar}Themes{Path.DirectorySeparatorChar}"));
+                       && Path.GetFileName(path) is not ("Light.xaml" or "Dark.xaml"));
 
     [Fact]
     public void 明るい表と暗い表は同じ鍵を同じ型で持つ()
@@ -126,7 +126,19 @@ public class ThemeTableTests
     [InlineData("RailMuted", "Rail", 4.5)]
     [InlineData("RailSubtitle", "Rail", 4.5)]
     [InlineData("RailNoticeText", "RailNoticeBack", 4.5)]
+    // 標準の部品の文字（Themes/Controls.xaml）
+    [InlineData("MenuText", "MenuBack", 4.5)]
+    [InlineData("MenuText", "MenuHover", 4.5)]
+    [InlineData("ToolTipText", "ToolTipBack", 4.5)]
+    [InlineData("Text", "ComboBack", 4.5)]
+    [InlineData("Text", "ListHoverBack", 4.5)]
+    [InlineData("Text", "ListSelectedBack", 4.5)]
+    [InlineData("Text", "ColumnHeaderBack", 4.5)]
     // 部品と印（3:1）
+    [InlineData("InputBorder", "InputBack", 3)]
+    [InlineData("CheckBorder", "Surface", 3)]
+    [InlineData("ScrollThumb", "ScrollTrack", 3)]
+    [InlineData("SliderThumb", "SliderTrack", 3)]
     [InlineData("Star", "Surface", 3)]
     [InlineData("ChipRemove", "ChipBack", 3)]
     [InlineData("Accent", "BarTrack", 3)]
