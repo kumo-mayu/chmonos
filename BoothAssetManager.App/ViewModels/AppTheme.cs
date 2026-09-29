@@ -221,6 +221,14 @@ public sealed class AppTheme : ViewModelBase
             return;
         }
 
+        // 描き始める前の地も色の表の背景にする。既定は白で、暗い表でも窓を出した一瞬だけ白く見える（ユーザ指摘 2026-09-30）。
+        // 窓の Background は WPF が最初の1コマを描くまで効かない
+        if (HwndSource.FromHwnd(handle)?.CompositionTarget is { } target
+            && Application.Current?.TryFindResource("Bg") is System.Windows.Media.SolidColorBrush background)
+        {
+            target.BackgroundColor = background.Color;
+        }
+
         var value = dark ? 1 : 0;
         if (DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref value, sizeof(int)) != 0)
         {
