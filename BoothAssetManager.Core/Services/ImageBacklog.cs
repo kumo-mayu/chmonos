@@ -90,17 +90,26 @@ public sealed class ImageBacklog
         var total = items.Count * 2;
         progress?.Report((0, total));
 
+        // 届かない失敗（応答が無い・5xx）が3件続いたら、この回の残りは取りに行かない（ユーザ判断 2026-09-29）。
+        // つながっていないと1枚ごとに再試行で長く待ち、全件を回るので、起動のたびにゲートを長く占めていた。
+        // 取らなかった絵は印を置かないので、手元の JSON とディスクの差でまた対象になり、次の起動で取る
+        var outage = new BoothOutageWatch();
+
         using (BoothClient.Prioritize(BoothPriority.Thumbnail))
         {
             foreach (var item in items)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (outage.IsStopped)
+                {
+                    break;
+                }
 
                 if (item.Booth.Images.Count > 0)
                 {
                     // 既に手元にある物は「落とした」に数えない（SyncOneAsync は手元にあるだけでも true）
                     var had = File.Exists(_images.FilePathFor(item.Id, item.Booth.Images[0].OriginalUrl));
-                    if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], cancellationToken) && !had)
+                    if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], outage, cancellationToken) && !had)
                     {
                         downloaded++;
                     }
@@ -115,15 +124,20 @@ public sealed class ImageBacklog
             foreach (var item in items)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (outage.IsStopped)
+                {
+                    break;
+                }
 
                 // 1枚目は既に手元にあるので、ここでは飛ばされる（枚数には数えない）
-                var result = await _images.SyncAsync(item.Id, item.Booth.Images, cancellationToken);
+                var result = await _images.SyncAsync(item.Id, item.Booth.Images, outage, cancellationToken);
                 downloaded += result.Downloaded;
 
                 progress?.Report((++done, total));
             }
         }
 
+        outage.LogIfStopped("起動時の裏の作業：前の取り込みで残った画像");
         return downloaded;
     }
 }

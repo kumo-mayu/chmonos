@@ -157,9 +157,20 @@ public sealed class ImagePipeline
     /// 時間で確かめ直す必要は無い（URLは商品JSONと一緒に毎回届くため）。
     /// </summary>
     /// <returns>手元にアイコンがあるか（元から持っていた場合も true）。</returns>
+    public Task<bool> SyncShopIconAsync(
+        string subdomain,
+        string? thumbnailUrl,
+        CancellationToken cancellationToken = default)
+        => SyncShopIconAsync(subdomain, thumbnailUrl, outage: null, cancellationToken);
+
+    /// <param name="outage">
+    /// 取り込み・裏の作業の画像の段で、届かない失敗を続けて数える物（ユーザ判断 2026-09-29）。
+    /// 打ち切った後は問い合わせずに false を返す（まだ取っていない扱いのまま残り、次の機会に取る）。
+    /// </param>
     public async Task<bool> SyncShopIconAsync(
         string subdomain,
         string? thumbnailUrl,
+        BoothOutageWatch? outage,
         CancellationToken cancellationToken = default)
     {
         if (!_settings.SaveImages)
@@ -182,7 +193,13 @@ public sealed class ImagePipeline
             return true;
         }
 
+        if (outage is { IsStopped: true })
+        {
+            return false;
+        }
+
         var result = await _client.GetBinaryAsync(source, cancellationToken);
+        outage?.Note(result);
         if (!result.IsSuccess || result.Value is null)
         {
             return false;
@@ -265,9 +282,17 @@ public sealed class ImagePipeline
     /// 1枚だけ渡すと、まだ落としていない残りが全部「消えた画像」になってしまう。
     /// </summary>
     /// <returns>手元にあるか（元から持っていた場合も true）。</returns>
+    public Task<bool> SyncOneAsync(
+        string itemId,
+        BoothImage image,
+        CancellationToken cancellationToken = default)
+        => SyncOneAsync(itemId, image, outage: null, cancellationToken);
+
+    /// <param name="outage">画像の段で届かない失敗を続けて数える物（<see cref="SyncShopIconAsync(string, string?, BoothOutageWatch?, CancellationToken)"/>）。</param>
     public async Task<bool> SyncOneAsync(
         string itemId,
         BoothImage image,
+        BoothOutageWatch? outage,
         CancellationToken cancellationToken = default)
     {
         // 外した商品の画像フォルダを作り直さない（SyncAsync と同じ理由）
@@ -276,7 +301,7 @@ public sealed class ImagePipeline
             return false;
         }
 
-        var (present, saved) = await FetchOneAsync(_paths.ItemImagesDir(itemId), image.OriginalUrl, cancellationToken);
+        var (present, saved) = await FetchOneAsync(_paths.ItemImagesDir(itemId), image.OriginalUrl, outage, cancellationToken);
         if (saved)
         {
             ItemImagesSaved?.Invoke(itemId);
@@ -290,16 +315,25 @@ public sealed class ImagePipeline
     /// 保存の形（長辺・WebP・URLのハッシュの名前・404の印）は商品の画像と同じ。
     /// </summary>
     /// <returns>手元にあるか（元から持っていた場合も true）。</returns>
-    public async Task<bool> SyncOneToAsync(
+    public Task<bool> SyncOneToAsync(
         string directory,
         string originalUrl,
         CancellationToken cancellationToken = default)
-        => (await FetchOneAsync(directory, originalUrl, cancellationToken)).Present;
+        => SyncOneToAsync(directory, originalUrl, outage: null, cancellationToken);
+
+    /// <param name="outage">画像の段で届かない失敗を続けて数える物（<see cref="SyncShopIconAsync(string, string?, BoothOutageWatch?, CancellationToken)"/>）。</param>
+    public async Task<bool> SyncOneToAsync(
+        string directory,
+        string originalUrl,
+        BoothOutageWatch? outage,
+        CancellationToken cancellationToken = default)
+        => (await FetchOneAsync(directory, originalUrl, outage, cancellationToken)).Present;
 
     /// <returns>手元にあるか、この呼び出しで新しく保存したか。</returns>
     private async Task<(bool Present, bool Saved)> FetchOneAsync(
         string directory,
         string originalUrl,
+        BoothOutageWatch? outage,
         CancellationToken cancellationToken)
     {
         if (!_settings.SaveImages)
@@ -321,7 +355,14 @@ public sealed class ImagePipeline
             return (false, false);
         }
 
+        // 打ち切った後は問い合わせない。印も置かないので、まだ取っていない扱いのまま次の機会に取る
+        if (outage is { IsStopped: true })
+        {
+            return (false, false);
+        }
+
         var result = await _client.GetBinaryAsync(originalUrl, cancellationToken);
+        outage?.Note(result);
 
         if (result.Status == BoothFetchStatus.NotFound)
         {
@@ -470,9 +511,20 @@ public sealed class ImagePipeline
         }
     }
 
+    public Task<ImageSyncResult> SyncAsync(
+        string itemId,
+        IReadOnlyList<BoothImage> images,
+        CancellationToken cancellationToken = default)
+        => SyncAsync(itemId, images, outage: null, cancellationToken);
+
+    /// <param name="outage">
+    /// 画像の段で届かない失敗を続けて数える物（ユーザ判断 2026-09-29）。打ち切ったら、この商品の残りも問い合わせない。
+    /// 残りには「しばらく休む」の印も置かない——休ませると、つながった後の次の機会にも取りに行かなくなる。
+    /// </param>
     public async Task<ImageSyncResult> SyncAsync(
         string itemId,
         IReadOnlyList<BoothImage> images,
+        BoothOutageWatch? outage,
         CancellationToken cancellationToken = default)
     {
         if (!_settings.SaveImages)
@@ -535,7 +587,15 @@ public sealed class ImagePipeline
                     continue;
                 }
 
+                // 打ち切った後は問い合わせない。抜けずに残りを回るのは、手元にある絵を「BOOTHから消えた画像」と
+                // 数えないため（expected に入れておく）
+                if (outage is { IsStopped: true })
+                {
+                    continue;
+                }
+
                 var result = await _client.GetBinaryAsync(image.OriginalUrl, cancellationToken);
+                outage?.Note(result);
 
                 if (result.Status == BoothFetchStatus.NotFound)
                 {

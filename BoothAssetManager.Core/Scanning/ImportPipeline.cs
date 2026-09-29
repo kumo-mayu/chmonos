@@ -295,9 +295,11 @@ public sealed class ImportPipeline : IImportPipeline
 
             if (work.TakePending() is not { Count: > 0 } folders)
             {
-                // 応答の無い失敗が続いて打ち切ったなら、前の周回で積んだ画像も取りに行かない（FetchAsync の画像の見込みと同じ理由）
-                if (images.IsEmpty || totals.Outage.IsStopped)
+                // ①②で打ち切ったなら、前の周回で積んだ画像も取りに行かない（FetchAsync の画像の見込みと同じ理由）。
+                // 画像の段そのものが打ち切った後も、この回の残りは取りに行かない（DrainImagesAsync）
+                if (images.IsEmpty || totals.Outage.IsStopped || images.Outage.IsStopped)
                 {
+                    images.Outage.LogIfStopped("取り込みの画像の取得");
                     break;
                 }
 
@@ -1519,7 +1521,9 @@ public sealed class ImportPipeline : IImportPipeline
     {
         var downloaded = 0;
 
-        while (!queue.IsEmpty && !work.HasPending)
+        // 画像の段でも、届かない失敗が3件続いたらこの回の残りは取りに行かない（ユーザ判断 2026-09-29）。
+        // 取らなかった絵は印も置かないので、起動時の⑤か「足りない情報を取得」で取れる（ImageBacklog は手元の JSON とディスクの差で対象を決める）
+        while (!queue.IsEmpty && !work.HasPending && !queue.Outage.IsStopped)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -1533,7 +1537,7 @@ public sealed class ImportPipeline : IImportPipeline
                 using (BoothClient.Prioritize(BoothPriority.Thumbnail))
                 {
                     // 取れなくても商品は画面に出す。出さないとその商品は永久に見えない
-                    if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], cancellationToken))
+                    if (await _images.SyncOneAsync(item.Id, item.Booth.Images[0], queue.Outage, cancellationToken))
                     {
                         downloaded++;
                     }
@@ -1554,7 +1558,7 @@ public sealed class ImportPipeline : IImportPipeline
 
                 using (BoothClient.Prioritize(BoothPriority.Gallery))
                 {
-                    downloaded += (await _images.SyncAsync(gallery.Id, gallery.Booth.Images, cancellationToken)).Downloaded;
+                    downloaded += (await _images.SyncAsync(gallery.Id, gallery.Booth.Images, queue.Outage, cancellationToken)).Downloaded;
                 }
 
                 work.PlanRequests(gallery: -(gallery.Booth.Images.Count - 1)); // 1枚目は④で数えた
@@ -1569,7 +1573,7 @@ public sealed class ImportPipeline : IImportPipeline
 
             using (BoothClient.Prioritize(BoothPriority.ShopIcon))
             {
-                await _images.SyncShopIconAsync(subdomain, thumbnailUrl, cancellationToken);
+                await _images.SyncShopIconAsync(subdomain, thumbnailUrl, queue.Outage, cancellationToken);
             }
 
             work.PlanRequests(icons: -1);
@@ -1605,6 +1609,12 @@ public sealed class ImportPipeline : IImportPipeline
         public int IconsTotal { get; set; }
 
         public bool IsEmpty => Thumbnails.Count == 0 && Galleries.Count == 0 && ShopIcons.Count == 0;
+
+        /// <summary>
+        /// ④⑤⑥の結果を続けて数える。①②とは分けて持つ——画像は別の置き場（pximg）から来るので、
+        /// 画像だけが落ちていても①②を止める理由にならず、その逆も同じ
+        /// </summary>
+        public BoothOutageWatch Outage { get; } = new();
 
         public void Enqueue(IReadOnlyList<ItemRecord> withImages, IReadOnlyDictionary<string, string> shopIcons)
         {
