@@ -10,6 +10,7 @@ public partial class PickModificationDialog : Window
         InitializeComponent();
         DataContext = model;
         Owner = Application.Current?.MainWindow;
+        Services.DialogFit.Prepare(this);
     }
 
     private void OnCommit(object sender, RoutedEventArgs e) => DialogResult = true;

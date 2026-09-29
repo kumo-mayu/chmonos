@@ -34,6 +34,8 @@ public partial class FirstRunWindow : Window
             PickButton.IsEnabled = false;
             Notice.Text = "環境変数CHMONOS_HOMEで保存先が指定されているため、ここからは変えられません。";
         }
+
+        Services.DialogFit.Prepare(this);
     }
 
     /// <summary>

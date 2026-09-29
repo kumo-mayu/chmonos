@@ -113,6 +113,7 @@ public static class ListChoice
         body.Children.Add(list);
         body.Children.Add(buttons);
         window.Content = body;
+        DialogFit.Prepare(window);
 
         var answered = window.ShowDialog() == true;
         int? picked = !answered ? null : skipped ? Skipped : list.SelectedIndex >= 0 ? list.SelectedIndex : null;

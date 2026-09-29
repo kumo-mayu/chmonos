@@ -10,6 +10,7 @@ public partial class PickPackagesDialog : Window
         InitializeComponent();
         DataContext = model;
         Owner = Application.Current?.MainWindow;
+        Services.DialogFit.Prepare(this);
     }
 
     /// <summary>選ばせる。「送る」なら true（チェックは各候補の <see cref="PackageChoiceRow.IsChecked"/> に残る）。</summary>

@@ -10,6 +10,7 @@ public partial class MergeAttributeDialog : Window
         InitializeComponent();
         DataContext = model;
         Owner = Application.Current?.MainWindow;
+        Services.DialogFit.Prepare(this);
     }
 
     private void OnMerge(object sender, RoutedEventArgs e) => DialogResult = true;

@@ -45,6 +45,22 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 窓の最小の幅（DIP）。**検索画面が横に送らずに並ぶ幅**で決めた：
+    /// ナビ（既定 208）＋絞り込み欄（既定 286）＋結果の列の最小（360。`PaneGrid` が反対側に付ける最小）＋境目と窓の枠。
+    /// 点検（2026-09-23）で幅 900 では編集画面だけが横に送れ、ほかの12画面は崩れずに並んだ（760 では7画面が送る）。
+    /// 1366×768・125% のノートPC（幅 1093 DIP）でも、最大化せずに左右が少し余る。
+    /// </summary>
+    public const double MinimumWidth = 900;
+
+    /// <summary>
+    /// 窓の最小の高さ（DIP・タイトルバーを含む）。**検索画面で既定の大きさのカードが1段見える高さ**で決めた：
+    /// タイトルバー約31＋上の帯78＋結果の見出し38＋一覧の下の大きさの帯約32＋通信の帯26＋カード1段（336＋間14）＝約555。
+    /// 1366×768・125% でタスクバー（48px）を除いた作業領域は約576 DIP で、そこに収まる。
+    /// ナビはこれより低くても縦に送れる（「設定」まで届く。`MainWindow.xaml` のナビの ScrollViewer）
+    /// </summary>
+    public const double MinimumHeight = 560;
+
+    /// <summary>
     /// 前回の位置と大きさ（画素）。窓ができた所（<see cref="OnSourceInitialized"/>）で置く。
     /// WPF の Left・Top は拡大率の違うモニターの間で値が重なるので、作る前に DIP で渡すと
     /// 別のモニターに開いたり、大きさが拡大率の比だけずれたりする（<see cref="Services.WindowNative"/>）
@@ -121,16 +137,30 @@ public partial class MainWindow : Window
 
         // 置いた後のモニターで読む（前回を別のモニターで閉じていれば、ここで初めてそちらの拡大率になる）
         Services.DisplayScale.SetMonitor(System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX);
+        FitMinimumToWorkArea();
     }
 
     /// <summary>
     /// 拡大率の違うモニターへ移った（Per-Monitor V2）。描き直しは WPF がするので、
-    /// ここでは絵を読む倍率を替える（見えているカードが読み直す）。
+    /// ここでは絵を読む倍率を替え（見えているカードが読み直す）、最小の大きさを移った先の作業領域に合わせ直す。
     /// </summary>
     protected override void OnDpiChanged(System.Windows.DpiScale oldDpi, System.Windows.DpiScale newDpi)
     {
         base.OnDpiChanged(oldDpi, newDpi);
         Services.DisplayScale.SetMonitor(newDpi.DpiScaleX);
+        FitMinimumToWorkArea();
+    }
+
+    /// <summary>
+    /// 最小の大きさを付ける。ただし**モニターの作業領域より大きくはしない**——
+    /// 1280×720・150% のような画面（作業領域は約 853×450 DIP）で最小が画面より大きいと、窓の端が画面の外に出て戻せない。
+    /// 収まらない分は画面の中身が送る（ナビは縦に、本文は `ViewportFitHost` が横に）。
+    /// </summary>
+    private void FitMinimumToWorkArea()
+    {
+        var work = WindowNative.WorkAreaDip(this);
+        MinWidth = work is { Width: var width } ? Math.Min(MinimumWidth, width) : MinimumWidth;
+        MinHeight = work is { Height: var height } ? Math.Min(MinimumHeight, height) : MinimumHeight;
     }
 
     /// <summary>
