@@ -1353,7 +1353,14 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 parts.Add($"BOOTHへの問い合わせ{result.Requests}回");
             }
 
-            if (result.Unresolved > 0)
+            // 打ち切ったときは原因と次の一手を言う。「通信できなかった n 件」では、つながっていないのか BOOTH が悪いのか分からない
+            if (Core.Services.FailureText.Outage(result.Outage) is { } outage)
+            {
+                parts.Add(result.Outage == Core.Booth.BoothOutageKind.Offline
+                    ? $"{outage}つながってからもう一度押すと、残りを確かめます"
+                    : $"{outage}少し待ってからもう一度押すと、残りを確かめます");
+            }
+            else if (result.Unresolved > 0)
             {
                 parts.Add($"通信できなかった {result.Unresolved} 件は次回もう一度試します");
             }

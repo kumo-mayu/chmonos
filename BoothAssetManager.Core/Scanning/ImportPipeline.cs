@@ -1371,6 +1371,8 @@ public sealed class ImportPipeline : IImportPipeline
                 var detected = await _avatars.DetectAsync(new DetectProgressAdapter(progress), cancellationToken);
                 avatarItemsUpdated = detected.ItemsUpdated;
                 avatarsFound = detected.AvatarsFound;
+                // 問い合わせを打ち切った回は、止まった理由として言う（つながっていない／BOOTHが不調）
+                avatarDetectError = Services.FailureText.Outage(detected.Outage);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

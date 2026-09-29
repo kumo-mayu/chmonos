@@ -39,6 +39,12 @@ public sealed record AvatarDetectResult
 
     /// <summary>この回で登録簿に新しく入った件数。商品が変わらなくても、次の回で効いてくる。</summary>
     public int RegistryAdded { get; init; }
+
+    /// <summary>
+    /// BOOTH に届かない失敗が続いて、問い合わせを打ち切ったか（その理由）。打ち切った後のIDは <see cref="Unresolved"/> に入る。
+    /// 画面は「ネットにつながっていない」と「BOOTHが不調」を言い分ける。
+    /// </summary>
+    public BoothOutageKind Outage { get; init; }
 }
 
 /// <summary>アバター1体の一覧表示用。</summary>
@@ -410,14 +416,17 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
         var requests = 0;
         var updated = 0;
 
+        // 打ち切りは1回の検出（落ち着くまでの全部の回）で数える。一度打ち切ったら、次の回も問い合わせない
+        var outage = new BoothOutageWatch();
+
         for (var pass = 0; pass < 4; pass++)
         {
-            var current = await DetectOnceAsync(progress, cancellationToken);
+            var current = await DetectOnceAsync(progress, outage, cancellationToken);
             requests += current.Requests;
             updated += current.ItemsUpdated;
 
             // 何回で落ち着いたかではなく、合計で何件書き換えたかを返す
-            result = current with { Requests = requests, ItemsUpdated = updated };
+            result = current with { Requests = requests, ItemsUpdated = updated, Outage = outage.Stopped };
 
             // 商品が変わらなくても、登録簿が増えていれば次の回で拾えるものが増える
             if (current.ItemsUpdated == 0 && current.RegistryAdded == 0)
@@ -431,6 +440,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
     private async Task<AvatarDetectResult> DetectOnceAsync(
         IProgress<AvatarDetectProgress>? progress,
+        BoothOutageWatch outage,
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -565,88 +575,119 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             }
         }
 
-        // ── ② 未知のIDだけBOOTHへ問い合わせる ──
+        // ── ② 未知のIDと、確かめ直す時期の来た404の項目だけBOOTHへ問い合わせる ──
+        var libraryIds = loaded.Items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var now = DateTimeOffset.Now;
         var unknown = seenAs.Keys
-            .Where(id => !entries.ContainsKey(id))
+            .Where(id => !entries.TryGetValue(id, out var known)
+                         || IsNotFoundRecheckDue(known, libraryIds.Contains(id), _settings.DelistedRecheckDays, now))
             .ToList();
 
         var requests = 0;
         var unresolved = 0;
         done = 0;
 
-        foreach (var id in unknown)
+        // **問い合わせて分かった項目は、途中でも登録簿へ書いておく**（ユーザ判断 2026-09-29）。
+        // 最後に1回だけ書いていたので、中止・閉じる・例外で抜けると、それまでの問い合わせ（友人データの初回で約37分）が
+        // 全部捨てられ、次の検出がまた最初から問い合わせ直していた。
+        // 途中で書くのは問い合わせの結果だけ。seenAs・別名の数え直し・素体は全商品を読み終えた値なので、最後にまとめて書く
+        var pending = new List<string>();
+        var requestsSinceFlush = 0;
+
+        async Task FlushAsync()
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            // 商品IDは画面に出さない（内部の言葉）。名前は問い合わせるまで分からないので空で渡す
-            progress?.Report(new AvatarDetectProgress
+            if (pending.Count == 0)
             {
-                Phase = "見つかった商品を確かめています",
-                Done = ++done,
-                Total = unknown.Count,
-            });
-
-            // 手元に持っている商品なら、カテゴリも名前も items/{ID}.json にある。
-            // 登録簿に無いというだけで問い合わせに行くと、持っているぶんだけ無駄に通信する
-            // （実データでは6体中4体がこれに当たっていた）
-            if (await _store.Items.LoadAsync(id, cancellationToken) is { } owned)
-            {
-                entries[id] = new AvatarRegistryEntry
-                {
-                    ItemId = id,
-                    BoothName = owned.Booth.Name,
-                    ShopName = owned.Booth.Shop?.Name,
-                    Category = owned.Booth.Category?.Name,
-                    CheckedAt = DateTimeOffset.Now,
-                };
-                continue;
+                return;
             }
 
-            if (_client is null)
-            {
-                unresolved++;
-                continue;
-            }
-
-            requests++;
-            var fetched = await _client.GetItemJsonAsync(id, cancellationToken);
-
-            if (fetched.Status == BoothFetchStatus.NotFound)
-            {
-                // 販売終了。categoryを観測できないだけで、アバターではないとは限らない
-                entries[id] = new AvatarRegistryEntry
-                {
-                    ItemId = id,
-                    Category = null,
-                    CheckedAt = DateTimeOffset.Now,
-                };
-                continue;
-            }
-
-            // 通信の失敗と読めない応答では何も決めない。次回また試す（投げると検出全体が止まる）
-            if (!fetched.IsSuccess || fetched.Value is null
-                || BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: id) is not { } booth)
-            {
-                unresolved++;
-                continue;
-            }
-
-            var aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
-                ? BuildAliasesFromTags(booth)
-                : [];
-
-            entries[id] = new AvatarRegistryEntry
-            {
-                ItemId = id,
-                BoothName = booth.Name,
-                ShopName = booth.Shop?.Name,
-                Category = booth.Category?.Name,
-                CheckedAt = DateTimeOffset.Now,
-                // 別名はアバターにだけ持たせる。依存ツールの名前で照合しても意味が無い
-                Aliases = aliases,
-                // 1枚目のURLは、ここで取ったJSONに入っている。控えておけば絵を取るときに問い合わせ直さずに済む（U18）
-                ImageUrl = booth.Images.FirstOrDefault()?.OriginalUrl ?? string.Empty,
-            };
+            var batch = pending.ToDictionary(id => id, id => entries[id], StringComparer.Ordinal);
+            // 中止で抜けるときにも書くので、取り消しの印は渡さない（書き込みは一瞬で終わる）
+            await _store.Avatars.UpdateAsync(latest => MergeFetched(latest, registry, batch), CancellationToken.None);
+            pending.Clear();
         }
+
+        try
+        {
+            foreach (var id in unknown)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // 商品IDは画面に出さない（内部の言葉）。名前は問い合わせるまで分からないので空で渡す
+                progress?.Report(new AvatarDetectProgress
+                {
+                    Phase = "見つかった商品を確かめています",
+                    Done = ++done,
+                    Total = unknown.Count,
+                });
+
+                // 手元に持っている商品なら、カテゴリも名前も items/{ID}.json にある。
+                // 登録簿に無いというだけで問い合わせに行くと、持っているぶんだけ無駄に通信する
+                // （実データでは6体中4体がこれに当たっていた）
+                if (await _store.Items.LoadAsync(id, cancellationToken) is { } owned)
+                {
+                    entries[id] = new AvatarRegistryEntry
+                    {
+                        ItemId = id,
+                        BoothName = owned.Booth.Name,
+                        ShopName = owned.Booth.Shop?.Name,
+                        Category = owned.Booth.Category?.Name,
+                        CheckedAt = DateTimeOffset.Now,
+                    };
+                    pending.Add(id);
+                    continue;
+                }
+
+                // **ネットにつながらない・BOOTH の 5xx が続いたら、残りは問い合わせない**（ユーザ判断 2026-09-29）。
+                // つながらないと1件ごとに再試行で長く待って全件を回り、止まって見える。落ちている BOOTH へ問い合わせを重ね続けもする。
+                // 問い合わせなかったIDは登録簿に何も書かない（次の検出でまた試す）。手元に持っている分は上で通信せずに済んでいる
+                if (_client is null || outage.IsStopped)
+                {
+                    unresolved++;
+                    continue;
+                }
+
+                requests++;
+                var fetched = await _client.GetItemJsonAsync(id, cancellationToken);
+                outage.Note(fetched);
+                var answered = Answered(id, fetched, entries.GetValueOrDefault(id));
+                if (answered is null)
+                {
+                    unresolved++;
+                }
+                else
+                {
+                    entries[id] = answered;
+                    pending.Add(id);
+                }
+
+                // 1件の問い合わせは1.5秒以上かかるので、20件で約30秒ぶん。
+                // 強制終了（finally も走らない）で失うのをそれまでに抑える。登録簿の書き込みは一瞬なので、
+                // 30秒に1回なら問い合わせの間隔に比べて無視できる。1件ごとに書くほど細かくする理由は無い
+                if (++requestsSinceFlush >= FlushEveryRequests)
+                {
+                    requestsSinceFlush = 0;
+                    await FlushAsync();
+                }
+            }
+        }
+        catch
+        {
+            // 中止・例外で抜けるときも、そこまでの問い合わせの結果は残す。
+            // 書けなかったときは元の例外を隠さない（ログに残して元の例外を投げ直す）
+            try
+            {
+                await FlushAsync();
+            }
+            catch (Exception flushFailure)
+            {
+                Diagnostics.AppLog.Error("対応アバターの検出：途中で止まったときの登録簿の書き込み", flushFailure);
+            }
+
+            throw;
+        }
+
+        // ③で商品を書いている間に止まっても、問い合わせの結果は残るように、ここで一度書く
+        await FlushAsync();
 
         // ── ③ 規則を当てて書き戻す ──
         foreach (var (id, sources) in seenAs)
@@ -758,6 +799,92 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             Requests = requests,
             Unresolved = unresolved,
             RegistryAdded = entries.Count - entriesBefore,
+            Outage = outage.Stopped,
+        };
+    }
+
+    /// <summary>途中で登録簿へ書く間隔（問い合わせの件数）。根拠は書く所のコメント。</summary>
+    private const int FlushEveryRequests = 20;
+
+    /// <summary>
+    /// 問い合わせの答えを登録簿の項目にする。**何も決められない答え（通信の失敗・読めない応答）は null**
+    /// ——次回また試す（投げると検出全体が止まる）。
+    /// </summary>
+    private static AvatarRegistryEntry? Answered(string id, BoothFetchResult<string> fetched, AvatarRegistryEntry? known)
+    {
+        var fresh = AnsweredFresh(id, fetched);
+        if (known is null || fresh is null)
+        {
+            return fresh;
+        }
+
+        // 確かめ直した404の項目（IsNotFoundRecheckDue）。まだ404なら確かめた日だけ進める。
+        // 人が付けた名前・メモ・素体は項目ごと引き継ぐ（作り直すと、最後に重ねるまでの間に消えて見える）
+        if (fetched.Status == BoothFetchStatus.NotFound)
+        {
+            return known with { CheckedAt = fresh.CheckedAt };
+        }
+
+        // 再公開されていた。名前・カテゴリを埋める
+        return known with
+        {
+            BoothName = fresh.BoothName,
+            ShopName = fresh.ShopName ?? known.ShopName,
+            Category = fresh.Category,
+            CheckedAt = fresh.CheckedAt,
+            Aliases = MergeDetectedAliases(known.Aliases, fresh.Aliases),
+            ImageUrl = string.IsNullOrEmpty(fresh.ImageUrl) ? known.ImageUrl : fresh.ImageUrl,
+        };
+    }
+
+    /// <summary>
+    /// 404 だった項目を、次の検出で問い合わせ直す時期か（ユーザ判断 2026-09-29）。
+    ///
+    /// 404 の項目は一度入ると二度と問い合わせず、再公開されても名前もカテゴリも埋まらなかった。
+    /// 間隔は販売終了と見なした商品の確かめ直し（<see cref="AppSettings.DelistedRecheckDays"/>）と同じ：
+    /// 確かめる間隔が再公開されている期間より長いと原理的に取り逃し、季節物は1ヶ月ほどしか公開されない。
+    /// **問い合わせを増やす向き**なので、対象は問い合わせで作った404の項目だけにする。
+    /// 手元に持っている商品の項目はカテゴリが無くても含めない（その商品は⑦が取り直す）。
+    /// </summary>
+    public static bool IsNotFoundRecheckDue(AvatarRegistryEntry entry, bool inLibrary, int intervalDays, DateTimeOffset now)
+        => entry.Category is null
+           && !inLibrary
+           && (entry.CheckedAt is not { } checkedAt || now - checkedAt >= TimeSpan.FromDays(Math.Max(1, intervalDays)));
+
+    private static AvatarRegistryEntry? AnsweredFresh(string id, BoothFetchResult<string> fetched)
+    {
+        if (fetched.Status == BoothFetchStatus.NotFound)
+        {
+            // 販売終了。categoryを観測できないだけで、アバターではないとは限らない
+            return new AvatarRegistryEntry
+            {
+                ItemId = id,
+                Category = null,
+                CheckedAt = DateTimeOffset.Now,
+            };
+        }
+
+        if (!fetched.IsSuccess || fetched.Value is null
+            || BoothItemMapper.TryMap(fetched.Value, DateTimeOffset.Now, itemId: id) is not { } booth)
+        {
+            return null;
+        }
+
+        var aliases = string.Equals(booth.Category?.Name, AvatarCategory, StringComparison.Ordinal)
+            ? BuildAliasesFromTags(booth)
+            : [];
+
+        return new AvatarRegistryEntry
+        {
+            ItemId = id,
+            BoothName = booth.Name,
+            ShopName = booth.Shop?.Name,
+            Category = booth.Category?.Name,
+            CheckedAt = DateTimeOffset.Now,
+            // 別名はアバターにだけ持たせる。依存ツールの名前で照合しても意味が無い
+            Aliases = aliases,
+            // 1枚目のURLは、ここで取ったJSONに入っている。控えておけば絵を取るときに問い合わせ直さずに済む（U18）
+            ImageUrl = booth.Images.FirstOrDefault()?.OriginalUrl ?? string.Empty,
         };
     }
 
@@ -1143,26 +1270,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
                 continue;
             }
 
-            var old = before.GetValueOrDefault(id);
-
-            // 検出が値を変えたときだけ重ねる。変えていなければ、その間に
-            // 「BOOTHに確認し直す」で入った値かもしれないので最新を残す
-            T Observed<T>(Func<AvatarRegistryEntry, T> field)
-                => old is not null && EqualityComparer<T>.Default.Equals(field(found), field(old))
-                    ? field(current)
-                    : field(found);
-
-            entries[id] = current with
-            {
-                BoothName = Observed(entry => entry.BoothName),
-                ShopName = Observed(entry => entry.ShopName),
-                Category = Observed(entry => entry.Category),
-                CheckedAt = Observed(entry => entry.CheckedAt),
-                // 検出の途中で裏の取得（AvatarImageSync）が書いたURLを消さない
-                ImageUrl = Observed(entry => entry.ImageUrl),
-                SeenAs = found.SeenAs,
-                Aliases = MergeDetectedAliases(current.Aliases, found.Aliases),
-            };
+            entries[id] = Overlay(current, before.GetValueOrDefault(id), found) with { SeenAs = found.SeenAs };
         }
 
         // 素体のグループは、検出が新しく作ったものだけを足す。
@@ -1187,6 +1295,67 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
             DetectedAt = DateTimeOffset.Now,
             Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
             BaseGroups = groups.Values.OrderBy(group => group.Name, StringComparer.CurrentCulture).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// 検出の途中で、問い合わせて分かった項目だけを書く直前の登録簿に重ねる（ユーザ判断 2026-09-29）。
+    ///
+    /// <see cref="MergeDetected"/> と同じ重ね方（人が付けた名前・メモ・素体は最新のまま）で、
+    /// seenAs・素体・<see cref="AvatarRegistry.DetectedAt"/> には触れない。それらは全商品を読み終えた値なので、
+    /// 途中で書くと中途半端な数が残り、検出を終えたように見えて起動時の検出し直しも遅れる。
+    /// </summary>
+    public static AvatarRegistry MergeFetched(
+        AvatarRegistry latest,
+        AvatarRegistry snapshot,
+        IReadOnlyDictionary<string, AvatarRegistryEntry> fetched)
+    {
+        var before = new Dictionary<string, AvatarRegistryEntry>(StringComparer.Ordinal);
+        foreach (var entry in snapshot.Entries)
+        {
+            before.TryAdd(entry.ItemId, entry);
+        }
+
+        var entries = new Dictionary<string, AvatarRegistryEntry>(StringComparer.Ordinal);
+        foreach (var entry in latest.Entries)
+        {
+            entries.TryAdd(entry.ItemId, entry);
+        }
+
+        foreach (var (id, found) in fetched)
+        {
+            entries[id] = entries.TryGetValue(id, out var current)
+                ? Overlay(current, before.GetValueOrDefault(id), found)
+                : found;
+        }
+
+        return new AvatarRegistry
+        {
+            DetectedAt = latest.DetectedAt,
+            Entries = entries.Values.OrderBy(entry => entry.ItemId, StringComparer.Ordinal).ToList(),
+            BaseGroups = latest.BaseGroups,
+        };
+    }
+
+    /// <summary>BOOTH から観測した値だけを、最新の項目に重ねる。</summary>
+    private static AvatarRegistryEntry Overlay(AvatarRegistryEntry current, AvatarRegistryEntry? old, AvatarRegistryEntry found)
+    {
+        // 検出が値を変えたときだけ重ねる。変えていなければ、その間に
+        // 「BOOTHに確認し直す」で入った値かもしれないので最新を残す
+        T Observed<T>(Func<AvatarRegistryEntry, T> field)
+            => old is not null && EqualityComparer<T>.Default.Equals(field(found), field(old))
+                ? field(current)
+                : field(found);
+
+        return current with
+        {
+            BoothName = Observed(entry => entry.BoothName),
+            ShopName = Observed(entry => entry.ShopName),
+            Category = Observed(entry => entry.Category),
+            CheckedAt = Observed(entry => entry.CheckedAt),
+            // 検出の途中で裏の取得（AvatarImageSync）が書いたURLを消さない
+            ImageUrl = Observed(entry => entry.ImageUrl),
+            Aliases = MergeDetectedAliases(current.Aliases, found.Aliases),
         };
     }
 
