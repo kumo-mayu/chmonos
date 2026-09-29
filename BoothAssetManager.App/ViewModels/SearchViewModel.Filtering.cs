@@ -343,10 +343,8 @@ public sealed partial class SearchViewModel
     /// </summary>
     private bool NeedsRecent() => Modules.Any(module => module is RecentModule && module.IsActive);
 
-    private RecentTimes LoadRecentTimes() => new(
-        _services.Recent.Times(Core.Services.RecentKind.Added),
-        _services.Recent.Times(Core.Services.RecentKind.Used),
-        _services.Recent.Times(Core.Services.RecentKind.Viewed));
+    /// <summary>足跡を1回だけ読んで3種類に分ける（前は種類ごとに読み直していた）。</summary>
+    private RecentTimes LoadRecentTimes() => _services.Recent.AllTimes();
 
     /// <summary>改変を読む必要があるか。改変・Unityプロジェクトの条件を足していなければ読まない。</summary>
     private bool NeedsModifications()

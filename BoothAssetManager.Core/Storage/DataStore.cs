@@ -106,11 +106,11 @@ public sealed class JsonFileStore<T> where T : class, new()
     private T Handed(T value) => _copy is null ? value : _copy(value);
 
     /// <summary>
-    /// 錠の中で書き換える元を読む。入れ物を複製して渡す形（<see cref="_copy"/>）は、写しを使わずディスクから読む。
-    /// この形にしたのは前は写しを持たなかった物（知らせ）で、錠の中の読み直しは前のまま残す
-    /// （古い写しに変更を当てて書くと、外で直した分を消すため）。
+    /// 錠の中で書き換える元を読む。**写しを使わずディスクから読む**（古い写しに変更を当てて書くと、外で直した分を消すため）。
+    /// 写しは読むだけの道に使う。書いた後は写しを持たないので、続けて書き換えるときはどのみち読み直しになり、
+    /// ここで写しを使っても省けるのは読んだ直後の1回目だけだった。
     /// </summary>
-    private T LoadForUpdate() => _copy is null ? Load() : JsonStore.Read<T>(_path) ?? new T();
+    private T LoadForUpdate() => JsonStore.Read<T>(_path) ?? new T();
 
     public async Task SaveAsync(T value, CancellationToken cancellationToken = default)
     {
@@ -208,7 +208,8 @@ public sealed class DataStore
         // 知らせは2000件で古い既読から捨てるので、多くても約1.1MB
         Notifications = new JsonFileStore<List<NotificationRecord>>(paths.NotificationsFile, copyOnLoad: list => [.. list]);
         SearchHistory = new JsonFileStore<Services.SearchHistoryList>(paths.SearchHistoryFile);
-        Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile);
+        // 足跡は「最近」で絞る・並べるたびに画面のスレッドで読まれる。中身は init だけの型なので共有する
+        Recent = new JsonFileStore<Services.RecentLog>(paths.RecentFile, shareLoaded: true);
         Modifications = new ModificationRepository(paths);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ShopNotes = new JsonFileStore<List<ShopNoteRecord>>(paths.ShopNotesFile);
