@@ -102,11 +102,11 @@ public class FallbackResolverTests
         Assert.Equal(["222", "111", "333"], FallbackResolver.Rerank(cards, @"C:\dl\sampleflow_hair.zip").Select(card => card.ItemId));
     }
 
-    /// <summary>引き直しは、まず特徴のある1語。検索語と同じなら引き直さない。</summary>
+    /// <summary>引き直しは、まず特徴のある1語（語が2つ以上なら最初の語）。検索語と同じなら引き直さない。</summary>
     [Fact]
     public void RetriesWithTheMostDistinctiveTokenFirst()
     {
-        Assert.Equal(["Caramel"], FallbackResolver.RetryQueries(@"C:\dl\Braid_Caramel.zip", "Braid Caramel", null));
+        Assert.Equal(["Braid"], FallbackResolver.RetryQueries(@"C:\dl\Braid_Caramel.zip", "Braid Caramel", null));
         Assert.Empty(FallbackResolver.RetryQueries(@"C:\dl\Kipfel_1.2.0.zip", "Kipfel", null));
     }
 
@@ -184,5 +184,25 @@ public class FallbackResolverTests
 
         Assert.Equal(0, candidate.Score);
         Assert.False(candidate.IsStrong);
+    }
+
+    /// <summary>
+    /// 読みの一致は、字面で商品名と一致しなかったときの代わり。字面でも一致した商品に重ねない（2026-09-29）。
+    /// 重ねると、ファイル名の語を字面と別表記の両方で名前に持つ別の商品が、字面だけ一致する正解の上に来た。
+    /// </summary>
+    [Fact]
+    public void ReadingMatchDoesNotStackOnNameMatch()
+    {
+        var both = FallbackResolver.Score(
+            "111", "Hoshizora 星空ドーム", null, "shopa", "Hoshizora", new UnityPackageHints(), rank: 1, readingMatch: "星空");
+        var readingOnly = FallbackResolver.Score(
+            "222", "星空ドーム", null, "shopb", "Hoshizora", new UnityPackageHints(), rank: 1, readingMatch: "星空");
+        var nameOnly = FallbackResolver.Score(
+            "333", "Hoshizora Dome", null, "shopc", "Hoshizora", new UnityPackageHints(), rank: 1);
+
+        Assert.Equal(2, both.Score);
+        Assert.Equal(2, readingOnly.Score);
+        Assert.Equal(nameOnly.Score, both.Score);
+        Assert.Contains(readingOnly.Reasons, reason => reason.StartsWith("ファイル名が商品名と読みで一致", StringComparison.Ordinal));
     }
 }

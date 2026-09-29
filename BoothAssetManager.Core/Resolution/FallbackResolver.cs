@@ -368,8 +368,12 @@ public sealed class FallbackResolver
                     cancellationToken.ThrowIfCancellationRequested();
                     progress?.Report(new ResolveProgress("候補を1件ずつ確認しています", rank, extraIds.Count));
 
+                    // 点は**元の検索語**で付ける。引き直した語で付けると、その語で引いた商品は名前にその語を含むのが当たり前なので
+                    // 「商品名と一致」が必ず付き、別表記なら「読みで一致」も重なって4点になる。元の検索の正解（「商品名と一致」の2点）を
+                    // 上回り、正解の分かる318本で「候補に正解はあるが1位でない」77本のうち約40本がこの形だった（2026-09-29）。
+                    // 別表記で引いた正解は、元の語の読み（ReadingMatch）で同じ2点を取る
                     var extra = await ScoreCandidateAsync(
-                        extraIds[rank], alternate, filePath, hints, IndexOf(alternateIds, extraIds[rank]), direct, cancellationToken);
+                        extraIds[rank], query, filePath, hints, IndexOf(alternateIds, extraIds[rank]), direct, cancellationToken);
 
                     if (extra is not null)
                     {
@@ -498,7 +502,8 @@ public sealed class FallbackResolver
             reasons.Add("unitypackageの作者名前空間がショップ名と一致");
         }
 
-        if (itemName is not null && FileNameQuery.LooksRelated(itemName, query))
+        var nameRelated = itemName is not null && FileNameQuery.LooksRelated(itemName, query);
+        if (nameRelated)
         {
             score += 2;
             reasons.Add("商品名がファイル名と一致");
@@ -506,7 +511,7 @@ public sealed class FallbackResolver
 
         // 商品名の一致と同じ重み。読みで一致するのは、表記が違うだけで
         // 同じものを指していることが多い（tori ↔ 鳥、Sin ↔ 真）
-        if (readingMatch is not null)
+        if (readingMatch is not null && !nameRelated)
         {
             score += 2;
             reasons.Add($"ファイル名が商品名と読みで一致（{readingMatch}）");

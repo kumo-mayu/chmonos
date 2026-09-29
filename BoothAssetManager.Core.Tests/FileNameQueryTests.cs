@@ -115,11 +115,14 @@ public class FileNameQueryTests
         Assert.Equal("Fuwari Fuwari", FileNameQuery.ToSearchQuery("Fuwari_Fuwari_v1.0.zip"));
     }
 
-    /// <summary>引き直しに使う1語。日本語は倍に数えて、いちばん長いもの。</summary>
+    /// <summary>引き直しに使う1語。語が2つ以上なら最初の語、短ければ日本語は倍に数えて、いちばん長いもの。1語だけなら引き直さない。</summary>
     [Theory]
     [InlineData("F_撫で音ギミック4_00_Basic.zip", "撫で音ギミック")]
-    [InlineData("HeartBeatGimmick_v3.0.3.zip", "Gimmick")]
-    [InlineData("Braid_Caramel.zip", "Caramel")]
+    [InlineData("HeartBeatGimmick_v3.0.3.zip", "")]
+    [InlineData("Braid_Caramel.zip", "Braid")]
+    [InlineData("Ribbon_ver2_Caramel_Mint.zip", "Ribbon")]
+    [InlineData("AB_Ribbon_Caramel.zip", "Ribbon")]
+    [InlineData("Bow_Caramel.zip", "Caramel")]
     public void PicksTheMostDistinctiveToken(string fileName, string expected)
     {
         Assert.Equal(expected, FileNameQuery.MostDistinctiveToken(fileName));
