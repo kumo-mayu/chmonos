@@ -68,8 +68,10 @@ public sealed record ItemIdChangePlan
     /// <summary>移した先が既に手元にあるか。無ければ新しく作る。</summary>
     public required bool TargetExistsLocally { get; init; }
 
-    /// <summary>移した先がBOOTHで見つかったか。**見つからなくても止めない。**</summary>
-    public required bool TargetFoundOnBooth { get; init; }
+    /// <summary>移した先がBOOTHにあるか。**見つからなくても・確かめられなくても止めない。**</summary>
+    public required ItemIdTargetStatus TargetOnBooth { get; init; }
+
+    public bool TargetFoundOnBooth => TargetOnBooth == ItemIdTargetStatus.Found;
 
     public required int FileCount { get; init; }
 
@@ -85,6 +87,22 @@ public sealed record ItemIdChangePlan
 
     /// <summary>移せるものが1つも無い（元の商品が空）。</summary>
     public bool IsEmpty => FileCount == 0 && FolderCount == 0 && PurchaseCount == 0;
+}
+
+/// <summary>
+/// 移し先がBOOTHにあるか。「見つからない」と「確かめられなかった」を分ける。
+/// 一緒くたにすると、届かなかっただけのIDを「BOOTHにある」と読んで、窓が「移すときに取得します」と言い切っていた（点検 2026-09-29・19）。
+/// </summary>
+public enum ItemIdTargetStatus
+{
+    /// <summary>BOOTHにある（手元にある商品も含む）。</summary>
+    Found,
+
+    /// <summary>BOOTHが「無い」と答えた（404）。</summary>
+    NotFound,
+
+    /// <summary>届かない・BOOTHの不調で確かめられなかった。</summary>
+    Unknown,
 }
 
 /// <summary>移し替えの結果。</summary>
@@ -124,7 +142,7 @@ public static class ItemIdChange
     /// <summary>
     /// 何が起きるかを先に組み立てる。**ここでは何も書かない。**
     /// </summary>
-    public static ItemIdChangePlan Plan(ItemRecord source, ItemRecord? target, string toId, bool foundOnBooth)
+    public static ItemIdChangePlan Plan(ItemRecord source, ItemRecord? target, string toId, ItemIdTargetStatus onBooth)
     {
         var dropped = new List<DroppedThing>();
 
@@ -196,7 +214,7 @@ public static class ItemIdChange
             ToId = toId,
             TargetName = target?.DisplayName,
             TargetExistsLocally = target is not null,
-            TargetFoundOnBooth = foundOnBooth,
+            TargetOnBooth = onBooth,
             FileCount = source.Local.LocalFiles.Count,
             FolderCount = source.Local.LocalFolders.Count,
             PurchaseCount = source.Local.Purchases.Count,

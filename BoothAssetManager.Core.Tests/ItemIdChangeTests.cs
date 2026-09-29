@@ -512,8 +512,27 @@ public class ItemIdChangeTests : IDisposable
     {
         await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
 
-        Assert.True((await _service.PlanItemIdChangeAsync(LocalId, RealId))!.TargetFoundOnBooth);
-        Assert.False((await _service.PlanItemIdChangeAsync(LocalId, "9999999"))!.TargetFoundOnBooth);
+        Assert.Equal(ItemIdTargetStatus.Found, (await _service.PlanItemIdChangeAsync(LocalId, RealId))!.TargetOnBooth);
+        Assert.Equal(ItemIdTargetStatus.NotFound, (await _service.PlanItemIdChangeAsync(LocalId, "9999999"))!.TargetOnBooth);
+    }
+
+    /// <summary>
+    /// 一時的に届かないのを「BOOTHにある」と読まない（点検 2026-09-29・19）。
+    /// 読むと窓が「移すときにBOOTHから商品情報を取得します」と言い切っていた。「無い」とも言わない
+    /// </summary>
+    [Fact]
+    public async Task PlanDoesNotReadAnUnreachableTargetAsFound()
+    {
+        var paths = new AppPaths(Path.Combine(_root, "library"));
+        var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
+        var offline = new OffUiThreadTests.OfflineClient();
+        var service = new ItemService(_store, offline, new ImagePipeline(offline, paths, settings), settings);
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+
+        var plan = (await service.PlanItemIdChangeAsync(LocalId, "9999999"))!;
+
+        Assert.Equal(ItemIdTargetStatus.Unknown, plan.TargetOnBooth);
+        Assert.False(plan.TargetFoundOnBooth);
     }
 
     /// <summary>

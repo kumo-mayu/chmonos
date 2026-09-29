@@ -52,8 +52,11 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
         FromId = fromId;
         CurrentName = currentName;
 
-        // 下見が出ている間は押せない。同じIDをもう一度BOOTHに聞かないため（入力を打ち直せば下見は捨てられ、また押せる）
-        CheckCommand = new RelayCommand(() => CheckAsync().Forget(), () => CanCheck && !IsBusy && Plan is null);
+        // 下見が出ている間は押せない。同じIDをもう一度BOOTHに聞かないため（入力を打ち直せば下見は捨てられ、また押せる）。
+        // 確かめられなかった下見だけは押せる——答えを得ていないので、つながった後に聞き直す意味がある
+        CheckCommand = new RelayCommand(
+            () => CheckAsync().Forget(),
+            () => CanCheck && !IsBusy && (Plan is null || Plan.TargetOnBooth == ItemIdTargetStatus.Unknown));
     }
 
     public string FromId { get; }
@@ -164,11 +167,16 @@ public sealed class ChangeItemIdDialogViewModel : ViewModelBase
         var plan => $"移し先：ID {plan.ToId}",
     };
 
-    /// <summary>**BOOTHで見つからなくても止めない。**ただし黙って進めない。</summary>
+    /// <summary>**BOOTHで見つからなくても・確かめられなくても止めない。**ただし黙って進めない。</summary>
     public bool IsNotOnBooth => Plan is { TargetExistsLocally: false, TargetFoundOnBooth: false };
 
-    public string NotOnBoothText =>
-        "BOOTHでは見つかりませんでした。このIDでも登録できますが、商品情報は取得できません。";
+    /// <summary>
+    /// 届かなかっただけのときは「見つからない」と言わない。移せば商品情報は次の取得で取りに行くので、
+    /// 「取得できません」と言うと事実と違う（点検 2026-09-29・19）
+    /// </summary>
+    public string NotOnBoothText => Plan?.TargetOnBooth == ItemIdTargetStatus.Unknown
+        ? "BOOTHにつながらず、確かめられませんでした。このまま移すと、商品情報は後で取得します。"
+        : "BOOTHでは見つかりませんでした。このIDでも登録できますが、商品情報は取得できません。";
 
     public bool IsEmptySource => Plan is { IsEmpty: true };
 

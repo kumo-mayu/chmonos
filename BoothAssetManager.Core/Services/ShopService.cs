@@ -1,3 +1,4 @@
+using BoothAssetManager.Core.Booth;
 using BoothAssetManager.Core.Images;
 using BoothAssetManager.Core.Models;
 using BoothAssetManager.Core.Storage;
@@ -629,7 +630,7 @@ public sealed class ShopService : IShopService
             .ToList();
     }
 
-    /// <summary>アイコンを取りに行ったことを控える（取れても取れなくても）。</summary>
+    /// <summary>アイコンを取りに行ったことを控える（取れた・BOOTH が無いと答えた・読めない絵だった）。</summary>
     private Task NoteIconCheckedAsync(string subdomain, CancellationToken cancellationToken)
         => _store.ShopBanners.UpdateAsync(
             records =>
@@ -666,17 +667,30 @@ public sealed class ShopService : IShopService
     {
         var fetched = 0;
 
+        // 届かない失敗が続いたら、この回の残りは取りに行かない（取り込みの⑥と同じ決まり。ユーザ判断 2026-09-29）。
+        // 数えないと、つながっていないときに店の数だけ再試行で待ち続け、その間ゲートを占めていた
+        var outage = new BoothOutageWatch();
+
         foreach (var shop in shops)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var got = await images.SyncShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, cancellationToken);
+            if (outage.IsStopped)
+            {
+                break;
+            }
 
-            // **取りに行ったことを記録する**（ユーザ判断 2026-09-21・G5）。
-            // 記録が無かったので、取れない店へはショップ一覧を開くたびに何度でも取りに行っていた
-            await NoteIconCheckedAsync(shop.Subdomain, cancellationToken);
+            var fetch = await images.FetchShopIconAsync(shop.Subdomain, shop.ThumbnailUrl, outage, cancellationToken);
 
-            if (!got || _store.Paths.FindShopIcon(shop.Subdomain) is not { } path)
+            // **BOOTH が答えた店だけ、取りに行ったことを記録する**（ユーザ判断 2026-09-21・G5）。
+            // 記録が無かったので、取れない店へはショップ一覧を開くたびに何度でも取りに行っていた。
+            // ただし一時的に取れなかった店に書くと、つながった後も確かめ直す日まで取りに行かない（点検 2026-09-29・8）
+            if (fetch is ShopIconFetch.Present or ShopIconFetch.NotFound or ShopIconFetch.Unreadable)
+            {
+                await NoteIconCheckedAsync(shop.Subdomain, cancellationToken);
+            }
+
+            if (fetch != ShopIconFetch.Present || _store.Paths.FindShopIcon(shop.Subdomain) is not { } path)
             {
                 continue;
             }
@@ -689,6 +703,7 @@ public sealed class ShopService : IShopService
             }
         }
 
+        outage.LogIfStopped("ショップのアイコン");
         return fetched;
     }
 
