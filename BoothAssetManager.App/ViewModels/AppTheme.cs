@@ -108,6 +108,69 @@ public sealed class AppTheme : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 主の窓を、最初の1コマを描き終えるまで DWM で隠す（点検 2026-09-30：暗い表でも、起動の瞬間に本文が2〜3コマ真っ白に出ていた）。
+    /// **窓を出してから WPF が最初の1コマを画面へ出すまでの間は、DWM が白で見せる。**窓の Background も、
+    /// 描画の地の色（<c>CompositionTarget.BackgroundColor</c>。0e113b8 で塗った）も、WPF が描いてからしか効かないので、
+    /// 前後を撮り比べても白いコマの数は変わらなかった。隠して（DWMWA_CLOAK）おけば、見えた最初のコマから中身が出る。
+    /// 見せるのは描き終えた知らせ（<see cref="Window.ContentRendered"/>）の後の、次の描画の回。
+    /// 描画の回を数えて早めに見せる形（2回目で見せる）も試したが、3巡のうち2巡で白いコマが1つ残った。
+    /// この形は3巡とも白0コマで、中身が出揃う時刻は直す前と同じ（窓ができてから 538〜597ms。前は 560〜607ms）。
+    /// 空の暗い地だけのコマ（前は約0.3秒）が出なくなり、その間は窓がまだ見えない。
+    /// 何かで知らせが来なくても窓が見えないままにならないよう、2秒で必ず見せる
+    /// </summary>
+    public static void HideUntilFirstFrame(Window window)
+    {
+        var shown = false;
+        void Reveal()
+        {
+            if (shown)
+            {
+                return;
+            }
+
+            shown = true;
+            SetCloak(window, false);
+        }
+
+        window.SourceInitialized += (_, _) => SetCloak(window, true);
+
+        var fallback = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        fallback.Tick += (_, _) =>
+        {
+            fallback.Stop();
+            Reveal();
+        };
+        window.SourceInitialized += (_, _) => fallback.Start();
+
+        window.ContentRendered += (_, _) =>
+        {
+            // ContentRendered は画面のスレッドが描く物を渡した所で来る。描画のスレッドが画面へ出すのはその後なので、
+            // 次の描画の回まで待ってから見せる。優先度の低い仕事として後回しにすると、起動の読み込みに押されて約0.3秒遅れた
+            void OnNextFrame(object? sender, EventArgs e)
+            {
+                System.Windows.Media.CompositionTarget.Rendering -= OnNextFrame;
+                fallback.Stop();
+                Reveal();
+            }
+
+            System.Windows.Media.CompositionTarget.Rendering += OnNextFrame;
+        };
+    }
+
+    private static void SetCloak(Window window, bool cloak)
+    {
+        var handle = new WindowInteropHelper(window).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        // 効かない Windows（7 以前）では隠れないだけで、今までどおり白く出る。失敗は捨てる
+        var value = cloak ? 1 : 0;
+        DwmSetWindowAttribute(handle, DwmCloak, ref value, sizeof(int));
+    }
+
     private void Apply()
     {
         var dark = ColorTheme.IsDark(_mode, ReadAppsUseLightTheme());
@@ -210,6 +273,9 @@ public sealed class AppTheme : ViewModelBase
     private const int DwmUseImmersiveDarkMode = 20;
     private const int DwmUseImmersiveDarkModeBefore20H1 = 19;
 
+    // 窓を DWM で隠す属性（DWMWA_CLOAK）。隠しても窓は在り、前面・タスクバー・UI Automation はそのまま
+    private const int DwmCloak = 13;
+
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
@@ -222,7 +288,8 @@ public sealed class AppTheme : ViewModelBase
         }
 
         // 描き始める前の地も色の表の背景にする。既定は白で、暗い表でも窓を出した一瞬だけ白く見える（ユーザ指摘 2026-09-30）。
-        // 窓の Background は WPF が最初の1コマを描くまで効かない
+        // 窓の Background は WPF が最初の1コマを描くまで効かない。
+        // ただしこの色も最初の1コマまでは効かず、起動の瞬間の白は消えなかった（撮り比べて差なし）。そちらは HideUntilFirstFrame で隠す
         if (HwndSource.FromHwnd(handle)?.CompositionTarget is { } target
             && Application.Current?.TryFindResource("Bg") is System.Windows.Media.SolidColorBrush background)
         {

@@ -10,7 +10,19 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - `ContentControl` に見た目（`ContentTemplate`）を当てる前に中身を渡すと、型の名前を出す文字の部品が作られて見える
 - 同じ要素に同じ属性を2回書くと MC3000 でビルドが落ちる（`Foreground` を Style と要素の両方に書いたとき）
 - 文字の中のリンク（`Hyperlink`）に付けた `ToolTip` は出ない。**囲む `TextBlock` に付ける**（商品ページの ID の「クリックすると商品IDをコピーします」が、付いていたのに出ていなかった。2026-09-29）
+- **型（ControlTemplate）を自前にしても、Windows の既定の見た目（テーマのスタイル）の指定は残る。**`Expander` は透明な 1px の枠（`BorderThickness=1`）を持つので、
+  型で `TemplateBinding BorderThickness` を描くと、枠を指定していない画面まで四方に1px ずつ広がる。自前の型のスタイルで 0 を指定する（`TriangleExpander`。2026-09-30）
+- **自前の型の `Border` は画素に合わせない。**見出しの高さが画素の途中で終わると、下の 1px の線が2pxにぼけて薄くなる（暗い表では束の間の線がほとんど見えなかった）。
+  既定の型は `SnapsToDevicePixels="True"` を付けている。線を描く所だけ付ける（型の既定にすると、ほかの画面の丸や三角の縁の滲みまで変わった。2026-09-30）
 - 添付プロパティで並べ方を変える部品（`ColumnsPanel.FullWidth`）は、`ItemsControl` の中では**項目を包む `ContentPresenter` に**付ける（`ItemContainerStyle`）。テンプレートの中の `Border` に付けても効かない
+
+## 窓を出す瞬間
+
+- **窓を出してから WPF が最初の1コマを画面へ出すまで、DWM は本文を白で見せる**（暗い表で起動すると2〜3コマ、約65〜150ms 白かった）。
+  窓の `Background` も `HwndSource.CompositionTarget.BackgroundColor` も、WPF が描いてからしか効かない（塗っても撮り比べで白いコマの数は同じだった）。
+  主の窓は `DWMWA_CLOAK` で隠して出し、`ContentRendered` の後の次の `CompositionTarget.Rendering` で見せる（`AppTheme.HideUntilFirstFrame`。3巡とも白0コマ、中身が出揃う時刻は同じ）。
+  描画の回を数えて早めに見せる（2回目）と、白いコマが1つ残ることがあった。見せるのを優先度の低い仕事に回すと、起動の読み込みに押されて約0.3秒遅れた
+- 起動の瞬間は目では追えない。約43msごとに画面を撮り、白に近い画素の割合で数える（`docs/research/large-files-2026-09-30.md` の白い地）
 
 ## 一覧と速さ
 
