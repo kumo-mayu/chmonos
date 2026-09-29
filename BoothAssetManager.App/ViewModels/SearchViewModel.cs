@@ -365,9 +365,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             SetViewportWidth(_viewportWidth);
         }
 
-        if (_cardEdgeDip != global::BoothAssetManager.App.Services.CardMetrics.EdgeDip)
+        if (_cardEdgePixels != global::BoothAssetManager.App.Services.CardMetrics.EdgePixels)
         {
-            _cardEdgeDip = global::BoothAssetManager.App.Services.CardMetrics.EdgeDip;
+            _cardEdgePixels = global::BoothAssetManager.App.Services.CardMetrics.EdgePixels;
             foreach (var card in _cards.Values)
             {
                 card.NoteCardEdgeChanged();
@@ -376,7 +376,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     }
 
     /// <summary>絵を読んだ大きさ。刻みを越えたときだけカードに読み直させる（ドラッグの間に毎回読み直さない）。</summary>
-    private int _cardEdgeDip = global::BoothAssetManager.App.Services.CardMetrics.EdgeDip;
+    private int _cardEdgePixels = global::BoothAssetManager.App.Services.CardMetrics.EdgePixels;
 
     /// <summary>
     /// 読み直しは投げっぱなしの道が複数ある（取り込みの進捗・起動時の裏の作業・編集の後・商品ページの操作）。

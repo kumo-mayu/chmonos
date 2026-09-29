@@ -277,9 +277,9 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         }
 
         // 読む大きさの刻みを越えたときだけ読み直させる（検索と同じ）
-        if (_cardEdgeDip != CardMetrics.EdgeDip)
+        if (_cardEdgePixels != CardMetrics.EdgePixels)
         {
-            _cardEdgeDip = CardMetrics.EdgeDip;
+            _cardEdgePixels = CardMetrics.EdgePixels;
             foreach (var card in _cards.Values)
             {
                 card.NoteCardEdgeChanged();
@@ -287,7 +287,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost
         }
     }
 
-    private int _cardEdgeDip = CardMetrics.EdgeDip;
+    private int _cardEdgePixels = CardMetrics.EdgePixels;
 
     /// <summary>ずれた所だけを抜き差しする（検索と同じ。丸ごと作り直すと、見えているカードを毎回作り直してカクつく）。</summary>
     private void LayoutRows() => CardRowLayout.Apply(Rows, _listItems, _columns, () => new FolderBrowserRow(), row => row.Cards);

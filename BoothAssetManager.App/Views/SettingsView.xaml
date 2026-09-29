@@ -148,6 +148,22 @@
                     <StackPanel>
                         <TextBlock Text="操作" Style="{StaticResource GroupTitle}" Margin="0,0,0,14" />
 
+                        <!--
+                            表示の大きさ（ユーザ指示 2026-09-29：違うモニターの大きさ・解像度でも使えるように）。
+                            値はアプリに1つ（AppZoom）。ショートカットで変えたときもこの欄が追う。変えるとすぐ全体に効き、止まってから保存する
+                        -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="表示の大きさ" Style="{StaticResource RowLabel}" Width="220" />
+                            <ComboBox Width="120" ItemsSource="{x:Static vm:AppZoom.Options}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Percent"
+                                      SelectedValue="{Binding Source={x:Static vm:AppZoom.Current}, Path=Percent, Mode=TwoWay}"
+                                      AutomationProperties.Name="表示の大きさ" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                   Text="アプリ全体の文字と絵をまとめて大きくします。下のショートカットでも変えられます。" />
+
+                        <Border Height="1" Background="#f0f1f4" Margin="0,14,0,12" />
+
                         <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />

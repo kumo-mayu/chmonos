@@ -20,6 +20,20 @@
         <sys:Double x:Key="CardSlotWidth">242</sys:Double>
 
         <!--
+            表示の大きさ（設定・Ctrl＋＋／Ctrl＋－・ユーザ指示 2026-09-29）。起動時と変えたときに AppZoom が書き換える。
+            主の窓の中身はこれで丸ごと縮尺する。吹き出しとメニューは別の窓（ポップアップ）で、
+            主の窓の縮尺が届かないので、下の既定の見た目で同じ倍率を当てる。
+            ComboBox の一覧・入力欄の候補・日付の選択のように、窓の中に置いたポップアップは置いた場所の縮尺を WPF が引き継ぐので当てない（当てると2重になる）
+        -->
+        <ScaleTransform x:Key="AppZoomTransform" ScaleX="1" ScaleY="1" />
+        <Style TargetType="ToolTip">
+            <Setter Property="LayoutTransform" Value="{DynamicResource AppZoomTransform}" />
+        </Style>
+        <Style TargetType="ContextMenu">
+            <Setter Property="LayoutTransform" Value="{DynamicResource AppZoomTransform}" />
+        </Style>
+
+        <!--
             畳む・開くの山形。ナビと検索の絞り込みパネルで同じものを使うので、
             どちらか一方の画面ではなくここに置く。24×24の座標系。
         -->

@@ -245,9 +245,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
 
         // 読む大きさの刻みを越えたときだけ読み直させる（検索と同じ）
-        if (_cardEdgeDip != CardMetrics.EdgeDip)
+        if (_cardEdgePixels != CardMetrics.EdgePixels)
         {
-            _cardEdgeDip = CardMetrics.EdgeDip;
+            _cardEdgePixels = CardMetrics.EdgePixels;
             foreach (var card in _all)
             {
                 card.NoteCardEdgeChanged();
@@ -255,7 +255,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         }
     }
 
-    private int _cardEdgeDip = CardMetrics.EdgeDip;
+    private int _cardEdgePixels = CardMetrics.EdgePixels;
 
     public RelayCommand BackCommand { get; }
 

@@ -25,6 +25,9 @@ public sealed partial class MainViewModel : ViewModelBase
         // カードの大きさとリストの行の高さ（一覧の右下のスライダー）。検索画面が列を割る前に決めておく
         ItemViewSize.Initialize(services);
 
+        // 表示の大きさ。主の窓はこの後に作られ、作るときに倍率を読む（App.xaml の AppZoomTransform）
+        AppZoom.Initialize(services);
+
         // 検索画面は使い捨てにせず1つだけ持ち回る。
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
         // 通信の様子はアプリに1つ。常設の行も取り込み画面も、ここを見る
@@ -603,7 +606,8 @@ public sealed partial class MainViewModel : ViewModelBase
         // 一覧の大きさ（右下のスライダー）は画面に属さないので、ここで一緒に書く
         return Task.WhenAll(
             (CurrentViewModel as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask,
-            ItemViewSize.Current.FlushAsync());
+            ItemViewSize.Current.FlushAsync(),
+            AppZoom.Current.FlushAsync());
     }
 
     /// <summary>
@@ -756,6 +760,18 @@ public sealed partial class MainViewModel : ViewModelBase
                 }
 
                 GoForward();
+                return true;
+
+            // 表示の大きさ（ユーザ指示 2026-09-29）。どの画面でも、文字の欄の中でも働く。
+            // 端の段で押しても受け取ったことにする（キーを欄へ流しても何も起きないので）
+            case ShortcutAction.ZoomIn:
+                AppZoom.Current.ZoomIn();
+                return true;
+            case ShortcutAction.ZoomOut:
+                AppZoom.Current.ZoomOut();
+                return true;
+            case ShortcutAction.ZoomReset:
+                AppZoom.Current.Reset();
                 return true;
             default:
                 return false;

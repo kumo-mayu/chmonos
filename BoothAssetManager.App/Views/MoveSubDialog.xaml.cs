@@ -10,6 +10,7 @@ public partial class MoveSubDialog : Window
         InitializeComponent();
         DataContext = model;
         Owner = Application.Current?.MainWindow;
+        Services.DialogFit.Prepare(this);
     }
 
     private void OnMove(object sender, RoutedEventArgs e) => DialogResult = true;

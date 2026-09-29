@@ -33,6 +33,7 @@ public partial class ChoiceDialog : Window
         }
 
         Owner = Application.Current?.MainWindow;
+        Services.DialogFit.Prepare(this);
     }
 
     public ChoiceDialogResult Result { get; private set; } = ChoiceDialogResult.Cancel;

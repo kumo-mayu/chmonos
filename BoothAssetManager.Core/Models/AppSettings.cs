@@ -30,6 +30,13 @@ public sealed record AppSettings
     public int ListRowHeight { get; init; } = 52;
 
     /// <summary>
+    /// 表示の大きさ（%）。アプリ全体（主の窓・小窓・メニュー・吹き出し）を大きく・小さくする（ユーザ指示 2026-09-29）。
+    /// 設定画面と Ctrl＋＋／Ctrl＋－／Ctrl＋0 で変える。段は <see cref="DisplayZoom.Steps"/>。
+    /// 段にない値（手で書き換えた JSON）は、使う側が <see cref="DisplayZoom.Normalize"/> で近い段に丸めて読む
+    /// </summary>
+    public int DisplayZoomPercent { get; init; } = DisplayZoom.DefaultPercent;
+
+    /// <summary>
     /// サムネイルにどの役割の画像を出すか。
     ///
     /// 既定は「デフォルト」。商品ごとの★の指名が効くのはこのときだけ。
@@ -337,9 +344,27 @@ public sealed record ShortcutSettings
 
     /// <summary>戻った先からまた進む（ユーザ指示 2026-09-20・M7。ブラウザと同じ形）。</summary>
     public string Forward { get; init; } = "Alt+Right";
+
+    /// <summary>
+    /// 表示を1段大きくする（ユーザ指示 2026-09-29）。ブラウザや多くのアプリと同じ Ctrl＋＋。
+    /// OemPlus は US 配列の「=」、JIS 配列の「;」のキーで、Shift を足した「＋」とテンキーの＋でも働く
+    /// （<c>Shortcuts.Matches</c>）。**文字の欄の中でも働く**——欄でこのキーに割り当てのある操作は無い。
+    /// 前の版の settings.json にはこの項目が無い。読むと既定が入る
+    /// </summary>
+    public string ZoomIn { get; init; } = "Ctrl+OemPlus";
+
+    /// <summary>表示を1段小さくする。Ctrl＋－（テンキーの－でも働く）。</summary>
+    public string ZoomOut { get; init; } = "Ctrl+OemMinus";
+
+    /// <summary>表示の大きさを 100% に戻す。Ctrl＋0（テンキーの0でも働く）。</summary>
+    public string ZoomReset { get; init; } = "Ctrl+D0";
 }
 
-/// <summary>ウィンドウの位置・大きさ・最大化。</summary>
+/// <summary>
+/// ウィンドウの位置・大きさ・最大化。**位置と大きさは画面の画素（物理ピクセル）**で持つ（2026-09-29）。
+/// 前は WPF の DIP で持っていたが、モニターごとの拡大率（Per-Monitor V2）では DIP の座標がモニターの間で重なり、
+/// 拡大率の違うモニターで閉じると別の場所・別の大きさで開いた。
+/// </summary>
 public sealed record WindowPlacement
 {
     public double Left { get; init; }

@@ -625,14 +625,11 @@ public sealed class ThumbnailLoader
         }
     }
 
-    /// <summary>画面の拡大率を掛けた長辺（ピクセル）。窓がまだ無いときは等倍とみなす。</summary>
-    private static int EdgePixels(int dip)
-    {
-        var scale = System.Windows.Application.Current?.MainWindow is { } window
-            ? VisualTreeHelper.GetDpi(window).DpiScaleX
-            : 1.0;
-        return (int)Math.Ceiling(dip * scale);
-    }
+    /// <summary>
+    /// 画面の拡大率と表示の大きさを掛けた辺（ピクセル）。窓がまだ無いときは等倍とみなす。
+    /// 倍率が変わると鍵（辺の画素）が変わるので、前の倍率で読んだ絵は使われなくなり、古い順に捨てられる
+    /// </summary>
+    private static int EdgePixels(int dip) => DisplayScale.Pixels(dip);
 
     private void EvictIfNeeded()
     {
