@@ -42,6 +42,13 @@ public sealed record UnityPackageEntry(string ZipPath, string EntryPath, long Si
     }
 }
 
+/// <summary>
+/// unitypackage の中の1つのアセット。tar の <c>&lt;GUID&gt;/pathname</c> の組。
+/// </summary>
+/// <param name="Guid">Unity がアセットに付ける ID（32桁の16進）。取り込んだ先の <c>.meta</c> の <c>guid:</c> と同じ値になる。</param>
+/// <param name="Path">Unity 上のパス（<c>Assets/FUKA/…</c>）。</param>
+public sealed record UnityPackageAsset(string Guid, string Path);
+
 /// <summary>Unity の窓の題から言い当てたプロジェクト（<see cref="UnityHandoff.IdentifyProject"/>）。</summary>
 /// <param name="Name">プロジェクト名。題から読めなければ null。</param>
 /// <param name="Path">場所。一覧で言い当てられたときだけ。</param>
@@ -124,26 +131,35 @@ public static class UnityHandoff
         => DestinationRoots(ReadAssetPaths(package));
 
     /// <summary>
-    /// 中身のアセットのパスを全部返す（<c>Assets/FUKA/撫で音/…</c> のまま）。
+    /// 中身のアセットのパスを全部返す（<c>Assets/FUKA/撫で音/…</c> のまま）。<see cref="ReadAssets"/> のパスだけ。
     ///
     /// 連続で送るとき、Unity のログの <c>Start importing &lt;パス&gt;</c> が
     /// **送った物の取り込みかを見分けるのに使う**（§11-3）。Editor.log は開いている全エディタが共有するので、
     /// 完了の行だけでは誰の物か分からない。
+    /// </summary>
+    public static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package)
+        => ReadAssets(package).Select(asset => asset.Path).ToList();
+
+    /// <summary>
+    /// 中身のアセットを全部返す（GUID と Unity 上のパスの組）。
+    ///
+    /// **GUID も持つ**（2026-09-29）。利用者がプロジェクトの中でフォルダを移した・名前を変えた物は、パスでは見つからないが、
+    /// Unity は取り込んだアセットの <c>.meta</c> にパッケージと同じ GUID を書き、移しても変えない（<see cref="UnityProjectGuids"/>）。
     ///
     /// 読めないときは空を返す。投げない。
     ///
     /// **一度読んだ結果は覚えておく。**unitypackage は最後まで展開しないとパスが揃わず、4K テクスチャを大量に同梱した物では
     /// 1GB あたり約2.8秒かかる（実測）。商品ページ・改変の画面・「Unityで選択」・プロジェクトの中を調べる・連続送りの前、と
-    /// 同じ物を何度も読むので、zip の場所・中の名前・大きさ・更新時刻が同じなら読み直さない。覚えるのはパスの一覧だけで小さい
+    /// 同じ物を何度も読むので、zip の場所・中の名前・大きさ・更新時刻が同じなら読み直さない。覚えるのはパスと GUID の一覧だけで小さい
     /// </summary>
-    public static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package)
-        => ReadAssetPaths(package, remember: true);
+    public static IReadOnlyList<UnityPackageAsset> ReadAssets(UnityPackageEntry package)
+        => ReadAssets(package, remember: true);
 
     /// <param name="remember">
     /// 読んだ結果をメモリの表（<see cref="PathMemory"/>）に覚えるか。取り込みの裏の読み取り（<see cref="UnityPackageCatalog.ReadAsync"/>）は
     /// 手元の全部の unitypackage を1回ずつ読むだけで、結果は控えのファイルに書くので、表に入れない（入れると画面が使う物を押し出す）。
     /// </param>
-    internal static IReadOnlyList<string> ReadAssetPaths(UnityPackageEntry package, bool remember)
+    internal static IReadOnlyList<UnityPackageAsset> ReadAssets(UnityPackageEntry package, bool remember)
     {
         FileInfo? zip = null;
         try
@@ -164,28 +180,28 @@ public static class UnityHandoff
         // 取り込みの裏で読んだ控え（2026-09-13）。ハッシュが同じなら中身は変わらないので、zip を解かずに引ける
         if (package.ZipHash is { } hash
             && s_pathStore?.Load(hash) is { } stored
-            && stored.TryGetValue(package.EntryPath, out var storedPaths))
+            && stored.TryGetValue(package.EntryPath, out var storedAssets))
         {
             if (remember)
             {
-                Remember(key, zip, storedPaths);
+                Remember(key, zip, storedAssets);
             }
 
-            return storedPaths;
+            return storedAssets;
         }
 
-        var paths = ReadAssetPathsFromDisk(package);
+        var assets = ReadAssetsFromDisk(package);
         if (remember)
         {
-            Remember(key, zip, paths);
+            Remember(key, zip, assets);
         }
 
         // 取り込みの裏より先に読んだ物も控えに足す（次の起動では解かずに済む）
-        if (package.ZipHash is { } readHash && paths.Count > 0 && s_pathStore is { } store)
+        if (package.ZipHash is { } readHash && assets.Count > 0 && s_pathStore is { } store)
         {
             try
             {
-                store.Add(readHash, package.EntryPath, paths);
+                store.Add(readHash, package.EntryPath, assets);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -193,17 +209,17 @@ public static class UnityHandoff
             }
         }
 
-        return paths;
+        return assets;
     }
 
-    private static void Remember((string Zip, string Entry) key, FileInfo? zip, IReadOnlyList<string> paths)
+    private static void Remember((string Zip, string Entry) key, FileInfo? zip, IReadOnlyList<UnityPackageAsset> assets)
     {
-        if (zip is not { Exists: true } || paths.Count == 0)
+        if (zip is not { Exists: true } || assets.Count == 0)
         {
             return;
         }
 
-        PathMemory.Put(key, zip.Length, zip.LastWriteTimeUtc, paths);
+        PathMemory.Put(key, zip.Length, zip.LastWriteTimeUtc, assets);
     }
 
     private static Storage.UnityPackagePathStore? s_pathStore;
@@ -233,7 +249,7 @@ public static class UnityHandoff
         private readonly LinkedList<Kept> _recent = new();
         private long _bytes;
 
-        private sealed record Kept((string Zip, string Entry) Key, long Length, DateTime Written, IReadOnlyList<string> Paths, long Bytes);
+        private sealed record Kept((string Zip, string Entry) Key, long Length, DateTime Written, IReadOnlyList<UnityPackageAsset> Assets, long Bytes);
 
         public long Bytes
         {
@@ -258,7 +274,7 @@ public static class UnityHandoff
         }
 
         /// <summary>zip の大きさと更新時刻が覚えたときと同じなら返す（使った物として前へ出す）。</summary>
-        public IReadOnlyList<string>? TryGet((string Zip, string Entry) key, long length, DateTime written)
+        public IReadOnlyList<UnityPackageAsset>? TryGet((string Zip, string Entry) key, long length, DateTime written)
         {
             lock (_gate)
             {
@@ -274,13 +290,13 @@ public static class UnityHandoff
 
                 _recent.Remove(node);
                 _recent.AddFirst(node);
-                return node.Value.Paths;
+                return node.Value.Assets;
             }
         }
 
-        public void Put((string Zip, string Entry) key, long length, DateTime written, IReadOnlyList<string> paths)
+        public void Put((string Zip, string Entry) key, long length, DateTime written, IReadOnlyList<UnityPackageAsset> assets)
         {
-            var bytes = SizeOf(key, paths);
+            var bytes = SizeOf(key, assets);
             lock (_gate)
             {
                 if (_byKey.Remove(key, out var old))
@@ -302,25 +318,28 @@ public static class UnityHandoff
                     _bytes -= oldest.Value.Bytes;
                 }
 
-                _byKey[key] = _recent.AddFirst(new Kept(key, length, written, paths, bytes));
+                _byKey[key] = _recent.AddFirst(new Kept(key, length, written, assets, bytes));
                 _bytes += bytes;
             }
         }
 
-        /// <summary>文字列の大きさの見積もり。1文字2バイトと、1本あたりの入れ物の分（約40バイト）。</summary>
-        private static long SizeOf((string Zip, string Entry) key, IReadOnlyList<string> paths)
+        /// <summary>
+        /// 文字列の大きさの見積もり。1文字2バイトと、1件あたりの入れ物の分
+        /// （パスと GUID の文字列2本の頭で約40バイト、組の record で約40バイト）。
+        /// </summary>
+        private static long SizeOf((string Zip, string Entry) key, IReadOnlyList<UnityPackageAsset> assets)
         {
             long bytes = (key.Zip.Length + key.Entry.Length) * 2 + 64;
-            foreach (var path in paths)
+            foreach (var asset in assets)
             {
-                bytes += path.Length * 2 + 40;
+                bytes += (asset.Path.Length + asset.Guid.Length) * 2 + 80;
             }
 
             return bytes;
         }
     }
 
-    private static IReadOnlyList<string> ReadAssetPathsFromDisk(UnityPackageEntry package)
+    private static IReadOnlyList<UnityPackageAsset> ReadAssetsFromDisk(UnityPackageEntry package)
     {
         try
         {
@@ -334,7 +353,7 @@ public static class UnityHandoff
             using var gzip = new GZipStream(stream, CompressionMode.Decompress);
             using var tar = new TarReader(gzip);
 
-            var paths = new List<string>();
+            var assets = new List<UnityPackageAsset>();
             while (tar.GetNextEntry(copyData: false) is { } tarEntry)
             {
                 if (tarEntry.DataStream is null || !tarEntry.Name.EndsWith("/pathname", StringComparison.Ordinal))
@@ -342,19 +361,26 @@ public static class UnityHandoff
                     continue;
                 }
 
+                // 名前は "<GUID>/pathname"。頭に "./" が付いた物もある（UnityPackageInspector と同じ読み方）
+                var parts = tarEntry.Name.TrimStart('.', '/').Split('/');
+                if (parts.Length != 2 || parts[0].Length == 0)
+                {
+                    continue;
+                }
+
                 using var reader = new StreamReader(tarEntry.DataStream, Encoding.UTF8, false, 1024, leaveOpen: true);
                 if (reader.ReadLine()?.Trim() is { Length: > 0 } path)
                 {
-                    paths.Add(path);
+                    assets.Add(new UnityPackageAsset(parts[0].ToLowerInvariant(), path));
                 }
 
-                if (paths.Count >= MaxAssetPaths)
+                if (assets.Count >= MaxAssetPaths)
                 {
                     break;
                 }
             }
 
-            return paths;
+            return assets;
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException
                                               or ArgumentException or ArithmeticException or InvalidOperationException

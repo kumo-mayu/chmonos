@@ -25,9 +25,12 @@ public sealed class UnityPackageCatalogTests : IDisposable
         var appPaths = new AppPaths(Path.Combine(_root, "data"));
         appPaths.EnsureCreated();
         _store = new DataStore(appPaths);
+        _appPaths = appPaths;
         _paths = new UnityPackagePathStore(appPaths);
         _catalog = new UnityPackageCatalog(_store, _paths);
     }
+
+    private readonly AppPaths _appPaths;
 
     public void Dispose()
     {
@@ -269,6 +272,63 @@ public sealed class UnityPackageCatalogTests : IDisposable
             // zip が消えても（手元から消した後でも）控えから引ける
             File.Delete(file.Paths[0]);
             Assert.Equal(["Assets/H/a.prefab", "Assets/H/b.prefab"], UnityHandoff.ReadAssetPaths(package));
+        }
+        finally
+        {
+            UnityHandoff.UsePathStore(null);
+        }
+    }
+
+    [Fact]
+    public async Task 控えにパスごとのGUIDも書く()
+    {
+        // フォルダを移された物を GUID で探す（UnityProjectGuids）ため、パスと一緒に残す
+        var file = MakeZip("g.zip", "GGG", ("G.unitypackage", MakeUnityPackage("Assets/G", "Assets/G/a.prefab")));
+
+        await _catalog.ReadAsync([file]);
+
+        var assets = _paths.Load("GGG")!["G.unitypackage"];
+        Assert.Equal(
+            [new UnityPackageAsset(0.ToString("x32"), "Assets/G"), new UnityPackageAsset(1.ToString("x32"), "Assets/G/a.prefab")],
+            assets);
+
+        // 人が開いて読める形：1行が「GUID: パス」
+        var text = await File.ReadAllTextAsync(_appPaths.UnityPackageFile("GGG"));
+        Assert.Contains($"\"{1.ToString("x32")}\": \"Assets/G/a.prefab\"", text);
+    }
+
+    [Fact]
+    public async Task パスだけの前の形の控えは無いのと同じで読み直す()
+    {
+        // GUID を持たない控えは使えない。控えは作り直せる物なので、前の形を読む道は持たず、zip を解き直して書き直す
+        var file = MakeZip("o.zip", "OOO", ("O.unitypackage", MakeUnityPackage("Assets/O/a.prefab")));
+        Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("OOO"))!);
+        await File.WriteAllTextAsync(
+            _appPaths.UnityPackageFile("OOO"),
+            """{ "packages": { "O.unitypackage": [ "Assets/O/a.prefab" ] } }""");
+
+        Assert.False(_paths.Has("OOO"));
+        Assert.Null(_paths.Load("OOO"));
+
+        Assert.Equal(1, await _catalog.ReadAsync([file]));
+        Assert.Equal([new UnityPackageAsset(0.ToString("x32"), "Assets/O/a.prefab")], _paths.Load("OOO")!["O.unitypackage"]);
+    }
+
+    [Fact]
+    public void 使うときに読んだ物も前の形の控えを書き直す()
+    {
+        var file = MakeZip("u.zip", "UUU", ("U.unitypackage", MakeUnityPackage("Assets/U/a.prefab")));
+        Directory.CreateDirectory(Path.GetDirectoryName(_appPaths.UnityPackageFile("UUU"))!);
+        File.WriteAllText(
+            _appPaths.UnityPackageFile("UUU"),
+            """{ "packages": { "U.unitypackage": [ "Assets/U/a.prefab" ] } }""");
+        var package = UnityHandoff.FindPackages(file.Paths[0]).Single() with { ZipHash = "UUU" };
+
+        UnityHandoff.UsePathStore(_paths);
+        try
+        {
+            Assert.Equal([new UnityPackageAsset(0.ToString("x32"), "Assets/U/a.prefab")], UnityHandoff.ReadAssets(package));
+            Assert.True(_paths.Has("UUU"));
         }
         finally
         {

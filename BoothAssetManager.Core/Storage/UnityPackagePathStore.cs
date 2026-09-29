@@ -1,28 +1,46 @@
 using System.Text.Json;
+using BoothAssetManager.Core.Services;
 
 namespace BoothAssetManager.Core.Storage;
 
 /// <summary><c>unitypackages/&lt;ハッシュ&gt;.json</c> の中身。</summary>
 public sealed class UnityPackagePathsFile
 {
-    /// <summary>zip の中の場所 → unitypackage の中身のパス（<c>Assets/FUKA/…</c> のまま）。</summary>
-    public Dictionary<string, List<string>> Packages { get; init; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// zip の中の場所 → その unitypackage の中身（GUID → Unity 上のパス。<c>Assets/FUKA/…</c> のまま）。
+    ///
+    /// **GUID を鍵にする。**unitypackage の tar はアセットごとに <c>&lt;GUID&gt;/pathname</c> を持つので、1つの物の中で GUID は重ならない
+    /// （パスは壊れた物では重なり得る）。1行が「GUID: パス」になり、千本を超える物でも開いて読める長さに収まる。
+    /// GUID は、利用者がプロジェクトの中でフォルダを移した・名前を変えた物を見つけるのに使う（<see cref="UnityProjectGuids"/>）。
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> Packages { get; init; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>
-/// unitypackage の中身の全部のパスの控え（2026-09-13 ユーザ判断）。**鍵は zip のハッシュ**なので、控えが古くなることは無い
+/// unitypackage の中身の全部のパスと GUID の控え（2026-09-13 ユーザ判断。GUID は 2026-09-29 に足した）。**鍵は zip のハッシュ**なので、控えが古くなることは無い
 /// （中身が変われば別のハッシュ＝別の手元のファイル）。消しても、取り込みの裏か、使うときに zip を解き直すだけで壊れない。
+///
+/// パスだけの前の形（中身が文字の並び）は読めない物として扱い、使うときに zip を解いて書き直す（控えは作り直せる物なので、古い形を読む道は持たない）。
 /// </summary>
 public sealed class UnityPackagePathStore(AppPaths paths)
 {
-    public bool Has(string hash) => File.Exists(paths.UnityPackageFile(hash));
+    /// <summary>読める控えがあるか。前の形の控えは無いのと同じ（読み直して書き直す）。</summary>
+    public bool Has(string hash) => File.Exists(paths.UnityPackageFile(hash)) && Load(hash) is not null;
 
-    /// <summary>読めなければ null（無い・壊れている）。</summary>
-    public IReadOnlyDictionary<string, List<string>>? Load(string hash)
+    /// <summary>読めなければ null（無い・壊れている・前の形）。</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>>? Load(string hash)
     {
         try
         {
-            return JsonStore.Read<UnityPackagePathsFile>(paths.UnityPackageFile(hash))?.Packages;
+            return JsonStore.Read<UnityPackagePathsFile>(paths.UnityPackageFile(hash))?.Packages
+                .ToDictionary(
+                    pair => pair.Key,
+                    // 手で直した控えの欠けた一覧（null）は空として受ける
+                    pair => (IReadOnlyList<UnityPackageAsset>)(pair.Value ?? [])
+                        .Where(asset => !string.IsNullOrWhiteSpace(asset.Value))
+                        .Select(asset => new UnityPackageAsset(asset.Key, asset.Value))
+                        .ToList(),
+                    StringComparer.Ordinal);
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -38,7 +56,7 @@ public sealed class UnityPackagePathStore(AppPaths paths)
     /// </summary>
     public async Task SaveAsync(
         string hash,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> packages,
+        IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> packages,
         CancellationToken cancellationToken = default)
     {
         var gate = LockFor(hash);
@@ -55,19 +73,20 @@ public sealed class UnityPackagePathStore(AppPaths paths)
 
     /// <summary>
     /// 1つだけ足す（取り込みの裏より先に、商品ページなどで読んだとき）。
-    /// 同期なのは、呼び手（<see cref="Services.UnityHandoff.ReadAssetPaths"/>）が zip を解く同期の処理で、
+    /// 同期なのは、呼び手（<see cref="UnityHandoff.ReadAssets"/>）が zip を解く同期の処理で、
     /// 必ず裏のスレッドで呼ばれるため（画面のスレッドでは止まり得る。<see cref="StoreWriteGate.Enter"/>）。
     /// </summary>
-    public void Add(string hash, string entry, IReadOnlyList<string> assetPaths)
+    public void Add(string hash, string entry, IReadOnlyList<UnityPackageAsset> assets)
     {
         // 取り込みの裏と商品ページが同じ zip を同時に開くので、読み直してから足すまでを1本にする
         var gate = LockFor(hash);
         gate.Wait();
         try
         {
-            var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value, StringComparer.Ordinal)
-                ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-            packages[entry] = assetPaths;
+            // 前の形の控え（読めない）は捨てて、今読んだ分から書き直す。ほかの物は使うときに読み直して足す
+            var packages = Load(hash)?.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+                ?? new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal);
+            packages[entry] = assets;
             JsonStore.Write(paths.UnityPackageFile(hash), ToFile(packages));
         }
         finally
@@ -76,10 +95,16 @@ public sealed class UnityPackagePathStore(AppPaths paths)
         }
     }
 
-    private static UnityPackagePathsFile ToFile(IReadOnlyDictionary<string, IReadOnlyList<string>> packages)
+    private static UnityPackagePathsFile ToFile(IReadOnlyDictionary<string, IReadOnlyList<UnityPackageAsset>> packages)
         => new()
         {
-            Packages = packages.ToDictionary(pair => pair.Key, pair => pair.Value.ToList(), StringComparer.Ordinal),
+            Packages = packages.ToDictionary(
+                pair => pair.Key,
+                // 同じ GUID は1つの物の中で重ならないが、壊れた物を掴んでも書けるよう先の方を残す
+                pair => pair.Value
+                    .GroupBy(asset => asset.Guid, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => group.First().Path, StringComparer.OrdinalIgnoreCase),
+                StringComparer.Ordinal),
         };
 
     // 丸ごと書く（非同期）と1つ足す（同期）が同じ錠を取るので、どちらからも使える SemaphoreSlim にする

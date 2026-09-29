@@ -174,15 +174,15 @@ internal static class UnityMemberSelect
         NoticeSink setStatus)
     {
         setStatus($"「{projectName}」の中を調べています…");
-        var (roots, present) = await Task.Run(() =>
+        var (location, packageRoot, present) = await Task.Run(() =>
         {
-            var paths = packages.SelectMany(UnityHandoff.ReadAssetPaths).ToList();
+            var assets = packages.SelectMany(UnityHandoff.ReadAssets).ToList();
             var matches = UnityProjectMatcher.Match(
-                project, new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [itemId] = paths });
-            // 入り先の頭の記号（_FUKA）を利用者が消していれば、実際の名前（FUKA）で探す（UnityFolderNames）
-            var children = UnityFolderNames.DiskChildren(project);
-            var roots = UnityHandoff.DestinationRoots(paths).Select(root => UnityFolderNames.ResolveRoot(root, children)).ToList();
-            return (roots, matches.FirstOrDefault()?.Present ?? 0);
+                project, new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [itemId] = assets });
+            // 入り先の頭の記号（_FUKA）を利用者が消していれば実際の名前（FUKA）で、フォルダごと移していれば GUID で見つけた今の場所で探す
+            var roots = UnityHandoff.DestinationRoots(assets.Select(asset => asset.Path));
+            var location = roots.Count == 0 ? null : UnityProjectMatcher.LocateRoot(project, roots[0], assets);
+            return (location, roots.FirstOrDefault(), matches.FirstOrDefault()?.Present ?? 0);
         });
 
         if (present == 0)
@@ -191,17 +191,22 @@ internal static class UnityMemberSelect
             return false;
         }
 
-        if (roots.Count == 0)
+        if (location is null)
         {
             setStatus("入り先のフォルダを読めませんでした。", failed: true);
             return true;
         }
 
-        var root = roots[0];
+        var root = location.Root;
         var folder = root.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
+
+        // 利用者がフォルダを移していれば、パッケージの入り先ではなく今の場所を開く。黙って別の名前のフォルダを開くと戸惑うので、移っていると言う
+        var destination = location.Moved
+            ? $"入り先の {packageRoot} は {root} に移動されています。"
+            : $"入り先は {root} です。";
         if (editor is null)
         {
-            setStatus($"「{projectName}」の {root} に入っています。"
+            setStatus((location.Moved ? destination : $"「{projectName}」の {root} に入っています。")
                 + "「Unityを開く」で開いてからもう一度押すと、プロジェクトタブで示します。");
             return true;
         }
@@ -218,13 +223,13 @@ internal static class UnityMemberSelect
         {
             // Packages の下は Unity の検索に出ないので探していない。見つける場所の名前を伝える
             { Searched: false, StopReason: { } where } =>
-                $"入り先は {root} です。{where}、Unityでは探さずに手前に出しました。",
+                $"{destination}{where}、Unityでは探さずに手前に出しました。",
 
             // 1件と言い切れないときは、一番上を開かずに検索の結果で止めている（ユーザ指示）。理由と、何をすればよいかを書く
             { StopReason: { } reason } =>
                 $"Unityの「{projectName}」の{outcome.Where}で探しました。{reason}、開かずに検索の結果で止めています。"
-                + $"入り先は {root} です。Unityで選んでください。",
-            _ => $"Unityの「{projectName}」の{outcome.Where}で「{folder}」を開きました。入り先は {root} です。",
+                + $"{destination}Unityで選んでください。",
+            _ => $"Unityの「{projectName}」の{outcome.Where}で「{folder}」を開きました。{destination}",
         });
         return true;
     }
