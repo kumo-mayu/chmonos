@@ -32,6 +32,9 @@ public sealed record RecentEntry
     };
 }
 
+/// <summary>まだ書いていない足跡1つ（<see cref="RecentActivity.TouchAll"/> に渡す）。</summary>
+public sealed record RecentStamp(string ItemId, RecentKind Kind, DateTimeOffset At);
+
 /// <summary>
 /// 足跡の記録（<c>recent.json</c> の中身）。
 /// </summary>
@@ -69,25 +72,60 @@ public static class RecentActivity
         var index = entries.FindIndex(entry =>
             string.Equals(entry.ItemId, itemId, StringComparison.OrdinalIgnoreCase));
 
-        var current = index >= 0 ? entries[index] : new RecentEntry { ItemId = itemId };
-        var updated = kind switch
-        {
-            RecentKind.Added => current with { AddedAt = at },
-            RecentKind.Used => current with { UsedAt = at },
-            _ => current with { ViewedAt = at },
-        };
-
         if (index >= 0)
         {
-            entries[index] = updated;
+            entries[index] = Stamped(entries[index], kind, at);
         }
         else
         {
-            entries.Add(updated);
+            entries.Add(Stamped(new RecentEntry { ItemId = itemId }, kind, at));
         }
 
         return entries;
     }
+
+    /// <summary>
+    /// 足跡をまとめて打つ。**<see cref="Touch"/> を順に当てたのと同じ結果**になる
+    /// （既にある行はその場で書き換え、無い商品は初めて出た順に末尾へ足す。同じ商品が2回あれば後の方が勝つ）。
+    ///
+    /// 1つずつ <see cref="Touch"/> すると、そのたびに全行を写して探すので、件数の2乗になる。
+    /// ここでは商品IDから行を引く表を1回だけ作る。
+    /// </summary>
+    public static IReadOnlyList<RecentEntry> TouchAll(
+        IEnumerable<RecentEntry> existing,
+        IEnumerable<RecentStamp> stamps)
+    {
+        var entries = existing.ToList();
+
+        // Touch は先頭から探して最初に当たった行を書き換えるので、同じIDが2行あれば先の方を引く
+        var rows = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var row = 0; row < entries.Count; row++)
+        {
+            rows.TryAdd(entries[row].ItemId, row);
+        }
+
+        foreach (var stamp in stamps)
+        {
+            if (rows.TryGetValue(stamp.ItemId, out var row))
+            {
+                entries[row] = Stamped(entries[row], stamp.Kind, stamp.At);
+            }
+            else
+            {
+                rows[stamp.ItemId] = entries.Count;
+                entries.Add(Stamped(new RecentEntry { ItemId = stamp.ItemId }, stamp.Kind, stamp.At));
+            }
+        }
+
+        return entries;
+    }
+
+    private static RecentEntry Stamped(RecentEntry entry, RecentKind kind, DateTimeOffset at) => kind switch
+    {
+        RecentKind.Added => entry with { AddedAt = at },
+        RecentKind.Used => entry with { UsedAt = at },
+        _ => entry with { ViewedAt = at },
+    };
 
     /// <summary>
     /// その種類の時刻を商品IDから引ける形にする。並べ替えのために作る。

@@ -1141,107 +1141,119 @@ public sealed class ImportPipeline : IImportPipeline
         var shopIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var done = 0;
 
-        foreach (var (itemId, discovered) in pending)
+        // 「追加した」の足跡は溜めて、一定件数ごとと①の終わりに書く（1件ずつ書くと recent.json の読み書きが件数の2乗になる。
+        // 釣り合いの根拠は RecentStampBuffer.FlushEvery）。足跡を打つのは①だけなので、①を抜けるところが取り込みの区切り
+        var addedStamps = new Services.RecentStampBuffer(_store.Recent);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            Report(progress, ImportPhase.FetchingJson, ++done, pending.Count, itemId);
-
-            // 応答の無い失敗が続いたら、残りは問い合わせずに「続きから」へ残す（ユーザ判断 2026-09-29）。
-            // 取れなかった商品と同じ扱いなので、下の帯の「続きから進む」で取り直せる
-            if (totals.Outage.IsStopped)
+            foreach (var (itemId, discovered) in pending)
             {
-                temporaryFailures++;
-                work.PlanRequests(json: -1, pages: -1);
-                totals.NoteUnfetched(itemId, discovered);
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                Report(progress, ImportPhase.FetchingJson, ++done, pending.Count, itemId);
 
-            var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
-            work.PlanRequests(json: -1);
-            totals.Outage.Note(jsonResult);
-
-            if (jsonResult.Status == BoothFetchStatus.NotFound)
-            {
-                // BOOTHに無い＝ファイルが無かったことにはならない。
-                // 買っていて手元にあるものなので、未確定へ戻して人に決めてもらう。
-                // 別のIDで再公開されていることもあり、そのときは候補検索が拾える。
-                //
-                // 1回の404で流すのは、**こちらが「非公開だ」と確定する必要がないから。**
-                // 一時的な障害だったなら次の取り込みで普通に確定するだけで、何も失われない
-                notFound++;
-                work.PlanRequests(pages: -1); // ②へは進まない
-                notFoundFiles.AddRange(discovered.Select(file => ToUnresolved(file, itemId)));
-                totals.NoteSettled(itemId);
-                continue;
-            }
-
-            // 一時失敗（タイムアウト・5xx・接続失敗）と、200 でも読めない応答（JSON でない・型が変わった）。
-            // 後者を投げると、1件のために取り込み全体が止まっていた。
-            // どちらも「続きから」に残して取り直せるようにする（#10）。その場で書くのは、この後に閉じても残すため
-            if (!jsonResult.IsSuccess || jsonResult.Value is null
-                || BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
-            {
-                temporaryFailures++;
-                work.PlanRequests(pages: -1); // ②へは進まない
-                totals.NoteUnfetched(itemId, discovered);
-                await SaveProgressAsync(totals, work, cancellationToken);
-                continue;
-            }
-
-            var item = new ItemRecord
-            {
-                Id = itemId,
-                Booth = booth,
-                Local = new LocalBlock
+                // 応答の無い失敗が続いたら、残りは問い合わせずに「続きから」へ残す（ユーザ判断 2026-09-29）。
+                // 取れなかった商品と同じ扱いなので、下の帯の「続きから進む」で取り直せる
+                if (totals.Outage.IsStopped)
                 {
-                    LocalFiles = LocalFileMerger.Merge([], discovered),
-                    NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
-                    LastFetchedAt = DateTimeOffset.Now,
-                    NextFetchDueAt = NextFetchDue(itemId),
-                },
-            };
+                    temporaryFailures++;
+                    work.PlanRequests(json: -1, pages: -1);
+                    totals.NoteUnfetched(itemId, discovered);
+                    continue;
+                }
 
-            // 1件ずつ保存する。ここで中断しても、取れたぶんはそのまま残る。
-            //
-            // **「新しい」と判断した時点と書く時点がずれている**（ユーザ判断 2026-09-21・L13）。
-            // BOOTH から取る数秒〜数分の間に、未確定の「このIDで登録」が同じ商品を作ることがあり、
-            // 丸ごと書くと人が入れた名前・購入記録が消えていた。
-            // `ChangeItemIdAsync` と同じく**書く直前に読み直し**、あれば取ってきた `booth` だけを重ねる
-            if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } appeared)
-            {
-                await _store.Items.SaveLocalAsync(
-                    itemId,
-                    appeared.Local with { LocalFiles = LocalFileMerger.Merge(appeared.Local.LocalFiles, discovered) },
-                    LocalOwners.Import,
-                    item.Booth,
-                    cancellationToken);
+                var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
+                work.PlanRequests(json: -1);
+                totals.Outage.Note(jsonResult);
+
+                if (jsonResult.Status == BoothFetchStatus.NotFound)
+                {
+                    // BOOTHに無い＝ファイルが無かったことにはならない。
+                    // 買っていて手元にあるものなので、未確定へ戻して人に決めてもらう。
+                    // 別のIDで再公開されていることもあり、そのときは候補検索が拾える。
+                    //
+                    // 1回の404で流すのは、**こちらが「非公開だ」と確定する必要がないから。**
+                    // 一時的な障害だったなら次の取り込みで普通に確定するだけで、何も失われない
+                    notFound++;
+                    work.PlanRequests(pages: -1); // ②へは進まない
+                    notFoundFiles.AddRange(discovered.Select(file => ToUnresolved(file, itemId)));
+                    totals.NoteSettled(itemId);
+                    continue;
+                }
+
+                // 一時失敗（タイムアウト・5xx・接続失敗）と、200 でも読めない応答（JSON でない・型が変わった）。
+                // 後者を投げると、1件のために取り込み全体が止まっていた。
+                // どちらも「続きから」に残して取り直せるようにする（#10）。その場で書くのは、この後に閉じても残すため
+                if (!jsonResult.IsSuccess || jsonResult.Value is null
+                    || BoothItemMapper.TryMap(jsonResult.Value, DateTimeOffset.Now, itemId: itemId) is not { } booth)
+                {
+                    temporaryFailures++;
+                    work.PlanRequests(pages: -1); // ②へは進まない
+                    totals.NoteUnfetched(itemId, discovered);
+                    await SaveProgressAsync(totals, work, cancellationToken);
+                    continue;
+                }
+
+                var item = new ItemRecord
+                {
+                    Id = itemId,
+                    Booth = booth,
+                    Local = new LocalBlock
+                    {
+                        LocalFiles = LocalFileMerger.Merge([], discovered),
+                        NotifyOnUpdate = _settings.NotifyOnUpdateByDefault,
+                        LastFetchedAt = DateTimeOffset.Now,
+                        NextFetchDueAt = NextFetchDue(itemId),
+                    },
+                };
+
+                // 1件ずつ保存する。ここで中断しても、取れたぶんはそのまま残る。
+                //
+                // **「新しい」と判断した時点と書く時点がずれている**（ユーザ判断 2026-09-21・L13）。
+                // BOOTH から取る数秒〜数分の間に、未確定の「このIDで登録」が同じ商品を作ることがあり、
+                // 丸ごと書くと人が入れた名前・購入記録が消えていた。
+                // `ChangeItemIdAsync` と同じく**書く直前に読み直し**、あれば取ってきた `booth` だけを重ねる
+                if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } appeared)
+                {
+                    await _store.Items.SaveLocalAsync(
+                        itemId,
+                        appeared.Local with { LocalFiles = LocalFileMerger.Merge(appeared.Local.LocalFiles, discovered) },
+                        LocalOwners.Import,
+                        item.Booth,
+                        cancellationToken);
+                }
+                else
+                {
+                    await _store.Items.SaveAsync(item, cancellationToken);
+                }
+
+                // 「追加」の足跡。**itemのJSONには書かない**（足跡で埋めないため）。
+                // 既にある商品には打てないので、そちらは「不明」のまま残る——
+                // 後から作った時刻を騙るより、無いと言う方がよい。
+                // 時刻は保存した今のもの（書くのは後でも、1件ずつ書いていたときと同じ時刻が残る）
+                await addedStamps.AddAsync(itemId, Services.RecentKind.Added, DateTimeOffset.Now);
+
+                fetched.Add(item);
+                added++;
+
+                // 検索と件数にはもう出してよい。編集は③が済むまで待たせる（U8・U10）
+                work.NoteAdded(itemId);
+
+                // どこまで進んだかを残す（理由は SaveProgressAsync）
+                totals.NoteFetched();
+                totals.NoteSettled(itemId);
+                await SaveProgressAsync(totals, work, cancellationToken);
+
+                // アイコンのURLは商品JSONにしか入っていないので、ここで控えて⑥で取りに行く
+                if (item.Booth.Shop is { ThumbnailUrl.Length: > 0 } shop)
+                {
+                    shopIcons[shop.Subdomain] = shop.ThumbnailUrl;
+                }
             }
-            else
-            {
-                await _store.Items.SaveAsync(item, cancellationToken);
-            }
-
-            // 「追加」の足跡。**itemのJSONには書かない**（足跡で埋めないため）。
-            // 既にある商品には打てないので、そちらは「不明」のまま残る——
-            // 後から作った時刻を騙るより、無いと言う方がよい
-            await StampAddedAsync(itemId, cancellationToken);
-
-            fetched.Add(item);
-            added++;
-
-            // 検索と件数にはもう出してよい。編集は③が済むまで待たせる（U8・U10）
-            work.NoteAdded(itemId);
-
-            // どこまで進んだかを残す（理由は SaveProgressAsync）
-            totals.NoteFetched();
-            totals.NoteSettled(itemId);
-            await SaveProgressAsync(totals, work, cancellationToken);
-
-            // アイコンのURLは商品JSONにしか入っていないので、ここで控えて⑥で取りに行く
-            if (item.Booth.Shop is { ThumbnailUrl.Length: > 0 } shop)
-            {
-                shopIcons[shop.Subdomain] = shop.ThumbnailUrl;
-            }
+        }
+        finally
+        {
+            // 中止・例外で抜けるときも溜めた分を書く（取れて保存した商品の「追加した」を捨てない）
+            await addedStamps.FlushAsync();
         }
 
         // ── ② 商品ページHTML（全商品）。対応アバターの節と説明文 ──
@@ -1410,32 +1422,6 @@ public sealed class ImportPipeline : IImportPipeline
                 Stopped = totals.Outage.Stopped,
             },
             cancellationToken);
-
-    /// <summary>
-    /// 「取り込んだ」時刻を <c>recent.json</c> に打つ。
-    ///
-    /// **itemのJSONには書かない。**足跡（追加・使った・閲覧）は
-    /// 人が入力したものと混ぜない方針（<see cref="Services.RecentActivity"/>）。
-    ///
-    /// 失敗しても取り込みは止めない。足跡が1つ欠けても商品の記録は無事。
-    /// </summary>
-    private async Task StampAddedAsync(string itemId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            // 画面からの足跡（閲覧・使った）と同じファイルなので、窓口の錠を通す
-            await _store.Recent.UpdateAsync(
-                log => new Services.RecentLog
-                {
-                    Entries = Services.RecentActivity.Touch(
-                        log.Entries, itemId, Services.RecentKind.Added, DateTimeOffset.Now),
-                },
-                cancellationToken);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
 
     /// <summary>
     /// 次回の取得予定。全itemが同じ日に期限切れにならないよう、商品IDから決まるばらつきを足す。
