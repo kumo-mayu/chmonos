@@ -539,6 +539,40 @@ public class ShopServiceTests : IDisposable
     }
 
     /// <summary>
+    /// 一覧の集計は置き場を1回だけ列挙した表から引く。店ごとに探したときと同じアイコンとバナーを返す。
+    /// </summary>
+    [Fact]
+    public async Task SummarizesIconsAndBannersLikeLookingUpEachShop()
+    {
+        await SaveItemAsync("1", Shop("alpha", "A"), Owned());
+        await SaveItemAsync("2", Shop("beta", "B"), Owned());
+        await SaveItemAsync("3", Shop("gamma", "C"), Owned());
+
+        Directory.CreateDirectory(_store.Paths.ShopIconsDir);
+        var old = Path.Combine(_store.Paths.ShopIconsDir, "alpha_11111111.webp");
+        var fresh = Path.Combine(_store.Paths.ShopIconsDir, "alpha_22222222.webp");
+        await File.WriteAllBytesAsync(old, [1]);
+        await File.WriteAllBytesAsync(fresh, [1]);
+        File.SetLastWriteTimeUtc(old, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(fresh, new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc));
+        await File.WriteAllBytesAsync(_store.Paths.ShopBannerFile("alpha"), [1]);
+        await File.WriteAllBytesAsync(_store.Paths.ShopBannerFile("gamma"), [1]);
+
+        var shops = (await Create().LoadAsync()).ToDictionary(shop => shop.Subdomain);
+
+        foreach (var subdomain in new[] { "alpha", "beta", "gamma" })
+        {
+            Assert.Equal(_store.Paths.FindShopIcon(subdomain), shops[subdomain].IconPath);
+            var banner = _store.Paths.ShopBannerFile(subdomain);
+            Assert.Equal(File.Exists(banner) ? banner : null, shops[subdomain].BannerPath);
+        }
+
+        Assert.Equal(fresh, shops["alpha"].IconPath);
+        Assert.Null(shops["beta"].IconPath);
+        Assert.Equal(ShopBannerState.Present, shops["gamma"].BannerState);
+    }
+
+    /// <summary>
     /// 確かめ直す時期が来た店は「分からない」に戻す。
     /// これを Absent のままにすると、場所を空けずに開いた後でバナーが見つかり、
     /// 結局そこで中身が下へずれる。
