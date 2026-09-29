@@ -327,8 +327,12 @@ public abstract record UiCommand
     /// 手掛かりの無いファイルについて、BOOTH内検索から候補を出す。
     /// このコマンドだけ進捗の受け口を持つ。取得を1件ずつ間隔を空けて行うため
     /// 待ち時間が長く、黙って待たせるわけにいかないため。
+    /// <c>Listed</c> は未確定の一覧にあるファイルの場所。同じフォルダの兄弟の zip の間で変わる語（アバター名など）を検索語から外すのに使う。
     /// </summary>
-    public record ProposeCandidates(string FilePath, IProgress<Resolution.ResolveProgress>? Progress = null) : UiCommand;
+    public record ProposeCandidates(
+        string FilePath,
+        IProgress<Resolution.ResolveProgress>? Progress = null,
+        IReadOnlyCollection<string>? Listed = null) : UiCommand;
 
     /// <summary>
     /// 対応アバターを検出する（人が押したとき）。

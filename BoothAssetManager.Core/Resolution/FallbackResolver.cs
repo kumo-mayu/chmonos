@@ -160,9 +160,11 @@ public sealed class FallbackResolver
     /// アバターそのものの商品には足さない（衣装のファイルでアバター本体が上に来ないように）。
     /// ファイル名が名前だけのときは逆に本体にだけ足す。
     /// </param>
-    public static IReadOnlyList<SearchCard> Rerank(IReadOnlyList<SearchCard> cards, string filePath, AvatarTokens? avatars = null)
+    /// <param name="varying">兄弟の zip の間で変わる語（<see cref="SiblingTokens.Varying"/>）。商品名の語として数えない。</param>
+    public static IReadOnlyList<SearchCard> Rerank(
+        IReadOnlyList<SearchCard> cards, string filePath, AvatarTokens? avatars = null, IReadOnlySet<string>? varying = null)
     {
-        var tokens = FileNameQuery.ProductTokens(filePath, avatars is null ? null : avatars.IsAvatarName);
+        var tokens = FileNameQuery.ProductTokens(filePath, SiblingTokens.NotProductName(avatars, varying));
         var numbers = FileNameQuery.SeriesNumbers(filePath).Concat(FileNameQuery.SignificantNumbers(filePath)).Distinct().ToList();
         var raw = Path.GetFileNameWithoutExtension(filePath).ToLowerInvariant();
 
@@ -218,13 +220,13 @@ public sealed class FallbackResolver
     /// </list>
     /// </summary>
     public static IReadOnlyList<string> RetryQueries(
-        string filePath, string query, Search.SearchBridge? bridge, AvatarTokens? avatars = null)
+        string filePath, string query, Search.SearchBridge? bridge, AvatarTokens? avatars = null, IReadOnlySet<string>? varying = null)
     {
         var results = new List<string>();
 
         // アバターの名前を外す前の語では引き直さない。試すと（正解の分かる318本）候補のどこかに正解は2本増えたが、
         // アバターの名前を持つ別の商品が点を取り、画面の1位の正解が5本減った（2026-09-29）
-        var distinctive = FileNameQuery.MostDistinctiveToken(filePath, avatars is null ? null : avatars.IsAvatarName);
+        var distinctive = FileNameQuery.MostDistinctiveToken(filePath, SiblingTokens.NotProductName(avatars, varying));
         if (distinctive.Length > 0 && !string.Equals(distinctive, query, StringComparison.OrdinalIgnoreCase))
         {
             results.Add(distinctive);
@@ -277,14 +279,20 @@ public sealed class FallbackResolver
         return ids;
     }
 
+    /// <param name="listed">
+    /// 未確定の一覧にあるファイルの場所。渡せば、同じフォルダの兄弟の zip の間で変わる語（アバター名など）を
+    /// 検索語から外す（<see cref="SiblingTokens"/>）。通信は増えない。
+    /// </param>
     public async Task<ResolutionProposal> ProposeAsync(
         string filePath,
         CancellationToken cancellationToken = default,
-        IProgress<ResolveProgress>? progress = null)
+        IProgress<ResolveProgress>? progress = null,
+        IReadOnlyCollection<string>? listed = null)
     {
         // 登録簿は取り込みで増えるので、押すたびに読み直す（索引を組むのは数百件で数ミリ秒）
         var avatars = _avatarRegistry is null ? null : AvatarTokens.From(_avatarRegistry(), _readings);
-        var query = FileNameQuery.ToSearchQuery(filePath, avatars is null ? null : avatars.IsAvatarName);
+        var varying = listed is null ? null : SiblingTokens.Varying(filePath, listed, avatars is null ? null : avatars.IsAvatarName);
+        var query = FileNameQuery.ToSearchQuery(filePath, SiblingTokens.NotProductName(avatars, varying));
         if (query.Length == 0)
         {
             return new ResolutionProposal([], false);
@@ -308,7 +316,7 @@ public sealed class FallbackResolver
 
         progress?.Report(new ResolveProgress($"BOOTHを検索しています（{query}）", 0, 0));
 
-        var (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, cancellationToken);
+        var (searchIds, searched) = await SearchIdsAsync(query, filePath, avatars, varying, cancellationToken);
 
         var orderedIds = direct
             .Concat(searchIds)
@@ -351,13 +359,13 @@ public sealed class FallbackResolver
         {
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
 
-            foreach (var alternate in RetryQueries(filePath, query, _bridge, avatars))
+            foreach (var alternate in RetryQueries(filePath, query, _bridge, avatars, varying))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
-                var alternateIds = (await SearchIdsAsync(alternate, filePath, avatars, cancellationToken)).Ids;
+                var alternateIds = (await SearchIdsAsync(alternate, filePath, avatars, varying, cancellationToken)).Ids;
                 var extraIds = alternateIds
                     .Where(id => seen.Add(id))
                     .Take(MaxCandidates)
@@ -400,7 +408,7 @@ public sealed class FallbackResolver
     /// **届いたかどうかも返す**（E3：届かなかったのを0件と同じに扱っていた）。
     /// </summary>
     private async Task<(IReadOnlyList<string> Ids, bool Searched)> SearchIdsAsync(
-        string query, string filePath, AvatarTokens? avatars, CancellationToken cancellationToken)
+        string query, string filePath, AvatarTokens? avatars, IReadOnlySet<string>? varying, CancellationToken cancellationToken)
     {
         var result = await _client.SearchAsync(query, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
@@ -410,7 +418,7 @@ public sealed class FallbackResolver
 
         var cards = ExtractSearchCards(result.Value);
         return (cards.Count > 0
-            ? Rerank(cards, filePath, avatars).Select(card => card.ItemId).ToList()
+            ? Rerank(cards, filePath, avatars, varying).Select(card => card.ItemId).ToList()
             : ExtractSearchResultIds(result.Value), true);
     }
 

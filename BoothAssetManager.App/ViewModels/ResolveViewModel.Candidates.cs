@@ -162,7 +162,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var result = await _services.Commands.ExecuteAsync(
-                new UiCommand.ProposeCandidates(searchTarget, progress), cancellationToken: stop.Token);
+                new UiCommand.ProposeCandidates(searchTarget, progress, ListedPaths()), cancellationToken: stop.Token);
 
             if (result is CommandResult.CandidatesProposed proposed)
             {
@@ -196,6 +196,17 @@ public sealed partial class ResolveViewModel
             OnPropertyChanged(nameof(HasStatus));
         }
     }
+
+    /// <summary>
+    /// 一覧にあるファイルの場所（検索で隠れている行も含む）。自動検索が同じフォルダの兄弟の zip と見比べて、
+    /// アバターごとに分けた zip の間で変わる語（アバター名）を検索語から外すのに使う（<see cref="SiblingTokens"/>）。
+    /// 展開した中身の元のzipも入れる（zip を消していても、名前は兄弟の手掛かりになる）。
+    /// </summary>
+    private List<string> ListedPaths()
+        => Files
+            .SelectMany(row => row.Origin is { } origin ? row.File.Paths.Append(origin.ArchivePath) : row.File.Paths)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     // --- 自動検索の進み具合 ---
 
