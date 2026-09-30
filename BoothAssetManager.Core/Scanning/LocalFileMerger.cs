@@ -13,6 +13,9 @@ namespace BoothAssetManager.Core.Scanning;
 /// そこは「無くなった」のではなく「今は見えない」だけで、外している間に同じ商品へ別のファイルを足すと
 /// 外付けの上の記録が消えていた（点検 2026-09-23）。未確定の一覧の引き継ぎ
 /// （<see cref="UnresolvedMerge.IsOnMissingVolume"/>）と同じ考え。
+///
+/// **ここは場所に何かが在るかしか見ない**（中身までは見ない）。同じ名前で上書きされた場所を古い中身の記録から外すのは、
+/// その場所のハッシュを取った取り込みの仕事（<c>ImportPipeline.DropReplacedPathsAsync</c>・2026-09-30）。
 /// </summary>
 public static class LocalFileMerger
 {

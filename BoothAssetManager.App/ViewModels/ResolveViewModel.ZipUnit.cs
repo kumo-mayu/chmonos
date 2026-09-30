@@ -43,7 +43,20 @@ public sealed partial class ResolveViewModel
             .SelectMany(item => item.Local.OwnedFiles)
             .SelectMany(file => file.Paths)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // 「同じ場所にあった商品」の候補に名前を出すため（AddSamePathCandidates）。同じ一覧から引くので、読む回数は増えない。
+        // 手で直した JSON で同じ ID が2件あっても落ちないよう、先の1件を使う
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in items)
+        {
+            names.TryAdd(item.Id, item.DisplayName);
+        }
+
+        _itemNames = names;
     }
+
+    /// <summary>手元の商品の名前（商品ID → 名前。開くたびに読み直す）。</summary>
+    private Dictionary<string, string> _itemNames = new(StringComparer.Ordinal);
 
     /// <summary>元のzipが商品に登録されていて、今もディスクにある中身か（未確定に出さない）。</summary>
     private bool IsCoveredByRegisteredZip(Core.Models.UnresolvedFile file, Core.Scanning.ArchiveOrigin? origin)

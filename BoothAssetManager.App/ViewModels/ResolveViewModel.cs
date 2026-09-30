@@ -800,8 +800,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
         Candidates.Clear();
         LocalNameSuggestions.Clear();
+        AddSamePathCandidates();
+        var shown = Candidates.Select(row => row.ItemId).ToHashSet(StringComparer.Ordinal);
         foreach (var id in Selected?.File.CandidateItemIds ?? [])
         {
+            // 同じ商品を2行出さない（同じ場所にあった商品の行の方が、名前と理由が分かる）
+            if (!shown.Add(id))
+            {
+                continue;
+            }
+
             Candidates.Add(WithBooth(new CandidateRow
             {
                 ItemId = id,
@@ -847,7 +855,10 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     private async Task PreviewAsync(string itemId)
     {
         // 数字でもBOOTHの商品URLでも受ける。ブラウザから来るのは普通URLの方
-        var trimmed = Core.Services.BoothItemId.Parse(itemId);
+        // 手元の商品のIDはそのまま通す。「BOOTHに無い商品」の仮のIDは数字でもURLでもないので、
+        // 通さないと「同じ場所にあった商品」の候補を選んでも「読み取れませんでした」になる（確かめは手元から読む。BOOTHへは行かない）
+        var trimmed = Core.Services.BoothItemId.Parse(itemId)
+            ?? (_itemNames.ContainsKey(itemId.Trim()) ? itemId.Trim() : null);
         if (trimmed is null)
         {
             StatusText = itemId.Trim().Length == 0

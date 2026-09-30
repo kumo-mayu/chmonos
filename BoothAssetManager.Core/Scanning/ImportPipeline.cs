@@ -342,7 +342,7 @@ public sealed class ImportPipeline : IImportPipeline
             // 周回ごとに読み直すのは、前の周回で増えた商品を次の周回が知っている必要があるため。
             // 外した印も商品のJSONの中にあるので、同じ読み込みから引く
             // 登録したフォルダを測り直すのは取り込み1回につき最初の周回だけ（周回ごとに全部を並べ直していた）
-            var (registered, owned, owners, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
+            var (registered, owned, owners, recordedAt, detached) = await LoadOwnedAsync(remeasure: !measuredFolders, cancellationToken);
             measuredFolders = true;
 
             // この周回で記録するパスは今のドライブ文字で書かれるので、文字と通し番号の組はここで確か（ユーザ判断 2026-09-14）
@@ -367,10 +367,10 @@ public sealed class ImportPipeline : IImportPipeline
                 cancellationToken);
             perFile.Flush();
             var resolution = await ResolveAsync(
-                scan.Files, scanCache, exclusions, detached, owned, owners, perFile, cancellationToken);
+                scan.Files, scanCache, exclusions, detached, owned, owners, recordedAt, unresolvedBase, perFile, cancellationToken);
             perFile.Flush();
             await SaveScanCacheAsync(scanCache, cancellationToken);
-            await DropReplacedBrokenFilesAsync(resolution.ReplacedBroken, cancellationToken);
+            await DropReplacedPathsAsync(resolution.Replaced, cancellationToken);
             await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
             foreach (var (itemId, hash) in resolution.BrokenOwned)
             {
@@ -737,7 +737,7 @@ public sealed class ImportPipeline : IImportPipeline
     /// 周回は積むたびに増え、そのたびに登録したフォルダの中を全部並べ直していた。測った値は容量の表示に使うだけで、
     /// 同じ取り込みの中で何度測っても変わらない。
     /// </param>
-    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, IReadOnlyDictionary<string, List<FileOwner>> Owners, DetachedIndex Detached)> LoadOwnedAsync(
+    private async Task<(RegisteredFolderSet Registered, IReadOnlyDictionary<string, IReadOnlyList<string>> Owned, IReadOnlyDictionary<string, List<FileOwner>> Owners, IReadOnlyDictionary<string, List<RecordedFile>> RecordedAt, DetachedIndex Detached)> LoadOwnedAsync(
         bool remeasure,
         CancellationToken cancellationToken)
     {
@@ -846,23 +846,49 @@ public sealed class ImportPipeline : IImportPipeline
                 cancellationToken);
         }
 
-        return (new RegisteredFolderSet(paths), owned, owners, DetachedIndex.From(loaded.Items));
+        // 商品の記録が指している場所（場所 → どの商品の、どの中身か）。走査でそこに別の中身が見つかったら、上書きされた物（ResolveAsync）。
+        // 外した印の行も入れる（場所を外すのは同じ。候補にはしない）
+        var recordedAt = new Dictionary<string, List<RecordedFile>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in loaded.Items)
+        {
+            foreach (var file in item.Local.LocalFiles)
+            {
+                foreach (var path in file.Paths)
+                {
+                    if (!recordedAt.TryGetValue(path, out var list))
+                    {
+                        list = [];
+                        recordedAt[path] = list;
+                    }
+
+                    list.Add(new RecordedFile(item.Id, file.Hash, !file.Detached));
+                }
+            }
+        }
+
+        return (new RegisteredFolderSet(paths), owned, owners, recordedAt, DetachedIndex.From(loaded.Items));
     }
 
     /// <summary>そのハッシュを持つ商品と、その商品が記録している場所・開けなかった印。</summary>
     private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths, bool ArchiveBroken);
 
+    /// <summary>商品の記録が指している場所1つ分：どの商品の、どの中身の記録か。外した印の行は <paramref name="Owned"/> が false。</summary>
+    private sealed record RecordedFile(string ItemId, string Hash, bool Owned);
+
     /// <summary>
-    /// 壊れた zip の記録が指す場所に、別の中身が来ていたら、その場所を記録から外す（ユーザ判断 2026-09-30）。
-    /// 場所が1つも残らなければ記録ごと落とす——同じ場所に落とし直したのだから、壊れた方はもうどこにも無い。
+    /// 記録が指す場所に、別の中身が来ていたら、その場所を記録から外す（ユーザ判断 2026-09-30「3A」）。
     ///
-    /// 落とさないと、壊れた方の記録が「その場所に在る」ままになる（<see cref="LocalFileMerger"/> は場所に何かが在るかしか見ない）ので、
-    /// 落とし直しても商品ページの「壊れたzip」が消えなかった。未確定は取り込みのたびに一覧を作り直すので、同じことは起きない。
-    /// 壊れていない記録は触らない（場所が無くなっても「見つかりません」として残す、今の決まりのまま）。
+    /// 外さないと、古い中身の記録が「その場所に在る」ままになる（<see cref="LocalFileMerger"/> は場所に何かが在るかしか見ない）。
+    /// 更新版を同じ名前で上書きすると商品ページに同じ名前の行が2つ並び、壊れた zip は落とし直しても「壊れたzip」が消えなかった。
+    /// 未確定は取り込みのたびに一覧を作り直すので、同じことは起きない。
     ///
-    /// 錠の中で今の値に当てる。読んでからここまでの間に印が下りていれば（開けるようになった）触らない。
+    /// **場所が1つも残らなくなった記録は残す**（「見つかりません」の行になる）。種類の結び付きや、手で結んだ事実を失わないため。
+    /// **壊れた zip の記録だけは記録ごと落とす**——同じ場所に落とし直したのだから、壊れた方はもうどこにも無く、残しても取り戻す物が無い。
+    /// 外した印の行からも場所は外す（そこに在るのは別の中身で、「この商品に戻す」相手ではない）。
+    ///
+    /// 錠の中で今の値に当てる。壊れているかも今の値で見る（読んでからここまでの間に印が下りていれば、記録は残す）。
     /// </summary>
-    private async Task DropReplacedBrokenFilesAsync(
+    private async Task DropReplacedPathsAsync(
         IReadOnlyList<(string ItemId, string Hash, string Path)> replaced,
         CancellationToken cancellationToken)
     {
@@ -877,11 +903,9 @@ public sealed class ImportPipeline : IImportPipeline
                     var files = new List<LocalFileRecord>();
                     foreach (var file in current.LocalFiles)
                     {
-                        var gone = file.ArchiveBroken
-                            ? group.Where(entry => string.Equals(entry.Hash, file.Hash, StringComparison.OrdinalIgnoreCase))
-                                .Select(entry => entry.Path)
-                                .ToHashSet(StringComparer.OrdinalIgnoreCase)
-                            : [];
+                        var gone = group.Where(entry => string.Equals(entry.Hash, file.Hash, StringComparison.OrdinalIgnoreCase))
+                            .Select(entry => entry.Path)
+                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
                         var paths = file.Paths.Where(path => !gone.Contains(path)).ToList();
                         if (paths.Count == file.Paths.Count)
                         {
@@ -890,7 +914,7 @@ public sealed class ImportPipeline : IImportPipeline
                         }
 
                         changed = true;
-                        if (paths.Count > 0)
+                        if (paths.Count > 0 || !file.ArchiveBroken)
                         {
                             files.Add(file with { Paths = paths });
                         }
@@ -1058,6 +1082,8 @@ public sealed class ImportPipeline : IImportPipeline
         DetachedIndex detached,
         IReadOnlyDictionary<string, IReadOnlyList<string>> owned,
         IReadOnlyDictionary<string, List<FileOwner>> owners,
+        IReadOnlyDictionary<string, List<RecordedFile>> recordedAt,
+        IReadOnlyList<UnresolvedFile> previousUnresolved,
         IProgress<ImportProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -1071,26 +1097,14 @@ public sealed class ImportPipeline : IImportPipeline
         var unreadable = 0;
         var brokenArchives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var brokenOwned = new List<(string ItemId, string Hash)>();
-        var replacedBroken = new List<(string ItemId, string Hash, string Path)>();
+        var replaced = new List<(string ItemId, string Hash, string Path)>();
 
-        // 壊れた zip の記録が指している場所（場所 → 持ち主と記録のハッシュ）。そこに別の中身が来ていたら、落とし直した物。
-        // 引くのは壊れた記録だけなので、件数は壊れた zip の数（普段は0）
-        var brokenAt = new Dictionary<string, List<(string ItemId, string Hash)>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (ownedHash, holders) in owners)
+        // 前に書いた未確定の「同じ場所にあった商品」（中身のハッシュ → 商品ID）。一覧は取り込みのたびに作り直すので、
+        // 引き継がないと次の取り込みで消える（古い記録はもうその場所を指していないので、見つけ直せない）
+        var carriedSamePath = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var previous in previousUnresolved.Where(previous => previous.SamePathItemIds.Count > 0))
         {
-            foreach (var holder in holders.Where(holder => holder.ArchiveBroken))
-            {
-                foreach (var path in holder.Paths)
-                {
-                    if (!brokenAt.TryGetValue(path, out var list))
-                    {
-                        list = [];
-                        brokenAt[path] = list;
-                    }
-
-                    list.Add((holder.ItemId, ownedHash));
-                }
-            }
+            carriedSamePath.TryAdd(previous.Hash, previous.SamePathItemIds);
         }
 
         var processed = 0;
@@ -1142,13 +1156,22 @@ public sealed class ImportPipeline : IImportPipeline
                 }
             }
 
-            // 壊れた zip の記録の場所に、別の中身が在る（同じ場所に落とし直した）。壊れた方の記録からこの場所を外す
-            // （書くのは DropReplacedBrokenFilesAsync）。管理から外した中身が来ていても、壊れた方がそこに無いことは同じ
-            if (brokenAt.TryGetValue(file.Path, out var staleHolders))
+            // 記録の場所に、別の中身が在る（同じ名前で上書きした・壊れた zip を落とし直した）。古い中身の記録からこの場所を外す
+            // （書くのは DropReplacedPathsAsync）。管理から外した中身が来ていても、古い方がそこに無いことは同じ。
+            // **ここまで来た物だけを判じる**：ハッシュを取れた（か控えから分かった）場所だけ。走査していない場所・
+            // 読めなかったファイル・つながっていないドライブの上の場所は、中身が変わったとは言えないので触らない
+            IReadOnlyList<string> formerHolders = [];
+            if (recordedAt.TryGetValue(file.Path, out var recordedHere))
             {
-                replacedBroken.AddRange(staleHolders
-                    .Where(stale => !string.Equals(stale.Hash, hash, StringComparison.OrdinalIgnoreCase))
-                    .Select(stale => (stale.ItemId, stale.Hash, file.Path)));
+                var stale = recordedHere
+                    .Where(record => !string.Equals(record.Hash, hash, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                replaced.AddRange(stale.Select(record => (record.ItemId, record.Hash, file.Path)));
+
+                // 外した印の行の商品は候補にしない（前の中身を「この商品のものではない」と人が外している）
+                formerHolders = [.. stale.Where(record => record.Owned)
+                    .Select(record => record.ItemId)
+                    .Distinct(StringComparer.Ordinal)];
             }
 
             // 移動・改名された除外ファイルと、外したパスで控えと合わなかった物は、ハッシュで最終判定する。
@@ -1292,6 +1315,14 @@ public sealed class ImportPipeline : IImportPipeline
                     ZoneHostUrl = zone.HostUrl,
                     ZoneReferrerUrl = zone.ReferrerUrl,
                     CandidateItemIds = candidates.Select(candidate => candidate.ItemId).ToList(),
+
+                    // 同じ場所に前にあった別の中身の持ち主を、候補として残す（結ぶのは人が選んだときだけ）。
+                    // 上書きを見つけた回にしか分からないので、前の回に書いた分も同じ中身の記録から引き継ぐ。
+                    // この中身をその商品から外してあれば（外した印）載せない——違うと人が決めている
+                    SamePathItemIds = [.. formerHolders
+                        .Concat(carriedSamePath.GetValueOrDefault(hash) ?? [])
+                        .Distinct(StringComparer.Ordinal)
+                        .Where(itemId => !detached.IsDetached(hash, itemId))],
                     ArchiveBroken = broken,
                 });
             }
@@ -1308,7 +1339,7 @@ public sealed class ImportPipeline : IImportPipeline
             AlreadyOwned = alreadyOwned,
             Unreadable = unreadable,
             BrokenOwned = brokenOwned,
-            ReplacedBroken = replacedBroken,
+            Replaced = replaced,
         };
     }
 
@@ -1782,8 +1813,8 @@ public sealed class ImportPipeline : IImportPipeline
         /// <summary>zip として開けなかった物のうち、前から商品が持っている物（商品ID とハッシュ）。結果の数に入れる。</summary>
         public required List<(string ItemId, string Hash)> BrokenOwned { get; init; }
 
-        /// <summary>壊れた zip の記録の場所に、別の中身が来ていた物（その記録からこの場所を外す）。</summary>
-        public required List<(string ItemId, string Hash, string Path)> ReplacedBroken { get; init; }
+        /// <summary>記録の場所に、別の中身が来ていた物（その記録からこの場所を外す）。</summary>
+        public required List<(string ItemId, string Hash, string Path)> Replaced { get; init; }
     }
 
     /// <summary>

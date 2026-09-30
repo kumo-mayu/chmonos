@@ -99,8 +99,13 @@ public sealed class UnresolvedRow : ViewModelBase
     /// <summary>元zipの束は畳んでおく。基本はzip単位で扱い、1件ずつ見たいときだけ開く。</summary>
     public bool StartsExpanded => Origin is null;
 
-    /// <summary>取り込み時に拾えた候補の数。0件（手掛かりなし）と複数件（曖昧）がある。</summary>
-    public int CandidateCount => File.CandidateItemIds.Count;
+    /// <summary>
+    /// 取り込み時に拾えた候補の数。0件（手掛かりなし）と複数件（曖昧）がある。
+    /// 同じ場所にあった商品（<see cref="UnresolvedFile.SamePathItemIds"/>）も取り込みが見つけた候補なので数える。
+    /// 数えないと、上書きした物の行に札が出ず、候補があることに一覧で気付けない
+    /// </summary>
+    public int CandidateCount
+        => File.CandidateItemIds.Concat(File.SamePathItemIds).Distinct(StringComparer.Ordinal).Count();
 
     public bool HasCandidates => CandidateCount > 0;
 
@@ -136,4 +141,7 @@ public sealed class CandidateRow
     /// 候補を出している以上、それが目当てのものか確かめる手段が要る。
     /// </summary>
     public RelayCommand? OpenBoothCommand { get; set; }
+
+    /// <summary>BOOTH に商品ページがあるか。「BOOTHに無い商品」（仮のID）が候補に出るのは、同じ場所にあった商品のときだけ。</summary>
+    public bool HasBoothPage => !LocalItemId.IsLocal(ItemId);
 }
