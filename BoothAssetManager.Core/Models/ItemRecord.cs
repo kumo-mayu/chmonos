@@ -73,6 +73,17 @@ public sealed record ItemRecord
     [JsonIgnore]
     public bool IsDownloaded => Local.OwnedFiles.Count > 0;
 
+    /// <summary>
+    /// 壊れていて開けない zip を持っているか（検索の条件「壊れたzip」・ユーザ判断 2026-09-30）。
+    ///
+    /// 外したファイルは数えない——所持・容量と同じく、この商品の持ち物ではない（商品ページの外した行には札が出るが、
+    /// 絞り込みで出ると「ダウンロードし直す」相手がこの商品に見える）。
+    /// **記録だけで決め、ディスクは見ない。**検索は全商品を条件の数だけ照らすので、ここでファイルの有無を確かめると打鍵のたびにディスクを叩く。
+    /// そのため、壊れた zip を消しただけで取り込み直していない商品も当たる（商品ページの札は、在る物にだけ出す）。
+    /// </summary>
+    [JsonIgnore]
+    public bool HasBrokenArchive => Local.LocalFiles.Any(file => file is { Detached: false, ArchiveBroken: true });
+
     /// <summary>論理容量。同じ中身のファイルが複数箇所にあっても1回だけ数える（商品ページの表示用）。</summary>
     [JsonIgnore]
     public long LogicalSizeBytes => Local.OwnedFiles.Sum(file => file.SizeBytes);

@@ -240,6 +240,7 @@ public class JsonStoreTests : IDisposable
 
         Assert.DoesNotContain("isDownloaded", text);
         Assert.DoesNotContain("logicalSizeBytes", text);
+        Assert.DoesNotContain("hasBrokenArchive", text);
     }
 
     /// <summary>

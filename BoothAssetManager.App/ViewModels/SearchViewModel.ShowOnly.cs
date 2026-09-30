@@ -77,6 +77,18 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// 壊れていて開けない zip を持つ商品だけを出す。取り込みの結果からの導線（ユーザ判断 2026-09-30）。
+    /// 結果の文は数しか言えず、どの商品かは商品ページを1つずつ開かないと分からなかった。
+    /// 出るのは今回の取り込みで見つけた分に限らない（前から壊れていた物も同じ記録なので出る。直す相手としては同じ）
+    /// </summary>
+    public void ShowOnlyBrokenZip()
+    {
+        ClearFilters(apply: false);
+        EnsureModule<ChoiceModule>(SearchModuleKind.BrokenZip).Select(BrokenZipKey);
+        FinishShowOnly();
+    }
+
+    /// <summary>
     /// 条件の値を戻し、最近取り込んだ順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
     /// 絞らずに並べるだけにするのは、取り込みの前からあった物も一緒に見えていた方が、何が増えたかが分かるため
     /// </summary>

@@ -383,16 +383,22 @@
                             文で言うだけで、そこへ飛ぶボタンが無く、ナビから探し直していた
                         -->
                         <!-- 下の余白はボタンの側に持たせる。どちらも出ないときに空の帯が残らないように -->
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <!-- 3つ並ぶと狭い幅で右が切れるので、入らない分は次の行へ送る（下の余白が行の間になる） -->
+                        <WrapPanel Margin="0,10,0,0">
                             <Button Content="未確定を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,14"
                                     Command="{Binding OpenResolveCommand}"
                                     Visibility="{Binding HasUnresolvedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="商品が決まらなかったファイルを、1件ずつ確かめて決めます。" />
+                            <!-- 商品に結び付いた壊れた zip。上の文が言う商品を、検索の条件「壊れたzip」で並べる（ユーザ判断 2026-09-30） -->
+                            <Button Content="壊れたzipがある商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,8,14"
+                                    Command="{Binding ShowBrokenZipCommand}"
+                                    Visibility="{Binding HasBrokenOnItemsResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                    ToolTip="壊れたzipがある商品だけを検索で表示します。ほかの条件は外します。" />
                             <Button Content="取り込んだ商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,0,14"
                                     Command="{Binding ShowAddedCommand}"
                                     Visibility="{Binding HasAddedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="最近取り込んだ順に並べて、検索を開きます。ほかの条件は外します。" />
-                        </StackPanel>
+                        </WrapPanel>
 
 
                         <UniformGrid Columns="4" Rows="3">
