@@ -182,6 +182,53 @@ public class ImportStackingTests : IDisposable
         Assert.DoesNotContain(unresolved, file => file.Paths.Any(path => path.EndsWith("first_0.zip", StringComparison.Ordinal)));
     }
 
+    /// <summary>
+    /// **別のフォルダの取り込みで消えていた未確定は、その取り込み元を取り込み直せば戻る**（ユーザ判断 2026-09-30）。
+    /// 2026-09-21 から 2026-09-30 の直しまで、今回走査しなかった取り込み元の未確定が一覧から落ちていた。
+    /// 落ちた物は走査の控えに載ったまま、商品にも未確定にも除外にも無い。控えに載っているのはハッシュを取り直さない理由にしかならず、
+    /// 行き先は毎回決め直すので、取り込み直しで未確定に戻る。
+    /// </summary>
+    [Fact]
+    public async Task BringsBackUnresolvedFilesThatAreOnlyInTheScanCache()
+    {
+        var first = CreateFolder("first", 4);
+        var second = CreateFolder("second", 2);
+        var store = new DataStore(new AppPaths(Path.Combine(_root, "library")));
+        await _pipeline.RunAsync(new ImportWorkSet([first, second]));
+        Assert.Equal(6, store.ScanCache.Load().Count);
+
+        // 直す前の取り込みが残した形：first の4件が一覧から落ち、控えにだけ残っている
+        await store.Unresolved.UpdateAsync(
+            current => [.. current.Where(file => file.Paths.All(path => !path.StartsWith(first, StringComparison.OrdinalIgnoreCase)))]);
+        Assert.Equal(2, store.Unresolved.Load().Count);
+
+        var summary = await _pipeline.RunAsync(new ImportWorkSet([first]));
+
+        var unresolved = store.Unresolved.Load();
+        Assert.Equal(6, unresolved.Count);
+        Assert.Equal(4, unresolved.Count(file => file.Paths.Any(path => path.StartsWith(first, StringComparison.OrdinalIgnoreCase))));
+
+        // 控えのハッシュを使うので、戻すために読み直すファイルは無い
+        Assert.Equal(0, summary.FilesHashed);
+        Assert.Equal(4, summary.FilesReusedFromCache);
+    }
+
+    /// <summary>別の取り込み元を取り込んだだけでは戻らない（見ていない取り込み元の物は、足しも引きもしない）。</summary>
+    [Fact]
+    public async Task DoesNotBringBackLostFilesOfAFolderThatWasNotScanned()
+    {
+        var first = CreateFolder("first", 4);
+        var second = CreateFolder("second", 2);
+        var store = new DataStore(new AppPaths(Path.Combine(_root, "library")));
+        await _pipeline.RunAsync(new ImportWorkSet([first, second]));
+        await store.Unresolved.UpdateAsync(
+            current => [.. current.Where(file => file.Paths.All(path => !path.StartsWith(first, StringComparison.OrdinalIgnoreCase)))]);
+
+        await _pipeline.RunAsync(new ImportWorkSet([second]));
+
+        Assert.Equal(2, store.Unresolved.Load().Count);
+    }
+
     /// <summary>実行中に同じフォルダを積み直しても、二度は走査しない。</summary>
     [Fact]
     public async Task DoesNotRescanAFolderStackedTwice()

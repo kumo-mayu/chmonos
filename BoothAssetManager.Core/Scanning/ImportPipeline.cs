@@ -800,7 +800,8 @@ public sealed class ImportPipeline : IImportPipeline
     private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths);
 
     /// <summary>
-    /// 手掛かりからは決まらないが、同じ中身を商品が持っているファイルの場所を、その商品に足す（大容量の確かめ A・2026-09-30）。
+    /// 同じ中身を商品が持っているファイルの場所を、その商品に足す（大容量の確かめ A・2026-09-30）。
+    /// 対象は、手掛かりから決まらないファイルの持ち主全部と、手掛かりで別の商品に決まったファイルのほかの持ち主。
     /// 実在しなくなった場所は <see cref="LocalFileMerger"/> が落とすので、移した物は新しい場所に置き換わる。
     ///
     /// 錠の中で今の値に当て、読んでからここまでの間に人がこの商品から外した（印を付けた）なら足さない。
@@ -1059,6 +1060,28 @@ public sealed class ImportPipeline : IImportPipeline
 
             var zone = ZoneIdentifierReader.Read(file.Path);
 
+            // このファイルの場所を、記録にまだ持っていない持ち主へ足す予定に積む（書くのは RelinkMovedFilesAsync）
+            void Relink(IEnumerable<FileOwner> holders)
+            {
+                foreach (var holder in holders.Where(holder =>
+                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)))
+                {
+                    if (!relinked.TryGetValue(holder.ItemId, out var list))
+                    {
+                        list = [];
+                        relinked[holder.ItemId] = list;
+                    }
+
+                    list.Add(new LocalFileRecord
+                    {
+                        Hash = hash,
+                        Paths = [file.Path],
+                        SizeBytes = file.SizeBytes,
+                        Contents = contents,
+                    });
+                }
+            }
+
             // 商品ページで外したものは候補から落とす。
             // 外す操作が要るのは手掛かりが間違っている場合なので、
             // ここで落とさないと次の取り込みで同じ商品へ戻ってしまう。
@@ -1083,6 +1106,15 @@ public sealed class ImportPipeline : IImportPipeline
                 }
 
                 list.Add(record);
+
+                // **手掛かりで決まっても、同じ中身を持つほかの商品へ新しい場所を足す**（ユーザ判断 2026-09-30）。
+                // 同じ zip を2つの商品が持つ（片方は手掛かり、もう片方は人が手で結んだ）とき、前は決まった商品にだけ足し、
+                // 手で結んだ方は古い場所のまま「見つかりません」になっていた。手掛かりで決まらないとき（下）は両方へ足すので、
+                // 手掛かりの有無で結果が分かれていた。決まった商品そのものは「手元にある商品」の道（FetchAsync）が足す
+                if (owners.TryGetValue(hash, out var others))
+                {
+                    Relink(others.Where(holder => !string.Equals(holder.ItemId, candidates[0].ItemId, StringComparison.Ordinal)));
+                }
             }
             else if (owners.TryGetValue(hash, out var holders))
             {
@@ -1095,23 +1127,7 @@ public sealed class ImportPipeline : IImportPipeline
                 // 前は黙って飛ばしていたので、移した後は商品の記録が古い場所のまま「見つからない」になっていた。
                 // 同じ中身を2つの商品が持つなら両方へ足す（どちらの物かは人が決めたことで、場所は中身の場所）
                 alreadyOwned++;
-                foreach (var holder in holders.Where(holder =>
-                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)))
-                {
-                    if (!relinked.TryGetValue(holder.ItemId, out var list))
-                    {
-                        list = [];
-                        relinked[holder.ItemId] = list;
-                    }
-
-                    list.Add(new LocalFileRecord
-                    {
-                        Hash = hash,
-                        Paths = [file.Path],
-                        SizeBytes = file.SizeBytes,
-                        Contents = contents,
-                    });
-                }
+                Relink(holders);
             }
             else
             {
