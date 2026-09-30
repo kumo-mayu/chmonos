@@ -767,9 +767,20 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             {
                 s_variationsExpanded = value;
                 OnPropertyChanged(nameof(IsVariationsExpanded));
+                OnPropertyChanged(nameof(VariationsToggleName));
             }
         }
     }
+
+    /// <summary>
+    /// 欄を開閉する三角の、読み上げ・自動操作での名前。**押すと起きることを言う**（「すべて折りたたむ／すべて開く」と同じ）。
+    /// 前は開いていても閉じていても「バリエーションを開く」で、開いている欄で読むと逆の意味になった（ユーザ判断 2026-09-30）。
+    /// 開閉そのものは、切り替えのボタンの入・切としても出ている（入＝開いている）
+    /// </summary>
+    public string VariationsToggleName => ToggleName("バリエーション", IsVariationsExpanded);
+
+    /// <summary>欄を開閉する三角の名前。ほかの欄（ローカルファイル）と語を揃えるために1か所で作る。</summary>
+    internal static string ToggleName(string section, bool expanded) => expanded ? $"{section}を折りたたむ" : $"{section}を開く";
 
     /// <summary>見出しの右に出す数。畳んでいても何件あるかは分かるように。</summary>
     public string VariationsCountText => $"{Variations.Count} 件";

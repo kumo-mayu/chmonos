@@ -136,7 +136,12 @@
                                          controls:SelectableText.Navigator="{Binding}"
                                          Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <ItemsControl ItemsSource="{Binding Sections}">
+                            <!--
+                                見出しの行は、画面に見えている分までを最初の配置で作り、画面の外の分は後から1行ずつ足す
+                                （ProgressiveItems に理由。見出し21個の商品で、開くのに約340ms かかっていた）。
+                                全部が在ることを当てにする処理は、先に足し切る（画面内検索。MainWindow.Find.cs）
+                            -->
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Sections}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,16">
@@ -173,7 +178,7 @@
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </StackPanel>
                         </Expander>
 
@@ -214,7 +219,11 @@
                                 同じ「タグ」なのに離れていると見比べられない。
                             -->
                             <TextBlock Text="ユーザータグ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
-                            <ItemsControl ItemsSource="{Binding UserTags}"
+                            <!--
+                                この画面の繰り返しの一覧は ContentItemsControl（素の ItemsControl は、行を型の名前で読ませ、
+                                値の等しい行を1つにまとめて、2つめ以降の中のボタンを読み上げ・自動操作から隠す）
+                            -->
+                            <controls:ContentItemsControl ItemsSource="{Binding UserTags}"
                                           Visibility="{Binding HasUserTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -227,7 +236,7 @@
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                             <TextBlock Text="未設定。編集画面で付けられます。">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -254,11 +263,11 @@
                                     畳んでいる間は作らず、多い商品は最初の一部と「残り n 件を表示」だけ（ユーザ判断 2026-09-12・開くのが遅かった）。
                                     札と切り替えの見た目は App.xaml（型で選ぶ）。作った札は隠すだけで捨てない
                                 -->
-                                <ItemsControl ItemsSource="{Binding TagTiles}" Margin="0,8,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding TagTiles}" Margin="0,8,0,0">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
                             </Expander>
 
                             <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,14" />
@@ -268,8 +277,11 @@
                                 見た目と説明は検索のカードの星に合わせる
                             -->
                             <DockPanel>
-                                <Border DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,0,6,0" Padding="0,0,2,0"
+                                <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す（編集画面の星と同じ形） -->
+                                <controls:PressableBorder DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,0,6,0" Padding="0,0,2,0"
                                         Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                        Command="{Binding ToggleFavoriteCommand}"
+                                        AutomationProperties.AutomationId="ItemFavorite"
                                         AutomationProperties.Name="{Binding FavoriteTip}">
                                     <Border.InputBindings>
                                         <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleFavoriteCommand}" />
@@ -286,7 +298,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                </Border>
+                                </controls:PressableBorder>
                                 <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" />
                             </DockPanel>
 
@@ -353,7 +365,7 @@
                                         <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                       IsChecked="{Binding IsVariationsExpanded, Mode=TwoWay}"
                                                       AutomationProperties.AutomationId="ItemVariationsToggle"
-                                                      AutomationProperties.Name="バリエーションを開く"
+                                                      AutomationProperties.Name="{Binding VariationsToggleName}"
                                                       ToolTip="バリエーションの欄を開く・折りたたむ" />
                                         <TextBlock Text="バリエーション" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>
@@ -361,7 +373,7 @@
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
-                            <ItemsControl ItemsSource="{Binding Variations}"
+                            <controls:ContentItemsControl ItemsSource="{Binding Variations}"
                                           Visibility="{Binding IsVariationsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -388,7 +400,7 @@
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </StackPanel>
                     </Border>
 
@@ -405,7 +417,7 @@
                             <TextBlock Text="属性" FontWeight="Bold" Margin="0,0,0,12" />
                             <TextBlock Text="未設定。編集画面で付けられます。" Style="{StaticResource Caption}"
                                        Visibility="{Binding HasAttributes, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            <ItemsControl ItemsSource="{Binding Attributes}"
+                            <controls:ContentItemsControl ItemsSource="{Binding Attributes}"
                                           Visibility="{Binding HasAttributes, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -425,7 +437,7 @@
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </StackPanel>
                     </Border>
 
@@ -509,7 +521,7 @@
                                        Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                            <ItemsControl ItemsSource="{Binding UsedInModifications}"
+                            <controls:ContentItemsControl ItemsSource="{Binding UsedInModifications}"
                                           Visibility="{Binding HasUsedInModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:UsedInModificationRowViewModel}">
@@ -540,7 +552,7 @@
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </StackPanel>
                     </Border>
 
