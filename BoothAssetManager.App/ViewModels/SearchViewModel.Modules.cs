@@ -56,6 +56,14 @@ public sealed partial class SearchViewModel
             {
                 AddModule(kind, apply: false);
             }
+
+            // 既定で出しておく条件は、足しただけでは絞らない形で始める。選ぶ形の条件は、人が足したときの既定が
+            // 先頭（お気に入りなら「お気に入りのみ」）なので、そのままだと初めて開いた検索が0件になっていた
+            // （2026-09-30。既定に「お気に入り」を入れた 2026-09-29 から。窓を出さずに描く台の場面で見つかった）
+            foreach (var module in Modules.OfType<ChoiceModule>())
+            {
+                module.Clear();
+            }
         }
         else
         {
