@@ -548,6 +548,171 @@ function Invoke-ChmonosByText {
   "押せる部品が見つからない: 文字「$Text」"
 }
 
+# ---- AutomationId で探す・押す ----
+#
+# 名前（画面の文言）や並びの順で探すと、文言を直しただけ・欄を1つ足しただけで確かめが壊れる。
+# 操作できる部品には AutomationId が付いている（2026-09-30。一覧は docs/spec/ui-input.md の「読み上げの名前」、
+# XAML を AutomationProperties.AutomationId=" で引く）。**ID がある部品は、まず ID で探す。**
+# 行ごとに繰り返す部品（カード・星・行のボタン）は同じ ID が並ぶので、-Name / -Like（その行の名前）か -Index で1つに絞る
+
+# アプリの窓の全部（主の窓と、その外に出る別の窓＝メニュー・ポップアップ・持ち主の無い知らせ）。
+# メニューの項目は主の窓の下には出ないので、ID で探すときはここを全部見る
+function Get-ChmonosWindows {
+  param([string]$Store)
+  $app = Get-ChmonosApp -Store $Store
+  $main = $A_::FromHandle($app.MainWindowHandle)
+  $main
+  $mine = New-Object System.Windows.Automation.PropertyCondition($A_::ProcessIdProperty, $app.Id)
+  foreach ($w in $A_::RootElement.FindAll($TS_::Children, $mine)) {
+    if ([IntPtr]$w.Current.NativeWindowHandle -ne $app.MainWindowHandle) { $w }
+  }
+}
+
+# AutomationId で探す。-Id は '*' '?' を使える（'SearchModule.*.Remove'。そのときは全部の要素をなめるので遅い）。
+# -Name / -Like は要素の名前で絞る。-Scope を省くと、アプリの窓の全部（メニューの中も）から探す
+function Get-ChmonosById {
+  param([Parameter(Mandatory)][string]$Id, [string]$Name, [string]$Like, $Scope, [string]$Store)
+  $roots = if ($Scope) { @($Scope) } else { @(Get-ChmonosWindows -Store $Store) }
+  $wild = $Id -match '[*?]'
+  $cond = if ($wild) { [System.Windows.Automation.Condition]::TrueCondition } else { New-Object System.Windows.Automation.PropertyCondition($A_::AutomationIdProperty, $Id) }
+  $seen = @{}
+  foreach ($r in $roots) {
+    try { $found = $r.FindAll($TS_::Subtree, $cond) } catch [System.Windows.Automation.ElementNotAvailableException] { continue }
+    foreach ($e in $found) {
+      try { $aid = $e.Current.AutomationId; $n = $e.Current.Name; $key = ($e.GetRuntimeId() -join '.') } catch [System.Windows.Automation.ElementNotAvailableException] { continue }
+      if ($wild -and ($aid -notlike $Id)) { continue }
+      if ($Name -and $n -ne $Name) { continue }
+      if ($Like -and $n -notlike $Like) { continue }
+      # 持ち主付きの窓は、主の窓の下とデスクトップの直下の両方から見えることがある
+      if ($seen.ContainsKey($key)) { continue }
+      $seen[$key] = $true
+      $e
+    }
+  }
+}
+
+# 今の画面に出ている ID の一覧（ID・型・名前・押せるか・個数）。「この画面で何を ID で探せるか」を、XAML を読まずに知る。
+# WPF の部品が最初から持つ ID（スクロールバーの PageUp・LineDown・Thumb など）は除く
+function Get-ChmonosIds {
+  param([string]$Like = '*', $Scope, [string]$Store)
+  $builtin = 'PageUp', 'PageDown', 'LineUp', 'LineDown', 'Thumb', 'VerticalScrollBar', 'HorizontalScrollBar', 'DecreaseLarge', 'IncreaseLarge', 'PART_EditableTextBox', 'Minimize', 'Maximize', 'Close', 'Restore', 'TitleBar', 'SmallDecrement', 'SmallIncrement', 'LargeDecrement', 'LargeIncrement'
+  Get-ChmonosById -Id '*' -Scope $Scope -Store $Store | ForEach-Object {
+    try { $c = $_.Current; if (-not $c.AutomationId -or $builtin -contains $c.AutomationId -or $c.AutomationId -notlike $Like) { return }
+      [pscustomobject]@{ Id = $c.AutomationId; Type = $c.ControlType.ProgrammaticName -replace '^ControlType\.', ''; Name = $c.Name; Enabled = $c.IsEnabled } } catch { }
+  } | Group-Object Id, Type | ForEach-Object {
+    $first = $_.Group[0]
+    [pscustomobject]@{ Id = $first.Id; Type = $first.Type; Count = $_.Count; Enabled = $first.Enabled; Name = if ($_.Count -gt 1) { "$($first.Name) …" } else { $first.Name } }
+  }
+}
+
+# ID の部品が出るまで待つ。戻りは要素（出なければ $null）
+function Wait-ChmonosById {
+  param([Parameter(Mandatory)][string]$Id, [string]$Name, [string]$Like, $Scope, [double]$TimeoutSeconds = 15)
+  Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { Get-ChmonosById -Id $Id -Name $Name -Like $Like -Scope $Scope | Select-Object -First 1 }
+}
+
+# ID の部品の名前（＝読み上げる文。文言の部品なら、画面に出ている文そのもの）を読む
+function Get-ChmonosTextById {
+  param([Parameter(Mandatory)][string]$Id, $Scope)
+  Get-ChmonosById -Id $Id -Scope $Scope | ForEach-Object { $_.Current.Name }
+}
+
+# ID で探して押す（持っている操作で。Invoke-ChmonosElement）。出るまで -TimeoutSeconds 待つ。
+# 戻りは「押した: …」か「無い: …」か「押せない: …」。同じ ID が並ぶ物は -Name / -Like / -Index で絞る
+function Invoke-ChmonosById {
+  param([Parameter(Mandatory)][string]$Id, [string]$Name, [string]$Like, [int]$Index = 0, $Scope, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5)
+  $state = @{ count = 0 }
+  $el = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until {
+    $found = @(Get-ChmonosById -Id $Id -Name $Name -Like $Like -Scope $Scope)
+    $state.count = $found.Count
+    if ($found.Count -gt $Index) { $found[$Index] } else { $null }
+  }
+  if (-not $el) { return "無い: $Id$(if ($Name -or $Like) { "「$Name$Like」" })（$($state.count) 件）" }
+  $label = $el.Current.Name
+  if (-not $el.Current.IsEnabled) { return "押せない: $Id「$label」（無効）" }
+  try { $how = Invoke-ChmonosElement $el } catch { return "押せない: $Id「$label」（$($_.Exception.Message)）" }
+  Start-Sleep -Milliseconds ([int]($WaitSeconds * 1000))
+  "押した: $Id「$label」($how・同じ ID $($state.count) 件)"
+}
+
+# ID の欄に値を入れる。候補付きの入力欄（SuggestBox）は外側が Custom なので、中の入力欄に入れる
+function Set-ChmonosValueById {
+  param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][AllowEmptyString()][string]$Value, [int]$Index = 0, $Scope, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5)
+  $el = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { $f = @(Get-ChmonosById -Id $Id -Scope $Scope); if ($f.Count -gt $Index) { $f[$Index] } else { $null } }
+  if (-not $el) { return "無い: $Id" }
+  $vp = [System.Windows.Automation.ValuePattern]::Pattern
+  $box = $el
+  $has = { param($e) @($e.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName }) -contains 'ValuePatternIdentifiers.Pattern' }
+  if (-not (& $has $box)) {
+    $edit = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
+    $box = $el.FindFirst($TS_::Descendants, $edit)
+    if (-not $box -or -not (& $has $box)) { return "入れられない: $Id（値を持つ欄が無い）" }
+  }
+  $box.GetCurrentPattern($vp).SetValue($Value)
+  Start-Sleep -Milliseconds ([int]($WaitSeconds * 1000))
+  "入れた: $Id「$($el.Current.Name)」← $Value"
+}
+
+# メニュー（「＋ 条件を追加」・行の［開く ▾］）を開き、中の項目を ID で押す。どちらも UI Automation（実入力を使わない）。
+# 下の段は窓の外の別の窓に出るが、Get-ChmonosById はアプリの窓の全部を見る。
+#   -Menu      … 開くメニューの要素か ID。同じ ID のメニューが行ごとに並ぶときは -MenuName / -MenuLike / -MenuIndex で絞る
+#   -Item      … 項目の ID（'*' を使える）。-ItemName / -ItemLike は項目の名前で絞る
+#   -OpenOnly  … 押さずに、開いたままの項目の要素を返す（並び・押せるかを見る）
+# 戻りは「押した: …」「項目が無い: …（在る項目: …）」「押せない: …（無効）」「メニューが無い: …」
+function Invoke-ChmonosMenuById {
+  param([Parameter(Mandatory)]$Menu, [Parameter(Mandatory)][string]$Item, [string]$MenuName, [string]$MenuLike, [int]$MenuIndex = 0,
+    [string]$ItemName, [string]$ItemLike, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5, [switch]$OpenOnly)
+  $menuEl = if ($Menu -is [string]) {
+    Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { $f = @(Get-ChmonosById -Id $Menu -Name $MenuName -Like $MenuLike); if ($f.Count -gt $MenuIndex) { $f[$MenuIndex] } else { $null } }
+  } else { $Menu }
+  if (-not $menuEl) { return "メニューが無い: $Menu$(if ($MenuName -or $MenuLike) { "「$MenuName$MenuLike」" })" }
+  $ec = [System.Windows.Automation.ExpandCollapsePattern]::Pattern
+  try { $menuEl.GetCurrentPattern($ec).Expand() } catch { return "メニューが開けない: $($menuEl.Current.AutomationId)「$($menuEl.Current.Name)」（$($_.Exception.Message)）" }
+  $find = { Get-ChmonosById -Id $Item -Name $ItemName -Like $ItemLike | Select-Object -First 1 }
+  $mi = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::MenuItem)
+  $isGroup = { param($e) try { "$($e.GetCurrentPattern($ec).Current.ExpandCollapseState)" -ne 'LeafNode' } catch { $false } }
+  # 見つからなかったときに並べる、在った項目（ID の打ち間違い・その行には出ない項目にすぐ気付けるように）
+  $seen = [System.Collections.Generic.List[string]]::new()
+  $note = {
+    foreach ($e in $menuEl.FindAll($TS_::Descendants, $mi)) {
+      if (& $isGroup $e) { continue }
+      $s = if ($e.Current.AutomationId) { $e.Current.AutomationId } else { "「$($e.Current.Name)」" }
+      if (-not $seen.Contains($s)) { $seen.Add($s) }
+    }
+  }
+  $target = Wait-ChmonosCondition -TimeoutSeconds 1 -PollMs 150 -Until $find
+  if (-not $target) {
+    # 見出しの下に項目がぶら下がるメニュー（検索の「＋ 条件を追加」は「BOOTHの情報」「商品の情報」…の下に条件が出る）。
+    # 下の段は開くまで UI Automation に出ないので、見出しを1つずつ開いて探す
+    $groups = @(Wait-ChmonosCondition -TimeoutSeconds 2 -PollMs 150 -Until {
+        $g = @($menuEl.FindAll($TS_::Descendants, $mi) | Where-Object { & $isGroup $_ })
+        if ($g.Count) { , $g } else { $null }
+      })
+    & $note
+    foreach ($g in $groups) {
+      try { $g.GetCurrentPattern($ec).Expand() } catch { continue }
+      $target = Wait-ChmonosCondition -TimeoutSeconds 0.8 -PollMs 100 -Until $find
+      if ($target) { break }
+      & $note
+      try { $g.GetCurrentPattern($ec).Collapse() } catch { }
+    }
+  }
+  if (-not $target) {
+    try { $menuEl.GetCurrentPattern($ec).Collapse() } catch { }
+    return "項目が無い: $Item$(if ($ItemName -or $ItemLike) { "「$ItemName$ItemLike」" })（在る項目: $($seen -join '・')）"
+  }
+  if ($OpenOnly) { return $target }
+  $label = $target.Current.Name
+  if (-not $target.Current.IsEnabled) {
+    try { $menuEl.GetCurrentPattern($ec).Collapse() } catch { }
+    return "押せない: $($target.Current.AutomationId)「$label」（無効）"
+  }
+  $id = $target.Current.AutomationId
+  try { $how = Invoke-ChmonosElement $target } catch { return "押せない: $id「$label」（$($_.Exception.Message)）" }
+  Start-Sleep -Milliseconds ([int]($WaitSeconds * 1000))
+  "押した: $id「$label」($how)"
+}
+
 # 入力欄に値を入れる。-Like は欄の名前（見出しや透かしの文字）
 function Set-ChmonosText {
   param([Parameter(Mandatory)][string]$Like, [Parameter(Mandatory)][AllowEmptyString()][string]$Value, [double]$WaitSeconds = 1)
@@ -842,8 +1007,26 @@ function Get-ChmonosTrace {
     if (-not $file) { return "控えた足跡が無い: $Saved" }
   }
   else {
-    # 相手が決まれば、その写しの足跡を読む（開いているアプリが無いときは、最後に指していた足跡のまま）
-    try { [void](Resolve-ChmonosTarget $Store) } catch { }
+    # 相手が決まれば、その写しの足跡を読む
+    try { [void](Resolve-ChmonosTarget $Store) }
+    catch {
+      $want = if ($Store) { $Store } elseif ($global:ChmonosCurrentStore) { $global:ChmonosCurrentStore } elseif ($env:CHMONOS_UI_STORE) { $env:CHMONOS_UI_STORE } else { $null }
+      if ($want) {
+        # 指した写しのアプリはもう閉じている。足跡は次の起動まで残っているので、それを読む（閉じた後に「何が出たか」を読む）
+        $global:ChmonosTraceFile = Join-Path $ChmonosStateDir "$(Get-ChmonosStoreKey (Resolve-ChmonosStore $want)).uitrace.log"
+      }
+      elseif (@(Get-ChmonosRunning).Count -gt 1) {
+        # 前は、黙って前の版の足跡の置き場（何時間も前の物）を読んでいた（2026-09-30）
+        Write-Warning "足跡を読まなかった：$($_.Exception.Message)"
+        return "足跡が無い（$($_.Exception.Message)）"
+      }
+      elseif ($global:ChmonosTraceFile -eq (Join-Path $env:TEMP 'chmonos-uitrace.log')) {
+        # アプリが1本も開いていず、このシェルでは相手も決めていない（新しいシェルで、閉じた後に読む）。いちばん新しい足跡を読む
+        # （既定の置き場は前の版の道具の物で、今の道具は書かない）
+        $latest = Get-ChildItem -LiteralPath $ChmonosStateDir -Filter *.uitrace.log -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($latest) { $global:ChmonosTraceFile = $latest.FullName }
+      }
+    }
     $file = $global:ChmonosTraceFile
   }
   if (-not (Test-Path -LiteralPath $file)) { return '足跡が無い（-NoTrace で起動した？）' }

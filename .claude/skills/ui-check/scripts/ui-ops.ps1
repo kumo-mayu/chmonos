@@ -48,23 +48,22 @@ function Get-ChmonosItemName {
   if ($j.local.displayName) { "$($j.local.displayName)" } elseif ($j.booth.name) { "$($j.booth.name)" } else { $null }
 }
 
-# 検索の結果に出ているカード（カード表示）と行（リスト表示）
+# 検索の結果に出ているカード（カード表示。AutomationId＝ItemCard）と行（リスト表示。行には ID が無いので型で探す）
 function Get-ChmonosItemCards {
-  $cards = @(Get-ChmonosElements -Type ListItem | Where-Object { $_.Current.AutomationId -eq 'ItemCard' -or $_.Current.ClassName -eq 'ItemCardBorder' })
+  $cards = @(Get-ChmonosById -Id ItemCard -Scope (Get-ChmonosRoot))
   if ($cards.Count) { return $cards }
   @(Get-ChmonosElements -Type DataItem)
 }
 
-# 商品 ID か名前を指定して、商品ページを開く。検索欄に「id:<ID>」を入れ、出たカードを押す。
+# 商品 ID か名前を指定して、商品ページを開く。検索欄に「id:<ID>」を入れ、出たカード（リスト表示なら行）を「押す」。
 # 戻りは「開いた: …」か、開けなかった理由。**検索の履歴に1件積まれる**（写しに書き込む）。
-# 頼っている名前：ナビの「検索」・検索欄（AutomationId＝QueryBox）・カード（AutomationId＝ItemCard、名前＝商品の名前）。
-# 商品ページの側には、どの商品を開いているかを示す名前が無い（検索欄が消えたことで「開いた」と見ている）
+# 頼っている名前：ナビの「検索」。頼っている ID：検索欄 QueryBox・カード ItemCard（名前＝商品の名前）・商品ページの ItemEdit。
+# 商品ページの側には、どの商品を開いているかを示す名前が無い（「この商品を編集」のボタンが出たことで「開いた」と見ている）
 function Open-ChmonosItem {
   param([string]$Id, [string]$Name, [double]$TimeoutSeconds = 15)
   if (-not $Id -and -not $Name) { throw '-Id か -Name を指定する' }
   [void](Invoke-ChmonosByName -Name '検索' -Type Button -WaitSeconds 0)
-  $findBox = { Get-ChmonosElements -Type Edit | Where-Object { $_.Current.AutomationId -eq 'QueryBox' } | Select-Object -First 1 }
-  $box = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until $findBox
+  $box = Wait-ChmonosById -Id QueryBox -TimeoutSeconds $TimeoutSeconds
   if (-not $box) { return '検索欄（QueryBox）が無い' }
   $want = if ($Name) { $Name } else { Get-ChmonosItemName -Id $Id }
   $query = if ($Id) { "id:$Id" } else { $Name }
@@ -79,9 +78,18 @@ function Open-ChmonosItem {
     $state.last = $cards.Count; $null
   }
   if (-not $card) { return "カードが出ない: $query$(if ($want) { "（名前「$want」）" })" }
+  $label = $card.Current.Name
   $how = Invoke-ChmonosElement $card
-  if (-not (Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { -not (& $findBox) })) { return "押したが商品ページへ移らない: $query（$how）" }
-  "開いた: $query「$($card.Current.Name)」"
+  if (-not (Wait-ChmonosById -Id ItemEdit -TimeoutSeconds $TimeoutSeconds)) { return "押したが商品ページへ移らない: $query（$how）" }
+  # ボタンが出た直後は、まだ中身を読み込んでいる。ここで返すと、次に押した「ローカルファイルを開く」が読み込みで畳み直された
+  # （2026-09-30）。部品の数が2回続けて同じになるまで待つ（長くても 3 秒）
+  $settle = @{ last = -1 }
+  [void](Wait-ChmonosCondition -TimeoutSeconds 3 -PollMs 250 -Until {
+      $n = (Get-ChmonosRoot).FindAll($TS_::Descendants, [System.Windows.Automation.Condition]::TrueCondition).Count
+      if ($n -eq $settle.last) { return $true }
+      $settle.last = $n; $null
+    })
+  "開いた: $query「$label」"
 }
 
 # ---- 表示の色 ----
@@ -124,29 +132,25 @@ function Restore-ChmonosTheme {
 
 # ---- 検索の条件 ----
 
-# 検索の「＋ 条件を追加」から条件を足す（-Like は条件の名前。例 '*ファイルの場所*'）。
-# メニューを開くのも項目を選ぶのも UI Automation（実入力を使わない）。
-# 頼っている名前：メニューの「条件を追加」（AutomationProperties.Name）・メニューの項目の見出し
+# 検索の「＋ 条件を追加」から条件を足す。メニューを開くのも項目を選ぶのも UI Automation（実入力を使わない）。
+#   -Kind … 条件の種類（SearchModuleKind の名前：Path・BrokenZip・Price・Owned…）。**こちらを使う**（文言を変えても壊れない）
+#   -Like … 条件の名前（例 '*ファイルの場所*'）。種類が分からないとき
+# 条件は見出し（BOOTHの情報・商品の情報…）の下にぶら下がっている。見出しを1つずつ開いて探す（Invoke-ChmonosMenuById）。
+# 頼っている ID：メニュー SearchAddModule・項目 SearchAddModule.<種類>。足した条件の部品は SearchModule.<種類>.<部品>
 function Add-ChmonosSearchCondition {
-  param([Parameter(Mandatory)][string]$Like, [double]$TimeoutSeconds = 10)
-  $menu = Wait-ChmonosElement -Type MenuItem -Name '条件を追加' -TimeoutSeconds $TimeoutSeconds
-  if (-not $menu) { return '「条件を追加」が無い（検索の画面を開いてから）' }
-  $menu.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-  # 下の段は窓の外の別の窓に出るので、アプリのプロセス全体から探す
-  $item = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { Get-ChmonosMenuItem -Like $Like | Where-Object { $_.Current.Name -ne '条件を追加' } | Select-Object -First 1 }
-  if (-not $item) {
-    $names = @(Get-ChmonosMenuItem | ForEach-Object { $_.Current.Name } | Where-Object { $_ -and $_ -ne '条件を追加' }) -join '・'
-    try { $menu.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
-    return "条件が無い: $Like（在る条件: $names）"
-  }
-  $name = $item.Current.Name
-  if (-not $item.Current.IsEnabled) {
-    try { $menu.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
-    return "もう足してある（選べない）: $name"
-  }
-  $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-  Start-Sleep -Milliseconds 500
-  "条件を足した: $name"
+  param([string]$Kind, [string]$Like, [double]$TimeoutSeconds = 10)
+  if (-not $Kind -and -not $Like) { throw '-Kind か -Like を指定する' }
+  $item = if ($Kind) { "SearchAddModule.$Kind" } else { 'SearchAddModule.*' }
+  $r = Invoke-ChmonosMenuById -Menu SearchAddModule -Item $item -ItemLike $Like -TimeoutSeconds $TimeoutSeconds
+  if ($r -like 'メニューが無い*') { return '「条件を追加」が無い（検索の画面を開いてから）' }
+  if ($r -like '押せない*（無効）') { return "もう足してある（選べない）: $($r -replace '^押せない: ', '' -replace '（無効）$', '')" }
+  if ($r -like '項目が無い*') { return ($r -replace '^項目が無い: ', '条件が無い: ') }
+  if ($r -notlike '押した*') { return $r }
+  $added = $r -replace '^押した: ', '' -replace '\(Invoke\)$', ''
+  # 足した条件の欄が出るまで待つ（出る前に中の部品を探すと「無い」になる）
+  $kindName = ($added -split '「')[0] -replace '^SearchAddModule\.', ''
+  [void](Wait-ChmonosById -Id "SearchModule.$kindName.Remove" -TimeoutSeconds 3)
+  "条件を足した: $added"
 }
 
 # ---- 取り込み ----
