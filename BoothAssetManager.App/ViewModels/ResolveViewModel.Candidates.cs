@@ -12,6 +12,44 @@ namespace BoothAssetManager.App.ViewModels;
 public sealed partial class ResolveViewModel
 {
     /// <summary>
+    /// 同じ場所に前にあったファイルを持っていた商品を、候補の先頭に出す（ユーザ判断 2026-09-30「2A」）。**通信は増えない。**
+    ///
+    /// 手で商品に結んだファイルを同じ名前で上書きすると（壊れた zip を落とし直した・更新版を上書きした）、新しい中身は
+    /// 手掛かりが無いので未確定に出る。どの商品の物だったかは取り込みが記録に残している（<see cref="UnresolvedFile.SamePathItemIds"/>）。
+    /// **自動では結ばない**——同じ名前の別の商品を置いただけかもしれないので、人が選んだときだけ登録する。
+    ///
+    /// 先頭に置くのは、ほかの候補（名前の一致・検索）より確かな手掛かりだから。理由は行に書く（なぜ候補なのかを隠さない）。
+    /// </summary>
+    private void AddSamePathCandidates()
+    {
+        if (Selected is not { } selected)
+        {
+            return;
+        }
+
+        var what = selected.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? "zip" : "ファイル";
+        foreach (var id in selected.File.SamePathItemIds.Distinct(StringComparer.Ordinal))
+        {
+            var known = _itemNames.TryGetValue(id, out var name);
+
+            // 手元から消した「BOOTHに無い商品」は出さない。仮のIDはBOOTHに無いので、選んでも登録する先が無い。
+            // BOOTHの商品なら、消した後でも選べば取り直して登録できるので、IDで出す
+            if (!known && LocalItemId.IsLocal(id))
+            {
+                continue;
+            }
+
+            Candidates.Add(WithBooth(new CandidateRow
+            {
+                ItemId = id,
+                Title = known ? name! : $"商品ID {id}",
+                Detail = $"前に同じ場所にあった{what}を、この商品に登録していました",
+                Source = "手元の商品の記録",
+            }));
+        }
+    }
+
+    /// <summary>
     /// 手元のアバター登録簿から候補を足す。**通信は増えない。**
     ///
     /// 登録簿は未所持の商品の名前まで持っているので、BOOTHが404を返すファイルでも
@@ -280,6 +318,11 @@ public sealed partial class ResolveViewModel
     /// <summary>候補にBOOTHを開くコマンドを付ける。候補を出す以上、確かめる手段が要る。</summary>
     private static CandidateRow WithBooth(CandidateRow row)
     {
+        if (!row.HasBoothPage)
+        {
+            return row;
+        }
+
         row.OpenBoothCommand = new RelayCommand(() => OpenInBrowser(Core.Booth.BoothClient.ItemPageUrl(row.ItemId)));
         return row;
     }

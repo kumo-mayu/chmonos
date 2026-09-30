@@ -726,9 +726,10 @@
                                                     <TextBlock Text="{Binding Source}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <!-- 候補を出す以上、それが目当てのものか確かめる手段が要る -->
+                                                    <!-- 候補を出す以上、それが目当てのものか確かめる手段が要る。BOOTHに無い商品（仮のID）には開くページが無いので出さない -->
                                                     <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
                                                             ToolTip="この候補の商品ページをブラウザで開きます。アプリの外へ出ます。"
+                                                            Visibility="{Binding HasBoothPage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding OpenBoothCommand}" />
                                                     <Button Content="これで確認" Style="{StaticResource SmallButton}"
                                                             Command="{Binding DataContext.UseCandidateCommand,
