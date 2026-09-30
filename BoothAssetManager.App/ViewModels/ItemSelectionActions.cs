@@ -155,7 +155,7 @@ internal static class ItemSelectionActions
             // 送っている間は Unity が手前にいるので、主の窓を戻してから言う
             // 止めたときは、1件ずつ理由を並べない（全部同じ理由なので読む物が増えるだけ。E7）
             FrontNotice.Show(
-                failed.Count == 0 || failed.All(outcome => outcome.Problem == Services.UnityImportQueue.StoppedMessage)
+                failed.Count == 0 || failed.All(outcome => Services.UnityImportQueue.IsStopped(outcome.Problem))
                     ? shown
                     : $"{shown}{failed.Count} 件は送れませんでした：\n\n"
                         + string.Join("\n", failed.Select(outcome => $"・{outcome.Package.Name}：{outcome.Problem}").Distinct().Take(6)),

@@ -33,8 +33,8 @@ public sealed record UnityQueueOutcome(
         }
 
         // 止めたときは、残りの件数と、Unity 側に残った画面の話だけを言う
-        return failed.All(outcome => outcome.Problem == UnityImportQueue.StoppedMessage)
-            ? $"{shown}残り {failed.Count} 件は送っていません。{UnityImportQueue.StoppedMessage}"
+        return failed.All(outcome => UnityImportQueue.IsStopped(outcome.Problem))
+            ? $"{shown}残り {failed.Count} 件は送っていません。{failed[0].Problem}"
             : $"{shown}{failed.Count} 件は送れませんでした（{failed[0].Problem}）。";
     }
 
@@ -156,6 +156,15 @@ public static class UnityImportQueue
     public const string StoppedMessage = "送るのを中止しました。残った取り込み画面は、Unityで「Cancel」を押して閉じてください。"
         + "「Import」を押すと、このアプリの記録には残りません。";
 
+    /// <summary>
+    /// Unity に窓を出す前に止めたときの言い方（ユーザ判断 2026-09-30）。zip から取り出している途中で止められるようになり、
+    /// その時点では閉じてもらう取り込み画面がまだ無い。無い画面を「閉じてください」と言わない
+    /// </summary>
+    public const string StoppedBeforeWindowMessage = "送るのを中止しました。";
+
+    /// <summary>人が止めた結果か（失敗と分けて言うため）。</summary>
+    public static bool IsStopped(string? problem) => problem is StoppedMessage or StoppedBeforeWindowMessage;
+
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
     [DllImport("user32.dll")] private static extern IntPtr GetMenu(IntPtr window);
@@ -232,6 +241,7 @@ public static class UnityImportQueue
         // 同じ zip の包みを続けて送るとき、中身の控えを zip ごとに1回だけ読む
         var reads = new UnityPackageReads();
         string? stop = null;
+        var windowPending = false;
 
         // 送り先のプロジェクトの場所。「既に全部入っているか」を調べるのに使う（引けなければ調べない）
         var project = await Task.Run(() => UnityEditors.PathOf(processId), cancellationToken);
@@ -244,13 +254,13 @@ public static class UnityImportQueue
         {
             // 止めたときは待ちの中（`Task.Delay`）から例外で出てくる。**そのまま上へ投げない**——
             // 「残りは理由を付けて返す」という約束が果たせず、呼んだ側は結果を受け取れない（E7）
-            stop = StoppedMessage;
+            stop = windowPending ? StoppedMessage : StoppedBeforeWindowMessage;
         }
 
         // まだ結果を積んでいない分（止めた分）を理由付きで埋める
         for (var rest = outcomes.Count; rest < packages.Count; rest++)
         {
-            outcomes.Add(new UnityQueueOutcome(packages[rest], false, stop ?? StoppedMessage));
+            outcomes.Add(new UnityQueueOutcome(packages[rest], false, stop ?? StoppedBeforeWindowMessage));
         }
 
         return outcomes;
@@ -381,6 +391,9 @@ public static class UnityImportQueue
             var tail = new LogTail(EditorLogPath);
             PostMessage(main, WmCommand, (IntPtr)command, IntPtr.Zero);
 
+            // ここから先で止めると、Unity にファイル選択か取り込み画面が残り得る（止めたときの文を分ける）
+            windowPending = true;
+
             // ファイル名の欄を持つ窓だけをファイル選択とみなす。Unity の進捗の窓（Importing・Compiling Scripts・
             // Reloading Domain）も同じ #32770 で、種類だけで拾うと進捗の窓を掴んで止まる（§11-1）
             var dialog = await WaitForAsync(
@@ -420,6 +433,7 @@ public static class UnityImportQueue
             var (state, closed) = await WatchUntilDoneAsync(
                 processId, baseline, importWindow, tail, expected, alreadyThere, index, packages.Count, package, progress, cancellationToken);
             UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」→ {state}{(closed ? "（Unity が閉じた）" : string.Empty)}");
+            windowPending = false;
             if (closed)
             {
                 stop = "Unityが閉じられました";
