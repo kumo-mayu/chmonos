@@ -10,7 +10,7 @@
 // 部品の UI Automation の木を、画面に何も出さずに書き出す。
 // 画面は別の担当が使っているので、アプリは起動しない。見えない窓（WS_VISIBLE なし・画面の外）に部品を載せ、
 // 確かめの道具と同じ UI Automation のクライアントの側から木をたどる（別スレッドから。同じスレッドからは自分の窓を読めない）。
-// アプリの見た目（App.xaml の資源）は読み込むが、起動の処理（OnStartup）は走らせない。通信も保存先も触らない
+// アプリの見た目（App.xaml の資源）は読み込むが、起動の処理（OnStartup）は進まない（App が本体のプロセスでないと見る）。通信も保存先も触らない
 using System.Collections.ObjectModel;
 using System.Dynamic;
 using System.IO;
@@ -41,7 +41,40 @@ public static class Program
     public static void Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
-        // 場面は probes\*.probe.txt（XAML と、---data--- の後に結ぶ値の JSON）。ビルドで実行ファイルの横へ写す
+
+        // アプリの型に触れる前に、保存先と通信を切り離す。この道具は部品を載せるだけでアプリの一式（AppServiceContainer・MainViewModel）を組まないが、
+        // 前の版は、下の new App() で起動の処理が丸ごと走り（WPF はコンストラクタで OnStartup を積む）、保存先の指定が無かったので本番の指す先を開いた。
+        // 今は App の側が止めるが、場面に足した部品がいつか保存先を読んでも本番（location.json の指す先）を開かないよう、空の作業用フォルダを指しておく
+        // （2026-09-30。docs/feedback/review-2026-09-30-store-incident.md）
+        var store = Path.Combine(Path.GetTempPath(), "chmonos-peerprobe", $"store-{Environment.ProcessId}");
+        Directory.CreateDirectory(store);
+        Environment.SetEnvironmentVariable("CHMONOS_HOME", store);
+        System.Net.Http.HttpClient.DefaultProxy = new System.Net.WebProxy("http://127.0.0.1:9");
+        try
+        {
+            Run(args);
+        }
+        finally
+        {
+            // 何か書かれていたら、場面が保存先に触れている。消す前に知らせる
+            var written = Directory.EnumerateFileSystemEntries(store, "*", SearchOption.AllDirectories).ToList();
+            if (written.Count > 0)
+            {
+                Console.WriteLine($"  [保存先] 作業用の保存先に {written.Count} 個の物が書かれた（場面が保存先に触れている）: {string.Join(" / ", written.Take(5).Select(Path.GetFileName))}");
+            }
+
+            try
+            {
+                Directory.Delete(store, recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private static void Run(string[] args)
+    {        // 場面は probes\*.probe.txt（XAML と、---data--- の後に結ぶ値の JSON）。ビルドで実行ファイルの横へ写す
         var dirAt = Array.IndexOf(args, "--dir");
         var dir = dirAt >= 0 && dirAt + 1 < args.Length ? args[dirAt + 1] : Path.Combine(AppContext.BaseDirectory, "probes");
         var only = args.Length > 0 && dirAt != 0 ? args[0] : "";
@@ -51,7 +84,7 @@ public static class Program
             return;
         }
 
-        // アプリの資源（色・ボタンの見た目）だけを読み込む。Run しないので OnStartup は走らない
+        // アプリの資源（色・ボタンの見た目）だけを読み込む。OnStartup は Run しなくても呼ばれるが、App が本体のプロセスでないと見て進めない（App.IsAppProcess）
         var app = new BoothAssetManager.App.App();
         app.InitializeComponent(); Console.WriteLine("  [色の表] 読み込み直後: " + app.Resources.MergedDictionaries[0].Source + " Text=" + app.TryFindResource("Text"));
         EventManager.RegisterClassHandler(typeof(ListViewItem), BoothAssetManager.App.Controls.ItemListView.RowInvokedEvent,

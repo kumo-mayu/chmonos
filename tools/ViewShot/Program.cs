@@ -256,7 +256,10 @@ internal static class Program
         var clock = Stopwatch.StartNew();
         Isolation.Enter(scene.Name);
 
-        // アプリの資源（色の表・標準の部品の見た目・App.xaml の既定）を読む。**Run は呼ばない**——呼ぶと OnStartup が走って本物の窓が出る
+        // アプリの資源（色の表・標準の部品の見た目・App.xaml の既定）を読む。
+        // WPF の Application はコンストラクタで「OnStartup を呼ぶ仕事」を積むので、Run を呼ばなくても下の Dispatcher.Run で OnStartup が呼ばれる。
+        // 起動の処理を進めないのは App の側（App.IsAppProcess：入口がアプリの実行ファイルのときだけ進める）。
+        // 前はここで起動の処理が丸ごと走り、場面を描くたびに初回の窓か主の窓が画面に出ていた（2026-09-30）
         var app = new BoothAssetManager.App.App();
         app.InitializeComponent();
 

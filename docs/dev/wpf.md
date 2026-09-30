@@ -38,7 +38,12 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   画素に合わせる丸めが実行した PC の拡大率のままになる。入れた後は並べ直しを自分で促す
 - **送らないと見えない所は `BringIntoView()`** で届く（入力もフォーカスも要らない）。畳む印の開閉のように View が持つ状態は、部品の値を直に替える
 - **`RenderTargetBitmap` の文字はグレースケール**（画面は ClearType）。同じ入力なら画素まで同じ画像になるので、前後の比べは 1画素の差まで見られる
-- `Application.Run` は呼ばない（`OnStartup` が走って本物の窓が出る）。`InitializeComponent` で資源だけ読み、`Dispatcher.Run` を自分で回す
+- **`new App()` しただけで、起動の処理（`OnStartup`）は走る。**WPF の `Application` はコンストラクタの中で「`OnStartup` を呼ぶ仕事」を積むので、
+  `Run` を呼ばなくても、メッセージを回した時点（`Dispatcher.Run`・`PushFrame`・`Dispatcher.Invoke`）で丸ごと走る。
+  台は「`Run` を呼ばなければ走らない」と考えて作られ、走るたびに初回の窓か主の窓が画面に出て、サービス一式がもう1組できていた
+  （保存先は台が切り離していたので本番には触れなかった）。保存先を切り離していなかった別の道具では、本番の `location.json` の指す先で起動の処理が走った。
+  **`App` の側で、入口が自分の実行ファイルのときだけ起動の処理を進める**（`App.IsAppProcess`。本当の保存先を使う印 `StoreLocation.AllowsUserStore` も同じ条件）。
+  道具は `InitializeComponent` で資源だけ読み、`Dispatcher.Run` を自分で回す。道具を作ったら、走っている間にプロセスが窓を持たないことを1回は見る（`EnumWindows`）
 - 保存先は `AppPaths.Default` が最初に決めたら変わらないので、場面ごとにプロセスを分ける。サービス一式を組むと、前回の消し残しとして
   一時展開のフォルダ（`%TEMP%\Chmonos\unpacked`）を消す——開いているアプリの展開先を消さないよう、台は一時フォルダごと別にする（`Isolation`）
 
@@ -94,7 +99,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - **隠している部品（`Collapsed`・`Hidden`）は、UI Automation の既定の見方（操作できる部品だけ）に出ない。**乗せたときだけ出すボタンは、乗せるまで探せない。自前の窓口で「操作できる部品」を常に真にすると、隠した枠まで出る
 - **メニューの下の段は、開くまで木に無い。**開いた後は窓の外の別の窓に出る。同じ名前の項目は AutomationId で指す
 - **アプリを起動せずに確かめる**（道具は `experiments/PeerProbe`）：`HwndSource`（`WS_POPUP` だけ・`WS_VISIBLE` なし・画面の外）に部品を載せ、別のスレッドから `AutomationElement.FromHandle` で木をたどる
-  （同じスレッドからは自分の窓を読めない。画面のスレッドは `Dispatcher.PushFrame` で回しておく）。画面の View は `new App().InitializeComponent()` で資源だけ読めば載る（`Run` しないので起動の処理は走らない）。
+  （同じスレッドからは自分の窓を読めない。画面のスレッドは `Dispatcher.PushFrame` で回しておく）。画面の View は `new App().InitializeComponent()` で資源だけ読めば載る（起動の処理は、`App` が「入口が自分の実行ファイルでない」と見て進めない。上の「窓を出さずに描く」）。
   結ぶ値は `ExpandoObject` の作り物でよい（型で見た目を選ぶ所だけは本物が要る）。**メニューや窓を開く操作は押さない**（見えない窓からでも、ポップアップは画面に出る）
 
 ## コマンド
