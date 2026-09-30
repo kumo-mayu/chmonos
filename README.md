@@ -1,6 +1,6 @@
 # Chmonos（クモノス）
 
-BOOTH.pm で買ったアセット（VRChat 向けの衣装・アバターなど）を手元で管理する Windows アプリ（WPF / .NET 9）。**まだ公開していない。**
+BOOTH.pm で買ったアセット（VRChat 向けの衣装・アバターなど）を手元で管理する Windows アプリ（WPF / .NET 10）。**まだ公開していない。**
 コードの名前空間・実行ファイル名は、改名前の `BoothAssetManager` のまま（公開の直前に変える）。
 
 > **ライセンス**：コードは [Apache License 2.0](LICENSE)、設計文書は
@@ -23,7 +23,7 @@ dotnet build
 dotnet test BoothAssetManager.Core.Tests
 ```
 
-実行ファイルは `BoothAssetManager.App\bin\Debug\net9.0-windows\BoothAssetManager.App.exe`。
+実行ファイルは `BoothAssetManager.App\bin\Debug\net10.0-windows\BoothAssetManager.App.exe`。
 データの保存先は `%LOCALAPPDATA%\Chmonos`。環境変数 `CHMONOS_HOME` で差し替えられる。
 
 ## 渡す用のビルド
@@ -34,7 +34,7 @@ dotnet publish BoothAssetManager.App -p:PublishProfile=win-x64
 
 `publish\Chmonos-win-x64\` に **exe 1つ ＋ `assets` フォルダ**（辞書など4件）の計5ファイルで出る。
 
-- **自己完結**（.NET 9 のランタイムを同梱）。渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる
+- **自己完結**（.NET 10 のランタイムを同梱。exe は約 147 MB）。渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる
 - **1ファイルにまとめている**（ネイティブDLLも exe の中）。起動すると `%TEMP%\.net\` へネイティブDLL 5つ・7.8MB を展開し、以降は使い回す。
   これは `docs/research/antivirus.md` A の「参考」が懸念していた動きなので、**セキュリティソフトで詰まったらプロファイルの `PublishSingleFile` を false に戻す**
 - **辞書（`assets\`）は exe の外に残す**。アプリは `AppContext.BaseDirectory\assets\` を見るので、exe に入れると見つけられなくなる（`BoothAssetManager.Core.csproj` の `ExcludeFromSingleFile`）。**exe だけ取り出しても動かない。フォルダごと渡す**
@@ -43,4 +43,4 @@ dotnet publish BoothAssetManager.App -p:PublishProfile=win-x64
 
 設定は `BoothAssetManager.App\Properties\PublishProfiles\win-x64.pubxml`。csproj ではなくプロファイルに置いてあるのは、
 `RuntimeIdentifier` を csproj へ書くと `dotnet build` まで RID 付きになり、開発用の exe が
-`bin\Debug\net9.0-windows\win-x64\` へ移って `ui-check` の起動が壊れるため。
+`bin\Debug\net10.0-windows\win-x64\` へ移って `ui-check` の起動が壊れるため。

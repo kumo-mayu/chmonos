@@ -185,7 +185,9 @@ void Dump(string path)
 {
     var names = Directory.EnumerateFiles(itemsDir, "*.json")
         .Where(file => Path.GetFileNameWithoutExtension(file).All(char.IsAsciiDigit))
-        .ToDictionary(Path.GetFileName, file =>
+        // メソッドの名前のまま渡すと、鍵の型が「null かもしれない文字列」と推論されて警告になる。
+        // 引数が null でなければ戻りも null でない、という宣言は、呼び出しの形で書いたときだけ効く
+        .ToDictionary(file => Path.GetFileName(file), file =>
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(file));
             return doc.RootElement.TryGetProperty("booth", out var booth) && booth.TryGetProperty("name", out var name)

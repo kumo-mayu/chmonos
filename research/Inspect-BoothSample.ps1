@@ -3,7 +3,7 @@
 # It also uses the existing built inspector DLL.
 param([switch]$IncludeUnityPackages)
 $ErrorActionPreference = 'Stop'
-Add-Type -Path (Join-Path $PSScriptRoot '../BoothZipInspector/bin/Debug/net9.0/BoothZipInspector.dll')
+Add-Type -Path (Join-Path $PSScriptRoot '../BoothZipInspector/bin/Debug/net10.0/BoothZipInspector.dll')
 [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
 
 function Read-SmallEntry($Stream, [long]$Length) {

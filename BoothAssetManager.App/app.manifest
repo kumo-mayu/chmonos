@@ -24,7 +24,7 @@
 
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
-      <!-- Windows 10 / 11。.NET 9 はこれより前の Windows では動かない -->
+      <!-- Windows 10 / 11。.NET 10 はこれより前の Windows では動かない -->
       <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
     </application>
   </compatibility>

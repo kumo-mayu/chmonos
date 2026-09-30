@@ -46,8 +46,9 @@ public static class ChmonosWin {
 "@ }
 
 $ChmonosRepo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
-# 実行ファイル名は改名の③（公開の直前）で変わる。そのときはここだけ直す
-$ChmonosExe = Join-Path $ChmonosRepo 'BoothAssetManager.App\bin\Debug\net9.0-windows\BoothAssetManager.App.exe'
+# 実行ファイル名は改名の③（公開の直前）で変わる。そのときはここだけ直す。
+# フォルダ名の net10.0-windows は .NET の版で、版を上げると変わる（同じ道は sandbox-recipes.ps1 の SandboxGen にもある）
+$ChmonosExe = Join-Path $ChmonosRepo 'BoothAssetManager.App\bin\Debug\net10.0-windows\BoothAssetManager.App.exe'
 $ChmonosProcessName = [IO.Path]::GetFileNameWithoutExtension($ChmonosExe)
 $ChmonosProduction = Join-Path $env:LOCALAPPDATA 'Chmonos'
 $ChmonosForbidden = @(
