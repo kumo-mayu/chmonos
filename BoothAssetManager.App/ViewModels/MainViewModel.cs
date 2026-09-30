@@ -1041,12 +1041,23 @@ public sealed partial class MainViewModel : ViewModelBase
 
                 // 札の未確定は登録する回数で数える（CountUnresolvedUnits）。読み手が数えるのはファイルの数なので、
                 // 0件なら記録を読まずに0、そうでなければ記録を読んで単位に直す（単位の数は材料が同じ間は覚えてある）
+                var memoBefore = Volatile.Read(ref _unitCountMemo);
                 var counts = read.Unresolved == 0
                     ? read
                     : read with { Unresolved = CountUnresolvedUnits(store.Unresolved.Load(), items, importFolders) };
+                var rebuiltRows = !ReferenceEquals(memoBefore, Volatile.Read(ref _unitCountMemo));
 
                 RunOnUiThread(() =>
                 {
+                    // 行を組み直して数えたときは、その後で使い終わった分を返させる。未確定が数万件あると、記録を読んで行を組むのに
+                    // 100MB 単位のゴミが出る。取り込みの終わりの詰め直し（検索の読み直しの後）より後に出るので、画面を移るまで
+                    // 握ったままだった（8万件の取り込みの後 463／372MB のまま。2026-09-30 に測った）。
+                    // 増えた量が小さければ MemoryTrim は何もしないので、普通の件数では素通りになる
+                    if (rebuiltRows)
+                    {
+                        Services.MemoryTrim.Request();
+                    }
+
                     if (turn != Volatile.Read(ref _countsRead))
                     {
                         return;
@@ -1105,16 +1116,25 @@ public sealed partial class MainViewModel : ViewModelBase
         }
 
         var key = signature.ToHashCode();
-        if (Volatile.Read(ref _unitCountMemo) is { } memo && memo.Signature == key)
-        {
-            return memo.Count;
-        }
 
-        var rows = ResolveViewModel.BuildRows([.. files], owned, importFolders);
-        var count = Core.Scanning.UnresolvedUnits.Count(rows.Rows.Select(row => row.UnitKey));
-        Volatile.Write(ref _unitCountMemo, new UnitCountMemo(key, count));
-        return count;
+        // 行を組むのは1本ずつ。取り込みの終わりには数え直しが続けて2回頼まれ（検索の読み直しと札の更新）、1回目が組み終える前に
+        // 2回目が始まって、同じ行を2本が並んで組んでいた（8万件で各4秒・ゴミも2倍。2026-09-30 に採った足跡で見た）。
+        // 後から来た方は待って、先の結果を使う。裏のスレッドなので待っても画面は止まらない
+        lock (_unitCountGate)
+        {
+            if (_unitCountMemo is { } memo && memo.Signature == key)
+            {
+                return memo.Count;
+            }
+
+            var rows = ResolveViewModel.BuildRows([.. files], owned, importFolders);
+            var count = Core.Scanning.UnresolvedUnits.Count(rows.Rows.Select(row => row.UnitKey));
+            Volatile.Write(ref _unitCountMemo, new UnitCountMemo(key, count));
+            return count;
+        }
     }
+
+    private readonly object _unitCountGate = new();
 
     private string _structureAlert = string.Empty;
 
