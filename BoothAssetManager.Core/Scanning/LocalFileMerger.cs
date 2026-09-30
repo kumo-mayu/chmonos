@@ -45,18 +45,8 @@ public static class LocalFileMerger
 
             // どのパスにも実体が無くなったレコードも残す。
             // 「ファイルが見つからない」として扱い、再スキャンでの復旧やBOOTHからの再取得へ繋げるため。
-            merged.Add(paths.Count == record.Paths.Count
-                ? record
-                : new LocalFileRecord
-                {
-                    Hash = record.Hash,
-                    Paths = paths,
-                    SizeBytes = record.SizeBytes,
-                    VariationId = record.VariationId,
-                    Contents = record.Contents,
-                    UnityPackages = record.UnityPackages,
-                    Detached = record.Detached,
-                });
+            // 場所だけを差し替える（欄を1つずつ写すと、記録に欄を足したときにここで落ちる）
+            merged.Add(paths.Count == record.Paths.Count ? record : record with { Paths = paths });
         }
 
         return merged;
@@ -85,6 +75,11 @@ public static class LocalFileMerger
             // 外した印は、両方が外したものだったときだけ残す。外したファイルをこの商品へ選び直した
             // （未確定から同じ商品を選んだ）なら、ユーザが改めて決めたのだから印を下ろす
             Detached = current.Detached && discovered.Detached,
+
+            // 開けなかった印は、新しく見た方の答えに合わせる。同じ中身は何度開いても同じ答えになるが、
+            // 見つけた方が開いていない（ほかのアプリが開いていた・開かずに場所だけ足した。中身の一覧が空）ときは
+            // 壊れていないと分かったわけではないので、今の印を残す
+            ArchiveBroken = discovered.ArchiveBroken || (current.ArchiveBroken && discovered.Contents.Count == 0),
         };
     }
 }

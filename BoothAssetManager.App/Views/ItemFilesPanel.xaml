@@ -186,6 +186,17 @@
                                                             Command="{Binding DataContext.OpenInExplorerCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding FirstPath}" />
+                                                    <!--
+                                                        取り込みで zip として開けなかった物（ユーザ判断 2026-09-30）。ダウンロード元の記録から商品が決まると未確定を通らないので、
+                                                        前は中身の一覧が空なだけで、「一時的に展開して開く」を押して初めて分かった。未確定の行と同じ札・同じ色・同じ吹き出し。
+                                                        直さないと使えない物なので、名前のすぐ横に置く。無い物には出さない（「見つかりません」だけを言う）
+                                                    -->
+                                                    <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            ToolTip="zipを開けませんでした。ダウンロードし直してください。"
+                                                            Visibility="{Binding ShowsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                        <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}" />
+                                                    </Border>
                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                             ToolTip="この商品から外したファイルです。所持や容量には数えません。"

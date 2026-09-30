@@ -238,9 +238,20 @@ public sealed class LocalFileRow : ViewModelBase
                 OnPropertyChanged(nameof(IsOnDetachedDrive));
                 OnPropertyChanged(nameof(CanReveal));
                 OnPropertyChanged(nameof(PathToolTip));
+                OnPropertyChanged(nameof(ShowsBrokenArchive));
             }
         }
     }
+
+    /// <summary>取り込みで zip として開けなかった物（記録の印。未確定の行の「壊れたzip」と同じ事実）。</summary>
+    public bool IsBrokenArchive { get; init; }
+
+    /// <summary>
+    /// 札「壊れたzip」を出すか（ユーザ判断 2026-09-30）。**在る物にだけ出す。**無い物・取り外しているドライブの上の物は、
+    /// 次の手が「取り込み直す」「つなぐ」で、札を2つ並べると「ダウンロードし直す」とどちらを先にするのか分からない。
+    /// 無い物は壊れているかをもう見られないので、「見つかりません」だけを言う
+    /// </summary>
+    public bool ShowsBrokenArchive => IsBrokenArchive && Paths.Count > 0 && Presence == Core.Services.FilePresence.Present;
 
     public bool IsMissing => Paths.Count == 0 || Presence == Core.Services.FilePresence.Missing;
 
