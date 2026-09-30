@@ -59,6 +59,17 @@ public sealed class FallbackResolver
 {
     private const int MaxCandidates = 3;
 
+    /// <summary>BOOTH の検索の1ページの件数。これだけ埋まっていれば続きのページがある。</summary>
+    private const int SearchPageSize = 60;
+
+    /// <summary>
+    /// 引き直しでも裏付けが出ず、ファイル名の最初の1語の検索が1ページ（60件）埋まっていたら、その2ページ目も見る。
+    /// 「商品名_アバター名」のように検索語の一部だけが商品名にある物は、最初の1語だけで引くと
+    /// 同じ語の商品で60件が埋まり、正解が1ページ目に入らない（research §18 で36本）。
+    /// 1ファイルにつき検索1本と商品JSON3本まで増える。
+    /// </summary>
+    public bool SearchSecondPage { get; init; }
+
     /// <summary>
     /// 検索結果の商品カードに付く属性。
     /// ページには推薦枠やヘッダのリンクも含まれるため、単純に <c>/items/{id}</c> を拾うと
@@ -358,6 +369,8 @@ public sealed class FallbackResolver
         if (!candidates.Any(candidate => candidate.IsStrong))
         {
             var seen = orderedIds.ToHashSet(StringComparer.Ordinal);
+            var firstWord = FileNameQuery.MostDistinctiveToken(filePath, SiblingTokens.NotProductName(avatars, varying));
+            var firstWordFilled = false;
 
             foreach (var alternate in RetryQueries(filePath, query, _bridge, avatars, varying))
             {
@@ -366,6 +379,35 @@ public sealed class FallbackResolver
                 progress?.Report(new ResolveProgress($"別の語で探しています（{alternate}）", 0, 0));
 
                 var alternateIds = (await SearchIdsAsync(alternate, filePath, avatars, varying, cancellationToken)).Ids;
+                if (string.Equals(alternate, firstWord, StringComparison.OrdinalIgnoreCase) && alternateIds.Count >= SearchPageSize)
+                {
+                    firstWordFilled = true;
+                }
+
+                await AddRetryCandidatesAsync(alternateIds, 0);
+
+                // 裏付けが出たらそこで止める。念のためもう1語、はしない
+                if (candidates.Any(candidate => candidate.IsStrong))
+                {
+                    break;
+                }
+            }
+
+            // 候補のどれかが検索語の語を全部名前に持っていれば、AND の検索は当たっている（語が商品名に揃っている）。
+            // 2ページ目を見るのは、どの候補も語の一部しか持たないときだけ（正解の分かる472本で、見る本数が172 → 98本）
+            if (SearchSecondPage && firstWordFilled
+                && !candidates.Any(candidate => candidate.IsStrong || HasAllWords(candidate.Name, query)))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report(new ResolveProgress($"別の語で探しています（{firstWord}・2ページ目）", 0, 0));
+
+                // 順位は1ページ目の続きで数える（2ページ目の先頭に「検索結果の1位」を付けない）
+                await AddRetryCandidatesAsync(
+                    (await SearchIdsAsync(firstWord, filePath, avatars, varying, cancellationToken, page: 2)).Ids, SearchPageSize);
+            }
+
+            async Task AddRetryCandidatesAsync(IReadOnlyList<string> alternateIds, int rankOffset)
+            {
                 var extraIds = alternateIds
                     .Where(id => seen.Add(id))
                     .Take(MaxCandidates)
@@ -381,18 +423,12 @@ public sealed class FallbackResolver
                     // 上回り、正解の分かる318本で「候補に正解はあるが1位でない」77本のうち約40本がこの形だった（2026-09-29）。
                     // 別表記で引いた正解は、元の語の読み（ReadingMatch）で同じ2点を取る
                     var extra = await ScoreCandidateAsync(
-                        extraIds[rank], query, filePath, hints, IndexOf(alternateIds, extraIds[rank]), direct, cancellationToken);
+                        extraIds[rank], query, filePath, hints, rankOffset + IndexOf(alternateIds, extraIds[rank]), direct, cancellationToken);
 
                     if (extra is not null)
                     {
                         candidates.Add(extra);
                     }
-                }
-
-                // 裏付けが出たらそこで止める。念のためもう1語、はしない
-                if (candidates.Any(candidate => candidate.IsStrong))
-                {
-                    break;
                 }
             }
         }
@@ -408,9 +444,11 @@ public sealed class FallbackResolver
     /// **届いたかどうかも返す**（E3：届かなかったのを0件と同じに扱っていた）。
     /// </summary>
     private async Task<(IReadOnlyList<string> Ids, bool Searched)> SearchIdsAsync(
-        string query, string filePath, AvatarTokens? avatars, IReadOnlySet<string>? varying, CancellationToken cancellationToken)
+        string query, string filePath, AvatarTokens? avatars, IReadOnlySet<string>? varying, CancellationToken cancellationToken, int page = 1)
     {
-        var result = await _client.SearchAsync(query, cancellationToken);
+        var result = page <= 1
+            ? await _client.SearchAsync(query, cancellationToken)
+            : await _client.SearchAsync(query, page, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return ([], false);
@@ -420,6 +458,18 @@ public sealed class FallbackResolver
         return (cards.Count > 0
             ? Rerank(cards, filePath, avatars, varying).Select(card => card.ItemId).ToList()
             : ExtractSearchResultIds(result.Value), true);
+    }
+
+    /// <summary>検索語の2字以上の語が全部、名前に語として入っているか。</summary>
+    private static bool HasAllWords(string? name, string query)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return false;
+        }
+
+        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(word => word.Length >= 2).ToList();
+        return words.Count > 0 && words.All(word => FileNameQuery.ContainsWord(name, word));
     }
 
     /// <summary>検索の結果の中の順位（0が1位）。検索に出ていない（同梱の URL だけの）物は -1。</summary>

@@ -78,6 +78,15 @@ public interface IBoothClient
     /// <summary>BOOTH内検索。手掛かりが無いファイルの候補を出すために使う。</summary>
     Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// BOOTH内検索の n ページ目（1ページ60件）。自動検索が1語で引き直した結果の続きを見るときだけ使う。
+    /// 既定は1ページ目だけ答える（検索の2ページ目を使わない試験の作り物が、全部書き足さずに済むように）。
+    /// </summary>
+    Task<BoothFetchResult<string>> SearchAsync(string query, int page, CancellationToken cancellationToken = default)
+        => page <= 1
+            ? SearchAsync(query, cancellationToken)
+            : Task.FromResult(BoothFetchResult<string>.NotFound());
+
     /// <summary>探しているものが見つかった時点で受信をやめる取得。</summary>
     Task<BoothFetchResult<string>> GetTextUntilAsync(
         string url,
@@ -252,8 +261,15 @@ public sealed class BoothClient : IBoothClient
 
     public static string SearchUrl(string query) => $"https://booth.pm/ja/search/{Uri.EscapeDataString(query)}";
 
+    /// <summary>検索の n ページ目。BOOTH の検索ページのページ送りのリンクと同じ書き方（<c>?page=2</c>）。</summary>
+    public static string SearchUrl(string query, int page)
+        => page <= 1 ? SearchUrl(query) : $"{SearchUrl(query)}?page={page}";
+
     public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
         => GetStringAsync(SearchUrl(query), cancellationToken);
+
+    public Task<BoothFetchResult<string>> SearchAsync(string query, int page, CancellationToken cancellationToken = default)
+        => GetStringAsync(SearchUrl(query, page), cancellationToken);
 
     public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
         => GetStringAsync(ItemJsonUrl(itemId), cancellationToken);

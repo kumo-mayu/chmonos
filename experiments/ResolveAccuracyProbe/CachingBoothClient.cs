@@ -52,6 +52,21 @@ sealed class CachingBoothClient : IBoothClient
     public Task<BoothFetchResult<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
         => CachedAsync("search", query, inner => inner.SearchAsync(query, cancellationToken));
 
+    /// <summary>2ページ目からは「検索語＋ページ」で控える（1ページ目の控えの鍵は前と同じ）。</summary>
+    public Task<BoothFetchResult<string>> SearchAsync(string query, int page, CancellationToken cancellationToken = default)
+    {
+        if (page <= 1)
+        {
+            return SearchAsync(query, cancellationToken);
+        }
+
+        SecondPageRequests++;
+        return CachedAsync("search", $"{query}\npage={page}", inner => inner.SearchAsync(query, page, cancellationToken));
+    }
+
+    /// <summary>2ページ目以降の検索を求めた本数（控えから返した分も含む）。</summary>
+    public int SecondPageRequests { get; private set; }
+
     public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
         => CachedAsync("json", itemId, inner => inner.GetItemJsonAsync(itemId, cancellationToken));
 
