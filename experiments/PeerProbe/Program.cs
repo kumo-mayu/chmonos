@@ -84,7 +84,7 @@ public static class Program
             return;
         }
 
-        // アプリの資源（色・ボタンの見た目）だけを読み込む。OnStartup は Run しなくても呼ばれるが、App が本体のプロセスでないと見て進めない（App.IsAppProcess）
+        // アプリの資源（色・ボタンの見た目）だけを読み込む。OnStartup は Run しなくても呼ばれるが、App が本体のプロセスでないと見て進めない（App.IsLaunchedAsApp）
         var app = new BoothAssetManager.App.App();
         app.InitializeComponent(); Console.WriteLine("  [色の表] 読み込み直後: " + app.Resources.MergedDictionaries[0].Source + " Text=" + app.TryFindResource("Text"));
         EventManager.RegisterClassHandler(typeof(ListViewItem), BoothAssetManager.App.Controls.ItemListView.RowInvokedEvent,

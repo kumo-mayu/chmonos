@@ -120,7 +120,7 @@
 - 初回（`settings.json` が無いとき）は別の窓で保存先と「画像を保存するか」だけ聞く（3つ以上聞かない）。本体はその後に組み立てる。
 - 設定は保存した直後から効く（サービスは設定を抱えず、使うたびに今の値を読む）。例外は保存先・起動時に始まる裏の取得・サムネイルの保持上限。
 - バックアップ：1つの zip に書き出す（画像を含めるかは選ぶ）。戻すときは別の空の場所に展開して、次の起動からそこを使う。計算し直せる索引・書きかけ・保存先の場所を覚えるファイルは入れない。
-- **利用者の本当の保存先（`location.json` の指す先・既定の場所）を使えるのは、アプリ本体だけ**（2026-09-30）。`App` が起動の最初に `StoreLocation.AllowsUserStore` を立てる。**立てるのも、起動の処理（`OnStartup`）を進めるのも、入口がアプリの実行ファイルのときだけ**（`App.IsAppProcess`）——WPF は `new App()` しただけで起動の処理を呼ぶので、資源を読むために `App` を作る道具（`tools/ViewShot`・`experiments/PeerProbe`）が本体として動かないようにする（`docs/dev/wpf.md`「窓を出さずに描く」）。立っていないプロセス（試験・`tools/ViewShot`・`tools/SandboxGen`・評価台）は、環境変数 `CHMONOS_HOME` の指定が無いと `StoreLocation.Resolve` が例外で止まる。
+- **利用者の本当の保存先（`location.json` の指す先・既定の場所）を使えるのは、アプリ本体だけ**（2026-09-30）。`App` は、入口が自分の実行ファイルのとき（`App.IsLaunchedAsApp`）だけ `StoreLocation.AllowsUserStore` を立て、起動の処理（`OnStartup`）もそのときだけ進める。道具や試験が資源を読むために `new App()` しても、起動の処理は走らない（WPF は `Run` を呼ばなくても、コンストラクタで積んだ `OnStartup` をメッセージを回した時点で走らせる。これで道具が本番の指す先を開いて動かした）。立っていないプロセス（試験・`tools/ViewShot`・`tools/SandboxGen`・評価台）は、環境変数 `CHMONOS_HOME` の指定が無いと `StoreLocation.Resolve` が例外で止まる。
   前は指定が無ければ黙って `location.json` を読んだので、道具がアプリの一式を組む順番を誤ると本当の保存先が開き、起動時の取り込みと BOOTH への取り直しまで走った（経緯は `docs/feedback/review-2026-09-30-store-incident.md`）。
 
 ## 試験とビルド

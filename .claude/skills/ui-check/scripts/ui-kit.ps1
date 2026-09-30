@@ -1120,12 +1120,23 @@ function Wait-ChmonosTrace {
 function Get-ProductionState {
   $settings = Join-Path $ChmonosProduction 'settings.json'
   $loc = Join-Path $ChmonosProduction 'location.json'
+  $target = $null
+  if (Test-Path $loc) { try { $target = (Get-Content $loc -Raw | ConvertFrom-Json).root } catch { $target = $null } }
+  if ($target -and -not (Test-Path $target)) { $target = $null }
+  $targetSettings = if ($target) { Join-Path $target 'settings.json' } else { $null }
   [pscustomobject]@{
     # 日時は文字で持つ（ConvertFrom-Json が日時に読み替えて比べられなくなる）
     SettingsWrite = if (Test-Path $settings) { (Get-Item $settings).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '(無い)' }
     # items/ には説明の HTML も同じ数だけあるので *.json で数える
     ItemJson      = @(Get-ChildItem (Join-Path $ChmonosProduction 'items') -Filter *.json -File -ErrorAction SilentlyContinue).Count
     LocationJson  = if (Test-Path $loc) { (Get-Content $loc -Raw).Trim() } else { '(無い)' }
+    # location.json が指す先（利用者が普段使う本当の保存先）も見る。前は %LOCALAPPDATA%Chmonos しか見ておらず、
+    # 道具が指す先を開いて書いたのに「本番は変わっていない」と答えていた（2026-09-30）
+    TargetRoot          = $target
+    TargetSettingsWrite = if ($target -and (Test-Path $targetSettings)) { (Get-Item $targetSettings).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '(無い)' }
+    TargetItemJson      = if ($target) { @(Get-ChildItem (Join-Path $target 'items') -Filter *.json -File -ErrorAction SilentlyContinue).Count } else { 0 }
+    # 商品の書き換え（取り直し・検出）は settings.json の日時に出ないので、items のいちばん新しい書き込みも控える
+    TargetNewestItem    = if ($target) { $n = Get-ChildItem (Join-Path $target 'items') -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($n) { $n.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '(無い)' } } else { '(無い)' }
   }
 }
 
@@ -1137,6 +1148,15 @@ function Test-ProductionUntouched {
   $was = Get-Content $ChmonosBaselineFile -Raw | ConvertFrom-Json
   $diff = @()
   foreach ($k in 'SettingsWrite', 'ItemJson', 'LocationJson') { if ("$($was.$k)" -ne "$($now.$k)") { $diff += "$k：$($was.$k) → $($now.$k)" } }
-  if ($diff.Count -eq 0) { "本番は変わっていない: settings.json $($now.SettingsWrite)・items $($now.ItemJson) 件" }
-  else { "本番が変わった！ユーザに知らせる: " + ($diff -join ' / ') }
+  # 指す先は利用者が普段使うので、利用者が触れば変わる。変わっていたら、道具が書いたのか利用者が使ったのかを確かめる
+  $targetDiff = @()
+  if ($null -ne $was.PSObject.Properties['TargetRoot']) {
+    foreach ($k in 'TargetSettingsWrite', 'TargetItemJson', 'TargetNewestItem') { if ("$($was.$k)" -ne "$($now.$k)") { $targetDiff += "$k：$($was.$k) → $($now.$k)" } }
+  }
+  $targetNote = if (-not $now.TargetRoot) { '' }
+    elseif ($null -eq $was.PSObject.Properties['TargetRoot']) { "（location.json の指す先は控えに無い。今: settings.json $($now.TargetSettingsWrite)・items $($now.TargetItemJson) 件・いちばん新しい書き込み $($now.TargetNewestItem)）" }
+    elseif ($targetDiff.Count -eq 0) { "・location.json の指す先も変わっていない（items $($now.TargetItemJson) 件・いちばん新しい書き込み $($now.TargetNewestItem)）" }
+    else { "／location.json の指す先が変わった！利用者が使っていなければ道具が書いた。ユーザに知らせる: " + ($targetDiff -join ' / ') }
+  if ($diff.Count -eq 0) { "本番は変わっていない: settings.json $($now.SettingsWrite)・items $($now.ItemJson) 件" + $targetNote }
+  else { "本番が変わった！ユーザに知らせる: " + ($diff -join ' / ') + $targetNote }
 }

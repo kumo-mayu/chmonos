@@ -8,28 +8,20 @@ namespace BoothAssetManager.App;
 public partial class App : Application
 {
     /// <summary>
-    /// このプロセスがアプリ本体か（入口がこのアセンブリの実行ファイルか）。確かめの道具や試験がこの型を作ったときは偽。
+    /// このプロセスがアプリ本体として起動されたか（入口がこのアセンブリ＝自分の実行ファイル）。
     ///
-    /// **WPF の Application は、コンストラクタの中で「OnStartup を呼ぶ仕事」を積む。**Run を呼ばなくても、メッセージを回した時点で起動の処理が丸ごと走る。
-    /// 道具（窓を出さずに描く台・UI Automation の木を書き出す道具）は、色の表と部品の見た目を読むために `new App()` して InitializeComponent だけを呼び、
-    /// 「Run しないので起動の処理は走らない」と考えていたが、実際は保存先を決め、サービス一式と主画面を組み、主の窓を出し、起動時の裏の作業まで始めていた。
-    /// 保存先を指定していない道具では、それが本番の location.json の指す先（友人のデータの写し）で走った（2026-09-30。取り込みと BOOTH からの取り直しが動いた）。
-    /// 道具の側の気を付け方（作る前に環境変数を入れる）に頼らず、本体でなければ起動の処理も、本当の保存先を使う印も出さない
+    /// 試験や確かめの道具は、色の表や部品の見た目を読むために <c>new App()</c> する。
+    /// WPF の Application は**コンストラクタの中で**「OnStartup を呼ぶ仕事」を積むので、Run を呼ばなくても、
+    /// 道具がメッセージを回した時点で起動の処理が丸ごと走る（保存先を決める → サービス一式 → 主の窓 → 起動時の裏の作業）。
+    /// 2026-09-30 に、保存先を指定していない道具がこの道で本番の指す先（友人のデータの写し）を開き、
+    /// 取り込みと BOOTH からの取り直しを走らせた（17:40 と 19:31 の2回）。道具の側の注意に頼らず、ここで分ける
     /// </summary>
-    internal static bool IsAppProcess { get; } = IsEntryOf(System.Reflection.Assembly.GetEntryAssembly());
+    public static bool IsLaunchedAsApp { get; } =
+        System.Reflection.Assembly.GetEntryAssembly() == typeof(App).Assembly;
 
-    internal static bool IsEntryOf(System.Reflection.Assembly? entry) => entry == typeof(App).Assembly;
-
-    // 利用者の本当の保存先を使ってよいのは、アプリ本体だけ。どの型よりも先に立てる
-    // （AppPaths.Default は最初に触れたときに1回だけ決まる）。試験や道具はこれを立てず、環境変数で保存先を決める。
-    // 道具がこの型を作っただけで印が立つと、「指定が無ければ止まる」守り（StoreLocation.Resolve）が道具のプロセスで効かなくなる
-    static App()
-    {
-        if (IsAppProcess)
-        {
-            StoreLocation.AllowsUserStore = true;
-        }
-    }
+    // 利用者の本当の保存先を使ってよいのは、アプリ本体として起動されたときだけ。どの型よりも先に立てる
+    // （AppPaths.Default は最初に触れたときに1回だけ決まる）。試験や道具が new App() しても立たず、環境変数で保存先を決める
+    static App() => StoreLocation.AllowsUserStore = IsLaunchedAsApp;
 
     private AppServiceContainer? _services;
 
@@ -37,8 +29,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // 道具や試験がこの型を作っただけのとき。資源（App.xaml）は InitializeComponent が読むので、ここでは何もしない
-        if (!IsAppProcess)
+        // 道具や試験の中では、資源を読むための入れ物としてだけ使われる。起動の処理は進めない
+        if (!IsLaunchedAsApp)
         {
             return;
         }

@@ -42,7 +42,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   `Run` を呼ばなくても、メッセージを回した時点（`Dispatcher.Run`・`PushFrame`・`Dispatcher.Invoke`）で丸ごと走る。
   台は「`Run` を呼ばなければ走らない」と考えて作られ、走るたびに初回の窓か主の窓が画面に出て、サービス一式がもう1組できていた
   （保存先は台が切り離していたので本番には触れなかった）。保存先を切り離していなかった別の道具では、本番の `location.json` の指す先で起動の処理が走った。
-  **`App` の側で、入口が自分の実行ファイルのときだけ起動の処理を進める**（`App.IsAppProcess`。本当の保存先を使う印 `StoreLocation.AllowsUserStore` も同じ条件）。
+  **`App` の側で、入口が自分の実行ファイルのときだけ起動の処理を進める**（`App.IsLaunchedAsApp`。本当の保存先を使う印 `StoreLocation.AllowsUserStore` も同じ条件）。
   道具は `InitializeComponent` で資源だけ読み、`Dispatcher.Run` を自分で回す。道具を作ったら、走っている間にプロセスが窓を持たないことを1回は見る（`EnumWindows`）
 - 保存先は `AppPaths.Default` が最初に決めたら変わらないので、場面ごとにプロセスを分ける。サービス一式を組むと、前回の消し残しとして
   一時展開のフォルダ（`%TEMP%\Chmonos\unpacked`）を消す——開いているアプリの展開先を消さないよう、台は一時フォルダごと別にする（`Isolation`）
