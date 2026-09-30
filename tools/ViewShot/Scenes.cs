@@ -22,6 +22,7 @@ internal static partial class Scenes
         .. Modifications,
         .. Search,
         .. CardLists,
+        .. Inbox,
         .. Dialogs,
         .. Parts,
     ];

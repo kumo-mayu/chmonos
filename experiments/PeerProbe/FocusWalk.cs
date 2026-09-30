@@ -27,7 +27,7 @@ public static class FocusWalk
         app.InitializeComponent();
 
         Walk("商品ページの札（対応アバター・共通素体・説明文の候補）", AvatarsPanel(), stops: 12, enterAt: ["ItemAvatarChip", "ItemAvatarReject", "ItemBaseMentionDismiss"]);
-        Walk("要確認の行", InboxRows(), stops: 9, enterAt: ["InboxRow", "InboxRowAction"]);
+        Walk("要確認の行", InboxRows(), stops: 11, enterAt: ["InboxRow", "InboxRowRead", "InboxRowAction"]);
 
         // カードの一覧は、読み上げ・自動操作に段を出さない部品へ替えた（2026-09-30）。キーボードの動きが前の作りと同じことを、並べて見る
         Walk("カードの一覧（前の作り：ListBox と ContentItemsControl）", CardList("ListBox", "controls:ContentItemsControl"), stops: 5, enterAt: ["ItemCard"], arrows: true);
@@ -126,7 +126,9 @@ public static class FocusWalk
             row["HasAction"] = true;
             row["ActionText"] = "商品情報を取り直す";
             row["CreatedText"] = "3時間前";
-            row["ReadButtonText"] = "既読にする";
+            row["ReadButtonText"] = "確認した";
+            row["ReadButtonName"] = name + "を既読にする";
+            row["IsRead"] = false;
             row["Cards"] = new ObservableCollection<object>();
             rows.Add(row);
         }
@@ -205,8 +207,19 @@ public static class FocusWalk
                 InputManager.Current.ProcessInput(key);
                 InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Enter) { RoutedEvent = Keyboard.KeyUpEvent });
                 root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-                Console.WriteLine($"      Enter → {(ProbeLog.Lines.Count > 0 ? string.Join(" / ", ProbeLog.Lines) : "何も起きない")}");
+                // 切り替えの部品（要確認の既読の丸）は、コマンドではなく値が替わる。行の側（商品を開く）へ漏れていないことも、同じ行で分かる
+                var toggled = focused is System.Windows.Controls.Primitives.ToggleButton toggle ? $"切り替わった（入={toggle.IsChecked}）" : null;
+                Console.WriteLine($"      Enter → {string.Join(" / ", new[] { toggled }.Concat(ProbeLog.Lines).Where(line => line is not null).DefaultIfEmpty("何も起きない"))}");
                 ProbeLog.Lines.Clear();
+
+                if (focused is System.Windows.Controls.Primitives.ToggleButton space)
+                {
+                    InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Space) { RoutedEvent = Keyboard.KeyDownEvent });
+                    InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Space) { RoutedEvent = Keyboard.KeyUpEvent });
+                    root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                    Console.WriteLine($"      Space → 切り替わった（入={space.IsChecked}）{(ProbeLog.Lines.Count > 0 ? " / " + string.Join(" / ", ProbeLog.Lines) : "")}");
+                    ProbeLog.Lines.Clear();
+                }
             }
 
             if (!focused.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)))
