@@ -30,6 +30,19 @@ public class DisplayTextTests
         => Assert.Equal("0 B", DisplayText.Size(-1));
 
     /// <summary>
+    /// 一時展開の帯の1行。合計が分かるまでは数字を付けず、2つ以上を並べて展開している間は数を言い、
+    /// 中止を押した後は片付けを待っていることだけを言う。
+    /// </summary>
+    [Theory]
+    [InlineData(1, 0L, 0L, false, "展開しています…")]
+    [InlineData(1, 0L, 2469606195L, false, "展開しています… 0 B / 2.3 GB")]
+    [InlineData(1, 126353408L, 2469606195L, false, "展開しています… 120.5 MB / 2.3 GB")]
+    [InlineData(2, 1536L, 4096L, false, "2 件のzipを展開しています… 1.5 KB / 4 KB")]
+    [InlineData(1, 126353408L, 2469606195L, true, "展開を中止しています…")]
+    public void WritesTheUnpackingLine(int count, long done, long total, bool stopping, string expected)
+        => Assert.Equal(expected, DisplayText.UnpackingLine(count, done, total, stopping));
+
+    /// <summary>
     /// 名詞の形はJSONに書いてある語と同じにする。
     /// 画面と保存で語が違うと、同じものだと分からなくなる。
     /// </summary>

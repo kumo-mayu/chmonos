@@ -38,6 +38,9 @@ public sealed partial class MainViewModel : ViewModelBase
         Services.UnityImportQueue.RunningChanged += running => RunOnUiThread(() => IsSendingToUnity = running);
         Services.UnityImportQueue.ProgressChanged += text => RunOnUiThread(() => UnitySendText = text);
 
+        // 一時展開の間も同じ場所に進み具合と「中止」を出す（MainViewModel.Unpacking.cs）。知らせは画面のスレッドで届く
+        ItemFileActions.UnpackingChanged += RefreshUnpacking;
+
         Search = new SearchViewModel(services, Thumbnails);
         Search.AttachMain(this);
 
