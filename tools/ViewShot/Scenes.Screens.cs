@@ -200,6 +200,28 @@ internal static partial class Scenes
         {
             Width = 900,
         },
+
+        new Scene("modification-selected-status", "改変の画面：右の欄の上の帯に知らせの文が出ている所（日付と知らせが下の段へ送られる）・窓の最小の幅", async context =>
+        {
+            var selected = await SeedModificationsAsync(context);
+            var main = await context.StartAsync();
+            main.ShowModifications(
+                ModificationHubLevel.Modification,
+                new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
+            Backdoor.ShowModificationStatus(detail, "「作り物のとても長い名前の衣装セット フルパッケージ版」を追加しました。");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ModificationHubView>(root), FocusMargin = 0 };
+        })
+        {
+            Width = 900,
+            Height = 400,
+        },
     ];
 
     /// <summary>アバター1体・衣装1つ・改変3つ（長い名前・プロジェクト無しを含む）。長い名前の改変の ID を返す。</summary>

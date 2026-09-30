@@ -12,6 +12,9 @@ namespace BoothAssetManager.App.Controls;
 ///
 /// 左の塊は1行のときは残りの幅で測り直す——中の「何で絞っているか」の文は長いと省略で縮むので、
 /// その文の長さだけで右を送ってしまわないよう、左が要る幅は <see cref="MinLeftWidth"/> までと見なす。
+///
+/// 右端に残したい物が右の塊のとき（改変の詳細の上の帯：日付は下へ送ってよいが、「この改変を削除」は上の段の右端に残す）は
+/// <see cref="SendsLeftDown"/> で、送る側を左の塊にする。
 /// </summary>
 public sealed class SplitRowPanel : Panel
 {
@@ -36,6 +39,23 @@ public sealed class SplitRowPanel : Panel
         get => (double)GetValue(GapProperty);
         set => SetValue(GapProperty, value);
     }
+
+    public static readonly DependencyProperty SendsLeftDownProperty = DependencyProperty.Register(
+        nameof(SendsLeftDown), typeof(bool), typeof(SplitRowPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+    /// <summary>
+    /// 入り切らないとき、右ではなく左の塊を次の行へ送る。右の塊は上の段の右端に残る。
+    /// 送った左の塊は行の幅いっぱいに置くので、右に寄せたいときは左の塊の側で右寄せにする。
+    /// </summary>
+    public bool SendsLeftDown
+    {
+        get => (bool)GetValue(SendsLeftDownProperty);
+        set => SetValue(SendsLeftDownProperty, value);
+    }
+
+    /// <summary>今、2行に分けて置いているか（試験と、場面の確かめで読む）。</summary>
+    internal bool IsStacked => _stacked;
 
     private bool _stacked;
 
@@ -101,6 +121,13 @@ public sealed class SplitRowPanel : Panel
         }
 
         var rightSize = right.DesiredSize;
+        if (_stacked && SendsLeftDown)
+        {
+            right.Arrange(new Rect(Math.Max(0, finalSize.Width - rightSize.Width), 0, Math.Min(rightSize.Width, finalSize.Width), rightSize.Height));
+            left.Arrange(new Rect(0, rightSize.Height + Gap / 2, finalSize.Width, left.DesiredSize.Height));
+            return finalSize;
+        }
+
         if (_stacked)
         {
             left.Arrange(new Rect(0, 0, finalSize.Width, left.DesiredSize.Height));

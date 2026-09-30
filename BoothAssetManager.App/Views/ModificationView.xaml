@@ -75,9 +75,15 @@
     <DockPanel Background="{DynamicResource Bg}">
 
         <!-- 上部バー。商品ページと同じ格の画面なので、戻る導線も同じ形にする -->
-        <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
+        <!--
+            高さは決め打ちにしない。組み込んだときの右の欄は 360 まで狭くなり、日付2つ（約190）と「この改変を削除」（約100）が
+            間と余白を入れてちょうど入る幅しかない。表示の大きさを上げたとき・知らせの文が出たときは入り切らず、右端のボタンが切れていた。
+            入り切らないときは日付と知らせを下の段へ送り、帯を2段ぶんに伸ばす（ユーザ判断 2026-09-30：隠さない）。
+            上下の余白 9 は、1段のとき（ボタンの高さ 32）に帯の高さが前と同じ 52 のままになる値（32＋9×2＋線1＝51 で、下限 52 が効く）
+        -->
+        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
-            <Grid Margin="20,0">
+            <Grid Margin="20,9">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 改変の画面の右側に組み込んだときは出さない。左の一覧が行き来の役をする -->
                     <Button Content="{Binding BackText}" Command="{Binding BackCommand}"
@@ -86,21 +92,32 @@
                     <!-- アバターは右の列の「改変の名前」の上へ移した（ユーザ指示 2026-09-14） -->
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                               MaxWidth="420" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"
-                               Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}" FontSize="11"
-                               VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
-                    <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource Mono}" FontSize="11"
-                               VerticalAlignment="Center" Margin="12,0,0,0"
-                               Foreground="{DynamicResource TextMuted}" />
+                <!--
+                    左の塊＝知らせと日付（右寄せ）、右の塊＝削除のボタン。入り切らないときに下へ送るのは左の塊（SendsLeftDown）——
+                    ボタンは上の段の右端に残し、日付は下の段の右端に出す。1段のときの並び（知らせ・作成・更新・ボタン）と間（14）は前と同じ。
+                    MinLeftWidth 320 は、日付2つ（約190）＋間 12＋知らせに約120（「写真を消しました。」が切れずに入る幅）。
+                    知らせが長いときは「…」で切る（日付は切らない。日付を右に留めて、知らせに残りを渡す）
+                -->
+                <controls:SplitRowPanel SendsLeftDown="True" Gap="14" MinLeftWidth="320" VerticalAlignment="Center">
+                    <DockPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Mono}" FontSize="11"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" />
+                            <TextBlock Text="{Binding UpdatedText}" Style="{StaticResource Mono}" FontSize="11"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       Foreground="{DynamicResource TextMuted}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                   MaxWidth="420" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"
+                                   ToolTip="{Binding Status}"
+                                   Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    </DockPanel>
                     <!-- 改変の画面の右側では、ここで消す（ユーザ判断 2026-09-13：作るのはアバターの行、消すのは右のビュー） -->
-                    <Button Content="この改変を削除" Style="{StaticResource DangerButton}" Margin="14,0,0,0"
+                    <Button Content="この改変を削除" Style="{StaticResource DangerButton}"
                             Command="{Binding DeleteCommand}"
                             ToolTip="記録を削除します。元に戻せません。使った商品とUnityプロジェクトは残ります。"
                             Visibility="{Binding IsEmbedded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                </StackPanel>
+                </controls:SplitRowPanel>
             </Grid>
         </Border>
 
