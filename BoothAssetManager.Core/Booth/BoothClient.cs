@@ -111,6 +111,10 @@ public interface IBoothClient
 /// BOOTHへの取得。サーバに負荷をかけないよう、リクエストは必ず直列で、1件ごとに間隔を空ける。
 /// 並列化はしない（pixiv共通規約の「短時間の機械的な大量操作」を避けるため）。
 ///
+/// **直列と間隔は、同じ PC で動く全部のプロセスを合わせて守る**（<see cref="BoothMachineGate"/>。2026-09-30）。
+/// このクラスの中の門（<see cref="PriorityGate"/>）は1つのプロセスの中の順番（優先順位）を決め、
+/// PC の門は、保存先の違うアプリ・評価台・道具が同時に出ないようにする。
+///
 /// 失敗の扱いは2種類に分ける。404だけが非公開判定のカウント対象で、
 /// タイムアウトや5xxは一時エラーとして再試行し、カウントには数えない。
 /// BOOTH側の一時的な障害で商品が「非公開」と誤判定されるのを防ぐため。
@@ -133,13 +137,32 @@ public sealed class BoothClient : IBoothClient
     private readonly Func<AppSettings> _currentSettings;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly PriorityGate _gate = new();
-    private DateTimeOffset _lastRequestAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// PC で1つの門（<see cref="BoothMachineGate"/>）。null なら、このクライアントの中の門だけで進む。
+    /// </summary>
+    private readonly BoothMachineGate? _machineGate;
+
+    /// <summary>
+    /// 間を測る時計。**壁の時計ではなく、起動してからの刻みで測る**（<see cref="TimeProvider.GetTimestamp"/>）。
+    /// 壁の時計で測ると、時計が戻ったときに戻った分だけ待ち、進んだときに間を空けずに出る。
+    /// 刻みは PC で1つなので、別のプロセスが書いた値とも比べられる。
+    /// </summary>
+    private readonly TimeProvider _clock;
+
+    /// <summary>PC の門に書く、このクライアントの印。最後に問い合わせたのが自分かを見分ける。</summary>
+    private readonly string _id = Guid.NewGuid().ToString("N")[..12];
+
+    /// <summary>最後に問い合わせた刻み。まだ問い合わせていなければ null。ゲートの中でしか読み書きしない。</summary>
+    private long? _lastRequestAt;
     private int _currentIntervalMs;
 
     /// <summary><see cref="_currentIntervalMs"/> を決めたときの、設定の間隔。</summary>
     private int _intervalBaseMs;
 
-    /// <param name="delay">待機処理。テストでは実際に待たせないよう差し替える。</param>
+    /// <param name="delay">
+    /// 待機処理。**相手が作り物の試験だけが差し替える**（実際に待たせないため）。差し替えた組み立ては PC の門に入らない（下の組み立てに理由）。
+    /// </param>
     public BoothClient(
         HttpClient httpClient,
         AppSettings? settings = null,
@@ -148,18 +171,46 @@ public sealed class BoothClient : IBoothClient
     {
     }
 
+    /// <summary>
+    /// **待ちを差し替えなければ、この Windows のユーザで1つの門に入る**（<see cref="BoothMachineGate.ForThisUser"/>）。
+    /// 門を選ぶ引数は外に出していないので、アプリ・コマンドライン・評価台・道具のどれも、作れば入る
+    /// （付け忘れが決め事を破る側に倒れない。門を避ける作り方を残さない）。
+    ///
+    /// **待ちを差し替えた組み立て（<paramref name="delay"/> を渡した物）だけは入らない。**実際には待たない物が入ると、
+    /// 待たずに本物の門の中身を書き換え、隣で動いている本物のアプリを待たせる。試験の結果も、その PC で
+    /// アプリが動いているかで変わってしまう。待ちを差し替えるのは相手が作り物の試験だけで、
+    /// **本物の BOOTH を相手に待ちを差し替えるのは、門より前に決め事1そのものを破る**（間隔が無くなる）。
+    /// </summary>
     /// <param name="currentSettings">
     /// 使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。取得の間隔も保存した直後から効く。
     /// </param>
-    /// <param name="delay">待機処理。テストでは実際に待たせないよう差し替える。</param>
+    /// <param name="delay">待機処理。相手が作り物の試験だけが差し替える。</param>
     public BoothClient(
         HttpClient httpClient,
         Func<AppSettings> currentSettings,
         Func<TimeSpan, CancellationToken, Task>? delay = null)
+        : this(httpClient, currentSettings, delay, delay is null ? BoothMachineGate.ForThisUser : null, TimeProvider.System)
+    {
+    }
+
+    /// <summary>
+    /// 門と時計を渡して組む。**外には出さない**（本体の試験と、2つのプロセスから叩く確かめ <c>experiments/BoothGateProbe</c> だけ）。
+    /// どちらも相手は作り物で、門は自分の置き場の物を渡す。外に出すと、本物の BOOTH を相手に別の門を渡す作り方ができてしまう。
+    /// </summary>
+    /// <param name="machineGate">PC で1つの門。null なら、このクライアントの中の門だけで進む。</param>
+    /// <param name="clock">間を測る時計。試験では進め方を決められる物を渡す。</param>
+    internal BoothClient(
+        HttpClient httpClient,
+        Func<AppSettings> currentSettings,
+        Func<TimeSpan, CancellationToken, Task>? delay,
+        BoothMachineGate? machineGate,
+        TimeProvider clock)
     {
         _httpClient = httpClient;
         _currentSettings = currentSettings;
         _delay = delay ?? ((duration, token) => Task.Delay(duration, token));
+        _machineGate = machineGate;
+        _clock = clock;
         _currentIntervalMs = _intervalBaseMs = ConfiguredIntervalMs;
 
         if (!_httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(UserAgent))
@@ -204,6 +255,9 @@ public sealed class BoothClient : IBoothClient
     /// 他を押しのける側に倒れていた**。一番下にしておけば、付け忘れは人を待たせない側に倒れる。
     /// </summary>
     private static BoothPriority CurrentPriority => Ambient.Value ?? BoothPriority.Background;
+
+    /// <summary>入っている PC の門。試験で「待ちを差し替えた物は本物の門に入らない」を確かめる。</summary>
+    internal BoothMachineGate? MachineGate => _machineGate;
 
     /// <summary>順番待ちの本数。溜まり具合を見るためのもので、判断には使わない。</summary>
     public int WaitingRequestCount => _gate.WaitingCount;
@@ -416,6 +470,9 @@ public sealed class BoothClient : IBoothClient
 
         await _gate.EnterAsync(CurrentPriority, cancellationToken);
 
+        // PC の門を握った物。握るのは間隔を待ち終えてからで、問い合わせが終わるまで持つ（この間、ほかのアプリは出られない）
+        BoothMachineGate.Turn? turn = null;
+
         // 送り出したか。**送った後は、どう抜けても最後の問い合わせの時刻を更新する**（finally）。
         // 前は成功・HTTPの失敗・タイムアウトの道でしか更新しておらず、送った後の中断
         // （OperationCanceledException）や想定外の例外で抜けると古い時刻のまま残り、
@@ -423,7 +480,7 @@ public sealed class BoothClient : IBoothClient
         var sent = false;
         try
         {
-            await WaitForIntervalAsync(target, attempt, cancellationToken);
+            turn = await WaitForTurnAsync(target, attempt, cancellationToken);
 
             Report(new BoothActivity
             {
@@ -435,6 +492,22 @@ public sealed class BoothClient : IBoothClient
             // 送る直前に立てる。GetAsync の中で投げても、相手に届いているかは分からないので
             // 「届いた」側に倒す（間を空けすぎても困る人はいない）
             sent = true;
+
+            // **送る前に「送っている最中」と書く。**送ったまま落ちると、終わった刻みを書く人が居ない。
+            // 印が残っていれば、次に握ったアプリが「今終わった」とみなして間を空ける
+            if (turn is not null)
+            {
+                // 前に Windows を起動していたときの残りは、ここで捨てる（刻みを書き直すと、後からは見分けられない）
+                var sentAt = _clock.GetTimestamp();
+                turn.Write(new BoothGateState
+                {
+                    EndedAt = sentAt,
+                    InFlight = true,
+                    IntervalMs = SyncedIntervalMs(),
+                    QuietUntil = LaterQuiet(turn.State, sentAt),
+                    Sender = _id,
+                });
+            }
 
             // ヘッダだけ先に受け取る。本文を途中で打ち切る呼び出し（ショップのバナー探し）が
             // 実際に通信を止められるようにするため。全部読む呼び出しの動きは変わらない。
@@ -508,9 +581,22 @@ public sealed class BoothClient : IBoothClient
         {
             if (sent)
             {
-                _lastRequestAt = DateTimeOffset.UtcNow;
+                var endedAt = _clock.GetTimestamp();
+                _lastRequestAt = endedAt;
+
+                // ほかのアプリにも、終わった刻み・今の間隔（429 で広げていれば広げた値）・待てと言われた刻みを伝える。
+                // 待っていた人の印は消す——残すと、もう居ない相手に譲り続ける
+                turn?.Write(new BoothGateState
+                {
+                    EndedAt = endedAt,
+                    IntervalMs = SyncedIntervalMs(),
+                    QuietUntil = LaterQuiet(turn.State, endedAt),
+                    Sender = _id,
+                });
             }
 
+            // 握ったまま間隔を待たない。次の1本が間隔を待つ間に、ほかのアプリが握って中身を読める
+            turn?.Dispose();
             _gate.Release();
 
             // 直列なので、ゲートを出た時点で「何もしていない」に戻せる。
@@ -554,52 +640,200 @@ public sealed class BoothClient : IBoothClient
     /// 他の問い合わせは上限の分だけは待つ——すぐ叩き直すと、同じ指示をもう一度受けるだけなので。
     /// ゲートの中でしか読み書きしない。
     /// </summary>
-    private DateTimeOffset _quietUntil = DateTimeOffset.MinValue;
+    private long? _quietUntil;
 
     private void HoldQuiet(TimeSpan instructed)
     {
         var wait = instructed > MaxRetryAfterWait ? MaxRetryAfterWait : instructed;
-        var until = DateTimeOffset.UtcNow + wait;
-        if (until > _quietUntil)
+        var until = After(_clock.GetTimestamp(), wait);
+        if (_quietUntil is not { } current || until > current)
         {
             _quietUntil = until;
         }
     }
 
+    /// <summary>刻みに時間を足す。</summary>
+    private long After(long stamp, TimeSpan span) => stamp + (long)(span.TotalSeconds * _clock.TimestampFrequency);
+
+    private long After(long stamp, int milliseconds) => After(stamp, TimeSpan.FromMilliseconds(milliseconds));
+
     /// <summary>
-    /// 前回のリクエストから現在の間隔が空き、相手に指示された待ちも明けるまで待つ。
-    /// **ゲートを持ったまま待つ**ので、その間は他の問い合わせも出ない。中断はそのまま効く。
+    /// PC の門の中身を信じてよいか。**終わった刻みが今より先なら、前に Windows を起動していたときの残り**
+    /// （刻みは起動からの経過で、起動している間は戻らない）。起動し直すのに間隔より長くかかっているので、無いものとして扱う。
+    /// 信じると、前の起動の長さの分だけ待つことになる。
     /// </summary>
-    private async Task WaitForIntervalAsync(string? target, int attempt, CancellationToken cancellationToken)
+    private static bool IsFromThisBoot(BoothGateState state, long now) => state.EndedAt is not { } endedAt || endedAt <= now;
+
+    /// <summary>PC の門に書く「この刻みまでは来るな」。自分が言われた分と、ほかのアプリが言われた分の遅い方。</summary>
+    private long? LaterQuiet(BoothGateState read, long now)
     {
-        var now = DateTimeOffset.UtcNow;
-        var intervalEnd = _lastRequestAt == DateTimeOffset.MinValue
-            ? now
-            : _lastRequestAt + TimeSpan.FromMilliseconds(SyncedIntervalMs());
-        var quiet = _quietUntil > intervalEnd;
-        var wait = (quiet ? _quietUntil : intervalEnd) - now;
-        if (wait <= TimeSpan.Zero)
+        var others = IsFromThisBoot(read, now) ? read.QuietUntil : null;
+        var later = others is { } theirs && (_quietUntil is not { } mine || theirs > mine) ? others : _quietUntil;
+        return later > now ? later : null;
+    }
+
+    /// <summary>
+    /// 最後に問い合わせたのが自分で、ほかのアプリが順番を待っているときに、間隔に足して譲る間。
+    ///
+    /// 足さないと、間隔が同じ2本は同じ刻みに起きて早い方が握り、裏の作業を続けているアプリが続けて握り得る。
+    /// 足すと、2本が動いている間は1本ずつ交互になり、もう1本の人が押した問い合わせは、こちらの1本の後に必ず出られる。
+    /// 長さは、相手の起き遅れを覆う分：待ちは 0.2 秒刻みで数えるので（<see cref="CountDownAsync"/>）、
+    /// 1.5 秒で8刻み・1刻みごとにタイマーの粗さ（約16ms）まで遅れて最大 0.13 秒。握り直しの間合い 50ms を足して 0.25 秒。
+    /// **待っている相手が居るときだけ足す**ので、1本しか開いていないときは遅くならない。
+    /// </summary>
+    private static readonly TimeSpan YieldGrace = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// 送ったまま落ちたアプリの1本が、相手の側で終わるまでに見ておく長さ。
+    ///
+    /// 落ちたアプリの問い合わせは、相手の側ではまだ続いていることがある。「今終わった」とみなして間隔だけ空けると、
+    /// 相手から見た間は応答にかかった分だけ短くなる（2つのプロセスで測ると、0.2 秒かかる応答の途中で落としたとき 1424 ms だった。
+    /// 2026-09-30・<c>experiments/BoothGateProbe</c>）。応答は手元の実測で 0.16〜0.3 秒なので、遅いときの分を見て 2 秒
+    /// （一時エラーの後に最初に待ち直す長さと同じ）。落ちるのは稀で、長めに取っても普段は効かない。
+    /// </summary>
+    private static readonly TimeSpan OrphanAllowance = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// 今からどれだけ待てば出られるか。自分の最後の問い合わせ・相手に指示された待ち・PC の門の中身の、いちばん遅い物。
+    /// </summary>
+    /// <returns>待つ長さと、それが相手に指示された待ちか。</returns>
+    private (TimeSpan Wait, bool Quiet) WaitNeeded(long now, BoothGateState? shared)
+    {
+        var interval = SyncedIntervalMs();
+        var intervalEnd = _lastRequestAt is { } last ? After(last, interval) : now;
+        var quietUntil = _quietUntil ?? now;
+
+        if (shared is not null && IsFromThisBoot(shared, now))
         {
-            return;
+            // 送ったまま落ちたアプリが居た（か、中身が読めなかった）。いつ終わるかが分からないので、今から少し後に終わるとみなす
+            if ((shared.InFlight ? After(now, OrphanAllowance) : shared.EndedAt) is { } endedAt)
+            {
+                // **間隔が違えば長い方に合わせる**（最後に問い合わせた側・待っている側・自分）。
+                // 最後に問い合わせた側が 429 で広げていれば、その分も付き合う。
+                // 待っている側の間隔も見ないと、間隔の短いアプリが出続けて、長いアプリが永久に出られない。
+                // ほかのアプリの値は自分の設定の上限で頭を打つ（中身が壊れていても、長く止まらない）
+                var waiting = shared.Waiter is not null && shared.Waiter != _id;
+                var others = Math.Max(shared.IntervalMs, waiting ? shared.WaiterIntervalMs : 0);
+                var effective = Math.Max(interval, Math.Min(others, Math.Max(interval, _settings.FetchIntervalMaxMs)));
+                var end = After(endedAt, effective);
+                if (waiting && shared.Sender == _id)
+                {
+                    end = After(end, YieldGrace);
+                }
+
+                intervalEnd = Math.Max(intervalEnd, end);
+            }
+
+            if (shared.QuietUntil is { } theirs)
+            {
+                quietUntil = Math.Max(quietUntil, Math.Min(theirs, After(now, MaxRetryAfterWait)));
+            }
         }
 
-        // 指示された待ちのうち、待てと言われた本人の再試行は「再試行まで待っている」と出す。
-        // 巻き添えで待っている他の問い合わせは、再試行ではないので「混み合っているので間隔を広げています」側に出す
-        var retrying = quiet && attempt > 0;
-        await CountDownAsync(
-            wait,
-            remaining => new BoothActivity
-            {
-                Kind = retrying ? BoothActivityKind.Retrying : BoothActivityKind.Waiting,
-                Target = target,
-                Total = wait,
-                Remaining = remaining,
-                Attempt = retrying ? attempt : 0,
-                MaxAttempts = retrying ? RetryDelays.Length : 0,
-                IsThrottled = quiet || IsThrottled,
-            },
-            cancellationToken);
+        var quiet = quietUntil > intervalEnd;
+        var until = quiet ? quietUntil : intervalEnd;
+        return (until > now ? _clock.GetElapsedTime(now, until) : TimeSpan.Zero, quiet);
     }
+
+    /// <summary>
+    /// 前回のリクエストから現在の間隔が空き、相手に指示された待ちも明けるまで待ち、PC の門を握って返す。
+    /// **このクライアントのゲートは持ったまま待つ**ので、その間はこのアプリの他の問い合わせも出ない。中断はそのまま効く。
+    ///
+    /// **PC の門は、待っている間は放す。**握るのは中身を読む一瞬と、出られると決まってから問い合わせが終わるまで。
+    /// 待ち終えたら握り直して中身を読み、待つ前と同じなら出る。変わっていたら（その間にほかのアプリが問い合わせた・
+    /// 順番待ちに並んだ）待つ長さを出し直す。
+    ///
+    /// 待ち終えた後に時計を見直さないのは前からで、待ち（<see cref="_delay"/>）を信じる。見直すと、
+    /// 待ちを差し替えた試験が本物の時計が進むまで回り続ける。
+    /// </summary>
+    /// <returns>握った PC の門。門に入っていない・門が使えないときは null。</returns>
+    private async Task<BoothMachineGate.Turn?> WaitForTurnAsync(string? target, int attempt, CancellationToken cancellationToken)
+    {
+        var waited = false;
+        BoothGateState? waitedOn = null;
+
+        while (true)
+        {
+            var turn = _machineGate is null ? null : await _machineGate.EnterAsync(cancellationToken);
+            TimeSpan wait;
+            bool quiet;
+            long startedWaitingAt;
+            var passed = false;
+            try
+            {
+                var state = turn?.State;
+                if (waited && state == waitedOn)
+                {
+                    passed = true;
+                    return turn;
+                }
+
+                startedWaitingAt = _clock.GetTimestamp();
+                (wait, quiet) = WaitNeeded(startedWaitingAt, state);
+                if (wait <= TimeSpan.Zero)
+                {
+                    passed = true;
+                    return turn;
+                }
+
+                // 最後に問い合わせたのが別のアプリなら、順番待ちに並ぶ（相手はこれを見て1回譲り、間隔もこちらに合わせる）。
+                // 自分が最後なら並ばない——譲ってもらう相手が居ない
+                var interval = SyncedIntervalMs();
+                if (turn is not null && state is not null && state.Sender != _id
+                    && (state.Waiter != _id || state.WaiterIntervalMs != interval))
+                {
+                    state = state with { Waiter = _id, WaiterIntervalMs = interval };
+                    turn.Write(state);
+                }
+
+                waitedOn = state;
+                waited = true;
+            }
+            finally
+            {
+                if (!passed)
+                {
+                    turn?.Dispose();
+                }
+            }
+
+            // 指示された待ちのうち、待てと言われた本人の再試行は「再試行まで待っている」と出す。
+            // 巻き添えで待っている他の問い合わせは、再試行ではないので「混み合っているので間隔を広げています」側に出す
+            var retrying = quiet && attempt > 0;
+            await CountDownAsync(
+                wait,
+                remaining => new BoothActivity
+                {
+                    Kind = retrying ? BoothActivityKind.Retrying : BoothActivityKind.Waiting,
+                    Target = target,
+                    Total = wait,
+                    Remaining = remaining,
+                    Attempt = retrying ? attempt : 0,
+                    MaxAttempts = retrying ? RetryDelays.Length : 0,
+                    IsThrottled = quiet || IsThrottled,
+                },
+                cancellationToken);
+
+            // **タイマーは、頼んだ長さより少し早く鳴ることがある**（OS の刻み約16msの粗さで数えるので、待ち始めが刻みの途中だと
+            // その分だけ短い）。2つのプロセスで測ると、間が 1500 ms をわずかに切る回があった（2026-09-30・BoothGateProbe）。
+            // 足りなければ、その分と刻み1つ分を待ち足す。
+            // 大きく足りないときは待ち足さない——待ちを差し替えた試験（時計が進まない）で、前からどおり待ちを信じる
+            var shortBy = wait - _clock.GetElapsedTime(startedWaitingAt, _clock.GetTimestamp());
+            if (shortBy > TimeSpan.Zero && shortBy <= TimerSlack)
+            {
+                await _delay(shortBy + TimerTick, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>OS のタイマーの刻み（約 15.6 ms）を切り上げた長さ。</summary>
+    private static readonly TimeSpan TimerTick = TimeSpan.FromMilliseconds(16);
+
+    /// <summary>
+    /// 「タイマーが早く鳴った」とみなす足りなさの上限。早く鳴るのは待ちの刻み1回につき OS の刻み1つ分までで、
+    /// 重なっても数回分。これより大きく足りないのは、待ちを差し替えた試験
+    /// </summary>
+    private static readonly TimeSpan TimerSlack = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
     /// 待ちながら残り時間を知らせる。
@@ -668,7 +902,7 @@ public sealed class BoothClient : IBoothClient
     }
 
     /// <summary>Retry-Afterを読む。秒数形式とHTTP日付形式の両方が来る。</summary>
-    private static TimeSpan? ReadRetryAfter(HttpResponseMessage response)
+    private TimeSpan? ReadRetryAfter(HttpResponseMessage response)
     {
         var header = response.Headers.RetryAfter;
         if (header is null)
@@ -683,7 +917,7 @@ public sealed class BoothClient : IBoothClient
 
         if (header.Date is { } date)
         {
-            var wait = date - DateTimeOffset.UtcNow;
+            var wait = date - _clock.GetUtcNow();
             return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
         }
 

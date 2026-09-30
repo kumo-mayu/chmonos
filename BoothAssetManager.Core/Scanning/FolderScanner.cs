@@ -92,7 +92,7 @@ public sealed class FolderScanner
         // 親フォルダへ広げると、ダウンロードフォルダの1件を落としただけで
         // フォルダ全体が取り込み対象になってしまう。
         // 一時展開（#56）の中は取り込まない。閉じると消えるので、紐付けても「見つからない」になるだけ
-        if (Services.TemporaryUnpacker.IsInsideDefaultRoot(rootFolder))
+        if (Services.TemporaryUnpacker.IsInsideTemporaryArea(rootFolder))
         {
             return new ScanResult();
         }

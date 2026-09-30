@@ -31,6 +31,7 @@
 | `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
 | `ThesaurusBridgeProbe` | 類義語辞書2つに表記の橋渡しを重ねたときの広がりと、関係の無い物の割合 | `docs/research/fuzzy-search.md` §8・§9 |
 | `VRoidProbe` | BOOTH の VRoid カテゴリをアバターとして扱うべきか | `docs/history/avatars.md` §1-3 |
+| `BoothGateProbe` | BOOTH への問い合わせの門（PC で1つ）を、2つのプロセスから叩いて間を測る（`run`）。1本のときの上乗せも測る（`bench`）。**相手は手元に立てる作り物のサーバで、BOOTH へは出さない**。門のファイルも引数の作業フォルダに置く | `docs/history/booth-machine-gate-2026-09-30.md` |
 
 友人のデータを使う道具は、結果の名前の出る物を試験データの置き場所にだけ書く（リポジトリに入れない）。
 

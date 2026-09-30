@@ -79,7 +79,9 @@ public Task 壊れたzipだけを出すと_壊れたzipを持つ商品だけが�
 - **BOOTH の待ちは差し替える。**`new BoothClient(http, settings, TestWait.None)`（画面の側は `TestApp` が渡している）。
   **`FetchIntervalMs = 0` では待ちは消えない**——間隔の床（1.5秒）は `BoothClient` 自身が踏むので、作り物の BOOTH に問い合わせるたびに実際に1.5秒待つ
   （取り込みの試験が1件 6〜18秒になり、一式の90秒はこれで決まっていた）。失敗の再試行（2秒・8秒）も同じ口で消える。
-  差し替えても、順番・回数・優先度は変わらない（門は1本のまま）。待ちの長さを確かめる試験は、待ちを記録する関数を渡す（`BoothClientTests`）
+  差し替えても、順番・回数・優先度は変わらない（門は1本のまま）。待ちの長さを確かめる試験は、待ちを記録する関数を渡す（`BoothClientTests`）。
+  **待ちを差し替えた `BoothClient` は、PC で1つの門（`BoothMachineGate`）に入らない**——試験が本物の門のファイルを書き換えず、その PC でアプリが動いていても結果が変わらない。
+  差し替えてよいのは相手が作り物のときだけ（通信の出口が本物のまま待ちを差し替える `AppServiceContainer` は投げる）。門そのものの試験は、一時フォルダの門と手で進める時計を渡す（`BoothMachineGateTests`）
 - **辞書は使い回す。**`SharedDictionaries.Bridge`・`.Japanese`・`.Readings`（一式で1回だけ組む。JMdict は組むのに3秒、並んで走ると6〜18秒）。
   `new JapaneseDictionary(同梱の辞書, 新しい控え)` を試験ごとに書かない。控えを書き換える・壊す試験だけが、自分の一時フォルダに自分の控えを作る
   （作り物の小さい辞書で足りるなら、そちらを使う。`DictionaryFailureTests`）
