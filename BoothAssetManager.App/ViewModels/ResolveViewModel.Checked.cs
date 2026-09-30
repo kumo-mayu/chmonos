@@ -184,11 +184,8 @@ public sealed partial class ResolveViewModel
         IsBusy = true;
         try
         {
-            foreach (var row in targets)
-            {
-                await _services.Commands.ExecuteAsync(
-                    new UiCommand.ExcludeFile(row.File.Hash, row.File.Paths, "未確定画面からまとめて除外"));
-            }
+            await _services.Commands.ExecuteAsync(
+                new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], "未確定画面からまとめて除外"));
 
             RemoveRows(targets);
             RememberExcluded(targets);

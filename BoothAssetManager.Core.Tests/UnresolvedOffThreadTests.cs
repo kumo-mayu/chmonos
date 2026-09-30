@@ -305,6 +305,59 @@ public sealed class UnresolvedOffThreadTests : IDisposable
     public void TheUnresolvedStoreIsMarked()
         => Assert.True(_store.Unresolved.UpdatesOffCallerThread);
 
+    /// <summary>
+    /// 除外の記録の窓口にも印が付いていて（2026-10-01）、外す・戻す・設定の解除の書き換えが呼んだスレッドの外で走る。
+    /// 外すと、除外が溜まった後に1個外すたびに画面が止まる形に戻る（2万件で 54〜74ms・5万件で 144〜184ms）。
+    /// </summary>
+    [Fact]
+    public async Task TheExcludedStoreRewritesOffTheCallingThread()
+    {
+        Assert.True(_store.Excluded.UpdatesOffCallerThread);
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = "AAAA", ExcludedAt = At }]);
+        var updatedOn = 0;
+        var triedOn = 0;
+
+        var (caller, _) = OnOwnThread(() =>
+        {
+            _store.Excluded.UpdateAsync(current =>
+            {
+                updatedOn = Environment.CurrentManagedThreadId;
+                return current;
+            }).GetAwaiter().GetResult();
+            return _store.Excluded.TryUpdateAsync(_ =>
+            {
+                triedOn = Environment.CurrentManagedThreadId;
+                return null;
+            }).GetAwaiter().GetResult();
+        });
+
+        Assert.NotEqual(0, updatedOn);
+        Assert.NotEqual(caller, updatedOn);
+        Assert.NotEqual(0, triedOn);
+        Assert.NotEqual(caller, triedOn);
+    }
+
+    /// <summary>外す・戻す・設定の解除を、印を付けた窓口越しに呼んでも結果は同じ（呼んだスレッドの外で走っても、錠の中で今の値に当てる）。</summary>
+    [Fact]
+    public async Task ExcludeUndoAndRestoreStillWorkFromAnotherThread()
+    {
+        var first = Unresolved("first.bin");
+        var second = Unresolved("second.bin");
+        await _store.Unresolved.SaveAsync([first, second]);
+        var settings = new SettingsService(_store);
+
+        OnOwnThread(() =>
+        {
+            _service.ExcludeAsync([first, second], "試験").GetAwaiter().GetResult();
+            _service.UndoExcludeAsync([first]).GetAwaiter().GetResult();
+            settings.RestoreExcludedAsync(second.Hash).GetAwaiter().GetResult();
+            return 0;
+        });
+
+        Assert.Empty(_store.Excluded.Load());
+        Assert.Equal(Hashes([first]), Hashes(_store.Unresolved.Load()));
+    }
+
     // ---- 結果が変わらないこと・重なっても欠けない・戻らないこと ----
 
     private UnresolvedFile Unresolved(string name) => new()
@@ -404,12 +457,12 @@ public sealed class UnresolvedOffThreadTests : IDisposable
         await _store.Unresolved.SaveAsync([kept, gone]);
         var before = _store.Unresolved.WriteCount;
 
-        await _service.ExcludeAsync(Unresolved("elsewhere.bin").Hash, [Path.Combine(_root, "files", "elsewhere.bin")], reason: null);
+        await _service.ExcludeAsync([Unresolved("elsewhere.bin")], reason: null);
 
         Assert.Equal(before, _store.Unresolved.WriteCount);
         Assert.Equal(Hashes([kept, gone]), Hashes(_store.Unresolved.Load()));
 
-        await _service.ExcludeAsync(gone.Hash, gone.Paths, reason: null);
+        await _service.ExcludeAsync([gone], reason: null);
 
         Assert.NotEqual(before, _store.Unresolved.WriteCount);
         Assert.Equal(kept.Hash, Assert.Single(_store.Unresolved.Load()).Hash);

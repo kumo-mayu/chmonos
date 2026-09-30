@@ -269,7 +269,10 @@ public sealed class DataStore
         // 未確定の記録は件数に比例して大きくなる（8万件で 37.7MB）。読み直して書き換える所を、呼んだスレッド（画面）の外で走らせる。
         // 読んだ物の写しは持たない：8万件で約 50〜60MB を持ち続けることになる（2026-09-30 に試作で測った）
         Unresolved = new JsonFileStore<List<UnresolvedFile>>(paths.UnresolvedFile) { UpdatesOffCallerThread = true };
-        Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile);
+        // 除外の記録も溜まる一方（上限が無い）。印が無いと、錠が空いているときは読み直しから書き切りまでが画面のスレッドで走り、
+        // 1個外すたびに 2万件で 54〜74ms・5万件で 144〜184ms 止まっていた（2026-09-30 に測った）。
+        // 変え方の関数は3か所（外す・戻す・設定の解除）とも一覧を足し引きするだけで、画面の物に触らない
+        Excluded = new JsonFileStore<List<ExcludedEntry>>(paths.ExcludedFile) { UpdatesOffCallerThread = true };
         // 知らせは要確認を開くたび・既読にするたびのナビの数え直しで読まれる（上限2000件で約1MB）。
         // 入れ物は呼び手が足し引きするので複製して渡す。写しが持つ量は1000件で約570KB（stress-manage で測った）、
         // 知らせは2000件で古い既読から捨てるので、多くても約1.1MB

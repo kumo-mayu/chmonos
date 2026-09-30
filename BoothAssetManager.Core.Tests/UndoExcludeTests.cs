@@ -55,7 +55,7 @@ public sealed class UndoExcludeTests : IDisposable
         };
         await _store.Unresolved.UpdateAsync(current => { current.Add(file); return current; });
 
-        await _service.ExcludeAsync(file.Hash, file.Paths, "試験");
+        await _service.ExcludeAsync([file], "試験");
         Assert.Empty(_store.Unresolved.Load());
 
         await _service.UndoExcludeAsync([file]);

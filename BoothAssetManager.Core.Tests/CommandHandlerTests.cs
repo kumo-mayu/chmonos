@@ -83,7 +83,7 @@ public class CommandHandlerTests
 
         public string? AssignedHash { get; private set; }
 
-        public string? ExcludedHash { get; private set; }
+        public IReadOnlyList<string> ExcludedHashes { get; private set; } = [];
 
         public Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default)
         {
@@ -153,13 +153,15 @@ public class CommandHandlerTests
         public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public int ExcludeCalls { get; private set; }
+
         public Task ExcludeAsync(
-            string hash,
-            IReadOnlyList<string> paths,
+            IReadOnlyList<UnresolvedFile> files,
             string? reason,
             CancellationToken cancellationToken = default)
         {
-            ExcludedHash = hash;
+            ExcludeCalls++;
+            ExcludedHashes = [.. files.Select(file => file.Hash)];
             return Task.CompletedTask;
         }
     }
@@ -405,14 +407,24 @@ public class CommandHandlerTests
     }
 
     [Fact]
-    public async Task RoutesExcludeFile()
+    public async Task RoutesExcludeFilesInOneCall()
     {
         var (handler, _, items) = Create();
 
         var result = await handler.ExecuteAsync(
-            new UiCommand.ExcludeFile("AAAA", [@"D:\storage\a.zip"], "BOOTH商品ではない"));
+            new UiCommand.ExcludeFiles([File("AAAA", @"D:\storage\a.zip"), File("BBBB", @"D:\storage\b.zip")], "BOOTH商品ではない"));
 
-        Assert.Equal("AAAA", items.ExcludedHash);
+        Assert.Equal(["AAAA", "BBBB"], items.ExcludedHashes);
+        Assert.Equal(1, items.ExcludeCalls);
         Assert.IsType<CommandResult.Done>(result);
     }
+
+    private static UnresolvedFile File(string hash, string path) => new()
+    {
+        Hash = hash,
+        Paths = [path],
+        SizeBytes = 1,
+        ModifiedAtUtc = DateTimeOffset.UnixEpoch,
+        FirstSeenAt = DateTimeOffset.UnixEpoch,
+    };
 }

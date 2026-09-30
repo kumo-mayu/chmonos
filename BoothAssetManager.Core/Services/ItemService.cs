@@ -153,7 +153,7 @@ public interface IItemService
 
     Task<ReattachOutcome> ReattachFileAsync(string itemId, string hash, CancellationToken cancellationToken = default);
 
-    Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default);
+    Task ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default);
 
     Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default);
 }
@@ -1934,32 +1934,56 @@ public sealed class ItemService : IItemService
         return ReattachOutcome.Reattached;
     }
 
-    /// <summary>ファイルを管理対象から外す。未確定一覧からも取り除く。</summary>
+    /// <summary>
+    /// ファイルを管理対象から外す。未確定一覧からも取り除く。1個でも数千個でも1回で書く。
+    ///
+    /// 前は1個ごとに2つの記録を丸ごと読み書きしていて、フォルダごと外すと 500 個で約 16 秒・5,000 個で約 2分34秒かかった
+    /// （件数の2乗で伸び、1個ごとにディスクへ書き切る分も重なる。`docs/research/large-files-2026-09-30.md`「除外の記録を測った」）。
+    /// どちらの記録も錠の中で今の値に当てるので、読んでから書くまでの間に取り込みが書いた分は消えない。
+    ///
+    /// **除外の記録に足してから、未確定から外す。**逆にすると、未確定から消えた後で除外に書けなかったとき、
+    /// ファイルがどちらの記録にも無くなる（次の取り込みまで見えない）。この順なら、途中で落ちても未確定に残るだけで、もう一度押せば済む。
+    /// </summary>
     public async Task ExcludeAsync(
-        string hash,
-        IReadOnlyList<string> paths,
+        IReadOnlyList<UnresolvedFile> files,
         string? reason,
         CancellationToken cancellationToken = default)
     {
-        await _store.Excluded.UpdateAsync(
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        await _store.Excluded.TryUpdateAsync(
             excluded =>
             {
-                if (!excluded.Any(entry => string.Equals(entry.Hash, hash, StringComparison.OrdinalIgnoreCase)))
+                // 既に在る中身は足さない（外したときの日時と理由は、先に外したときの物を残す）。同じ一覧の中の重なりも1件にする
+                var known = excluded.Select(entry => entry.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var now = DateTimeOffset.Now;
+                var added = false;
+                foreach (var file in files)
                 {
-                    excluded.Add(new ExcludedEntry
+                    if (known.Add(file.Hash))
                     {
-                        Hash = hash,
-                        Paths = paths,
-                        ExcludedAt = DateTimeOffset.Now,
-                        Reason = reason,
-                    });
+                        excluded.Add(new ExcludedEntry
+                        {
+                            Hash = file.Hash,
+                            Paths = file.Paths,
+                            ExcludedAt = now,
+                            Reason = reason,
+                        });
+                        added = true;
+                    }
                 }
 
-                return excluded;
+                return added ? excluded : null;
             },
             cancellationToken);
 
-        await RemoveUnresolvedAsync(hash, cancellationToken);
+        var hashes = files.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        await _store.Unresolved.TryUpdateAsync(
+            current => current.RemoveAll(file => hashes.Contains(file.Hash)) > 0 ? current : null,
+            cancellationToken);
     }
 
     /// <summary>
