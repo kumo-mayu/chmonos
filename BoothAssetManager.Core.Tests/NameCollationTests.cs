@@ -12,7 +12,7 @@ namespace BoothAssetManager.Core.Tests;
 /// </summary>
 public sealed class NameCollationTests
 {
-    private static readonly KanjiReadings Readings = new(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
+    private static KanjiReadings Readings => SharedDictionaries.Readings;
 
     private readonly ITestOutputHelper _output;
 

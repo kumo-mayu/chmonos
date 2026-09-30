@@ -10,34 +10,15 @@ namespace BoothAssetManager.Core.Tests;
 /// ラテン文字のファイル名は日本語商品のローマ字表記であることが多い。
 /// 通信は増えない——商品名はもう取ってあるものを使う。
 /// </summary>
-public class ReadingMatchTests : IDisposable
+public class ReadingMatchTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly string _cacheDir;
-    private readonly SearchBridge _bridge;
-    private readonly KanjiReadings _readings;
 
-    public ReadingMatchTests(ITestOutputHelper output)
-    {
-        _output = output;
-        _cacheDir = Path.Combine(Path.GetTempPath(), "bam-rm-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_cacheDir);
-        _bridge = new SearchBridge(new JapaneseDictionary(
-            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
-            Path.Combine(_cacheDir, "c.cache")));
-        _readings = new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
-    }
+    // 辞書は一式で1回だけ組んだ物を使う（組むのに数秒かかる。SharedDictionaries）
+    private readonly SearchBridge _bridge = SharedDictionaries.Bridge;
+    private readonly KanjiReadings _readings = SharedDictionaries.Readings;
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_cacheDir, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public ReadingMatchTests(ITestOutputHelper output) => _output = output;
 
     private bool Available => _bridge.IsAvailable && _readings.IsAvailable;
 

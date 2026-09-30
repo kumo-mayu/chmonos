@@ -6,37 +6,14 @@ using Xunit;
 namespace BoothAssetManager.Core.Tests;
 
 /// <summary>
-/// 辞書の索引の置き場。**GUID の一時フォルダに置き、組の試験が終わったら片付ける。**
-/// 前は決まった一時パスに置いて消さなかったので、前の実行の索引を読み、片付けも誰もしなかった。
-/// 組むのに時間がかかるので、この組の試験の間は1つを使い回す。
+/// 辞書の入口。組むのに時間がかかるので、一式で1回だけ組んだ物（<see cref="SharedDictionaries"/>）を渡す。
+/// 前はこの組ごとに組んでいた（この組を使う2つのクラスで2回）。索引の置き場と片付けも <see cref="SharedDictionaries"/> が持つ。
 /// </summary>
-public sealed class RegistryCandidateBridgeFixture : IDisposable
+public sealed class RegistryCandidateBridgeFixture
 {
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"bam-registry-bridge-{Guid.NewGuid():N}");
+    public KanjiReadings Readings => SharedDictionaries.Readings;
 
-    public RegistryCandidateBridgeFixture()
-    {
-        Directory.CreateDirectory(_directory);
-        Readings = new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
-        Bridge = new SearchBridge(new JapaneseDictionary(
-            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
-            Path.Combine(_directory, "bridge.cache")));
-    }
-
-    public KanjiReadings Readings { get; }
-
-    public SearchBridge Bridge { get; }
-
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_directory, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public SearchBridge Bridge => SharedDictionaries.Bridge;
 }
 
 /// <summary>

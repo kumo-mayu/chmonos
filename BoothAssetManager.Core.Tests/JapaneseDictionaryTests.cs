@@ -8,38 +8,16 @@ namespace BoothAssetManager.Core.Tests;
 /// <summary>
 /// 同梱のJMdictから引けるか。辞書ファイルが無い環境では飛ばす。
 /// </summary>
-public class JapaneseDictionaryTests : IDisposable
+public class JapaneseDictionaryTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly string _cacheDir;
-    private readonly JapaneseDictionary _dictionary;
 
-    public JapaneseDictionaryTests(ITestOutputHelper output)
-    {
-        _output = output;
-        _cacheDir = Path.Combine(Path.GetTempPath(), "bam-dict-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_cacheDir);
-        _dictionary = new JapaneseDictionary(
-            DictionaryPath(),
-            Path.Combine(_cacheDir, "search-bridge.cache"));
-    }
+    // 一式で1回だけ XML から組んだ物を使う（組むのに数秒かかる。SharedDictionaries）
+    private readonly JapaneseDictionary _dictionary = SharedDictionaries.Japanese;
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_cacheDir, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public JapaneseDictionaryTests(ITestOutputHelper output) => _output = output;
 
-    /// <summary>テストはビルド出力から走るので、そこに配られた辞書を見る。</summary>
-    private static string DictionaryPath()
-        => Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz");
-
-    private bool Available => File.Exists(DictionaryPath());
+    private static bool Available => SharedDictionaries.JapaneseAvailable;
 
     [Fact]
     public void FindsJapaneseWordsFromEnglish()
@@ -130,21 +108,21 @@ public class JapaneseDictionaryTests : IDisposable
             return;
         }
 
-        var first = Stopwatch.StartNew();
+        // 組むのは一式で1回（SharedDictionaries）。そのときにかかった時間と、そのときに書かれた控えを見る
+        var first = SharedDictionaries.BuildTime;
         Assert.NotEmpty(_dictionary.ByEnglish("bird"));
-        first.Stop();
 
-        var cache = Path.Combine(_cacheDir, "search-bridge.cache");
+        var cache = SharedDictionaries.CachePath;
         Assert.True(File.Exists(cache));
 
-        var second = new JapaneseDictionary(DictionaryPath(), cache);
+        var second = new JapaneseDictionary(SharedDictionaries.JapanesePath, cache);
         var reload = Stopwatch.StartNew();
         Assert.Contains("鳥", second.ByEnglish("bird"));
         reload.Stop();
 
-        _output.WriteLine($"組み上げ {first.ElapsedMilliseconds}ms / キャッシュ読み {reload.ElapsedMilliseconds}ms "
+        _output.WriteLine($"組み上げ {(long)first.TotalMilliseconds}ms / キャッシュ読み {reload.ElapsedMilliseconds}ms "
             + $"/ キャッシュ {new FileInfo(cache).Length / 1024 / 1024}MB");
 
-        Assert.True(reload.ElapsedMilliseconds < first.ElapsedMilliseconds);
+        Assert.True(reload.Elapsed < first);
     }
 }

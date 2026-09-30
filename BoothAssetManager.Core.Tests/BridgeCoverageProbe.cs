@@ -17,15 +17,12 @@ public class BridgeCoverageProbe
     [Fact]
     public void ReportsWhichProductWordsAreReachable()
     {
-        var dictionaryPath = Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz");
-        if (!File.Exists(dictionaryPath))
+        if (!SharedDictionaries.JapaneseAvailable)
         {
             return;
         }
 
-        var cacheDir = Path.Combine(Path.GetTempPath(), "bam-probe-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(cacheDir);
-        var dictionary = new JapaneseDictionary(dictionaryPath, Path.Combine(cacheDir, "c.cache"));
+        var dictionary = SharedDictionaries.Japanese;
 
         // 手元の商品名に実際に出てくる語と、その読み
         var words = new (string Word, string Reading)[]
@@ -52,13 +49,5 @@ public class BridgeCoverageProbe
 
         _output.WriteLine(string.Join("\n", lines));
         _output.WriteLine($"読みから引けた語: {reachable}/{words.Length}");
-
-        try
-        {
-            Directory.Delete(cacheDir, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
     }
 }

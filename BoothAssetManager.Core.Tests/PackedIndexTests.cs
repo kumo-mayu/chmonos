@@ -125,20 +125,20 @@ public sealed class PackedIndexTests : IDisposable
     [Fact]
     public void RealCacheGivesSameResultsAsTheOldReader()
     {
-        var dictionaryPath = Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz");
-        if (!File.Exists(dictionaryPath))
+        if (!SharedDictionaries.JapaneseAvailable)
         {
             return;
         }
 
-        var cache = Path.Combine(_dir, "search-bridge.cache");
-        var built = new JapaneseDictionary(dictionaryPath, cache);
+        // 組むのは一式で1回（SharedDictionaries）。XML から組んだままの索引と、そのときに書かれた控えを使う
+        var built = SharedDictionaries.Japanese;
+        var cache = SharedDictionaries.CachePath;
         Assert.NotEmpty(built.ByEnglish("bird"));
         Assert.True(File.Exists(cache));
 
         // 組んだ直後の索引と、控えから読み直した索引の両方を、前の読み方と比べる
         AssertSameAsOldReader(built, cache);
-        AssertSameAsOldReader(new JapaneseDictionary(dictionaryPath, cache), cache);
+        AssertSameAsOldReader(new JapaneseDictionary(SharedDictionaries.JapanesePath, cache), cache);
     }
 
     private static void Add(PackedIndex.Builder builder, string key, params string[] forms)
