@@ -182,7 +182,7 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
     /// </summary>
     public string ToggleName => ToggleNameOf(Name, IsExpanded);
 
-    internal static string ToggleNameOf(string name, bool isExpanded) => isExpanded ? $"{name}を折りたたむ" : $"{name}を開く";
+    internal static string ToggleNameOf(string name, bool isExpanded) => Controls.ExpandToggle.NameFor(name, isExpanded);
 
     public Thickness Indent => new(Depth * 16, 0, 0, 0);
 

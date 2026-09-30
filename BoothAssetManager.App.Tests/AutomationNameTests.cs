@@ -93,18 +93,23 @@ public class AutomationNameTests
     // ---- 開閉の三角（ExpandToggle）----
 
     [Fact]
-    public Task 開閉の三角は_名前を変えずに_開いているかを状態で渡す() => UiThread.Run(() =>
+    public Task 開閉の三角は_押すと起きることを名前にし_開いているかを状態でも渡す() => UiThread.Run(() =>
     {
-        var toggle = new ExpandToggle { IsChecked = false };
-        AutomationProperties.SetName(toggle, "ローカルファイル");
+        var toggle = new ExpandToggle { IsChecked = false, Subject = "ローカルファイル" };
         var peer = UIElementAutomationPeer.CreatePeerForElement(toggle);
         var state = Assert.IsAssignableFrom<IExpandCollapseProvider>(peer.GetPattern(PatternInterface.ExpandCollapse));
 
         Assert.Equal(ExpandCollapseState.Collapsed, state.ExpandCollapseState);
+        Assert.Equal("ローカルファイルを開く", peer.GetName());
 
+        // 開いていても「開く」と読まれていた。状態で名前が替わる（商品ページのバリエーションの三角と同じ言い方）
         toggle.IsChecked = true;
         Assert.Equal(ExpandCollapseState.Expanded, state.ExpandCollapseState);
-        Assert.Equal("ローカルファイル", peer.GetName());
+        Assert.Equal("ローカルファイルを折りたたむ", peer.GetName());
+
+        // 行が使い回されて、開閉する物が替わったとき
+        toggle.Subject = "作り物の小分類の商品";
+        Assert.Equal("作り物の小分類の商品を折りたたむ", peer.GetName());
 
         // 「切り替える」も今までどおり持つ（確かめの道具が使っている）
         Assert.NotNull(peer.GetPattern(PatternInterface.Toggle));
@@ -176,6 +181,13 @@ public class AutomationNameTests
     });
 
     // ---- フォルダの木の開け閉めの印 ----
+
+    [Fact]
+    public void 開閉の名前は_商品ページのバリエーションの三角と同じ言い方()
+    {
+        Assert.Equal(ItemViewModel.ToggleName("バリエーション", expanded: true), ExpandToggle.NameFor("バリエーション", isExpanded: true));
+        Assert.Equal(ItemViewModel.ToggleName("バリエーション", expanded: false), ExpandToggle.NameFor("バリエーション", isExpanded: false));
+    }
 
     [Theory]
     [InlineData("作り物のフォルダ", false, "作り物のフォルダを開く")]

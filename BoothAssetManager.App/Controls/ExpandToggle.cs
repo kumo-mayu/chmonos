@@ -11,24 +11,51 @@ namespace BoothAssetManager.App.Controls;
 ///
 /// 素の ToggleButton は「オン／オフ」しか言わない。名前を「ローカルファイルを開く」と付けていたので、開いていても同じ名前で読まれ、
 /// 確かめの道具は開いているのかを知らずに押して、開いている欄を畳んでいた（2026-09-30）。
-/// 畳める欄の部品（Expander・<c>TriangleExpander</c>）は、名前に欄の名前を持ち、状態を UI Automation の開閉（ExpandCollapse）で渡している。
-/// 同じ形に揃える：名前は欄・行の名前（「ローカルファイル」「（小分類名）の商品」）を付け、「開く」「畳む」は状態が言う。
-/// 「切り替える」（Toggle）も今までどおり持つ。
+///
+/// 置き場所は、何の開閉かだけを <see cref="Subject"/> に渡す（「ローカルファイル」「（小分類名）の商品」）。
+/// - 名前は、押すと起きることを状態から作る：「（欄）を開く」⇄「（欄）を折りたたむ」（ナビ・検索の絞り込み・商品ページのバリエーションと同じ言い方）
+/// - 開いているかは、UI Automation の開閉（ExpandCollapse）でも渡す。「開く」「畳む」を名指しで呼べるので、開いている物を押して畳む事故が起きない
+/// - 「切り替える」（Toggle）も今までどおり持つ
 /// </summary>
 public sealed class ExpandToggle : ToggleButton
 {
+    public static readonly DependencyProperty SubjectProperty = DependencyProperty.Register(
+        nameof(Subject), typeof(string), typeof(ExpandToggle),
+        new FrameworkPropertyMetadata(string.Empty, (element, _) => ((ExpandToggle)element).UpdateName()));
+
+    /// <summary>何を開閉するか（欄・行の名前）。読み上げの名前は、これと今の状態から作る。</summary>
+    public string Subject
+    {
+        get => (string)GetValue(SubjectProperty);
+        set => SetValue(SubjectProperty, value);
+    }
+
+    /// <summary>開閉の部品の名前。開閉をボタンで作った所（フォルダの木の印）も同じ言い方にするので、ここで1つにする。</summary>
+    public static string NameFor(string subject, bool isExpanded) => isExpanded ? $"{subject}を折りたたむ" : $"{subject}を開く";
+
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
 
     protected override void OnChecked(RoutedEventArgs e)
     {
         base.OnChecked(e);
+        UpdateName();
         RaiseStateChanged(wasExpanded: false);
     }
 
     protected override void OnUnchecked(RoutedEventArgs e)
     {
         base.OnUnchecked(e);
+        UpdateName();
         RaiseStateChanged(wasExpanded: true);
+    }
+
+    private void UpdateName()
+    {
+        // 置き場所が名前を直に付けている（Subject を渡していない）ときは触らない
+        if (Subject.Length > 0)
+        {
+            SetCurrentValue(AutomationProperties.NameProperty, NameFor(Subject, IsChecked == true));
+        }
     }
 
     private void RaiseStateChanged(bool wasExpanded)

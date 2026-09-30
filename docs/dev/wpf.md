@@ -115,7 +115,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   名前は `Services/AutomationNames` が型に1回で掛けて守る（`AutomationProperties.NameProperty` の決まりをボタンの仲間とメニューの項目で上書きし、先に「_」を重ねる）
 - **見出しでまとめた一覧（`GroupStyle`）の束は、開いている間、見出しの中の部品を木に出さない**（束の子は行だけ。畳むと見出しごと出る）。束の窓口（`GroupItemAutomationPeer`）は WPF が作る物で差し替えられない。
   一覧の窓口の側で、開いている束の後ろに見出しの中の部品を並べる（`Controls/GroupedListBox`。見出しの押す所そのものは WPF が束の窓口に結び付けているので、渡すと束が2つ出る）
-- **`ToggleButton` は「オン／オフ」しか言わない。**開閉の三角は `Controls/ExpandToggle`（開閉の状態を `IExpandCollapseProvider` で渡す。値を入れるのは `SetCurrentValue`——結び付けを壊さずに、結び付けた先へも届く）
+- **`ToggleButton` は「オン／オフ」しか言わない。**開閉の三角は `Controls/ExpandToggle`（名前を状態から作り、開閉の状態を `IExpandCollapseProvider` でも渡す。値を入れるのは `SetCurrentValue`——結び付けを壊さずに、結び付けた先へも届く）
 - **`ItemsControl`（と継いだ `ContentItemsControl`）は、既定で Tab で止まる。**止まっても何も起きず、フォーカスの枠だけが一覧を囲む。`ContentItemsControl` は型の側で止まらないようにしてある
 - **メニューの下の段は、開くまで木に無い。**開いた後は窓の外の別の窓に出る。同じ名前の項目は AutomationId で指す
 - **アプリを起動せずに確かめる**（道具は `experiments/PeerProbe`）：`HwndSource`（`WS_POPUP` だけ・`WS_VISIBLE` なし・画面の外）に部品を載せ、別のスレッドから `AutomationElement.FromHandle` で木をたどる

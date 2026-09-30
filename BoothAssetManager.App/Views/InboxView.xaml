@@ -256,7 +256,7 @@
                                         ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）
                                     -->
                                     <controls:ExpandToggle AutomationProperties.AutomationId="InboxGroupToggle" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
-                                                  AutomationProperties.Name="{Binding KindText}"
+                                                  Subject="{Binding KindText}"
                                                   HorizontalContentAlignment="Stretch" Padding="0">
                                         <ToggleButton.Template>
                                             <ControlTemplate TargetType="ToggleButton">

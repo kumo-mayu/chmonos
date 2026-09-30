@@ -122,7 +122,7 @@
                                         <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                       IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
                                                       AutomationProperties.AutomationId="ItemFilesToggle"
-                                                      AutomationProperties.Name="ローカルファイル"
+                                                      Subject="ローカルファイル"
                                                       ToolTip="ローカルファイルの欄を開く・折りたたむ" />
                                         <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>

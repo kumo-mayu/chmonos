@@ -41,9 +41,9 @@
         </Style>
     </StackPanel.Resources>
 
-    <!-- 開閉の三角：名前は欄の名前、状態は ExpandCollapse。ID が Probe で始まるので「開く」を呼ぶ（閉じていた物が開く） -->
-    <controls:ExpandToggle AutomationProperties.AutomationId="ProbeExpandClosed" AutomationProperties.Name="閉じている作り物の欄" IsChecked="False" Content="三角" />
-    <controls:ExpandToggle AutomationProperties.AutomationId="ExpandOpen" AutomationProperties.Name="開いている作り物の欄" IsChecked="True" Content="三角" />
+    <!-- 開閉の三角：名前は「（欄）を開く」⇄「（欄）を折りたたむ」、状態は ExpandCollapse でも渡す。ID が Probe で始まるので「開く」を呼ぶ（閉じていた物が開く） -->
+    <controls:ExpandToggle AutomationProperties.AutomationId="ProbeExpandClosed" Subject="閉じている作り物の欄" IsChecked="False" Content="三角" />
+    <controls:ExpandToggle AutomationProperties.AutomationId="ExpandOpen" Subject="開いている作り物の欄" IsChecked="True" Content="三角" />
 
     <!-- 名前の「_」：中身が文字のボタンに付けた名前・名前を付けていないボタン・チェック -->
     <Button Content="開く ▾" AutomationProperties.AutomationId="NameWithUnderscore" AutomationProperties.Name="file_000.pngを開く" />

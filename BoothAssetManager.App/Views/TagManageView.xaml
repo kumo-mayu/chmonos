@@ -63,7 +63,7 @@
                                       IsEnabled="{Binding IsUsed}"
                                       ToolTipService.ShowOnDisabled="True"
                                       AutomationProperties.AutomationId="TagSubToggle"
-                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の商品}"
+                                      Subject="{Binding Name, StringFormat={}{0}の商品}"
                                       ToolTip="{Binding ExpandToolTip}" />
                         <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" />
                         <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}"

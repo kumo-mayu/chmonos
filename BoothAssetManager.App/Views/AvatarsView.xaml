@@ -843,7 +843,7 @@
                                         <DataTemplate DataType="{x:Type vm:HubModificationRow}">
                                             <StackPanel Margin="0,4,0,2">
                                                 <DockPanel>
-                                                    <controls:ExpandToggle AutomationProperties.AutomationId="AvatarModToggle" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の使ったもの}" DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
+                                                    <controls:ExpandToggle AutomationProperties.AutomationId="AvatarModToggle" Subject="{Binding Name, StringFormat={}{0}の使ったもの}" DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
                                                                   Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
                                                     <Button AutomationProperties.AutomationId="AvatarModImage" DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
                                                             AutomationProperties.Name="{Binding Name}"
