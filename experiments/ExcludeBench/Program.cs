@@ -1,21 +1,24 @@
 // 「まとめて除外」の重さを、アプリを起動せずに測る。
 //
-// フォルダビューの「フォルダごと除外」と未確定の「まとめて除外」は、ファイル1個ごとに命令（UiCommand.ExcludeFile）を呼ぶ。
+// 2026-09-30 までは、フォルダビューの「フォルダごと除外」と未確定の「まとめて除外」が、ファイル1個ごとに命令（UiCommand.ExcludeFile）を呼んでいた。
 // 命令は1個ごとに、除外の記録（excluded.json）を錠の中で丸ごと読み直して丸ごと書き、続けて未確定の記録（unresolved.json）も
 // 丸ごと読んで丸ごと書く。個数が増えると、読み書きする量は個数の2乗で増える。
+// 2026-10-01 に1回の命令（UiCommand.ExcludeFiles）にまとめた。今の道は bulk、前の道の形は each で測る。
 //
 // 使い方（作業フォルダは必ず渡す。その下に作り物の保存先を作り、終わったら消す）：
 //   dotnet run -c Release --project experiments/ExcludeBench -- <作業フォルダ> bulk <個数> [既に除外してある件数] [ほかの未確定の件数]
+//   dotnet run -c Release --project experiments/ExcludeBench -- <作業フォルダ> each <個数> [既に除外してある件数] [ほかの未確定の件数]
 //   dotnet run -c Release --project experiments/ExcludeBench -- <作業フォルダ> parts <個数> [既に除外してある件数] [ほかの未確定の件数]
-//   dotnet run -c Release --project experiments/ExcludeBench -- <作業フォルダ> batch <個数> [既に除外してある件数] [ほかの未確定の件数]
 //   dotnet run -c Release --project experiments/ExcludeBench -- <作業フォルダ> single <既に除外してある件数> [回数]
 //   dotnet run -c Release --project experiments/ExcludeBench -- <作業フォルダ> load <件数> [回数]
 //
-// bulk   ：今の道そのまま。画面のスレッドの代わりの「1本で順に回すスレッド」から、ItemService.ExcludeAsync を1個ずつ呼ぶ
-// parts  ：同じ繰り返しを、除外の記録の分と未確定の記録の分に分けて測る（除外の記録は、今の窓口と、裏へ出した窓口の2通り）
-// batch  ：直すならの案の試し。除外の記録に1回で足し、未確定の記録から1回で外す（ここに書いた写しで、Core には入れていない）
+// bulk   ：今の道そのまま。画面のスレッドの代わりの「1本で順に回すスレッド」から、ItemService.ExcludeAsync に全部を1回で渡す
+// each   ：前の道の形。同じ所から ItemService.ExcludeAsync を1個ずつ呼ぶ（命令を1個ずつ呼んでいたときと同じ読み書きの回数）
+// parts  ：1個ずつの繰り返しを、除外の記録の分と未確定の記録の分に分けて測る（除外の記録は、印の無い窓口と、裏へ出した窓口の2通り）
 // single ：除外の記録が既に大きいときに、1個だけ除外する
 // load   ：除外の記録を丸ごと読む時間（設定の「隠したもの」を開くときに、画面のスレッドで読む）
+//
+// 前の道そのもの（1個ずつ・除外の記録の窓口に印が無い）を測るときは、2026-09-30 の版（b0a65bc）のこのプログラムで bulk を回す。
 //
 // 組むのは Core の DataStore と ItemService だけ。アプリの一式（AppServiceContainer・MainViewModel）は組まない。
 // BOOTH へは行かない（つながらない相手を渡す。呼ばれたら落とす）。
@@ -32,7 +35,7 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 if (args.Length < 3)
 {
-    Console.Error.WriteLine("使い方: ExcludeBench <作業フォルダ> bulk|parts|batch|single|load <個数> …（Program.cs の冒頭）");
+    Console.Error.WriteLine("使い方: ExcludeBench <作業フォルダ> bulk|each|parts|single|load <個数> …（Program.cs の冒頭）");
     return 2;
 }
 
@@ -46,13 +49,13 @@ try
     switch (mode)
     {
         case "bulk":
-            Bulk(work, count, Number(args, 3, 0), Number(args, 4, 0));
+            Bulk(work, count, Number(args, 3, 0), Number(args, 4, 0), oneByOne: false);
+            return 0;
+        case "each":
+            Bulk(work, count, Number(args, 3, 0), Number(args, 4, 0), oneByOne: true);
             return 0;
         case "parts":
             Parts(work, count, Number(args, 3, 0), Number(args, 4, 0));
-            return 0;
-        case "batch":
-            Batch(work, count, Number(args, 3, 0), Number(args, 4, 0));
             return 0;
         case "single":
             Single(work, count, Number(args, 3, 5));
@@ -125,29 +128,39 @@ static ItemService NewService(DataStore store, AppPaths paths)
     return new ItemService(store, client, new ImagePipeline(client, paths));
 }
 
-// 今の道そのまま：1個ずつ ItemService.ExcludeAsync（命令 ExcludeFile の中身）
-static void Bulk(string work, int count, int already, int others)
+// 今の道そのまま：ItemService.ExcludeAsync（命令 ExcludeFiles の中身）に全部を1回で渡す。oneByOne なら前の道の形（1個ずつ）
+static void Bulk(string work, int count, int already, int others, bool oneByOne)
 {
-    var stage = NewStage(work, "bulk", count, already, others);
+    var stage = NewStage(work, oneByOne ? "each" : "bulk", count, already, others);
     var service = NewService(stage.Store, stage.Paths);
-    Console.WriteLine($"まとめて除外 {count:N0} 個（既に除外 {already:N0} 件・ほかの未確定 {others:N0} 件）");
+    Console.WriteLine($"まとめて除外 {count:N0} 個・{(oneByOne ? "1個ずつ" : "1回で")}（既に除外 {already:N0} 件・ほかの未確定 {others:N0} 件）");
     Describe(stage, "前");
 
     var each = new List<double>(count);
     var result = Pump.Run(async () =>
     {
+        if (!oneByOne)
+        {
+            await service.ExcludeAsync(stage.Targets, "フォルダビューからフォルダごと除外");
+            return;
+        }
+
         foreach (var file in stage.Targets)
         {
             var start = Stopwatch.GetTimestamp();
-            await service.ExcludeAsync(file.Hash, file.Paths, "フォルダビューからフォルダごと除外");
+            await service.ExcludeAsync([file], "フォルダビューからフォルダごと除外");
             each.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
         }
     });
 
     Describe(stage, "後");
     Console.WriteLine($"  {result}");
-    var tenth = Math.Max(1, count / 10);
-    Console.WriteLine($"  1個あたり：初めの1割 平均 {each.Take(tenth).Average():0.0} ms・終わりの1割 平均 {each.Skip(count - tenth).Average():0.0} ms・最長 {each.Max():0.0} ms");
+    if (oneByOne)
+    {
+        var tenth = Math.Max(1, count / 10);
+        Console.WriteLine($"  1個あたり：初めの1割 平均 {each.Take(tenth).Average():0.0} ms・終わりの1割 平均 {each.Skip(count - tenth).Average():0.0} ms・最長 {each.Max():0.0} ms");
+    }
+
     if (stage.Store.Excluded.Load().Count != already + count || stage.Store.Unresolved.Load().Count != others)
     {
         throw new InvalidOperationException("場面が組めていない：除外した数か、残った未確定の数が合わない");
@@ -159,16 +172,16 @@ static void Parts(string work, int count, int already, int others)
 {
     Console.WriteLine($"記録ごとに分ける {count:N0} 個（既に除外 {already:N0} 件・ほかの未確定 {others:N0} 件）");
 
-    // 除外の記録：今の窓口（錠が空いていれば、読み直しと足す所が呼んだスレッドで走る）
+    // 除外の記録：印の無い窓口（錠が空いていれば、読み直しと足す所が呼んだスレッドで走る。2026-09-30 までの形）
     var first = NewStage(work, "parts-excluded", count, already, others);
-    Console.WriteLine($"  除外の記録だけ（今の窓口）：{Pump.Run(() => ExcludeEachAsync(first.Store.Excluded, first.Targets))}");
+    var on = new JsonFileStore<List<ExcludedEntry>>(first.Paths.ExcludedFile);
+    Console.WriteLine($"  除外の記録だけ（印の無い窓口）：{Pump.Run(() => ExcludeEachAsync(on, first.Targets))}");
 
-    // 除外の記録：裏へ出した窓口（未確定の記録と同じ印を付けた形）
+    // 除外の記録：裏へ出した窓口（2026-10-01 からの DataStore の形）
     var second = NewStage(work, "parts-excluded-off", count, already, others);
-    var off = new JsonFileStore<List<ExcludedEntry>>(second.Paths.ExcludedFile) { UpdatesOffCallerThread = true };
-    Console.WriteLine($"  除外の記録だけ（裏へ出した窓口）：{Pump.Run(() => ExcludeEachAsync(off, second.Targets))}");
+    Console.WriteLine($"  除外の記録だけ（裏へ出した窓口）：{Pump.Run(() => ExcludeEachAsync(second.Store.Excluded, second.Targets))}");
 
-    // 未確定の記録（今の窓口は既に裏）
+    // 未確定の記録（窓口は裏）
     var third = NewStage(work, "parts-unresolved", count, already, others);
     Console.WriteLine($"  未確定の記録だけ：{Pump.Run(async () =>
     {
@@ -200,36 +213,6 @@ static async Task ExcludeEachAsync(JsonFileStore<List<ExcludedEntry>> excluded, 
 static List<UnresolvedFile>? RemoveOne(List<UnresolvedFile> current, string hash)
     => current.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0 ? current : null;
 
-// 直すならの案：1回で足し、1回で外す
-static void Batch(string work, int count, int already, int others)
-{
-    Console.WriteLine($"1回にまとめる案 {count:N0} 個（既に除外 {already:N0} 件・ほかの未確定 {others:N0} 件）");
-    foreach (var offThread in new[] { false, true })
-    {
-        var stage = NewStage(work, $"batch-{offThread}", count, already, others);
-        var excluded = new JsonFileStore<List<ExcludedEntry>>(stage.Paths.ExcludedFile) { UpdatesOffCallerThread = offThread };
-        var result = Pump.Run(async () =>
-        {
-            await excluded.UpdateAsync(current =>
-            {
-                var known = current.Select(entry => entry.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                current.AddRange(stage.Targets.Where(file => known.Add(file.Hash)).Select(Excluded));
-                return current;
-            });
-
-            var hashes = stage.Targets.Select(file => file.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            await stage.Store.Unresolved.TryUpdateAsync(
-                current => current.RemoveAll(file => hashes.Contains(file.Hash)) > 0 ? current : null);
-        });
-
-        Console.WriteLine($"  {(offThread ? "除外の記録も裏へ出した窓口" : "除外の記録は今の窓口")}：{result}");
-        if (stage.Store.Excluded.Load().Count != already + count || stage.Store.Unresolved.Load().Count != others)
-        {
-            throw new InvalidOperationException("場面が組めていない：除外した数か、残った未確定の数が合わない");
-        }
-    }
-}
-
 // 除外の記録が既に大きいときの1個
 static void Single(string work, int already, int repeat)
 {
@@ -241,7 +224,7 @@ static void Single(string work, int already, int repeat)
     {
         var file = stage.Targets[round];
         GC.Collect();
-        var result = Pump.Run(() => service.ExcludeAsync(file.Hash, file.Paths, "未確定画面から除外"));
+        var result = Pump.Run(() => service.ExcludeAsync([file], "未確定画面から除外"));
         Console.WriteLine($"  {(round == 0 ? "1回目" : $"{round + 1}回目")}：{result}");
     }
 }
