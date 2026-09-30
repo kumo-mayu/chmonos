@@ -413,8 +413,13 @@ public abstract record UiCommand
     /// <summary>展開フォルダで登録していた商品を、隣に現れたzipで登録し直す（結果は <see cref="CommandResult.ArchiveSwapped"/>）。</summary>
     public record SwapFolderForArchive(string ItemId, string FolderPath) : UiCommand;
 
-    /// <summary>zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。</summary>
-    public record UnpackToTemporary(string ZipPath) : UiCommand;
+    /// <summary>
+    /// zip を一時フォルダへ展開する（#56）。展開先は <see cref="CommandResult.Unpacked"/> で返る。
+    /// 中止したときは結果を返さず、<see cref="OperationCanceledException"/> を投げる（書きかけは消してある）。
+    /// </summary>
+    public record UnpackToTemporary(
+        string ZipPath,
+        IProgress<Services.TemporaryUnpackProgress>? Progress = null) : UiCommand;
 
     /// <summary>要確認の既読・未読を切り替える。消さずに既読にするのは「見た」と「無かった」を分けるため。</summary>
     public record SetNotificationRead(string Id, bool IsRead) : UiCommand;

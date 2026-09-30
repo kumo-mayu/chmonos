@@ -552,6 +552,35 @@
             </Border>
 
             <!--
+                「一時的に展開して開く」の間の帯（大容量の確かめ #3・ユーザ判断 2026-10-01）。前は押してからエクスプローラが開くまで
+                何も変わらず、遅いディスクでは数十秒「押したのに何も起きない」と見えた。待つ間に別の画面へ移れるので、
+                Unity へ送る帯と同じ場所・同じ見た目で、進み具合と「中止」を出す。終われば畳んでエクスプローラを開く。
+                「中止」は押した後に引っ込める（片付けが済むまで帯は「展開を中止しています…」で残る）
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding IsUnpacking, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="30">
+                    <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
+                            VerticalAlignment="Center" Margin="10,0,0,0"
+                            Command="{Binding StopUnpackCommand}"
+                            AutomationProperties.Name="展開を中止"
+                            ToolTip="展開をやめます。元のzipはそのまま残ります。"
+                            Visibility="{Binding CanStopUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <ProgressBar DockPanel.Dock="Left" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                                 Minimum="0" Maximum="1"
+                                 Value="{Binding UnpackProgress, Mode=OneWay}"
+                                 IsIndeterminate="{Binding HasUnpackProgress, Converter={x:Static vm:InverseBoolConverter.Instance}}" />
+                    <!-- 数字の文は切らない。長い zip の名前はその右で切る（名前が先だと、長い名前のときに進み具合が「…」に隠れる） -->
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding UnpackText}" Style="{StaticResource Caption}"
+                               Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding UnpackTargetText}" Style="{StaticResource Caption}"
+                               Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Opacity="0.75" TextTrimming="CharacterEllipsis" ToolTip="{Binding UnpackTargetText}" />
+                </DockPanel>
+            </Border>
+
+            <!--
                 前回の取り込みが途中で止まったままだと、どの画面からも分からず、再開の道も取り込み画面にしか無かった
                 （ユーザ指摘 2026-09-22）。**帯は常設ではない**——続きが残っている間と、通信している間だけ出す。
                 走っている間は下の通信の帯が同じ場所に出るので、こちらは引っ込む（2本並べない）

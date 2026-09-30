@@ -768,9 +768,12 @@ public sealed class CommandHandler
             case UiCommand.UnpackToTemporary unpack:
                 try
                 {
-                    // 大きい zip は数秒かかるので画面の手を止めない
+                    // 大きい zip は数秒かかるので画面の手を止めない。
+                    // 中止（OperationCanceledException）はここで受けずに上へ通す——失敗の文を出す話ではないので、
+                    // 呼んだ側が黙って帯を畳む。書きかけは Unpack が投げる前に消している
                     var folder = await Task.Run(
-                        () => new Services.TemporaryUnpacker().Unpack(unpack.ZipPath, cancellationToken), cancellationToken);
+                        () => new Services.TemporaryUnpacker().Unpack(unpack.ZipPath, unpack.Progress, cancellationToken),
+                        cancellationToken);
                     return new CommandResult.Unpacked(folder);
                 }
                 catch (Exception exception) when (exception is IOException or InvalidDataException

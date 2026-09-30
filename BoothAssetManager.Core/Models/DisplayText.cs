@@ -35,6 +35,26 @@ public static class DisplayText
     }
 
     /// <summary>
+    /// 一時展開の間、下の帯に出す1行（ユーザ判断 2026-10-01）。
+    ///
+    /// 進み具合は件数ではなく大きさで出す——配布物は数GBの1ファイル（PSD・動画）が入っていることがあり、
+    /// 件数だとその間ずっと止まって見える。合計が分からないうち（zip を開く前・空のファイルだけの zip）は数字を付けない。
+    /// 別の zip を続けて押すと並んで走るので、1つの帯に数と合計でまとめる（帯を足すと画面の下が何段も積み上がる）。
+    /// </summary>
+    /// <param name="count">展開している zip の数。</param>
+    /// <param name="stopping">中止を押した後か。片付けが済むまでの間に出す。</param>
+    public static string UnpackingLine(int count, long doneBytes, long totalBytes, bool stopping)
+    {
+        if (stopping)
+        {
+            return "展開を中止しています…";
+        }
+
+        var head = count > 1 ? $"{count} 件のzipを展開しています…" : "展開しています…";
+        return totalBytes > 0 ? $"{head} {Size(doneBytes)} / {Size(totalBytes)}" : head;
+    }
+
+    /// <summary>
     /// 購入の種類を**名詞として**出す（「自分用」）。
     /// JSONに書いてある語と同じにする——人がJSONを開いて読む前提なので、
     /// 画面と保存で語が違うと同じものだと分からなくなる。

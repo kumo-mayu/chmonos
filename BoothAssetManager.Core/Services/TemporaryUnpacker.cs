@@ -16,6 +16,12 @@ namespace BoothAssetManager.Core.Services;
 /// </summary>
 public sealed class TemporaryUnpacker
 {
+    /// <summary>
+    /// 書き出すときに1回で読む量。<see cref="Stream.CopyTo(Stream)"/> の既定と同じ 81,920 バイト
+    /// （大きいオブジェクトの置き場に入らない上限に合わせた値）。この区切りごとに中止を見て、進み具合を知らせる
+    /// </summary>
+    private const int CopyBufferBytes = 81920;
+
     /// <summary>既定の置き場所。取り込みの走査はここを見ない（<see cref="IsInsideDefaultRoot"/>）。</summary>
     public static string DefaultRoot { get; } = Path.Combine(Path.GetTempPath(), "Chmonos", "unpacked");
 
@@ -49,8 +55,16 @@ public sealed class TemporaryUnpacker
     ///
     /// zip の外へ書き出そうとする名前（<c>../</c> で上がる・絶対パス）は飛ばす。配布物を開くだけなので、
     /// 置き場所の外に何かを書く理由が無い。
+    ///
+    /// **中止すると、書きかけを消してから <see cref="OperationCanceledException"/> を投げる**（ユーザ判断 2026-10-01）。
+    /// 遅いディスクでは数十秒かかるので、下の帯に進み具合と「中止」を出す。終わった印は書かないので、
+    /// 同じ zip をもう一度押せば最初から展開し直す。
     /// </summary>
-    public string Unpack(string zipPath, CancellationToken cancellationToken = default)
+    /// <param name="progress">書き出した量。ファイルの途中でも細かく届くので、画面へ出す側で間引く。</param>
+    public string Unpack(
+        string zipPath,
+        IProgress<TemporaryUnpackProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         var info = new FileInfo(zipPath);
         if (!info.Exists)
@@ -66,11 +80,13 @@ public sealed class TemporaryUnpacker
         // 2本目は1本目を待ち、終わった印を見てそのまま返す。印を作る元の値（場所・大きさ・更新時刻）が同じなら展開先も同じなので、
         // 展開先の名前で錠を分ける（別の zip の展開は待たせない）。錠は展開ごとに作らず持ち続ける——数は押した zip の数だけ
         var gate = Gates.GetOrAdd(Path.GetFullPath(destination).ToUpperInvariant(), _ => new SemaphoreSlim(1, 1));
+        // 錠を待っている間の中止は、ここで投げて出る。**錠を持たないうちは展開先に触らない**
+        // （先に入っている1本の書きかけを消すと、2本目が書きかけを消していたときと同じ壊れ方になる）
         gate.Wait(cancellationToken);
         try
         {
             OnGateEntered?.Invoke();
-            return UnpackInto(zipPath, destination, cancellationToken);
+            return UnpackInto(zipPath, destination, progress, cancellationToken);
         }
         finally
         {
@@ -84,7 +100,11 @@ public sealed class TemporaryUnpacker
     /// <summary>錠に入った直後に呼ぶ（試験で、1本目が展開している最中に2本目を押した状況を作る）。</summary>
     internal Action? OnGateEntered { get; init; }
 
-    private static string UnpackInto(string zipPath, string destination, CancellationToken cancellationToken)
+    private static string UnpackInto(
+        string zipPath,
+        string destination,
+        IProgress<TemporaryUnpackProgress>? progress,
+        CancellationToken cancellationToken)
     {
         var doneMarker = destination + ".done";
         if (Directory.Exists(destination) && File.Exists(doneMarker))
@@ -97,34 +117,98 @@ public sealed class TemporaryUnpacker
             Directory.Delete(destination, recursive: true);
         }
 
-        Directory.CreateDirectory(destination);
-        var destinationRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(destination)) + Path.DirectorySeparatorChar;
-
-        using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance))
+        try
         {
-            foreach (var entry in archive.Entries)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var target = Path.GetFullPath(Path.Combine(destination, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
-                if (!target.StartsWith(destinationRoot, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (entry.FullName.EndsWith('/'))
-                {
-                    Directory.CreateDirectory(target);
-                    continue;
-                }
-
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                entry.ExtractToFile(target, overwrite: true);
-            }
+            Extract(zipPath, destination, progress, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // **錠の中で片付ける。**錠を放してから消すと、待っていた次の1本が書き始めた物を消してしまう。
+            // zip と書きかけのファイルは Extract を抜けた時点で閉じているので、ここで消せる
+            RemovePartial(destination);
+            throw;
         }
 
         File.WriteAllText(doneMarker, zipPath);
         return destination;
+    }
+
+    private static void Extract(
+        string zipPath,
+        string destination,
+        IProgress<TemporaryUnpackProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(destination);
+        var destinationRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(destination)) + Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance);
+
+        // 書き出す物を先に決める。全体の大きさが分からないと、進み具合を「どこまで来たか」で出せない
+        var targets = new List<(ZipArchiveEntry Entry, string Target)>();
+        foreach (var entry in archive.Entries)
+        {
+            var target = Path.GetFullPath(Path.Combine(destination, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+            if (target.StartsWith(destinationRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                targets.Add((entry, target));
+            }
+        }
+
+        var total = targets.Where(item => !item.Entry.FullName.EndsWith('/')).Sum(item => item.Entry.Length);
+        long done = 0;
+        progress?.Report(new TemporaryUnpackProgress(done, total));
+
+        var buffer = new byte[CopyBufferBytes];
+        foreach (var (entry, target) in targets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (entry.FullName.EndsWith('/'))
+            {
+                Directory.CreateDirectory(target);
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+
+            // **ファイルの途中でも中止を見る。**`ExtractToFile` は1ファイルを書き切るまで戻らないので、
+            // 数GBの1ファイル（PSD・動画）を含む zip では、中止を押しても書き終わるまで止まらず、進み具合も動かない
+            using (var source = entry.Open())
+            using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                int read;
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    output.Write(buffer, 0, read);
+                    done += read;
+                    progress?.Report(new TemporaryUnpackProgress(done, total));
+                }
+            }
+
+            // `ExtractToFile` と同じく、zip に書いてある更新時刻を付ける（エクスプローラで日付順に並べたときに元の順になる）
+            File.SetLastWriteTime(target, entry.LastWriteTime.DateTime);
+        }
+    }
+
+    /// <summary>
+    /// 中止した展開の書きかけを消す。消せない物（ウイルス対策ソフトが掴んでいる等）が残っても、終わった印が無いので
+    /// 次の展開が消してからやり直し、アプリを閉じるときにも消す。ここでは諦めて進む
+    /// </summary>
+    private static void RemovePartial(string destination)
+    {
+        try
+        {
+            if (Directory.Exists(destination))
+            {
+                Directory.Delete(destination, recursive: true);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     /// <summary>
@@ -252,3 +336,8 @@ public sealed class TemporaryUnpacker
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(seed)))[..8];
     }
 }
+
+/// <summary>一時展開の進み具合。大きさは展開した後のバイト数（zip の中に書いてある値）。</summary>
+/// <param name="DoneBytes">書き出した量。</param>
+/// <param name="TotalBytes">書き出す物の合計。空のファイルとフォルダだけの zip では 0。</param>
+public readonly record struct TemporaryUnpackProgress(long DoneBytes, long TotalBytes);
