@@ -59,6 +59,8 @@
 | 行ごとに繰り返す部品 | どの行の物かを入れる：「（商品名）をお気に入りに入れる」「（ファイル名）を開く」「（候補の名前）で確認」「（バリエーション名）の支払額」。見えている文字はそのまま含める |
 | 同じ画面に同じ名前が並ぶ物（検索の条件の「下限」「上限」） | 何の物かを頭に付ける：「価格の下限」 |
 | 畳める欄（`Expander`）で、見出しが文字の並びや札の物 | `Expander` に欄の名前を付ける（見出しの押す所は、型がその名前を継ぐ） |
+| 欄や行を開閉する三角（`ToggleButton` で作った物） | `Controls/ExpandToggle` にして、**欄・行の名前**を付ける（「ローカルファイル」「（小分類名）の商品」「（改変名）の使ったもの」）。「開く」を名前に入れない——開いていても同じ名前で読まれる。開いているかは、UI Automation の開閉（ExpandCollapse）が言う（`Expander` と同じ形） |
+| 開閉をボタンとコマンドで作った物（ナビ・検索の絞り込み・検索の条件・フォルダの木の印） | 押すと起きることを名前にし、状態で替える（「絞り込みを折りたたむ」⇄「絞り込みを開く」「（フォルダ名）を折りたたむ」⇄「（フォルダ名）を開く」） |
 | 選ぶ一覧（`ListBox`）の行 | 行の名前（未確定はファイル名）。付けないと行の型の名前が読まれる |
 
 - **押せる枠は `PressableBorder`、繰り返しの一覧は `ContentItemsControl`、商品のリストは `ItemListView`。**
@@ -69,4 +71,14 @@
 - **名前で見分けられない物には AutomationId を付ける**（画面には出ない。英字）。同じ条件が2つの見出しの下に出るメニュー（`SearchAddModule.<条件の種類>`）、
   条件の中の欄（`SearchModule.<条件の種類>.<部品>`）、行ごとに並ぶボタン（`ItemFileOpenMenu`・`ResolveCandidateUse`）、
   確かめで読みたい文（`ImportSummary.<数>`・`UnitySendText`）。頭は画面の名前（`Search`・`Item`・`Edit`・`Resolve`・`Import`・`Settings.`）で始める。一覧は XAML を `AutomationProperties.AutomationId="` で引く。
+- **名前の「_」は消えない**（2026-09-30）。WPF は、中身が文字のボタン・チェック・メニューの項目の名前から、アクセスキーの印として最初の「_」を消す（名前を付けていても。「file_000.pngを開く」が「file000.pngを開く」で読まれた）。
+  消されるのと同じ決まりで先に重ねておく（`Services/AutomationNames`。部品の型に1回で掛けるので、名前を付ける所は何もしなくてよい）。名前を付けていないボタンも、中身の文字に「_」があれば同じに守る。
+  メニューの項目のうち、名前を付けずに見出しの文字をそのまま読ませている物は守れない（見出しが替わった知らせを受ける口が無い）。人が決めた文字を見出しにする項目には、名前も付ける。
+- **候補付きの入力欄の候補の行は「押す」で決まる**（`Controls/InvokableListBox`。クリック・Enter と同じ処理）。「選ぶ」だけでは色が付くだけで決まらなかった。
+- **束（見出しでまとめた行）の見出しの中のボタンは、束が開いていても木に出す**（`Controls/GroupedListBox`。未確定の「まとめて扱う」「元zipとして扱う」「このフォルダを選択」）。
+  WPF は開いている束の子として行だけを渡すので、名前も ID も付いているのに、束を畳んでいる間しか出なかった。開いている束のすぐ後ろに並べて渡す。
+- **取り込みの結果の文は、種類ごとに ID を分ける**：`ImportUnreadableLine`（読めなかった）・`ImportOnlineOnlyLine`（オンラインのみ）・`ImportBrokenZipLine`（未確定の壊れたzip）・`ImportBrokenZipOnItemsLine`（商品の壊れたzip）。
+- **管理の画面の行ごとのボタン**にも「行の物＋操作」の名前と ID を付けた（2026-09-30）：改変の画面（`Modifications〜`）・改変の詳細（`ModificationMember〜`）・アバターの管理（`AvatarBase〜`・`AvatarMod〜`）・
+  タグと属性の管理（`TagSub〜`・`TagOrphan〜`・`AttributeOrphan〜`）・統計（`StatsBacklogRow`・`StatsPriceChangeRow`）・フォルダ（`FolderRow〜`）・ショップ一覧の右クリック（`ShopCardMenu.〜`）・小窓（`PickModificationPick`・`ChangeItemIdDuplicate`・`Choice〜`・`NoticeBody`）。
+  リスト表示の行は `ItemListRow`、未確定の一覧の行は `ResolveFileRow`、未確定の上の検索欄は `ResolveFilter`。
 - 乗せたときだけ出すボタン（札の ×・要確認の行の操作）は、隠れている間は UI Automation の既定の見方に出ない。出すのは乗せたとき。

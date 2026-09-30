@@ -223,13 +223,13 @@
 
                                                 <StackPanel Grid.Column="1">
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
+                                                        <Button AutomationProperties.AutomationId="AttributeOrphanAdd" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を一覧に追加}" Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button Content="商品から外す" Style="{StaticResource SmallButton}"
+                                                        <Button AutomationProperties.AutomationId="AttributeOrphanRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource SmallButton}"
                                                                 Margin="6,0,0,0" Foreground="{DynamicResource DangerText}"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
-                                                    <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
+                                                    <controls:SuggestBox AutomationProperties.AutomationId="AttributeOrphanMerge" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を既にある属性へ統合}" Width="260" Margin="0,7,0,0" AllowNew="False"
                                                                          Placeholder="既にある属性へ統合する"
                                                                          Source="{Binding DataContext.AllNames,
                                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -295,10 +295,10 @@
                             Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <StackPanel Margin="20,16,20,0">
                             <StackPanel Orientation="Horizontal">
-                                <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                               IsChecked="{Binding IsItemsExpanded, Mode=TwoWay}"
                                               IsEnabled="{Binding SelectedIsUsed}"
-                                              AutomationProperties.Name="この属性を持つ商品を開く"
+                                              AutomationProperties.AutomationId="AttributeItemsToggle" AutomationProperties.Name="この属性を持つ商品"
                                               ToolTipService.ShowOnDisabled="True"
                                               ToolTip="{Binding ExpandToolTip}" />
                                 <TextBlock Text="{Binding ItemsHeaderText}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />

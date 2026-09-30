@@ -8,6 +8,7 @@ using System.Windows.Data;
 using BoothAssetManager.App.Controls;
 using BoothAssetManager.App.Services;
 using BoothAssetManager.App.Tests.Support;
+using BoothAssetManager.App.ViewModels;
 
 namespace BoothAssetManager.App.Tests;
 
@@ -173,6 +174,16 @@ public class AutomationNameTests
         // 「選ぶ」も今までどおり持つ
         Assert.NotNull(rows[0].GetPattern(PatternInterface.SelectionItem));
     });
+
+    // ---- フォルダの木の開け閉めの印 ----
+
+    [Theory]
+    [InlineData("作り物のフォルダ", false, "作り物のフォルダを開く")]
+    [InlineData("作り物のフォルダ", true, "作り物のフォルダを折りたたむ")]
+    public void フォルダの開け閉めの印は_押すと起きることを名前にする(string name, bool isExpanded, string expected)
+    {
+        Assert.Equal(expected, FolderViewRow.ToggleNameOf(name, isExpanded));
+    }
 
     [Theory]
     [InlineData("a_b", true, "a__b")]

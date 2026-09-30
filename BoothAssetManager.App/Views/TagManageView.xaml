@@ -58,12 +58,12 @@
                         -->
                         <!-- 行の左の余白（20）の中に出すので、名前とメモの位置は変わらない -->
                         <TextBlock Style="{StaticResource ReorderGrip}" Margin="-16,0,4,0" />
-                        <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center"
+                        <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center"
                                       Margin="0,0,7,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                       IsEnabled="{Binding IsUsed}"
                                       ToolTipService.ShowOnDisabled="True"
                                       AutomationProperties.AutomationId="TagSubToggle"
-                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の商品を開く}"
+                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}の商品}"
                                       ToolTip="{Binding ExpandToolTip}" />
                         <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium" />
                         <TextBlock Text="{Binding ItemCountText}" Style="{StaticResource Mono}"
@@ -91,20 +91,20 @@
                             並びは「見る → 名前を変える → 移す → 消す」（ユーザ指示 2026-09-18）。
                             よく使う物から並べ、取り返しのつかない物を右端に置く
                         -->
-                        <Button Content="検索で開く" Style="{StaticResource SmallButton}"
+                        <Button AutomationProperties.AutomationId="TagSubShowItems" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を検索で開く}" Content="検索で開く" Style="{StaticResource SmallButton}"
                                 Margin="0,0,6,0" Command="{Binding ShowItemsCommand}"
                                 IsEnabled="{Binding IsUsed}"
                                 ToolTipService.ShowOnDisabled="True"
                                 ToolTip="{Binding ShowItemsToolTip}" />
-                        <Button Content="名前を変更" Style="{StaticResource SmallButton}"
+                        <Button AutomationProperties.AutomationId="TagSubRename" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の名前を変更}" Content="名前を変更" Style="{StaticResource SmallButton}"
                                 Margin="0,0,6,0" Command="{Binding RenameCommand}"
                                 ToolTip="名前を変えます。既にある名前を選ぶと、2つを1つに統合します。" />
                         <!-- 「移す」だけでは何が起きるか分からない（ユーザ指摘 2026-09-18） -->
-                        <Button Content="別の大分類へ移す" Style="{StaticResource SmallButton}"
+                        <Button AutomationProperties.AutomationId="TagSubMove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を別の大分類へ移す}" Content="別の大分類へ移す" Style="{StaticResource SmallButton}"
                                 Margin="0,0,10,0" Command="{Binding MoveCommand}"
                                 ToolTipService.ShowOnDisabled="True"
                                 ToolTip="この小分類を別の大分類の下へ移します。移すには大分類が2つ以上要ります。" />
-                        <Button Content="削除" Style="{StaticResource DangerButton}"
+                        <Button AutomationProperties.AutomationId="TagSubDelete" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を削除}" Content="削除" Style="{StaticResource DangerButton}"
                                 Command="{Binding DeleteCommand}"
                                 ToolTip="この小分類を削除します。付いている商品からも外れます。" />
                     </StackPanel>
@@ -358,13 +358,13 @@
 
                                                 <StackPanel Grid.Column="1">
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Content="一覧に追加" Style="{StaticResource SmallButton}"
+                                                        <Button AutomationProperties.AutomationId="TagOrphanAdd" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を一覧に追加}" Content="一覧に追加" Style="{StaticResource SmallButton}"
                                                                 Command="{Binding AddToMasterCommand}" />
-                                                        <Button Content="商品から外す" Style="{StaticResource SmallButton}"
+                                                        <Button AutomationProperties.AutomationId="TagOrphanRemove" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を商品から外す}" Content="商品から外す" Style="{StaticResource SmallButton}"
                                                                 Margin="6,0,0,0" Foreground="{DynamicResource DangerText}"
                                                                 Command="{Binding RemoveCommand}" />
                                                     </StackPanel>
-                                                    <controls:SuggestBox Width="260" Margin="0,7,0,0" AllowNew="False"
+                                                    <controls:SuggestBox AutomationProperties.AutomationId="TagOrphanMerge" AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0}を既にあるタグへ統合}" Width="260" Margin="0,7,0,0" AllowNew="False"
                                                                          Placeholder="{Binding MergePlaceholder}"
                                                                          Source="{Binding MergeCandidates}"
                                                                          CommitCommand="{Binding MergeCommand}" />

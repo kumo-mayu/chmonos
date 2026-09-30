@@ -55,7 +55,7 @@
                                                    Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
 
-                                    <Button Grid.Column="1" Content="これに追加" Style="{StaticResource SmallButton}"
+                                    <Button AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name, StringFormat={}{0}に追加}" Grid.Column="1" Content="これに追加" Style="{StaticResource SmallButton}"
                                             VerticalAlignment="Center"
                                             Command="{Binding DataContext.PickCommand,
                                                       RelativeSource={RelativeSource AncestorType=Window}}"

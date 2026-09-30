@@ -103,7 +103,7 @@
         <!-- フォルダ・根・ボリューム：開け閉めの三角・数・未確定の札・入れ物の印 -->
         <DataTemplate x:Key="FolderRowTemplate" DataType="{x:Type vm:FolderViewRow}">
             <DockPanel Margin="{Binding Indent}" MinHeight="26">
-                <Button DockPanel.Dock="Left" Style="{StaticResource FolderGlyph}" Content="{Binding Glyph}"
+                <Button AutomationProperties.AutomationId="FolderRowToggle" AutomationProperties.Name="{Binding ToggleName}" DockPanel.Dock="Left" Style="{StaticResource FolderGlyph}" Content="{Binding Glyph}"
                         Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" />
 
@@ -135,14 +135,14 @@
             <WrapPanel>
                 <TextBlock Text="{Binding MissingText}" FontSize="10.5" Foreground="{DynamicResource Warn}" Margin="0,0,8,0"
                            Visibility="{Binding HasMissingText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Button Style="{StaticResource FolderLink}" Margin="0,0,8,0"
+                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource FolderLink}" Margin="0,0,8,0"
                         Visibility="{Binding HasOthers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.ShowOtherCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="同じ中身のファイルが置いてある、もう1つの場所へ移ります">
                     <TextBlock Text="{Binding OthersText}" FontSize="10.5" Foreground="{DynamicResource Accent}" TextDecorations="Underline" />
                 </Button>
                 <!-- zip の横の展開したフォルダ（ユーザ判断：zip の下に薄く出す） -->
-                <Button Style="{StaticResource FolderLink}"
+                <Button AutomationProperties.AutomationId="FolderRowRevealExtracted" AutomationProperties.Name="{Binding Name, StringFormat={}{0}の展開したフォルダを開く}" Style="{StaticResource FolderLink}"
                         Visibility="{Binding HasExtracted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.RevealExtractedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="横にある、このzipを展開したフォルダをエクスプローラで開きます">

@@ -389,7 +389,7 @@
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
                                 <Setter Property="views:Nav.Icon" Value="{StaticResource IconCollapse}" />
-                                <Setter Property="views:Nav.Label" Value="ナビを畳む" />
+                                <Setter Property="views:Nav.Label" Value="ナビを折りたたむ" />
                                 <Style.Triggers>
                                     <!-- 畳んでいるときは、押すと戻る側の意味になる -->
                                     <DataTrigger Binding="{Binding IsNavCollapsed}" Value="True">
