@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using BoothAssetManager.Core.Commands;
 using BoothAssetManager.Core.Models;
+using BoothAssetManager.Core.Storage;
 using Microsoft.Win32;
 
 namespace BoothAssetManager.App.ViewModels;
@@ -58,13 +59,36 @@ public sealed class AppTheme : ViewModelBase
     public static bool IsDark => Current._appliedDark == true;
 
     /// <summary>
-    /// 設定を読む前（保存先の確かめ・初回の窓）の色。初回はまだ設定が無いので、既定の「Windows に合わせる」で出す。
+    /// サービス一式を作る前（保存先の確かめ・初回の窓・「既に起動しています」）の色。
+    /// 保存先に設定があればその表示の色、無い・読めない（初回・保存先が見つからない）なら既定の「Windows に合わせる」で出す。
     /// Windows の色の設定が変わったのも、ここから見始める
     /// </summary>
     public static void Start()
     {
+        UseStoredMode();
         Current.Apply();
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+    }
+
+    /// <summary>
+    /// 保存先の設定の表示の色を、読めれば当てる（ユーザ判断 2026-10-01）。読むだけで書かない（<see cref="ColorThemePeek"/>）。
+    ///
+    /// 前は設定の色をサービス一式ができてから当てていたので、その前に出る「既に起動しています」の窓は、
+    /// 表示の色を「明るい」にしていても Windows が暗ければ暗く出た。
+    /// 保存先の確かめで既定の場所へ切り替えた後にも呼ぶ（そこに前の設定があれば、続く窓はその色で出す）。
+    /// 読めなければ何も変えない。
+    /// </summary>
+    public static void UseStoredMode()
+    {
+        if (ColorThemePeek.Read() is not { } mode || mode == Current._mode)
+        {
+            return;
+        }
+
+        // 設定画面の「表示の色」はまだ無いので、知らせる相手はいない。当てた色（_appliedDark）は引き継ぎ、同じなら表を入れ替えない
+        var appliedDark = Current._appliedDark;
+        Current = new AppTheme(null, mode) { _appliedDark = appliedDark };
+        Current.Apply();
     }
 
     /// <summary>設定から作り直す。画面のスレッドで、主の窓を作る前に1回。</summary>

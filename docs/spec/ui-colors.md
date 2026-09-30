@@ -6,7 +6,7 @@
 > **コード**：`App/Themes/Light.xaml`・`Dark.xaml`（色の表）・`Controls.xaml`（標準の部品の見た目）・`App/ViewModels/AppTheme.cs`（切り替え・題の帯）・
 > `Core/Models/ColorThemeMode.cs`（設定の値と「Windows に合わせる」の決め方）
 >
-> **試験**：`Core.Tests/ThemeTableTests.cs`（鍵の揃い・直に書かない・DynamicResource で指す・暗い表のコントラスト）・`ColorThemeTests.cs`
+> **試験**：`Core.Tests/ThemeTableTests.cs`（鍵の揃い・直に書かない・DynamicResource で指す・暗い表のコントラスト）・`ColorThemeTests.cs`・`ColorThemePeekTests.cs`（起動の色）
 >
 > **経緯**：ユーザ指示 2026-09-29「後から色が簡単に変えられるように、色は一元管理する」
 
@@ -91,7 +91,14 @@
   読めなければ明るい。Windows の設定を変えたとき（`UserPreferenceChanged`）も追う
 - **窓の題の帯**は Windows が描くので、窓ごとに DWM へ暗い帯を頼む（`DWMWA_USE_IMMERSIVE_DARK_MODE`。20、古い版は19）。
   主の窓は `App.OnStartup`、小窓は `DialogFit.Prepare` で見張る
-- 設定は `settings.json` の `colorTheme`（`system`／`light`／`dark`）。書くのは `UiCommand.ChangeSettings`。起動では設定を読む前（保存先の確かめ・初回の窓）は Windows に合わせる
+- 設定は `settings.json` の `colorTheme`（`system`／`light`／`dark`）。書くのは `UiCommand.ChangeSettings`。
+- **起動の色**（ユーザ判断 2026-10-01）：窓を1つも出さないうちに、保存先の `settings.json` から `colorTheme` の1欄だけを読んで当てる
+  （`Core/Storage/ColorThemePeek`。読むだけで、書かない・フォルダも作らない。`AppTheme.Start`）。サービス一式は保存先のフォルダを作り、
+  2つ目の起動かを確かめるので、色のために先には作れない。前はサービス一式ができてから当てていて、その前に出る「既に起動しています」の窓が、
+  表示の色を「明るい」にしていても Windows が暗ければ暗く出た。
+  - 読めない場面は今までどおり Windows に合わせる：初回の窓（設定がまだ無い）・保存先の確かめの窓（保存先が見つからない）・壊れた設定。
+  - 保存先の確かめで既定の場所へ切り替えたら、そこの設定で読み直す（`AppTheme.UseStoredMode`）。
+  - サービス一式ができたら今までどおり設定から作り直す（`AppTheme.Initialize`。同じ色なら表は入れ替えない）。
 
 ## 標準の部品（`Themes/Controls.xaml`）
 
