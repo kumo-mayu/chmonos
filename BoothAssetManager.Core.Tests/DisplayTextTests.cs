@@ -42,6 +42,36 @@ public class DisplayTextTests
     public void WritesTheUnpackingLine(int count, long done, long total, bool stopping, string expected)
         => Assert.Equal(expected, DisplayText.UnpackingLine(count, done, total, stopping));
 
+    /// <summary>Unity へ送る前の取り出しの1行。数と大きさの書き方は一時展開の帯と同じ。</summary>
+    [Fact]
+    public void WritesTheUnityExtractingLine()
+        => Assert.Equal(
+            "2/3：「Body.unitypackage」をzipから取り出しています… 120.5 MB / 2.3 GB",
+            DisplayText.UnityExtractingLine(2, 3, "Body.unitypackage", 126353408L, 2469606195L));
+
+    /// <summary>
+    /// すぐ終わる取り出しでは、送る帯の文を替えない（替えると読めない速さで入れ替わる）。
+    /// 1秒経ち、そこまでの速さで残りも1秒以上掛かりそうなときだけ替える。
+    /// </summary>
+    [Theory]
+    // 1秒経つ前は、どれだけ残っていても替えない
+    [InlineData(0, 0L, 1000L, false)]
+    [InlineData(999, 1L, 1000L, false)]
+    // 1秒経って半分以下なら、残りも1秒以上
+    [InlineData(1000, 500L, 1000L, true)]
+    [InlineData(1000, 100L, 1000L, true)]
+    // 1秒経ったが、もうすぐ終わる（残り約0.25秒）
+    [InlineData(1000, 800L, 1000L, false)]
+    // 途中で遅くなった：3秒で6割なら残りは2秒
+    [InlineData(3000, 600L, 1000L, true)]
+    // 1バイトも書けないまま1秒経った
+    [InlineData(1000, 0L, 1000L, true)]
+    // 書き終えた・大きさが分からない（空のファイル）
+    [InlineData(5000, 1000L, 1000L, false)]
+    [InlineData(5000, 0L, 0L, false)]
+    public void ShowsTheUnityExtractingLineOnlyForSlowOnes(int elapsedMilliseconds, long done, long total, bool expected)
+        => Assert.Equal(expected, DisplayText.ShowsUnityExtracting(TimeSpan.FromMilliseconds(elapsedMilliseconds), done, total));
+
     /// <summary>
     /// 名詞の形はJSONに書いてある語と同じにする。
     /// 画面と保存で語が違うと、同じものだと分からなくなる。
