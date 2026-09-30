@@ -116,10 +116,13 @@ static string Mb(long bytes) => $"{bytes / 1024.0 / 1024.0:0.00} MB";
 // 写しの名前が「BoothAssetManager-scn」で始まる物にしか書かない（本番・ほかの担当の写しを書き換えないように）
 static void Make(int count, string storeRoot)
 {
-    if (!Path.GetFileName(storeRoot).StartsWith("BoothAssetManager-scn", StringComparison.OrdinalIgnoreCase)
+    // scn は測った担当、mis は直した担当が台本から作った写しの名前（直した後に、同じ台で測り直した）
+    var name = Path.GetFileName(storeRoot);
+    if (!(name.StartsWith("BoothAssetManager-scn", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("BoothAssetManager-mis", StringComparison.OrdinalIgnoreCase))
         || !File.Exists(Path.Combine(storeRoot, "settings.json")))
     {
-        throw new InvalidOperationException($"ここには書かない: {storeRoot}（自分で作った写し BoothAssetManager-scn… だけ）");
+        throw new InvalidOperationException($"ここには書かない: {storeRoot}（自分で作った写し BoothAssetManager-scn…・-mis… だけ）");
     }
 
     var paths = new AppPaths(storeRoot);

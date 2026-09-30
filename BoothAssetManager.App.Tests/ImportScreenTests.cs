@@ -155,4 +155,36 @@ public class ImportScreenTests
             + "移した先を監視フォルダに追加してから、もう一度押してください。",
             import.MissingSearchText);
     });
+
+    /// <summary>
+    /// 探す処理は丸ごと裏で走る（2026-09-30）。画面の側は、押した直後の文・押せない間・結果の文を画面のスレッドで入れ、
+    /// 裏から届く進み具合の文が結果の文の後に残らないこと。
+    /// </summary>
+    [Fact]
+    public Task 監視フォルダの中で移したファイルは_紐付け直して件数を言う() => TestApp.Run(async app =>
+    {
+        var moved = app.NewFile(@"watched\sub\moved.zip", [7, 7, 7, 7]);
+        var watched = System.IO.Path.Combine(app.Root, "files", "watched");
+        var gone = System.IO.Path.Combine(watched, "costume.zip");
+        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装").WithFiles(
+            Make.File(gone) with { Hash = await FileHasher.ComputeSha256Async(moved), SizeBytes = 4 }));
+        var main = await app.StartAsync();
+
+        // 監視フォルダは主画面を作った後に入れる（先に入れると、起動時の新着の確かめが同じフォルダを見に行く）
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var import = main.Import;
+
+        import.FindMissingFilesCommand.Execute(null);
+
+        // 押した直後：探している間は押せない
+        Assert.Equal("見つからないファイルを調べています…", import.MissingSearchText);
+        Assert.False(import.FindMissingFilesCommand.CanExecute(null));
+
+        await app.SettleAsync();
+
+        Assert.Equal("1 件を新しい場所に紐付け直しました。", import.MissingSearchText);
+        Assert.True(import.FindMissingFilesCommand.CanExecute(null));
+        var item = await app.Store.Items.LoadAsync("1000001");
+        Assert.Equal(moved, Assert.Single(Assert.Single(item!.Local.LocalFiles).Paths));
+    });
 }

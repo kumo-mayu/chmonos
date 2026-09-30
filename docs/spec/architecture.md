@@ -75,6 +75,11 @@
 - **取り込み（`ImportPipeline.RunAsync`）と対応アバターの検出（`AvatarService.DetectAsync`）は、中身を `Task.Run` で裏へ出す**（2026-09-24）。
   Core は `ConfigureAwait(false)` を使わないので、画面から呼ぶと続きが画面のスレッドへ戻り、全件の読み込み・走査・書き込みがそこで走っていた。
   画面への知らせ（進み具合の `Progress`・通信の様子・画像の保存）は、受ける側が画面のスレッドへ運んでいる。優先度（`Prioritize`）は AsyncLocal なので中へ引き継がれる。
+- **「見つからないファイルを探す」（`MissingFileFinder.FindAsync`）も同じ形で丸ごと裏へ出す**（2026-09-30）。走査の控えの読みと錠の中の読み直し
+  （8万件・21MB で 1回 0.19〜0.27秒）・監視フォルダの列挙・在るかの確かめ・ハッシュの合間が画面のスレッドで走っていた。
+  進み具合（`IProgress`）は裏のスレッドから呼ばれる。受け手が画面の物に触るなら、受け手が画面のスレッドへ運ぶ。
+  **処理を裏へ出すときは、中から画面の物（ViewModel の欄・`ObservableCollection`・命令の押せるか）に触っていないかを、呼び元から中まで洗う。**
+  確かめ方は、続きが1本のスレッドへ戻る文脈から呼んで、続きが1つも戻らないことを見る（`MissingFileFinderOffThreadTests`）。数字は `docs/research/large-files-2026-09-30.md` の末尾。
 - **何度も読まれる JSON は、ファイルの大きさと更新日時で写しを持つ**（読むだけの道に限る）。商品（`ItemRepository`）・改変（`ModificationRepository`）・
   登録簿・タグ・属性・足跡（`JsonFileStore` の `shareLoaded`。中身が init だけの型なのでそのまま共有）・知らせ（`copyOnLoad`。入れ物の `List` だけ複製して渡す）。
   **錠の中の読み直し（`UpdateAsync` など）は写しを使わずディスクから読む**（古い写しに当てて外で直した分を消さないため）。
