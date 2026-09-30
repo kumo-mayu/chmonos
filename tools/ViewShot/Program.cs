@@ -311,13 +311,13 @@ internal static class Program
         var context = new SceneContext(stage, options, scene);
 
         // 知らせの窓は出さない。出ようとしたことは結果に書く（場面の途中で失敗しているかもしれない）
-        Notice.Substitute = (text, caption, button, defaultResult) =>
+        Notice.Intercept = request =>
         {
-            context.Notices.Add($"「{caption}」{text}");
-            return defaultResult != MessageBoxResult.None
-                ? defaultResult
-                : button is MessageBoxButton.OK ? MessageBoxResult.OK
-                : button is MessageBoxButton.YesNo ? MessageBoxResult.No
+            context.Notices.Add($"「{request.Caption}」{request.Text}");
+            return request.DefaultResult != MessageBoxResult.None
+                ? request.DefaultResult
+                : request.Button is MessageBoxButton.OK ? MessageBoxResult.OK
+                : request.Button is MessageBoxButton.YesNo ? MessageBoxResult.No
                 : MessageBoxResult.Cancel;
         };
 

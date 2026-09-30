@@ -22,8 +22,28 @@ public sealed class AppServiceContainer : IDisposable
     private SingleInstanceLock? _instanceLock;
 
     public AppServiceContainer()
+        : this(AppPaths.Default)
     {
-        Paths = AppPaths.Default;
+    }
+
+    /// <summary>
+    /// 保存先と、外へ出る所を渡して組む。**アプリは上の引数なしの方だけを使う**（既定の値がアプリの動き）。
+    /// 試験（<c>BoothAssetManager.App.Tests</c> の <c>TestApp</c>）が、一時フォルダの保存先と通信しない作り物で
+    /// ViewModel を組むための入口（ユーザ判断 2026-09-30：計算で決まる文言やボタンの出し分けを、起動して撮らずに確かめる）
+    /// </summary>
+    /// <param name="http">BOOTH への通信の出口。渡さなければ本物。試験は決まった応答を返す作り物を渡す。</param>
+    /// <param name="boothDelay">問い合わせの間の待ち。渡さなければ本物の待ち。試験は待たない物を渡す（相手が作り物なので空ける意味が無い）。</param>
+    /// <param name="cleanUpTemporaryUnpacks">
+    /// 前回の一時展開を消すか。消す場所は保存先の外（利用者の一時フォルダ）で全部の起動が共有するので、
+    /// 試験から消すと、隣で動いているアプリがエクスプローラで開いている中身を消してしまう
+    /// </param>
+    internal AppServiceContainer(
+        AppPaths paths,
+        HttpMessageHandler? http = null,
+        Func<TimeSpan, CancellationToken, Task>? boothDelay = null,
+        bool cleanUpTemporaryUnpacks = true)
+    {
+        Paths = paths;
         Paths.EnsureCreated();
 
         // 裏の作業で黙って飛ばした失敗も、後から追えるように書き残す（技術的負債 2-1）
@@ -36,17 +56,18 @@ public sealed class AppServiceContainer : IDisposable
 
         // 前回閉じたときに消し残った一時展開（#56）。二重に起動した側が消すと、
         // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
-        if (IsSingleInstance)
+        if (IsSingleInstance && cleanUpTemporaryUnpacks)
         {
             new TemporaryUnpacker().CleanUp();
         }
         // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
         SettingsStore = new SettingsService(Store);
 
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        _httpClient = http is null ? new HttpClient() : new HttpClient(http);
+        _httpClient.Timeout = TimeSpan.FromSeconds(30);
         // 設定は値ではなく「今の設定を返すもの」で渡す。値で渡すと、設定画面で保存しても
         // 起動し直すまで効かなかった（画像の長辺・画質・取得の間隔など。SettingsSource に理由）
-        Client = new BoothClient(_httpClient, () => Settings);
+        Client = new BoothClient(_httpClient, () => Settings, boothDelay);
         Images = new ImagePipeline(Client, Paths, () => Settings);
 
         // 検出は梯子の③なので、取り込みより先に組み立てる
@@ -102,6 +123,15 @@ public sealed class AppServiceContainer : IDisposable
         // ドラッグで変えた画面の幅（ユーザ判断 2026-09-14）。書くのは UiCommand.ChangeUiState
         PaneWidths = new Services.PaneWidths(SettingsStore, Commands);
     }
+
+    /// <summary>
+    /// Unity Hub・VCC・ALCOM が手元にあるかを調べる。レジストリと実マシンのファイルを見るので、
+    /// 試験は決まった答えに差し替える（改変の画面のボタンと空の文・設定の説明の文が、これで決まる）
+    /// </summary>
+    internal Func<Services.UnityTools> DetectUnityTools { get; set; } = Services.UnityTools.Detect;
+
+    /// <summary>Unity Hub・VCC の一覧から Unity のプロジェクトを集める。実マシンの一覧を読むので、試験は差し替える。</summary>
+    internal Func<IReadOnlyList<UnityProjectCandidate>> DiscoverUnityProjects { get; set; } = () => UnityProjects.Discover();
 
     /// <summary>ドラッグで変えられる画面の幅。</summary>
     public Services.PaneWidths PaneWidths { get; }

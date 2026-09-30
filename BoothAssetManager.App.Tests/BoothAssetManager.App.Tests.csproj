@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    画面の側（BoothAssetManager.App の ViewModel と Services）の試験。
+    文言の出し分け・ボタンの出し分け・一覧の絞り込みのような「計算で決まる物」を、アプリを起動して撮らずに確かめる
+    （ユーザ判断 2026-09-30）。窓は出さない。配置と見た目は今までどおり画像で見る。書き方は docs/dev/app-tests.md
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BoothAssetManager.App\BoothAssetManager.App.csproj" />
+  </ItemGroup>
+
+</Project>

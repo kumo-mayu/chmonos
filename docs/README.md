@@ -9,6 +9,7 @@
 | `BoothAssetManager.App/` | 画面（WPF）。`Views/`・`ViewModels/`・`Controls/`（`SuggestBox`・`ColumnsPanel` など共通の部品）・`Services/` |
 | `BoothAssetManager.Core/` | 画面に依存しない本体。`Booth/`（通信のゲート）・`Commands/`（`UiCommand`）・`Models/`・`Storage/`・`Scanning/`（取り込み）・`Resolution/`（商品IDの特定）・`Search/`・`Services/`・`Images/` |
 | `BoothAssetManager.Core.Tests/` | 既定のテスト一式（通信しない） |
+| `BoothAssetManager.App.Tests/` | 画面の側（ViewModel・App の Services）の試験。窓を出さず、一時フォルダの保存先と作り物の BOOTH で組む。書き方は `docs/dev/app-tests.md` |
 | `BoothAssetManager.Cli/` | データ層を実データで試す足場。配布物ではない |
 | `BoothZipInspector/`・`BoothIdResolver/`（と `.Tests`） | zip の手掛かり読み・商品IDの特定のライブラリ（本体が使う） |
 | `experiments/` | 採否を決めるための計測・試しの実行ファイル（BOOTH へ実際に問い合わせるものもここ）。一覧は `experiments/README.md` |
@@ -23,7 +24,8 @@
 ## 文書の種類
 
 - **`spec/`** — 話題ごとの**今の決め事**。1ファイル200行まで。冒頭に要点・コードの場所・経緯へのリンクがある。**作業の前にまず読む。**
-- **`dev/`** — 作るときの落とし穴（[wpf.md](dev/wpf.md)：XAML・一覧・絵のメモリ・XML／[powershell.md](dev/powershell.md)：確かめと作り物のデータのスクリプト）。書く前に読む。
+- **`dev/`** — 作るときの落とし穴（[wpf.md](dev/wpf.md)：XAML・一覧・絵のメモリ・XML／[powershell.md](dev/powershell.md)：確かめと作り物のデータのスクリプト／
+  [app-tests.md](dev/app-tests.md)：画面の側の試験の書き方・何を試験で確かめて何を画面で見るか）。書く前に読む。
 - **`history/`** — 決めたときの経緯（grill・当時の数字・訂正）。書かれた時点の記録なので、今の決め事と食い違う所がある（そのときは spec が正）。
 - **`research/`** — 調査と計測の記録。
 - **`feedback/`** — 画面への意見。`open.md` が未対応・記録のみ、`done-2026-09.md` が直した記録（U番号・D番号。約300KB なので見出しを Grep して節だけ読む）、`ui-flows-2026-09-15.md` が画面と状態ごとの操作の動線と、意図と違う動き・その画面に無い機能の一覧（UI 案を練るときの材料）、`ui-consistency-2026-09-20.md` が語・メニュー・窓・入力・空表示の**揃っていない所**の一覧（同じく材料。W/R/M/B/D/E/I/V の番号で指す）、`behavior-2026-09-20.md` が**動き**の変な所の一覧（中断・待ち・同時に走ったときの取り違え・保存の競合・裏の作業・データの決め事。L/C/N/P/G/X/J/Q の番号で指す）、`review-2026-09-23.md` がその後の全体の点検と直した記録（判断をもらった2件を含む）。
@@ -71,6 +73,7 @@
 | [folder-view.md](history/folder-view.md) | フォルダビューの根の決め方の試しと速さ |
 | [tech-debt-2026-09-14.md](history/tech-debt-2026-09-14.md) | 技術的負債の洗い出しと直した記録 |
 | [ui-wording-2026-09-24.md](history/ui-wording-2026-09-24.md) | 画面の文言の AI らしさの点検（型と件数・元になった決め事・手本）と、書き方の決まり・用語表・点検の道具を作り直した理由 |
+| [app-tests-2026-09-30.md](history/app-tests-2026-09-30.md) | 画面の側の試験の一式を作った経緯（なぜ・どう組んだか・途中で踏んだ物・書いていて見つけた食い違い） |
 | [search-redesign.md](history/search-redesign.md) | 検索画面の刷新（ユーザの案の原文・実装前の照合・決めること） |
 | [zip-prototype-instructions.md](history/zip-prototype-instructions.md) | zip から商品IDを当てる試作の指示書 |
 | [zip-inspector-readme.md](history/zip-inspector-readme.md) | その試作（BoothZipInspector・BoothIdResolver）の使い方。元は直下の README（2026-09-18 に移した） |

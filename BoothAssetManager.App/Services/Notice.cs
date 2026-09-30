@@ -3,6 +3,10 @@ using System.Windows;
 
 namespace BoothAssetManager.App.Services;
 
+/// <summary>出すはずだった知らせ・確認の窓の中身（<see cref="Notice.Intercept"/> が受ける）。</summary>
+internal sealed record NoticeRequest(
+    string Text, string Caption, MessageBoxButton Button, MessageBoxImage Icon, MessageBoxResult DefaultResult);
+
 /// <summary>
 /// 画面から出す知らせ・確認の窓を通す1か所（<see cref="MessageBox"/> の代わり）。
 ///
@@ -15,15 +19,6 @@ namespace BoothAssetManager.App.Services;
 /// </summary>
 internal static class Notice
 {
-    /// <summary>
-    /// 窓を出さずに答える差し替え口。**アプリは入れない**（入っていなければ今までどおり窓を出す）。
-    ///
-    /// 窓を出さずに画面を描く台（tools/ViewShot）が入れる。台はアプリの ViewModel をそのまま動かすので、
-    /// 場面の途中で失敗の知らせが出ると、人が使っている画面に窓が出て、押されるまで台も止まる。
-    /// 渡るのは本文・題・ボタンの組・既定の答えで、返した値がそのまま答えになる
-    /// </summary>
-    internal static Func<string, string, MessageBoxButton, MessageBoxResult, MessageBoxResult>? Substitute { get; set; }
-
     public static MessageBoxResult Show(
         string text,
         string caption = "",
@@ -50,12 +45,20 @@ internal static class Notice
         return answer;
     }
 
+    /// <summary>
+    /// 窓を出す代わりに、出すはずだった文を受けて答えを返す口。**アプリでは null のまま**（窓を出す）。
+    /// 試験（BoothAssetManager.App.Tests）と、窓を出さずに画面を描く台（tools/ViewShot）が入れる：
+    /// 窓を出すと答える人がいないので止まったままになり、隣で使っている画面の上にも出てしまう。
+    /// 文言と、答えごとの続きの動きを、窓なしで確かめられる
+    /// </summary>
+    internal static Func<NoticeRequest, MessageBoxResult>? Intercept { get; set; }
+
     private static MessageBoxResult Present(
         Window? owner, string text, string caption, MessageBoxButton button, MessageBoxImage icon, MessageBoxResult defaultResult)
     {
-        if (Substitute is { } substitute)
+        if (Intercept is { } intercept)
         {
-            return substitute(text, caption, button, defaultResult);
+            return intercept(new NoticeRequest(text, caption, button, icon, defaultResult));
         }
 
         var app = Application.Current;

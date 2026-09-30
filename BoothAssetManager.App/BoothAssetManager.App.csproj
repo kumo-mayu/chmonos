@@ -1,5 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    試験（BoothAssetManager.App.Tests）から、ViewModel の中の計算（internal static の文言・出し分け）と、
+    試験用の組み立ての入口（AppServiceContainer の引数付きの方・Notice.Intercept）を見せる
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="BoothAssetManager.App.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\BoothAssetManager.Core\BoothAssetManager.Core.csproj" />
   </ItemGroup>

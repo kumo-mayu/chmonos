@@ -96,8 +96,11 @@
   押さずに残る欄を持つ画面は `IPendingWrites` で、**組み込んだ画面の分も自分で拾う**（`OnLeaving` も同じく持ち主が伝える）。
 - 検索の画面の状態はセッション中保持（ViewModel をアプリの間1つ持ち回る）。**View も1つを持ち回す**（`Views/SearchViewHost`・2026-09-24）。戻るたびに絞り込みの欄とカードを組み直していたため。よそにいる間も見えていたカードの部品と絵を持つ代わりに、戻ったときの作り直しが無くなる。離れるときに開いていた候補・日付の窓は閉じる。
 - 大きな画面のクラスは関心ごとの `partial` のファイルに分けてある（`SearchViewModel.History.cs` など）。**クラスとしては1つのまま**（状態は分けていない）。画面に並べる行の型は `*Rows.cs`。
-- 画面に依らない決まりは Core へ切り出して試験を付ける（`ItemOrder`・`UnresolvedMerge`・`VolumeTable` など）。画面側（App）の試験は作らない。
+- 画面に依らない決まりは Core へ切り出して試験を付ける（`ItemOrder`・`UnresolvedMerge`・`VolumeTable` など）。
   切り出しの候補：検索の `Matches`、改変の画面の左の一覧の組み立て、編集画面の種類分けの推し当て。
+- **画面の側（ViewModel）にも試験を付ける**（`BoothAssetManager.App.Tests`・ユーザ判断 2026-09-30。前は「画面側の試験は作らない」だった）。
+  文言やボタンの出し分けのような計算で決まる物を、起動して撮らずに確かめる。ViewModel の中の値から決まる文は `internal static` の関数にし、
+  画面を通す試験は一時フォルダの保存先で主画面ごと組む（`docs/dev/app-tests.md`）。
 - 別の画面を組み込む形（フォルダビューに商品ページ・未確定、改変の画面に改変の詳細）は `IsEmbedded` で戻るや境目を隠す。
 
 ## 起動と保存先
@@ -115,13 +118,17 @@
 
 ## 試験とビルド
 
-- `dotnet build`・`dotnet test BoothAssetManager.Core.Tests`（1,400件超）。**通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。
+- `dotnet build`・`dotnet test`（本体 `BoothAssetManager.Core.Tests` が2,200件超、画面の側 `BoothAssetManager.App.Tests` が約280件）。
+  **通信する試験を既定の一式に入れない**（`experiments/` の実行ファイルで行う）。画面の側の試験は、通信の出口を作り物に差し替えて組む。
+- **試験のための口は、既定をアプリの動きのままにする**：`AppServiceContainer` の引数付きの入口（保存先・通信の出口・待ち）と
+  実マシンを調べる関数（`DetectUnityTools`・`DiscoverUnityProjects`）、`Notice.Intercept`（窓を出す代わりに文を受ける）、
+  `FireAndForget.Pending`（投げっぱなしの作業の数）。アプリはどれも触らない。
 - 画面から出す知らせ・確認の窓は `Services/Notice` を通す（`MessageBox.Show` を直に呼ばない）。出す形は変えていないが、文言と押されたボタンを1か所で拾える。
 - 確かめ用の足跡（`Core/Services/UiTrace`）：**環境変数 `CHMONOS_UITRACE` があるときだけ**、知らせ・選ぶ窓・`UiCommand`・Unity の取り込みを1行ずつファイルに書く。
   無ければ何もしない（本番の動きは変えない）。画面の確かめで、文言を撮って読む代わりに使う（`ui-check` スキル）。
 - 窓を出さずに画面を描く台（`tools/ViewShot`・2026-09-30）：アプリの ViewModel と View をそのまま組み、作り物のデータで PNG に描く。
   見た目だけの確かめはアプリを起動せずにこれで行う（`ui-check` スキル）。台のために本体に足したのは、内側の型を台へ見せる指定（`InternalsVisibleTo`）と、
-  知らせの窓を出さずに答える差し替え口（`Notice.Substitute`。アプリは入れない）だけ。外から作れない状態は台の `Backdoor.cs` が入れる。
+  知らせの窓を出さずに答える差し替え口（`Notice.Intercept`。アプリは入れない）だけ。外から作れない状態は台の `Backdoor.cs` が入れる。
   ソリューションに入れてあるので、本体の名前を変えて台が組めなくなればビルドで分かる（`Backdoor.cs` が名前で探している3か所は、描くときに何が見つからないかを言って止まる）
 - 実験のプロジェクトはソリューションに入れない（ファイルは `experiments/` に残る）。
 - 改行は LF（`.gitattributes` の `* text=auto eol=lf`）。ビルドの警告は0件を保つ。

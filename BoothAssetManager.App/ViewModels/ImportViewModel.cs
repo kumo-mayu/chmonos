@@ -743,7 +743,7 @@ public sealed class ImportViewModel : ViewModelBase
     }
 
     /// <summary>「約 12 分」「約 1 時間 5 分」。秒まで出すと毎回変わって読めない。</summary>
-    private static string Duration(double seconds)
+    internal static string Duration(double seconds)
     {
         if (seconds < 60)
         {
@@ -757,7 +757,9 @@ public sealed class ImportViewModel : ViewModelBase
     public ImportSummary? Summary
     {
         get => _summary;
-        private set
+
+        // 試験が結果を入れて、結果の文と並びを確かめる（入れるのは取り込みの終わりだけ。画面は読むだけ）
+        internal set
         {
             if (SetField(ref _summary, value))
             {
@@ -1432,7 +1434,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// 検出（③）の結果を1行にする。検出そのものは取り込みの1段として
     /// パイプラインの中で走るので、ここでは受け取ったまとめを読むだけ。
     /// </summary>
-    private static string DescribeDetection(ImportSummary summary)
+    internal static string DescribeDetection(ImportSummary summary)
     {
         if (summary.AvatarDetectError is { } error)
         {
