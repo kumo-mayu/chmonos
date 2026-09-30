@@ -26,6 +26,7 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 
 並列化しない。間隔を縮めない。相手（pixiv）のサービスに負担をかけないための決め事で、性能上の妥協ではない。
 実装は `BoothClient` のゲート1箇所に集めてある——そこを通さない通信を書かない。
+門は PC で1つ（`BoothMachineGate`）。保存先の違うアプリや道具を並べて動かしても、合わせて1本ずつになる。待ちを差し替えた組み立て（試験）を本物の BOOTH に向けない。
 
 優先順位は `BoothPriority` に定義してある。人が押した通信 ＞ 指名された画像 ＞ ①② ＞ ③ ＞ ④ ＞ ⑤ ＞ ⑥ ＞ ⑦。
 
@@ -42,8 +43,9 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 - 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番と friendtest では起動を断る）。
   写しの一覧と、画面ごとにどれを使うかは `.claude/skills/ui-check/sandboxes.md`
 - 確かめが終わったら `Test-ProductionUntouched` で、本番の `settings.json` の更新日時と `items/*.json` の件数が変わっていないことを確かめ、報告に書く
-- アプリの一式（`AppServiceContainer`・`MainViewModel`）を組む試験・道具は、保存先を必ず指定する（`CHMONOS_HOME`）。指定が無いと `StoreLocation.Resolve` が例外で止める
-  （2026-09-30：道具の作りかけの版が指定なしで組み、友人の写しを開いて BOOTH へ取り直しに行った）。`Test-ProductionUntouched` は `location.json` が指す先までは見ないので、その先の更新日時も見る
+- アプリの一式（`AppServiceContainer`・`MainViewModel`）を組む試験・道具は、保存先を必ず指定する（`CHMONOS_HOME`）。指定が無いと `StoreLocation.Resolve` が例外で止める。
+  `new App()` する道具も同じ（WPF は `Run` を呼ばなくても起動の処理を走らせる。App の側で、自分の実行ファイルから起動されたときだけ進めるよう分けてある）。
+  2026-09-30 に道具が指定なしで友人の写しを開き、BOOTH へ取り直しに行った（`docs/feedback/review-2026-09-30-store-incident.md`）。`Test-ProductionUntouched` は `location.json` が指す先も比べる
 
 ### 4. 友人のデータは第三者のもの
 
