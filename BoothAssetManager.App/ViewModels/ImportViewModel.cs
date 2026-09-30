@@ -1531,9 +1531,9 @@ public sealed class ImportViewModel : ViewModelBase
     /// </summary>
     internal static string UnreadableFilesText(int files, int folders) => (files, folders) switch
     {
-        (> 0, > 0) => $"読めなかったファイルが {files} 件、フォルダが {folders} 件あります（取り込めていません）。" + UnreadableFilesNext,
-        (> 0, _) => $"読めなかったファイルが {files} 件あります（取り込めていません）。" + UnreadableFilesNext,
-        (_, > 0) => $"読めなかったフォルダが {folders} 件あります（取り込めていません）。"
+        (> 0, > 0) => $"読めなかったファイルが {files} 件、フォルダが {folders} 件あり、取り込めていません。" + UnreadableFilesNext,
+        (> 0, _) => $"読めなかったファイルが {files} 件あり、取り込めていません。" + UnreadableFilesNext,
+        (_, > 0) => $"読めなかったフォルダが {folders} 件あり、取り込めていません。"
             + "権限が無いか、ネットワーク越しでつながっていないかのどちらかです。"
             + "エクスプローラで開けるか確かめてから、もう一度取り込んでください。",
         _ => string.Empty,
