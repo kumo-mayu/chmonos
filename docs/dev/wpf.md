@@ -96,17 +96,21 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - **`ListBox` の行の名前は、付けなければ行の `ToString()`（型の名前）。**`ItemContainerStyle` で `AutomationProperties.Name` を行の名前に結ぶ。
   暗黙の行の見た目が在るので、`BasedOn="{StaticResource {x:Type ListBoxItem}}"` を付ける（付けないと見た目が既定に戻る）
 - **`Expander` の見出しの押す所（型の中の `ToggleButton`）は、見出しが文字の並びや札だと名前が無い。**型（`TriangleExpander`・暗黙の `Expander`）が `Expander` の名前を継ぐので、`Expander` に名前を付ける
-- **隠している部品（`Collapsed`・`Hidden`）は、UI Automation の既定の見方（操作できる部品だけ）に出ない。**乗せたときだけ出すボタンは、乗せるまで探せない。自前の窓口で「操作できる部品」を常に真にすると、隠した枠まで出る
+- **隠している部品（`Collapsed`・`Hidden`）は、UI Automation の既定の見方（操作できる部品だけ）に出ない。フォーカスも受けられない。**乗せたときだけ出すボタンを `Hidden` で隠すと、乗せるまで探せず、Tab でも止まれない。
+  キーボードから届かせる物は透明（`Opacity=0`）で隠し、透明な間はマウスを通す（`IsHitTestVisible=False`。見えないボタンを押させない）。`App.xaml` の `RevealOnHoverOrFocusButton`。自前の窓口で「操作できる部品」を常に真にすると、隠した枠まで出る
 - **中身が文字のボタン・チェック・メニューの項目は、名前から最初の「_」が消える**（アクセスキーの印として。`AutomationProperties.Name` を付けていても消える。「__」は「_」に戻る）。
   画面の表示は、型の `ContentPresenter` が `RecognizesAccessKey` を持つときだけ消える（このアプリのボタンは持たない。メニュー・チェック・ラジオ・畳む欄の見出しは持つ）。
   名前は `Services/AutomationNames` が型に1回で掛けて守る（`AutomationProperties.NameProperty` の決まりをボタンの仲間とメニューの項目で上書きし、先に「_」を重ねる）
 - **見出しでまとめた一覧（`GroupStyle`）の束は、開いている間、見出しの中の部品を木に出さない**（束の子は行だけ。畳むと見出しごと出る）。束の窓口（`GroupItemAutomationPeer`）は WPF が作る物で差し替えられない。
   一覧の窓口の側で、開いている束の後ろに見出しの中の部品を並べる（`Controls/GroupedListBox`。見出しの押す所そのものは WPF が束の窓口に結び付けているので、渡すと束が2つ出る）
 - **`ToggleButton` は「オン／オフ」しか言わない。**開閉の三角は `Controls/ExpandToggle`（開閉の状態を `IExpandCollapseProvider` で渡す。値を入れるのは `SetCurrentValue`——結び付けを壊さずに、結び付けた先へも届く）
+- **`ItemsControl`（と継いだ `ContentItemsControl`）は、既定で Tab で止まる。**止まっても何も起きず、フォーカスの枠だけが一覧を囲む。`ContentItemsControl` は型の側で止まらないようにしてある
 - **メニューの下の段は、開くまで木に無い。**開いた後は窓の外の別の窓に出る。同じ名前の項目は AutomationId で指す
 - **アプリを起動せずに確かめる**（道具は `experiments/PeerProbe`）：`HwndSource`（`WS_POPUP` だけ・`WS_VISIBLE` なし・画面の外）に部品を載せ、別のスレッドから `AutomationElement.FromHandle` で木をたどる
   （同じスレッドからは自分の窓を読めない。画面のスレッドは `Dispatcher.PushFrame` で回しておく）。画面の View は `new App().InitializeComponent()` で資源だけ読めば載る（起動の処理は、`App` が「入口が自分の実行ファイルでない」と見て進めない。上の「窓を出さずに描く」）。
   結ぶ値は `ExpandoObject` の作り物でよい（型で見た目を選ぶ所だけは本物が要る）。**メニューや窓を開く操作は押さない**（見えない窓からでも、ポップアップは画面に出る）
+- **キーボードのフォーカスと Tab の順も、起動せずに確かめられる**（`experiments/PeerProbe -- focus`）。見えない窓に `SetFocus` すると、このスレッドの中だけでフォーカスが移り（ほかのアプリの前面の窓は変わらない）、
+  `MoveFocus(Next)` が Tab キーと同じ決まりで次へ進む。Enter は `InputManager.ProcessInput` に渡す（実際のキーは押さない）。窓には `WS_EX_NOACTIVATE` を付けない（付けるとフォーカスを受けない）
 
 ## コマンド
 

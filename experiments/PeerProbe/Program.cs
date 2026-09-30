@@ -2,6 +2,7 @@
 //   dotnet run --project experiments/PeerProbe                 全部の場面の木を書き出す
 //   dotnet run --project experiments/PeerProbe -- 20-item      名前にこの文字を含む場面だけ
 //   dotnet run --project experiments/PeerProbe -- dynamic      素の ItemsControl の行が見えなくなる条件を試す
+//   dotnet run --project experiments/PeerProbe -- focus        Tab と同じ順にフォーカスを進め、止まった所と、そのとき出ているボタンを書く
 //   （--dir <フォルダ> で、別の場所の *.probe.txt を読む。PROBE_TEXT=1 で文字の部品も全部書く）
 // 読み方：行は「型 [クラス] 名前 id 操作」。頭の「×control」は、既定の見方（操作できる部品）に出ない物。
 // 場面のデータで __press に挙げた ID（と ID が Probe で始まる物）は、持っている操作で実際に押し、画面の側に届いたかを書く。
@@ -81,6 +82,12 @@ public static class Program
         if (only == "dynamic")
         {
             Dynamic.Run();
+            return;
+        }
+
+        if (only == "focus")
+        {
+            FocusWalk.Run();
             return;
         }
 

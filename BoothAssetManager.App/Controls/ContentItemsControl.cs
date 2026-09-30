@@ -25,6 +25,14 @@ namespace BoothAssetManager.App.Controls;
 /// </summary>
 public sealed class ContentItemsControl : ItemsControl
 {
+    static ContentItemsControl()
+    {
+        // 並べるだけの入れ物なので、Tab で止まらない。既定のままだと、一覧ごとに「何も起きない止まり」が1つ入り、
+        // キーボードのフォーカスがどこにも見えなくなる（札の並び・行の中の札の一覧で、Tab を1回余分に押すことになっていた。2026-09-30）。
+        // 中の部品（ボタン・入力欄・止まれる札）には、今までどおり順に止まる
+        FocusableProperty.OverrideMetadata(typeof(ContentItemsControl), new FrameworkPropertyMetadata(false));
+    }
+
     protected override AutomationPeer OnCreateAutomationPeer() => new ContentItemsControlAutomationPeer(this);
 
     /// <summary>テンプレートの中の ScrollViewer（項目の中の物は数えない）。</summary>
