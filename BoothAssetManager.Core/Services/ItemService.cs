@@ -900,6 +900,7 @@ public sealed class ItemService : IItemService
         string hash;
         long size;
         IReadOnlyList<string> contents = [];
+        var broken = false;
         try
         {
             size = new FileInfo(archivePath).Length;
@@ -912,7 +913,13 @@ public sealed class ItemService : IItemService
                     .Select(entry => entry.RelativePath)
                     .ToList();
             }
-            catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException)
+            catch (InvalidDataException)
+            {
+                // 形式が合わない＝壊れている。取り込みと同じ印を付ける（ほかのアプリが開いていた・権限が無いは、壊れているとは言えない）
+                contents = [];
+                broken = true;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 contents = [];
             }
@@ -928,6 +935,7 @@ public sealed class ItemService : IItemService
             Paths = [archivePath],
             SizeBytes = size,
             Contents = contents,
+            ArchiveBroken = broken,
         };
 
         var normalized = Path.TrimEndingDirectorySeparator(folderPath);
@@ -954,6 +962,20 @@ public sealed class ItemService : IItemService
         return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name);
     }
 
+    /// <summary>
+    /// 未確定の記録から、商品のファイルの記録を作る。3つの登録の道（このIDで登録・見つからないIDのまま登録・BOOTHに無い商品として登録）で同じ。
+    /// **開けなかった印も引き継ぐ**（ユーザ判断 2026-09-30）：壊れた zip でも登録は止めないので、
+    /// 引き継がないと、未確定では出ていた「壊れたzip」が商品ページで消える
+    /// </summary>
+    private static LocalFileRecord FromUnresolved(UnresolvedFile target) => new()
+    {
+        Hash = target.Hash,
+        Paths = target.Paths,
+        SizeBytes = target.SizeBytes,
+        Contents = target.Contents,
+        ArchiveBroken = target.ArchiveBroken,
+    };
+
     public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
     {
         var unresolved = _store.Unresolved.Load();
@@ -963,13 +985,7 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var record = new LocalFileRecord
-        {
-            Hash = target.Hash,
-            Paths = target.Paths,
-            SizeBytes = target.SizeBytes,
-            Contents = target.Contents,
-        };
+        var record = FromUnresolved(target);
 
         if (!_store.Items.Exists(itemId) && (await FetchNewItemAsync(itemId, cancellationToken)).Item is null)
         {
@@ -1028,13 +1044,7 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var record = new LocalFileRecord
-        {
-            Hash = target.Hash,
-            Paths = target.Paths,
-            SizeBytes = target.SizeBytes,
-            Contents = target.Contents,
-        };
+        var record = FromUnresolved(target);
 
         // 在るかを見てから作るまでを商品の錠の中で行う（取り込みや別の道が同じIDを作っていることがある・L13 と同じ形）。
         // 在れば、ファイルを足すだけにする。取得の記録（見つからない回数・予定日）は持ち主の⑦に任せ、名前も上書きしない
@@ -1644,13 +1654,7 @@ public sealed class ItemService : IItemService
 
         var itemId = LocalItemId.For(target.Hash);
 
-        var record = new LocalFileRecord
-        {
-            Hash = target.Hash,
-            Paths = target.Paths,
-            SizeBytes = target.SizeBytes,
-            Contents = target.Contents,
-        };
+        var record = FromUnresolved(target);
 
         // 同じファイルを2回登録しようとした場合（未確定に二重に載っていた等）。
         // 仮IDはハッシュから決まるので、同じ商品に行き着く
@@ -1785,6 +1789,10 @@ public sealed class ItemService : IItemService
                 ModifiedAtUtc = modified,
                 FirstSeenAt = DateTimeOffset.Now,
                 Contents = target.Contents,
+
+                // 開けなかった印は商品の記録から引き継ぐ。未確定の画面は開き直して確かめないので、
+                // ここで落とすと次の取り込みまで普通の未確定に見える
+                ArchiveBroken = target.ArchiveBroken,
             };
 
             // 錠の中で今の一覧に足す（技術的負債 1-2）

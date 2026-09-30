@@ -233,4 +233,18 @@ public sealed record LocalFileRecord
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool Detached { get; init; }
+
+    /// <summary>
+    /// 取り込みで zip として開けなかったか（途中で切れたダウンロード・中身がでたらめ）。未確定の記録の同じ印
+    /// （<see cref="UnresolvedFile.ArchiveBroken"/>）を、商品に結び付いた後も持つ（ユーザ判断 2026-09-30）。
+    ///
+    /// ダウンロード元の記録から商品が1つに決まると未確定を通らないので、前は印がどこにも出ず、
+    /// 商品ページでは中身の一覧が空なだけだった（「一時的に展開して開く」を押して初めて分かった）。
+    /// **開いてみないと分からない事実**なので記録に持つ（商品ページを開くたびに zip を開き直さない）。
+    /// 同じ中身は何度開いても同じ答えなので、消えるのは落とし直して別の中身（別の記録）になったとき。
+    /// 開けた物には書き出さない（全ファイルに false が並ぶと読みにくい）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ArchiveBroken { get; init; }
 }

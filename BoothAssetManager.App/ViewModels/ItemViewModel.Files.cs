@@ -96,6 +96,7 @@ public sealed partial class ItemViewModel
                 VariationId = file.VariationId,
                 UnityPackages = packages,
                 IsDetached = file.Detached,
+                IsBrokenArchive = file.ArchiveBroken,
                 CanReattach = file.Detached && owner is null,
                 ReattachTip = owner is null
                     ? "このファイルをこの商品に戻します。未確定からは消えます。"

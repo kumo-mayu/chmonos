@@ -105,10 +105,23 @@ public sealed class ImportSummary
     /// zip として開けず、未確定に「壊れたzip」の印を付けて置いた数（大容量の確かめ 問題4・ユーザ判断 2026-09-30）。**0 でないときだけ画面に出す。**
     /// 読めなかった物（<see cref="FilesUnreadable"/>）とは別に数える——あちらは取り込めていない物で、直し方は「閉じて取り込み直す」。
     /// こちらは取り込めていて（未確定にある）、直し方は「ダウンロードし直す」。
-    /// 数えるのは未確定に置いた物だけ。画面で指せるのが未確定の印だけなので、指せない数を言わない
-    /// （ダウンロード元の記録から商品に紐付いた壊れた zip は、ログにパスを残す）。
+    /// 数えるのは未確定に置いた物だけ。商品に結び付いた物は次の手の案内が違う（未確定の画面には無い）ので、
+    /// 別に数える（<see cref="FilesBrokenArchiveOnItems"/>）。
     /// </summary>
     public int FilesBrokenArchive { get; init; }
+
+    /// <summary>
+    /// zip として開けず、商品のファイルの記録に印を付けた数（ユーザ判断 2026-09-30）。**0 でないときだけ画面に出す。**
+    /// この取り込みで開いてみた物だけを数える（走査していない取り込み元の物は見ていない）。
+    /// 新しく結び付いた物も、前から商品が持っていた物も入る——壊れた zip は中身の一覧が空なので、取り込むたびに開き直している。
+    /// </summary>
+    public int FilesBrokenArchiveOnItems { get; init; }
+
+    /// <summary>
+    /// 壊れた zip を持つ商品の名前（<see cref="FilesBrokenArchiveOnItems"/> の持ち主。見つけた順）。
+    /// 未確定と違って、商品の側には壊れた物だけを並べる画面が無いので、結果の文でどの商品かを言うために持つ。
+    /// </summary>
+    public IReadOnlyList<string> BrokenArchiveItemNames { get; init; } = [];
 
     /// <summary>見つかった展開先フォルダ。削除機能に渡す候補になる。</summary>
     public IReadOnlyList<UnpackedFolder> UnpackedFolders { get; init; } = [];
@@ -357,7 +370,12 @@ public sealed class ImportPipeline : IImportPipeline
                 scan.Files, scanCache, exclusions, detached, owned, owners, perFile, cancellationToken);
             perFile.Flush();
             await SaveScanCacheAsync(scanCache, cancellationToken);
+            await DropReplacedBrokenFilesAsync(resolution.ReplacedBroken, cancellationToken);
             await RelinkMovedFilesAsync(resolution.Relinked, cancellationToken);
+            foreach (var (itemId, hash) in resolution.BrokenOwned)
+            {
+                totals.NoteBrokenOnItem(itemId, hash);
+            }
 
             // 読むのは item に触らないので、①と同時に進めてよい。①に着くのを遅らせないよう、ここでは待たない
             Task? unityReading = null;
@@ -392,9 +410,8 @@ public sealed class ImportPipeline : IImportPipeline
             // BOOTHに無かったものも未確定へ。ここで落とすと手元から消える
             if (fetchResult.NotFoundFiles.Count > 0)
             {
-                // 商品から未確定へ戻すと、開けなかった印が落ちる（商品のファイルの記録は印を持たない）。この周回で見た分を付け直す
-                totals.Unresolved.AddRange(fetchResult.NotFoundFiles.Select(file =>
-                    resolution.BrokenArchives.Contains(file.Hash) ? AsBrokenArchive(file) : file));
+                // 開けなかった印は、商品のファイルの記録から引き継いである（ToUnresolved）
+                totals.Unresolved.AddRange(fetchResult.NotFoundFiles);
                 unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, offlineTargets, cancellationToken);
             }
 
@@ -434,7 +451,20 @@ public sealed class ImportPipeline : IImportPipeline
                     : new ImportState { Unfetched = totals.Unfetched, StoppedAt = DateTimeOffset.Now },
             cancellationToken);
 
-        return totals.ToSummary();
+        // 壊れた zip を持つ商品の名前は、取り込みの終わりの今の値で引く（途中で取った商品の名前はここで揃っている）。
+        // 途中で人が消した商品は数えない（結果の文が、もう無い商品を指さないように）
+        var brokenItemNames = new List<string>();
+        var brokenOnItems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (itemId, hashes) in totals.BrokenOnItems)
+        {
+            if (await _store.Items.LoadAsync(itemId, cancellationToken) is { } holder)
+            {
+                brokenItemNames.Add(holder.DisplayName);
+                brokenOnItems.UnionWith(hashes);
+            }
+        }
+
+        return totals.ToSummary(brokenOnItems.Count, brokenItemNames);
     }
 
     /// <summary>未確定の一覧を、錠の中で人の変更と合わせて書く（技術的負債 1-2・1-3）。書いた物を次の比べる元にする。</summary>
@@ -587,6 +617,27 @@ public sealed class ImportPipeline : IImportPipeline
         /// <summary>取れた・既に商品がある・BOOTH に無かった（未確定へ回した）。どれも取り直す物ではない。</summary>
         public void NoteSettled(string itemId) => _unfetched.Remove(itemId);
 
+        private readonly List<(string ItemId, HashSet<string> Hashes)> _brokenOnItems = [];
+
+        /// <summary>
+        /// 壊れた zip を持つ商品と、その zip のハッシュ（見つけた順）。周回をまたいで足し合わせる。
+        /// 同じ zip を周回ごと・場所ごとに数え直さないよう、ハッシュで持つ
+        /// </summary>
+        public IReadOnlyList<(string ItemId, HashSet<string> Hashes)> BrokenOnItems => _brokenOnItems;
+
+        public void NoteBrokenOnItem(string itemId, string hash)
+        {
+            var index = _brokenOnItems.FindIndex(entry => string.Equals(entry.ItemId, itemId, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                _brokenOnItems.Add((itemId, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { hash }));
+            }
+            else
+            {
+                _brokenOnItems[index].Hashes.Add(hash);
+            }
+        }
+
         /// <summary>
         /// ①②の1件ごとの結果（再試行の後）を続けて数える。応答の無い失敗か 5xx が3件続いたら、この回の問い合わせを打ち切る
         /// （ユーザ判断 2026-09-29）。ネットにつながっていないと1件ごとに再試行で長く待ち
@@ -646,8 +697,10 @@ public sealed class ImportPipeline : IImportPipeline
         /// <summary>周回の外で取った画像の数（U5）。</summary>
         public void AddImages(int downloaded) => _imagesDownloaded += downloaded;
 
-        public ImportSummary ToSummary() => new()
+        public ImportSummary ToSummary(int brokenOnItems, IReadOnlyList<string> brokenItemNames) => new()
         {
+            FilesBrokenArchiveOnItems = brokenOnItems,
+            BrokenArchiveItemNames = brokenItemNames,
             FilesScanned = _scanned,
             UnpackedFolders = _unpacked,
             FilesSkippedAsUnpacked = _skippedUnpacked,
@@ -715,7 +768,7 @@ public sealed class ImportPipeline : IImportPipeline
                     owners[file.Hash] = list;
                 }
 
-                list.Add(new FileOwner(item.Id, file.Paths));
+                list.Add(new FileOwner(item.Id, file.Paths, file.ArchiveBroken));
             }
         }
 
@@ -796,8 +849,59 @@ public sealed class ImportPipeline : IImportPipeline
         return (new RegisteredFolderSet(paths), owned, owners, DetachedIndex.From(loaded.Items));
     }
 
-    /// <summary>そのハッシュを持つ商品と、その商品が記録している場所。</summary>
-    private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths);
+    /// <summary>そのハッシュを持つ商品と、その商品が記録している場所・開けなかった印。</summary>
+    private sealed record FileOwner(string ItemId, IReadOnlyList<string> Paths, bool ArchiveBroken);
+
+    /// <summary>
+    /// 壊れた zip の記録が指す場所に、別の中身が来ていたら、その場所を記録から外す（ユーザ判断 2026-09-30）。
+    /// 場所が1つも残らなければ記録ごと落とす——同じ場所に落とし直したのだから、壊れた方はもうどこにも無い。
+    ///
+    /// 落とさないと、壊れた方の記録が「その場所に在る」ままになる（<see cref="LocalFileMerger"/> は場所に何かが在るかしか見ない）ので、
+    /// 落とし直しても商品ページの「壊れたzip」が消えなかった。未確定は取り込みのたびに一覧を作り直すので、同じことは起きない。
+    /// 壊れていない記録は触らない（場所が無くなっても「見つかりません」として残す、今の決まりのまま）。
+    ///
+    /// 錠の中で今の値に当てる。読んでからここまでの間に印が下りていれば（開けるようになった）触らない。
+    /// </summary>
+    private async Task DropReplacedBrokenFilesAsync(
+        IReadOnlyList<(string ItemId, string Hash, string Path)> replaced,
+        CancellationToken cancellationToken)
+    {
+        foreach (var group in replaced.GroupBy(entry => entry.ItemId, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _store.Items.ChangeLocalAsync(
+                group.Key,
+                current =>
+                {
+                    var changed = false;
+                    var files = new List<LocalFileRecord>();
+                    foreach (var file in current.LocalFiles)
+                    {
+                        var gone = file.ArchiveBroken
+                            ? group.Where(entry => string.Equals(entry.Hash, file.Hash, StringComparison.OrdinalIgnoreCase))
+                                .Select(entry => entry.Path)
+                                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                            : [];
+                        var paths = file.Paths.Where(path => !gone.Contains(path)).ToList();
+                        if (paths.Count == file.Paths.Count)
+                        {
+                            files.Add(file);
+                            continue;
+                        }
+
+                        changed = true;
+                        if (paths.Count > 0)
+                        {
+                            files.Add(file with { Paths = paths });
+                        }
+                    }
+
+                    return changed ? current with { LocalFiles = files } : null;
+                },
+                LocalOwners.Import,
+                cancellationToken);
+        }
+    }
 
     /// <summary>
     /// 同じ中身を商品が持っているファイルの場所を、その商品に足す（大容量の確かめ A・2026-09-30）。
@@ -966,6 +1070,29 @@ public sealed class ImportPipeline : IImportPipeline
         var alreadyOwned = 0;
         var unreadable = 0;
         var brokenArchives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var brokenOwned = new List<(string ItemId, string Hash)>();
+        var replacedBroken = new List<(string ItemId, string Hash, string Path)>();
+
+        // 壊れた zip の記録が指している場所（場所 → 持ち主と記録のハッシュ）。そこに別の中身が来ていたら、落とし直した物。
+        // 引くのは壊れた記録だけなので、件数は壊れた zip の数（普段は0）
+        var brokenAt = new Dictionary<string, List<(string ItemId, string Hash)>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (ownedHash, holders) in owners)
+        {
+            foreach (var holder in holders.Where(holder => holder.ArchiveBroken))
+            {
+                foreach (var path in holder.Paths)
+                {
+                    if (!brokenAt.TryGetValue(path, out var list))
+                    {
+                        list = [];
+                        brokenAt[path] = list;
+                    }
+
+                    list.Add((holder.ItemId, ownedHash));
+                }
+            }
+        }
+
         var processed = 0;
         var lastCacheSave = Environment.TickCount64;
 
@@ -1015,6 +1142,15 @@ public sealed class ImportPipeline : IImportPipeline
                 }
             }
 
+            // 壊れた zip の記録の場所に、別の中身が在る（同じ場所に落とし直した）。壊れた方の記録からこの場所を外す
+            // （書くのは DropReplacedBrokenFilesAsync）。管理から外した中身が来ていても、壊れた方がそこに無いことは同じ
+            if (brokenAt.TryGetValue(file.Path, out var staleHolders))
+            {
+                replacedBroken.AddRange(staleHolders
+                    .Where(stale => !string.Equals(stale.Hash, hash, StringComparison.OrdinalIgnoreCase))
+                    .Select(stale => (stale.ItemId, stale.Hash, file.Path)));
+            }
+
             // 移動・改名された除外ファイルと、外したパスで控えと合わなかった物は、ハッシュで最終判定する。
             // 外したパスでも中身が違えばここを抜け、新しい物として取り込まれる
             if (exclusions.IsExcludedByHash(hash))
@@ -1047,8 +1183,14 @@ public sealed class ImportPipeline : IImportPipeline
                 if (broken && brokenArchives.Add(hash))
                 {
                     // 前は握りつぶしていて、途中で切れたダウンロードが普通の未確定と見分けられなかった（大容量の確かめ 問題4）。
-                    // 未確定に行く物は印で分かるが、ダウンロード元の記録から商品に紐付く物は画面に印が無いので、どれかはここに残す
+                    // 印は未確定の行にも商品のファイルの行にも出るが、結果の文が名前を言うのは商品1つだけなので、どれかはここにも残す
                     Diagnostics.AppLog.Warn("取り込みで zip を開く", $"{file.Path}：zip として開けなかった（壊れているか、zip ではない）");
+                }
+
+                // 前から商品が持っている壊れた zip（手で結んだ物・前の取り込みで結び付いた物）。結果の数に入れる
+                if (broken && owners.TryGetValue(hash, out var brokenHolders))
+                {
+                    brokenOwned.AddRange(brokenHolders.Select(holder => (holder.ItemId, hash)));
                 }
 
                 if (file.IsArchive && inspected.Read)
@@ -1060,11 +1202,15 @@ public sealed class ImportPipeline : IImportPipeline
 
             var zone = ZoneIdentifierReader.Read(file.Path);
 
-            // このファイルの場所を、記録にまだ持っていない持ち主へ足す予定に積む（書くのは RelinkMovedFilesAsync）
+            // このファイルの場所を、記録にまだ持っていない持ち主へ足す予定に積む（書くのは RelinkMovedFilesAsync）。
+            // **開けなかった印が今の答えと違う持ち主にも積む**（ユーザ判断 2026-09-30）：手で結んだ壊れた zip は場所が変わらないので、
+            // 積まないと印を書く機会が無い。逆（印があるのに今回は開けた）は、開けて中身の一覧が取れたときだけ——
+            // ほかのアプリが開いていて読めなかった回に、壊れていないことにしない
             void Relink(IEnumerable<FileOwner> holders)
             {
                 foreach (var holder in holders.Where(holder =>
-                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)))
+                             !holder.Paths.Contains(file.Path, StringComparer.OrdinalIgnoreCase)
+                             || (holder.ArchiveBroken != broken && (broken || contents.Count > 0))))
                 {
                     if (!relinked.TryGetValue(holder.ItemId, out var list))
                     {
@@ -1078,6 +1224,7 @@ public sealed class ImportPipeline : IImportPipeline
                         Paths = [file.Path],
                         SizeBytes = file.SizeBytes,
                         Contents = contents,
+                        ArchiveBroken = broken,
                     });
                 }
             }
@@ -1097,6 +1244,9 @@ public sealed class ImportPipeline : IImportPipeline
                     Paths = [file.Path],
                     SizeBytes = file.SizeBytes,
                     Contents = contents,
+
+                    // ダウンロード元の記録から商品が決まると未確定を通らない。開けなかった事実は商品の記録に持っていく
+                    ArchiveBroken = broken,
                 };
 
                 if (!filesByItemId.TryGetValue(candidates[0].ItemId, out var list))
@@ -1157,7 +1307,8 @@ public sealed class ImportPipeline : IImportPipeline
             Excluded = excluded,
             AlreadyOwned = alreadyOwned,
             Unreadable = unreadable,
-            BrokenArchives = brokenArchives,
+            BrokenOwned = brokenOwned,
+            ReplacedBroken = replacedBroken,
         };
     }
 
@@ -1190,21 +1341,6 @@ public sealed class ImportPipeline : IImportPipeline
             return ([], [], false, false);
         }
     }
-
-    /// <summary>同じ未確定の記録に、zip として開けなかった印を付けた写し。</summary>
-    private static UnresolvedFile AsBrokenArchive(UnresolvedFile file) => new()
-    {
-        Hash = file.Hash,
-        Paths = file.Paths,
-        SizeBytes = file.SizeBytes,
-        ModifiedAtUtc = file.ModifiedAtUtc,
-        FirstSeenAt = file.FirstSeenAt,
-        Contents = file.Contents,
-        ZoneHostUrl = file.ZoneHostUrl,
-        ZoneReferrerUrl = file.ZoneReferrerUrl,
-        CandidateItemIds = file.CandidateItemIds,
-        ArchiveBroken = true,
-    };
 
     /// <summary>
     /// 控えに書く手掛かり。ID を決めるのに使うのは「商品のURL」の手掛かりの商品IDだけ（<see cref="IdResolver.Resolve"/>）なので、
@@ -1256,6 +1392,15 @@ public sealed class ImportPipeline : IImportPipeline
         string? avatarDetectError = null;
         var avatarDetectRan = false;
 
+        // 商品に書いた壊れた zip を結果の数に入れる。BOOTH に無くて未確定へ戻した物・取れなかった物は、商品に入っていないので数えない
+        void NoteBroken(string itemId, IEnumerable<LocalFileRecord> files)
+        {
+            foreach (var file in files.Where(file => file.ArchiveBroken))
+            {
+                totals.NoteBrokenOnItem(itemId, file.Hash);
+            }
+        }
+
         // 手元にある商品は通信が要らない。ファイルを足すだけなので、段に入る前に片付ける
         var pending = new List<(string ItemId, List<LocalFileRecord> Files)>();
 
@@ -1281,6 +1426,7 @@ public sealed class ImportPipeline : IImportPipeline
                 cancellationToken: cancellationToken);
 
             alreadyKnown++;
+            NoteBroken(itemId, discovered);
 
             // 前に取れなかった商品でも、今は商品があるならファイルはここで足された
             totals.NoteSettled(itemId);
@@ -1405,6 +1551,7 @@ public sealed class ImportPipeline : IImportPipeline
 
                 fetched.Add(item);
                 added++;
+                NoteBroken(itemId, discovered);
 
                 // 検索と件数にはもう出してよい。編集は③が済むまで待たせる（U8・U10）
                 work.NoteAdded(itemId);
@@ -1632,8 +1779,11 @@ public sealed class ImportPipeline : IImportPipeline
         /// <summary>中身を読めず（ハッシュを計算できず）飛ばした件数。</summary>
         public int Unreadable { get; init; }
 
-        /// <summary>zip として開けなかった物のハッシュ。未確定へ行った物も、商品に紐付いた物も入る。</summary>
-        public required HashSet<string> BrokenArchives { get; init; }
+        /// <summary>zip として開けなかった物のうち、前から商品が持っている物（商品ID とハッシュ）。結果の数に入れる。</summary>
+        public required List<(string ItemId, string Hash)> BrokenOwned { get; init; }
+
+        /// <summary>壊れた zip の記録の場所に、別の中身が来ていた物（その記録からこの場所を外す）。</summary>
+        public required List<(string ItemId, string Hash, string Path)> ReplacedBroken { get; init; }
     }
 
     /// <summary>
@@ -1668,6 +1818,9 @@ public sealed class ImportPipeline : IImportPipeline
             FirstSeenAt = DateTimeOffset.Now,
             Contents = file.Contents,
             CandidateItemIds = [itemId],
+
+            // 開けなかった印は記録ごと引き継ぐ（前は商品の記録が印を持たず、戻すときに付け直していた）
+            ArchiveBroken = file.ArchiveBroken,
         };
     }
 

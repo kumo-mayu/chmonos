@@ -1497,7 +1497,7 @@ public sealed class ImportViewModel : ViewModelBase
     /// どちらも手元のファイルが読めなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
     ///
     /// 壊れていて開けない zip もここに並べる（大容量の確かめ 問題4・ユーザ判断 2026-09-30）。上の2つは取り込めていない物、
-    /// こちらは未確定に入っていて開けない物で、直し方が「ダウンロードし直す」。どれも手元のファイルが読めなかった話なので枠は同じにし、
+    /// こちらは未確定か商品に入っていて開けない物で、直し方が「ダウンロードし直す」。どれも手元のファイルが読めなかった話なので枠は同じにし、
     /// 次の手が違うので行を分ける（前は1行につないでいて、2種類が重なると、どの次の手がどの件の話か読みにくかった）。
     /// </remarks>
     public string UnreadableText => Summary is { } summary
@@ -1511,16 +1511,48 @@ public sealed class ImportViewModel : ViewModelBase
                         + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
                     : string.Empty,
                 BrokenArchiveText(summary.FilesBrokenArchive),
+                BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames),
             }.Where(line => line.Length > 0))
         : string.Empty;
 
     /// <summary>
-    /// 壊れていて開けない zip の1文。どれかは未確定の行の札「壊れたzip」で分かるので、そこへ案内する
-    /// （同じ結果の欄の「未確定を開く」は、未確定が1件でもあれば出ている）
+    /// 未確定にある、壊れていて開けない zip の1文。どれかは未確定の行の札「壊れたzip」で分かるので、そこへ案内する
+    /// （同じ結果の欄の「未確定を開く」は、未確定が1件でもあれば出ている）。
+    /// 商品に結び付いた分は未確定に無く、案内する先が違うので行を分ける（<see cref="BrokenArchiveOnItemsText"/>）。
+    /// 2行が並んでも合計と読まれないよう、どこにあるかを文の頭で言う
     /// </summary>
     internal static string BrokenArchiveText(int files) => files > 0
-        ? $"壊れていて開けないzipが {files} 件あります。下の「未確定を開く」で確かめて、ダウンロードし直してください。"
+        ? $"未確定に、壊れていて開けないzipが {files} 件あります。下の「未確定を開く」で確かめて、ダウンロードし直してください。"
         : string.Empty;
+
+    /// <summary>
+    /// 商品に結び付いた、壊れていて開けない zip の1文（ユーザ判断 2026-09-30）。
+    /// 商品の側には壊れた物だけを並べる画面が無いので、どの商品かを名前で言う（検索で探せる）。
+    /// 名前を言うのは1つだけ——全部並べると、件数に比例して文が伸びる。残りは商品ページの札と、ログのパスで分かる
+    /// </summary>
+    internal static string BrokenArchiveOnItemsText(int files, IReadOnlyList<string> itemNames)
+    {
+        if (files <= 0 || itemNames.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var name = ShortItemName(itemNames[0]);
+        return itemNames.Count == 1
+            ? $"「{name}」に、壊れていて開けないzipが {files} 件あります。ダウンロードし直してください。"
+            : $"「{name}」など {itemNames.Count} 件の商品に、壊れていて開けないzipが {files} 件あります。ダウンロードし直してください。";
+    }
+
+    /// <summary>
+    /// 文の中に入れる商品名。BOOTH の商品名は100字を超える物があり、そのまま入れると一文80字の決まりを名前だけで越える。
+    /// 名前のほかの部分が40字ほどなので、30字で切る（検索で探すには頭の30字で足りる）
+    /// </summary>
+    private static string ShortItemName(string name)
+    {
+        const int Max = 30;
+        var text = new System.Globalization.StringInfo(name.Trim());
+        return text.LengthInTextElements <= Max ? text.String : text.SubstringByTextElements(0, Max) + "…";
+    }
 
     public bool HasUnreadable => UnreadableText.Length > 0;
 
