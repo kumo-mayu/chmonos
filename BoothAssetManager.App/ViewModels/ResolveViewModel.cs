@@ -703,6 +703,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var originExists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         var rows = new List<UnresolvedRow>();
 
+        // フォルダの列挙は、この1回の組み立ての間だけ覚える（またいで持つと、中身が変わったのに古い見分けを返す）
+        var contentPass = new ArchiveContentDetector.Pass();
+
         // 元zipの分かるものを先に、zip名の順で並べる（一覧の束はこの並びで出る）。
         // 分からないものは従来どおりフォルダごとにまとめる。1つのアーカイブを展開した中身が
         // 固まって見えるので、まとめて外す判断がしやすい
@@ -742,7 +745,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
             // 展開物の中身かどうかを見ておく。フォルダ単位で同じ結果になるので、
             // 1件ごとにディスクを叩き直さないようキャッシュする
-            var judgement = path.Length > 0 ? JudgeCached(path, judgements) : ArchiveContentJudgement.NotContent;
+            var judgement = path.Length > 0 ? JudgeCached(path, judgements, contentPass) : ArchiveContentJudgement.NotContent;
 
             // 元のzipが今もあるか（zipごとに1回だけ見る）。あれば「zipが無い展開物」ではない——
             // フォルダの目印（.unitypackage・.url）だけで決めると、zipが残っていても「zipが無い」と出た（画面で確かめて見つけた 2026-09-17）
