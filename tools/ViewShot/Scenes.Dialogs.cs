@@ -78,5 +78,75 @@ internal static partial class Scenes
             Width = null,
             Height = null,
         },
+
+        // 名前の最初の「_」が画面から消えるかを、絵で確かめる場面（2026-09-30）。
+        // 型の ContentPresenter が RecognizesAccessKey="True" を持つ部品は、中身が文字のとき、最初の「_」をアクセスキーの印として食べる。
+        // 左に部品の種類、右に同じ文字「tag_name_01」を中身に渡した部品。右の字が「tagname_01」になっていれば消えている
+        new Scene("underscore-in-names", "名前の「_」：中身が文字の部品に「tag_name_01」を渡したとき、どの部品で最初の「_」が消えるか", context =>
+        {
+            const string Name = "tag_name_01";
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
+
+            void Row(string kind, FrameworkElement part)
+            {
+                var index = grid.RowDefinitions.Count;
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var label = new TextBlock { Text = kind, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 12, 6) };
+                part.HorizontalAlignment = HorizontalAlignment.Left;
+                part.VerticalAlignment = VerticalAlignment.Center;
+                Grid.SetRow(label, index);
+                Grid.SetRow(part, index);
+                Grid.SetColumn(part, 1);
+                grid.Children.Add(label);
+                grid.Children.Add(part);
+            }
+
+            Row("文字（TextBlock）＝見本", new TextBlock { Text = Name });
+            Row("ボタン", new Button { Content = Name });
+            Row("チェック", new CheckBox { Content = Name });
+            Row("ラジオ", new RadioButton { Content = Name });
+            Row("切り替えのボタン（ToggleButton）", new System.Windows.Controls.Primitives.ToggleButton { Content = Name });
+            Row("畳む欄の見出し（Expander）", new Expander { Header = Name });
+            // 三角の畳む欄の見た目は、管理の画面の資源に置いてある
+            var manage = new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/BoothAssetManager.App;component/Views/ManageResources.xaml"),
+            };
+            Row("畳む欄の見出し（三角の Expander）", new Expander { Header = Name, Style = (Style)manage["TriangleExpander"] });
+
+            var menu = new Menu { Background = System.Windows.Media.Brushes.Transparent };
+            menu.Items.Add(new MenuItem { Header = Name });
+            Row("メニューの項目", menu);
+
+            var list = new ListView { Width = 240, Height = 34, BorderThickness = new Thickness(0) };
+            var view = new GridView();
+            view.Columns.Add(new GridViewColumn { Header = Name, Width = 200 });
+            list.View = view;
+            Row("リストの列の見出し", list);
+
+            var combo = new ComboBox { Width = 200 };
+            combo.Items.Add(Name);
+            combo.SelectedIndex = 0;
+            Row("選ぶ欄（ComboBox）", combo);
+
+            var box = new ListBox { BorderThickness = new Thickness(0) };
+            box.Items.Add(new ListBoxItem { Content = Name });
+            Row("一覧の行（ListBoxItem）", box);
+
+            // チェックの中に文字の部品を入れる形（このアプリの大半のチェックはこの形）
+            Row("チェック（中に TextBlock）", new CheckBox { Content = new TextBlock { Text = Name } });
+
+            return Task.FromResult(new Shot(SceneContext.OnSurface(grid)));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
+
+        // 実際の窓（属性の統合・小分類の移動）は、この台には載せられない：窓が作られるときに持ち主を主の窓にするが、
+        // 台には主の窓が無く、最初に作った窓が主の窓になるので「自分を自分の持ち主にする」で落ちる。
+        // この2つの窓のラジオは、上の「ラジオ」と同じ型に、名前入りの文字を中身として渡している
     ];
 }
