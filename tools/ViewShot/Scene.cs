@@ -71,4 +71,7 @@ internal sealed record ShotOptions
 
     /// <summary>複数の場面を並べて走らせる数。</summary>
     public int Jobs { get; init; } = 3;
+
+    /// <summary>描かずに、読み上げ・自動操作の窓口の木を書き出す（<see cref="PeerTree"/>）。</summary>
+    public bool Peers { get; init; }
 }

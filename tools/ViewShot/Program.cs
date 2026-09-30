@@ -19,6 +19,7 @@ namespace ViewShot;
 ///                                          [--scale 1,1.5] [--zoom 125] [--crop x,y,幅,高さ] [--full] [--out フォルダ] [--jobs 3]
 /// ViewShot diff &lt;前.png&gt; &lt;後.png&gt; [--out 並べた画像.png] [--tolerance 0]
 /// ViewShot diff &lt;前のフォルダ&gt; &lt;後のフォルダ&gt;
+/// ViewShot peers &lt;場面&gt;
 /// </code>
 ///
 /// 何が確かめられて何が確かめられないかは <c>.claude/skills/ui-check/SKILL.md</c>「窓を出さずに描く」。
@@ -37,6 +38,7 @@ internal static class Program
             {
                 "list" => List(),
                 "shot" => ShotCommand(args[1..]),
+                "peers" => ShotCommand(args[1..], peers: true),
                 "diff" => DiffCommand(args[1..]),
                 _ => Usage(),
             };
@@ -59,6 +61,7 @@ internal static class Program
                             [--scale 1,1.5] [--zoom 125] [--crop x,y,幅,高さ] [--full] [--out フォルダ] [--jobs 3]
               ViewShot diff <前.png> <後.png> [--out 並べた画像.png] [--tolerance 0]
               ViewShot diff <前のフォルダ> <後のフォルダ>
+              ViewShot peers <場面>      読み上げ・自動操作の窓口の木を文字で書き出す（名前・型・押せるか）
 
             画像は既定で %TEMP%\chmonos-shots\view\ に置く（リポジトリの外）。
             """);
@@ -80,7 +83,7 @@ internal static class Program
 
     // ---- shot ----
 
-    private static int ShotCommand(string[] args)
+    private static int ShotCommand(string[] args, bool peers = false)
     {
         var names = new List<string>();
         var all = false;
@@ -164,7 +167,13 @@ internal static class Program
             Full = full,
             OutDir = outDir,
             Jobs = jobs,
+            Peers = peers,
         };
+
+        if (peers && scenes.Count != 1)
+        {
+            throw new ArgumentException("peers は場面を1つだけ渡してください（木を続けて書き出すと、どの場面の物か分からなくなる）。");
+        }
 
         return scenes.Count == 1 ? RunOne(scenes[0], options) : RunMany(scenes, args, options);
     }
@@ -338,6 +347,14 @@ internal static class Program
         if (!ReferenceEquals(stage.Content, shot.Root))
         {
             await context.PresentAsync(shot.Root);
+        }
+
+        if (options.Peers)
+        {
+            await stage.SettleAsync();
+            PeerTree.Write(shot.Focus?.Invoke() ?? shot.Root, Console.Out);
+            context.Dispose();
+            return 0;
         }
 
         var built = clock.Elapsed;
