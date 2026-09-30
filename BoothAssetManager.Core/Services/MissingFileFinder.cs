@@ -43,11 +43,29 @@ public sealed class MissingFileFinder
         _store = store;
     }
 
-    /// <param name="progress">今どこを見ているか（見たファイル数・全体は分からないので数だけ）。</param>
-    public async Task<MissingFileSearchResult> FindAsync(
+    /// <remarks>
+    /// **全体を呼んだスレッドの外で回す**（ユーザ判断 2026-09-30）。取り込みと同じ形（<c>ImportPipeline.RunAsync</c>）。
+    ///
+    /// 命令の入口から <c>await</c> でつながっているだけだったので、続きは毎回画面のスレッドへ戻り、
+    /// 走査の控えの読みと錠の中の読み直し（8万件・21MB で 1回 0.19〜0.27秒）・監視フォルダの列挙・
+    /// 商品のファイルが在るかの確かめ（つながらないネットワークのドライブは1回で数秒待ち得る）・ハッシュの合間が画面を止めていた。
+    /// 控えの窓口だけを裏へ出しても、列挙と在るかの確かめは残る（控えが無くても 2万ファイルで 76〜149ms）。
+    ///
+    /// 中から画面の物には触らない。画面へ出るのは <paramref name="progress"/> だけで、裏のスレッドから呼ぶ。
+    /// 受け手が画面の物に触るなら、受け手の側で画面のスレッドへ運ぶ（画面で作った <c>Progress</c> は運ぶ）。
+    /// 商品の書き換えは商品ごとの錠の中・控えの書き換えは控えの錠の中で今の値に当てるので、取り込みと重なっても互いの分を消さない。
+    /// </remarks>
+    /// <param name="progress">今どこを見ているか（見たファイル数・全体は分からないので数だけ）。**裏のスレッドから呼ばれる。**</param>
+    public Task<MissingFileSearchResult> FindAsync(
         IReadOnlyList<string> folders,
         IProgress<(int Hashed, string? Detail)>? progress = null,
         CancellationToken cancellationToken = default)
+        => Task.Run(() => FindCoreAsync(folders, progress, cancellationToken));
+
+    private async Task<MissingFileSearchResult> FindCoreAsync(
+        IReadOnlyList<string> folders,
+        IProgress<(int Hashed, string? Detail)>? progress,
+        CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
