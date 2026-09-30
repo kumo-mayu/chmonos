@@ -512,13 +512,54 @@
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,8">
+                        <!--
+                            除外は溜まる一方で上限が無い。1件ごとに行を作って並べていた頃は、5,000 件で設定を開くたびに
+                            7 秒余り止まった（docs/research/large-files-2026-09-30.md）。
+                            閉じている間は件数だけ（行は ViewModel が開いたときだけ作る）。開いた一覧は高さを決めて中だけを流し、
+                            見える分だけ行の部品を作る——高さを決めないと、外の流す枠の中では全行を作ってしまい仮想化が効かない。
+                            0 件のときは開く物が無いので、三角を出さずに前と同じ1行にする
+                        -->
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,8"
+                                    Visibility="{Binding HasExcluded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="管理対象から除外したファイル" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Mono}" FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                        <controls:ContentItemsControl ItemsSource="{Binding Excluded}"
-                                      Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <Expander Style="{StaticResource TriangleExpander}" Margin="0,6,0,0"
+                                  IsExpanded="{Binding IsExcludedExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="Settings.ExcludedExpander"
+                                  AutomationProperties.Name="管理対象から除外したファイル"
+                                  Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <Expander.Header>
+                                <!-- 件数の位置を上の「非表示にした商品」と揃える（三角と間の 30 を見出しの幅から引く） -->
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="管理対象から除外したファイル" Style="{StaticResource RowLabel}" Width="190" />
+                                    <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Mono}" FontSize="12"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                        <Border Margin="0,8,0,0" Padding="10,8,4,8" CornerRadius="6"
+                                BorderBrush="{DynamicResource Border}" BorderThickness="1">
+                        <controls:ContentItemsControl ItemsSource="{Binding Excluded}" MaxHeight="360"
+                                      AutomationProperties.AutomationId="Settings.ExcludedList"
+                                      AutomationProperties.Name="管理対象から除外したファイル"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      VirtualizingPanel.ScrollUnit="Pixel"
+                                      ScrollViewer.CanContentScroll="True">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                                  CanContentScroll="True" Focusable="False">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">
                                     <Grid Margin="0,0,0,5">
@@ -537,6 +578,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </controls:ContentItemsControl>
+                        </Border>
+                        </Expander>
 
                         <!--
                             商品ページで「この商品から外す」を押したもの。

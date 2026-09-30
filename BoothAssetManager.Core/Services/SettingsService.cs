@@ -78,7 +78,8 @@ public interface ISettingsService
 
     Task UnhideAsync(string itemId, CancellationToken cancellationToken = default);
 
-    IReadOnlyList<ExcludedFile> LoadExcluded();
+    /// <summary>除外したファイルを新しい順に。**読むのは呼んだスレッドの外**（同期の読み口は持たない。設定の画面が開くたびに読むため）。</summary>
+    Task<IReadOnlyList<ExcludedFile>> LoadExcludedAsync(CancellationToken cancellationToken = default);
 
     Task RestoreExcludedAsync(string hash, CancellationToken cancellationToken = default);
 
@@ -225,17 +226,33 @@ public sealed class SettingsService : ISettingsService
             cancellationToken: cancellationToken);
     }
 
-    public IReadOnlyList<ExcludedFile> LoadExcluded()
+    /// <summary>
+    /// 除外したファイルを新しい順に。
+    /// 除外した日時は記録に必ずある（無い記録はファイルごと読めない。古い形に合わせる救済は足さない）。
+    /// 同じ日時の物は、記録の後ろ（後から足した物）を上にする——まとめて除外すると日時の揃った物が並び得るので、
+    /// 並びを決めておかないと、読み直すたびに上下が入れ替わって見えかねない。
+    /// </summary>
+    private IReadOnlyList<ExcludedFile> LoadExcluded()
         => _store.Excluded.Load()
-            .Select(entry => new ExcludedFile
+            .Select((entry, index) => (Index: index, File: new ExcludedFile
             {
                 Hash = entry.Hash,
                 Path = entry.Paths.FirstOrDefault() ?? entry.Hash,
                 Reason = entry.Reason,
                 ExcludedAt = entry.ExcludedAt,
-            })
-            .OrderByDescending(entry => entry.ExcludedAt)
+            }))
+            .OrderByDescending(pair => pair.File.ExcludedAt)
+            .ThenByDescending(pair => pair.Index)
+            .Select(pair => pair.File)
             .ToList();
+
+    /// <summary>
+    /// <see cref="LoadExcluded"/> を呼んだスレッドの外で。記録は除外するほど大きくなる（上限なし。5,000 件で約 15ms・2万件で約 57ms。
+    /// `docs/research/large-files-2026-09-30.md`）。設定の画面は開くたびに読むので、その間画面を止めない。
+    /// 同期の読み口を外に出さないのは、画面から呼ばれて画面のスレッドで読む道を作らないため。
+    /// </summary>
+    public Task<IReadOnlyList<ExcludedFile>> LoadExcludedAsync(CancellationToken cancellationToken = default)
+        => Task.Run(LoadExcluded, cancellationToken);
 
     /// <summary>
     /// 除外を解除する。次の取り込みでまた未確定として出てくる。
