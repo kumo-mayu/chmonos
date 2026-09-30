@@ -123,7 +123,7 @@ public sealed class NotificationRow : ViewModelBase
         }
     }
 
-    public string ReadButtonText => IsRead ? "未読に戻す" : "確認した";
+    public string ReadButtonText => IsRead ? "未読に戻す" : "既読にする";
 
     /// <summary>
     /// 既読の丸の、読み上げ・自動操作の名前。丸は行ごとに並ぶので、どの行の物かを入れる。

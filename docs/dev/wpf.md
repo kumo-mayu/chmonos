@@ -116,7 +116,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - **隠している部品（`Collapsed`・`Hidden`）は、UI Automation の既定の見方（操作できる部品だけ）に出ない。フォーカスも受けられない。**乗せたときだけ出すボタンを `Hidden` で隠すと、乗せるまで探せず、Tab でも止まれない。
   キーボードから届かせる物は透明（`Opacity=0`）で隠し、透明な間はマウスを通す（`IsHitTestVisible=False`。見えないボタンを押させない）。`App.xaml` の `RevealOnHoverOrFocusButton`。自前の窓口で「操作できる部品」を常に真にすると、隠した枠まで出る
 - **中身が文字のボタン・チェック・メニューの項目は、名前から最初の「_」が消える**（アクセスキーの印として。`AutomationProperties.Name` を付けていても消える。「__」は「_」に戻る）。
-  画面の表示は、型の `ContentPresenter` が `RecognizesAccessKey` を持つときだけ消える（このアプリのボタンは持たない。メニュー・チェック・ラジオ・畳む欄の見出しは持つ）。
+  画面の表示は、型の `ContentPresenter` が `RecognizesAccessKey="True"` を持つときだけ消える。**このアプリの型には付けない**（2026-09-30 に全部外した。アクセスキーは使っておらず、人が付けた名前の「_」が統合の窓のラジオなどで消えていた。描く台の場面 `underscore-in-names` で見られる）。
   名前は `Services/AutomationNames` が型に1回で掛けて守る（`AutomationProperties.NameProperty` の決まりをボタンの仲間とメニューの項目で上書きし、先に「_」を重ねる）
 - **見出しでまとめた一覧（`GroupStyle`）の束は、開いている間、見出しの中の部品を木に出さない**（束の子は行だけ。畳むと見出しごと出る）。束の窓口（`GroupItemAutomationPeer`）は WPF が作る物で差し替えられない。
   一覧の窓口の側で、開いている束の後ろに見出しの中の部品を並べる（`Controls/GroupedListBox`。見出しの押す所そのものは WPF が束の窓口に結び付けているので、渡すと束が2つ出る）

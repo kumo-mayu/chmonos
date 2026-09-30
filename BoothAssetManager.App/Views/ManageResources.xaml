@@ -130,7 +130,7 @@
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </ToggleButton.Template>
-                            <ContentPresenter RecognizesAccessKey="True"
+                            <ContentPresenter
                                               Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" />
                         </controls:ExpandToggle>
                         <ContentPresenter x:Name="Body" Visibility="Collapsed" />

@@ -81,7 +81,8 @@ internal static partial class Scenes
 
         // 名前の最初の「_」が画面から消えるかを、絵で確かめる場面（2026-09-30）。
         // 型の ContentPresenter が RecognizesAccessKey="True" を持つ部品は、中身が文字のとき、最初の「_」をアクセスキーの印として食べる。
-        // 左に部品の種類、右に同じ文字「tag_name_01」を中身に渡した部品。右の字が「tagname_01」になっていれば消えている
+        // 左に部品の種類、右に同じ文字「tag_name_01」を中身に渡した部品。右の字が「tagname_01」になっていれば消えている。
+        // アプリの型からはこの指定を全部外したので、今はどの部品でも消えないのが正しい（同日に直した。型に付け直すとここで分かる）
         new Scene("underscore-in-names", "名前の「_」：中身が文字の部品に「tag_name_01」を渡したとき、どの部品で最初の「_」が消えるか", context =>
         {
             const string Name = "tag_name_01";

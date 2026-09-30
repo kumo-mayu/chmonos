@@ -126,7 +126,7 @@ public static class FocusWalk
             row["HasAction"] = true;
             row["ActionText"] = "商品情報を取り直す";
             row["CreatedText"] = "3時間前";
-            row["ReadButtonText"] = "確認した";
+            row["ReadButtonText"] = "既読にする";
             row["ReadButtonName"] = name + "を既読にする";
             row["IsRead"] = false;
             row["Cards"] = new ObservableCollection<object>();

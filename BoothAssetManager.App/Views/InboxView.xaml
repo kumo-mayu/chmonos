@@ -276,7 +276,8 @@
                                             </ControlTemplate>
                                         </ToggleButton.Template>
                                         <Grid>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,400,0">
+                                            <!-- 横に並べる StackPanel だと幅が無限になり、説明文が折り返さずに右で切れていた（幅 900 で見つけた） -->
+                                            <DockPanel Margin="0,0,400,0">
                                                 <Path Data="M0,0 L6,4.5 L0,9 Z" Fill="{DynamicResource TextMuted}"
                                                       Width="6" Height="9" Stretch="Fill" VerticalAlignment="Top" Margin="0,4,10,0"
                                                       Visibility="{Binding IsExpanded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
@@ -289,7 +290,7 @@
                                                     <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}"
                                                                TextWrapping="Wrap" Margin="0,4,0,0" />
                                                 </StackPanel>
-                                            </StackPanel>
+                                            </DockPanel>
                                             <!--
                                                 件数は行の札と同じ色・同じ言葉で出す（ユーザ指示 2026-09-18）。
                                                 畳んでいる間もここだけで「何件あって、何を先に読むか」が分かるようにする
