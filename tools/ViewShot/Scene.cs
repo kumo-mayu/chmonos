@@ -33,6 +33,13 @@ internal sealed record Shot(FrameworkElement Root)
 
     /// <summary>切り出す四角の周りに残す余白（DIP）。隣の部品との間が見えるように。</summary>
     public double FocusMargin { get; init; } = 12;
+
+    /// <summary>
+    /// 場面が自分で描いたコマ。在れば、落ち着くのを待って描き直さずに、これをそのまま出す（<c>--crop</c> は効く）。
+    /// 「最初の配置で何が出るか」のように、待つと消える途中の姿を見る場面が使う（<see cref="SceneContext.PresentFirstFrame"/>）。
+    /// 色・幅・倍率の組み合わせは回せない（場面を組んだときの1つだけ）
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource? Still { get; init; }
 }
 
 /// <summary>1回の実行で描く組み合わせ。</summary>

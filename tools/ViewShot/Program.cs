@@ -322,6 +322,19 @@ internal static class Program
         };
 
         var shot = await scene.Build(context);
+        if (shot.Still is { } still)
+        {
+            // 場面が自分で描いたコマ。待って描き直すと、見たかった途中の姿が消える
+            var cut = options.Crop is { } box ? Stage.Crop(still, stage.ToPixels(box)) : still;
+            var stillPath = Path.Combine(
+                options.OutDir, scene.Name + (options.Themes[0] == ColorThemeMode.Dark ? "-dark" : "-light") + ".png");
+            Stage.Save(cut, stillPath);
+            Console.WriteLine($"{stillPath}\t{cut.PixelWidth}x{cut.PixelHeight}\t場面が描いたコマ");
+            Console.WriteLine($"  {scene.Name}：全部で {clock.Elapsed.TotalSeconds:0.0} 秒");
+            context.Dispose();
+            return 0;
+        }
+
         if (!ReferenceEquals(stage.Content, shot.Root))
         {
             await context.PresentAsync(shot.Root);
