@@ -7,19 +7,35 @@
         </ResourceDictionary>
     </UserControl.Resources>
     <StackPanel>
-        <ListBox ItemsSource="{Binding Rows}" Height="330">
-            <ListBox.ItemTemplate>
+        <controls:CardRowsListBox ItemsSource="{Binding Rows}" Height="330">
+            <controls:CardRowsListBox.ItemTemplate>
                 <DataTemplate>
-                    <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                    <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
-                    </controls:ContentItemsControl>
+                    </controls:CardRowItems>
                 </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+            </controls:CardRowsListBox.ItemTemplate>
+        </controls:CardRowsListBox>
+        <!-- 管理の画面（タグ・属性）の形：仮想化した ContentItemsControl の行の中に、枠に包んだ段 -->
+        <controls:ContentItemsControl ItemsSource="{Binding Rows}" Height="330">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border BorderThickness="1,0,1,0">
+                        <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </controls:CardRowItems>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </controls:ContentItemsControl>
         <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
                                ItemContainerStyle="{StaticResource ItemListRowStyle}" Height="200" />
     </StackPanel>

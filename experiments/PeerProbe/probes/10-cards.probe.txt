@@ -7,19 +7,19 @@
         </ResourceDictionary>
     </StackPanel.Resources>
     <!-- 検索・ショップのカードの形：行の ListBox の中に、カードの並び -->
-    <ListBox ItemsSource="{Binding Rows}" Height="330">
-        <ListBox.ItemTemplate>
+    <controls:CardRowsListBox ItemsSource="{Binding Rows}" Height="330">
+        <controls:CardRowsListBox.ItemTemplate>
             <DataTemplate>
-                <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                </controls:ContentItemsControl>
+                </controls:CardRowItems>
             </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+        </controls:CardRowsListBox.ItemTemplate>
+    </controls:CardRowsListBox>
     <!-- リスト -->
     <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
                            ItemContainerStyle="{StaticResource ItemListRowStyle}" Height="200" />

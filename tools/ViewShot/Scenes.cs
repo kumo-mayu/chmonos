@@ -21,6 +21,7 @@ internal static partial class Scenes
         .. Bands,
         .. Modifications,
         .. Search,
+        .. CardLists,
         .. Dialogs,
         .. Parts,
     ];

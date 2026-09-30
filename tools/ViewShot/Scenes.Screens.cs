@@ -297,8 +297,11 @@ internal static partial class Scenes
         }),
     ];
 
-    /// <summary>作り物の商品を並べる。3件目と6件目は壊れた zip を持ち、2件目は名前が長く、5件目は絵が無い。</summary>
-    private static async Task SeedLibraryAsync(SceneContext context, int count)
+    /// <summary>
+    /// 作り物の商品を並べる。3件目と6件目は壊れた zip を持ち、2件目は名前が長く、5件目は絵が無い。
+    /// <paramref name="change"/> は、何件目か（0 から）と商品を受けて、場面ごとの値（タグ・属性）を足す
+    /// </summary>
+    private static async Task SeedLibraryAsync(SceneContext context, int count, Func<int, ItemRecord, ItemRecord>? change = null)
     {
         string[] names =
         [
@@ -317,12 +320,17 @@ internal static partial class Scenes
             var id = (9900301 + index).ToString();
             var broken = index is 2 or 5;
             var file = broken ? Fake.BrokenZip($@"ライブラリ\item{index}.zip") : Fake.Zip($@"ライブラリ\item{index}.zip");
+            var at = index;
             await context.Fake.ItemAsync(
                 id,
                 names[index % names.Length],
-                record => record with
+                record =>
                 {
-                    Local = record.Local with { LocalFiles = [Fake.FileRecord(file, broken: broken)] },
+                    var seeded = record with
+                    {
+                        Local = record.Local with { LocalFiles = [Fake.FileRecord(file, broken: broken)] },
+                    };
+                    return change?.Invoke(at, seeded) ?? seeded;
                 },
                 images: index == 4 ? 0 : 1,
                 shop: index % 2 == 0 ? "作り物ショップ" : "作り物の別のショップ");

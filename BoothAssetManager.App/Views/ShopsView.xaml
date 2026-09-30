@@ -105,14 +105,15 @@
                 列数をViewModel側で幅から決めて行に切り、その行をListBoxに並べる。
                 画面外の行のカードは作られないので、アイコンの読み込みも走らない
             -->
-            <ListBox x:Name="ShopList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
+            <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
+            <controls:CardRowsListBox x:Name="ShopList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
                      Padding="18" HorizontalContentAlignment="Stretch"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      VirtualizingPanel.IsVirtualizing="True"
                      VirtualizingPanel.VirtualizationMode="Recycling"
                      VirtualizingPanel.ScrollUnit="Pixel">
-                <ListBox.ItemContainerStyle>
+                <controls:CardRowsListBox.ItemContainerStyle>
                     <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="0" />
@@ -126,11 +127,11 @@
                             </Setter.Value>
                         </Setter>
                     </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
+                </controls:CardRowsListBox.ItemContainerStyle>
+                <controls:CardRowsListBox.ItemTemplate>
                     <DataTemplate>
-                <!-- 中のカードが自動操作・読み上げから見えるように ContentItemsControl に並べる（素の ItemsControl だと中身が1つも見えない） -->
-                <controls:ContentItemsControl ItemsSource="{Binding Cards}">
+                <!-- 中のカードが自動操作・読み上げから見えるように CardRowItems に並べる（素の ItemsControl だと中身が1つも見えない） -->
+                <controls:CardRowItems ItemsSource="{Binding Cards}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />
@@ -262,10 +263,10 @@
                           </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </controls:ContentItemsControl>
+                </controls:CardRowItems>
                     </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                </controls:CardRowsListBox.ItemTemplate>
+            </controls:CardRowsListBox>
         </Grid>
     </DockPanel>
 </UserControl>
