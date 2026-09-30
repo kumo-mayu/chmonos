@@ -125,8 +125,10 @@ Console.WriteLine($"\n自動検索（BOOTHへの間隔 {client.CurrentIntervalMs
 
 async Task Show(string label, string target)
 {
-    var candidates = await resolver.ProposeAsync(target);
-    Console.WriteLine($"    {label}（{FileNameQuery.ToSearchQuery(target)}）: {candidates.Count} 件");
+    // 届かなかったときの 0 件を「当たりが無い」と数えると、zip名で引く価値を低く見積もる。分けて書く
+    var proposal = await resolver.ProposeAsync(target);
+    var candidates = proposal.Candidates;
+    Console.WriteLine($"    {label}（{FileNameQuery.ToSearchQuery(target)}）: {candidates.Count} 件{(proposal.BoothUnreachable ? "（BOOTH に届かなかった）" : "")}");
     foreach (var candidate in candidates.Take(3))
     {
         Console.WriteLine($"      {(candidate.IsStrong ? "◎" : "・")} {candidate.Score,3}  {candidate.Name}  [{candidate.ItemId}]");
