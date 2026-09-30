@@ -15,7 +15,11 @@ public sealed partial class ResolveViewModel
     /// 判定はフォルダ単位で同じになるので、フォルダをキーに覚えておく。
     /// 読み直しは裏のスレッドで組むので、覚える表は呼び手が渡す（組み終えてから画面の表へ移す）
     /// </summary>
-    private static ArchiveContentJudgement JudgeCached(string path, Dictionary<string, ArchiveContentJudgement> judgements)
+    /// <param name="pass">この1回の組み立ての間だけの見分け。親のフォルダの列挙を、フォルダの数だけ繰り返さないために渡す。</param>
+    private static ArchiveContentJudgement JudgeCached(
+        string path,
+        Dictionary<string, ArchiveContentJudgement> judgements,
+        ArchiveContentDetector.Pass pass)
     {
         var directory = Path.GetDirectoryName(path) ?? string.Empty;
         if (judgements.TryGetValue(directory, out var cached))
@@ -23,7 +27,7 @@ public sealed partial class ResolveViewModel
             return cached;
         }
 
-        var judgement = ArchiveContentDetector.Judge(path);
+        var judgement = pass.Judge(path);
         judgements[directory] = judgement;
         return judgement;
     }

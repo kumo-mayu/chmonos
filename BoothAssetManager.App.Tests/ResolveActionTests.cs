@@ -155,4 +155,63 @@ public class ResolveActionTests
         Assert.False(resolve.CanPreview);
         Assert.False(resolve.PreviewCommand.CanExecute(null));
     });
+
+    // ---- BOOTHに無い商品として登録する ----
+
+    [Fact]
+    public Task BOOTHに無い商品として登録すると_商品になって次の行へ移り_ナビの数が減る() => TestApp.Run(async app =>
+    {
+        var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        var hash = resolve.Selected.File.Hash;
+        resolve.LocalNameInput = "作り物の商品";
+        app.Answer = _ => MessageBoxResult.OK;
+
+        resolve.RegisterLocalCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal("second.zip", Assert.Single(resolve.Files).FileName);
+        Assert.Equal("second.zip", resolve.Selected!.FileName);
+        Assert.Equal("second.zip", System.IO.Path.GetFileName(Assert.Single(app.Store.Unresolved.Load()).Paths[0]));
+
+        var item = await app.Store.Items.LoadAsync(Core.Models.LocalItemId.For(hash));
+        Assert.Equal("作り物の商品", item!.Local.DisplayName);
+        Assert.Equal("first.zip", System.IO.Path.GetFileName(Assert.Single(item.Local.LocalFiles).Paths[0]));
+        Assert.Empty(app.Booth.Requests);
+
+        await UiThread.Until(() => main.UnresolvedCount == 1, "ナビの未確定の数が減る");
+    });
+
+    /// <summary>
+    /// 登録の命令は記録を裏で読むので、押した直後はまだ走っている。その間に「未確定」を開き直すと、
+    /// 新しい画面の均し（商品が持っている物を一覧から外す）と読み直しが重なる。
+    /// どちらが先でも、登録した物は保存先の一覧へ戻らず、ほかの物は欠けない。
+    /// </summary>
+    [Fact]
+    public Task 登録の最中に未確定を開き直しても_登録した物は戻らず_ほかの物は欠けない() => TestApp.Run(async app =>
+    {
+        var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.LocalNameInput = "作り物の商品";
+        app.Answer = _ => MessageBoxResult.OK;
+
+        resolve.RegisterLocalCommand.Execute(null);
+        main.ShowSearchCommand.Execute(null);
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+
+        string[] Names(IEnumerable<UnresolvedFile> files)
+            => [.. files.Select(file => System.IO.Path.GetFileName(file.Paths[0])).Order(StringComparer.Ordinal)];
+
+        Assert.Equal(["second.zip", "third.zip"], Names(app.Store.Unresolved.Load()));
+        Assert.Equal(1, main.Search.TotalCount);
+
+        // もう一度開けば、画面にも登録した行は出ない
+        main.ShowSearchCommand.Execute(null);
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+        var reopened = Assert.IsType<ResolveViewModel>(main.CurrentViewModel);
+        Assert.Equal(["second.zip", "third.zip"], Names(reopened.Files.Select(row => row.File)));
+        await UiThread.Until(() => main.UnresolvedCount == 2, "ナビの未確定の数が合う");
+    });
 }

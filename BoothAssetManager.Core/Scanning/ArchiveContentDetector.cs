@@ -41,28 +41,66 @@ public static class ArchiveContentDetector
     /// （入れ子になっている場合、外側の方が配布の単位に近いため）。
     /// </summary>
     public static ArchiveContentJudgement Judge(string filePath, Func<string, IReadOnlyList<string>>? listFiles = null)
+        => new Pass(listFiles).Judge(filePath);
+
+    /// <summary>
+    /// 続けて何件も見分ける1回の処理（未確定の行を1回組む間）。**フォルダごとの目印を、この1回の間だけ覚える。**
+    ///
+    /// 1件ごとに親を <see cref="MaxDepth"/> 段たどって列挙するので、呼ぶ側がフォルダごとに1回にまとめても、
+    /// 親の段（取り込み元・その上）は全部のフォルダで同じ物を列挙し直していた（未確定 8万件・803 フォルダで約 4,800 回、
+    /// 行を組む時間の約3割。2026-09-30 に測った）。同じフォルダは1回だけ列挙する。
+    ///
+    /// **処理をまたいで持たない。**またぐと、フォルダの中身が変わった（zip を展開した・目印を消した）のに古い答えを返す。
+    /// 覚えるのは目印の名前だけ（ファイル名の一覧は持たない。1つのフォルダに数千件あっても1語）。
+    /// 1本のスレッドから使う。
+    /// </summary>
+    public sealed class Pass
     {
-        var list = listFiles ?? SafeListFileNames;
-        var directory = Path.GetDirectoryName(filePath);
+        private readonly Func<string, IReadOnlyList<string>> _list;
 
-        string? outermost = null;
-        string? reason = null;
+        /// <summary>フォルダ → 目印の名前（無ければ null）。パスの大文字小文字は区別しない（Windows の置き場）。</summary>
+        private readonly Dictionary<string, string?> _markers = new(StringComparer.OrdinalIgnoreCase);
 
-        for (var depth = 0; depth < MaxDepth && !string.IsNullOrEmpty(directory); depth++)
+        public Pass(Func<string, IReadOnlyList<string>>? listFiles = null)
         {
-            var marker = FindMarker(list(directory));
-            if (marker is not null)
-            {
-                outermost = directory;
-                reason = $"「{marker}」と同じフォルダの中にあるので、配布物を展開したものとみなしました";
-            }
-
-            directory = Path.GetDirectoryName(directory);
+            _list = listFiles ?? SafeListFileNames;
         }
 
-        return outermost is null
-            ? ArchiveContentJudgement.NotContent
-            : new ArchiveContentJudgement { IsContent = true, ProductFolder = outermost, Reason = reason };
+        /// <inheritdoc cref="ArchiveContentDetector.Judge"/>
+        public ArchiveContentJudgement Judge(string filePath)
+        {
+            var directory = Path.GetDirectoryName(filePath);
+
+            string? outermost = null;
+            string? reason = null;
+
+            for (var depth = 0; depth < MaxDepth && !string.IsNullOrEmpty(directory); depth++)
+            {
+                var marker = MarkerIn(directory);
+                if (marker is not null)
+                {
+                    outermost = directory;
+                    reason = $"「{marker}」と同じフォルダの中にあるので、配布物を展開したものとみなしました";
+                }
+
+                directory = Path.GetDirectoryName(directory);
+            }
+
+            return outermost is null
+                ? ArchiveContentJudgement.NotContent
+                : new ArchiveContentJudgement { IsContent = true, ProductFolder = outermost, Reason = reason };
+        }
+
+        private string? MarkerIn(string directory)
+        {
+            if (!_markers.TryGetValue(directory, out var marker))
+            {
+                marker = FindMarker(_list(directory));
+                _markers[directory] = marker;
+            }
+
+            return marker;
+        }
     }
 
     private static string? FindMarker(IReadOnlyList<string> fileNames)

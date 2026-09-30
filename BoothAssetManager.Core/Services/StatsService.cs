@@ -342,7 +342,8 @@ public sealed class StatsService : IStatsService
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = _store.Avatars.Load();
-        var unresolved = _store.Unresolved.Load().Count;
+        // 統計の画面は画面のスレッドから開く。上の await の続きもそこへ戻るので、未確定の記録（件数に比例して大きい）は裏で読む
+        var unresolved = (await _store.Unresolved.LoadAsync(cancellationToken)).Count;
 
         return Build(loaded.Items, registry, unresolved);
     }

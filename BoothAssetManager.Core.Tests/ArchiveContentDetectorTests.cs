@@ -114,4 +114,122 @@ public class ArchiveContentDetectorTests
 
         Assert.False(ArchiveContentDetector.Judge(deep, layout).IsContent);
     }
+
+    // ---- 1回の処理の間だけ、フォルダの列挙を覚える（ArchiveContentDetector.Pass） ----
+
+    /// <summary>
+    /// 未確定の行を組むときの形：フォルダごとに1件ずつ見分ける。親の段は全部のフォルダで同じなので、
+    /// 前はフォルダの数だけ列挙し直していた（803 フォルダで約 4,800 回）。同じフォルダは1回だけ列挙し、答えは1件ずつ見分けたときと同じ。
+    /// </summary>
+    [Fact]
+    public void APassListsEachFolderOnceAndJudgesTheSame()
+    {
+        var folders = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            [@"D:\dl\in\loose\000"] = ["a.bin"],
+            [@"D:\dl\in\loose\001"] = ["b.bin"],
+            [@"D:\dl\in\loose\002"] = ["c.bin"],
+            [@"D:\dl\in\loose"] = [],
+            [@"D:\dl\in\pack\texture"] = ["t.png"],
+            [@"D:\dl\in\pack"] = ["pack.unitypackage"],
+            [@"D:\dl\in"] = ["x.zip"],
+            [@"D:\dl"] = [],
+        };
+        var listed = new List<string>();
+        IReadOnlyList<string> Counting(string directory)
+        {
+            listed.Add(directory);
+            return folders.TryGetValue(directory, out var names) ? names : [];
+        }
+
+        string[] files =
+        [
+            @"D:\dl\in\loose\000\a.bin",
+            @"D:\dl\in\loose\001\b.bin",
+            @"D:\dl\in\loose\002\c.bin",
+            @"D:\dl\in\pack\texture\t.png",
+            @"D:\DL\IN\pack\pack.unitypackage",
+        ];
+
+        var pass = new ArchiveContentDetector.Pass(Counting);
+        var together = files.Select(pass.Judge).ToList();
+        var listedByPass = listed.ToList();
+
+        listed.Clear();
+        var oneByOne = files.Select(file => ArchiveContentDetector.Judge(file, Counting)).ToList();
+
+        Assert.Equal(oneByOne, together);
+        Assert.Equal([false, false, false, true, true], together.Select(judgement => judgement.IsContent));
+        Assert.Equal(@"D:\dl\in\pack", together[3].ProductFolder);
+
+        // 同じフォルダを2回列挙しない（大文字小文字だけ違う書き方も同じフォルダ）。1件ずつだと親の段を毎回列挙し直す
+        Assert.Equal(listedByPass.Count, listedByPass.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.True(listedByPass.Count < listed.Count);
+    }
+
+    /// <summary>
+    /// 覚えるのは1回の処理の間だけ。処理をまたいで持つと、フォルダの中身が変わった（展開した・目印を消した）のに古い答えを返す。
+    /// 次の処理（新しく作った物）は今のフォルダを見る。
+    /// </summary>
+    [Fact]
+    public void ANewPassSeesWhatChangedInTheFolder()
+    {
+        var folders = new Dictionary<string, string[]>
+        {
+            [@"D:\dl\p\texture"] = ["t.png"],
+            [@"D:\dl\p"] = [],
+        };
+        const string file = @"D:\dl\p\texture\t.png";
+
+        var first = new ArchiveContentDetector.Pass(Layout(folders));
+        Assert.False(first.Judge(file).IsContent);
+
+        folders[@"D:\dl\p"] = ["p.unitypackage"];
+
+        Assert.False(first.Judge(file).IsContent);
+        Assert.True(new ArchiveContentDetector.Pass(Layout(folders)).Judge(file).IsContent);
+    }
+
+    /// <summary>実のフォルダでも、1回の処理でまとめて見分けた答えは、1件ずつ見分けた答えと同じ。</summary>
+    [Fact]
+    public void APassJudgesRealFoldersTheSameAsOneByOne()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bam-content-pass-" + Guid.NewGuid().ToString("N"));
+
+        // 親は6段までたどる。置き場を5段掘っておけば、いちばん浅いファイルからでも一時フォルダより上へ出ない
+        // （実マシンの一時フォルダに目印になるファイルがあっても、答えが変わらない）
+        var inside = Path.Combine(root, "1", "2", "3", "4", "5");
+        try
+        {
+            string Put(params string[] parts)
+            {
+                var path = Path.Combine([inside, .. parts]);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "x");
+                return path;
+            }
+
+            string[] files =
+            [
+                Put("loose", "000", "a.bin"),
+                Put("loose", "001", "b.bin"),
+                Put("outfit_v1", "outfit", "texture", "t.png"),
+                Put("outfit_v1", "outfit", "outfit.unitypackage"),
+                Put("linked", "psd", "body.psd"),
+                Put("linked", "shop - BOOTH.url"),
+                Put("plain.zip"),
+            ];
+
+            var pass = new ArchiveContentDetector.Pass();
+            var together = files.Select(pass.Judge).ToList();
+
+            Assert.Equal(files.Select(file => ArchiveContentDetector.Judge(file)), together);
+            Assert.Equal([false, false, true, true, true, true, false], together.Select(judgement => judgement.IsContent));
+            Assert.Equal(Path.Combine(inside, "outfit_v1", "outfit"), together[2].ProductFolder);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

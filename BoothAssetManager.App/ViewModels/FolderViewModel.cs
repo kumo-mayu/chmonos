@@ -631,7 +631,8 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             items = (await _services.Store.Items.LoadAllAsync(cancellationToken: token)).Items;
         }
 
-        var unresolved = _services.Store.Unresolved.Load();
+        // 未確定の記録は裏で読む（件数に比例して大きい。8万件で 37.7MB を、開くたびに画面のスレッドで読んでいた）
+        var unresolved = await _services.Store.Unresolved.LoadAsync(token);
         var built = await Task.Run(() =>
         {
             token.ThrowIfCancellationRequested();

@@ -57,6 +57,59 @@ public static class JsonStore
     }
 
     /// <summary>
+    /// 配列の JSON に、要素が1つでもあるか。**頭だけ読んで答える**（ファイルが無ければ偽）。
+    ///
+    /// 起動の画面決めは画面のスレッドで、未確定が「在るか」だけを知りたい。記録を丸ごと読むと、
+    /// 未確定が数万件ある保存先では起動のたびに数百ms 止まる（8万件・37.7MB で 170〜280ms。初回はもっと長い）。
+    /// 頭の 4KB で「[」の次が「]」かを見れば足りる。コメントや空白が 4KB より長く続いて決まらなければ、全部読んで数える。
+    /// 配列でない・JSON として読めない頭なら、丸ごと読むときと同じく例外を投げる。
+    /// </summary>
+    public static bool ArrayHasItems(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        var head = new byte[4096];
+        int length;
+        using (var stream = OpenShared(path))
+        {
+            length = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+        }
+
+        // UTF-8 の印（BOM）は JSON の字ではないので飛ばす（メモ帳で直して保存すると付く）
+        var span = head.AsSpan(0, length);
+        if (span.StartsWith("﻿"u8))
+        {
+            span = span[3..];
+        }
+
+        var isWhole = length < head.Length;
+        var reader = new Utf8JsonReader(span, isFinalBlock: isWhole, new JsonReaderState(new JsonReaderOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        }));
+
+        if (reader.Read())
+        {
+            if (reader.TokenType != JsonTokenType.StartArray)
+            {
+                throw new JsonException($"「{Path.GetFileName(path)}」は配列ではありません。");
+            }
+
+            if (reader.Read())
+            {
+                return reader.TokenType != JsonTokenType.EndArray;
+            }
+        }
+
+        // 頭だけでは決まらなかった（4KB を超えるコメント・1つ目の値が 4KB をまたぐ文字列など）
+        return Read<List<JsonElement>>(path) is { Count: > 0 };
+    }
+
+    /// <summary>
     /// 同期で書く。保存先を運んでいる間はスレッドを止めて待つので、**画面のスレッドから呼ばない**（<see cref="StoreWriteGate.Enter"/>）。
     /// 画面から来得る保存は <see cref="WriteAsync{T}"/> を使う。
     /// </summary>
