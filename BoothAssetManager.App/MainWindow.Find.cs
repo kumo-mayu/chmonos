@@ -70,6 +70,14 @@ public partial class MainWindow
             ScreenHost.UpdateLayout();
         }
 
+        // 商品の説明は、画面の外の見出しを後から足す（ProgressiveItems）。開いた直後に探すと、まだ無い見出しの中の一致を数え落とす。
+        // 探す前に足し切って、並べる（並べないと、足した行の文字の箱がまだ作られていない）。
+        // 組み込んだ商品ページ（フォルダビュー・改変の画面）も ScreenHost の中なので、ここで拾える
+        if (needle.Length > 0 && Controls.ProgressiveItems.FeedAllNow(ScreenHost))
+        {
+            ScreenHost.UpdateLayout();
+        }
+
         _findMatches = FindInPage.Find(ScreenHost, needle);
         _findIndex = _findMatches.Count > 0 ? 0 : -1;
         ShowFindResult();

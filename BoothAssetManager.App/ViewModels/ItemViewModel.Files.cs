@@ -213,6 +213,10 @@ public sealed partial class ItemViewModel
             rows[i].UnityPackageRows = packageRows.Select(pair => pair.Row).ToList();
         }
 
+        // 「Unityが開いていません」の行は、送れる物が1つでも在るときだけ出す。行を出した後でここで付くので、付いたことを知らせる
+        // （知らせないと、使い回された画面でその行が出ない）
+        OnPropertyChanged(nameof(HasAnyUnityPackage));
+
         await LoadUnityDestinationsAsync(known);
     }
 

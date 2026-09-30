@@ -73,6 +73,15 @@ public sealed class GalleryImage : ViewModelBase
 
     public bool IsImage => !IsAddTile;
 
+    /// <summary>一覧の何枚目か（1から）。一覧を組み直すたびに振り直す（並べ替え・足す・消すは、どれも組み直しを通る）。</summary>
+    public int Number { get; init; }
+
+    /// <summary>
+    /// 読み上げ・自動操作での名前。前は全部「この画像を表示」で、どの1枚かを名前で指せなかった
+    /// （行ごとに繰り返す部品は、どの行の物かを名前に入れる。ui-input.md）。絵には名前が無いので、並びの番号で言う
+    /// </summary>
+    public string ShowName => IsAddTile ? string.Empty : $"{Number} 枚目の画像を表示";
+
     /// <summary>今メインに出ている画像か。一覧のどれを見ているか分かるようにする。</summary>
     public bool IsSelected
     {
@@ -309,6 +318,8 @@ public sealed class LocalFileRow : ViewModelBase
             {
                 OnPropertyChanged(nameof(HasUnityPackages));
                 OnPropertyChanged(nameof(HasManyUnityPackages));
+                // 件数を文に入れているので、これも知らせる（知らせないと、後から読んで付けたときに「0 件」のまま残る）
+                OnPropertyChanged(nameof(UnityPackageNote));
             }
         }
     }

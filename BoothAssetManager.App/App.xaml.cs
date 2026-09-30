@@ -284,7 +284,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // 一時展開は閉じるときに消す（#56・ユーザ判断）。開いたままの物は次の起動で消える
+        // 一時展開は閉じるときに消す（#56・ユーザ判断）。開いたままの物は次の起動で消える。
+        // 消すのはこの保存先の置き場所だけ（保存先の違う別のアプリが展開した物は、そのアプリが消す）
         if (_services?.IsSingleInstance == true)
         {
             new Core.Services.TemporaryUnpacker().CleanUp();

@@ -152,6 +152,18 @@ internal sealed class SceneContext
         await _stage.SettleAsync();
     }
 
+    /// <summary>
+    /// 舞台に載せて、**最初の配置だけ**で描く（画面のスレッドを1度も空けない）。アプリで画面を差し替えた直後の1コマに当たる。
+    ///
+    /// 配置の後へ回した仕事（裏で読む絵・後から足す行）はまだ走っていないので、絵は灰色のまま写る。
+    /// 「最初の1コマに何が入るか」を直す前と後で比べるための物で、出揃った姿は <see cref="PresentAsync"/> で見る
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource PresentFirstFrame(FrameworkElement root)
+    {
+        _stage.Show(root, _options.Width ?? Scene.Width, _options.Height ?? Scene.Height);
+        return _stage.Render();
+    }
+
     public Task SettleAsync() => _stage.SettleAsync();
 
     public static Task UntilAsync(Func<bool> condition, string what) => Stage.UntilAsync(condition, what);

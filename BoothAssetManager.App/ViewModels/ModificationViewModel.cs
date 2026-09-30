@@ -986,6 +986,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             {
                 Path = path,
                 FileName = image.FileName,
+                Number = _gallery.Count + 1,
             };
 
             // 小さな絵は裏で読む（商品の写真の欄と同じ）。無いファイルを頼むと「読めない」と覚えてしまうので、在るものだけ

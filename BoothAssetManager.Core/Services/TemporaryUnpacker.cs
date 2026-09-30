@@ -11,7 +11,7 @@ namespace BoothAssetManager.Core.Services;
 /// （友人の話）。このアプリは zip を展開しない方針（Unity へは zip の中を直接指して渡す）なので、
 /// そういう物のために「一時的に展開してエクスプローラで開く」逃げ道を置く。
 ///
-/// **置き場所は一時フォルダで、アプリを閉じると消す。**消し残りは次の起動で消す（ユーザ判断）。
+/// **置き場所は一時フォルダ（保存先ごと）で、アプリを閉じると消す。**消し残りは次の起動で消す（ユーザ判断）。
 /// 取り込み・監視の対象には入れない——閉じると消えるパスを商品に紐付けても「見つからない」になるだけ。
 /// </summary>
 public sealed class TemporaryUnpacker
@@ -22,21 +22,79 @@ public sealed class TemporaryUnpacker
     /// </summary>
     private const int CopyBufferBytes = 81920;
 
-    /// <summary>既定の置き場所。取り込みの走査はここを見ない（<see cref="IsInsideDefaultRoot"/>）。</summary>
-    public static string DefaultRoot { get; } = Path.Combine(Path.GetTempPath(), "Chmonos", "unpacked");
+    /// <summary>
+    /// このアプリが一時フォルダに物を置く場所（<c>%TEMP%\Chmonos</c>）。置き場所は、この下に保存先ごとに分ける
+    /// （<see cref="RootFor"/>）。取り込みの走査はこの中を見ない（<see cref="IsInsideTemporaryArea"/>）。
+    /// </summary>
+    public static string TemporaryArea { get; } = Path.Combine(Path.GetTempPath(), "Chmonos");
+
+    /// <summary>保存先ごとに分ける前の置き場所（全部の保存先が1つを使っていた）。起動のときに片付けるためだけに知っている。</summary>
+    private const string LegacyFolderName = "unpacked";
+
+    /// <summary>このプロセスが開いている保存先の置き場所。<see cref="UseStore"/> が決める。</summary>
+    private static volatile string? _rootOfStore;
 
     private readonly string _root;
 
-    /// <param name="root">置き場所。試験では別の場所を渡す（本物の一時フォルダを消さないため）。</param>
-    public TemporaryUnpacker(string? root = null)
+    /// <summary>
+    /// 保存先の置き場所を使う。<see cref="UseStore"/> の前に作ると投げる
+    /// （黙って共通の場所へ落とすと、分ける前と同じく別のアプリの片付けに巻き込まれる）。
+    /// </summary>
+    public TemporaryUnpacker()
+        : this(_rootOfStore ?? throw new InvalidOperationException("一時展開の置き場所が決まっていません（保存先を決めてから使います）。"))
     {
-        _root = root ?? DefaultRoot;
     }
 
-    /// <summary>そのパスが既定の置き場所の中か。取り込みで拾わないために見る。</summary>
-    public static bool IsInsideDefaultRoot(string path)
+    /// <param name="root">置き場所。試験では別の場所を渡す（本物の一時フォルダを消さないため）。</param>
+    public TemporaryUnpacker(string root)
     {
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(DefaultRoot)) + Path.DirectorySeparatorChar;
+        _root = root;
+    }
+
+    /// <summary>置き場所。試験で、どこを使うことになったかを見る。</summary>
+    internal string Root => _root;
+
+    /// <summary>
+    /// このプロセスが開いている保存先を伝える。以降の <see cref="TemporaryUnpacker()"/> は、その保存先の置き場所を使う。
+    ///
+    /// 引数で持ち回さずここに置くのは、展開が命令（<c>CommandHandler</c>）と Unity へ送る列（画面の側の静的な入口）の
+    /// 両方から始まり、どちらも同じ置き場所を使わないと、閉じるときに片付かない物が残るため。
+    /// 保存先は1つのプロセスに1つで、起動中は変わらない（<see cref="Storage.AppPaths.Default"/>）。
+    /// </summary>
+    public static void UseStore(string storeRoot) => _rootOfStore = RootFor(storeRoot);
+
+    /// <summary>
+    /// その保存先の置き場所（<c>%TEMP%\Chmonos\unpacked-{保存先の印}</c>）。
+    ///
+    /// **保存先ごとに分ける**（ユーザ判断 2026-09-30）。置き場所が1つだと、起動と終了の片付けが、保存先の違う別のアプリ
+    /// （普段使いと確かめ用の写し）の展開した物まで消す。「1本目のときだけ片付ける」の判定（二重起動の錠）は保存先ごとなので、
+    /// 片付ける範囲も保存先ごとにすれば食い違わない。
+    /// 印は保存先のパスから作る8桁。名前をそのまま使わないのは、パスを1段のフォルダ名にできないのと、
+    /// Unity へ渡すパスの上限（<see cref="MaxUnityPath"/>）を食うため。
+    /// </summary>
+    /// <param name="area">一時フォルダの中の、このアプリの場所。試験では別の場所を渡す。</param>
+    public static string RootFor(string storeRoot, string? area = null)
+    {
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(storeRoot)).ToUpperInvariant();
+        var key = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(full)))[..8];
+        return Path.Combine(area ?? TemporaryArea, $"{LegacyFolderName}-{key}");
+    }
+
+    /// <summary>
+    /// 保存先ごとに分ける前の置き場所を消す。前の版が残した物を片付けるだけで、今の版はここに何も置かない。
+    /// 開いたままの物があって消せなければ、次の起動でまた試す。
+    /// </summary>
+    /// <returns>残っていないか（無かった・消せた）。</returns>
+    public static bool RemoveLegacyRoot(string? area = null)
+        => new TemporaryUnpacker(Path.Combine(area ?? TemporaryArea, LegacyFolderName)).CleanUp();
+
+    /// <summary>
+    /// そのパスが、このアプリの一時の場所の中か。取り込みで拾わないために見る。
+    /// 保存先ごとの置き場所を1つずつ見ないのは、別の保存先のアプリが展開した物も、閉じると消えるのは同じだから。
+    /// </summary>
+    public static bool IsInsideTemporaryArea(string path)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(TemporaryArea)) + Path.DirectorySeparatorChar;
         try
         {
             return Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase);
