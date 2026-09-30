@@ -233,6 +233,7 @@ public sealed partial class ItemViewModel
             {
                 Path = entry.Path,
                 FileName = fileName,
+                Number = Images.Count + 1,
                 IsOrphaned = entry.IsOrphaned,
                 IsUserAdded = entry.IsUserAdded,
                 IsPinned = string.Equals(

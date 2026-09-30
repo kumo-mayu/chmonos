@@ -220,7 +220,7 @@
                                                     Visibility="{Binding IsImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                     MouseEnter="OnThumbnailMouseEnter"
                                                     MouseLeave="OnThumbnailMouseLeave"
-                                                    AutomationProperties.AutomationId="GalleryTile" AutomationProperties.Name="この画像を表示"
+                                                    AutomationProperties.AutomationId="GalleryTile" AutomationProperties.Name="{Binding ShowName}"
                                                     Command="{Binding DataContext.SelectImageCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
