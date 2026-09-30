@@ -76,6 +76,9 @@ function Close-UnityImport {
     [ValidateSet('Import', 'OK', 'Cancel')][string]$Button = 'OK',
     [Parameter(Mandatory)][switch]$UserWasTold, [double]$TimeoutSeconds = 60)
   if (-not $UserWasTold) { throw '実入力の前にユーザへ告げる（CLAUDE.md「確かめ方」）' }
+  # ここも実際のマウスを使う。ほかのアプリが開いている間は、画面を取った人だけ（ui-kit の Lock-ChmonosScreen）
+  $deny = Get-ChmonosScreenDenial
+  if ($deny) { return "実入力をやめた：$deny" }
   $w = Wait-UnityImportWindow -TimeoutSeconds $TimeoutSeconds
   if (-not $w) { return '取り込み画面が出ていない' }
 
