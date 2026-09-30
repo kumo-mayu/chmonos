@@ -74,7 +74,68 @@ public class SettingsServiceTests : IDisposable
 
         await _service.RestoreExcludedAsync("AAAA");
 
-        Assert.Equal(["BBBB"], _service.LoadExcluded().Select(entry => entry.Hash));
+        Assert.Equal(["BBBB"], (await _service.LoadExcludedAsync()).Select(entry => entry.Hash));
+    }
+
+    /// <summary>
+    /// 設定の画面は新しい順に並べる。同じ日時（まとめて除外した物）は、記録の後ろ（後から足した物）を上にして、
+    /// 読み直すたびに上下が入れ替わらないようにする。
+    /// </summary>
+    [Fact]
+    public async Task ExcludedFilesComeNewestFirst_AndLaterEntriesWinTies()
+    {
+        var older = new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.FromHours(9));
+        var newer = older.AddDays(3);
+        await _store.Excluded.SaveAsync(
+        [
+            new ExcludedEntry { Hash = "OLD", Paths = ["old.zip"], ExcludedAt = older },
+            new ExcludedEntry { Hash = "TIE-1", Paths = ["tie1.zip"], ExcludedAt = newer },
+            new ExcludedEntry { Hash = "NEWEST", Paths = ["newest.zip"], ExcludedAt = newer.AddHours(1) },
+            new ExcludedEntry { Hash = "TIE-2", Paths = ["tie2.zip"], ExcludedAt = newer },
+        ]);
+
+        var loaded = await _service.LoadExcludedAsync();
+
+        Assert.Equal(["NEWEST", "TIE-2", "TIE-1", "OLD"], loaded.Select(entry => entry.Hash));
+    }
+
+    /// <summary>
+    /// 除外の記録は呼んだスレッドの外で読む（設定の画面が開くたびに読む。5,000 件で約 15ms・上限なし）。
+    /// 記録を握って読めなくしておくと、呼んだスレッドで読んで結果を包む作り（<c>Task.FromResult</c>）なら呼んだ所で失敗する。
+    /// 外で読む作りなら呼び出しはすぐ返り、失敗は待った先で届く。
+    /// （<c>async</c> の関数の中で同期に読む作りは、これでは見分けられない。スレッドを控える口が読みの中に無いため）
+    /// </summary>
+    [Fact]
+    public async Task LoadExcludedAsyncDoesNotReadOnTheCallingThread()
+    {
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = "AAAA", Paths = ["x.zip"], ExcludedAt = DateTimeOffset.Now }]);
+        var path = Path.Combine(_root, "excluded.json");
+        Assert.True(File.Exists(path));
+
+        Task<IReadOnlyList<ExcludedFile>>? task = null;
+        Exception? thrownOnCaller = null;
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var caller = new Thread(() =>
+            {
+                try
+                {
+                    task = _service.LoadExcludedAsync();
+                }
+                catch (Exception exception)
+                {
+                    thrownOnCaller = exception;
+                }
+            });
+            caller.Start();
+            caller.Join();
+
+            Assert.Null(thrownOnCaller);
+            Assert.NotNull(task);
+
+            // 握っている間に読みに行った（外のスレッドで失敗する）。待つのは握ったままにして、読めてしまう順を作らない
+            await Assert.ThrowsAsync<IOException>(() => task!);
+        }
     }
 
     [Fact]
