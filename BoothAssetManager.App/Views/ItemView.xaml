@@ -136,7 +136,12 @@
                                          controls:SelectableText.Navigator="{Binding}"
                                          Visibility="{Binding HasDescription, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-                            <controls:ContentItemsControl ItemsSource="{Binding Sections}">
+                            <!--
+                                見出しの行は、画面に見えている分までを最初の配置で作り、画面の外の分は後から1行ずつ足す
+                                （ProgressiveItems に理由。見出し21個の商品で、開くのに約340ms かかっていた）。
+                                全部が在ることを当てにする処理は、先に足し切る（画面内検索。MainWindow.Find.cs）
+                            -->
+                            <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding Sections}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,16">
