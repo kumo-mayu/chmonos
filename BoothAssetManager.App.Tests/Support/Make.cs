@@ -8,7 +8,11 @@ namespace BoothAssetManager.App.Tests.Support;
 /// </summary>
 internal static class Make
 {
-    /// <summary>BOOTH から取り終えた姿の商品（名前とショップがある）。ファイルは持たない。</summary>
+    /// <summary>
+    /// BOOTH から取り終えた姿の、持っている商品（名前とショップがあり、zip を1つ持つ）。
+    /// **ファイルを持たせてあるのは、検索が既定で「所持している」商品だけを出すため**——持たせないと、
+    /// 絞り込みと関係の無い試験でも一覧が空になる。持っていない商品が要るときは <c>.WithFiles()</c> で空にする
+    /// </summary>
     public static ItemRecord Item(string id, string name, string shop = "sample-shop") => new()
     {
         Id = id,
@@ -18,9 +22,10 @@ internal static class Make
             Url = $"https://{shop}.booth.pm/items/{id}",
             Shop = new BoothShop { Name = shop, Subdomain = shop, Url = $"https://{shop}.booth.pm/" },
         },
+        Local = new LocalBlock { LocalFiles = [File($@"D:\files\{id}.zip")] },
     };
 
-    /// <summary>手元のファイルの記録。ハッシュは名前から作る（中身は見ない。同じ名前なら同じファイル）。</summary>
+    /// <summary>手元のファイルの記録。ハッシュは場所から作る（中身は見ない。同じ場所なら同じファイル）。</summary>
     public static LocalFileRecord File(string path, bool archiveBroken = false, bool detached = false) => new()
     {
         Hash = HashOf(path),
@@ -30,14 +35,7 @@ internal static class Make
         Detached = detached,
     };
 
-    /// <summary>記録の場所が1つも無いファイル（場所を全部外した物）。</summary>
-    public static LocalFileRecord FileWithoutPath(string name) => new()
-    {
-        Hash = HashOf(name),
-        Paths = [],
-        SizeBytes = 3,
-    };
-
+    /// <summary>手元のファイルを入れ替える（引数なしなら、ファイルを持たない商品になる）。</summary>
     public static ItemRecord WithFiles(this ItemRecord item, params LocalFileRecord[] files)
         => item with { Local = item.Local with { LocalFiles = files } };
 

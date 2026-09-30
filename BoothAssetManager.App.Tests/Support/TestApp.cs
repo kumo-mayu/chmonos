@@ -147,6 +147,11 @@ internal sealed class TestApp
         // 置いた商品に「BOOTHで見つからない」の印が付いて、確かめたい物と関係なく中身が変わる
         await app.ChangeSettingsAsync(settings => settings with { ResumeFetchInBackground = false, SaveImages = false });
 
+        // 検索の条件は空から始める：条件を1つも積んでいなければ、置いた商品が全部並ぶ。
+        // 既定の条件（保存された並びが無いときに出す3つ）のままにすると、既定を変えるたびに、絞り込みと関係の無い試験まで結果が変わる。
+        // 既定の条件そのものを確かめる試験は、null に戻してから始める（SearchDefaultsTests）
+        await app.Services.SettingsStore.UpdateUiStateAsync(state => state with { SearchModules = [] });
+
         try
         {
             await body(app);
