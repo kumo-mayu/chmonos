@@ -14,6 +14,28 @@ description: Chmonos の画面の速さ・固まり・メモリを測って、�
 - 前にあった `-stress` は分類の名前に通し番号が付いて2000種類あり、分類の選択肢を並べるだけで起動が約5.5秒遅れた（実際の分類は多くても数十）。
   分類が偏った台で測ると、測りたい物でない所が遅く出る
 
+## 道具
+
+`scripts/perf-kit.ps1`（`ui-check` の `ui-kit.ps1` を読んだ後にドットで読み込む）。前は作業用フォルダに置いていて、担当ごとに書き直していた。
+
+```powershell
+. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
+. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\perf-measure\scripts\perf-kit.ps1"
+```
+
+| 関数 | 何をするか |
+|---|---|
+| `Measure-ChmonosStep -Label x -Action {…} [-QuietMs 1500]` | 操作を1つ測る（1回の呼び出しの中で）。落ち着くまでの時間・固まりの回数と合計と最長・メモリの最大と後 |
+| `Start-ChmonosProbe -Run r1` → `Add-ChmonosProbeMark -Run r1 -Label a` → `Stop-ChmonosProbe -Run r1` | 呼び出しをまたいで長く測る（見張りを別のプロセスで走らせる）。取り込みの間・画面を何周もする間 |
+| `Get-ChmonosProbeSummary -Run r1 [-From a] [-To b]` / `Get-ChmonosProbeStalls -Run r1 [-MinMs 200]` | 印の間の固まりとメモリ／長い固まりの一覧 |
+| `Get-ChmonosProbeConnections -Run r1` | 見張っている間にアプリが通信した相手（BOOTH へ問い合わせたかを見る） |
+| `Get-ChmonosMem` / `Wait-ChmonosResponsive` | 今のメモリ／画面のスレッドが返事をするまで待つ（固まっている間に撮らない） |
+| `Compare-ChmonosShots -A a -B b [-Region]` / `Show-ChmonosDiff a b` | 撮った2枚を画素で比べる／違いが字の縁の揺れか、位置のずれかを見分ける |
+| `Find-ChmonosOne -Name` / `Invoke-ChmonosEl $el` | 計測の外で探し、計測の中では押すだけにする |
+
+前後の版は `Start-ChmonosApp -Store stress-realcat -Exe <その版の実行ファイル>` で替える。
+**ほかのアプリ（別の担当の確かめ）が動いていると数字が動く。測るのは1本だけのとき**（`Get-ChmonosRunning` で見る）。
+
 ## 測り方
 
 1. 画面の速さは、検索画面を端から端まで同じ歩みで流して測る（毎回同じ回数・同じ間隔でスクロールする）

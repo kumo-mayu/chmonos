@@ -5,117 +5,92 @@ description: Chmonos の画面を確かめる（写しの保存先で起動し�
 
 # 画面の確かめ
 
-**UI Automation は「要素があるか」しか答えない。「どこにあるか」は答えない。**レイアウトを壊しても気付けないので、**必ず画像で見る**
-（`DockPanel` の子は既定で `Dock="Left"` に落ちる、という壊し方を実際にやっている）。
+**UI Automation は「要素があるか」しか答えない。「どこにあるか」は答えない。**レイアウトを壊しても気付けないので、**必ず画像で見る**。
 
-## 道具
+## 始める前に読むのはここまで
 
-`scripts/ui-kit.ps1`。PowerShell の呼び出しごとにシェルが新しくなるので、毎回ドットで読み込む：
-
-```powershell
-. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"
-```
-
-| 関数 | 何をするか |
-|---|---|
-| `Save-ProductionBaseline` / `Test-ProductionUntouched` | 本番の `settings.json` の更新日時・`items/*.json` の件数・`location.json` を控え、後で照らす |
-| `Start-ChmonosApp -Store friendcheck` | `CHMONOS_HOME` を付けて起動する。短い名前は `%LOCALAPPDATA%\BoothAssetManager-<名前>`。**本番と friendtest では起動を断る**。初回の窓は `-Store <空のフルパス> -AllowNew` |
-| `Stop-ChmonosApp` | この道具で起動したアプリだけ閉じる（pid と起動時刻を `%TEMP%\chmonos-ui-check.json` に控えてある）。ユーザが開いているアプリは閉じない |
-| `New-ChmonosSandbox -From ui -Name xxx` | 写しを作る（`-From prod` は本番を読むだけ）。写しの `location.json` は外す（残すと friendtest が開く）。既にあれば断る |
-| `Invoke-ChmonosByName -Name '改変' [-Type Button] [-Index n]` | 名前で探して押す（Invoke・選ぶ・切り替え・開く のうち持っている操作） |
-| `Invoke-ChmonosByText -Text 'kip01'` | 文字の親をたどって押す（見出し・カード） |
-| `Set-ChmonosText -Like '*から探す' -Value '...'` | 入力欄に入れる |
-| `Get-ChmonosTexts [-Like '*件*']` | 見えている文字を並べる（文言が出たかを数える） |
-| `Get-ChmonosElements -Type DataItem [-Name/-Like] [-Scope $el]` | 要素を探す |
-| `Step-ChmonosScroll [-Times n] [-Index i] [-Up]` | 一覧を送る |
-| `Save-ChmonosShot -Name x [-Region x,y,w,h] [-Element $window]` | 窓を撮って `%TEMP%\chmonos-shots\x.png` に置き、パスを返す。Read で開いて見る |
-| `Get-ChmonosCenter $el` / `Invoke-ChmonosRealClick -X -Y -UserWasTold` | 実入力（下の決まりを守る） |
-
-座標を目分量で決めない・秒数で待たない（押す位置を絵から読むと外れ、決め打ちの秒数では早すぎて取りこぼす）：
-
-| 関数 | 何をするか |
-|---|---|
-| `Invoke-ChmonosClick -Name/-Like [-Type Button] [-Element $el] [-Right] -UserWasTold` | 名前で探して、その中心を実クリック。UI Automation の Invoke が効かない部品（クリックでコマンドを呼ぶ切り替えボタン・`ItemsControl` の中・小窓のボタン）はこちら |
-| `Invoke-ChmonosMenuItem -Like 'Unityへ送る*' [-Expand] -UserWasTold` | 右クリックや「開く ▾」のメニューの項目（窓の外の別窓に出るので主の窓からは探せない）。`-Expand` は下の段を開くだけ |
-| `Wait-ChmonosText -Like '*件*' [-TimeoutSeconds 15]` | 文言が出るまで待つ（出た瞬間に返る。`Start-Sleep` をやめる） |
-| `Wait-ChmonosElement -Type Button -Name '送る'` / `Wait-ChmonosDialog [-Like]` | 要素・小窓が出るまで待つ |
-| `Get-ChmonosDialog` / `Get-ChmonosDialogText $dialog` | 小窓（知らせの窓・選ぶ窓）と、その中の文字。持ち主の無い知らせの窓も拾う |
-| `Close-ChmonosDialog -Button 'OK' [-Like '題'] -UserWasTold` | 小窓をボタンの名前（「OK」「キャンセル」「はい」「いいえ」など）で押して閉じる。閉じたかを確かめ、駄目ならもう一度押し、最後に Enter（既定のボタン） |
-| `Get-ChmonosTrace [-Kind 知らせ] [-Like '*入っていました*']` / `Wait-ChmonosTrace -Like '…'` | 確かめ用の足跡（下） |
-
-`scripts/unity-kit.ps1`（Unity を相手にするとき。ui-kit を読んだ後にドットで読み込む）：
-`Get-UnityEditors` / `Get-UnityWindows [-Title]` / `Wait-UnityImportWindow` / `Save-UnityShot -Window $w -Name x`（隠れていても中身が撮れる）/
-`Close-UnityImport -Button Import|Cancel|OK -UserWasTold`（閉じたかを確かめて押し直す。Unity は1回目のクリックが窓を前に出すだけに使われる）。
-
-## 確かめ用の足跡（撮らずに文言を確かめる）
-
-`Start-ChmonosApp` は既定で `CHMONOS_UITRACE=%TEMP%\chmonos-uitrace.log` を付けて起動する（`-NoTrace` で切る）。アプリはこの変数があるときだけ、
-出した窓の文言と押されたボタン・選ぶ窓の答え・実行した `UiCommand` と結果・Unity の取り込みの結果を1行ずつ書く（`Core/Services/UiTrace.cs`）。
+確かめの時間の多くは、確かめそのものではなく準備と手探りに消えていた（2026-09-30 は1日で4〜5時間）。
+**台本を作業用フォルダに書き直す前に、下の部品を探す。**無ければ `scripts/` に足す（作業用フォルダに置くと、次の人がまた書く）。
 
 ```powershell
-Get-ChmonosTrace -Kind 知らせ -Last 5
-Wait-ChmonosTrace -Like '*既に全部入っていました*'   # 出るまで待つ
+. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-kit.ps1"   # 起動・探す・押す・待つ・撮る・足跡・写し
+. "D:\work\ClaudeCode\booth-asset-manager\.claude\skills\ui-check\scripts\ui-ops.ps1"   # 商品を開く・取り込む・結果を読む・色・連続で撮る
+Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び出しごとに新しくなるので、毎回）
 ```
 
-知らせの窓（`Services.Notice`）は自前の WPF の窓（`Views/NoticeWindow`・AutomationId `ChmonosNotice`）で、本文もボタンも UI Automation に出る（本文は入力欄の名前）。
-それでも文言の確かめは足跡が速くて確か（撮って読むのは、並びや色を見るときだけ）。ファイルやフォルダを選ぶ窓だけは Windows が描く。
-
-## 流れ
-
-1. ビルド（`dotnet build`）。自分で起動したアプリが開いていると実行ファイルが掴まれて失敗するので、先に `Stop-ChmonosApp`。
-   ユーザのアプリが開いていて失敗したら、閉じてよい（「メモ:」「報告:」の最中は閉じない。見て判断してもらう質問の間も開いておく）。
-   ユーザが「画面はまだ使わないで」と言っているときは、アプリを閉じずに脇へビルドする（`dotnet build BoothAssetManager.App -o <作業用フォルダ>\buildcheck`）。
+1. ビルド（`dotnet build`）。自分のアプリが実行ファイルを掴んでいたら、先に `Stop-ChmonosApp`。
+   ユーザが「画面はまだ使わないで」と言っていたら、閉じずに脇へビルドして `Start-ChmonosApp -Exe` で起動する
+   （`dotnet build BoothAssetManager.App -o <作業用フォルダ>\buildcheck`）。
 2. `Save-ProductionBaseline`
-3. `Start-ChmonosApp -Store <写し>`。どの写しを使うかは [sandboxes.md](sandboxes.md)（画面ごとの既定・一覧・作り物の作り方）。
-4. UI Automation で操作する（ボタンは Invoke、一覧は Scroll、入力欄は Value）。押す位置を絵から目分量で決めない——
-   `Invoke-ChmonosClick`・`Invoke-ChmonosMenuItem` で名前から押す。待つときは `Wait-*`（固定の `Start-Sleep` を並べない）。
-5. `Save-ChmonosShot` で撮り、Read で見る。見たい所だけ `-Region` で切る（窓全体の画像は重い）。同じ状態を撮り直さない。
+3. 写しを選ぶ（[sandboxes.md](sandboxes.md)）。書き込む確かめなら、先に `Backup-ChmonosSandbox -Store <写し>`。
+4. `Start-ChmonosApp -Store <写し>`（本番と friendtest は断る）
+5. 操作は名前で（`Invoke-ChmonosByName`・`Open-ChmonosItem`・`Invoke-ChmonosImport`）。待つのは `Wait-*`（固定の `Start-Sleep` を並べない）。
    文言が出たかは足跡（`Get-ChmonosTrace`）で確かめる。撮るのは並び・色・大きさを見るときだけ。
-6. `Stop-ChmonosApp` → `Test-ProductionUntouched`。結果をユーザへの報告に書く（「本番は変わっていない」まで）。
-7. その画面の写しでもう一度起動し、開いたまま渡す（ユーザは直後に自分で触る。「起動してくれ」と言わせない）。
-   見て決めてほしいことを聞くときも、開いた状態で聞く。
+6. `Save-ChmonosShot`（`-Region` か `Save-ChmonosShotAround` で見たい所だけ）→ Read で見る。同じ状態を撮り直さない。
+7. `Stop-ChmonosApp` → `Restore-ChmonosSandbox -Store <写し> -Done` → `Test-ProductionUntouched`。結果を報告に書く（「本番は変わっていない」まで）。
+8. 画面を直したときは、その画面の写しでもう一度起動し、開いたまま渡す。見て決めてほしいことを聞くときも、開いた状態で聞く。
 
-ユーザが自分で開いたアプリ（環境変数なしの起動＝friendtest）はユーザの物。この道具では閉じない・こちらから書き込む操作をしない。
+続けて何枚も撮るときは、手順を1本のスクリプト（作業用フォルダの自分の名前のフォルダ）にして1回で流す。
+書く前に `docs/dev/powershell.md`（黙って別の物が動く落とし穴）。
 
-写しで起動しても、起動時の裏の作業（⑦ 期限の来た商品の取り直し・残りの画像）は BOOTH へ問い合わせる（2026-09-23 に確かめの間に走っていた）。
-問い合わせはゲートを通るので決め事には触れないが、何度も起動し直す確かめでは、写しの設定で「使っていない間の取得」（`resumeFetchInBackground`）を切っておく。
-確かめで写しに残した変更（動かした属性・足した物）は、元に戻すか報告に書く。
+## 部品の置き場
 
-続けて何枚も撮るときは、手順を1本のスクリプト（作業用フォルダ）にして1回で流すと往復が減る。
-スクリプトを書く前に `docs/dev/powershell.md` を読む（黙って別の物が動く落とし穴がある）。
+| 何をしたいか | どこ |
+|---|---|
+| 関数の一覧と引数・並行で使えるか | [tools.md](tools.md) |
+| どの写しを使うか・写しを台本から作る・作り物のファイル | [sandboxes.md](sandboxes.md) |
+| UI Automation で見つからない・押せない・実入力を使う・Unity | [pitfalls.md](pitfalls.md) |
+| 速さ・固まり・メモリ | `perf-measure` スキル（`perf-kit.ps1`） |
 
-## UI Automation のつまずき
+よく使う物だけ：
 
-- GridView の一覧（リスト表示）の行は `ListItem` ではなく `DataItem`。改変の画面のように1画面に複数の一覧があると、別の一覧の行も混ざる。行の中の固有のボタン（「Unity ▾」など）で絞る
-- 仮想化した一覧は画面に見えている行しか数えない。「畳んだら減るはず」を数で確かめると、下の行が見えて逆に増える。畳んだ中の行が在るか無いかで見る
-- 画面の外の要素は四角が空か無限大になる。座標に使う前に `Get-ChmonosCenter` を通す
-- 持ち主付きの窓（`ShowDialog` の窓・知らせの窓）は主の窓の子として出る（デスクトップの直下には無い）。撮るときは `-Element` に Window の要素を渡す。
-  知らせの窓は、主の窓より前やアプリが後ろにいたときは持ち主なしでデスクトップの直下に出る（`Get-ChmonosDialog` は両方を探す）
-- 「はい・いいえ」だけの知らせの窓は Esc も × も効かない（MessageBox と同じ）。閉じるにはどちらかのボタンを押す
-- `SendMessage` 系の合成クリックは WPF に届かない
-- GridSplitter を継いだ部品は、クラス名が `GridSplitter` のまま出る
+| したいこと | 関数 |
+|---|---|
+| 商品ページを開く | `Open-ChmonosItem -Id 90000003`（検索に `id:` を入れてカードを押す） |
+| フォルダを取り込んで、終わるまで待ち、結果を読む | `Invoke-ChmonosImport -Path <フォルダ>`（戻りの `Lines`・`Trace`） |
+| 小窓のボタンを押す | `Close-ChmonosDialog -Button 'いいえ' -Like '監視*'`（戻りが「閉じた:」で始まるかを見る） |
+| 表示の色を変えて起動する／戻す | `Set-ChmonosTheme -Store x -Theme dark` ／ `Restore-ChmonosTheme -Store x` |
+| 検索の条件を足す | `Add-ChmonosSearchCondition -Like '*ファイルの場所*'` |
+| 起動の瞬間の白いコマを数える | `Measure-ChmonosLaunch -Store x -Theme dark` |
+| 大きな zip・件数の多い zip・壊れた zip・読めないフォルダを作る | `fixtures.ps1`（`New-ChmonosFixtureZip` ほか） |
+| 写しを控えて、終わったら戻す | `Backup-ChmonosSandbox` ／ `Restore-ChmonosSandbox` |
+| 写しを作り物のデータで作る | `New-ChmonosSandbox -Name x -Recipe movecheck` |
+| 前の起動の足跡を読む | `Get-ChmonosTrace -Saved <写しの名前>`（起動のたびに控えへ移る） |
 
-## 実入力（mouse_event）
+## 守ること
 
-UI Automation で届かない所（カードのクリック・ホバー・境目のドラッグ）だけ。
+- **本番と friendtest を開かない・書かない。**ユーザが自分で開いたアプリ（環境変数なしの起動＝friendtest）はユーザの物。この道具では閉じない・操作しない。
+- **実入力（`mouse_event`）は、使う前にユーザへ告げる。**UI Automation で届かない所だけ（[pitfalls.md](pitfalls.md)）。
+- **写しに残した変更は、戻すか報告に書く。**`Backup-ChmonosSandbox` → `Restore-ChmonosSandbox` を使えば、戻したことと一致が確かめられる。
+- **友人のデータの写しの画像・名前・ID を、どこへも送らない・文書やコミットに書かない。**数と傾向だけ書く（CLAUDE.md「友人のデータは第三者のもの」）。
+  撮った物は `%TEMP%\chmonos-shots` に置き、リポジトリに入れない。
+- **Unity を実際に動かすのは、ユーザが「試して」と言ったときだけ。**報告には「Unity での確かめは未（言われたら行う）」と書く。
+- **写しで起動しても BOOTH へ問い合わせる**（起動時の裏の作業：期限の来た商品・残りの画像）。何度も起動し直す確かめでは、
+  裏の取得を切った写しを使う（[sandboxes.md](sandboxes.md) の「裏の取得」の列。台本から作った写しは切ってある）。
 
-- **使う前にユーザへ告げる。**`-UserWasTold` はその確認で、付けないと動かない
-- 座標は `Get-ChmonosCenter` から取る。関数は、アプリが前面にない・座標が窓の外・上に別の窓がある ときは送らずに止まる
-  （UI Automation で要素が見つからず四角が空になり、画面の左上＝デスクトップを押し・ドラッグし・ダブルクリックした事故がある。2026-09-14）
-- ホバーの見た目・ドラッグは実入力でも確かめきれないことが多い。そのときは「実際のマウスでの確認が要る」と報告に書き、確かめたふりをしない
-- 窓が最大化されていると、窓の四角は (-8,-8) から始まる
-- ポップアップ・メニュー・ツールチップは窓の外の別の窓に出るので、窓を撮っても写らない。デスクトップごと撮る（`CopyFromScreen`）
-- `ItemsControl` の中の部品は UI Automation に出ないことが多い（タグの管理の小分類の行など）。そこは実入力で押す
-  （素の `ItemsControl` は中身を隠してしまう。画面側を `Controls/ContentItemsControl` に替えると出る。検索のカードは 2026-09-20 にそうした）
-- Alt を単独で押さない（`keybd_event` で前面に出すときの小細工など）。離した瞬間に窓のシステムメニューが開き、以降のキーが飲まれる。前面に出すのは `[ChmonosWin]::Bring`
-- 小窓が開いているときに主の窓を前に出すと、小窓がその下に隠れて押せなくなる（`Invoke-ChmonosRealClick` は小窓の方を前に出す）
+## 並行で確かめるとき
 
-## Unity
+アプリの二重起動の止め方は**保存先ごと**（`<保存先>\app.lock`）なので、**写しが違えば同時に何本でも起動できる**。
+道具も、起動したアプリを写しごとに控える（`%TEMP%\chmonos-ui-check\<写し>.json`）。決まりは4つ。
 
-Unity を実際に動かす確かめ（改変の「Unity ▾」・「Unityで選択」）は、ユーザが「試して」と言ったときだけ（2026-09-15）。
-Unity が手前に出て画面を横取りするので、ユーザが見ていられるときに行う。報告には「Unity での確かめは未（言われたら行う）」と書く。
+1. **道具を読み込んだら `Use-ChmonosStore <自分の写し>`。**複数開いていて相手を決めていないと、部品は断る
+   （黙って最後の物を相手にすると、別の担当のアプリを操作する・閉じる）。1本しか開いていなければ、決めなくても前と同じに動く。
+2. **同じ写しを2人で使わない。**写しが足りなければ、台本か `-From` で自分の写しを作る。
+3. **BOOTH への問い合わせは、アプリを何本開いても合わせて1本ずつ・1.5秒以上**（門はアプリ1本ごとにあるので、2本が同時に問い合わせると破る）。
+   - 並行で起動できるのは、裏の取得を切った写し（`resumeFetchInBackground: false`・`startImportOnLaunch` が入っていない）だけ。`Start-ChmonosApp` が見て、切れていなければ断る。
+   - 並行の間は、BOOTH へ問い合わせる操作をしない：手掛かり（ダウンロード元の記録・zip の中の URL）の付いたファイルの取り込み・商品の取り直し・
+     未確定の自動検索・ショップの画像・「足りない情報を取得」・対応アバターの検出。**要る確かめは、ほかのアプリが閉じているときに1本だけで行う。**
+   - 道具が見ているのは、この道具で起動したアプリだけ。ユーザが自分で開いているアプリの通信は数えていない。
+4. **実入力と、画面から直に撮る部品は1人ずつ。**マウス・前面の窓・画面の絵は PC に1つしか無い。
+   ほかのアプリが開いている間は、`Lock-ChmonosScreen`（既定 10 分）で画面を取った人だけが使える。終わったら `Unlock-ChmonosScreen`。
 
-## 友人のデータ
+| 並行で使える（UI Automation・窓へのメッセージ・PrintWindow） | 並行で使えない（画面を取ってから） |
+|---|---|
+| 探す・押す（`Invoke-ChmonosByName`・`ByText`・`Invoke-ChmonosElement`・`Set-ChmonosText`・`Step-ChmonosScroll`） | `Invoke-ChmonosRealClick`・`Invoke-ChmonosClick` |
+| 待つ（`Wait-*`）・小窓（`Get-ChmonosDialog`・`Close-ChmonosDialog`） | `Invoke-ChmonosMenuItem`（押す方。`-Expand` は使える）・`Close-ChmonosDialog -RealClick` |
+| 撮る（`Save-ChmonosShot`・`Save-ChmonosShotAround`）・足跡 | `Show-ChmonosFront`・キー送り（`SendKeys`） |
+| `ui-ops.ps1` の操作（商品を開く・取り込む・色・条件・フォルダを選ぶ窓） | `Measure-ChmonosLaunch`・`Measure-ChmonosFrames`（画面から直に撮る） |
+| 作り物のファイル・写しの控えと戻し（自分の写し） | デスクトップごと撮る（ポップアップ・ツールチップ）・Unity を動かす確かめ |
 
-友人のデータの写し（[sandboxes.md](sandboxes.md) に挙げた物）の画像には第三者の商品名・絵が写る。**撮った画像はどこへも送らない。**文書・コミット・ログには数と傾向だけ書く（CLAUDE.md の「友人のデータは第三者のもの」）。
-撮った物は `%TEMP%\chmonos-shots` に置き、リポジトリに入れない。
+並行で使える部品でも、**メニューとポップアップ**は、ほかのアプリが前に出ると閉じる。開けなかったら、もう一度開く。
+ホバー・キーボードの焦点・ドラッグの見た目は、並行では確かめられない。**速さとメモリの数字は、ほかのアプリが動いていると動く**ので、1本だけで測る。

@@ -15,7 +15,8 @@
 | `research/`（直下） | 初期の調査に使ったスクリプトと結果（結果の JSON は無視）。**調査の文書は `docs/research/`** |
 | `mock/` | 画面のモック（Claude Design のキャンバス。`*.dc.html` が1画面ずつ）。今の画面とは違う所がある |
 | `tools/wording.mjs` | 画面に表示される文を App と Core から集め、書き方の決まりに外れていそうな所に印を付ける（使い方はスキル `ui-wording`） |
-| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md` |
+| `tools/SandboxGen/` | 確かめ用の写しを、作り物のデータで組み立てる道具（アプリと同じ道で書く・BOOTH へ問い合わせない）。ソリューションには入れていない。呼ぶのは `ui-check` の `New-ChmonosSandbox -Recipe` |
+| `.claude/skills/`・`.claude/rules/` | 繰り返す手順（`ui-check`・`ui-wording`・`perf-measure`・`feedback-log`・`wrap-up`・`parallel-fix`）と、App・Core のコードを触るときだけ読み込まれる決め事（`screen-and-wording.md`）。写しの保存先の一覧は `ui-check/sandboxes.md`、確かめの道具の一覧は `ui-check/tools.md` |
 | `docs/history/author-memos/` | 作者の出発点のメモ（`作業方針メモ.md`・`モック用画面メモ.md`・`Re画面として不足しているもの（重要度順）.txt`）。2026-09-24 に直下から移した（中身は変えていない）。書き直さない |
 
 ## 文書の種類

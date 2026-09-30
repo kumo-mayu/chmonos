@@ -5,6 +5,10 @@
 # - 本番（%LOCALAPPDATA%\Chmonos）と friendtest（ユーザの作業用の写し）では起動しない
 # - 閉じるのは、この道具で起動したアプリだけ（ユーザが開いているアプリを巻き込まない。前の道具は名前で全部落としていた）
 # - 実入力は、窓が前面にあり、座標が窓の中にあるときだけ送る（要素が見つからず (0,0)＝デスクトップを押した事故がある）
+# - アプリは写しごとに控える。複数開いているときは、相手を決めた呼び出し（Use-ChmonosStore・-Store）だけを通す
+# - 並行で起動するのは、裏の取得を切った写しだけ（BOOTH への問い合わせは、アプリを何本開いても合わせて1本ずつ）
+#
+# 関数の一覧は ../tools.md。よく使う操作は ui-ops.ps1、作り物のファイルは fixtures.ps1
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 if (-not ('ChmonosWin' -as [type])) { Add-Type @"
 using System; using System.Runtime.InteropServices;
@@ -52,9 +56,18 @@ $ChmonosForbidden = @(
   (Join-Path $env:LOCALAPPDATA 'BoothAssetManager-friendtest')  # ユーザが普段開く写し。確かめは -friendcheck で
 )
 $ChmonosShotDir = Join-Path $env:TEMP 'chmonos-shots'
+# 起動したアプリの控え。**写しごとに1つ**（chmonos-ui-check\<写しの名前>.json）。
+# 前は1つのファイルに pid を1つだけ控えていて、2人が起動すると互いのアプリを閉じ合った（2026-09-30）。
+# $ChmonosPidFile は「最後に起動した物」の写しとして残す（前の版の道具と、このファイルを直に読む台本のため）
+$ChmonosStateDir = Join-Path $env:TEMP 'chmonos-ui-check'
 $ChmonosPidFile = Join-Path $env:TEMP 'chmonos-ui-check.json'
 $ChmonosBaselineFile = Join-Path $env:TEMP 'chmonos-prod-baseline.json'
-$ChmonosTraceFile = Join-Path $env:TEMP 'chmonos-uitrace.log'
+# 足跡も写しごとに分ける（2本が同じファイルに書くと行が混ざる）。この変数は「今の相手の足跡」を指す。
+# Start-ChmonosApp・Use-ChmonosStore・Get-ChmonosApp が相手を決めたときに書き換える。
+# 既定の値は、前の版の道具で起動したアプリの足跡の場所
+$global:ChmonosTraceFile = Join-Path $env:TEMP 'chmonos-uitrace.log'
+$ChmonosTraceHistory = Join-Path $env:TEMP 'chmonos-uitrace-history'
+$ChmonosScreenLock = Join-Path $ChmonosStateDir 'screen.lock'
 $A_ = [System.Windows.Automation.AutomationElement]
 $TS_ = [System.Windows.Automation.TreeScope]
 
@@ -70,14 +83,37 @@ function Assert-ChmonosSandbox([string]$Root) {
   if ($ChmonosForbidden -contains $Root) { throw "ここは確かめに使わない保存先: $Root（本番・friendtest。書いてよい写しは -friendcheck や -ui）" }
 }
 
-# 写しを作る。-From は短い名前・フルパス・'prod'（本番を読むだけ）
+# 写しを作る。どちらかを指定する：
+#   -From   … 今ある保存先を写す。短い名前・フルパス・'prod'（本番を読むだけ）
+#   -Recipe … 作り物のデータで、台本から組み立てる（sandbox-recipes.ps1。台本の一覧は Get-ChmonosRecipes）。
+#             -Items は商品の件数、-Full は大きなファイルと多い件数（時間とディスクを食う）
+# どちらも、既にあれば断る
 function New-ChmonosSandbox {
-  param([Parameter(Mandatory)][string]$From, [Parameter(Mandatory)][string]$Name)
-  $src = if ($From -eq 'prod') { $ChmonosProduction } else { Resolve-ChmonosStore $From }
+  [CmdletBinding(DefaultParameterSetName = 'Copy')]
+  param(
+    [Parameter(Mandatory, ParameterSetName = 'Copy')][string]$From,
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory, ParameterSetName = 'Recipe')][string]$Recipe,
+    [Parameter(ParameterSetName = 'Recipe')][int]$Items = 0,
+    [Parameter(ParameterSetName = 'Recipe')][switch]$Full)
   $dst = Resolve-ChmonosStore $Name
   Assert-ChmonosSandbox $dst
-  if (-not (Test-Path $src)) { throw "写す元が無い: $src" }
   if (Test-Path $dst) { throw "もうある: $dst（上書きしない。消すならユーザに聞く）" }
+  if ($Recipe) {
+    # 作り物のファイルの関数は、読み込んでいなければここで読む（読み込み済みなら、置き場の変数を上書きしないように読まない）
+    if (-not (Get-Command New-ChmonosFixtureZip -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'fixtures.ps1') }
+    . (Join-Path $PSScriptRoot 'sandbox-recipes.ps1')
+    try { $log = Invoke-ChmonosRecipe -Recipe $Recipe -Root $dst -Set (Get-ChmonosStoreKey $dst) -Items $Items -Full:$Full }
+    catch {
+      # 途中まで作った写しを残すと、次に「もうある」で断られ、半端な状態が使われる
+      if (Test-Path -LiteralPath $dst) { Remove-Item -LiteralPath $dst -Recurse -Force -ErrorAction SilentlyContinue }
+      throw
+    }
+    $log
+    return "作った: $dst（台本: $Recipe）"
+  }
+  $src = if ($From -eq 'prod') { $ChmonosProduction } else { Resolve-ChmonosStore $From }
+  if (-not (Test-Path $src)) { throw "写す元が無い: $src" }
   Copy-Item $src $dst -Recurse
   # 本番の location.json は friendtest を指している。写しに残すと、写しを開いたつもりで friendtest が開く
   $loc = Join-Path $dst 'location.json'
@@ -85,64 +121,385 @@ function New-ChmonosSandbox {
   "作った: $dst（元: $src）"
 }
 
+# 台本の一覧（名前と、何が入るか）
+function Get-ChmonosRecipes {
+  . (Join-Path $PSScriptRoot 'sandbox-recipes.ps1')
+  foreach ($k in $ChmonosRecipes.Keys) { [pscustomobject]@{ Recipe = $k; 中身 = $ChmonosRecipes[$k] } }
+}
+
+# ---- 写しを控える／戻す ----
+#
+# 確かめで写しに書き込む前に丸ごと控え、終わったら戻して、一致を確かめる。
+# 担当ごとに作業用フォルダへ robocopy していて、戻し忘れ・戻したつもりが残っていた（sandboxes.md の説明と中身がずれた。2026-09-30）。
+# 控えの置き場はリポジトリの外（友人のデータの写しも控えるので、リポジトリにも作業用フォルダにも置かない）
+
+$ChmonosBackupHome = Join-Path $env:LOCALAPPDATA 'Chmonos-sandbox-backups'
+
+function Get-ChmonosBackupDir([string]$Root, [string]$Name) {
+  if ($Name -notmatch '^[\w\-.]+$' -or $Name -match '^\.+$') { throw "控えの名前に使えない字がある: $Name（英数字・_・-・. だけ）" }
+  Join-Path (Join-Path $ChmonosBackupHome (Split-Path $Root -Leaf)) $Name
+}
+
+# 控える・戻す前の守り。書きかけを写さないように、アプリがその写しを開いていたら断る。
+# この道具で起動した物は控えで分かる。人が自分で開いた物は、アプリが握る app.lock（開いている間だけ在る）で分かる
+function Assert-ChmonosSandboxIdle([string]$Root) {
+  Assert-ChmonosSandbox $Root
+  if (-not (Test-Path -LiteralPath $Root -PathType Container)) { throw "保存先が無い: $Root" }
+  $mine = @(Get-ChmonosRunning | Where-Object { $_.Store -ieq $Root })
+  if ($mine.Count) { throw "アプリがこの写しを開いている: pid=$($mine[0].Pid)（先に Stop-ChmonosApp -Store）" }
+  if (Test-Path -LiteralPath (Join-Path $Root 'app.lock')) { throw "アプリがこの写しを開いている（app.lock がある）: $Root" }
+}
+
+function Invoke-ChmonosMirror([string]$From, [string]$To) {
+  # /MIR は写す先の余分も消す。/COPY:DAT /DCOPY:DAT で日時も写す（-Quick の照らしが日時で比べるため）
+  robocopy $From $To /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+  if ($LASTEXITCODE -ge 8) { throw "写せなかった（robocopy $LASTEXITCODE）: $From → $To" }
+}
+
+# 写しを控える。-Name は控えの名前（既定 before）。同じ名前の控えが既にあれば断る
+# （確かめで変えた後の状態で、前の控えを上書きしないように。作り直すなら -Force）
+function Backup-ChmonosSandbox {
+  param([Parameter(Mandatory)][string]$Store, [string]$Name = 'before', [switch]$Force)
+  $root = Resolve-ChmonosStore $Store
+  Assert-ChmonosSandboxIdle $root
+  $dst = Get-ChmonosBackupDir $root $Name
+  if ((Test-Path -LiteralPath $dst) -and -not $Force) { throw "もう控えがある: $dst（上書きしない。戻すなら Restore-ChmonosSandbox、作り直すなら -Force）" }
+  [IO.Directory]::CreateDirectory($dst) | Out-Null
+  Invoke-ChmonosMirror $root $dst
+  # どの保存先の控えかを控えの隣に書く（戻す先を取り違えないように）。ConvertTo-Json は使わない（決め事）
+  $files = @(Get-ChildItem -LiteralPath $dst -Recurse -File -Force).Count
+  $mark = "{`n  `"source`": `"$($root.Replace('\', '\\'))`",`n  `"savedAt`": `"$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))`",`n  `"files`": $files`n}`n"
+  [IO.File]::WriteAllText("$dst.json", $mark, [Text.UTF8Encoding]::new($false))
+  $cmp = Compare-ChmonosSandbox -Store $Store -Name $Name
+  if (-not $cmp.Same) { throw "控えたが一致しない: $($cmp.Text)" }
+  "控えた: $root → $dst（$files ファイル）"
+}
+
+# 写しと控えを照らす。既定は中身（SHA-256）まで比べる。-Quick は大きさと更新日時だけ（大きい写し向け）。
+# 違いは数と上のフォルダごとの内訳で返す。**ファイル名は既定では出さない**
+# （友人のデータの写しでは、ファイル名が商品 ID。報告や記録に写さないため）。見たいときだけ -ShowPaths
+function Compare-ChmonosSandbox {
+  param([Parameter(Mandatory)][string]$Store, [string]$Name = 'before', [switch]$Quick, [switch]$ShowPaths)
+  $root = Resolve-ChmonosStore $Store
+  $bak = Get-ChmonosBackupDir $root $Name
+  if (-not (Test-Path -LiteralPath $bak)) { throw "控えが無い: $bak（Backup-ChmonosSandbox）" }
+  $list = {
+    param($base)
+    $map = @{}
+    foreach ($f in Get-ChildItem -LiteralPath $base -Recurse -File -Force) {
+      $stamp = if ($Quick) { "$($f.Length)|$($f.LastWriteTimeUtc.Ticks)" } else { "$($f.Length)|$((Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash)" }
+      $map[$f.FullName.Substring($base.Length + 1)] = $stamp
+    }
+    $map
+  }
+  $a = & $list $root; $b = & $list $bak
+  $onlyStore = @($a.Keys | Where-Object { -not $b.ContainsKey($_) })
+  $onlyBackup = @($b.Keys | Where-Object { -not $a.ContainsKey($_) })
+  $changed = @($a.Keys | Where-Object { $b.ContainsKey($_) -and $a[$_] -ne $b[$_] })
+  $same = ($onlyStore.Count + $onlyBackup.Count + $changed.Count) -eq 0
+  $top = { param($paths) (@($paths | Group-Object { if ($_.Contains('\')) { $_.Split('\')[0] + '\' } else { '(直下)' } } | Sort-Object Name | ForEach-Object { "$($_.Name) $($_.Count)" }) -join '・') }
+  $text = if ($same) { "一致（$($a.Count) ファイル・$(if ($Quick) { '大きさと日時' } else { '中身' })で照らした）" }
+  else {
+    $parts = @()
+    if ($changed.Count) { $parts += "中身が違う $($changed.Count)（$(& $top $changed)）" }
+    if ($onlyStore.Count) { $parts += "写しにだけある $($onlyStore.Count)（$(& $top $onlyStore)）" }
+    if ($onlyBackup.Count) { $parts += "控えにだけある $($onlyBackup.Count)（$(& $top $onlyBackup)）" }
+    '違う: ' + ($parts -join ' / ')
+  }
+  $result = [pscustomobject]@{ Same = $same; Text = $text; Changed = $changed.Count; OnlyInStore = $onlyStore.Count; OnlyInBackup = $onlyBackup.Count; Paths = $null }
+  if ($ShowPaths) { $result.Paths = @($changed | ForEach-Object { "違う  $_" }) + @($onlyStore | ForEach-Object { "写しだけ  $_" }) + @($onlyBackup | ForEach-Object { "控えだけ  $_" }) }
+  $result
+}
+
+# 写しを控えた状態へ戻し、一致を確かめる。確かめで足したファイルは消える。
+# 回ごとに同じ所から始めたいときは、そのまま何度でも呼ぶ。最後の回は -Done で控えも消す
+function Restore-ChmonosSandbox {
+  param([Parameter(Mandatory)][string]$Store, [string]$Name = 'before', [switch]$Done)
+  $root = Resolve-ChmonosStore $Store
+  Assert-ChmonosSandboxIdle $root
+  $bak = Get-ChmonosBackupDir $root $Name
+  if (-not (Test-Path -LiteralPath $bak) -or -not (Test-Path -LiteralPath "$bak.json")) { throw "控えが無い: $bak（Backup-ChmonosSandbox）" }
+  $mark = Get-Content -LiteralPath "$bak.json" -Raw | ConvertFrom-Json
+  if ("$($mark.source)".TrimEnd('\') -ine $root) { throw "この控えは別の保存先の物: $($mark.source)（戻す先 $root）" }
+  Invoke-ChmonosMirror $bak $root
+  $cmp = Compare-ChmonosSandbox -Store $Store -Name $Name
+  if (-not $cmp.Same) { throw "戻したが一致しない（控えは残した）: $($cmp.Text)" }
+  if ($Done) {
+    Remove-Item -LiteralPath $bak -Recurse -Force; Remove-Item -LiteralPath "$bak.json" -Force
+    $parent = Split-Path $bak
+    if (-not @(Get-ChildItem -LiteralPath $parent -Force).Count) { Remove-Item -LiteralPath $parent -Force }
+    return "戻した: $root（$($cmp.Text)。控えは消した）"
+  }
+  "戻した: $root（$($cmp.Text)。控えは残してある: $bak）"
+}
+
+# 置いてある控えの一覧（戻し忘れ・消し忘れを見つける）
+function Get-ChmonosSandboxBackups {
+  if (-not (Test-Path -LiteralPath $ChmonosBackupHome)) { return }
+  foreach ($m in Get-ChildItem -LiteralPath $ChmonosBackupHome -Recurse -Filter *.json -File -Depth 1) {
+    $j = Get-Content -LiteralPath $m.FullName -Raw | ConvertFrom-Json
+    [pscustomobject]@{ Store = Split-Path $m.DirectoryName -Leaf; Name = $m.BaseName; SavedAt = $j.savedAt; Files = $j.files; Source = $j.source }
+  }
+}
+
 # ---- 起動と終了 ----
 
+# 控えのファイルの名前に使う、写しの短い名前。%LOCALAPPDATA%\BoothAssetManager-<名前> なら <名前>。
+# ほかの場所の保存先は、同じ末尾の名前がぶつからないように、パスから出した8桁を足す
+function Get-ChmonosStoreKey([string]$Root) {
+  $leaf = Split-Path $Root -Leaf
+  if ((Split-Path $Root -Parent) -ieq $env:LOCALAPPDATA.TrimEnd('\') -and $leaf -like 'BoothAssetManager-*') { return $leaf.Substring('BoothAssetManager-'.Length) }
+  $sha = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($Root.ToLowerInvariant()))
+  ($leaf -replace '[^\w\-.]', '_') + '-' + [Convert]::ToHexString($sha).Substring(0, 8).ToLowerInvariant()
+}
+
+# この道具で起動して、今も開いているアプリの一覧（写しごと）。閉じた物の控えは、見つけたときに片付ける。
+# pid の使い回しに備えて起動時刻も照らす。前の版の道具で起動した物（$ChmonosPidFile だけにある）も拾う
+function Get-ChmonosRunning {
+  $files = @()
+  if (Test-Path -LiteralPath $ChmonosStateDir) { $files += @(Get-ChildItem -LiteralPath $ChmonosStateDir -Filter *.json -File) }
+  if (Test-Path -LiteralPath $ChmonosPidFile) { $files += Get-Item -LiteralPath $ChmonosPidFile }
+  $seen = @{}
+  foreach ($f in $files) {
+    try { $info = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json } catch { continue }
+    if (-not $info.pid) { continue }
+    $p = Get-Process -Id $info.pid -ErrorAction SilentlyContinue
+    # 実行ファイルの名前は版（Debug・Release・別のフォルダ）で変わらない
+    if (-not $p -or $p.ProcessName -ne $ChmonosProcessName -or $p.StartTime.Ticks -ne [long]$info.startTicks) {
+      Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+      continue
+    }
+    if ($seen.ContainsKey([int]$info.pid)) { continue }
+    $seen[[int]$info.pid] = $true
+    $root = "$($info.store)".TrimEnd('\')
+    [pscustomobject]@{
+      Key = Get-ChmonosStoreKey $root; Store = $root; Pid = [int]$info.pid; Process = $p
+      # 前の版の道具で起動した物は、足跡の場所を控えていない（1つのファイルに書いていた）
+      Trace = if ($info.trace) { "$($info.trace)" } elseif ($info.PSObject.Properties['trace']) { $null } else { Join-Path $env:TEMP 'chmonos-uitrace.log' }
+      Temp = if ($info.temp) { "$($info.temp)" } else { $null }
+      StartTicks = [long]$info.startTicks
+    }
+  }
+}
+
+# 相手にするアプリを決める。順に：-Store で指した写し → Use-ChmonosStore で決めた写し（このシェルで Start-ChmonosApp した写し）
+# → 環境変数 CHMONOS_UI_STORE → 開いているのが1つならそれ。
+# **複数開いていて、どれかを指していないときは断る**（黙って最後の物を相手にすると、別の担当のアプリを操作する・閉じる）
+function Resolve-ChmonosTarget([string]$Store) {
+  $running = @(Get-ChmonosRunning)
+  $want = if ($Store) { $Store } elseif ($global:ChmonosCurrentStore) { $global:ChmonosCurrentStore } elseif ($env:CHMONOS_UI_STORE) { $env:CHMONOS_UI_STORE } else { $null }
+  if ($want) {
+    $root = Resolve-ChmonosStore $want
+    $hit = @($running | Where-Object { $_.Store -ieq $root })
+    if (-not $hit.Count) { throw "この道具で起動したアプリが無い: $root（Start-ChmonosApp -Store）" }
+    $target = $hit[0]
+  }
+  elseif ($running.Count -eq 1) { $target = $running[0] }
+  elseif ($running.Count -eq 0) { throw 'この道具で起動したアプリが無い（Start-ChmonosApp）' }
+  else { throw "アプリが複数開いている（$(($running | ForEach-Object { $_.Key }) -join '・')）。どれを相手にするかを Use-ChmonosStore <写し> か -Store で指す" }
+  if ($target.Trace) { $global:ChmonosTraceFile = $target.Trace }
+  $target
+}
+
+# このシェルで相手にする写しを決める（並行で確かめるとき、道具を読み込んだ直後に1回呼ぶ）
+function Use-ChmonosStore {
+  param([Parameter(Mandatory)][string]$Store)
+  $global:ChmonosCurrentStore = Resolve-ChmonosStore $Store
+  $hit = @(Get-ChmonosRunning | Where-Object { $_.Store -ieq $global:ChmonosCurrentStore })
+  if ($hit.Count -and $hit[0].Trace) { $global:ChmonosTraceFile = $hit[0].Trace }
+  "相手: $global:ChmonosCurrentStore$(if ($hit.Count) { "（pid=$($hit[0].Pid)）" } else { '（まだ起動していない）' })"
+}
+
+# 起動すると BOOTH へ問い合わせ得る設定か。問い合わせの門（1本ずつ・1.5秒）はアプリ1本ごとなので、
+# 2本が同時に問い合わせると、合わせて1本ずつにならない。並行で起動する写しは、裏の取得を切ってあることを求める
+function Get-ChmonosStoreNetworkRisk([string]$Root) {
+  $settings = Join-Path $Root 'settings.json'
+  if (-not (Test-Path -LiteralPath $settings)) { return '設定がまだ無い（既定では、使っていない間の取得が入る）' }
+  $text = [IO.File]::ReadAllText($settings)
+  $risk = @()
+  if ($text -notmatch '"resumeFetchInBackground"\s*:\s*false') { $risk += '使っていない間の取得（resumeFetchInBackground）が切れていない' }
+  if ($text -match '"startImportOnLaunch"\s*:\s*true') { $risk += '起動時の取り込み（startImportOnLaunch）が入っている' }
+  $risk -join '・'
+}
+
+# 前の足跡を控えへ移す（起動のたびに消えていた。後から「さっきの回で何が出たか」を読めるように）。
+# 控えは新しい 40 本だけ残す（1本は数KB〜数百KB。確かめ1日分の起動はこれで足りる）
+function Move-ChmonosTraceToHistory([string]$TraceFile, [string]$Key) {
+  if (-not (Test-Path -LiteralPath $TraceFile)) { return $null }
+  if ((Get-Item -LiteralPath $TraceFile).Length -eq 0) { Remove-Item -LiteralPath $TraceFile -Force; return $null }
+  [IO.Directory]::CreateDirectory($ChmonosTraceHistory) | Out-Null
+  $stamp = (Get-Item -LiteralPath $TraceFile).LastWriteTime.ToString('yyyyMMdd-HHmmss')
+  $dest = Join-Path $ChmonosTraceHistory "$stamp-$Key.log"
+  Move-Item -LiteralPath $TraceFile -Destination $dest -Force
+  Get-ChildItem -LiteralPath $ChmonosTraceHistory -Filter *.log -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip 40 | Remove-Item -Force
+  $dest
+}
+
+# -Exe は別の版（Release・脇へビルドした物・前の版）で起動するとき。省くとこの道具のあるリポジトリ（worktree）の Debug。
+# -IsolateTemp はアプリの一時フォルダを写しごとに分ける（ほかのアプリが開いているときは、付けなくても分ける）
 function Start-ChmonosApp {
-  param([Parameter(Mandatory)][string]$Store, [switch]$AllowNew, [int]$SettleSeconds = 6, [switch]$NoTrace)
+  param([Parameter(Mandatory)][string]$Store, [switch]$AllowNew, [int]$SettleSeconds = 6, [switch]$NoTrace, [string]$Exe, [switch]$IsolateTemp)
   $root = Resolve-ChmonosStore $Store
   Assert-ChmonosSandbox $root
   if (-not $AllowNew -and -not (Test-Path $root)) { throw "保存先が無い: $root（初回の窓を見るなら -AllowNew）" }
-  if (-not (Test-Path $ChmonosExe)) { throw "ビルドが無い: $ChmonosExe（dotnet build）" }
-  if (Test-Path $ChmonosPidFile) { try { $old = Get-ChmonosApp; throw "前に起動したアプリがまだ開いている: pid=$($old.Id)（Stop-ChmonosApp）" } catch { if ($_.Exception.Message -like '前に起動した*') { throw } } }
-  $psi = [Diagnostics.ProcessStartInfo]::new($ChmonosExe)
-  $psi.UseShellExecute = $false; $psi.WorkingDirectory = Split-Path $ChmonosExe
+  $exePath = if ($Exe) { $Exe } else { $ChmonosExe }
+  if (-not (Test-Path $exePath)) { throw "ビルドが無い: $exePath（dotnet build）" }
+  $key = Get-ChmonosStoreKey $root
+  $running = @(Get-ChmonosRunning)
+  $same = @($running | Where-Object { $_.Store -ieq $root })
+  # 同じ写しを2本は開けない（アプリが保存先ごとに二重起動を止める。「既に起動しています」の窓を見るなら Start-ChmonosSecond）
+  if ($same.Count) { throw "前に起動したアプリがまだ開いている: pid=$($same[0].Pid)（Stop-ChmonosApp -Store $key）" }
+  if ($running.Count) {
+    # 並行で起動する。BOOTH への問い合わせは、アプリを何本開いても合わせて1本ずつ（CLAUDE.md の決め事 1）
+    foreach ($r in @($root) + @($running | ForEach-Object { $_.Store })) {
+      $risk = Get-ChmonosStoreNetworkRisk $r
+      if ($risk) { throw "並行で起動できない: $r は起動すると BOOTH へ問い合わせ得る（$risk）。ほかのアプリ（$(($running | ForEach-Object { $_.Key }) -join '・')）を閉じるか、写しの設定で切ってから" }
+    }
+  }
+  [IO.Directory]::CreateDirectory($ChmonosStateDir) | Out-Null
+  $psi = [Diagnostics.ProcessStartInfo]::new($exePath)
+  $psi.UseShellExecute = $false; $psi.WorkingDirectory = Split-Path $exePath
   # 空文字を入れても子に渡ることがあるので、起動する側の環境から取り除く。
   # BAM_* と DOTNET_GC* は速さ・メモリの計測で使った変数で、残ると別の条件で動く
   foreach ($n in @($psi.Environment.Keys | Where-Object { $_ -like 'BAM_*' -or $_ -like 'DOTNET_GC*' -or $_ -eq 'BOOTH_ASSET_MANAGER_HOME' })) { [void]$psi.Environment.Remove($n) }
   $psi.Environment['CHMONOS_HOME'] = $root
   # 確かめ用の足跡（出した窓の文言・押されたボタン・実行した命令・Unity の取り込み）。
-  # 文言の確かめを撮らずに済む。前の分は消しておく（今回の起動の分だけを読む）
+  # 文言の確かめを撮らずに済む。今回の起動の分だけを読めるように、前の分は控えへ移す（Get-ChmonosTrace -Saved で読める）
+  $trace = $null
   if (-not $NoTrace) {
-    if (Test-Path $ChmonosTraceFile) { Remove-Item $ChmonosTraceFile -Force }
-    $psi.Environment['CHMONOS_UITRACE'] = $ChmonosTraceFile
+    $trace = Join-Path $ChmonosStateDir "$key.uitrace.log"
+    [void](Move-ChmonosTraceToHistory $trace $key)
+    $psi.Environment['CHMONOS_UITRACE'] = $trace
+    $global:ChmonosTraceFile = $trace
+  }
+  # アプリは起動のたびに %TEMP%\Chmonos\unpacked（一時的に展開した物）を片付ける。二重起動かどうかは保存先ごとに見るので、
+  # 別の写しを開いた2本目が、1本目の展開した物を消してしまう。並行のときは一時フォルダを写しごとに分ける
+  $temp = $null
+  if ($IsolateTemp -or $running.Count) {
+    $temp = Join-Path $ChmonosStateDir "$key.temp"
+    [IO.Directory]::CreateDirectory($temp) | Out-Null
+    $psi.Environment['TEMP'] = $temp; $psi.Environment['TMP'] = $temp
   }
   $p = [Diagnostics.Process]::Start($psi)
   for ($i = 0; $i -lt 120 -and $p.MainWindowHandle -eq 0 -and -not $p.HasExited; $i++) { Start-Sleep -Milliseconds 250; $p.Refresh() }
   if ($p.HasExited -or $p.MainWindowHandle -eq 0) { throw "窓が出なかった（pid=$($p.Id)）" }
-  @{ pid = $p.Id; startTicks = $p.StartTime.Ticks; store = $root } | ConvertTo-Json | Set-Content $ChmonosPidFile
+  $state = @{ pid = $p.Id; startTicks = $p.StartTime.Ticks; store = $root; trace = $trace; temp = $temp } | ConvertTo-Json
+  Set-Content -LiteralPath (Join-Path $ChmonosStateDir "$key.json") -Value $state
+  Set-Content -LiteralPath $ChmonosPidFile -Value $state
+  $global:ChmonosCurrentStore = $root
   Start-Sleep -Seconds $SettleSeconds
   "起動した: pid=$($p.Id) 保存先=$root 窓の題=「$((Get-ChmonosRoot).Current.Name)」"
 }
 
-# この道具で起動したアプリ。pid の使い回しに備えて起動時刻も照らす
+# この道具で起動したアプリ（プロセス）。-Store を省くと今の相手（Resolve-ChmonosTarget の順）
 function Get-ChmonosApp {
-  if (-not (Test-Path $ChmonosPidFile)) { throw 'この道具で起動したアプリが無い（Start-ChmonosApp）' }
-  $info = Get-Content $ChmonosPidFile -Raw | ConvertFrom-Json
-  $p = Get-Process -Id $info.pid -ErrorAction SilentlyContinue
-  if (-not $p -or $p.ProcessName -ne $ChmonosProcessName -or $p.StartTime.Ticks -ne [long]$info.startTicks) {
-    Remove-Item $ChmonosPidFile -ErrorAction SilentlyContinue
-    throw 'この道具で起動したアプリはもう閉じている'
-  }
-  $p
+  param([string]$Store)
+  (Resolve-ChmonosTarget $Store).Process
 }
 
+# アプリの一時フォルダ（一時的に展開した物の置き場 Chmonos\unpacked の親）。並行で起動したアプリは写しごとに分かれている
+function Get-ChmonosAppTemp {
+  param([string]$Store)
+  $t = (Resolve-ChmonosTarget $Store).Temp
+  if ($t) { $t } else { $env:TEMP }
+}
+
+# 閉じる。-Store を省くと今の相手。複数開いていて相手を決めていないときは、閉じずにそう返す
+# （別の担当のアプリを閉じないように）。自分で起動した物を全部閉じるなら、写しごとに -Store で呼ぶ
 function Stop-ChmonosApp {
-  try { $p = Get-ChmonosApp } catch { return $_.Exception.Message }
+  param([string]$Store)
+  try { $target = Resolve-ChmonosTarget $Store } catch { return $_.Exception.Message }
+  $p = $target.Process
   [void]$p.CloseMainWindow()
   if (-not $p.WaitForExit(8000)) { $p.Kill(); [void]$p.WaitForExit(3000) }
-  Remove-Item $ChmonosPidFile -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath (Join-Path $ChmonosStateDir "$($target.Key).json") -Force -ErrorAction SilentlyContinue
+  if (Test-Path -LiteralPath $ChmonosPidFile) {
+    try { if ([int](Get-Content -LiteralPath $ChmonosPidFile -Raw | ConvertFrom-Json).pid -eq $target.Pid) { Remove-Item -LiteralPath $ChmonosPidFile -Force } } catch { }
+  }
+  # 画面を取っていたら返す（閉じたアプリが画面を握ったままにならないように）
+  [void](Unlock-ChmonosScreen -Store $target.Store)
   "閉じた: pid=$($p.Id)"
+}
+
+# ---- 画面（実入力と、画面から直に撮る部品）を1人で使う ----
+#
+# 実際のマウス・キー・前面の窓・画面の絵は PC に1つしか無い。2人が同時に使うと、相手の窓を押す・メニューが閉じる・別の窓が写る。
+# アプリが複数開いている間は、画面を取った人（Lock-ChmonosScreen）だけが実入力の部品を使える。
+# 1本だけのときは、取らなくても今までどおり動く
+
+function Get-ChmonosScreenLockInfo {
+  if (-not (Test-Path -LiteralPath $ChmonosScreenLock)) { return $null }
+  try { $j = Get-Content -LiteralPath $ChmonosScreenLock -Raw | ConvertFrom-Json } catch { return $null }
+  # 期限を過ぎた物は無い物として扱う（返し忘れで、ずっと使えなくならないように）
+  if ([datetime]::ParseExact("$($j.until)", 'yyyy-MM-dd HH:mm:ss', $null) -lt (Get-Date)) { return $null }
+  $j
+}
+
+# 画面を使う人（＝写し）を決める。-Store で指した写し → このシェルの相手 → 開いている1つ。
+# 起動の瞬間を撮るときは、まだ起動していない写しで画面を取るので、開いているかは問わない
+function Resolve-ChmonosScreenUser([string]$Store) {
+  if ($Store) { return Resolve-ChmonosStore $Store }
+  if ($global:ChmonosCurrentStore) { return $global:ChmonosCurrentStore }
+  if ($env:CHMONOS_UI_STORE) { return Resolve-ChmonosStore $env:CHMONOS_UI_STORE }
+  (Resolve-ChmonosTarget).Store
+}
+
+# 画面を取る。-Minutes は期限（既定 10 分。過ぎると自動で外れる。長い確かめは取り直す）。ほかの人が取っていたら断る
+function Lock-ChmonosScreen {
+  param([string]$Store, [int]$Minutes = 10)
+  $root = Resolve-ChmonosScreenUser $Store
+  $key = Get-ChmonosStoreKey $root
+  $held = Get-ChmonosScreenLockInfo
+  if ($held -and "$($held.store)" -ine $root) { throw "画面は $($held.key) の確かめが使っている（$($held.until) まで）" }
+  [IO.Directory]::CreateDirectory($ChmonosStateDir) | Out-Null
+  $until = (Get-Date).AddMinutes($Minutes).ToString('yyyy-MM-dd HH:mm:ss')
+  @{ store = $root; key = $key; until = $until } | ConvertTo-Json | Set-Content -LiteralPath $ChmonosScreenLock
+  "画面を取った: $key（$until まで）"
+}
+
+# 画面を返す。ほかの人が取っている物は返さない（-Store を省くと、このシェルの相手の分）
+function Unlock-ChmonosScreen {
+  param([string]$Store)
+  $held = Get-ChmonosScreenLockInfo
+  if (-not $held) { return '画面は誰も取っていない' }
+  try { $root = Resolve-ChmonosScreenUser $Store } catch { $root = $null }
+  if (-not $root -or "$($held.store)" -ine $root) { return "画面は $($held.key) が取っている（返さなかった）" }
+  Remove-Item -LiteralPath $ChmonosScreenLock -Force
+  "画面を返した: $($held.key)"
+}
+
+# 実入力を送ってよいか・画面から直に撮ってよいか。だめなら理由を返す（よければ $null）
+function Get-ChmonosScreenDenial {
+  param([string]$Store)
+  $held = Get-ChmonosScreenLockInfo
+  # 自分が誰か（どの写しの確かめか）が決まらないとき：複数開いていれば、相手を決めてからにする。1本も開いていなければ、取っている人がいるかだけを見る
+  try { $root = Resolve-ChmonosScreenUser $Store }
+  catch {
+    if (@(Get-ChmonosRunning).Count) { return $_.Exception.Message }
+    $root = $null
+  }
+  if ($held) {
+    if ($root -and "$($held.store)" -ieq $root) { return $null }
+    return "画面は $($held.key) の確かめが使っている（$($held.until) まで）"
+  }
+  # 取っている人がいなくても、自分のほかにアプリが開いていれば、取ってからにする
+  $others = @(Get-ChmonosRunning | Where-Object { $_.Store -ine $root })
+  if ($others.Count) { return "ほかのアプリが開いている（$(($others | ForEach-Object { $_.Key }) -join '・')）。実入力と画面から撮る部品は、Lock-ChmonosScreen で画面を取ってから" }
+  $null
 }
 
 # ---- UI Automation ----
 
-function Get-ChmonosRoot { $A_::FromHandle((Get-ChmonosApp).MainWindowHandle) }
+function Get-ChmonosRoot {
+  param([string]$Store)
+  $A_::FromHandle((Get-ChmonosApp -Store $Store).MainWindowHandle)
+}
 
 # -Type は ControlType の名前（Button・Text・Edit・RadioButton・CheckBox・ListItem・DataItem・Window…）。
 # GridView の一覧の行は ListItem ではなく DataItem。持ち主付きの窓（ダイアログ）は主の窓の子として出る
 function Get-ChmonosElements {
-  param([Parameter(Mandatory)][string]$Type, [string]$Name, [string]$Like, $Scope)
-  $root = if ($Scope) { $Scope } else { Get-ChmonosRoot }
+  param([Parameter(Mandatory)][string]$Type, [string]$Name, [string]$Like, $Scope, [string]$Store)
+  $root = if ($Scope) { $Scope } else { Get-ChmonosRoot -Store $Store }
   $ct = [System.Windows.Automation.ControlType]::$Type
   if (-not $ct) { throw "ControlType に無い: $Type" }
   $cond = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, $ct)
@@ -226,8 +583,8 @@ function Get-ChmonosCenter($El) {
 # 窓を撮る（前面でなくても撮れる）。-Element でダイアログの窓、-Region で窓の中の一部（x,y,幅,高さ。窓の左上から）。
 # 小さく切ると、読むときの文脈も節約できる。戻りは保存したパス（Read で開いて見る）
 function Save-ChmonosShot {
-  param([Parameter(Mandatory)][string]$Name, $Element, [int[]]$Region)
-  $h = if ($Element) { [IntPtr]$Element.Current.NativeWindowHandle } else { (Get-ChmonosApp).MainWindowHandle }
+  param([Parameter(Mandatory)][string]$Name, $Element, [int[]]$Region, [string]$Store)
+  $h = if ($Element) { [IntPtr]$Element.Current.NativeWindowHandle } else { (Get-ChmonosApp -Store $Store).MainWindowHandle }
   if ($h -eq [IntPtr]::Zero) { throw '窓の取っ手が無い（-Element には Window の要素を渡す）' }
   $r = New-Object ChmonosWin+RECT; [void][ChmonosWin]::GetWindowRect($h, [ref]$r)
   $w = $r.R - $r.L; $hh = $r.B - $r.T
@@ -242,20 +599,41 @@ function Save-ChmonosShot {
     $cw = [Math]::Max(1, [Math]::Min($Region[2], $w - $x)); $ch = [Math]::Max(1, [Math]::Min($Region[3], $hh - $y))
     $crop = $bmp.Clone((New-Object System.Drawing.Rectangle $x, $y, $cw, $ch), $bmp.PixelFormat); $bmp.Dispose(); $bmp = $crop
   }
-  New-Item -ItemType Directory -Force $ChmonosShotDir | Out-Null
+  # -Name に「担当の名前\絵の名前」のように下のフォルダを付けられる（並行の確かめで、同じ名前の絵を上書きし合わないように）
   $path = Join-Path $ChmonosShotDir "$Name.png"
+  New-Item -ItemType Directory -Force (Split-Path $path) | Out-Null
   $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
   $path
 }
 
+# 要素の周りだけを撮る（要素の四角は画面の座標なので、窓の中の座標に直して切る）。
+# -Pad は周りの余白、-Width・-Height は要素より広く撮りたいとき（見出しから下の欄まで、など）
+function Save-ChmonosShotAround {
+  param([Parameter(Mandatory)]$Element, [Parameter(Mandatory)][string]$Name, [int]$Pad = 20, [int]$Width = 0, [int]$Height = 0, [string]$Store)
+  $h = (Get-ChmonosApp -Store $Store).MainWindowHandle
+  $wr = New-Object ChmonosWin+RECT; [void][ChmonosWin]::GetWindowRect($h, [ref]$wr)
+  $r = $Element.Current.BoundingRectangle
+  if ($r.IsEmpty -or [double]::IsInfinity($r.X)) { throw "位置が取れない（画面の外か空）: 「$($Element.Current.Name)」" }
+  $w = if ($Width) { $Width } else { [int]$r.Width + 2 * $Pad }
+  $hh = if ($Height) { $Height } else { [int]$r.Height + 2 * $Pad }
+  Save-ChmonosShot -Name $Name -Store $Store -Region ([int]($r.X - $wr.L - $Pad)), ([int]($r.Y - $wr.T - $Pad)), $w, $hh
+}
+
 # ---- 実入力（UI Automation で届かない所だけ。使う前にユーザへ告げる） ----
 
-function Show-ChmonosFront { $ok = [ChmonosWin]::Bring((Get-ChmonosApp).MainWindowHandle); Start-Sleep -Milliseconds 600; "前面に出した: $ok" }
+# 前面に出す。前面は PC に1つなので、アプリが複数開いている間は画面を取ってから（Lock-ChmonosScreen）
+function Show-ChmonosFront {
+  $deny = Get-ChmonosScreenDenial
+  if ($deny) { return "前面に出すのをやめた：$deny" }
+  $ok = [ChmonosWin]::Bring((Get-ChmonosApp).MainWindowHandle); Start-Sleep -Milliseconds 600; "前面に出した: $ok"
+}
 
 # X・Y は画面の座標（Get-ChmonosCenter の戻り）。-UserWasTold はユーザへ告げたことの確認で、付けないと動かない
 function Invoke-ChmonosRealClick {
   param([Parameter(Mandatory)][int]$X, [Parameter(Mandatory)][int]$Y, [Parameter(Mandatory)][switch]$UserWasTold, [switch]$Right)
   if (-not $UserWasTold) { throw '実入力の前にユーザへ告げる（CLAUDE.md「確かめ方」）' }
+  $deny = Get-ChmonosScreenDenial
+  if ($deny) { return "実入力をやめた：$deny" }
   $h = (Get-ChmonosApp).MainWindowHandle
   # 前に出すのは、開いていれば小窓の方（主の窓を前に出すと知らせの窓がその下に隠れ、押しても届かなかった。2026-09-19。当時は MessageBox）
   [void][ChmonosWin]::Bring([ChmonosWin]::ActivePopup($h)); Start-Sleep -Milliseconds 500
@@ -307,8 +685,8 @@ function Wait-ChmonosElement {
 # 持ち主付きは主の窓の子として出る。持ち主の無い知らせ（主の窓より前・アプリが後ろにいたとき）はデスクトップの直下に出るので、
 # このアプリのプロセスの窓のうち、主の窓でない物と知らせの窓（AutomationId が ChmonosNotice）も拾う
 function Get-ChmonosDialog {
-  param([string]$Like = '*')
-  $app = Get-ChmonosApp
+  param([string]$Like = '*', [string]$Store)
+  $app = Get-ChmonosApp -Store $Store
   $windowType = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Window)
   $seen = @{}
 
@@ -397,51 +775,103 @@ function Invoke-ChmonosMenuItem {
   Invoke-ChmonosClick -Element $item -UserWasTold:$UserWasTold
 }
 
-# 小窓を、その中のボタンを押して閉じる。**閉じたことを確かめ**、閉じなければもう一度押す
-# （1回目のクリックが窓を選ぶだけに使われることがある）。それでも閉じなければ、既定のボタンを Enter で押す
+# 小窓を、その中のボタンを押して閉じる。ボタンは UI Automation の Invoke で押す（実入力を使わないので、
+# 窓が後ろにあっても・ほかの担当が画面を使っていても押せる）。**閉じたことを確かめて**返す。
+#
+# 前は中心を実クリックし、閉じなければ Enter で閉じていた。Enter は既定のボタンを押すので、
+# 「いいえ」を頼んだのに「はい」で閉じる・閉じた理由が分からない、になっていた（2026-09-30）。
+# 今は、押せない・閉じないときは **「閉じられない:」で始まる文を返し、警告も出す**（Enter では閉じない）。
+# 戻りが「閉じた:」で始まるかを呼ぶ側で見る。-UserWasTold は前の呼び方のために受けるだけ（実入力を使わないので要らない）。
+# Invoke を持たない部品を押すときだけ -RealClick（実入力。こちらは -UserWasTold が要る）
 function Close-ChmonosDialog {
-  param([string]$Button = 'OK', [string]$Like = '*', [Parameter(Mandatory)][switch]$UserWasTold, [double]$TimeoutSeconds = 10)
+  param([string]$Button = 'OK', [string]$Like = '*', [switch]$UserWasTold, [double]$TimeoutSeconds = 10, [switch]$RealClick)
   $dialog = Wait-ChmonosDialog -Like $Like -TimeoutSeconds $TimeoutSeconds
   if (-not $dialog) { return "小窓が出ていない（$Like）" }
 
   $handle = [IntPtr]$dialog.Current.NativeWindowHandle
   $title = $dialog.Current.Name
+  $fail = { param($why) $m = "閉じられない: 「$title」の「$Button」（$why）"; Write-Warning $m; $m }
   # ボタンを名前で探す（知らせの窓は本文も名前に出すので、本文の中の「はい」などを掴まないように型で絞る）
-  $byName = New-Object System.Windows.Automation.PropertyCondition($A_::NameProperty, $Button)
-  $asButton = New-Object System.Windows.Automation.AndCondition($byName,
-    (New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+  $isButton = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+  $asButton = New-Object System.Windows.Automation.AndCondition((New-Object System.Windows.Automation.PropertyCondition($A_::NameProperty, $Button)), $isButton)
   $target = $dialog.FindFirst($TS_::Descendants, $asButton)
-  if (-not $target) { $target = $dialog.FindFirst($TS_::Descendants, $byName) }
-  if (-not $target) { return "「$title」に「$Button」が無い" }
+  if (-not $target) {
+    # 題の帯の「閉じる」などを除いて、押せるボタンの名前を並べる（名前の打ち間違いにすぐ気付けるように）
+    $names = @($dialog.FindAll($TS_::Descendants, $isButton) | ForEach-Object { $_.Current.Name } | Where-Object { $_ }) -join '・'
+    return (& $fail "そのボタンが無い。在るボタン: $names")
+  }
 
   for ($try = 1; $try -le 2; $try++) {
-    $c = Get-ChmonosCenter $target
-    [void](Invoke-ChmonosRealClick -X $c.X -Y $c.Y -UserWasTold:$UserWasTold)
-    if (-not (Wait-ChmonosCondition -TimeoutSeconds 3 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($handle) })) { continue }
-    return "閉じた: 「$title」の「$Button」（$try 回目）"
+    try {
+      if ($RealClick) {
+        if (-not $UserWasTold) { throw '実入力の前にユーザへ告げる（-UserWasTold）' }
+        $c = Get-ChmonosCenter $target
+        $r = Invoke-ChmonosRealClick -X $c.X -Y $c.Y -UserWasTold
+        if ($r -like '実入力をやめた*') { return (& $fail $r) }
+      }
+      else {
+        if (-not $target.Current.IsEnabled) { return (& $fail '押せない状態（無効）') }
+        $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+      }
+    }
+    catch [System.Windows.Automation.ElementNotAvailableException] { }   # 1回目で閉じていて、部品がもう無い
+    catch { return (& $fail $_.Exception.Message) }
+    if (Wait-ChmonosCondition -TimeoutSeconds 4 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($handle) }) {
+      return "閉じた: 「$title」の「$Button」（$try 回目）"
+    }
   }
 
-  # 最後の手。Enter は既定のボタン（OK・これを送る）を押す
-  [void][ChmonosWin]::Bring($handle); Start-Sleep -Milliseconds 300
-  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-  if (Wait-ChmonosCondition -TimeoutSeconds 3 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($handle) }) {
-    return "閉じた: 「$title」（Enter・クリックでは閉じなかった）"
-  }
-
-  "閉じられない: 「$title」の「$Button」"
+  & $fail '押したが閉じない'
 }
 
 # ---- 確かめ用の足跡（Start-ChmonosApp が付ける。出した窓の文言・押されたボタン・命令・Unity） ----
 
 # 足跡を読む。-Kind で種類を絞る（知らせ・選ぶ・命令・Unity）、-Last で末尾だけ。
 # 「この文言が出たか」は、撮って読むより速くて確かに分かる
+#
+# 足跡は写しごとのファイルに書かれ、次に同じ写しで起動するときに控え（%TEMP%\chmonos-uitrace-history）へ移る。
+# -Saved で控えた足跡を読む（Save-ChmonosTrace の戻りのパスか、付けた名前。Get-ChmonosTraceHistory で一覧）
 function Get-ChmonosTrace {
-  param([string]$Kind = '*', [string]$Like = '*', [int]$Last = 40)
-  if (-not (Test-Path $ChmonosTraceFile)) { return '足跡が無い（-NoTrace で起動した？）' }
-  Get-Content $ChmonosTraceFile | Where-Object {
+  param([string]$Kind = '*', [string]$Like = '*', [int]$Last = 40, [string]$Saved, [string]$Store)
+  if ($Saved) {
+    $file = if (Test-Path -LiteralPath $Saved) { $Saved } else {
+      # 名前で指したときは、その名前で終わる控えのうち新しい物
+      Get-ChildItem -LiteralPath $ChmonosTraceHistory -Filter "*-$Saved.log" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $file) { return "控えた足跡が無い: $Saved" }
+  }
+  else {
+    # 相手が決まれば、その写しの足跡を読む（開いているアプリが無いときは、最後に指していた足跡のまま）
+    try { [void](Resolve-ChmonosTarget $Store) } catch { }
+    $file = $global:ChmonosTraceFile
+  }
+  if (-not (Test-Path -LiteralPath $file)) { return '足跡が無い（-NoTrace で起動した？）' }
+  Get-Content -LiteralPath $file | Where-Object {
     $parts = $_ -split "`t", 3
     $parts.Count -ge 3 -and $parts[1] -like $Kind -and $parts[2] -like $Like
   } | Select-Object -Last $Last
+}
+
+# 今の足跡を控える（写す。アプリは開いたままでよい）。回ごとの足跡を後で比べたいとき・閉じる前に取っておきたいときに呼ぶ。
+# -Name を付けると、後で Get-ChmonosTrace -Saved <名前> で読める。戻りは控えのパス
+function Save-ChmonosTrace {
+  param([string]$Name, [string]$Store)
+  try { $target = Resolve-ChmonosTarget $Store; $key = $target.Key } catch { $key = 'app' }
+  $file = $global:ChmonosTraceFile
+  if (-not (Test-Path -LiteralPath $file)) { throw '足跡が無い（-NoTrace で起動した？）' }
+  if ($Name -and $Name -notmatch '^[\w\-.]+$') { throw "名前に使えない字がある: $Name（英数字・_・-・. だけ）" }
+  [IO.Directory]::CreateDirectory($ChmonosTraceHistory) | Out-Null
+  $dest = Join-Path $ChmonosTraceHistory ("{0}-{1}{2}.log" -f (Get-Date).ToString('yyyyMMdd-HHmmss'), $key, $(if ($Name) { "-$Name" } else { '' }))
+  Copy-Item -LiteralPath $file -Destination $dest -Force
+  $dest
+}
+
+# 控えた足跡の一覧（新しい順）
+function Get-ChmonosTraceHistory {
+  if (-not (Test-Path -LiteralPath $ChmonosTraceHistory)) { return }
+  Get-ChildItem -LiteralPath $ChmonosTraceHistory -Filter *.log -File | Sort-Object LastWriteTime -Descending |
+    ForEach-Object { [pscustomobject]@{ Name = $_.BaseName; At = $_.LastWriteTime.ToString('MM-dd HH:mm:ss'); KB = [math]::Round($_.Length / 1KB, 1); Path = $_.FullName } }
 }
 
 # 足跡に文言が出るまで待つ（窓を撮らずに「出たか」を確かめる）
