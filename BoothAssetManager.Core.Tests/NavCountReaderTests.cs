@@ -146,6 +146,51 @@ public sealed class NavCountReaderTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// 読んだ回は記録の中身も返し、読まなかった回は返さない。主画面は札を登録する回数で数え直すので中身が要るが、
+    /// 読み手が読んだ物を使えば同じ記録を2回読まずに済む（8万件で1回 190〜270ms・68MB）。
+    /// </summary>
+    [Fact]
+    public async Task HandsOverTheUnresolvedListOnlyWhenItWasRead()
+    {
+        await _store.Unresolved.SaveAsync([Unresolved("a"), Unresolved("b")]);
+        var reader = new NavCountReader(_store);
+
+        var first = reader.ReadWithUnresolved();
+        var second = reader.ReadWithUnresolved();
+
+        Assert.Equal(["a", "b"], first.UnresolvedRead!.Select(file => file.Hash));
+        Assert.Null(second.UnresolvedRead);
+        Assert.Equal(first.UnresolvedStamp, second.UnresolvedStamp);
+        Assert.Equal(first.Counts, second.Counts);
+
+        await _store.Unresolved.UpdateAsync(current => [.. current, Unresolved("c")]);
+        var third = reader.ReadWithUnresolved();
+
+        Assert.Equal(3, third.Counts.Unresolved);
+        Assert.Equal(3, third.UnresolvedRead!.Count);
+        Assert.NotEqual(first.UnresolvedStamp, third.UnresolvedStamp);
+    }
+
+    /// <summary>知らせだけが変わった回は、未確定の記録を読まない（前は片方が変わると両方を読み直していた）。</summary>
+    [Fact]
+    public async Task OnlyTheChangedFileIsReadAgain()
+    {
+        await _store.Notifications.SaveAsync([Notice("1"), Notice("2")]);
+        await _store.Unresolved.SaveAsync([Unresolved("a")]);
+        var reader = new NavCountReader(_store);
+        Assert.Equal(new NavCounts(1, 2, string.Empty), reader.Read());
+
+        // 未確定は外から中身だけ差し替える（読めば壊れていて落ちる）。知らせは普通に書く
+        ReplaceKeepingSizeAndTime(_store.Unresolved.Path);
+        await _store.Notifications.SaveAsync([Notice("1", isRead: true), Notice("2")]);
+
+        var reading = reader.ReadWithUnresolved();
+
+        Assert.Equal(new NavCounts(1, 1, string.Empty), reading.Counts);
+        Assert.Null(reading.UnresolvedRead);
+    }
+
     [Fact]
     public async Task ADeletedFileCountsAsEmpty()
     {

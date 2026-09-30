@@ -704,7 +704,7 @@ public sealed partial class MainViewModel : ViewModelBase
         ShowSearch();
     }
 
-    /// <summary>未確定の件数。「残っている作業量」を示すので、ファイルの数ではなく登録する回数で数える（<see cref="CountUnresolvedUnits"/>）。</summary>
+    /// <summary>未確定の件数。「残っている作業量」を示すので、ファイルの数ではなく登録する回数で数える（<see cref="UnresolvedUnitCounter"/>）。</summary>
     public int UnresolvedCount
     {
         get => _unresolvedCount;
@@ -1056,15 +1056,12 @@ public sealed partial class MainViewModel : ViewModelBase
         Task.Run(() =>
             {
                 // 読めなければ投げる（Forget がログに残す）。数は古いまま残るだけ
-                var read = reader.Read();
+                var reading = reader.ReadWithUnresolved();
 
-                // 札の未確定は登録する回数で数える（CountUnresolvedUnits）。読み手が数えるのはファイルの数なので、
-                // 0件なら記録を読まずに0、そうでなければ記録を読んで単位に直す（単位の数は材料が同じ間は覚えてある）
-                var memoBefore = Volatile.Read(ref _unitCountMemo);
-                var counts = read.Unresolved == 0
-                    ? read
-                    : read with { Unresolved = CountUnresolvedUnits(store.Unresolved.Load(), items, importFolders) };
-                var rebuiltRows = !ReferenceEquals(memoBefore, Volatile.Read(ref _unitCountMemo));
+                // 札の未確定は登録する回数で数える（UnresolvedUnitCounter）。読み手が数えるのはファイルの数なので単位に直す。
+                // 記録は読み手がこの回に読んだ物を使い、変わっていない回は読まない（前はここでもう1回読んでいた）
+                var (units, rebuiltRows) = _unitCounter.Count(reading, store.Unresolved.Load, items, importFolders);
+                var counts = reading.Counts with { Unresolved = units };
 
                 RunOnUiThread(() =>
                 {
@@ -1093,67 +1090,8 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <summary>件数の読み直しの番号。</summary>
     private int _countsRead;
 
-    /// <summary>未確定の単位の数を、材料が同じ間は覚えておく（<see cref="CountUnresolvedUnits"/>）。</summary>
-    private sealed record UnitCountMemo(int Signature, int Count);
-
-    private UnitCountMemo? _unitCountMemo;
-
-    /// <summary>
-    /// ナビの札の未確定の数。**未確定の画面の見出しと同じく、登録する回数で数える**（ユーザ指示 2026-09-29：
-    /// zipの中身・展開したフォルダは1件。実際にIDを登録する回数を想像できるように）。
-    /// 画面と同じ行の組み方（<see cref="ResolveViewModel.BuildRows"/>）を通すので、登録済みのzipの中身も同じく数えない。
-    ///
-    /// 行を組むにはフォルダの中と、元のzipが今もあるかを見る（ディスクを見る）。札は取り込み中に何度も読み直すので、
-    /// **未確定の記録・商品が持っているファイルの数・取り込み元が前と同じなら、前の数を使う**。裏のスレッドで呼ぶ。
-    /// </summary>
-    private int CountUnresolvedUnits(
-        IReadOnlyList<Core.Models.UnresolvedFile> files,
-        IReadOnlyList<Core.Models.ItemRecord> items,
-        IReadOnlyList<string> importFolders)
-    {
-        if (files.Count == 0)
-        {
-            return 0;
-        }
-
-        var owned = items
-            .SelectMany(item => item.Local.OwnedFiles)
-            .SelectMany(file => file.Paths)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var signature = new HashCode();
-        foreach (var file in files)
-        {
-            signature.Add(file.Hash, StringComparer.OrdinalIgnoreCase);
-            signature.Add(file.Paths.Count > 0 ? file.Paths[0] : string.Empty, StringComparer.OrdinalIgnoreCase);
-        }
-
-        signature.Add(owned.Count);
-        foreach (var folder in importFolders)
-        {
-            signature.Add(folder, StringComparer.OrdinalIgnoreCase);
-        }
-
-        var key = signature.ToHashCode();
-
-        // 行を組むのは1本ずつ。取り込みの終わりには数え直しが続けて2回頼まれ（検索の読み直しと札の更新）、1回目が組み終える前に
-        // 2回目が始まって、同じ行を2本が並んで組んでいた（8万件で各4秒・ゴミも2倍。2026-09-30 に採った足跡で見た）。
-        // 後から来た方は待って、先の結果を使う。裏のスレッドなので待っても画面は止まらない
-        lock (_unitCountGate)
-        {
-            if (_unitCountMemo is { } memo && memo.Signature == key)
-            {
-                return memo.Count;
-            }
-
-            var rows = ResolveViewModel.BuildRows([.. files], owned, importFolders);
-            var count = Core.Scanning.UnresolvedUnits.Count(rows.Rows.Select(row => row.UnitKey));
-            Volatile.Write(ref _unitCountMemo, new UnitCountMemo(key, count));
-            return count;
-        }
-    }
-
-    private readonly object _unitCountGate = new();
+    /// <summary>未確定を登録する回数で数え、材料が同じ間は覚えておく（<see cref="UnresolvedUnitCounter"/>）。</summary>
+    private readonly UnresolvedUnitCounter _unitCounter = new();
 
     private string _structureAlert = string.Empty;
 
