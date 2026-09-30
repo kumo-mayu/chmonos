@@ -3,6 +3,10 @@ using System.Windows;
 
 namespace BoothAssetManager.App.Services;
 
+/// <summary>出すはずだった知らせ・確認の窓の中身（<see cref="Notice.Intercept"/> が受ける）。</summary>
+internal sealed record NoticeRequest(
+    string Text, string Caption, MessageBoxButton Button, MessageBoxImage Icon, MessageBoxResult DefaultResult);
+
 /// <summary>
 /// 画面から出す知らせ・確認の窓を通す1か所（<see cref="MessageBox"/> の代わり）。
 ///
@@ -41,9 +45,21 @@ internal static class Notice
         return answer;
     }
 
+    /// <summary>
+    /// 窓を出す代わりに、出すはずだった文を受けて答えを返す口。**アプリでは null のまま**（窓を出す）。
+    /// 試験が入れる：窓を出すと答える人がいないので止まったままになり、隣で使っている画面の上にも出てしまう。
+    /// 文言と、答えごとの続きの動きを、窓なしで確かめられる
+    /// </summary>
+    internal static Func<NoticeRequest, MessageBoxResult>? Intercept { get; set; }
+
     private static MessageBoxResult Present(
         Window? owner, string text, string caption, MessageBoxButton button, MessageBoxImage icon, MessageBoxResult defaultResult)
     {
+        if (Intercept is { } intercept)
+        {
+            return intercept(new NoticeRequest(text, caption, button, icon, defaultResult));
+        }
+
         var app = Application.Current;
         if (app is null || app.Dispatcher.HasShutdownStarted || !IsHandled(button))
         {

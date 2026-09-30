@@ -757,7 +757,9 @@ public sealed class ImportViewModel : ViewModelBase
     public ImportSummary? Summary
     {
         get => _summary;
-        private set
+
+        // 試験が結果を入れて、結果の文と並びを確かめる（入れるのは取り込みの終わりだけ。画面は読むだけ）
+        internal set
         {
             if (SetField(ref _summary, value))
             {

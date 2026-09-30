@@ -409,7 +409,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>レジストリとファイルを見るので裏で調べる（改変の画面と同じ <see cref="Services.UnityTools.Detect"/>）。</summary>
     private async Task DetectProjectManagersAsync()
     {
-        var tools = await Task.Run(Services.UnityTools.Detect);
+        var tools = await Task.Run(() => _services.DetectUnityTools());
         _projectManagerTools = tools;
         ProjectManagers[1].IsAvailable = tools.HasVcc;
         ProjectManagers[2].IsAvailable = tools.HasAlcom;

@@ -411,8 +411,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
         var modifications = _services.Modifications.LoadAllAsync(token);
         var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
-        var projects = Task.Run(() => UnityProjects.Discover(), token);
-        var tools = Task.Run(() => UnityTools.Detect(), token);
+        var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
+        var tools = Task.Run(() => _services.DetectUnityTools(), token);
         await Task.WhenAll(modifications, avatars, projects, tools);
         token.ThrowIfCancellationRequested();
         Tools = tools.Result;
@@ -518,8 +518,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         {
             var modifications = _services.Modifications.LoadAllAsync(token);
             var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
-            var projects = Task.Run(() => UnityProjects.Discover(), token);
-            var tools = Task.Run(() => UnityTools.Detect(), token);
+            var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
+            var tools = Task.Run(() => _services.DetectUnityTools(), token);
             await Task.WhenAll(modifications, avatars, projects, tools);
             token.ThrowIfCancellationRequested();
 

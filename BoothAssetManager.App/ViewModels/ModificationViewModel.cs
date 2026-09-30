@@ -1293,7 +1293,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// </summary>
     private async Task LoadProjectsAsync()
     {
-        var found = await Task.Run(() => UnityProjects.Discover());
+        var found = await Task.Run(() => _services.DiscoverUnityProjects());
 
         ProjectCandidates.Clear();
         foreach (var candidate in found)
