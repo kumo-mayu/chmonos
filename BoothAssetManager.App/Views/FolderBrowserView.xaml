@@ -185,7 +185,7 @@
         <Grid x:Name="ListArea" SizeChanged="OnListSizeChanged" Margin="10,10,0,0">
             <!-- 行を仮想化の単位にする（検索画面と同じ）。画面外の行のカードは作られないので、絵の読み込みも走らない -->
             <!-- リスト（ユーザ指示 2026-09-14）。列の幅は見出しの境目をドラッグで変え、全部の行で共通。フォルダの行も同じ列に並ぶ -->
-            <ListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+            <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
                       ItemContainerStyle="{StaticResource ItemListRowStyle}"
                       BorderThickness="0" Background="Transparent" Margin="18,4,18,18"
                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -217,13 +217,13 @@
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <ItemsControl ItemsSource="{Binding Cards}" Focusable="False">
+                        <controls:ContentItemsControl ItemsSource="{Binding Cards}" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

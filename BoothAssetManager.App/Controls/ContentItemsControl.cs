@@ -13,6 +13,11 @@ namespace BoothAssetManager.App.Controls;
 /// （検索の絞り込みの条件で、入力欄が1つも見つからなかった）。
 /// 自分をふつうの部品として出せば、中身は画面の木をたどって見つかる。選ぶ一覧（ListBox）には使わない。
 ///
+/// 見えない窓に載せて UI Automation の側から測ると（2026-09-30）、素の ItemsControl にはほかに2つ困ることがあった：
+/// 行が「データの項目」として出て、その名前が行の ToString()（行の型の名前）になる——読み上げに内部の名前が読まれる。
+/// 値の等しい行（同じ文字列・等しい record）は1つにまとめられ、2つめ以降の中のボタンが見えない
+/// （「同じ」3行で、見えたボタンは1つ）。繰り返しの一覧は、素の ItemsControl ではなくこれを使う（画面の決め事 ui-input.md）。
+///
 /// テンプレートに ScrollViewer を持たせた（仮想化した）ときは、流す操作もこの窓口から渡す。
 /// テンプレートの中の ScrollViewer は自分を部品として名乗らないので、渡さないと一覧を流す手段が
 /// UI Automation から消える（管理の画面の一覧を仮想化したとき、確かめの道具が一覧を送れなくなった。2026-09-24）。
@@ -52,6 +57,9 @@ public sealed class ContentItemsControl : ItemsControl
 
     private sealed class ContentItemsControlAutomationPeer(ContentItemsControl owner) : FrameworkElementAutomationPeer(owner)
     {
+        // 型の名前が空だと、確かめで木を書き出したときに何の入れ物か分からない
+        protected override string GetClassNameCore() => nameof(ContentItemsControl);
+
         public override object? GetPattern(PatternInterface patternInterface)
         {
             if (patternInterface == PatternInterface.Scroll

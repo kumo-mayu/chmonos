@@ -482,6 +482,8 @@
                         Background="{DynamicResource RailNoticeBack}" BorderBrush="{DynamicResource RailNoticeFrame}"
                         Foreground="{DynamicResource RailNoticeText}"
                         Command="{Binding ShowStructureAlertCommand}"
+                        AutomationProperties.AutomationId="StructureAlert"
+                        AutomationProperties.Name="BOOTHの情報の形式が変わったかもしれません"
                         ToolTip="{Binding StructureAlert}"
                         Visibility="{Binding HasStructureAlert, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!--
@@ -523,8 +525,11 @@
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopUnityCommand}"
+                            AutomationProperties.AutomationId="UnitySendStop"
+                            AutomationProperties.Name="Unityへ送るのを中止"
                             ToolTip="送るのをやめます。Unityの取り込み画面は「Cancel」で閉じてください。" />
                     <TextBlock Text="{Binding UnitySendText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
+                               AutomationProperties.AutomationId="UnitySendText"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>
@@ -542,11 +547,15 @@
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopLongJobCommand}"
+                            AutomationProperties.AutomationId="LongJobStop"
+                            AutomationProperties.Name="作業を中止"
                             ToolTip="この作業をやめます。そこまでに書き込んだ分はそのまま残ります。" />
                     <TextBlock DockPanel.Dock="Right" Text="{Binding LongJobNote}" Style="{StaticResource Caption}"
+                               AutomationProperties.AutomationId="LongJobNote"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding LongJobText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
+                               AutomationProperties.AutomationId="LongJobText"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>
@@ -564,6 +573,7 @@
                     <Button DockPanel.Dock="Right" Content="中止" Style="{StaticResource SmallButton}"
                             VerticalAlignment="Center" Margin="10,0,0,0"
                             Command="{Binding StopUnpackCommand}"
+                            AutomationProperties.AutomationId="UnpackStop"
                             AutomationProperties.Name="展開を中止"
                             ToolTip="展開をやめます。元のzipはそのまま残ります。"
                             Visibility="{Binding CanStopUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -574,8 +584,10 @@
                                  IsIndeterminate="{Binding HasUnpackProgress, Converter={x:Static vm:InverseBoolConverter.Instance}}" />
                     <!-- 数字の文は切らない。長い zip の名前はその右で切る（名前が先だと、長い名前のときに進み具合が「…」に隠れる） -->
                     <TextBlock DockPanel.Dock="Left" Text="{Binding UnpackText}" Style="{StaticResource Caption}"
+                               AutomationProperties.AutomationId="UnpackText"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding UnpackTargetText}" Style="{StaticResource Caption}"
+                               AutomationProperties.AutomationId="UnpackTargetText"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="12,0,0,0"
                                Opacity="0.75" TextTrimming="CharacterEllipsis" ToolTip="{Binding UnpackTargetText}" />
                 </DockPanel>
@@ -591,20 +603,27 @@
                     Visibility="{Binding HasInterruptedImport, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <DockPanel Height="34">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="続きから進む" Command="{Binding Import.ResumeCommand}" />
+                        <Button Content="続きから進む" Command="{Binding Import.ResumeCommand}"
+                                AutomationProperties.AutomationId="InterruptedImportResume" />
                         <!-- 「やめる」では何が無くなるのか読めなかった（戻せない操作なので、押す前に窓でも聞く） -->
                         <Button Content="続きを捨てる" Margin="8,0,0,0" Command="{Binding Import.DiscardInterruptedCommand}"
+                                AutomationProperties.AutomationId="InterruptedImportDiscard"
                                 ToolTip="{x:Static vm:ImportViewModel.DiscardInterruptedTip}" />
                     </StackPanel>
                     <TextBlock Text="{Binding InterruptedImportText}" Style="{StaticResource Caption}"
+                               AutomationProperties.AutomationId="InterruptedImportText"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
             </Border>
 
             <!-- 押すと取り込みの画面へ（U24）。通信の話を見に行く先は1つにしておく -->
-            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceAlt}"
+            <!-- 押せる帯は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
+            <controls:PressableBorder DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceAlt}"
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Cursor="Hand" ToolTip="取り込みの画面を開く"
+                    Command="{Binding ShowImportCommand}"
+                    AutomationProperties.AutomationId="BoothActivityBar"
+                    AutomationProperties.Name="取り込みの画面を開く"
                     Visibility="{Binding BoothActivity.IsActive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding ShowImportCommand}" />
@@ -618,6 +637,7 @@
                                      IsIndeterminate="{Binding BoothActivity.HasProgress,
                                                        Converter={x:Static vm:InverseBoolConverter.Instance}}" />
                         <TextBlock Text="{Binding BoothActivity.Text}" Style="{StaticResource Caption}"
+                                   AutomationProperties.AutomationId="BoothActivityText"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <!--
                             閉じてよいことを、走っている間はどの画面でも見えるようにする（ユーザ判断 2026-09-21）。
@@ -633,7 +653,7 @@
                                ToolTip="BOOTHの指示で、問い合わせの間隔を広げています。"
                                Visibility="{Binding BoothActivity.IsThrottled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </Grid>
-            </Border>
+            </controls:PressableBorder>
 
             <!--
                 落とした URL の商品を登録している間（洗い出し 12）。登録は BOOTH の順番を待つので、「はい」を押してから数秒かかる。
@@ -645,6 +665,7 @@
                 <StackPanel Orientation="Horizontal" Height="26">
                     <ProgressBar Background="{DynamicResource AccentBorder}" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center" IsIndeterminate="True" />
                     <TextBlock Text="{Binding DroppedRegisteringText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
+                               AutomationProperties.AutomationId="DroppedRegisteringText"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
@@ -660,15 +681,17 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissRegisteredCommand}" AutomationProperties.Name="この知らせを閉じる"
+                            AutomationProperties.AutomationId="RegisteredNoticeClose"
                             ToolTip="この知らせを閉じます。商品は検索から開けます。" />
                     <Button DockPanel.Dock="Right" Content="{Binding RegisteredNoticeAction}" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                            Command="{Binding OpenRegisteredCommand}" />
+                            Command="{Binding OpenRegisteredCommand}" AutomationProperties.AutomationId="RegisteredNoticeOpen" />
                     <!-- 出ている間に来た別の知らせは待たせて、閉じたら次を出す（ユーザ判断 2026-09-23）。待っていると分かるように数を出す -->
                     <TextBlock DockPanel.Dock="Right" Text="{Binding RegisteredNoticeWaitingText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" Margin="0,0,10,0"
                                ToolTip="この知らせを押すか閉じると、次の知らせが表示されます。"
                                Visibility="{Binding HasRegisteredNoticeWaiting, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <TextBlock Text="{Binding RegisteredNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="RegisteredNoticeText"
                                TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
                 </DockPanel>
             </Border>
@@ -683,10 +706,12 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissImportNoticeCommand}" AutomationProperties.Name="取り込みの知らせを閉じる"
+                            AutomationProperties.AutomationId="ImportNoticeClose"
                             ToolTip="この知らせを閉じます。取り込みは止まりません。" />
                     <Button DockPanel.Dock="Right" Content="取り込み画面を開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                            Command="{Binding OpenImportFromNoticeCommand}" />
+                            Command="{Binding OpenImportFromNoticeCommand}" AutomationProperties.AutomationId="ImportNoticeOpen" />
                     <TextBlock Text="{Binding ImportNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="ImportNoticeText"
                                TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding ImportNoticeText}" />
                 </DockPanel>
             </Border>
@@ -701,11 +726,13 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissHiddenCommand}" AutomationProperties.Name="非表示の知らせを閉じる"
+                            AutomationProperties.AutomationId="HiddenNoticeClose"
                             ToolTip="この知らせを閉じます。設定の「非表示にした商品」から戻せます。" />
                     <Button DockPanel.Dock="Right" Content="非表示を解除" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                            Command="{Binding UnhideRecentCommand}"
+                            Command="{Binding UnhideRecentCommand}" AutomationProperties.AutomationId="HiddenNoticeUndo"
                             ToolTip="今非表示にした商品を、検索とショップにまた表示します。" />
                     <TextBlock Text="{Binding HiddenNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="HiddenNoticeText"
                                TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding HiddenNoticeText}" />
                 </DockPanel>
             </Border>
@@ -720,10 +747,12 @@
                 <DockPanel Height="32">
                     <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
                             Command="{Binding DismissFolderRemovedCommand}" AutomationProperties.Name="外した知らせを閉じる"
+                            AutomationProperties.AutomationId="FolderRemovedNoticeClose"
                             ToolTip="この知らせを閉じます。" />
                     <Button DockPanel.Dock="Right" Content="{Binding FolderRemovedUndoText}" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
-                            Command="{Binding UndoFolderRemovalCommand}" />
+                            Command="{Binding UndoFolderRemovalCommand}" AutomationProperties.AutomationId="FolderRemovedNoticeUndo" />
                     <TextBlock Text="{Binding FolderRemovedText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="FolderRemovedNoticeText"
                                TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding FolderRemovedText}" />
                 </DockPanel>
             </Border>
@@ -749,12 +778,13 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBox x:Name="FindBox" Width="220" Padding="6,3"
                                  TextChanged="OnFindTextChanged" PreviewKeyDown="OnFindKeyDown"
+                                 AutomationProperties.Name="画面内検索"
                                  ToolTip="画面の中を探します。Enterで次、Shift+Enterで前へ移ります。" />
                         <TextBlock x:Name="FindCount" Style="{StaticResource Caption}" Margin="10,0,8,0" MinWidth="64"
                                    VerticalAlignment="Center" />
-                        <Button Content="↑" Style="{StaticResource SmallButton}" Click="OnFindPrevious" ToolTip="前の一致" />
-                        <Button Content="↓" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Click="OnFindNext" ToolTip="次の一致" />
-                        <Button Content="×" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnFindClose" ToolTip="閉じる（Esc）" />
+                        <Button Content="↑" Style="{StaticResource SmallButton}" Click="OnFindPrevious" ToolTip="前の一致" AutomationProperties.Name="前の一致" />
+                        <Button Content="↓" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Click="OnFindNext" ToolTip="次の一致" AutomationProperties.Name="次の一致" />
+                        <Button Content="×" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnFindClose" ToolTip="閉じる（Esc）" AutomationProperties.Name="画面内検索を閉じる" />
                     </StackPanel>
                 </Border>
             </Grid>

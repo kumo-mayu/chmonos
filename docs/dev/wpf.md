@@ -67,6 +67,29 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - 裏から細かく届く進み具合は、最新だけを間引いて出す（`Services/LatestProgress`。`Progress<T>` は全部を画面のスレッドへ積む）
 - 検索の View は1つを持ち回す（`Views/SearchViewHost`）。View に状態を足すときは、離れる（Unloaded）・戻る（Loaded）が何度も来る前提で書く
 
+## UI Automation（読み上げ・自動操作）
+
+付け方の決まりは `docs/spec/ui-input.md`「読み上げの名前」。ここは踏んだ形（2026-09-30。どれも見えない窓に載せて、UI Automation の側から木を書き出して確かめた）。
+
+- **素の `Border`・`TextBlock` は、押す動き（`MouseLeftButtonUp`・`MouseBinding`）と `AutomationProperties.Name` を付けても UI Automation に出ない。**
+  名前だけ付いていて探せなかった（商品ページ・編集画面の星）。`Controls/PressableBorder` に替える——見た目は `Border` のままで、型が Button・Invoke を持つ部品として出る。
+  文字の ✕ は、大きさを持たない `PressableBorder` で包む（余白・手の形・吹き出しは枠へ移す）。コマンドが今は実行できないときは「押せない」と出る
+- **素の `ItemsControl` は行を「データの項目」として出し、名前は行の `ToString()`（行の型の名前）になる。値の等しい行は1つにまとめられ**、
+  2つめ以降の中のボタンが見えない（同じ文字列3行で、見えたボタンは1つ。等しい `record` も同じ）。繰り返しの一覧は `Controls/ContentItemsControl`。
+  中の `ItemsControl.ItemTemplate`・`AncestorType=ItemsControl` は書き換えなくてよい（継いだ型なので当たる）
+- **暗黙の見た目（`<Style TargetType="ListView">`）は、型がぴったり同じ部品にしか当たらない。**継いだ型（`Controls/ItemListView`）は文字の色の指定が外れるので、
+  型の側で `SetResourceReference(StyleProperty, typeof(ListView))` と名指しする。窓口（AutomationPeer）を足すために部品を継ぐときは、暗黙の見た目が在るかを `Themes/Controls.xaml` で確かめる
+- **`ListView`（GridView）の行は「選ぶ」しか持たない。**行を押して画面を移る一覧は、行の窓口に Invoke を足す（`ItemListView`。`ListViewAutomationPeer.CreateItemAutomationPeer` を上書きし、
+  列の見出しと行を作る `GridViewAutomationPeer` は自分で渡す）
+- **`ListBox` の行の名前は、付けなければ行の `ToString()`（型の名前）。**`ItemContainerStyle` で `AutomationProperties.Name` を行の名前に結ぶ。
+  暗黙の行の見た目が在るので、`BasedOn="{StaticResource {x:Type ListBoxItem}}"` を付ける（付けないと見た目が既定に戻る）
+- **`Expander` の見出しの押す所（型の中の `ToggleButton`）は、見出しが文字の並びや札だと名前が無い。**型（`TriangleExpander`・暗黙の `Expander`）が `Expander` の名前を継ぐので、`Expander` に名前を付ける
+- **隠している部品（`Collapsed`・`Hidden`）は、UI Automation の既定の見方（操作できる部品だけ）に出ない。**乗せたときだけ出すボタンは、乗せるまで探せない。自前の窓口で「操作できる部品」を常に真にすると、隠した枠まで出る
+- **メニューの下の段は、開くまで木に無い。**開いた後は窓の外の別の窓に出る。同じ名前の項目は AutomationId で指す
+- **アプリを起動せずに確かめる**：`HwndSource`（`WS_POPUP` だけ・`WS_VISIBLE` なし・画面の外）に部品を載せ、別のスレッドから `AutomationElement.FromHandle` で木をたどる
+  （同じスレッドからは自分の窓を読めない。画面のスレッドは `Dispatcher.PushFrame` で回しておく）。画面の View は `new App().InitializeComponent()` で資源だけ読めば載る（`Run` しないので起動の処理は走らない）。
+  結ぶ値は `ExpandoObject` の作り物でよい（型で見た目を選ぶ所だけは本物が要る）。**メニューや窓を開く操作は押さない**（見えない窓からでも、ポップアップは画面に出る）
+
 ## コマンド
 
 - `RelayCommand` の `CanExecute` は、作った時点の状態で止まることがある（ナビの帯を押しても何も起きなかった。帯の知らせが届く前に作ったコマンドだった）。

@@ -82,7 +82,7 @@
                         <Button Content="最初の未保存へ" Command="{Binding GoFirstUnsavedCommand}" Margin="8,0,0,0"
                                 ToolTip="まだ保存していない最初の商品へ移ります。今の入力は保存しません。" />
                     </StackPanel>
-                <ItemsControl x:Name="QueueStrip" ItemsSource="{Binding QueueTiles}"
+                <controls:ContentItemsControl x:Name="QueueStrip" ItemsSource="{Binding QueueTiles}"
                               AutomationProperties.Name="続く商品"
                               Height="56" VerticalAlignment="Center" Focusable="False"
                               PreviewMouseWheel="QueueStrip_PreviewMouseWheel"
@@ -114,6 +114,8 @@
                                     ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0"
                                     ToolTipService.Placement="Bottom"
                                     Command="{Binding DataContext.JumpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    AutomationProperties.AutomationId="EditQueueTile"
+                                    AutomationProperties.Name="{Binding Title, StringFormat={}{0}へ移る}"
                                     CommandParameter="{Binding}">
                                 <Button.ToolTip>
                                     <ToolTip Padding="8" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
@@ -172,7 +174,7 @@
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                </controls:ContentItemsControl>
                 </DockPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -261,9 +263,12 @@
                                 押すとその場で保存する（右の入力の「保存して次へ」を待たない）
                             -->
                             <DockPanel Margin="0,6,0,0">
-                                <Border DockPanel.Dock="Left" DataContext="{Binding ItemPage}" VerticalAlignment="Top"
+                                <!-- 押せる枠は Border のままだと、名前を付けても読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す -->
+                                <controls:PressableBorder DockPanel.Dock="Left" DataContext="{Binding ItemPage}" VerticalAlignment="Top"
                                         Margin="0,0,6,0" Padding="0,0,2,0"
                                         Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
+                                        Command="{Binding ToggleFavoriteCommand}"
+                                        AutomationProperties.AutomationId="EditFavorite"
                                         AutomationProperties.Name="{Binding FavoriteTip}">
                                     <Border.InputBindings>
                                         <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleFavoriteCommand}" />
@@ -280,7 +285,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                </Border>
+                                </controls:PressableBorder>
                                 <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" />
                             </DockPanel>
                             <TextBlock Text="{Binding ShopName}" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,6,0,0" />
@@ -320,6 +325,7 @@
                                 -->
                                 <Grid Margin="0,7,0,0">
                                     <TextBox x:Name="NameBox" Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="商品名"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
                                     <TextBlock Text="{Binding NamePlaceholder}" IsHitTestVisible="False"
                                                VerticalAlignment="Center" Margin="10,0,10,0"
@@ -346,6 +352,7 @@
 
                                 <Grid Margin="0,7,0,0">
                                     <TextBox x:Name="ShopBox" Text="{Binding ShopNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="ショップ"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
                                     <TextBlock Text="{Binding ShopPlaceholder}" IsHitTestVisible="False"
                                                VerticalAlignment="Center" Margin="10,0,10,0"
@@ -361,7 +368,7 @@
                                     focusで出すのは、キーボードでもタッチでも届くから——
                                     ホバーのtipだけにすると届かない経路がある。
                                 -->
-                                <ItemsControl ItemsSource="{Binding ShopSuggestions}" Margin="0,6,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding ShopSuggestions}" Margin="0,6,0,0">
                                     <ItemsControl.Style>
                                         <Style TargetType="ItemsControl">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -389,10 +396,11 @@
                                                     CommandParameter="{Binding}" />
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
                                 <Grid Margin="0,4,0,0">
                                     <TextBox x:Name="ShopUrlBox" Text="{Binding ShopUrlInput, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="ショップのURL"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
                                     <!-- URLの形は placeholder で見せる。ここは既定が無く、実際に入力を求めている -->
                                     <TextBlock Text="ショップのURL（https://〇〇.booth.pm/）" IsHitTestVisible="False"
@@ -437,6 +445,7 @@
 
                                 <Grid Margin="0,7,0,0">
                                     <TextBox x:Name="CategoryBox" Text="{Binding CategoryInput, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="カテゴリ"
                                              Height="30" VerticalContentAlignment="Center" Padding="8,0" />
                                     <TextBlock Text="{Binding CategoryPlaceholder}" IsHitTestVisible="False"
                                                VerticalAlignment="Center" Margin="10,0,10,0"
@@ -447,7 +456,7 @@
                                 </Grid>
 
                                 <!-- 候補は触ったときだけ。3Dモデルの子が12件並ぶので、常時出すと縦を食う -->
-                                <ItemsControl ItemsSource="{Binding CategorySuggestions}" Margin="0,6,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding CategorySuggestions}" Margin="0,6,0,0">
                                     <ItemsControl.Style>
                                         <Style TargetType="ItemsControl">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -475,22 +484,23 @@
                                                     CommandParameter="{Binding}" />
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
                                 <!-- 「空欄にするとBOOTHの分類に戻ります」は placeholder に移した -->
                             </StackPanel>
 
                             <!-- BOOTHのタグは畳める（ユーザ指示 2026-09-12）。畳んだかどうかは商品ページと共通 -->
-                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,16,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}">
+                            <Expander Style="{StaticResource TriangleExpander}" Margin="0,16,0,0" IsExpanded="{Binding IsBoothTagsExpanded, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="EditBoothTagsExpander" AutomationProperties.Name="BOOTHのタグ">
                                 <Expander.Header>
                                     <TextBlock Style="{StaticResource SectionLabel}"><Run Text="BOOTHのタグ" /><Run Text="{Binding BoothTagsCountText, Mode=OneWay}" /></TextBlock>
                                 </Expander.Header>
                                 <!-- 畳んでいる間は作らず、多い商品は最初の一部と「残り n 件を表示」だけ。作った札は隠すだけで捨てない（商品ページと同じ・見た目は App.xaml） -->
-                                <ItemsControl ItemsSource="{Binding BoothTagTiles}" Margin="0,8,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding BoothTagTiles}" Margin="0,8,0,0">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
                             </Expander>
                         </StackPanel>
                     </Border>
@@ -539,9 +549,10 @@
                         <!-- 打ちかけの字も書きかけに残す（I4）。Text を結んでおくと、控えに入れられる -->
                         <controls:SuggestBox Source="{Binding TagSuggestions}" CommitCommand="{Binding AddTagCommand}"
                                              Text="{Binding TagInput, Mode=TwoWay}"
-                                             Placeholder="ユーザータグを追加（例：衣装）" AutomationProperties.Name="ユーザータグを追加" />
+                                             Placeholder="ユーザータグを追加（例：衣装）" AutomationProperties.Name="ユーザータグを追加"
+                                             AutomationProperties.AutomationId="EditTagInput" />
 
-                        <ItemsControl ItemsSource="{Binding Tags}" Margin="0,8,0,0">
+                        <controls:ContentItemsControl ItemsSource="{Binding Tags}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
@@ -550,12 +561,15 @@
                                             <Grid>
                                                 <TextBlock Text="{Binding Top}" FontSize="13" FontWeight="Medium"
                                                            VerticalAlignment="Center" />
+                                                <!-- 行の数だけ並ぶので、どのタグの「外す」かを名前に入れる -->
                                                 <Button Content="外す" Style="{StaticResource SmallButton}"
+                                                        AutomationProperties.AutomationId="EditTagRemove"
+                                                        AutomationProperties.Name="{Binding Top, StringFormat={}{0}を外す}"
                                                         HorizontalAlignment="Right" Command="{Binding RemoveCommand}" />
                                             </Grid>
 
                                             <!-- 付けたサブだけを並べる -->
-                                            <ItemsControl ItemsSource="{Binding Subs}" Margin="0,8,0,0"
+                                            <controls:ContentItemsControl ItemsSource="{Binding Subs}" Margin="0,8,0,0"
                                                           Visibility="{Binding HasSubs, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -566,28 +580,39 @@
                                                                 BorderThickness="1" CornerRadius="10" Padding="9,2" Margin="0,0,5,5">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding}" FontSize="11.5" Foreground="{DynamicResource AccentText}" />
-                                                                <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                           Foreground="{DynamicResource ChipRemove}" VerticalAlignment="Center">
-                                                                    <TextBlock.InputBindings>
+                                                                <!--
+                                                                    押せる ✕ は文字のままだと読み上げ・自動操作から押せない。大きさを持たない枠で包み、
+                                                                    「押せるボタン」として出す（余白・手の形は枠へ移した。見た目と押せる範囲は同じ）
+                                                                -->
+                                                                <controls:PressableBorder Margin="7,0,0,0" Cursor="Hand" VerticalAlignment="Center"
+                                                                        Command="{Binding DataContext.RemoveSubCommand,
+                                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        AutomationProperties.AutomationId="EditSubRemove"
+                                                                        AutomationProperties.Name="{Binding StringFormat={}{0}を外す}">
+                                                                    <Border.InputBindings>
                                                                         <MouseBinding MouseAction="LeftClick"
                                                                                       Command="{Binding DataContext.RemoveSubCommand,
                                                                                                 RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                                       CommandParameter="{Binding}" />
-                                                                    </TextBlock.InputBindings>
-                                                                </TextBlock>
+                                                                    </Border.InputBindings>
+                                                                    <TextBlock Text="✕" FontSize="10" Foreground="{DynamicResource ChipRemove}" />
+                                                                </controls:PressableBorder>
                                                             </StackPanel>
                                                         </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
+                                            </controls:ContentItemsControl>
 
                                             <controls:SuggestBox Source="{Binding SubCandidates}" CommitCommand="{Binding AddSubCommand}"
-                                                                 Placeholder="小分類を追加" AutomationProperties.Name="小分類を追加" Margin="0,6,0,0" />
+                                                                 Placeholder="小分類を追加" Margin="0,6,0,0"
+                                                                 AutomationProperties.AutomationId="EditSubInput"
+                                                                 AutomationProperties.Name="{Binding Top, StringFormat={}{0}に小分類を追加}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
 
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,16" />
 
@@ -598,9 +623,10 @@
 
                         <controls:SuggestBox Source="{Binding AttributeSuggestions}" CommitCommand="{Binding AddAttributeCommand}"
                                              Text="{Binding AttributeInput, Mode=TwoWay}"
-                                             Placeholder="属性を追加（例：かっこいい）" AutomationProperties.Name="属性を追加" />
+                                             Placeholder="属性を追加（例：かっこいい）" AutomationProperties.Name="属性を追加"
+                                             AutomationProperties.AutomationId="EditAttributeInput" />
 
-                        <ItemsControl ItemsSource="{Binding Attributes}" Margin="0,8,0,0">
+                        <controls:ContentItemsControl ItemsSource="{Binding Attributes}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,0,0,9">
@@ -620,6 +646,7 @@
                                         <Slider Grid.Column="1" Minimum="0" Maximum="100" VerticalAlignment="Center"
                                                 Value="{Binding Value, Mode=TwoWay}" TickFrequency="5" IsSnapToTickEnabled="True"
                                                 SmallChange="5" LargeChange="25"
+                                                AutomationProperties.AutomationId="EditAttributeSlider"
                                                 AutomationProperties.Name="{Binding Name}" />
                                         <!--
                                             並べてあるだけの行は値を出さない。
@@ -633,11 +660,13 @@
                                                    Foreground="{DynamicResource TextFaint}"
                                                    Visibility="{Binding IsSuggested, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         <Button Grid.Column="3" Content="外す" Style="{StaticResource SmallButton}"
+                                                AutomationProperties.AutomationId="EditAttributeRemove"
+                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
                                                 Margin="7,0,0,0" Command="{Binding RemoveCommand}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
 
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,16" />
 
@@ -648,7 +677,8 @@
                             ファイルの結び付けは下の「ファイルの種類分け」だけで行い、ここには数だけ出す。
                             種類の多い商品では膨大になるので、この欄だけ畳める。畳んだかどうかは次の商品へ進んでも保つ
                         -->
-                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}">
+                        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsPurchasesExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="EditPurchasesExpander" AutomationProperties.Name="購入したバリエーション">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock FontWeight="Bold" FontSize="13" VerticalAlignment="Center"><Run Text="購入したバリエーション" /><Run Text="{Binding PurchasesCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
@@ -666,7 +696,7 @@
                                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,6"
                                            ToolTip="空欄は0円として記録します。2回買ったときは［＋］で追加します。" />
 
-                                <ItemsControl ItemsSource="{Binding Variations}">
+                                <controls:ContentItemsControl ItemsSource="{Binding Variations}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -676,7 +706,10 @@
                                                                    VerticalAlignment="Center" Margin="8,0,0,0"
                                                                    ToolTip="付いたファイルの数です。下の「バリエーション分け」で変えられます。" />
                                                         <StackPanel Orientation="Horizontal">
-                                                            <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                            <!-- 印・値段・誰のためかはバリエーションの数だけ並ぶ。どのバリエーションの物かを名前に入れる -->
+                                                            <CheckBox IsChecked="{Binding IsPurchased, Mode=TwoWay}" VerticalAlignment="Center"
+                                                                      AutomationProperties.AutomationId="EditVariationPurchased"
+                                                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}を買った}" />
                                                             <TextBlock Text="{Binding Name}" FontSize="12.5" VerticalAlignment="Center"
                                                                        TextTrimming="CharacterEllipsis" MaxWidth="300" ToolTip="{Binding Name}" />
                                                             <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
@@ -694,6 +727,8 @@
                                                         <Grid>
                                                             <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
                                                                      Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                     AutomationProperties.AutomationId="EditVariationPrice"
+                                                                     AutomationProperties.Name="{Binding Name, StringFormat={}{0}の支払額}"
                                                                      VerticalContentAlignment="Center" />
                                                             <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
                                                                        Foreground="{DynamicResource TextFaint}"
@@ -709,6 +744,8 @@
                                                         -->
                                                         <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
                                                                   Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
+                                                                  AutomationProperties.AutomationId="EditVariationKind"
+                                                                  AutomationProperties.Name="{Binding Name, StringFormat={}{0}は誰のための購入か}"
                                                                   VerticalContentAlignment="Center">
                                                             <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
                                                             <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
@@ -716,6 +753,8 @@
                                                         </ComboBox>
                                                         <!-- 「＋」だけではファイルの結び付けか追加購入か分からなかった（ユーザ指摘）。何が起きるかを名乗らせる -->
                                                         <Button Content="＋ 追加購入" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                AutomationProperties.AutomationId="EditVariationAddPurchase"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の追加購入}"
                                                                 Command="{Binding AddPurchaseCommand}"
                                                                 ToolTip="このバリエーションをもう1回買った記録を追加します。" />
                                                     </StackPanel>
@@ -725,7 +764,7 @@
                                                         1件目の値段の段と同じ位置から始める。種類の行からは既に1段下がっているので、
                                                         さらに下げなくても1件目と見分けられる（ユーザ指摘。以前は行頭に「＋」を置いてずらしていた）
                                                     -->
-                                                    <ItemsControl ItemsSource="{Binding Extras}" Margin="22,4,0,0"
+                                                    <controls:ContentItemsControl ItemsSource="{Binding Extras}" Margin="22,4,0,0"
                                                                   Visibility="{Binding HasExtras, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
@@ -734,6 +773,8 @@
                                                                     <Grid>
                                                                         <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged}" Width="86"
                                                                                  Height="26" FontSize="12" Margin="4,0,0,0" Padding="7,0"
+                                                                                 AutomationProperties.AutomationId="EditExtraPrice"
+                                                                                 AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の支払額}"
                                                                                  VerticalContentAlignment="Center" />
                                                                         <TextBlock Text="0" Margin="12,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"
                                                                                    Foreground="{DynamicResource TextFaint}"
@@ -741,6 +782,8 @@
                                                                     </Grid>
                                                                     <ComboBox SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValuePath="Tag"
                                                                               Width="96" Height="26" FontSize="12" Margin="14,0,0,0"
+                                                                              AutomationProperties.AutomationId="EditExtraKind"
+                                                                              AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入は誰のための購入か}"
                                                                               VerticalContentAlignment="Center">
                                                                         <ComboBoxItem Content="自分用" Tag="{x:Static models:PurchaseKind.ForSelf}" />
                                                                         <ComboBoxItem Content="貰った" Tag="{x:Static models:PurchaseKind.Received}" />
@@ -748,17 +791,19 @@
                                                                     </ComboBox>
                                                                     <!-- 印を外すのではなく行ごと消す。「買った回数」を減らす操作なので -->
                                                                     <Button Content="この記録を削除" Style="{StaticResource DangerButton}"
+                                                                            AutomationProperties.AutomationId="EditExtraRemove"
+                                                                            AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=ItemsControl}, StringFormat={}{0}の追加購入の記録を削除}"
                                                                             ToolTip="この購入記録を消します。元に戻せません。"
                                                                             Margin="10,0,0,0" Command="{Binding RemoveCommand}" />
                                                                 </StackPanel>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
+                                                    </controls:ContentItemsControl>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
                             </StackPanel>
                         </Expander>
 
@@ -771,7 +816,8 @@
                             開けないとき（種類を1つしか買っていない・ファイルも1つ以下）は消さずに灰色にして、理由を右に書く。
                             買った種類が1つのときは、選び欄に「〇〇（自動）」と見せるだけ（書かない）。結び付けられるのは買った種類だけ
                         -->
-                        <Expander IsExpanded="{Binding IsFileSortExpanded, Mode=TwoWay}" IsEnabled="{Binding CanSortFiles}">
+                        <Expander IsExpanded="{Binding IsFileSortExpanded, Mode=TwoWay}" IsEnabled="{Binding CanSortFiles}"
+                                  AutomationProperties.AutomationId="EditFileSortExpander" AutomationProperties.Name="バリエーション分け">
                             <Expander.Style>
                                 <Style TargetType="Expander" BasedOn="{StaticResource TriangleExpander}">
                                     <Style.Triggers>
@@ -810,7 +856,7 @@
                                            Visibility="{Binding HasNoFilesToSort, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!-- ファイルごと -->
-                                <ItemsControl ItemsSource="{Binding FileSortRows}"
+                                <controls:ContentItemsControl ItemsSource="{Binding FileSortRows}"
                                               Visibility="{Binding IsByFileView, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:FileSortRow}">
@@ -820,6 +866,8 @@
                                                               VerticalAlignment="Top" ItemsSource="{Binding Choices}"
                                                               SelectedItem="{Binding Selected, Mode=TwoWay}" DisplayMemberPath="Name"
                                                               IsEnabled="{Binding IsAuto, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                                                              AutomationProperties.AutomationId="EditFileSortChoice"
+                                                              AutomationProperties.Name="{Binding Name, StringFormat={}{0}のバリエーション}"
                                                               ToolTip="このファイルがどのバリエーションのものかを選びます。" />
                                                     <!-- まだどの種類にも付いていないファイル。残りが一目で分かるように -->
                                                     <Border DockPanel.Dock="Left" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
@@ -834,10 +882,10 @@
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
                                 <!-- 種類ごと（以前「購入した種類」の各行にあった選び方） -->
-                                <ItemsControl ItemsSource="{Binding PurchasedVariationRows}"
+                                <controls:ContentItemsControl ItemsSource="{Binding PurchasedVariationRows}"
                                               Visibility="{Binding IsByVariationView, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -849,6 +897,7 @@
                                                             <ComboBox x:Name="FileChoiceBox" ItemsSource="{Binding FileChoices}"
                                                                       SelectedItem="{Binding SelectedFileChoice, Mode=TwoWay}"
                                                                       DisplayMemberPath="Display" Height="26" FontSize="11.5"
+                                                                      AutomationProperties.Name="{Binding Name, StringFormat={}{0}にファイルを追加}"
                                                                       ToolTip="このバリエーションのファイルを選びます。同じバリエーションに複数付けられます。" />
                                                             <!-- 選んでいないときに何の欄かを名乗る（ComboBox は空欄の文字を持てない） -->
                                                             <TextBlock Text="ファイルを追加…" IsHitTestVisible="False" FontSize="11.5"
@@ -860,7 +909,7 @@
                                                     </DockPanel>
 
                                                     <!-- この種類に付けたファイル。✕で外す（買った種類が1つで自動で見せている札には✕を出さない） -->
-                                                    <ItemsControl ItemsSource="{Binding LinkedFiles}" Margin="0,6,0,0"
+                                                    <controls:ContentItemsControl ItemsSource="{Binding LinkedFiles}" Margin="0,6,0,0"
                                                                   Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -872,25 +921,29 @@
                                                                     <StackPanel Orientation="Horizontal">
                                                                         <TextBlock Text="{Binding Name}" FontSize="11" Style="{StaticResource Mono}"
                                                                                    MaxWidth="360" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                                                        <TextBlock Text="✕" FontSize="10" Margin="7,0,0,0" Cursor="Hand"
-                                                                                   Foreground="{DynamicResource ChipRemove}" VerticalAlignment="Center" ToolTip="このバリエーションから外す"
-                                                                                   Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                                            <TextBlock.InputBindings>
+                                                                        <!-- 押せる ✕ を「押せるボタン」として出す（上の小分類の ✕ と同じ。見た目と押せる範囲は同じ） -->
+                                                                        <controls:PressableBorder Margin="7,0,0,0" Cursor="Hand" VerticalAlignment="Center" ToolTip="このバリエーションから外す"
+                                                                                Command="{Binding UnlinkCommand}"
+                                                                                AutomationProperties.AutomationId="EditLinkedFileUnlink"
+                                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}をこのバリエーションから外す}"
+                                                                                Visibility="{Binding CanUnlink, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                            <Border.InputBindings>
                                                                                 <MouseBinding MouseAction="LeftClick" Command="{Binding UnlinkCommand}" />
-                                                                            </TextBlock.InputBindings>
-                                                                        </TextBlock>
+                                                                            </Border.InputBindings>
+                                                                            <TextBlock Text="✕" FontSize="10" Foreground="{DynamicResource ChipRemove}" />
+                                                                        </controls:PressableBorder>
                                                                     </StackPanel>
                                                                 </Border>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
+                                                    </controls:ContentItemsControl>
                                                     <TextBlock Text="まだファイルを付けていません。" Style="{StaticResource Caption}" Margin="0,6,0,0"
                                                                Visibility="{Binding HasLinkedFiles, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
                             </StackPanel>
                         </Expander>
 
@@ -899,6 +952,7 @@
                         <!-- メモ・入手日・その他 -->
                         <TextBlock Text="メモ" FontWeight="Bold" FontSize="13" Margin="0,0,0,8" />
                         <TextBox MaxLength="10000" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                                 AutomationProperties.AutomationId="EditMemo" AutomationProperties.Name="メモ"
                                  TextWrapping="Wrap" MinHeight="72" Padding="9,7" VerticalScrollBarVisibility="Auto" />
 
                         <TextBlock Text="入手日" FontWeight="Bold" FontSize="13" Margin="0,18,0,8" />
@@ -908,6 +962,7 @@
                         -->
                         <Grid>
                             <TextBox x:Name="AcquiredBox" Text="{Binding AcquiredAt, UpdateSourceTrigger=PropertyChanged}" Height="30"
+                                     AutomationProperties.Name="入手日"
                                      ToolTip="yyyy-MM-dd の形で入れてください。"
                                      VerticalContentAlignment="Center" Padding="8,0" />
                             <TextBlock Text="{Binding AcquiredHintText}" IsHitTestVisible="False"
@@ -927,7 +982,7 @@
                             保存できたこと（I8）と、読めなかった欄（I3）を同じ行に出す。
                             **困りごとのときだけ赤**にする——「保存しました。」まで赤いと、できたのか失敗したのか読めない
                         -->
-                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,14,0,20">
+                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,14,0,20" AutomationProperties.AutomationId="EditStatusText">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />

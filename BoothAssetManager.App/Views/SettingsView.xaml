@@ -1,6 +1,7 @@
 <UserControl x:Class="BoothAssetManager.App.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -94,6 +95,8 @@
                             <TextBlock Text="サムネイルに表示する画像" Style="{StaticResource RowLabel}" Width="220" />
                             <ComboBox Width="120" ItemsSource="{x:Static vm:SettingsViewModel.ThumbnailRoles}"
                                       DisplayMemberPath="Label"
+                                      AutomationProperties.AutomationId="Settings.ThumbnailRole"
+                                      AutomationProperties.Name="サムネイルに表示する画像"
                                       SelectedItem="{Binding SelectedThumbnailRole, Mode=TwoWay}" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
@@ -115,11 +118,13 @@
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                             <TextBlock Text="検索の履歴に残す件数" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.SearchHistoryCount" AutomationProperties.Name="検索の履歴に残す件数"
                                      Text="{Binding SearchHistoryCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <!-- 入れられる範囲を出す（I11）。前は範囲外を黙って丸めていた -->
                             <TextBlock Text="（1〜20）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
                             <Button Content="履歴を削除" Style="{StaticResource DangerButton}"
+                                    AutomationProperties.AutomationId="Settings.ClearSearchHistory"
                                     Command="{Binding ClearSearchHistoryCommand}" Margin="14,0,0,0"
                                     ToolTip="検索の履歴をすべて削除します。元に戻せません。いまの検索の条件は変わりません。" />
                         </StackPanel>
@@ -157,6 +162,7 @@
                             <ComboBox Width="120" ItemsSource="{x:Static vm:AppZoom.Options}"
                                       DisplayMemberPath="Label" SelectedValuePath="Percent"
                                       SelectedValue="{Binding Source={x:Static vm:AppZoom.Current}, Path=Percent, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.Zoom"
                                       AutomationProperties.Name="表示の大きさ" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
@@ -171,6 +177,7 @@
                             <ComboBox Width="160" ItemsSource="{x:Static vm:AppTheme.Options}"
                                       DisplayMemberPath="Label" SelectedValuePath="Mode"
                                       SelectedValue="{Binding Source={x:Static vm:AppTheme.Current}, Path=Mode, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.Theme"
                                       AutomationProperties.Name="表示の色" />
                         </StackPanel>
 
@@ -180,6 +187,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />
                             <Button Content="すべて元の幅に戻す" Style="{StaticResource SmallButton}"
+                                    AutomationProperties.AutomationId="Settings.ResetPaneWidths"
                                     Command="{Binding ResetPaneWidthsCommand}" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
@@ -196,6 +204,7 @@
                             <ComboBox Width="160" ItemsSource="{Binding ProjectManagers}"
                                       DisplayMemberPath="Label" SelectedValuePath="Value"
                                       SelectedValue="{Binding ProjectManager, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ProjectManager"
                                       AutomationProperties.Name="プロジェクトの管理に使うアプリ">
                                 <ComboBox.ItemContainerStyle>
                                     <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
@@ -210,7 +219,7 @@
                         <TextBlock Text="ショートカット" Style="{StaticResource SubTitle}" Margin="0,18,0,6" />
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="欄を選んでキーを押すと割り当てられます。Backspaceで外せます。入力欄では、矢印・Home・Endなど文字の入力に使うキーの割り当ては働きません。" />
-                        <ItemsControl ItemsSource="{Binding ShortcutRows}">
+                        <controls:ContentItemsControl ItemsSource="{Binding ShortcutRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -219,13 +228,17 @@
                                                  VerticalContentAlignment="Center" Padding="8,0" Cursor="Hand"
                                                  Tag="shortcut-capture" PreviewKeyDown="OnShortcutKeyDown"
                                                  Text="{Binding DisplayText, Mode=OneWay}"
+                                                 AutomationProperties.AutomationId="Settings.ShortcutKey"
+                                                 AutomationProperties.Name="{Binding Label, StringFormat={}{0}のキー}"
                                                  ToolTip="ここを選んで、割り当てたいキーを押してください" />
                                         <Button Content="既定に戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                AutomationProperties.AutomationId="Settings.ShortcutReset"
+                                                AutomationProperties.Name="{Binding Label, StringFormat={}{0}を既定に戻す}"
                                                 VerticalAlignment="Center" Command="{Binding ResetCommand}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </StackPanel>
                 </Border>
 
@@ -250,6 +263,7 @@
                         -->
                         <Grid Margin="0,8,0,0">
                         <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsFoldersExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="Settings.FoldersExpander"
                                   AutomationProperties.Name="取り込み元の履歴">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
@@ -262,7 +276,7 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="これまでに取り込んだフォルダとファイルです。取り込むのは、取り込み画面で「対象に追加」を押したものだけです。" />
 
-                        <ItemsControl ItemsSource="{Binding Folders}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ImportFolderRow}">
                                     <Grid Margin="0,0,0,6">
@@ -278,14 +292,17 @@
                                                    FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                    VerticalAlignment="Center" />
                                         <Button Grid.Column="2" Content="外す" Style="{StaticResource SmallButton}"
+                                                AutomationProperties.AutomationId="Settings.FolderRemove"
+                                                AutomationProperties.Name="{Binding Path, StringFormat={}{0}を履歴から外す}"
                                                 Command="{Binding RemoveCommand}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                         </StackPanel>
                         </Expander>
                             <Button Content="フォルダを追加" Style="{StaticResource SmallButton}" VerticalAlignment="Top"
+                                    AutomationProperties.AutomationId="Settings.AddFolder"
                                     HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
                         </Grid>
 
@@ -299,7 +316,7 @@
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="起動したときに、この中に新しいファイルが増えていないかを確認します。" />
 
-                        <ItemsControl ItemsSource="{Binding Watched}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ImportFolderRow}">
                                     <Grid Margin="0,0,0,6">
@@ -315,11 +332,13 @@
                                                    FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                    VerticalAlignment="Center" />
                                         <Button Grid.Column="2" Content="外す" Style="{StaticResource SmallButton}"
+                                                AutomationProperties.AutomationId="Settings.WatchedRemove"
+                                                AutomationProperties.Name="{Binding Path, StringFormat={}{0}を監視から外す}"
                                                 Command="{Binding RemoveCommand}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                 </StackPanel>
                     </StackPanel>
                 </Border>
@@ -339,6 +358,7 @@
                             商品の取り直しと対応アバターの検出し直しも止まることが読めなかった。読むのは起動したときだけなので、それも書く
                         -->
                         <CheckBox Style="{StaticResource SettingCheck}"
+                                  AutomationProperties.AutomationId="Settings.ResumeFetchInBackground"
                                   IsChecked="{Binding ResumeFetchInBackground, Mode=TwoWay}">
                             <TextBlock Text="起動したとき、裏で取得を始める" />
                         </CheckBox>
@@ -348,6 +368,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
                             <TextBlock Text="商品情報を取り直す間隔" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.RefreshIntervalDays" AutomationProperties.Name="商品情報を取り直す間隔"
                                      Text="{Binding RefreshIntervalDays, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（1〜365）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -356,6 +377,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="ショップのバナーを確かめ直す間隔" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.ShopBannerRecheckDays" AutomationProperties.Name="ショップのバナーを確かめ直す間隔"
                                      Text="{Binding ShopBannerRecheckDays, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（1〜365）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -364,6 +386,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="対応アバターを検出し直す間隔" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.AvatarDetectRecheckDays" AutomationProperties.Name="対応アバターを検出し直す間隔"
                                      Text="{Binding AvatarDetectRecheckDays, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="日" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（1〜365）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -372,6 +395,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="要確認に残す件数" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.NotificationRetentionCount" AutomationProperties.Name="要確認に残す件数"
                                      Text="{Binding NotificationRetentionCount, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="件" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（20〜5000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -391,6 +415,7 @@
                             検索・絞り込み・統計は商品JSONだけで成立するので、機能は何も失われない。
                         -->
                         <CheckBox Style="{StaticResource SettingCheck}"
+                                  AutomationProperties.AutomationId="Settings.SaveImages"
                                   IsChecked="{Binding SaveImages, Mode=TwoWay}">
                             <TextBlock Text="画像を取って保存する" />
                         </CheckBox>
@@ -400,6 +425,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="BOOTHへの問い合わせ間隔" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.FetchIntervalMs" AutomationProperties.Name="BOOTHへの問い合わせ間隔"
                                      Text="{Binding FetchIntervalMs, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="ミリ秒" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（1500〜10000）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -408,6 +434,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="保存する画像の長辺" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.ImageMaxEdgePixels" AutomationProperties.Name="保存する画像の長辺"
                                      Text="{Binding ImageMaxEdgePixels, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="px" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                             <TextBlock Text="（128〜2048）" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -416,6 +443,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="画像の品質" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.ImageQuality" AutomationProperties.Name="画像の品質"
                                      Text="{Binding ImageQuality, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="（WebP・40〜100）" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
                         </StackPanel>
@@ -433,6 +461,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="改変の写真の長辺" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBox Style="{StaticResource NumberBox}"
+                                     AutomationProperties.AutomationId="Settings.ModificationImageMaxEdgePixels" AutomationProperties.Name="改変の写真の長辺"
                                      IsEnabled="{Binding ModificationSizeEnabled}"
                                      Text="{Binding ModificationImageMaxEdgePixels, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                             <TextBlock Text="px" Style="{StaticResource RowLabel}" Margin="8,0,0,0" />
@@ -459,7 +488,7 @@
                             <TextBlock Text="{Binding HiddenText}" Style="{StaticResource Mono}" FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                        <ItemsControl ItemsSource="{Binding Hidden}" Margin="0,0,0,10"
+                        <controls:ContentItemsControl ItemsSource="{Binding Hidden}" Margin="0,0,0,10"
                                       Visibility="{Binding HasHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">
@@ -469,22 +498,26 @@
                                         <!-- 戻す前に中身を確かめられるよう、商品ページも開ける（動線の点検 D9） -->
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                             <Button Content="商品ページを開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                    AutomationProperties.AutomationId="Settings.HiddenOpen"
+                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の商品ページを開く}"
                                                     Command="{Binding OpenCommand}"
                                                     Visibility="{Binding CanOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             <Button Content="非表示を解除" Style="{StaticResource SmallButton}"
+                                                    AutomationProperties.AutomationId="Settings.HiddenRestore"
+                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}の非表示を解除}"
                                                     Command="{Binding RestoreCommand}" />
                                         </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
 
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,8">
                             <TextBlock Text="管理対象から除外したファイル" Style="{StaticResource RowLabel}" Width="220" />
                             <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Mono}" FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                        <ItemsControl ItemsSource="{Binding Excluded}"
+                        <controls:ContentItemsControl ItemsSource="{Binding Excluded}"
                                       Visibility="{Binding HasExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">
@@ -495,13 +528,15 @@
                                             <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
                                         </StackPanel>
                                         <Button Content="除外を解除" Style="{StaticResource SmallButton}"
+                                                AutomationProperties.AutomationId="Settings.ExcludedRestore"
+                                                AutomationProperties.Name="{Binding Label, StringFormat={}{0}の除外を解除}"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Command="{Binding RestoreCommand}"
                                                 ToolTip="次の取り込みで、また未確定として出てきます。" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
 
                         <!--
                             商品ページで「この商品から外す」を押したもの。
@@ -514,7 +549,7 @@
                             <TextBlock Text="{Binding DetachedText}" Style="{StaticResource Mono}" FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                        <ItemsControl ItemsSource="{Binding Detached}"
+                        <controls:ContentItemsControl ItemsSource="{Binding Detached}"
                                       Visibility="{Binding HasDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RestorableRow}">
@@ -525,13 +560,15 @@
                                             <TextBlock Text="{Binding SubText}" Style="{StaticResource Caption}" />
                                         </StackPanel>
                                         <Button Content="紐付けを戻す" Style="{StaticResource SmallButton}"
+                                                AutomationProperties.AutomationId="Settings.DetachedRestore"
+                                                AutomationProperties.Name="{Binding Label, StringFormat={}{0}の紐付けを戻す}"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Command="{Binding RestoreCommand}"
                                                 ToolTip="次の取り込みで、読み取った情報が指す商品にまた紐付きます。" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </StackPanel>
                 </Border>
 

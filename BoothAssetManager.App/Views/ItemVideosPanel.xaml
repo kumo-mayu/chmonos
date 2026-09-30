@@ -1,6 +1,7 @@
 <UserControl x:Class="BoothAssetManager.App.Views.ItemVideosPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -20,14 +21,15 @@
         既定は畳み、開いたときだけ YouTube へ絵とタイトルを取りに行く。動画が無ければその旨を出し、開けない
     -->
     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,14">
-        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsVideosExpanded, Mode=TwoWay}" IsEnabled="{Binding HasVideos}">
+        <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsVideosExpanded, Mode=TwoWay}" IsEnabled="{Binding HasVideos}"
+                  AutomationProperties.AutomationId="ItemVideosExpander" AutomationProperties.Name="動画">
             <Expander.Header>
                 <TextBlock VerticalAlignment="Center">
                     <Run Text="動画" FontWeight="Bold" /><Run Text="{Binding VideosHeaderText, Mode=OneWay}"
                                                            FontSize="12" Foreground="{DynamicResource TextMuted}" />
                 </TextBlock>
             </Expander.Header>
-            <ItemsControl ItemsSource="{Binding Videos}" Margin="0,12,0,0">
+            <controls:ContentItemsControl ItemsSource="{Binding Videos}" Margin="0,12,0,0">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <!--
@@ -36,6 +38,7 @@
                         -->
                         <Button Command="{Binding OpenCommand}" Cursor="Hand" Margin="0,0,0,10" ToolTip="{Binding Url}"
                                 Height="Auto" MinHeight="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                AutomationProperties.AutomationId="ItemVideoOpen"
                                 AutomationProperties.Name="{Binding TitleText}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
@@ -64,7 +67,7 @@
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            </controls:ContentItemsControl>
         </Expander>
     </Border>
 </UserControl>

@@ -1,6 +1,7 @@
 <UserControl x:Class="BoothAssetManager.App.Views.ImportView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -35,6 +36,7 @@
                                    Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                             <Button Content="フォルダを選択" Style="{StaticResource PrimaryButton}"
+                                    AutomationProperties.AutomationId="ImportChooseFolder"
                                     Command="{Binding AddFolderCommand}" Height="34" />
                         </StackPanel>
                     </StackPanel>
@@ -50,16 +52,19 @@
                         Visibility="{Binding Main.HasWatchedNew, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <DockPanel LastChildFill="False">
                         <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Main.WatchedNewText}" FontSize="13" FontWeight="Medium" />
+                            <TextBlock Text="{Binding Main.WatchedNewText}" FontSize="13" FontWeight="Medium"
+                                       AutomationProperties.AutomationId="ImportWatchedNewText" />
                             <TextBlock Text="押すまで取り込みは始まりません。" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                         </StackPanel>
                         <Button DockPanel.Dock="Right" Content="取り込み対象に入れる" Style="{StaticResource PrimaryButton}"
+                                AutomationProperties.AutomationId="ImportTakeWatchedNew"
                                 VerticalAlignment="Center" Command="{Binding TakeWatchedNewCommand}" />
                         <!--
                             取り込むつもりの無いファイルが監視フォルダに居座ると、起動のたびに同じ件数を
                             知らされ続けていた（消す以外に黙らせる手が無かった・G16）
                         -->
                         <Button DockPanel.Dock="Right" Content="知らせなくてよい" Margin="0,0,9,0"
+                                AutomationProperties.AutomationId="ImportDismissWatchedNew"
                                 VerticalAlignment="Center" Command="{Binding Main.DismissWatchedNewCommand}"
                                 ToolTip="今あるファイルは、これ以上知らせません。新しいファイルは知らせます。" />
                     </DockPanel>
@@ -77,7 +82,7 @@
                                    TextWrapping="Wrap" Margin="18,12,18,0"
                                    Visibility="{Binding HasFolders, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <ItemsControl ItemsSource="{Binding Folders}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
@@ -85,14 +90,17 @@
                                         <!-- 右クリック（ユーザ指示 2026-09-20・M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
-                                                <MenuItem Header="取り込み対象から外す" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
+                                                <MenuItem Header="取り込み対象から外す" Command="{Binding PlacementTarget.Tag.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveFolder" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                                             <!-- 消すのは一覧からの登録だけで、ファイルには触らない。語も「外す」に揃える（V4・W の語彙） -->
+                                            <!-- 行の数だけ並ぶので、どのフォルダのボタンかを名前に入れる -->
                                             <Button Content="対象から外す" MinWidth="88" Height="27" HorizontalAlignment="Right"
+                                                    AutomationProperties.AutomationId="ImportFolderRemove"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}を対象から外す}"
                                                     FontSize="12"
                                                     ToolTip="取り込み対象の一覧から外します。フォルダとファイルはそのまま残ります。"
                                                     Command="{Binding DataContext.RemoveFolderCommand,
@@ -102,18 +110,22 @@
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                         <StackPanel Margin="18,12">
                             <StackPanel Orientation="Horizontal">
                                 <!-- 実行中は「今の取り込みに積む」に変わる。押した先が今の取り込みだと分かるように -->
                                 <Button Content="{Binding StartText}" Style="{StaticResource PrimaryButton}"
+                                        AutomationProperties.AutomationId="ImportStart"
                                         Command="{Binding StartCommand}" />
-                                <Button Content="中断" Margin="9,0,0,0" Command="{Binding CancelCommand}" />
+                                <Button Content="中断" Margin="9,0,0,0" Command="{Binding CancelCommand}"
+                                        AutomationProperties.AutomationId="ImportCancel" />
                                 <!-- 起動時の裏の作業を今始める（ユーザ判断 2026-09-28）。取り込みとは別の作業なので少し離す -->
                                 <Button Content="足りない情報を取得" Margin="18,0,0,0" Command="{Binding FetchMissingCommand}"
+                                        AutomationProperties.AutomationId="ImportFetchMissing"
                                         ToolTip="取り切れなかった画像と、期限の来た商品の情報を取得します。" />
                             </StackPanel>
                             <TextBlock Text="{Binding StackNotice}" Style="{StaticResource Caption}"
+                                       AutomationProperties.AutomationId="ImportStackNotice"
                                        Margin="0,9,0,0" TextWrapping="Wrap"
                                        Visibility="{Binding HasStackNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -126,11 +138,14 @@
                                     Visibility="{Binding HasInterrupted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                        <Button Content="続きから進む" Command="{Binding ResumeCommand}" />
+                                        <Button Content="続きから進む" Command="{Binding ResumeCommand}"
+                                                AutomationProperties.AutomationId="ImportResume" />
                                         <Button Content="続きを捨てる" Margin="8,0,0,0" Command="{Binding DiscardInterruptedCommand}"
+                                                AutomationProperties.AutomationId="ImportDiscardInterrupted"
                                                 ToolTip="{x:Static vm:ImportViewModel.DiscardInterruptedTip}" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding InterruptedText}" FontSize="12" TextWrapping="Wrap"
+                                               AutomationProperties.AutomationId="ImportInterruptedText"
                                                VerticalAlignment="Center" />
                                 </DockPanel>
                             </Border>
@@ -165,10 +180,12 @@
                                 -->
                                 <DockPanel LastChildFill="False" Margin="0,10,0,0">
                                     <Button DockPanel.Dock="Left" Content="見つからないファイルを探す"
+                                            AutomationProperties.AutomationId="ImportFindMissingFiles"
                                             Style="{StaticResource SmallButton}"
                                             Command="{Binding FindMissingFilesCommand}"
                                             ToolTip="監視フォルダから探して紐付け直します。ファイルは動かしません。" />
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding MissingSearchText}"
+                                               AutomationProperties.AutomationId="ImportMissingSearchText"
                                                Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
@@ -178,7 +195,7 @@
                                    Text="まだ監視しているフォルダはありません。フォルダを上の枠にドロップすると、監視するかどうかを聞きます。"
                                    Visibility="{Binding HasWatched, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <ItemsControl ItemsSource="{Binding Watched}">
+                        <controls:ContentItemsControl ItemsSource="{Binding Watched}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
@@ -186,13 +203,15 @@
                                         <!-- 右クリック（M2）。行のボタンと同じ操作に、場所を開くを足す -->
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
-                                                <MenuItem Header="監視から外す" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
+                                                <MenuItem Header="監視から外す" Command="{Binding PlacementTarget.Tag.RemoveWatchedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.RemoveWatched" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <Grid>
                                             <TextBlock Text="{Binding}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
                                             <Button Content="外す" Width="60" Height="27" HorizontalAlignment="Right"
+                                                    AutomationProperties.AutomationId="ImportWatchedRemove"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}を監視から外す}"
                                                     FontSize="12"
                                                     ToolTip="監視をやめます。取り込んだ記録はそのままです。"
                                                     Command="{Binding DataContext.RemoveWatchedCommand,
@@ -202,7 +221,7 @@
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </StackPanel>
                 </Border>
 
@@ -227,16 +246,16 @@
                                    TextWrapping="Wrap" Margin="18,12,18,14"
                                    Visibility="{Binding HasHistory, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
-                        <ItemsControl ItemsSource="{Binding History}">
+                        <controls:ContentItemsControl ItemsSource="{Binding History}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,11"
                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
-                                                <MenuItem Header="取り込み対象に追加" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
-                                                <MenuItem Header="履歴から消す" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="エクスプローラで開く" Command="{Binding PlacementTarget.Tag.RevealFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.Reveal" />
+                                                <MenuItem Header="取り込み対象に追加" Command="{Binding PlacementTarget.Tag.TakeFromHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.TakeFromHistory" />
+                                                <MenuItem Header="履歴から消す" Command="{Binding PlacementTarget.Tag.ForgetHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}" AutomationProperties.AutomationId="ImportRowMenu.ForgetHistory" />
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <DockPanel>
@@ -245,12 +264,16 @@
                                                 枠で文字の置き場が足りず、「履歴から消す」の最後の「す」が欠けた（点検 2026-09-23）
                                             -->
                                             <Button DockPanel.Dock="Right" Content="履歴から消す" MinWidth="94" Height="27"
+                                                    AutomationProperties.AutomationId="ImportHistoryForget"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}を履歴から消す}"
                                                     FontSize="12" Margin="8,0,0,0"
                                                     ToolTip="履歴の一覧から消します。フォルダとファイルはそのまま残ります。"
                                                     Command="{Binding DataContext.ForgetHistoryCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button DockPanel.Dock="Right" Content="対象に追加" MinWidth="88" Height="27"
+                                                    AutomationProperties.AutomationId="ImportHistoryTake"
+                                                    AutomationProperties.Name="{Binding StringFormat={}{0}を対象に追加}"
                                                     FontSize="12"
                                                     ToolTip="今回の取り込み対象に入れます。押しただけでは取り込みは始まりません。"
                                                     Command="{Binding DataContext.TakeFromHistoryCommand,
@@ -262,7 +285,7 @@
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </StackPanel>
                 </Border>
 
@@ -272,12 +295,15 @@
                     <StackPanel>
                         <!-- 進み具合を見ている目の先に中断を置く（ユーザ指摘 2026-09-28。上の「取り込みを開始」の横だけでは気付きにくい） -->
                         <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="中断" Command="{Binding CancelCommand}" VerticalAlignment="Center" />
+                        <Button DockPanel.Dock="Right" Content="中断" Command="{Binding CancelCommand}" VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ImportProgressCancel" />
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding PhaseText}" FontWeight="Bold" FontSize="13" />
+                            <TextBlock Text="{Binding PhaseText}" FontWeight="Bold" FontSize="13" AutomationProperties.AutomationId="ImportPhaseText" />
                             <!-- 何を数えているか。件数だけだと検出の「346 / 599」がアバターの数に見えた -->
-                            <TextBlock Text="{Binding StepText}" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Mono}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding StepText}" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="ImportStepText" />
+                            <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Mono}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="ImportProgressText" />
                         </StackPanel>
                         </DockPanel>
                         <!-- ProgressBar.Value は RangeBase 由来で既定が TwoWay。読み取り専用プロパティに繋ぐので明示的に OneWay にする -->
@@ -306,6 +332,7 @@
                             <TextBlock Text="{Binding EtaImagesText}" Style="{StaticResource Caption}" />
                         </WrapPanel>
                         <TextBlock Text="{Binding DetailText}" Style="{StaticResource Caption}" Margin="0,10,0,0"
+                                   AutomationProperties.AutomationId="ImportDetailText"
                                    TextTrimming="CharacterEllipsis" />
 
                         <!-- 黙って遅くなると原因が分からないので、減速中はその旨を出す -->
@@ -313,6 +340,7 @@
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding IsThrottled, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding ThrottleText}" FontSize="12" Foreground="{DynamicResource Warn}"
+                                       AutomationProperties.AutomationId="ImportThrottleText"
                                        TextWrapping="Wrap" />
                         </Border>
                     </StackPanel>
@@ -329,6 +357,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="使っていない間の取得" FontWeight="Bold" FontSize="13" />
                             <TextBlock Text="{Binding Activity.BackgroundText}" Style="{StaticResource Caption}"
+                                       AutomationProperties.AutomationId="ImportBackgroundText"
                                        Margin="12,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <ProgressBar Height="6" Margin="0,12,0,0" Minimum="0" Maximum="1"
@@ -343,7 +372,8 @@
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,14"
                         Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                         Visibility="{Binding HasError, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource DangerText}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource DangerText}" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="ImportErrorText" />
                 </Border>
 
                 <!-- 結果 -->
@@ -357,6 +387,7 @@
                                 BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,0,0,14"
                                 Visibility="{Binding HasAvatarSummary, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding AvatarSummaryText}" FontSize="12" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="ImportAvatarSummaryText"
                                        Foreground="{DynamicResource AccentText}" />
                         </Border>
                         <!--
@@ -367,6 +398,7 @@
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding HasNotFound, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding NotFoundText}" FontSize="12" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="ImportNotFoundText"
                                        Foreground="{DynamicResource Warn}" />
                         </Border>
 
@@ -375,10 +407,11 @@
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding HasUnreadable, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <!-- 文ごとに分け、間に空きを置く（折り返した行と次の文の切れ目が分かるように） -->
-                            <ItemsControl ItemsSource="{Binding UnreadableLines}" Focusable="False">
+                            <controls:ContentItemsControl ItemsSource="{Binding UnreadableLines}" Focusable="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock x:Name="Line" Text="{Binding}" FontSize="12" TextWrapping="Wrap"
+                                                   AutomationProperties.AutomationId="ImportUnreadableLine"
                                                    Foreground="{DynamicResource Warn}" Margin="0,7,0,0" />
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
@@ -387,7 +420,7 @@
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </Border>
 
                         <!--
@@ -398,15 +431,18 @@
                         <!-- 3つ並ぶと狭い幅で右が切れるので、入らない分は次の行へ送る（下の余白が行の間になる） -->
                         <WrapPanel Margin="0,10,0,0">
                             <Button Content="未確定を開く" Style="{StaticResource SmallButton}" Margin="0,0,8,14"
+                                    AutomationProperties.AutomationId="ImportOpenResolve"
                                     Command="{Binding OpenResolveCommand}"
                                     Visibility="{Binding HasUnresolvedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="商品が決まらなかったファイルを、1件ずつ確かめて決めます。" />
                             <!-- 商品に結び付いた壊れた zip。上の文が言う商品を、検索の条件「壊れたzip」で並べる（ユーザ判断 2026-09-30） -->
                             <Button Content="壊れたzipがある商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,8,14"
+                                    AutomationProperties.AutomationId="ImportShowBrokenZip"
                                     Command="{Binding ShowBrokenZipCommand}"
                                     Visibility="{Binding HasBrokenOnItemsResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="壊れたzipがある商品だけを検索で表示します。ほかの条件は外します。" />
                             <Button Content="取り込んだ商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,0,14"
+                                    AutomationProperties.AutomationId="ImportShowAdded"
                                     Command="{Binding ShowAddedCommand}"
                                     Visibility="{Binding HasAddedResult, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                     ToolTip="最近取り込んだ順に並べて、検索を開きます。ほかの条件は外します。" />
@@ -416,41 +452,50 @@
                         <UniformGrid Columns="4" Rows="3">
                             <StackPanel Margin="0,0,12,10">
                                 <TextBlock Text="スキャンしたファイル" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.FilesScanned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.FilesScanned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.FilesScanned" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
                                 <TextBlock Text="中身を確かめた" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.FilesHashed}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.FilesHashed}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.FilesHashed" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
                                 <TextBlock Text="確かめを省いた" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.FilesReusedFromCache}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.FilesReusedFromCache}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.FilesReusedFromCache" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,10">
                                 <TextBlock Text="展開先として除外" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.FilesSkippedAsUnpacked}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.FilesSkippedAsUnpacked}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.FilesSkippedAsUnpacked" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="新規に取得" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.ItemsAdded}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.ItemsAdded}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.ItemsAdded" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="取得済みだった" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.ItemsAlreadyKnown}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.ItemsAlreadyKnown}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.ItemsAlreadyKnown" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="未確定" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding Summary.UnresolvedFiles}" FontSize="20" FontWeight="Bold"
+                                           AutomationProperties.AutomationId="ImportSummary.UnresolvedFiles"
                                            FontFamily="Consolas" Foreground="{DynamicResource Warn}" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,0">
                                 <TextBlock Text="取得した画像" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.ImagesDownloaded}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.ImagesDownloaded}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.ImagesDownloaded" />
                             </StackPanel>
                             <StackPanel Margin="0,0,12,0">
                                 <!-- 手作業で紐付けたファイル。手掛かりからは決まらないので毎回ここへ落ちてくる -->
                                 <TextBlock Text="管理済みで再掲せず" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Summary.FilesAlreadyOwned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas" />
+                                <TextBlock Text="{Binding Summary.FilesAlreadyOwned}" FontSize="20" FontWeight="Bold" FontFamily="Consolas"
+                                           AutomationProperties.AutomationId="ImportSummary.FilesAlreadyOwned" />
                             </StackPanel>
                         </UniformGrid>
                     </StackPanel>
@@ -463,7 +508,7 @@
                         <TextBlock Text="展開先とみなしたフォルダ" FontWeight="Bold" FontSize="13" />
                         <TextBlock Text="アーカイブを展開したものなので取り込んでいません。アーカイブを残すなら削除して容量を戻せます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,12" />
-                        <ItemsControl ItemsSource="{Binding UnpackedFolders}">
+                        <controls:ContentItemsControl ItemsSource="{Binding UnpackedFolders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,9">
@@ -475,6 +520,8 @@
                                                 <ColumnDefinition Width="90" />
                                             </Grid.ColumnDefinitions>
                                             <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      AutomationProperties.AutomationId="ImportUnpackedSelect"
+                                                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0} を選ぶ'}"
                                                       VerticalAlignment="Center" />
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Text="{Binding Name}" FontSize="12.5" />
@@ -492,26 +539,29 @@
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
 
                         <Grid Margin="0,14,0,0">
                             <TextBlock Text="{Binding UnpackedSelectionText}" Style="{StaticResource Caption}"
+                                       AutomationProperties.AutomationId="ImportUnpackedSelectionText"
                                        VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,230,0" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="選択を切り替え" Command="{Binding SelectAllUnpackedCommand}" />
+                                <Button Content="選択を切り替え" Command="{Binding SelectAllUnpackedCommand}"
+                                        AutomationProperties.AutomationId="ImportUnpackedToggleAll" />
                                 <!-- 破壊的な操作なので、押した先で必ず確認を挟む。実際の削除はごみ箱送り -->
-                                <Button Content="ごみ箱へ移動" Margin="9,0,0,0" Command="{Binding RemoveUnpackedCommand}" />
+                                <Button Content="ごみ箱へ移動" Margin="9,0,0,0" Command="{Binding RemoveUnpackedCommand}"
+                                        AutomationProperties.AutomationId="ImportUnpackedRemove" />
                             </StackPanel>
                         </Grid>
 
-                        <ItemsControl ItemsSource="{Binding RemovalResults}" Margin="0,12,0,0"
+                        <controls:ContentItemsControl ItemsSource="{Binding RemovalResults}" Margin="0,12,0,0"
                                       Visibility="{Binding HasRemovalResults, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,4" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </StackPanel>
                 </Border>
             </StackPanel>

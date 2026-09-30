@@ -299,7 +299,7 @@
                 <!-- 縦線は改変の三角の真下（三角の幅 18 の半分 = 9）。中身の位置は線が無かったときと同じ 36 -->
                 <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0"
                         Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <ItemsControl ItemsSource="{Binding Members}" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Members}" />
                 </Border>
             </StackPanel>
         </DataTemplate>
@@ -354,7 +354,7 @@
                 -->
                 <Border Margin="13,2,0,0" Padding="8,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0"
                         Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <ItemsControl ItemsSource="{Binding Modifications}" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Modifications}" />
                 </Border>
             </StackPanel>
         </DataTemplate>
@@ -435,7 +435,7 @@
                 -->
                 <Border Margin="13,2,0,0" Padding="8,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0"
                         Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                    <ItemsControl ItemsSource="{Binding Modifications}" />
+                    <controls:ContentItemsControl ItemsSource="{Binding Modifications}" />
                 </Border>
             </StackPanel>
         </DataTemplate>
@@ -526,7 +526,7 @@
                             <TextBlock Text="このプロジェクトの改変" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
                             <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Visibility="{Binding HasModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            <ItemsControl ItemsSource="{Binding Modifications}" />
+                            <controls:ContentItemsControl ItemsSource="{Binding Modifications}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -582,7 +582,7 @@
                             <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
                             <TextBlock Text="まだありません。下で名前を付けて作れます。" Style="{StaticResource Caption}"
                                        Visibility="{Binding HasModifications, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                            <ItemsControl ItemsSource="{Binding Modifications}" />
+                            <controls:ContentItemsControl ItemsSource="{Binding Modifications}" />
 
                             <Border Height="1" Background="{DynamicResource Border}" Margin="0,12" />
                             <TextBlock Text="新しい改変" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
@@ -591,6 +591,7 @@
                                         Margin="8,0,0,0"
                                         Command="{Binding DataContext.CreateModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                 <TextBox Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}" Height="30"
+                                             AutomationProperties.Name="新しい改変の名前"
                                          VerticalContentAlignment="Center" Padding="7,0" />
                             </DockPanel>
                             <TextBlock Text="「普段着」「制服」のように、着せ替え1つにつき1つ作ります。同じアバターに何個でも作れます。"
@@ -626,7 +627,7 @@
                         <TextBlock Text="{Binding DestinationText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
                         <Expander Style="{StaticResource TriangleExpander}" Header="{Binding UsedInHeader}" Margin="0,6,0,0" FontSize="12">
                             <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
-                                <ItemsControl ItemsSource="{Binding UsedIn}" />
+                                <controls:ContentItemsControl ItemsSource="{Binding UsedIn}" />
                             </ScrollViewer>
                         </Expander>
                     </StackPanel>
@@ -686,7 +687,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
                         <StackPanel>
                             <TextBlock Text="この商品を使った改変" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
-                            <ItemsControl ItemsSource="{Binding UsedIn}" />
+                            <controls:ContentItemsControl ItemsSource="{Binding UsedIn}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

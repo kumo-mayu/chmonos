@@ -64,13 +64,25 @@ public partial class ItemCardResources : ResourceDictionary
         ActivateCard(sender);
     }
 
-    /// <summary>読み上げ・自動操作の「押す」（ItemCardBorder）。マウスで押したのと同じ</summary>
+    /// <summary>
+    /// 読み上げ・自動操作の「押す」（ItemCardBorder）。カードに止まって Enter を押したのと同じ
+    /// （戻ってきたときに止まり直す所まで同じにする。読み上げで開いて戻ると、どのカードにいたかが分からなくなる）
+    /// </summary>
     private void OnCardInvoked(object? sender, EventArgs e)
     {
         if (sender is not null)
         {
+            RememberForReturn(sender);
             ActivateCard(sender);
         }
+    }
+
+    /// <summary>読み上げ・自動操作の「押す」（ItemListView の行）。行に止まって Enter を押したのと同じ</summary>
+    private void OnListRowInvoked(object sender, RoutedEventArgs e)
+    {
+        RememberForReturn(sender);
+        ActivateRow(sender);
+        e.Handled = true;
     }
 
     private static void ActivateCard(object sender)
@@ -304,6 +316,15 @@ public partial class ItemCardResources : ResourceDictionary
         }
     }
 
+    /// <summary>読み上げ・自動操作から星を押した（PressableBorder）。マウスで押したのと同じ</summary>
+    private void OnFavoriteInvoked(object? sender, EventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card } && HostOf(sender) is { } host)
+        {
+            host.ToggleFavoriteAsync(card).Forget();
+        }
+    }
+
     /// <summary>選択中でも商品ページへ移れる出口。</summary>
     private void OnOpenItemClick(object sender, MouseButtonEventArgs e)
     {
@@ -311,6 +332,15 @@ public partial class ItemCardResources : ResourceDictionary
         {
             host.OpenItem(card);
             e.Handled = true;
+        }
+    }
+
+    /// <summary>読み上げ・自動操作から「中を見る」を押した（PressableBorder）。マウスで押したのと同じ</summary>
+    private void OnOpenItemInvoked(object? sender, EventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ItemCardViewModel card } && HostOf(sender) is { } host)
+        {
+            host.OpenItem(card);
         }
     }
 

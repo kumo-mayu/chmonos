@@ -187,7 +187,7 @@
                             -->
                             <Grid Tag="{Binding}" Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <!-- カード -->
-                                <ItemsControl ItemsSource="{Binding Members}" Focusable="False"
+                                <controls:ContentItemsControl ItemsSource="{Binding Members}" Focusable="False"
                                               Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -236,11 +236,15 @@
                                                 <!-- カードは左から右へ並ぶので、並べ替えは左右の矢印（ユーザ指摘 2026-09-14。リストは縦なので上下のまま） -->
                                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                                     <Button Content="◀" Style="{StaticResource SmallButton}" ToolTip="{Binding MoveBackHint}"
+                                                                AutomationProperties.AutomationId="MemberMoveBack"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を前へ移動}"
                                                             ToolTipService.ShowOnDisabled="True"
                                                             IsEnabled="{Binding CanMoveBack}"
                                                             Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <Button Content="▶" Style="{StaticResource SmallButton}" Margin="5,0,0,0" ToolTip="{Binding MoveForwardHint}"
+                                                                AutomationProperties.AutomationId="MemberMoveForward"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を後ろへ移動}"
                                                             ToolTipService.ShowOnDisabled="True"
                                                             IsEnabled="{Binding CanMoveForward}"
                                                             Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -279,7 +283,7 @@
                                             </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
                                 <!-- リスト。絵・星は検索のリストと同じ部品。列の幅は見出しの境目をドラッグで変え、この画面で覚える -->
                                 <ListView x:Name="MemberList" SizeChanged="OnMemberListSizeChanged"
@@ -381,11 +385,15 @@
                                                         <Border Style="{StaticResource ItemListCellFrame}">
                                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                                 <Button Content="▲" Style="{StaticResource SmallButton}" ToolTip="{Binding MoveBackHint}"
+                                                                    AutomationProperties.AutomationId="MemberMoveBack"
+                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}を前へ移動}"
                                                                         ToolTipService.ShowOnDisabled="True"
                                                                         IsEnabled="{Binding CanMoveBack}"
                                                                         Command="{Binding DataContext.MoveMemberBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
                                                                 <Button Content="▼" Style="{StaticResource SmallButton}" Margin="4,0,0,0" ToolTip="{Binding MoveForwardHint}"
+                                                                    AutomationProperties.AutomationId="MemberMoveForward"
+                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}を後ろへ移動}"
                                                                         ToolTipService.ShowOnDisabled="True"
                                                                         IsEnabled="{Binding CanMoveForward}"
                                                                         Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -455,7 +463,7 @@
                                 <TextBlock Text="{Binding ProjectFindText}" Style="{StaticResource Caption}"
                                            TextWrapping="Wrap" Margin="0,6,0,0"
                                            Visibility="{Binding HasProjectFindText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                <ItemsControl ItemsSource="{Binding FoundInProject}" Margin="0,4,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding FoundInProject}" Margin="0,4,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:ProjectCandidateRowViewModel}">
                                             <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -478,7 +486,7 @@
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -494,6 +502,8 @@
                         <StackPanel>
                             <TextBlock Text="アバター" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
                             <Button Style="{StaticResource MemberNameLink}" Command="{Binding OpenAvatarCommand}"
+                                    AutomationProperties.AutomationId="ModificationOpenAvatar"
+                                    AutomationProperties.Name="このアバターをアバターの管理で開く"
                                     ToolTip="このアバターをアバターの管理で開きます。同じアバターのほかの改変も見られます。">
                                 <DockPanel>
                                     <Border DockPanel.Dock="Left" Width="48" Height="48" CornerRadius="6" Margin="0,0,12,0"
@@ -524,6 +534,7 @@
                             <!-- 押さずに残す（ユーザ指示 2026-09-19：タグ・属性・アバターのメモと揃える） -->
                             <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
                             <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"
+                                     AutomationProperties.Name="改変の名前"
                                      Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="「普段着」「制服」のような呼び分けです。打ち終えると保存されます。" />
 
@@ -540,6 +551,7 @@
                                         IsEnabled="{Binding CanChangeAvatar}" ToolTipService.ShowOnDisabled="True"
                                         ToolTip="VRChatへ着替えの合図を送ります。IDが空のときは押せません。" />
                                 <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center" FontFamily="Consolas"
+                                         AutomationProperties.Name="VRChatのblueprint ID"
                                          Text="{Binding BlueprintInput, UpdateSourceTrigger=PropertyChanged}" />
                             </DockPanel>
                             <TextBlock Text="{Binding BlueprintHint}" FontSize="11" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0"
@@ -608,7 +620,7 @@
                                        Visibility="{Binding HasProjectCandidates, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                             <!-- 開いているものが先に来る。紐付けたいのは大抵いま作業しているもの -->
-                            <ItemsControl ItemsSource="{Binding ProjectCandidates}" MaxHeight="260"
+                            <controls:ContentItemsControl ItemsSource="{Binding ProjectCandidates}" MaxHeight="260"
                                           Visibility="{Binding HasProjectCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.Template>
                                     <ControlTemplate TargetType="ItemsControl">
@@ -682,7 +694,7 @@
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </StackPanel>
                     </Border>
 
@@ -691,6 +703,7 @@
                             <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,0,0,8" />
                             <TextBox Height="120" Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                     AutomationProperties.Name="メモ"
                                      Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="貫通の直し方など、次に作るときに要ることを書けます。打ち終えると保存されます。" />
                         </StackPanel>
