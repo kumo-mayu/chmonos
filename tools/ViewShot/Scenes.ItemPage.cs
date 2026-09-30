@@ -96,9 +96,8 @@ internal static partial class Scenes
 
         // ---- 主の窓の商品ページの、流した位置（進む＝先頭から・戻る／進む＝離れたときの位置・同じ商品の開き直し＝保つ） ----
         // 下の「戻る」「進む」「開き直す」の4枚は、この item-page-long-scrolled と同じ位置で出るはず。diff で比べる。
-        // 画面が使い回される3枚（back-after-scroll・forward-after-back・reopen-after-scroll）は、右の列の下端が1行ぶん（28px）短い：
-        // 使い回された画面では「ローカルファイル」の欄の Unity の送り先の行が出ない（流した位置とは別の件。2026-09-30 に見つけた）。
-        // 左の列（説明）が同じなら、位置は合っている
+        // 画面が使い回される物（back-after-scroll・reopen-after-scroll）も、見本と画素まで同じになる。
+        // 前は右の列の下端が1行ぶん（28px）短かった：後から読んで付く「Unity の送り先の行」の出し分けが、付いたことを知らせていなかった（同日に直した）
 
         new Scene("item-page-long-scrolled", "商品ページ：説明の長い商品を途中まで流した所（位置の場面の見本）", async context =>
         {
@@ -195,7 +194,6 @@ internal static partial class Scenes
 
         // 説明が短く、右の列が長い商品。右の列の行（zip の中の Unity へ送れる物）は裏で読んで後から届くので、
         // 戻った直後は流せる長さが足りない。届いてから位置が合うことを見る（下の2枚は、どちらも最後のカードの下端まで流れているはず）。
-        // 2枚の差は「ローカルファイル」の欄の Unity の送り先の1行（28px）だけ：この行は出たり出なかったりする（上の見本の注と同じ件）
         new Scene("item-page-files-end", "商品ページ：説明が短くファイルの多い商品を、最後まで流した所（item-page-files-back の見本）", async context =>
         {
             var item = await SeedManyFilesItemAsync(context);

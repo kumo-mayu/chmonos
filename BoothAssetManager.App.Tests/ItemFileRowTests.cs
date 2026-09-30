@@ -208,4 +208,24 @@ public class ItemFileRowTests
         Assert.False(row.CanReattach);
         Assert.Equal("「作り物の髪型」に紐付けてあるので戻せません。先にそちらから外してください。", row.ReattachTip);
     });
+    // ---- 後から読んで付ける物 ----
+
+    [Fact]
+    public void 送れる物を後から付けると_件数の文も変わったと知らせる()
+    {
+        // zip の中は行を出した後で読んで付ける。件数を入れた文を知らせないと、画面には「0 件」のまま残る
+        var row = Row([@"D:ilessample.zip"]);
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        row.UnityPackages =
+        [
+            new UnityPackageEntry(@"D:ilessample.zip", "a.unitypackage", 1),
+            new UnityPackageEntry(@"D:ilessample.zip", "b.unitypackage", 1),
+        ];
+
+        Assert.Contains(nameof(LocalFileRow.UnityPackageNote), changed);
+        Assert.Contains(nameof(LocalFileRow.HasManyUnityPackages), changed);
+        Assert.StartsWith("Unityへ送れるもの 2 件。", row.UnityPackageNote);
+    }
 }

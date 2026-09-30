@@ -318,6 +318,8 @@ public sealed class LocalFileRow : ViewModelBase
             {
                 OnPropertyChanged(nameof(HasUnityPackages));
                 OnPropertyChanged(nameof(HasManyUnityPackages));
+                // 件数を文に入れているので、これも知らせる（知らせないと、後から読んで付けたときに「0 件」のまま残る）
+                OnPropertyChanged(nameof(UnityPackageNote));
             }
         }
     }
