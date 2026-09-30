@@ -91,7 +91,7 @@
 | `Add-ChmonosImportFolder -Path [-Watch]` / `Clear-ChmonosImportTargets` | 取り込みの対象に足す（監視を聞かれたら はい／いいえ）／対象を全部外す | `ImportChooseFolder`・題「監視…」・`ImportFolderRemove` |
 | `Start-ChmonosImport [-TimeoutSeconds 600] [-During {…}]` | 「取り込みを開始」を押し、終わるまで待つ。戻りは `Done`・`Seconds`・`Trace`・`Messages`・`Summary`・`Buttons`・`Lines` | `ImportStart`・`ImportCancel`・足跡の `ScanFolders` |
 | `Invoke-ChmonosImport -Path a,b [-Watch]` | 上をつないだ物（画面を移る → 対象を外す → 足す → 取り込む → 結果） | — |
-| `Get-ChmonosImportResult` | 結果を ID で読む：`Messages`（ID → 文。読めなかった文と壊れた zip の文はどちらも `ImportUnreadableLine`）・`Summary`（`ImportSummary.<名前>` → 数。**その回の数**）・`Buttons`（出ているボタンの ID） | `Import*` |
+| `Get-ChmonosImportResult` | 結果を ID で読む：`Messages`（ID → 文。読めなかった文は `ImportUnreadableLine`、オンラインのみは `ImportOnlineOnlyLine`、壊れた zip は未確定が `ImportBrokenZipLine`・商品が `ImportBrokenZipOnItemsLine`）・`Summary`（`ImportSummary.<名前>` → 数。**その回の数**）・`Buttons`（出ているボタンの ID） | `Import*` |
 | `Get-ChmonosOpenDialogNote` | 小窓が開いたままなら、題とボタンを言う文（無ければ `$null`） | — |
 
 どれも実入力を使わない（並行で使える）。

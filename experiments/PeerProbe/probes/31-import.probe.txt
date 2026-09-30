@@ -36,9 +36,9 @@
  "OpenResolveCommand": "cmd:未確定を開く",
  "HasUnreadable": true,
  "UnreadableLines": [
-  "読めなかった行",
-  "読めなかった行",
-  "別の行"
+  { "Id": "ImportUnreadableLine", "Text": "読めなかった行" },
+  { "Id": "ImportBrokenZipLine", "Text": "壊れたzipの行" },
+  { "Id": "ImportBrokenZipLine", "Text": "壊れたzipの行" }
  ],
  "Summary": {
   "FilesScanned": 12,

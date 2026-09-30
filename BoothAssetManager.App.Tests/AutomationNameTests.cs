@@ -1,0 +1,185 @@
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using BoothAssetManager.App.Controls;
+using BoothAssetManager.App.Services;
+using BoothAssetManager.App.Tests.Support;
+
+namespace BoothAssetManager.App.Tests;
+
+/// <summary>
+/// 読み上げ・自動操作に渡る名前（UI Automation）。部品の窓口（AutomationPeer）を直に作って、渡る名前を確かめる。
+/// </summary>
+public class AutomationNameTests
+{
+    private static string NameOf(UIElement element) => UIElementAutomationPeer.CreatePeerForElement(element).GetName();
+
+    // ---- 「_」が消えない ----
+
+    [Theory]
+    [InlineData("file_000.pngを開く")]
+    [InlineData("a_b_c.zipをこの商品から外す")]
+    [InlineData("_先頭.zipを開く")]
+    [InlineData("末尾_")]
+    [InlineData("二重__の名前")]
+    [InlineData("印の無い名前")]
+    public Task 中身が文字のボタンに付けた名前は_下線が消えずに渡る(string name) => UiThread.Run(() =>
+    {
+        AutomationNames.Register();
+        var button = new Button { Content = "開く ▾" };
+        AutomationProperties.SetName(button, name);
+
+        Assert.Equal(name, NameOf(button));
+    });
+
+    [Fact]
+    public Task 名前を中身より先に付けても_読み込まれた時点で下線が消えない形になる() => UiThread.Run(() =>
+    {
+        AutomationNames.Register();
+        var button = new Button();
+        AutomationProperties.SetName(button, "file_000.pngを開く");
+        button.Content = "開く ▾";
+
+        // 画面に載ったときに来る知らせ。結び付けで中身が後から届く行と同じ順
+        button.RaiseEvent(new RoutedEventArgs(FrameworkElement.LoadedEvent));
+
+        Assert.Equal("file_000.pngを開く", NameOf(button));
+    });
+
+    [Fact]
+    public Task 中身が文字でないボタンの名前は_そのまま渡る() => UiThread.Run(() =>
+    {
+        AutomationNames.Register();
+        var button = new Button { Content = new TextBlock { Text = "絵" } };
+        AutomationProperties.SetName(button, "file_000.pngを開く");
+
+        Assert.Equal("file_000.pngを開く", NameOf(button));
+    });
+
+    [Fact]
+    public Task チェックとメニューの項目に付けた名前も_下線が消えない() => UiThread.Run(() =>
+    {
+        AutomationNames.Register();
+        var check = new CheckBox { Content = "選ぶ" };
+        AutomationProperties.SetName(check, "my_file.zipを選ぶ");
+        var item = new MenuItem { Header = "外す" };
+        AutomationProperties.SetName(item, "my_tag を外す");
+
+        Assert.Equal("my_file.zipを選ぶ", NameOf(check));
+        Assert.Equal("my_tag を外す", NameOf(item));
+    });
+
+    [Fact]
+    public Task 名前を付けていないボタンは_中身の文字が下線ごと名前になり_中身が替われば名前も替わる() => UiThread.Run(() =>
+    {
+        AutomationNames.Register();
+        var button = new Button { Content = "my_folder を商品として登録" };
+
+        Assert.Equal("my_folder を商品として登録", NameOf(button));
+
+        // 一覧の行は使い回される。前の行の名前が残らないこと
+        button.Content = "other_folder_2 を商品として登録";
+        Assert.Equal("other_folder_2 を商品として登録", NameOf(button));
+
+        button.Content = "下線の無い名前";
+        Assert.Equal("下線の無い名前", NameOf(button));
+    });
+
+    // ---- 開閉の三角（ExpandToggle）----
+
+    [Fact]
+    public Task 開閉の三角は_名前を変えずに_開いているかを状態で渡す() => UiThread.Run(() =>
+    {
+        var toggle = new ExpandToggle { IsChecked = false };
+        AutomationProperties.SetName(toggle, "ローカルファイル");
+        var peer = UIElementAutomationPeer.CreatePeerForElement(toggle);
+        var state = Assert.IsAssignableFrom<IExpandCollapseProvider>(peer.GetPattern(PatternInterface.ExpandCollapse));
+
+        Assert.Equal(ExpandCollapseState.Collapsed, state.ExpandCollapseState);
+
+        toggle.IsChecked = true;
+        Assert.Equal(ExpandCollapseState.Expanded, state.ExpandCollapseState);
+        Assert.Equal("ローカルファイル", peer.GetName());
+
+        // 「切り替える」も今までどおり持つ（確かめの道具が使っている）
+        Assert.NotNull(peer.GetPattern(PatternInterface.Toggle));
+    });
+
+    [Fact]
+    public Task 開閉の三角を_開く_畳むで動かすと_結び付けた先の値も変わる() => UiThread.Run(() =>
+    {
+        var source = new ExpandState();
+        var toggle = new ExpandToggle();
+        toggle.SetBinding(ToggleButton.IsCheckedProperty, new Binding(nameof(ExpandState.IsExpanded)) { Source = source, Mode = BindingMode.TwoWay });
+        var state = (IExpandCollapseProvider)UIElementAutomationPeer.CreatePeerForElement(toggle).GetPattern(PatternInterface.ExpandCollapse);
+
+        state.Expand();
+        Assert.True(source.IsExpanded);
+
+        // 開いている物をもう一度「開く」でも、畳まれない（押すと切り替わるボタンとの違い）
+        state.Expand();
+        Assert.True(source.IsExpanded);
+
+        state.Collapse();
+        Assert.False(source.IsExpanded);
+    });
+
+    [Fact]
+    public Task 押せない三角は_開く操作を断る() => UiThread.Run(() =>
+    {
+        var toggle = new ExpandToggle { IsEnabled = false };
+        var state = (IExpandCollapseProvider)UIElementAutomationPeer.CreatePeerForElement(toggle).GetPattern(PatternInterface.ExpandCollapse);
+
+        Assert.Throws<ElementNotEnabledException>(state.Expand);
+        Assert.NotEqual(true, toggle.IsChecked);
+    });
+
+    private sealed class ExpandState
+    {
+        public bool IsExpanded { get; set; }
+    }
+
+    // ---- 候補の行（InvokableListBox）----
+
+    [Fact]
+    public Task 候補の行は_押すで決まる知らせを上げる() => UiThread.Run(async () =>
+    {
+        var list = new InvokableListBox { ItemsSource = new[] { "候補A", "候補B" }, Width = 200, Height = 100 };
+        var invoked = new List<object>();
+        list.RowInvoked += invoked.Add;
+
+        // 行の部品を作らせる（窓には載せない）
+        list.Measure(new Size(200, 100));
+        list.Arrange(new Rect(0, 0, 200, 100));
+        list.UpdateLayout();
+
+        var rows = UIElementAutomationPeer.CreatePeerForElement(list).GetChildren()
+            .Where(peer => peer.GetAutomationControlType() == AutomationControlType.ListItem)
+            .ToList();
+        Assert.Equal(2, rows.Count);
+
+        var press = Assert.IsAssignableFrom<IInvokeProvider>(rows[1].GetPattern(PatternInterface.Invoke));
+        press.Invoke();
+
+        // 呼び出しを返してから動かす（押した先が窓を出しても、呼んだ側を待たせない）
+        Assert.Empty(invoked);
+        await list.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        Assert.Equal("候補B", Assert.Single(invoked));
+
+        // 「選ぶ」も今までどおり持つ
+        Assert.NotNull(rows[0].GetPattern(PatternInterface.SelectionItem));
+    });
+
+    [Theory]
+    [InlineData("a_b", true, "a__b")]
+    [InlineData("a_b", false, "a_b")]
+    [InlineData("ab", true, "ab")]
+    public void 消される部品のときだけ_下線を重ねる(string name, bool losesMarker, string expected)
+    {
+        Assert.Equal(expected, AutomationNames.Escape(name, losesMarker));
+    }
+}

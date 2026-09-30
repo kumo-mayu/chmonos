@@ -98,6 +98,25 @@ public class LocalItemTests : IDisposable
     }
 
     /// <summary>
+    /// 未確定の候補からこの商品を確かめるとき、題は付けた名前で出す。
+    /// BOOTH の側の名前は無いので、そこだけを見ると仮の ID（local-…）が題になっていた。
+    /// </summary>
+    [Fact]
+    public async Task PreviewShowsTheGivenNameNotTheProvisionalId()
+    {
+        await SeedUnresolvedAsync();
+        var itemId = await _service.RegisterLocalItemAsync(Hash, "謎の衣装");
+
+        var (preview, error, notOnBooth) = await _service.PreviewWithReasonAsync(itemId!);
+
+        Assert.Null(error);
+        Assert.False(notOnBooth);
+        Assert.Equal("謎の衣装", preview!.Name);
+        Assert.Equal(itemId, preview.Id);
+        Assert.True(preview.IsAlreadyOwned);
+    }
+
+    /// <summary>
     /// 観測していないので <c>Booth.FetchedAt</c> は null のまま。
     /// 登録日時を入れると⑦の期限計算も「最終取得」の表示も狂う。
     /// </summary>

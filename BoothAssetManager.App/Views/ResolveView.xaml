@@ -175,7 +175,7 @@
                       <StackPanel>
                         <!-- 一覧を探す（ユーザ指示 2026-09-17）。「全て選択」は見えている行だけに効く -->
                         <Grid Margin="0,0,0,8">
-                            <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
+                            <TextBox AutomationProperties.AutomationId="ResolveFilter" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="9,5,26,5"
                                      BorderBrush="{DynamicResource BorderStrong}" AutomationProperties.Name="未確定を探す" />
                             <TextBlock Text="ファイル名・フォルダ・zipの名前で探す" Margin="12,0,0,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False">
@@ -204,7 +204,8 @@
                       </StackPanel>
                     </Border>
 
-                    <ListBox x:Name="FilesList" ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
+                    <!-- 束の見出しの中のボタン（まとめて扱う・元zipとして扱う・このフォルダを選択）は、素の ListBox だと束が開いている間は読み上げ・自動操作に出ない（GroupedListBox） -->
+                    <controls:GroupedListBox x:Name="FilesList" ItemsSource="{Binding FilesView}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                              PreviewMouseRightButtonDown="OnFileRowRightClick"
                              BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -214,7 +215,7 @@
                         <!-- 行は、読み上げ・自動操作にファイル名で出す（付けないと、行の型の名前が読まれる）。見た目は既定の行のまま -->
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                                <Setter Property="AutomationProperties.Name" Value="{Binding FileName}" />
+                                <Setter Property="AutomationProperties.Name" Value="{Binding FileName}" /><Setter Property="AutomationProperties.AutomationId" Value="ResolveFileRow" />
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <!--
@@ -365,7 +366,7 @@
                                     </Grid.ColumnDefinitions>
                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                               AutomationProperties.AutomationId="ResolveRowSelect"
-                                              AutomationProperties.Name="{Binding FileName, StringFormat='{}{0} を選ぶ'}"
+                                              AutomationProperties.Name="{Binding FileName, StringFormat='{}{0}を選ぶ'}"
                                               VerticalAlignment="Top" Margin="0,2,8,0" />
                                     <StackPanel Grid.Column="1">
                                         <!--
@@ -455,7 +456,7 @@
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
-                    </ListBox>
+                    </controls:GroupedListBox>
                 </DockPanel>
             </Border>
 
@@ -553,11 +554,11 @@
                             <StackPanel Margin="0,8,0,0"
                                         Visibility="{Binding CanUseOriginZip, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="元zipで登録" Style="{StaticResource SmallButton}"
+                                    <Button AutomationProperties.AutomationId="ResolveUseOriginZip" Content="元zipで登録" Style="{StaticResource SmallButton}"
                                             Command="{Binding UseOriginZipCommand}"
                                             ToolTip="元のzipを選びます。そのまま商品IDを決めて登録できます。" />
                                     <!-- 元のzipが未確定にあっても、フォルダのままの登録はできる（ユーザ判断 2026-09-17） -->
-                                    <Button Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                    <Button AutomationProperties.AutomationId="ResolveOriginRegisterFolder" Content="{Binding RegisterFolderText}" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
                                             Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
                                             ToolTip="中身の入ったフォルダを商品として登録します。先に商品IDを決めてください。" />
                                 </StackPanel>

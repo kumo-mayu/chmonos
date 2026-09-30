@@ -1,0 +1,99 @@
+<StackPanel __NS__>
+    <StackPanel.Resources>
+        <CollectionViewSource x:Key="Grouped" Source="{Binding Rows}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Group" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+        <Style x:Key="OpenGroup" TargetType="GroupItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupItem">
+                        <Expander IsExpanded="True" AutomationProperties.AutomationId="GroupExpander" AutomationProperties.Name="{Binding Name}">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <Button Content="束のボタン" AutomationProperties.AutomationId="GroupHeaderButtonOpen" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsPresenter />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ClosedGroup" TargetType="GroupItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupItem">
+                        <Expander IsExpanded="False" AutomationProperties.AutomationId="GroupExpander" AutomationProperties.Name="{Binding Name}">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <Button Content="束のボタン" AutomationProperties.AutomationId="GroupHeaderButtonClosed" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsPresenter />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </StackPanel.Resources>
+
+    <!-- 開閉の三角：名前は欄の名前、状態は ExpandCollapse。ID が Probe で始まるので「開く」を呼ぶ（閉じていた物が開く） -->
+    <controls:ExpandToggle AutomationProperties.AutomationId="ProbeExpandClosed" AutomationProperties.Name="閉じている作り物の欄" IsChecked="False" Content="三角" />
+    <controls:ExpandToggle AutomationProperties.AutomationId="ExpandOpen" AutomationProperties.Name="開いている作り物の欄" IsChecked="True" Content="三角" />
+
+    <!-- 名前の「_」：中身が文字のボタンに付けた名前・名前を付けていないボタン・チェック -->
+    <Button Content="開く ▾" AutomationProperties.AutomationId="NameWithUnderscore" AutomationProperties.Name="file_000.pngを開く" />
+    <Button Content="my_folder_2 を商品として登録" AutomationProperties.AutomationId="ContentWithUnderscore" />
+    <CheckBox Content="選ぶ" AutomationProperties.AutomationId="CheckWithUnderscore" AutomationProperties.Name="a_b_c.zipを選ぶ" />
+
+    <!-- 束（GroupItem）の見出しの中のボタンが、木に出るか。開いた束と畳んだ束で比べる -->
+    <ListBox AutomationProperties.Name="開いた束の一覧" ItemsSource="{Binding Source={StaticResource Grouped}}" DisplayMemberPath="Name">
+        <ListBox.GroupStyle>
+            <GroupStyle ContainerStyle="{StaticResource OpenGroup}" />
+        </ListBox.GroupStyle>
+    </ListBox>
+    <ListBox AutomationProperties.Name="畳んだ束の一覧" ItemsSource="{Binding Source={StaticResource Grouped}}" DisplayMemberPath="Name">
+        <ListBox.GroupStyle>
+            <GroupStyle ContainerStyle="{StaticResource ClosedGroup}" />
+        </ListBox.GroupStyle>
+    </ListBox>
+    <!-- 同じ束を GroupedListBox に載せる。開いた束の後ろに、見出しの中のボタンが出る。押せば届く -->
+    <controls:GroupedListBox AutomationProperties.Name="開いた束の一覧（GroupedListBox）" ItemsSource="{Binding Source={StaticResource Grouped}}" DisplayMemberPath="Name">
+        <ListBox.GroupStyle>
+            <GroupStyle>
+                <GroupStyle.ContainerStyle>
+                    <Style TargetType="GroupItem">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="GroupItem">
+                                    <Expander IsExpanded="True" AutomationProperties.Name="{Binding Name}">
+                                        <Expander.Header>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" />
+                                                <Button Content="束のボタン" AutomationProperties.AutomationId="ProbeGroupHeaderButton"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}のボタン}" Command="{Binding Items[0].Press}" />
+                                            </StackPanel>
+                                        </Expander.Header>
+                                        <ItemsPresenter />
+                                    </Expander>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </GroupStyle.ContainerStyle>
+            </GroupStyle>
+        </ListBox.GroupStyle>
+    </controls:GroupedListBox>
+</StackPanel>
+---data---
+{
+ "Rows": [
+  { "Name": "作り物の行1", "Group": "作り物の束A", "Press": "cmd:束Aのボタン" },
+  { "Name": "作り物の行2", "Group": "作り物の束A" },
+  { "Name": "作り物の行3", "Group": "作り物の束B", "Press": "cmd:束Bのボタン" }
+ ]
+}

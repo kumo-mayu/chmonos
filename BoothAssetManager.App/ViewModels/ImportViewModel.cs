@@ -1524,23 +1524,31 @@ public sealed class ImportViewModel : ViewModelBase
     /// こちらは未確定か商品に入っていて開けない物で、直し方が「ダウンロードし直す」。どれも手元のファイルが読めなかった話なので枠は同じにし、
     /// 次の手が違うので行を分ける（前は1行につないでいて、2種類が重なると、どの次の手がどの件の話か読みにくかった）。
     /// </remarks>
-    public string UnreadableText => string.Join("\n", UnreadableLines);
+    public string UnreadableText => string.Join("\n", UnreadableLines.Select(line => line.Text));
 
     /// <summary>
     /// 読めなかった物の文を、1文ずつ。画面は文の間に空きを置いて並べる（画面の確かめ 2026-09-30：
     /// 改行でつないだ1つの文字の部品だと、折り返した行と次の文が同じ行間で並び、切れ目が分からなかった）
     /// </summary>
-    public IReadOnlyList<string> UnreadableLines => Summary is { } summary
+    /// <remarks>
+    /// 文ごとに、何の文かの ID を持たせる（読み上げには出ない。確かめの道具が読む）。前はどの文も同じ ID で、
+    /// 読めなかった文と壊れた zip の文を、文の中身を読まないと見分けられなかった（2026-09-30）
+    /// </remarks>
+    public IReadOnlyList<ImportResultLine> UnreadableLines => Summary is { } summary
         ? new[]
             {
-                UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable),
-                summary.FilesOnlineOnly > 0
-                    ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
-                        + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
-                    : string.Empty,
-                BrokenArchiveText(summary.FilesBrokenArchive),
-                BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames),
-            }.Where(line => line.Length > 0).ToList()
+                new ImportResultLine(ImportResultLine.Unreadable, UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable)),
+                new ImportResultLine(
+                    ImportResultLine.OnlineOnly,
+                    summary.FilesOnlineOnly > 0
+                        ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
+                            + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
+                        : string.Empty),
+                new ImportResultLine(ImportResultLine.BrokenZip, BrokenArchiveText(summary.FilesBrokenArchive)),
+                new ImportResultLine(
+                    ImportResultLine.BrokenZipOnItems,
+                    BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames)),
+            }.Where(line => line.Text.Length > 0).ToList()
         : [];
 
     /// <summary>
@@ -1606,4 +1614,22 @@ public sealed class ImportViewModel : ViewModelBase
     private const string UnreadableFilesNext =
         "ほかのアプリで開いていないか、エクスプローラで開けるかを確かめてから、もう一度取り込んでください。";
 
+}
+
+/// <summary>取り込みの結果の欄に並べる1文。<paramref name="Id"/> は UI Automation の ID（何の文か）。</summary>
+public sealed record ImportResultLine(string Id, string Text)
+{
+    /// <summary>読めなかったファイル・フォルダ（取り込めていない）。</summary>
+    public const string Unreadable = "ImportUnreadableLine";
+
+    /// <summary>OneDrive の「オンラインのみ」で読まなかったファイル。</summary>
+    public const string OnlineOnly = "ImportOnlineOnlyLine";
+
+    /// <summary>未確定にある、壊れていて開けない zip。</summary>
+    public const string BrokenZip = "ImportBrokenZipLine";
+
+    /// <summary>商品に結び付いた、壊れていて開けない zip。</summary>
+    public const string BrokenZipOnItems = "ImportBrokenZipOnItemsLine";
+
+    public override string ToString() => Text;
 }
