@@ -6,8 +6,8 @@
 // を見る。
 //
 // 入力は2通り。
-//   --unresolved <unresolved.json> : 保存済みの未確定。ファイルが手元に無いので、保存された ReferrerUrl だけで束ねる
-//   --scan <フォルダ>              : 実際のファイル。Zone.Identifier をその場で読む（本体の画面と同じ道）
+//   --unresolved <unresolved.json> : 保存済みの未確定。保存された ReferrerUrl で束ねる（本体の画面と同じ道）
+//   --scan <フォルダ>              : 実際のファイル。Zone.Identifier を読んで記録を作る（本体の取り込みの走査と同じ）
 // 第三者のデータを入れることがあるので、入力も出力もリポジトリに入れない。
 //
 // BOOTHへの問い合わせは BoothClient を通すので、必ず1本ずつ・1.5秒空けて出る。
@@ -51,6 +51,9 @@ if (Option("--scan") is { } root)
             SizeBytes = 0,
             ModifiedAtUtc = DateTimeOffset.UnixEpoch,
             FirstSeenAt = DateTimeOffset.UnixEpoch,
+
+            // 本体は取り込みの走査で読んで記録に持つ。画面は保存した値だけで束ねるので、ここでも記録を作るときに読む
+            ZoneReferrerUrl = BoothZipInspector.ZoneIdentifierReader.Read(path).ReferrerUrl,
         });
     }
 }
@@ -61,9 +64,7 @@ if (files.Count == 0)
     return;
 }
 
-// --unresolved のときは手元にファイルが無いので、読み直しはせず保存値だけを使う
-Func<string, string?>? reader = scanRoot is null ? _ => null : null;
-var rows = files.Select(file => (File: file, Origin: UnresolvedOrigin.For(file, reader))).ToList();
+var rows = files.Select(file => (File: file, Origin: UnresolvedOrigin.For(file))).ToList();
 
 var zipGroups = rows.Where(row => row.Origin is not null)
     .GroupBy(row => row.Origin!.ArchiveName, StringComparer.OrdinalIgnoreCase)

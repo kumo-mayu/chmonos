@@ -1,5 +1,4 @@
 using BoothAssetManager.Core.Models;
-using BoothZipInspector;
 
 namespace BoothAssetManager.Core.Scanning;
 
@@ -18,7 +17,7 @@ public sealed record ArchiveOrigin(string ArchiveName, string ArchivePath);
 /// 元zip 12 本のうち 6 本が複数のフォルダに割れていた。zipは配布された単位そのものなので、
 /// こちらで束ねる。
 ///
-/// 計算で出せる値なので保存しない。unresolved.json には読んだままの ReferrerUrl だけがある。
+/// 計算で出せる値なので保存しない。unresolved.json には、取り込みの走査が読んだままの ReferrerUrl だけがある。
 /// </summary>
 public static class UnresolvedOrigin
 {
@@ -27,30 +26,23 @@ public static class UnresolvedOrigin
     /// <summary>
     /// 元zipを割り出す。分からなければ null（呼び出し側はフォルダで束ねる）。
     ///
-    /// **今あるファイルから読み直すのを先にする。**旧版の読み取りは CP932 で書かれた
-    /// ReferrerUrl を UTF-8 として読んでおり、日本語が U+FFFD に化けたまま保存されている
-    /// （友人のデータでは 306 件全部のパスのどこかが化けていた）。ファイルが手元にあれば、
-    /// 直した読み取りで正しい名前が取れる。
+    /// **保存した値だけで決める。ファイルは読まない**（ユーザ判断 2026-09-30）。前は、今あるファイルの Zone.Identifier を
+    /// 先に読み直していた——9月前半の版が CP932 の ReferrerUrl を UTF-8 として読み、日本語が U+FFFD に化けたまま
+    /// 保存していたための救済だった。だが未確定の画面を開くたび・ナビの札が数え直すたびに、未確定の件数ぶん
+    /// ディスクを読むことになる（印の無い6万件で約0.8秒・印のある2万件で約3.2秒。docs/research/large-files-2026-09-30.md）。
+    /// 公開前なので古い記録には合わせない。Zone.Identifier を読むのは取り込みの走査で記録を作るときだけで、
+    /// 化けた値の残る記録は、その取り込み元を取り込み直せば今の読み方の値で書き直される。
     /// </summary>
-    /// <param name="readReferrer">パスから ReferrerUrl を読む。省略時は実際の Zone.Identifier を読む。</param>
-    public static ArchiveOrigin? For(UnresolvedFile file, Func<string, string?>? readReferrer = null)
+    public static ArchiveOrigin? For(UnresolvedFile file)
     {
-        if (file.Paths.Count == 0)
-        {
-            return FromReferrer(file.ZoneReferrerUrl);
-        }
-
-        var path = file.Paths[0];
-
         // zipそのものが未確定になっている場合は、それ自身が元zip。
         // 同じzipを展開した中身と同じ束に入り、zipと中身を一緒に片付けられる
-        if (IsArchive(path))
+        if (file.Paths.Count > 0 && IsArchive(file.Paths[0]))
         {
-            return new ArchiveOrigin(Path.GetFileName(path), path);
+            return new ArchiveOrigin(Path.GetFileName(file.Paths[0]), file.Paths[0]);
         }
 
-        var read = readReferrer ?? ReadReferrer;
-        return FromReferrer(read(path)) ?? FromReferrer(file.ZoneReferrerUrl);
+        return FromReferrer(file.ZoneReferrerUrl);
     }
 
     /// <summary>ReferrerUrl の値から元zipを取り出す。zipのパスでなければ null。</summary>
@@ -91,6 +83,4 @@ public static class UnresolvedOrigin
 
     private static bool IsArchive(string path)
         => ArchiveExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
-
-    private static string? ReadReferrer(string path) => ZoneIdentifierReader.Read(path).ReferrerUrl;
 }
