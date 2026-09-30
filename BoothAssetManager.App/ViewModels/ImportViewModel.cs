@@ -1495,15 +1495,31 @@ public sealed class ImportViewModel : ViewModelBase
     /// 読むとダウンロードが始まるので勝手には読まないが、黙って飛ばすと取り込んだつもりの物が入っていない。
     /// 直し方が「閉じる」ではなく「手元に置く」なので、文は分けて次の手を書く。
     /// どちらも手元のファイルが読めなかった物なので、同じ1行の枠にまとめる（普段0の枠を増やさない）。
+    ///
+    /// 壊れていて開けない zip もここに並べる（大容量の確かめ 問題4・ユーザ判断 2026-10-01）。上の2つは取り込めていない物、
+    /// こちらは未確定に入っていて開けない物で、直し方が「ダウンロードし直す」。どれも手元のファイルが読めなかった話なので枠は同じにし、
+    /// 次の手が違うので行を分ける（前は1行につないでいて、2種類が重なると、どの次の手がどの件の話か読みにくかった）。
     /// </remarks>
     public string UnreadableText => Summary is { } summary
         ? string.Join(
-            string.Empty,
-            UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable),
-            summary.FilesOnlineOnly > 0
-                ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
-                    + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
-                : string.Empty)
+            "\n",
+            new[]
+            {
+                UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable),
+                summary.FilesOnlineOnly > 0
+                    ? $"{summary.FilesOnlineOnly} 件はOneDriveの「オンラインのみ」なので読めませんでした。"
+                        + "エクスプローラでフォルダを右クリックして「常にこのデバイスに保持する」にすると取り込めます。"
+                    : string.Empty,
+                BrokenArchiveText(summary.FilesBrokenArchive),
+            }.Where(line => line.Length > 0))
+        : string.Empty;
+
+    /// <summary>
+    /// 壊れていて開けない zip の1文。どれかは未確定の行の札「壊れたzip」で分かるので、そこへ案内する
+    /// （同じ結果の欄の「未確定を開く」は、未確定が1件でもあれば出ている）
+    /// </summary>
+    internal static string BrokenArchiveText(int files) => files > 0
+        ? $"壊れていて開けないzipが {files} 件あります。下の「未確定を開く」で確かめて、ダウンロードし直してください。"
         : string.Empty;
 
     public bool HasUnreadable => UnreadableText.Length > 0;

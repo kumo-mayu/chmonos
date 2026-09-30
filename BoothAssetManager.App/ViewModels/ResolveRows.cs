@@ -109,6 +109,12 @@ public sealed class UnresolvedRow : ViewModelBase
     /// 0件も同じ形で出す（前は「手掛かりなし」「候補 n 件（曖昧）」と言い方が分かれていて、何の数か読めなかった・ユーザ指示 2026-09-17）。
     /// </summary>
     public string CandidateText => $"自動候補:{CandidateCount} 件";
+
+    /// <summary>
+    /// 取り込みで zip として開けなかった物（札「壊れたzip」）。中身の一覧が空なだけでは、途中で切れたダウンロードだと気付けなかった。
+    /// 取り込みが記録に書いた事実をそのまま見せる——画面を開くたびに開き直すと、未確定の zip の数だけディスクを読む
+    /// </summary>
+    public bool IsBrokenArchive => File.ArchiveBroken;
 }
 
 /// <summary>提示する候補1件。どこから来た候補なのかを添える。</summary>

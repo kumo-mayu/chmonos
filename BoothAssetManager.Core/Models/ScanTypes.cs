@@ -66,4 +66,17 @@ public sealed class UnresolvedFile
 
     /// <summary>解決できなかった候補ID。0件（手掛かりなし）と複数件（曖昧）の両方があり得る。</summary>
     public IReadOnlyList<string> CandidateItemIds { get; init; } = [];
+
+    /// <summary>
+    /// 取り込みで zip として開けなかったか（途中で切れたダウンロード・中身がでたらめ・zip ではない物に .zip の名前）。
+    ///
+    /// 前は開けなかった zip を「中身の一覧が空の未確定」として置くだけで、普通の未確定と見分けられなかった
+    /// （大容量の確かめ 2026-09-30 の問題4。一時展開して初めて「壊れている」と出た）。
+    /// **開いてみないと分からない事実**なので記録に持つ（画面を開くたびに未確定の zip を全部開き直すと、数万件で固まる）。
+    /// 立つのは形式が合わなかったときだけ——ほかのアプリが開いていた・権限が無い、は壊れているとは言えないので立てない。
+    /// 開けた zip には書き出さない（全部の行に false が並ぶと読みにくい）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ArchiveBroken { get; init; }
 }
