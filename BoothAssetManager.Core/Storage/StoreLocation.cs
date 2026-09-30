@@ -47,7 +47,19 @@ public static class StoreLocation
     public static string LocationFile => System.IO.Path.Combine(DefaultRoot, "location.json");
 
     /// <summary>
+    /// 利用者の本当の保存先（<c>location.json</c> の指す先・既定の場所）を使ってよいプロセスか。
+    /// **立てるのはアプリ本体だけ**（<c>App</c> が起動の最初に立てる）。既定は使わせない。
+    ///
+    /// 試験や確かめの道具はアプリの一式（<c>AppServiceContainer</c>・<c>MainViewModel</c>）をそのまま組むので、
+    /// 環境変数を入れ忘れる・入れる順番を誤ると、本当の保存先を開いて、起動時の取り込みと BOOTH への取り直しまで走らせてしまう。
+    /// 2026-09-30 に実際に起きた：道具の作りかけの版が友人のデータの写し（本番の location.json が指していた）を開き、
+    /// 商品19件を BOOTH から取り直した。気を付けるのではなく、指定が無ければ止まるようにする
+    /// </summary>
+    public static bool AllowsUserStore { get; set; }
+
+    /// <summary>
     /// 保存先を決める。優先順位は 環境変数 &gt; <c>location.json</c> &gt; 既定。
+    /// 環境変数が無いのに <see cref="AllowsUserStore"/> も立っていなければ、例外で止める。
     ///
     /// 環境変数を一番上にしているのは、動作確認のときに本物へ触らないための逃げ道だから。
     /// 設定より弱いと、その逃げ道が塞がれてしまう。
@@ -58,6 +70,14 @@ public static class StoreLocation
         if (!string.IsNullOrWhiteSpace(fromEnvironment))
         {
             return new StoreRoot(System.IO.Path.GetFullPath(fromEnvironment.Trim()), StoreRootSource.Environment);
+        }
+
+        if (!AllowsUserStore)
+        {
+            throw new InvalidOperationException(
+                "保存先が指定されていません。アプリ本体以外（試験・確かめの道具）は、環境変数 "
+                + AppPaths.RootVariable + " で保存先を指定してから使ってください。"
+                + "指定が無いと、利用者の本当の保存先（location.json の指す先）を開いてしまいます。");
         }
 
         if (Read() is { } configured)

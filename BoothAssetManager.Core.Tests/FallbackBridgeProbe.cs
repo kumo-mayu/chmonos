@@ -25,17 +25,17 @@ public class FallbackBridgeProbe
 
         var bridge = SharedDictionaries.Bridge;
 
-        // 手元の実ファイル名（DLforTest）と、日本語の商品を指す名前
+        // 作り物のファイル名（英語の語・ローマ字・日本語・版の数字が混ざる形）。購入した物や友人のデータの名前は書かない
         var fileNames = new[]
         {
-            "Bracelet_tamakurage.v1.01.zip",
-            "HeartBeatGimmick_v3.0.3.zip",
-            "Sig_Ring_07_ver2.zip",
-            "SinAvatarPen_v1.2.2.zip",
-            "Kuuta_ShapekeyAddon.zip",
-            "tori_v1.zip",
-            "yubiwa_model.zip",
-            "same_chan.zip",
+            "Hoshizora_Dress_v1.2.zip",
+            "kumoribi_hair_ver2.zip",
+            "NightCafe_Interior_1.0.zip",
+            "ゆきあかりワンピース.zip",
+            "soft_shadow_shader.zip",
+            "Tsukimi_Accessory_Set.zip",
+            "冬のコートセット_v3.zip",
+            "MochiMochi_Texture_Pack.zip",
         };
 
         foreach (var fileName in fileNames)

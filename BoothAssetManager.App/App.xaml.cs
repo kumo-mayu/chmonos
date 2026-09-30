@@ -7,6 +7,10 @@ namespace BoothAssetManager.App;
 
 public partial class App : Application
 {
+    // 利用者の本当の保存先を使ってよいのは、アプリ本体だけ。どの型よりも先に立てる
+    // （AppPaths.Default は最初に触れたときに1回だけ決まる）。試験や道具はこれを立てず、環境変数で保存先を決める
+    static App() => StoreLocation.AllowsUserStore = true;
+
     private AppServiceContainer? _services;
 
     protected override void OnStartup(StartupEventArgs e)
