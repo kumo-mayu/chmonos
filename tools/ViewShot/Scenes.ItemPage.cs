@@ -94,6 +94,131 @@ internal static partial class Scenes
             Height = TallHeight,
         },
 
+        // ---- 主の窓の商品ページの、流した位置（進む＝先頭から・戻る／進む＝離れたときの位置・同じ商品の開き直し＝保つ） ----
+        // 下の「戻る」「進む」「開き直す」の4枚は、この item-page-long-scrolled と同じ位置で出るはず。diff で比べる。
+        // 画面が使い回される3枚（back-after-scroll・forward-after-back・reopen-after-scroll）は、右の列の下端が1行ぶん（28px）短い：
+        // 使い回された画面では「ローカルファイル」の欄の Unity の送り先の行が出ない（流した位置とは別の件。2026-09-30 に見つけた）。
+        // 左の列（説明）が同じなら、位置は合っている
+
+        new Scene("item-page-long-scrolled", "商品ページ：説明の長い商品を途中まで流した所（位置の場面の見本）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, ScrolledOffset);
+            return BodyShot(root);
+        }),
+
+        // 説明の長い2つ目の商品を、先頭から開いた所と同じ絵になるはず（item-page-second）
+        new Scene("item-page-next-after-scroll", "商品ページ：長い商品を途中まで流してから、別の長い商品を開いた所（先頭から出る）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var second = await SeedSecondLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, ScrolledOffset);
+
+            context.Main.ShowItem(second);
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-second", "商品ページ：説明の長い2つ目の商品を開いた所（item-page-next-after-scroll の見本）", async context =>
+        {
+            await SeedLongItemAsync(context);
+            var second = await SeedSecondLongItemAsync(context);
+            var root = await OpenItemAsync(context, second);
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-back-after-scroll", "商品ページ：長い商品を流す → 別の商品を開いて流す → 戻った所（離れたときの位置）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var second = await SeedSecondLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, ScrolledOffset);
+
+            context.Main.ShowItem(second);
+            await context.SettleAsync();
+            await ScrollBodyAsync(context, root, OtherOffset);
+
+            context.Main.GoBack();
+            await UntilItemAsync(context, item.Id);
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-back-from-other-screen", "商品ページ：長い商品を流す → 統計の画面へ移る → 戻った所（画面は作り直される）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, ScrolledOffset);
+
+            context.Main.ShowStatsCommand.Execute(null);
+            await context.SettleAsync();
+
+            context.Main.GoBack();
+            await UntilItemAsync(context, item.Id);
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-forward-after-back", "商品ページ：別の商品 → 長い商品を流す → 戻って流す → 進んだ所（離れたときの位置）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var second = await SeedSecondLongItemAsync(context);
+            var root = await OpenItemAsync(context, second);
+            context.Main.ShowItem(item);
+            await context.SettleAsync();
+            await ScrollBodyAsync(context, root, ScrolledOffset);
+
+            context.Main.GoBack();
+            await UntilItemAsync(context, second.Id);
+            await context.SettleAsync();
+            await ScrollBodyAsync(context, root, OtherOffset);
+
+            context.Main.GoForward();
+            await UntilItemAsync(context, item.Id);
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-reopen-after-scroll", "商品ページ：長い商品を流してから、同じ商品を開き直した所（位置を保つ）", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, ScrolledOffset);
+
+            // 取り直した後・ファイルを外した後と同じ道
+            context.Main.ReplaceItem(item);
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
+        // 説明が短く、右の列が長い商品。右の列の行（zip の中の Unity へ送れる物）は裏で読んで後から届くので、
+        // 戻った直後は流せる長さが足りない。届いてから位置が合うことを見る（下の2枚は、どちらも最後のカードの下端まで流れているはず）。
+        // 2枚の差は「ローカルファイル」の欄の Unity の送り先の1行（28px）だけ：この行は出たり出なかったりする（上の見本の注と同じ件）
+        new Scene("item-page-files-end", "商品ページ：説明が短くファイルの多い商品を、最後まで流した所（item-page-files-back の見本）", async context =>
+        {
+            var item = await SeedManyFilesItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, double.PositiveInfinity);
+            return BodyShot(root);
+        }),
+
+        new Scene("item-page-files-back", "商品ページ：説明が短くファイルの多い商品を最後まで流す → 統計の画面へ移る → 戻った所", async context =>
+        {
+            var item = await SeedManyFilesItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, double.PositiveInfinity);
+
+            context.Main.ShowStatsCommand.Execute(null);
+            await context.SettleAsync();
+
+            context.Main.GoBack();
+            await UntilItemAsync(context, item.Id);
+            await context.SettleAsync();
+            return BodyShot(root);
+        }),
+
         new Scene("folder-item-long-end", "フォルダビューに組み込んだ商品ページ：説明の長い商品を選び、最後まで流した所", async context =>
         {
             var (item, _) = await SeedLongItemAsync(context);
@@ -163,6 +288,64 @@ internal static partial class Scenes
         await context.PresentAsync(root);
         return root;
     }
+
+    // 位置の場面で流す量。1500 は見出しの途中（本文と最初の数個の見出しが画面の外へ出る）。
+    // 600 は別の商品の側で流す量で、1500 と取り違えたら絵で分かるように離してある
+    private const double ScrolledOffset = 1500;
+    private const double OtherOffset = 600;
+
+    /// <summary>
+    /// ページを流す部品（Body）だけを切り出す。上の帯の「← 〇〇に戻る」は来た道で文言が変わるので、
+    /// 道の違う場面どうしを比べるときは入れない
+    /// </summary>
+    private static Shot BodyShot(FrameworkElement root)
+        => new(root)
+        {
+            Focus = () => Look.View<ItemView>(root) is { } page ? Look.Named<ScrollViewer>(page, "Body") : null,
+            FocusMargin = 0,
+        };
+
+    /// <summary>戻る・進むの開き直しは保存先を読むので待ちが入る。その商品のページに替わるまで待つ。</summary>
+    private static Task UntilItemAsync(SceneContext context, string itemId)
+        => SceneContext.UntilAsync(
+            () => context.Main.CurrentViewModel is ItemViewModel page && page.Item.Id == itemId,
+            "戻る・進むで商品ページが開く");
+
+    /// <summary>説明の長い2つ目の商品（見出しは同じ形で、名前と本文の1行目が違う）。主画面を組む前に呼ぶ。</summary>
+    private static Task<ItemRecord> SeedSecondLongItemAsync(SceneContext context)
+        => context.Fake.ItemAsync(
+            "9900404",
+            "作り物のコート（説明の長い2つ目の商品）",
+            record => record with
+            {
+                Booth = record.Booth with
+                {
+                    Description = "2つ目の作り物の商品です。\n" + LongBody("9900403"),
+                    H2Sections = LongSections(),
+                },
+                Local = record.Local with
+                {
+                    LocalFiles = [Fake.FileRecord(Fake.Zip(@"ライブラリ\coat_long_v1.0.zip", "coat.unitypackage"))],
+                },
+            });
+
+    /// <summary>説明が短く、zip を12個持つ商品（zip ごとに Unity へ送れる物が2つ）。右の列が左より長い。主画面を組む前に呼ぶ。</summary>
+    private static Task<ItemRecord> SeedManyFilesItemAsync(SceneContext context)
+        => context.Fake.ItemAsync(
+            "9900405",
+            "作り物の小物セット（ファイルの多い商品）",
+            record => record with
+            {
+                Local = record.Local with
+                {
+                    LocalFiles = Enumerable.Range(1, 12)
+                        .Select(index => Fake.FileRecord(Fake.Zip(
+                            $@"ライブラリ\props_part{index:00}.zip",
+                            $"props_{index:00}_a.unitypackage",
+                            $"props_{index:00}_b.unitypackage")))
+                        .ToList(),
+                },
+            });
 
     /// <summary>フォルダビューを開き、その商品のファイルの行を選ぶ（右に商品ページが組み込まれる）。</summary>
     private static async Task<FrameworkElement> OpenFolderItemAsync(SceneContext context, string itemId)
