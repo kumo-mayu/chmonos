@@ -1,0 +1,61 @@
+<views:SearchView __NS__ />
+---data---
+{
+ "__press": [
+  "SearchHistoryApply"
+ ],
+ "IsFilterPanelCollapsed": false,
+ "HasModules": false,
+ "Modules": [],
+ "ModuleMenu": [],
+ "HasHistory": true,
+ "History": [
+  {
+   "Summary": "作り物の条件1",
+   "IsNamed": true,
+   "ApplyCommand": "cmd:条件1に戻す"
+  },
+  {
+   "Summary": "作り物の条件2",
+   "IsNamed": false,
+   "ApplyCommand": "cmd:条件2に戻す"
+  }
+ ],
+ "QueryText": "",
+ "QueryPlaceholder": "商品名・ショップ名で探す",
+ "TargetOptions": [
+  {
+   "Header": "商品名",
+   "IsOn": true
+  }
+ ],
+ "ResultSummary": "12 件",
+ "SortFields": [],
+ "DescendingLabel": "新しい順",
+ "AscendingLabel": "古い順",
+ "IsCardMode": true,
+ "IsListMode": false,
+ "Rows": [],
+ "ListItems": [],
+ "ListColumns": {
+  "SelectWidth": 30,
+  "IconWidth": 40,
+  "FavWidth": 30,
+  "NameWidth": 200,
+  "ShopWidth": 100,
+  "ChipsWidth": 100,
+  "HasSelect": true,
+  "IconSize": 30,
+  "ShopHeader": "ショップ"
+ },
+ "FilterPane": {
+  "Width": 280,
+  "MinWidth": 200,
+  "MaxWidth": 500,
+  "CanResize": true
+ },
+ "Main": {
+  "PendingItemText": "3 件が追加されました",
+  "HasPendingItems": true
+ }
+}

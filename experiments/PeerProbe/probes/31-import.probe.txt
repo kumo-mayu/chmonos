@@ -1,0 +1,66 @@
+<views:ImportView __NS__ />
+---data---
+{
+ "__press": [
+  "ImportFolderRemove",
+  "ImportHistoryTake",
+  "ImportOpenResolve"
+ ],
+ "HasFolders": true,
+ "Folders": [
+  "X:作り物対象1",
+  "X:作り物対象2"
+ ],
+ "RemoveFolderCommand": "cmd:対象から外す",
+ "HasWatched": true,
+ "Watched": [
+  "X:作り物監視"
+ ],
+ "RemoveWatchedCommand": "cmd:監視から外す",
+ "HasHistory": true,
+ "History": [
+  "X:作り物履歴1",
+  "X:作り物履歴2"
+ ],
+ "TakeFromHistoryCommand": "cmd:対象に追加",
+ "ForgetHistoryCommand": "cmd:履歴から消す",
+ "StartText": "取り込みを開始",
+ "IsRunning": true,
+ "PhaseText": "取得しています",
+ "StepText": "商品",
+ "ProgressText": "3 / 10",
+ "DetailText": "作り物",
+ "HasSummary": true,
+ "HasUnresolvedResult": true,
+ "HasAddedResult": true,
+ "OpenResolveCommand": "cmd:未確定を開く",
+ "HasUnreadable": true,
+ "UnreadableLines": [
+  { "Id": "ImportUnreadableLine", "Text": "読めなかった行" },
+  { "Id": "ImportBrokenZipLine", "Text": "壊れたzipの行" },
+  { "Id": "ImportBrokenZipLine", "Text": "壊れたzipの行" }
+ ],
+ "Summary": {
+  "FilesScanned": 12,
+  "FilesHashed": 3,
+  "FilesReusedFromCache": 9,
+  "FilesSkippedAsUnpacked": 0,
+  "ItemsAdded": 2,
+  "ItemsAlreadyKnown": 5,
+  "UnresolvedFiles": 1,
+  "ImagesDownloaded": 4,
+  "FilesAlreadyOwned": 0
+ },
+ "HasUnpackedFolders": true,
+ "UnpackedFolders": [
+  {
+   "Name": "作り物の展開先",
+   "ArchiveName": "作り物.zip",
+   "FileCount": 3,
+   "SizeText": "1 MB",
+   "IsSelected": false
+  }
+ ],
+ "HasError": true,
+ "ErrorText": "作り物のエラー"
+}

@@ -182,13 +182,13 @@
                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding Name}" FontSize="19" FontWeight="Bold" Margin="6,3"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="460" />
-                            <Button Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            <Button AutomationProperties.AutomationId="AvatarBaseRename" Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding StartRenameCommand}" Click="StartRename_Click"
                                     ToolTip="この素体の名前を使っている商品も一緒に書き換えます。" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal"
                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBox MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="AvatarBaseNameInput" MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="460"
                                      Padding="6,3" VerticalAlignment="Center"
                                      AutomationProperties.Name="新しい名前"
@@ -198,7 +198,7 @@
                                     <KeyBinding Key="Escape" Command="{Binding CancelRenameCommand}" />
                                 </TextBox.InputBindings>
                             </TextBox>
-                            <Button Content="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
+                            <Button AutomationProperties.AutomationId="AvatarBaseRenameCommit" Content="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding RenameCommand}"
                                     IsEnabled="{Binding HasNameChange}" ToolTipService.ShowOnDisabled="True"
                                     ToolTip="今と違う名前を入れると押せます。" />
@@ -219,7 +219,7 @@
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                             <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="460" />
-                                            <Button Content="素体の商品に設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            <Button AutomationProperties.AutomationId="AvatarBaseCandidateUse" AutomationProperties.Name="{Binding Label, StringFormat={}{0}を素体の商品に設定}" Content="素体の商品に設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     Command="{Binding UseCommand}" />
                                         </StackPanel>
                                     </DataTemplate>
@@ -233,7 +233,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                             <!-- 空のままだと何を入れる欄か分からないので、内側に案内を出す（ユーザ指示 2026-09-17） -->
                             <Grid Width="230" VerticalAlignment="Center">
-                                <TextBox Padding="7,4"
+                                <TextBox AutomationProperties.AutomationId="AvatarBaseItemId" AutomationProperties.Name="素体の商品のIDかURL" Padding="7,4"
                                          Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="商品IDかURLを入れます。空にすると紐付けが外れます。">
                                     <!-- Enter で決められるように揃える（I12） -->
@@ -245,7 +245,7 @@
                                            VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" FontSize="12"
                                            Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibleConverter.Instance}}" />
                             </Grid>
-                            <Button Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            <Button AutomationProperties.AutomationId="AvatarBaseSetItemId" Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
                         </StackPanel>
                         <!-- 説明が無く何のことか分からず、実例も無いので隠す（ユーザ判断 2026-09-17）。仕組み（inferClothing）は残す -->
@@ -257,7 +257,7 @@
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                         <!-- 取り返しがつかないので、そうと分かる顔にする（V4） -->
-                        <Button Content="削除" Style="{StaticResource DangerButton}"
+                        <Button AutomationProperties.AutomationId="AvatarBaseDelete" AutomationProperties.Name="この共通素体を削除" Content="削除" Style="{StaticResource DangerButton}"
                                 ToolTip="この共通素体を削除します。元に戻せません。"
                                 Command="{Binding DeleteCommand}" />
                     </StackPanel>
@@ -527,7 +527,7 @@
                                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding SelectedName}" FontSize="19" FontWeight="Bold" Margin="6,3"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="520" />
-                                            <Button Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                            <Button AutomationProperties.AutomationId="AvatarRename" Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding StartRenameCommand}" Click="StartRename_Click"
                                                     ToolTip="このアプリで表示する名前を変えます。" />
                                             <!-- 付けた名前を消す操作は、欄を空にする形では分からないのでボタンで名乗る（ユーザ指示） -->
@@ -538,7 +538,7 @@
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal"
                                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBox MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
+                                            <TextBox AutomationProperties.AutomationId="AvatarNameInput" MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="520"
                                                      Padding="6,3" VerticalAlignment="Center"
                                                      AutomationProperties.Name="新しい名前"
@@ -548,7 +548,7 @@
                                                     <KeyBinding Key="Escape" Command="{Binding CancelRenameCommand}" />
                                                 </TextBox.InputBindings>
                                             </TextBox>
-                                            <Button Content="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
+                                            <Button AutomationProperties.AutomationId="AvatarRenameCommit" Content="名前を変える" Style="{StaticResource InlinePrimaryButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding RenameCommand}"
                                                     IsEnabled="{Binding HasNameChange}" ToolTipService.ShowOnDisabled="True"
                                                     ToolTip="今と違う名前を入れると押せます。" />
@@ -739,7 +739,7 @@
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center"
                                                                            Foreground="{DynamicResource TextMuted}" TextDecorations="Strikethrough" />
-                                                                <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                <Button AutomationProperties.AutomationId="AvatarAliasRestore" AutomationProperties.Name="{Binding StringFormat={}{0}を戻す}" Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                         Command="{Binding DataContext.RestoreAliasCommand,
                                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
@@ -823,7 +823,7 @@
                                                     </Border>
                                                 </Button>
                                                 <StackPanel VerticalAlignment="Center">
-                                                    <Button Style="{StaticResource HubLink}" ToolTip="{Binding Name}"
+                                                    <Button AutomationProperties.AutomationId="AvatarModMemberLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource HubLink}" ToolTip="{Binding Name}"
                                                             Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}">
                                                         <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
@@ -843,9 +843,9 @@
                                         <DataTemplate DataType="{x:Type vm:HubModificationRow}">
                                             <StackPanel Margin="0,4,0,2">
                                                 <DockPanel>
-                                                    <ToggleButton DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
+                                                    <controls:ExpandToggle AutomationProperties.AutomationId="AvatarModToggle" Subject="{Binding Name, StringFormat={}{0}の使ったもの}" DockPanel.Dock="Left" Style="{StaticResource HubToggle}" VerticalAlignment="Top"
                                                                   Margin="0,10,2,0" IsChecked="{Binding IsExpanded, Mode=TwoWay}" />
-                                                    <Button DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
+                                                    <Button AutomationProperties.AutomationId="AvatarModImage" DockPanel.Dock="Left" Style="{StaticResource HubLink}" Margin="0,0,9,0" VerticalAlignment="Top"
                                                             AutomationProperties.Name="{Binding Name}"
                                                             ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right"
                                                             Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -872,7 +872,7 @@
                                                         </Border>
                                                     </Button>
                                                     <StackPanel VerticalAlignment="Center">
-                                                        <Button Style="{StaticResource HubLink}" ToolTip="この改変を開きます"
+                                                        <Button AutomationProperties.AutomationId="AvatarModLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource HubLink}" ToolTip="この改変を開きます"
                                                                 Command="{Binding DataContext.OpenModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}">
                                                             <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"

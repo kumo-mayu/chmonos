@@ -99,7 +99,9 @@
                                                     244体の商品で開くのが150〜200ms遅れた。普段は短い文字だけを持たせておく
                                                 -->
                                                 <!-- 押せる札は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
+                                                <!-- 札は Tab で止まれ、Enter・Space で開く（カードと同じ。止まると × も出る） -->
                                                 <controls:PressableBorder BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
+                                                        Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                                         Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                         Command="{Binding OpenCommand}"
                                                         AutomationProperties.AutomationId="ItemAvatarChip"
@@ -131,7 +133,8 @@
                                                         <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                         <!--
                                                             検出の適合率は実測で89%。1割は誤りが出るので消せる必要がある。
-                                                            乗せたときだけ出して、普段は宣言そのものを読ませる。
+                                                            乗せたときと、札にキーボードのフォーカスがあるときだけ出して、普段は宣言そのものを読ませる
+                                                            （RevealOnHoverOrFocusButton。Tab で札に止まると出て、もう一度 Tab で × に移れる）。
                                                         -->
                                                         <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                                 Height="16" Background="Transparent" BorderThickness="0"
@@ -139,19 +142,7 @@
                                                                 Command="{Binding RejectCommand}"
                                                                 AutomationProperties.AutomationId="ItemAvatarReject"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
-                                                                ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。">
-                                                            <Button.Style>
-                                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                                    <Setter Property="Visibility" Value="Hidden" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Value="True"
-                                                                                     Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
-                                                                            <Setter Property="Visibility" Value="Visible" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Button.Style>
-                                                        </Button>
+                                                                ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
                                                     </StackPanel>
                                                 </controls:PressableBorder>
                                         </DataTemplate>
@@ -211,26 +202,14 @@
                                                     <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                     <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
                                                                VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}" />
-                                                    <!-- 対応アバターと同じ形で消せる（X4）。乗せたときだけ出す -->
+                                                    <!-- 対応アバターと同じ形で消せる（X4）。乗せたときと、Tab で × に止まったときに出す（この札は押せないので、止まるのは × だけ） -->
                                                     <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                             Height="16" Background="Transparent" BorderThickness="0"
                                                             Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                             Command="{Binding RejectCommand}"
                                                             AutomationProperties.AutomationId="ItemAvatarBaseReject"
                                                             AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
-                                                            ToolTip="違う共通素体として外します。再検出しても戻らず、「消したもの」から戻せます。">
-                                                        <Button.Style>
-                                                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                                <Setter Property="Visibility" Value="Hidden" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Value="True"
-                                                                                 Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
-                                                                        <Setter Property="Visibility" Value="Visible" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Button.Style>
-                                                    </Button>
+                                                            ToolTip="違う共通素体として外します。再検出しても戻らず、「消したもの」から戻せます。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
@@ -264,26 +243,14 @@
                                                                 AutomationProperties.AutomationId="ItemBaseMentionAdd"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を追加}"
                                                                 Command="{Binding AddCommand}" ToolTip="{Binding AddTooltip}" />
-                                                        <!-- 違う候補は消せる（ユーザ判断 2026-09-29。付いている素体の × と同じ形で、乗せたときだけ出す） -->
+                                                        <!-- 違う候補は消せる（ユーザ判断 2026-09-29。付いている素体の × と同じ形で、乗せたときと、札の中にフォーカスがあるときに出す） -->
                                                         <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                                 Height="16" Background="Transparent" BorderThickness="0"
                                                                 Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding DismissCommand}"
                                                                 AutomationProperties.AutomationId="ItemBaseMentionDismiss"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を候補から消す}"
-                                                                ToolTip="違う候補として消します。「消したもの」から戻せます。">
-                                                            <Button.Style>
-                                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                                    <Setter Property="Visibility" Value="Hidden" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Value="True"
-                                                                                     Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
-                                                                            <Setter Property="Visibility" Value="Visible" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Button.Style>
-                                                        </Button>
+                                                                ToolTip="違う候補として消します。「消したもの」から戻せます。" Style="{StaticResource RevealOnHoverOrFocusButton}" />
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>

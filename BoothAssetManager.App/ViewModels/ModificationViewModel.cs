@@ -274,12 +274,19 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public bool ShowsBack => !IsEmbedded && _main.CanGoBack;
 
     /// <summary>
-    /// 組み込んだときは左右の列を幅に合わせる。右側は窓より狭いので、単独の画面と同じ固定の 660px では
-    /// 横に送るしかなくなる。
-    /// 単独の画面の下限は、覚えた左の幅ではなく**左の最小**から出す。覚えた幅は窓が狭いと頭打ちになる（PaneGrid）ので、
+    /// 本文の幅の下限。これより狭い入れ物では、本文が横に送れる。
+    /// 下限は、覚えた左の幅ではなく**左の最小**から出す。覚えた幅は窓が狭いと頭打ちになる（PaneGrid）ので、
     /// 覚えた幅で下限を決めると、縮められる左を縮めずに横へ送らせることになる（点検 2026-09-23）
     /// </summary>
-    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.MinPixels + 400;
+    public double BodyMinWidth => MinBodyWidth(IsEmbedded, LeftPane.MinPixels);
+
+    /// <summary>
+    /// 組み込んだときの下限は、左の最小＋右の最小（320）＋本文の左右の余白（20×2）ちょうど。
+    /// 前は 0（下限なし）にしていたので、列の最小の合計より狭い入れ物では、横に送れないまま右が切れた
+    /// （幅 900 の窓では「使ったもの」の右端が切れ、右の列——名前・Unityプロジェクト——には届かなかった。2026-09-30）。
+    /// 単独の画面の 400 は前からの値（右の最小と余白に、40 のゆとり）。
+    /// </summary>
+    internal static double MinBodyWidth(bool embedded, double leftMin) => leftMin + (embedded ? 320 + 40 : 400);
 
     /// <remarks>
     /// 組み込んだときは左（写真・使ったもの）に残りを全部渡す。右は最低幅（320px）で足りるが、

@@ -151,12 +151,17 @@ public class ImportResultTextTests
         // 取り込めていない物（読めない・オンラインのみ）→ 開けない物（未確定・商品）の順
         Assert.Collection(
             import.UnreadableLines,
-            line => Assert.StartsWith("読めなかったファイルが 3 件あり", line),
-            line => Assert.StartsWith("4 件はOneDriveの「オンラインのみ」なので読めませんでした。", line),
-            line => Assert.StartsWith("未確定に、壊れていて開けないzipが 2 件あります。", line),
-            line => Assert.StartsWith("「作り物の衣装」に、壊れていて開けないzipが 1 件あります。", line));
+            line => Assert.StartsWith("読めなかったファイルが 3 件あり", line.Text),
+            line => Assert.StartsWith("4 件はOneDriveの「オンラインのみ」なので読めませんでした。", line.Text),
+            line => Assert.StartsWith("未確定に、壊れていて開けないzipが 2 件あります。", line.Text),
+            line => Assert.StartsWith("「作り物の衣装」に、壊れていて開けないzipが 1 件あります。", line.Text));
         Assert.True(import.HasUnreadable);
-        Assert.Equal(string.Join("\n", import.UnreadableLines), import.UnreadableText);
+        Assert.Equal(string.Join("\n", import.UnreadableLines.Select(line => line.Text)), import.UnreadableText);
+
+        // 文の種類ごとに ID が違う（確かめの道具が、読めなかった文と壊れた zip の文を ID で見分ける）
+        Assert.Equal(
+            ["ImportUnreadableLine", "ImportOnlineOnlyLine", "ImportBrokenZipLine", "ImportBrokenZipOnItemsLine"],
+            import.UnreadableLines.Select(line => line.Id));
     });
 
     [Fact]
@@ -174,8 +179,16 @@ public class ImportResultTextTests
         // 2行が並んでも合計と読まれないよう、どこにあるかを文の頭で言う
         Assert.Collection(
             import.UnreadableLines,
-            line => Assert.StartsWith("未確定に、", line),
-            line => Assert.StartsWith("2 件の商品に、", line));
+            line =>
+            {
+                Assert.StartsWith("未確定に、", line.Text);
+                Assert.Equal(ImportResultLine.BrokenZip, line.Id);
+            },
+            line =>
+            {
+                Assert.StartsWith("2 件の商品に、", line.Text);
+                Assert.Equal(ImportResultLine.BrokenZipOnItems, line.Id);
+            });
     });
 
     [Fact]
@@ -186,7 +199,8 @@ public class ImportResultTextTests
         import.Summary = new ImportSummary { FilesScanned = 10, ItemsAdded = 2, FilesOnlineOnly = 1 };
 
         var line = Assert.Single(import.UnreadableLines);
-        Assert.Contains("常にこのデバイスに保持する", line);
+        Assert.Contains("常にこのデバイスに保持する", line.Text);
+        Assert.Equal(ImportResultLine.OnlineOnly, line.Id);
     });
 
     [Fact]

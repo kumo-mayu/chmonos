@@ -223,6 +223,62 @@
             <Setter Property="BorderBrush" Value="{DynamicResource DangerBorder}" />
         </Style>
 
+        <!--
+            キーボードで止まった所の印（札・行・小さな ×）。カードの印（ItemCardResources の CardFocusVisual）と同じく、選んだ色の枠を飾りの層に描く。
+            既定の点線は、色の付いた札や薄い地の行の上で見分けにくい。枠の太さを部品の側で変えると中身がずれる
+        -->
+        <Style x:Key="ChipFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="12" Margin="-2" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- 行は外へはみ出すと隣の行に掛かるので、内側に描く -->
+        <Style x:Key="RowFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SmallFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="1.5" CornerRadius="4" Margin="-1" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            乗せたときだけ出すボタン（札の ×）。**その札にキーボードのフォーカスがあるときにも出す**（ユーザ判断 2026-09-30）。
+            前は乗せたときだけ Visibility を出していたので、キーボードからは届かず、読み上げ・自動操作の既定の見方にも出なかった。
+            隠すのは見た目だけにする（透明にして、マウスを通す）。Hidden だとフォーカスを受けられず、Tab で × に止まれない。
+            透明な間にマウスで押せると、見えないボタンで札が消えるので、出ているときだけマウスを受ける。
+            条件の「札」は、いちばん近い Border（PressableBorder も含む）。中の × やボタンにフォーカスが移っても、札の中にある間は消えない
+        -->
+        <Style x:Key="RevealOnHoverOrFocusButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource SmallFocusVisual}" />
+            <Style.Triggers>
+                <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="IsHitTestVisible" Value="True" />
+                </DataTrigger>
+                <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=Border}}">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="IsHitTestVisible" Value="True" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- 右クリックの中の、取り返しのつかない項目（V4）。ボタンと同じ色にする -->
         <Style x:Key="DangerMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />

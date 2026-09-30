@@ -35,7 +35,7 @@
                           StrokeLineJoin="Round" />
                 </Grid>
 
-                <TextBox x:Name="Body" Grid.Column="1" MaxWidth="460" VerticalAlignment="Center"
+                <TextBox AutomationProperties.AutomationId="NoticeBody" AutomationProperties.Name="メッセージ" x:Name="Body" Grid.Column="1" MaxWidth="460" VerticalAlignment="Center"
                          IsReadOnly="True" IsReadOnlyCaretVisible="False" TextWrapping="Wrap"
                          BorderThickness="0" Background="Transparent" Padding="0" Margin="-2,0,0,0"
                          Foreground="{DynamicResource Text}"

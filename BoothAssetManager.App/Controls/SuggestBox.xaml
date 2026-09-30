@@ -1,6 +1,7 @@
 <UserControl x:Class="BoothAssetManager.App.Controls.SuggestBox"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:BoothAssetManager.App.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
@@ -21,7 +22,8 @@
                 <Border.Effect>
                     <DropShadowEffect Color="{DynamicResource PopupShadowColor}" BlurRadius="10" ShadowDepth="2" Direction="270" />
                 </Border.Effect>
-                <ListBox x:Name="Candidates" MaxHeight="230" BorderThickness="0" Background="Transparent"
+                <!-- 候補の行は、読み上げ・自動操作の「押す」でも決まる（InvokableListBox。素の ListBox の行は「選ぶ」しか持たない） -->
+                <local:InvokableListBox x:Name="Candidates" MaxHeight="230" BorderThickness="0" Background="Transparent"
                          PreviewMouseLeftButtonUp="OnCandidateClicked">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -41,7 +43,7 @@
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
-                </ListBox>
+                </local:InvokableListBox>
             </Border>
         </Popup>
     </Grid>

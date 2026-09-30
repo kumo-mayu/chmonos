@@ -117,7 +117,7 @@
                 <!-- カード全体でも切り替わるが、状態を示す印としても要る -->
                 <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
                           AutomationProperties.AutomationId="ItemCardSelect"
-                          AutomationProperties.Name="{Binding Name, StringFormat='{}{0} を選ぶ'}">
+                          AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}">
                     <CheckBox.LayoutTransform>
                         <ScaleTransform ScaleX="1.3" ScaleY="1.3" />
                     </CheckBox.LayoutTransform>
@@ -578,7 +578,7 @@
         行の見た目は自前にする（ユーザ指摘 2026-09-14：既定の乗せたときの青い枠と塗りが強すぎた）。
         行の境目に細い線を引き、乗せたときは薄い灰、選んだ行（まとめて操作）は薄い青
     -->
-    <Style x:Key="ItemListRowStyle" TargetType="ListViewItem">
+    <Style x:Key="ItemListRowStyle" TargetType="ListViewItem"><Setter Property="AutomationProperties.AutomationId" Value="ItemListRow" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Stretch" />
         <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29）。絵がこの高さに合わせて大きさを変える -->
@@ -655,7 +655,7 @@
             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                       AutomationProperties.AutomationId="ItemListSelect"
-                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0} を選ぶ'}"
+                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}"
                       ToolTip="選ぶと、下の帯からまとめて操作できます" />
         </Grid>
     </DataTemplate>

@@ -1,0 +1,85 @@
+<StackPanel __NS__>
+    <!-- ListBox の行の中の素の ItemsControl（ショップのカードの形） -->
+    <ListBox>
+        <ListBox.ItemsSource>
+            <x:Array Type="s:String">
+                <s:String>行1</s:String>
+                <s:String>行2</s:String>
+            </x:Array>
+        </ListBox.ItemsSource>
+        <ListBox.ItemTemplate>
+            <DataTemplate>
+                <ItemsControl>
+                    <ItemsControl.ItemsSource>
+                        <x:Array Type="s:String">
+                            <s:String>あ</s:String>
+                            <s:String>い</s:String>
+                        </x:Array>
+                    </ItemsControl.ItemsSource>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}" ContentStringFormat="行の中の素:{0}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+    <!-- 素の ItemsControl の中の素の ItemsControl -->
+    <ItemsControl>
+        <ItemsControl.ItemsSource>
+            <x:Array Type="s:String">
+                <s:String>外1</s:String>
+                <s:String>外2</s:String>
+            </x:Array>
+        </ItemsControl.ItemsSource>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <ItemsControl>
+                    <ItemsControl.ItemsSource>
+                        <x:Array Type="s:String">
+                            <s:String>あ</s:String>
+                            <s:String>い</s:String>
+                        </x:Array>
+                    </ItemsControl.ItemsSource>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}" ContentStringFormat="素の中の素:{0}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <!-- 同じ値の項目が2つ（等しい物） -->
+    <ItemsControl>
+        <ItemsControl.ItemsSource>
+            <x:Array Type="s:String">
+                <s:String>同じ</s:String>
+                <s:String>同じ</s:String>
+                <s:String>同じ</s:String>
+            </x:Array>
+        </ItemsControl.ItemsSource>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <Button Content="同じ値の項目のボタン" />
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <!-- ScrollViewer の中 -->
+    <ScrollViewer Height="60">
+        <ItemsControl>
+            <ItemsControl.ItemsSource>
+                <x:Array Type="s:String">
+                    <s:String>あ</s:String>
+                    <s:String>い</s:String>
+                </x:Array>
+            </ItemsControl.ItemsSource>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Content="{Binding}" ContentStringFormat="流す中の素:{0}" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</StackPanel>

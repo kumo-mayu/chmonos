@@ -116,9 +116,9 @@
 
         <Style x:Key="ModuleCollapseToggle" TargetType="Button" BasedOn="{StaticResource PanelToggle}">
             <Setter Property="Content" Value="{StaticResource IconChevronUp}" />
-            <Setter Property="ToolTip" Value="この条件を畳む（条件は効いたまま）" />
+            <Setter Property="ToolTip" Value="この条件を折りたたみます。条件は効いたままです。" />
             <!-- 条件の数だけ並ぶので、どの条件のボタンかを名前に入れる -->
-            <Setter Property="AutomationProperties.Name" Value="{Binding Label, StringFormat={}{0}の条件を畳む}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Label, StringFormat={}{0}の条件を折りたたむ}" />
             <Setter Property="AutomationProperties.AutomationId" Value="{Binding Kind, StringFormat='SearchModule.{0}.Collapse'}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
@@ -167,8 +167,8 @@
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource PanelToggle}">
                         <Setter Property="Content" Value="{StaticResource IconCollapse}" />
-                        <Setter Property="ToolTip" Value="絞り込みを畳む" />
-                        <Setter Property="AutomationProperties.Name" Value="絞り込みを畳む" />
+                        <Setter Property="ToolTip" Value="絞り込みを折りたたむ" />
+                        <Setter Property="AutomationProperties.Name" Value="絞り込みを折りたたむ" />
                         <Setter Property="AutomationProperties.AutomationId" Value="SearchToggleFilterPanel" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsFilterPanelCollapsed}" Value="True">

@@ -410,8 +410,9 @@
                             <controls:ContentItemsControl ItemsSource="{Binding UnreadableLines}" Focusable="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock x:Name="Line" Text="{Binding}" FontSize="12" TextWrapping="Wrap"
-                                                   AutomationProperties.AutomationId="ImportUnreadableLine"
+                                        <!-- ID は文の種類ごと（読めなかった・オンラインのみ・壊れたzip。ImportResultLine） -->
+                                        <TextBlock x:Name="Line" Text="{Binding Text}" FontSize="12" TextWrapping="Wrap"
+                                                   AutomationProperties.AutomationId="{Binding Id}"
                                                    Foreground="{DynamicResource Warn}" Margin="0,7,0,0" />
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
@@ -521,7 +522,7 @@
                                             </Grid.ColumnDefinitions>
                                             <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                       AutomationProperties.AutomationId="ImportUnpackedSelect"
-                                                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0} を選ぶ'}"
+                                                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}"
                                                       VerticalAlignment="Center" />
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Text="{Binding Name}" FontSize="12.5" />

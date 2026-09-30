@@ -14,7 +14,7 @@
                 <!-- 押せる行は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
                 <controls:PressableBorder BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,15"
                                           Command="{Binding OpenItemCommand}"
-                                          AutomationProperties.AutomationId="InboxRow"
+                                          Focusable="True" FocusVisualStyle="{StaticResource RowFocusVisual}" AutomationProperties.AutomationId="InboxRow"
                                           AutomationProperties.Name="{Binding Title}">
                     <!--
                         行を押すと、その商品を開く（ユーザ指示 2026-09-20・B3）。
@@ -42,28 +42,7 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <Border.Triggers>
-                        <EventTrigger RoutedEvent="MouseEnter">
-                            <BeginStoryboard>
-                                <Storyboard>
-                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
-                                                                   Storyboard.TargetProperty="Visibility">
-                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Visible}" />
-                                    </ObjectAnimationUsingKeyFrames>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                        <EventTrigger RoutedEvent="MouseLeave">
-                            <BeginStoryboard>
-                                <Storyboard>
-                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowActions"
-                                                                   Storyboard.TargetProperty="Visibility">
-                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{x:Static Visibility.Collapsed}" />
-                                    </ObjectAnimationUsingKeyFrames>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                    </Border.Triggers>
+
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -149,10 +128,28 @@
                             <StackPanel Orientation="Horizontal" MinHeight="28" Margin="0,6,0,0">
                                 <TextBlock Text="{Binding CreatedText}" Style="{StaticResource Caption}"
                                            FontSize="11" VerticalAlignment="Center" ToolTip="{Binding CreatedTip}" />
+                                <!--
+                                    出すのは、行にマウスが乗っているときと、**行かその中にキーボードのフォーカスがあるとき**（ユーザ判断 2026-09-30）。
+                                    前は乗せた・離れたの知らせで出し入れしていたので、キーボードからは届かなかった。
+                                    中のボタンにフォーカスが移っても、行の中にある間は消えない
+                                -->
                                 <StackPanel x:Name="RowActions" Orientation="Horizontal" Margin="14,0,0,0"
-                                            VerticalAlignment="Center" Visibility="Collapsed">
+                                            VerticalAlignment="Center">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Value="True" Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=controls:PressableBorder}}">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                                <DataTrigger Value="True" Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=controls:PressableBorder}}">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
                                 <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
-                                <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
+                                <Button AutomationProperties.Name="{Binding Title, StringFormat={}{0}の商品ページを開く}" Content="商品ページを開く" Style="{StaticResource SmallButton}"
                                         AutomationProperties.AutomationId="InboxRowOpenItem"
                                         Command="{Binding OpenItemCommand}"
                                         ToolTip="このアプリの中で商品ページを開きます。"
@@ -258,8 +255,8 @@
                                         見出しごと畳めるようにする（ユーザ指示 2026-09-18）。見出しのどこを押しても開閉できるよう、
                                         ToggleButton を見出し全体にする。件数は畳んでいる間も出す（何件あるか見えないと開く判断ができない）
                                     -->
-                                    <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
-                                                  AutomationProperties.Name="{Binding KindText}"
+                                    <controls:ExpandToggle AutomationProperties.AutomationId="InboxGroupToggle" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Cursor="Hand" Focusable="False"
+                                                  Subject="{Binding KindText}"
                                                   HorizontalContentAlignment="Stretch" Padding="0">
                                         <ToggleButton.Template>
                                             <ControlTemplate TargetType="ToggleButton">
@@ -318,13 +315,13 @@
                                                     束ごとの「まとめて既読」（ユーザ判断 2026-09-18：選んで既読にするより、
                                                     束ごとにあれば十分）。未読がある束にだけ出す
                                                 -->
-                                                <Button Content="この束を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                <Button AutomationProperties.AutomationId="InboxGroupMarkRead" AutomationProperties.Name="{Binding KindText, StringFormat={}{0}の束を既読にする}" Content="この束を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                         Command="{Binding MarkGroupReadCommand}"
                                                         ToolTip="この種別の未読を、まとめて既読にします。"
                                                         Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </StackPanel>
                                         </Grid>
-                                    </ToggleButton>
+                                    </controls:ExpandToggle>
                                 </Grid>
                             </Border>
                             <DataTemplate.Triggers>

@@ -90,7 +90,7 @@
                     <controls:ContentItemsControl ItemsSource="{Binding Duplicates}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <CheckBox IsChecked="{Binding IsDuplicate, Mode=TwoWay}" Margin="0,0,0,5"
+                                <CheckBox AutomationProperties.AutomationId="ChangeItemIdDuplicate" AutomationProperties.Name="{Binding Text}" IsChecked="{Binding IsDuplicate, Mode=TwoWay}" Margin="0,0,0,5"
                                           Foreground="{DynamicResource Text}">
                                     <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="12" />
                                 </CheckBox>
