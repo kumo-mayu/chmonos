@@ -129,8 +129,9 @@ public sealed partial class MainViewModel : ViewModelBase
             return;
         }
 
-        // ナビの件数は裏で数える（RefreshCounts）ので、まだ入っていない。ここでは記録を直に読む（商品が0件のときだけ）
-        if (_services.Store.Unresolved.Load().Count > 0)
+        // ナビの件数は裏で数える（RefreshCounts）ので、まだ入っていない。ここでは記録を直に見る（商品が0件のときだけ）。
+        // 知りたいのは在るかだけなので、頭だけ読む（画面のスレッド。丸ごと読むと未確定が数万件あるとき起動が数百ms 止まる）
+        if (Core.Storage.JsonStore.ArrayHasItems(_services.Store.Unresolved.Path))
         {
             ShowResolve();
             return;

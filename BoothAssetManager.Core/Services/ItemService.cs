@@ -729,21 +729,17 @@ public sealed class ItemService : IItemService
         return (item, Booth.BoothFetchStatus.Success);
     }
 
-    /// <summary>登録したフォルダの配下にあった未確定を取り除く。行き先が決まったため。</summary>
-    private async Task RemoveUnresolvedUnderAsync(string folderPath, CancellationToken cancellationToken)
+    /// <summary>
+    /// 登録したフォルダの配下にあった未確定を取り除く。行き先が決まったため。
+    ///
+    /// 配下に1件も無ければ書かない。前は「在るかを見るために読む → 在れば錠の中でもう一度読んで書く」の2回読みで、
+    /// 1回目は命令の頭で画面のスレッドを止めていた。錠の中で今の一覧を見て、外す物が無ければ書かずに抜ける（読むのは1回）
+    /// </summary>
+    private Task RemoveUnresolvedUnderAsync(string folderPath, CancellationToken cancellationToken)
     {
         var registered = new RegisteredFolderSet([folderPath]);
-        if (!_store.Unresolved.Load().Any(file => file.Paths.Any(registered.Contains)))
-        {
-            return;
-        }
-
-        await _store.Unresolved.UpdateAsync(
-            current =>
-            {
-                current.RemoveAll(file => file.Paths.Any(registered.Contains));
-                return current;
-            },
+        return _store.Unresolved.TryUpdateAsync(
+            current => current.RemoveAll(file => file.Paths.Any(registered.Contains)) > 0 ? current : null,
             cancellationToken);
     }
 
@@ -752,14 +748,14 @@ public sealed class ItemService : IItemService
     ///
     /// **錠の中で今の一覧から外す**（技術的負債 1-2）。一覧は取り込みも書くので、始めに読んだ写しを書き戻すと、
     /// その間に取り込みが足した物が消える（逆に取り込みがこちらの変更を消すのは <see cref="UnresolvedMerge"/> で防ぐ）。
+    /// 一覧に無ければ書かない（商品に戻す・zipで登録し直すでは、未確定に居ないのが普通。同じ中身を書き直すだけで、
+    /// 未確定が数万件あると数十MBの書き出しになる）。
     /// </summary>
     private Task RemoveUnresolvedAsync(string hash, CancellationToken cancellationToken)
-        => _store.Unresolved.UpdateAsync(
-            current =>
-            {
-                current.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
-                return current;
-            },
+        => _store.Unresolved.TryUpdateAsync(
+            current => current.RemoveAll(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)) > 0
+                ? current
+                : null,
             cancellationToken);
 
     /// <summary>
@@ -772,7 +768,8 @@ public sealed class ItemService : IItemService
     /// </summary>
     public async Task<int> ReconcileUnresolvedAsync(CancellationToken cancellationToken = default)
     {
-        var unresolved = _store.Unresolved.Load();
+        // 「未確定」を開くたびに画面のスレッドから呼ばれる。記録は裏で読む（8万件で、開くたびに 150〜290ms 止まっていた）
+        var unresolved = await _store.Unresolved.LoadAsync(cancellationToken);
         if (unresolved.Count == 0)
         {
             return 0;
@@ -978,7 +975,8 @@ public sealed class ItemService : IItemService
 
     public async Task<bool> AssignItemIdAsync(string hash, string itemId, CancellationToken cancellationToken = default)
     {
-        var unresolved = _store.Unresolved.Load();
+        // 登録の命令は画面のスレッドから来る。記録は裏で読む（FromUnresolved の3つの道とも同じ）
+        var unresolved = await _store.Unresolved.LoadAsync(cancellationToken);
         var target = unresolved.FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
         if (target is null)
         {
@@ -1037,7 +1035,7 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var target = _store.Unresolved.Load()
+        var target = (await _store.Unresolved.LoadAsync(cancellationToken))
             .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
         if (target is null)
         {
@@ -1644,7 +1642,9 @@ public sealed class ItemService : IItemService
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        var unresolved = _store.Unresolved.Load();
+        // 最初の await より前の同期の読みは、呼んだスレッド（画面）で走る。未確定が8万件（37.7MB）あると、
+        // 1件登録するたびにここで 330〜540ms 画面が止まっていた（2026-09-30 に測った）。記録は裏で読む
+        var unresolved = await _store.Unresolved.LoadAsync(cancellationToken);
         var target = unresolved.FirstOrDefault(
             file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
         if (target is null)
