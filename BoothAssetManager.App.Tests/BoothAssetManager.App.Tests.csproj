@@ -6,7 +6,7 @@
     （ユーザ判断 2026-09-30）。窓は出さない。配置と見た目は今までどおり画像で見る。書き方は docs/dev/app-tests.md
   -->
   <PropertyGroup>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

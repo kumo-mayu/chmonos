@@ -7,7 +7,7 @@
   <PropertyGroup>
     <!-- コンソールに結果を書くので Exe。WinExe にすると標準出力が呼んだシェルへ戻らない -->
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
