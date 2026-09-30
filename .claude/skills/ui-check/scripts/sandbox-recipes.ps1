@@ -23,7 +23,7 @@ function Build-ChmonosSandboxGen {
   $project = Join-Path $ChmonosRepo 'tools\SandboxGen'
   $out = dotnet build $project -c Release --nologo -v q 2>&1
   if ($LASTEXITCODE -ne 0) { throw "写しを組む道具がビルドできない:`n$(($out | Select-Object -Last 15) -join "`n")" }
-  $exe = Join-Path $project 'bin\Release\net9.0\SandboxGen.exe'
+  $exe = Join-Path $project 'bin\Release\net10.0\SandboxGen.exe'
   if (-not (Test-Path -LiteralPath $exe)) { throw "ビルドした実行ファイルが無い: $exe" }
   $exe
 }
