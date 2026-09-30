@@ -1,6 +1,6 @@
 # Chmonos（クモノス）— AIへの指示
 
-BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 9）。**まだ公開していない。**
+BOOTH.pmで買った自分のアセットを手元で管理するWindowsアプリ（WPF / .NET 10）。**まだ公開していない。**
 名前は **Chmonos**（2026-09-14 に「BOOTH Asset Manager」から改名。`docs/research/booth-terms.md` §4）。
 画面の名前・BOOTH へ送るアプリ名（User-Agent）・保存先・環境変数は新しい名前。コードの名前空間・実行ファイル名・リポジトリ名・写しのフォルダ名はまだ古い名前（公開の直前に変える）。
 
