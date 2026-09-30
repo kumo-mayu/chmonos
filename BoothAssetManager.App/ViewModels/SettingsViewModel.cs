@@ -597,8 +597,11 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     private async Task ClearSearchHistoryAsync()
     {
-        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(
-            _ => new Core.Services.SearchHistoryList()));
+        // 検索画面が履歴を書く列と同じ列を通す。直に書くと、商品を開いた直後の「足す」がまだ列にいるとき、
+        // 消した後にそれが書かれて、消したはずの1件が戻る
+        var commands = _services.Commands;
+        await _services.BackgroundWrites.RunAsync(() => commands.ExecuteAsync(
+            new Core.Commands.UiCommand.ChangeSearchHistory(_ => new Core.Services.SearchHistoryList())));
         _main.Search.RestoreHistory();
     }
 

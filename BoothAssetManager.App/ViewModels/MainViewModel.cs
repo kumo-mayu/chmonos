@@ -608,11 +608,14 @@ public sealed partial class MainViewModel : ViewModelBase
     public Task FlushPendingWritesAsync()
     {
         // 組み込んだ物は、組み込んだ画面が自分で拾う（フォルダ・改変・編集の中の商品ページ）。
-        // 一覧の大きさ（右下のスライダー）は画面に属さないので、ここで一緒に書く
+        // 一覧の大きさ（右下のスライダー）は画面に属さないので、ここで一緒に書く。
+        // 検索の履歴と足跡は画面のスレッドの外で書いている（BackgroundWriteQueue）。プールのスレッドは窓が閉じると切られるので、
+        // 閉じる直前に開いた商品の分が落ちないよう、ここで書き終わりを待つ
         return Task.WhenAll(
             (CurrentViewModel as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask,
             ItemViewSize.Current.FlushAsync(),
-            AppZoom.Current.FlushAsync());
+            AppZoom.Current.FlushAsync(),
+            _services.BackgroundWrites.WhenIdleAsync());
     }
 
     /// <summary>

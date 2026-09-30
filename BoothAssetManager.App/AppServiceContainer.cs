@@ -110,7 +110,7 @@ public sealed class AppServiceContainer : IDisposable
         Attributes = new AttributeService(Store);
         Shops = new ShopService(Store, () => Settings, Client);
         Stats = new StatsService(Store);
-        Recent =new Services.RecentTracker(Store);
+        Recent = new Services.RecentTracker(Store, BackgroundWrites);
         Modifications = new ModificationService(Store, Images);
         Commands = new CommandHandler(
             Import, Items, Edit, new UnpackedFolderRemover(DeleteToRecycleBin), Resolver, Notifications, UserTags, Attributes,
@@ -213,6 +213,12 @@ public sealed class AppServiceContainer : IDisposable
 
     /// <summary>「最近」の足跡を打つ。itemのJSONではなく recent.json に集める</summary>
     public Services.RecentTracker Recent { get; }
+
+    /// <summary>
+    /// 商品を開くたびの小さな書き込み（検索の履歴・足跡）を、画面のスレッドの外で順に書く列。
+    /// 閉じる前と保存先を運ぶ前に、書き終わりを待つ（<c>MainViewModel.FlushPendingWritesAsync</c>）
+    /// </summary>
+    public BackgroundWriteQueue BackgroundWrites { get; } = new();
 
     /// <summary>
     /// 現在の設定（<see cref="SettingsService.Current"/>）。書くと差し替わる。

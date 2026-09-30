@@ -50,13 +50,28 @@ public sealed partial class SearchViewModel
 
         // 読んで足して書く間を錠の中で行う（技術的負債 3-1）。前は画面が読んだ写しを丸ごと書いていた
         var keep = _services.Settings.SearchHistoryCount;
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(stored =>
-            new Core.Services.SearchHistoryList { Entries = Core.Services.SearchHistory.Add(stored.Entries, entry, keep) }));
+        var result = await ChangeHistoryAsync(stored =>
+            new Core.Services.SearchHistoryList { Entries = Core.Services.SearchHistory.Add(stored.Entries, entry, keep) });
 
         if (result is Core.Commands.CommandResult.SearchHistoryChanged changed)
         {
             LoadHistory(changed.History.Entries);
         }
+    }
+
+    /// <summary>
+    /// 検索の履歴を書き換える。道は今までどおり <see cref="Core.Commands.UiCommand.ChangeSearchHistory"/>（錠の中で今の履歴に当てる）で、
+    /// **走らせる場所だけを画面のスレッドの外にする**（<see cref="Core.Storage.BackgroundWriteQueue"/>）。
+    ///
+    /// 履歴は商品を開くたびに書く。画面のスレッドから直に呼ぶと、読む・ディスクへ書き出す・置き換えるがそこで走り、
+    /// 開く1回ごとに乗っていた。足すのも消すのも同じ列を通す——別の道で書くと、押した順と書く順が入れ替わり得る。
+    /// </summary>
+    private Task<Core.Commands.CommandResult> ChangeHistoryAsync(
+        Func<Core.Services.SearchHistoryList, Core.Services.SearchHistoryList> change)
+    {
+        var commands = _services.Commands;
+        return _services.BackgroundWrites.RunAsync(
+            () => commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(change)));
     }
 
     /// <summary>スロットを組み直す。</summary>
@@ -77,8 +92,8 @@ public sealed partial class SearchViewModel
 
     private async Task RemoveHistoryAsync(Core.Models.SearchHistoryEntry entry)
     {
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSearchHistory(stored =>
-            new Core.Services.SearchHistoryList { Entries = Core.Services.SearchHistory.Remove(stored.Entries, entry.Fingerprint) }));
+        var result = await ChangeHistoryAsync(stored =>
+            new Core.Services.SearchHistoryList { Entries = Core.Services.SearchHistory.Remove(stored.Entries, entry.Fingerprint) });
 
         if (result is Core.Commands.CommandResult.SearchHistoryChanged changed)
         {

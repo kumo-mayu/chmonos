@@ -17,22 +17,36 @@ namespace BoothAssetManager.App.Services;
 public sealed class RecentTracker
 {
     private readonly DataStore _store;
+    private readonly BackgroundWriteQueue _writes;
 
-    public RecentTracker(DataStore store)
+    public RecentTracker(DataStore store, BackgroundWriteQueue writes)
     {
         _store = store;
+        _writes = writes;
     }
 
     public Task TouchAsync(string itemId, RecentKind kind)
         => TouchAsync(itemId, kind, DateTimeOffset.Now);
 
-    public async Task TouchAsync(string itemId, RecentKind kind, DateTimeOffset at)
+    /// <summary>
+    /// 足跡を1つ打つ。**書くのは画面のスレッドの外**（<see cref="BackgroundWriteQueue"/>）。
+    ///
+    /// 前はここで直に書いていた。非同期の形でも、錠が空いていれば読む・書く・ディスクへ書き出す・置き換えるが
+    /// 呼んだスレッドで走るので、商品ページを開くたびに画面のスレッドが 8〜10ms 止まっていた（2026-09-30 に SSD で測った）。
+    /// 時刻は呼ばれた時点で決め、列は頼まれた順に書くので、続けて開いても古い時刻が後から勝つことは無い。
+    /// </summary>
+    public Task TouchAsync(string itemId, RecentKind kind, DateTimeOffset at)
     {
         if (string.IsNullOrWhiteSpace(itemId))
         {
-            return;
+            return Task.CompletedTask;
         }
 
+        return _writes.RunAsync(() => WriteTouchAsync(itemId, kind, at));
+    }
+
+    private async Task WriteTouchAsync(string itemId, RecentKind kind, DateTimeOffset at)
+    {
         try
         {
             // 保存先を運んでいる間は待つ。足跡は `UiCommand` を通らないので、門はここで通す
