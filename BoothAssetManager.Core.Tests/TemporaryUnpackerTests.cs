@@ -328,6 +328,183 @@ public sealed class TemporaryUnpackerTests : IDisposable
         Assert.True(File.Exists(first + ".done"));
     }
 
+    /// <summary>
+    /// 展開が失敗したら、書きかけをその場で消す（ユーザ判断 2026-09-30）。前は次に押すかアプリを閉じるまで残り、
+    /// 空き容量が足りなくて失敗した人の空きを食っていた。
+    /// 失敗は zip の中身で作る：「a」というファイルの後に「a/下.txt」が来ると、フォルダ「a」を作れずに失敗する。
+    /// </summary>
+    [Fact]
+    public void 失敗すると書きかけを消す()
+    {
+        var zip = MakeZip("ぶつかる.zip", ("先.psd", Big('a')), ("a", "ファイル"), ("a/下.txt", "フォルダが要る"));
+
+        Assert.ThrowsAny<IOException>(() => new TemporaryUnpacker(Root).Unpack(zip));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Root));
+    }
+
+    /// <summary>
+    /// 書きかけを消せなくても（別のアプリが掴んでいる）、元の失敗をそのまま返す。消す側の失敗で上書きすると、
+    /// 失敗の文（<see cref="FailureText.Cause"/>）が元の原因を言えなくなる。掴んでいた物を放せば、もう一度押して最初から展開できる。
+    /// </summary>
+    [Fact]
+    public void 書きかけを消せなくても元の失敗を返しもう一度押すと展開し直せる()
+    {
+        var zip = MakeZip("掴まれる.zip", ("a/1.png", Big('一')), ("b/2.png", "二"));
+        FileStream? held = null;
+        string? heldPath = null;
+        var unpacker = new TemporaryUnpacker(Root);
+        var recorder = new Recorder(report =>
+        {
+            // 1つ目を書いている途中で、2つ目の書き込み先を先に掴む（展開先の名前は、1つ目が書かれた後なら置き場所を見れば分かる）
+            if (held is null && report.DoneBytes > 0)
+            {
+                heldPath = Path.Combine(Directory.EnumerateDirectories(Root).Single(), "b", "2.png");
+                Directory.CreateDirectory(Path.GetDirectoryName(heldPath)!);
+                held = new FileStream(heldPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            }
+        });
+
+        IOException failure;
+        try
+        {
+            failure = Assert.ThrowsAny<IOException>(() => unpacker.Unpack(zip, recorder));
+
+            // 掴まれた物は残る（消せない）。終わった印は無い
+            Assert.True(File.Exists(heldPath));
+            Assert.Empty(Directory.EnumerateFiles(Root, "*.done"));
+        }
+        finally
+        {
+            held?.Dispose();
+        }
+
+        // 元の失敗（共有違反）のまま。画面は「別のアプリがファイルを開いています」と言える
+        Assert.Equal("別のアプリがファイルを開いています。閉じてからもう一度お試しください。", FailureText.Cause(failure));
+
+        var folder = unpacker.Unpack(zip);
+
+        Assert.Equal(Big('一'), File.ReadAllText(Path.Combine(folder, "a", "1.png")));
+        Assert.Equal("二", File.ReadAllText(Path.Combine(folder, "b", "2.png")));
+        Assert.True(File.Exists(folder + ".done"));
+    }
+
+    /// <summary>置き場所の下の全ファイル（取り出しの書きかけ「.part」が残っていないかを見る）。</summary>
+    private string[] FilesUnderRoot()
+        => Directory.Exists(Root) ? Directory.GetFiles(Root, "*", SearchOption.AllDirectories) : [];
+
+    /// <summary>Unity へ送る前の取り出しも、どこまで来たかを出せる（0 から、その1件の大きさまで）。</summary>
+    [Fact]
+    public void 取り出しの進み具合は0から大きさまで届く()
+    {
+        var zip = MakeZip("pack.zip", ("中/大きい.unitypackage", Big('u')), ("ほか.txt", Big('x')));
+        var recorder = new Recorder();
+
+        new TemporaryUnpacker(Root).ExtractEntry(zip, "中/大きい.unitypackage", recorder);
+
+        // 合計は取り出す1件の大きさ（zip のほかの物は数えない）
+        Assert.Equal(new TemporaryUnpackProgress(0, 300_000), recorder.Reports[0]);
+        Assert.Equal(new TemporaryUnpackProgress(300_000, 300_000), recorder.Reports[^1]);
+        Assert.Contains(recorder.Reports, report => report.DoneBytes > 0 && report.DoneBytes < 300_000);
+    }
+
+    /// <summary>
+    /// 取り出しも、ファイルの途中で中止が効き、書きかけを残さない（ユーザ判断 2026-09-30）。
+    /// 前は1件を書き切ってから止まり、数GBの unitypackage では「中止」を押してから長く待たされた。
+    /// </summary>
+    [Fact]
+    public void 取り出しを中止すると書きかけを消しもう一度送ると取り出し直せる()
+    {
+        var zip = MakeZip("pack.zip", ("中/大きい.unitypackage", Big('u')));
+        using var stop = new CancellationTokenSource();
+        var recorder = new Recorder(report =>
+        {
+            if (report.DoneBytes > 0)
+            {
+                stop.Cancel();
+            }
+        });
+        var unpacker = new TemporaryUnpacker(Root);
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => unpacker.ExtractEntry(zip, "中/大きい.unitypackage", recorder, stop.Token));
+
+        Assert.True(recorder.Reports[^1].DoneBytes < 300_000, $"{recorder.Reports[^1].DoneBytes} バイトまで書いた");
+        Assert.Empty(FilesUnderRoot());
+
+        var path = unpacker.ExtractEntry(zip, "中/大きい.unitypackage");
+
+        Assert.Equal(Big('u'), File.ReadAllText(path));
+        Assert.Equal(new[] { path }, FilesUnderRoot());
+    }
+
+    /// <summary>始める前から中止されていれば、何も書かない。</summary>
+    [Fact]
+    public void 中止済みなら取り出さない()
+    {
+        var zip = MakeZip("pack.zip", ("a.unitypackage", "a"));
+        using var stop = new CancellationTokenSource();
+        stop.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => new TemporaryUnpacker(Root).ExtractEntry(zip, "a.unitypackage", null, stop.Token));
+
+        Assert.Empty(FilesUnderRoot());
+    }
+
+    /// <summary>
+    /// 取り出しが失敗したら、書きかけ（.part）を消す（一時展開の失敗と同じ扱い）。
+    /// 失敗は、本物の名前の場所を先にフォルダで塞いで作る（書き終えた後の名前の付け替えが通らない）。
+    /// </summary>
+    [Fact]
+    public void 取り出しが失敗すると書きかけを消しもう一度送ると取り出し直せる()
+    {
+        var zip = MakeZip("pack.zip", ("中/大きい.unitypackage", Big('u')));
+        var unpacker = new TemporaryUnpacker(Root);
+
+        // 取り出す先は zip と中のパスで決まるので、1度取り出して場所を知ってから、そこをフォルダに置き換える
+        var path = unpacker.ExtractEntry(zip, "中/大きい.unitypackage");
+        File.Delete(path);
+        Directory.CreateDirectory(path);
+
+        var failure = Record.Exception(() => unpacker.ExtractEntry(zip, "中/大きい.unitypackage"));
+
+        Assert.True(failure is IOException or UnauthorizedAccessException, failure?.GetType().Name);
+        Assert.Empty(FilesUnderRoot());
+
+        Directory.Delete(path);
+
+        Assert.Equal(path, unpacker.ExtractEntry(zip, "中/大きい.unitypackage"));
+        Assert.Equal(Big('u'), File.ReadAllText(path));
+        Assert.Equal(new[] { path }, FilesUnderRoot());
+    }
+
+    /// <summary>
+    /// 書きかけを別のアプリが掴んでいて消せなくても、元の失敗をそのまま返す。
+    /// 放した後にもう一度送ると、残った書きかけを上書きして取り出せる。
+    /// </summary>
+    [Fact]
+    public void 取り出しの書きかけを消せなくても元の失敗を返す()
+    {
+        var zip = MakeZip("pack.zip", ("中/大きい.unitypackage", Big('u')));
+        var unpacker = new TemporaryUnpacker(Root);
+        var path = unpacker.ExtractEntry(zip, "中/大きい.unitypackage");
+        File.Delete(path);
+
+        IOException failure;
+        using (new FileStream(path + ".part", FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            failure = Assert.ThrowsAny<IOException>(() => unpacker.ExtractEntry(zip, "中/大きい.unitypackage"));
+        }
+
+        Assert.Equal("別のアプリがファイルを開いています。閉じてからもう一度お試しください。", FailureText.Cause(failure));
+        Assert.False(File.Exists(path));
+
+        Assert.Equal(path, unpacker.ExtractEntry(zip, "中/大きい.unitypackage"));
+        Assert.Equal(Big('u'), File.ReadAllText(path));
+        Assert.Equal(new[] { path }, FilesUnderRoot());
+    }
+
     /// <summary>zip に書いてある更新時刻を付ける（前の <c>ExtractToFile</c> と同じ。自前で書き出すようにしても変えない）。</summary>
     [Fact]
     public void 更新時刻はzipに書いてある値にする()

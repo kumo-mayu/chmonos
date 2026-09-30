@@ -112,6 +112,9 @@ public static class UnityImportQueue
     private static readonly string EditorLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Unity", "Editor", "Editor.log");
 
+    /// <summary>取り出しの進み具合を帯へ出す間隔。一時展開の帯と同じ（1秒に10回まで。人の目で追えるのはそのくらいまで）。</summary>
+    private static readonly TimeSpan ExtractProgressInterval = TimeSpan.FromMilliseconds(100);
+
     private static int _running;
 
     /// <summary>
@@ -141,7 +144,8 @@ public static class UnityImportQueue
     /// <summary>
     /// 送るのをやめる（ユーザ判断 2026-09-20・E7）。**止められるのは待っている間**——
     /// いちばん長いのは、人が Unity の取り込み画面を見ている時間（上限30分）で、そこが止まる。
-    /// zip の取り出しやプロジェクトの走査は、始まってしまえば最後まで走る（割り込む手段が無い）。
+    /// zip からの取り出しも書き出しの途中で止まり、書きかけを消す（ユーザ判断 2026-09-30。前は1件を書き切るまで止まらなかった）。
+    /// 中身のパス読みとプロジェクトの走査は、始まってしまえば最後まで走る（割り込む手段が無い）。
     ///
     /// **止めても Unity の取り込み画面は残る。**閉じる手段をこちらは持たないので、
     /// Unity 側で Import を押せば実際に入る（こちらは見ていないので記録には残らない）。言い方もそう書く。
@@ -282,14 +286,63 @@ public static class UnityImportQueue
             // 人に見せて押してもらう画面なので、送る前に開いておく
             Restore(main);
 
-            Report($"{index + 1}/{packages.Count}：「{package.Name}」を送っています…");
+            var sendingLine = $"{index + 1}/{packages.Count}：「{package.Name}」を送っています…";
+            Report(sendingLine);
+
+            // **取り出しが長いときだけ、文を大きさの進み具合に替える**（ユーザ判断 2026-09-30）。数GBの unitypackage を
+            // 遅いディスクで送ると、「送っています…」のまま長く動かなかった。すぐ終わる取り出しでは替えない
+            // （替えるかの決まりは DisplayText.ShowsUnityExtracting）。
+            // 進み具合は 81,920 バイトごとに届くので、最新だけを1秒に10回まで出す（LatestProgress に理由）
+            var number = index + 1;
+            var extracting = true;
+            var showsExtracting = false;
+            var clock = Stopwatch.StartNew();
+            var extractProgress = new LatestProgress<TemporaryUnpackProgress>(
+                report =>
+                {
+                    // 取り出しが終わった後に届いた分で、次の段の文を上書きしない
+                    if (!extracting)
+                    {
+                        return;
+                    }
+
+                    showsExtracting = showsExtracting
+                        || DisplayText.ShowsUnityExtracting(clock.Elapsed, report.DoneBytes, report.TotalBytes);
+                    if (showsExtracting)
+                    {
+                        Report(DisplayText.UnityExtractingLine(
+                            number, packages.Count, package.Name, report.DoneBytes, report.TotalBytes));
+                    }
+                },
+                ExtractProgressInterval,
+                System.Windows.Threading.Dispatcher.CurrentDispatcher);
 
             string path;
             IReadOnlyList<UnityPackageAsset> assets;
             IReadOnlyList<string> expected;
             try
             {
-                path = await Task.Run(() => unpacker.ExtractEntry(package.ZipPath, package.EntryPath, cancellationToken), cancellationToken);
+                try
+                {
+                    // 中止は書き出しの途中でも効き、取り出しの側が書きかけを消してから戻る。
+                    // ここへ戻るのは片付けが済んだ後（止めた・失敗した後に空きを食う書きかけを残さない）
+                    path = await Task.Run(
+                        () => unpacker.ExtractEntry(package.ZipPath, package.EntryPath, extractProgress, cancellationToken),
+                        cancellationToken);
+                }
+                finally
+                {
+                    extracting = false;
+                    extractProgress.Complete();
+                }
+
+                // 取り出しの文に替えていたら戻す。この後も中身の読み取りとファイル選択の窓を待つ間があり、
+                // 「取り出しています… 2.3 GB / 2.3 GB」のまま止まって見える
+                if (showsExtracting)
+                {
+                    Report(sendingLine);
+                }
+
                 // ログの行が送った物の取り込みかを見分けるため、中身のパスを先に読んでおく
                 assets = await Task.Run(() => reads.ReadAssets(package), cancellationToken);
                 expected = assets.Select(asset => asset.Path).ToList();

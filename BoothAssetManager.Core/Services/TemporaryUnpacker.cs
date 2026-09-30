@@ -59,6 +59,9 @@ public sealed class TemporaryUnpacker
     /// **中止すると、書きかけを消してから <see cref="OperationCanceledException"/> を投げる**（ユーザ判断 2026-09-30）。
     /// 遅いディスクでは数十秒かかるので、下の帯に進み具合と「中止」を出す。終わった印は書かないので、
     /// 同じ zip をもう一度押せば最初から展開し直す。
+    ///
+    /// **失敗したときも、書きかけを消してから投げる**（ユーザ判断 2026-09-30）。空き容量が足りなくて失敗した人は
+    /// 空きを作りたいのに、書きかけが次に押すかアプリを閉じるまで残って邪魔をしていた。
     /// </summary>
     /// <param name="progress">書き出した量。ファイルの途中でも細かく届くので、画面へ出す側で間引く。</param>
     public string Unpack(
@@ -121,10 +124,13 @@ public sealed class TemporaryUnpacker
         {
             Extract(zipPath, destination, progress, cancellationToken);
         }
-        catch (OperationCanceledException)
+        catch
         {
             // **錠の中で片付ける。**錠を放してから消すと、待っていた次の1本が書き始めた物を消してしまう。
-            // zip と書きかけのファイルは Extract を抜けた時点で閉じているので、ここで消せる
+            // zip と書きかけのファイルは Extract を抜けた時点で閉じているので、ここで消せる。
+            // 中止だけでなく失敗（空きが足りない・zip が壊れている）でも消す——失敗の種類で分けると、
+            // 「ディスクの空きが足りません」と言われた人の前に、その空きを食っている書きかけが残る。
+            // 消せなくても元の例外をそのまま投げる（RemovePartial は投げない。失敗の文は元の原因で決まる）
             RemovePartial(destination);
             throw;
         }
@@ -172,29 +178,44 @@ public sealed class TemporaryUnpacker
             }
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-
-            // **ファイルの途中でも中止を見る。**`ExtractToFile` は1ファイルを書き切るまで戻らないので、
-            // 数GBの1ファイル（PSD・動画）を含む zip では、中止を押しても書き終わるまで止まらず、進み具合も動かない
-            using (var source = entry.Open())
-            using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                int read;
-                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    output.Write(buffer, 0, read);
-                    done += read;
-                    progress?.Report(new TemporaryUnpackProgress(done, total));
-                }
-            }
-
-            // `ExtractToFile` と同じく、zip に書いてある更新時刻を付ける（エクスプローラで日付順に並べたときに元の順になる）
-            File.SetLastWriteTime(target, entry.LastWriteTime.DateTime);
+            WriteEntry(entry, target, buffer, ref done, total, progress, cancellationToken);
         }
     }
 
     /// <summary>
-    /// 中止した展開の書きかけを消す。消せない物（ウイルス対策ソフトが掴んでいる等）が残っても、終わった印が無いので
+    /// zip の中の1件を書き出す。一時展開と、Unity へ送る前の取り出し（<see cref="ExtractEntry"/>）で同じ書き方をする。
+    ///
+    /// **ファイルの途中でも中止を見る。**`ExtractToFile` は1ファイルを書き切るまで戻らないので、
+    /// 数GBの1ファイル（PSD・動画・unitypackage）では、中止を押しても書き終わるまで止まらず、進み具合も動かない
+    /// </summary>
+    private static void WriteEntry(
+        ZipArchiveEntry entry,
+        string target,
+        byte[] buffer,
+        ref long done,
+        long total,
+        IProgress<TemporaryUnpackProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        using (var source = entry.Open())
+        using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            int read;
+            while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                output.Write(buffer, 0, read);
+                done += read;
+                progress?.Report(new TemporaryUnpackProgress(done, total));
+            }
+        }
+
+        // `ExtractToFile` と同じく、zip に書いてある更新時刻を付ける（エクスプローラで日付順に並べたときに元の順になる）
+        File.SetLastWriteTime(target, entry.LastWriteTime.DateTime);
+    }
+
+    /// <summary>
+    /// 中止した・失敗した展開の書きかけを消す。消せない物（ウイルス対策ソフトが掴んでいる等）が残っても、終わった印が無いので
     /// 次の展開が消してからやり直し、アプリを閉じるときにも消す。ここでは諦めて進む
     /// </summary>
     private static void RemovePartial(string destination)
@@ -217,8 +238,17 @@ public sealed class TemporaryUnpacker
     /// Unity の「Custom Package...」のファイル選択には実在するパスを渡す必要がある
     /// （zip の中を指す仮想パスは、ファイル選択の画面を通したときに何が返るか分からない）。
     /// 置き場所は一時展開と同じで、アプリを閉じると消える。同じ zip の同じファイルは取り出し直さない。
+    ///
+    /// **中止か失敗のときは、書きかけを消してから投げる**（ユーザ判断 2026-09-30）。前は1件を書き切るまで中止が効かず、
+    /// 数GBの unitypackage を遅いディスクで送ると、「中止」を押してから長く待たされた。
+    /// 本物の名前のファイルは書き切るまで置かないので、もう一度送れば最初から取り出し直す。
     /// </summary>
-    public string ExtractEntry(string zipPath, string entryPath, CancellationToken cancellationToken = default)
+    /// <param name="progress">書き出した量。細かく届くので、画面へ出す側で間引く（<see cref="Unpack"/> と同じ）。</param>
+    public string ExtractEntry(
+        string zipPath,
+        string entryPath,
+        IProgress<TemporaryUnpackProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         var info = new FileInfo(zipPath);
         if (!info.Exists)
@@ -254,22 +284,68 @@ public sealed class TemporaryUnpacker
             target = Path.Combine(folder, fileName);
         }
 
-        if (File.Exists(target))
+        // **同じ取り出し先は1本ずつ**（一時展開と同じ錠）。送信は1列なので今は重ならないが、重なると2本目が
+        // 1本目の書きかけ（同じ「.part」）を開こうとして「別のアプリがファイルを開いています」になる。
+        // 在るかを見るのも錠の中——待っている間に1本目が書き終えていれば、それをそのまま返す
+        var gate = Gates.GetOrAdd(Path.GetFullPath(target).ToUpperInvariant(), _ => new SemaphoreSlim(1, 1));
+        gate.Wait(cancellationToken);
+        try
         {
-            return target;
-        }
+            if (File.Exists(target))
+            {
+                return target;
+            }
 
-        Directory.CreateDirectory(folder);
+            // 書きかけを本物の名前で置かない。Unity が途中のファイルを掴むと、壊れたパッケージとして読まれる
+            var partial = target + ".part";
+            try
+            {
+                Directory.CreateDirectory(folder);
+                ExtractEntryTo(zipPath, entryPath, partial, progress, cancellationToken);
+                File.Move(partial, target, overwrite: true);
+                return target;
+            }
+            catch
+            {
+                // **錠の中で片付ける**（UnpackInto と同じ理由）。中止でも失敗でも消す。
+                // 消せなくても元の例外をそのまま投げる（失敗の文は元の原因で決まる）。
+                // 残った書きかけは、次に同じ物を送るときに上書きし、アプリを閉じるときにも消す
+                RemovePartialFile(partial);
+                throw;
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private static void ExtractEntryTo(
+        string zipPath,
+        string entryPath,
+        string partial,
+        IProgress<TemporaryUnpackProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Read, BoothZipInspector.ZipNameEncoding.Instance);
         var entry = archive.GetEntry(entryPath) ?? throw new FileNotFoundException("zip の中に見つかりません。", entryPath);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // 書きかけを本物の名前で置かない。Unity が途中のファイルを掴むと、壊れたパッケージとして読まれる
-        var partial = target + ".part";
-        entry.ExtractToFile(partial, overwrite: true);
-        File.Move(partial, target, overwrite: true);
-        return target;
+        long done = 0;
+        progress?.Report(new TemporaryUnpackProgress(done, entry.Length));
+        WriteEntry(entry, partial, new byte[CopyBufferBytes], ref done, entry.Length, progress, cancellationToken);
+    }
+
+    private static void RemovePartialFile(string partial)
+    {
+        try
+        {
+            File.Delete(partial);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     /// <summary>
@@ -337,7 +413,7 @@ public sealed class TemporaryUnpacker
     }
 }
 
-/// <summary>一時展開の進み具合。大きさは展開した後のバイト数（zip の中に書いてある値）。</summary>
+/// <summary>一時展開と、Unity へ送る前の取り出しの進み具合。大きさは展開した後のバイト数（zip の中に書いてある値）。</summary>
 /// <param name="DoneBytes">書き出した量。</param>
 /// <param name="TotalBytes">書き出す物の合計。空のファイルとフォルダだけの zip では 0。</param>
 public readonly record struct TemporaryUnpackProgress(long DoneBytes, long TotalBytes);

@@ -55,6 +55,50 @@ public static class DisplayText
     }
 
     /// <summary>
+    /// Unity へ送る前に zip から取り出している間、送る帯に出す1行（ユーザ判断 2026-09-30）。
+    ///
+    /// 数と大きさの書き方は一時展開の帯（<see cref="UnpackingLine"/>）と同じ。語は「取り出す」——
+    /// 失敗の文が「zipから取り出せませんでした」で、「展開」はフォルダに広げてエクスプローラで開く方を指している。
+    /// </summary>
+    /// <param name="index">何件目か（1から）。</param>
+    public static string UnityExtractingLine(int index, int total, string name, long doneBytes, long totalBytes)
+        => $"{index}/{total}：「{name}」をzipから取り出しています… {Size(doneBytes)} / {Size(totalBytes)}";
+
+    /// <summary>
+    /// 取り出しの進み具合を出し始めるまでの時間。**1秒**——これより短い待ちは、文を替えなくても待たされたと感じにくい。
+    /// 手元の速いディスクでは 2.3GB の書き出しが約1秒だった（大容量の確かめ 2026-09-30）ので、
+    /// 普通の unitypackage（数十〜数百MB）では文は替わらず、遅いディスクの数GBでだけ出る
+    /// </summary>
+    public static readonly TimeSpan UnityExtractingDelay = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// 送る帯の文を、取り出しの進み具合（<see cref="UnityExtractingLine"/>）に替えるか。
+    ///
+    /// **すぐ終わる取り出しで文をちらつかせない。**取り出しは小さい物なら一瞬で、その間だけ文を替えると
+    /// 「送っています…」→「取り出しています…」→「送っています…」と読めない速さで入れ替わる。
+    /// 始まって <see cref="UnityExtractingDelay"/> 経ち、そこまでの速さで見て残りも同じだけ掛かりそうなときだけ替える
+    /// （経った時間だけで決めると、ちょうど過ぎた所で終わる取り出しが一瞬だけ出る）。
+    /// 一度替えたら、取り出しが終わるまで出し続けるのは呼ぶ側の役目。
+    /// </summary>
+    /// <param name="elapsed">取り出しを始めてからの時間。</param>
+    public static bool ShowsUnityExtracting(TimeSpan elapsed, long doneBytes, long totalBytes)
+    {
+        if (elapsed < UnityExtractingDelay || totalBytes <= 0 || doneBytes >= totalBytes)
+        {
+            return false;
+        }
+
+        // まだ1バイトも書けていないのに時間だけ経っているなら、残りは見積もれないほど長い
+        if (doneBytes <= 0)
+        {
+            return true;
+        }
+
+        var remaining = elapsed.TotalSeconds * (totalBytes - doneBytes) / doneBytes;
+        return remaining >= UnityExtractingDelay.TotalSeconds;
+    }
+
+    /// <summary>
     /// 購入の種類を**名詞として**出す（「自分用」）。
     /// JSONに書いてある語と同じにする——人がJSONを開いて読む前提なので、
     /// 画面と保存で語が違うと同じものだと分からなくなる。
