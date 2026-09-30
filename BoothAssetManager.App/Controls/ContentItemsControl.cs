@@ -38,7 +38,7 @@ public sealed class ContentItemsControl : ItemsControl
     /// <summary>テンプレートの中の ScrollViewer（項目の中の物は数えない）。</summary>
     internal ScrollViewer? ScrollHost => FindScrollViewer(this);
 
-    private static ScrollViewer? FindScrollViewer(DependencyObject parent)
+    internal static ScrollViewer? FindScrollViewer(DependencyObject parent)
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {

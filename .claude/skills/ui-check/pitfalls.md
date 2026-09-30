@@ -33,8 +33,17 @@ Get-ChmonosTrace -Saved tagcheck -Kind 命令          # 前の起動の分（�
 - **操作できる部品には AutomationId が付いている**（2026-09-30。`docs/spec/ui-input.md`「読み上げの名前」）。カード・カードの星・リストの行・札・下の帯・
   未確定の行と候補・ファイルの行のボタンとメニュー・取り込みの結果・設定の欄は、どれも「押す」で動く（実際のアプリで確かめた）。
   前にここに書いていた「カードのクリックは実入力」「ItemsControl の中は実入力で押す」は、もう要らない。ID は `Get-ChmonosIds` で見る
+- **カードの一覧に「段」の項目は出ない**（2026-09-30）。前は一覧（`ListBox`）の下に段（`ListItem`・名前は型の名前）が並び、その中にカードがあった。
+  今はカード（`ListItem`・ID `ItemCard`／`ShopCard`）が一覧（クラス名 `CardRowsListBox`）の直下に並ぶ。一覧の `ListItem` を数えればカードの枚数（今作られている分）になる。
+  一覧は「選ぶ」を持たない（流す操作は持つ）。タグと属性の管理の段は `CardRowItems` として木に残るが、既定の見方（`Get-ChmonosElements`）には出ない
 - 素の `ItemsControl` は今も中身を隠す。出ない部品があったら、画面側が `Controls/ContentItemsControl` になっているかを見て、報告に書く（道具で回り込まない）
-- ID も名前も無くて困った部品は、報告に書く（名前や並びに頼ると、文言を変えただけで確かめが壊れる）。今 ID が無い物：商品ページの「どの商品か」（商品 ID を読める場所）。
+- ID も名前も無くて困った部品は、報告に書く（名前や並びに頼ると、文言を変えただけで確かめが壊れる）。商品ページの「どの商品か」は `ItemIdCopy`（名前が「ID 1234567」。2026-09-30 に付けた）。
+  ナビのボタンは `Nav.Search`・`Nav.Import`・`Nav.Settings`…（`Nav.<画面>`。戻る・進む・開閉は `Nav.Back`・`Nav.Forward`・`Nav.Toggle`）、
+  改変の画面の上の切り替えは `ModificationHubLevel.Project`／`.Avatar`／`.Modification`、
+  左の一覧の行は `FolderTreeRow`・`TagTopRow`・`AttributeRow`・`AvatarRow`・`AvatarBaseRow`・`ModificationMemberRow`（名前＝行の名前）、
+  ショップの星は `ShopFavorite`（ショップ画面）・`ShopCardFavorite`（一覧のカード）、統計の行は `StatsShopRow`・`StatsCategoryRow`、商品ページのショップ名は `ItemShopLink`。
+  **畳む欄の見出しの押す所（商品説明・BOOTHのタグ・対応アバター・動画など）は、名前が状態で替わる**：「商品説明を開く」⇄「商品説明を折りたたむ」。
+  欄そのもの（`ItemDescriptionExpander` など。名前は「商品説明」のまま）を `Set-ChmonosToggleById` で開閉するのが確実。
   リストの行は `ItemListRow`、未確定の行は `ResolveFileRow`、未確定の上の検索欄は `ResolveFilter`、検索の「＋ 条件を追加」は `SearchAddModule`（2026-09-30 に付けた）
 - **開閉のボタン・チェックは「押す」と切り替わる。**最初から開いている欄を畳んでしまう（名前は状態で替わる：「ローカルファイルを開く」⇄「ローカルファイルを折りたたむ」。名前で探すなら今の状態の側で）。
   `Set-ChmonosToggleById`（今の状態を見て、違うときだけ切り替える）を使う

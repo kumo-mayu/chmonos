@@ -224,6 +224,9 @@
                              Drop="OnRowsDrop">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
+                                <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。大分類の名前を読ませる -->
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                                <Setter Property="AutomationProperties.AutomationId" Value="TagTopRow" />
                                 <Setter Property="Padding" Value="0" />
                                 <Setter Property="Template">
                                     <Setter.Value>
@@ -612,13 +615,14 @@
                     <DataTemplate DataType="{x:Type vm:ManageListLine}">
                         <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0">
-                                <controls:ContentItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}" Focusable="False">
+                                <!-- 段は読み上げ・自動操作の木に出さない（CardRowItems）。中の行・カードは右の一覧の直下に出る -->
+                                <controls:CardRowItems ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ManageItemTemplate}" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <StackPanel Orientation="Horizontal" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                </controls:ContentItemsControl>
+                                </controls:CardRowItems>
                             </Border>
                         </Border>
                     </DataTemplate>
@@ -626,7 +630,7 @@
                     <DataTemplate DataType="{x:Type vm:ManageCardLine}">
                         <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <Border Margin="43,0,20,0" Padding="16,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0">
-                                <controls:ContentItemsControl ItemsSource="{Binding Items}" Focusable="False">
+                                <controls:CardRowItems ItemsSource="{Binding Items}" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <StackPanel Orientation="Horizontal" />
@@ -637,7 +641,7 @@
                                             <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </controls:ContentItemsControl>
+                                </controls:CardRowItems>
                             </Border>
                         </Border>
                     </DataTemplate>

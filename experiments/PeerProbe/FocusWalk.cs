@@ -27,7 +27,59 @@ public static class FocusWalk
         app.InitializeComponent();
 
         Walk("商品ページの札（対応アバター・共通素体・説明文の候補）", AvatarsPanel(), stops: 12, enterAt: ["ItemAvatarChip", "ItemAvatarReject", "ItemBaseMentionDismiss"]);
-        Walk("要確認の行", InboxRows(), stops: 9, enterAt: ["InboxRow", "InboxRowAction"]);
+        Walk("要確認の行", InboxRows(), stops: 11, enterAt: ["InboxRow", "InboxRowRead", "InboxRowAction"]);
+
+        // カードの一覧は、読み上げ・自動操作に段を出さない部品へ替えた（2026-09-30）。キーボードの動きが前の作りと同じことを、並べて見る
+        Walk("カードの一覧（前の作り：ListBox と ContentItemsControl）", CardList("ListBox", "controls:ContentItemsControl"), stops: 5, enterAt: ["ItemCard"], arrows: true);
+        Walk("カードの一覧（今の作り：CardRowsListBox と CardRowItems）", CardList("controls:CardRowsListBox", "controls:CardRowItems"), stops: 5, enterAt: ["ItemCard"], arrows: true);
+    }
+
+    /// <summary>検索・ショップ・フォルダの右と同じ形のカードの一覧（2段・2枚ずつ）。一覧と段の部品の型だけを替えて組む。</summary>
+    private static FrameworkElement CardList(string list, string row)
+    {
+        var xaml = $$"""
+            <UserControl {{Program.Ns}}>
+                <UserControl.Resources>
+                    <ResourceDictionary>
+                        <ResourceDictionary.MergedDictionaries>
+                            <ResourceDictionary Source="pack://application:,,,/BoothAssetManager.App;component/Views/ItemCardResources.xaml" />
+                        </ResourceDictionary.MergedDictionaries>
+                    </ResourceDictionary>
+                </UserControl.Resources>
+                <{{list}} ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent" KeyboardNavigation.TabNavigation="Continue"
+                          HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel">
+                    <{{list}}.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </{{list}}.ItemContainerStyle>
+                    <{{list}}.ItemTemplate>
+                        <DataTemplate>
+                            <{{row}} ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </{{row}}>
+                        </DataTemplate>
+                    </{{list}}.ItemTemplate>
+                </{{list}}>
+            </UserControl>
+            """;
+        var root = (FrameworkElement)System.Windows.Markup.XamlReader.Parse(xaml);
+        root.DataContext = new ProbeHost(rows: 2);
+        return root;
     }
 
     private static FrameworkElement AvatarsPanel()
@@ -74,7 +126,9 @@ public static class FocusWalk
             row["HasAction"] = true;
             row["ActionText"] = "商品情報を取り直す";
             row["CreatedText"] = "3時間前";
-            row["ReadButtonText"] = "既読にする";
+            row["ReadButtonText"] = "確認した";
+            row["ReadButtonName"] = name + "を既読にする";
+            row["IsRead"] = false;
             row["Cards"] = new ObservableCollection<object>();
             rows.Add(row);
         }
@@ -94,7 +148,15 @@ public static class FocusWalk
         return row;
     }
 
-    private static void Walk(string title, FrameworkElement root, int stops, string[] enterAt)
+    /// <summary>今止まっている所で矢印を送り、止まり先がどこへ移ったかを書く。</summary>
+    private static void Arrow(HwndSource source, FrameworkElement root, Key key)
+    {
+        InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key) { RoutedEvent = Keyboard.KeyDownEvent });
+        root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+        Console.WriteLine($"      {key} → {(Keyboard.FocusedElement is FrameworkElement now ? Describe(now) : "止まり先が無い")}");
+    }
+
+    private static void Walk(string title, FrameworkElement root, int stops, string[] enterAt, bool arrows = false)
     {
         Console.WriteLine($"==== {title}");
         var parameters = new HwndSourceParameters("PeerProbe", 900, 700)
@@ -112,6 +174,17 @@ public static class FocusWalk
         SetFocus(source.Handle);
         root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         root.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+
+        // カードの矢印：右・下・左・上と送って、一回りして最初のカードへ戻るか
+        if (arrows)
+        {
+            root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Console.WriteLine($"  最初の止まり: {(Keyboard.FocusedElement is FrameworkElement first ? Describe(first) : "無し")}");
+            foreach (var key in new[] { Key.Right, Key.Down, Key.Left, Key.Up })
+            {
+                Arrow(source, root, key);
+            }
+        }
 
         var pressed = new HashSet<string>();
         for (var stop = 0; stop < stops; stop++)
@@ -134,8 +207,19 @@ public static class FocusWalk
                 InputManager.Current.ProcessInput(key);
                 InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Enter) { RoutedEvent = Keyboard.KeyUpEvent });
                 root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-                Console.WriteLine($"      Enter → {(ProbeLog.Lines.Count > 0 ? string.Join(" / ", ProbeLog.Lines) : "何も起きない")}");
+                // 切り替えの部品（要確認の既読の丸）は、コマンドではなく値が替わる。行の側（商品を開く）へ漏れていないことも、同じ行で分かる
+                var toggled = focused is System.Windows.Controls.Primitives.ToggleButton toggle ? $"切り替わった（入={toggle.IsChecked}）" : null;
+                Console.WriteLine($"      Enter → {string.Join(" / ", new[] { toggled }.Concat(ProbeLog.Lines).Where(line => line is not null).DefaultIfEmpty("何も起きない"))}");
                 ProbeLog.Lines.Clear();
+
+                if (focused is System.Windows.Controls.Primitives.ToggleButton space)
+                {
+                    InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Space) { RoutedEvent = Keyboard.KeyDownEvent });
+                    InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Space) { RoutedEvent = Keyboard.KeyUpEvent });
+                    root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                    Console.WriteLine($"      Space → 切り替わった（入={space.IsChecked}）{(ProbeLog.Lines.Count > 0 ? " / " + string.Join(" / ", ProbeLog.Lines) : "")}");
+                    ProbeLog.Lines.Clear();
+                }
             }
 
             if (!focused.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)))

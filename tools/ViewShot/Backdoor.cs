@@ -39,6 +39,10 @@ internal static class Backdoor
             nameof(MainViewModel.CanStopUnpack));
     }
 
+    /// <summary>改変の詳細の上の帯の知らせの文（写真を貼った・使ったものを足した、の後に出る文）。</summary>
+    public static void ShowModificationStatus(ModificationViewModel modification, string text)
+        => SetProperty(modification, nameof(ModificationViewModel.Status), text);
+
     /// <summary>知らせと確認の窓を、出さずに作る（アプリは <c>Services.Notice</c> からしか作らず、作るとすぐ出す）。</summary>
     public static Window NewNotice(
         string text, string caption, MessageBoxButton button, MessageBoxImage icon, MessageBoxResult defaultResult = MessageBoxResult.None)

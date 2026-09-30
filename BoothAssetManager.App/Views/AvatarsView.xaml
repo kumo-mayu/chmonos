@@ -21,6 +21,14 @@
         <Style x:Key="AvatarRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
             <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+            <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。アバターの名前を読ませる -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="AvatarRow" />
+        </Style>
+        <!-- 共通素体の一覧の行。見た目は既定の行のまま、名前と ID だけ足す -->
+        <Style x:Key="AvatarBaseRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="AvatarBaseRow" />
         </Style>
         <!-- 一覧の1行。選ぶと右に詳細が出る -->
         <DataTemplate x:Key="AvatarRow" DataType="{x:Type vm:AvatarRowViewModel}">
@@ -462,6 +470,7 @@
 
                             <!-- 共通素体の一覧。選ぶと右にその素体の管理と、使っているアバターが出る -->
                             <ListBox ItemsSource="{Binding Bases}" SelectedItem="{Binding SelectedBase, Mode=TwoWay}"
+                                     ItemContainerStyle="{StaticResource AvatarBaseRowStyle}"
                                      BorderThickness="0" Background="Transparent" Margin="14,12,14,14"
                                      HorizontalContentAlignment="Stretch"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"

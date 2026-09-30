@@ -52,11 +52,15 @@
                         <!--
                             既読の印は「読んだ」という状態なので、右の「何かをする」ボタンとは分ける
                             （ユーザ判断 2026-09-18）。タイトルの左に置き、押すと既読・もう一度押すと未読
+
+                            **Tab で止まれる**（ユーザ判断 2026-09-30）。前は止まれないようにしてあり、キーボードからは1件ずつ既読にできなかった。
+                            行の操作のボタンと違って常に見えている部品なので、行にフォーカスが無くても届く。Enter・Space で切り替わる（ボタンの既定）。
+                            名前は、どの行の物かと、今押すと起きることを入れる（ToggleButton は「オン・オフ」しか言わない）
                         -->
                         <ToggleButton Grid.Column="0" Width="16" Height="16" Margin="0,2,11,0"
-                                      VerticalAlignment="Top" Cursor="Hand" Focusable="False"
+                                      VerticalAlignment="Top" Cursor="Hand" FocusVisualStyle="{StaticResource SmallFocusVisual}"
                                       AutomationProperties.AutomationId="InboxRowRead"
-                                      AutomationProperties.Name="{Binding ReadButtonText}"
+                                      AutomationProperties.Name="{Binding ReadButtonName}"
                                       ToolTip="{Binding ReadButtonText}"
                                       IsChecked="{Binding IsRead, Mode=TwoWay}">
                             <ToggleButton.Template>

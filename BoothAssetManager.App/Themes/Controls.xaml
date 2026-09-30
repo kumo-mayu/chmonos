@@ -7,7 +7,8 @@
     Windows の白い型に戻ってしまう（SettingCheck・NumberBox・メニューの項目のスタイルなど）。
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:BoothAssetManager.App.Controls">
 
     <!--
         部品の中の文字は部品の Foreground に従わせる。アプリ全体の TextBlock の既定の見た目（色 Text）が
@@ -992,10 +993,11 @@
                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
                         <DockPanel>
-                            <!-- 見出しの押す所は、Expander に付けた名前を継ぐ（見出しが文字の並びのとき、継がないと名前の無いボタンになる） -->
-                            <ToggleButton x:Name="HeaderSite" DockPanel.Dock="Top" Style="{StaticResource ExpanderHeaderToggle}"
+                            <!-- 見出しの押す所は、Expander に付けた名前を継ぐ（見出しが文字の並びのとき、継がないと名前の無いボタンになる）。
+                                 名前は状態から作る（ExpandToggle：「（欄）を開く」⇄「（欄）を折りたたむ」。三角の Expander と同じ。2026-09-30） -->
+                            <controls:ExpandToggle x:Name="HeaderSite" DockPanel.Dock="Top" Style="{StaticResource ExpanderHeaderToggle}"
                                           Cursor="Hand" Focusable="False" Padding="0,1"
-                                          AutomationProperties.Name="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
+                                          Subject="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
                                           Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}"
                                           ContentTemplateSelector="{TemplateBinding HeaderTemplateSelector}"
                                           IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />

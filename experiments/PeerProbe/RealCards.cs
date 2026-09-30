@@ -21,7 +21,7 @@ public sealed class ProbeHost : IItemCardHost
 
     public bool IsListMode => true;
 
-    public ProbeHost()
+    public ProbeHost(int rows = 1)
     {
         IDictionary<string, object?> columns = new ExpandoObject();
         columns["SelectWidth"] = 30d;
@@ -50,6 +50,20 @@ public sealed class ProbeHost : IItemCardHost
         IDictionary<string, object?> row = new ExpandoObject();
         row["Cards"] = cards;
         Rows.Add(row);
+
+        // 2段目から先（矢印の上下・Tab が段をまたぐのを見るとき）。カードの一覧だけに足す
+        for (var index = 1; index < rows; index++)
+        {
+            var more = new ObservableCollection<object>();
+            foreach (var id in new[] { $"90000{index}3", $"90000{index}4" })
+            {
+                more.Add(new ItemCardViewModel(new ItemRecord { Id = id }, loader, images) { Name = "作り物の服" + id });
+            }
+
+            IDictionary<string, object?> next = new ExpandoObject();
+            next["Cards"] = more;
+            Rows.Add(next);
+        }
     }
 
     public void OpenItem(ItemCardViewModel card) => ProbeLog.Lines.Add($"入れ物の画面: 商品ページを開く（{card.Name}）");

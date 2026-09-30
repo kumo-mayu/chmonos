@@ -110,7 +110,14 @@
                             -->
                             <Button Command="{Binding ToggleFavoriteCommand}" Margin="10,0,0,0" Cursor="Hand"
                                     VerticalAlignment="Center" ToolTip="{Binding FavoriteTip}"
-                                    AutomationProperties.Name="{Binding FavoriteTip}">
+                                    AutomationProperties.AutomationId="ShopFavorite">
+                                <!-- どのショップの星かを名前に入れる（カードの星と同じ言い方） -->
+                                <AutomationProperties.Name>
+                                    <MultiBinding StringFormat="{}{0}を{1}">
+                                        <Binding Path="Name" />
+                                        <Binding Path="FavoriteTip" />
+                                    </MultiBinding>
+                                </AutomationProperties.Name>
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="Transparent" Padding="2,0">
@@ -252,7 +259,8 @@
                 画面外の行のカードは作られないので、サムネイルの読み込みも走らない
             -->
             <!-- カードの行の一覧。Tab で1枚ずつ進めるよう、一覧に1回だけ止まる既定（Once）をやめる（点検 2026-09-23） -->
-            <ListBox x:Name="CardList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent" KeyboardNavigation.TabNavigation="Continue"
+            <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
+            <controls:CardRowsListBox x:Name="CardList" ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent" KeyboardNavigation.TabNavigation="Continue"
                      Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                      Padding="24,14,24,24" HorizontalContentAlignment="Stretch"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -260,7 +268,7 @@
                      VirtualizingPanel.IsVirtualizing="True"
                      VirtualizingPanel.VirtualizationMode="Recycling"
                      VirtualizingPanel.ScrollUnit="Pixel">
-                <ListBox.ItemContainerStyle>
+                <controls:CardRowsListBox.ItemContainerStyle>
                     <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="0" />
@@ -274,19 +282,19 @@
                             </Setter.Value>
                         </Setter>
                     </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
+                </controls:CardRowsListBox.ItemContainerStyle>
+                <controls:CardRowsListBox.ItemTemplate>
                     <DataTemplate>
-                        <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                        <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                        </controls:ContentItemsControl>
+                        </controls:CardRowItems>
                     </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                </controls:CardRowsListBox.ItemTemplate>
+            </controls:CardRowsListBox>
         </Grid>
     </DockPanel>
 </UserControl>

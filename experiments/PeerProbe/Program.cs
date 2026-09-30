@@ -29,7 +29,7 @@ namespace PeerProbe;
 
 public static class Program
 {
-    private const string Ns =
+    internal const string Ns =
         "xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' " +
         "xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' " +
         "xmlns:s='clr-namespace:System;assembly=System.Runtime' " +
@@ -149,11 +149,12 @@ public static class Program
                 root.UpdateLayout();
                 var handle = source.Handle;
 
-                // 継いだ型（ItemListView）に、ListView の暗黙の見た目が当たっているか
-                foreach (var list in LogicalTreeHelper.GetChildren(root).OfType<ListView>())
+                // 継いだ型（ItemListView・CardRowsListBox）に、元の型（ListView・ListBox）の暗黙の見た目が当たっているか
+                foreach (var list in Descendants(root).OfType<ListBox>())
                 {
                     var origin = DependencyPropertyHelper.GetValueSource(list, Control.ForegroundProperty);
-                    Console.WriteLine($"  [見た目] {list.GetType().Name}: 文字の色={list.Foreground}（{origin.BaseValueSource}） 地={list.Background} 枠={list.BorderBrush} Style={(list.Style is null ? "無し" : "有り")} 資源Text={list.TryFindResource("Text")} Surface={list.TryFindResource("Surface")} 同じStyle={ReferenceEquals(list.Style, list.TryFindResource(typeof(ListView)))}");
+                    var baseType = list is ListView ? typeof(ListView) : typeof(ListBox);
+                    Console.WriteLine($"  [見た目] {list.GetType().Name}: 文字の色={list.Foreground}（{origin.BaseValueSource}） 地={list.Background} 枠={list.BorderBrush} Style={(list.Style is null ? "無し" : "有り")} 資源Text={list.TryFindResource("Text")} Surface={list.TryFindResource("Surface")} 同じStyle={ReferenceEquals(list.Style, list.TryFindResource(baseType))}");
                 }
 
                 var frame = new DispatcherFrame();
@@ -172,6 +173,14 @@ public static class Program
                             {
                                 lines.Add($"  FindAll {type.ProgrammaticName.Replace("ControlType.", "")}: {found.Count} 件 → " + string.Join(" / ", found.Cast<AutomationElement>().Select(e => $"{e.Current.Name}#{e.Current.AutomationId}")));
                             }
+                        }
+
+                        // カードの親を、相手の既定の見方（操作できる部品だけ）でたどる。段が挟まっていないこと
+                        var cards = element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "ItemCard"));
+                        if (cards.Count > 0)
+                        {
+                            lines.Add("  カードの親（操作できる部品だけの見方）: " + string.Join(" / ", cards.Cast<AutomationElement>()
+                                .Select(card => TreeWalker.ControlViewWalker.GetParent(card) is { } parent ? $"{parent.Current.ClassName}「{parent.Current.Name}」" : "無し")));
                         }
 
                         lines.Add(Press(element));
@@ -205,6 +214,22 @@ public static class Program
             catch (Exception ex)
             {
                 Console.WriteLine("失敗: " + ex);
+            }
+        }
+    }
+
+    /// <summary>場面の直下の一覧（入れ物を1つ挟んだ物も）。一覧の中までは下りない。</summary>
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            yield return child;
+            if (child is Panel)
+            {
+                foreach (var deeper in Descendants(child))
+                {
+                    yield return deeper;
+                }
             }
         }
     }

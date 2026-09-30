@@ -117,12 +117,22 @@ public sealed class NotificationRow : ViewModelBase
             if (SetField(ref _isRead, value))
             {
                 OnPropertyChanged(nameof(ReadButtonText));
+                OnPropertyChanged(nameof(ReadButtonName));
                 ReadChanged?.Invoke(this);
             }
         }
     }
 
     public string ReadButtonText => IsRead ? "未読に戻す" : "確認した";
+
+    /// <summary>
+    /// 既読の丸の、読み上げ・自動操作の名前。丸は行ごとに並ぶので、どの行の物かを入れる。
+    /// 今押すと起きることを言う（丸は切り替えのボタンで、読み上げは状態を「オン・オフ」としか言わない）。
+    /// 語は画面の「すべて既読にする」「未読のみ」に合わせる
+    /// </summary>
+    public string ReadButtonName => ReadNameFor(Title, IsRead);
+
+    internal static string ReadNameFor(string title, bool isRead) => isRead ? $"{title}を未読に戻す" : $"{title}を既読にする";
 
     public event Action<NotificationRow>? ReadChanged;
 

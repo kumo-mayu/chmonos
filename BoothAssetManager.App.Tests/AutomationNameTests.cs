@@ -115,6 +115,55 @@ public class AutomationNameTests
         Assert.NotNull(peer.GetPattern(PatternInterface.Toggle));
     });
 
+    [Theory]
+    [InlineData(true, "商品説明を折りたたむ", "商品説明を開く")]
+    [InlineData(false, "商品説明を開く", "商品説明を折りたたむ")]
+    public Task 畳む欄の見出しの押す所は_欄に付けた名前から_今押すと起きることを名前にする(bool expanded, string now, string afterToggle) => UiThread.Run(() =>
+    {
+        // アプリの型（TriangleExpander・暗黙の Expander）と同じ結び方。欄の名前は Expander に付け、型の中の押す所が継ぐ。
+        // 前は欄の名前がそのまま押す所の名前で、開いていても畳んでいても「商品説明」と読まれた
+        var expander = NewExpander("AutomationProperties.Name='商品説明'");
+        expander.IsExpanded = expanded;
+        expander.ApplyTemplate();
+        var toggle = (ExpandToggle)expander.Template.FindName("HeaderSite", expander);
+        var peer = UIElementAutomationPeer.CreatePeerForElement(toggle);
+
+        Assert.Equal(now, peer.GetName());
+
+        expander.IsExpanded = !expanded;
+        Assert.Equal(afterToggle, peer.GetName());
+
+        // 欄そのものの名前は替えない（欄は「開閉」の状態を自分で持つ）
+        Assert.Equal("商品説明", UIElementAutomationPeer.CreatePeerForElement(expander).GetName());
+    });
+
+    [Fact]
+    public Task 名前を付けていない畳む欄の見出しの押す所は_名前を作らない() => UiThread.Run(() =>
+    {
+        // 見出しが文字だけの欄（「消したもの 3 件」など）は、見出しの文字がそのまま読まれる。空の欄の名前から「を開く」だけの名前を作らない
+        var expander = NewExpander(string.Empty);
+        expander.ApplyTemplate();
+        var toggle = (ExpandToggle)expander.Template.FindName("HeaderSite", expander);
+
+        Assert.Equal(string.Empty, AutomationProperties.GetName(toggle));
+    });
+
+    private static Expander NewExpander(string attributes) => (Expander)System.Windows.Markup.XamlReader.Parse(
+        $$$"""
+        <Expander xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+                  xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+                  xmlns:controls='clr-namespace:BoothAssetManager.App.Controls;assembly=BoothAssetManager.App'
+                  {{{attributes}}}>
+            <Expander.Template>
+                <ControlTemplate TargetType='Expander'>
+                    <controls:ExpandToggle x:Name='HeaderSite'
+                        Subject='{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}'
+                        IsChecked='{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}' />
+                </ControlTemplate>
+            </Expander.Template>
+        </Expander>
+        """);
+
     [Fact]
     public Task 開閉の三角を_開く_畳むで動かすと_結び付けた先の値も変わる() => UiThread.Run(() =>
     {

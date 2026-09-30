@@ -101,6 +101,11 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - **素の `ItemsControl` は行を「データの項目」として出し、名前は行の `ToString()`（行の型の名前）になる。値の等しい行は1つにまとめられ**、
   2つめ以降の中のボタンが見えない（同じ文字列3行で、見えたボタンは1つ。等しい `record` も同じ）。繰り返しの一覧は `Controls/ContentItemsControl`。
   中の `ItemsControl.ItemTemplate`・`AncestorType=ItemsControl` は書き換えなくてよい（継いだ型なので当たる）
+- **`ItemsControl` を継いだ部品は、窓口を「返さない」ことができない。**`OnCreateAutomationPeer` で null を返しても、WPF が既定の窓口（行を「データの項目」として出す物）を代わりに作る
+  （試験で確かめた。2026-09-30）。木から外したい入れ物（カードの段）は、自前の窓口を持たせて「操作できる部品ではない」にする（`Controls/CardRowItems`）——相手の既定の見方では飛ばされ、中身が親の直下に出る
+- **`ListBox` の行の窓口（`ListBoxItem`）は一覧の窓口が作る物で、行の部品の側からは替えられない。**行を木に出したくない一覧は、一覧の窓口ごと替えて、
+  今作られている行の中から窓口を持つ部品を自分で集める（`Controls/CardRowsListBox`）。使い回す仮想化では、板の子の並びは画面の順と限らず、待っている行も混ざるので、行の番号（`IndexFromContainer`）で並べて -1 を除く
+- **親の無い部品は、`BeginInit`／`EndInit` を呼ばないと既定の型が当たらない**（試験で `ItemsControl` を作って測っても、中身が1つも作られなかった）
 - **暗黙の見た目（`<Style TargetType="ListView">`）は、型がぴったり同じ部品にしか当たらない。**継いだ型（`Controls/ItemListView`）は文字の色の指定が外れるので、
   型の側で `SetResourceReference(StyleProperty, typeof(ListView))` と名指しする。窓口（AutomationPeer）を足すために部品を継ぐときは、暗黙の見た目が在るかを `Themes/Controls.xaml` で確かめる
 - **`ListView`（GridView）の行は「選ぶ」しか持たない。**行を押して画面を移る一覧は、行の窓口に Invoke を足す（`ItemListView`。`ListViewAutomationPeer.CreateItemAutomationPeer` を上書きし、

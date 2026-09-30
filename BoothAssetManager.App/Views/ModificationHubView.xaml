@@ -725,21 +725,21 @@
                         <Border HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Surface}"
                                 BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Content="Unityプロジェクト" Style="{StaticResource HubSegment}"
+                                <RadioButton Content="Unityプロジェクト" Style="{StaticResource HubSegment}" AutomationProperties.AutomationId="ModificationHubLevel.Project"
                                              IsChecked="{Binding IsProjectLevel, Mode=TwoWay}">
                                     <RadioButton.Tag>
                                         <CornerRadius>5,0,0,5</CornerRadius>
                                     </RadioButton.Tag>
                                 </RadioButton>
                                 <Border Width="1" Background="{DynamicResource BorderStrong}" />
-                                <RadioButton Content="アバター" Style="{StaticResource HubSegment}"
+                                <RadioButton Content="アバター" Style="{StaticResource HubSegment}" AutomationProperties.AutomationId="ModificationHubLevel.Avatar"
                                              IsChecked="{Binding IsAvatarLevel, Mode=TwoWay}">
                                     <RadioButton.Tag>
                                         <CornerRadius>0</CornerRadius>
                                     </RadioButton.Tag>
                                 </RadioButton>
                                 <Border Width="1" Background="{DynamicResource BorderStrong}" />
-                                <RadioButton Content="改変" Style="{StaticResource HubSegment}"
+                                <RadioButton Content="改変" Style="{StaticResource HubSegment}" AutomationProperties.AutomationId="ModificationHubLevel.Modification"
                                              IsChecked="{Binding IsModificationLevel, Mode=TwoWay}">
                                     <RadioButton.Tag>
                                         <CornerRadius>0,5,5,0</CornerRadius>

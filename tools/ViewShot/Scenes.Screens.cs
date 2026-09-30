@@ -200,6 +200,28 @@ internal static partial class Scenes
         {
             Width = 900,
         },
+
+        new Scene("modification-selected-status", "改変の画面：右の欄の上の帯に知らせの文が出ている所（日付と知らせが下の段へ送られる）・窓の最小の幅", async context =>
+        {
+            var selected = await SeedModificationsAsync(context);
+            var main = await context.StartAsync();
+            main.ShowModifications(
+                ModificationHubLevel.Modification,
+                new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await SceneContext.UntilAsync(() => Look.View<ModificationView>(root) is not null, "選んだ改変が右の欄に出る");
+            var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
+            Backdoor.ShowModificationStatus(detail, "「作り物のとても長い名前の衣装セット フルパッケージ版」を追加しました。");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ModificationHubView>(root), FocusMargin = 0 };
+        })
+        {
+            Width = 900,
+            Height = 400,
+        },
     ];
 
     /// <summary>アバター1体・衣装1つ・改変3つ（長い名前・プロジェクト無しを含む）。長い名前の改変の ID を返す。</summary>
@@ -297,8 +319,11 @@ internal static partial class Scenes
         }),
     ];
 
-    /// <summary>作り物の商品を並べる。3件目と6件目は壊れた zip を持ち、2件目は名前が長く、5件目は絵が無い。</summary>
-    private static async Task SeedLibraryAsync(SceneContext context, int count)
+    /// <summary>
+    /// 作り物の商品を並べる。3件目と6件目は壊れた zip を持ち、2件目は名前が長く、5件目は絵が無い。
+    /// <paramref name="change"/> は、何件目か（0 から）と商品を受けて、場面ごとの値（タグ・属性）を足す
+    /// </summary>
+    private static async Task SeedLibraryAsync(SceneContext context, int count, Func<int, ItemRecord, ItemRecord>? change = null)
     {
         string[] names =
         [
@@ -317,12 +342,17 @@ internal static partial class Scenes
             var id = (9900301 + index).ToString();
             var broken = index is 2 or 5;
             var file = broken ? Fake.BrokenZip($@"ライブラリ\item{index}.zip") : Fake.Zip($@"ライブラリ\item{index}.zip");
+            var at = index;
             await context.Fake.ItemAsync(
                 id,
                 names[index % names.Length],
-                record => record with
+                record =>
                 {
-                    Local = record.Local with { LocalFiles = [Fake.FileRecord(file, broken: broken)] },
+                    var seeded = record with
+                    {
+                        Local = record.Local with { LocalFiles = [Fake.FileRecord(file, broken: broken)] },
+                    };
+                    return change?.Invoke(at, seeded) ?? seeded;
                 },
                 images: index == 4 ? 0 : 1,
                 shop: index % 2 == 0 ? "作り物ショップ" : "作り物の別のショップ");

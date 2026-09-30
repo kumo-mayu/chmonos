@@ -1132,7 +1132,8 @@
                           Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                 <!-- カードの行の一覧。Tab で1枚ずつ進めるよう、一覧に1回だけ止まる既定（Once）をやめる（点検 2026-09-23） -->
-                <ListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent" KeyboardNavigation.TabNavigation="Continue"
+                <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
+                <controls:CardRowsListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent" KeyboardNavigation.TabNavigation="Continue"
                          Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                          ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                          Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
@@ -1141,7 +1142,7 @@
                          VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling"
                          VirtualizingPanel.ScrollUnit="Pixel">
-                    <ListBox.ItemContainerStyle>
+                    <controls:CardRowsListBox.ItemContainerStyle>
                         <!-- 行そのものは選択対象ではない。見た目も当たり判定も持たせない -->
                         <Style TargetType="ListBoxItem">
                             <Setter Property="Padding" Value="0" />
@@ -1155,19 +1156,19 @@
                                 </Setter.Value>
                             </Setter>
                         </Style>
-                    </ListBox.ItemContainerStyle>
-                    <ListBox.ItemTemplate>
+                    </controls:CardRowsListBox.ItemContainerStyle>
+                    <controls:CardRowsListBox.ItemTemplate>
                         <DataTemplate>
-                            <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                            <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
-                            </controls:ContentItemsControl>
+                            </controls:CardRowItems>
                         </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                    </controls:CardRowsListBox.ItemTemplate>
+                </controls:CardRowsListBox>
 
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                             Visibility="{Binding IsEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

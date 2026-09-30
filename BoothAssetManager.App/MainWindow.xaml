@@ -368,7 +368,7 @@
                     <StackPanel Orientation="Horizontal" Margin="16,2,10,6">
                         <Button Content="←" Command="{Binding GoBackCommand}" Style="{StaticResource RailSmallButton}"
                                 ToolTip="{Binding BackTip}" ToolTipService.ShowOnDisabled="True"
-                                AutomationProperties.Name="戻る" />
+                                AutomationProperties.Name="戻る" AutomationProperties.AutomationId="Nav.Back" />
                         <!-- 隠すだけ（Hidden）だと幅を取り続け、畳んだナビから右へはみ出す -->
                         <Border Margin="6,0,0,0">
                             <Border.Style>
@@ -382,10 +382,10 @@
                             </Border.Style>
                             <Button Content="→" Command="{Binding GoForwardCommand}" Style="{StaticResource RailSmallButton}"
                                     ToolTip="{Binding ForwardTip}" ToolTipService.ShowOnDisabled="True"
-                                    AutomationProperties.Name="進む" />
+                                    AutomationProperties.Name="進む" AutomationProperties.AutomationId="Nav.Forward" />
                         </Border>
                     </StackPanel>
-                    <Button Command="{Binding ToggleNavCommand}" Margin="10,0,10,2">
+                    <Button Command="{Binding ToggleNavCommand}" Margin="10,0,10,2" AutomationProperties.AutomationId="Nav.Toggle">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
                                 <Setter Property="views:Nav.Icon" Value="{StaticResource IconCollapse}" />
@@ -409,21 +409,21 @@
                         <TextBlock Text="ライブラリ" Style="{StaticResource NavGroupLabel}" />
                         <Border Style="{StaticResource NavGroupRule}" />
                     </Grid>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowSearchCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowSearchCommand}" AutomationProperties.AutomationId="Nav.Search"
                             views:Nav.Label="検索" views:Nav.Icon="{StaticResource IconSearch}"
                             views:Nav.IsActive="{Binding IsSearchActive}" />
                     <!-- 改変は item に対する検索のような関係なので、検索の隣に置く（ユーザ判断 2026-09-13） -->
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowModificationsCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowModificationsCommand}" AutomationProperties.AutomationId="Nav.Modifications"
                             views:Nav.Label="改変" views:Nav.Icon="{StaticResource IconModifications}"
                             views:Nav.IsActive="{Binding IsModificationsActive}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowShopsCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowShopsCommand}" AutomationProperties.AutomationId="Nav.Shops"
                             views:Nav.Label="ショップ" views:Nav.Icon="{StaticResource IconShops}"
                             views:Nav.IsActive="{Binding IsShopsActive}" />
                     <!-- フォルダビュー（ユーザ指示 2026-09-13：「一旦ショップの下に置いてくれ」） -->
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowFoldersCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowFoldersCommand}" AutomationProperties.AutomationId="Nav.Folders"
                             views:Nav.Label="フォルダ" views:Nav.Icon="{StaticResource IconFolders}"
                             views:Nav.IsActive="{Binding IsFoldersActive}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowStatsCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowStatsCommand}" AutomationProperties.AutomationId="Nav.Stats"
                             views:Nav.Label="統計" views:Nav.Icon="{StaticResource IconStats}"
                             views:Nav.IsActive="{Binding IsStatsActive}" />
 
@@ -431,14 +431,14 @@
                         <TextBlock Text="作業" Style="{StaticResource NavGroupLabel}" />
                         <Border Style="{StaticResource NavGroupRule}" />
                     </Grid>
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowImportCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowImportCommand}" AutomationProperties.AutomationId="Nav.Import"
                             views:Nav.Label="取り込み" views:Nav.Icon="{StaticResource IconImport}"
                             views:Nav.IsActive="{Binding IsImportActive}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowResolveCommand}" AutomationProperties.AutomationId="Nav.Resolve"
                             views:Nav.Label="未確定" views:Nav.Icon="{StaticResource IconResolve}"
                             views:Nav.IsActive="{Binding IsResolveActive}"
                             views:Nav.Badge="{Binding UnresolvedCount}" views:Nav.BadgeBrush="{DynamicResource NeedsWorkFill}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowEditCommand}" AutomationProperties.AutomationId="Nav.Edit"
                             views:Nav.Label="編集" views:Nav.Icon="{StaticResource IconEdit}"
                             views:Nav.IsActive="{Binding IsEditActive}"
                             views:Nav.Badge="{Binding NeedsEditBadgeCount}" views:Nav.BadgeBrush="{DynamicResource NeedsWorkFill}" views:Nav.BadgePrefix="未:"
@@ -452,23 +452,23 @@
                         要確認は「取り込んだ物を片付ける流れ」ではなく管理の側（U6・ユーザ判断）。
                         件数のバッジが付くのはここだけなので、先頭に置いて目に入るようにする
                     -->
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowInboxCommand}" AutomationProperties.AutomationId="Nav.Inbox"
                             views:Nav.Label="要確認" views:Nav.Icon="{StaticResource IconInbox}"
                             views:Nav.IsActive="{Binding IsInboxActive}"
                             views:Nav.Badge="{Binding UnreadCount}" views:Nav.BadgeBrush="{DynamicResource UnreadFill}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAvatarsCommand}" AutomationProperties.AutomationId="Nav.Avatars"
                             views:Nav.Label="アバター" views:Nav.Icon="{StaticResource IconAvatars}"
                             views:Nav.IsActive="{Binding IsAvatarsActive}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowTagManageCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowTagManageCommand}" AutomationProperties.AutomationId="Nav.TagManage"
                             views:Nav.Label="タグの管理" views:Nav.Icon="{StaticResource IconTags}"
                             views:Nav.IsActive="{Binding IsTagManageActive}" />
-                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAttributeManageCommand}"
+                    <Button Style="{StaticResource NavButton}" Command="{Binding ShowAttributeManageCommand}" AutomationProperties.AutomationId="Nav.AttributeManage"
                             views:Nav.Label="属性の管理" views:Nav.Icon="{StaticResource IconAttributes}"
                             views:Nav.IsActive="{Binding IsAttributeManageActive}" />
                 </StackPanel>
 
                 <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" Margin="10,0,10,14"
-                        Command="{Binding ShowSettingsCommand}"
+                        Command="{Binding ShowSettingsCommand}" AutomationProperties.AutomationId="Nav.Settings"
                         views:Nav.Label="設定" views:Nav.Icon="{StaticResource IconSettings}"
                         views:Nav.IsActive="{Binding IsSettingsActive}" />
 

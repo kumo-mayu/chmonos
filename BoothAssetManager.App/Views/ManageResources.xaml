@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels">
+                    xmlns:vm="clr-namespace:BoothAssetManager.App.ViewModels"
+                    xmlns:controls="clr-namespace:BoothAssetManager.App.Controls">
     <!--
         タグの管理と属性の管理で共用する部品（ユーザ指示 2026-09-19：2つの画面の操作感を揃える）。
         片方だけ直して見た目がずれないよう、同じ物を同じ所から引く
@@ -90,10 +91,14 @@
                         <!--
                             見出しの押す所は、Expander に付けた名前を継ぐ。見出しが文字の並びや札のとき、
                             継がないと名前の無いボタンになる（読み上げ・自動操作でどの欄の開け閉めか分からない）。
-                            Expander に名前が無ければ空が渡り、見出しの文字がそのまま名前になる
+                            Expander に名前が無ければ空が渡り、見出しの文字がそのまま名前になる。
+
+                            名前は、押すと起きることを状態から作る（ExpandToggle：「（欄）を開く」⇄「（欄）を折りたたむ」。2026-09-30）。
+                            前は欄の名前だけで、開いていても畳んでいても同じに読まれた（商品ページのローカルファイルとバリエーションの三角だけが替わっていた）。
+                            暗黙の見た目（ToggleButton）は継いだ型には当たらないので、名指しで引く
                         -->
-                        <ToggleButton DockPanel.Dock="Top" Cursor="Hand"
-                                      AutomationProperties.Name="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
+                        <controls:ExpandToggle DockPanel.Dock="Top" Cursor="Hand" Style="{StaticResource {x:Type ToggleButton}}"
+                                      Subject="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
@@ -127,7 +132,7 @@
                             </ToggleButton.Template>
                             <ContentPresenter RecognizesAccessKey="True"
                                               Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" />
-                        </ToggleButton>
+                        </controls:ExpandToggle>
                         <ContentPresenter x:Name="Body" Visibility="Collapsed" />
                     </DockPanel>
                     </Border>
