@@ -306,7 +306,9 @@ public sealed partial class MainViewModel
         // 検索は1つを持ち回すので、**そのときの条件も控える**（P4）。
         // 控えないと、戻っても「この商品だけ出す」で全消しされた後の条件のままだった
         SearchViewModel search => new HistoryEntry("検索", RestoreSearch(search.CaptureFilters())),
-        ItemViewModel item => ItemEntry(Shorten(item.Name), item.Item.Id),
+        // 商品ページは、流した位置も控える（ユーザ判断 2026-09-30。ショップと同じ決まり）。
+        // 前は控えず、使い回された画面に残った位置で出ていた（別の商品で流して戻ると、その商品の位置で出た）
+        ItemViewModel item => ItemEntry(Shorten(item.Name), item.Item.Id, item.CaptureScrollOffset()),
         // ショップの一覧とショップの中は、見ていた位置（と中の絞り）も控える（ユーザ判断 2026-09-28）。
         // 開き直すと一覧が先頭に戻り、商品を1件見て戻るたびに探し直していた
         ShopViewModel shop => ShopEntry(shop.Shop, shop.CaptureState()),
@@ -327,8 +329,8 @@ public sealed partial class MainViewModel
     };
 
     // 以下は引数だけを捕まえる（画面を捕まえないように、ラムダを画面の変数と同じ所で書かない）
-    private HistoryEntry ItemEntry(string label, string itemId)
-        => new(label, () => RunAsyncRestore(() => RestoreItemAsync(itemId)).Forget());
+    private HistoryEntry ItemEntry(string label, string itemId, double scrollOffset)
+        => new(label, () => RunAsyncRestore(() => RestoreItemAsync(itemId, scrollOffset)).Forget());
 
     private HistoryEntry ShopEntry(Core.Services.ShopSummary shop, ShopViewState state)
         => new(Shorten(shop.Name), () => RunAsyncRestore(() => RestoreShopAsync(shop, state)).Forget());
@@ -558,7 +560,8 @@ public sealed partial class MainViewModel
     /// 商品ページは開き直した時点の中身で出す（覚えた時の中身は、その後の編集で古くなっている）。
     /// 消えた商品（IDを変えた・登録を外した）は飛ばして、もう1つ前へ戻る
     /// </summary>
-    private async Task RestoreItemAsync(string itemId)
+    /// <param name="scrollOffset">離れたときの流した位置。開き直した画面へ渡す（先頭にいたなら 0）。</param>
+    private async Task RestoreItemAsync(string itemId, double scrollOffset)
     {
         // どちら向きに動いていたか。進んでいる最中に消えた商品へ当たったのに戻していたので、
         // 「進む」を押すと1つ戻っていた（押した先が読めない）
@@ -572,7 +575,7 @@ public sealed partial class MainViewModel
                 return;
             }
 
-            ShowItem(item);
+            ShowItem(item, scrollOffset);
             return;
         }
 

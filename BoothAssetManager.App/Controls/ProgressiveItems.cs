@@ -26,8 +26,11 @@ namespace BoothAssetManager.App.Controls;
 /// <list type="bullet">
 /// <item>見えていない一覧（畳んだ欄の中）。並べないので手間が掛からず、開いたときに分ける理由も無い</item>
 /// <item>流せる画面の中に無い一覧。どこまでが見えているかを測れない</item>
-/// <item>使い回された画面で、前の中身の流した位置が残るとき。一覧を短く始めると、流せる長さが足りずに位置が手前へ詰められる</item>
+/// <item>使い回された画面で、前の中身の流した位置が残るとき（同じ商品の開き直し）。一覧を短く始めると、流せる長さが足りずに位置が手前へ詰められる</item>
 /// </list>
+///
+/// 別の商品へ進むときは、画面が先頭へ戻すと印を付ける（<see cref="ReturnsToTopProperty"/>）ので分けて足す。
+/// 戻る・進むで途中の位置へ戻すときは、戻す先まで中身が要るので、画面の側が <see cref="FeedAllNow"/> で足し切ってから位置を当てる（<c>ItemView</c>）
 /// </summary>
 public static class ProgressiveItems
 {

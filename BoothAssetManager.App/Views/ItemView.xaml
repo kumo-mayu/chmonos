@@ -84,8 +84,13 @@
             横スクロールを出せば、狭くても必ず届く。
 
             右の列にも下限を置いて、潰れる前にスクロールが出るようにしてある
+
+
+            Tag は「結び付けが届いたか」の目印（ItemView.xaml.cs の ApplyRestore）。作りたての画面では、
+            最初の配置の時点で結び付けがまだ届いていないので、流した位置を戻すのをそこまで待つ
         -->
-        <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="Body" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
+                      Tag="{Binding}">
             <!--
                 **幅を窓に合わせる。**横に送れるScrollViewerは中身を「幅は無限」
                 として測るので、WrapPanel（BOOTHのタグ）は折り返さず、
