@@ -663,7 +663,12 @@ public sealed partial class MainViewModel : ViewModelBase
     public void ShowModification(Core.Models.ModificationRecord record)
         => CurrentViewModel = new ModificationViewModel(record, _services, this, Thumbnails);
 
-    public void ShowItem(Core.Models.ItemRecord item)
+    public void ShowItem(Core.Models.ItemRecord item) => ShowItem(item, restoreScrollOffset: null);
+
+    /// <param name="restoreScrollOffset">
+    /// 戻る・進むで開き直すときの、離れたときの流した位置（画面の履歴の控えが持つ）。ほかの入口は null。
+    /// </param>
+    private void ShowItem(Core.Models.ItemRecord item, double? restoreScrollOffset)
     {
         // 「閲覧」の足跡。待たずに走らせる——足跡のために画面が止まる理由が無い。
         // **戻るで来たときは付けない**（履歴をたどっただけで「最近見たもの」の並びが動いていた）
@@ -672,7 +677,13 @@ public sealed partial class MainViewModel : ViewModelBase
             _services.Recent.TouchAsync(item.Id, Core.Services.RecentKind.Viewed).Forget();
         }
 
-        CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails);
+        // 流した位置の決まり（ItemViewModel.Scroll.cs）：開き直し（履歴に積まない差し替え）は今の位置を保ち、
+        // 戻る・進むは控えの位置へ、どちらでもなければ先頭から。画面へ差し込む前に伝える（View は差し込まれた時点で読む）
+        CurrentViewModel = new ItemViewModel(item, _services, this, Thumbnails)
+        {
+            KeepsScrollPosition = _nextNavigation is Navigation.Replace,
+            RestoreScrollOffset = restoreScrollOffset,
+        };
     }
 
     /// <summary>
