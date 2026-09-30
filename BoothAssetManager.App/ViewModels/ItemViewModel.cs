@@ -386,13 +386,24 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>戻るを出すか（V2）。組み込みのときと、戻る先が無いときは出さない。</summary>
     public bool ShowsBack => !IsEmbedded && _main.CanGoBack;
 
-    /// <summary>組み込んだときは右側が窓より狭いので、単独の画面の最小幅（1060px）では横にはみ出す。</summary>
+    /// <summary>本文の幅の下限。これより狭い入れ物では、本文が横に送れる。</summary>
     /// <remarks>
     /// 単独の画面では、左の列の最小（460）＋右の列の最小320＋余白と内側の余白80。
     /// 覚えた左の幅（既定660・最大1100）で下限を決めていたときは、窓が狭いと右が約130pxまで潰れた。
     /// 今は覚えた幅を窓に合わせて頭打ちにする（PaneGrid）ので、下限は縮めきった形で決める（点検 2026-09-23）
     /// </remarks>
-    public double BodyMinWidth => IsEmbedded ? 0 : LeftPane.MinPixels + 400;
+    public double BodyMinWidth => MinBodyWidth(IsEmbedded, LeftPane.MinPixels);
+
+    /// <summary>
+    /// 組み込んだとき（フォルダビューの右・改変の画面の右）の下限は、左の列の最小＋右の列の最小（320。ItemView.xaml の列の MinWidth）
+    /// ＋本文の左右の余白（20×2）ちょうど。組み込む側の欄は 360 まで狭くなるので、単独の画面の下限（左の最小＋400）を当てると
+    /// 縮められる所まで縮めずに横へ送らせることになる。
+    /// 前は 0（下限なし）にしていた。列の最小の合計より狭い入れ物では、列は最小の幅のまま入れ物からはみ出し、
+    /// 横に送る棒も出ないので、右の列（名前・価格・ローカルファイル）が切れたまま届かなかった。
+    /// 改変の詳細で入れた直し（<see cref="ModificationViewModel.MinBodyWidth"/>）と同じ考え方（2026-09-30）。
+    /// 単独の画面の 400 は前からの値（右の最小と余白に、40 のゆとり）。
+    /// </summary>
+    internal static double MinBodyWidth(bool embedded, double leftMin) => leftMin + (embedded ? 320 + 40 : 400);
 
     private PaneColumn? _leftPane;
 
