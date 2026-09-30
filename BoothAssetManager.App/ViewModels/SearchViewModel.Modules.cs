@@ -184,17 +184,34 @@ public sealed partial class SearchViewModel
         Task.Delay(500).ContinueWith(
             _ => RunOnUiThread(() =>
             {
-                if (token != _moduleSaveToken)
+                // 後から変わった（そちらが書く）か、閉じる前の書き切りがもう書いた
+                if (token != _moduleSaveToken || token == _moduleSavedToken)
                 {
                     return;
                 }
 
-                var states = Modules.Select(module => module.Save() with { Summary = null }).ToList();
-                _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
-                    state => state with { SearchModules = states })).Forget();
+                SaveModulesNowAsync().Forget();
             }),
             TaskScheduler.Default);
     }
+
+    /// <summary>今の条件を書いた所までの印。<see cref="_moduleSaveToken"/> と違えば、まだ書いていない変更がある。</summary>
+    private int _moduleSavedToken;
+
+    private Task SaveModulesNowAsync()
+    {
+        _moduleSavedToken = _moduleSaveToken;
+        var states = Modules.Select(module => module.Save() with { Summary = null }).ToList();
+        return _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
+            state => state with { SearchModules = states }));
+    }
+
+    /// <summary>
+    /// 待っている条件の保存を今書く。閉じる前に主画面が呼ぶ（2026-09-30。条件を変えて0.5秒以内に閉じると、
+    /// 遅らせた保存が走る前にアプリが終わり、その変更だけが次の起動に残らなかった）。画面のスレッドで呼ぶ
+    /// </summary>
+    public Task FlushModulesAsync()
+        => _moduleSavedToken == _moduleSaveToken ? Task.CompletedTask : SaveModulesNowAsync();
 
     /// <summary>絞り込み1回ぶんの材料。</summary>
     private SearchModuleContext CreateModuleContext() => new(

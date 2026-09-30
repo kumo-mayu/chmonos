@@ -615,6 +615,7 @@ public sealed partial class MainViewModel : ViewModelBase
             (CurrentViewModel as IPendingWrites)?.FlushPendingWritesAsync() ?? Task.CompletedTask,
             ItemViewSize.Current.FlushAsync(),
             AppZoom.Current.FlushAsync(),
+            Search.FlushModulesAsync(),
             _services.BackgroundWrites.WhenIdleAsync());
     }
 
