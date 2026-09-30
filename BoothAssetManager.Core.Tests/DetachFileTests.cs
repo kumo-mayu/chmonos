@@ -36,7 +36,7 @@ public class DetachFileTests : IDisposable
         _store = new DataStore(paths);
 
         // 外すだけなのでBOOTHへは行かない。行ったら失敗させる
-        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 });
+        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths));
     }
 

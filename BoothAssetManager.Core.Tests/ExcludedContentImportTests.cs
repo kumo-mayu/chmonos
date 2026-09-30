@@ -33,7 +33,7 @@ public sealed class ExcludedContentImportTests : IDisposable
 
         // 本物の通信の口で組まない（既定の一式に通信する試験を入れない）。行けば落ちる偽物にする
         var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
-        var client = new BoothClient(new HttpClient(new UnreachableHandler()), settings);
+        var client = new BoothClient(new HttpClient(new UnreachableHandler()), settings, TestWait.None);
         _pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, paths, settings), settings);
     }
 

@@ -35,7 +35,7 @@ public class ImportLadderTests : IDisposable
         _store = new DataStore(_paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings);
+        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings, TestWait.None);
 
         _pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, _paths, settings), settings);
     }
@@ -248,7 +248,7 @@ public class ImportLadderTests : IDisposable
     public async Task RunsAvatarDetectionAfterTheMetadataAndBeforeAnyImage()
     {
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings);
+        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings, TestWait.None);
         var detector = new RecordingAvatarService(_requests);
 
         var pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, _paths, settings), settings, detector);
@@ -265,7 +265,7 @@ public class ImportLadderTests : IDisposable
     public async Task FinishesTheImportEvenWhenDetectionThrows()
     {
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings);
+        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings, TestWait.None);
 
         var pipeline = new ImportPipeline(
             _store,

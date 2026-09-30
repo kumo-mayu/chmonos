@@ -57,7 +57,7 @@ public class BoothPriorityTests
     public async Task LetsAUserActionOvertakeQueuedImportRequests()
     {
         var handler = new BlockingHandler();
-        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 });
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
 
         // 1本目が門を握って止まる
         var holding = Task.Run(async () =>
@@ -103,7 +103,7 @@ public class BoothPriorityTests
     public async Task 画面が待っている対象は人が押した操作より先に通る()
     {
         var handler = new BlockingHandler();
-        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 });
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
 
         var holding = Task.Run(async () =>
         {

@@ -35,7 +35,7 @@ public class ImageBacklogTests : IDisposable
         _store = new DataStore(_paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new ImageHandler(_requests)), settings);
+        var client = new BoothClient(new HttpClient(new ImageHandler(_requests)), settings, TestWait.None);
 
         _images = new ImagePipeline(client, _paths, settings);
         _backlog = new ImageBacklog(_store, _images);

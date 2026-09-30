@@ -31,7 +31,7 @@ public class ImportWriteBackTests : IDisposable
         _store = new DataStore(paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
-        var client = new BoothClient(new HttpClient(_handler), settings);
+        var client = new BoothClient(new HttpClient(_handler), settings, TestWait.None);
         _pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, paths, settings), settings);
     }
 

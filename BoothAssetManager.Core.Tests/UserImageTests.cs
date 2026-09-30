@@ -37,7 +37,7 @@ public class UserImageTests : IDisposable
         _store = new DataStore(_paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new Unreachable()), settings);
+        var client = new BoothClient(new HttpClient(new Unreachable()), settings, TestWait.None);
         _service = new ItemService(_store, client, new ImagePipeline(client, _paths, settings), settings);
     }
 
