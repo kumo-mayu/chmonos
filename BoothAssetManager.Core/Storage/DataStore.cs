@@ -196,6 +196,42 @@ public sealed class JsonFileStore<T> where T : class, new()
             ? Task.Run(() => TryUpdateCoreAsync(change, cancellationToken), cancellationToken)
             : TryUpdateCoreAsync(change, cancellationToken);
 
+    /// <summary>
+    /// <see cref="TryUpdateAsync"/> と同じだが、**変え方の中で待てる**。錠を持ったまま、今の値を見て別の物を先に保存し、
+    /// それから同じ値を書き換えて返す形に使う（未確定の1件を商品にする：一覧から探す → 商品を保存 → 一覧から外す）。
+    ///
+    /// 前は「探すために読む → 商品を保存 → 錠の中でもう一度読んで外す」で、1回の登録に記録を2回読んでいた
+    /// （未確定 8万件で1回 170〜280ms・68MB）。錠の中で探せば読むのは1回で、探してから外すまでの間に取り込みが一覧を書くことも無い。
+    ///
+    /// **関数の中で、この窓口の書き換え（UpdateAsync・TryUpdateAsync）を呼ばない**（錠は入れ子にできないので固まる）。
+    /// 関数の中で取ってよい錠は、持ったままこの窓口を待つことの無い物だけ（商品ごとの錠は、変え方が同期の関数なので当てはまる）。
+    /// 関数が投げたら何も書かない。
+    /// </summary>
+    /// <returns>書いたか。</returns>
+    public Task<bool> TryUpdateAwaitingAsync(Func<T, Task<T?>> change, CancellationToken cancellationToken = default)
+        => UpdatesOffCallerThread
+            ? Task.Run(() => TryUpdateAwaitingCoreAsync(change, cancellationToken), cancellationToken)
+            : TryUpdateAwaitingCoreAsync(change, cancellationToken);
+
+    private async Task<bool> TryUpdateAwaitingCoreAsync(Func<T, Task<T?>> change, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (await change(LoadForUpdate()) is not { } updated)
+            {
+                return false;
+            }
+
+            await SaveAsync(updated, cancellationToken);
+            return true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<bool> TryUpdateCoreAsync(Func<T, T?> change, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);

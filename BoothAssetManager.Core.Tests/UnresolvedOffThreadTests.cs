@@ -208,6 +208,98 @@ public sealed class UnresolvedOffThreadTests : IDisposable
         Assert.Equal(before, store.WriteCount);
     }
 
+    // ---- 錠を持ったまま、変え方の中で待つ形（TryUpdateAwaitingAsync） ----
+
+    /// <summary>
+    /// 変え方の中で待っている間も錠を持っている：その間に来た別の書き換えは、終わるまで待ってから、書いた後の値に当たる。
+    /// （登録が「探す → 商品を保存 → 外す」の間に、取り込みの書き込みが割り込まない）
+    /// </summary>
+    [Fact]
+    public async Task TheAwaitingUpdateKeepsTheLockWhileItsChangeWaits()
+    {
+        var path = Path.Combine(_root, "list.json");
+        var store = new JsonFileStore<List<string>>(path) { UpdatesOffCallerThread = true };
+        await store.SaveAsync(["a"]);
+
+        var inside = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = store.TryUpdateAwaitingAsync(async current =>
+        {
+            inside.SetResult();
+            await release.Task;
+            current.Add("b");
+            return current;
+        });
+
+        await inside.Task;
+        List<string>? seenBySecond = null;
+        var second = store.UpdateAsync(current =>
+        {
+            seenBySecond = [.. current];
+            current.Add("c");
+            return current;
+        });
+
+        // 2本目は錠を待っている。1本目を進めるまで終わらない（時計で待たず、1本目が先に終わることで確かめる）
+        Assert.False(second.IsCompleted);
+        release.SetResult();
+        Assert.True(await first);
+        await second;
+
+        Assert.Equal(["a", "b"], seenBySecond);
+        Assert.Equal(["a", "b", "c"], store.Load());
+    }
+
+    [Fact]
+    public async Task TheAwaitingUpdateWritesNothingWhenItsChangeReturnsNullOrThrows()
+    {
+        var path = Path.Combine(_root, "list.json");
+        var store = new JsonFileStore<List<string>>(path) { UpdatesOffCallerThread = true };
+        await store.SaveAsync(["a"]);
+        var before = store.WriteCount;
+
+        Assert.False(await store.TryUpdateAwaitingAsync(_ => Task.FromResult<List<string>?>(null)));
+        await Assert.ThrowsAsync<IOException>(() => store.TryUpdateAwaitingAsync(async current =>
+        {
+            current.Add("書かれない");
+            await Task.Yield();
+            throw new IOException("商品の保存に失敗した");
+        }));
+
+        Assert.Equal(before, store.WriteCount);
+        Assert.Equal(["a"], store.Load());
+
+        // 投げた後も錠は返っている（次の書き換えが通る）
+        await store.UpdateAsync(current => [.. current, "b"]);
+        Assert.Equal(["a", "b"], store.Load());
+    }
+
+    /// <summary>
+    /// 見つからないIDのまま登録する道も、結果は前と同じ：商品ができてファイルが付き、一覧から外れる。
+    /// 未確定に無いファイル・仮IDでは何も書かない。
+    /// </summary>
+    [Fact]
+    public async Task AssigningAnUnpublishedIdStillMovesTheFileToTheItem()
+    {
+        var file = Unresolved("hidden.bin");
+        var other = Unresolved("other.bin");
+        await _store.Unresolved.SaveAsync([file, other]);
+        var before = _store.Unresolved.WriteCount;
+
+        Assert.False(await _service.AssignUnpublishedItemIdAsync(Unresolved("missing.bin").Hash, "1000003", "作り物の商品"));
+        Assert.False(await _service.AssignUnpublishedItemIdAsync(file.Hash, LocalItemId.For(file.Hash), "作り物の商品"));
+        Assert.Equal(before, _store.Unresolved.WriteCount);
+        Assert.Empty(_store.Items.EnumerateItemIds());
+
+        Assert.True(await _service.AssignUnpublishedItemIdAsync(file.Hash, "1000003", "作り物の商品"));
+
+        var item = await _store.Items.LoadAsync("1000003");
+        Assert.Equal(file.Hash, Assert.Single(item!.Local.LocalFiles).Hash);
+        Assert.Equal("作り物の商品", item.Local.DisplayName);
+        Assert.True(item.Local.IsDelisted);
+        Assert.Equal(other.Hash, Assert.Single(_store.Unresolved.Load()).Hash);
+    }
+
     /// <summary>未確定の記録の窓口に印が付いている（外すと、登録のたびに画面が止まる形に戻る）。</summary>
     [Fact]
     public void TheUnresolvedStoreIsMarked()

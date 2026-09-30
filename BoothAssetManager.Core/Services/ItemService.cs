@@ -1037,30 +1037,36 @@ public sealed class ItemService : IItemService
             return false;
         }
 
-        var target = (await _store.Unresolved.LoadAsync(cancellationToken))
-            .FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
-        if (target is null)
-        {
-            return false;
-        }
+        // BOOTH へ行かない道なので、未確定の錠を持ったまま最後まで進める（RegisterLocalItemAsync と同じ形・読むのは1回）。
+        // 順番は前と同じ：商品を保存してから、一覧から外す
+        return await _store.Unresolved.TryUpdateAwaitingAsync(
+            async current =>
+            {
+                var target = current.FirstOrDefault(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+                if (target is null)
+                {
+                    return null;
+                }
 
-        var record = FromUnresolved(target);
+                var record = FromUnresolved(target);
 
-        // 在るかを見てから作るまでを商品の錠の中で行う（取り込みや別の道が同じIDを作っていることがある・L13 と同じ形）。
-        // 在れば、ファイルを足すだけにする。取得の記録（見つからない回数・予定日）は持ち主の⑦に任せ、名前も上書きしない
-        var written = await _store.Items.CreateOrChangeLocalAsync(
-            itemId,
-            () => UnpublishedItem(itemId, displayName),
-            local => local with { LocalFiles = LocalFileMerger.Merge(local.LocalFiles, [record]) },
-            LocalOwners.Import,
+                // 在るかを見てから作るまでを商品の錠の中で行う（取り込みや別の道が同じIDを作っていることがある・L13 と同じ形）。
+                // 在れば、ファイルを足すだけにする。取得の記録（見つからない回数・予定日）は持ち主の⑦に任せ、名前も上書きしない
+                var written = await _store.Items.CreateOrChangeLocalAsync(
+                    itemId,
+                    () => UnpublishedItem(itemId, displayName),
+                    local => local with { LocalFiles = LocalFileMerger.Merge(local.LocalFiles, [record]) },
+                    LocalOwners.Import,
+                    cancellationToken);
+                if (!written)
+                {
+                    return null;
+                }
+
+                current.RemoveAll(file => string.Equals(file.Hash, target.Hash, StringComparison.OrdinalIgnoreCase));
+                return current;
+            },
             cancellationToken);
-        if (!written)
-        {
-            return false;
-        }
-
-        await RemoveUnresolvedAsync(target.Hash, cancellationToken);
-        return true;
     }
 
     /// <summary>
@@ -1644,49 +1650,59 @@ public sealed class ItemService : IItemService
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        // 最初の await より前の同期の読みは、呼んだスレッド（画面）で走る。未確定が8万件（37.7MB）あると、
-        // 1件登録するたびにここで 330〜540ms 画面が止まっていた（2026-09-30 に測った）。記録は裏で読む
-        var unresolved = await _store.Unresolved.LoadAsync(cancellationToken);
-        var target = unresolved.FirstOrDefault(
-            file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
-        if (target is null)
-        {
-            return null;
-        }
-
-        var itemId = LocalItemId.For(target.Hash);
-
-        var record = FromUnresolved(target);
-
-        // 同じファイルを2回登録しようとした場合（未確定に二重に載っていた等）。
-        // 仮IDはハッシュから決まるので、同じ商品に行き着く
-        var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
-        if (existing is null)
-        {
-            await _store.Items.SaveAsync(
-                new ItemRecord
+        // 記録の読み書きは画面のスレッドの外で走る（窓口の印）。前は最初の await より前に同期で読んでいて、
+        // 未確定が8万件（37.7MB）あると、1件登録するたびに 330〜540ms 画面が止まっていた（2026-09-30 に測った）。
+        //
+        // **未確定の錠を持ったまま、探す → 商品を保存 → 一覧から外す、まで進める**（読むのは1回）。
+        // 前は探すための読みと、外すための錠の中の読み直しで2回読んでいた。順番は前と同じで、商品を保存してから一覧を書く
+        // （先に外して商品の保存に失敗すると、ファイルの記録ごと失う）。BOOTH へ行かない道なので、錠を持つのは保存1回ぶんの間だけ
+        string? itemId = null;
+        await _store.Unresolved.TryUpdateAwaitingAsync(
+            async current =>
+            {
+                var target = current.FirstOrDefault(
+                    file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase));
+                if (target is null)
                 {
-                    Id = itemId,
-                    Booth = new BoothBlock(),
-                    Local = new LocalBlock
-                    {
-                        DisplayName = displayName.Trim(),
-                        LocalFiles = [record],
-                    },
-                },
-                cancellationToken);
-        }
-        else
-        {
-            var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, [record]);
-            await _store.Items.SaveLocalAsync(
-                itemId,
-                existing.Local with { DisplayName = displayName.Trim(), LocalFiles = merged },
-                [LocalField.DisplayName, LocalField.LocalFiles],
-                cancellationToken: cancellationToken);
-        }
+                    return null;
+                }
 
-        await RemoveUnresolvedAsync(target.Hash, cancellationToken);
+                var id = LocalItemId.For(target.Hash);
+                var record = FromUnresolved(target);
+
+                // 同じファイルを2回登録しようとした場合（未確定に二重に載っていた等）。
+                // 仮IDはハッシュから決まるので、同じ商品に行き着く
+                var existing = await _store.Items.LoadAsync(id, cancellationToken);
+                if (existing is null)
+                {
+                    await _store.Items.SaveAsync(
+                        new ItemRecord
+                        {
+                            Id = id,
+                            Booth = new BoothBlock(),
+                            Local = new LocalBlock
+                            {
+                                DisplayName = displayName.Trim(),
+                                LocalFiles = [record],
+                            },
+                        },
+                        cancellationToken);
+                }
+                else
+                {
+                    var merged = LocalFileMerger.Merge(existing.Local.LocalFiles, [record]);
+                    await _store.Items.SaveLocalAsync(
+                        id,
+                        existing.Local with { DisplayName = displayName.Trim(), LocalFiles = merged },
+                        [LocalField.DisplayName, LocalField.LocalFiles],
+                        cancellationToken: cancellationToken);
+                }
+
+                itemId = id;
+                current.RemoveAll(file => string.Equals(file.Hash, target.Hash, StringComparison.OrdinalIgnoreCase));
+                return current;
+            },
+            cancellationToken);
 
         return itemId;
     }
