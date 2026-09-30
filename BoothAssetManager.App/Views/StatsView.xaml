@@ -449,7 +449,7 @@
                                               Visibility="{Binding HasBacklog, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:BacklogRowViewModel}">
-                                            <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}" Margin="0,0,0,8">
+                                            <Button AutomationProperties.AutomationId="StatsBacklogRow" AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}" Style="{StaticResource RowButton}" Command="{Binding OpenCommand}" Margin="0,0,0,8">
                                                 <Border BorderThickness="1" CornerRadius="6" Padding="12,10">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -534,7 +534,7 @@
                                               Visibility="{Binding HasPriceChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:PriceChangeRowViewModel}">
-                                            <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}">
+                                            <Button AutomationProperties.AutomationId="StatsPriceChangeRow" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}" Style="{StaticResource RowButton}" Command="{Binding OpenCommand}">
                                                 <Grid Margin="0,0,0,7">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />

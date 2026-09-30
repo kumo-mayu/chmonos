@@ -181,6 +181,7 @@ public partial class SuggestBox : UserControl
     public SuggestBox()
     {
         InitializeComponent();
+        Candidates.RowInvoked += OnCandidateInvoked;
     }
 
     public IEnumerable? Source
@@ -423,6 +424,18 @@ public partial class SuggestBox : UserControl
             Commit();
             e.Handled = true;
         }
+    }
+
+    /// <summary>読み上げ・自動操作が候補の行を「押した」。その行を選んで、クリックと同じに決める。</summary>
+    private void OnCandidateInvoked(object row)
+    {
+        if (row is not Suggestion || !DropDown.IsOpen)
+        {
+            return;
+        }
+
+        Candidates.SelectedItem = row;
+        Commit();
     }
 
     private void Commit()

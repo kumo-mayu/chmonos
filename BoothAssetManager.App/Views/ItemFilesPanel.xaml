@@ -53,6 +53,46 @@
         </Style>
 
         <!--
+            ファイルの行の中身は、入り切らなければ次の段へ送る（FileRowFlow）。前は名前と札を1つの枠に入れて枠ごと薄くしていたが、
+            枠に入れると枠ごとしか送れない。薄くする決まりを1つずつに付ける（名前・容量・リンクは元の見た目を継ぐ）
+        -->
+        <Style x:Key="FileNameLinkDim" TargetType="Button" BasedOn="{StaticResource FileNameLink}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="MonoDim" TargetType="TextBlock" BasedOn="{StaticResource Mono}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="TextDim" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetached}" Value="True">
+                    <Setter Property="Opacity" Value="0.45" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!--
+            ファイル・フォルダの行の左の並び（名前・札・容量・リンク・「開く ▾」）。
+            横に並べるだけ（StackPanel）だと、狭い幅で右の「この商品から外す」の下へ潜って、「見つかりません」の札が丸ごと見えなかった
+            （中身の幅 1280 の窓。ユーザ判断 2026-09-30）。入り切らない物は次の段へ送る。名前は1つで幅を超えるときだけ「…」で切れる。
+            1段の高さは小さいボタン（27）に上下 2 の間を足した 31 に揃え、外で上下 2 を引く——1段のときの行の高さは前と同じ 27 のまま、
+            右のボタンと同じ高さで並ぶ。段ごとの高さを中身任せにすると、名前だけの段が低くなり、右のボタンと中心がずれる。
+            部品どうしの間は、それぞれの右に持たせる（左に持たせると、送った段の頭が間の分だけ字下げされる）
+        -->
+        <Style x:Key="FileRowFlow" TargetType="WrapPanel">
+            <Setter Property="ItemHeight" Value="31" />
+            <Setter Property="Margin" Value="0,-2,10,-2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
             保存場所の文字。薄くするのは文字だけで、横の「エクスプローラで開く」は薄くしない
             （外したファイルでも開ける。薄いと押せないように見えた・ユーザ指摘）。
             行の中はパスの文字列が DataContext なので、外したかどうかはファイルの行（一覧の持ち主）から引く
@@ -79,10 +119,10 @@
                             <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,11">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal">
-                                        <ToggleButton Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                        <controls:ExpandToggle Style="{StaticResource TagToggle}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                       IsChecked="{Binding IsFilesExpanded, Mode=TwoWay}"
                                                       AutomationProperties.AutomationId="ItemFilesToggle"
-                                                      AutomationProperties.Name="ローカルファイルを開く"
+                                                      Subject="ローカルファイル"
                                                       ToolTip="ローカルファイルの欄を開く・折りたたむ" />
                                         <TextBlock Text="ローカルファイル" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>
@@ -103,22 +143,23 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                                    <StackPanel Orientation="Horizontal">
+                                                    <!-- ファイルの行と同じ並び。右の間は外の枠が持つ -->
+                                                    <WrapPanel Style="{StaticResource FileRowFlow}" Margin="0,-2">
                                                         <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,7,0">
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="0,0,7,0">
                                                             <TextBlock Text="フォルダ" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                                         </Border>
                                                         <!-- 名前を押すとエクスプローラで開く。場所は乗せたときに出す（ユーザ指示 2026-09-19） -->
-                                                        <Button Content="{Binding Name}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center"
+                                                        <Button Content="{Binding Name}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                                 ToolTip="{Binding PathToolTip}"
                                                                 Command="{Binding DataContext.OpenInExplorerCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 AutomationProperties.AutomationId="ItemFolderName"
                                                                 CommandParameter="{Binding Path}" />
                                                         <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Mono}" FontSize="11"
-                                                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                                   Margin="0,0,8,0" VerticalAlignment="Center" />
                                                         <!-- 開く操作は名前のすぐ横に（ファイルの行と同じ形。ユーザ判断 2026-09-19） -->
-                                                        <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                        <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,8,0"
                                                                 VerticalAlignment="Center" Click="OnMenuButtonClick"
                                                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 AutomationProperties.AutomationId="ItemFolderOpenMenu"
@@ -137,16 +178,16 @@
                                                             置き場所を付け直す仕組みはあるのに、札が「見つかりません」だけで伝わっていなかった
                                                         -->
                                                         <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                                BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="0,0,8,0"
                                                                 Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                 ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
                                                             <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                         </Border>
-                                                        <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                        <TextBlock Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center"
                                                                    Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
                                                             <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">取り込みを開く</Hyperlink>
                                                         </TextBlock>
-                                                    </StackPanel>
+                                                    </WrapPanel>
                                                     <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
                                                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,7,0,0"
@@ -155,7 +196,7 @@
                                                                    Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
                                                     </Border>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                                                     <!-- zipを後から手に入れたら、二重計上になるので外せるようにする -->
                                                     <Button Content="登録を外す" Style="{StaticResource SmallButton}"
                                                             AutomationProperties.AutomationId="ItemFolderUnregister"
@@ -180,14 +221,13 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                                <StackPanel Orientation="Horizontal" Style="{StaticResource DetachedDim}">
+                                                <WrapPanel Grid.Column="0" Style="{StaticResource FileRowFlow}">
                                                     <!--
                                                         名前を押すとエクスプローラで開く（1つめの場所）。場所は乗せたときに出す
                                                         （ユーザ指示 2026-09-19：名前の下に場所の行が続き、同じ名前が2回並んで読みにくかった）。
                                                         見つからないファイルは開く先が無いので押せない（理由はツールチップ）
                                                     -->
-                                                    <Button Content="{Binding FileName}" Style="{StaticResource FileNameLink}" VerticalAlignment="Center"
+                                                    <Button Content="{Binding FileName}" Style="{StaticResource FileNameLinkDim}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                             IsEnabled="{Binding CanReveal}"
                                                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding PathToolTip}"
                                                             AutomationProperties.AutomationId="ItemFileName"
@@ -200,25 +240,25 @@
                                                         直さないと使えない物なので、名前のすぐ横に置く。無い物には出さない（「見つかりません」だけを言う）
                                                     -->
                                                     <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             ToolTip="zipを開けませんでした。ダウンロードし直してください。"
                                                             Visibility="{Binding ShowsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}" />
                                                     </Border>
                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             ToolTip="この商品から外したファイルです。所持や容量には数えません。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="外したファイル" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
                                                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             Visibility="{Binding HasVariationLabel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="{Binding VariationLabel}" FontSize="10" Foreground="{DynamicResource AccentText}" />
                                                     </Border>
-                                                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource MonoDim}" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" />
                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             Visibility="{Binding HasMultiplePaths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                         <TextBlock Text="{Binding DuplicateNote}" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
@@ -227,12 +267,12 @@
                                                         以前はファイルの行には札が無く、置き場所の欄が空になるだけだった
                                                     -->
                                                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
                                                         <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
-                                                    <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                    <TextBlock Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center" Style="{StaticResource TextDim}"
                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
                                                         <Hyperlink Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">取り込みを開く</Hyperlink>
                                                     </TextBlock>
@@ -241,18 +281,17 @@
                                                         無くなったとは言わない。次の一手は取り込みではなく、つなぐこと（フォルダの表示と同じ語）
                                                     -->
                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
-                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             Visibility="{Binding IsOnDetachedDrive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             ToolTip="ドライブをつなぐと開けます。">
                                                         <TextBlock Text="取り外しているドライブ" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                                     </Border>
-                                                </StackPanel>
                                                     <!--
                                                         開く操作は名前のすぐ横に、1つのボタンにまとめる（ユーザ判断 2026-09-19：右端に並ぶと、名前を読んでから
-                                                        押すまでに視線が画面の幅ぶん往復した）。外したファイルでも開けるので、薄くする枠の外に置く（薄いと押せないように見えた・ユーザ指摘）。
+                                                        押すまでに視線が画面の幅ぶん往復した）。外したファイルでも開けるので、薄くしない（薄いと押せないように見えた・ユーザ指摘）。
                                                         見つからないファイルは開く先が無いので出さない
                                                     -->
-                                                    <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                    <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,0,0"
                                                             VerticalAlignment="Center" Click="OnMenuButtonClick"
                                                             Visibility="{Binding CanReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -278,14 +317,17 @@
                                                             </ContextMenu>
                                                         </Button.ContextMenu>
                                                     </Button>
-                                                </StackPanel>
+                                                </WrapPanel>
 
                                                 <!--
                                                     間違って紐付いたファイルを直す入口。1商品に複数ファイルがあり得るので、
                                                     商品単位ではなくファイル単位に置く（zipだけが誤りのことがある）
                                                 -->
-                                                <!-- 商品の中身を変える操作だけは右端に離す（開く・送るの隣で押し間違えないように） -->
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <!--
+                                                    商品の中身を変える操作だけは右端に離す（開く・送るの隣で押し間違えないように）。
+                                                    左が2段になっても名前の段に並ぶよう、上に置く（1段のときは左と同じ高さなので、前と同じ位置）
+                                                -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                                                     <Button Content="この商品から外す" Style="{StaticResource SmallButton}"
                                                             AutomationProperties.AutomationId="ItemFileDetach"
                                                             AutomationProperties.Name="{Binding FileName, StringFormat={}{0}をこの商品から外す}"

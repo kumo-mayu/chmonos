@@ -1,0 +1,61 @@
+<views:SettingsView __NS__ />
+---data---
+{
+ "__press": [
+  "Settings.ShortcutReset"
+ ],
+ "ShortcutRows": [
+  {
+   "Label": "編集画面でスキップ",
+   "DisplayText": "Ctrl + Shift + 右矢印",
+   "ResetCommand": "cmd:スキップを既定に戻す"
+  },
+  {
+   "Label": "編集画面で前へ",
+   "DisplayText": "Ctrl + Shift + 左矢印",
+   "ResetCommand": "cmd:前へを既定に戻す"
+  }
+ ],
+ "IsFoldersExpanded": true,
+ "FoldersCountText": "（2）",
+ "Folders": [
+  {
+   "Path": "X:作り物履歴1",
+   "StatusText": ""
+  },
+  {
+   "Path": "X:作り物履歴2",
+   "StatusText": ""
+  }
+ ],
+ "HasWatched": true,
+ "Watched": [
+  {
+   "Path": "X:作り物監視",
+   "StatusText": ""
+  }
+ ],
+ "HasHidden": true,
+ "Hidden": [
+  {
+   "Label": "作り物の商品",
+   "CanOpen": true
+  }
+ ],
+ "HasExcluded": true,
+ "Excluded": [
+  {
+   "Label": "作り物.zip",
+   "SubText": "X:作り物"
+  }
+ ],
+ "HasDetached": true,
+ "Detached": [
+  {
+   "Label": "作り物2.zip",
+   "SubText": "作り物の商品"
+  }
+ ],
+ "ProjectManagers": [],
+ "SearchHistoryCount": 10
+}

@@ -21,7 +21,13 @@ public partial class App : Application
 
     // 利用者の本当の保存先を使ってよいのは、アプリ本体として起動されたときだけ。どの型よりも先に立てる
     // （AppPaths.Default は最初に触れたときに1回だけ決まる）。試験や道具が new App() しても立たず、環境変数で保存先を決める
-    static App() => StoreLocation.AllowsUserStore = IsLaunchedAsApp;
+    static App()
+    {
+        StoreLocation.AllowsUserStore = IsLaunchedAsApp;
+
+        // 部品の型に掛ける決まりは、部品を1つも作らないうちに入れる。道具がこの型を資源の入れ物として作ったときも同じ名前で読めるよう、本体かどうかによらず入れる
+        Services.AutomationNames.Register();
+    }
 
     private AppServiceContainer? _services;
 

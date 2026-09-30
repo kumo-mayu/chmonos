@@ -822,7 +822,9 @@ public sealed class ItemService : IItemService
         var existing = await _store.Items.LoadAsync(itemId, cancellationToken);
         if (existing is not null)
         {
-            return (ToPreview(itemId, existing.Booth, isAlreadyOwned: true), null, false);
+            // 名前は画面のほかの所と同じ決め方にする（付けた名前 → BOOTH の名前 → ID）。BOOTH に無い商品として登録した物は
+            // BOOTH の名前を持たないので、BOOTH の側だけを見ると、確認の題が仮の ID（local-…）で出ていた（2026-09-30）
+            return (ToPreview(itemId, existing.Booth, isAlreadyOwned: true, existing.DisplayName), null, false);
         }
 
         var jsonResult = await _client.GetItemJsonAsync(itemId, cancellationToken);
@@ -843,10 +845,10 @@ public sealed class ItemService : IItemService
             : (null, "BOOTHから届いた商品情報を読み取れませんでした。少し待ってから、もう一度お試しください。", false);
     }
 
-    private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned) => new()
+    private static ItemPreview ToPreview(string itemId, BoothBlock booth, bool isAlreadyOwned, string? name = null) => new()
     {
         Id = itemId,
-        Name = booth.Name ?? itemId,
+        Name = name ?? booth.Name ?? itemId,
         ShopName = booth.Shop?.Name,
         CategoryText = booth.Category is null
             ? null

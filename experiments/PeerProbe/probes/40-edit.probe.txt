@@ -1,0 +1,115 @@
+<views:EditView __NS__ />
+---data---
+{
+ "__press": [
+  "EditSubRemove",
+  "EditFavorite",
+  "EditLinkedFileUnlink",
+  "EditTagRemove"
+ ],
+ "HasItem": true,
+ "ShowsQueueStrip": true,
+ "IsEditingBasics": true,
+ "Name": "作り物の商品",
+ "ShopName": "作り物の店",
+ "QueueTiles": [
+  {
+   "Title": "作り物の商品1",
+   "StateText": "未保存"
+  },
+  {
+   "Title": "作り物の商品2",
+   "StateText": "保存済み"
+  }
+ ],
+ "JumpCommand": "cmd:移る",
+ "ItemPage": {
+  "FavoriteTip": "お気に入りに入れる",
+  "FavoriteGlyph": "☆",
+  "ToggleFavoriteCommand": "cmd:お気に入りを切り替え",
+  "IdText": "ID 0000000"
+ },
+ "HasShopSuggestions": true,
+ "ShopSuggestions": [
+  "作り物の店",
+  "作り物の店2"
+ ],
+ "CategorySuggestions": [],
+ "Tags": [
+  {
+   "Top": "衣装",
+   "HasSubs": true,
+   "Subs": [
+    "夏",
+    "冬"
+   ],
+   "RemoveCommand": "cmd:衣装を外す",
+   "RemoveSubCommand": "cmd:小分類を外す",
+   "SubCandidates": []
+  },
+  {
+   "Top": "小物",
+   "HasSubs": false,
+   "Subs": [],
+   "RemoveCommand": "cmd:小物を外す",
+   "SubCandidates": []
+  }
+ ],
+ "Attributes": [
+  {
+   "Name": "かわいい",
+   "Value": 50,
+   "ValueText": "50%",
+   "IsSuggested": false,
+   "RemoveCommand": "cmd:かわいいを外す"
+  }
+ ],
+ "IsPurchasesExpanded": true,
+ "PurchasesCountText": "（2）",
+ "Variations": [
+  {
+   "Name": "作り物のバリエーションA",
+   "IsPurchased": true,
+   "Price": "1000",
+   "HasExtras": true,
+   "Extras": [
+    {
+     "Price": "500"
+    }
+   ]
+  },
+  {
+   "Name": "作り物のバリエーションB",
+   "IsPurchased": false,
+   "Price": ""
+  }
+ ],
+ "IsFileSortExpanded": true,
+ "CanSortFiles": true,
+ "IsByFileView": true,
+ "IsByVariationView": true,
+ "FileSortRows": [
+  {
+   "Name": "作り物.zip",
+   "Choices": [],
+   "IsAuto": false
+  }
+ ],
+ "PurchasedVariationRows": [
+  {
+   "Name": "作り物のバリエーションA",
+   "CanLinkFiles": true,
+   "FileChoices": [],
+   "HasLinkedFiles": true,
+   "LinkedFiles": [
+    {
+     "Name": "作り物.zip",
+     "CanUnlink": true,
+     "UnlinkCommand": "cmd:ファイルを外す"
+    }
+   ]
+  }
+ ],
+ "Memo": "",
+ "AcquiredAt": ""
+}

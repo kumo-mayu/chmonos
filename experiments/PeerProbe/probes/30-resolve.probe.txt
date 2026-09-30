@@ -1,0 +1,74 @@
+<views:ResolveView __NS__ />
+---data---
+{
+ "__press": [
+  "ResolveCandidateUse",
+  "ResolveCandidateOpenBooth"
+ ],
+ "ShowsChrome": true,
+ "HasSelection": true,
+ "RemainingText": "残り 2 件",
+ "FilesView": [
+  {
+   "FileName": "作り物1.zip",
+   "SizeText": "1.0 MB",
+   "IsSelected": false,
+   "HasCandidates": true,
+   "CandidateText": "候補 1",
+   "IsBrokenArchive": true,
+   "HasOriginZip": false
+  },
+  {
+   "FileName": "作り物2.zip",
+   "SizeText": "2.0 MB",
+   "IsSelected": true
+  }
+ ],
+ "SelectedPaths": [
+  "X:作り物\u0001.zip"
+ ],
+ "HasPreview": true,
+ "PreviewTitle": "作り物の商品",
+ "HasStatus": true,
+ "StatusText": "確かめました",
+ "Candidates": [
+  {
+   "Title": "作り物の候補A",
+   "Detail": "作り物の店",
+   "Source": "手元の商品の記録",
+   "HasBoothPage": true,
+   "OpenBoothCommand": "cmd:候補AをBOOTHで開く"
+  },
+  {
+   "Title": "作り物の候補B",
+   "Detail": "作り物の店",
+   "Source": "自動検索",
+   "HasBoothPage": true,
+   "OpenBoothCommand": "cmd:候補BをBOOTHで開く"
+  }
+ ],
+ "UseCandidateCommand": "cmd:これで確認",
+ "HasLocalNameSuggestions": true,
+ "LocalNameSuggestions": [
+  "作り物の名前",
+  "作り物の名前"
+ ],
+ "HasLocalImages": true,
+ "LocalImages": [
+  {
+   "Name": "作り物.png"
+  }
+ ],
+ "RemoveLocalImageCommand": "cmd:画像を外す",
+ "SelectedContents": [
+  "a.txt",
+  "b.txt"
+ ],
+ "HasContents": true,
+ "ContentsSummary": "中身 2 件",
+ "RegisterFolderText": "フォルダのまま登録",
+ "HasChecked": true,
+ "CheckedText": "1 件を選択中",
+ "AssignCheckedText": "まとめて確定",
+ "ExcludeCheckedText": "まとめて除外"
+}

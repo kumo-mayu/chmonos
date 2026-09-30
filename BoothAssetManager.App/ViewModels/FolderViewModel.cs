@@ -176,6 +176,14 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 
     public string Glyph => CanExpand ? (IsExpanded ? "▾" : "▸") : string.Empty;
 
+    /// <summary>
+    /// 開け閉めの印の、読み上げ・自動操作に渡す名前。印は記号だけなので、付けないと「▸」と読まれる。
+    /// 押すと起きることを言う（検索の絞り込み・ナビの開け閉めのボタンと同じ決まり。開いていれば「折りたたむ」）
+    /// </summary>
+    public string ToggleName => ToggleNameOf(Name, IsExpanded);
+
+    internal static string ToggleNameOf(string name, bool isExpanded) => Controls.ExpandToggle.NameFor(name, isExpanded);
+
     public Thickness Indent => new(Depth * 16, 0, 0, 0);
 
     /// <summary>取り外したドライブ・見つからないファイル。灰色で残す（木から消すと、持っていることを忘れる）。</summary>

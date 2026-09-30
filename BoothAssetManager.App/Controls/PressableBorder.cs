@@ -16,6 +16,7 @@ namespace BoothAssetManager.App.Controls;
 /// Button に替えると暗黙の Button スタイルの枠と高さが付いて見た目が変わるので、窓口だけを足す。
 /// 「押す」が来たら <see cref="Invoked"/> を上げ、<see cref="Command"/> があれば呼ぶ。マウスの側の処理は今までどおり置き場所が持つ。
 /// 名前は置き場所が AutomationProperties.Name で付ける（付けないと、名前の無いボタンになる）。
+/// キーボードで止まれるようにするかは置き場所が決める（Focusable）。止まれる枠は Enter・Space で「押す」と同じことが起きる。
 /// </summary>
 public sealed class PressableBorder : Border
 {
@@ -42,6 +43,22 @@ public sealed class PressableBorder : Border
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+
+    /// <summary>
+    /// Tab で止まれる枠（置き場所が Focusable を付けた物）は、Enter・Space で押したのと同じ（カードと同じ決まり）。
+    /// 中のボタンに止まっているときのキーは、そのボタンの物なので受けない
+    /// </summary>
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || !ReferenceEquals(e.OriginalSource, this) || e.Key is not (Key.Enter or Key.Space) || !CanPress)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        RaiseInvoked();
+    }
 
     /// <summary>コマンドが今は実行できないなら、押せない（商品の無い知らせの行など。押せない枠を「押せる」と読ませない）。</summary>
     private bool CanPress => Command is not { } command || command.CanExecute(CommandParameter);

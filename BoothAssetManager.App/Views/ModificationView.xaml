@@ -143,9 +143,14 @@
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <StackPanel>
-                            <Grid Margin="0,0,0,4">
+                            <!--
+                                見出し（左）と切り替え・送るボタン（右）。**入り切らなければ右を次の段へ送る**（検索の結果の帯と同じ部品）。
+                                前は右寄せで重ねて置いていたので、左の列が狭いと切り替えが見出しの上に乗り、送るボタンが右で切れた
+                                （改変の画面に組み込んだ幅 900 の窓。ユーザ判断 2026-09-30）。右の塊は、それでも入らない幅では中で折り返す
+                            -->
+                            <controls:SplitRowPanel Margin="0,0,0,4" Gap="12">
                                 <TextBlock Text="使ったもの" FontWeight="Bold" VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <!-- カード／リストの切り替え（検索と同じ部品。どちらで出すかはこの画面で覚える） -->
                                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
                                                     Margin="0,0,10,0" VerticalAlignment="Center"
@@ -158,8 +163,8 @@
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
                                             ToolTip="上から順に1件ずつ、Unityの取り込み画面を表示します。" />
-                                </StackPanel>
-                            </Grid>
+                                </WrapPanel>
+                            </controls:SplitRowPanel>
                             <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
                             <DockPanel Margin="0,2,0,6"
                                        Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -250,31 +255,31 @@
                                                             Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <!-- Unity へのインポートと選択の2択（ユーザ指示 2026-09-14。「開く」はやめ、商品ページはカードを押すと開く） -->
-                                                    <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberUnityMenu" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}" Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="10,0,0,0" Click="OnUnityMenuClick"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             ToolTip="Unityへ送るか、Unityのプロジェクトタブで選択します">
                                                         <Button.ContextMenu>
                                                             <ContextMenu>
-                                                                <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
+                                                                <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Send" Header="Unityへ送る" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                <MenuItem Header="Unityで選択" CommandParameter="{Binding}"
+                                                                <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Select" Header="Unityで選択" CommandParameter="{Binding}"
                                                                           Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                             </ContextMenu>
                                                         </Button.ContextMenu>
                                                     </Button>
-                                                    <Button Content="外す" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource SmallButton}" Margin="5,0,0,0"
                                                             ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                             Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
                                                     <!-- 外した行だけ：戻す／完全に消す（ユーザ指示 2026-09-19：改変ではもう一段、紐付けを完全に解く削除を置く） -->
-                                                    <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberRestore" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を戻す}" Content="戻す" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                             ToolTip="この改変の使ったものに戻します。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="削除" Style="{StaticResource DangerButton}" Margin="5,0,0,0"
+                                                    <Button AutomationProperties.AutomationId="ModificationMemberDelete" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を削除}" Content="削除" Style="{StaticResource DangerButton}" Margin="5,0,0,0"
                                                             ToolTip="この改変から完全に削除します。使ったファイルの記録も消え、元に戻せません。"
                                                             Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -335,7 +340,7 @@
                                                         <Border Style="{StaticResource ItemListCellFrame}">
                                                             <StackPanel VerticalAlignment="Center" Style="{StaticResource DetachedMemberDim}">
                                                                 <!-- 名前を押すと商品ページ（「開く」ボタンの代わり） -->
-                                                                <Button Style="{StaticResource MemberNameLink}" ToolTip="{Binding Name}"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource MemberNameLink}" ToolTip="{Binding Name}"
                                                                         Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}">
                                                                     <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis">
@@ -398,30 +403,30 @@
                                                                         IsEnabled="{Binding CanMoveForward}"
                                                                         Command="{Binding DataContext.MoveMemberForwardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
-                                                                <Button Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberUnityMenu" AutomationProperties.Name="{Binding Name, StringFormat={}{0}のUnityのメニュー}" Content="Unity ▾" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OnUnityMenuClick"
                                                                         Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         ToolTip="Unityへ送るか、Unityのプロジェクトタブで選択します">
                                                                     <Button.ContextMenu>
                                                                         <ContextMenu>
-                                                                            <MenuItem Header="Unityへ送る" CommandParameter="{Binding}"
+                                                                            <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Send" Header="Unityへ送る" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.ImportMemberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                                            <MenuItem Header="Unityで選択" CommandParameter="{Binding}"
+                                                                            <MenuItem AutomationProperties.AutomationId="ModificationMemberUnityMenu.Select" Header="Unityで選択" CommandParameter="{Binding}"
                                                                                       Command="{Binding PlacementTarget.Tag.SelectMemberInUnityCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                                         </ContextMenu>
                                                                     </Button.ContextMenu>
                                                                 </Button>
-                                                                <Button Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberRemove" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}" Content="外す" Style="{StaticResource SmallButton}" Margin="4,0,0,0"
                                                                         ToolTip="この改変から外します。商品は残り、「戻す」で元に戻せます。"
                                                                         Visibility="{Binding IsUsed, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
-                                                                <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberRestore" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を戻す}" Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                                         ToolTip="この改変の使ったものに戻します。"
                                                                         Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.RestoreMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}" />
-                                                                <Button Content="削除" Style="{StaticResource DangerButton}" Margin="4,0,0,0"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberDelete" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を削除}" Content="削除" Style="{StaticResource DangerButton}" Margin="4,0,0,0"
                                                                         ToolTip="この改変から完全に削除します。使ったファイルの記録も消え、元に戻せません。"
                                                                         Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                                         Command="{Binding DataContext.DeleteMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -476,7 +481,7 @@
                                                         <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                                                     </StackPanel>
-                                                    <Button Grid.Column="1" Content="追加" Style="{StaticResource SmallButton}"
+                                                    <Button AutomationProperties.AutomationId="ModificationCandidateAdd" AutomationProperties.Name="{Binding Name, StringFormat={}{0}を追加}" Grid.Column="1" Content="追加" Style="{StaticResource SmallButton}"
                                                             VerticalAlignment="Center"
                                                             ToolTip="「使ったもの」の最後に追加します。あとで並べ替えたり外したりできます。"
                                                             Command="{Binding DataContext.AddCandidateCommand,
@@ -681,7 +686,7 @@
                                                 </StackPanel>
 
                                                 <!-- 今の紐付け先は押させない。同じ操作を2度出す意味が無い -->
-                                                <Button Grid.Column="1" Content="紐付ける" Style="{StaticResource SmallButton}"
+                                                <Button AutomationProperties.AutomationId="ModificationProjectLink" AutomationProperties.Name="{Binding Name, StringFormat={}{0}に紐付ける}" Grid.Column="1" Content="紐付ける" Style="{StaticResource SmallButton}"
                                                         VerticalAlignment="Center"
                                                         Command="{Binding DataContext.LinkProjectCommand,
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"

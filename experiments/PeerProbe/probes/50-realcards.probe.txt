@@ -1,0 +1,26 @@
+<UserControl __NS__>
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/BoothAssetManager.App;component/Views/ItemCardResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <StackPanel>
+        <ListBox ItemsSource="{Binding Rows}" Height="330">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </controls:ContentItemsControl>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+                               ItemContainerStyle="{StaticResource ItemListRowStyle}" Height="200" />
+    </StackPanel>
+</UserControl>

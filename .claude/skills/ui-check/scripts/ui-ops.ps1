@@ -291,7 +291,7 @@ function Clear-ChmonosImportTargets {
 
 # 取り込みの結果を読む。部品の ID で読む（前は「結果」の見出しより後ろの文字を並びの順で拾っていた）。
 #   Trace    … 足跡の結果の行（命令 ScanFolders）
-#   Messages … 結果の文（ID → 文）。読めなかった物・壊れた zip（どちらも ImportUnreadableLine）・対応アバター・見つからない・失敗 など。
+#   Messages … 結果の文（ID → 文）。読めなかった物（ImportUnreadableLine）・オンラインのみ（ImportOnlineOnlyLine）・壊れた zip（未確定は ImportBrokenZipLine、商品は ImportBrokenZipOnItemsLine）・対応アバター・見つからない・失敗 など。
 #               同じ ID が複数あるときは配列
 #   Summary  … 数（ImportSummary.<名前> → 数。FilesScanned・FilesHashed・UnresolvedFiles・ItemsAdded…）
 #   Buttons  … 結果の欄に出ているボタンの ID（ImportOpenResolve・ImportShowBrokenZip・ImportShowAdded）
