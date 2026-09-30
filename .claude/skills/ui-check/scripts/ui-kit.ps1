@@ -637,7 +637,7 @@ function Invoke-ChmonosById {
 
 # ID のチェック・開閉のボタンを、指した状態にする（今の状態を見て、違うときだけ切り替える）。
 # Invoke-ChmonosById で押すと「切り替え」なので、最初から開いている欄を畳んでしまう
-# （商品ページの「ローカルファイルを開く」は、開いていても名前が同じ。2026-09-30 に踏んだ）
+# （2026-09-30 に踏んだ。今は名前が状態で替わる：「…を開く」⇄「…を折りたたむ」）
 function Set-ChmonosToggleById {
   param([Parameter(Mandatory)][string]$Id, [string]$Name, [string]$Like, [int]$Index = 0, [switch]$Off, $Scope, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5)
   $el = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { $f = @(Get-ChmonosById -Id $Id -Name $Name -Like $Like -Scope $Scope); if ($f.Count -gt $Index) { $f[$Index] } else { $null } }
