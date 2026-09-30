@@ -167,11 +167,96 @@ public sealed class TemporaryUnpackerTests : IDisposable
     public void 無いzipでは投げる()
         => Assert.Throws<FileNotFoundException>(() => new TemporaryUnpacker(Root).Unpack(Path.Combine(_dir, "無い.zip")));
 
+    /// <summary>どの保存先の置き場所でも、一時の場所の中なら取り込まない（別の保存先のアプリが展開した物も、閉じると消える）。</summary>
     [Fact]
-    public void 既定の置き場所の中かを見分ける()
+    public void 一時の場所の中かを見分ける()
     {
-        Assert.True(TemporaryUnpacker.IsInsideDefaultRoot(Path.Combine(TemporaryUnpacker.DefaultRoot, "x-1234", "a.png")));
-        Assert.False(TemporaryUnpacker.IsInsideDefaultRoot(@"D:\dl\a.png"));
+        var ofStore = TemporaryUnpacker.RootFor(Path.Combine(_dir, "store-a"));
+
+        Assert.True(TemporaryUnpacker.IsInsideTemporaryArea(Path.Combine(ofStore, "x-1234", "a.png")));
+        Assert.True(TemporaryUnpacker.IsInsideTemporaryArea(Path.Combine(TemporaryUnpacker.TemporaryArea, "unpacked", "x-1234", "a.png")));
+        Assert.False(TemporaryUnpacker.IsInsideTemporaryArea(@"D:\dl\a.png"));
+    }
+
+    /// <summary>
+    /// 置き場所は保存先ごとに分かれる（ユーザ判断 2026-09-30）。前は全部の保存先が1つの置き場所を使い、
+    /// 起動と終了の片付けが、保存先の違う別のアプリの展開した物まで消していた。
+    /// </summary>
+    [Fact]
+    public void 置き場所は保存先ごとに分かれる()
+    {
+        var area = Path.Combine(_dir, "area");
+        var storeA = Path.Combine(_dir, "store-a");
+        var storeB = Path.Combine(_dir, "store-b");
+
+        var rootA = TemporaryUnpacker.RootFor(storeA, area);
+
+        Assert.NotEqual(rootA, TemporaryUnpacker.RootFor(storeB, area));
+        Assert.Equal(area, Path.GetDirectoryName(rootA));
+
+        // 同じ保存先なら、書き方が違っても同じ置き場所（大文字小文字・末尾の区切り）
+        Assert.Equal(rootA, TemporaryUnpacker.RootFor(storeA.ToUpperInvariant() + Path.DirectorySeparatorChar, area));
+    }
+
+    [Fact]
+    public void 片付けは自分の保存先の分だけを消す()
+    {
+        var area = Path.Combine(_dir, "area");
+        var mine = new TemporaryUnpacker(TemporaryUnpacker.RootFor(Path.Combine(_dir, "store-a"), area));
+        var theirs = new TemporaryUnpacker(TemporaryUnpacker.RootFor(Path.Combine(_dir, "store-b"), area));
+        var zip = MakeZip("both.zip", ("a.txt", "a"), ("中/p.unitypackage", "p"));
+
+        var myFolder = mine.Unpack(zip);
+        var theirFolder = theirs.Unpack(zip);
+        var theirPackage = theirs.ExtractEntry(zip, "中/p.unitypackage");
+        Assert.NotEqual(myFolder, theirFolder);
+
+        Assert.True(mine.CleanUp());
+
+        Assert.False(Directory.Exists(myFolder));
+        Assert.True(File.Exists(Path.Combine(theirFolder, "a.txt")));
+        Assert.True(File.Exists(theirPackage));
+    }
+
+    /// <summary>
+    /// 保存先ごとに分ける前の版が残した物（置き場所の直下の展開と、Unity へ送る前の取り出し）は、起動のときに片付ける。
+    /// 今の版の、保存先ごとの置き場所には触れない。
+    /// </summary>
+    [Fact]
+    public void 分ける前の置き場所に残った物を片付ける()
+    {
+        var area = Path.Combine(_dir, "area");
+        var legacy = Path.Combine(area, "unpacked");
+        Directory.CreateDirectory(Path.Combine(legacy, "old-1a2b3c4d"));
+        File.WriteAllText(Path.Combine(legacy, "old-1a2b3c4d", "a.txt"), "a");
+        File.WriteAllText(Path.Combine(legacy, "old-1a2b3c4d.done"), "done");
+        Directory.CreateDirectory(Path.Combine(legacy, "packages", "5e6f7a8b"));
+        File.WriteAllText(Path.Combine(legacy, "packages", "5e6f7a8b", "p.unitypackage"), "p");
+
+        var current = new TemporaryUnpacker(TemporaryUnpacker.RootFor(Path.Combine(_dir, "store-a"), area));
+        var kept = current.Unpack(MakeZip("kept.zip", ("a.txt", "a")));
+
+        Assert.True(TemporaryUnpacker.RemoveLegacyRoot(area));
+
+        Assert.False(Directory.Exists(legacy));
+        Assert.True(File.Exists(Path.Combine(kept, "a.txt")));
+
+        // 残っていなくても失敗にしない（毎回の起動で呼ぶ）
+        Assert.True(TemporaryUnpacker.RemoveLegacyRoot(area));
+    }
+
+    /// <summary>
+    /// 置き場所を渡さない組み立て（命令と、Unity へ送る列）は、伝えられた保存先の置き場所を使う。
+    /// 閉じるときの片付けと同じ場所でないと、展開した物が残る。
+    /// </summary>
+    [Fact]
+    public void 置き場所を渡さなければ伝えられた保存先の置き場所を使う()
+    {
+        var store = Path.Combine(_dir, "store-a");
+
+        TemporaryUnpacker.UseStore(store);
+
+        Assert.Equal(TemporaryUnpacker.RootFor(store), new TemporaryUnpacker().Root);
     }
 
     /// <summary>

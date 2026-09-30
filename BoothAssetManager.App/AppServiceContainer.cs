@@ -32,10 +32,13 @@ public sealed class AppServiceContainer : IDisposable
     /// ViewModel を組むための入口（ユーザ判断 2026-09-30：計算で決まる文言やボタンの出し分けを、起動して撮らずに確かめる）
     /// </summary>
     /// <param name="http">BOOTH への通信の出口。渡さなければ本物。試験は決まった応答を返す作り物を渡す。</param>
-    /// <param name="boothDelay">問い合わせの間の待ち。渡さなければ本物の待ち。試験は待たない物を渡す（相手が作り物なので空ける意味が無い）。</param>
+    /// <param name="boothDelay">
+    /// 問い合わせの間の待ち。渡さなければ本物の待ち。試験は待たない物を渡す（相手が作り物なので空ける意味が無い）。
+    /// **通信の出口が本物のまま、これだけを渡すと投げる**（下に理由）。
+    /// </param>
     /// <param name="cleanUpTemporaryUnpacks">
-    /// 前回の一時展開を消すか。消す場所は保存先の外（利用者の一時フォルダ）で全部の起動が共有するので、
-    /// 試験から消すと、隣で動いているアプリがエクスプローラで開いている中身を消してしまう
+    /// 前回の一時展開を消すか。置き場所は保存先ごとだが、保存先ごとに分ける前の版の置き場所（全部の起動が共有する）も
+    /// 一緒に片付けるので、試験からは消さない（隣で動いている前の版のアプリが、エクスプローラで開いている中身を消してしまう）
     /// </param>
     internal AppServiceContainer(
         AppPaths paths,
@@ -43,6 +46,14 @@ public sealed class AppServiceContainer : IDisposable
         Func<TimeSpan, CancellationToken, Task>? boothDelay = null,
         bool cleanUpTemporaryUnpacks = true)
     {
+        // 待ちを差し替えた BoothClient は、間隔を空けず、PC で1つの門にも入らない（BoothClient の組み立てに理由）。
+        // 相手が作り物のときだけ許される形なので、本物の BOOTH へ出る組み立てでは受け付けない（絶対に破らない決め事1）
+        if (boothDelay is not null && http is null)
+        {
+            throw new ArgumentException(
+                "BOOTH への通信の出口が本物のときは、問い合わせの間の待ちを差し替えられません。", nameof(boothDelay));
+        }
+
         Paths = paths;
         Paths.EnsureCreated();
 
@@ -54,11 +65,19 @@ public sealed class AppServiceContainer : IDisposable
 
         Store = new DataStore(Paths);
 
-        // 前回閉じたときに消し残った一時展開（#56）。二重に起動した側が消すと、
+        // 一時展開（#56）と Unity へ送る前の取り出しの置き場所は、保存先ごと（ユーザ判断 2026-09-30）。
+        // 前は全部の保存先が1つの置き場所を使い、下の片付けが、保存先の違う別のアプリ（普段使いと確かめ用の写し）の
+        // 展開した物まで消していた。「1つ目のときだけ」の判定（二重起動の錠）は保存先ごとなので、片付ける範囲も保存先ごとにする
+        TemporaryUnpacker.UseStore(Paths.Root);
+
+        // 前回閉じたときに消し残った一時展開。二重に起動した側が消すと、
         // 先に動いている方がエクスプローラで開いている中身を消してしまうので、1つ目のときだけ
         if (IsSingleInstance && cleanUpTemporaryUnpacks)
         {
             new TemporaryUnpacker().CleanUp();
+
+            // 保存先ごとに分ける前の版が残した物も片付ける。今の版はそこに何も置かないので、どの保存先の起動が消してもよい
+            TemporaryUnpacker.RemoveLegacyRoot();
         }
         // 設定を持つのは SettingsService だけ。画面は写しを持たず、書くときは UiCommand.ChangeSettings を通す（技術的負債 1-1）
         SettingsStore = new SettingsService(Store);

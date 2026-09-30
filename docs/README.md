@@ -66,6 +66,7 @@
 | [ui-revision.md](history/ui-revision.md) | 使ってみて出た指摘（絞り込み・文字列・辞書・ドロップ・購入記録・外す・初期設定・監視） |
 | [import-order.md](history/import-order.md) | 取り込みの順序（梯子）を決めた理由 |
 | [import-concurrency.md](history/import-concurrency.md) | 取り込み中もアプリを使える（優先度・持ち主・印・⑦） |
+| [booth-machine-gate-2026-09-30.md](history/booth-machine-gate-2026-09-30.md) | BOOTH への問い合わせの門を PC で1つにした経緯（選んだ仕組み・2つのプロセスで測った間・一時展開の置き場所を保存先ごとに） |
 | [private-items.md](history/private-items.md) | 非公開商品の取り込み（38問） |
 | [user-images.md](history/user-images.md) | 自分で足す画像 |
 | [modifications.md](history/modifications.md) | 改変の記録と改変の画面の刷新 |
