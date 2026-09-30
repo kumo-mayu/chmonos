@@ -65,7 +65,7 @@ public Task 壊れたzipだけを出すと_壊れたzipを持つ商品だけが�
 
 - `UiThread`：STA のスレッド1本と素の `Application`。`await` の続きが同じスレッドへ戻る。試験は並べて走らせない（`AssemblyInfo.cs`）
 - `TestApp`：`AppServiceContainer` の引数付きの入口（保存先・通信の出口・待ちを渡す）で組む。
-  一時フォルダは `%TEMP%\chmonos-app-test-<プロセス番号>\` の下で、一式の終わりにまとめて消す
+  一時フォルダは `%TEMP%\chmonos-app-test-<プロセス番号>\` の下。試験の終わり・一式の終わり・次の一式の始めの3段で消す
 - 本体の側の口：`AppServiceContainer`（引数付きの入口・`DetectUnityTools`・`DiscoverUnityProjects`）、`Notice.Intercept`、`FireAndForget.Pending`。
   どれも既定はアプリの動きのままで、試験だけが差し替える
 

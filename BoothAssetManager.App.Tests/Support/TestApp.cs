@@ -13,7 +13,7 @@ namespace BoothAssetManager.App.Tests.Support;
 /// 試験の中のアプリ1つ分。一時フォルダの保存先と、通信しない作り物の BOOTH で、アプリと同じ組み立て
 /// （<see cref="AppServiceContainer"/> と <see cref="MainViewModel"/>）を作る。窓は作らない。
 ///
-/// 使い方は <see cref="Run"/> の1つ：中身は画面のスレッドで走り、終わったら裏の作業を止める（一時フォルダは一式の終わりに消す）。
+/// 使い方は <see cref="Run"/> の1つ：中身は画面のスレッドで走り、終わったら裏の作業を止めて一時フォルダを消す。
 /// <code>
 /// [Fact]
 /// public Task 何々() => TestApp.Run(async app =>
@@ -181,30 +181,50 @@ internal sealed class TestApp
         }
     });
 
+    private const string RunRootPrefix = "chmonos-app-test-";
+
     /// <summary>
-    /// この一式（プロセス1つ）の一時フォルダ。試験ごとの保存先はこの下に作り、**一式が終わるときにまとめて消す。**
+    /// この一式（プロセス1つ）の一時フォルダ。試験ごとの保存先はこの下に作る。**消すのは3段**：
+    /// 試験の終わりにその試験の分、一式の終わりに残り、次の一式の始めに前の一式の残り。
     ///
-    /// 試験が終わるたびに消さないのは、アプリが待ってから書く物を持つため（検索の条件は、止まってから0.5秒後に書く）。
-    /// 先に消すと、遅れて来た書き込みがフォルダを作り直して残り（2026-09-30：228件の一式で57個残った）、
-    /// 無い場所を読んだ失敗が次の試験のログに混ざる恐れもある。残しておく分は1件あたり数KB
+    /// 1段では足りなかった（2026-09-30 に数えた）。アプリは待ってから書く物を持つ（検索の条件は、止まってから0.5秒後に書く）ので、
+    /// 試験の終わりに消しても、遅れて来た書き込みがフォルダを作り直す（228件の一式で57個残った）。
+    /// 一式の終わりにまとめて消すだけにすると、試験を走らせるプロセスが消し終わる前に終わらされ、15回ほどのうち12回で途中まで残った
     /// </summary>
     private static readonly string RunRoot = Path.Combine(
-        Path.GetTempPath(), $"chmonos-app-test-{Environment.ProcessId}");
+        Path.GetTempPath(), RunRootPrefix + Environment.ProcessId);
+
+    /// <summary>
+    /// 前の一式の残りとみなす古さ。一式は1分かからず、走っている間は試験ごとにフォルダを足して日時が新しくなるので、
+    /// 10分触られていなければ、隣で走っている別の一式の物ではない
+    /// </summary>
+    private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(10);
 
     private static int s_count;
 
     static TestApp()
     {
-        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        foreach (var old in Directory.EnumerateDirectories(Path.GetTempPath(), RunRootPrefix + "*"))
         {
-            try
+            if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(old) > StaleAfter)
             {
-                Directory.Delete(RunRoot, recursive: true);
+                TryDelete(old);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-            }
-        };
+        }
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDelete(RunRoot);
+    }
+
+    private static void TryDelete(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 消せなくても試験は通る（次の一式の始めにもう一度試す）
+        }
     }
 
     private static string NewRoot()
@@ -232,27 +252,20 @@ internal sealed class TestApp
         }
     }
 
-    /// <summary>組んだ控えを次の試験のために取っておき、保存先の中の写しは消す（約4MB。試験の数だけ残さない）。</summary>
+    /// <summary>組んだ控えを、次の試験のために取っておく。</summary>
     private void KeepKanjiCache()
     {
         var built = Services.Paths.KanjiReadingsCacheFile;
         try
         {
-            if (!File.Exists(built))
-            {
-                return;
-            }
-
-            if (!File.Exists(SharedKanjiCache))
+            if (File.Exists(built) && !File.Exists(SharedKanjiCache))
             {
                 File.Copy(built, SharedKanjiCache, overwrite: true);
             }
-
-            File.Delete(built);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // 写せなくても消せなくても試験は通る（次の試験が組み直す・一式の終わりにまとめて消える）
+            // 写せなくても試験は通る（次の試験が組み直すだけ）
         }
     }
 
@@ -281,6 +294,7 @@ internal sealed class TestApp
             UnityHandoff.UsePathStore(null);
             Services.Dispose();
             KeepKanjiCache();
+            TryDelete(Root);
         }
     }
 }
