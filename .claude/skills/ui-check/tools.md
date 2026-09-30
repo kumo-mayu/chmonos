@@ -39,7 +39,7 @@
 | `Get-ChmonosById -Id x [-Name/-Like] [-Scope $el]` | ID で探す（`*` を使える。メニューの中・別の窓も見る） | ○ |
 | `Wait-ChmonosById -Id x` / `Get-ChmonosTextById x` | 出るまで待つ／名前（＝画面の文）を読む | ○ |
 | `Invoke-ChmonosById -Id x [-Like '商品名*'] [-Index n]` | ID で探して押す。戻りは「押した:」「無い:」「押せない:」 | ○ |
-| `Set-ChmonosToggleById -Id x [-Off]` | 開閉・チェックを、指した状態にする（押すと切り替わってしまう物に） | ○ |
+| `Set-ChmonosToggleById -Id x [-Off]` | 開閉・チェックを、指した状態にする（押すと切り替わってしまう物に。畳む欄そのもの（Expander）は開閉の操作で開く・閉じる） | ○ |
 | `Set-ChmonosValueById -Id x -Value v` | 欄に値を入れる（候補付きの入力欄は中の欄に入れる。**決めるのは `Select-ChmonosSuggestion`**） | ○ |
 | `Invoke-ChmonosMenuById -Menu x -Item y [-MenuLike] [-ItemLike] [-OpenOnly]` | メニューを開いて、中の項目を押す（「＋ 条件を追加」の2段・行の［開く ▾］） | ○ |
 | `Get-ChmonosWindows` | アプリの窓の全部（主の窓・メニュー・持ち主の無い小窓） | ○ |

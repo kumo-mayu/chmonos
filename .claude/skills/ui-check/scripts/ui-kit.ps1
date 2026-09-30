@@ -262,7 +262,7 @@ function Get-ChmonosRunning {
   if (Test-Path -LiteralPath $ChmonosPidFile) { $files += Get-Item -LiteralPath $ChmonosPidFile }
   $seen = @{}
   foreach ($f in $files) {
-    try { $info = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json } catch { continue }
+    try { $info = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop | ConvertFrom-Json } catch { continue }
     if (-not $info.pid) { continue }
     $p = Get-Process -Id $info.pid -ErrorAction SilentlyContinue
     # 実行ファイルの名前は版（Debug・Release・別のフォルダ）で変わらない
@@ -643,6 +643,19 @@ function Set-ChmonosToggleById {
   param([Parameter(Mandatory)][string]$Id, [string]$Name, [string]$Like, [int]$Index = 0, [switch]$Off, $Scope, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5)
   $el = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { $f = @(Get-ChmonosById -Id $Id -Name $Name -Like $Like -Scope $Scope); if ($f.Count -gt $Index) { $f[$Index] } else { $null } }
   if (-not $el) { return "無い: $Id" }
+  # 畳む欄そのもの（Expander）は切り替えではなく開閉の操作（ExpandCollapse）を持つ。On＝開く・Off＝閉じる として同じ口で扱う
+  # （2026-10-01：欄の ID で開こうとして「切り替えの操作を持たない」で止まっていた）
+  $ecp = $null; try { $ecp = $el.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern) } catch { }
+  $tpOk = $true; try { [void]$el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) } catch { $tpOk = $false }
+  if ($ecp -and -not $tpOk) {
+    $wasE = "$($ecp.Current.ExpandCollapseState)"
+    if ($Off) { if ($wasE -ne "Collapsed") { $ecp.Collapse() } } elseif ($wasE -eq "Collapsed") { $ecp.Expand() }
+    Start-Sleep -Milliseconds ([int]($WaitSeconds * 1000))
+    $nowE = "$($ecp.Current.ExpandCollapseState)"
+    $ok = if ($Off) { $nowE -eq "Collapsed" } else { $nowE -ne "Collapsed" }
+    if (-not $ok) { return "開閉できない: $Id「$($el.Current.Name)」（$wasE → $nowE）" }
+    return "$(if ($wasE -eq $nowE) { "そのまま" } else { "開閉した" }): $Id「$($el.Current.Name)」= $nowE"
+  }
   try { $tp = $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) } catch { return "切り替えられない: $Id「$($el.Current.Name)」（切り替えの操作を持たない）" }
   $want = if ($Off) { 'Off' } else { 'On' }
   $was = "$($tp.Current.ToggleState)"
