@@ -4,7 +4,7 @@ using BoothAssetManager.Core.Models;
 namespace BoothAssetManager.Core.Storage;
 
 /// <summary>
-/// 設定の表示の色（<c>settings.json</c> の <c>colorTheme</c>）だけを、サービス一式を作る前に読む（ユーザ判断 2026-10-01）。
+/// 設定の表示の色（<c>settings.json</c> の <c>colorTheme</c>）だけを、サービス一式を作る前に読む（ユーザ判断 2026-09-30）。
 ///
 /// 起動の最初は Windows の色を当て、設定の色はサービス一式ができてから当て直していた。その間に出る窓
 /// （「既に起動しています」）は、表示の色を「明るい」にしていても Windows が暗ければ暗く出た（大容量の確かめ 2026-09-30）。

@@ -383,7 +383,7 @@
                                         <WrapPanel Margin="0,4,0,0">
                                             <!--
                                                 取り込みで zip として開けなかった物（途中で切れたダウンロードなど）。前は普通の未確定と見分けられなかった
-                                                （大容量の確かめ 問題4・ユーザ判断 2026-10-01）。ほかの札は「確かめてほしい」の黄、これは直さないと使えないので赤
+                                                （大容量の確かめ 問題4・ユーザ判断 2026-09-30）。ほかの札は「確かめてほしい」の黄、これは直さないと使えないので赤
                                             -->
                                             <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
@@ -474,7 +474,7 @@
                             </Grid>
 
                             <!--
-                                壊れていて開けない zip。中身の一覧が出ないだけでは壊れていると分からないので、欄の先頭で言う（ユーザ判断 2026-10-01）。
+                                壊れていて開けない zip。中身の一覧が出ないだけでは壊れていると分からないので、欄の先頭で言う（ユーザ判断 2026-09-30）。
                                 商品IDを決めて登録することは止めない（落とし直せない物を、壊れたままでも記録しておきたいことがある）
                             -->
                             <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"

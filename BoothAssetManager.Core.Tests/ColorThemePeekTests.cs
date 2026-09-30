@@ -6,7 +6,7 @@ using Xunit;
 namespace BoothAssetManager.Core.Tests;
 
 /// <summary>
-/// サービス一式を作る前に、設定の表示の色だけを読むこと（ユーザ判断 2026-10-01）。
+/// サービス一式を作る前に、設定の表示の色だけを読むこと（ユーザ判断 2026-09-30）。
 /// 「既に起動しています」の窓を設定の色で出すために使う。読めない場面（初回・壊れた設定）では null で、Windows に合わせる。
 /// </summary>
 public class ColorThemePeekTests : IDisposable

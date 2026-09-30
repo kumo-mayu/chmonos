@@ -92,7 +92,7 @@
 - **窓の題の帯**は Windows が描くので、窓ごとに DWM へ暗い帯を頼む（`DWMWA_USE_IMMERSIVE_DARK_MODE`。20、古い版は19）。
   主の窓は `App.OnStartup`、小窓は `DialogFit.Prepare` で見張る
 - 設定は `settings.json` の `colorTheme`（`system`／`light`／`dark`）。書くのは `UiCommand.ChangeSettings`。
-- **起動の色**（ユーザ判断 2026-10-01）：窓を1つも出さないうちに、保存先の `settings.json` から `colorTheme` の1欄だけを読んで当てる
+- **起動の色**（ユーザ判断 2026-09-30）：窓を1つも出さないうちに、保存先の `settings.json` から `colorTheme` の1欄だけを読んで当てる
   （`Core/Storage/ColorThemePeek`。読むだけで、書かない・フォルダも作らない。`AppTheme.Start`）。サービス一式は保存先のフォルダを作り、
   2つ目の起動かを確かめるので、色のために先には作れない。前はサービス一式ができてから当てていて、その前に出る「既に起動しています」の窓が、
   表示の色を「明るい」にしていても Windows が暗ければ暗く出た。
