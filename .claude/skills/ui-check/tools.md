@@ -27,7 +27,24 @@
 
 相手の決まり方：`-Store` → `Use-ChmonosStore`（このシェルで `Start-ChmonosApp` した写し）→ 環境変数 `CHMONOS_UI_STORE` → 開いているのが1つならそれ。
 
-## 探す・押す・待つ（ui-kit）
+## AutomationId で探す・押す（ui-kit。まずこちら）
+
+操作できる部品には AutomationId が付いている（一覧は `docs/spec/ui-input.md`「読み上げの名前」。画面で見るなら `Get-ChmonosIds`）。
+名前（文言）や並びで探すと、文言を直しただけで確かめが壊れるので、ID がある物は ID で探す。
+行ごとに繰り返す部品は同じ ID が並ぶので、`-Name`／`-Like`（その行の名前）か `-Index` で絞る。
+
+| 関数 | 何をするか | 並行 |
+|---|---|---|
+| `Get-ChmonosIds [-Like 'Import*']` | 今の画面に出ている ID の一覧（ID・型・個数・押せるか・名前） | ○ |
+| `Get-ChmonosById -Id x [-Name/-Like] [-Scope $el]` | ID で探す（`*` を使える。メニューの中・別の窓も見る） | ○ |
+| `Wait-ChmonosById -Id x` / `Get-ChmonosTextById x` | 出るまで待つ／名前（＝画面の文）を読む | ○ |
+| `Invoke-ChmonosById -Id x [-Like '商品名*'] [-Index n]` | ID で探して押す。戻りは「押した:」「無い:」「押せない:」 | ○ |
+| `Set-ChmonosToggleById -Id x [-Off]` | 開閉・チェックを、指した状態にする（押すと切り替わってしまう物に） | ○ |
+| `Set-ChmonosValueById -Id x -Value v` | 欄に値を入れる（候補付きの入力欄は中の欄に入れる。**決めるのは `Select-ChmonosSuggestion`**） | ○ |
+| `Invoke-ChmonosMenuById -Menu x -Item y [-MenuLike] [-ItemLike] [-OpenOnly]` | メニューを開いて、中の項目を押す（「＋ 条件を追加」の2段・行の［開く ▾］） | ○ |
+| `Get-ChmonosWindows` | アプリの窓の全部（主の窓・メニュー・持ち主の無い小窓） | ○ |
+
+## 探す・押す・待つ（ui-kit。ID の無い物）
 
 | 関数 | 何をするか | 並行 |
 |---|---|---|
@@ -37,7 +54,7 @@
 | `Invoke-ChmonosByText -Text '…'` | 文字の親をたどって押す（見出し・カード） | ○ |
 | `Invoke-ChmonosElement $el` | 要素を、持っている操作で押す | ○ |
 | `Set-ChmonosText -Like '*から探す' -Value '…'` | 入力欄に入れる | ○ |
-| `Step-ChmonosScroll [-Times n] [-Index i] [-Up]` / `Set-ChmonosScrollPercent -Percent 100`（ui-ops） | 一覧を送る／画面の本体を割合で流す | ○ |
+| `Step-ChmonosScroll [-Times n] [-Index i] [-Up]` / `Set-ChmonosScrollPercent -Percent 100`（ui-ops） | 一覧を送る（`-Index` を省くと、縦に流せるいちばん大きい物）／画面の本体を割合で流す | ○ |
 | `Wait-ChmonosText -Like` / `Wait-ChmonosElement -Type -Name` / `Wait-ChmonosDialog [-Like]` / `Wait-ChmonosCondition -Until {…}` | 出るまで待つ（出た瞬間に返る。出なければ `$null`） | ○ |
 | `Get-ChmonosDialog [-Like]` / `Get-ChmonosDialogText $dialog` | 小窓と、その中の文字 | ○ |
 | `Close-ChmonosDialog -Button 'OK' [-Like '題']` | 小窓のボタンを UI Automation で押して閉じる。戻りは「閉じた:…」か「閉じられない:…」（Enter では閉じない） | ○ |
@@ -48,7 +65,7 @@
 | 関数 | 何をするか | 並行 |
 |---|---|---|
 | `Save-ChmonosShot -Name x [-Region x,y,w,h] [-Element $window] [-Store]` | 窓を撮って `%TEMP%\chmonos-shots\x.png` に置く（前面でなくても撮れる）。`-Name '担当\x'` で下のフォルダに | ○ |
-| `Save-ChmonosShotAround -Element $el -Name x [-Pad 20] [-Width] [-Height]` | 要素の周りだけを撮る | ○ |
+| `Save-ChmonosShotAround -Element $el -Name x [-Pad 20] [-Width] [-Height]` | 要素の周りだけを撮る（窓の見えている範囲に無い部品は断る。先に流す） | ○ |
 | `Measure-ChmonosLaunch -Store x [-IntervalMs 35] [-Frames 170] [-Theme dark] [-Exe] [-Close]`（ui-ops） | 起動の瞬間を連続で撮り、白いコマの数・出揃うまでの時間を返す | × |
 | `Measure-ChmonosFrames -Action {…} [-Seconds 5]`（ui-ops） | 開いているアプリを、操作の間だけ連続で撮る | × |
 | `Get-ChmonosFrameSummary`（ui-ops） | コマの並びから数字を出す（上の2つが使う） | ○ |
@@ -57,24 +74,25 @@
 
 | 関数 | 何をするか |
 |---|---|
-| `Get-ChmonosTrace [-Kind 知らせ] [-Like] [-Last 40] [-Saved <名前かパス>] [-Store]` | 足跡を読む（`-Saved` は控えた足跡） |
+| `Get-ChmonosTrace [-Kind 知らせ] [-Like] [-Last 40] [-Saved <名前かパス>] [-Store]` | 足跡を読む（`-Saved` は控えた足跡）。アプリを閉じた後は、指した写し（指していなければいちばん新しい物）の足跡を読む。複数開いていて相手を決めていなければ読まない |
 | `Wait-ChmonosTrace -Like '…' [-Kind]` | 足跡に出るまで待つ |
 | `Save-ChmonosTrace [-Name round1]` / `Get-ChmonosTraceHistory` | 今の足跡を控える／控えの一覧 |
 
 ## よく使う操作（ui-ops）
 
-| 関数 | 何をするか | 頼っている名前 |
+| 関数 | 何をするか | 頼っている ID・名前 |
 |---|---|---|
-| `Show-ChmonosScreen -Nav '取り込み' [-WaitText]` | ナビで画面を移り、文字が出るまで待つ | ナビのボタン |
-| `Open-ChmonosItem -Id <ID>` / `-Name <表示の名前>` | 検索に `id:<ID>` を入れ、出たカードを押して商品ページを開く。**検索の履歴に1件積まれる** | 検索欄 `QueryBox`・カード `ItemCard` |
-| `Get-ChmonosItemName -Id` / `Get-ChmonosItemCards` | 写しの item から表示の名前を読む／検索に出ているカード | — |
-| `Set-ChmonosTheme -Store x -Theme dark`（light・dark・system） / `Restore-ChmonosTheme -Store x` | 写しの設定の表示の色を書き換える／戻す（**アプリを閉じているとき**） | 設定の `colorTheme` |
-| `Add-ChmonosSearchCondition -Like '*ファイルの場所*'` | 検索の「＋ 条件を追加」から条件を足す | メニュー「条件を追加」 |
+| `Show-ChmonosScreen -Nav '取り込み' [-WaitText]` | ナビで画面を移り、文字が出るまで待つ。小窓が開いたままなら止まる | ナビのボタンの名前 |
+| `Open-ChmonosItem -Id <ID>` / `-Name <表示の名前>` `[-KeepFilters]` | 検索に `id:<ID>` を入れ、出たカード（行）を押して商品ページを開き、中身が落ち着くまで待つ。条件で絞られて出ないときは条件をクリアして探し直す。**検索の履歴に1件積まれる** | `QueryBox`・`ItemCard`・`ItemEdit`・`SearchClearFilters` |
+| `Get-ChmonosItemName -Id` / `Get-ChmonosItemCards` | 写しの item から表示の名前を読む／検索に出ているカード | `ItemCard` |
+| `Set-ChmonosTheme -Store x -Theme dark`（light・dark・system） / `Restore-ChmonosTheme -Store x` | 写しの設定の表示の色を書き換える／元の形へ戻す（**アプリを閉じているとき**） | 設定の `colorTheme` |
+| `Add-ChmonosSearchCondition -Kind BrokenZip`（`-Like '*ファイルの場所*'` も） | 検索の「＋ 条件を追加」から条件を足す。足した条件の部品は `SearchModule.<種類>.<部品>` | `SearchAddModule`・`SearchAddModule.<種類>` |
 | `Select-ChmonosFolder -Path` | Windows のフォルダを選ぶ窓にパスを入れて押す | 窓のクラス `#32770` |
-| `Add-ChmonosImportFolder -Path [-Watch]` / `Clear-ChmonosImportTargets` | 取り込みの対象に足す（監視を聞かれたら はい／いいえ）／対象を全部外す | 「フォルダを選択」・題「監視…」・「対象から外す」 |
-| `Start-ChmonosImport [-TimeoutSeconds 600] [-During {…}]` | 「取り込みを開始」を押し、終わるまで待つ。戻りは `Done`・`Seconds`・`Trace`・`Lines` | 「取り込みを開始」・足跡の `ScanFolders` |
+| `Add-ChmonosImportFolder -Path [-Watch]` / `Clear-ChmonosImportTargets` | 取り込みの対象に足す（監視を聞かれたら はい／いいえ）／対象を全部外す | `ImportChooseFolder`・題「監視…」・`ImportFolderRemove` |
+| `Start-ChmonosImport [-TimeoutSeconds 600] [-During {…}]` | 「取り込みを開始」を押し、終わるまで待つ。戻りは `Done`・`Seconds`・`Trace`・`Messages`・`Summary`・`Buttons`・`Lines` | `ImportStart`・`ImportCancel`・足跡の `ScanFolders` |
 | `Invoke-ChmonosImport -Path a,b [-Watch]` | 上をつないだ物（画面を移る → 対象を外す → 足す → 取り込む → 結果） | — |
-| `Get-ChmonosImportResult` | 足跡の結果の行と、画面の「結果」より後ろの文 | 文字「結果」（欄に名前が無い） |
+| `Get-ChmonosImportResult` | 結果を ID で読む：`Messages`（ID → 文。読めなかった文と壊れた zip の文はどちらも `ImportUnreadableLine`）・`Summary`（`ImportSummary.<名前>` → 数。**その回の数**）・`Buttons`（出ているボタンの ID） | `Import*` |
+| `Get-ChmonosOpenDialogNote` | 小窓が開いたままなら、題とボタンを言う文（無ければ `$null`） | — |
 
 どれも実入力を使わない（並行で使える）。
 
@@ -85,7 +103,8 @@
 | `Get-ChmonosCenter $el` | 要素の中心（画面の座標）。画面の外・空の四角は投げる |
 | `Invoke-ChmonosRealClick -X -Y -UserWasTold [-Right]` | 実クリック |
 | `Invoke-ChmonosClick -Name/-Like [-Type Button] [-Element $el] [-Right] -UserWasTold` | 名前で探して、その中心を実クリック |
-| `Invoke-ChmonosMenuItem -Like 'Unityへ送る*' -UserWasTold` | メニューの項目を実クリック |
+| `Invoke-ChmonosMenuItem -Like 'Unityへ送る*' -UserWasTold` | メニューの項目を実クリック（ID のある項目は `Invoke-ChmonosMenuById` で足りる） |
+| `Select-ChmonosSuggestion -Id SearchModule.Category.Input -Text '3D' [-Pick '3D衣装'] -UserWasTold`（ui-ops） | 候補付きの入力欄に字を入れ、候補を実クリックで決める（候補の行は UI Automation では決まらない） |
 | `Show-ChmonosFront` | 前面に出す |
 
 ## 作り物のファイル（fixtures）

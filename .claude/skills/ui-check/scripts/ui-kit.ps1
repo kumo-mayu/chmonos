@@ -635,6 +635,22 @@ function Invoke-ChmonosById {
   "押した: $Id「$label」($how・同じ ID $($state.count) 件)"
 }
 
+# ID のチェック・開閉のボタンを、指した状態にする（今の状態を見て、違うときだけ切り替える）。
+# Invoke-ChmonosById で押すと「切り替え」なので、最初から開いている欄を畳んでしまう
+# （商品ページの「ローカルファイルを開く」は、開いていても名前が同じ。2026-09-30 に踏んだ）
+function Set-ChmonosToggleById {
+  param([Parameter(Mandatory)][string]$Id, [string]$Name, [string]$Like, [int]$Index = 0, [switch]$Off, $Scope, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5)
+  $el = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -Until { $f = @(Get-ChmonosById -Id $Id -Name $Name -Like $Like -Scope $Scope); if ($f.Count -gt $Index) { $f[$Index] } else { $null } }
+  if (-not $el) { return "無い: $Id" }
+  try { $tp = $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) } catch { return "切り替えられない: $Id「$($el.Current.Name)」（切り替えの操作を持たない）" }
+  $want = if ($Off) { 'Off' } else { 'On' }
+  $was = "$($tp.Current.ToggleState)"
+  if ($was -ne $want) { $tp.Toggle(); Start-Sleep -Milliseconds ([int]($WaitSeconds * 1000)) }
+  $now = "$($tp.Current.ToggleState)"
+  if ($now -ne $want) { return "切り替わらない: $Id「$($el.Current.Name)」（$was → $now）" }
+  "$(if ($was -eq $want) { 'そのまま' } else { '切り替えた' }): $Id「$($el.Current.Name)」= $now"
+}
+
 # ID の欄に値を入れる。候補付きの入力欄（SuggestBox）は外側が Custom なので、中の入力欄に入れる
 function Set-ChmonosValueById {
   param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][AllowEmptyString()][string]$Value, [int]$Index = 0, $Scope, [double]$WaitSeconds = 0.5, [double]$TimeoutSeconds = 5)
@@ -667,14 +683,26 @@ function Invoke-ChmonosMenuById {
   } else { $Menu }
   if (-not $menuEl) { return "メニューが無い: $Menu$(if ($MenuName -or $MenuLike) { "「$MenuName$MenuLike」" })" }
   $ec = [System.Windows.Automation.ExpandCollapsePattern]::Pattern
-  try { $menuEl.GetCurrentPattern($ec).Expand() } catch { return "メニューが開けない: $($menuEl.Current.AutomationId)「$($menuEl.Current.Name)」（$($_.Exception.Message)）" }
-  $find = { Get-ChmonosById -Id $Item -Name $ItemName -Like $ItemLike | Select-Object -First 1 }
+  # メニューの項目（「＋ 条件を追加」）は「開く」、押すとメニューが出るボタン（行の［開く ▾］）は「押す」
+  $menuPats = @($menuEl.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+  try {
+    if ($menuPats -contains 'ExpandCollapsePatternIdentifiers.Pattern') { $menuEl.GetCurrentPattern($ec).Expand() }
+    else { [void](Invoke-ChmonosElement $menuEl) }
+  }
+  catch { return "メニューが開けない: $($menuEl.Current.AutomationId)「$($menuEl.Current.Name)」（$($_.Exception.Message)）" }
+  $find ={ Get-ChmonosById -Id $Item -Name $ItemName -Like $ItemLike | Select-Object -First 1 }
   $mi = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::MenuItem)
   $isGroup = { param($e) try { "$($e.GetCurrentPattern($ec).Current.ExpandCollapseState)" -ne 'LeafNode' } catch { $false } }
+  # メニューの中の項目。「開く」で開いた物はメニューの下に出る。ボタンが出したメニューは、窓の外の別の窓に出る
+  $expandable = $menuPats -contains 'ExpandCollapsePatternIdentifiers.Pattern'
+  $items = {
+    if ($expandable) { @($menuEl.FindAll($TS_::Descendants, $mi)) }
+    else { @(Get-ChmonosWindows | Select-Object -Skip 1 | ForEach-Object { $_.FindAll($TS_::Subtree, $mi) } | ForEach-Object { $_ }) }
+  }
   # 見つからなかったときに並べる、在った項目（ID の打ち間違い・その行には出ない項目にすぐ気付けるように）
   $seen = [System.Collections.Generic.List[string]]::new()
   $note = {
-    foreach ($e in $menuEl.FindAll($TS_::Descendants, $mi)) {
+    foreach ($e in (& $items)) {
       if (& $isGroup $e) { continue }
       $s = if ($e.Current.AutomationId) { $e.Current.AutomationId } else { "「$($e.Current.Name)」" }
       if (-not $seen.Contains($s)) { $seen.Add($s) }
@@ -685,7 +713,7 @@ function Invoke-ChmonosMenuById {
     # 見出しの下に項目がぶら下がるメニュー（検索の「＋ 条件を追加」は「BOOTHの情報」「商品の情報」…の下に条件が出る）。
     # 下の段は開くまで UI Automation に出ないので、見出しを1つずつ開いて探す
     $groups = @(Wait-ChmonosCondition -TimeoutSeconds 2 -PollMs 150 -Until {
-        $g = @($menuEl.FindAll($TS_::Descendants, $mi) | Where-Object { & $isGroup $_ })
+        $g = @((& $items) | Where-Object { & $isGroup $_ })
         if ($g.Count) { , $g } else { $null }
       })
     & $note
@@ -699,7 +727,7 @@ function Invoke-ChmonosMenuById {
   }
   if (-not $target) {
     try { $menuEl.GetCurrentPattern($ec).Collapse() } catch { }
-    return "項目が無い: $Item$(if ($ItemName -or $ItemLike) { "「$ItemName$ItemLike」" })（在る項目: $($seen -join '・')）"
+    return "項目が無い: $Item$(if ($ItemName -or $ItemLike) { "「$ItemName$ItemLike」" })（$(if ($seen.Count) { "在る項目: $($seen -join '・')" } else { '項目が1つも見えない。ボタンが出すメニューは、アプリが後ろにいるとすぐ閉じる' })）"
   }
   if ($OpenOnly) { return $target }
   $label = $target.Current.Name
@@ -723,15 +751,31 @@ function Set-ChmonosText {
   "入れた: 「$($box.Current.Name)」← $Value"
 }
 
-# 一覧を送る。仮想化した一覧は画面に見えている行しか UI Automation に出ないので、送ってから数え直す
+# 一覧を送る。仮想化した一覧は画面に見えている行しか UI Automation に出ないので、送ってから数え直す。
+# -Index を省くと、縦に流せる部品のうちいちばん大きい物（画面の本体か、主の一覧）。
+# 前は「最後の1つ」を相手にしていて、それが縦に流せない入力欄だと、例外を出しながら「送った」と返していた（2026-09-30）
 function Step-ChmonosScroll {
   param([int]$Times = 1, [int]$Index = -1, [switch]$Up)
+  $sp = [System.Windows.Automation.ScrollPattern]::Pattern
   $scrollers = @($(Get-ChmonosRoot).FindAll($TS_::Descendants, (New-Object System.Windows.Automation.PropertyCondition($A_::IsScrollPatternAvailableProperty, $true))))
   if ($scrollers.Count -eq 0) { return '送れる部品が無い' }
-  $s = $scrollers[$Index]
+  if ($Index -ge 0) {
+    if ($Index -ge $scrollers.Count) { return "送れる部品は $($scrollers.Count) 個（-Index $Index は無い）" }
+    $s = $scrollers[$Index]; $which = "$Index 番"
+  }
+  else {
+    $s = $scrollers | Where-Object { try { $_.GetCurrentPattern($sp).Current.VerticallyScrollable } catch { $false } } |
+      Sort-Object { $r = $_.Current.BoundingRectangle; if ($r.IsEmpty) { 0 } else { $r.Width * $r.Height } } -Descending | Select-Object -First 1
+    if (-not $s) { return "縦に流せる部品が無い（送れる部品 $($scrollers.Count) 個）" }
+    $which = "いちばん大きい物「$($s.Current.AutomationId)$($s.Current.Name)」"
+  }
   $amount = if ($Up) { [System.Windows.Automation.ScrollAmount]::LargeDecrement } else { [System.Windows.Automation.ScrollAmount]::LargeIncrement }
-  for ($i = 0; $i -lt $Times; $i++) { $s.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).ScrollVertical($amount); Start-Sleep -Milliseconds 300 }
-  "送った: $Times 回（送れる部品 $($scrollers.Count) 個のうち $Index 番）"
+  $done = 0
+  for ($i = 0; $i -lt $Times; $i++) {
+    try { $s.GetCurrentPattern($sp).ScrollVertical($amount); $done++ } catch { return "送れない: $which（$done 回送った後：$($_.Exception.InnerException.Message)）" }
+    Start-Sleep -Milliseconds 300
+  }
+  "送った: $done 回（送れる部品 $($scrollers.Count) 個のうち $which・今 $([int]$s.GetCurrentPattern($sp).Current.VerticalScrollPercent) %）"
 }
 
 # 要素の中心（画面の座標）。画面の外・空の四角は投げる。実入力の座標は必ずここを通す
@@ -779,6 +823,10 @@ function Save-ChmonosShotAround {
   $wr = New-Object ChmonosWin+RECT; [void][ChmonosWin]::GetWindowRect($h, [ref]$wr)
   $r = $Element.Current.BoundingRectangle
   if ($r.IsEmpty -or [double]::IsInfinity($r.X)) { throw "位置が取れない（画面の外か空）: 「$($Element.Current.Name)」" }
+  # 流した先にある部品は、四角は取れるが窓の外を指す。そのまま切ると、窓の端の細い帯だけが撮れる（2026-09-30。高さ 12 の絵が出た）
+  if ($Element.Current.IsOffscreen -or $r.Y -ge $wr.B -or $r.Bottom -le $wr.T -or $r.X -ge $wr.R -or $r.Right -le $wr.L) {
+    throw "部品が窓の見えている範囲に無い（先に流す。Set-ChmonosScrollPercent・Step-ChmonosScroll）: 「$($Element.Current.Name)」"
+  }
   $w = if ($Width) { $Width } else { [int]$r.Width + 2 * $Pad }
   $hh = if ($Height) { $Height } else { [int]$r.Height + 2 * $Pad }
   Save-ChmonosShot -Name $Name -Store $Store -Region ([int]($r.X - $wr.L - $Pad)), ([int]($r.Y - $wr.T - $Pad)), $w, $hh
@@ -891,8 +939,9 @@ function Get-ChmonosDialogText {
 
 # ---- 名前で押す（座標を目分量で決めない） ----
 
-# 名前・文字・要素のどれかで押す。UI Automation の Invoke が効かない部品（コマンドをクリックで呼ぶ切り替えボタン・
-# ItemsControl の中の部品・小窓のボタン）でも、中心を実入力で押せる。-UserWasTold は実入力の決まり
+# 名前・文字・要素のどれかを、中心の実クリックで押す。UI Automation の「押す」を持たない物だけに使う
+# （候補付きの入力欄の候補の行・右クリックで出すメニュー）。カード・星・行・札・小窓のボタンは「押す」で動く
+# （Invoke-ChmonosById・Close-ChmonosDialog。2026-09-30 に実際のアプリで確かめた）。-UserWasTold は実入力の決まり
 function Invoke-ChmonosClick {
   param(
     [string]$Name, [string]$Like, [string]$Type = 'Button', $Element, $Scope,

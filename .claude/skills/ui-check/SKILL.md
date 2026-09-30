@@ -68,7 +68,8 @@ Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び
 2. `Save-ProductionBaseline`
 3. 写しを選ぶ（[sandboxes.md](sandboxes.md)）。書き込む確かめなら、先に `Backup-ChmonosSandbox -Store <写し>`。
 4. `Start-ChmonosApp -Store <写し>`（本番と friendtest は断る）
-5. 操作は名前で（`Invoke-ChmonosByName`・`Open-ChmonosItem`・`Invoke-ChmonosImport`）。待つのは `Wait-*`（固定の `Start-Sleep` を並べない）。
+5. 操作は **AutomationId で**（`Invoke-ChmonosById`・`Set-ChmonosToggleById`・`Invoke-ChmonosMenuById`。画面に出ている ID は `Get-ChmonosIds`）。
+   ID の無い物だけ名前で（`Invoke-ChmonosByName`）。まとまった操作は `Open-ChmonosItem`・`Invoke-ChmonosImport`。待つのは `Wait-*`（固定の `Start-Sleep` を並べない）。
    文言が出たかは足跡（`Get-ChmonosTrace`）で確かめる。撮るのは並び・色・大きさを見るときだけ。
 6. `Save-ChmonosShot`（`-Region` か `Save-ChmonosShotAround` で見たい所だけ）→ Read で見る。同じ状態を撮り直さない。
 7. `Stop-ChmonosApp` → `Restore-ChmonosSandbox -Store <写し> -Done` → `Test-ProductionUntouched`。結果を報告に書く（「本番は変わっていない」まで）。
@@ -90,11 +91,14 @@ Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び
 
 | したいこと | 関数 |
 |---|---|
+| この画面で何を ID で探せるか | `Get-ChmonosIds`（ID・型・名前・個数） |
+| ID の部品を押す／開閉を決まった状態にする／文を読む | `Invoke-ChmonosById -Id ItemCardFavorite -Like '商品名*'` ／ `Set-ChmonosToggleById -Id ItemFilesToggle` ／ `Get-ChmonosTextById SearchResultSummary` |
+| メニューの項目を押す | `Invoke-ChmonosMenuById -Menu ItemFileOpenMenu -MenuLike 'a.zip*' -Item ItemFileOpenMenu.Unpack` |
 | 商品ページを開く | `Open-ChmonosItem -Id 90000003`（検索に `id:` を入れてカードを押す） |
 | フォルダを取り込んで、終わるまで待ち、結果を読む | `Invoke-ChmonosImport -Path <フォルダ>`（戻りの `Lines`・`Trace`） |
 | 小窓のボタンを押す | `Close-ChmonosDialog -Button 'いいえ' -Like '監視*'`（戻りが「閉じた:」で始まるかを見る） |
 | 表示の色を変えて起動する／戻す | `Set-ChmonosTheme -Store x -Theme dark` ／ `Restore-ChmonosTheme -Store x` |
-| 検索の条件を足す | `Add-ChmonosSearchCondition -Like '*ファイルの場所*'` |
+| 検索の条件を足す | `Add-ChmonosSearchCondition -Kind BrokenZip`（足した条件の部品は `SearchModule.BrokenZip.*`） |
 | 起動の瞬間の白いコマを数える | `Measure-ChmonosLaunch -Store x -Theme dark` |
 | 大きな zip・件数の多い zip・壊れた zip・読めないフォルダを作る | `fixtures.ps1`（`New-ChmonosFixtureZip` ほか） |
 | 写しを控えて、終わったら戻す | `Backup-ChmonosSandbox` ／ `Restore-ChmonosSandbox` |
@@ -130,8 +134,8 @@ Use-ChmonosStore tagcheck        # このシェルの相手（シェルは呼び
 
 | 並行で使える（UI Automation・窓へのメッセージ・PrintWindow） | 並行で使えない（画面を取ってから） |
 |---|---|
-| 探す・押す（`Invoke-ChmonosByName`・`ByText`・`Invoke-ChmonosElement`・`Set-ChmonosText`・`Step-ChmonosScroll`） | `Invoke-ChmonosRealClick`・`Invoke-ChmonosClick` |
-| 待つ（`Wait-*`）・小窓（`Get-ChmonosDialog`・`Close-ChmonosDialog`） | `Invoke-ChmonosMenuItem`（押す方。`-Expand` は使える）・`Close-ChmonosDialog -RealClick` |
+| 探す・押す（`Invoke-ChmonosById`・`Invoke-ChmonosMenuById`・`Invoke-ChmonosByName`・`ByText`・`Invoke-ChmonosElement`・`Set-ChmonosText`・`Step-ChmonosScroll`） | `Invoke-ChmonosRealClick`・`Invoke-ChmonosClick` |
+| 待つ（`Wait-*`）・小窓（`Get-ChmonosDialog`・`Close-ChmonosDialog`） | `Invoke-ChmonosMenuItem`（押す方。`-Expand` は使える）・`Close-ChmonosDialog -RealClick`・`Select-ChmonosSuggestion` |
 | 撮る（`Save-ChmonosShot`・`Save-ChmonosShotAround`）・足跡 | `Show-ChmonosFront`・キー送り（`SendKeys`） |
 | `ui-ops.ps1` の操作（商品を開く・取り込む・色・条件・フォルダを選ぶ窓） | `Measure-ChmonosLaunch`・`Measure-ChmonosFrames`（画面から直に撮る） |
 | 作り物のファイル・写しの控えと戻し（自分の写し） | デスクトップごと撮る（ポップアップ・ツールチップ）・Unity を動かす確かめ |

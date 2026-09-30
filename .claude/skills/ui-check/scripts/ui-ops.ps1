@@ -23,10 +23,23 @@ function Set-ChmonosScrollPercent {
   "流した: $Percent %（$moved 個）"
 }
 
+# 小窓（知らせ・選ぶ窓）が開いたままか。開いていれば、その題とボタンを言う文を返す（無ければ $null）。
+# UI Automation の「押す」は、小窓が開いていても後ろの主の窓に届く。人には押せない状態で操作が進み、
+# 小窓の後ろで待っている処理（「商品を残しますか」の答えを待つ「外す」）は走らないまま、確かめだけが先へ行く
+# （2026-09-30 に踏んだ。外したつもりで外れていなかった）。画面を移る部品は、先にここを見て止まる
+function Get-ChmonosOpenDialogNote {
+  $d = Get-ChmonosDialog | Select-Object -First 1
+  if (-not $d) { return $null }
+  $isButton = New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+  $names = @($d.FindAll($TS_::Descendants, $isButton) | ForEach-Object { $_.Current.Name } | Where-Object { $_ }) -join '・'
+  "小窓が開いたまま: 「$($d.Current.Name)」（ボタン: $names）。先に Close-ChmonosDialog -Button で答える"
+}
+
 # ナビのボタンで画面を移り、その画面にしか無い文字か部品が出るまで待つ。
 # 頼っている名前：ナビのボタンの名前（検索・取り込み・未確定・設定…）
 function Show-ChmonosScreen {
   param([Parameter(Mandatory)][string]$Nav, [string]$WaitText, [double]$TimeoutSeconds = 15)
+  $open = Get-ChmonosOpenDialogNote; if ($open) { Write-Warning $open; return $open }
   $r = Invoke-ChmonosByName -Name $Nav -Type Button -WaitSeconds 0
   if ($r -like '無い*') { return $r }
   if ($WaitText) {
@@ -57,11 +70,13 @@ function Get-ChmonosItemCards {
 
 # 商品 ID か名前を指定して、商品ページを開く。検索欄に「id:<ID>」を入れ、出たカード（リスト表示なら行）を「押す」。
 # 戻りは「開いた: …」か、開けなかった理由。**検索の履歴に1件積まれる**（写しに書き込む）。
+# 左の条件で絞られていてカードが出ないときは、条件をクリアして探し直す（-KeepFilters で止める）。
 # 頼っている名前：ナビの「検索」。頼っている ID：検索欄 QueryBox・カード ItemCard（名前＝商品の名前）・商品ページの ItemEdit。
 # 商品ページの側には、どの商品を開いているかを示す名前が無い（「この商品を編集」のボタンが出たことで「開いた」と見ている）
 function Open-ChmonosItem {
-  param([string]$Id, [string]$Name, [double]$TimeoutSeconds = 15)
+  param([string]$Id, [string]$Name, [double]$TimeoutSeconds = 15, [switch]$KeepFilters)
   if (-not $Id -and -not $Name) { throw '-Id か -Name を指定する' }
+  $open = Get-ChmonosOpenDialogNote; if ($open) { Write-Warning $open; return $open }
   [void](Invoke-ChmonosByName -Name '検索' -Type Button -WaitSeconds 0)
   $box = Wait-ChmonosById -Id QueryBox -TimeoutSeconds $TimeoutSeconds
   if (-not $box) { return '検索欄（QueryBox）が無い' }
@@ -71,13 +86,26 @@ function Open-ChmonosItem {
   # 絞り込みは入力の 200ms 後に裏で走る。名前が分かっていれば、その名前のカードが出るまで待つ。
   # 分からなければ、カードの数が2回続けて同じになるまで待つ（絞る前の一覧を掴まないように）
   $state = @{ last = -1 }
-  $card = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -PollMs 400 -Until {
+  $findCard = {
     $cards = @(Get-ChmonosItemCards)
     if ($want) { return ($cards | Where-Object { $_.Current.Name -eq $want } | Select-Object -First 1) }
     if ($cards.Count -gt 0 -and $cards.Count -eq $state.last) { return $cards[0] }
     $state.last = $cards.Count; $null
   }
-  if (-not $card) { return "カードが出ない: $query$(if ($want) { "（名前「$want」）" })" }
+  $cleared = ''
+  $card = Wait-ChmonosCondition -TimeoutSeconds ([Math]::Min(4, $TimeoutSeconds)) -PollMs 400 -Until $findCard
+  if (-not $card -and -not $KeepFilters) {
+    # 左の条件（前の確かめで足した「壊れたzip：ある」など）で絞られていて出ないことがある（2026-09-30 に踏んだ）。
+    # 条件をクリアして、もう一度探す。クリアは写しの検索の状態に残るので、戻りに書く
+    $r = Invoke-ChmonosById -Id SearchClearFilters -WaitSeconds 0.6 -TimeoutSeconds 1
+    if ($r -like '押した*') {
+      $cleared = '（左の条件をクリアした）'
+      $box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($query)
+      $state.last = -1
+      $card = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -PollMs 400 -Until $findCard
+    }
+  }
+  if (-not $card) { return "カードが出ない: $query$(if ($want) { "（名前「$want」）" })$cleared" }
   $label = $card.Current.Name
   $how = Invoke-ChmonosElement $card
   if (-not (Wait-ChmonosById -Id ItemEdit -TimeoutSeconds $TimeoutSeconds)) { return "押したが商品ページへ移らない: $query（$how）" }
@@ -89,7 +117,7 @@ function Open-ChmonosItem {
       if ($n -eq $settle.last) { return $true }
       $settle.last = $n; $null
     })
-  "開いた: $query「$label」"
+  "開いた: $query「$label」$cleared"
 }
 
 # ---- 表示の色 ----
@@ -105,16 +133,23 @@ function Set-ChmonosTheme {
   $file = Join-Path $root 'settings.json'
   if (-not (Test-Path -LiteralPath $file)) { throw "設定が無い: $file" }
   $text = [IO.File]::ReadAllText($file)
-  $m = [regex]::Match($text, '"colorTheme"\s*:\s*"(\w+)"')
-  $now = if ($m.Success) { $m.Groups[1].Value } else { 'system' }
+  $key = [regex]'("colorTheme"\s*:\s*")(\w+)(")'
+  $m = $key.Match($text)
+  $now = if ($m.Success) { $m.Groups[2].Value } else { 'system' }
   [IO.Directory]::CreateDirectory($ChmonosStateDir) | Out-Null
   $memo = Join-Path $ChmonosStateDir "$(Get-ChmonosStoreKey $root).theme"
-  if (-not (Test-Path -LiteralPath $memo)) { [IO.File]::WriteAllText($memo, $now) }
-  # 行ごと差し替える。無ければ先頭に足す（アプリは、読めない並びでも鍵の名前で読む）
-  $text = [regex]::Replace($text, '[ \t]*"colorTheme"\s*:\s*"\w+"\s*,?[ \t]*\r?\n', '')
-  $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
-  $text = [regex]::Replace($text, '^\s*\{\s*\r?\n', "{$nl  `"colorTheme`": `"$Theme`",$nl", 1)
-  if ($text -notmatch '"colorTheme"') { throw "設定の形が読めない（先頭が「{」で始まっていない）: $file" }
+  # 鍵が無かったことも控える（戻すときに「system」と書き足すと、写しが元と1行違ってしまう）
+  if (-not (Test-Path -LiteralPath $memo)) { [IO.File]::WriteAllText($memo, $(if ($m.Success) { $now } else { '(none)' })) }
+  if ($m.Success) {
+    # 在る行の値だけを替える（行を消して先頭に足すと、戻しても並びが元と違い、写しの控えと一致しなくなる）
+    $text = $key.Replace($text, "`${1}$Theme`${3}", 1)
+  }
+  else {
+    # 無ければ先頭に足す（アプリは、読めない並びでも鍵の名前で読む）
+    $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $text = [regex]::Replace($text, '^\s*\{\s*\r?\n', "{$nl  `"colorTheme`": `"$Theme`",$nl", 1)
+    if ($text -notmatch '"colorTheme"') { throw "設定の形が読めない（先頭が「{」で始まっていない）: $file" }
+  }
   [IO.File]::WriteAllText($file, $text, [Text.UTF8Encoding]::new($false))
   "表示の色: $now → $Theme（$root）"
 }
@@ -125,6 +160,15 @@ function Restore-ChmonosTheme {
   $memo = Join-Path $ChmonosStateDir "$(Get-ChmonosStoreKey $root).theme"
   if (-not (Test-Path -LiteralPath $memo)) { return '控えが無い（Set-ChmonosTheme で変えていない）' }
   $was = [IO.File]::ReadAllText($memo).Trim()
+  if ($was -eq '(none)') {
+    # 元は鍵が無かった。足した行を取り除いて、元の形に戻す
+    Assert-ChmonosSandboxIdle $root
+    $file = Join-Path $root 'settings.json'
+    $text = [regex]::Replace([IO.File]::ReadAllText($file), '[ \t]*"colorTheme"\s*:\s*"\w+"\s*,?[ \t]*\r?\n', '')
+    [IO.File]::WriteAllText($file, $text, [Text.UTF8Encoding]::new($false))
+    Remove-Item -LiteralPath $memo -Force
+    return '戻した: 表示の色の行を外した（元は書かれていなかった）'
+  }
   $r = Set-ChmonosTheme -Store $Store -Theme $was
   Remove-Item -LiteralPath $memo -Force
   "戻した: $r"
@@ -151,6 +195,27 @@ function Add-ChmonosSearchCondition {
   $kindName = ($added -split '「')[0] -replace '^SearchAddModule\.', ''
   [void](Wait-ChmonosById -Id "SearchModule.$kindName.Remove" -TimeoutSeconds 3)
   "条件を足した: $added"
+}
+
+# 候補付きの入力欄（SuggestBox）に字を入れ、出た候補の1つを選んで決める。**実入力（実クリック）を使う**：
+# 候補の行は UI Automation では「選ぶ」しか持たず、選んでも色が付くだけで決まらない（決まるのは Enter かクリック。2026-09-30 に確かめた）。
+# アプリの側で候補の行に「押す」が付いたら、実入力をやめてそれを使う。
+#   -Id   … 欄の ID（SearchModule.Category.Input・EditTagInput…）
+#   -Text … 欄に入れる字（候補を絞る）。-Pick … 選ぶ候補の名前（省くと先頭）
+# 頼っている ID：候補の一覧 Candidates
+function Select-ChmonosSuggestion {
+  param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][AllowEmptyString()][string]$Text, [string]$Pick, [Parameter(Mandatory)][switch]$UserWasTold, [double]$TimeoutSeconds = 4)
+  $set = Set-ChmonosValueById -Id $Id -Value $Text -WaitSeconds 0.2
+  if ($set -notlike '入れた*') { return $set }
+  $list = Wait-ChmonosById -Id Candidates -TimeoutSeconds $TimeoutSeconds
+  if (-not $list) { return "候補が出ない: $Id ← $Text" }
+  $items = @(Get-ChmonosElements -Type ListItem -Scope $list)
+  $item = if ($Pick) { $items | Where-Object { $_.Current.Name -eq $Pick } | Select-Object -First 1 } else { $items | Select-Object -First 1 }
+  if (-not $item) { return "候補に無い: $Pick（在る候補: $(($items | ForEach-Object { $_.Current.Name }) -join '・')）" }
+  $name = $item.Current.Name
+  $r = Invoke-ChmonosClick -Element $item -UserWasTold:$UserWasTold
+  if ($r -notlike '実クリック*') { return $r }
+  "選んだ: $Id ← 「$name」"
 }
 
 # ---- 取り込み ----
@@ -192,11 +257,11 @@ function Select-ChmonosFolder {
 }
 
 # 取り込みの画面で、フォルダを今回の対象に足す。監視するかを聞く窓が出たら、-Watch なら「はい」、付けなければ「いいえ」。
-# 頼っている名前：ボタン「フォルダを選択」・窓の題「監視…」・ボタン「はい」「いいえ」
+# 頼っている ID：ボタン ImportChooseFolder。頼っている名前：窓の題「監視…」・ボタン「はい」「いいえ」
 function Add-ChmonosImportFolder {
   param([Parameter(Mandatory)][string]$Path, [switch]$Watch)
-  $r = Invoke-ChmonosByName -Name 'フォルダを選択' -Type Button -WaitSeconds 0
-  if ($r -like '無い*') { return "「フォルダを選択」が無い（取り込みの画面を開いてから）" }
+  $r = Invoke-ChmonosById -Id ImportChooseFolder -WaitSeconds 0 -TimeoutSeconds 3
+  if ($r -notlike '押した*') { return "「フォルダを選択」が押せない（取り込みの画面を開いてから）: $r" }
   $picked = Select-ChmonosFolder -Path $Path
   if ($picked -notlike '選んだ: *') { return $picked }
   # 監視を聞く窓は、まだ監視していないフォルダのときだけ出る
@@ -208,50 +273,75 @@ function Add-ChmonosImportFolder {
   "対象に足した: $Path（監視: $answer）"
 }
 
-# 取り込みの対象を全部外す（前の確かめの対象が残っていると、一緒に取り込んでしまう）
+# 取り込みの対象を全部外す（前の確かめの対象が残っていると、一緒に取り込んでしまう）。
+# 頼っている ID：行ごとのボタン ImportFolderRemove（名前は「<フォルダ>を対象から外す」）。
+# 前は名前「対象から外す」で探していて、名前に行のフォルダが入ってからは1つも外せていなかった（2026-09-30。
+# 前の回の対象が残ったまま取り込み、「フォルダだけ」の確かめにファイルの分が混ざった）。外すと行が消えるので、無くなるまで先頭を押す
 function Clear-ChmonosImportTargets {
   $n = 0
-  foreach ($btn in @(Get-ChmonosElements -Type Button -Name '対象から外す')) { try { [void](Invoke-ChmonosElement $btn); $n++ } catch { } }
-  "対象から外した: $n 件"
+  for ($i = 0; $i -lt 200; $i++) {
+    $btn = Get-ChmonosById -Id ImportFolderRemove -Scope (Get-ChmonosRoot) | Select-Object -First 1
+    if (-not $btn) { break }
+    try { [void](Invoke-ChmonosElement $btn); $n++ } catch { break }
+    Start-Sleep -Milliseconds 150
+  }
+  $left = @(Get-ChmonosById -Id ImportFolderRemove -Scope (Get-ChmonosRoot)).Count
+  "対象から外した: $n 件$(if ($left) { "（まだ $left 件残っている）" })"
 }
 
-# 取り込みの結果を読む。足跡の行（命令の結果）と、画面の「結果」の見出しより後ろの文。
-# 頼っている名前：文字「結果」（見出し）。**結果の欄そのものには名前が無い**ので、見出しより後ろの文字を並びの順で拾っている
-# （取り込みの画面の「結果」より後ろに別の欄が足されると、その文も混ざる）
+# 取り込みの結果を読む。部品の ID で読む（前は「結果」の見出しより後ろの文字を並びの順で拾っていた）。
+#   Trace    … 足跡の結果の行（命令 ScanFolders）
+#   Messages … 結果の文（ID → 文）。読めなかった物・壊れた zip（どちらも ImportUnreadableLine）・対応アバター・見つからない・失敗 など。
+#               同じ ID が複数あるときは配列
+#   Summary  … 数（ImportSummary.<名前> → 数。FilesScanned・FilesHashed・UnresolvedFiles・ItemsAdded…）
+#   Buttons  … 結果の欄に出ているボタンの ID（ImportOpenResolve・ImportShowBrokenZip・ImportShowAdded）
+#   Lines    … 上の文を並べた物（前の呼び方のため）
 function Get-ChmonosImportResult {
   $trace = @(Get-ChmonosTrace -Kind 命令 -Like 'ScanFolders*' -Last 1)
-  $all = @(Get-ChmonosElements -Type Text | ForEach-Object { $_.Current.Name })
-  $at = [Array]::IndexOf($all, '結果')
-  $lines = if ($at -ge 0) { @($all | Select-Object -Skip ($at + 1) | Where-Object { $_ }) } else { @() }
+  $root = Get-ChmonosRoot
+  $messages = [ordered]@{}; $summary = [ordered]@{}; $buttons = @(); $lines = @()
+  foreach ($e in Get-ChmonosById -Id 'Import*' -Scope $root) {
+    $id = $e.Current.AutomationId; $name = $e.Current.Name; $type = $e.Current.ControlType.ProgrammaticName
+    if ($id -like 'ImportSummary.*') { $summary[$id.Substring('ImportSummary.'.Length)] = $name; continue }
+    if ($type -eq 'ControlType.Text' -and $name) {
+      if ($messages.Contains($id)) { $messages[$id] = @($messages[$id]) + $name } else { $messages[$id] = $name }
+      $lines += $name
+    }
+    elseif ($type -eq 'ControlType.Button' -and $id -in 'ImportOpenResolve', 'ImportShowBrokenZip', 'ImportShowAdded') { $buttons += $id }
+  }
   [pscustomobject]@{
     Trace = if ($trace.Count -and $trace[0] -notlike '足跡が無い*') { $trace[0] } else { $null }
-    Lines = $lines
+    Messages = $messages; Summary = $summary; Buttons = $buttons; Lines = $lines
   }
 }
 
-# 「取り込みを開始」を押して、終わるまで待つ。戻りは掛かった秒と結果。
-# 終わりは足跡で見る（命令 ScanFolders の結果が1行増える）。足跡を切って起動したときは、「中断」のボタンが消えるのを待つ。
+# 「取り込みを開始」を押して、終わるまで待つ。戻りは掛かった秒と結果（Get-ChmonosImportResult の中身）。
+# 終わりは足跡で見る（命令 ScanFolders の結果が1行増える）。足跡を切って起動したときは、「中断」が押せなくなるのを待つ。
 # -During は待っている間に繰り返し呼ぶ処理（取り込み中に別の画面を開く確かめなど。引数は経った秒）。
-# 頼っている名前：ボタン「取り込みを開始」「中断」
+# 頼っている ID：ボタン ImportStart・ImportCancel
 function Start-ChmonosImport {
   param([double]$TimeoutSeconds = 600, [scriptblock]$During)
   $count = { $t = @(Get-ChmonosTrace -Kind 命令 -Like 'ScanFolders*' -Last 100000); if ($t.Count -and $t[0] -like '足跡が無い*') { -1 } else { $t.Count } }
   $before = & $count
-  $r = Invoke-ChmonosByName -Name '取り込みを開始' -Type Button -WaitSeconds 0
-  if ($r -like '無い*') { return "「取り込みを開始」が無い（取り込みの画面を開いてから）" }
+  $r = Invoke-ChmonosById -Id ImportStart -WaitSeconds 0 -TimeoutSeconds 3
+  if ($r -notlike '押した*') { return "「取り込みを開始」が押せない（取り込みの画面を開いて、対象を足してから）: $r" }
   $sw = [Diagnostics.Stopwatch]::StartNew()
   $done = $false
   while ($sw.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
     if ($During) { & $During $sw.Elapsed.TotalSeconds } else { Start-Sleep -Milliseconds 300 }
     if ($before -ge 0) { if ((& $count) -gt $before) { $done = $true; break } }
-    # 「中断」は上と進み具合の欄の2つ。走っている間だけ2つある。押した直後はまだ出ていないので、1秒は待つ
-    elseif ($sw.Elapsed.TotalSeconds -gt 1 -and @(Get-ChmonosElements -Type Button -Name '中断').Count -lt 2) { $done = $true; break }
+    # 「中断」は走っている間だけ押せる。押した直後はまだ切り替わっていないので、1秒は待つ
+    elseif ($sw.Elapsed.TotalSeconds -gt 1) {
+      $cancel = Get-ChmonosById -Id ImportCancel -Scope (Get-ChmonosRoot) | Select-Object -First 1
+      if (-not $cancel -or -not $cancel.Current.IsEnabled) { $done = $true; break }
+    }
   }
   $seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
-  if (-not $done) { return [pscustomobject]@{ Done = $false; Seconds = $seconds; Trace = $null; Lines = @("時間切れ（$TimeoutSeconds 秒）") } }
-  Start-Sleep -Milliseconds 500   # 結果の欄が描かれるのを待つ
+  if (-not $done) { return [pscustomobject]@{ Done = $false; Seconds = $seconds; Trace = $null; Messages = @{}; Summary = @{}; Buttons = @(); Lines = @("時間切れ（$TimeoutSeconds 秒）") } }
+  # 結果の欄が描かれるのを待つ（数の欄が出るまで）
+  [void](Wait-ChmonosById -Id 'ImportSummary.FilesScanned' -TimeoutSeconds 5)
   $result = Get-ChmonosImportResult
-  [pscustomobject]@{ Done = $true; Seconds = $seconds; Trace = $result.Trace; Lines = $result.Lines }
+  [pscustomobject]@{ Done = $true; Seconds = $seconds; Trace = $result.Trace; Messages = $result.Messages; Summary = $result.Summary; Buttons = $result.Buttons; Lines = $result.Lines }
 }
 
 # 取り込みの画面へ移り、フォルダを対象に足して取り込み、終わるまで待って結果を返す（上の部品をつないだ物）。
@@ -259,8 +349,8 @@ function Start-ChmonosImport {
 # 手掛かりの無い作り物（fixtures.ps1 で作り、記録を付けていない物）は、問い合わせずに未確定へ入る
 function Invoke-ChmonosImport {
   param([Parameter(Mandatory)][string[]]$Path, [switch]$Watch, [double]$TimeoutSeconds = 600, [switch]$KeepTargets)
-  $moved = Show-ChmonosScreen -Nav '取り込み' -WaitText 'フォルダを選択'
-  if (-not (Wait-ChmonosElement -Type Button -Name 'フォルダを選択' -TimeoutSeconds 10)) { return "取り込みの画面へ移れない（$moved）" }
+  $moved = Show-ChmonosScreen -Nav '取り込み'
+  if (-not (Wait-ChmonosById -Id ImportChooseFolder -TimeoutSeconds 10)) { return "取り込みの画面へ移れない（$moved）" }
   if (-not $KeepTargets) { [void](Clear-ChmonosImportTargets) }
   foreach ($p in $Path) {
     $added = Add-ChmonosImportFolder -Path $p -Watch:$Watch
