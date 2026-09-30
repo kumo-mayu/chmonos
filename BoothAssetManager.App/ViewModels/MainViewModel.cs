@@ -1087,7 +1087,7 @@ public sealed partial class MainViewModel : ViewModelBase
     /// zipの中身・展開したフォルダは1件。実際にIDを登録する回数を想像できるように）。
     /// 画面と同じ行の組み方（<see cref="ResolveViewModel.BuildRows"/>）を通すので、登録済みのzipの中身も同じく数えない。
     ///
-    /// 行を組むにはファイルごとに展開元の記録を読み、フォルダの中を見る（ディスクを見る）。札は取り込み中に何度も読み直すので、
+    /// 行を組むにはフォルダの中と、元のzipが今もあるかを見る（ディスクを見る）。札は取り込み中に何度も読み直すので、
     /// **未確定の記録・商品が持っているファイルの数・取り込み元が前と同じなら、前の数を使う**。裏のスレッドで呼ぶ。
     /// </summary>
     private int CountUnresolvedUnits(
