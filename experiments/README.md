@@ -31,6 +31,7 @@
 | `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
 | `ThesaurusBridgeProbe` | 類義語辞書2つに表記の橋渡しを重ねたときの広がりと、関係の無い物の割合 | `docs/research/fuzzy-search.md` §8・§9 |
 | `VRoidProbe` | BOOTH の VRoid カテゴリをアバターとして扱うべきか | `docs/history/avatars.md` §1-3 |
+| `PeerProbe` | 画面の部品の UI Automation の木（型・名前・ID・持っている操作）を、アプリを起動せずに書き出す。見えない窓に部品を載せ、別のスレッドから読み上げソフトと同じ側でたどる（計測ではなく確かめの道具。場面は `probes/*.probe.txt`、使い方は `Program.cs` の冒頭） | `docs/dev/wpf.md`「UI Automation」 |
 
 友人のデータを使う道具は、結果の名前の出る物を試験データの置き場所にだけ書く（リポジトリに入れない）。
 

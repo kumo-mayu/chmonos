@@ -1,0 +1,35 @@
+<StackPanel __NS__>
+    <ItemsControl>
+        <ItemsControl.ItemsSource>
+            <x:Array Type="s:String">
+                <s:String>あ</s:String>
+                <s:String>い</s:String>
+            </x:Array>
+        </ItemsControl.ItemsSource>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding}" />
+                    <Button Content="素の中のボタン" />
+                    <TextBox Text="x" />
+                </StackPanel>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <controls:ContentItemsControl>
+        <ItemsControl.ItemsSource>
+            <x:Array Type="s:String">
+                <s:String>あ</s:String>
+                <s:String>い</s:String>
+            </x:Array>
+        </ItemsControl.ItemsSource>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding}" />
+                    <Button Content="出る方の中のボタン" />
+                </StackPanel>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </controls:ContentItemsControl>
+</StackPanel>

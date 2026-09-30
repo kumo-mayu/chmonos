@@ -1,0 +1,42 @@
+<StackPanel __NS__>
+    <StackPanel.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/BoothAssetManager.App;component/Views/ItemCardResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </StackPanel.Resources>
+    <!-- 検索・ショップのカードの形：行の ListBox の中に、カードの並び -->
+    <ListBox ItemsSource="{Binding Rows}" Height="330">
+        <ListBox.ItemTemplate>
+            <DataTemplate>
+                <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </controls:ContentItemsControl>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+    <!-- リスト -->
+    <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+                           ItemContainerStyle="{StaticResource ItemListRowStyle}" Height="200" />
+    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" />
+    <ListView Height="20" />
+</StackPanel>
+---data---
+{
+  "__press": ["ItemCardFavorite", "ItemCard", "ItemListFavorite", "ItemCardOpen", "ListViewItem"],
+  "ListColumns": { "SelectWidth": 30, "IconWidth": 40, "FavWidth": 30, "NameWidth": 200, "ShopWidth": 100, "ChipsWidth": 100, "HasSelect": true, "IconSize": 30, "ShopHeader": "ショップ" },
+  "IsSendingToUnity": true, "HasSelection": true, "SelectionText": "2 件を選択中",
+  "Rows": [ { "Cards": [
+      { "Name": "作り物の服A", "ShopName": "作り物の店", "FavoriteTip": "お気に入りに入れる", "FavoriteGlyph": "☆", "IsOwned": true, "IsSelectionMode": true, "IsHovering": true, "HasUpdate": true },
+      { "Name": "作り物の服B", "ShopName": "作り物の店", "FavoriteTip": "お気に入りから外す", "FavoriteGlyph": "★", "IsOwned": true, "IsSelectionMode": false, "IsHovering": false, "HasUpdate": false }
+  ] } ],
+  "ListItems": [
+      { "Name": "作り物の服A", "ShopName": "作り物の店", "FavoriteTip": "お気に入りに入れる", "FavoriteGlyph": "☆", "IsOwned": true, "IsFolder": false, "HasUpdate": false },
+      { "Name": "作り物のフォルダ", "Path": "X:\\作り物", "IsFolder": true, "HasUpdate": false }
+  ]
+}

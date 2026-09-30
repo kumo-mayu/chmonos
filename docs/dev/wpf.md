@@ -93,7 +93,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
 - **`Expander` の見出しの押す所（型の中の `ToggleButton`）は、見出しが文字の並びや札だと名前が無い。**型（`TriangleExpander`・暗黙の `Expander`）が `Expander` の名前を継ぐので、`Expander` に名前を付ける
 - **隠している部品（`Collapsed`・`Hidden`）は、UI Automation の既定の見方（操作できる部品だけ）に出ない。**乗せたときだけ出すボタンは、乗せるまで探せない。自前の窓口で「操作できる部品」を常に真にすると、隠した枠まで出る
 - **メニューの下の段は、開くまで木に無い。**開いた後は窓の外の別の窓に出る。同じ名前の項目は AutomationId で指す
-- **アプリを起動せずに確かめる**：`HwndSource`（`WS_POPUP` だけ・`WS_VISIBLE` なし・画面の外）に部品を載せ、別のスレッドから `AutomationElement.FromHandle` で木をたどる
+- **アプリを起動せずに確かめる**（道具は `experiments/PeerProbe`）：`HwndSource`（`WS_POPUP` だけ・`WS_VISIBLE` なし・画面の外）に部品を載せ、別のスレッドから `AutomationElement.FromHandle` で木をたどる
   （同じスレッドからは自分の窓を読めない。画面のスレッドは `Dispatcher.PushFrame` で回しておく）。画面の View は `new App().InitializeComponent()` で資源だけ読めば載る（`Run` しないので起動の処理は走らない）。
   結ぶ値は `ExpandoObject` の作り物でよい（型で見た目を選ぶ所だけは本物が要る）。**メニューや窓を開く操作は押さない**（見えない窓からでも、ポップアップは画面に出る）
 

@@ -1,0 +1,33 @@
+<ScrollViewer __NS__>
+    <StackPanel>
+        <views:ItemGalleryPanel />
+        <views:ItemAvatarsPanel />
+        <views:ItemFilesPanel />
+        <views:ItemVideosPanel />
+    </StackPanel>
+</ScrollViewer>
+---data---
+{
+  "__press": ["ItemAvatarChip", "GalleryNext"],
+  "IsFilesExpanded": true, "IsAvatarsExpanded": true, "IsVideosExpanded": true, "HasVideos": true,
+  "FileSummary": "2 件",
+  "HasLocalFolders": true,
+  "LocalFolders": [ { "Name": "作り物のフォルダ", "Path": "X:\\作り物\\フォルダ", "SummaryText": "3 ファイル" } ],
+  "LocalFiles": [
+    { "FileName": "作り物A.zip", "FirstPath": "X:\\作り物\\A.zip", "CanReveal": true, "IsAttached": true, "IsDetached": false, "CanUnpack": true,
+      "HasMultiplePaths": true, "OtherPaths": ["Y:\\別の場所\\A.zip", "Y:\\別の場所\\A.zip"],
+      "HasUnityPackages": true, "UnityPackageRows": [ { "Name": "作り物A.unitypackage", "Entry": "e1" }, { "Name": "作り物A2.unitypackage", "Entry": "e2" } ] },
+    { "FileName": "作り物B.zip", "FirstPath": "X:\\作り物\\B.zip", "CanReveal": true, "IsAttached": false, "IsDetached": true, "OtherPaths": [], "UnityPackageRows": [] }
+  ],
+  "OpenInExplorerCommand": "cmd:エクスプローラで開く", "UnpackCommand": "cmd:一時的に展開", "DetachFileCommand": "cmd:外す",
+  "HasUnityRecordNotice": true, "IsSendingToUnity": true, "UnityRecordNotice": "送っています", "StopUnityCommand": "cmd:中止",
+  "AvatarTiles": [], "HasAvatarBases": true,
+  "AvatarBases": [ { "Name": "作り物の素体", "RejectCommand": "cmd:素体を外す" } ],
+  "HasBaseMentions": true, "BaseMentions": [ { "Name": "作り物の候補", "IsNew": true, "AddCommand": "cmd:候補を追加", "DismissCommand": "cmd:候補を消す" } ],
+  "HasRejectedAvatars": true, "RejectedAvatarsHeader": "消したもの（1）", "IsRejectedAvatarsExpanded": true,
+  "RejectedAvatars": [ { "Name": "作り物の消したアバター", "RestoreCommand": "cmd:戻す" } ],
+  "ShowsAvatarFilter": true, "AvatarFilterPlaceholder": "アバター名で絞る", "AvatarsCountText": "（3）",
+  "GalleryTiles": [ { "IsAddTile": false, "IsImage": true, "IsSelected": true }, { "IsAddTile": true, "IsImage": false } ],
+  "CanGoNextImage": true, "CanGoPreviousImage": false, "NextImageCommand": "cmd:次の画像", "GalleryCounter": "1 / 2",
+  "Videos": [ { "TitleText": "作り物の動画", "Url": "https://example.invalid/v", "OpenCommand": "cmd:動画を開く" } ], "VideosHeaderText": "（1）"
+}
