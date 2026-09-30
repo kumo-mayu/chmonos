@@ -20,7 +20,7 @@ public sealed class UndoExcludeTests : IDisposable
         paths.EnsureCreated();
         _store = new DataStore(paths);
         // 本物の通信の口で組まない（既定の一式に通信する試験を入れない）。行けば落ちる偽物にする
-        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 });
+        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths));
     }
 

@@ -37,7 +37,7 @@ public class ImportStateTests : IDisposable
         _store = new DataStore(_paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new Handler(this)), settings);
+        var client = new BoothClient(new HttpClient(new Handler(this)), settings, TestWait.None);
 
         _pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, _paths, settings), settings);
     }

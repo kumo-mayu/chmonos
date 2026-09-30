@@ -27,7 +27,7 @@ public class ImportStackingTests : IDisposable
         paths.EnsureCreated();
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new OfflineHandler()), settings);
+        var client = new BoothClient(new HttpClient(new OfflineHandler()), settings, TestWait.None);
 
         _pipeline = new ImportPipeline(
             new DataStore(paths),

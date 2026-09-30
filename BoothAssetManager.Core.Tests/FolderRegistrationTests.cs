@@ -28,7 +28,7 @@ public class FolderRegistrationTests : IDisposable
         _store = new DataStore(paths);
 
         // 既にitemがある場合しか試さないので、BOOTHへは行かない
-        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 });
+        var client = new BoothClient(new HttpClient(new UnreachableHandler()), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths));
     }
 

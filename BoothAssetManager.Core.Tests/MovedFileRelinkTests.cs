@@ -36,7 +36,7 @@ public sealed class MovedFileRelinkTests : IDisposable
 
         // 結び直すのは手元の JSON だけで済む。BOOTH へ行ったら失敗させる
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new OfflineHandler()), settings);
+        var client = new BoothClient(new HttpClient(new OfflineHandler()), settings, TestWait.None);
         _pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, paths, settings), settings);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths));
     }

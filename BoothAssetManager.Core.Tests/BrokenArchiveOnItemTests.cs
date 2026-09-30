@@ -40,7 +40,7 @@ public class BrokenArchiveOnItemTests : IDisposable
         _store = new DataStore(_paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
-        var client = new BoothClient(new HttpClient(new Handler()), settings);
+        var client = new BoothClient(new HttpClient(new Handler()), settings, TestWait.None);
         var images = new ImagePipeline(client, _paths, settings);
         _pipeline = new ImportPipeline(_store, client, images, settings);
         _service = new ItemService(_store, client, images);

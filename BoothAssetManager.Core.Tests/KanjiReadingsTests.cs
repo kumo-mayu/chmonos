@@ -16,7 +16,7 @@ public class KanjiReadingsTests
     public KanjiReadingsTests(ITestOutputHelper output)
     {
         _output = output;
-        _readings = new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
+        _readings = SharedDictionaries.Readings;
     }
 
     private bool Available => _readings.IsAvailable;

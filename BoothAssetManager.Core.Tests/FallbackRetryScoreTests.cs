@@ -11,31 +11,11 @@ namespace BoothAssetManager.Core.Tests;
 /// 別表記なら「読みで一致」も重なって、元の検索の正解より高い点を取っていた。
 /// 通信は偽物で置き換える。商品名は作り物。
 /// </summary>
-public sealed class FallbackRetryScoreTests : IDisposable
+public sealed class FallbackRetryScoreTests
 {
-    private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), "bam-retry-" + Guid.NewGuid().ToString("N"));
-    private readonly SearchBridge _bridge;
-    private readonly KanjiReadings _readings;
-
-    public FallbackRetryScoreTests()
-    {
-        Directory.CreateDirectory(_cacheDir);
-        _bridge = new SearchBridge(new JapaneseDictionary(
-            Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz"),
-            Path.Combine(_cacheDir, "c.cache")));
-        _readings = new KanjiReadings(Path.Combine(AppContext.BaseDirectory, "assets", "kanjidic2.xml.gz"));
-    }
-
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_cacheDir, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    // 辞書は一式で1回だけ組んだ物を使う（組むのに数秒かかる。SharedDictionaries）
+    private readonly SearchBridge _bridge = SharedDictionaries.Bridge;
+    private readonly KanjiReadings _readings = SharedDictionaries.Readings;
 
     [Fact]
     public async Task ScoresRetryCandidatesAgainstTheOriginalQuery()

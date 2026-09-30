@@ -32,7 +32,7 @@ public class BackOnBoothTests : IDisposable
         _store = new DataStore(paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = false };
-        var client = new BoothClient(new HttpClient(new Handler()), settings);
+        var client = new BoothClient(new HttpClient(new Handler()), settings, TestWait.None);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths, settings), settings);
     }
 

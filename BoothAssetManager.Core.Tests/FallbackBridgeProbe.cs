@@ -18,15 +18,12 @@ public class FallbackBridgeProbe
     [Fact]
     public void ReportsWhatTheBridgeWouldAddToFileNameQueries()
     {
-        var dictionaryPath = Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz");
-        if (!File.Exists(dictionaryPath))
+        if (!SharedDictionaries.JapaneseAvailable)
         {
             return;
         }
 
-        var cacheDir = Path.Combine(Path.GetTempPath(), "bam-fb-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(cacheDir);
-        var bridge = new SearchBridge(new JapaneseDictionary(dictionaryPath, Path.Combine(cacheDir, "c.cache")));
+        var bridge = SharedDictionaries.Bridge;
 
         // 手元の実ファイル名（DLforTest）と、日本語の商品を指す名前
         var fileNames = new[]
@@ -55,14 +52,6 @@ public class FallbackBridgeProbe
             _output.WriteLine($"{fileName,-34} 「{query}」");
             _output.WriteLine($"    読みの経路 : {Show(BridgeRoute.Reading, BridgeRoute.Katakana, BridgeRoute.Dictionary)}");
             _output.WriteLine($"    英語の経路 : {Show(BridgeRoute.English)}");
-        }
-
-        try
-        {
-            Directory.Delete(cacheDir, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
         }
     }
 }

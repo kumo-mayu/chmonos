@@ -83,7 +83,7 @@ public class AvatarImageSyncTests : IDisposable
     private AvatarImageSync Create(bool saveImages = true)
     {
         var settings = new AppSettings { FetchIntervalMs = 0, SaveImages = saveImages };
-        var client = new BoothClient(new HttpClient(new FakeBooth(this)), settings);
+        var client = new BoothClient(new HttpClient(new FakeBooth(this)), settings, TestWait.None);
         return new AvatarImageSync(_store, client, new ImagePipeline(client, _paths, settings));
     }
 

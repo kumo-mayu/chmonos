@@ -7,37 +7,16 @@ namespace BoothAssetManager.Core.Tests;
 /// <summary>
 /// 打った語から別表記を作る段。辞書が配られていない環境では飛ばす。
 /// </summary>
-public class SearchBridgeTests : IDisposable
+public class SearchBridgeTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly string _cacheDir;
-    private readonly SearchBridge _bridge;
 
-    public SearchBridgeTests(ITestOutputHelper output)
-    {
-        _output = output;
-        _cacheDir = Path.Combine(Path.GetTempPath(), "bam-bridge-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_cacheDir);
-        _bridge = new SearchBridge(new JapaneseDictionary(
-            DictionaryPath(),
-            Path.Combine(_cacheDir, "search-bridge.cache")));
-    }
+    // 辞書は一式で1回だけ組んだ物を使う（組むのに数秒かかる。SharedDictionaries）
+    private readonly SearchBridge _bridge = SharedDictionaries.Bridge;
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_cacheDir, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public SearchBridgeTests(ITestOutputHelper output) => _output = output;
 
-    private static string DictionaryPath()
-        => Path.Combine(AppContext.BaseDirectory, "assets", "JMdict_e.gz");
-
-    private bool Available => File.Exists(DictionaryPath());
+    private static bool Available => SharedDictionaries.JapaneseAvailable;
 
     private IReadOnlyList<string> Texts(string word)
     {

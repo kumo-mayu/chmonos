@@ -125,8 +125,10 @@ dotnet build
 dotnet test
 ```
 
-テストは本体で1,500件超、ほかに zip の読み取りと ID の特定の一式がある。通信するテストを既定の一式に入れない
+テストは本体で約2,300件、ほかに zip の読み取りと ID の特定の一式がある。全部で約16秒（2026-09-30。ビルドは別）。通信するテストを既定の一式に入れない
 （BOOTHへ実際に問い合わせる確認は `experiments/` の実行ファイルで行う）。時計・実マシンのプロセス（Unity が動いているか）に結果が左右されるテストも書かない。
+作業の途中は、関係する試験だけを回してよい（`dotnet test BoothAssetManager.Core.Tests --filter "FullyQualifiedName~ImportLadder"`）。**コミットの前と統合のときは全部。**
+30秒を超えるようになったら、重い試験を探して直す（探し方と、重くしない書き方は `docs/dev/app-tests.md`「重くしない」）。
 
 画面の側（ViewModel）にも試験の一式がある（`BoothAssetManager.App.Tests`。書き方は `docs/dev/app-tests.md`）。
 **計算で決まる物（文言・ボタンや札の出し分け・一覧に何が並ぶか・押したら何が書かれるか）は試験で確かめ、起動して撮らない。**

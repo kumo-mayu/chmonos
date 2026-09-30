@@ -34,7 +34,7 @@ public class UnpublishedItemTests : IDisposable
         paths.EnsureCreated();
         _store = new DataStore(paths);
 
-        var client = new BoothClient(new HttpClient(_handler), _settings);
+        var client = new BoothClient(new HttpClient(_handler), _settings, TestWait.None);
         _service = new ItemService(_store, client, new ImagePipeline(client, paths, _settings), _settings);
     }
 

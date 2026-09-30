@@ -29,7 +29,7 @@ public sealed class ModificationImageTests : IDisposable
         _store = new DataStore(_paths);
 
         var settings = new AppSettings { FetchIntervalMs = 0 };
-        var client = new BoothClient(new HttpClient(new Unreachable()), settings);
+        var client = new BoothClient(new HttpClient(new Unreachable()), settings, TestWait.None);
         _service = new ModificationService(_store, new ImagePipeline(client, _paths, settings));
     }
 
@@ -78,7 +78,7 @@ public sealed class ModificationImageTests : IDisposable
 
     private ModificationService WithSettings(AppSettings settings)
     {
-        var client = new BoothClient(new HttpClient(new Unreachable()), settings);
+        var client = new BoothClient(new HttpClient(new Unreachable()), settings, TestWait.None);
         return new ModificationService(_store, new ImagePipeline(client, _paths, settings));
     }
 
@@ -272,7 +272,7 @@ public sealed class ModificationImageTests : IDisposable
         // 以前は起動時の設定を抱えていて、設定画面で変えても起動し直すまで効かなかった
         // （友人の報告「設定にある画像サイズが反映されていないのでは」）
         var settings = new AppSettings { FetchIntervalMs = 0, ModificationImageMaxEdgePixels = 500 };
-        var client = new BoothClient(new HttpClient(new Unreachable()), () => settings);
+        var client = new BoothClient(new HttpClient(new Unreachable()), () => settings, TestWait.None);
         var service = new ModificationService(_store, new ImagePipeline(client, _paths, () => settings));
         var id = await NewAsync();
 
