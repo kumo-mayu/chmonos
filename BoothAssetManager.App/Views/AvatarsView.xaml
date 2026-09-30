@@ -214,7 +214,7 @@
                         <StackPanel Margin="0,10,0,0"
                                     Visibility="{Binding ShowsItemCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="素体の名前を含む商品" Style="{StaticResource Caption}" Margin="0,0,0,4" />
-                            <ItemsControl ItemsSource="{Binding ItemCandidates}">
+                            <controls:ContentItemsControl ItemsSource="{Binding ItemCandidates}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
@@ -224,7 +224,7 @@
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                         </StackPanel>
                         <!--
                             配布されている素体は商品に結べる。
@@ -392,6 +392,7 @@
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
                               Visibility="{Binding IsBaseMode, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="名前・ID・呼び方で探す"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
                             <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
                             <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" IsHitTestVisible="False"
@@ -585,7 +586,7 @@
                                             <StackPanel Margin="0,6,0,0"
                                                         Visibility="{Binding HasNameSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                 <TextBlock Text="呼ばれていた名前。押すと名前の欄に入ります。" Style="{StaticResource Caption}" />
-                                                <ItemsControl ItemsSource="{Binding NameSuggestions}" Margin="0,5,0,0">
+                                                <controls:ContentItemsControl ItemsSource="{Binding NameSuggestions}" Margin="0,5,0,0">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
                                                             <WrapPanel />
@@ -599,7 +600,7 @@
                                                                     CommandParameter="{Binding}" Click="StartRename_Click" />
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
+                                                </controls:ContentItemsControl>
                                             </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
@@ -674,14 +675,15 @@
                                     呼ばれ方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
                                     消した表記は、商品の対応アバターと同じく末尾に出して1件ずつ戻せるようにする
                                 -->
-                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}">
+                                <Expander Style="{StaticResource TriangleExpander}" Margin="0,20,0,0" IsExpanded="{Binding IsAliasesExpanded, Mode=TwoWay}"
+                                      AutomationProperties.Name="{Binding AliasesTitle}">
                                     <Expander.Header>
                                         <TextBlock Text="{Binding AliasesTitle}" Style="{StaticResource SectionLabel}" />
                                     </Expander.Header>
                                     <StackPanel Margin="0,6,0,0">
                                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" MaxWidth="620" HorizontalAlignment="Left"
                                                    Text="対応アバターの検出に使います。明らかに間違っているものだけ削除してください。括弧内は最後の検出で見つかった商品数です。" />
-                                    <ItemsControl ItemsSource="{Binding Aliases}">
+                                    <controls:ContentItemsControl ItemsSource="{Binding Aliases}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />
@@ -694,6 +696,8 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding}" FontSize="11.5" VerticalAlignment="Center" />
                                                         <Button Content="×" Margin="7,0,0,0" Padding="2,0" FontSize="11"
+                                                                AutomationProperties.AutomationId="AvatarAliasRemove"
+                                                                AutomationProperties.Name="{Binding StringFormat={}{0}を削除}"
                                                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                                                 Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding DataContext.RemoveAliasCommand,
@@ -704,11 +708,12 @@
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    </controls:ContentItemsControl>
     
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBox Width="200" Padding="7,5"
                                                  MaxLength="60" Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="追加する呼び方"
                                                  ToolTip="検出できなかった呼び方を追加できます。">
                                             <!-- Enter で決められるように揃える（I12） -->
                                             <TextBox.InputBindings>
@@ -721,7 +726,7 @@
                                         <StackPanel Margin="0,10,0,0"
                                                     Visibility="{Binding HasRejectedAliases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="検出に使わない呼び方" Style="{StaticResource Caption}" Margin="0,0,0,5" />
-                                            <ItemsControl ItemsSource="{Binding RejectedAliases}">
+                                            <controls:ContentItemsControl ItemsSource="{Binding RejectedAliases}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
                                                         <WrapPanel />
@@ -742,7 +747,7 @@
                                                         </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
+                                            </controls:ContentItemsControl>
                                         </StackPanel>
                                     </StackPanel>
                                 </Expander>
@@ -764,6 +769,7 @@
                                     <Grid Width="240">
                                         <TextBox Height="26" Padding="7,0" VerticalContentAlignment="Center"
                                                  MaxLength="60" Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="改変の名前"
                                                  ToolTip="「普段着」「制服」のように、着せ替えごとに名前を付けます。">
                                             <!-- Enter で決められるように揃える（I12） -->
                                             <TextBox.InputBindings>
@@ -786,7 +792,7 @@
                                     改変の画面のアバターの項目と同じ行（ユーザ指示 2026-09-17）：絵・名前・Unityプロジェクト、畳んだ中身に使ったもの。
                                     絵と名前にはホバーで大きめの絵。ここには右のビューが無いので、どれを押しても改変に入る
                                 -->
-                                <ItemsControl ItemsSource="{Binding Modifications}" Margin="0,7,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                <controls:ContentItemsControl ItemsSource="{Binding Modifications}" Margin="0,7,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                               Visibility="{Binding HasModifications, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.Resources>
                                         <DataTemplate DataType="{x:Type vm:HubMemberRow}">
@@ -881,12 +887,12 @@
                                                 </DockPanel>
                                                 <Border Margin="9,4,0,4" Padding="26,0,0,0" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1,0,0,0"
                                                         Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                    <ItemsControl ItemsSource="{Binding Members}" />
+                                                    <controls:ContentItemsControl ItemsSource="{Binding Members}" />
                                                 </Border>
                                             </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
                                 <!-- 検出では拾えない事情を残す場所。打ち終えて少し待つと残る（ユーザ指示 2026-09-17：保存ボタンを押さなくてよい） -->
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
@@ -895,6 +901,7 @@
                                              TextWrapping="Wrap" AcceptsReturn="True"
                                              VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                              MaxLength="10000" Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="メモ"
                                              ToolTip="素体は同じだが体型が違う、といった検出では分からないことを残せます。" />
                                 </StackPanel>
 
@@ -943,7 +950,7 @@
                                     <TextBlock Text="この素体を使っているアバター" FontSize="13" FontWeight="Bold" />
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
                                                Text="同じ素体のアバター向けに作られた衣装は「素体経由」として一緒に表示されます。押すとそのアバターを開きます。" />
-                                    <ItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0">
+                                    <controls:ContentItemsControl ItemsSource="{Binding SelectedBaseMembers}" Margin="0,12,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:AvatarRowViewModel}">
                                                 <Border Padding="6,4" Margin="0,0,0,2" Cursor="Hand" Background="Transparent"
@@ -957,7 +964,7 @@
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    </controls:ContentItemsControl>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

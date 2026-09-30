@@ -11,7 +11,11 @@
         <!-- 知らせ1件の中身。平らな一覧の行（InboxRowLine）が、束の枠の中にこれを出す -->
         <DataTemplate x:Key="InboxRowTemplate" DataType="{x:Type vm:NotificationRow}">
                 <!-- 通知どうしの区切りが見えなかったので線を濃くし、上下の余白も広げる（ユーザ指摘 2026-09-18） -->
-                <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,15">
+                <!-- 押せる行は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
+                <controls:PressableBorder BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,15"
+                                          Command="{Binding OpenItemCommand}"
+                                          AutomationProperties.AutomationId="InboxRow"
+                                          AutomationProperties.Name="{Binding Title}">
                     <!--
                         行を押すと、その商品を開く（ユーザ指示 2026-09-20・B3）。
                         行を押す意味はアプリ全体で「選ぶ」か「開く」の2つだけで、この画面は「開く」。
@@ -72,6 +76,7 @@
                         -->
                         <ToggleButton Grid.Column="0" Width="16" Height="16" Margin="0,2,11,0"
                                       VerticalAlignment="Top" Cursor="Hand" Focusable="False"
+                                      AutomationProperties.AutomationId="InboxRowRead"
                                       AutomationProperties.Name="{Binding ReadButtonText}"
                                       ToolTip="{Binding ReadButtonText}"
                                       IsChecked="{Binding IsRead, Mode=TwoWay}">
@@ -118,7 +123,7 @@
                                 行の中身は、どの種別も同じ札で出す（ユーザ指示 2026-09-18）。
                                 変化を持つ知らせは変わったところを1つずつ、持たない知らせは「見出し：中身」を1枚で
                             -->
-                            <ItemsControl ItemsSource="{Binding Cards}" Margin="0,7,0,0"
+                            <controls:ContentItemsControl ItemsSource="{Binding Cards}" Margin="0,7,0,0"
                                           Visibility="{Binding HasCards, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -133,7 +138,7 @@
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
                 
                             <!--
                                 操作は本文のすぐ下、日時と同じ行に置く（ユーザ判断 2026-09-18）。
@@ -148,11 +153,13 @@
                                             VerticalAlignment="Center" Visibility="Collapsed">
                                 <!-- アプリの中で開くのか、BOOTHへ出るのかが分かるように名乗る（ユーザ指摘 2026-09-18） -->
                                 <Button Content="商品ページを開く" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="InboxRowOpenItem"
                                         Command="{Binding OpenItemCommand}"
                                         ToolTip="このアプリの中で商品ページを開きます。"
                                         Visibility="{Binding HasItem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <!-- 「確認した」では何も直らないので、直しに行ける道を種類ごとに1つ（ユーザ指示 2026-09-18） -->
                                 <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="InboxRowAction"
                                         Margin="8,0,0,0" Command="{Binding ActionCommand}"
                                         ToolTip="{Binding ActionTip}"
                                         Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -160,7 +167,7 @@
                             </StackPanel>
                         </StackPanel>
                     </Grid>
-                </Border>
+                </controls:PressableBorder>
         </DataTemplate>
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">

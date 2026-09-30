@@ -992,8 +992,10 @@
                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
                         <DockPanel>
+                            <!-- 見出しの押す所は、Expander に付けた名前を継ぐ（見出しが文字の並びのとき、継がないと名前の無いボタンになる） -->
                             <ToggleButton x:Name="HeaderSite" DockPanel.Dock="Top" Style="{StaticResource ExpanderHeaderToggle}"
                                           Cursor="Hand" Focusable="False" Padding="0,1"
+                                          AutomationProperties.Name="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
                                           Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}"
                                           ContentTemplateSelector="{TemplateBinding HeaderTemplateSelector}"
                                           IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />

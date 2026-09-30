@@ -21,7 +21,8 @@
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="18,16">
                         <!-- 三角の見た目は、置かれた画面が持っていれば使う（商品ページ。編集画面は既定のまま揃える） -->
-                        <Expander Style="{DynamicResource TriangleExpander}" IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}">
+                        <Expander Style="{DynamicResource TriangleExpander}" IsExpanded="{Binding IsAvatarsExpanded, Mode=TwoWay}"
+                                  AutomationProperties.AutomationId="ItemAvatarsExpander" AutomationProperties.Name="対応アバター">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock FontWeight="Bold" VerticalAlignment="Center"><Run Text="対応アバター" /><Run Text="{Binding AvatarsCountText, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource TextFaint}" /></TextBlock>
@@ -47,6 +48,7 @@
                                             Visibility="{Binding ShowsAvatarFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <Grid Width="260">
                                         <TextBox x:Name="AvatarFilterBox" Padding="6,3"
+                                                 AutomationProperties.Name="{Binding AvatarFilterPlaceholder}"
                                                  Text="{Binding AvatarFilter, UpdateSourceTrigger=PropertyChanged}" />
                                         <TextBlock Text="{Binding AvatarFilterPlaceholder}" IsHitTestVisible="False"
                                                    Margin="10,0,0,0" VerticalAlignment="Center"
@@ -72,7 +74,7 @@
                                     絞る欄と入力欄が上下に2つ並んで分かりにくかった（ユーザ指摘）。
                                     「＋ 追加」は画像の一覧の「足す」枠と同じく、並びの末尾に混ぜて折り返しても最後に付いてくる
                                 -->
-                                <ItemsControl ItemsSource="{Binding AvatarTiles}" Margin="0,10,0,0">
+                                <controls:ContentItemsControl ItemsSource="{Binding AvatarTiles}" Margin="0,10,0,0">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel />
@@ -96,8 +98,12 @@
                                                     **絵の入った枠は乗せたときに作る**（ユーザ判断 2026-09-12）。札ごとに先に作ると、
                                                     244体の商品で開くのが150〜200ms遅れた。普段は短い文字だけを持たせておく
                                                 -->
-                                                <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
+                                                <!-- 押せる札は Border のままだと読み上げ・自動操作から押せない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
+                                                <controls:PressableBorder BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6" Cursor="Hand"
                                                         Visibility="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                        Command="{Binding OpenCommand}"
+                                                        AutomationProperties.AutomationId="ItemAvatarChip"
+                                                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
                                                         ToolTip="{Binding SourceTooltip}" ToolTipOpening="OnChipToolTipOpening">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -131,6 +137,8 @@
                                                                 Height="16" Background="Transparent" BorderThickness="0"
                                                                 Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding RejectCommand}"
+                                                                AutomationProperties.AutomationId="ItemAvatarReject"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
                                                                 ToolTip="違う対応として外します。再検出しても戻らず、「消したもの」から戻せます。">
                                                             <Button.Style>
                                                                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -145,7 +153,7 @@
                                                             </Button.Style>
                                                         </Button>
                                                     </StackPanel>
-                                                </Border>
+                                                </controls:PressableBorder>
                                         </DataTemplate>
 
                                         <!--
@@ -155,6 +163,7 @@
                                         <DataTemplate DataType="{x:Type vm:AvatarAddTile}">
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,6,6">
                                                     <Button Content="＋ 追加" Style="{StaticResource SmallButton}"
+                                                            AutomationProperties.AutomationId="ItemAvatarAdd" AutomationProperties.Name="対応アバターを追加"
                                                             Command="{Binding DataContext.StartAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             ToolTip="対応アバターか共通素体を手で追加します。"
@@ -169,11 +178,13 @@
                                                                          IconSelector="{Binding DataContext.AvatarIconSelector,
                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                          AllowNew="False" Placeholder="アバターか共通素体の名前"
+                                                                         AutomationProperties.AutomationId="ItemAvatarAddInput"
                                                                          IsVisibleChanged="OnAddBoxVisibleChanged"
                                                                          Visibility="{Binding DataContext.IsAddingAvatar,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl},
                                                                                       Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     <Button Content="閉じる" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                            AutomationProperties.AutomationId="ItemAvatarAddClose"
                                                             VerticalAlignment="Center"
                                                             Command="{Binding DataContext.StopAddAvatarCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -183,9 +194,9 @@
                                                 </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.Resources>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
-                                <ItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0"
+                                <controls:ContentItemsControl ItemsSource="{Binding AvatarBases}" Margin="0,4,0,0"
                                               Visibility="{Binding HasAvatarBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -205,6 +216,8 @@
                                                             Height="16" Background="Transparent" BorderThickness="0"
                                                             Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                             Command="{Binding RejectCommand}"
+                                                            AutomationProperties.AutomationId="ItemAvatarBaseReject"
+                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
                                                             ToolTip="違う共通素体として外します。再検出しても戻らず、「消したもの」から戻せます。">
                                                         <Button.Style>
                                                             <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -222,7 +235,7 @@
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:ContentItemsControl>
 
                                 <!--
                                     説明文に「〇〇共通素体」と書かれた素体の候補（ユーザ判断 2026-09-29）。
@@ -232,7 +245,7 @@
                                 <StackPanel Margin="0,4,0,0"
                                             Visibility="{Binding HasBaseMentions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <TextBlock Text="説明文にある共通素体" Style="{StaticResource Caption}" Margin="0,0,0,4" />
-                                    <ItemsControl ItemsSource="{Binding BaseMentions}">
+                                    <controls:ContentItemsControl ItemsSource="{Binding BaseMentions}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />
@@ -248,12 +261,16 @@
                                                                    VerticalAlignment="Center" Foreground="{DynamicResource TextFaint}"
                                                                    Visibility="{Binding IsNew, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                         <Button Content="追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                AutomationProperties.AutomationId="ItemBaseMentionAdd"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を追加}"
                                                                 Command="{Binding AddCommand}" ToolTip="{Binding AddTooltip}" />
                                                         <!-- 違う候補は消せる（ユーザ判断 2026-09-29。付いている素体の × と同じ形で、乗せたときだけ出す） -->
                                                         <Button Content="×" Margin="7,0,0,0" Padding="3,0" FontSize="11"
                                                                 Height="16" Background="Transparent" BorderThickness="0"
                                                                 Cursor="Hand" Foreground="{DynamicResource TextMuted}"
                                                                 Command="{Binding DismissCommand}"
+                                                                AutomationProperties.AutomationId="ItemBaseMentionDismiss"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を候補から消す}"
                                                                 ToolTip="違う候補として消します。「消したもの」から戻せます。">
                                                             <Button.Style>
                                                                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -271,7 +288,7 @@
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    </controls:ContentItemsControl>
                                 </StackPanel>
 
                                 <!--
@@ -279,9 +296,10 @@
                                     消したことも戻せることも分からなかった。普段は畳んで末尾に置き、1件ずつ戻せる
                                 -->
                                 <Expander Style="{DynamicResource TriangleExpander}" Header="{Binding RejectedAvatarsHeader}" Margin="0,10,0,0"
+                                          AutomationProperties.AutomationId="ItemRejectedAvatarsExpander"
                                           IsExpanded="{Binding IsRejectedAvatarsExpanded, Mode=TwoWay}"
                                           Visibility="{Binding HasRejectedAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <ItemsControl ItemsSource="{Binding RejectedAvatars}" Margin="4,6,0,0">
+                                    <controls:ContentItemsControl ItemsSource="{Binding RejectedAvatars}" Margin="4,6,0,0">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <WrapPanel />
@@ -295,13 +313,15 @@
                                                         <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center"
                                                                    Foreground="{DynamicResource TextMuted}" />
                                                         <Button Content="戻す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                AutomationProperties.AutomationId="ItemRejectedAvatarRestore"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を戻す}"
                                                                 Command="{Binding RestoreCommand}"
                                                                 ToolTip="この対応を戻します。出どころは「手入力」になります。" />
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    </controls:ContentItemsControl>
                                 </Expander>
 
                                 <!--

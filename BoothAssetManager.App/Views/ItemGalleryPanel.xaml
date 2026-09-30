@@ -150,7 +150,8 @@
 
                                 <Border Background="{DynamicResource ImageScrim}" CornerRadius="9" Padding="8,2"
                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
-                                    <TextBlock Text="{Binding GalleryCounter}" Foreground="{DynamicResource OnImage}" FontSize="11" />
+                                    <TextBlock Text="{Binding GalleryCounter}" Foreground="{DynamicResource OnImage}" FontSize="11"
+                                               AutomationProperties.AutomationId="GalleryCounter" />
                                     <!-- 2枚以上のときだけ出す（0枚は文字の無い黒い丸、1枚は「1 / 1」が常に出ていた・U11 と同じ決まり） -->
                                     <Border.Style>
                                         <Style TargetType="Border">
@@ -180,16 +181,18 @@
                                         Style="{StaticResource GalleryArrow}"
                                         HorizontalAlignment="Left"
                                         Visibility="{Binding CanGoPreviousImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        AutomationProperties.AutomationId="GalleryPrevious" AutomationProperties.Name="前の画像"
                                         ToolTip="前の画像（←）" />
 
                                 <Button Content="›" Command="{Binding NextImageCommand}"
                                         Style="{StaticResource GalleryArrow}"
                                         HorizontalAlignment="Right"
                                         Visibility="{Binding CanGoNextImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                        AutomationProperties.AutomationId="GalleryNext" AutomationProperties.Name="次の画像"
                                         ToolTip="次の画像（→）" />
                             </Grid>
 
-                            <ItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">
+                            <controls:ContentItemsControl ItemsSource="{Binding GalleryTiles}" Margin="10">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />
@@ -201,6 +204,7 @@
                                             <!-- 末尾の「足す」枠。折り返しても末尾に付いてくるよう同じ並びに混ぜている -->
                                             <Button Width="68" Height="54" Margin="0,0,8,8" Padding="0"
                                                     Content="＋" FontSize="18" Cursor="Hand"
+                                                    AutomationProperties.AutomationId="GalleryAdd" AutomationProperties.Name="画像を追加"
                                                     Background="{DynamicResource SurfaceAlt}"
                                                     ToolTip="{Binding DataContext.AddImageTip, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     Visibility="{Binding IsAddTile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
@@ -216,6 +220,7 @@
                                                     Visibility="{Binding IsImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                     MouseEnter="OnThumbnailMouseEnter"
                                                     MouseLeave="OnThumbnailMouseLeave"
+                                                    AutomationProperties.AutomationId="GalleryTile" AutomationProperties.Name="この画像を表示"
                                                     Command="{Binding DataContext.SelectImageCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
@@ -279,7 +284,7 @@
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
 
                             <TextBlock Text="{Binding UserImageText}" Style="{StaticResource Caption}" Margin="12,0,12,4"
                                        Visibility="{Binding HasUserImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -298,6 +303,7 @@
                                 <TextBlock Text="{Binding MissingImageText}" Style="{StaticResource Caption}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <Button Content="この商品の画像取得を優先" FontSize="12"
+                                        AutomationProperties.AutomationId="GalleryFetchImages"
                                         Command="{Binding FetchImagesCommand}" />
                             </StackPanel>
 

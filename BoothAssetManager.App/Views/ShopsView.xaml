@@ -77,6 +77,7 @@
                     <!-- 見出しは検索画面と同じ「表示順」に揃える（ユーザ指示 2026-09-20・M5） -->
                     <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,7,0" />
                     <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
+                              AutomationProperties.Name="表示順"
                               DisplayMemberPath="Label" Width="170" VerticalAlignment="Center" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding RefreshCommand}" />

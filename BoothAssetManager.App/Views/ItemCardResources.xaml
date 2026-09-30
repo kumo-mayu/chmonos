@@ -61,7 +61,7 @@
     <!-- 乗せたとき（か選択中）にだけ作る部品。出し方の条件は、それぞれ以前のまま -->
     <DataTemplate x:Key="CardOverlay">
         <Grid>
-            <ItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Bottom"
+            <controls:ContentItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Bottom"
                           Margin="6,0,6,5" IsHitTestVisible="False"
                           Visibility="{Binding HasMultipleImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <ItemsControl.ItemsPanel>
@@ -85,7 +85,7 @@
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            </controls:ContentItemsControl>
 
             <!-- 区切りを絞っている場合でも、全体で何枚あるかが分かるようにする -->
             <Border Background="{DynamicResource ImageScrim}" CornerRadius="9" Padding="7,1"
@@ -139,10 +139,13 @@
             </Border>
 
             <!-- 選択中のとき、商品ページへの出口をここに置く -->
-            <Border Background="{DynamicResource ImagePill}" BorderBrush="{DynamicResource BorderStrong}"
+            <!-- 押せる枠は Border のままだと読み上げ・自動操作に出ない。見た目はそのままで「押せるボタン」として出す（PressableBorder） -->
+            <controls:PressableBorder Background="{DynamicResource ImagePill}" BorderBrush="{DynamicResource BorderStrong}"
                     BorderThickness="1" CornerRadius="5" Padding="8,4" Cursor="Hand"
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="7"
-                    MouseLeftButtonUp="OnOpenItemClick">
+                    MouseLeftButtonUp="OnOpenItemClick" Invoked="OnOpenItemInvoked"
+                    AutomationProperties.AutomationId="ItemCardOpen"
+                    AutomationProperties.Name="{Binding Name, StringFormat='{}{0}の中を見る'}">
                 <TextBlock Text="中を見る" FontSize="11" Foreground="{DynamicResource Accent}" />
                 <Border.Style>
                     <Style TargetType="Border">
@@ -158,7 +161,7 @@
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
-            </Border>
+            </controls:PressableBorder>
         </Grid>
     </DataTemplate>
 
@@ -291,7 +294,8 @@
                                                     <!-- 要確認に未読の更新がある。入れるのはショップの画面だけ（ユーザ判断 2026-09-27） -->
                                                     <Button Style="{StaticResource UpdateBadgeButton}" Margin="4,0,0,0"
                                                             Command="{Binding ShowUpdateCommand}"
-                                                            AutomationProperties.Name="更新あり"
+                                                            AutomationProperties.AutomationId="ItemCardUpdate"
+                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
                                                             ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
                                                             Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     <!-- 取り込みの③がまだ。「未編集」と出すと押しても編集に出てこない（U8・U10） -->
@@ -349,9 +353,21 @@
                                                 </WrapPanel>
                                             </StackPanel>
                                             <!-- 背景を塗るのは、星の字の隙間でも押せるようにするため -->
-                                            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,2" Padding="4,0"
+                                            <!--
+                                                星は文字を載せた Border なので、読み上げ・自動操作からは在ることも分からなかった
+                                                （確かめでは文字の座標を取って実際のマウスで押していた。2026-09-30）。
+                                                どの商品の星かが分かる名前で、押せるボタンとして出す
+                                            -->
+                                            <controls:PressableBorder HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,2" Padding="4,0"
                                                     Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
-                                                    MouseLeftButtonUp="OnFavoriteClick">
+                                                    MouseLeftButtonUp="OnFavoriteClick" Invoked="OnFavoriteInvoked"
+                                                    AutomationProperties.AutomationId="ItemCardFavorite">
+                                                <AutomationProperties.Name>
+                                                    <MultiBinding StringFormat="{}{0}を{1}">
+                                                        <Binding Path="Name" />
+                                                        <Binding Path="FavoriteTip" />
+                                                    </MultiBinding>
+                                                </AutomationProperties.Name>
                                                 <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -364,7 +380,7 @@
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
-                                            </Border>
+                                            </controls:PressableBorder>
                                         </Grid>
                                     </DockPanel>
 
@@ -442,6 +458,7 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
+                               AutomationProperties.AutomationId="SelectionBar.Text"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center"
                                Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!--
@@ -449,12 +466,15 @@
                         1件だけ送るとき（カードの右クリック）もここに出す（E10）
                     -->
                     <TextBlock Text="{Binding UnityQueueText}" FontSize="12" Margin="14,0,0,0"
+                               AutomationProperties.AutomationId="SelectionBar.UnityQueueText"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
                                Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 送っている間だけ出す（E7）。いちばん長い待ちは、人が Unity の取り込み画面を見ている時間 -->
                     <Button Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                             VerticalAlignment="Center"
                             Command="{Binding StopUnityCommand}"
+                            AutomationProperties.AutomationId="SelectionBarUnityStop"
+                            AutomationProperties.Name="Unityへ送るのを中止"
                             Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             ToolTip="送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。" />
                 </StackPanel>
@@ -462,21 +482,28 @@
                             Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
                     <Button Content="すべて選択" Style="{StaticResource SmallButton}"
+                            AutomationProperties.AutomationId="SelectionBar.SelectAll"
                             Command="{Binding SelectAllCommand}"
                             ToolTip="今表示されている商品をすべて選びます。" />
                     <Button Content="選択を解除" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.Clear"
                             Command="{Binding ClearSelectionCommand}" />
                     <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
                     <Button Content="お気に入りに入れる" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.AddToFavorites"
+                            AutomationProperties.Name="選んだ商品をお気に入りに入れる"
                             Command="{Binding AddSelectionToFavoritesCommand}"
                             ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
                     <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.AddToModification"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
                     <Button Content="Unityへ順に送る…" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
                     <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="10,0,0,0"
+                            AutomationProperties.AutomationId="SelectionBar.Edit"
                             Command="{Binding SendSelectionToEditCommand}" />
                 </StackPanel>
             </Grid>
@@ -496,6 +523,7 @@
         <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6">
             <StackPanel Orientation="Horizontal">
                 <controls:CommandRadioButton Content="カード" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsCardMode, Mode=OneWay}"
+                             AutomationProperties.AutomationId="ItemViewMode.Cards"
                              Command="{Binding ShowCardsCommand}" ToolTip="絵の大きなカードで並べます">
                     <controls:CommandRadioButton.Tag>
                         <CornerRadius>5,0,0,5</CornerRadius>
@@ -503,6 +531,7 @@
                 </controls:CommandRadioButton>
                 <Border Width="1" Background="{DynamicResource BorderStrong}" />
                 <controls:CommandRadioButton Content="リスト" Style="{StaticResource ItemViewModeSegment}" IsChecked="{Binding IsListMode, Mode=OneWay}"
+                             AutomationProperties.AutomationId="ItemViewMode.List"
                              Command="{Binding ShowListCommand}" ToolTip="1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます">
                     <controls:CommandRadioButton.Tag>
                         <CornerRadius>0,5,5,0</CornerRadius>
@@ -527,13 +556,13 @@
                         Minimum="{x:Static vm:ItemViewSize.MinCardWidth}" Maximum="{x:Static vm:ItemViewSize.MaxCardWidth}"
                         SmallChange="4" LargeChange="20"
                         Value="{Binding CardWidth, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}"
-                        ToolTip="カードの大きさ" AutomationProperties.Name="カードの大きさ"
+                        ToolTip="カードの大きさ" AutomationProperties.Name="カードの大きさ" AutomationProperties.AutomationId="ItemCardSize"
                         Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Slider Width="140" Margin="8,0" VerticalAlignment="Center" IsMoveToPointEnabled="True"
                         Minimum="{x:Static vm:ItemViewSize.MinListRowHeight}" Maximum="{x:Static vm:ItemViewSize.MaxListRowHeight}"
                         SmallChange="2" LargeChange="8"
                         Value="{Binding ListRowHeight, Source={x:Static vm:ItemViewSize.Current}, Mode=TwoWay}"
-                        ToolTip="行の高さ" AutomationProperties.Name="リストの行の高さ"
+                        ToolTip="行の高さ" AutomationProperties.Name="リストの行の高さ" AutomationProperties.AutomationId="ItemListRowHeight"
                         Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Rectangle Width="14" Height="14" RadiusX="2" RadiusY="2" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2"
                            VerticalAlignment="Center" />
@@ -580,6 +609,8 @@
         <EventSetter Event="MouseDown" Handler="OnCardMouseDown" />
         <!-- 行に止まって Enter・Space で押したのと同じこと（カードと揃える） -->
         <EventSetter Event="KeyDown" Handler="OnListRowKeyDown" />
+        <!-- 読み上げ・自動操作の「押す」（ItemListView）。Enter と同じ処理にする -->
+        <EventSetter Event="controls:ItemListView.RowInvoked" Handler="OnListRowInvoked" />
         <!-- キーで開いて戻ってきたら、開いた行に止まり直す（OnCardLoaded） -->
         <EventSetter Event="Loaded" Handler="OnCardLoaded" />
         <!-- 読み上げに型の名前（…ItemCardViewModel）が出ていた。商品・フォルダの名前で名乗る -->
@@ -623,6 +654,8 @@
               Visibility="{Binding DataContext.ListColumns.HasSelect, RelativeSource={RelativeSource AncestorType=ListView}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
+                      AutomationProperties.AutomationId="ItemListSelect"
+                      AutomationProperties.Name="{Binding Name, StringFormat='{}{0} を選ぶ'}"
                       ToolTip="選ぶと、下の帯からまとめて操作できます" />
         </Grid>
     </DataTemplate>
@@ -673,9 +706,16 @@
     <!-- お気に入りの星。行のクリックへは流さない（OnFavoriteClick）。絵との間にも区切りを置く（ユーザ指示 2026-09-14） -->
     <DataTemplate x:Key="ItemListFavCell">
         <Border Style="{StaticResource ItemListCellFrame}" Padding="0">
-        <Border Background="Transparent" Cursor="Hand" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="2"
-                ToolTip="{Binding FavoriteTip}" MouseLeftButtonUp="OnFavoriteClick"
+        <controls:PressableBorder Background="Transparent" Cursor="Hand" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="2"
+                ToolTip="{Binding FavoriteTip}" MouseLeftButtonUp="OnFavoriteClick" Invoked="OnFavoriteInvoked"
+                AutomationProperties.AutomationId="ItemListFavorite"
                 Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+            <AutomationProperties.Name>
+                <MultiBinding StringFormat="{}{0}を{1}">
+                    <Binding Path="Name" />
+                    <Binding Path="FavoriteTip" />
+                </MultiBinding>
+            </AutomationProperties.Name>
             <TextBlock Text="{Binding FavoriteGlyph}" FontSize="15">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
@@ -688,7 +728,7 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
-        </Border>
+        </controls:PressableBorder>
         </Border>
     </DataTemplate>
 
@@ -725,7 +765,8 @@
                 </Border>
                 <Button Style="{StaticResource UpdateBadgeButton}" Margin="0,1,4,1"
                         Command="{Binding ShowUpdateCommand}"
-                        AutomationProperties.Name="更新あり"
+                        AutomationProperties.AutomationId="ItemListUpdate"
+                        AutomationProperties.Name="{Binding Name, StringFormat={}{0}に更新あり}"
                         ToolTip="要確認に更新の知らせがあります。押すとその知らせを開きます。"
                         Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"

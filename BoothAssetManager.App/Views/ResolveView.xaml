@@ -31,7 +31,8 @@
         -->
         <DataTemplate x:Key="RegisteringStrip" DataType="{x:Type vm:ResolveViewModel}">
             <StackPanel Margin="0,10,0,0">
-                <TextBlock Text="{Binding RegisteringText}" Style="{StaticResource Caption}" />
+                <TextBlock Text="{Binding RegisteringText}" Style="{StaticResource Caption}"
+                           AutomationProperties.AutomationId="ResolveRegisteringText" />
                 <ProgressBar Height="5" Margin="0,6,0,0" Minimum="0"
                              Maximum="{Binding RegisteringTotal, Mode=OneWay}"
                              Value="{Binding RegisteringDone, Mode=OneWay}"
@@ -208,7 +209,14 @@
                              BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                             VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                             VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                             AutomationProperties.Name="未確定のファイル">
+                        <!-- 行は、読み上げ・自動操作にファイル名で出す（付けないと、行の型の名前が読まれる）。見た目は既定の行のまま -->
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="AutomationProperties.Name" Value="{Binding FileName}" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
                         <!--
                             行の右クリック（ユーザ指示 2026-09-20・M2）。押した行を選んでから出すので（下の OnFileRowRightClick）、
                             右の詳細と同じ物に効く。中身は右の操作と同じ命令
@@ -216,14 +224,17 @@
                         <ListBox.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="エクスプローラで開く"
+                                          AutomationProperties.AutomationId="ResolveRowMenu.Reveal"
                                           ToolTip="このファイルの場所を開きます。"
                                           ToolTipService.ShowOnDisabled="True"
                                           Command="{Binding PlacementTarget.DataContext.RevealCommand,
                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 <MenuItem Header="ファイル名をコピー"
+                                          AutomationProperties.AutomationId="ResolveRowMenu.CopyName"
                                           Command="{Binding PlacementTarget.DataContext.CopyFileNameCommand,
                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 <MenuItem Header="管理対象から除外する"
+                                          AutomationProperties.AutomationId="ResolveRowMenu.Exclude"
                                           ToolTip="未確定の一覧から外します。設定の「隠したもの」から戻せます。"
                                           ToolTipService.ShowOnDisabled="True"
                                           Command="{Binding PlacementTarget.DataContext.ExcludeCommand,
@@ -246,7 +257,9 @@
                                                     <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Items[0].StartsExpanded, Mode=OneTime}"
                                                               Background="{DynamicResource SurfaceAlt}"
                                                               BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                                                              SnapsToDevicePixels="True" Padding="0">
+                                                              SnapsToDevicePixels="True" Padding="0"
+                                                              AutomationProperties.AutomationId="ResolveGroup"
+                                                              AutomationProperties.Name="{Binding Name}">
                                                         <Expander.Header>
                                                             <!-- 見出しは中身に合わせて縮まないので、束の幅（左の列の幅）から開け閉めの印の分を引いた幅にする。前は270で固定で、列を広げても長いパスが切れたままだった（ユーザ指示 2026-09-17） -->
                                                             <!-- 上下の 7 は、三角の型にする前（既定の型は見出しの押す所に 1px の外の余白を持っていた）と同じ高さにするため（点検 2026-09-30 の D） -->
@@ -281,8 +294,11 @@
                                                                     <TextBlock Text="{Binding ItemCount, StringFormat={}{0} 件}"
                                                                                Style="{StaticResource Mono}" FontSize="11"
                                                                                VerticalAlignment="Center" />
+                                                                    <!-- 束の数だけ並ぶので、どの束のボタンかを名前に入れる -->
                                                                     <Button Content="まとめて扱う" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="8,0,0,0"
+                                                                            AutomationProperties.AutomationId="ResolveGroupSelect"
+                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}をまとめて扱う}"
                                                                             Command="{Binding DataContext.SelectGroupCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
@@ -290,6 +306,8 @@
                                                                     <!-- 元のzipが残っているなら、中身は外してzipで登録すればよい（ユーザ判断 2026-09-17） -->
                                                                     <Button Content="元zipとして扱う" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="6,0,0,0"
+                                                                            AutomationProperties.AutomationId="ResolveGroupTreatAsOriginZip"
+                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}を元zipとして扱う}"
                                                                             Command="{Binding DataContext.TreatAsOriginZipCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
@@ -298,6 +316,8 @@
                                                                     <!-- 展開先の中身が固まって並ぶので、フォルダ単位で選べるようにする -->
                                                                     <Button Content="このフォルダを選択" Style="{StaticResource SmallButton}"
                                                                             Height="23" FontSize="10.5" Margin="8,0,0,0"
+                                                                            AutomationProperties.AutomationId="ResolveGroupSelectFolder"
+                                                                            AutomationProperties.Name="{Binding Name, StringFormat={}{0}のフォルダを選択}"
                                                                             Command="{Binding DataContext.SelectFolderCommand,
                                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding Name}"
@@ -344,6 +364,8 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              AutomationProperties.AutomationId="ResolveRowSelect"
+                                              AutomationProperties.Name="{Binding FileName, StringFormat='{}{0} を選ぶ'}"
                                               VerticalAlignment="Top" Margin="0,2,8,0" />
                                     <StackPanel Grid.Column="1">
                                         <!--
@@ -389,25 +411,30 @@
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
                                                     ToolTip="zipを開けませんでした。ダウンロードし直してください。"
                                                     Visibility="{Binding IsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}" />
+                                                <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}"
+                                                           AutomationProperties.AutomationId="ResolveRowBrokenZip" />
                                             </Border>
                                             <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
                                             <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
                                                     Visibility="{Binding HasCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                <TextBlock Text="{Binding CandidateText}" FontSize="10" Foreground="{DynamicResource Warn}"
+                                                           AutomationProperties.AutomationId="ResolveRowCandidateCount" />
                                             </Border>
                                             <!-- 展開物の中身と判断したものは一覧でも分かるようにする -->
                                             <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource BorderStrong}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
                                                     Visibility="{Binding IsArchiveContent, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                <TextBlock Text="展開" FontSize="10" Foreground="{DynamicResource TextMuted}" />
+                                                <TextBlock Text="展開" FontSize="10" Foreground="{DynamicResource TextMuted}"
+                                                           AutomationProperties.AutomationId="ResolveRowExpanded" />
                                             </Border>
                                         </WrapPanel>
                                         <!-- 1行で出ている中身にも「元zipとして扱う」（束の見出しと同じ動き） -->
                                         <Button Content="元zipとして扱う" HorizontalAlignment="Left" Height="23" FontSize="10.5" Margin="0,4,0,0"
                                                 Command="{Binding DataContext.TreatAsOriginZipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
+                                                AutomationProperties.AutomationId="ResolveRowTreatAsOriginZip"
+                                                AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を元zipとして扱う}"
                                                 ToolTip="元のzipを選びます。zipを登録すると、中身は一覧から消えます。">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
@@ -469,6 +496,7 @@
                             <Grid Margin="0,0,0,10">
                                 <TextBlock Text="このファイルについて分かっていること" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
                                 <Button Content="自動検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        AutomationProperties.AutomationId="ResolvePropose"
                                         ToolTip="このファイル名でBOOTHを検索し、下の「候補」に表示します。"
                                         Command="{Binding ProposeCommand}" />
                             </Grid>
@@ -492,19 +520,21 @@
                                     <TextBlock Text="{Binding CopyNote}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"
                                                Visibility="{Binding HasCopyNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     <Button Content="ファイル名をコピー" Style="{StaticResource SmallButton}"
+                                            AutomationProperties.AutomationId="ResolveCopyFileName"
                                             Command="{Binding CopyFileNameCommand}" />
                                     <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="7,0,0,0"
+                                            AutomationProperties.AutomationId="ResolveReveal"
                                             Command="{Binding RevealCommand}" />
                                 </StackPanel>
                             </Grid>
-                            <ItemsControl ItemsSource="{Binding SelectedPaths}" Margin="0,5,0,0">
+                            <controls:ContentItemsControl ItemsSource="{Binding SelectedPaths}" Margin="0,5,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding}" Style="{StaticResource Mono}" FontSize="11"
                                                    TextWrapping="Wrap" Margin="0,0,0,3" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
 
                             <TextBlock Text="ダウンロード元" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasZone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -595,13 +625,15 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" PreviewDragOver="OnIdBoxPreviewDragOver" PreviewDrop="OnIdBoxPreviewDrop" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="ResolveItemId" AutomationProperties.Name="商品IDかURL"
                                          Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0">
                                     <!-- Enter で「このIDで確認」まで進む（I12）。確定は押して決める（取り返しがつかないので Enter では走らせない） -->
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Enter" Command="{Binding PreviewCommand}" />
                                     </TextBox.InputBindings>
                                 </TextBox>
-                                <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}" />
+                                <Button Grid.Column="1" Content="このIDで確認" Command="{Binding PreviewCommand}"
+                                        AutomationProperties.AutomationId="ResolvePreview" />
                             </Grid>
 
                             <!-- プレビュー -->
@@ -620,13 +652,15 @@
                                                        Foreground="{DynamicResource Good}" />
                                         </Border>
                                     </StackPanel>
-                                    <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding PreviewTitle}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap"
+                                               AutomationProperties.AutomationId="ResolvePreviewTitle" />
                                     <TextBlock Text="{Binding PreviewDetail}" Style="{StaticResource Caption}"
                                                TextWrapping="Wrap" Margin="0,5,0,0" />
                                 </StackPanel>
                             </Border>
 
                             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       AutomationProperties.AutomationId="ResolveStatusText"
                                        Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <!--
@@ -643,23 +677,27 @@
                                         <Run Text="名前：" /><Run Text="{Binding UnpublishedNameDraft, Mode=OneWay}" />
                                     </TextBlock>
                                     <Button Content="{Binding UnpublishedButtonText}" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            AutomationProperties.AutomationId="ResolveAssignUnpublished"
                                             Command="{Binding AssignUnpublishedCommand}" />
                                 </StackPanel>
                             </Border>
 
                             <!-- 押したら何が起きるかを、ボタンのすぐ上に必ず出す -->
                             <TextBlock Text="{Binding AssignOutcomeText}" Style="{StaticResource Caption}"
+                                       AutomationProperties.AutomationId="ResolveAssignOutcomeText"
                                        TextWrapping="Wrap" Margin="0,14,0,0"
                                        Visibility="{Binding HasAssignOutcome, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
                                 <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
+                                        AutomationProperties.AutomationId="ResolveAssign"
                                         Command="{Binding AssignCommand}" />
                             </StackPanel>
                             <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                             Visibility="{Binding IsRegisteringInDecision, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             <!-- 例外（1つのzipに複数の商品が入っているなど）のために、zipの単位にしない。選び直すと切れる（ユーザ判断 2026-09-17） -->
                             <CheckBox Content="このファイルだけを扱う" Margin="0,9,0,0" IsChecked="{Binding SingleFileOnly, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="ResolveSingleFileOnly"
                                       ToolTip="1つのzipに複数の商品があるときに使います。オフならzipごと登録します。"
                                       Visibility="{Binding CanChooseSingleFile, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
@@ -673,8 +711,10 @@
                                 <StackPanel>
                                     <TextBlock Text="{Binding CheckedText}" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AccentText}" />
                                     <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}" />
+                                        <Button Content="{Binding AssignCheckedText}" Command="{Binding AssignCheckedCommand}"
+                                                AutomationProperties.AutomationId="ResolveAssignChecked" />
                                         <Button Content="{Binding ExcludeCheckedText}" Margin="9,0,0,0"
+                                                AutomationProperties.AutomationId="ResolveExcludeChecked"
                                                 Command="{Binding ExcludeCheckedCommand}" />
                                     </StackPanel>
                                     <TextBlock Text="まとめて確定するには、先に上で商品IDを確認してください。"
@@ -691,6 +731,7 @@
                             <Grid Margin="0,0,0,10">
                                 <TextBlock Text="候補" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
                                 <Button Content="ブラウザで検索" Style="{StaticResource SmallButton}" HorizontalAlignment="Right"
+                                        AutomationProperties.AutomationId="ResolveSearchInBrowser"
                                         ToolTip="このファイル名でBOOTHを検索します。アプリの外へ出ます。"
                                         Command="{Binding OpenBoothCommand}" />
                             </Grid>
@@ -704,7 +745,8 @@
                             -->
                             <StackPanel Margin="0,0,0,12"
                                         Visibility="{Binding IsSearching, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <TextBlock Text="{Binding SearchProgressText}" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding SearchProgressText}" Style="{StaticResource Caption}"
+                                           AutomationProperties.AutomationId="ResolveSearchProgressText" />
                                 <!-- 件数が分かる段階だけ実際の進み具合を出し、それ以外は動いていることだけ示す -->
                                 <ProgressBar Height="5" Margin="0,6,0,0" Minimum="0"
                                              Maximum="{Binding SearchTotal, Mode=OneWay}"
@@ -713,25 +755,32 @@
                                              Foreground="{DynamicResource Accent}" Background="{DynamicResource BarTrack}" BorderThickness="0" />
                             </StackPanel>
 
-                            <ItemsControl ItemsSource="{Binding Candidates}">
+                            <controls:ContentItemsControl ItemsSource="{Binding Candidates}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
                                                 Padding="12,10" Margin="0,0,0,7">
                                             <Grid>
                                                 <StackPanel Margin="0,0,200,0">
-                                                    <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Title}" FontSize="12.5" TextWrapping="Wrap"
+                                                               AutomationProperties.AutomationId="ResolveCandidateTitle" />
                                                     <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
                                                                TextWrapping="Wrap" Margin="0,3,0,0" />
-                                                    <TextBlock Text="{Binding Source}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                                    <TextBlock Text="{Binding Source}" Style="{StaticResource Caption}" Margin="0,3,0,0"
+                                                               AutomationProperties.AutomationId="ResolveCandidateSource" />
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <!-- 候補を出す以上、それが目当てのものか確かめる手段が要る。BOOTHに無い商品（仮のID）には開くページが無いので出さない -->
+                                                    <!-- 候補の数だけ並ぶので、どの候補のボタンかを名前に入れる -->
                                                     <Button Content="BOOTHで開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
+                                                            AutomationProperties.AutomationId="ResolveCandidateOpenBooth"
+                                                            AutomationProperties.Name="{Binding Title, StringFormat={}{0}をBOOTHで開く}"
                                                             ToolTip="この候補の商品ページをブラウザで開きます。アプリの外へ出ます。"
                                                             Visibility="{Binding HasBoothPage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                                             Command="{Binding OpenBoothCommand}" />
                                                     <Button Content="これで確認" Style="{StaticResource SmallButton}"
+                                                            AutomationProperties.AutomationId="ResolveCandidateUse"
+                                                            AutomationProperties.Name="{Binding Title, StringFormat={}{0}で確認}"
                                                             Command="{Binding DataContext.UseCandidateCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}" />
@@ -740,9 +789,9 @@
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            </controls:ContentItemsControl>
 
-                            <TextBlock Text="{Binding CandidatesEmptyText}" TextWrapping="Wrap">
+                            <TextBlock Text="{Binding CandidatesEmptyText}" TextWrapping="Wrap" AutomationProperties.AutomationId="ResolveCandidatesEmptyText">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -787,6 +836,7 @@
                                     <TextBlock Text="{Binding RegisterTargetSummary}" Style="{StaticResource Mono}" FontSize="11"
                                                TextWrapping="Wrap" Margin="0,6,0,0" />
                                     <Button Content="{Binding RegisterFolderText}" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            AutomationProperties.AutomationId="ResolveRegisterFolder"
                                             Command="{Binding RegisterFolderOfCommand}" CommandParameter="{Binding Selected.GroupKey}"
                                             ToolTip="先に商品IDを決めてください。フォルダを移動したら登録し直してください。" />
                                     <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
@@ -809,6 +859,7 @@
                                                Text="非公開・削除済みで商品IDが分からないもの。名前を付けて手元の商品として登録します。" />
 
                                     <TextBox Margin="0,10,0,0"
+                                             AutomationProperties.AutomationId="ResolveLocalName" AutomationProperties.Name="登録する名前"
                                              Text="{Binding LocalNameInput, UpdateSourceTrigger=PropertyChanged}" />
 
                                     <!--
@@ -819,7 +870,7 @@
                                     <StackPanel Margin="0,8,0,0"
                                                 Visibility="{Binding HasLocalNameSuggestions, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="手元の記録にあった名前。押すと入力欄に入ります。" Style="{StaticResource Caption}" />
-                                        <ItemsControl ItemsSource="{Binding LocalNameSuggestions}" Margin="0,5,0,0">
+                                        <controls:ContentItemsControl ItemsSource="{Binding LocalNameSuggestions}" Margin="0,5,0,0">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <WrapPanel />
@@ -833,7 +884,7 @@
                                                             CommandParameter="{Binding}" />
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                        </controls:ContentItemsControl>
                                     </StackPanel>
 
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0">
@@ -851,7 +902,8 @@
                                         登録の後に足すのは商品ページの「＋」
                                     -->
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                        <Button Content="この名前で登録する" Command="{Binding RegisterLocalCommand}" />
+                                        <Button Content="この名前で登録する" Command="{Binding RegisterLocalCommand}"
+                                                AutomationProperties.AutomationId="ResolveRegisterLocal" />
                                         <Button Content="画像を選ぶ" Margin="7,0,0,0"
                                                 ToolTip="登録と一緒に追加する画像を選びます。この枠にドロップしても追加できます。"
                                                 Command="{Binding ChooseLocalImagesCommand}" />
@@ -859,12 +911,14 @@
                                     <StackPanel Margin="0,8,0,0"
                                                 Visibility="{Binding HasLocalImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <TextBlock Text="{Binding LocalImagesText}" Style="{StaticResource Caption}" />
-                                        <ItemsControl ItemsSource="{Binding LocalImages}" Margin="0,4,0,0">
+                                        <controls:ContentItemsControl ItemsSource="{Binding LocalImages}" Margin="0,4,0,0">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <DockPanel Margin="0,0,0,2">
                                                         <Button DockPanel.Dock="Right" Style="{StaticResource ClearFieldButton}"
                                                                 ToolTip="この画像を外します。"
+                                                                AutomationProperties.AutomationId="ResolveLocalImageRemove"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
                                                                 Command="{Binding DataContext.RemoveLocalImageCommand,
                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}" />
@@ -873,7 +927,7 @@
                                                     </DockPanel>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                        </controls:ContentItemsControl>
                                     </StackPanel>
                                     <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"
                                                     Visibility="{Binding IsRegisteringLocal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -890,6 +944,7 @@
                                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
                                                Text="管理しないファイルを一覧から外します。ファイル自体は消しません。設定の「隠したもの」から戻せます。" />
                                     <Button Content="管理対象から除外する" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            AutomationProperties.AutomationId="ResolveExclude"
                                             Command="{Binding ExcludeCommand}" />
                                 </StackPanel>
                             </Border>

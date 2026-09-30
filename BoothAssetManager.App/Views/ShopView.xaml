@@ -241,7 +241,7 @@
             </StackPanel>
 
             <!-- リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える） -->
-            <ListView x:Name="ItemList" ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
+            <controls:ItemListView x:Name="ItemList" ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
                       ItemContainerStyle="{StaticResource ItemListRowStyle}"
                       BorderThickness="0" Background="Transparent" Margin="24,10,24,18"
                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -277,13 +277,13 @@
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
+                        <controls:ContentItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ItemCardTemplate}" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        </controls:ContentItemsControl>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

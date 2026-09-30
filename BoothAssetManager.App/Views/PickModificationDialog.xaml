@@ -29,7 +29,7 @@
 
             <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
                     Margin="20,8,0,0" Padding="4,2">
-                <ItemsControl ItemsSource="{Binding Rows}" MaxHeight="200">
+                <controls:ContentItemsControl ItemsSource="{Binding Rows}" MaxHeight="200">
                     <ItemsControl.Template>
                         <ControlTemplate TargetType="ItemsControl">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
@@ -64,7 +64,7 @@
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                </controls:ContentItemsControl>
             </Border>
         </StackPanel>
 
@@ -92,7 +92,8 @@
 
                 <TextBlock Text="改変の名前" Style="{StaticResource SectionLabel}" Margin="0,12,0,6" />
                 <TextBox Height="28" Padding="8,0" VerticalContentAlignment="Center"
-                         Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="改変の名前"
+                             Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="「普段着」「制服」のような呼び分けです。" />
             </StackPanel>
         </Border>

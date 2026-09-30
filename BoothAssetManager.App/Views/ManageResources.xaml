@@ -87,7 +87,13 @@
                             BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
                     <DockPanel>
+                        <!--
+                            見出しの押す所は、Expander に付けた名前を継ぐ。見出しが文字の並びや札のとき、
+                            継がないと名前の無いボタンになる（読み上げ・自動操作でどの欄の開け閉めか分からない）。
+                            Expander に名前が無ければ空が渡り、見出しの文字がそのまま名前になる
+                        -->
                         <ToggleButton DockPanel.Dock="Top" Cursor="Hand"
+                                      AutomationProperties.Name="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
@@ -206,7 +212,10 @@
         属性では値の札を名前の右に出す（どのくらいと評価したかが、並びの理由なので）
     -->
     <DataTemplate x:Key="ManageItemTemplate" DataType="{x:Type vm:TagItemRow}">
+        <!-- 中身が絵と文字の並びなので、ボタンに名前が付かなかった。商品名を名前にする -->
         <Button Style="{StaticResource TagItemLink}" Margin="0,0,10,8"
+                AutomationProperties.AutomationId="ManageItemOpen"
+                AutomationProperties.Name="{Binding Name}"
                 Command="{Binding OpenCommand}"
                 ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Left">
             <Button.ToolTip>
