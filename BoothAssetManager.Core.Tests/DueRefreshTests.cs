@@ -156,7 +156,7 @@ public class DueRefreshTests : IDisposable
         public Task UndoExcludeAsync(IReadOnlyList<UnresolvedFile> files, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task ExcludeAsync(string hash, IReadOnlyList<string> paths, string? reason, CancellationToken cancellationToken = default)
+        public Task ExcludeAsync(IReadOnlyList<UnresolvedFile> files, string? reason, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }
 

@@ -404,12 +404,12 @@ public sealed class UnresolvedOffThreadTests : IDisposable
         await _store.Unresolved.SaveAsync([kept, gone]);
         var before = _store.Unresolved.WriteCount;
 
-        await _service.ExcludeAsync(Unresolved("elsewhere.bin").Hash, [Path.Combine(_root, "files", "elsewhere.bin")], reason: null);
+        await _service.ExcludeAsync([Unresolved("elsewhere.bin")], reason: null);
 
         Assert.Equal(before, _store.Unresolved.WriteCount);
         Assert.Equal(Hashes([kept, gone]), Hashes(_store.Unresolved.Load()));
 
-        await _service.ExcludeAsync(gone.Hash, gone.Paths, reason: null);
+        await _service.ExcludeAsync([gone], reason: null);
 
         Assert.NotEqual(before, _store.Unresolved.WriteCount);
         Assert.Equal(kept.Hash, Assert.Single(_store.Unresolved.Load()).Hash);

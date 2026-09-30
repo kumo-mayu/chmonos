@@ -193,8 +193,12 @@ public abstract record UiCommand
     /// </summary>
     public record RegisterItem(string ItemId) : UiCommand;
 
-    /// <summary>ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。</summary>
-    public record ExcludeFile(string Hash, IReadOnlyList<string> Paths, string? Reason = null) : UiCommand;
+    /// <summary>
+    /// ファイルを管理対象から外す。再スキャンで未確定に出てこなくなる。1個でもまとめてでもこれ1本で、記録は1回で書く
+    /// （1個ずつ命令を呼ぶと、フォルダごと外したときに 5,000 個で2分半かかっていた）。
+    /// 戻すときは同じ一覧を <see cref="UndoExclude"/> に渡す。
+    /// </summary>
+    public record ExcludeFiles(IReadOnlyList<Models.UnresolvedFile> Files, string? Reason = null) : UiCommand;
 
     /// <summary>外した直後に戻す。除外の記録を消し、外す前の未確定の記録を戻す。</summary>
     public record UndoExclude(IReadOnlyList<Models.UnresolvedFile> Files) : UiCommand;

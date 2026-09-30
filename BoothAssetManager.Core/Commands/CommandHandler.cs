@@ -445,8 +445,8 @@ public sealed class CommandHandler
                     _ => new CommandResult.Failed("不明な結果です。"),
                 };
 
-            case UiCommand.ExcludeFile exclude:
-                await _items.ExcludeAsync(exclude.Hash, exclude.Paths, exclude.Reason, cancellationToken);
+            case UiCommand.ExcludeFiles exclude:
+                await _items.ExcludeAsync(exclude.Files, exclude.Reason, cancellationToken);
                 return new CommandResult.Done();
 
             case UiCommand.UndoExclude undo:
