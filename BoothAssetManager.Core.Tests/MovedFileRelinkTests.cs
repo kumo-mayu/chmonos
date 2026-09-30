@@ -217,6 +217,113 @@ public sealed class MovedFileRelinkTests : IDisposable
         Assert.Equal([moved], (await FileOfAsync("local-aaaa0002", hash)).Paths);
     }
 
+    /// <summary>取得済みの商品（説明も置いてあるので②にも行かない）。</summary>
+    private async Task SaveFetchedItemAsync(string itemId, params LocalFileRecord[] files)
+    {
+        await _store.Items.SaveAsync(new ItemRecord { Id = itemId, Local = new LocalBlock { LocalFiles = [.. files] } });
+        await File.WriteAllTextAsync(_store.Paths.ItemHtmlFile(itemId), "");
+    }
+
+    /// <summary>
+    /// 手掛かりで片方の商品に決まっても、同じ中身を手で結んだもう一方の商品にも新しい場所を足す（ユーザ判断 2026-09-30）。
+    /// 前は決まった商品にだけ足し、もう一方は古い場所のまま「見つかりません」になっていた。
+    /// </summary>
+    [Fact]
+    public async Task 手掛かりで片方に決まっても_同じ中身を持つほかの商品へ新しい場所を足す()
+    {
+        var before = Folder("before");
+        var after = Folder("after");
+        var original = ZipWithItemUrl(before, "outfit.zip");
+        var hash = await FileHasher.ComputeSha256Async(original, CancellationToken.None);
+
+        await SaveFetchedItemAsync(BoothItemId, new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1 });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-aaaa0001",
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1 }] },
+        });
+
+        var moved = Move(original, after);
+        await _pipeline.RunAsync(new ImportWorkSet([after]));
+
+        Assert.Equal([moved], (await FileOfAsync(BoothItemId, hash)).Paths);
+        Assert.Equal([moved], (await FileOfAsync("local-aaaa0001", hash)).Paths);
+        Assert.Empty(_store.Unresolved.Load());
+    }
+
+    /// <summary>手掛かりの商品がまだそのファイルを持っていなくても（後から手掛かりが効いた）、持っている商品の場所は新しくする。</summary>
+    [Fact]
+    public async Task 手掛かりの商品が持っていなくても_持っているほかの商品へ新しい場所を足す()
+    {
+        var before = Folder("before");
+        var after = Folder("after");
+        var original = ZipWithItemUrl(before, "outfit.zip");
+        var hash = await FileHasher.ComputeSha256Async(original, CancellationToken.None);
+
+        await SaveFetchedItemAsync(BoothItemId);
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-aaaa0001",
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1 }] },
+        });
+
+        var moved = Move(original, after);
+        await _pipeline.RunAsync(new ImportWorkSet([after]));
+
+        Assert.Equal([moved], (await FileOfAsync(BoothItemId, hash)).Paths);
+        Assert.Equal([moved], (await FileOfAsync("local-aaaa0001", hash)).Paths);
+    }
+
+    [Fact]
+    public async Task 手掛かりで片方に決まっても_外した印の商品には足さない()
+    {
+        var before = Folder("before");
+        var after = Folder("after");
+        var original = ZipWithItemUrl(before, "outfit.zip");
+        var hash = await FileHasher.ComputeSha256Async(original, CancellationToken.None);
+
+        await SaveFetchedItemAsync(BoothItemId, new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1 });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-aaaa0001",
+            Local = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1, Detached = true }],
+            },
+        });
+
+        var moved = Move(original, after);
+        await _pipeline.RunAsync(new ImportWorkSet([after]));
+
+        Assert.Equal([moved], (await FileOfAsync(BoothItemId, hash)).Paths);
+        var detached = await FileOfAsync("local-aaaa0001", hash);
+        Assert.True(detached.Detached);
+        Assert.Equal([original], detached.Paths);
+    }
+
+    [Fact]
+    public async Task 手掛かりで片方に決まっても_管理から外した中身はどの商品にも足さない()
+    {
+        var before = Folder("before");
+        var after = Folder("after");
+        var original = ZipWithItemUrl(before, "outfit.zip");
+        var hash = await FileHasher.ComputeSha256Async(original, CancellationToken.None);
+
+        await SaveFetchedItemAsync(BoothItemId, new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1 });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "local-aaaa0001",
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Hash = hash, Paths = [original], SizeBytes = 1 }] },
+        });
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = hash, Paths = [original], ExcludedAt = DateTimeOffset.UnixEpoch }]);
+
+        Move(original, after);
+        await _pipeline.RunAsync(new ImportWorkSet([after]));
+
+        Assert.Equal([original], (await FileOfAsync(BoothItemId, hash)).Paths);
+        Assert.Equal([original], (await FileOfAsync("local-aaaa0001", hash)).Paths);
+    }
+
     [Fact]
     public async Task 管理から外した中身は_移しても商品に足さない()
     {
