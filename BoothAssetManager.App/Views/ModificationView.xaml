@@ -143,9 +143,14 @@
                     -->
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="20,18">
                         <StackPanel>
-                            <Grid Margin="0,0,0,4">
+                            <!--
+                                見出し（左）と切り替え・送るボタン（右）。**入り切らなければ右を次の段へ送る**（検索の結果の帯と同じ部品）。
+                                前は右寄せで重ねて置いていたので、左の列が狭いと切り替えが見出しの上に乗り、送るボタンが右で切れた
+                                （改変の画面に組み込んだ幅 900 の窓。ユーザ判断 2026-09-30）。右の塊は、それでも入らない幅では中で折り返す
+                            -->
+                            <controls:SplitRowPanel Margin="0,0,0,4" Gap="12">
                                 <TextBlock Text="使ったもの" FontWeight="Bold" VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <!-- カード／リストの切り替え（検索と同じ部品。どちらで出すかはこの画面で覚える） -->
                                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
                                                     Margin="0,0,10,0" VerticalAlignment="Center"
@@ -158,8 +163,8 @@
                                             VerticalAlignment="Center"
                                             Command="{Binding SendAllToUnityCommand}"
                                             ToolTip="上から順に1件ずつ、Unityの取り込み画面を表示します。" />
-                                </StackPanel>
-                            </Grid>
+                                </WrapPanel>
+                            </controls:SplitRowPanel>
                             <!-- 送っている間だけ「中止」を添える（E7）。いちばん長い待ちは取り込み画面を見ている時間 -->
                             <DockPanel Margin="0,2,0,6"
                                        Visibility="{Binding HasUnityQueueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

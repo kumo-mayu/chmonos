@@ -867,6 +867,7 @@
         <ContentControl Grid.Column="1" Content="{Binding Detail}" Focusable="False" />
         <TextBlock Grid.Column="1" Text="左の一覧から、プロジェクト・アバター・改変・使ったものを押すと、ここに表示されます。"
                    Style="{StaticResource Caption}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextWrapping="Wrap" TextAlignment="Center" Margin="24,0"
                    Visibility="{Binding HasDetail, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
     </controls:PaneGrid>
 </UserControl>
