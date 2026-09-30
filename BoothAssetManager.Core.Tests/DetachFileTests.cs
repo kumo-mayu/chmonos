@@ -113,6 +113,37 @@ public class DetachFileTests : IDisposable
     }
 
     /// <summary>
+    /// 外して未確定へ戻すとき、ダウンロード元の記録をそのファイルから読んで入れる（ユーザ判断 2026-09-30）。
+    /// 未確定の画面は開くたびには読み直さないので、入れないと展開した中身が元zipの束に入らない。
+    /// </summary>
+    [Fact]
+    public async Task PutsTheDownloadRecordOnTheUnresolvedEntry()
+    {
+        await SaveItemAsync("111", fileCount: 2);
+        File.WriteAllText(
+            _file + ":Zone.Identifier",
+            "[ZoneTransfer]\r\nZoneId=3\r\nReferrerUrl=D:\\落とした物\\まとめ_1.00.zip\r\nHostUrl=https://example.invalid/file\r\n");
+
+        await _service.DetachFileAsync("111", Hash, deleteItemWhenEmpty: false);
+
+        var entry = Assert.Single(_store.Unresolved.Load(), file => file.Hash == Hash);
+        Assert.Equal("D:\\落とした物\\まとめ_1.00.zip", entry.ZoneReferrerUrl);
+        Assert.Equal("https://example.invalid/file", entry.ZoneHostUrl);
+    }
+
+    /// <summary>記録の無いファイルは、値なしで未確定へ戻る（読めないことで外す操作を止めない）。</summary>
+    [Fact]
+    public async Task LeavesTheDownloadRecordEmptyWhenTheFileHasNone()
+    {
+        await SaveItemAsync("111", fileCount: 2);
+
+        await _service.DetachFileAsync("111", Hash, deleteItemWhenEmpty: false);
+
+        var entry = Assert.Single(_store.Unresolved.Load(), file => file.Hash == Hash);
+        Assert.Null(entry.ZoneReferrerUrl);
+    }
+
+    /// <summary>
     /// 外しただけでは次の取り込みで戻ってしまう。手掛かりから商品IDが1つに決まるファイルは、
     /// 取り込みのたびに同じ商品へ自動で紐付くため。取り込みは印からそれを知る。
     /// </summary>

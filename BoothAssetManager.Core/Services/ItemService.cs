@@ -1781,6 +1781,12 @@ public sealed class ItemService : IItemService
                 // 日時が読めなくても未確定には出したいので、今の時刻で通す
             }
 
+            // ダウンロード元の記録（Zone.Identifier）は、未確定の記録を作るここで読む（ユーザ判断 2026-09-30）。
+            // 商品の記録は持っておらず、未確定の画面は開くたびには読み直さない（UnresolvedOrigin）。
+            // 入れないと、展開した中身は次に取り込み直すまで元zipの束に入らず、フォルダで束ねられる。
+            // 人の操作1回につき1ファイルで、読めなければ無いものとして返る
+            var zone = BoothZipInspector.ZoneIdentifierReader.Read(alive[0]);
+
             var entry = new UnresolvedFile
             {
                 Hash = target.Hash,
@@ -1789,6 +1795,8 @@ public sealed class ItemService : IItemService
                 ModifiedAtUtc = modified,
                 FirstSeenAt = DateTimeOffset.Now,
                 Contents = target.Contents,
+                ZoneHostUrl = zone.HostUrl,
+                ZoneReferrerUrl = zone.ReferrerUrl,
 
                 // 開けなかった印は商品の記録から引き継ぐ。未確定の画面は開き直して確かめないので、
                 // ここで落とすと次の取り込みまで普通の未確定に見える
