@@ -32,6 +32,66 @@ public static class FocusWalk
         // カードの一覧は、読み上げ・自動操作に段を出さない部品へ替えた（2026-09-30）。キーボードの動きが前の作りと同じことを、並べて見る
         Walk("カードの一覧（前の作り：ListBox と ContentItemsControl）", CardList("ListBox", "controls:ContentItemsControl"), stops: 5, enterAt: ["ItemCard"], arrows: true);
         Walk("カードの一覧（今の作り：CardRowsListBox と CardRowItems）", CardList("controls:CardRowsListBox", "controls:CardRowItems"), stops: 5, enterAt: ["ItemCard"], arrows: true);
+
+        // 設定の除外したファイルは、見える分だけ行を作る一覧にした（2026-10-01）。作られていない行へも Tab で進めるか（流れて次の行ができるか）。
+        // 画面の上の欄から数えると長いので、欄の三角から始める
+        Walk("設定の除外したファイル（見える分だけ作る一覧・40行）", SettingsExcluded(rows: 40), stops: 44, enterAt: ["Settings.ExcludedRestore"],
+            start: root => FindById(root, "Settings.ExcludedExpander") is { } expander ? FindChild<BoothAssetManager.App.Controls.ExpandToggle>(expander) : null);
+    }
+
+    private static FrameworkElement SettingsExcluded(int rows)
+    {
+        IDictionary<string, object?> data = new ExpandoObject();
+        data["HasExcluded"] = true;
+        data["IsExcludedExpanded"] = true;
+        data["ExcludedText"] = $"{rows} 件";
+        data["HiddenText"] = "0 件";
+        data["Excluded"] = new ObservableCollection<object>(Enumerable.Range(0, rows).Select(index =>
+        {
+            var row = (IDictionary<string, object?>)Row($"作り物_{index:00}", ("RestoreCommand", $"作り物_{index:00}の除外を解除"));
+            row["Label"] = $@"D:\作り物\file_{index:00}.png";
+            row["SubText"] = string.Empty;
+            return (object)row;
+        }));
+        return new SettingsView { DataContext = data, Width = 900, Height = 700 };
+    }
+
+    private static FrameworkElement? FindById(DependencyObject root, string id)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is FrameworkElement element && AutomationProperties.GetAutomationId(element) == id)
+            {
+                return element;
+            }
+
+            if (FindById(child, id) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private static T? FindChild<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            if (FindChild<T>(child) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>検索・ショップ・フォルダの右と同じ形のカードの一覧（2段・2枚ずつ）。一覧と段の部品の型だけを替えて組む。</summary>
@@ -156,7 +216,9 @@ public static class FocusWalk
         Console.WriteLine($"      {key} → {(Keyboard.FocusedElement is FrameworkElement now ? Describe(now) : "止まり先が無い")}");
     }
 
-    private static void Walk(string title, FrameworkElement root, int stops, string[] enterAt, bool arrows = false)
+    private static void Walk(
+        string title, FrameworkElement root, int stops, string[] enterAt, bool arrows = false,
+        Func<FrameworkElement, FrameworkElement?>? start = null)
     {
         Console.WriteLine($"==== {title}");
         var parameters = new HwndSourceParameters("PeerProbe", 900, 700)
@@ -173,7 +235,14 @@ public static class FocusWalk
         // このスレッドの中でのフォーカスを見えない窓へ移す（ほかのアプリの前面の窓は変わらない）
         SetFocus(source.Handle);
         root.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-        root.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+        if (start?.Invoke(root) is { } startAt)
+        {
+            startAt.Focus();
+        }
+        else
+        {
+            root.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+        }
 
         // カードの矢印：右・下・左・上と送って、一回りして最初のカードへ戻るか
         if (arrows)
