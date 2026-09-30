@@ -113,6 +113,25 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
         }),
 
+        new Scene("folder-item-long", "フォルダビューに組み込んだ商品ページ：説明の長い商品を選んだ所", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenFolderItemAsync(context, item.Id);
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
+        }),
+
+        // 上の folder-item-long と同じ絵になるはず（選び直したら先頭へ戻り、説明は最後まで出揃う）。2枚を diff で比べる
+        new Scene("folder-item-reselect-long", "フォルダビューに組み込んだ商品ページ：短い商品を最後まで流してから、説明の長い商品を選び直した所", async context =>
+        {
+            var (item, other) = await SeedLongItemAsync(context);
+            var root = await OpenFolderItemAsync(context, other.Id);
+            await ScrollBodyAsync(context, root, double.PositiveInfinity);
+
+            SelectFolderItem(context.Screen<FolderViewModel>(), item.Id);
+            await context.SettleAsync();
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
+        }),
+
         new Scene("modification-item-long-end", "改変の画面に組み込んだ商品ページ：説明の長い商品を選び、最後まで流した所", async context =>
         {
             var (item, _) = await SeedLongItemAsync(context);
