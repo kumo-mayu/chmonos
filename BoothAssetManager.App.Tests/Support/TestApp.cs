@@ -231,6 +231,11 @@ internal sealed class TestApp
     {
         var root = Path.Combine(RunRoot, Interlocked.Increment(ref s_count).ToString("000"));
         Directory.CreateDirectory(root);
+
+        // 保存先は引数で渡しているが、画面の側には保存先の出どころを自分で聞く所がある（設定の画面など）。
+        // 環境変数にも入れておくと、そこが本番の location.json を読みに行かない（指定が無いと StoreLocation が例外で止める）。
+        // 試験は並べて走らせないので、プロセスに1つの環境変数で足りる
+        Environment.SetEnvironmentVariable(AppPaths.RootVariable, root);
         return root;
     }
 

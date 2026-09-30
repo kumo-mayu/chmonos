@@ -42,6 +42,8 @@ App・Core のコードを触るときは、画面と文言の決め事（`.clau
 - 確かめの起動は必ず `ui-check` スキルの `Start-ChmonosApp -Store <写し>`（`CHMONOS_HOME` を付け、本番と friendtest では起動を断る）。
   写しの一覧と、画面ごとにどれを使うかは `.claude/skills/ui-check/sandboxes.md`
 - 確かめが終わったら `Test-ProductionUntouched` で、本番の `settings.json` の更新日時と `items/*.json` の件数が変わっていないことを確かめ、報告に書く
+- アプリの一式（`AppServiceContainer`・`MainViewModel`）を組む試験・道具は、保存先を必ず指定する（`CHMONOS_HOME`）。指定が無いと `StoreLocation.Resolve` が例外で止める
+  （2026-09-30：道具の作りかけの版が指定なしで組み、友人の写しを開いて BOOTH へ取り直しに行った）。`Test-ProductionUntouched` は `location.json` が指す先までは見ないので、その先の更新日時も見る
 
 ### 4. 友人のデータは第三者のもの
 
