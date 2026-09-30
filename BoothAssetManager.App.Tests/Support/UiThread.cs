@@ -101,7 +101,27 @@ internal static class UiThread
     });
 
     /// <summary>
-    /// 投げっぱなしの仕事（読み込み・保存）が済むのを待つ。画面のスレッドを空けながら、条件が成り立つまで回る。
+    /// 投げっぱなしの仕事（<c>Forget()</c> で投げた読み込み・保存）が全部済むまで待つ。画面のスレッドで呼ぶ。
+    ///
+    /// 仕事が済んだ後、結果を画面のスレッドへ運ぶ分（<c>BeginInvoke</c>）が列に残っていることがあるので、
+    /// 列が空くまで待ってから、その間に新しく投げられていないかをもう一度見る。
+    /// **待ってから書く物（0.5秒後に書く検索の条件など）は数に入らない**——それを確かめる試験は、条件を名指しして <see cref="Until"/> で待つ
+    /// </summary>
+    public static async Task Settle()
+    {
+        while (true)
+        {
+            await Until(() => FireAndForget.Pending == 0, "投げっぱなしの仕事が済む");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if (FireAndForget.Pending == 0)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 名指しした条件が成り立つまで待つ。画面のスレッドを空けながら回る。
     /// 時間で結果が変わる試験にしないよう、**待つのは「済んだか」だけ**にする（何秒で済むかは確かめない）。
     /// 10秒は「来ない」と決める長さで、普通は数十ミリ秒で抜ける
     /// </summary>

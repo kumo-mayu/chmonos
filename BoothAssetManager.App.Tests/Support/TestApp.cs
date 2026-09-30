@@ -13,7 +13,7 @@ namespace BoothAssetManager.App.Tests.Support;
 /// 試験の中のアプリ1つ分。一時フォルダの保存先と、通信しない作り物の BOOTH で、アプリと同じ組み立て
 /// （<see cref="AppServiceContainer"/> と <see cref="MainViewModel"/>）を作る。窓は作らない。
 ///
-/// 使い方は <see cref="Run"/> の1つ：中身は画面のスレッドで走り、終わったら止めて一時フォルダを消す。
+/// 使い方は <see cref="Run"/> の1つ：中身は画面のスレッドで走り、終わったら裏の作業を止める（一時フォルダは一式の終わりに消す）。
 /// <code>
 /// [Fact]
 /// public Task 何々() => TestApp.Run(async app =>
@@ -33,10 +33,14 @@ internal sealed class TestApp
         Root = root;
         Booth = new FakeBooth();
 
+        var paths = new AppPaths(Path.Combine(root, "store"));
+        paths.EnsureCreated();
+        SeedKanjiCache(paths);
+
         // 待たない：相手が作り物なので、1.5秒ずつ空ける意味が無い（空けると一式が分単位になる）。
         // 一時展開の掃除はしない：場所が利用者の一時フォルダで、隣で動いているアプリの分まで消す
         Services = new AppServiceContainer(
-            new AppPaths(Path.Combine(root, "store")),
+            paths,
             Booth,
             (_, _) => Task.CompletedTask,
             cleanUpTemporaryUnpacks: false)
@@ -95,14 +99,21 @@ internal sealed class TestApp
         if (_main is null)
         {
             _main = new MainViewModel(Services);
-            await SearchSettledAsync();
+            await SettleAsync();
         }
 
         return _main;
     }
 
-    /// <summary>検索の読み込みが済むまで待つ（主画面を作った直後・読み直しを投げた後）。</summary>
-    public Task SearchSettledAsync() => UiThread.Until(() => !Main.Search.IsLoading, "検索の読み込みが済む");
+    /// <summary>
+    /// 投げっぱなしの読み込み・保存が済むまで待つ（主画面を作った直後・画面を開いた後・保存を押した後）。
+    /// 検索の読み込みも済んでいることを確かめる
+    /// </summary>
+    public async Task SettleAsync()
+    {
+        await UiThread.Settle();
+        await UiThread.Until(() => !Main.Search.IsLoading, "検索の読み込みが済む");
+    }
 
     /// <summary>設定を変える（アプリと同じ道：錠の中で今の値に当てる）。</summary>
     public Task ChangeSettingsAsync(Func<AppSettings, AppSettings> change) => Services.SettingsStore.UpdateAsync(change);
@@ -134,9 +145,7 @@ internal sealed class TestApp
     /// </summary>
     public static Task Run(Func<TestApp, Task> body) => UiThread.Run(async () =>
     {
-        var root = Path.Combine(Path.GetTempPath(), "chmonos-app-test-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        var app = new TestApp(root);
+        var app = new TestApp(NewRoot());
         Notice.Intercept = request =>
         {
             app.Notices.Add(request);
@@ -152,22 +161,102 @@ internal sealed class TestApp
         // 既定の条件そのものを確かめる試験は、null に戻してから始める（SearchDefaultsTests）
         await app.Services.SettingsStore.UpdateUiStateAsync(state => state with { SearchModules = [] });
 
+        var passed = false;
         try
         {
             await body(app);
 
+            // 中身が投げたままの仕事を、ここで済ませる。済ませずに終えると、次の試験の最中に落ちて、次の試験のログに混ざる
+            await UiThread.Settle();
             if (!app.AllowLoggedFailures && app.LoggedFailures() is { Count: > 0 } failures)
             {
                 Assert.Fail("ログに失敗が残りました：\n" + string.Join("\n", failures));
             }
+
+            passed = true;
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(passed);
         }
     });
 
-    private async Task StopAsync()
+    /// <summary>
+    /// この一式（プロセス1つ）の一時フォルダ。試験ごとの保存先はこの下に作り、**一式が終わるときにまとめて消す。**
+    ///
+    /// 試験が終わるたびに消さないのは、アプリが待ってから書く物を持つため（検索の条件は、止まってから0.5秒後に書く）。
+    /// 先に消すと、遅れて来た書き込みがフォルダを作り直して残り（2026-09-30：228件の一式で57個残った）、
+    /// 無い場所を読んだ失敗が次の試験のログに混ざる恐れもある。残しておく分は1件あたり数KB
+    /// </summary>
+    private static readonly string RunRoot = Path.Combine(
+        Path.GetTempPath(), $"chmonos-app-test-{Environment.ProcessId}");
+
+    private static int s_count;
+
+    static TestApp()
+    {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try
+            {
+                Directory.Delete(RunRoot, recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        };
+    }
+
+    private static string NewRoot()
+    {
+        var root = Path.Combine(RunRoot, Interlocked.Increment(ref s_count).ToString("000"));
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
+    /// <summary>
+    /// 漢字の読みの表の控え。最初の試験が組んだ物を、後の試験の保存先へ写す。
+    ///
+    /// 検索の読み込みは商品名の読みを作るのにこの表を使い、控えが無ければ同梱の辞書から組む。
+    /// 控えは保存先の中に置かれるので、保存先を試験ごとに作ると毎回組み直しになり、一式の時間のほとんどがこれだった
+    /// （2026-09-30 に測った：主画面を作って検索が済むまで 171〜216ms → 写した控えがあれば 20〜38ms）。
+    /// 控えは元の辞書の大きさと日時で確かめてから使われるので、写しても古い物が使われることは無い
+    /// </summary>
+    private static readonly string SharedKanjiCache = Path.Combine(RunRoot, "kanji-readings.cache");
+
+    private static void SeedKanjiCache(AppPaths paths)
+    {
+        if (File.Exists(SharedKanjiCache))
+        {
+            File.Copy(SharedKanjiCache, paths.KanjiReadingsCacheFile, overwrite: true);
+        }
+    }
+
+    /// <summary>組んだ控えを次の試験のために取っておき、保存先の中の写しは消す（約4MB。試験の数だけ残さない）。</summary>
+    private void KeepKanjiCache()
+    {
+        var built = Services.Paths.KanjiReadingsCacheFile;
+        try
+        {
+            if (!File.Exists(built))
+            {
+                return;
+            }
+
+            if (!File.Exists(SharedKanjiCache))
+            {
+                File.Copy(built, SharedKanjiCache, overwrite: true);
+            }
+
+            File.Delete(built);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 写せなくても消せなくても試験は通る（次の試験が組み直す・一式の終わりにまとめて消える）
+        }
+    }
+
+    private async Task StopAsync(bool passed)
     {
         try
         {
@@ -176,6 +265,13 @@ internal sealed class TestApp
                 main.StopBackgroundWork();
                 await main.FlushPendingWritesAsync();
             }
+
+            // 止めた・書き切ったことで投げられた分も済ませてから、通信の出口と錠を放す
+            await UiThread.Settle();
+        }
+        catch (TimeoutException) when (!passed)
+        {
+            // 中身が落ちた試験では、そちらの失敗をそのまま出す（後始末の待ちの失敗で上書きしない）
         }
         finally
         {
@@ -184,15 +280,8 @@ internal sealed class TestApp
             AppLog.Use(null);
             UnityHandoff.UsePathStore(null);
             Services.Dispose();
-
-            try
-            {
-                Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // 裏の仕事がまだ握っていることがある。一時フォルダなので残しても害は無い
-            }
+            KeepKanjiCache();
         }
     }
 }
+

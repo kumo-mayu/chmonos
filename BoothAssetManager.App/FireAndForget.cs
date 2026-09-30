@@ -15,16 +15,40 @@ namespace BoothAssetManager.App;
 /// </summary>
 public static class FireAndForget
 {
+    private static int s_pending;
+
+    /// <summary>
+    /// 投げて、まだ済んでいない作業の数。**数えるだけで、アプリの動きには使わない。**
+    /// 試験が「投げっぱなしの読み込み・保存が済んだ」を待つのに使う（2026-09-30）。待たずに試験を終えると、
+    /// 前の試験の作業が次の試験の最中に落ちて、次の試験のログに混ざった
+    /// </summary>
+    internal static int Pending => Volatile.Read(ref s_pending);
+
     public static void Forget(
         this Task task,
         [CallerMemberName] string member = "",
         [CallerFilePath] string file = "")
     {
         var where = Where(file, member);
+        Interlocked.Increment(ref s_pending);
         _ = task.ContinueWith(
-            finished => AppLog.Error(where, finished.Exception!.GetBaseException()),
+            finished =>
+            {
+                try
+                {
+                    // 取り消しは失敗として残さない（画面を離れて読み込みをやめた、など）
+                    if (finished.IsFaulted)
+                    {
+                        AppLog.Error(where, finished.Exception!.GetBaseException());
+                    }
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref s_pending);
+                }
+            },
             CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
     }
 
@@ -34,16 +58,24 @@ public static class FireAndForget
         [CallerFilePath] string file = "")
     {
         var where = Where(file, member);
+        Interlocked.Increment(ref s_pending);
         _ = task.ContinueWith(
             finished =>
             {
-                if (finished.IsFaulted)
+                try
                 {
-                    AppLog.Error(where, finished.Exception!.GetBaseException());
+                    if (finished.IsFaulted)
+                    {
+                        AppLog.Error(where, finished.Exception!.GetBaseException());
+                    }
+                    else if (finished.IsCompletedSuccessfully && finished.Result is CommandResult.Failed failed)
+                    {
+                        AppLog.Warn(where, failed.Message);
+                    }
                 }
-                else if (finished.IsCompletedSuccessfully && finished.Result is CommandResult.Failed failed)
+                finally
                 {
-                    AppLog.Warn(where, failed.Message);
+                    Interlocked.Decrement(ref s_pending);
                 }
             },
             CancellationToken.None,

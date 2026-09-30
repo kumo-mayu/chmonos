@@ -76,7 +76,7 @@ public class SearchListTests
         main.Import.ShowBrokenZipCommand.Execute(null);
 
         await UiThread.Until(() => main.CurrentViewModel is SearchViewModel, "検索の画面へ移る");
-        await app.SearchSettledAsync();
+        await app.SettleAsync();
         Assert.Equal(["1000001"], ShownIds(main.Search));
     });
 
