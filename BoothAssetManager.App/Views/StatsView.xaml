@@ -330,7 +330,10 @@
                                 <controls:ContentItemsControl ItemsSource="{Binding Shops}" Margin="0,14,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
+                                            <!-- 中身が行そのもの（絵と文字の並び）なので、名前を付けないと行の型の名前が読まれる -->
                                             <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
+                                                    AutomationProperties.AutomationId="StatsShopRow"
+                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}"
                                                     ToolTip="{Binding Tooltip}"
                                                     ContentTemplate="{StaticResource BarRow}"
                                                     Content="{Binding}" />
@@ -360,6 +363,8 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
                                             <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
+                                                    AutomationProperties.AutomationId="StatsCategoryRow"
+                                                    AutomationProperties.Name="{Binding Label, StringFormat={}{0}を検索で開く}"
                                                     ToolTip="{Binding Tooltip}"
                                                     ContentTemplate="{StaticResource BarRow}"
                                                     Content="{Binding}" />

@@ -83,6 +83,9 @@
         -->
         <Style x:Key="FolderTreeRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+            <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。フォルダ・ファイルの名前を読ませる -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="FolderTreeRow" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsItemFile}" Value="True">
                     <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />

@@ -224,6 +224,9 @@
                              Drop="OnRowsDrop">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
+                                <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。大分類の名前を読ませる -->
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                                <Setter Property="AutomationProperties.AutomationId" Value="TagTopRow" />
                                 <Setter Property="Padding" Value="0" />
                                 <Setter Property="Template">
                                     <Setter.Value>

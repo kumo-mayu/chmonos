@@ -110,7 +110,14 @@
                             -->
                             <Button Command="{Binding ToggleFavoriteCommand}" Margin="10,0,0,0" Cursor="Hand"
                                     VerticalAlignment="Center" ToolTip="{Binding FavoriteTip}"
-                                    AutomationProperties.Name="{Binding FavoriteTip}">
+                                    AutomationProperties.AutomationId="ShopFavorite">
+                                <!-- どのショップの星かを名前に入れる（カードの星と同じ言い方） -->
+                                <AutomationProperties.Name>
+                                    <MultiBinding StringFormat="{}{0}を{1}">
+                                        <Binding Path="Name" />
+                                        <Binding Path="FavoriteTip" />
+                                    </MultiBinding>
+                                </AutomationProperties.Name>
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="Transparent" Padding="2,0">

@@ -43,6 +43,9 @@
 
             <!-- 使ったもののリストの行。見た目は検索のリストと同じ（境目の線・乗せると薄い灰）。押す操作は名前と右端のボタンに置く -->
             <Style x:Key="MemberListRowStyle" TargetType="ListViewItem">
+                <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。使ったものの名前を読ませる -->
+                <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                <Setter Property="AutomationProperties.AutomationId" Value="ModificationMemberRow" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
                 <!-- 行の高さは一覧の右下のスライダー（全画面で共有・ユーザ判断 2026-09-29） -->
