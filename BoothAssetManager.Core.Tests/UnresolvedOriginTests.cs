@@ -43,10 +43,10 @@ public class UnresolvedOriginTests
     [Fact]
     public void RejectsOnlyAGarbledArchiveName()
     {
-        Assert.Null(UnresolvedOrigin.FromReferrer("E:\\VRChat\\\uFFFDA\uFFFDo.zip"));
+        Assert.Null(UnresolvedOrigin.FromReferrer("D:\\Assets\\\uFFFDA\uFFFDo.zip"));
 
-        var origin = UnresolvedOrigin.FromReferrer("E:\\VRChat\\\uFFFDA\uFFFDo\\usasaki_2.41.zip");
-        Assert.Equal("usasaki_2.41.zip", origin?.ArchiveName);
+        var origin = UnresolvedOrigin.FromReferrer("D:\\Assets\\\uFFFDA\uFFFDo\\nukumo_pack_1.20.zip");
+        Assert.Equal("nukumo_pack_1.20.zip", origin?.ArchiveName);
     }
 
     [Fact]
