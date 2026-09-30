@@ -765,6 +765,7 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(NotFoundText));
                 OnPropertyChanged(nameof(HasNotFound));
                 OnPropertyChanged(nameof(UnreadableText));
+                OnPropertyChanged(nameof(UnreadableLines));
                 OnPropertyChanged(nameof(HasUnreadable));
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
@@ -1521,10 +1522,14 @@ public sealed class ImportViewModel : ViewModelBase
     /// こちらは未確定か商品に入っていて開けない物で、直し方が「ダウンロードし直す」。どれも手元のファイルが読めなかった話なので枠は同じにし、
     /// 次の手が違うので行を分ける（前は1行につないでいて、2種類が重なると、どの次の手がどの件の話か読みにくかった）。
     /// </remarks>
-    public string UnreadableText => Summary is { } summary
-        ? string.Join(
-            "\n",
-            new[]
+    public string UnreadableText => string.Join("\n", UnreadableLines);
+
+    /// <summary>
+    /// 読めなかった物の文を、1文ずつ。画面は文の間に空きを置いて並べる（画面の確かめ 2026-09-30：
+    /// 改行でつないだ1つの文字の部品だと、折り返した行と次の文が同じ行間で並び、切れ目が分からなかった）
+    /// </summary>
+    public IReadOnlyList<string> UnreadableLines => Summary is { } summary
+        ? new[]
             {
                 UnreadableFilesText(summary.FilesUnreadable, summary.FoldersUnreadable),
                 summary.FilesOnlineOnly > 0
@@ -1533,8 +1538,8 @@ public sealed class ImportViewModel : ViewModelBase
                     : string.Empty,
                 BrokenArchiveText(summary.FilesBrokenArchive),
                 BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames),
-            }.Where(line => line.Length > 0))
-        : string.Empty;
+            }.Where(line => line.Length > 0).ToList()
+        : [];
 
     /// <summary>
     /// 未確定にある、壊れていて開けない zip の1文。どれかは未確定の行の札「壊れたzip」で分かるので、そこへ案内する

@@ -567,7 +567,8 @@
                             AutomationProperties.Name="展開を中止"
                             ToolTip="展開をやめます。元のzipはそのまま残ります。"
                             Visibility="{Binding CanStopUnpack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <ProgressBar DockPanel.Dock="Left" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                    <!-- 棒の地は帯の線の色にする。既定（BarTrack）は薄い青の帯の上ではほぼ同じ色で、まだ進んでいない部分が見えなかった（画面の確かめ 2026-09-30） -->
+                    <ProgressBar Background="{DynamicResource AccentBorder}" DockPanel.Dock="Left" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center"
                                  Minimum="0" Maximum="1"
                                  Value="{Binding UnpackProgress, Mode=OneWay}"
                                  IsIndeterminate="{Binding HasUnpackProgress, Converter={x:Static vm:InverseBoolConverter.Instance}}" />
@@ -642,7 +643,7 @@
                     BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
                     Visibility="{Binding IsRegisteringDropped, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                 <StackPanel Orientation="Horizontal" Height="26">
-                    <ProgressBar Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center" IsIndeterminate="True" />
+                    <ProgressBar Background="{DynamicResource AccentBorder}" Width="90" Height="4" Margin="0,0,10,0" VerticalAlignment="Center" IsIndeterminate="True" />
                     <TextBlock Text="{Binding DroppedRegisteringText}" Style="{StaticResource Caption}" Foreground="{DynamicResource AccentText}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </StackPanel>

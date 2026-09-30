@@ -374,8 +374,20 @@
                         <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,10,0,0"
                                 Visibility="{Binding HasUnreadable, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBlock Text="{Binding UnreadableText}" FontSize="12" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Warn}" />
+                            <!-- 文ごとに分け、間に空きを置く（折り返した行と次の文の切れ目が分かるように） -->
+                            <ItemsControl ItemsSource="{Binding UnreadableLines}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock x:Name="Line" Text="{Binding}" FontSize="12" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Warn}" Margin="0,7,0,0" />
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                                                <Setter TargetName="Line" Property="Margin" Value="0" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </Border>
 
                         <!--
