@@ -24,6 +24,24 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   描画の回を数えて早めに見せる（2回目）と、白いコマが1つ残ることがあった。見せるのを優先度の低い仕事に回すと、起動の読み込みに押されて約0.3秒遅れた
 - 起動の瞬間は目では追えない。約43msごとに画面を撮り、白に近い画素の割合で数える（`docs/research/large-files-2026-09-30.md` の白い地）
 
+## 窓を出さずに描く（`tools/ViewShot`）
+
+台を作ったときに踏んだ物（2026-09-30）。台の中で吸収してあるが、台を直すとき・場面を書くときに要る。
+
+- **どこにも載せずに Measure／Arrange だけで描くと、部品は「画面に載っていない」まま**で、`Loaded` が来ず `IsVisible` も偽のまま。
+  View は `Loaded` で読み込みを始めるので空の画面になる。出さない窓口（親が `HWND_MESSAGE` の `HwndSource`）に載せる（`Stage`）
+- **窓は出さない限り中身を並べない。**中身を窓から外して載せ替える。外すと、窓の資源（画面ごとの `DataTemplate`）・名前の表（`ElementName`）・
+  `DataContext`・地と文字の色が届かなくなるので、載せた先に持たせる（`SceneContext.Unwrap`）。`RelativeSource AncestorType=Window` と `Window.GetWindow` は届かないまま
+- **色の表の差し替えは、窓の外の部品には届かない。**WPF が「資源が変わった」を配るのはアプリの窓だけで、先に作った部品は前の色のまま残った。
+  載せた根にも同じ表を合わせ、差し替えのたびに入れ替える（`Stage.SyncColorTable`）
+- **表示の倍率は `VisualTreeHelper.SetRootDpi` で根に入れる。**描く画像の細かさ（`RenderTargetBitmap` の dpi）だけを上げると、
+  画素に合わせる丸めが実行した PC の拡大率のままになる。入れた後は並べ直しを自分で促す
+- **送らないと見えない所は `BringIntoView()`** で届く（入力もフォーカスも要らない）。畳む印の開閉のように View が持つ状態は、部品の値を直に替える
+- **`RenderTargetBitmap` の文字はグレースケール**（画面は ClearType）。同じ入力なら画素まで同じ画像になるので、前後の比べは 1画素の差まで見られる
+- `Application.Run` は呼ばない（`OnStartup` が走って本物の窓が出る）。`InitializeComponent` で資源だけ読み、`Dispatcher.Run` を自分で回す
+- 保存先は `AppPaths.Default` が最初に決めたら変わらないので、場面ごとにプロセスを分ける。サービス一式を組むと、前回の消し残しとして
+  一時展開のフォルダ（`%TEMP%\Chmonos\unpacked`）を消す——開いているアプリの展開先を消さないよう、台は一時フォルダごと別にする（`Isolation`）
+
 ## 一覧と速さ
 
 - **仮想化しない `ItemsControl` は、`ItemsSource` を差し替えると部品を全部作り直す**（札244枚で約550ms）。

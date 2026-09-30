@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    窓を出さずに、画面や部品を PNG に描く台（使い方は .claude/skills/ui-check/SKILL.md「窓を出さずに描く」）。
+    配る物ではない。アプリ（WinExe）を参照して、同じ XAML・同じ色の表・同じ ViewModel で描く。
+  -->
+  <PropertyGroup>
+    <!-- コンソールに結果を書くので Exe。WinExe にすると標準出力が呼んだシェルへ戻らない -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BoothAssetManager.App\BoothAssetManager.App.csproj" />
+  </ItemGroup>
+
+</Project>
