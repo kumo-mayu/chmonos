@@ -381,6 +381,16 @@
                                             </TextBlock.Style>
                                         </TextBlock>
                                         <WrapPanel Margin="0,4,0,0">
+                                            <!--
+                                                取り込みで zip として開けなかった物（途中で切れたダウンロードなど）。前は普通の未確定と見分けられなかった
+                                                （大容量の確かめ 問題4・ユーザ判断 2026-10-01）。ほかの札は「確かめてほしい」の黄、これは直さないと使えないので赤
+                                            -->
+                                            <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
+                                                    ToolTip="zipを開けませんでした。ダウンロードし直してください。"
+                                                    Visibility="{Binding IsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                <TextBlock Text="壊れたzip" FontSize="10" Foreground="{DynamicResource Bad}" />
+                                            </Border>
                                             <!-- 取り込んだときに手掛かりから見つかった商品IDの数（自動検索の候補は数えない）。0件は出さない（ユーザ指示 2026-09-17：ほぼ全部の行に並んで目が滑る） -->
                                             <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                     BorderThickness="1" CornerRadius="9" Padding="7,0" Margin="0,0,5,0"
@@ -462,6 +472,17 @@
                                         ToolTip="このファイル名でBOOTHを検索し、下の「候補」に表示します。"
                                         Command="{Binding ProposeCommand}" />
                             </Grid>
+
+                            <!--
+                                壊れていて開けない zip。中身の一覧が出ないだけでは壊れていると分からないので、欄の先頭で言う（ユーザ判断 2026-10-01）。
+                                商品IDを決めて登録することは止めない（落とし直せない物を、壊れたままでも記録しておきたいことがある）
+                            -->
+                            <Border Background="{DynamicResource BadSoft}" BorderBrush="{DynamicResource BadBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,0,0,12"
+                                    Visibility="{Binding Selected.IsBrokenArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                                <TextBlock Text="このzipは壊れていて開けません。ダウンロードし直して、もう一度取り込んでください。"
+                                           FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource Bad}" />
+                            </Border>
 
                             <!-- 中身を見て判断したいときのために、場所を開ける（以前の動線の記録 C3） -->
                             <!-- ファイル名は BOOTH やブラウザの検索に貼りたい（ユーザ指示 2026-09-29）。一覧の右クリックにも同じ物がある -->

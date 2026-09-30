@@ -51,7 +51,9 @@ public partial class App : Application
             }
         };
 
-        // 表示の色は窓を1つでも出す前に当てる（保存先の確かめ・初回の窓も同じ色で出す）。設定はまだ読めないので、まず Windows に合わせる
+        // 表示の色は窓を1つでも出す前に当てる。保存先に設定があればその色、無い・読めない（初回・保存先が見つからない）なら Windows に合わせる。
+        // サービス一式を作る前なので、設定は色の1欄だけを読む（書かない）。前はここで Windows に合わせるだけで、
+        // 「既に起動しています」の窓が設定の色と違う色で出ていた（ユーザ判断 2026-10-01）
         ViewModels.AppTheme.Start();
 
         if (!EnsureStoreReachable())
@@ -59,6 +61,9 @@ public partial class App : Application
             Shutdown();
             return;
         }
+
+        // 保存先の確かめで既定の場所へ切り替えたなら、そこの設定の色に合わせ直す（変わっていなければ何もしない）
+        ViewModels.AppTheme.UseStoredMode();
 
         // 初回だけ、後から変えると高くつく2つを聞く。
         // サービス一式より先に出すのは、ここで保存先が変わり得るため

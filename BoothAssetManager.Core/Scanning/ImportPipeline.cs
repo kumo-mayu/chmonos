@@ -101,6 +101,15 @@ public sealed class ImportSummary
     /// </summary>
     public int FilesOnlineOnly { get; init; }
 
+    /// <summary>
+    /// zip として開けず、未確定に「壊れたzip」の印を付けて置いた数（大容量の確かめ 問題4・ユーザ判断 2026-10-01）。**0 でないときだけ画面に出す。**
+    /// 読めなかった物（<see cref="FilesUnreadable"/>）とは別に数える——あちらは取り込めていない物で、直し方は「閉じて取り込み直す」。
+    /// こちらは取り込めていて（未確定にある）、直し方は「ダウンロードし直す」。
+    /// 数えるのは未確定に置いた物だけ。画面で指せるのが未確定の印だけなので、指せない数を言わない
+    /// （ダウンロード元の記録から商品に紐付いた壊れた zip は、ログにパスを残す）。
+    /// </summary>
+    public int FilesBrokenArchive { get; init; }
+
     /// <summary>見つかった展開先フォルダ。削除機能に渡す候補になる。</summary>
     public IReadOnlyList<UnpackedFolder> UnpackedFolders { get; init; } = [];
 
@@ -383,7 +392,9 @@ public sealed class ImportPipeline : IImportPipeline
             // BOOTHに無かったものも未確定へ。ここで落とすと手元から消える
             if (fetchResult.NotFoundFiles.Count > 0)
             {
-                totals.Unresolved.AddRange(fetchResult.NotFoundFiles);
+                // 商品から未確定へ戻すと、開けなかった印が落ちる（商品のファイルの記録は印を持たない）。この周回で見た分を付け直す
+                totals.Unresolved.AddRange(fetchResult.NotFoundFiles.Select(file =>
+                    resolution.BrokenArchives.Contains(file.Hash) ? AsBrokenArchive(file) : file));
                 unresolvedBase = await SaveUnresolvedAsync(totals.Unresolved, unresolvedBase, scannedTargets, offlineTargets, cancellationToken);
             }
 
@@ -648,6 +659,8 @@ public sealed class ImportPipeline : IImportPipeline
             FilesExcluded = _excluded,
             FilesAlreadyOwned = _alreadyOwned,
             UnresolvedFiles = Unresolved.Count,
+            FilesBrokenArchive = Unresolved.Where(file => file.ArchiveBroken)
+                .Select(file => file.Hash).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
             ItemsAdded = _added,
             ItemsAlreadyKnown = _alreadyKnown,
             NotFound = _notFound,
@@ -951,6 +964,7 @@ public sealed class ImportPipeline : IImportPipeline
         var excluded = 0;
         var alreadyOwned = 0;
         var unreadable = 0;
+        var brokenArchives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var processed = 0;
         var lastCacheSave = Environment.TickCount64;
 
@@ -1013,6 +1027,7 @@ public sealed class ImportPipeline : IImportPipeline
             // 商品の一覧が空の物（手で付けた等）は、前と同じく開いて一覧を取る
             IReadOnlyList<BoothClue> clues;
             IReadOnlyList<string> contents;
+            var broken = false;
             if (file.IsArchive
                 && owned.TryGetValue(hash, out var knownContents) && knownContents.Count > 0
                 && scanCache.TryGetClueItemIds(file, hash, out var knownClues))
@@ -1027,6 +1042,14 @@ public sealed class ImportPipeline : IImportPipeline
                 var inspected = await Task.Run(() => InspectFile(file), cancellationToken);
                 clues = inspected.Clues;
                 contents = inspected.Contents;
+                broken = inspected.Broken;
+                if (broken && brokenArchives.Add(hash))
+                {
+                    // 前は握りつぶしていて、途中で切れたダウンロードが普通の未確定と見分けられなかった（大容量の確かめ 問題4）。
+                    // 未確定に行く物は印で分かるが、ダウンロード元の記録から商品に紐付く物は画面に印が無いので、どれかはここに残す
+                    Diagnostics.AppLog.Warn("取り込みで zip を開く", $"{file.Path}：zip として開けなかった（壊れているか、zip ではない）");
+                }
+
                 if (file.IsArchive && inspected.Read)
                 {
                     // 開けなかった zip（ほかのアプリが開いている等）は控えない。次の取り込みでまた開く
@@ -1103,6 +1126,7 @@ public sealed class ImportPipeline : IImportPipeline
                     ZoneHostUrl = zone.HostUrl,
                     ZoneReferrerUrl = zone.ReferrerUrl,
                     CandidateItemIds = candidates.Select(candidate => candidate.ItemId).ToList(),
+                    ArchiveBroken = broken,
                 });
             }
         }
@@ -1117,28 +1141,54 @@ public sealed class ImportPipeline : IImportPipeline
             Excluded = excluded,
             AlreadyOwned = alreadyOwned,
             Unreadable = unreadable,
+            BrokenArchives = brokenArchives,
         };
     }
 
     /// <summary>ZIPだけ中身を読む。それ以外の形式は Zone.Identifier だけが手掛かりになる。</summary>
-    /// <returns>手掛かりと中身の一覧、読めたか（読めなかった zip と zip 以外は false）。</returns>
-    private static (IReadOnlyList<BoothClue> Clues, IReadOnlyList<string> Contents, bool Read) InspectFile(ScannedFile file)
+    /// <returns>
+    /// 手掛かりと中身の一覧、読めたか（読めなかった zip と zip 以外は false）、zip として開けなかったか。
+    /// </returns>
+    private static (IReadOnlyList<BoothClue> Clues, IReadOnlyList<string> Contents, bool Read, bool Broken) InspectFile(ScannedFile file)
     {
         if (!file.IsArchive)
         {
-            return ([], [], false);
+            return ([], [], false, false);
         }
 
         try
         {
             var inspection = ZipInspector.Inspect(file.Path);
-            return (inspection.Clues, inspection.Summary.Files.Select(entry => entry.RelativePath).ToList(), true);
+            return (inspection.Clues, inspection.Summary.Files.Select(entry => entry.RelativePath).ToList(), true, false);
         }
-        catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException)
+        catch (InvalidDataException)
         {
-            return ([], [], false);
+            // 形式が合わない：目録（末尾の一覧）が無い・崩れている。途中で切れたダウンロードはここに来る。
+            // 何度開いても同じなので「壊れている」と言える。目録が無事で中のデータだけが化けた zip は、
+            // 全部を解かないと分からないのでここでは見つからない（一時展開で分かる）
+            return ([], [], false, true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // ほかのアプリが開いている・権限が無い。次の取り込みでは開けるかもしれないので、壊れているとは言わない
+            return ([], [], false, false);
         }
     }
+
+    /// <summary>同じ未確定の記録に、zip として開けなかった印を付けた写し。</summary>
+    private static UnresolvedFile AsBrokenArchive(UnresolvedFile file) => new()
+    {
+        Hash = file.Hash,
+        Paths = file.Paths,
+        SizeBytes = file.SizeBytes,
+        ModifiedAtUtc = file.ModifiedAtUtc,
+        FirstSeenAt = file.FirstSeenAt,
+        Contents = file.Contents,
+        ZoneHostUrl = file.ZoneHostUrl,
+        ZoneReferrerUrl = file.ZoneReferrerUrl,
+        CandidateItemIds = file.CandidateItemIds,
+        ArchiveBroken = true,
+    };
 
     /// <summary>
     /// 控えに書く手掛かり。ID を決めるのに使うのは「商品のURL」の手掛かりの商品IDだけ（<see cref="IdResolver.Resolve"/>）なので、
@@ -1565,6 +1615,9 @@ public sealed class ImportPipeline : IImportPipeline
 
         /// <summary>中身を読めず（ハッシュを計算できず）飛ばした件数。</summary>
         public int Unreadable { get; init; }
+
+        /// <summary>zip として開けなかった物のハッシュ。未確定へ行った物も、商品に紐付いた物も入る。</summary>
+        public required HashSet<string> BrokenArchives { get; init; }
     }
 
     /// <summary>
