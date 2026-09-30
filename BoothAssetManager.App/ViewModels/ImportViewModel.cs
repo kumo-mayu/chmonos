@@ -101,6 +101,7 @@ public sealed class ImportViewModel : ViewModelBase
         TakeWatchedNewCommand = new RelayCommand(() => _main.TakeWatchedNew());
         OpenResolveCommand = new RelayCommand(() => _main.ShowResolve());
         ShowAddedCommand = new RelayCommand(() => ShowAddedAsync().Forget());
+        ShowBrokenZipCommand = new RelayCommand(() => ShowBrokenZipAsync().Forget());
     }
 
     /// <summary>今回の取り込み対象。落とした物・選んだ物・履歴から積んだ物・監視の新着。</summary>
@@ -268,6 +269,7 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(StartText));
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
+                OnPropertyChanged(nameof(HasBrokenOnItemsResult));
                 NoteBusyChanged();
             }
         }
@@ -498,6 +500,24 @@ public sealed class ImportViewModel : ViewModelBase
 
     /// <summary>新しく商品が増えたか。取り込み中は出さない。</summary>
     public bool HasAddedResult => !IsRunning && Summary is { ItemsAdded: > 0 };
+
+    /// <summary>
+    /// 壊れた zip を持つ商品を検索で見る（ユーザ判断 2026-09-30）。未確定の側の「未確定を開く」と同じ作法で、
+    /// 結果の文が言う物を並べた画面へ飛ぶ。前は商品の名前を1つ言うだけで、残りは商品ページを開かないと分からなかった
+    /// </summary>
+    public RelayCommand ShowBrokenZipCommand { get; }
+
+    /// <summary>商品に結び付いた壊れた zip が見つかったか。取り込み中は出さない（まだ増える）。文を出す条件と揃える。</summary>
+    public bool HasBrokenOnItemsResult => !IsRunning && Summary is { } summary
+        && BrokenArchiveOnItemsText(summary.FilesBrokenArchiveOnItems, summary.BrokenArchiveItemNames).Length > 0;
+
+    private async Task ShowBrokenZipAsync()
+    {
+        // 壊れた zip の印は取り込みが商品の記録に書いた物で、検索の一覧を読み直すまで入らない（ShowAddedAsync と同じ）
+        await _main.ReloadLibraryAsync();
+        _main.Search.ShowOnlyBrokenZip();
+        _main.ShowSearch();
+    }
 
     private async Task ShowAddedAsync()
     {
@@ -748,6 +768,7 @@ public sealed class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasUnreadable));
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
+                OnPropertyChanged(nameof(HasBrokenOnItemsResult));
             }
         }
     }
@@ -1527,8 +1548,9 @@ public sealed class ImportViewModel : ViewModelBase
 
     /// <summary>
     /// 商品に結び付いた、壊れていて開けない zip の1文（ユーザ判断 2026-09-30）。
-    /// 商品の側には壊れた物だけを並べる画面が無いので、どの商品かを名前で言う（検索で探せる）。
-    /// 名前を言うのは1つだけ——全部並べると、件数に比例して文が伸びる。残りは商品ページの札と、ログのパスで分かる
+    /// どの商品かは、すぐ下のボタンが開く検索（条件「壊れたzip」）で並ぶので、そこへ案内する（未確定の側の文と同じ作法）。
+    /// 商品が1つのときだけ名前も言う——押さなくても分かる。2つ以上では言わない。
+    /// 前は「「商品名」など m 件の商品に」と1つだけ名前を言っていたが、並べる画面ができたので、どれを言うかに意味が無くなった
     /// </summary>
     internal static string BrokenArchiveOnItemsText(int files, IReadOnlyList<string> itemNames)
     {
@@ -1537,15 +1559,15 @@ public sealed class ImportViewModel : ViewModelBase
             return string.Empty;
         }
 
-        var name = ShortItemName(itemNames[0]);
+        const string NextStep = "下の「壊れたzipがある商品を検索で開く」で確かめて、ダウンロードし直してください。";
         return itemNames.Count == 1
-            ? $"「{name}」に、壊れていて開けないzipが {files} 件あります。ダウンロードし直してください。"
-            : $"「{name}」など {itemNames.Count} 件の商品に、壊れていて開けないzipが {files} 件あります。ダウンロードし直してください。";
+            ? $"「{ShortItemName(itemNames[0])}」に、壊れていて開けないzipが {files} 件あります。{NextStep}"
+            : $"{itemNames.Count} 件の商品に、壊れていて開けないzipが {files} 件あります。{NextStep}";
     }
 
     /// <summary>
     /// 文の中に入れる商品名。BOOTH の商品名は100字を超える物があり、そのまま入れると一文80字の決まりを名前だけで越える。
-    /// 名前のほかの部分が40字ほどなので、30字で切る（検索で探すには頭の30字で足りる）
+    /// 名前のほかの部分が25字ほどなので、30字で切る（どの商品かは頭の30字で分かる）
     /// </summary>
     private static string ShortItemName(string name)
     {

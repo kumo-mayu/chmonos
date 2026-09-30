@@ -38,6 +38,9 @@ public enum SearchModuleKind
     UnityProject,
     Path,
     Recent,
+
+    /// <summary>壊れていて開けない zip を持つか（ユーザ判断 2026-09-30）。</summary>
+    BrokenZip,
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
@@ -87,6 +90,7 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
         new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。"),
         new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
+        new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
     ];
 
     /// <summary>
@@ -108,7 +112,8 @@ public static class SearchModuleCatalog
         new(ItemInfo,
         [
             [SearchModuleKind.UserTag, SearchModuleKind.Attribute, SearchModuleKind.Avatar, SearchModuleKind.Adult],
-            [SearchModuleKind.Owned, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
+            // 壊れたzip は所持のすぐ後：所持が「手元にファイルがあるか」、壊れたzip が「そのファイルが開けるか」
+            [SearchModuleKind.Owned, SearchModuleKind.BrokenZip, SearchModuleKind.Gift, SearchModuleKind.FreePaid, SearchModuleKind.AcquiredAt],
             [SearchModuleKind.Favorite, SearchModuleKind.Unedited, SearchModuleKind.AvatarUnconfirmed, SearchModuleKind.Hidden],
             [SearchModuleKind.Recent, SearchModuleKind.Modification, SearchModuleKind.UnityProject, SearchModuleKind.Path],
         ]),

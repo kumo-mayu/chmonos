@@ -424,6 +424,17 @@ public sealed partial class SearchViewModel
                 _ => true,
             }),
 
+        // 壊れた zip は商品ページの札でしか分からず、取り込みの結果の文は数しか言わない。どの商品かをまとめて出せるようにする
+        // （ユーザ判断 2026-09-30）。照合は記録だけ（ItemRecord.HasBrokenArchive）
+        SearchModuleKind.BrokenZip => new ChoiceModule(kind,
+            [new(BrokenZipKey, "壊れたzipがある"), new("none", "壊れたzipは無い"), new("both", "両方")],
+            "both", (item, key, _) => key switch
+            {
+                BrokenZipKey => item.HasBrokenArchive,
+                "none" => !item.HasBrokenArchive,
+                _ => true,
+            }),
+
         // 純三項：「何も絞らない」選択肢を持たない。切るときは条件の切り替えで
         SearchModuleKind.Gift => new ChoiceModule(kind,
             [new("received", "ギフトされた"), new("given", "ギフトした"), new("other", "その他（自分で入手・記録なし）")],
@@ -511,6 +522,9 @@ public sealed partial class SearchViewModel
 
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
+
+    /// <summary>条件「壊れたzip」の「ある」の鍵。取り込みの結果から入る口（<see cref="ShowOnlyBrokenZip"/>）と同じ物を指す。</summary>
+    private const string BrokenZipKey = "broken";
 
     private const string PaidSource = "paid";
     private const string BoothSource = "booth";
