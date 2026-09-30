@@ -4,6 +4,14 @@
     <ProjectReference Include="..\BoothAssetManager.Core\BoothAssetManager.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      窓を出さずに画面を描く台（tools/ViewShot）が、画面の内側の型（知らせの窓の口・一時展開の様子）を組めるようにする。
+      台のためにそれぞれを public にすると、アプリの外へ見せる形が台の都合で決まってしまう
+    -->
+    <InternalsVisibleTo Include="ViewShot" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>

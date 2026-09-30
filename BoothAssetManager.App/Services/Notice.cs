@@ -15,6 +15,15 @@ namespace BoothAssetManager.App.Services;
 /// </summary>
 internal static class Notice
 {
+    /// <summary>
+    /// 窓を出さずに答える差し替え口。**アプリは入れない**（入っていなければ今までどおり窓を出す）。
+    ///
+    /// 窓を出さずに画面を描く台（tools/ViewShot）が入れる。台はアプリの ViewModel をそのまま動かすので、
+    /// 場面の途中で失敗の知らせが出ると、人が使っている画面に窓が出て、押されるまで台も止まる。
+    /// 渡るのは本文・題・ボタンの組・既定の答えで、返した値がそのまま答えになる
+    /// </summary>
+    internal static Func<string, string, MessageBoxButton, MessageBoxResult, MessageBoxResult>? Substitute { get; set; }
+
     public static MessageBoxResult Show(
         string text,
         string caption = "",
@@ -44,6 +53,11 @@ internal static class Notice
     private static MessageBoxResult Present(
         Window? owner, string text, string caption, MessageBoxButton button, MessageBoxImage icon, MessageBoxResult defaultResult)
     {
+        if (Substitute is { } substitute)
+        {
+            return substitute(text, caption, button, defaultResult);
+        }
+
         var app = Application.Current;
         if (app is null || app.Dispatcher.HasShutdownStarted || !IsHandled(button))
         {

@@ -8,6 +8,50 @@ description: Chmonos の画面を確かめる（写しの保存先で起動し�
 **UI Automation は「要素があるか」しか答えない。「どこにあるか」は答えない。**レイアウトを壊しても気付けないので、**必ず画像で見る**
 （`DockPanel` の子は既定で `Dock="Left"` に落ちる、という壊し方を実際にやっている）。
 
+## 窓を出さずに描く（見た目だけを確かめるときは、まずこちら）
+
+`tools/ViewShot` は、アプリを起動せずに、画面や部品を作り物のデータで組んで PNG に描く。窓を出さないので画面を占有せず、何本でも並べて走らせられる。
+アプリと同じ XAML・色の表・ViewModel で描く（保存先は回ごとの作業用フォルダ、通信は止めてある。本番にも BOOTH にも触れない）。
+
+| 確かめたいこと | 使う物 |
+|---|---|
+| 並び・折り返し・色・札・文言の入り方・明るい色と暗い色・幅や倍率を変えたとき | **この台**（1場面 2〜4秒。18場面×明暗で約15秒） |
+| 見た目を変えない直し（名前を足す・作りを替える）で、本当に変わっていないこと | **この台の `diff`**（直す前と後に描いて比べる） |
+| 押したときの動き・画面の移り方・入力・速さ・実際のデータでの見え方 | アプリを起動（下の「流れ」） |
+
+```powershell
+dotnet run --project tools/ViewShot -- list                                   # 場面の一覧
+dotnet run --project tools/ViewShot -- shot resolve-broken-zip --theme both    # 1場面を明るい色と暗い色で
+dotnet run --project tools/ViewShot -- shot item-files-states --width 1280,1440,1600   # 幅を変えて
+dotnet run --project tools/ViewShot -- shot search-cards --scale 1,1.5 --zoom 125      # Windows の拡大率と、設定の「表示の大きさ」
+dotnet run --project tools/ViewShot -- shot --all --theme both --out $env:TEMP\chmonos-shots\before   # 全部
+dotnet run --project tools/ViewShot -- diff $env:TEMP\chmonos-shots\before $env:TEMP\chmonos-shots\after --out $env:TEMP\chmonos-shots\diff
+```
+
+- 画像は既定で `%TEMP%\chmonos-shots\view\<場面>-<light|dark>[-w幅][-s倍率][-z大きさ].png`。結果の行にパスが出るので Read で見る
+- 場面は「見たい所」で切り出して出す（窓全体は重い）。全体は `--full`、範囲を決めるなら `--crop x,y,幅,高さ`（DIP）
+- `diff` は違う画素の数・違う所の範囲・色の差の最大を言い、`--out` に前・後・違う所（赤）を並べた画像を書く。同じなら終了コード 0。
+  台の描画は同じ入力なら画素まで同じになる（2回描いて34枚とも一致）ので、1画素でも違えば見た目が変わっている
+- アプリを開いたままのとき（実行ファイルが掴まれてビルドが落ちる）は、脇へビルドして使う：
+  `dotnet build tools/ViewShot -o <作業用フォルダ>\viewshot` → `<作業用フォルダ>\viewshot\ViewShot.exe shot …`
+- 結果に「知らせの窓が出ようとした」「アプリのログに n 行」「落ち着かなかった」「見たい所が見つからなかった」が出たら、場面が思った状態になっていない
+
+**場面を足す**：`tools/ViewShot/Scenes.*.cs` に書いて登録する（書き方は `Scenes.cs` の冒頭）。作り物のデータ（`Fake`）を保存先に書き、
+`context.StartAsync()` で ViewModel を組み、目当ての画面へ移って、ViewModel の値で状態を作る。外から作れない状態（取り込みの結果・一時展開の進み具合）は
+`Backdoor.cs` に入れ方を足す。直す画面に場面が無ければ、直す前に場面を足す（次に同じ所を直す人も使える）。
+
+**この台で確かめられない物**（アプリを起動して確かめる）：
+
+- 動く物・押して出る物：乗せたときの色と吹き出し・右クリックやプルダウンのメニュー（別の窓に出る）・アニメーション・長さの無い進み具合の棒・フォーカスの枠と Tab の動き・ドラッグ
+- Windows が描く物：窓の題の帯と枠・ファイルやフォルダを選ぶ窓。起動の瞬間（白い地）も対象外
+- 一覧を流している最中の様子（ちらつき・遅れて出る絵）。流した先の並びは、場面で送る位置を決めれば描ける
+- 文字の縁：台はグレースケールで縁をぼかす。実際の画面は ClearType なので、字の太さの印象が少し違う
+- この PC の物を読む所：改変の画面の「Unityプロジェクト」の段（Unity Hub の一覧）・Unity／VCC／ALCOM のボタン（入っているかで変わる）。
+  日付から決まる所（カレンダーの「今日」）は、日が変わると `diff` に出る
+- 主の窓を祖先に探す結び付きと `Window.GetWindow` に頼る所は効かない（中身を窓から外して描くため）。
+  今は1か所：ナビを畳んだときの項目の見た目（名前は幅で切れて見えないが、件数の点が出ない）
+- 絵は裏で読む。台は「描いた画像が0.4秒変わらなくなるまで」待つので、待ちきれない物は無いはずだが、絵が灰色のままなら「落ち着かなかった」が出ていないかを見る
+
 ## 道具
 
 `scripts/ui-kit.ps1`。PowerShell の呼び出しごとにシェルが新しくなるので、毎回ドットで読み込む：
