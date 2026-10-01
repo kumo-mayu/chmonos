@@ -52,6 +52,33 @@ public sealed class DeferredCardHost : ContentControl
         };
     }
 
+    /// <summary>
+    /// 中のまだ作っていないカードを、今すぐ作る。作った物があれば真（呼んだ側が配置を済ませる）。
+    /// キーボードで隣の段へ移るとき（<see cref="ArrowGroup"/>）に使う。流して入ったばかりの段は白い枠だけで、止まる物が無い
+    /// </summary>
+    public static bool RealizeWithin(DependencyObject parent)
+    {
+        var made = false;
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is DeferredCardHost host)
+            {
+                if (!host._realized)
+                {
+                    host.Realize();
+                    made = true;
+                }
+
+                continue;
+            }
+
+            made |= RealizeWithin(child);
+        }
+
+        return made;
+    }
+
     internal void Realize()
     {
         if (_realized)
@@ -99,10 +126,9 @@ internal static class CardBuildQueue
     private static void Pump()
     {
         _scheduled = false;
-        DeferredCardHost? first = null;
-        var count = 0;
+        var made = new List<DeferredCardHost>(CardsPerPass);
 
-        while (count < CardsPerPass && Pending.Count > 0)
+        while (made.Count < CardsPerPass && Pending.Count > 0)
         {
             var host = Pending.Dequeue();
 
@@ -113,13 +139,21 @@ internal static class CardBuildQueue
             }
 
             host.Realize();
-            first ??= host;
-            count++;
+            made.Add(host);
         }
 
         // 見た目を当てただけでは、中身は次のレイアウトでまとめて作られ、分けた意味が無くなる。
         // 作った分のレイアウトまでこの1回で済ませる
-        first?.UpdateLayout();
+        if (made.Count > 0)
+        {
+            made[0].UpdateLayout();
+        }
+
+        // カードの一覧は Tab で1回だけ入る並び（ArrowGroup）。後からできたカードを、並びの止まらない物にする
+        foreach (var host in made)
+        {
+            ArrowGroup.Adopt(host);
+        }
 
         if (Pending.Count > 0)
         {
