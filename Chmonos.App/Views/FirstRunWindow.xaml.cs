@@ -25,7 +25,7 @@ public partial class FirstRunWindow : Window
         InitializeComponent();
         var resolved = StoreLocation.Resolve();
         _root = resolved.Path;
-        RootText.Text = _root;
+        RootText.Path = _root;
         _fromEnvironment = resolved.Source == StoreRootSource.Environment;
 
         // 環境変数で決まった保存先は選び直せない（選んでも環境変数が勝つ）。設定画面の「場所を変える」と同じく理由を出す
@@ -117,7 +117,7 @@ public partial class FirstRunWindow : Window
         }
 
         _root = picked;
-        RootText.Text = picked;
+        RootText.Path = picked;
 
         // 作るのか、そのまま使うのかを押す前に言う
         Notice.Text = string.Equals(picked, Path.TrimEndingDirectorySeparator(dialog.FolderName), StringComparison.OrdinalIgnoreCase)

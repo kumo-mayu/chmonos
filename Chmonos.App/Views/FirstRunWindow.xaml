@@ -1,6 +1,7 @@
 <Window x:Class="Chmonos.App.Views.FirstRunWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Chmonos.App.Controls"
         Title="Chmonos" Width="620" SizeToContent="Height"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{DynamicResource Bg}">
@@ -24,10 +25,11 @@
             <DockPanel LastChildFill="False">
                 <!--
                     理由の文は折り返して全文を出す（点検 2026-09-23：「…ここからは変えられません。」が途中で切れ、
-                    なぜ選び直せないのかが読めなかった）。行が増えた分は窓の高さを中身に合わせて伸ばす（SizeToContent）
+                    なぜ選び直せないのかが読めなかった）。行が増えた分は窓の高さを中身に合わせて伸ばす（SizeToContent）。
+                    幅は「はじめる」の手前まで使う。380 では環境変数の理由の文の最後の「ん。」だけが2行目に落ちていた（公開前の点検 2026-10-01）
                 -->
                 <TextBlock DockPanel.Dock="Left" x:Name="Notice" Style="{StaticResource Caption}"
-                           VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="380" />
+                           VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="420" />
                 <!-- Enter で始められる（D2）。Esc は code-behind で受けて、×と同じに閉じる（D1） -->
                 <!-- 主のボタンはアプリ共通の顔にする（V5）。ここだけ既定のボタンに太字を足した別物だった -->
                 <Button DockPanel.Dock="Right" Content="はじめる" Click="OnStart" IsDefault="True"
@@ -47,8 +49,9 @@
                     BorderThickness="1" CornerRadius="6" Padding="12,9">
                 <DockPanel>
                     <Button x:Name="PickButton" DockPanel.Dock="Right" Content="選び直す" Click="OnPickFolder" Margin="10,0,0,0" />
-                    <TextBlock x:Name="RootText" Style="{StaticResource Mono}" FontSize="11.5"
-                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <!-- 長いパスは間を省き、最後のフォルダ名（中に作る「Chmonos」）を残す。省いたら吹き出しで全文（公開前の点検 2026-10-01） -->
+                    <controls:PathLine x:Name="RootText" Style="{StaticResource Mono}" FontSize="11.5"
+                                       VerticalAlignment="Center" />
                 </DockPanel>
             </Border>
 

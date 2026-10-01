@@ -18,7 +18,32 @@ internal static partial class Scenes
         SettingsExcluded("settings-excluded-many", "設定の全体：除外したファイルが 5,000 件・欄は閉じた形", count: 5000, open: false),
         SettingsExcluded("settings-excluded-few-open", "設定の「隠したもの」：除外したファイルが 3 件・欄を開いた形", count: 3, open: true),
         SettingsExcluded("settings-excluded-many-open", "設定の「隠したもの」：除外したファイルが 5,000 件・欄を開いた形（一覧の中だけが流れる）", count: 5000, open: true),
+        SettingsLongPaths(),
     ];
+
+    /// <summary>
+    /// 取り込み元と監視対象に、1行に収まらない長いパスと短いパスを並べる（公開前の点検 2026-10-01）。
+    /// 長いパスは間が省かれ、最後のフォルダ名が見えること。どれも作り物の場所なので「見つかりません」が付く
+    /// </summary>
+    private static Scene SettingsLongPaths()
+        => new("settings-long-paths", "設定の取り込み元・監視対象：長いパス（間を省いて最後のフォルダ名を残す）と短いパス", async context =>
+        {
+            string[] folders =
+            [
+                @"D:\作り物のフォルダ\とても長い名前のフォルダ（入れ子1）\さらに長い名前のフォルダ（入れ子2）\もっと深い所にあるダウンロードの置き場\VRChat用の素材\2026年9月に買った分",
+                @"D:\作り物\短い",
+            ];
+            var main = await context.StartAsync(settings => settings with { ImportFolders = folders, WatchedFolders = folders });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            settings.IsFoldersExpanded = true;
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.Folders.Count == 2, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視対象フォルダ")) };
+        });
 
     private static Scene SettingsExcluded(string name, string title, int count, bool open)
         => new(name, title, async context =>
