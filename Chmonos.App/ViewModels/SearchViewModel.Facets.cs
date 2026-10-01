@@ -125,7 +125,7 @@ public sealed partial class SearchViewModel
             .ToList();
 
         // 並べ替えは「項目」と「向き」に分ける（ユーザ指示 2026-09-20・M5）。
-        // 言い方は項目ごとに変える（日付は新しい／古い、数は多い／少ない、額は高い／安い、名前は あ→わ）。
+        // 言い方は項目ごとに変える（日付は新しい／古い、数は多い／少ない、額は高い／安い、名前とショップは昇順／降順）。
         // **意味の近い項目を隣に置く**（2026-09-24）：買ったとき・BOOTH の値（日付と額）→ 名前で並ぶもの → 手元の量 → 「最近」の足跡 → 属性。
         // 後ろに足していくと、「払った額」と「BOOTHの価格」のような比べたい物が離れる。
         // FullLabel は検索の履歴に残る言い方なので、前からある項目の言い方は変えない
@@ -178,8 +178,8 @@ public sealed partial class SearchViewModel
         {
             Label = "名前",
             Kind = SortKind.Name,
-            DescendingLabel = "わ→あ",
-            AscendingLabel = "あ→わ",
+            DescendingLabel = "降順",
+            AscendingLabel = "昇順",
             DefaultDescending = false,
             FullLabel = descending => descending ? "名前の逆順" : "名前順",
         });
@@ -187,13 +187,13 @@ public sealed partial class SearchViewModel
         {
             Label = "ショップ",
             Kind = SortKind.Shop,
-            DescendingLabel = "わ→あ",
-            AscendingLabel = "あ→わ",
+            DescendingLabel = "降順",
+            AscendingLabel = "昇順",
             DefaultDescending = false,
             FullLabel = descending => descending ? "ショップの逆順" : "ショップ順",
         });
 
-        // 向きは「何の順か」を名乗る（あ→わ でも 新しい／古い でもない。BOOTH のカテゴリの一覧と同じ並び）
+        // 向きは「何の順か」を名乗る（昇順 でも 新しい／古い でもない。BOOTH のカテゴリの一覧と同じ並び）
         SortFields.Add(new SortField
         {
             Label = "カテゴリ",
