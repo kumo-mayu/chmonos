@@ -6,7 +6,7 @@ namespace Chmonos.App.ViewModels;
 /// <summary>
 /// 検索画面：並べ替えの区切りの札（ユーザ判断 2026-10-01「7は付けよう。イメージは図書館やビデオショップの分類の為の偽アイテムだ」）。
 ///
-/// まとまりのある順（カテゴリ・ショップ・公開日）で並べているとき、まとまりの最初の商品の前に札（<see cref="SortDivider"/>）を入れる。
+/// まとまりのある順（カテゴリ・ショップ・公開日・入手日）で並べているとき、まとまりの最初の商品の前に札（<see cref="SortDivider"/>）を入れる。
 /// 札は画面に出す並び（<see cref="_shown"/>）にだけ混ぜ、件数・選ぶ・まとめて操作は商品だけの並び（<see cref="_matches"/>）のまま。
 /// </summary>
 public sealed partial class SearchViewModel
@@ -89,19 +89,20 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// どの並べ替えで札を出すか（仮決め 2026-10-01。spec の「並べ替えの区切り」）。
+    /// どの並べ替えで札を出すか（spec の「並べ替えの区切り」）。
     /// - カテゴリ・ショップ：頼まれた2つ（同じ値の商品が続く）
-    /// - 公開日：年と月。新作の棚のように「いつ頃の物か」で区切る
-    /// - 入手日は既定の並べ替えで、入れると開いたときの一覧が毎回変わるので、判断を仰ぐまで出さない
+    /// - 公開日：年と月。新作の棚のように「いつ頃の物か」で区切る（仮決め 2026-10-01）
+    /// - 入手日：公開日と同じ年と月（ユーザ判断 2026-10-01）。既定の並べ替えなので、普段の一覧に札が並ぶのを好まない人のために
+    ///   子の設定（<see cref="AppSettings.ShowAcquiredSortDividers"/>）で消せる
     /// - 数の項目（価格・払った額・スキ数・容量・属性）は帯の切り方を決めないと区切れない。名前は読みが推定で、頭の字の境が誤る。
-    ///   「最近」の足跡は「今日・今週」のように時計で切ることになる。どれも出さない
+    ///   「最近」の足跡は「今日・今週」のように時計で切ることになる。どれも出さない（ユーザ判断 2026-10-01）
     /// </summary>
     private ItemGrouping? GroupingOf(SortKind kind) => kind switch
     {
         SortKind.Category => new ItemGrouping("カテゴリ", item => ItemGroups.CategoryOf(item, _services.Categories)),
         SortKind.Shop => new ItemGrouping("ショップ", ItemGroups.ShopOf),
-        SortKind.PublishedAt => new ItemGrouping("公開日", item => ItemGroups.MonthOf(
-            item.Booth.PublishedAt?.Year, item.Booth.PublishedAt?.Month, "公開日なし")),
+        SortKind.PublishedAt => new ItemGrouping("公開日", ItemGroups.PublishedOf),
+        SortKind.AcquiredAt when _services.Settings.ShowAcquiredSortDividers => new ItemGrouping("入手日", ItemGroups.AcquiredOf),
         _ => null,
     };
 

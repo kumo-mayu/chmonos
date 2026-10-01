@@ -157,6 +157,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
         _showSortDividers = settings.ShowSortDividers;
+        _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _returnToSearchWhenEditDone = settings.ReturnToSearchWhenEditDone;
@@ -451,6 +452,18 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get => _showSortDividers;
         set { if (SetField(ref _showSortDividers, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
+    private bool _showAcquiredSortDividers;
+
+    /// <summary>
+    /// 入手日で並べたときの札（ユーザ判断 2026-10-01）。親（<see cref="ShowSortDividers"/>）に従う子で、親が切れている間は押せないだけで値は残す
+    /// （親を入れ直したとき、前に選んだ形へ戻るように）。
+    /// </summary>
+    public bool ShowAcquiredSortDividers
+    {
+        get => _showAcquiredSortDividers;
+        set { if (SetField(ref _showAcquiredSortDividers, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
     private ThumbnailRole _thumbnailRole;
@@ -1099,6 +1112,7 @@ public sealed class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             ShowSortDividers = ShowSortDividers,
+            ShowAcquiredSortDividers = ShowAcquiredSortDividers,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             ReturnToSearchWhenEditDone = ReturnToSearchWhenEditDone,

@@ -130,8 +130,18 @@
                         <!-- 検索の並べ替えの区切りの札（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。既定は入れる -->
                         <CheckBox Content="並べ替えたとき、まとまりごとに区切りを表示" Style="{StaticResource SettingCheck}"
                                   AutomationProperties.AutomationId="Settings.ShowSortDividers"
-                                  ToolTip="カテゴリ・ショップ・公開日で並べたとき、まとまりの境目に名前と件数を入れます。"
+                                  ToolTip="カテゴリ・ショップ・日付で並べたとき、境目に名前と件数を入れます。"
                                   IsChecked="{Binding ShowSortDividers, Mode=TwoWay}" />
+                        <!--
+                            入手日の札だけを消す子の設定（ユーザ判断 2026-10-01「これは設定から消せるようにします」）。
+                            入手日は既定の並べ替えで、普段の一覧に札が並ぶのを好まない人がいる。
+                            親に従うので、親の文字の頭に揃えて下げ、親が切れている間は押せず薄くする（値は残す）
+                        -->
+                        <CheckBox Content="入手日で並べたときも区切りを表示" Style="{StaticResource SettingCheck}" Margin="26,0,0,10"
+                                  AutomationProperties.AutomationId="Settings.ShowAcquiredSortDividers"
+                                  ToolTip="入手日の順では、年と月ごとに区切りを入れます。"
+                                  IsEnabled="{Binding ShowSortDividers}"
+                                  IsChecked="{Binding ShowAcquiredSortDividers, Mode=TwoWay}" />
 
                         <!--
                             検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。

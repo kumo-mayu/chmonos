@@ -120,17 +120,87 @@ public class SearchSortDividerTests
         Assert.Equal([2, 1, 1], search.ShownDividers.Select(divider => divider.Count));
     });
 
-    [Fact]
-    public Task 既定の入手日順と名前順では_札を出さない() => TestApp.Run(async app =>
+    /// <summary>入手日：9月に2件・8月に1件・2025年9月に1件・入手日なし1件。</summary>
+    private static async Task<SearchViewModel> AcquiredMonthsAsync(TestApp app)
     {
-        var search = await ShopsAsync(app);
+        static ItemRecord On(ItemRecord item, DateOnly? date) => item with { Local = item.Local with { AcquiredAt = date } };
 
+        await app.AddItemAsync(On(Make.Item("1000001", "作り物の商品1", shop: "作り物の店A"), new DateOnly(2026, 9, 3)));
+        await app.AddItemAsync(On(Make.Item("1000002", "作り物の商品2", shop: "作り物の店A"), new DateOnly(2026, 8, 20)));
+        await app.AddItemAsync(On(Make.Item("1000003", "作り物の商品3", shop: "作り物の店B"), new DateOnly(2026, 9, 28)));
+        await app.AddItemAsync(On(Make.Item("1000004", "作り物の商品4", shop: "作り物の店B"), new DateOnly(2025, 9, 15)));
+        await app.AddItemAsync(On(Make.Item("1000005", "作り物の商品5", shop: "作り物の店A"), null));
+        var search = (await app.StartAsync()).Search;
         SortBy(search, SortKind.AcquiredAt);
+        return search;
+    }
+
+    [Fact]
+    public Task 入手日順では_年と月で札が入り_入手日の無い商品は最後の1枚にまとめる() => TestApp.Run(async app =>
+    {
+        var search = await AcquiredMonthsAsync(app);
+
+        // 同じ月でも年が違えば別の札（2026年9月と2025年9月）
+        Assert.Equal(
+            ["[2026年9月 2]", "1000003", "1000001", "[2026年8月 1]", "1000002", "[2025年9月 1]", "1000004", "[入手日なし 1]", "1000005"],
+            Shown(search));
+        Assert.All(search.ShownDividers, divider => Assert.Equal("入手日", divider.Kind));
+        Assert.Equal("入手日：2026年9月、2 件", search.ShownDividers.First().AutomationName);
+        Assert.Equal("5 件", search.ResultSummary);
+    });
+
+    [Fact]
+    public Task 入手日順を逆にしても_入手日の無い商品の札は最後() => TestApp.Run(async app =>
+    {
+        var search = await AcquiredMonthsAsync(app);
+
+        search.SortsAscending = true;
+
+        Assert.Equal(["2025年9月", "2026年8月", "2026年9月", "入手日なし"], search.ShownDividers.Select(divider => divider.Label));
+    });
+
+    [Fact]
+    public Task 入手日の札だけを設定で切ると_入手日順では出ず_ほかの並べ替えでは出る() => TestApp.Run(async app =>
+    {
+        await app.ChangeSettingsAsync(settings => settings with { ShowAcquiredSortDividers = false });
+        var search = await AcquiredMonthsAsync(app);
+
         Assert.Empty(search.ShownDividers);
         Assert.Equal(search.ListItems, search.DisplayItems.Cast<ItemCardViewModel>());
 
-        SortBy(search, SortKind.Name);
+        SortBy(search, SortKind.Shop);
+        Assert.Equal(["作り物の店A", "作り物の店B"], search.ShownDividers.Select(divider => divider.Label));
+    });
+
+    [Fact]
+    public Task 区切りの設定を切ると_入手日の札も_ほかの札も出ない() => TestApp.Run(async app =>
+    {
+        // 子（入手日）は入のまま。親が切れていれば子の値によらず出さない
+        await app.ChangeSettingsAsync(settings => settings with { ShowSortDividers = false, ShowAcquiredSortDividers = true });
+        var search = await AcquiredMonthsAsync(app);
+
         Assert.Empty(search.ShownDividers);
+        Assert.Equal(5, search.DisplayItems.Count);
+
+        SortBy(search, SortKind.Shop);
+        Assert.Empty(search.ShownDividers);
+    });
+
+    [Theory]
+    [InlineData(SortKind.Name)]
+    [InlineData(SortKind.Size)]
+    [InlineData(SortKind.WishList)]
+    [InlineData(SortKind.BoothPrice)]
+    [InlineData(SortKind.SelfPaid)]
+    [InlineData(SortKind.RecentlyAdded)]
+    public Task 名前や数の並べ替えでは_札を出さない(SortKind kind) => TestApp.Run(async app =>
+    {
+        var search = await AcquiredMonthsAsync(app);
+
+        SortBy(search, kind);
+
+        Assert.Empty(search.ShownDividers);
+        Assert.Equal(search.ListItems, search.DisplayItems.Cast<ItemCardViewModel>());
     });
 
     [Fact]
@@ -141,6 +211,24 @@ public class SearchSortDividerTests
 
         Assert.Empty(search.ShownDividers);
         Assert.Equal(4, search.DisplayItems.Count);
+    });
+
+    [Fact]
+    public Task 設定の画面で入手日の札を切ると_保存され_開いている一覧からも消える() => TestApp.Run(async app =>
+    {
+        var search = await AcquiredMonthsAsync(app);
+        var main = app.Main;
+        main.ShowSettingsCommand.Execute(null);
+        var settings = Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !settings.IsLoading, "設定を読み終わる");
+        Assert.True(settings.ShowAcquiredSortDividers);
+
+        settings.ShowAcquiredSortDividers = false;
+        await UiThread.Until(() => !app.Services.Settings.ShowAcquiredSortDividers, "設定を保存する");
+        await UiThread.Until(() => !main.Search.ShownDividers.Any(), "一覧を組み直す");
+
+        // 親は入のまま（子だけを切った）
+        Assert.True(app.Services.Settings.ShowSortDividers);
     });
 
     [Fact]
