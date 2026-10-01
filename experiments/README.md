@@ -30,6 +30,7 @@
 | `QueryVariantProbe` | 上位3件に正解が出なかったファイルで、検索語の変え方ごとの当たりを比べる | `docs/research/id-resolution.md` §15 |
 | `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
 | `ThesaurusBridgeProbe` | 類義語辞書2つに表記の橋渡しを重ねたときの広がりと、関係の無い物の割合 | `docs/research/fuzzy-search.md` §8・§9 |
+| `SearchFilterBench` | 検索の絞り込みの重さを作り物の商品（2,000件・1万件）で測る：条件の種類ごとの1件あたりの重さと当たる割合（`kinds`）・照らす順（`order`）・選択肢の件数と「外れを2つ目まで数える」案（`counts`）・最初の1回（`cold`）。条件の部品は App の物を使い、アプリの一式・保存先・BOOTH には触れない。数は `DOTNET_TieredCompilation=0` で測る（使い方は `Program.cs` の冒頭） | `docs/research/search-modules-2026-10-01.md` §9 |
 | `VRoidProbe` | BOOTH の VRoid カテゴリをアバターとして扱うべきか | `docs/history/avatars.md` §1-3 |
 | `PeerProbe` | 画面の部品の UI Automation の木（型・名前・ID・持っている操作）を、アプリを起動せずに書き出す。見えない窓に部品を載せ、別のスレッドから読み上げソフトと同じ側でたどる（計測ではなく確かめの道具。場面は `probes/*.probe.txt`、使い方は `Program.cs` の冒頭）。`-- focus` は、Tab と同じ順にフォーカスを進めて、止まった所と、そのとき出ているボタンを書く。保存先と通信は切り離してある | `docs/dev/wpf.md`「UI Automation」 |
 | `BoothGateProbe` | BOOTH への問い合わせの門（PC で1つ）を、2つのプロセスから叩いて間を測る（`run`）。1本のときの上乗せも測る（`bench`）。**相手は手元に立てる作り物のサーバで、BOOTH へは出さない**。門のファイルも引数の作業フォルダに置く | `docs/history/booth-machine-gate-2026-09-30.md` |

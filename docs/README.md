@@ -94,6 +94,7 @@
 | [large-files-2026-09-30.md](research/large-files-2026-09-30.md) | 大容量のファイル（大きな zip・中身の多い zip・重い unitypackage・大量のファイル）での固まりとメモリ |
 | [item-page-open-2026-09-30.md](research/item-page-open-2026-09-30.md) | 商品ページを開く速さ（説明の長さと UI Automation の相手で変わる内訳・履歴と足跡の書き込みを画面のスレッドの外へ・説明を後で作る試作と View を持ち回す試作の数字） |
 | [startup-dotnet10-2026-10-01.md](research/startup-dotnet10-2026-10-01.md) | .NET 10 で起動が遅くなった所（JIT が 1 関数あたり約 1.4 倍）と、縮める手（事前翻訳・PGO・段階の翻訳）の効き目 |
+| [search-modules-2026-10-01.md](research/search-modules-2026-10-01.md) | 検索の条件の案（未実装）：同じ種類を複数・「除く」・未編集を項目ごとに・同じ種類を隣に並べる。条件ごとの照らす重さ・照らす順・選択肢の件数の計測 |
 | [antivirus.md](research/antivirus.md) | セキュリティソフトに怪しまれない作り |
 | [youtube-terms.md](research/youtube-terms.md) | YouTube の絵とタイトルを手元に置いてよいか（絵は置かない・題は30日） |
 | [booth-terms.md](research/booth-terms.md) | BOOTH・pixiv の規約とアプリの通信・名前（通信は許される範囲・名前は公開前に見直す） |
