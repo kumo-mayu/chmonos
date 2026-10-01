@@ -147,6 +147,7 @@
                           -->
                           <Grid Margin="0,0,14,14">
                           <Button AutomationProperties.AutomationId="ShopCard" Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand"
+                                  FocusVisualStyle="{StaticResource CardFocusVisual}"
                                   AutomationProperties.Name="{Binding Name}">
                             <!-- 右クリック（ユーザ指示 2026-09-20・M2）。押したときと同じ2つの行き先を出す -->
                             <Button.ContextMenu>
@@ -156,6 +157,8 @@
                                     <MenuItem AutomationProperties.AutomationId="ShopCardMenu.OpenBooth" Header="BOOTHのショップページを開く" Command="{Binding OpenBoothCommand}"
                                               ToolTip="BOOTHのショップページをブラウザで開きます。アプリの外へ出ます。"
                                               ToolTipService.ShowOnDisabled="True" />
+                                    <!-- カードの右上の星と同じ。星はキーボードでは止まらないので、Shift+F10 からはここで付け外しする -->
+                                    <MenuItem AutomationProperties.AutomationId="ShopCardMenu.Favorite" Header="{Binding FavoriteTip}" Command="{Binding ToggleFavoriteCommand}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
                             <Button.Template>
@@ -237,7 +240,11 @@
                               （ボタンの中にボタンを入れると、押したときにどちらが動くかが部品の作りに左右される）。
                               既定のボタンの見た目は当てない（高さ32などが当たると形が崩れる）
                           -->
-                          <Button Style="{x:Null}" Command="{Binding ToggleFavoriteCommand}" Cursor="Hand"
+                          <!--
+                              キーボードでは止まらない（点検 2026-10-01）。ショップのカードの一覧は Tab で1回だけ入り、中は矢印でカードからカードへ移る。
+                              星も止まりにすると、隣のカードへ移るのに2回ずつ押すことになる。付け外しは右クリックのメニュー（Shift+F10）にもある（商品のカードと同じ）
+                          -->
+                          <Button Style="{x:Null}" Command="{Binding ToggleFavoriteCommand}" Cursor="Hand" Focusable="False"
                                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,10,0"
                                   ToolTip="{Binding FavoriteTip}" AutomationProperties.AutomationId="ShopCardFavorite">
                               <!-- カードごとに並ぶので、どのショップの星かを名前に入れる（商品のカードの星と同じ言い方） -->

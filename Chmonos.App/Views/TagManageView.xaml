@@ -279,7 +279,12 @@
                 頭（大分類の札・小分類の見出し）→ 畳んだ小分類のまとまり・開いた小分類と中の商品の段 → 下の枠。
                 小分類を囲む札は行ごとに描き分け、見た目は前と同じ1枚の札のまま
             -->
-            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False"
+            <!--
+                商品の段（カード・リストの行）は並び（ArrowGroup。ユーザ判断 2026-10-01）：Tab で1回だけ入り、中は矢印で商品から商品へ移る。
+                前は商品の数だけ Tab が止まり、下の「編集画面に最初から並べる」へ行くのに商品の数だけ押した。
+                頭・見出し・下の枠は入力欄とボタンのある所なので、並びの外（ArrowGroup.IsOutside）にして今までどおり1つずつ止まる
+            -->
+            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
                                           VirtualizingPanel.IsVirtualizing="True"
                                           VirtualizingPanel.VirtualizationMode="Recycling"
                                           VirtualizingPanel.ScrollUnit="Pixel"
@@ -312,7 +317,7 @@
                     右は使える幅いっぱいを使う（ユーザ指示 2026-09-19）。上限を付けると広い画面で中央に寄り、
                     左の一覧との間に大きな空白ができていた。小分類はその分だけ列が増える
                 -->
-                <StackPanel HorizontalAlignment="Stretch">
+                <StackPanel HorizontalAlignment="Stretch" controls:ArrowGroup.IsOutside="True">
 
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -572,7 +577,7 @@
 
                     <!-- 畳んだ小分類のひと続き。前と同じく幅に応じて列に並べる -->
                     <DataTemplate DataType="{x:Type vm:TagSubRunLine}">
-                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
+                        <Border controls:ArrowGroup.IsOutside="True" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <!--
                                 幅が広いときは2列に流す（ユーザ指示 2026-09-18：縦に全部並ぶと、
                                 小分類の多い大分類で上の情報が画面の外へ出る）。1件の幅を決めて折り返す
@@ -603,7 +608,7 @@
 
                     <!-- 開いた小分類の見出し（中身は続く段） -->
                     <DataTemplate DataType="{x:Type vm:TagSubRow}">
-                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
+                        <Border controls:ArrowGroup.IsOutside="True" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1,0,1,0">
                             <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TagSubTemplate}" />
                         </Border>
                     </DataTemplate>
@@ -658,7 +663,7 @@
 
                     <!-- 下の枠：小分類を囲む札の下側 -->
                     <DataTemplate DataType="{x:Type vm:ManageFoot}">
-                        <Border DataContext="{Binding Owner}"
+                        <Border DataContext="{Binding Owner}" controls:ArrowGroup.IsOutside="True"
                                 Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                 BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">

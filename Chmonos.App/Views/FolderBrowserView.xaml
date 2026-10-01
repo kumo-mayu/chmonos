@@ -26,6 +26,7 @@
             <!-- 子フォルダ：商品のカードと同じ大きさ・同じ間隔（並びと行の高さを揃える） -->
             <DataTemplate DataType="{x:Type vm:FolderBrowserFolderCard}">
                 <Button Width="{DynamicResource CardWidth}" Height="{DynamicResource CardHeight}" Margin="0,0,14,14" Cursor="Hand"
+                        FocusVisualStyle="{StaticResource CardFocusVisual}" AutomationProperties.AutomationId="FolderCard"
                         AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Path}"
                         Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}">
@@ -191,9 +192,9 @@
                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                       Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
-            <!-- カードの行の一覧。Tab で1枚ずつ進めるよう、一覧に1回だけ止まる既定（Once）をやめる（点検 2026-09-23） -->
+            <!-- カードの行の一覧。Tab で1回だけ入り、中は矢印でカードからカードへ移る（CardRowsListBox が並び ArrowGroup になる。ユーザ判断 2026-10-01） -->
             <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
-            <controls:CardRowsListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent" KeyboardNavigation.TabNavigation="Continue"
+            <controls:CardRowsListBox ItemsSource="{Binding Rows}" BorderThickness="0" Background="Transparent"
                      Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                      Padding="18,4,18,18" HorizontalContentAlignment="Stretch"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"

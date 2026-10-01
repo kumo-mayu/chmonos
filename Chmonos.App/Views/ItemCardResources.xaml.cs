@@ -325,6 +325,32 @@ public partial class ItemCardResources : ResourceDictionary
         }
     }
 
+    /// <summary>右クリックのメニューの項目から、押されたカードと、カードを並べている画面を取り出す（メニューは画面の木の外に出る）。</summary>
+    private static (ItemCardViewModel Card, IItemCardHost Host)? MenuTarget(object sender)
+        => sender is MenuItem { DataContext: ItemCardViewModel card } item
+            && ItemsControl.ItemsControlFromItemContainer(item) is ContextMenu { PlacementTarget: { } target }
+            && HostOf(target) is { } host
+                ? (card, host)
+                : null;
+
+    /// <summary>右クリックのメニューの「お気に入りに入れる／外す」（キーボードから星へ届く道。Shift+F10）。</summary>
+    private void OnMenuFavoriteClick(object sender, RoutedEventArgs e)
+    {
+        if (MenuTarget(sender) is { } target)
+        {
+            target.Host.ToggleFavoriteAsync(target.Card).Forget();
+        }
+    }
+
+    /// <summary>右クリックのメニューの「商品ページを開く」（選んでいる最中の「中を見る」と同じ）。</summary>
+    private void OnMenuOpenItemClick(object sender, RoutedEventArgs e)
+    {
+        if (MenuTarget(sender) is { } target)
+        {
+            target.Host.OpenItem(target.Card);
+        }
+    }
+
     /// <summary>選択中でも商品ページへ移れる出口。</summary>
     private void OnOpenItemClick(object sender, MouseButtonEventArgs e)
     {

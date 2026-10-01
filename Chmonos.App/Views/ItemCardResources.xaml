@@ -13,6 +13,12 @@
     -->
     <ContextMenu x:Key="CardMenu">
         <!--
+            選んでいる最中はカードを押すと選択の切り替えになるので、商品ページへの出口（カードの「中を見る」）をここにも置く。
+            「中を見る」は乗せたときだけ出るので、キーボード（Shift+F10）からはここしか無い
+        -->
+        <MenuItem Header="商品ページを開く" Click="OnMenuOpenItemClick" AutomationProperties.AutomationId="CardMenu.OpenItem"
+                  Visibility="{Binding IsSelectionMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+        <!--
             行き先が無い商品（BOOTHに無い商品として登録した物・店の分からない物）では押せない（ユーザ指示 2026-09-20・R1）。
             塞いだ理由はツールチップで出す（ShowOnDisabled。押せないまま何も言わないのは決め事違反）
         -->
@@ -28,6 +34,17 @@
                   Command="{Binding PlacementTarget.Tag.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         <MenuItem Header="編集に入る" CommandParameter="{Binding}"
                   Command="{Binding PlacementTarget.Tag.EditItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+        <!--
+            カードの中の押せる物（星・選ぶ箱・「更新あり」）と同じ操作（点検 2026-10-01）。カードの一覧は Tab で1回だけ入り、中は矢印で
+            カードからカードへ移る（ArrowGroup）。中の物を矢印の止まりにすると、隣のカードへ移るのに最大4回押すことになるので、ここに置く。
+            カードそのもの（ItemCardViewModel）にだけ出す。行から取り出す一覧（改変・アバター・フォルダの行・編集の小さな絵）は値が無く、畳む
+        -->
+        <MenuItem Header="{Binding FavoriteTip}" Click="OnMenuFavoriteClick" AutomationProperties.AutomationId="CardMenu.Favorite"
+                  Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
+        <MenuItem Header="選ぶ" IsCheckable="True" IsChecked="{Binding IsSelected, Mode=TwoWay, FallbackValue=False}" AutomationProperties.AutomationId="CardMenu.Select"
+                  Visibility="{Binding FavoriteTip, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}, FallbackValue=Collapsed}" />
+        <MenuItem Header="更新の知らせを開く" Command="{Binding ShowUpdateCommand}" AutomationProperties.AutomationId="CardMenu.ShowUpdate"
+                  Visibility="{Binding HasUpdate, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
         <Separator />
         <!--
             商品ページの「開く ▾」「Unity ▾」と同じ中身（ユーザ指示 2026-09-19：右クリックには Unity が無く、開き方も1つだけで
@@ -114,8 +131,12 @@
             <Border Background="{DynamicResource ImagePill}" BorderBrush="{DynamicResource BorderStrong}"
                     BorderThickness="1" CornerRadius="5" Padding="7"
                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7">
-                <!-- カード全体でも切り替わるが、状態を示す印としても要る -->
-                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                <!--
+                    カード全体でも切り替わるが、状態を示す印としても要る。
+                    キーボードでは止まらない：選んでいる最中はカードの Enter・Space が同じ切り替えで、選び始めるのは右クリックのメニューの「選ぶ」。
+                    止まる物にすると、選んでいる間は全部のカードに出るので、カードの一覧の矢印がカードと箱を交互に通る
+                -->
+                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Focusable="False"
                           AutomationProperties.AutomationId="ItemCardSelect"
                           AutomationProperties.Name="{Binding Name, StringFormat='{}{0}を選ぶ'}">
                     <CheckBox.LayoutTransform>
@@ -182,10 +203,6 @@
     </Style>
 
     <!--
-        キーボードで止まったカードの印。既定の点線は角丸の白いカードの上で見分けにくいので、選んだ色の枠を外側に出す
-        （枠の太さを変えると中身がずれるので、飾りの層に描く FocusVisualStyle にする）
-    -->
-    <!--
         「更新あり」の札。ほかの札（未編集・所持）と同じ形で、押せる所だけが違う。
         暗黙の Button スタイルは中央揃えと枠を持っていて setter では外せないので、テンプレートごと置き換える（docs/dev/wpf.md）
     -->
@@ -209,15 +226,6 @@
         </Setter>
     </Style>
 
-    <Style x:Key="CardFocusVisual">
-        <Setter Property="Control.Template">
-            <Setter.Value>
-                <ControlTemplate>
-                    <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="9" Margin="-2" />
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
 
                             <DataTemplate x:Key="ItemCardTemplate">
                               <!--
