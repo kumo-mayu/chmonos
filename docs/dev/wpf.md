@@ -14,6 +14,7 @@ XAML・画面の部品・一覧を書く前に読む。どれも実際に踏ん�
   型で `TemplateBinding BorderThickness` を描くと、枠を指定していない画面まで四方に1px ずつ広がる。自前の型のスタイルで 0 を指定する（`TriangleExpander`。2026-09-30）
 - **自前の型の `Border` は画素に合わせない。**見出しの高さが画素の途中で終わると、下の 1px の線が2pxにぼけて薄くなる（暗い表では束の間の線がほとんど見えなかった）。
   既定の型は `SnapsToDevicePixels="True"` を付けている。線を描く所だけ付ける（型の既定にすると、ほかの画面の丸や三角の縁の滲みまで変わった。2026-09-30）
+- **長いパスの部品（`PathLine`）は横に伸びる置き方で使う**（Grid の * の列・DockPanel の最後）。並べた幅で省くので、中身に合わせて幅が決まる置き方では省いた幅のまま広がらない。パスは `Text` ではなく `Path` に渡す
 - 添付プロパティで並べ方を変える部品（`ColumnsPanel.FullWidth`）は、`ItemsControl` の中では**項目を包む `ContentPresenter` に**付ける（`ItemContainerStyle`）。テンプレートの中の `Border` に付けても効かない
 
 ## 窓を出す瞬間

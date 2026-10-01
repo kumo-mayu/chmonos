@@ -717,6 +717,26 @@
             </Border>
 
             <!--
+                バックアップの書き出し・戻すが、設定の画面を離れている間に終わった知らせ（公開前の点検 2026-10-01）。
+                前は捨てた設定の画面に書かれ、どこにも出なかった。取り込みの帯と同じ形で、結果と設定の画面への入口を出す。押すか閉じるまで残す
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource AccentSoft}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasStoreJobNotice, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissStoreJobNoticeCommand}" AutomationProperties.Name="バックアップの知らせを閉じる"
+                            AutomationProperties.AutomationId="StoreJobNoticeClose"
+                            ToolTip="この知らせを閉じます。" />
+                    <Button DockPanel.Dock="Right" Content="設定を開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding ShowSettingsCommand}" AutomationProperties.AutomationId="StoreJobNoticeOpen" />
+                    <TextBlock Text="{Binding StoreJobNoticeText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="StoreJobNoticeText"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding StoreJobNoticeText}" />
+                </DockPanel>
+            </Border>
+
+            <!--
                 カードの右クリックで非表示にした知らせ（点検 2026-09-23・動線の点検 B2）。戻せる操作なので窓では聞かず、
                 戻す場所とその場の解除をここに出す（登録の帯と同じ場所・同じ見た目）。押すか閉じるまで残す
             -->

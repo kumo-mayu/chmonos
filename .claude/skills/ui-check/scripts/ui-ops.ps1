@@ -256,6 +256,37 @@ function Select-ChmonosFolder {
   "選んだ: $Path"
 }
 
+# Windows の保存の窓（ファイル名を入れる窓。設定の「バックアップを書き出す」など）に、フルパスを入れて「保存」を押す（実入力を使わない）。
+# ファイル名の欄は ID が FileNameControlHost の入れ物の中の、部品の種類（ClassName）が Edit の物。UI Automation では Pane として出て、
+# 値を入れる口（ValuePattern）を持たないので、窓のメッセージ（WM_SETTEXT）で入れる（2026-10-01 に実際の保存の窓で確かめた。
+# 前は「型が Edit で ID が 1001」で探していて、見つからなかった。ID 1001 は住所の帯にも付いている）。
+# フルパスを入れれば、窓が今どのフォルダを見ていても、その場所に保存される。同じ名前があると上書きを聞く窓が出るので、無い名前にする
+function Select-ChmonosSaveFile {
+  param([Parameter(Mandatory)][string]$Path, [double]$TimeoutSeconds = 10)
+  if (-not [IO.Path]::IsPathRooted($Path)) { throw "フルパスで渡す: $Path" }
+  $folder = Split-Path -Parent $Path
+  if (-not (Test-Path -LiteralPath $folder -PathType Container)) { throw "保存先のフォルダが無い: $folder" }
+  if (Test-Path -LiteralPath $Path) { throw "同じ名前のファイルが既にある（上書きの確認が出る）: $Path" }
+
+  $d = Wait-ChmonosCondition -TimeoutSeconds $TimeoutSeconds -PollMs 250 -Until { Get-ChmonosDialog | Where-Object { $_.Current.ClassName -eq '#32770' } | Select-Object -First 1 }
+  if (-not $d) { return '保存の窓が出ていない' }
+  $h = [IntPtr]$d.Current.NativeWindowHandle
+
+  $hostCond = New-Object System.Windows.Automation.PropertyCondition($A_::AutomationIdProperty, 'FileNameControlHost')
+  $editCond = New-Object System.Windows.Automation.PropertyCondition($A_::ClassNameProperty, 'Edit')
+  $edit = Wait-ChmonosCondition -TimeoutSeconds 5 -PollMs 200 -Until {
+    $hostEl = $d.FindFirst($TS_::Descendants, $hostCond)
+    if ($hostEl) { $hostEl.FindFirst($TS_::Descendants, $editCond) } else { $null }
+  }
+  if (-not $edit -or $edit.Current.NativeWindowHandle -eq 0) { return '保存の窓に、ファイル名の欄が無い（フォルダを選ぶ窓なら Select-ChmonosFolder）' }
+
+  [void][ChmonosPicker]::SendMessage([IntPtr]$edit.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, $Path)  # WM_SETTEXT
+  Start-Sleep -Milliseconds 300
+  [void][ChmonosPicker]::PostMessage([ChmonosPicker]::GetDlgItem($h, 1), 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)  # BM_CLICK（1＝「保存」）
+  if (-not (Wait-ChmonosCondition -TimeoutSeconds 5 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($h) })) { return "押したが窓が閉じない（名前が使えない・確認が出た）: $Path" }
+  "保存先に入れた: $Path"
+}
+
 # 取り込みの画面で、フォルダを今回の対象に足す。監視するかを聞く窓が出たら、-Watch なら「はい」、付けなければ「いいえ」。
 # 頼っている ID：ボタン ImportChooseFolder。頼っている名前：窓の題「監視…」・ボタン「はい」「いいえ」
 function Add-ChmonosImportFolder {

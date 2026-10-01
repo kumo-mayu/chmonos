@@ -285,9 +285,8 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Path}" Style="{StaticResource Mono}"
-                                                   FontSize="11.5" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
+                                        <controls:PathLine Grid.Column="0" Path="{Binding Path}" Style="{StaticResource Mono}"
+                                                   FontSize="11.5" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,12,0"
                                                    FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                    VerticalAlignment="Center" />
@@ -325,9 +324,8 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Path}" Style="{StaticResource Mono}"
-                                                   FontSize="11.5" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
+                                        <controls:PathLine Grid.Column="0" Path="{Binding Path}" Style="{StaticResource Mono}"
+                                                   FontSize="11.5" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,12,0"
                                                    FontSize="11.5" Foreground="{DynamicResource Warn}"
                                                    VerticalAlignment="Center" />
@@ -622,8 +620,9 @@
                         <TextBlock Text="データの保存先" Style="{StaticResource GroupTitle}" Margin="0,0,0,12" />
 
                         <Grid Margin="0,0,0,12">
-                            <TextBlock Text="{Binding RootPath}" Style="{StaticResource Mono}" FontSize="11.5"
-                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,220,0" />
+                            <!-- 長いパスは間を省き、最後のフォルダ名を残す（初回の窓と同じ部品。公開前の点検 2026-10-01） -->
+                            <controls:PathLine Path="{Binding RootPath}" Style="{StaticResource Mono}" FontSize="11.5"
+                                               VerticalAlignment="Center" Margin="0,0,220,0" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                         Command="{Binding OpenRootCommand}" />
