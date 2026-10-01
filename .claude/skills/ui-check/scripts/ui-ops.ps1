@@ -257,7 +257,9 @@ function Select-ChmonosFolder {
 }
 
 # Windows の保存の窓（ファイル名を入れる窓。設定の「バックアップを書き出す」など）に、フルパスを入れて「保存」を押す（実入力を使わない）。
-# ファイル名の欄はコンボの中の Edit。UI Automation では Edit の ID が 1001（窓のメッセージで探す番号ではない）。
+# ファイル名の欄は ID が FileNameControlHost の入れ物の中の、部品の種類（ClassName）が Edit の物。UI Automation では Pane として出て、
+# 値を入れる口（ValuePattern）を持たないので、窓のメッセージ（WM_SETTEXT）で入れる（2026-10-01 に実際の保存の窓で確かめた。
+# 前は「型が Edit で ID が 1001」で探していて、見つからなかった。ID 1001 は住所の帯にも付いている）。
 # フルパスを入れれば、窓が今どのフォルダを見ていても、その場所に保存される。同じ名前があると上書きを聞く窓が出るので、無い名前にする
 function Select-ChmonosSaveFile {
   param([Parameter(Mandatory)][string]$Path, [double]$TimeoutSeconds = 10)
@@ -270,13 +272,15 @@ function Select-ChmonosSaveFile {
   if (-not $d) { return '保存の窓が出ていない' }
   $h = [IntPtr]$d.Current.NativeWindowHandle
 
-  $nameEdit = New-Object System.Windows.Automation.AndCondition(
-    (New-Object System.Windows.Automation.PropertyCondition($A_::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)),
-    (New-Object System.Windows.Automation.PropertyCondition($A_::AutomationIdProperty, '1001')))
-  $edit = Wait-ChmonosCondition -TimeoutSeconds 5 -PollMs 200 -Until { $d.FindFirst($TS_::Descendants, $nameEdit) }
-  if (-not $edit) { return '保存の窓に、ファイル名の欄が無い（フォルダを選ぶ窓なら Select-ChmonosFolder）' }
+  $hostCond = New-Object System.Windows.Automation.PropertyCondition($A_::AutomationIdProperty, 'FileNameControlHost')
+  $editCond = New-Object System.Windows.Automation.PropertyCondition($A_::ClassNameProperty, 'Edit')
+  $edit = Wait-ChmonosCondition -TimeoutSeconds 5 -PollMs 200 -Until {
+    $hostEl = $d.FindFirst($TS_::Descendants, $hostCond)
+    if ($hostEl) { $hostEl.FindFirst($TS_::Descendants, $editCond) } else { $null }
+  }
+  if (-not $edit -or $edit.Current.NativeWindowHandle -eq 0) { return '保存の窓に、ファイル名の欄が無い（フォルダを選ぶ窓なら Select-ChmonosFolder）' }
 
-  $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Path)
+  [void][ChmonosPicker]::SendMessage([IntPtr]$edit.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, $Path)  # WM_SETTEXT
   Start-Sleep -Milliseconds 300
   [void][ChmonosPicker]::PostMessage([ChmonosPicker]::GetDlgItem($h, 1), 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)  # BM_CLICK（1＝「保存」）
   if (-not (Wait-ChmonosCondition -TimeoutSeconds 5 -PollMs 200 -Until { -not [ChmonosWin]::IsWindow($h) })) { return "押したが窓が閉じない（名前が使えない・確認が出た）: $Path" }

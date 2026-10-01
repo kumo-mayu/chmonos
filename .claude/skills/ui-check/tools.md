@@ -88,7 +88,7 @@
 | `Set-ChmonosTheme -Store x -Theme dark`（light・dark・system） / `Restore-ChmonosTheme -Store x` | 写しの設定の表示の色を書き換える／元の形へ戻す（**アプリを閉じているとき**） | 設定の `colorTheme` |
 | `Add-ChmonosSearchCondition -Kind BrokenZip`（`-Like '*ファイルの場所*'` も） | 検索の「＋ 条件を追加」から条件を足す。足した条件の部品は `SearchModule.<種類>.<部品>` | `SearchAddModule`・`SearchAddModule.<種類>` |
 | `Select-ChmonosFolder -Path` | Windows のフォルダを選ぶ窓にパスを入れて押す | 窓のクラス `#32770` |
-| `Select-ChmonosSaveFile -Path <フルパス>` | Windows の保存の窓（バックアップの書き出しなど）にフルパスを入れて「保存」を押す。同じ名前が既にあると断る（上書きの確認が出るため） | 窓のクラス `#32770`・ファイル名の Edit の ID `1001` |
+| `Select-ChmonosSaveFile -Path <フルパス>` | バックアップの書き出しでは、保存の後に「画像も入れる／画像は入れない」を聞く窓が出るので `Close-ChmonosDialog -Button '画像も入れる' -Like 'バックアップ*'` で答える。Windows の保存の窓（バックアップの書き出しなど）にフルパスを入れて「保存」を押す。同じ名前が既にあると断る（上書きの確認が出るため） | 窓のクラス `#32770`・ファイル名の Edit の ID `1001` |
 | `Add-ChmonosImportFolder -Path [-Watch]` / `Clear-ChmonosImportTargets` | 取り込みの対象に足す（監視を聞かれたら はい／いいえ）／対象を全部外す | `ImportChooseFolder`・題「監視…」・`ImportFolderRemove` |
 | `Start-ChmonosImport [-TimeoutSeconds 600] [-During {…}]` | 「取り込みを開始」を押し、終わるまで待つ。戻りは `Done`・`Seconds`・`Trace`・`Messages`・`Summary`・`Buttons`・`Lines` | `ImportStart`・`ImportCancel`・足跡の `ScanFolders` |
 | `Invoke-ChmonosImport -Path a,b [-Watch]` | 上をつないだ物（画面を移る → 対象を外す → 足す → 取り込む → 結果） | — |
