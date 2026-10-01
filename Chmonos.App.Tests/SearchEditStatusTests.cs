@@ -77,7 +77,11 @@ public class SearchEditStatusTests
         Assert.Equal(["2", "3", "4"], Passing(all));
         Assert.Equal("編集状況：ユーザータグ・メモがすべて入力済み", any.SummaryText);
         Assert.Equal("編集状況：ユーザータグ・メモのどれかが入力済み", all.SummaryText);
-        Assert.Equal("どれかを入力済みの商品も含める", any.MatchAllLabel);
+        // つなぎ方の2つの選択肢は、選んだときに出る物を文で言う（入力済みのみは未入力のみの反対）
+        Assert.Equal("すべて入力済み", any.MatchAnyLabel);
+        Assert.Equal("どれかが入力済み", any.MatchAllLabel);
+        Assert.True(any.MatchAny);
+        Assert.False(all.MatchAny);
     });
 
     [Fact]

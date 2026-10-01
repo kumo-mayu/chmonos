@@ -2836,6 +2836,7 @@ public sealed class UneditedModule : SearchModule
             if (value is not null && SetField(ref _selected, value))
             {
                 OnPropertyChanged(nameof(MatchAllLabel));
+                OnPropertyChanged(nameof(MatchAnyLabel));
                 OnPropertyChanged(nameof(ShowsMatchMode));
                 NotifyChanged();
             }
@@ -2852,7 +2853,7 @@ public sealed class UneditedModule : SearchModule
 
     /// <summary>
     /// 「すべて」で結ぶか。既定はどれか（片付けの一覧として、まだ埋めていない所がある商品を出す・D20）。
-    /// 「入力済みのみ」は「未入力のみ」の反対なので、同じ印が「どれかが入力済み」を表す。
+    /// 「入力済みのみ」は「未入力のみ」の反対なので、同じ値が「どれかが入力済み」を表す。
     /// </summary>
     public bool MatchAll
     {
@@ -2861,7 +2862,26 @@ public sealed class UneditedModule : SearchModule
         {
             if (SetField(ref _matchAll, value))
             {
+                OnPropertyChanged(nameof(MatchAny));
                 NotifyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// つなぎ方の2つの選択肢のうち「すべて」で結ばない方（<see cref="MatchAll"/> が偽）。ラジオボタンの片方が結ぶ。
+    /// 前は1つのチェックで、未入力のみでは絞る向き・入力済みのみでは広げる向きと、同じ印の意味が入れ替わって分かりにくかった
+    /// （ユーザ判断 2026-10-01：案A）。今は両方の選択肢を、選んだときに何が出るかの文で並べる
+    /// </summary>
+    public bool MatchAny
+    {
+        get => !_matchAll;
+        set
+        {
+            // 片方を選ぶと、もう片方のラジオボタンが偽を書きに来る。偽は「もう片方が選ばれた」だけなので受けない
+            if (value)
+            {
+                MatchAll = false;
             }
         }
     }
@@ -2869,8 +2889,11 @@ public sealed class UneditedModule : SearchModule
     /// <summary>2つ以上入れていて、両方でないときだけ出す（1つなら結果が変わらない）。</summary>
     public bool ShowsMatchMode => _fields.Count > 1 && _selected.Key != NeutralKey;
 
-    /// <summary>「すべて」の印の文字。未入力のみでは絞る向き、入力済みのみでは広げる向きになる。</summary>
-    public string MatchAllLabel => _selected.Key == FilledKey ? "どれかを入力済みの商品も含める" : "すべてが未入力の商品だけ";
+    /// <summary>「すべて」で結ばない方の文。未入力のみ＝どれかが未入力、入力済みのみ＝その反対なので、すべて入力済み。</summary>
+    public string MatchAnyLabel => _selected.Key == FilledKey ? "すべて入力済み" : "どれかが未入力";
+
+    /// <summary>「すべて」で結ぶ方の文。未入力のみ＝すべてが未入力、入力済みのみ＝その反対なので、どれかが入力済み。</summary>
+    public string MatchAllLabel => _selected.Key == FilledKey ? "どれかが入力済み" : "すべてが未入力";
 
     protected override bool HasCondition => _selected.Key != NeutralKey;
 
@@ -2914,6 +2937,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(MatchAllLabel));
+        OnPropertyChanged(nameof(MatchAnyLabel));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
     }
@@ -2924,6 +2948,7 @@ public sealed class UneditedModule : SearchModule
         _selected = Options.FirstOrDefault(option => option.Key == key) ?? _selected;
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(MatchAllLabel));
+        OnPropertyChanged(nameof(MatchAnyLabel));
         OnPropertyChanged(nameof(ShowsMatchMode));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(CollapsedSummary));
@@ -2956,6 +2981,7 @@ public sealed class UneditedModule : SearchModule
         OnPropertyChanged(nameof(Selected));
         OnPropertyChanged(nameof(MatchAll));
         OnPropertyChanged(nameof(MatchAllLabel));
+        OnPropertyChanged(nameof(MatchAnyLabel));
     }
 
     /// <summary>

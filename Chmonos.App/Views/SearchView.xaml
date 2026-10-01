@@ -445,12 +445,24 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </controls:ContentItemsControl>
-                                        <CheckBox IsChecked="{Binding MatchAll, Mode=TwoWay}" Margin="0,3,0,0"
-                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
-                                                  AutomationProperties.Name="{Binding MatchAllLabel}"
-                                                  Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="{Binding MatchAllLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
-                                        </CheckBox>
+                                        <!--
+                                            つなぎ方は2つの選択肢で、選んだときに何が出るかを文で言い切る（ユーザ判断 2026-10-01：案A）。
+                                            前の1つのチェックは、未入力のみでは絞る向き・入力済みのみでは広げる向きと、意味が入れ替わっていた。
+                                            GroupName は条件ごとに分ける（同じ名前だと、ほかの編集状況の条件のラジオボタンと1組になる）
+                                        -->
+                                        <WrapPanel Margin="0,3,0,0"
+                                                   Visibility="{Binding ShowsMatchMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <RadioButton IsChecked="{Binding MatchAny, Mode=TwoWay}" GroupName="{Binding IdKey, StringFormat='{}{0}.match'}" Margin="0,0,14,0"
+                                                         AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAny'}"
+                                                         AutomationProperties.Name="{Binding MatchAnyLabel}">
+                                                <TextBlock Text="{Binding MatchAnyLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            </RadioButton>
+                                            <RadioButton IsChecked="{Binding MatchAll, Mode=TwoWay}" GroupName="{Binding IdKey, StringFormat='{}{0}.match'}"
+                                                         AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.MatchAll'}"
+                                                         AutomationProperties.Name="{Binding MatchAllLabel}">
+                                                <TextBlock Text="{Binding MatchAllLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            </RadioButton>
+                                        </WrapPanel>
                                     </StackPanel>
                                 </DataTemplate>
 
