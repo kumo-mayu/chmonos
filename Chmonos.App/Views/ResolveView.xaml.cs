@@ -17,6 +17,7 @@ public partial class ResolveView : UserControl
             {
                 _model.DecisionFocusRequested -= OnDecisionFocusRequested;
                 _model.CandidatesFocusRequested -= OnCandidatesFocusRequested;
+                _model.ItemIdFocusRequested -= OnItemIdFocusRequested;
                 _model.PropertyChanged -= OnModelPropertyChanged;
             }
 
@@ -25,6 +26,7 @@ public partial class ResolveView : UserControl
             {
                 _model.DecisionFocusRequested += OnDecisionFocusRequested;
                 _model.CandidatesFocusRequested += OnCandidatesFocusRequested;
+                _model.ItemIdFocusRequested += OnItemIdFocusRequested;
                 _model.PropertyChanged += OnModelPropertyChanged;
             }
         };
@@ -112,4 +114,18 @@ public partial class ResolveView : UserControl
 
     /// <summary>「候補」の欄を画面に入れる。自動検索のボタンは上にあり、進み具合と結果は下の候補の欄に出る（ユーザ指示 2026-09-29）。</summary>
     private void OnCandidatesFocusRequested() => CandidatesCard.BringIntoView();
+
+    /// <summary>
+    /// 商品IDの欄へフォーカスを戻す（キーボードだけで1件ずつ片付ける。ユーザ判断 2026-10-01）。
+    /// 確定の直後は次の行を選び直して右側を描き直している最中なので、描き終えてから移す。
+    /// </summary>
+    private void OnItemIdFocusRequested()
+        => Dispatcher.BeginInvoke(() =>
+        {
+            if (ItemIdBox.IsVisible && ItemIdBox.IsEnabled)
+            {
+                ItemIdBox.Focus();
+                ItemIdBox.SelectAll();
+            }
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
 }

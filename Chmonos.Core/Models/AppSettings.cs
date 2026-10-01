@@ -327,7 +327,10 @@ public sealed record AppSettings
 /// </summary>
 public sealed record ShortcutSettings
 {
-    /// <summary>編集画面の「保存して次へ」。</summary>
+    /// <summary>
+    /// 編集画面の「保存して次へ」と、未確定の画面の「このIDで確定する」（ユーザ判断 2026-10-01）。
+    /// どちらも「この1件を決めて次へ」なので1つのキーにする（設定は1つのキーを1つの操作にしか付けない）。
+    /// </summary>
     public string SaveAndNext { get; init; } = "Ctrl+Enter";
 
     /// <summary>

@@ -879,8 +879,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 数字でもBOOTHの商品URLでも受ける。ブラウザから来るのは普通URLの方
         // 手元の商品のIDはそのまま通す。「BOOTHに無い商品」の仮のIDは数字でもURLでもないので、
         // 通さないと「同じ場所にあった商品」の候補を選んでも「読み取れませんでした」になる（確かめは手元から読む。BOOTHへは行かない）
-        var trimmed = Core.Services.BoothItemId.Parse(itemId)
-            ?? (_itemNames.ContainsKey(itemId.Trim()) ? itemId.Trim() : null);
+        var trimmed = ParseItemIdInput(itemId);
         if (trimmed is null)
         {
             StatusText = itemId.Trim().Length == 0
@@ -894,6 +893,12 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         if (trimmed != itemId.Trim())
         {
             ItemIdInput = trimmed;
+        }
+
+        // 下に出ている商品と同じIDなら問い合わせ直さない。欄で Enter を重ねて押しても、BOOTH への問い合わせが増えないように
+        if (Preview?.Id == trimmed)
+        {
+            return;
         }
 
         // 取得の間も左の一覧は選び直せる。選び直した後に届いた結果を入れると、
@@ -981,15 +986,22 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             if (targets.Count == 1)
             {
                 AfterSettled();
-                return;
+            }
+            else
+            {
+                RemoveRows(settled);
+                StatusText = settled.Count == targets.Count
+                    ? $"{settled.Count} 件を確定しました。"
+                    : $"{settled.Count} / {targets.Count} 件を確定しました。残りは失敗しました。{failure}";
+                OnPropertyChanged(nameof(HasStatus));
+                HideCoveredContents(settled);
             }
 
-            RemoveRows(settled);
-            StatusText = settled.Count == targets.Count
-                ? $"{settled.Count} 件を確定しました。"
-                : $"{settled.Count} / {targets.Count} 件を確定しました。残りは失敗しました。{failure}";
-            OnPropertyChanged(nameof(HasStatus));
-            HideCoveredContents(settled);
+            // 次の行の商品IDをそのまま打てるように欄へ戻す。押したボタンは押せなくなり、フォーカスの行き場が無くなる
+            if (HasSelection)
+            {
+                ItemIdFocusRequested?.Invoke();
+            }
         }
         finally
         {

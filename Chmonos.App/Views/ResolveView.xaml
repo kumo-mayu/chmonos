@@ -625,10 +625,13 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" PreviewDragOver="OnIdBoxPreviewDragOver" PreviewDrop="OnIdBoxPreviewDrop" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox x:Name="ItemIdBox" Grid.Column="0" PreviewDragOver="OnIdBoxPreviewDragOver" PreviewDrop="OnIdBoxPreviewDrop" Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
                                          AutomationProperties.AutomationId="ResolveItemId" AutomationProperties.Name="商品IDかURL"
                                          Height="32" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,7,0">
-                                    <!-- Enter で「このIDで確認」まで進む（I12）。確定は押して決める（取り返しがつかないので Enter では走らせない） -->
+                                    <!--
+                                        Enter で「このIDで確認」まで進む（I12）。確定は Enter では走らせない（取り返しがつかない）。
+                                        確定のキーは編集画面の「保存して次へ」と同じ割り当て（既定 Ctrl+Enter。MainViewModel.RunShortcut → AssignByShortcut）
+                                    -->
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Enter" Command="{Binding PreviewCommand}" />
                                     </TextBox.InputBindings>
@@ -691,7 +694,7 @@
 
                             <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
                                 <Button Content="このIDで確定する" Style="{StaticResource PrimaryButton}"
-                                        AutomationProperties.AutomationId="ResolveAssign"
+                                        AutomationProperties.AutomationId="ResolveAssign" ToolTip="{Binding AssignKeyHint}"
                                         Command="{Binding AssignCommand}" />
                             </StackPanel>
                             <ContentControl ContentTemplate="{StaticResource RegisteringStrip}" Content="{Binding}" Focusable="False"

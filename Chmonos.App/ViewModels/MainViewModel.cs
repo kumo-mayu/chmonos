@@ -813,6 +813,12 @@ public sealed partial class MainViewModel : ViewModelBase
         {
             case ShortcutAction.SaveAndNext when CurrentViewModel is EditViewModel edit:
                 return Run(edit.SaveAndNextCommand);
+
+            // 未確定では「確かめた商品で確定して次の行へ」（ユーザ判断 2026-10-01）。この1件を決めて次へ、は編集画面の保存して次へと同じ意味なので同じキー。
+            // フォルダビューの右に組み込んだ未確定も同じ部品なので、同じキーで確定する
+            case ShortcutAction.SaveAndNext when (CurrentViewModel as ResolveViewModel
+                                                  ?? (CurrentViewModel as FolderViewModel)?.Detail as ResolveViewModel) is { } resolve:
+                return resolve.AssignByShortcut();
             case ShortcutAction.Skip when CurrentViewModel is EditViewModel edit:
                 return Run(edit.SkipCommand);
             case ShortcutAction.Previous when CurrentViewModel is EditViewModel edit:

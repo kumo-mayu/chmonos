@@ -1,0 +1,78 @@
+using Chmonos.App.Services;
+
+namespace Chmonos.App.ViewModels;
+
+/// <summary>
+/// 未確定画面をキーボードだけで1件ずつ片付ける（ユーザ判断 2026-10-01「8は直そう」）。
+///
+/// 流れは「商品IDの欄に打つ → Enter で確かめる → 出た商品を見て、確定のショートカットで確定 → 次の行の欄へ戻る」。
+/// 確定のキーは編集画面の「保存して次へ」と同じ割り当て（既定 Ctrl+Enter）を使う。どちらも「この1件を決めて次へ」で、
+/// 覚えるキーを1つにできる。設定の同じキーの検査は操作ごとに1つのキーしか許さないので、別の操作にすると既定の時点でぶつかる。
+/// Enter をもう一度で確定にしないのは、Enter は確かめるキーとして決めてあり（I12：確定は取り返しがつかないので Enter では走らせない）、
+/// 確かめの答えを待つ間に打った2回目の Enter で、見ていない商品に結んでしまうため。
+/// </summary>
+public sealed partial class ResolveViewModel
+{
+    /// <summary>
+    /// 商品IDの欄へフォーカスを戻してほしいとき（確定した後・確かめていないIDで確定のキーを押したとき）。
+    /// 確定すると次の行が選ばれて欄は空になるので、そのまま次のIDを打てるようにする。
+    /// </summary>
+    public event Action? ItemIdFocusRequested;
+
+    /// <summary>
+    /// 「このIDで確定する」の吹き出し。確定のショートカットがあることだけを言う（割り当てが無ければ出さない）。
+    /// 設定で変えたキーを出すため、決め打ちにしない。
+    /// </summary>
+    public string? AssignKeyHint
+        => Shortcuts.Parse(Shortcuts.GestureOf(_main.Shortcuts, ShortcutAction.SaveAndNext)) is null
+            ? null
+            : $"{Shortcuts.Display(Shortcuts.GestureOf(_main.Shortcuts, ShortcutAction.SaveAndNext))} でも確定できます。";
+
+    /// <summary>
+    /// 確定のショートカット。守りは「このIDで確定する」のボタンと同じ（確かめた商品がある・取得や登録の最中でない・元zipで止めていない）に、
+    /// **欄の文字が確かめた商品と同じであること**を足す。ボタンは下に出ている商品を見て押すが、キーは欄に打った直後に押せるので、
+    /// 打ち直して確かめていないIDのまま、前に確かめた商品へ結んでしまう。
+    /// 未確定の画面でファイルを選んでいれば、何もしなかったときもキーを受け取ったことにする（欄へ流しても何も起きない）。
+    /// </summary>
+    public bool AssignByShortcut()
+    {
+        if (!HasSelection)
+        {
+            return false;
+        }
+
+        // 取得・登録の最中は押せない（ボタンと同じ）。答えが届く前の2回目を確定にしない
+        if (IsBusy || IsBlockedByListedZip)
+        {
+            return true;
+        }
+
+        if (Preview is not { } preview || ParseItemIdInput(ItemIdInput) != preview.Id)
+        {
+            // BOOTHに無かった・読み取れなかったなど、確かめた結果の文が出ていればそれを残す（次の一手はそちらに書いてある）
+            if (Preview is not null || !HasStatus)
+            {
+                StatusText = "先に商品IDを確認してください。";
+                OnPropertyChanged(nameof(HasStatus));
+            }
+
+            ItemIdFocusRequested?.Invoke();
+            return true;
+        }
+
+        if (AssignCommand.CanExecute(null))
+        {
+            AssignCommand.Execute(null);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 欄の文字を商品IDとして読む。数字か BOOTH の商品URL、または手元の商品のID（「BOOTHに無い商品」の仮のIDを含む）。
+    /// 読めなければ null。
+    /// </summary>
+    private string? ParseItemIdInput(string text)
+        => Core.Services.BoothItemId.Parse(text)
+            ?? (_itemNames.ContainsKey(text.Trim()) ? text.Trim() : null);
+}
