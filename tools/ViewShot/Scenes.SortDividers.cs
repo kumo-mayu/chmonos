@@ -36,7 +36,8 @@ internal static partial class Scenes
         await SeedLibraryAsync(context, count: dates.Length, (index, item) =>
             item with { Local = item.Local with { AcquiredAt = dates[index] } });
 
-        var main = await context.StartAsync();
+        // 入手日の札は既定で切（ユーザ判断 2026-10-01）。この場面は札を見るので入れる
+        var main = await context.StartAsync(settings => settings with { ShowAcquiredSortDividers = true });
         var root = context.MainWindow();
         await context.PresentAsync(root);
         await SceneContext.UntilAsync(() => main.Search.TotalCount == dates.Length, "商品を読み終える");
