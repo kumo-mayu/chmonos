@@ -382,7 +382,7 @@ internal static partial class Scenes
             // 取り込みの結果の「取り込んだ商品を検索で開く」と同じ入り方（条件を外して、最近取り込んだ順）。
             // 保存された条件が無い保存先では、最初の条件「お気に入り」が「お気に入りのみ」で始まり、0件になる（2026-09-30 にこの台で見つけた）
             main.Search.ShowRecentlyAddedFirst();
-            await SceneContext.UntilAsync(() => main.Search.Rows.Sum(row => row.Cards.Count) == 8, "カードが並ぶ");
+            await SceneContext.UntilAsync(() => main.Search.Rows.Sum(row => row.Cards.OfType<ItemCardViewModel>().Count()) == 8, "カードが並ぶ");
             await context.SettleAsync();
             return new Shot(root);
         }),
@@ -407,7 +407,7 @@ internal static partial class Scenes
             await SceneContext.UntilAsync(() => main.Search.TotalCount == 8, "商品を読み終える");
 
             main.Search.ShowOnlyBrokenZip();
-            await SceneContext.UntilAsync(() => main.Search.Rows.Sum(row => row.Cards.Count) == 2, "壊れたzipのある商品だけになる");
+            await SceneContext.UntilAsync(() => main.Search.Rows.Sum(row => row.Cards.OfType<ItemCardViewModel>().Count()) == 2, "壊れたzipのある商品だけになる");
             await context.SettleAsync();
             return new Shot(root);
         }),
