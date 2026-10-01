@@ -59,3 +59,17 @@
 - `-eval\store`・`store-clean`：見出しの設定と +Head の値を今の形にした（直す前は `*.before-2026-09-29.json`）
 - `-eval2\labels.json`：決めた方針で5組を付け直した（直す前は `labels.json.before-relabel-2026-09-29`）
 - 本番 `avatar-registry.json`：+Head の値を直した（許可済み。控えは `avatar-registry.json.bak-2026-09-29-plushead`）
+
+## 2026-10-01 の照らし合わせ
+
+`open.md` の行が「直すかは判断待ち」のままだったので、上の「直したもの」を今のコード（`8ab7972`）と試験に照らした。**全部直っている。**
+
+| 件 | 結果 | 根拠 |
+|---|---|---|
+| 起動の瞬間の白い地 | 直った（`1575c00`） | `Chmonos.App/App.xaml.cs:130` が `AppTheme.HideUntilFirstFrame`（`ViewModels/AppTheme.cs:146`）を呼ぶ。試験は無い（撮り比べの数字は `large-files-2026-09-30.md`） |
+| 手で結んだファイルが、移した後の取り込みで結び直らない | 直った（`6c49fbd`・`e606760`） | 試験 `MovedFileRelinkTests`（10件）。`Core/Scanning/ImportPipeline.cs:374`・`:938`（`RelinkMovedFilesAsync`）・`:1283` |
+| 無いファイルが「見つかりません」と出ない | 直った（`b890e46`） | 試験 `LocalFilePresenceTests`（5件）。`App/ViewModels/ItemViewModel.Files.cs:126` で画面のスレッドの外で見る |
+| 結び直した後の検索の `path:` | 直った（`8391fa1`） | `App/ViewModels/ImportViewModel.cs:176`〜`181` で結び直した後に読み直す。試験は無い |
+| 未確定の束の線 | 直った（`0a233b1`） | `App/Views/ManageResources.xaml:78`〜`80`・`App/Views/ResolveView.xaml:266`。試験は無い（描く台の場面 `resolve-bundles`） |
+| 別のフォルダの取り込みで未確定が消える | 直った（`b2355cd`） | `Core/Scanning/UnresolvedMerge.cs:59`（走査した取り込み元の中の物だけ落とす）・`ImportPipeline.cs:351`。試験 `ImportStackingTests.KeepsUnresolvedFilesOfAFolderImportedEarlier`・`UnresolvedMergeTests.今回走査していない取り込み元の物は残す`。ファイル1本だけの取り込み（監視の新着・zip のドロップ）の試験は無かったので `ImportStackingTests.KeepsUnresolvedFilesBesideASingleFileImportedLater` を足した（直しを戻すと落ちる） |
+| 未確定の zip の中身の一覧・続き・一時展開の2度押し・読めないフォルダ | 直った | `large-files-2026-09-30.md` の末尾 |

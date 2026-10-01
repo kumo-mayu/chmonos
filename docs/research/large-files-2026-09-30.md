@@ -1056,3 +1056,30 @@ GC のヒープ 246MB のうち、生きているのは 27MB。死んでいる�
 - 窓を出さずに描く台（`settings-excluded-*`）で、閉じた姿は、除外の欄より上が前後で画素まで同じ。下の欄（データの保存先・このアプリについて）は中身と並びが同じで、
   欄の高さの差（102px）で上がり、行によって 1 画素上下する丸めの差と、保存先のパス（台の作業フォルダの番号）だけが違う。5,000 件の閉じた姿は 3 件と件数の文字だけが違う。
 - 開いた一覧は Tab で三角 → 1行目の「除外を解除」→ … → 40行目 → 一覧の外、と順に止まる（作られていない行へも流れて届く。`experiments/PeerProbe -- focus`）。
+
+## 2026-10-01 の照らし合わせ
+
+`open.md` の行が「直すかは判断待ち」のままだったので、見つけた問題7件を今のコード（`8ab7972`）と試験に照らした。**7件とも直っている。**
+
+| 件 | 結果 | 根拠 |
+|---|---|---|
+| 1. 中身の多い zip の行で止まり、メモリが戻らない | 直った（`00f242f`） | `App/Views/ResolveView.xaml:577`〜`603`（`ContentItemsControl` を `VirtualizingStackPanel`・`CanContentScroll` で見える行だけ作る）。下の数字 |
+| 2. 走査中に閉じると続きを言わない | 直った（`15aef6f`） | `Core/Scanning/ImportPipeline.cs:357`（走査の前に対象と `scanning` を書く）。試験 `ImportStateTests.RemembersTheTargetsWhenClosedWhileScanning` ほか2件 |
+| 3. 一時展開の2度押し・進み具合と中止が無い | 直った（`d39c58b`・`cf380ff`・`d32f079`） | `Core/Services/TemporaryUnpacker.cs:143`（展開先ごとの錠）・`App/ViewModels/ItemFileActions.cs:152`（同じ zip の2度目を弾く）・`App/ViewModels/MainViewModel.Unpacking.cs`（帯）。試験 `TemporaryUnpackerTests.展開の途中の2本目は1本目を待つ`・`中止すると書きかけを消しもう一度押すと展開し直せる` ほか |
+| 4. 壊れた zip が普通の未確定に見える | 直った（`2310fa7`・`0d0da2f`） | `ImportPipeline.cs:1250`・`:1272`・`:1326`（`ArchiveBroken`）。試験 `BrokenArchiveImportTests`（7件）・`BrokenArchiveOnItemTests`（14件） |
+| 5. 読めないフォルダを黙って飛ばす | 直った（`2a1031b`） | `Core/Scanning/FolderScanner.cs:283`（`IgnoreInaccessible = false`）・`:235`。試験 `FolderScannerTests.ReportsAFolderItCannotList`・`ImportWriteBackTests.CountsAFolderThatCouldNotBeListed` |
+| 6. 取り込み中の商品ページが最長1.3秒 | 直った（`44b68e2`・`ee195fc`） | `Core/Scanning/FileHasher.cs:35`（配列を借りて返す）。試験 `FileHasherTests`。直した後の数字は上の「問題6」 |
+| 7. 8万件の後のメモリが下がらない | 直った（`4e41503`） | `App/ViewModels/MainViewModel.cs:1132`〜`1135`（数え直しの後に `MemoryTrim`）。試験は無い（数字は上の「問題7」） |
+
+**1 の数字（アプリを起動しない形）**：描く台に場面 `resolve-many-contents` を足した（作り物の中身7万件の zip と1件の zip の未確定。中身の多い方を選ぶ・離れる・戻る時間を、画面のスレッドで組み終わるまで測る）。Release・暗い表。
+
+| | 今の版（3回） | 仮想化を切った版（1回） |
+|---|---|---|
+| 選ぶ／離れる／戻る | 25〜26／10〜11／13〜14ms | 6,784／1,091／5,332ms |
+| 作った行（中身の一覧の `TextBlock`） | 12 | 70,001 |
+| GC のヒープ（選ぶ前 → 行き来した後） | 14 → 14MB | 14 → 252MB |
+| 作業セット（同じ） | 157 → 161〜162MB | 158 → 728MB |
+
+- 切った版は `ResolveView.xaml` の `IsVirtualizing` を2か所とも `False` にしてビルドした（もう1か所は未確定の一覧で、行は2つ）。
+- 実際のアプリの約49秒より短いのは、描く台には UI Automation の相手が居ないことと、窓に出さず画面の外で組むためと見られる（推測。分けて測っていない）。
+- 画面での見た目・UI Automation で送れることは前の夜の確かめ（上の「夜の直しとファイルを移したときの確かめ」の 3）のまま。照らし合わせでは撮った1枚で、見える約10行が出ていることだけ見た。
