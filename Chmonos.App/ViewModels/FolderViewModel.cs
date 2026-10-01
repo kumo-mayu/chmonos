@@ -166,9 +166,55 @@ public sealed class FolderViewRow : ViewModelBase, IHasItemCard
 
     public string Path { get; init; } = string.Empty;
 
-    public string SubText { get; init; } = string.Empty;
+    private readonly string _subText = string.Empty;
+    private bool _showsItemName;
+
+    /// <summary>
+    /// 行に大きく出す名前と、読み上げの名前。商品名で出す切り替え（<see cref="FolderViewModel.ShowsItemNames"/>）が入で、
+    /// 商品に結び付いた行なら商品名、ほかはディスク上の名前（<see cref="Name"/>）。
+    /// <see cref="Name"/> は鍵・並び・絞り込みに使うので、切り替えでは替えない（替えると入切で並びと選んだ行が動く）
+    /// </summary>
+    public string Title => ShowsItemNameNow ? Entry!.Item!.DisplayName : Name;
+
+    /// <summary>
+    /// 2行目。商品名で出しているときは、元のファイル名をここへ回す（ユーザ判断 2026-10-01：元のファイル名が分かる手段を残す。
+    /// 行の高さを変えずに済むので、切り替えで一覧が伸び縮みしない）。名前の欄に乗せたときの吹き出しはどちらでも場所の全体
+    /// </summary>
+    public string SubText
+    {
+        get => !ShowsItemNameNow ? _subText
+            : Kind == FolderViewRowKind.ItemFolder ? $"{Name}（フォルダごと登録した商品）"
+            : Name;
+        init => _subText = value;
+    }
 
     public bool HasSubText => SubText.Length > 0;
+
+    /// <summary>
+    /// 商品名で出すか。**行を作り直さずに知らせ直す**——作り直すと一覧が丸ごと入れ替わり、流した位置・キーボードの止まり・
+    /// 選んだ行が動く（同じファイルを2つの商品が持つと鍵が同じ行が2つあり、選び直しで別の商品の行へ移った）
+    /// </summary>
+    internal bool ShowsItemName
+    {
+        get => _showsItemName;
+        set
+        {
+            if (_showsItemName == value)
+            {
+                return;
+            }
+
+            _showsItemName = value;
+            if (Entry?.Item is not null)
+            {
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(SubText));
+                OnPropertyChanged(nameof(HasSubText));
+            }
+        }
+    }
+
+    private bool ShowsItemNameNow => _showsItemName && Entry?.Item is not null;
 
     public bool CanExpand { get; init; }
 
@@ -500,6 +546,47 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         set => SetToggle(ref s_showUnresolved, value);
     }
 
+    private bool? _showsItemNames;
+
+    /// <summary>
+    /// 商品のファイルの行を、ファイル名ではなく商品名で出すか（ユーザ判断 2026-10-01：画面は作り替えず、ファイル名の所を商品名にする切り替えだけ）。
+    /// 閉じても覚える（<c>ui-state.json</c> の <c>folderRowsShowItemName</c>。右の一覧のカード／リストと同じく、画面が覚える状態）
+    /// </summary>
+    public bool ShowsItemNames
+    {
+        get => _showsItemNames ??= _services.UiState.FolderRowsShowItemName;
+        private set
+        {
+            if (ShowsItemNames == value)
+            {
+                return;
+            }
+
+            _showsItemNames = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowsFileNames));
+            foreach (var row in Rows)
+            {
+                row.ShowsItemName = value;
+            }
+
+            _services.Commands.ExecuteAsync(new UiCommand.ChangeUiState(state => state with { FolderRowsShowItemName = value })).Forget();
+        }
+    }
+
+    public bool ShowsFileNames => !ShowsItemNames;
+
+    /// <summary>切り替えを押したときだけ変える（点いているかは読むだけ。カード／リストと同じ）。</summary>
+    public RelayCommand ShowFileNamesCommand => _showFileNames ??= new RelayCommand(() => ShowsItemNames = false);
+
+    public RelayCommand ShowItemNamesCommand => _showItemNames ??= new RelayCommand(() => ShowsItemNames = true);
+
+    private RelayCommand? _showFileNames;
+    private RelayCommand? _showItemNames;
+
+    /// <summary>名前の切り替えが効くか。管理しているファイルを木に出していないときは、切り替えても見える物が変わらない。</summary>
+    public bool CanChooseRowNames => ShowItems && ShowManaged;
+
     private void SetToggle(ref bool field, bool value)
     {
         if (field == value)
@@ -511,6 +598,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         OnPropertyChanged(nameof(ShowItems));
         OnPropertyChanged(nameof(ShowManaged));
         OnPropertyChanged(nameof(ShowUnresolved));
+        OnPropertyChanged(nameof(CanChooseRowNames));
         Rebuild();
 
         // 右に出しているフォルダも、未確定の件数と案内の出し方が変わる（ユーザ指示 2026-09-15）
@@ -907,6 +995,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     private void Rebuild()
     {
         var keep = _selected?.Key;
+        var keepItemId = _selected?.Entry?.Item?.Id;
         _needle = Filter.Trim();
         var rows = new List<FolderViewRow>();
 
@@ -971,7 +1060,10 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         // 選んでいた行を選び直す。**右は作り直さない**（開き直すたびに商品ページの読み込みが走り、見ていた所が戻る）
         if (keep is not null)
         {
-            _selected = rows.FirstOrDefault(row => row.Key == keep);
+            // 同じファイルを2つの商品が持つと、鍵（場所）が同じ行が2つ並ぶ。商品も合わせて選び直さないと、
+            // 右に出ている商品と選んだ行が食い違う
+            _selected = rows.FirstOrDefault(row => row.Key == keep && row.Entry?.Item?.Id == keepItemId)
+                ?? rows.FirstOrDefault(row => row.Key == keep);
             OnPropertyChanged(nameof(Selected));
         }
 
@@ -1076,6 +1168,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         IsDim = offline || entry.IsMissing,
         MissingText = !entry.IsMissing ? null : offline ? "取り外しているドライブ" : "見つかりません",
         Entry = entry,
+        ShowsItemName = ShowsItemNames,
         ThumbnailPathFactory = entry.Item is { } item ? () => ItemThumbnailPath(item) : null,
         Thumbnails = _thumbnails,
         Services = _services,
