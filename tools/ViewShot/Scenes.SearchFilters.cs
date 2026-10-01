@@ -34,7 +34,39 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
+
+        new Scene("search-many", "検索の絞り込み：同じ種類の条件が2つ（片方は除く）で、間に別の種類が挟まった並び", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context);
+            await ManyAsync(search);
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
+        new Scene("search-many-grouped", "検索の絞り込み：上の並びで「同じ種類の条件を隣に並べる」を押した後", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context);
+            await ManyAsync(search);
+            search.GroupModulesCommand.Execute(null);
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
     ];
+
+    /// <summary>BOOTHタグ（衣装）→ スキ数 → BOOTHタグ（夏を除く）の並びを作る。</summary>
+    private static Task ManyAsync(SearchViewModel search)
+    {
+        var include = (ListModule)AddModule(search, SearchModuleKind.BoothTag);
+        include.AddKey("衣装");
+
+        var likes = (RangeModule)AddModule(search, SearchModuleKind.WishList);
+        likes.IsCollapsed = true;
+
+        var exclude = (ListModule)AddModule(search, SearchModuleKind.BoothTag);
+        exclude.AddKey("夏");
+        exclude.IsExcluded = true;
+        return Task.CompletedTask;
+    }
 
     /// <summary>作り物の8件に BOOTH タグとスキ数を散らして検索を開き、既定の条件を外して空から始める。</summary>
     private static async Task<(SearchViewModel Search, FrameworkElement Root)> StartFiltersAsync(SceneContext context)

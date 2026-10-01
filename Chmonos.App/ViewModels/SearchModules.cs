@@ -44,7 +44,81 @@ public enum SearchModuleKind
 }
 
 /// <param name="Headings">「条件を追加」のメニューのどの見出しの下に出すか。重なってよい（ユーザ案：分類の重複を許す）。</param>
-public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint);
+/// <param name="AllowsMany">
+/// 同じ種類を複数置けるか（ユーザ判断 2026-10-01）。値を選んで積む条件だけ。条件どうしは AND なので、
+/// 「(A か B) かつ (C か D)」や「A を含み B を除く」が組める。1商品に1つのショップ・三項・範囲・日付・最近は1つまで
+/// （2つ置いても組める物が増えない）。メニューのグレーと、足すときに既にある物を返すかの決まりは、どちらもこれを見る。
+/// </param>
+public sealed record SearchModuleInfo(SearchModuleKind Kind, string Label, string Hint, bool AllowsMany = false);
+
+/// <summary>
+/// 条件の並びの決まり（純粋な関数・試験あり）。足す位置と「同じ種類の条件を隣に並べる」（ユーザ判断 2026-10-01・案の §5）。
+/// </summary>
+public static class SearchModuleOrder
+{
+    /// <summary>
+    /// 新しく足す条件の位置。既定は一番下。<paramref name="nearSameKind"/>（設定）なら、同じ種類の**一番上の塊**の最後の直後
+    /// （塊＝同じ種類が隣り合って続く所。分かれていても一番上の塊に付ける。隣に並べたときにその種類が集まる位置と同じ）。
+    /// 同じ種類が無ければ一番下。
+    /// </summary>
+    public static int InsertIndex(IReadOnlyList<SearchModuleKind> kinds, SearchModuleKind kind, bool nearSameKind)
+    {
+        if (!nearSameKind)
+        {
+            return kinds.Count;
+        }
+
+        var first = -1;
+        for (var index = 0; index < kinds.Count; index++)
+        {
+            if (kinds[index] == kind)
+            {
+                first = index;
+                break;
+            }
+        }
+
+        if (first < 0)
+        {
+            return kinds.Count;
+        }
+
+        var end = first;
+        while (end < kinds.Count && kinds[end] == kind)
+        {
+            end++;
+        }
+
+        return end;
+    }
+
+    /// <summary>
+    /// 同じ種類を隣に並べた並び（元の位置の番号の並び）。種類ごとに初めて出た順に、その種類の条件を元の順のまま寄せる（安定な寄せ）。
+    /// 例：[タグ1, アバター1, タグ2, カテゴリ, アバター2] → [タグ1, タグ2, アバター1, アバター2, カテゴリ]。
+    /// </summary>
+    public static IReadOnlyList<int> GroupByKind(IReadOnlyList<SearchModuleKind> kinds)
+    {
+        var order = new List<SearchModuleKind>();
+        var members = new Dictionary<SearchModuleKind, List<int>>();
+        for (var index = 0; index < kinds.Count; index++)
+        {
+            if (!members.TryGetValue(kinds[index], out var list))
+            {
+                list = [];
+                members[kinds[index]] = list;
+                order.Add(kinds[index]);
+            }
+
+            list.Add(index);
+        }
+
+        return order.SelectMany(kind => members[kind]).ToList();
+    }
+
+    /// <summary>同じ種類がもう隣に並んでいるか（並べても変わらないか）。</summary>
+    public static bool IsGrouped(IReadOnlyList<SearchModuleKind> kinds)
+        => GroupByKind(kinds).Select((from, to) => from == to).All(same => same);
+}
 
 /// <param name="Groups">見出しの中の、意味のまとまり。まとまりの間に区切り線を引く。</param>
 public sealed record SearchModuleMenuLayout(string Title, IReadOnlyList<IReadOnlyList<SearchModuleKind>> Groups);
@@ -67,8 +141,8 @@ public static class SearchModuleCatalog
 
     public static IReadOnlyList<SearchModuleInfo> All { get; } =
     [
-        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れたカテゴリを含む）で絞ります。"),
-        new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。"),
+        new(SearchModuleKind.Category, "カテゴリ", "BOOTHのカテゴリ（自分で入れたカテゴリを含む）で絞ります。", AllowsMany: true),
+        new(SearchModuleKind.BoothTag, "BOOTHタグ", "BOOTHのタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Shop, "ショップ", "ショップで絞ります。ショップ画面で星を付けたお気に入りのショップもまとめて選べます。"),
         new(SearchModuleKind.WishList, "スキ数", "BOOTHのスキ数で絞ります。"),
         new(SearchModuleKind.Price, "価格", "既定は自分が払った額。切り替えるとBOOTHの価格（どれかのバリエーションが範囲に入れば当たり）で絞ります。"),
@@ -78,17 +152,17 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
         new(SearchModuleKind.Gift, "ギフト", "購入記録のバリエーションで絞ります。貰ったもので、自分でも買ったものは両方に表示されます。"),
         new(SearchModuleKind.FreePaid, "有料・無料", "払った額（分からなければBOOTHの価格）で絞ります。無料と有料の両方があるものは両方に表示されます。"),
-        new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。"),
+        new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
-        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。"),
+        new(SearchModuleKind.Avatar, "対応アバター", "対応しているアバター・共通素体で絞ります。", AllowsMany: true),
         new(SearchModuleKind.Favorite, "お気に入り", "カードの星で絞ります。"),
         new(SearchModuleKind.AcquiredAt, "入手日", "入手日で絞ります。入手日を入れていない商品は外れます。"),
         new(SearchModuleKind.Hidden, "非表示", "非表示にした商品を表示します。この条件が無いときは、非表示の商品は表示しません。"),
         new(SearchModuleKind.Unedited, "未編集", "ユーザータグをまだ付けていない商品で絞ります。"),
         new(SearchModuleKind.AvatarUnconfirmed, "対応アバターの確認", "説明文から読み取っただけで、まだ確かめていない対応アバターがある商品で絞ります。"),
-        new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。"),
-        new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。"),
-        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。"),
+        new(SearchModuleKind.Modification, "改変", "改変に使った商品で絞ります。アバターを選ぶと、そのアバターの改変に使った商品です。", AllowsMany: true),
+        new(SearchModuleKind.UnityProject, "Unityプロジェクト", "そのプロジェクトに紐付けた改変に使った商品で絞ります。", AllowsMany: true),
+        new(SearchModuleKind.Path, "ファイルの場所", "手元のファイルのフォルダで絞ります。その下のフォルダも含みます。", AllowsMany: true),
         new(SearchModuleKind.Recent, "最近", "最近Unityへ送った・開いた・取り込んだ商品で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
     ];
@@ -259,7 +333,7 @@ public sealed class SearchModuleContext
 
 /// <summary>
 /// 絞り込みのモジュール1つ（ユーザ案 2026-09-15）。追加したまま切れる（<see cref="IsEnabled"/>）、右上の × で外す。
-/// 各モジュールは一度しか追加できない（検索画面が守る）。
+/// 同じ種類を複数置けるのは <see cref="SearchModuleInfo.AllowsMany"/> の種類だけ（検索画面が守る）。
 /// </summary>
 public abstract class SearchModule : ReorderableRow
 {
@@ -2718,7 +2792,7 @@ public sealed class RecentModule : SearchModule
     }
 }
 
-/// <summary>「条件を追加」のメニューの1行。追加済みはグレー（ユーザ案：一度しか追加できない）。</summary>
+/// <summary>「条件を追加」のメニューの1行。1つまでの種類は、追加済みならグレー。</summary>
 public sealed class SearchModuleMenuEntry : ViewModelBase
 {
     private bool _isAvailable = true;

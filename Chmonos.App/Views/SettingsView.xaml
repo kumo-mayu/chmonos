@@ -122,6 +122,11 @@
                                   ToolTip="オフにすると検索とショップの件数から外れます。統計の金額には含まれたままです。" />
                         <CheckBox Content="非表示にしている件数を検索結果に表示" Style="{StaticResource SettingCheck}"
                                   IsChecked="{Binding ShowHiddenCountInSearch, Mode=TwoWay}" />
+                        <!-- 検索の絞り込みで条件を足す位置（ユーザ判断 2026-10-01）。並べる操作は検索の画面のメニューにあるので、ここでは言わない -->
+                        <CheckBox Content="追加する条件を同じ種類の条件のすぐ下に置く" Style="{StaticResource SettingCheck}"
+                                  AutomationProperties.AutomationId="Settings.PlaceNewConditionNearSameKind"
+                                  ToolTip="オフのときは、いちばん下に追加します。"
+                                  IsChecked="{Binding PlaceNewConditionNearSameKind, Mode=TwoWay}" />
 
                         <!--
                             検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。

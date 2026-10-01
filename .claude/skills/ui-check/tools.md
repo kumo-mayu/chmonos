@@ -86,7 +86,7 @@
 | `Open-ChmonosItem -Id <ID>` / `-Name <表示の名前>` `[-KeepFilters]` | 検索に `id:<ID>` を入れ、出たカード（行）を押して商品ページを開き、中身が落ち着くまで待つ。条件で絞られて出ないときは条件をクリアして探し直す。**検索の履歴に1件積まれる** | `QueryBox`・`ItemCard`・`ItemEdit`・`SearchClearFilters` |
 | `Get-ChmonosItemName -Id` / `Get-ChmonosItemCards` | 写しの item から表示の名前を読む／検索に出ているカード | `ItemCard` |
 | `Set-ChmonosTheme -Store x -Theme dark`（light・dark・system） / `Restore-ChmonosTheme -Store x` | 写しの設定の表示の色を書き換える／元の形へ戻す（**アプリを閉じているとき**） | 設定の `colorTheme` |
-| `Add-ChmonosSearchCondition -Kind BrokenZip`（`-Like '*ファイルの場所*'` も） | 検索の「＋ 条件を追加」から条件を足す。足した条件の部品は `SearchModule.<種類>.<部品>` | `SearchAddModule`・`SearchAddModule.<種類>` |
+| `Add-ChmonosSearchCondition -Kind BrokenZip`（`-Like '*ファイルの場所*'` も） | 検索の「＋ 条件を追加」から条件を足す。足した条件の部品は `SearchModule.<種類>.<部品>`。同じ種類を複数置ける条件（候補から積む物・ユーザータグ）は2つ目から `SearchModule.<種類>-2.<部品>`（番号は上から。足した後の数を待つ）。見出しの「…」は `SearchModule.<種類>.Menu`、そのメニューの行は `.Menu.Exclude`・`.Menu.Collapse`・`.Menu.MoveUp`・`.Menu.MoveDown`・`.Menu.Remove`、除いている札は `.Excluded`。パネルの「…」は `SearchFilterMenu`（行 `SearchFilterMenu.GroupKinds`） | `SearchAddModule`・`SearchAddModule.<種類>` |
 | `Select-ChmonosFolder -Path` | Windows のフォルダを選ぶ窓にパスを入れて押す | 窓のクラス `#32770` |
 | `Select-ChmonosSaveFile -Path <フルパス>` | バックアップの書き出しでは、保存の後に「画像も入れる／画像は入れない」を聞く窓が出るので `Close-ChmonosDialog -Button '画像も入れる' -Like 'バックアップ*'` で答える。Windows の保存の窓（バックアップの書き出しなど）にフルパスを入れて「保存」を押す。同じ名前が既にあると断る（上書きの確認が出るため） | 窓のクラス `#32770`・ファイル名の Edit の ID `1001` |
 | `Add-ChmonosImportFolder -Path [-Watch]` / `Clear-ChmonosImportTargets` | 取り込みの対象に足す（監視を聞かれたら はい／いいえ）／対象を全部外す | `ImportChooseFolder`・題「監視…」・`ImportFolderRemove` |

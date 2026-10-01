@@ -253,20 +253,50 @@
             </DockPanel>
 
             <DockPanel Visibility="{Binding IsFilterPanelCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                <Border DockPanel.Dock="Top" Height="52" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+                <!--
+                    パネルの見出しの行。右クリック（と「絞り込み」の右の「…」・Shift+F10）でパネルのメニューを開く（2026-10-01）。
+                    「…」は「条件をクリア」から離して「絞り込み」の文字の右隣に置く（見出しの行は押し間違えを避けて空けてある・U3・D13）
+                -->
+                <Border DockPanel.Dock="Top" Height="52" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                        Background="{DynamicResource Surface}">
+                    <Border.ContextMenu>
+                        <ContextMenu AutomationProperties.AutomationId="SearchFilterMenuList" AutomationProperties.Name="絞り込みの操作">
+                            <MenuItem Header="同じ種類の条件を隣に並べる" AutomationProperties.Name="同じ種類の条件を隣に並べる"
+                                      AutomationProperties.AutomationId="SearchFilterMenu.GroupKinds"
+                                      Command="{Binding GroupModulesCommand}"
+                                      ToolTip="同じ種類の条件はもう隣に並んでいます。" ToolTipService.ShowOnDisabled="True">
+                                <MenuItem.Style>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <!-- 吹き出しは押せないときの理由だけ。押せるときは見出しの文字で足りる -->
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="True">
+                                                <Setter Property="ToolTip" Value="{x:Null}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </MenuItem.Style>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Border.ContextMenu>
                     <!-- 右の余白は、境の線に半分はみ出したつまみ（13px）から「条件をクリア」をはっきり離すため -->
                     <Grid Margin="16,0,40,0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="絞り込み" FontWeight="Bold" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Style="{StaticResource ModuleMenuButton}" Margin="4,0,0,0" Click="OnModuleMenuClick"
+                                ToolTip="絞り込みの操作"
+                                AutomationProperties.AutomationId="SearchFilterMenu"
+                                AutomationProperties.Name="絞り込みの操作" />
                         <!-- 押す前の条件は検索の履歴に積むので、押し間違えても履歴から戻せる（U3・ユーザ判断） -->
                         <!--
                             文字に押す動きを付けただけでは、キーボードと読み上げ・自動操作から押せない
                             （実際に押せていなかった）。見た目は同じまま、ボタンにする
                         -->
-                        <Button x:Name="ClearFiltersButton" Grid.Column="1" Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
+                        <Button x:Name="ClearFiltersButton" Grid.Column="3" Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
                                 Style="{StaticResource HistorySlotButton}" Foreground="{DynamicResource Accent}"
                                 FontSize="12" VerticalAlignment="Center" Padding="4,2"
                                 AutomationProperties.AutomationId="SearchClearFilters"
@@ -279,14 +309,14 @@
                     <StackPanel Margin="16,12">
                         <!--
                             条件はモジュールで足していく（ユーザ案 2026-09-15）。見出しはメニューの分け方で、同じ条件が
-                            2つの見出しに出ることがある。足してある条件はどの見出しの下でもグレーになる（一度しか足せない）
+                            2つの見出しに出ることがある。1つまでの種類（三項・範囲・日付・ショップ・最近）は、足してあればどの見出しの下でもグレーになる
                         -->
                         <Menu Background="Transparent" HorizontalAlignment="Left">
                             <MenuItem Header="＋ 条件を追加 ▾" ItemsSource="{Binding ModuleMenu}" Height="30" Padding="10,0"
                                       FontSize="12.5" Foreground="{DynamicResource Accent}"
                                       AutomationProperties.AutomationId="SearchAddModule"
                                       AutomationProperties.Name="条件を追加"
-                                      ToolTip="絞り込みに使う条件を追加します。追加済みの条件は選べません。">
+                                      ToolTip="絞り込みに使う条件を追加します。1つしか置けない条件は、追加済みなら選べません。">
                                 <MenuItem.ItemContainerStyle>
                                     <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                                         <Setter Property="Header" Value="{Binding Title}" />
@@ -883,7 +913,7 @@
                                                                 AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}を除くのをやめる}"
                                                                 Command="{Binding ToggleExcludeCommand}" Click="OnExcludedTagClick"
                                                                 Visibility="{Binding IsExcluded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                        <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
+                                                        <CheckBox x:Name="ModuleEnabled" IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"
                                                                   KeyboardNavigation.TabIndex="0"
                                                                   ToolTip="切ると、値を残したままこの条件を効かせません"
                                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Enabled'}"
@@ -911,7 +941,7 @@
                                                 <TextBlock Text="{Binding DisabledReason}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                            Margin="0,6,0,0"
                                                            Visibility="{Binding HasDisabledReason, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <ContentControl Content="{Binding}" Focusable="False" Margin="0,7,0,0"
+                                                <ContentControl x:Name="ModuleBody" Content="{Binding}" Focusable="False" Margin="0,7,0,0"
                                                                 Visibility="{Binding IsExpanded, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                                     <ContentControl.Style>
                                                         <Style TargetType="ContentControl">

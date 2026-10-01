@@ -152,12 +152,51 @@ public partial class SearchView
         if (_focusSource is not null)
         {
             _focusSource.ModuleFocusRequested -= OnModuleFocusRequested;
+            _focusSource.ModuleAdded -= OnModuleAdded;
         }
 
         _focusSource = e.NewValue as SearchViewModel;
         if (_focusSource is not null)
         {
             _focusSource.ModuleFocusRequested += OnModuleFocusRequested;
+            _focusSource.ModuleAdded += OnModuleAdded;
         }
+    }
+
+    /// <summary>
+    /// メニューから条件を足した：その条件へ画面を送り、中の最初の入力欄（無ければ見出しのチェック）に止まる（案の §2）。
+    /// 設定で同じ種類のそばに足すと、足した条件が画面の外（途中）に入ることがある。
+    /// </summary>
+    private void OnModuleAdded(SearchModule module)
+        => Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            if (ModulesList.ItemContainerGenerator.ContainerFromItem(module) is not FrameworkElement container)
+            {
+                return;
+            }
+
+            container.BringIntoView();
+            var target = FindNamed(container, "ModuleBody") is { } body ? FirstInput(body) : null;
+            (target ?? FindNamed(container, "ModuleEnabled"))?.Focus();
+        });
+
+    /// <summary>条件の中身の最初の入力欄（文字の欄・選ぶ欄）。</summary>
+    private static FrameworkElement? FirstInput(DependencyObject parent)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is TextBox or ComboBox && child is FrameworkElement { IsVisible: true, IsEnabled: true, Focusable: true } input)
+            {
+                return input;
+            }
+
+            if (FirstInput(child) is { } deeper)
+            {
+                return deeper;
+            }
+        }
+
+        return null;
     }
 }

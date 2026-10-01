@@ -36,7 +36,13 @@ public sealed partial class SearchViewModel
     {
         foreach (var info in SearchModuleCatalog.All)
         {
-            _moduleMenuEntries[info.Kind] = new SearchModuleMenuEntry(info, kind => AddModule(kind));
+            // メニューから足したときだけ、足した条件へ画面を送って止まる（人が足した物をすぐ触れるように）
+            // （?. で呼ぶと、聞き手がいないときに引数の AddModule ごと飛ばされるので、足してから知らせる）
+            _moduleMenuEntries[info.Kind] = new SearchModuleMenuEntry(info, kind =>
+            {
+                var added = AddModule(kind);
+                ModuleAdded?.Invoke(added);
+            });
         }
 
         // 見出しの中は意味のまとまりの順に並べ、まとまりの間に区切り線を入れる（ユーザ判断 2026-09-16・案1）
@@ -68,10 +74,13 @@ public sealed partial class SearchViewModel
         {
             foreach (var state in saved)
             {
-                // 読めない種類（名前を変えた・無くした）は黙って飛ばす。公開前なので古い名前の読み替えは作らない
-                if (Enum.TryParse<SearchModuleKind>(state.Kind, out var kind))
+                // 読めない種類（名前を変えた・無くした）は黙って飛ばす。公開前なので古い名前の読み替えは作らない。
+                // 1つまでの種類が2つ書かれていたら、2つ目は飛ばす（手で直した JSON。報告は要らない画面の状態）。
+                // 並びは保存した並びのまま（設定の「同じ種類のすぐ下」は、人が新しく足すときの決まり）
+                if (Enum.TryParse<SearchModuleKind>(state.Kind, out var kind)
+                    && (SearchModuleCatalog.Of(kind).AllowsMany || Modules.All(module => module.Kind != kind)))
                 {
-                    AddModule(kind, state, apply: false);
+                    AddModule(kind, state, apply: false, atEnd: true);
                 }
             }
         }
@@ -79,9 +88,18 @@ public sealed partial class SearchViewModel
         RefreshModuleMenu();
     }
 
-    private SearchModule AddModule(SearchModuleKind kind, SearchModuleState? state = null, bool apply = true)
+    /// <summary>メニューから条件を足した。画面がその条件へ送り、入力欄に止まる。</summary>
+    public event Action<SearchModule>? ModuleAdded;
+
+    /// <summary>
+    /// 条件を足す。1つまでの種類が既にあれば、それを返す（足さない）。
+    /// 位置は既定で一番下、設定「追加する条件を同じ種類の条件のすぐ下に置く」なら同じ種類のそば（<see cref="SearchModuleOrder.InsertIndex"/>）。
+    /// 設定は足すたびに今の値を読む（変えたら次に足すときから効く。今ある並びは動かさない）。
+    /// </summary>
+    /// <param name="atEnd">保存した並びを戻すとき。設定によらず一番下に積む。</param>
+    private SearchModule AddModule(SearchModuleKind kind, SearchModuleState? state = null, bool apply = true, bool atEnd = false)
     {
-        if (Modules.FirstOrDefault(module => module.Kind == kind) is { } existing)
+        if (!SearchModuleCatalog.Of(kind).AllowsMany && Modules.FirstOrDefault(module => module.Kind == kind) is { } existing)
         {
             return existing;
         }
@@ -101,7 +119,10 @@ public sealed partial class SearchViewModel
         module.MoveDownCommand = new RelayCommand(
             () => MoveModuleBy(module, +1),
             () => Modules.IndexOf(module) is var index && index >= 0 && index < Modules.Count - 1);
-        Modules.Add(module);
+        var index = atEnd
+            ? Modules.Count
+            : SearchModuleOrder.InsertIndex(Modules.Select(entry => entry.Kind).ToList(), kind, _services.Settings.PlaceNewConditionNearSameKind);
+        Modules.Insert(index, module);
         RenumberModules();
         RefreshModuleSource(module);
         RefreshModuleMenu();
@@ -207,11 +228,15 @@ public sealed partial class SearchViewModel
         RelayCommand.RaiseCanExecuteChanged();
     }
 
-    /// <summary>他の画面から条件を渡すとき：無ければ足し、切ってあれば入れる。絞り直しは呼ぶ側がまとめて1回。</summary>
+    /// <summary>
+    /// 他の画面から条件を渡すとき：その種類の**いちばん上**の条件に入れる。無ければ足し、切ってあれば入れる。絞り直しは呼ぶ側がまとめて1回。
+    /// 入口は値を戻してから来るので、同じ種類の2つ目以降も空になっていて、絞るのは入れた1つだけ（D5）。
+    /// 2つ目以降の空の条件は残す（人が足した物を勝手に消さない。クリアと同じ考え方）。
+    /// </summary>
     private T EnsureModule<T>(SearchModuleKind kind)
         where T : SearchModule
     {
-        var module = AddModule(kind, apply: false);
+        var module = Modules.FirstOrDefault(entry => entry.Kind == kind) ?? AddModule(kind, apply: false);
         module.SetEnabledQuietly(true);
         return (T)module;
     }
@@ -226,10 +251,40 @@ public sealed partial class SearchViewModel
     {
         foreach (var (kind, entry) in _moduleMenuEntries)
         {
-            entry.IsAvailable = Modules.All(module => module.Kind != kind);
+            entry.IsAvailable = SearchModuleCatalog.Of(kind).AllowsMany || Modules.All(module => module.Kind != kind);
         }
 
         OnPropertyChanged(nameof(HasModules));
+    }
+
+    private RelayCommand? _groupModules;
+
+    /// <summary>
+    /// パネルの見出しのメニューの「同じ種類の条件を隣に並べる」（ユーザ判断 2026-10-01・案の §5）。
+    /// 押したときに1回だけ並べ替える（常にまとまった形を保つのではない）。結果を変えないので絞り直さない。並びは覚える。戻す手段は付けない。
+    /// 分かれている種類が無いときは押せない。
+    /// </summary>
+    public RelayCommand GroupModulesCommand => _groupModules ??= new RelayCommand(GroupModules, () => !ModulesGrouped);
+
+    /// <summary>同じ種類の条件がもう隣に並んでいるか（並べても変わらない）。</summary>
+    public bool ModulesGrouped => SearchModuleOrder.IsGrouped(Modules.Select(module => module.Kind).ToList());
+
+    private void GroupModules()
+    {
+        var order = SearchModuleOrder.GroupByKind(Modules.Select(module => module.Kind).ToList());
+        var wanted = order.Select(index => Modules[index]).ToList();
+
+        // 作り直さず、動かすだけで合わせる（枠を作り直すと、入力の途中の値やフォーカスが消える）
+        for (var target = 0; target < wanted.Count; target++)
+        {
+            var current = Modules.IndexOf(wanted[target]);
+            if (current != target)
+            {
+                Modules.Move(current, target);
+            }
+        }
+
+        AfterReorder();
     }
 
     /// <summary>
