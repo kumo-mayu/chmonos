@@ -166,13 +166,22 @@
                 カード／リストの切り替えは探す欄の行の右に置く（点検 2026-09-23：一覧の右下に浮かせると、狭い窓でカードの上に重なった）。
                 入り切らなければ次の行へ送る（検索の結果の上の帯と同じ部品）
             -->
+            <!--
+                欄は広いときは今の幅（案内の文が収まる 320）で左に寄せ、狭いときは右の欄の幅まで縮める（2026-10-01：幅 900 で、
+                欄の最小の幅 320 が右の欄の幅を越えて右端が切れていた）。縮めると案内の文は末尾を「…」にする。
+                案内の文が全部入る 320 を残せないときは、前と同じくカード／リストの切り替えを下の段へ送る
+            -->
             <controls:SplitRowPanel Margin="0,14,0,0" MinLeftWidth="320">
-                <Grid MaxWidth="460" HorizontalAlignment="Left">
-                    <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30" MinWidth="320"
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="160" MaxWidth="320" />
+                        <ColumnDefinition Width="0" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Height="30"
                              VerticalContentAlignment="Center" Padding="7,0"
                              AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
-                    <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" IsHitTestVisible="False" Margin="10,0,0,0"
-                               VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}"
+                    <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" IsHitTestVisible="False" Margin="10,0,10,0"
+                               VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFaint}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                 </Grid>
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False"
