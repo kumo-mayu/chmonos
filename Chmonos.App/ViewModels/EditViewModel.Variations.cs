@@ -366,10 +366,16 @@ public sealed partial class EditViewModel
 
         RebuildFileSortRows(auto);
 
-        PurchasedVariationRows.Clear();
-        foreach (var row in Variations.Where(row => row.VariationId is not null && row.IsPurchased))
+        // 並ぶ行が変わらないときは作り直さない。ファイルを ✕ で外すたびにここを通り、作り直すと欄の部品ごと作り直されて、
+        // キーボードで外した後に隣の ✕ へ止まり直せず、フォーカスが窓へ落ちた（点検 2026-10-01）
+        var purchased = Variations.Where(row => row.VariationId is not null && row.IsPurchased).ToList();
+        if (!purchased.SequenceEqual(PurchasedVariationRows))
         {
-            PurchasedVariationRows.Add(row);
+            PurchasedVariationRows.Clear();
+            foreach (var row in purchased)
+            {
+                PurchasedVariationRows.Add(row);
+            }
         }
 
         foreach (var name in new[]

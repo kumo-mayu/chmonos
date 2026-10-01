@@ -73,6 +73,19 @@ public static class ArrowGroup
         return null;
     }
 
+    /// <summary>
+    /// 並びの中に、行より後から部品ができた（カードの中身は画面が空いたときに4枚ずつ作る：<see cref="DeferredCardHost"/>）。
+    /// 行が作られたときの合わせ直しはもう済んでいるので、そのままだと新しいカードが1枚ずつ Tab で止まる。
+    /// 並びに Tab で止まる物が既にあれば、できた所だけを止まらない物にする（並び全体を数え直すと、4枚ごとに全部のカードの中を下りることになる）
+    /// </summary>
+    public static void Adopt(UIElement part)
+    {
+        if (GroupOf(part) is { } list && list.GetValue(StateProperty) is GroupState state)
+        {
+            state.Adopt(part);
+        }
+    }
+
     /// <summary>並びが落ち着いた後の形にすぐ合わせる（試験用。アプリでは配置の後に自分で合わせる）。</summary>
     public static void RefreshNow(ItemsControl list) => (list.GetValue(StateProperty) as GroupState)?.Refresh();
 
@@ -110,6 +123,9 @@ public static class ArrowGroup
 
         private UIElement? _stop;
         private bool _queued;
+
+        // 並びの止まり先を持っていた行の型（商品の段など）。Tab で並びから出るとき、この型の行は作らせずに飛ばす（PrepareTabOut）
+        private readonly HashSet<Type> _memberTypes = [];
 
         public void Attach()
         {
@@ -166,6 +182,23 @@ public static class ArrowGroup
             Hook(stop);
         }
 
+        public void Adopt(UIElement part)
+        {
+            if (_stop is not { IsVisible: true } stop || !list.IsAncestorOf(stop))
+            {
+                Queue();
+                return;
+            }
+
+            var found = new List<Member>();
+            var slot = 0;
+            CollectFrom(part, 0, ref slot, found);
+            foreach (var member in found)
+            {
+                SetTabStop(member.Element, ReferenceEquals(member.Element, stop));
+            }
+        }
+
         private static void SetTabStop(UIElement element, bool value)
         {
             if (KeyboardNavigation.GetIsTabStop(element) != value)
@@ -214,7 +247,12 @@ public static class ArrowGroup
                 return null;
             }
 
-            return (_slotId is { Length: > 0 } id ? row.FirstOrDefault(member => AutomationProperties.GetAutomationId(member.Element) == id) : null)
+            // カードの段は同じ ID の物が並ぶので、同じ ID で同じ番目の物を先に見る（ID だけで探すと段の先頭のカードへ戻る）
+            var sameId = _slotId is { Length: > 0 } id
+                ? row.Where(member => AutomationProperties.GetAutomationId(member.Element) == id).ToList()
+                : [];
+            return sameId.FirstOrDefault(member => member.Slot == _slot)
+                ?? sameId.FirstOrDefault()
                 ?? row.FirstOrDefault(member => member.Slot == _slot)
                 ?? row[0];
         }
@@ -295,6 +333,17 @@ public static class ArrowGroup
 
         private void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (!e.Handled && e.Key == Key.Tab && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift)
+            {
+                if (TabOutTarget(Keyboard.Modifiers == ModifierKeys.Shift) is { } next)
+                {
+                    next.Focus();
+                    e.Handled = true;
+                }
+
+                return;
+            }
+
             // 修飾キー付きの矢印（Alt+← の戻る・Ctrl+Shift+→ のスキップ）は画面の物
             if (e.Handled || Keyboard.Modifiers != ModifierKeys.None)
             {
@@ -326,10 +375,90 @@ public static class ArrowGroup
 
             // 端で押したときも受けて止める。受けないと WPF の既定の矢印の移動が並びの外の部品へ飛ばす
             e.Handled = true;
-            var target = IsRowList && step is ArrowMove.Up or ArrowMove.Down or ArrowMove.First or ArrowMove.Last
-                ? MoveRow(members[current], step)
-                : MoveWithin(members, current, step);
+            UIElement? target;
+            if (!IsRowList)
+            {
+                target = MoveWithin(members, current, step);
+            }
+            else if (step is ArrowMove.Up or ArrowMove.Down or ArrowMove.First or ArrowMove.Last)
+            {
+                target = MoveRow(members[current], step);
+            }
+            else
+            {
+                // 行の中だけを数え直す（カードの段は、隣のカードの中身がまだ作られていないことがある。数え直すときに作らせる）
+                var row = RowMembers(members[current].Index);
+                target = MoveWithin(row, row.FindIndex(member => ReferenceEquals(member.Element, focused)), step);
+            }
+
             target?.Focus();
+        }
+
+        /// <summary>
+        /// 並びの中から Tab で出るときの行き先が、同じ一覧の中の並びでない行（管理の画面の見出し・下の枠：入力欄とボタンのある行）にあれば、それ。
+        /// 無ければ null（WPF の Tab の決まりに任せる）。
+        /// 見える分だけ作る一覧では、その行がまだ作られていないと Tab は飛ばして一覧の外へ出る
+        /// （カードで並べた属性の管理で、下の「編集画面に最初から並べる」へ行けず、画面の先頭へ戻った）。
+        /// 前は商品の1件ずつに止まり、止まるたびに流れて次の行が作られていたので起きなかった。
+        /// 並びの行と同じ型の行（商品の段）は作らずに飛ばす（2000件の属性で、段を全部作らせないため）
+        /// </summary>
+        private UIElement? TabOutTarget(bool backward)
+        {
+            if (!IsRowList || Keyboard.FocusedElement is not UIElement focused
+                || Members().FirstOrDefault(member => ReferenceEquals(member.Element, focused)) is not { } from)
+            {
+                return null;
+            }
+
+            var count = list.Items.Count;
+            for (var index = from.Index + (backward ? -1 : 1); index >= 0 && index < count; index += backward ? -1 : 1)
+            {
+                if (list.Items[index] is { } item && _memberTypes.Contains(item.GetType()))
+                {
+                    continue;
+                }
+
+                if (list.ItemContainerGenerator.ContainerFromIndex(index) is null && ItemsHost() is VirtualizingStackPanel panel)
+                {
+                    panel.BringIndexIntoViewPublic(index);
+                    list.UpdateLayout();
+                }
+
+                if (list.ItemContainerGenerator.ContainerFromIndex(index) is UIElement container)
+                {
+                    var stops = new List<UIElement>();
+                    TabStopsIn(container, stops);
+                    if (stops.Count > 0)
+                    {
+                        return backward ? stops[^1] : stops[0];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>行の中の、Tab で止まる物を木の順に（入れ子の並びは、その並びの止まる物だけが Tab で止まる物なので、そのまま数える）。</summary>
+        private static void TabStopsIn(DependencyObject parent, List<UIElement> stops)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                if (VisualTreeHelper.GetChild(parent, i) is not UIElement { IsVisible: true } child)
+                {
+                    continue;
+                }
+
+                if (child.Focusable && child.IsEnabled && KeyboardNavigation.GetIsTabStop(child))
+                {
+                    stops.Add(child);
+                    if (child is TextBoxBase or ComboBox)
+                    {
+                        continue;
+                    }
+                }
+
+                TabStopsIn(child, stops);
+            }
         }
 
         private UIElement? MoveWithin(List<Member> members, int current, ArrowMove step)
@@ -347,25 +476,69 @@ public static class ArrowGroup
         private UIElement? MoveRow(Member from, ArrowMove step)
         {
             var count = list.Items.Count;
-            if (ArrowStep.Row(from.Index, count, step) is not { } start)
+            int start;
+            if (step is ArrowMove.First or ArrowMove.Last)
+            {
+                // 端の行が今の行でも、その行の端の物へ移る（カードが1段に収まるショップ一覧で、End が何もしなかった）
+                start = step == ArrowMove.First ? 0 : count - 1;
+            }
+            else if (ArrowStep.Row(from.Index, count, step) is { } next)
+            {
+                start = next;
+            }
+            else
             {
                 return null;
             }
 
+            // 隣の行を作らせると、今の行が流れて外れることがある。横の位置は先に測っておく
+            var here = BoundsOf(from.Element);
+            var centerX = here.IsEmpty ? 0 : here.Left + here.Width / 2;
+
             // 押す物の無い行（状況の文・束の終わり）は飛ばして、その先の行へ
             var direction = step is ArrowMove.Up or ArrowMove.Last ? -1 : 1;
-            for (var index = start; index >= 0 && index < count && index != from.Index; index += direction)
+            for (var index = start; index >= 0 && index < count; index += direction)
             {
+                if (index == from.Index && step is ArrowMove.Up or ArrowMove.Down)
+                {
+                    break;
+                }
+
                 if (RowMembers(index) is { Count: > 0 } row)
                 {
-                    var id = AutomationProperties.GetAutomationId(from.Element);
-                    return (row.FirstOrDefault(member => id.Length > 0 && AutomationProperties.GetAutomationId(member.Element) == id)
-                        ?? row.FirstOrDefault(member => member.Slot == from.Slot)
-                        ?? row[0]).Element;
+                    var target = SameRole(row, from, centerX, step).Element;
+                    return ReferenceEquals(target, from.Element) ? null : target;
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 隣の行の、今の物と同じ役の物（同じ ID、無ければ同じ番目、それも無ければ行の先頭）。
+        /// 同じ ID が2つ以上ある行（カードの段）は、上下なら横の位置がいちばん近い物、Home・End なら端の物
+        /// </summary>
+        private Member SameRole(List<Member> row, Member from, double centerX, ArrowMove step)
+        {
+            var id = AutomationProperties.GetAutomationId(from.Element);
+            var same = id.Length > 0 ? row.Where(member => AutomationProperties.GetAutomationId(member.Element) == id).ToList() : [];
+            if (same.Count == 0)
+            {
+                // ID の無い物（フォルダのカード）は、同じ段の外側の物（中の星などでない物）から選ぶ。商品のカードとフォルダのカードが同じ段に並ぶ
+                same = row.Where(member => !member.IsInner).ToList();
+                if (same.Count <= 1)
+                {
+                    return row.FirstOrDefault(member => member.Slot == from.Slot) ?? row[0];
+                }
+            }
+
+            if (same.Count == 1)
+            {
+                return same[0];
+            }
+
+            var spots = same.Select(member => new ArrowSpot(BoundsOf(member.Element), member.IsInner)).ToList();
+            return same[ArrowStep.InRow(spots, centerX, step) ?? 0];
         }
 
         /// <summary>その行の止まり先。作られていない行は、番号で見える所まで流して作らせる。</summary>
@@ -385,6 +558,12 @@ public static class ArrowGroup
 
             if (list.ItemContainerGenerator.ContainerFromIndex(index) is UIElement container)
             {
+                // カードの中身は画面が空いたときに後から作る。流して入ったばかりの段は、まだ白い枠だけで止まれる物が無い
+                if (DeferredCardHost.RealizeWithin(container))
+                {
+                    list.UpdateLayout();
+                }
+
                 var slot = 0;
                 CollectFrom(container, index, ref slot, row);
             }
@@ -469,6 +648,7 @@ public static class ArrowGroup
             var count = list.Items.Count;
             if (ArrowStep.AfterRemoval(removedIndex, count) is not { } start)
             {
+                FocusAround();
                 return;
             }
 
@@ -488,6 +668,74 @@ public static class ArrowGroup
                     SlotIn(row)?.Element.Focus();
                     return;
                 }
+            }
+
+            FocusAround();
+        }
+
+        /// <summary>
+        /// 並びに止まる物が1つも残らなかった（最後の小分類・付けたファイルの最後の1つを ✕ で外した）。並びを含む欄の中で、
+        /// 並びのすぐ後ろの止まり先（小分類なら「小分類を追加」の欄）、後ろに無ければすぐ前の止まり先（付けたファイルなら同じバリエーションの「ファイルを追加」）へ止まり直す。
+        /// 前を後回しにするのは、前には欄そのものを消すボタン（小分類の札なら大分類の「外す」）があり、続けて Enter を押すと消えるため。
+        /// 外へ外へと欄を広げて探し、画面の外へは出ない。何もしないと窓そのものへ落ち、次の Tab が画面の先頭から始まる
+        /// </summary>
+        private void FocusAround()
+        {
+            for (var node = VisualTreeHelper.GetParent(list); node is not null and not Window; node = VisualTreeHelper.GetParent(node))
+            {
+                if (node is UIElement { IsVisible: true } scope)
+                {
+                    var before = new List<UIElement>();
+                    var after = new List<UIElement>();
+                    var passed = false;
+                    CollectStops(scope, before, after, ref passed);
+                    if ((after.FirstOrDefault() ?? before.LastOrDefault()) is { } target)
+                    {
+                        target.Focus();
+                        return;
+                    }
+                }
+
+                if (node is UserControl)
+                {
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Tab で止まる物を、並びより前と後ろに分けて木の順に集める（並びの中は数えない）。</summary>
+        private void CollectStops(DependencyObject parent, List<UIElement> before, List<UIElement> after, ref bool passed)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                if (VisualTreeHelper.GetChild(parent, i) is not UIElement child)
+                {
+                    continue;
+                }
+
+                if (ReferenceEquals(child, list))
+                {
+                    passed = true;
+                    continue;
+                }
+
+                if (!child.IsVisible)
+                {
+                    continue;
+                }
+
+                if (child.Focusable && child.IsEnabled && KeyboardNavigation.GetIsTabStop(child))
+                {
+                    (passed ? after : before).Add(child);
+
+                    // 入力欄の中の部品は、その欄の物
+                    if (child is TextBoxBase or ComboBox)
+                    {
+                        continue;
+                    }
+                }
+
+                CollectStops(child, before, after, ref passed);
             }
         }
         /// <summary>
@@ -525,7 +773,12 @@ public static class ArrowGroup
             foreach (var (index, container) in containers.OrderBy(pair => pair.Index))
             {
                 var slot = 0;
+                var before = result.Count;
                 CollectFrom(container, index, ref slot, result);
+                if (result.Count > before && list.Items[index] is { } item)
+                {
+                    _memberTypes.Add(item.GetType());
+                }
             }
 
             return result;

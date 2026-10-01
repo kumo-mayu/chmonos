@@ -212,7 +212,11 @@
                             -->
                             <Grid Tag="{Binding}" Visibility="{Binding HasMembers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <!-- カード -->
-                                <controls:ContentItemsControl ItemsSource="{Binding Members}" Focusable="False"
+                                <!--
+                                    使ったもののカードと、その下のボタン（順番の ◀ ▶・Unity・外す）は並び（ArrowGroup。点検 2026-10-01）：Tab で1回だけ入り、
+                                    ←→ でカード → ボタン → 次のカード、↑↓ で上下の近い物へ移る。前は1件ごとにカードとボタンの数だけ Tab が止まった
+                                -->
+                                <controls:ContentItemsControl ItemsSource="{Binding Members}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
                                               Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -645,7 +649,8 @@
                                        Visibility="{Binding HasProjectCandidates, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                             <!-- 開いているものが先に来る。紐付けたいのは大抵いま作業しているもの -->
-                            <controls:ContentItemsControl ItemsSource="{Binding ProjectCandidates}" MaxHeight="260"
+                            <!-- 行ごとに「紐付ける」のある一覧なので並び（ArrowGroup）：Tab で1回だけ入り、↑↓ で行を移る（点検 2026-10-01：プロジェクトの数だけ Tab が止まっていた） -->
+                            <controls:ContentItemsControl ItemsSource="{Binding ProjectCandidates}" MaxHeight="260" controls:ArrowGroup.IsEnabled="True"
                                           Visibility="{Binding HasProjectCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.Template>
                                     <ControlTemplate TargetType="ItemsControl">

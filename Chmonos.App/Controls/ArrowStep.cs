@@ -96,6 +96,27 @@ public static class ArrowStep
     }
 
     /// <summary>
+    /// 隣の行に同じ役の物が2つ以上あるとき（カードの段：1段にカードが何枚も並ぶ）に、どれへ止まるか。
+    /// 上下は横の位置がいちばん近い物、Home は先頭、End は最後。<paramref name="candidates"/> が空なら null。
+    /// 段の中のカードは横に並ぶので、番目で選ぶと、最後の段のように枚数の少ない段で左へずれる（今までのカードの矢印と同じ「縦は近い位置」）
+    /// </summary>
+    public static int? InRow(IReadOnlyList<ArrowSpot> candidates, double centerX, ArrowMove move)
+    {
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return move switch
+        {
+            ArrowMove.First => 0,
+            ArrowMove.Last => candidates.Count - 1,
+            _ => Enumerable.Range(0, candidates.Count)
+                .MinBy(index => Math.Abs(candidates[index].Bounds.Left + candidates[index].Bounds.Width / 2 - centerX)),
+        };
+    }
+
+    /// <summary>
     /// フォーカスのあった行が一覧から消えた（「除外を解除」で行が無くなった）あとに止まる行。
     /// 次の行（消えた行の位置に詰めて来た行）、無ければ前の行。一覧が空なら null。
     /// 窓そのものへ落とすと、次の Tab が画面の先頭（ナビの「戻る」）から始まり、一覧の中の位置を失う

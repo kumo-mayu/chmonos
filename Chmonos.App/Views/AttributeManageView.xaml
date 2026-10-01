@@ -168,7 +168,12 @@
                 全部並べていた頃は、2000件の属性を開くと約8秒固まった）。並べる物は、頭（属性の札・商品の見出し）→
                 商品の段（幅から数を決めて切る）→ 下の枠。商品を囲む枠は段ごとに描き分け、見た目は前と同じ1枚の札のまま
             -->
-            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False"
+            <!--
+                商品の段（カード・リストの行）は並び（ArrowGroup。ユーザ判断 2026-10-01）：Tab で1回だけ入り、中は矢印で商品から商品へ移る。
+                前は商品の数だけ Tab が止まり、下の「編集画面に最初から並べる」へ行くのに商品の数だけ押した。
+                頭・見出し・下の枠は入力欄とボタンのある所なので、並びの外（ArrowGroup.IsOutside）にして今までどおり1つずつ止まる
+            -->
+            <controls:ContentItemsControl Grid.Column="1" ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
                                           VirtualizingPanel.IsVirtualizing="True"
                                           VirtualizingPanel.VirtualizationMode="Recycling"
                                           VirtualizingPanel.ScrollUnit="Pixel"
@@ -191,7 +196,7 @@
                     <!-- 頭：状況の文・一覧に無い属性・属性の札・この属性を持つ商品の見出し（この画面そのものに結ぶ） -->
                     <DataTemplate DataType="{x:Type vm:AttributeManageViewModel}">
                 <!-- 使える幅いっぱいを使う（タグの管理と揃える。ユーザ指示 2026-09-19） -->
-                <StackPanel HorizontalAlignment="Stretch">
+                <StackPanel HorizontalAlignment="Stretch" controls:ArrowGroup.IsOutside="True">
 
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -416,7 +421,7 @@
 
                     <!-- 下の枠：商品を囲む枠の下側と、編集画面での扱い -->
                     <DataTemplate DataType="{x:Type vm:ManageFoot}">
-                        <StackPanel DataContext="{Binding Owner}"
+                        <StackPanel DataContext="{Binding Owner}" controls:ArrowGroup.IsOutside="True"
                                     Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Border Height="17" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                                     BorderThickness="1,0,1,1" CornerRadius="0,0,8,8" />

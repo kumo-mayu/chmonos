@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace Chmonos.App.Controls;
@@ -26,6 +27,13 @@ public sealed class CardRowsListBox : ListBox
     {
         // 暗黙の見た目（Themes/Controls.xaml の ListBox）は、型がぴったり同じ部品にしか当たらない。ListBox の見た目を名指しで引く
         SetResourceReference(StyleProperty, typeof(ListBox));
+
+        // カードの一覧は Tab で1回だけ入り、中は矢印でカードからカードへ移る（ユーザ判断 2026-10-01）。
+        // 前は1枚ずつ Tab で止まり、検索の結果を抜けて下の「絞り込みを折りたたむ」へ行くのに、見えているカードの数だけ押した。
+        // ListBox の既定（Once）は中を丸ごと1つにする WPF の仕組みで、並び（ArrowGroup）の「止まる物を1つにする」とは別。
+        // 並びに任せるので Continue にする（Once のままだと、並びが選んだ止まり先ではなく、一覧が覚えた物へ入る）
+        KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Continue);
+        ArrowGroup.SetIsEnabled(this, true);
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);

@@ -79,6 +79,66 @@ public class ArrowGroupTests
         Assert.Null(ArrowStep.Row(399, 400, ArrowMove.Down));
     }
 
+    // カードの段：1段に同じ役の物（カード）が何枚も並ぶ。3枚の段と、最後の2枚の段
+    private static readonly ArrowSpot[] FullRow =
+    [
+        new(new Rect(0, 0, 100, 150), IsInner: false),
+        new(new Rect(114, 0, 100, 150), IsInner: false),
+        new(new Rect(228, 0, 100, 150), IsInner: false),
+    ];
+
+    private static readonly ArrowSpot[] ShortRow =
+    [
+        new(new Rect(0, 164, 100, 150), IsInner: false),
+        new(new Rect(114, 164, 100, 150), IsInner: false),
+    ];
+
+    [Fact]
+    public void カードの段の上下は_隣の段の横の位置がいちばん近いカードへ移る()
+    {
+        // 3列目（中心 278）から下の段へ：2枚しか無い段では、右端の2枚目
+        Assert.Equal(1, ArrowStep.InRow(ShortRow, 278, ArrowMove.Down));
+        // 2列目（中心 164）から上の段へ：同じ2列目
+        Assert.Equal(1, ArrowStep.InRow(FullRow, 164, ArrowMove.Up));
+        Assert.Equal(0, ArrowStep.InRow(FullRow, 50, ArrowMove.Up));
+    }
+
+    [Fact]
+    public void カードの段のHomeとEndは_端の段の端のカードへ移る()
+    {
+        Assert.Equal(0, ArrowStep.InRow(FullRow, 278, ArrowMove.First));
+        Assert.Equal(1, ArrowStep.InRow(ShortRow, 50, ArrowMove.Last));
+        Assert.Null(ArrowStep.InRow([], 50, ArrowMove.Down));
+    }
+
+    [Fact]
+    public Task カードの一覧は_並びになり_Tabは並びに任せる() => UiThread.Run(() =>
+    {
+        // 検索・ショップ・ショップ一覧・フォルダの右はこの一覧を使う。ListBox の既定（Once）のままだと、並びが選んだ止まり先ではなく一覧が覚えた物へ入る
+        var list = new CardRowsListBox();
+
+        Assert.True(ArrowGroup.GetIsEnabled(list));
+        Assert.Equal(KeyboardNavigationMode.Continue, KeyboardNavigation.GetTabNavigation(list));
+    });
+
+    [Fact]
+    public Task 後からできた部品は_並びのTabで止まらない物になる() => UiThread.Run(() =>
+    {
+        // カードの中身は画面が空いたときに後から作る（DeferredCardHost）。行が作られたときの合わせ直しの後にできるので、そのままでは1枚ずつ Tab で止まる
+        using var host = Host.Chips(["A", "B"]);
+        var row = (StackPanel)System.Windows.Media.VisualTreeHelper.GetChild(
+            (DependencyObject)host.List.ItemContainerGenerator.ContainerFromIndex(1), 0);
+        var late = new Button { Width = 20 };
+        row.Children.Add(late);
+        host.LayoutOnly();
+        Assert.True(KeyboardNavigation.GetIsTabStop(late));
+
+        ArrowGroup.Adopt(late);
+
+        Assert.False(KeyboardNavigation.GetIsTabStop(late));
+        Assert.Single(ArrowGroup.MembersOf(host.List), KeyboardNavigation.GetIsTabStop);
+    });
+
     [Fact]
     public void 止まっていた行が消えたら_次の行_最後の行なら前の行に止まる()
     {
@@ -230,6 +290,9 @@ public class ArrowGroupTests
             _root.UpdateLayout();
             ArrowGroup.RefreshNow(List);
         }
+
+        /// <summary>並べ直すだけで、並びの合わせ直しはしない（後からできた部品を、行が作られた後に足した形にする）。</summary>
+        public void LayoutOnly() => _root.UpdateLayout();
 
         /// <summary>並びとは別に止まる所（IsOutside の付いた物と入力欄）。</summary>
         public List<UIElement> Outside()

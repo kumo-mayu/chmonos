@@ -101,6 +101,27 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
+        <!--
+            文字リンクと同じ見た目のボタン。繰り返す行の中の文字リンクに使う（点検 2026-10-01）。
+            Hyperlink は画面の部品ではなく文の一部なので、行の並び（ArrowGroup）が止まり先として数えられず、
+            並びの外で行の数だけ Tab が止まっていた（見つからないファイルの「取り込みを開く」）。ボタンにすると並びの中の物になる
+        -->
+        <Style x:Key="HyperlinkButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource SmallFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <!-- 大きさは置き場所の FontSize に合わせる（書かないとアプリ全体の文字の既定が当たり、文の中の文字リンクより大きくなった） -->
+                        <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" TextDecorations="Underline"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   Foreground="{TemplateBinding Foreground}" Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 角丸・枠線つきのカード -->
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Surface}" />
@@ -228,6 +249,19 @@
             キーボードで止まった所の印（札・行・小さな ×）。カードの印（ItemCardResources の CardFocusVisual）と同じく、選んだ色の枠を飾りの層に描く。
             既定の点線は、色の付いた札や薄い地の行の上で見分けにくい。枠の太さを部品の側で変えると中身がずれる
         -->
+        <!--
+            キーボードで止まったカードの印（商品のカード・ショップのカード・フォルダのカード）。既定の点線は角丸の白いカードの上で見分けにくいので、
+            選んだ色の枠を外側に出す（ItemCardResources から移した。ショップ一覧・フォルダのカードは商品のカードの資源を読まない）
+        -->
+        <Style x:Key="CardFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="9" Margin="-2" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="ChipFocusVisual">
             <Setter Property="Control.Template">
                 <Setter.Value>

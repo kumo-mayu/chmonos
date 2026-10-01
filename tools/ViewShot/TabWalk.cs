@@ -16,7 +16,8 @@ namespace ViewShot;
 /// 場面を Tab で一周して、止まった所を順に書き出す（<c>ViewShot tabs &lt;場面&gt;</c>）。<c>--keys</c> を渡すと、その順にキーを送って止まった所を書く。
 ///
 /// 止まらない操作（商品ページの星・畳む三角）と、件数分止まる並びは、絵にも窓口の木にも出ない。
-/// 見えない窓に載せ、WPF の「次へ進む」（Tab キーと同じ決まり）を呼んで、一周するか上限まで進む。ほかのキーは入力の口から送る。実際のキーは押さない。
+/// 見えない窓に載せ、Tab をキーの知らせとして入力の口から送って、一周するか上限まで進む（動かなければ WPF の「次へ進む」を直に呼ぶ）。
+/// ほかのキーも入力の口から送る。実際のキーは押さない。
 /// アプリの組み立てごと載る場面（商品ページ・要確認・改変の画面）でも動くので、作り物のデータを組む PeerProbe の focus では届かない画面を通しで見られる
 /// </summary>
 internal static class TabWalk
@@ -83,7 +84,8 @@ internal static class TabWalk
                 outside++;
             }
 
-            if (!Next(focused, FocusNavigationDirection.Next))
+            PressTab((HwndSource)PresentationSource.FromVisual(root)!);
+            if (ReferenceEquals(Keyboard.FocusedElement, focused))
             {
                 break;
             }
@@ -107,7 +109,7 @@ internal static class TabWalk
             switch (step)
             {
                 case "Tab":
-                    Next(Keyboard.FocusedElement, FocusNavigationDirection.Next);
+                    PressTab(source);
                     break;
                 case "ShiftTab":
                     Next(Keyboard.FocusedElement, FocusNavigationDirection.Previous);
@@ -123,6 +125,22 @@ internal static class TabWalk
             Idle(root);
             var where = IsInside(root, Keyboard.FocusedElement) ? string.Empty : "  （見たい所の外）";
             output.WriteLine($"{step,-8} → {Describe(Keyboard.FocusedElement)}{where}");
+        }
+    }
+
+    /// <summary>
+    /// Tab をキーの知らせとして送る（並びの ArrowGroup は、見える分だけ作る一覧の中で Tab を受けて行き先を作らせる。
+    /// 「次へ進む」を直に呼ぶと、その受け口を通らない）。WPF の Tab の移動もキーの知らせで動く。
+    /// フォーカスが動かなかったときだけ「次へ進む」を直に呼ぶ（一周の終わりなど）。Shift は実際のキーの状態を読むので作れず、ShiftTab は直に呼ぶ
+    /// </summary>
+    private static void PressTab(HwndSource source)
+    {
+        var before = Keyboard.FocusedElement;
+        InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+        InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Tab) { RoutedEvent = Keyboard.PreviewKeyUpEvent });
+        if (ReferenceEquals(Keyboard.FocusedElement, before))
+        {
+            Next(before, FocusNavigationDirection.Next);
         }
     }
 
