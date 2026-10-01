@@ -34,7 +34,8 @@ dotnet publish BoothAssetManager.App -p:PublishProfile=win-x64
 
 `publish\Chmonos-win-x64\` に **exe 1つ ＋ `assets` フォルダ**（辞書など4件）の計5ファイルで出る。
 
-- **自己完結**（.NET 10 のランタイムを同梱。exe は約 147 MB）。渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる
+- **自己完結**（.NET 10 のランタイムを同梱。exe は約 171 MB）。渡した相手にランタイムを入れてもらう必要はない。入れてもらう手順が1つ増えるほど、起動する前に詰まる
+- **事前翻訳（ReadyToRun）している**。起動のたびの JIT が減り、起動が約 0.3 秒縮む（exe は約 30 MB 大きくなる。`docs/research/startup-dotnet10-2026-10-01.md`）。作るときに NuGet から事前翻訳の包みを取ってくる
 - **1ファイルにまとめている**（ネイティブDLLも exe の中）。起動すると `%TEMP%\.net\` へネイティブDLL 5つ・7.8MB を展開し、以降は使い回す。
   これは `docs/research/antivirus.md` A の「参考」が懸念していた動きなので、**セキュリティソフトで詰まったらプロファイルの `PublishSingleFile` を false に戻す**
 - **辞書（`assets\`）は exe の外に残す**。アプリは `AppContext.BaseDirectory\assets\` を見るので、exe に入れると見つけられなくなる（`BoothAssetManager.Core.csproj` の `ExcludeFromSingleFile`）。**exe だけ取り出しても動かない。フォルダごと渡す**
