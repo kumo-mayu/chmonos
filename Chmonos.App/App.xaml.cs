@@ -180,7 +180,7 @@ public partial class App : Application
     {
         var root = StoreLocation.Resolve();
 
-        if (root.Source == StoreRootSource.Default || Directory.Exists(root.Path))
+        if (!AsksWhenStoreMissing(root, Directory.Exists(root.Path)))
         {
             return true;
         }
@@ -204,6 +204,17 @@ public partial class App : Application
         StoreLocation.Clear();
         return true;
     }
+
+    /// <summary>
+    /// 保存先が見つからないと聞くのは、設定した場所（<c>location.json</c>）を指しているときだけ。
+    ///
+    /// 既定の場所は、無くて当たり前（初回起動）。環境変数で指定した場所は、指定した側が作る前提で、聞かずにそこで開く
+    /// （無ければ作られる）。前は環境変数のときも聞いていて、「はい」で <see cref="StoreLocation.Clear"/> が走り、
+    /// 環境変数とは関係の無い本番の <c>location.json</c> を消していた。確かめの道具が無い写しを開くと、この窓が出る
+    /// （2026-10-01 の点検で見つけた。押されてはいない）
+    /// </summary>
+    internal static bool AsksWhenStoreMissing(StoreRoot root, bool exists)
+        => root.Source == StoreRootSource.Configured && !exists;
 
     /// <summary>
     /// 終了時の姿を覚える。
