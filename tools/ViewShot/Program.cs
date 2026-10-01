@@ -39,6 +39,7 @@ internal static class Program
                 "list" => List(),
                 "shot" => ShotCommand(args[1..]),
                 "peers" => ShotCommand(args[1..], peers: true),
+                "tabs" => ShotCommand(args[1..], tabs: true),
                 "diff" => DiffCommand(args[1..]),
                 _ => Usage(),
             };
@@ -62,6 +63,8 @@ internal static class Program
               ViewShot diff <前.png> <後.png> [--out 並べた画像.png] [--tolerance 0]
               ViewShot diff <前のフォルダ> <後のフォルダ>
               ViewShot peers <場面>      読み上げ・自動操作の窓口の木を文字で書き出す（名前・型・押せるか）
+              ViewShot tabs <場面> [--from <ID>] [--keys Tab,Right,Down,Enter…]
+                                         Tab で一周して止まった所（型・名前・ID・枠）を書き出す。--keys はその順にキーを送る
 
             画像は既定で %TEMP%\chmonos-shots\view\ に置く（リポジトリの外）。
             """);
@@ -83,7 +86,7 @@ internal static class Program
 
     // ---- shot ----
 
-    private static int ShotCommand(string[] args, bool peers = false)
+    private static int ShotCommand(string[] args, bool peers = false, bool tabs = false)
     {
         var names = new List<string>();
         var all = false;
@@ -95,6 +98,8 @@ internal static class Program
         Rect? crop = null;
         var full = false;
         var jobs = 3;
+        var keys = new List<string>();
+        string? from = null;
 
         // 一時フォルダは、切り離す（Isolation.Enter）前の本来の場所で決める
         var outDir = Path.Combine(Path.GetTempPath(), "chmonos-shots", "view");
@@ -143,6 +148,12 @@ internal static class Program
                 case "--jobs":
                     jobs = Math.Max(1, (int)Numbers(Next())[0]);
                     break;
+                case "--keys":
+                    keys = [.. Next().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+                    break;
+                case "--from":
+                    from = Next();
+                    break;
                 default:
                     names.AddRange(args[i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                     break;
@@ -168,11 +179,14 @@ internal static class Program
             OutDir = outDir,
             Jobs = jobs,
             Peers = peers,
+            Tabs = tabs,
+            Keys = keys,
+            From = from,
         };
 
-        if (peers && scenes.Count != 1)
+        if ((peers || tabs) && scenes.Count != 1)
         {
-            throw new ArgumentException("peers は場面を1つだけ渡してください（木を続けて書き出すと、どの場面の物か分からなくなる）。");
+            throw new ArgumentException("peers・tabs は場面を1つだけ渡してください（続けて書き出すと、どの場面の物か分からなくなる）。");
         }
 
         return scenes.Count == 1 ? RunOne(scenes[0], options) : RunMany(scenes, args, options);
@@ -312,7 +326,7 @@ internal static class Program
 
     private static async Task<int> RunSceneAsync(Scene scene, ShotOptions options, Stopwatch clock)
     {
-        using var stage = new Stage();
+        using var stage = new Stage(focusable: options.Tabs);
         stage.SetScale(options.Scales[0]);
 
         // 色の表。サービス一式を組む前でも当てられる（アプリも、窓を1つも出さないうちに当てている）
@@ -349,6 +363,14 @@ internal static class Program
         if (!ReferenceEquals(stage.Content, shot.Root))
         {
             await context.PresentAsync(shot.Root);
+        }
+
+        if (options.Tabs)
+        {
+            await stage.SettleAsync();
+            TabWalk.Write(stage, shot.Focus?.Invoke() ?? shot.Root, options.From, options.Keys, Console.Out);
+            context.Dispose();
+            return 0;
         }
 
         if (options.Peers)

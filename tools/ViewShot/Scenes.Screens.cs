@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows.Controls;
 using Chmonos.App.ViewModels;
 using Chmonos.App.Views;
@@ -127,6 +128,47 @@ internal static partial class Scenes
             var root = context.MainWindow();
             await context.PresentAsync(root);
             return new Shot(root);
+        }),
+
+        // 対応アバターの多い商品（29体・共通素体2つ・ファイル2つ）。Tab と矢印の確かめ（ViewShot tabs）と、札の並びのフォーカスの枠を見る。
+        // 2026-10-01 の点検で、29体の商品は欄を抜けるのに Tab を62回押した
+        new Scene("item-page-avatars", "商品ページ：対応アバター29体・共通素体2つ・手元のファイル2つ（Tab の通しの確かめ）", async context =>
+        {
+            var item = await context.Fake.ItemAsync(
+                "9900103",
+                "作り物の衣装（対応アバターの多い商品）",
+                record => record with
+                {
+                    Local = record.Local with
+                    {
+                        LocalFiles =
+                        [
+                            Fake.FileRecord(Fake.Zip(@"ライブラリ\costume_many_avatars_v1.0.zip", "costume.unitypackage")),
+                            Fake.FileRecord(Fake.Zip(@"ライブラリ\costume_many_avatars_texture.zip")),
+                        ],
+                        Avatars = Enumerable.Range(1, 29)
+                            .Select(index => new AvatarLink
+                            {
+                                AvatarItemId = (9800000 + index).ToString(CultureInfo.InvariantCulture),
+                                Name = $"作り物のアバター{index:00}",
+                                Source = AvatarLinkSource.SupportSection,
+                                Confirmed = true,
+                            })
+                            .ToList(),
+                        AvatarBases =
+                        [
+                            new AvatarBaseLink { BaseName = "作り物の素体A", Source = AvatarLinkSource.SupportSection, Confirmed = true },
+                            new AvatarBaseLink { BaseName = "作り物の素体B", Source = AvatarLinkSource.SupportSection, Confirmed = true },
+                        ],
+                    },
+                },
+                images: 2);
+
+            var main = await context.StartAsync();
+            main.ShowItem(item);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
         }),
     ];
 
