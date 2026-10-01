@@ -29,6 +29,7 @@
 | `ResolveAccuracyProbe` | 自動検索が、正解の分かるファイルでどれだけ当たるか（上位3件・画面の1位）。`--make-pairs` で写しから正解の組を作り、BOOTH の答えは `--cache` に控えて `--offline` で通信なしに測り直せる（`--no-avatars` でアバター名を外す直しを切って比べる）。使い方は `Program.cs` の冒頭 | `docs/research/id-resolution.md` §15・§16 |
 | `QueryVariantProbe` | 上位3件に正解が出なかったファイルで、検索語の変え方ごとの当たりを比べる | `docs/research/id-resolution.md` §15 |
 | `ZipOriginProbe` | 未確定を元zipで束ねたときの束の数と、zip名で検索したときの当たり | `docs/research/id-resolution.md` §6-1 |
+| `StoreTransferProbe` | 保存先の引越し・バックアップの書き出しと戻すを、作り物の数GBで通す（時間・メモリ・ハッシュでの一致・途中で止めたときの残り）。`location.json` は書かない | `docs/research/store-transfer-2026-10-01.md` |
 | `ThesaurusBridgeProbe` | 類義語辞書2つに表記の橋渡しを重ねたときの広がりと、関係の無い物の割合 | `docs/research/fuzzy-search.md` §8・§9 |
 | `SearchFilterBench` | 検索の絞り込みの重さを作り物の商品（2,000件・1万件）で測る：条件の種類ごとの1件あたりの重さと当たる割合（`kinds`）・照らす順（`order`）・選択肢の件数と「外れを2つ目まで数える」案（`counts`）・最初の1回（`cold`）。条件の部品は App の物を使い、アプリの一式・保存先・BOOTH には触れない。数は `DOTNET_TieredCompilation=0` で測る（使い方は `Program.cs` の冒頭） | `docs/research/search-modules-2026-10-01.md` §9 |
 | `VRoidProbe` | BOOTH の VRoid カテゴリをアバターとして扱うべきか | `docs/history/avatars.md` §1-3 |

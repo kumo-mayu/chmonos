@@ -94,6 +94,7 @@
 | [ui-wording.md](research/ui-wording.md) | UI 文言の総調査と用語（2026-09-09 の時点。今の用語表は spec/ui-terms.md） |
 | [memory-budget.md](research/memory-budget.md) | メモリの上限と測り方 |
 | [large-files-2026-09-30.md](research/large-files-2026-09-30.md) | 大容量のファイル（大きな zip・中身の多い zip・重い unitypackage・大量のファイル）での固まりとメモリ |
+| [store-transfer-2026-10-01.md](research/store-transfer-2026-10-01.md) | 保存先の引越しとバックアップを作り物の2GBで通した（時間・メモリ・一致・途中で止めたときの残り） |
 | [item-page-open-2026-09-30.md](research/item-page-open-2026-09-30.md) | 商品ページを開く速さ（説明の長さと UI Automation の相手で変わる内訳・履歴と足跡の書き込みを画面のスレッドの外へ・説明を後で作る試作と View を持ち回す試作の数字） |
 | [startup-dotnet10-2026-10-01.md](research/startup-dotnet10-2026-10-01.md) | .NET 10 で起動が遅くなった所（JIT が 1 関数あたり約 1.4 倍）と、縮める手（事前翻訳・PGO・段階の翻訳）の効き目 |
 | [search-modules-2026-10-01.md](research/search-modules-2026-10-01.md) | 検索の条件の案（2026-10-01 に実装。変えた所は §12）：同じ種類を複数・「除く」・未編集を項目ごとに・同じ種類を隣に並べる。条件ごとの照らす重さ・照らす順・選択肢の件数の計測 |

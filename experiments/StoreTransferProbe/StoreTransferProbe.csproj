@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    保存先の引越しとバックアップの書き出し・戻すを、作り物の数GBで実際に通して測る（2026-10-01）。
+    画面と同じ Core の処理を、画面と同じく書き込みの門を持って呼ぶ。location.json は書かない
+    （置き場が %LOCALAPPDATA%\Chmonos に固定で、書くと本番が指す先が変わる）
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>StoreTransferProbe</AssemblyName>
+    <RootNamespace>StoreTransferProbe</RootNamespace>
+    <Configuration>Release</Configuration>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Chmonos.Core\Chmonos.Core.csproj" />
+  </ItemGroup>
+
+</Project>
