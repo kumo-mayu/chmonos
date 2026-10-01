@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    検索の絞り込みの重さを、作り物の商品で測る道具（使い方は Program.cs の冒頭）。
+    配る物ではない。条件の部品（SearchModules.cs）は App にあるので App を参照する。
+    アプリの一式・保存先・BOOTH には触れない。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Chmonos.App\Chmonos.App.csproj" />
+  </ItemGroup>
+
+</Project>
