@@ -147,6 +147,10 @@ public sealed partial class ResolveViewModel
         OnPropertyChanged(nameof(ShowsInlineUndo));
 
         await ReloadRowsAsync();
+
+        // 除外したときと同じく、ナビの件数も合わせる。一覧だけ読み直すと、次に画面を移るまで減ったままの数が残っていた
+        _main.RefreshBadges();
+
         var first = files[0].Hash;
         Selected = Files.FirstOrDefault(row => string.Equals(row.File.Hash, first, StringComparison.OrdinalIgnoreCase)) ?? Selected;
         StatusText = $"{files.Count} 件を未確定に戻しました。";

@@ -86,7 +86,7 @@ public class BulkExcludeTests
     [Fact]
     public Task まとめて除外は_1回で書き_まとめて戻せる() => TestApp.Run(async app =>
     {
-        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip", @"d\fourth.zip");
+        var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip", @"d\fourth.zip");
         foreach (var row in resolve.Files.Where(row => row.FileName != "fourth.zip"))
         {
             row.IsSelected = true;
@@ -105,6 +105,7 @@ public class BulkExcludeTests
         Assert.Equal(["fourth.zip"], Names(app.Store.Unresolved.Load()));
         Assert.Equal("fourth.zip", Assert.Single(resolve.Files).FileName);
         Assert.Equal("外した 3 件を戻す", resolve.UndoExcludeText);
+        await UiThread.Until(() => main.UnresolvedCount == 1, "除外したらナビの未確定の数が減る");
 
         resolve.UndoExcludeCommand.Execute(null);
         await app.SettleAsync();
@@ -114,6 +115,9 @@ public class BulkExcludeTests
         Assert.False(resolve.HasUndoExclude);
         Assert.Equal(4, resolve.Files.Count);
         Assert.Equal("3 件を未確定に戻しました。", resolve.StatusText);
+
+        // 戻したときもナビの数を合わせる。前は一覧だけ読み直し、次に画面を移るまで減ったままの数が残っていた
+        await UiThread.Until(() => main.UnresolvedCount == 4, "戻したらナビの未確定の数も戻る");
     });
 
     [Fact]
