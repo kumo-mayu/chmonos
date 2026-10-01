@@ -97,7 +97,12 @@ public sealed partial class SearchViewModel
         // 畳んだ・開いたは結果を変えないので、絞り直さずに状態だけ書く
         module.ViewChanged += SaveModulesLater;
         module.RemoveCommand = new RelayCommand(() => RemoveModule(module));
+        module.MoveUpCommand = new RelayCommand(() => MoveModuleBy(module, -1), () => Modules.IndexOf(module) > 0);
+        module.MoveDownCommand = new RelayCommand(
+            () => MoveModuleBy(module, +1),
+            () => Modules.IndexOf(module) is var index && index >= 0 && index < Modules.Count - 1);
         Modules.Add(module);
+        RenumberModules();
         RefreshModuleSource(module);
         RefreshModuleMenu();
 
@@ -133,19 +138,73 @@ public sealed partial class SearchViewModel
         if (destination != from)
         {
             Modules.Move(from, destination);
-            SaveModulesLater();
-            OnPropertyChanged(nameof(FilterSummary));
+            AfterReorder();
         }
     }
 
+    /// <summary>
+    /// 条件のメニューの「上へ移動」「下へ移動」（D9）。キーボードからも並べ替えられるようにする（前はドラッグだけ）。
+    /// 動かした条件は枠が作り直されるので、その条件の「…」に止まり直してもらう。
+    /// </summary>
+    public void MoveModuleBy(SearchModule module, int delta)
+    {
+        var from = Modules.IndexOf(module);
+        var to = from + delta;
+        if (from < 0 || to < 0 || to >= Modules.Count)
+        {
+            return;
+        }
+
+        Modules.Move(from, to);
+        AfterReorder();
+        ModuleFocusRequested?.Invoke(module);
+    }
+
+    /// <summary>並びを変えた後。結果は変わらないので絞り直さない（要約の並びだけ変わる）。並びは状態に残す。</summary>
+    private void AfterReorder()
+    {
+        RenumberModules();
+        SaveModulesLater();
+        OnPropertyChanged(nameof(FilterSummary));
+    }
+
+    /// <summary>
+    /// 画面に「この条件の『…』へ止まり直して」と頼む。並べ替え・外すで枠が作り直されると、キーボードの止まり先が消えるため
+    /// （`ui-input.md`「止まっていた行が消えたら」）。外したときは次の条件、最後なら前の条件。条件が無くなれば null。
+    /// </summary>
+    public event Action<SearchModule?>? ModuleFocusRequested;
+
     private void RemoveModule(SearchModule module)
     {
+        var index = Modules.IndexOf(module);
         module.Changed -= OnModuleChanged;
         module.ViewChanged -= SaveModulesLater;
         Modules.Remove(module);
+        RenumberModules();
         RefreshModuleMenu();
         SaveModulesLater();
         ApplyFilters();
+
+        if (index >= 0)
+        {
+            ModuleFocusRequested?.Invoke(Modules.Count == 0 ? null : Modules[Math.Min(index, Modules.Count - 1)]);
+        }
+    }
+
+    /// <summary>
+    /// 同じ種類の何番目かを振り直す（読み上げの名前と ID の番号・D7）。並びの位置から毎回求める。
+    /// 上へ／下へ移動が押せるかも並びで変わるので、ここで知らせる。
+    /// </summary>
+    private void RenumberModules()
+    {
+        var seen = new Dictionary<SearchModuleKind, int>();
+        foreach (var module in Modules)
+        {
+            seen[module.Kind] = seen.GetValueOrDefault(module.Kind) + 1;
+            module.Ordinal = seen[module.Kind];
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
     }
 
     /// <summary>他の画面から条件を渡すとき：無ければ足し、切ってあれば入れる。絞り直しは呼ぶ側がまとめて1回。</summary>

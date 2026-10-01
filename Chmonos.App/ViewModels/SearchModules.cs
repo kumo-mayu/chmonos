@@ -297,6 +297,57 @@ public abstract class SearchModule : ReorderableRow
 
     public string Hint => Info.Hint;
 
+    private int _ordinal = 1;
+
+    /// <summary>
+    /// パネルの中で、同じ種類の何番目か（1から）。並びが変わるたびに検索側が振り直す（D7）。
+    /// 番号は見出しには出さない（動かすと番号が替わって紛らわしい。中身で見分けられる）。読み上げの名前と ID にだけ使う。
+    /// </summary>
+    public int Ordinal
+    {
+        get => _ordinal;
+        set
+        {
+            if (SetField(ref _ordinal, Math.Max(1, value)))
+            {
+                OnPropertyChanged(nameof(IdKey));
+                OnPropertyChanged(nameof(SpokenLabel));
+                OnPropertyChanged(nameof(NameSuffix));
+                OnOrdinalChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// UI Automation の ID の種類の所（`SearchModule.{IdKey}.Input`）。2つ目から番号を付ける（`Category-2`）。
+    /// 1つ目は前と同じ ID のままなので、確かめの道具と今の手順がそのまま動く。
+    /// </summary>
+    public string IdKey => _ordinal <= 1 ? Kind.ToString() : $"{Kind}-{_ordinal}";
+
+    /// <summary>読み上げの名前に入れる条件名。2つ目から「カテゴリ（2つ目）」。</summary>
+    public string SpokenLabel => _ordinal <= 1 ? Label : $"{Label}（{_ordinal}つ目）";
+
+    /// <summary>条件名を含まない読み上げの名前の後ろに付ける番号（1つ目は空）。</summary>
+    public string NameSuffix => _ordinal <= 1 ? string.Empty : $"（{_ordinal}つ目）";
+
+    /// <summary>番号を替えたときに、番号を含む名前を知らせ直す（候補から積む条件の入力欄の名前など）。</summary>
+    protected virtual void OnOrdinalChanged()
+    {
+    }
+
+    /// <summary>
+    /// 札「除く」の吹き出し。値の分からない商品も外す条件（範囲・日付・属性）はそれも言う（D12：吹き出しにだけ書く）。
+    /// </summary>
+    public virtual string ExcludedHint => "当てはまる商品を除いています。押すと除くのをやめます。";
+
+    /// <summary>条件のメニューの「折りたたむ」の行。畳んでいれば「開く」。</summary>
+    public string CollapseMenuText => _isCollapsed ? "開く" : "折りたたむ";
+
+    /// <summary>条件のメニューの「上へ移動」「下へ移動」（D9。前はドラッグでしか並べ替えられず、キーボードから届かなかった）。検索側が入れる。</summary>
+    public RelayCommand? MoveUpCommand { get; set; }
+
+    public RelayCommand? MoveDownCommand { get; set; }
+
     /// <summary>条件が変わった（検索側が絞り直して、状態を書く）。</summary>
     public event Action? Changed;
 
@@ -330,6 +381,7 @@ public abstract class SearchModule : ReorderableRow
             if (SetField(ref _isCollapsed, value))
             {
                 OnPropertyChanged(nameof(IsExpanded));
+                OnPropertyChanged(nameof(CollapseMenuText));
                 ViewChanged?.Invoke();
             }
         }
@@ -518,6 +570,7 @@ public abstract class SearchModule : ReorderableRow
         OnPropertyChanged(nameof(IsEnabled));
         OnPropertyChanged(nameof(IsCollapsed));
         OnPropertyChanged(nameof(IsExpanded));
+        OnPropertyChanged(nameof(CollapseMenuText));
         OnPropertyChanged(nameof(IsExcluded));
         OnPropertyChanged(nameof(IsActive));
         OnPropertyChanged(nameof(SummaryText));
@@ -846,6 +899,18 @@ public sealed class ListModule : SearchModule
     public bool ShowsMatchMode => AllowsAnd && Chips.Count > 1;
 
     public string Placeholder { get; }
+
+    /// <summary>
+    /// 入力欄の読み上げの名前。2つ目からは番号を入れる（「カテゴリ（2つ目）で絞り込む」・D7）。
+    /// 案内の文が条件名で始まらない物（対応アバター・改変など）は、後ろに番号を付ける。
+    /// </summary>
+    public string InputName => Ordinal <= 1
+        ? Placeholder
+        : Placeholder.StartsWith(Label, StringComparison.Ordinal)
+            ? SpokenLabel + Placeholder[Label.Length..]
+            : Placeholder + NameSuffix;
+
+    protected override void OnOrdinalChanged() => OnPropertyChanged(nameof(InputName));
 
     public string EmptyText { get; }
 
@@ -1657,6 +1722,8 @@ public sealed class RangeModule : SearchModule
         return values.Where(value => value < fence).ToList();
     }
 
+    public override string ExcludedHint => "当てはまる商品と、数の分からない商品を除いています。押すと除くのをやめます。";
+
     protected override string SummaryHead => $"{Label}{(HasSources ? $"（{_source?.Label}）" : string.Empty)}";
 
     protected override string SummaryJoiner => " ";
@@ -1939,6 +2006,8 @@ public sealed class DateModule : SearchModule
 
     public override bool SupportsExclude => true;
 
+    public override string ExcludedHint => "当てはまる商品と、日付の分からない商品を除いています。押すと除くのをやめます。";
+
     /// <summary>日付が分かっていて、範囲の外の商品。日付の分からない商品は、除くときも外す（ユーザ判断 2026-10-01）。</summary>
     protected override bool MatchesExcluded(ItemRecord item, SearchModuleContext context)
     {
@@ -2128,6 +2197,8 @@ public sealed class AttributeModule : SearchModule
         => Rows.Count == 0 || (_matchAll ? Rows.All(row => row.Matches(item)) : Rows.Any(row => row.Matches(item)));
 
     public override bool SupportsExclude => true;
+
+    public override string ExcludedHint => "当てはまる商品と、評価していない商品を除いています。押すと除くのをやめます。";
 
     /// <summary>
     /// 選んだ属性が**全部**評価済みで、当てはまらない商品（D2）。1行のときの「値が分かっていて範囲の外」を、そのまま全部の行に広げた形。
